@@ -7,12 +7,13 @@
 // To enable Firebase sync, replace these values with your own Firebase project config.
 // Get them from: Firebase Console → Project Settings → General → Your apps → Web app
 var FIREBASE_CONFIG = {
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: ""
+    apiKey: "AIzaSyBubzcRhL6FN91pKalxTnUfGULwrSvY9q4",
+    authDomain: "kia-emlab-test-system.firebaseapp.com",
+    projectId: "kia-emlab-test-system",
+    storageBucket: "kia-emlab-test-system.firebasestorage.app",
+    messagingSenderId: "1059552115443",
+    appId: "1:1059552115443:web:256800a7fdba6f85901586",
+    measurementId: "G-M3X2Q8WTDC"
 };
 
 // ── State ──
