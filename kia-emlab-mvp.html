@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KIA EmLab — MVP Overview</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#05080f;--surface:#0c1220;--card:#111b2e;--border:#1a2744;--text:#e2e8f0;--dim:#64748b;--red:#bb162b;--green:#10b981;--amber:#f59e0b;--blue:#3b82f6;--cyan:#06b6d4;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;overflow-x:hidden;line-height:1.6;}
+a{color:var(--cyan);text-decoration:none;}
+
+/* Hero */
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:40px 20px;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 30% 50%,rgba(187,22,43,0.08) 0%,transparent 50%),radial-gradient(ellipse at 70% 50%,rgba(6,182,212,0.05) 0%,transparent 50%);animation:drift 20s ease-in-out infinite alternate;}
+@keyframes drift{0%{transform:translate(0,0);}100%{transform:translate(-2%,2%);}}
+.hero-badge{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--red);border:1px solid rgba(187,22,43,0.3);padding:6px 18px;border-radius:20px;text-transform:uppercase;margin-bottom:24px;position:relative;}
+.hero h1{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:700;line-height:1.1;margin-bottom:16px;position:relative;}
+.hero h1 span{background:linear-gradient(135deg,#bb162b,#ef4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hero p{font-size:clamp(1rem,2vw,1.25rem);color:var(--dim);max-width:640px;margin-bottom:32px;position:relative;}
+.hero-stats{display:flex;gap:32px;position:relative;flex-wrap:wrap;justify-content:center;}
+.hero-stat{text-align:center;}
+.hero-stat .val{font-family:'Space Mono',monospace;font-size:2rem;font-weight:700;color:var(--cyan);}
+.hero-stat .lbl{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;}
+
+/* Section */
+.section{padding:80px 20px;max-width:1100px;margin:0 auto;}
+.section-label{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--red);text-transform:uppercase;margin-bottom:8px;}
+.section h2{font-size:clamp(1.8rem,4vw,2.5rem);font-weight:700;margin-bottom:12px;}
+.section .subtitle{color:var(--dim);font-size:1.05rem;margin-bottom:40px;max-width:600px;}
+
+/* Module Cards */
+.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:40px;}
+.mod-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;transition:all .3s ease;cursor:default;position:relative;overflow:hidden;}
+.mod-card:hover{border-color:var(--red);transform:translateY(-4px);box-shadow:0 12px 40px rgba(187,22,43,0.1);}
+.mod-card .icon{font-size:2rem;margin-bottom:12px;}
+.mod-card h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;}
+.mod-card p{font-size:0.85rem;color:var(--dim);line-height:1.5;}
+.mod-card .tag{display:inline-block;font-family:'Space Mono',monospace;font-size:9px;padding:2px 8px;border-radius:8px;margin-top:10px;letter-spacing:1px;}
+
+/* Flow diagram */
+.flow{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;margin:40px 0;}
+.flow h3{font-size:1.1rem;margin-bottom:20px;text-align:center;color:var(--amber);}
+.flow-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;text-align:center;}
+.flow-node{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 8px;position:relative;}
+.flow-node .emoji{font-size:1.5rem;margin-bottom:6px;}
+.flow-node .name{font-size:0.8rem;font-weight:700;}
+.flow-node .detail{font-size:0.65rem;color:var(--dim);margin-top:4px;}
+.flow-arrow{display:none;}
+@media(max-width:600px){.flow-grid{grid-template-columns:1fr 1fr;}}
+
+/* Data table */
+.data-section{margin:40px 0;}
+.data-table{width:100%;border-collapse:collapse;font-size:0.8rem;}
+.data-table th{text-align:left;padding:10px 12px;background:var(--card);color:var(--amber);font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid var(--red);}
+.data-table td{padding:8px 12px;border-bottom:1px solid var(--border);}
+.data-table tr:hover td{background:rgba(187,22,43,0.03);}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:0.7rem;font-weight:600;}
+.badge-green{background:rgba(16,185,129,0.15);color:var(--green);}
+.badge-red{background:rgba(239,68,68,0.15);color:#ef4444;}
+.badge-amber{background:rgba(245,158,11,0.15);color:var(--amber);}
+.badge-blue{background:rgba(59,130,246,0.15);color:var(--blue);}
+
+/* Timeline */
+.timeline{position:relative;padding-left:24px;margin:40px 0;}
+.timeline::before{content:'';position:absolute;left:7px;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,var(--red),var(--cyan));}
+.tl-item{position:relative;margin-bottom:24px;}
+.tl-item::before{content:'';position:absolute;left:-21px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--card);border:2px solid var(--red);}
+.tl-item .tl-ver{font-family:'Space Mono',monospace;font-size:0.75rem;color:var(--red);margin-bottom:2px;}
+.tl-item .tl-title{font-weight:700;font-size:0.95rem;margin-bottom:4px;}
+.tl-item .tl-desc{font-size:0.8rem;color:var(--dim);}
+
+/* CTA */
+.cta{text-align:center;padding:60px 20px;background:linear-gradient(180deg,transparent,rgba(187,22,43,0.03));}
+.cta h2{font-size:1.8rem;margin-bottom:12px;}
+.cta p{color:var(--dim);margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto;}
+.btn{display:inline-block;padding:14px 32px;background:var(--red);color:#fff;border-radius:10px;font-weight:700;font-size:1rem;transition:all .2s;border:none;cursor:pointer;}
+.btn:hover{background:#d41e38;transform:translateY(-2px);box-shadow:0 8px 24px rgba(187,22,43,0.3);}
+
+/* Footer */
+footer{text-align:center;padding:40px;font-size:0.75rem;color:var(--dim);border-top:1px solid var(--border);}
+
+/* Responsive */
+@media(max-width:768px){.hero-stats{gap:20px;}.modules{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<div class="hero">
+    <div class="hero-badge">Minimum Viable Product</div>
+    <h1>KIA <span>EmLab</span></h1>
+    <p>Plataforma integrada para el laboratorio de emisiones vehiculares. 4 módulos, una sola app, cero dependencias de servidor.</p>
+    <div class="hero-stats">
+        <div class="hero-stat"><div class="val">180</div><div class="lbl">Funciones</div></div>
+        <div class="hero-stat"><div class="val">4</div><div class="lbl">Módulos</div></div>
+        <div class="hero-stat"><div class="val">7.4K</div><div class="lbl">Líneas</div></div>
+        <div class="hero-stat"><div class="val">0</div><div class="lbl">Servidores</div></div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-label">Módulos</div>
+    <h2>4 plataformas, una sola app</h2>
+    <p class="subtitle">Cada módulo resuelve un dolor operativo real del laboratorio. Todos se comunican entre sí automáticamente.</p>
+
+    <div class="modules">
+        <div class="mod-card">
+            <div class="icon">🔬</div>
+            <h3>COP15 Cascade</h3>
+            <p>Ciclo de vida completo del vehículo: alta con OCR → preacondicionamiento → prueba → liberación → PDF oficial. Firma digital, historial, alertas de vehículos estancados.</p>
+            <span class="tag" style="background:rgba(187,22,43,0.15);color:#f87171;">67 funciones</span>
+        </div>
+        <div class="mod-card">
+            <div class="icon">📊</div>
+            <h3>Test Plan Manager</h3>
+            <p>Plan anual de producción COP. Análisis por familia, cálculo de requerimiento √N, plan semanal con carry-over, comparación de planes con diff, auto-feed desde Cascade.</p>
+            <span class="tag" style="background:rgba(245,158,11,0.15);color:var(--amber);">45 funciones</span>
+        </div>
+        <div class="mod-card">
+            <div class="icon">🧪</div>
+            <h3>Results Analyzer</h3>
+            <p>Importación batch de ~600 pruebas VETS. Tendencias con líneas de control 2σ/3σ, detección de outliers configurable, búsqueda avanzada por VIN/operador/fecha.</p>
+            <span class="tag" style="background:rgba(6,182,212,0.15);color:var(--cyan);">24 funciones</span>
+        </div>
+        <div class="mod-card">
+            <div class="icon">📦</div>
+            <h3>Lab Inventory</h3>
+            <p>Control de 28 cilindros de gas, 3 tambos de combustible, 31 equipos con calibración. Predicción de agotamiento basada en lecturas + pruebas de Cascade. Reporte semanal tipo email.</p>
+            <span class="tag" style="background:rgba(16,185,129,0.15);color:var(--green);">44 funciones</span>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-label">Integración</div>
+    <h2>Los módulos se comunican</h2>
+    <p class="subtitle">Cada acción en un módulo alimenta automáticamente a los demás. Sin doble captura, sin copiar datos a mano.</p>
+
+    <div class="flow">
+        <h3>Flujo de datos automático</h3>
+        <div class="flow-grid">
+            <div class="flow-node">
+                <div class="emoji">🔬</div>
+                <div class="name">Cascade</div>
+                <div class="detail">Libera vehículo</div>
+            </div>
+            <div class="flow-node">
+                <div class="emoji">📊</div>
+                <div class="name">Test Plan</div>
+                <div class="detail">Marca prueba completada + actualiza plan semanal</div>
+            </div>
+            <div class="flow-node">
+                <div class="emoji">📦</div>
+                <div class="name">Inventory</div>
+                <div class="detail">Registra consumo de gas → mejora predicción</div>
+            </div>
+            <div class="flow-node">
+                <div class="emoji">🔮</div>
+                <div class="name">Predicción</div>
+                <div class="detail">Estima suficiencia para plan semanal</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-label">Problema → Solución</div>
+    <h2>Lo que reemplaza</h2>
+    
+    <div class="data-section">
+        <table class="data-table">
+            <thead><tr><th>Antes</th><th>Ahora con EmLab</th><th>Impacto</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>Formato COP15-F05 en papel (30-45 min/vehículo, errores de transcripción)</td>
+                    <td>Formulario digital con cascade select, OCR y PDF automático</td>
+                    <td><span class="badge badge-green">-70% tiempo</span></td>
+                </tr>
+                <tr>
+                    <td>Excel VBA COP15-F24 para control de gases (frágil, single-user)</td>
+                    <td>Módulo Inventory con mapa de zonas, lecturas bulk, predicción</td>
+                    <td><span class="badge badge-green">Predictivo</span></td>
+                </tr>
+                <tr>
+                    <td>Reporte semanal de consumibles manual por email</td>
+                    <td>Tab Reporte con tabla + gráficas, exportación HTML un click</td>
+                    <td><span class="badge badge-green">-90% tiempo</span></td>
+                </tr>
+                <tr>
+                    <td>Plan de producción en Excel desconectado de resultados</td>
+                    <td>Test Plan Manager con auto-feed, diff de planes, familias</td>
+                    <td><span class="badge badge-blue">Real-time</span></td>
+                </tr>
+                <tr>
+                    <td>Análisis de resultados VETS manualmente en Excel</td>
+                    <td>Results Analyzer con outliers, tendencias 2σ/3σ, batch import</td>
+                    <td><span class="badge badge-amber">Estadístico</span></td>
+                </tr>
+                <tr>
+                    <td>Plan de calibración en Excel COP15-F11 (estático)</td>
+                    <td>31 equipos con semáforo automático de vigencia</td>
+                    <td><span class="badge badge-red">Alertas auto</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-label">Evolución</div>
+    <h2>De v1 a v23 en 23 iteraciones</h2>
+    
+    <div class="timeline">
+        <div class="tl-item">
+            <div class="tl-ver">v1 — v12</div>
+            <div class="tl-title">COP15 Cascade</div>
+            <div class="tl-desc">Digitalización del formato de inspección COP15-F05. OCR para VIN, firma digital, generación PDF, cascade select para 800+ configuraciones vehiculares.</div>
+        </div>
+        <div class="tl-item">
+            <div class="tl-ver">v13</div>
+            <div class="tl-title">Unificación + Test Plan</div>
+            <div class="tl-desc">3 plataformas en una sola app. Test Plan Manager con análisis de regla COP √N, puntaje de prioridad, plan semanal.</div>
+        </div>
+        <div class="tl-item">
+            <div class="tl-ver">v14 — v18</div>
+            <div class="tl-title">Results Analyzer + Refinamiento</div>
+            <div class="tl-desc">Importación batch VETS, familias con diff-only, Plan vs Actual, carry-over, config panel, accordion scroll.</div>
+        </div>
+        <div class="tl-item">
+            <div class="tl-ver">v19 — v20</div>
+            <div class="tl-title">Plan Comparison + Outliers</div>
+            <div class="tl-desc">Diff de planes con historial, nuevos propósitos ND-Emisiones/OBD2, outlier detection 2σ, búsqueda avanzada, alertas de estancamiento.</div>
+        </div>
+        <div class="tl-item">
+            <div class="tl-ver">v21 — v23</div>
+            <div class="tl-title">Lab Inventory</div>
+            <div class="tl-desc">4° módulo completo: 28 gases + 3 tambos + 31 equipos precargados. Predicción desde Cascade, reporte semanal, timeline de cambios, auto-ID, modal forms.</div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-label">Especificaciones</div>
+    <h2>Ficha técnica</h2>
+    
+    <div class="data-section">
+        <table class="data-table">
+            <thead><tr><th>Concepto</th><th>Detalle</th></tr></thead>
+            <tbody>
+                <tr><td>Arquitectura</td><td>Single-file HTML monolítico (~450 KB)</td></tr>
+                <tr><td>Stack</td><td>HTML + CSS + Vanilla JavaScript (zero frameworks)</td></tr>
+                <tr><td>Almacenamiento</td><td>localStorage (4 keys, ~5 MB máx por módulo)</td></tr>
+                <tr><td>Dependencias</td><td>jsPDF (CDN) — única dependencia externa</td></tr>
+                <tr><td>Conectividad</td><td>100% offline — sin servidor, sin base de datos, sin API</td></tr>
+                <tr><td>Dispositivos</td><td>Desktop + Tablet + Smartphone (responsive, dark theme)</td></tr>
+                <tr><td>Respaldo</td><td>Export/Import JSON por módulo</td></tr>
+                <tr><td>Datos precargados</td><td>28 gases, 3 tambos, 31 equipos, 9 tipos de gas, 8 zonas</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="cta">
+    <h2>Un archivo. Todo el laboratorio.</h2>
+    <p>Descarga el HTML, ábrelo en Chrome, y empieza a trabajar. Sin instalación, sin registro, sin servidor.</p>
+</div>
+
+<footer>
+    KIA EmLab v23 — Laboratorio de Emisiones KMX — 180 funciones, 7,438 líneas, 0 servidores<br>
+    Desarrollado desde operaciones reales del laboratorio.
+</footer>
+
+</body>
+</html>
