@@ -982,7 +982,7 @@ function saveProgress() {
       timestamp: new Date().toISOString(),
       user: vehicle.testData.simple.operator || 'Sistema',
       action: 'Datos de operación (formato simple) actualizados',
-      data: vehicle.testData.simple
+      data: { operator: vehicle.testData.simple.operator || '', result: vehicle.testData.simple.resultado || '', status: vehicle.status }
     });
 
     saveDB();
@@ -1097,7 +1097,7 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
     timestamp: new Date().toISOString(),
     user: vehicle.testData.operator || 'Sistema',
     action: 'Datos de prueba actualizados',
-    data: vehicle.testData
+    data: { operator: vehicle.testData.operator || '', odometer: vehicle.testData.odometer || '', fan_mode: vehicle.testData.fan_mode || '', precond_ok: vehicle.testData.precond_ok || '', status: vehicle.status }
   });
 
   saveDB();

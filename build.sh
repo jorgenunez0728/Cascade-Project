@@ -25,6 +25,9 @@ cat > "$DIR/$OUTPUT" <<'HEADER'
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
 
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
     <style>
 HEADER
 
@@ -42,7 +45,7 @@ sed -n '/<body>/,/<!-- JS Modules/{ /<!-- JS Modules/d; p; }' "$DIR/index.html" 
 # Inline all JS modules into a single <script> block
 echo "<script>" >> "$DIR/$OUTPUT"
 
-for jsfile in app.js cop15.js inventory.js testplan.js results.js; do
+for jsfile in app.js cop15.js inventory.js testplan.js results.js firebase-sync.js; do
     echo "" >> "$DIR/$OUTPUT"
     cat "$DIR/js/$jsfile" >> "$DIR/$OUTPUT"
     echo "" >> "$DIR/$OUTPUT"

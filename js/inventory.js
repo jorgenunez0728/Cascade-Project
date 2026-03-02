@@ -1079,26 +1079,66 @@ function invRenderConfig(el) {
 }
 
 function invAddZone() {
-    var id = prompt('ID de la zona (una letra, ej: I, J):', '');
-    if (!id || id.length > 2) { alert('ID debe ser 1-2 caracteres'); return; }
-    id = id.toUpperCase();
-    if (invState.zones.some(function(z){return z.id === id;})) { alert('Zona ' + id + ' ya existe'); return; }
-    var label = prompt('Nombre:', 'Zona ' + id);
-    var slots = parseInt(prompt('Cantidad de slots:', '10'));
-    var type = prompt('Tipo (online, offline, special, fuel):', 'offline');
-    invState.zones.push({ id:id, label:label||'Zona '+id, slots:slots||10, type:type||'offline' });
-    invSave(); invRender();
+    invShowZoneModal(null);
 }
 
 function invEditZone(idx) {
-    var z = invState.zones[idx]; if (!z) return;
-    var label = prompt('Nombre:', z.label);
-    var slots = parseInt(prompt('Slots:', z.slots));
-    var type = prompt('Tipo (online, offline, special, fuel):', z.type);
-    if (label) z.label = label;
-    if (!isNaN(slots) && slots > 0) z.slots = slots;
-    if (type) z.type = type;
+    invShowZoneModal(idx);
+}
+
+function invShowZoneModal(idx) {
+    var z = (idx !== null && idx !== undefined) ? invState.zones[idx] : null;
+    var isEdit = !!z;
+    var v = function(f,d){ return z ? (z[f]||'') : (d||''); };
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+    modal.innerHTML = '<div style="max-width:400px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
+        '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Zona ' + v('id') : 'Nueva Zona') + '</h3>' +
+        '<div style="display:grid;gap:10px;">' +
+        (!isEdit ? '<div><label style="font-size:10px;color:#64748b;">ID (1-2 caracteres, ej: I, J)</label><input id="inv-zone-id" maxlength="2" value="" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;font-size:16px;text-transform:uppercase;"></div>' : '') +
+        '<div><label style="font-size:10px;color:#64748b;">Nombre</label><input id="inv-zone-label" value="' + v('label', 'Zona') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:10px;color:#64748b;">Cantidad de slots</label><input id="inv-zone-slots" type="number" value="' + v('slots', '10') + '" min="1" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:10px;color:#64748b;">Tipo</label><select id="inv-zone-type" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+        '<option value="online"' + (v('type')==='online'?' selected':'') + '>Online</option>' +
+        '<option value="offline"' + (v('type','offline')==='offline'?' selected':'') + '>Offline</option>' +
+        '<option value="special"' + (v('type')==='special'?' selected':'') + '>Special</option>' +
+        '<option value="fuel"' + (v('type')==='fuel'?' selected':'') + '>Fuel</option>' +
+        '</select></div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px;">' +
+        '<button onclick="invSaveZoneModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '</div></div>';
+}
+
+function invSaveZoneModal(idx) {
+    var isEdit = idx >= 0;
+    var id, label, slots, type;
+
+    if (!isEdit) {
+        id = (document.getElementById('inv-zone-id').value || '').trim().toUpperCase();
+        if (!id || id.length > 2) { alert('ID debe ser 1-2 caracteres'); return; }
+        if (invState.zones.some(function(z){ return z.id === id; })) { alert('Zona ' + id + ' ya existe'); return; }
+    }
+
+    label = document.getElementById('inv-zone-label').value.trim();
+    slots = parseInt(document.getElementById('inv-zone-slots').value);
+    type = document.getElementById('inv-zone-type').value;
+
+    if (!label) { alert('Nombre requerido'); return; }
+
+    if (isEdit) {
+        var z = invState.zones[idx];
+        z.label = label;
+        if (!isNaN(slots) && slots > 0) z.slots = slots;
+        z.type = type;
+    } else {
+        invState.zones.push({ id: id, label: label, slots: slots || 10, type: type || 'offline' });
+    }
+
     invSave(); invRender();
+    document.getElementById('invModal').style.display = 'none';
 }
 
 function invDeleteZone(idx) {
@@ -1111,23 +1151,56 @@ function invDeleteZone(idx) {
 }
 
 function invAddGasType() {
-    var name = prompt('Nombre completo (ej: Propano/Aire):', '');
-    if (!name) return;
-    var formula = prompt('Formula (ej: C3H8/Air):', '');
-    var concs = prompt('Concentraciones separadas por coma (ej: 2 ppm, 5 ppm, 10 ppm):', '');
-    invState.gasTypes.push({ name:name, formula:formula||name, concs: concs ? concs.split(',').map(function(c){return c.trim();}) : ['-'] });
-    invSave(); invRender();
+    invShowGasTypeModal(null);
 }
 
 function invEditGasType(idx) {
-    var gt = invState.gasTypes[idx]; if (!gt) return;
-    var name = prompt('Nombre:', gt.name);
-    var formula = prompt('Formula:', gt.formula);
-    var concs = prompt('Concentraciones (coma):', gt.concs.join(', '));
-    if (name) gt.name = name;
-    if (formula) gt.formula = formula;
-    if (concs) gt.concs = concs.split(',').map(function(c){return c.trim();});
+    invShowGasTypeModal(idx);
+}
+
+function invShowGasTypeModal(idx) {
+    var gt = (idx !== null && idx !== undefined) ? invState.gasTypes[idx] : null;
+    var isEdit = !!gt;
+    var v = function(f,d){ return gt ? (gt[f]||'') : (d||''); };
+    var concsVal = gt ? gt.concs.join(', ') : '';
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+    modal.innerHTML = '<div style="max-width:400px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
+        '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Tipo de Gas' : 'Nuevo Tipo de Gas') + '</h3>' +
+        '<div style="display:grid;gap:10px;">' +
+        '<div><label style="font-size:10px;color:#64748b;">Nombre completo (ej: Propano/Aire)</label><input id="inv-gt-name" value="' + v('name') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:10px;color:#64748b;">Formula (ej: C3H8/Air)</label><input id="inv-gt-formula" value="' + v('formula') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:10px;color:#64748b;">Concentraciones (separadas por coma)</label><input id="inv-gt-concs" value="' + concsVal + '" placeholder="ej: 2 ppm, 5 ppm, 10 ppm" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px;">' +
+        '<button onclick="invSaveGasTypeModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
+        (isEdit ? '<button onclick="if(confirm(\x27Eliminar tipo de gas?\x27)){invState.gasTypes.splice(' + idx + ',1);invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;}" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '</div></div>';
+}
+
+function invSaveGasTypeModal(idx) {
+    var isEdit = idx >= 0;
+    var name = document.getElementById('inv-gt-name').value.trim();
+    var formula = document.getElementById('inv-gt-formula').value.trim();
+    var concsStr = document.getElementById('inv-gt-concs').value.trim();
+
+    if (!name) { alert('Nombre requerido'); return; }
+
+    var concs = concsStr ? concsStr.split(',').map(function(c){ return c.trim(); }) : ['-'];
+
+    if (isEdit) {
+        var gt = invState.gasTypes[idx];
+        gt.name = name;
+        gt.formula = formula || name;
+        gt.concs = concs;
+    } else {
+        invState.gasTypes.push({ name: name, formula: formula || name, concs: concs });
+    }
+
     invSave(); invRender();
+    document.getElementById('invModal').style.display = 'none';
 }
 
 function invDeleteGasType(idx) {

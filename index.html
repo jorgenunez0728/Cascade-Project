@@ -9,6 +9,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
 
+    <!-- Firebase (optional cloud sync — app works 100% offline without it) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -34,6 +38,7 @@
         📦 LAB INVENTORY
         <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
     </div>
+    <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
     <div style="flex:1"></div>
     <div style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.3); align-self:center;">
         KIA Laboratorio de Emisiones — Plataforma Integrada v14.0
@@ -916,12 +921,13 @@
 
 <div id="invModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
 
-<!-- JS Modules (load order: app core → COP15 → inventory → testplan → results) -->
+<!-- JS Modules (load order: app core → COP15 → inventory → testplan → results → firebase) -->
 <script src="js/app.js"></script>
 <script src="js/cop15.js"></script>
 <script src="js/inventory.js"></script>
 <script src="js/testplan.js"></script>
 <script src="js/results.js"></script>
+<script src="js/firebase-sync.js"></script>
 
 </body>
 </html>

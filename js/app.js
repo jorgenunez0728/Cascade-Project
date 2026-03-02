@@ -375,6 +375,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
 
         // ═══ Restore Soak Timer if running ═══
         if (typeof soakTimerRestore === 'function') soakTimerRestore();
+
+        // ═══ Firebase Cloud Sync (optional) ═══
+        if (typeof fbInit === 'function') { fbInit(); fbHookSaves(); fbUpdateIndicator(); }
         }
 
 window.addEventListener('DOMContentLoaded', initializeSystem);
