@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kia EmLab — Plataforma Integrada v14.0</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
+
+    <!-- Firebase (optional cloud sync — app works 100% offline without it) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<div class="progress-container"><div class="progress-bar" id="mainProgress"></div></div>
+
+<!-- ═══ PLATFORM SWITCHER ═══ -->
+<div class="platform-bar">
+    <div class="platform-tab active" onclick="switchPlatform('cop15')" id="ptab-cop15">
+        🔬 COP15 CASCADE
+        <span class="pt-badge" style="background:rgba(187,22,43,0.2);color:#f87171;" id="cop15-count-badge">0 activos</span>
+    </div>
+    <div class="platform-tab" onclick="switchPlatform('testplan')" id="ptab-testplan">
+        📊 TEST PLAN MANAGER
+        <span class="pt-badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;" id="tp-coverage-badge">—</span>
+    </div>
+    <div class="platform-tab" onclick="switchPlatform('results')" id="ptab-results">
+        🧪 RESULTS ANALYZER
+        <span class="pt-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" id="ra-count-badge">0 pruebas</span>
+    </div>
+    <div class="platform-tab" onclick="switchPlatform('inventory')" id="ptab-inventory">
+        📦 LAB INVENTORY
+        <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
+    </div>
+    <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
+    <div style="flex:1"></div>
+    <div style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.3); align-self:center;">
+        KIA Laboratorio de Emisiones — Plataforma Integrada v14.0
+    </div>
+</div>
+
+<!-- ═══ PLATFORM 1: COP15 CASCADE ═══ -->
+<div class="platform-section active" id="platform-cop15">
+
+<div class="topbar">
+    <div><strong>KIA Laboratorio de Emisiones</strong> <span style="font-size:0.8rem; opacity:0.7;">v1.0615 EmLab CASCADE System</span>
+
+    <span style="display:none;"</span></div>
+    <div id="progressText">Sistema Inicializado</div>
+</div>
+
+<div class="container">
+    <div class="tabs">
+        <div class="tab active" data-tab="alta">1. Alta</div>
+        <div class="tab" data-tab="seguimiento">2. Operación</div>
+        <div class="tab" data-tab="liberacion">3. Liberación</div>
+        <div class="tab" data-tab="dashboard">4. Historial</div>
+    </div>
+
+    <!-- ==================== TAB 1: ALTA ==================== -->
+    <div class="tab-panel active" id="panel-alta">
+        <div class="card">
+            <div class="card-title">🎯 Propósito y Tipo</div>
+            <div class="form-group">
+                <label>Propósito de la Prueba</label>
+                <select id="vehiclePurpose" required>
+                    <option value="">Seleccione...</option>
+                    <option value="COP-Emisiones">Conformidad de Producción: Emisiones</option>
+                    <option value="COP-OBD2">Conformidad de Producción: OBD-II</option>
+		    <option value="EO-Emisiones">Cambio de Ingeniería: Emisiones</option>
+		    <option value="EO-OBD2">Cambio de Ingeniería: OBD-II</option>
+                    <option value="ND-Emisiones">Nuevos Desarrollos: Emisiones</option>
+                    <option value="ND-OBD2">Nuevos Desarrollos: OBD-II</option>
+                    <option value="Correlacion">Correlación</option>
+                    <option value="Investigacion">Actividad de Investigación</option>
+                </select>
+            </div>
+            
+            <div class="toggle-wrapper">
+                <span id="lblInt" class="mode-label active" onclick="setMode('internal')">📋 Configuración de Catálogo</span>
+                <label class="switch">
+                    <input type="checkbox" id="modeToggle" onchange="toggleMode()">
+                    <span class="slider"></span>
+                </label>
+                <span id="lblExt" class="mode-label" onclick="setMode('external')">✏️ Ingreso Manual</span>
+            </div>
+
+            <!-- MODO INTERNO: Configuración con filtros en cascada -->
+            <div id="container-internal">
+                <div class="alert alert-info">
+                    ℹ️ Seleccione los campos en orden para filtrar las configuraciones válidas
+                </div>
+                
+                <div class="form-group">
+                    <label>MODELO</label>
+                    <select id="cfg_model" onchange="cascadeFilter('Modelo')">
+                        <option value="">Seleccionar...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>AÑO MODELO</label>
+                    <select id="cfg_year" onchange="cascadeFilter('MODEL YEAR (VIN)')">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>MOTOR</label>
+                    <select id="cfg_engine" onchange="cascadeFilter('ENGINE CAPACITY')">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>TRANSMISIÓN</label>
+                    <select id="cfg_transmission" onchange="cascadeFilter('TRANSMISSION')">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>REGULACIÓN</label>
+                    <select id="cfg_regulation" onchange="cascadeFilter('EMISSION REGULATION')">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                
+	<div class="form-group">
+ 	 <label>ENV PACKAGE</label>
+	  <select id="cfg_envpkg" onchange="cascadeFilter('ENVIRONMENT PACKAGE')">
+  	  <option value="">Todos</option>
+ 	 </select>
+	</div>
+
+                <div class="form-group">
+                    <label>REGIÓN</label>
+                    <select id="cfg_region" onchange="cascadeFilter('REGION')">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>LLANTAS</label>
+                    <select id="cfg_tires" onchange="cascadeFilter('TIRE ASSY')">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>CARROCERÍA</label>
+                    <select id="cfg_body" onchange="cascadeFilter('BODY TYPE')">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>DRIVE TYPE</label>
+                    <select id="cfg_drive" onchange="cascadeFilter('DRIVE TYPE')">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>ENGINE PACKAGE</label>
+                    <select id="cfg_enginepkg" onchange="cascadeFilter('ENGINE PACKAGE')">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+
+                <div id="cfg_counter" class="config-counter">
+                    Configuraciones disponibles: <span id="configCount">0</span>
+                </div>
+
+                <button class="btn-reset" onclick="resetFilters()">🔄 REINICIAR FILTROS</button>
+
+                <div id="cfg_result" class="config-result empty">
+                    <strong>Código de Configuración:</strong> Seleccione al menos el MODELO para ver configuraciones disponibles
+                </div>
+                <div id="tp-alta-suggestion" style="display:none;"></div>
+            </div>
+
+            <!-- MODO EXTERNO: Manual entry -->
+            <div id="container-external" style="display:none;">
+                <div class="alert alert-info">
+                    ℹ️ Modo manual: Ingrese la información del vehículo manualmente
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Modelo Manual</label>
+                        <input type="text" id="man_model" placeholder="Ej: Sportage 2025">
+                    </div>
+                    <div class="form-group">
+                        <label>Motor Manual</label>
+                        <input type="text" id="man_engine" placeholder="Ej: 1.6T-GDI">
+                    </div>
+                    <div class="form-group">
+                        <label>Regulación Manual</label>
+                        <input type="text" id="man_regulation" placeholder="Ej: TIER3 BIN70">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🔢 VIN (Número de Identificación)</div>
+            <div class="form-group">
+                <label>VIN debe ser exactamente 17 caracteres alfanuméricos</label>
+                <input 
+                    type="text" 
+                    id="vin" 
+                    placeholder="Ejemplo: KNDJP3A59K7123456" 
+                    maxlength="17"
+                    pattern="[A-HJ-NPR-Z0-9]{17}"
+                    style="text-align:center; font-size:1.2rem; letter-spacing:2px; text-transform: uppercase;"
+                    oninput="validateVIN(this)">
+                <small id="vinCounter" style="color: #64748b; text-align: center; display: block; margin-top: 5px;">0/17 caracteres</small>
+            </div>
+        </div>
+
+<div class="card">
+  <div class="card-title">👤 Operador de Registro</div>
+
+  <div class="form-grid">
+    <div class="form-group">
+      <label>Seleccione el operador</label>
+      <select id="reg_operator" required>
+        <option value="">Seleccionar...</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Fecha/Hora de Alta</label>
+      <input type="datetime-local" id="reg_datetime" readonly>
+    </div>
+  </div><!-- ✅ cierre form-grid -->
+</div><!-- ✅ cierre card -->
+
+<button class="btn-primary" onclick="confirmAlta()" id="btnRegister">
+  REGISTRAR VEHÍCULO
+</button>
+
+</div><!-- ✅ cierre panel-alta (ESTE cierre debe ir después del botón) -->
+
+    <!-- ==================== TAB 2: OPERACIÓN ==================== -->
+    <div class="tab-panel" id="panel-seguimiento">
+        <div class="form-group">
+            <label>Seleccionar Vehículo Activo</label>
+            <select id="activeVehSelect" onchange="loadVehicle()" style="background:#fff5f5; border:2px solid var(--kia-red); font-weight: bold;">
+                <option value="">-- Seleccionar Vehículo --</option>
+            </select>
+        </div>
+        
+        <div id="op-content" style="display:none;">
+            <div class="alert alert-info" id="vehicleInfo"></div>
+<div class="action-bar">
+  <button class="btn-secondary" onclick="scrollToTopOp()">⬆️ Inicio</button>
+  <button class="btn-primary" onclick="saveProgress()">💾 Guardar</button>
+</div>
+	 	<!-- ✅ BLOQUE SOLO EMISIONES -->
+  		<div id="op-emissions-block">
+
+<details class="acc" open id="acc-recepcion">
+  <summary>📥 Recepción del Vehículo</summary>
+	<div class="acc-body">
+
+  <!-- TODO dentro del mismo grid -->
+  <div class="form-grid">
+
+    <!-- Fila 1 -->
+    <div class="form-group">
+      <label>Operador de Recepción</label>
+      <select id="op_recep">
+        <option value="">Seleccionar...</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Odómetro (km)</label>
+      <input type="number" id="op_odo" min="0" step="1" placeholder="Ej: 15234">
+    </div>
+
+    <div class="form-group">
+      <label>Fecha/Hora Recepción</label>
+      <input type="datetime-local" id="op_datetime">
+    </div>
+
+    <!-- Fila 2 -->
+    <div class="form-group">
+      <label>Tipo de combustible</label>
+      <select id="fuel_typein">
+        <option value="">Seleccionar…</option>
+        <option value="PemexPremium">Premium Mexicana</option>
+        <option value="Regular">Gasolina de línea, regular</option>
+        <option value="RON95">Gasolina de línea, RON95</option>
+        <option value="Magna">Magna Mexicana</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Nivel de combustible (fracción)</label>
+      <select id="fuel_levelin">
+        <option value="">Seleccionar…</option>
+        <option value="0">Vacío</option>
+        <option value="0.125">1/8</option>
+        <option value="0.25">1/4</option>
+        <option value="0.5">1/2</option>
+        <option value="0.75">3/4</option>
+        <option value="1">Lleno</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Capacidad del tanque (L)</label>
+      <input type="number" id="tank_capacity" min="0" max="120" step="1" placeholder="Ej: 50">
+    </div>
+
+    <!-- Fila 3 -->
+    <div class="form-group">
+      <label>Presión de llantas inicial (psi)</label>
+      <input type="number" id="tire_pressure_in" step="1" placeholder="Ej: 33">
+    </div>
+
+    <div class="form-group">
+      <label>Estado de la batería (SOC %)</label>
+      <input type="number" id="battery_soc" min="0" max="100" step="1" placeholder="Ej: 80">
+    </div>
+
+  </div><!-- ✅ cierre correcto de form-grid -->
+
+  <!-- Observaciones abajo -->
+  <div class="form-group">
+    <label>Observaciones de Recepción</label>
+    <textarea id="op_notes" rows="3" placeholder="Condiciones del vehículo, daños, etc."></textarea>
+  </div>
+
+</div><!-- ✅ cierre correcto de card -->
+</details>
+
+  <!-- 2) Preacondicionamiento (CERRADO al inicio) -->
+  <details class="acc" id="acc-precond">
+    <summary>🧪 Preacondicionamiento del Vehículo</summary>
+    <div class="acc-body">
+
+  <!-- Condiciones Iniciales -->
+  <div class="subsection-title">Condiciones iniciales</div>
+  <div class="form-grid">
+    <div class="form-group">
+<label>Persona a cargo (Preacondicionamiento)</label>
+  <select id="precond_responsible">
+    <option value="">Seleccionar…</option>
+  </select>
+</div>
+<div class="form-group">
+  <label>Fecha/Hora de Preacondicionamiento</label>
+  <input type="datetime-local" id="precond_datetime">
+</div>
+<div class="form-group">
+ <label>Presión de llantas (psi)</label>
+      <input type="number" id="tire_pressure" step="1">
+    </div>
+
+	<div class="form-group">
+  	<label>Nivel de combustible (L)</label>
+  	<input 
+    	type="number"
+    	id="fuel_levelpre"
+    	min="0"
+    	step="1"
+	max="50"
+    	placeholder="Litros"
+  	>
+	</div>
+
+    <div class="form-group">
+      <label>Tipo de Combustible</label>
+      <select id="fuel_typepre">
+        <option value="">Seleccionar…</option>
+        <option value="PemexPremium">Premium Mexicana</option>
+        <option value="Euro6">Euro 6</option>
+        <option value="CARBReg">CARB LEV III Regular</option>
+        <option value="CARBPre">CARB LEV III High Octane</option>
+        <option value="CARBRVP">CARB LEV III High RVP</option>
+        <option value="indolene">EPA Tier II</option>
+        <option value="EPACert">EPA Tier III</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Ciclo de preacondicionamiento</label>
+      <select id="precond_cycle">
+        <option value="">Seleccionar…</option>
+        <option value="WLTP">WLTP</option>
+        <option value="UDDS">FTP Fase 1 y 2</option>
+        <option value="NEDC">NEDC</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Soak Timer -->
+  <div class="subsection-title">Timer de Reposo (Soak)</div>
+  <div id="soak-timer-panel" style="background:#0a0f1a;border:1px solid #1e293b;border-radius:12px;padding:16px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:120px;">
+        <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:4px;">Duracion (horas)</label>
+        <select id="soak_timer_hours" style="width:100%;padding:8px;border:1px solid #1e293b;border-radius:6px;background:#111827;color:#e2e8f0;font-size:14px;">
+          <option value="12">12 h</option>
+          <option value="16">16 h</option>
+          <option value="24" selected>24 h</option>
+          <option value="36">36 h</option>
+          <option value="0.1">6 min (test)</option>
+        </select>
+      </div>
+      <div style="text-align:center;flex:2;min-width:180px;">
+        <div id="soak_timer_display" style="font-family:monospace;font-size:36px;font-weight:700;color:#64748b;letter-spacing:2px;">00:00:00</div>
+        <div id="soak_timer_status" style="font-size:10px;color:#64748b;margin-top:2px;">Sin iniciar</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button onclick="soakTimerStart()" id="soak_timer_btn_start" style="padding:8px 16px;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;">Iniciar</button>
+        <button onclick="soakTimerStop()" id="soak_timer_btn_stop" style="padding:8px 16px;background:#f59e0b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;display:none;">Pausar</button>
+        <button onclick="soakTimerReset()" style="padding:8px 16px;background:#475569;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;">Reset</button>
+      </div>
+    </div>
+    <div id="soak_timer_bar_wrap" style="margin-top:10px;height:6px;background:#1e293b;border-radius:3px;overflow:hidden;">
+      <div id="soak_timer_bar" style="height:100%;width:0%;background:#10b981;border-radius:3px;transition:width 1s linear;"></div>
+    </div>
+    <div id="soak_timer_eta" style="font-size:9px;color:#64748b;margin-top:4px;text-align:right;"></div>
+  </div>
+
+  <!-- Validación Previa -->
+  <div class="subsection-title">Validacion previa a prueba</div>
+  <div class="form-grid">
+    <div class="form-group">
+      <label>Tiempo de reposo (h)</label>
+      <input type="number" id="soak_time" step="0.1">
+    </div>
+
+    <div class="form-group">
+      <label>Odómetro para prueba (km)</label>
+      <input type="number" id="odo_pretest" step="1">
+    </div>
+
+    <div class="form-group">
+      <label>Cumple preacondicionamiento</label>
+      <select id="precond_ok">
+        <option value="">Seleccionar…</option>
+        <option value="yes">Sí</option>
+        <option value="no">No</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- DTC -->
+  <div class="subsection-title">Validación DTC</div>
+  <div class="form-grid">
+    <div class="form-group">
+      <label>DTC Pendiente (antes)</label>
+      <select id="dtc_pending_before">
+        <option value="no">No</option>
+        <option value="yes">Sí</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>DTC Confirmado (antes)</label>
+      <select id="dtc_confirmed_before">
+        <option value="no">No</option>
+        <option value="yes">Sí</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>DTC Permanente (antes)</label>
+      <select id="dtc_permanent_before">
+        <option value="no">No</option>
+        <option value="yes">Sí</option>
+      </select>
+    </div>
+  </div>
+</div>
+  </details>
+
+  <!-- 3) Dinamómetro (CERRADO al inicio) -->
+  <details class="acc" id="acc-dyno">
+    <summary>🔧 Configuración de Dinamómetro</summary>
+    <div class="acc-body">
+  <div class="alert alert-warning">
+    ⚠️ Verifica que los valores Target sean los correctos
+  </div>
+
+  <div class="dyno-grid">
+
+    <!-- ETW -->
+    <div class="etw-box">
+      <label>
+        ETW (<span class="unit-text" data-unit="etw">kg</span>)
+      </label>
+      <input type="number" id="etw" step="0.01" placeholder="ETW">
+
+      <div class="unit-toggle">
+        <span id="unitSI" class="unit active">SI</span>
+        <label class="switch">
+          <input type="checkbox" id="unitSwitch" onchange="toggleUnits()">
+          <span class="slider"></span>
+        </label>
+        <span id="unitEN" class="unit">EN</span>
+      </div>
+    </div>
+
+    <!-- Targets -->
+    <div class="targets-box">
+
+      <div class="target-row">
+        <label>
+          Target A (<span class="unit-text" data-unit="force">N</span>)
+        </label>
+        <input type="number" id="tA" step="any" min="-999999999">
+
+        <span class="dyno-label">
+          Dyno Set A (<span class="unit-text" data-unit="force">N</span>)
+        </span>
+        <input type="number" id="dA" step="any" min="-999999999">
+      </div>
+
+      <div class="target-row">
+        <label>
+          Target B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
+        </label>
+        <input type="number" id="tB" step="any" min="-999999999">
+
+        <span class="dyno-label">
+          Dyno Set B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
+        </span>
+        <input type="number" id="dB" step="any" min="-999999999">
+      </div>
+
+      <div class="target-row">
+        <label>
+          Target C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
+        </label>
+        <input type="number" id="tC" step="any" min="-999999999">
+
+        <span class="dyno-label">
+          Dyno Set C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
+        </span>
+        <input type="number" id="dC" step="any" min="-999999999">
+      </div>
+
+    </div><!-- /targets-box -->
+
+  </div><!-- /dyno-grid -->
+
+</div><!-- /card dinamómetro -->
+</details>
+
+  <!-- 4) Verificación en prueba (NO visible hasta testing) -->
+  <details class="acc" id="test-verify-card" style="display:none;">
+    <summary>🧾 Verificación en Prueba</summary>
+    <div class="acc-body">
+
+  <div class="alert alert-info">
+    Completar estos parámetros solo cuando el estado esté en <strong>En Prueba</strong>.
+  </div>
+
+  <div class="form-grid">
+    <div class="form-group">
+      <label>Persona a cargo de la prueba</label>
+      <select id="test_responsible">
+        <option value="">Seleccionar…</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Fecha/Hora de la prueba</label>
+      <input type="datetime-local" id="test_datetime">
+    </div>
+  </div>
+
+  <div class="form-grid">
+    <div class="form-group">
+      <label>Túnel</label>
+      <select id="test_tunnel">
+        <option value="">Seleccionar…</option>
+        <option value="RMT1">RMT1</option>
+        <option value="RMT2">RMT2</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Dinamómetro</label>
+      <select id="test_dyno_on">
+        <option value="">Seleccionar…</option>
+        <option value="on">Encendido</option>
+        <option value="off">Apagado</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Ventilador (modo)</label>
+      <select id="test_fan_mode">
+        <option value="">Seleccionar…</option>
+        <option value="speed">Velocidad (km/h)</option>
+        <option value="speed_follow">Speed Follow</option>
+      </select>
+    </div>
+
+<div class="form-group">
+  <label>Velocidad del ventilador (km/h)</label>
+  <input type="text" id="test_fan_speed" inputmode="decimal" placeholder="Ej: 40">
+</div>
+
+<div class="form-group">
+  <label>Flujo del ventilador (m³/min) (Solo México máx 150)</label>
+  <input type="text" id="test_fan_flow" placeholder="Ej: 120" disabled readonly>
+</div>
+
+    <div class="form-group">
+      <label>Parámetros de Inercia</label>
+      <select id="test_inertia_ok">
+        <option value="">Seleccionar…</option>
+        <option value="ok">Confirmar</option>
+        <option value="not_ok">No conforme</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Cadenas de amarre 1 y 2</label>
+      <select id="test_chains">
+        <option value="">Seleccionar…</option>
+        <option value="tight">Tensadas</option>
+        <option value="loose">Flojas</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Eslinga 1 y 2</label>
+      <select id="test_slings">
+        <option value="">Seleccionar…</option>
+        <option value="secured">Aseguradas</option>
+        <option value="not_secured">No aseguradas</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Capó del vehículo</label>
+      <select id="test_hood">
+        <option value="">Seleccionar…</option>
+        <option value="closed">Capó cerrado</option>
+        <option value="open">Abierto (Obligatorio México)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Rodillos traseros</label>
+      <select id="test_rear_rollers">
+        <option value="">Seleccionar…</option>
+        <option value="secured">Asegurados</option>
+        <option value="not_secured">No asegurados</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Pantalla</label>
+      <select id="test_screen">
+        <option value="">Seleccionar…</option>
+        <option value="secured">Asegurada</option>
+        <option value="not_secured">No asegurada</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Verificación FTP75–HWY (México)</label>
+      <select id="test_mex_waitcheck">
+        <option value="">Seleccionar…</option>
+        <option value="fan_off">Ventilador apagado</option>
+        <option value="ok">OK</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>Comentarios (Verificación en Prueba)</label>
+    <textarea id="test_verify_notes" rows="2" placeholder="Notas relevantes…"></textarea>
+ 	 </div>
+	</div>
+ </details>
+</div><!-- cierre op-emissions-block -->
+
+
+ <!-- ✅ BLOQUE SIMPLE para otros propósitos -->
+<details class="acc"id="op-simple-block" style="display:none;">
+<summary>📝 Operación (Formato Simple)</summary>
+  <div class="acc-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Operador</label>
+          <select id="simple_operator">
+            <option value="">Seleccionar...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Fecha/Hora</label>
+          <input type="datetime-local" id="simple_datetime">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Comentarios / Observaciones</label>
+        <textarea id="simple_notes" rows="3" placeholder="Notas generales..."></textarea>
+      </div>
+    </div>
+  </div>
+</details>
+            <div class="card">
+                <div class="card-title">📊 Estado de la Prueba</div>
+                <div class="form-group">
+                    <label>Cambiar estado del vehículo</label>
+			<select id="op_status" onchange="handleStatusChange(this)">
+                        <option value="in-progress">En Progreso</option>
+                        <option value="testing">En Prueba</option>
+                        <option value="ready-release">Listo para Liberación</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn-primary" onclick="saveProgress()">💾 GUARDAR AVANCE</button>
+            <button class="btn-primary" onclick="generateCOP15PDF(activeVehicleId)" style="margin-top:10px; background:#0f766e;">📄 GENERAR PDF COP15-F05</button>
+        </div>
+    </div>
+
+    <!-- ==================== TAB 3: LIBERACIÓN ==================== -->
+    <div class="tab-panel" id="panel-liberacion">
+        <div class="form-group">
+            <label>Seleccionar Vehículo para Liberar</label>
+            <select id="releaseVehSelect" onchange="loadRelease()">
+                <option value="">-- Seleccionar --</option>
+            </select>
+        </div>
+
+        <div id="lib-content" style="display:none;">
+            <div class="alert alert-success" id="releaseInfo"></div>
+
+            <div class="card">
+                <div class="card-title">📋 Resumen de Pruebas</div>
+                <div id="testSummary"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">✅ Validación Final</div>
+                <p style="margin-bottom: 15px;">Seleccione la acción a realizar con este vehículo:</p>
+                <div style="display:flex; gap:10px; flex-wrap: wrap;">
+                    <button class="btn-primary" onclick="finishRelease(false)" style="flex: 1;">
+                        📁 LIBERAR Y ARCHIVAR
+                    </button>
+                    <button class="btn-secondary" onclick="finishRelease(true)" style="flex: 1;">
+                        🔄 REPETIR PRUEBA (Retest)
+                    </button>
+                </div>
+                <button class="btn-primary" onclick="generateCOP15PDF(activeVehicleId)" style="margin-top:12px; background:#0f766e;">
+                    📄 GENERAR PDF COP15-F05
+                </button>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📝 Timeline de Actividades</div>
+                <div id="vehicleTimeline" class="timeline"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TAB 4: HISTORIAL ==================== -->
+    <div class="tab-panel" id="panel-dashboard">
+        <div class="card">
+            <div class="card-title">📚 Historial Completo de Pruebas</div>
+            <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                <button class="btn-secondary" onclick="filterHistory('all')">Todos</button>
+                <button class="btn-secondary" onclick="filterHistory('archived')">Archivados</button>
+                <button class="btn-secondary" onclick="filterHistory('active')">Activos</button>
+            </div>
+            <div id="historyList"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">⚙️ Configuración del Sistema</div>
+            <p style="font-size:0.85rem;color:#64748b;margin-bottom:12px;">Importar nuevas configuraciones vehiculares, cambiar operadores, o restaurar la configuración original.</p>
+            <button class="btn-primary" onclick="openConfigPanel()" style="width:auto;padding:10px 20px;font-size:0.95rem;">
+                📋 Abrir Configuración
+            </button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">💾 Gestión de Datos</div>
+            <button class="btn-secondary" onclick="exportDatabase()" style="width: auto; margin-right: 10px;">
+                📥 Exportar Base de Datos (JSON)
+            </button>
+            <button class="btn-secondary" onclick="confirmReset()" style="width: auto; background: #dc2626;">
+                🗑️ Resetear Sistema
+            </button>
+<button class="btn-secondary" onclick="exportAndPurgeArchived()" style="width:auto; margin-right:10px; background:#0f766e;">
+  📦 Exportar + Purgar Archivados
+</button>
+<button class="btn-secondary" onclick="triggerImportArchive()" style="width:auto; margin-right:10px; background:#2563eb;">
+  📤 Importar Archivo (JSON)
+</button>
+<input type="file" id="archiveFileInput" accept="application/json" style="display:none;" onchange="handleImportArchive(event)">
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL CONFIRMACIÓN ==================== -->
+<div id="modalConfirm" class="modal-overlay">
+    <div class="modal-content">
+        <h3 style="margin-bottom: 15px; color: var(--kia-dark);">✅ Confirmar Registro de Vehículo</h3>
+        <div id="summaryBody" style="margin:15px 0; font-size:0.9rem; line-height: 1.6;"></div>
+        <button class="btn-primary" onclick="saveNewVehicle()">CONFIRMAR REGISTRO</button>
+        <button class="btn-secondary" onclick="closeModal('modalConfirm')" style="margin-top:10px; width:100%;">CANCELAR</button>
+    </div>
+</div>
+
+</div><!-- END platform-cop15 -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PLATFORM 2: TEST PLAN MANAGER
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="platform-section" id="platform-testplan">
+
+    <div class="tp-header">
+        <div>
+            <h2>🔬 COP15 TEST PLAN MANAGER</h2>
+            <small>Plan de Pruebas Inteligente — Laboratorio de Emisiones</small>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);border:1px solid rgba(16,185,129,0.3);" id="tp-configs-badge">0 configs</span>
+            <span class="tp-badge" style="background:rgba(59,130,246,0.15);color:var(--tp-blue);border:1px solid rgba(59,130,246,0.3);" id="tp-tested-badge">0 probadas</span>
+            <span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);border:1px solid rgba(245,158,11,0.3);" id="tp-rules-badge">0 reglas</span>
+        </div>
+    </div>
+
+    <div class="tp-tabs" id="tp-tabs-bar">
+        <button class="tp-tab active" onclick="tpSwitchTab('tp-dashboard')">📊 Dashboard</button>
+        <button class="tp-tab" onclick="tpSwitchTab('tp-tested')">✏️ Probados</button>
+        <button class="tp-tab" onclick="tpSwitchTab('tp-families')">🧬 Familias</button>
+        <button class="tp-tab" onclick="tpSwitchTab('tp-rules')">⚙️ Reglas</button>
+        <button class="tp-tab" onclick="tpSwitchTab('tp-weekly')">📅 Plan Semanal</button>
+        <button class="tp-tab" onclick="tpSwitchTab('tp-simulator')">🔮 Simulador</button>
+        <button class="tp-tab" onclick="tpSwitchTab('tp-production')">🏭 Producción</button>
+    </div>
+
+    <div class="tp-main">
+        <!-- Content rendered by JS -->
+        <div id="tp-content"></div>
+    </div>
+
+</div><!-- END platform-testplan -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PLATFORM 3: RESULTS ANALYZER
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="platform-section" id="platform-results">
+    <div class="tp-header">
+        <div>
+            <h2>🧪 RESULTS ANALYZER</h2>
+            <small>Visualizador de Resultados de Pruebas — Laboratorio de Emisiones</small>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;border:1px solid rgba(6,182,212,0.3);" id="ra-tests-badge">0 pruebas</span>
+            <span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);" id="ra-profiles-badge">0 perfiles</span>
+        </div>
+    </div>
+    <div class="tp-tabs" id="ra-tabs-bar">
+        <button class="tp-tab active" onclick="raSwitchTab('ra-dashboard')">📊 Dashboard</button>
+        <button class="tp-tab" onclick="raSwitchTab('ra-import')">📥 Importar</button>
+        <button class="tp-tab" onclick="raSwitchTab('ra-profiles')">⚙️ Perfiles</button>
+        <button class="tp-tab" onclick="raSwitchTab('ra-trends')">📈 Tendencias</button>
+        <button class="tp-tab" onclick="raSwitchTab('ra-detail')">🔍 Detalle</button>
+        <button class="tp-tab" onclick="raSwitchTab('ra-outliers')">⚠️ Outliers</button>
+        <button class="tp-tab" onclick="raSwitchTab('ra-capability')">📐 Cpk/Ppk</button>
+        <button class="tp-tab" onclick="raSwitchTab('ra-search')">🔎 Buscar</button>
+    </div>
+    <div class="tp-main">
+        <div id="ra-content"></div>
+    </div>
+</div><!-- END platform-results -->
+
+<div class="platform-section" id="platform-inventory">
+    <div class="tp-main">
+        <div class="tp-header" style="margin-bottom:12px;"><h2 style="margin:0;font-size:16px;color:var(--tp-text);">📦 Lab Inventory</h2></div>
+        <div class="tp-tabs" id="inv-tabs-bar" style="margin-bottom:12px;">
+            <button class="tp-tab active" onclick="invSwitchTab('inv-dashboard')">📊 Dashboard</button>
+            <button class="tp-tab" onclick="invSwitchTab('inv-gases')">🔴 Gases</button>
+            <button class="tp-tab" onclick="invSwitchTab('inv-equipment')">🔧 Equipos</button>
+            <button class="tp-tab" onclick="invSwitchTab('inv-readings')">📏 Lecturas</button>
+            <button class="tp-tab" onclick="invSwitchTab('inv-predict')">🔮 Predicción</button>
+            <button class="tp-tab" onclick="invSwitchTab('inv-fuel')">⛽ Combustible</button>
+            <button class="tp-tab" onclick="invSwitchTab('inv-config')">⚙️ Config</button>
+            <button class="tp-tab" onclick="invSwitchTab('inv-report')">📧 Reporte</button>
+        </div>
+        <div id="inv-content" style="padding:0;"></div>
+    </div>
+</div><!-- END platform-inventory -->
+
+<div id="configModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;">
+<div style="max-width:600px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">
+<button onclick="document.getElementById('configModal').style.display='none'" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;">x</button>
+<h3 style="margin:0 0 14px;">Configuracion del Sistema</h3>
+<div style="padding:14px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+<h4 style="margin:0 0 6px;">Configuraciones Vehiculares (CSV)</h4>
+<p style="font-size:11px;color:#64748b;margin:0 0 10px;">Vehiculos ya registrados NO se afectan.</p>
+<input type="file" id="configCSVUpload" accept=".csv" style="display:none;" onchange="handleConfigCSVImport(event)">
+<button onclick="document.getElementById('configCSVUpload').click()" style="padding:7px 14px;background:#0f766e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:12px;">Importar CSV</button>
+<div id="configCSVStatus" style="margin-top:8px;font-size:11px;"></div>
+<div style="margin-top:6px;font-size:10px;color:#94a3b8;">Actual: <strong id="configCount">0</strong> configuraciones — <span id="configSource"></span></div>
+</div></div></div>
+
+<div id="invModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
+
+<!-- JS Modules (load order: app core → COP15 → inventory → testplan → results → firebase) -->
+<script src="js/app.js"></script>
+<script src="js/cop15.js"></script>
+<script src="js/inventory.js"></script>
+<script src="js/testplan.js"></script>
+<script src="js/results.js"></script>
+<script src="js/firebase-sync.js"></script>
+
+</body>
+</html>
