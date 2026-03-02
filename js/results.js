@@ -1,0 +1,786 @@
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  KIA EmLab — Results Analyzer Module                               ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raSearchReset() {
+    window._raSearchVin = '';
+    window._raSearchOp = '';
+    window._raSearchFrom = '';
+    window._raSearchTo = '';
+    window._raSearchReg = 'ALL';
+    raRender();
+}
+function raGoDetail(id) {
+    window._raDetailId = id;
+    raState.activeTab = 'ra-detail';
+    raRender();
+}
+
+function raRenderOutliers(el) {
+    if (raState.tests.length < 3) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Necesitas al menos 3 pruebas.</div>'; return; }
+
+    var metricKeys = ['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','BagNMHCpNOX','DilutePN','FuelEconomyBag'];
+    var selMetric = window._raOutlierMetric || 'FuelConsumptionBag';
+    var selSigma = window._raOutlierSigma || 2;
+    var groupFn = function(t) { return (t.emissionReg||t.regSpec||'?') + ' ' + (t.testType||'?'); };
+    var groups = {};
+
+    raState.tests.forEach(function(t) {
+        if (!t.cycleData || t.cycleData.length === 0) return;
+        var last = t.cycleData[t.cycleData.length - 1];
+        var val = last[selMetric];
+        if (val === undefined || isNaN(val)) return;
+        var g = groupFn(t);
+        if (!groups[g]) groups[g] = [];
+        groups[g].push({ val: parseFloat(val), vin: t.vin, id: t.id, date: t.dateStr, testNum: t.testNumber, model: t.modelName || t.testDesc || '' });
+    });
+
+    var outliers = [];
+    var groupStats = [];
+    Object.keys(groups).sort().forEach(function(g) {
+        var pts = groups[g];
+        if (pts.length < 2) return;
+        var avg = pts.reduce(function(s,p){return s+p.val;},0) / pts.length;
+        var std = Math.sqrt(pts.reduce(function(s,p){return s+Math.pow(p.val-avg,2);},0) / (pts.length-1));
+        var threshold = selSigma * std;
+        var gOutliers = pts.filter(function(p){ return Math.abs(p.val - avg) > threshold; });
+        groupStats.push({ group: g, n: pts.length, avg: avg, std: std, outliers: gOutliers.length });
+        gOutliers.forEach(function(p) {
+            var sigma = std > 0 ? ((p.val - avg) / std) : 0;
+            outliers.push({ group: g, val: p.val, avg: avg, std: std, sigma: sigma, vin: p.vin, id: p.id, date: p.date, testNum: p.testNum, model: p.model });
+        });
+    });
+
+    outliers.sort(function(a,b) { return Math.abs(b.sigma) - Math.abs(a.sigma); });
+
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>\u26A0\uFE0F Deteccion de Outliers</span></div>';
+    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">';
+    html += '<select class="tp-select" onchange="window._raOutlierMetric=this.value;raRender();" style="font-size:10px;">';
+    metricKeys.forEach(function(m) { html += '<option value="'+m+'" '+(m===selMetric?'selected':'')+'>'+m+'</option>'; });
+    html += '</select>';
+    html += '<select class="tp-select" onchange="window._raOutlierSigma=parseFloat(this.value);raRender();" style="font-size:10px;">';
+    [1.5, 2, 2.5, 3].forEach(function(s) { html += '<option value="'+s+'" '+(s===selSigma?'selected':'')+'>'+s+'\u03C3</option>'; });
+    html += '</select></div>';
+
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px;">';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">' + raState.tests.length + '</div><div class="tp-metric-label">Total</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (outliers.length > 0 ? 'var(--tp-red)' : 'var(--tp-green)') + '">' + outliers.length + '</div><div class="tp-metric-label">Outliers</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">' + Object.keys(groups).length + '</div><div class="tp-metric-label">Grupos</div></div>';
+    html += '</div>';
+
+    // Group summary
+    if (groupStats.length > 0) {
+        html += '<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--tp-dim);margin-bottom:4px;">Resumen por grupo</div>';
+        html += '<div style="max-height:150px;overflow-y:auto;"><table class="tp-table" style="width:100%;"><thead><tr><th>Grupo</th><th>N</th><th>x\u0304</th><th>\u03C3</th><th>Outliers</th></tr></thead><tbody>';
+        groupStats.forEach(function(gs) {
+            html += '<tr><td style="font-size:9px;">' + gs.group + '</td><td>' + gs.n + '</td><td style="font-family:monospace;">' + gs.avg.toFixed(4) + '</td><td style="font-family:monospace;">' + gs.std.toFixed(4) + '</td>';
+            html += '<td style="font-weight:700;color:' + (gs.outliers > 0 ? 'var(--tp-red)' : 'var(--tp-green)') + ';">' + gs.outliers + '</td></tr>';
+        });
+        html += '</tbody></table></div></div>';
+    }
+
+    // Outlier list
+    if (outliers.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:var(--tp-green);font-size:12px;">\u2705 Sin outliers detectados a ' + selSigma + '\u03C3</div>';
+    } else {
+        html += '<div style="font-size:10px;font-weight:700;color:var(--tp-red);margin-bottom:4px;">Resultados fuera de ' + selSigma + '\u03C3:</div>';
+        html += '<div style="max-height:300px;overflow-y:auto;"><table class="tp-table" style="width:100%;"><thead><tr><th>VIN</th><th>Grupo</th><th>Valor</th><th>x\u0304</th><th>\u03C3 dist</th><th>Fecha</th></tr></thead><tbody>';
+        outliers.forEach(function(o) {
+            var absS = Math.abs(o.sigma).toFixed(1);
+            html += '<tr style="background:rgba(239,68,68,' + Math.min(0.15, Math.abs(o.sigma)*0.03) + ');">';
+            html += '<td style="font-family:monospace;font-size:9px;color:var(--tp-amber);">' + (o.vin||'?') + '</td>';
+            html += '<td style="font-size:8px;">' + o.group + '</td>';
+            html += '<td style="font-family:monospace;font-weight:700;color:var(--tp-red);">' + o.val.toFixed(4) + '</td>';
+            html += '<td style="font-family:monospace;font-size:9px;color:var(--tp-dim);">' + o.avg.toFixed(4) + '</td>';
+            html += '<td style="font-weight:700;color:' + (Math.abs(o.sigma)>3?'var(--tp-red)':'#f59e0b') + ';">' + (o.sigma>0?'+':'') + o.sigma.toFixed(1) + '\u03C3</td>';
+            html += '<td style="font-size:9px;">' + (o.date||'') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+    }
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+// ======================================================================
+// RA: ADVANCED SEARCH / FILTER
+// ======================================================================
+function raRenderSearch(el) {
+    var vinQ = (window._raSearchVin || '').toUpperCase();
+    var opQ = (window._raSearchOp || '').toLowerCase();
+    var dateFrom = window._raSearchFrom || '';
+    var dateTo = window._raSearchTo || '';
+    var regQ = window._raSearchReg || 'ALL';
+
+    var allRegs = ['ALL'].concat([...new Set(raState.tests.map(function(t){ return t.emissionReg || t.regSpec || '?'; }))].sort());
+    var allOps = [...new Set(raState.tests.map(function(t){ return t.operator || ''; }).filter(function(o){return o;}))].sort();
+
+    var filtered = raState.tests.filter(function(t) {
+        if (vinQ && !(t.vin||'').toUpperCase().includes(vinQ)) return false;
+        if (opQ && !(t.operator||'').toLowerCase().includes(opQ)) return false;
+        if (dateFrom && (t.dateStr||'') < dateFrom) return false;
+        if (dateTo && (t.dateStr||'') > dateTo) return false;
+        if (regQ !== 'ALL' && (t.emissionReg||t.regSpec||'?') !== regQ) return false;
+        return true;
+    });
+
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>\uD83D\uDD0E Busqueda Avanzada</span></div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px;">';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">VIN</label><input type="text" value="' + (window._raSearchVin||'') + '" onchange="window._raSearchVin=this.value;raRender();" class="tp-select" style="width:100%;font-size:10px;" placeholder="Buscar VIN..."></div>';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Operador</label><input type="text" value="' + (window._raSearchOp||'') + '" onchange="window._raSearchOp=this.value;raRender();" class="tp-select" style="width:100%;font-size:10px;" placeholder="Nombre..."></div>';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Desde</label><input type="date" value="' + dateFrom + '" onchange="window._raSearchFrom=this.value;raRender();" class="tp-select" style="width:100%;font-size:10px;"></div>';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Hasta</label><input type="date" value="' + dateTo + '" onchange="window._raSearchTo=this.value;raRender();" class="tp-select" style="width:100%;font-size:10px;"></div>';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Regulacion</label><select onchange="window._raSearchReg=this.value;raRender();" class="tp-select" style="width:100%;font-size:10px;">';
+    allRegs.forEach(function(r) { html += '<option value="'+r+'" '+(r===regQ?'selected':'')+'>'+r+'</option>'; });
+    html += '</select></div>';
+    html += '<div style="display:flex;align-items:flex-end;"><button class="tp-btn tp-btn-ghost" onclick="raSearchReset()" style="font-size:10px;">Limpiar</button></div>';
+    html += '</div>';
+
+    html += '<div style="font-size:11px;color:var(--tp-dim);margin-bottom:6px;">' + filtered.length + ' de ' + raState.tests.length + ' resultados</div>';
+
+    if (filtered.length > 0) {
+        html += '<div style="max-height:400px;overflow-y:auto;"><table class="tp-table" style="width:100%;"><thead><tr><th>VIN</th><th>Modelo</th><th>Regulacion</th><th>Operador</th><th>Fecha</th><th>Test#</th><th></th></tr></thead><tbody>';
+        filtered.slice(0, 100).forEach(function(t) {
+            html += '<tr>';
+            html += '<td style="font-family:monospace;font-size:9px;color:var(--tp-amber);">' + (t.vin||'?') + '</td>';
+            html += '<td style="font-size:9px;">' + (t.modelName||t.testDesc||'?') + '</td>';
+            html += '<td style="font-size:8px;">' + (t.emissionReg||t.regSpec||'?') + '</td>';
+            html += '<td style="font-size:9px;">' + (t.operator||'') + '</td>';
+            html += '<td style="font-size:9px;">' + (t.dateStr||'') + '</td>';
+            html += '<td style="font-size:9px;">' + (t.testNumber||t.yearlyTestNumber||'') + '</td>';
+            html += '<td><button class="tp-btn tp-btn-ghost" onclick="raGoDetail(\x27' + t.id + '\x27)" style="font-size:8px;">\uD83D\uDD0D</button></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        if (filtered.length > 100) html += '<div style="font-size:9px;color:var(--tp-dim);text-align:center;padding:6px;">Mostrando 100 de ' + filtered.length + '</div>';
+    }
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [M23] RESULTS ANALYZER — ENGINE                                    ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+const RA_LS_KEY = 'kia_results_v1';
+
+let raState = JSON.parse(localStorage.getItem(RA_LS_KEY)) || {
+    tests: [],
+    profiles: [],
+    activeTab: 'ra-dashboard',
+};
+
+if (raState.profiles.length === 0) {
+    raState.profiles = [
+        { id:'wltp-euro6', name:'WLTP — EURO 6 / PRE-EURO 7', regulation:'EURO-6C,PRE-EURO 7,EURO-5,EURO-4,EURO-3,EURO-2', testMode:'WLTP',
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','BagNMHCpNOX','DilutePN'],
+          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','DilutePN','CellTemperature','Barometer','CellAirRH'],
+          limits:{BagCO:1.0,BagTHC:0.1,BagNOX:0.06,BagNMHC:0.068,BagNMHCpNOX:0.16,DilutePN:6e11},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHC:'NMHC',BagCH4:'CH₄',BagNMHCpNOX:'NMHC+NOx',DilutePN:'PN (#/km)',CellTemperature:'Temp.Celda',Barometer:'Presión',CellAirRH:'HR%'}
+        },
+        { id:'wltp-sulev30', name:'WLTP — SULEV 30 (USA/Canada)', regulation:'SULEV 30', testMode:'WLTP',
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagNMHCpNOX','BagNOX','BagTHC','BagCH4','DilutePN'],
+          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagNMHCpNOX','DilutePN','CellTemperature','Barometer'],
+          limits:{BagNMHCpNOX:0.03,BagCO:1.0,DilutePN:6e11},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHCpNOX:'NMHC+NOx',BagCH4:'CH₄',DilutePN:'PN (#/km)'}
+        },
+    ];
+    raSave();
+}
+
+function raSave(){
+    try {
+        localStorage.setItem(RA_LS_KEY, JSON.stringify(raState));
+    } catch(e) {
+        if (e.name === 'QuotaExceededError' || e.code === 22) {
+            // localStorage full — try saving without cycleData/sampleData to reduce size
+            console.warn('RA: localStorage full, saving compact version');
+            try {
+                const compact = JSON.parse(JSON.stringify(raState));
+                compact.tests = compact.tests.map(function(t) {
+                    var c = Object.assign({}, t);
+                    // Keep only last row of cycleData (the totals)
+                    if (c.cycleData && c.cycleData.length > 1) c.cycleData = [c.cycleData[c.cycleData.length-1]];
+                    // Remove sampleData entirely (least critical)
+                    delete c.sampleData;
+                    return c;
+                });
+                localStorage.setItem(RA_LS_KEY, JSON.stringify(compact));
+                console.log('RA: Saved compact version (' + compact.tests.length + ' tests)');
+            } catch(e2) {
+                alert('Error: localStorage lleno. Exporta tus datos como JSON y borra para liberar espacio.');
+            }
+        }
+    }
+}
+function raUpdateBadges(){
+    const el1 = document.getElementById('ra-count-badge');
+    const el2 = document.getElementById('ra-tests-badge');
+    const el3 = document.getElementById('ra-profiles-badge');
+    if(el1) el1.textContent = raState.tests.length+' pruebas';
+    if(el2) el2.textContent = raState.tests.length+' pruebas';
+    if(el3) el3.textContent = raState.profiles.length+' perfiles';
+}
+
+function raSwitchTab(tabId){
+    raState.activeTab = tabId;
+    document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(b=>b.classList.remove('active'));
+    if(event && event.target) event.target.classList.add('active');
+    raRender();
+}
+
+function raRender(){
+    const el = document.getElementById('ra-content');
+    if(!el) return;
+    const t = raState.activeTab;
+    if(t==='ra-dashboard') raRenderDashboard(el);
+    else if(t==='ra-import') raRenderImport(el);
+    else if(t==='ra-profiles') raRenderProfiles(el);
+    else if(t==='ra-trends') raRenderTrends(el);
+    else if(t==='ra-detail') raRenderDetail(el);
+    else if(t==='ra-outliers') raRenderOutliers(el);
+    else if(t==='ra-search') raRenderSearch(el);
+}
+
+
+// ── CSV Parser ──
+function raParseCSV(text){
+    const lines = text.replace(/\r/g,'').split('\n');
+    return lines.map(line=>{
+        const res=[]; let cur='',inQ=false;
+        for(let i=0;i<line.length;i++){
+            if(line[i]==='"') inQ=!inQ;
+            else if(line[i]===','&&!inQ){ res.push(cur.trim()); cur=''; }
+            else cur+=line[i];
+        }
+        res.push(cur.trim());
+        return res;
+    });
+}
+
+// ── File grouper ──
+function raGroupFiles(files){
+    const g={};
+    for(const f of files){
+        const pp = f.webkitRelativePath ? f.webkitRelativePath.split('/') : [f.name];
+        const dir = pp.length>1 ? pp.slice(0,-1).join('/') : '__single__';
+        const fn = pp[pp.length-1].toLowerCase();
+        if(!g[dir]) g[dir]={};
+        if(fn==='customfields.csv') g[dir].custom=f;
+        else if(fn==='cycleresults.csv') g[dir].cycle=f;
+        else if(fn==='sampleresults.csv') g[dir].sample=f;
+        else if(fn==='testdetails.csv') g[dir].details=f;
+    }
+    return g;
+}
+
+// ── Extract single test ──
+async function raProcessGroup(grp){
+    const t = { id: Date.now()+'_'+Math.random().toString(36).slice(2,6), importDate: new Date().toISOString() };
+
+    // CustomFields
+    if(grp.custom){
+        const rows = raParseCSV(await grp.custom.text());
+        const fld={};
+        for(let i=8;i<rows.length;i++) if(rows[i].length>=3) fld[rows[i][0]]=rows[i][2];
+        t.vin=fld.VIN||''; t.operator=fld.Operator||''; t.driver=fld.Driver||'';
+        t.wheelSize=fld.WheelSize||''; t.startMileage=fld.StartingMileage||''; t.endMileage=fld.EndingMileage||'';
+        t.modelName=fld.ModelName||''; t.modelYear=fld.MODELYEAR||''; t.transmission=fld.TRANSMISSION||'';
+        t.envPackage=fld.ENVIRONMENTPACKAGE||''; t.emissionReg=fld.EMISSIONREGULATION||'';
+        t.driveType=fld.DRIVETYPE||''; t.engineCapacity=fld.ENGINECAPACITY||'';
+        t.tireAssy=fld.TIREASSY||''; t.region=fld.REGION||''; t.bodyType=fld.BODYTYPE||'';
+        t.enginePackage=fld.ENGINEPACKAGE||''; t.purposeOfTest=fld.EMDBPurposeOfTest||fld.TestStage||'';
+    }
+
+    // TestDetails
+    if(grp.details){
+        const rows = raParseCSV(await grp.details.text());
+        if(rows.length>=9){
+            const hdr=rows[5]||[], dat=rows[8]||[], m={};
+            hdr.forEach((h,i)=>m[h]=dat[i]||'');
+            t.regulationRegion=m['Regulation.Region']||''; t.regulationDesc=m['Regulation.Description']||'';
+            t.vehicleType=m['Regulation.VehicleType']||''; t.vehicleName=m['VehicleName']||m['NamedEntity.Name']||'';
+            t.testType=m['TestType']||m['NamedEntity.Name']||''; t.testStatus=m['TestStatus']||'';
+            t.pollutantLimits=m['PollutantLimits']||''; t.regSpec=m['Vehicle.RegulationSpecificationName']||'';
+            t.fuelType=m['FuelType']||''; t.testCategory=m['Test.Category']||'';
+            t.testDesc=m['Test.Description']||''; t.testNumber=m['TestNumber']||'';
+            t.yearlyTestNumber=m['YearlyTestNumber']||''; t.wltpVehicleClass=m['WltpVehicleClass']||'';
+            t.testMass=parseFloat(m['Target.TestMass'])||0; t.resultsDir=m['ResultsExportDirectory']||'';
+        }
+    }
+
+    // CycleResults
+    if(grp.cycle){
+        const rows = raParseCSV(await grp.cycle.text());
+        if(rows.length>=9){
+            const hdr=rows[5]||[]; t.cycleData=[];
+            for(let i=8;i<rows.length;i++){
+                if(rows[i].length<5) continue;
+                const r={}; hdr.forEach((h,j)=>{ const v=rows[i][j]; r[h]=isNaN(v)||v===''?v:parseFloat(v); });
+                t.cycleData.push(r);
+            }
+        }
+    }
+
+    // SampleResults
+    if(grp.sample){
+        const rows = raParseCSV(await grp.sample.text());
+        if(rows.length>=9){
+            const hdr=rows[5]||[]; t.sampleData=[];
+            for(let i=8;i<rows.length;i++){
+                if(rows[i].length<5) continue;
+                const r={}; hdr.forEach((h,j)=>{ const v=rows[i][j]; r[h]=isNaN(v)||v===''?v:parseFloat(v); });
+                t.sampleData.push(r);
+            }
+        }
+    }
+
+    t.label = `${t.testDesc||t.vehicleName||'?'} — ${t.vin||'NoVIN'}`;
+    t.dateStr = t.importDate.slice(0,10);
+    return t;
+}
+
+function raGetProfile(test){
+    const reg = (test.emissionReg||test.regSpec||'').toUpperCase();
+    return raState.profiles.find(p=>p.regulation.split(',').some(r=>reg.includes(r.trim().toUpperCase())))
+        || raState.profiles[0] || null;
+}
+
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [M24] RA — DASHBOARD                                              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raRenderDashboard(el){
+    if(raState.tests.length===0){
+        el.innerHTML=`<div class="tp-card" style="text-align:center;padding:50px;">
+            <div style="font-size:48px;margin-bottom:12px;">🧪</div>
+            <h3 style="color:#06b6d4;margin-bottom:8px;">No hay resultados importados</h3>
+            <p style="color:var(--tp-dim);margin-bottom:16px;">Ve a 📥 Importar para cargar los CSVs del analizador.</p>
+            <button class="tp-btn tp-btn-primary" onclick="raState.activeTab='ra-import';raRender();document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(b=>b.classList.remove('active'));document.querySelectorAll('#ra-tabs-bar .tp-tab')[1].classList.add('active');">Ir a Importar →</button>
+        </div>`; return;
+    }
+    const tests=raState.tests, models=[...new Set(tests.map(t=>t.testDesc||t.modelName||'?'))];
+    const regs=[...new Set(tests.map(t=>t.emissionReg||t.regSpec||'?'))];
+    const fuelData=tests.filter(t=>t.cycleData&&t.cycleData.length>0).map(t=>{
+        const l=t.cycleData[t.cycleData.length-1];
+        return {fc:l.FuelConsumptionBag,co2:l.BagCO2,co:l.BagCO,nox:l.BagNOX,thc:l.BagTHC,vin:t.vin,model:t.testDesc,id:t.id,status:t.testStatus};
+    }).filter(d=>d.fc&&!isNaN(d.fc));
+    const avg=(arr,k)=>arr.length>0?(arr.reduce((s,d)=>s+(d[k]||0),0)/arr.length).toFixed(3):'—';
+
+    el.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
+        <div class="tp-metric"><div class="tp-metric-val" style="color:#06b6d4">${tests.length}</div><div class="tp-metric-label">Pruebas</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">${models.length}</div><div class="tp-metric-label">Modelos</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green)">${regs.length}</div><div class="tp-metric-label">Regulaciones</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:#8b5cf6">${avg(fuelData,'fc')}</div><div class="tp-metric-label">Consumo Prom</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${avg(fuelData,'co2')}</div><div class="tp-metric-label">CO₂ Prom</div></div>
+    </div>
+    <div class="tp-card">
+        <div class="tp-card-title"><span>📋 Últimas Pruebas</span>
+            <span style="font-size:10px;color:var(--tp-dim);">${tests.length} total</span>
+        </div>
+        <div style="max-height:400px;overflow-y:auto;">
+            <table class="tp-table">
+                <thead><tr><th>VIN</th><th>Modelo</th><th>Reg.</th><th>Categoría</th><th>Status</th><th style="text-align:right">FC</th><th style="text-align:right">CO₂</th><th style="text-align:right">CO</th><th style="text-align:right">NOx</th><th style="text-align:right">THC</th><th></th></tr></thead>
+                <tbody>
+                    ${tests.slice(-30).reverse().map(t=>{
+                        const c=t.cycleData&&t.cycleData.length>0?t.cycleData[t.cycleData.length-1]:{};
+                        const pr=raGetProfile(t); const lims=pr?pr.limits:{};
+                        const chk=(k,v)=>lims[k]&&v&&Math.abs(v)>lims[k]?'color:var(--tp-red);font-weight:700':'';
+                        return `<tr>
+                            <td style="font-family:monospace;font-size:9px;color:var(--tp-amber);">${t.vin||'—'}</td>
+                            <td style="font-size:10px">${t.testDesc||t.modelName||'—'}</td>
+                            <td style="font-size:9px">${t.emissionReg||t.regSpec||'—'}</td>
+                            <td style="font-size:9px">${t.testCategory||'—'}</td>
+                            <td><span class="tp-badge" style="background:${t.testStatus==='Completed'?'rgba(16,185,129,0.15);color:var(--tp-green)':'rgba(245,158,11,0.15);color:var(--tp-amber)'};border:1px solid currentColor;font-size:8px;">${t.testStatus||'?'}</span></td>
+                            <td style="text-align:right;font-family:monospace;font-size:10px;">${c.FuelConsumptionBag?c.FuelConsumptionBag.toFixed(2):'—'}</td>
+                            <td style="text-align:right;font-family:monospace;font-size:10px;">${c.BagCO2?c.BagCO2.toFixed(1):'—'}</td>
+                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagCO',c.BagCO)}">${c.BagCO?c.BagCO.toFixed(3):'—'}</td>
+                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagNOX',c.BagNOX)}">${c.BagNOX?c.BagNOX.toFixed(4):'—'}</td>
+                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagTHC',c.BagTHC)}">${c.BagTHC?c.BagTHC.toFixed(4):'—'}</td>
+            html += '<td><button class="tp-btn tp-btn-ghost" onclick="raGoDetail(\x27' + t.id + '\x27)" style="font-size:8px;">\uD83D\uDD0D</button></td>';
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+    </div>`;
+}
+
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [M25] RA — IMPORT                                                  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raRenderImport(el){
+    el.innerHTML=`
+    <div class="tp-card">
+        <div class="tp-card-title"><span>📂 Importar Carpeta Completa (Batch ~600 pruebas)</span></div>
+        <p style="font-size:11px;color:var(--tp-dim);margin-bottom:10px;">Selecciona la carpeta raíz de resultados (ej. <code style="color:var(--tp-amber)">D:\\TestResults\\WLTP</code>). Se buscan recursivamente CustomFields.csv, CycleResults.csv, SampleResults.csv y TestDetails.csv.</p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <input type="file" id="ra-folder-input" webkitdirectory directory multiple style="font-size:12px;color:var(--tp-text);">
+            <button class="tp-btn tp-btn-primary" onclick="raBatchImport()">🚀 Importar Carpeta</button>
+        </div>
+        <div id="ra-batch-progress" style="margin-top:10px;"></div>
+    </div>
+    <div class="tp-card">
+        <div class="tp-card-title"><span>📄 Importar Prueba Individual</span></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:10px;">
+            <div><label style="font-size:10px;color:var(--tp-dim);">CustomFields.csv</label><input type="file" id="ra-f-custom" accept=".csv" style="font-size:11px;color:var(--tp-text);width:100%;"></div>
+            <div><label style="font-size:10px;color:var(--tp-dim);">CycleResults.csv</label><input type="file" id="ra-f-cycle" accept=".csv" style="font-size:11px;color:var(--tp-text);width:100%;"></div>
+            <div><label style="font-size:10px;color:var(--tp-dim);">SampleResults.csv</label><input type="file" id="ra-f-sample" accept=".csv" style="font-size:11px;color:var(--tp-text);width:100%;"></div>
+            <div><label style="font-size:10px;color:var(--tp-dim);">TestDetails.csv</label><input type="file" id="ra-f-details" accept=".csv" style="font-size:11px;color:var(--tp-text);width:100%;"></div>
+        </div>
+        <button class="tp-btn tp-btn-primary" onclick="raSingleImport()">📥 Importar</button>
+        <div id="ra-single-msg" style="margin-top:8px;font-size:11px;"></div>
+    </div>
+    <div class="tp-card">
+        <div class="tp-card-title"><span>📦 Importar JSON (backup previo)</span></div>
+        <input type="file" id="ra-json-import" accept=".json" style="font-size:12px;color:var(--tp-text);">
+        <button class="tp-btn tp-btn-ghost" onclick="raImportJSON()" style="margin-left:8px;">Importar</button>
+    </div>
+    <div class="tp-card">
+        <div class="tp-card-title"><span>💾 Almacenamiento (${raState.tests.length} pruebas)</span>
+            ${raState.tests.length>0?`<div style="display:flex;gap:6px;"><button class="tp-btn tp-btn-ghost" onclick="raExportAll()" style="font-size:10px;">📤 Export JSON</button><button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Borrar TODAS las pruebas importadas?')){raState.tests=[];raSave();raRender();raUpdateBadges();}" style="font-size:10px;">🗑 Borrar</button></div>`:''}
+        </div>
+        <p style="font-size:10px;color:var(--tp-dim);">${raState.tests.length>0?`~${(JSON.stringify(raState.tests).length/1024).toFixed(0)} KB en localStorage`:'Sin datos.'}</p>
+    </div>`;
+}
+
+async function raBatchImport(){
+    const input=document.getElementById('ra-folder-input');
+    const prog=document.getElementById('ra-batch-progress');
+    if(!input.files||input.files.length===0){prog.innerHTML='<span style="color:var(--tp-red)">Selecciona una carpeta</span>';return;}
+    prog.innerHTML='<span style="color:var(--tp-amber)">Agrupando archivos...</span>';
+    
+    const allFiles = Array.from(input.files);
+    prog.innerHTML='<span style="color:var(--tp-amber)">Archivos encontrados: ' + allFiles.length + '. Agrupando...</span>';
+    await new Promise(r=>setTimeout(r,50));
+    
+    const groups=raGroupFiles(allFiles);
+    const dirs=Object.keys(groups).filter(d=>groups[d].cycle||groups[d].custom);
+    
+    if(dirs.length===0){
+        prog.innerHTML='<span style="color:var(--tp-red)">No se encontraron carpetas con CustomFields.csv o CycleResults.csv. Archivos totales: ' + allFiles.length + '</span>';
+        // Debug: show what files were found
+        var fnames = allFiles.slice(0,10).map(function(f){ return f.webkitRelativePath || f.name; });
+        prog.innerHTML += '<div style="font-size:9px;color:var(--tp-dim);margin-top:6px;">Primeros archivos: ' + fnames.join(', ') + '</div>';
+        return;
+    }
+    
+    let imported=0,skipped=0,errors=0;
+    var errMsgs = [];
+    prog.innerHTML='<span style="color:var(--tp-amber)">Encontradas ' + dirs.length + ' pruebas. Procesando...</span>';
+    await new Promise(r=>setTimeout(r,50));
+    
+    for(const dir of dirs){
+        try{
+            const test=await raProcessGroup(groups[dir]);
+            // Duplicate check: skip if same VIN + testNumber already exists
+            if(test.vin && test.testNumber && raState.tests.some(x=>x.vin===test.vin&&x.testNumber===test.testNumber)){skipped++;continue;}
+            raState.tests.push(test); imported++;
+            if(imported%25===0){
+                prog.innerHTML='<span style="color:var(--tp-amber)">' + imported + '/' + dirs.length + ' importadas (' + skipped + ' dup, ' + errors + ' err)...</span>';
+                await new Promise(r=>setTimeout(r,10));
+            }
+        }catch(e){
+            errors++;
+            if(errMsgs.length<5) errMsgs.push(dir.slice(0,40) + ': ' + e.message);
+            console.error('RA err:',dir,e);
+        }
+    }
+    
+    // Save
+    prog.innerHTML='<span style="color:var(--tp-amber)">Guardando ' + imported + ' resultados...</span>';
+    await new Promise(r=>setTimeout(r,50));
+    raSave();
+    raUpdateBadges();
+    
+    // DON'T call raRender() — it would destroy this progress message
+    // Instead, just update the storage info text if visible
+    var finalMsg = '<span style="color:var(--tp-green)">Listo: ' + imported + ' nuevas, ' + skipped + ' duplicadas, ' + errors + ' errores de ' + dirs.length + ' carpetas.</span>';
+    finalMsg += '<div style="margin-top:6px;"><button class="tp-btn tp-btn-primary" onclick="raState.activeTab=\'ra-dashboard\';raRender();document.querySelectorAll(\'#ra-tabs-bar .tp-tab\').forEach(b=>b.classList.remove(\'active\'));document.querySelectorAll(\'#ra-tabs-bar .tp-tab\')[0].classList.add(\'active\');" style="font-size:11px;">Ver Dashboard (' + raState.tests.length + ' pruebas)</button></div>';
+    if(errMsgs.length>0) finalMsg += '<div style="font-size:9px;color:var(--tp-red);margin-top:4px;">' + errMsgs.join('<br>') + '</div>';
+    prog.innerHTML = finalMsg;
+}
+
+async function raSingleImport(){
+    const msg=document.getElementById('ra-single-msg');
+    const grp={custom:document.getElementById('ra-f-custom').files[0],cycle:document.getElementById('ra-f-cycle').files[0],sample:document.getElementById('ra-f-sample').files[0],details:document.getElementById('ra-f-details').files[0]};
+    if(!grp.cycle&&!grp.custom){msg.innerHTML='<span style="color:var(--tp-red)">Se necesita al menos CustomFields o CycleResults</span>';return;}
+    try{
+        const test=await raProcessGroup(grp);
+        raState.tests.push(test);
+        raSave();
+        raUpdateBadges();
+        msg.innerHTML='<span style="color:var(--tp-green)">Importada: ' + (test.vin||'?') + ' — ' + (test.testDesc||test.modelName||'?') + ' (Total: ' + raState.tests.length + ' pruebas)</span>';
+    }catch(e){msg.innerHTML='<span style="color:var(--tp-red)">Error: ' + e.message + '</span>';}
+}
+
+function raExportAll(){
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([JSON.stringify(raState.tests,null,2)],{type:'application/json'}));
+    a.download='kia_results_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+}
+
+function raImportJSON(){
+    const f=document.getElementById('ra-json-import').files[0];
+    if(!f) return;
+    const r=new FileReader();
+    r.onload=function(e){
+        try{
+            const data=JSON.parse(e.target.result);
+            const arr=Array.isArray(data)?data:[];
+            raState.tests=raState.tests.concat(arr);raSave();raUpdateBadges();raRender();
+            alert('✅ '+arr.length+' pruebas importadas desde JSON');
+        }catch(err){alert('❌ JSON inválido: '+err.message);}
+    };
+    r.readAsText(f);
+}
+
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [M26] RA — PROFILES                                                ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raRenderProfiles(el){
+    const allCols=['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCOMass','BagCO2','BagCO2Mass','BagTHC','BagTHCMass','BagCH4','BagCH4Mass','BagNOX','BagNOXMass','BagNMHC','BagNMHCMass','BagHCpNOX','BagHCpNOXMass','BagNMHCpNOX','BagNMHCpNOXMass','DilutePN','DilutePNFlowWeighted','FuelConsumedBag','BagCO2Regulated','BagCORegulated','BagTHCRegulated','BagNOXRegulated','BagNMHCRegulated','BagCH4Regulated','FuelConsumptionRegulatedBag','BagCO2_RCB','BagCO2SDC','DrivenDistance','REESSEnergyChange'];
+
+    el.innerHTML=`
+    <div class="tp-card">
+        <div class="tp-card-title"><span>⚙️ Perfiles de Extracción / Visualización</span>
+            <button class="tp-btn tp-btn-primary" onclick="raAddProfile()">+ Nuevo Perfil</button>
+        </div>
+        <p style="font-size:10px;color:var(--tp-dim);margin-bottom:12px;">Define qué columnas y límites aplican por regulación. El sistema matchea automáticamente al analizar resultados.</p>
+        ${raState.profiles.map((p,pi)=>`
+        <details style="margin-bottom:8px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;">
+            <summary style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;list-style:none;background:var(--tp-card);">
+                <div><span style="font-weight:700;font-size:12px;color:#06b6d4;">${p.name}</span>
+                <span style="font-size:10px;color:var(--tp-dim);margin-left:8px;">${p.regulation}</span></div>
+                <div style="display:flex;gap:4px;">
+                    <span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;border:1px solid rgba(6,182,212,0.3);font-size:8px;">${p.cycleColumns.length} cols</span>
+                    <span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);border:1px solid rgba(245,158,11,0.3);font-size:8px;">${Object.keys(p.limits).length} lím</span>
+                </div>
+            </summary>
+            <div style="padding:12px 14px;background:#0d1422;border-top:1px solid var(--tp-border);">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                    <div><label style="font-size:10px;color:var(--tp-dim);">Nombre</label><input class="tp-input" value="${p.name}" onchange="raState.profiles[${pi}].name=this.value;raSave();"></div>
+                    <div><label style="font-size:10px;color:var(--tp-dim);">Regulaciones (coma-separadas)</label><input class="tp-input" value="${p.regulation}" onchange="raState.profiles[${pi}].regulation=this.value;raSave();"></div>
+                </div>
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:10px;color:var(--tp-dim);">Columnas de CycleResults</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:3px;max-height:130px;overflow-y:auto;margin-top:4px;">
+                        ${allCols.map(c=>`<label style="font-size:8px;color:var(--tp-text);display:flex;align-items:center;gap:2px;padding:2px 5px;background:${p.cycleColumns.includes(c)?'rgba(6,182,212,0.15)':'var(--tp-card)'};border-radius:3px;border:1px solid ${p.cycleColumns.includes(c)?'rgba(6,182,212,0.3)':'var(--tp-border)'};cursor:pointer;"><input type="checkbox" ${p.cycleColumns.includes(c)?'checked':''} onchange="raToggleCol(${pi},'${c}',this.checked)" style="width:12px;height:12px;"> ${c}</label>`).join('')}
+                    </div>
+                </div>
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:10px;color:var(--tp-dim);">Límites regulatorios</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+                        ${p.cycleColumns.filter(c=>c.startsWith('Bag')||c==='DilutePN').map(c=>`
+                            <div style="display:flex;align-items:center;gap:3px;">
+                                <span style="font-size:8px;color:var(--tp-dim);width:60px;">${p.labels&&p.labels[c]||c}:</span>
+                                <input class="tp-input" type="number" step="any" value="${p.limits[c]!=null?p.limits[c]:''}" style="width:75px;font-size:10px;" onchange="if(this.value){raState.profiles[${pi}].limits['${c}']=parseFloat(this.value);}else{delete raState.profiles[${pi}].limits['${c}'];}raSave();">
+                            </div>`).join('')}
+                    </div>
+                </div>
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:10px;color:var(--tp-dim);">Labels personalizados (JSON)</label>
+                    <input class="tp-input" value='${JSON.stringify(p.labels||{})}' onchange="try{raState.profiles[${pi}].labels=JSON.parse(this.value);raSave();}catch(e){}" style="font-size:9px;font-family:monospace;">
+                </div>
+                <button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Eliminar?')){raState.profiles.splice(${pi},1);raSave();raRender();}" style="font-size:10px;">🗑 Eliminar</button>
+            </div>
+        </details>`).join('')}
+    </div>`;
+}
+
+function raToggleCol(pi,col,checked){
+    const arr=raState.profiles[pi].cycleColumns;
+    if(checked&&!arr.includes(col)) arr.push(col);
+    if(!checked){const i=arr.indexOf(col);if(i>=0)arr.splice(i,1);}
+    raSave();raRender();
+}
+
+function raAddProfile(){
+    raState.profiles.push({id:'p'+Date.now(),name:'Nuevo Perfil',regulation:'',testMode:'WLTP',
+        cycleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX'],
+        sampleColumns:['FuelConsumptionBag','BagCO','BagCO2'],limits:{},labels:{}});
+    raSave();raRender();
+}
+
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [M27] RA — TRENDS                                                  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raRenderTrends(el){
+    if(raState.tests.length<2){el.innerHTML='<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Necesitas al menos 2 pruebas.</div>';return;}
+    const fGroupBy=window._raTrendGroupBy||'regTestMode';
+    const fGroup=window._raTrendGroup||'ALL';
+    const fMetric=window._raTrendMetric||'FuelConsumptionBag';
+
+    let groupFn;
+    if(fGroupBy==='regTestMode') groupFn=t=>`${t.emissionReg||t.regSpec||'?'} ${t.testType||'?'}`;
+    else if(fGroupBy==='testDesc') groupFn=t=>t.testDesc||t.modelName||'?';
+    else groupFn=t=>`${t.emissionReg||'?'} ${t.testType||'?'}`;
+
+    const groups=[...new Set(raState.tests.map(groupFn))].sort();
+    const filtered=fGroup==='ALL'?raState.tests:raState.tests.filter(t=>groupFn(t)===fGroup);
+    const pts=filtered.filter(t=>t.cycleData&&t.cycleData.length>0).map(t=>{
+        const l=t.cycleData[t.cycleData.length-1];
+        return {val:l[fMetric],vin:t.vin,model:t.testDesc,id:t.id,date:t.dateStr,num:t.testNumber,group:groupFn(t)};
+    }).filter(p=>p.val!==undefined&&!isNaN(p.val));
+
+    const vals=pts.map(p=>Math.abs(p.val));
+    const minV=vals.length>0?Math.min(...vals):0;
+    const maxV=vals.length>0?Math.max(...vals):1;
+    const avgV=pts.length>0?(pts.reduce((s,p)=>s+p.val,0)/pts.length):0;
+    const stdV=pts.length>1?Math.sqrt(pts.reduce((s,p)=>s+Math.pow(p.val-avgV,2),0)/(pts.length-1)):0;
+    const ucl=avgV+3*stdV, lcl=Math.max(0,avgV-3*stdV);
+    const pr=raGetProfile(filtered[0]||{}); const lim=pr?pr.limits[fMetric]:null;
+    const chartMin=Math.max(0,Math.min(minV,lcl,lim||Infinity)*0.9);
+    const chartMax2=Math.max(maxV,ucl,lim||0)*1.1;
+    const chartRange=chartMax2-chartMin||1;
+    const metricOpts=['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','BagNMHCpNOX','DilutePN'];
+    const groupByOpts=[{v:'regTestMode',l:'Regulación+TestMode'},{v:'testDesc',l:'Test Description'}];
+
+    el.innerHTML=`
+    <div class="tp-card">
+        <div class="tp-card-title"><span>📈 Tendencias & Control</span></div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <select class="tp-select" onchange="window._raTrendGroupBy=this.value;window._raTrendGroup='ALL';raRender();" style="font-size:10px;">
+                ${groupByOpts.map(o=>`<option value="${o.v}" ${o.v===fGroupBy?'selected':''}>Agrupar: ${o.l}</option>`).join('')}
+            </select>
+            <select class="tp-select" onchange="window._raTrendGroup=this.value;raRender();" style="font-size:10px;">
+                <option value="ALL">Todos</option>
+                ${groups.map(g=>`<option value="${g}" ${g===fGroup?'selected':''}>${g}</option>`).join('')}
+            </select>
+            <select class="tp-select" onchange="window._raTrendMetric=this.value;raRender();" style="font-size:10px;">
+                ${metricOpts.map(m=>`<option value="${m}" ${m===fMetric?'selected':''}>${m}</option>`).join('')}
+            </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:15px;">${avgV.toFixed(4)}</div><div class="tp-metric-label">x̄</div></div>
+            <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-blue);font-size:15px;">${stdV.toFixed(4)}</div><div class="tp-metric-label">σ</div></div>
+            <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#8b5cf6;font-size:15px;">${ucl.toFixed(4)}</div><div class="tp-metric-label">UCL</div></div>
+            ${lim?`<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:15px;">${lim}</div><div class="tp-metric-label">Límite</div></div>`:''}
+            <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#06b6d4;font-size:15px;">${pts.length}</div><div class="tp-metric-label">N</div></div>
+            <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:${pts.filter(p=>Math.abs(p.val-avgV)>2*stdV).length>0?'var(--tp-red)':'var(--tp-green)'};font-size:15px;">${pts.filter(p=>Math.abs(p.val-avgV)>2*stdV).length}</div><div class="tp-metric-label">>2σ</div></div>
+        </div>
+        <div style="display:flex;">
+            <div style="width:40px;display:flex;flex-direction:column;justify-content:space-between;font-size:7px;color:var(--tp-dim);text-align:right;padding-right:4px;height:200px;">
+                <span>${chartMax2.toFixed(3)}</span><span>${((chartMax2+chartMin)/2).toFixed(3)}</span><span>${chartMin.toFixed(3)}</span>
+            </div>
+            <div style="flex:1;position:relative;height:200px;border:1px solid var(--tp-border);border-radius:8px;padding:4px;overflow:hidden;">
+                <div style="position:absolute;left:0;right:0;bottom:${((ucl-chartMin)/chartRange)*100}%;border-top:1px dashed #8b5cf6;z-index:2;"><span style="font-size:7px;color:#8b5cf6;position:absolute;left:2px;top:-10px;">3σ</span></div>
+                <div style="position:absolute;left:0;right:0;bottom:${(((avgV+2*stdV)-chartMin)/chartRange)*100}%;border-top:1px dotted #f59e0b;z-index:2;opacity:0.5;"><span style="font-size:7px;color:#f59e0b;position:absolute;right:2px;top:-10px;">2σ</span></div>
+                <div style="position:absolute;left:0;right:0;bottom:${((avgV-chartMin)/chartRange)*100}%;border-top:1px solid var(--tp-amber);z-index:2;"><span style="font-size:7px;color:var(--tp-amber);position:absolute;left:2px;top:-10px;">x̄</span></div>
+                ${lcl>chartMin?`<div style="position:absolute;left:0;right:0;bottom:${((lcl-chartMin)/chartRange)*100}%;border-top:1px dashed #8b5cf6;z-index:2;"></div>`:''}
+                ${lim&&lim<chartMax2?`<div style="position:absolute;left:0;right:0;bottom:${((lim-chartMin)/chartRange)*100}%;border-top:2px dashed var(--tp-red);z-index:2;"><span style="font-size:7px;color:var(--tp-red);position:absolute;right:2px;top:-10px;">LÍM</span></div>`:''}
+                <div style="display:flex;align-items:flex-end;height:100%;gap:1px;">
+                    ${pts.slice(-60).map(p=>{
+                        const h=((Math.abs(p.val)-chartMin)/chartRange)*100;
+                        const is3s=p.val>ucl||p.val<lcl;
+                        const is2s=Math.abs(p.val-avgV)>2*stdV;
+                        const overLim=lim&&Math.abs(p.val)>lim;
+                        const clr=overLim?'var(--tp-red)':is3s?'#8b5cf6':is2s?'#f59e0b':'var(--tp-green)';
+                        return `<div style="flex:1;height:100%;display:flex;align-items:flex-end;" title="${p.vin}: ${p.val.toFixed(4)}"><div style="width:80%;margin:0 auto;background:${clr};border-radius:2px 2px 0 0;height:${Math.max(h,1)}%;opacity:0.75;"></div></div>`;
+                    }).join('')}
+                </div>
+            </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;font-size:8px;margin-top:4px;"><span style="color:var(--tp-green);">■ OK</span><span style="color:#f59e0b;">■ >2σ</span><span style="color:#8b5cf6;">■ >3σ</span>${lim?`<span style="color:var(--tp-red);">■ >Límite</span>`:''}</div>
+    </div>
+    <div class="tp-card"><div class="tp-card-title"><span>📋 Datos</span></div>
+        <div style="max-height:250px;overflow-y:auto;"><table class="tp-table"><thead><tr><th>#</th><th>VIN</th><th>Grupo</th><th style="text-align:right">${fMetric}</th><th>vs Lím</th></tr></thead>
+        <tbody>${pts.slice(-40).reverse().map((p,i)=>`<tr><td style="color:var(--tp-dim)">${pts.length-i}</td><td style="font-family:monospace;font-size:9px;color:var(--tp-amber);">${p.vin||'—'}</td><td style="font-size:9px">${p.group||'—'}</td><td style="text-align:right;font-family:monospace;font-weight:700;${Math.abs(p.val-avgV)>2*stdV?'color:var(--tp-red);':''}${Math.abs(p.val-avgV)>3*stdV?'background:rgba(239,68,68,0.1);':''}">${p.val.toFixed(4)}${Math.abs(p.val-avgV)>2*stdV?' ⚠':''}${Math.abs(p.val-avgV)>3*stdV?' ‼':''}</td><td>${lim?`<span style="color:${Math.abs(p.val)>lim?'var(--tp-red)':'var(--tp-green)'};">${((p.val/lim)*100).toFixed(0)}%</span>`:'—'}</td></tr>`).join('')}</tbody></table></div>
+    </div>`;
+}
+
+function raRenderDetail(el){
+    const tid=window._raDetailId;
+    const test=tid?raState.tests.find(t=>String(t.id)===String(tid)):raState.tests[raState.tests.length-1];
+    if(!test){el.innerHTML='<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Selecciona una prueba desde Dashboard.</div>';return;}
+
+    const profile=raGetProfile(test);
+    const cols=profile?profile.cycleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX'];
+    const lims=profile?profile.limits:{};
+    const lbls=profile?profile.labels:{};
+    const phases=test.sampleData||[];
+    const comp=test.cycleData&&test.cycleData.length>0?test.cycleData[test.cycleData.length-1]:{};
+
+    el.innerHTML=`
+    <div class="tp-card" style="border-color:#06b6d4;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+            <div>
+                <h3 style="font-size:14px;color:#06b6d4;margin-bottom:4px;">${test.testDesc||test.vehicleName||'Prueba'}</h3>
+                <span style="font-size:11px;color:var(--tp-dim);">VIN: <span style="color:var(--tp-amber);font-family:monospace;">${test.vin||'—'}</span></span>
+            </div>
+            <div style="text-align:right;">
+                <span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);border:1px solid rgba(16,185,129,0.3);">${test.testStatus||'?'}</span>
+                ${profile?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);margin-left:4px;">Perfil: ${profile.name}</span>`:''}
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:8px;font-size:10px;color:var(--tp-dim);">
+            <div><strong>Modelo:</strong> ${test.modelName||'—'}</div>
+            <div><strong>Regulación:</strong> ${test.emissionReg||test.regSpec||'—'}</div>
+            <div><strong>Categoría:</strong> ${test.testCategory||'—'}</div>
+            <div><strong>Motor:</strong> ${test.engineCapacity||'—'}</div>
+            <div><strong>TX:</strong> ${test.transmission||'—'}</div>
+            <div><strong>Región:</strong> ${test.region||test.regulationRegion||'—'}</div>
+            <div><strong>Combustible:</strong> ${test.fuelType||'—'}</div>
+            <div><strong>Masa:</strong> ${test.testMass||'—'} kg</div>
+            <div><strong>Operador:</strong> ${test.operator||'—'}</div>
+            <div><strong>Conductor:</strong> ${test.driver||'—'}</div>
+            <div><strong>Odo:</strong> ${test.startMileage||'—'}→${test.endMileage||'—'} km</div>
+            <div><strong>Test #:</strong> ${test.testNumber||'—'} (año: ${test.yearlyTestNumber||'—'})</div>
+        </div>
+    </div>
+
+    <div class="tp-card">
+        <div class="tp-card-title"><span>🏁 Resultados Composite</span></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">
+            ${cols.map(c=>{
+                const v=comp[c]; const lm=lims[c];
+                const pct=lm&&v?(Math.abs(v)/lm*100):null;
+                const over=lm&&v&&Math.abs(v)>lm;
+                return `<div class="tp-metric" style="border-color:${over?'var(--tp-red)':pct&&pct>80?'var(--tp-amber)':'var(--tp-border)'};">
+                    <div class="tp-metric-val" style="color:${over?'var(--tp-red)':'var(--tp-text)'};font-size:13px;">${v!=null&&typeof v==='number'?(Math.abs(v)>1e6?v.toExponential(2):v.toFixed(4)):v||'—'}</div>
+                    <div class="tp-metric-label">${lbls[c]||c}</div>
+                    ${lm?`<div style="margin-top:3px;"><div class="tp-bar" style="height:8px;"><div class="tp-bar-fill" style="width:${Math.min(pct||0,100)}%;background:${over?'var(--tp-red)':pct>80?'var(--tp-amber)':'var(--tp-green)'};"></div><span class="tp-bar-text" style="font-size:6px;">${pct?pct.toFixed(0):'0'}%</span></div><div style="font-size:6px;color:var(--tp-dim);text-align:center;">Lím: ${lm}</div></div>`:''}
+                </div>`;
+            }).join('')}
+        </div>
+    </div>
+
+    ${phases.length>0?`
+    <div class="tp-card">
+        <div class="tp-card-title"><span>📊 Por Fase</span></div>
+        <div style="overflow-x:auto;">
+            <table class="tp-table">
+                <thead><tr><th>Fase</th>${cols.map(c=>`<th style="text-align:right;font-size:8px;">${lbls[c]||c}</th>`).join('')}</tr></thead>
+                <tbody>
+                    ${phases.map((ph,i)=>`<tr>
+                        <td style="font-weight:700;color:#06b6d4;">F${i+1}</td>
+                        ${cols.map(c=>{const v=ph[c];const lm=lims[c];return `<td style="text-align:right;font-family:monospace;font-size:9px;color:${lm&&v&&Math.abs(v)>lm?'var(--tp-red)':'var(--tp-text)'};">${v!=null&&typeof v==='number'?(Math.abs(v)>1e6?v.toExponential(2):v.toFixed(4)):'—'}</td>`;}).join('')}
+                    </tr>`).join('')}
+                    <tr style="font-weight:700;border-top:2px solid var(--tp-border);">
+                        <td style="color:var(--tp-amber);">COMP</td>
+                        ${cols.map(c=>{const v=comp[c];return `<td style="text-align:right;font-family:monospace;font-size:9px;color:var(--tp-amber);">${v!=null&&typeof v==='number'?(Math.abs(v)>1e6?v.toExponential(2):v.toFixed(4)):'—'}</td>`;}).join('')}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>`:''}
+
+    <div style="margin-top:10px;">
+        <select class="tp-select" onchange="window._raDetailId=this.value;raRender();" style="width:100%;">
+            ${raState.tests.map(x=>`<option value="${x.id}" ${String(x.id)===String(tid)?'selected':''}>${x.vin||'NoVIN'} — ${x.testDesc||'?'} #${x.testNumber||'?'}</option>`).join('')}
+        </select>
+    </div>`;
+}
+
+function raInit(){ raUpdateBadges(); }
