@@ -284,36 +284,41 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
         const isExternal = document.getElementById('modeToggle').checked;
         
         if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
-            alert('❌ VIN debe ser exactamente 17 caracteres alfanuméricos (sin I, O, Q)');
+            showToast('VIN debe ser exactamente 17 caracteres alfanuméricos (sin I, O, Q)', 'error');
             return false;
         }
-        
+
         if(db.vehicles.some(v => v.vin === vin && v.status !== 'archived')) {
-            alert('❌ Este VIN ya existe en el sistema con estado activo');
+            showToast('Este VIN ya existe en el sistema con estado activo', 'error');
             return false;
         }
-        
+
+        // Warn if VIN exists in archived vehicles (duplicate detection)
+        if(db.vehicles.some(v => v.vin === vin && v.status === 'archived')) {
+            showToast('Este VIN ya fue probado anteriormente (archivado)', 'warning');
+        }
+
         if(!purpose) {
-            alert('❌ Debe seleccionar un propósito');
+            showToast('Debe seleccionar un propósito', 'error');
             return false;
         }
-        
+
         if(!operator) {
-            alert('❌ Debe seleccionar un operador');
+            showToast('Debe seleccionar un operador', 'error');
             return false;
         }
-        
+
         if(!isExternal) {
             if(!currentFilters['Modelo']) {
-                alert('❌ Debe seleccionar al menos el MODELO');
+                showToast('Debe seleccionar al menos el MODELO', 'error');
                 return false;
             }
         } else {
             const manModel = document.getElementById('man_model').value;
             const manEngine = document.getElementById('man_engine').value;
-            
+
             if(!manModel || !manEngine) {
-                alert('❌ Debe completar los campos manuales de modelo y motor');
+                showToast('Debe completar los campos manuales de modelo y motor', 'error');
                 return false;
             }
         }
@@ -429,7 +434,7 @@ setAltaDatetimeIfEmpty(true);
         saveDB();
         
         closeModal('modalConfirm');
-        alert('✅ Vehículo registrado exitosamente');
+        showToast('Vehículo registrado exitosamente', 'success');
 
 setAltaDatetimeIfEmpty(true);
         
@@ -925,9 +930,8 @@ function validateReadyForReleaseSimple() {
 }
 
 function showMissingPopup(missing) {
-  const lines = missing.map(m => `• ${m.label}`).join('\n');
-  alert(`❌ No se puede cambiar a "Listo para Liberación".\n\nFaltan estos campos:\n${lines}\n\n👉 Se marcaron en rojo y te llevo al primero.`);
-  
+  showToast('Faltan ' + missing.length + ' campos para Liberación. Se marcaron en rojo.', 'error');
+
   // Scroll y focus al primero
   const first = document.getElementById(missing[0].id);
   if (first) {
@@ -945,7 +949,7 @@ function showMissingPopup(missing) {
 
 function saveProgress() {
   if (!activeVehicleId) {
-    alert('❌ No hay vehículo seleccionado');
+    showToast('No hay vehículo seleccionado', 'error');
     return;
   }
 
@@ -986,7 +990,7 @@ function saveProgress() {
     });
 
     saveDB();
-    alert('✅ Progreso guardado (formato simple)');
+    showToast('Progreso guardado (formato simple)', 'success');
     refreshAllLists();
     updateProgressBar();
     return;
@@ -997,7 +1001,7 @@ const precondDatetime = document.getElementById('precond_datetime')?.value || ''
   // ==================== EMISIONES ====================
   const odometer = parseFloat(document.getElementById('op_odo')?.value || '');
   if (isFinite(odometer) && odometer < 0) {
-    alert('❌ El odómetro no puede ser negativo');
+    showToast('El odómetro no puede ser negativo', 'error');
     return;
   }
 
@@ -1101,7 +1105,7 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   });
 
   saveDB();
-  alert('✅ Progreso guardado exitosamente');
+  showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
   updateProgressBar();
 }
@@ -1132,7 +1136,7 @@ function loadRelease() {
   `;
 
 if (vehicle.status !== 'ready-release') {
-  alert('⚠️ Este vehículo aún no está "Listo para Liberación".');
+  showToast('Este vehículo aún no está "Listo para Liberación".', 'warning');
   document.getElementById('releaseVehSelect').value = '';
   content.style.display = 'none';
   return;
@@ -1198,13 +1202,17 @@ if (vehicle.status !== 'ready-release') {
 
     function finishRelease(isRetest) {
         if(!activeVehicleId) {
-            alert('❌ No hay vehículo seleccionado');
+            showToast('No hay vehículo seleccionado', 'error');
             return;
         }
-        
+
         const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
         if(!vehicle) return;
-        
+
+        // Save snapshot for rollback on error
+        const prevStatus = vehicle.status;
+        const prevTimeline = JSON.parse(JSON.stringify(vehicle.timeline || []));
+
         if(!isRetest) {
             vehicle.status = 'archived';
             vehicle.archivedAt = new Date().toISOString();
@@ -1214,14 +1222,21 @@ if (vehicle.status !== 'ready-release') {
                 action: 'Vehículo Liberado y Archivado',
                 data: { status: 'archived' }
             });
-            alert('Vehiculo liberado. El JSON fue descargado automaticamente.');
-	// Después de marcar archived...
-	exportSingleArchivedVehicle(vehicle.id);
-	// ═══ Auto-feed to Test Plan Manager ═══
-	tpAutoFeedFromRelease(vehicle);
-	// === Auto-log inventory usage ===
-	invLogTestUsage(vehicle);
-	tpAutoMarkWeeklyCompletion(vehicle.configCode);
+            try {
+                exportSingleArchivedVehicle(vehicle.id);
+                tpAutoFeedFromRelease(vehicle);
+                invLogTestUsage(vehicle);
+                tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                showToast('Vehículo liberado. JSON descargado.', 'success');
+            } catch(e) {
+                // Rollback on cross-module error
+                vehicle.status = prevStatus;
+                vehicle.timeline = prevTimeline;
+                delete vehicle.archivedAt;
+                showToast('Error en liberación: ' + e.message + '. Cambios revertidos.', 'error');
+                console.error('finishRelease rollback:', e);
+                return;
+            }
         } else {
             vehicle.status = 'registered';
             vehicle.timeline.push({
@@ -1230,13 +1245,13 @@ if (vehicle.status !== 'ready-release') {
                 action: 'Retest solicitado - Vehículo regresado a estado inicial',
                 data: { status: 'registered', retest: true }
             });
-            alert('🔄 Vehículo marcado para nueva prueba');
+            showToast('Vehículo marcado para nueva prueba', 'info');
         }
-        
+
         saveDB();
         refreshAllLists();
         updateProgressBar();
-        
+
         document.getElementById('releaseVehSelect').value = '';
         document.getElementById('lib-content').style.display = 'none';
     }
@@ -1363,7 +1378,7 @@ opt.dataset.fullConfig = v.configCode;
         a.href = url;
         a.download = `kia_db_backup_${new Date().toISOString().split('T')[0]}.json`;
         a.click();
-        alert('✅ Base de datos exportada');
+        showToast('Base de datos exportada', 'success');
     }
 
 
@@ -1381,7 +1396,7 @@ function exportAndPurgeArchived() {
   const archived = db.vehicles.filter(v => v.status === 'archived');
 
   if (archived.length === 0) {
-    alert('ℹ️ No hay vehículos archivados para exportar.');
+    showToast('No hay vehículos archivados para exportar.', 'info');
     return;
   }
 
@@ -1419,7 +1434,7 @@ function exportAndPurgeArchived() {
   refreshAllLists();
   updateProgressBar();
 
-  alert(`🧹 Purga completada. Se removieron ${archived.length} vehículos archivados del sistema.`);
+  showToast('Purga completada. Se removieron ' + archived.length + ' vehículos archivados.', 'success');
 }
 
 
@@ -1439,83 +1454,70 @@ function handleImportArchive(event) {
       const text = reader.result;
       const data = JSON.parse(text);
 
-      // Validación mínima de formato
       if (!data || !Array.isArray(data.vehicles)) {
-        alert('❌ Archivo inválido. No contiene "vehicles".');
+        showToast('Archivo inválido. No contiene "vehicles".', 'error');
         return;
       }
 
-      // Preguntar estado destino
-      const desired = prompt(
-        '¿A qué estado deseas regresar los vehículos importados?\n' +
-        'Opciones: registered | in-progress | testing | ready-release | archived\n\n' +
-        'Dejar vacío = registered',
-        'registered'
-      );
-
-      const targetStatus = (desired || 'registered').trim();
-
-      const allowed = ['registered', 'in-progress', 'testing', 'ready-release', 'archived'];
-      if (!allowed.includes(targetStatus)) {
-        alert('❌ Estado inválido. Importación cancelada.');
-        return;
-      }
-
-      let imported = 0;
-      let skipped = 0;
-      const skippedVINs = [];
-
-      data.vehicles.forEach(v => {
-        // Validaciones básicas
-        if (!v?.vin) return;
-
-        // Si ya existe un VIN activo en el sistema, saltar
-        const existsActive = db.vehicles.some(x => x.vin === v.vin && x.status !== 'archived');
-        if (existsActive) {
-          skipped++;
-          skippedVINs.push(v.vin);
-          return;
-        }
-
-        // Asignar nuevo ID (mantén lastId consistente)
-        const newId = ++db.lastId;
-
-        // Clonar y normalizar
-        const clone = structuredClone ? structuredClone(v) : JSON.parse(JSON.stringify(v));
-        clone.id = newId;
-        clone.status = targetStatus;
-
-        // Mantén registro en timeline
-        clone.timeline = clone.timeline || [];
-        clone.timeline.push({
-          timestamp: new Date().toISOString(),
-          user: 'Sistema',
-          action: `Vehículo importado desde archivo. Estado asignado: ${CONFIG.statusLabels[targetStatus] || targetStatus}`,
-          data: { status: targetStatus }
-        });
-
-        db.vehicles.push(clone);
-        imported++;
-      });
-
-      saveDB();
-      refreshAllLists();
-      updateProgressBar();
-
-      let msg = `✅ Importación completada.\n\nImportados: ${imported}\nOmitidos por VIN duplicado activo: ${skipped}`;
-      if (skippedVINs.length) msg += `\n\nVINs omitidos:\n- ${skippedVINs.join('\n- ')}`;
-      alert(msg);
+      // Store parsed data and show status selection modal
+      window._importArchiveData = data;
+      const modal = document.getElementById('importModal') || document.createElement('div');
+      modal.id = 'importModal';
+      modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9000;display:flex;align-items:center;justify-content:center;';
+      modal.innerHTML = '<div style="background:#fff;border-radius:14px;padding:24px;max-width:380px;width:90%;">' +
+        '<h3 style="margin:0 0 8px;color:#0f172a;">Importar ' + data.vehicles.length + ' vehículos</h3>' +
+        '<p style="font-size:11px;color:#64748b;margin-bottom:14px;">Selecciona el estado destino:</p>' +
+        '<div style="display:grid;gap:6px;">' +
+        '<button onclick="executeArchiveImport(\'registered\')" style="padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Registrado</button>' +
+        '<button onclick="executeArchiveImport(\'in-progress\')" style="padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">En Progreso</button>' +
+        '<button onclick="executeArchiveImport(\'ready-release\')" style="padding:10px;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Listo para Liberar</button>' +
+        '<button onclick="executeArchiveImport(\'archived\')" style="padding:10px;background:#64748b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Archivado</button>' +
+        '<button onclick="this.closest(\'#importModal\').remove();" style="padding:8px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '</div></div>';
+      document.body.appendChild(modal);
 
     } catch (e) {
       console.error(e);
-      alert('❌ Error leyendo el archivo. Asegúrate de que sea un JSON válido.');
+      showToast('Error leyendo el archivo. Asegúrate de que sea un JSON válido.', 'error');
     } finally {
-      // Reset input para permitir re-importar el mismo archivo sin recargar
       event.target.value = '';
     }
   };
 
   reader.readAsText(file);
+}
+
+function executeArchiveImport(targetStatus) {
+  const data = window._importArchiveData;
+  if (!data) return;
+  const modal = document.getElementById('importModal');
+  if (modal) modal.remove();
+
+  let imported = 0, skipped = 0;
+
+  data.vehicles.forEach(v => {
+    if (!v?.vin) return;
+    if (db.vehicles.some(x => x.vin === v.vin && x.status !== 'archived')) { skipped++; return; }
+
+    const clone = structuredClone ? structuredClone(v) : JSON.parse(JSON.stringify(v));
+    clone.id = ++db.lastId;
+    clone.status = targetStatus;
+    clone.timeline = clone.timeline || [];
+    clone.timeline.push({
+      timestamp: new Date().toISOString(),
+      user: 'Sistema',
+      action: 'Importado desde archivo. Estado: ' + (CONFIG.statusLabels[targetStatus] || targetStatus),
+      data: { status: targetStatus }
+    });
+    db.vehicles.push(clone);
+    imported++;
+  });
+
+  saveDB();
+  refreshAllLists();
+  updateProgressBar();
+  window._importArchiveData = null;
+  showToast('Importación: ' + imported + ' importados, ' + skipped + ' omitidos por duplicado.', imported > 0 ? 'success' : 'warning');
 }
 
 
@@ -1600,10 +1602,10 @@ const KIA_LOGO_B64 = 'data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUND
 
 function generateCOP15PDF(vehicleId) {
   const vehicle = db.vehicles.find(v => v.id == vehicleId);
-  if (!vehicle) { alert('❌ No hay vehículo seleccionado.'); return; }
+  if (!vehicle) { showToast('No hay vehículo seleccionado.', 'error'); return; }
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
-    alert('⚠️ PDF COP15-F05 solo aplica para Emisiones.\nEste vehículo: ' + vehicle.purpose);
+    showToast('PDF COP15-F05 solo aplica para Emisiones. Este vehículo: ' + vehicle.purpose, 'warning');
     return;
   }
 
@@ -2030,7 +2032,7 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // =====================================================
   const fname = 'COP15-F05_'+(vehicle.vin||'SIN-VIN')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
   doc.save(fname);
-  alert('✅ PDF generado: ' + fname);
+  showToast('PDF generado: ' + fname, 'success');
 }
 
 
@@ -2042,7 +2044,7 @@ function openConfigPanel() {
     const isCustom = !!localStorage.getItem('kia_config_csv_raw');
     const srcEl = document.getElementById('configSource');
     if (srcEl) srcEl.innerHTML = isCustom 
-        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="if(confirm(\'Restaurar CSV original embebido?\')){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();alert(\'Restaurado\');}" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>' 
+        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="if(confirm(\'Restaurar CSV original embebido?\')){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');}" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>' 
         : '<span style="color:#94a3b8;">CSV embebido (original)</span>';
 }
 function handleConfigCSVImport(event) {
@@ -2201,7 +2203,7 @@ function soakTimerTick() {
         }
 
         // Also alert in case notifications are blocked
-        alert('SOAK COMPLETADO - El vehiculo esta listo para prueba.');
+        showToast('SOAK COMPLETADO - El vehiculo esta listo para prueba.', 'success');
         return;
     }
 

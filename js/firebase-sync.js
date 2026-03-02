@@ -301,8 +301,8 @@ function fbShowSettings() {
 
         // Actions
         (fbSync.enabled ? '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
-        '<button onclick="fbPushAll();alert(\x27Datos enviados a Firebase\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Subir todo a nube</button>' +
-        '<button onclick="if(confirm(\x27Esto reemplazara datos locales con los de la nube. Continuar?\x27)){fbPullAll();alert(\x27Datos descargados de Firebase\x27);}" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Descargar de nube</button>' +
+        '<button onclick="fbPushAll();showToast(\x27Datos enviados a Firebase\x27,\x27success\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Subir todo a nube</button>' +
+        '<button onclick="if(confirm(\x27Esto reemplazara datos locales con los de la nube. Continuar?\x27)){fbPullAll();showToast(\x27Datos descargados de Firebase\x27,\x27success\x27);}" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Descargar de nube</button>' +
         '</div>' : '') +
 
         // Setup instructions if not configured

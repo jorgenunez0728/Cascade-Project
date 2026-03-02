@@ -207,7 +207,7 @@ function raSave(){
                 localStorage.setItem(RA_LS_KEY, JSON.stringify(compact));
                 console.log('RA: Saved compact version (' + compact.tests.length + ' tests)');
             } catch(e2) {
-                alert('Error: localStorage lleno. Exporta tus datos como JSON y borra para liberar espacio.');
+                showToast('localStorage lleno. Exporta datos y borra para liberar espacio.', 'error');
             }
         }
     }
@@ -280,7 +280,10 @@ async function raProcessGroup(grp){
 
     // CustomFields
     if(grp.custom){
-        const rows = raParseCSV(await grp.custom.text());
+        const rawText = await grp.custom.text();
+        if (!rawText || rawText.trim().length < 10) throw new Error('CustomFields.csv vacío o corrupto');
+        const rows = raParseCSV(rawText);
+        if (rows.length < 9) throw new Error('CustomFields.csv: formato inválido (menos de 9 filas)');
         const fld={};
         for(let i=8;i<rows.length;i++) if(rows[i].length>=3) fld[rows[i][0]]=rows[i][2];
         t.vin=fld.VIN||''; t.operator=fld.Operator||''; t.driver=fld.Driver||'';
@@ -309,9 +312,11 @@ async function raProcessGroup(grp){
         }
     }
 
-    // CycleResults
+    // CycleResults (with validation)
     if(grp.cycle){
-        const rows = raParseCSV(await grp.cycle.text());
+        const cycleText = await grp.cycle.text();
+        if (!cycleText || cycleText.trim().length < 10) throw new Error('CycleResults.csv vacío o corrupto');
+        const rows = raParseCSV(cycleText);
         if(rows.length>=9){
             const hdr=rows[5]||[]; t.cycleData=[];
             for(let i=8;i<rows.length;i++){
@@ -479,8 +484,14 @@ async function raBatchImport(){
     for(const dir of dirs){
         try{
             const test=await raProcessGroup(groups[dir]);
-            // Duplicate check: skip if same VIN + testNumber already exists
-            if(test.vin && test.testNumber && raState.tests.some(x=>x.vin===test.vin&&x.testNumber===test.testNumber)){skipped++;continue;}
+            // Duplicate check: VIN+testNumber, or VIN+testDesc+dateStr for cases without testNumber
+            var isDup = false;
+            if(test.vin && test.testNumber) {
+                isDup = raState.tests.some(x=>x.vin===test.vin && x.testNumber===test.testNumber);
+            } else if(test.vin && test.testDesc) {
+                isDup = raState.tests.some(x=>x.vin===test.vin && x.testDesc===test.testDesc && x.dateStr===test.dateStr);
+            }
+            if(isDup){skipped++;continue;}
             raState.tests.push(test); imported++;
             if(imported%25===0){
                 prog.innerHTML='<span style="color:var(--tp-amber)">' + imported + '/' + dirs.length + ' importadas (' + skipped + ' dup, ' + errors + ' err)...</span>';
@@ -535,8 +546,8 @@ function raImportJSON(){
             const data=JSON.parse(e.target.result);
             const arr=Array.isArray(data)?data:[];
             raState.tests=raState.tests.concat(arr);raSave();raUpdateBadges();raRender();
-            alert('✅ '+arr.length+' pruebas importadas desde JSON');
-        }catch(err){alert('❌ JSON inválido: '+err.message);}
+            showToast(arr.length+' pruebas importadas desde JSON', 'success');
+        }catch(err){showToast('JSON inválido: '+err.message, 'error');}
     };
     r.readAsText(f);
 }
@@ -889,21 +900,30 @@ function raRenderCapability(el) {
 
         var n = vals.length;
         var mean = vals.reduce(function(s,v){ return s+v; }, 0) / n;
+
+        // Overall std dev (s) for Pp/Ppk
         var variance = vals.reduce(function(s,v){ return s + Math.pow(v - mean, 2); }, 0) / (n - 1);
         var stdDev = Math.sqrt(variance);
 
-        // Pp (Process Performance) - uses overall std dev
-        var Pp = stdDev > 0 ? (USL - LSL) / (6 * stdDev) : 999;
+        // Moving Range (mR) method for Cp/Cpk per AIAG SPC Manual
+        // sigma_within = mR_bar / d2, where d2=1.128 for subgroup size 2
+        var mRsum = 0;
+        for (var i = 1; i < vals.length; i++) mRsum += Math.abs(vals[i] - vals[i - 1]);
+        var mRbar = mRsum / (vals.length - 1);
+        var d2 = 1.128; // constant for n=2 (moving range of 2 consecutive points)
+        var sigmaWithin = mRbar / d2;
 
-        // Ppk (Process Performance Index) - minimum of upper and lower
+        // Pp/Ppk use overall std dev (long-term capability)
+        var Pp = stdDev > 0 ? (USL - LSL) / (6 * stdDev) : 999;
         var Ppu = stdDev > 0 ? (USL - mean) / (3 * stdDev) : 999;
         var Ppl = stdDev > 0 ? (mean - LSL) / (3 * stdDev) : 999;
         var Ppk = Math.min(Ppu, Ppl);
 
-        // Cp and Cpk use within-subgroup variation (for our case, same as Pp/Ppk since no subgroups)
-        // In practice with individual measurements, Cp = Pp and Cpk = Ppk
-        var Cp = Pp;
-        var Cpk = Ppk;
+        // Cp/Cpk use within-subgroup variation (short-term capability, mR method)
+        var Cp = sigmaWithin > 0 ? (USL - LSL) / (6 * sigmaWithin) : 999;
+        var Cpu = sigmaWithin > 0 ? (USL - mean) / (3 * sigmaWithin) : 999;
+        var Cpl = sigmaWithin > 0 ? (mean - LSL) / (3 * sigmaWithin) : 999;
+        var Cpk = Math.min(Cpu, Cpl);
 
         // % of spec used
         var pctSpec = USL > 0 ? (mean / USL * 100) : 0;

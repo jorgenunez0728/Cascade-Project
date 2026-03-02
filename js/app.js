@@ -251,6 +251,22 @@ let currentUnitSystem = 'SI';
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
     }
 
+// ── Toast Notification System ──
+function showToast(msg, type) {
+    type = type || 'info';
+    var container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+    var toast = document.createElement('div');
+    toast.className = 'toast toast-' + type;
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(function(){ if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3200);
+}
+
 
     function closeModal(modalId) {
         document.getElementById(modalId).style.display = 'none';

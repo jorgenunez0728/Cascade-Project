@@ -618,6 +618,33 @@ body{ overflow-x: hidden; }
 .tp-chart-label { font-size:8px; color:var(--tp-dim); }
 .tp-chart-value { font-size:9px; font-weight:700; color:var(--tp-text); }
 
+/* ═══ Toast Notification System ═══ */
+#toast-container {
+    position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+    z-index: 9999; display: flex; flex-direction: column; gap: 6px;
+    pointer-events: none; max-width: 90vw;
+}
+.toast {
+    padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25); pointer-events: auto;
+    animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+    display: flex; align-items: center; gap: 8px; max-width: 420px;
+}
+.toast-success { background: #065f46; color: #d1fae5; border: 1px solid #10b981; }
+.toast-error { background: #7f1d1d; color: #fecaca; border: 1px solid #ef4444; }
+.toast-warning { background: #78350f; color: #fef3c7; border: 1px solid #f59e0b; }
+.toast-info { background: #1e3a5f; color: #bfdbfe; border: 1px solid #3b82f6; }
+@keyframes toastIn { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+@keyframes toastOut { from { opacity:1; } to { opacity:0; transform:translateY(-10px); } }
+
+/* ═══ Inventory Alert Banner ═══ */
+.inv-alert-banner {
+    padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+}
+.inv-alert-critical { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; }
+.inv-alert-warning { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #f59e0b; }
+
     </style>
 </head>
 
@@ -1781,6 +1808,22 @@ let currentUnitSystem = 'SI';
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
     }
 
+// ── Toast Notification System ──
+function showToast(msg, type) {
+    type = type || 'info';
+    var container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+    var toast = document.createElement('div');
+    toast.className = 'toast toast-' + type;
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(function(){ if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3200);
+}
+
 
     function closeModal(modalId) {
         document.getElementById(modalId).style.display = 'none';
@@ -2199,36 +2242,41 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
         const isExternal = document.getElementById('modeToggle').checked;
         
         if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
-            alert('❌ VIN debe ser exactamente 17 caracteres alfanuméricos (sin I, O, Q)');
+            showToast('VIN debe ser exactamente 17 caracteres alfanuméricos (sin I, O, Q)', 'error');
             return false;
         }
-        
+
         if(db.vehicles.some(v => v.vin === vin && v.status !== 'archived')) {
-            alert('❌ Este VIN ya existe en el sistema con estado activo');
+            showToast('Este VIN ya existe en el sistema con estado activo', 'error');
             return false;
         }
-        
+
+        // Warn if VIN exists in archived vehicles (duplicate detection)
+        if(db.vehicles.some(v => v.vin === vin && v.status === 'archived')) {
+            showToast('Este VIN ya fue probado anteriormente (archivado)', 'warning');
+        }
+
         if(!purpose) {
-            alert('❌ Debe seleccionar un propósito');
+            showToast('Debe seleccionar un propósito', 'error');
             return false;
         }
-        
+
         if(!operator) {
-            alert('❌ Debe seleccionar un operador');
+            showToast('Debe seleccionar un operador', 'error');
             return false;
         }
-        
+
         if(!isExternal) {
             if(!currentFilters['Modelo']) {
-                alert('❌ Debe seleccionar al menos el MODELO');
+                showToast('Debe seleccionar al menos el MODELO', 'error');
                 return false;
             }
         } else {
             const manModel = document.getElementById('man_model').value;
             const manEngine = document.getElementById('man_engine').value;
-            
+
             if(!manModel || !manEngine) {
-                alert('❌ Debe completar los campos manuales de modelo y motor');
+                showToast('Debe completar los campos manuales de modelo y motor', 'error');
                 return false;
             }
         }
@@ -2344,7 +2392,7 @@ setAltaDatetimeIfEmpty(true);
         saveDB();
         
         closeModal('modalConfirm');
-        alert('✅ Vehículo registrado exitosamente');
+        showToast('Vehículo registrado exitosamente', 'success');
 
 setAltaDatetimeIfEmpty(true);
         
@@ -2840,9 +2888,8 @@ function validateReadyForReleaseSimple() {
 }
 
 function showMissingPopup(missing) {
-  const lines = missing.map(m => `• ${m.label}`).join('\n');
-  alert(`❌ No se puede cambiar a "Listo para Liberación".\n\nFaltan estos campos:\n${lines}\n\n👉 Se marcaron en rojo y te llevo al primero.`);
-  
+  showToast('Faltan ' + missing.length + ' campos para Liberación. Se marcaron en rojo.', 'error');
+
   // Scroll y focus al primero
   const first = document.getElementById(missing[0].id);
   if (first) {
@@ -2860,7 +2907,7 @@ function showMissingPopup(missing) {
 
 function saveProgress() {
   if (!activeVehicleId) {
-    alert('❌ No hay vehículo seleccionado');
+    showToast('No hay vehículo seleccionado', 'error');
     return;
   }
 
@@ -2901,7 +2948,7 @@ function saveProgress() {
     });
 
     saveDB();
-    alert('✅ Progreso guardado (formato simple)');
+    showToast('Progreso guardado (formato simple)', 'success');
     refreshAllLists();
     updateProgressBar();
     return;
@@ -2912,7 +2959,7 @@ const precondDatetime = document.getElementById('precond_datetime')?.value || ''
   // ==================== EMISIONES ====================
   const odometer = parseFloat(document.getElementById('op_odo')?.value || '');
   if (isFinite(odometer) && odometer < 0) {
-    alert('❌ El odómetro no puede ser negativo');
+    showToast('El odómetro no puede ser negativo', 'error');
     return;
   }
 
@@ -3016,7 +3063,7 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   });
 
   saveDB();
-  alert('✅ Progreso guardado exitosamente');
+  showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
   updateProgressBar();
 }
@@ -3047,7 +3094,7 @@ function loadRelease() {
   `;
 
 if (vehicle.status !== 'ready-release') {
-  alert('⚠️ Este vehículo aún no está "Listo para Liberación".');
+  showToast('Este vehículo aún no está "Listo para Liberación".', 'warning');
   document.getElementById('releaseVehSelect').value = '';
   content.style.display = 'none';
   return;
@@ -3113,13 +3160,17 @@ if (vehicle.status !== 'ready-release') {
 
     function finishRelease(isRetest) {
         if(!activeVehicleId) {
-            alert('❌ No hay vehículo seleccionado');
+            showToast('No hay vehículo seleccionado', 'error');
             return;
         }
-        
+
         const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
         if(!vehicle) return;
-        
+
+        // Save snapshot for rollback on error
+        const prevStatus = vehicle.status;
+        const prevTimeline = JSON.parse(JSON.stringify(vehicle.timeline || []));
+
         if(!isRetest) {
             vehicle.status = 'archived';
             vehicle.archivedAt = new Date().toISOString();
@@ -3129,14 +3180,21 @@ if (vehicle.status !== 'ready-release') {
                 action: 'Vehículo Liberado y Archivado',
                 data: { status: 'archived' }
             });
-            alert('Vehiculo liberado. El JSON fue descargado automaticamente.');
-	// Después de marcar archived...
-	exportSingleArchivedVehicle(vehicle.id);
-	// ═══ Auto-feed to Test Plan Manager ═══
-	tpAutoFeedFromRelease(vehicle);
-	// === Auto-log inventory usage ===
-	invLogTestUsage(vehicle);
-	tpAutoMarkWeeklyCompletion(vehicle.configCode);
+            try {
+                exportSingleArchivedVehicle(vehicle.id);
+                tpAutoFeedFromRelease(vehicle);
+                invLogTestUsage(vehicle);
+                tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                showToast('Vehículo liberado. JSON descargado.', 'success');
+            } catch(e) {
+                // Rollback on cross-module error
+                vehicle.status = prevStatus;
+                vehicle.timeline = prevTimeline;
+                delete vehicle.archivedAt;
+                showToast('Error en liberación: ' + e.message + '. Cambios revertidos.', 'error');
+                console.error('finishRelease rollback:', e);
+                return;
+            }
         } else {
             vehicle.status = 'registered';
             vehicle.timeline.push({
@@ -3145,13 +3203,13 @@ if (vehicle.status !== 'ready-release') {
                 action: 'Retest solicitado - Vehículo regresado a estado inicial',
                 data: { status: 'registered', retest: true }
             });
-            alert('🔄 Vehículo marcado para nueva prueba');
+            showToast('Vehículo marcado para nueva prueba', 'info');
         }
-        
+
         saveDB();
         refreshAllLists();
         updateProgressBar();
-        
+
         document.getElementById('releaseVehSelect').value = '';
         document.getElementById('lib-content').style.display = 'none';
     }
@@ -3278,7 +3336,7 @@ opt.dataset.fullConfig = v.configCode;
         a.href = url;
         a.download = `kia_db_backup_${new Date().toISOString().split('T')[0]}.json`;
         a.click();
-        alert('✅ Base de datos exportada');
+        showToast('Base de datos exportada', 'success');
     }
 
 
@@ -3296,7 +3354,7 @@ function exportAndPurgeArchived() {
   const archived = db.vehicles.filter(v => v.status === 'archived');
 
   if (archived.length === 0) {
-    alert('ℹ️ No hay vehículos archivados para exportar.');
+    showToast('No hay vehículos archivados para exportar.', 'info');
     return;
   }
 
@@ -3334,7 +3392,7 @@ function exportAndPurgeArchived() {
   refreshAllLists();
   updateProgressBar();
 
-  alert(`🧹 Purga completada. Se removieron ${archived.length} vehículos archivados del sistema.`);
+  showToast('Purga completada. Se removieron ' + archived.length + ' vehículos archivados.', 'success');
 }
 
 
@@ -3354,83 +3412,70 @@ function handleImportArchive(event) {
       const text = reader.result;
       const data = JSON.parse(text);
 
-      // Validación mínima de formato
       if (!data || !Array.isArray(data.vehicles)) {
-        alert('❌ Archivo inválido. No contiene "vehicles".');
+        showToast('Archivo inválido. No contiene "vehicles".', 'error');
         return;
       }
 
-      // Preguntar estado destino
-      const desired = prompt(
-        '¿A qué estado deseas regresar los vehículos importados?\n' +
-        'Opciones: registered | in-progress | testing | ready-release | archived\n\n' +
-        'Dejar vacío = registered',
-        'registered'
-      );
-
-      const targetStatus = (desired || 'registered').trim();
-
-      const allowed = ['registered', 'in-progress', 'testing', 'ready-release', 'archived'];
-      if (!allowed.includes(targetStatus)) {
-        alert('❌ Estado inválido. Importación cancelada.');
-        return;
-      }
-
-      let imported = 0;
-      let skipped = 0;
-      const skippedVINs = [];
-
-      data.vehicles.forEach(v => {
-        // Validaciones básicas
-        if (!v?.vin) return;
-
-        // Si ya existe un VIN activo en el sistema, saltar
-        const existsActive = db.vehicles.some(x => x.vin === v.vin && x.status !== 'archived');
-        if (existsActive) {
-          skipped++;
-          skippedVINs.push(v.vin);
-          return;
-        }
-
-        // Asignar nuevo ID (mantén lastId consistente)
-        const newId = ++db.lastId;
-
-        // Clonar y normalizar
-        const clone = structuredClone ? structuredClone(v) : JSON.parse(JSON.stringify(v));
-        clone.id = newId;
-        clone.status = targetStatus;
-
-        // Mantén registro en timeline
-        clone.timeline = clone.timeline || [];
-        clone.timeline.push({
-          timestamp: new Date().toISOString(),
-          user: 'Sistema',
-          action: `Vehículo importado desde archivo. Estado asignado: ${CONFIG.statusLabels[targetStatus] || targetStatus}`,
-          data: { status: targetStatus }
-        });
-
-        db.vehicles.push(clone);
-        imported++;
-      });
-
-      saveDB();
-      refreshAllLists();
-      updateProgressBar();
-
-      let msg = `✅ Importación completada.\n\nImportados: ${imported}\nOmitidos por VIN duplicado activo: ${skipped}`;
-      if (skippedVINs.length) msg += `\n\nVINs omitidos:\n- ${skippedVINs.join('\n- ')}`;
-      alert(msg);
+      // Store parsed data and show status selection modal
+      window._importArchiveData = data;
+      const modal = document.getElementById('importModal') || document.createElement('div');
+      modal.id = 'importModal';
+      modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9000;display:flex;align-items:center;justify-content:center;';
+      modal.innerHTML = '<div style="background:#fff;border-radius:14px;padding:24px;max-width:380px;width:90%;">' +
+        '<h3 style="margin:0 0 8px;color:#0f172a;">Importar ' + data.vehicles.length + ' vehículos</h3>' +
+        '<p style="font-size:11px;color:#64748b;margin-bottom:14px;">Selecciona el estado destino:</p>' +
+        '<div style="display:grid;gap:6px;">' +
+        '<button onclick="executeArchiveImport(\'registered\')" style="padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Registrado</button>' +
+        '<button onclick="executeArchiveImport(\'in-progress\')" style="padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">En Progreso</button>' +
+        '<button onclick="executeArchiveImport(\'ready-release\')" style="padding:10px;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Listo para Liberar</button>' +
+        '<button onclick="executeArchiveImport(\'archived\')" style="padding:10px;background:#64748b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Archivado</button>' +
+        '<button onclick="this.closest(\'#importModal\').remove();" style="padding:8px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '</div></div>';
+      document.body.appendChild(modal);
 
     } catch (e) {
       console.error(e);
-      alert('❌ Error leyendo el archivo. Asegúrate de que sea un JSON válido.');
+      showToast('Error leyendo el archivo. Asegúrate de que sea un JSON válido.', 'error');
     } finally {
-      // Reset input para permitir re-importar el mismo archivo sin recargar
       event.target.value = '';
     }
   };
 
   reader.readAsText(file);
+}
+
+function executeArchiveImport(targetStatus) {
+  const data = window._importArchiveData;
+  if (!data) return;
+  const modal = document.getElementById('importModal');
+  if (modal) modal.remove();
+
+  let imported = 0, skipped = 0;
+
+  data.vehicles.forEach(v => {
+    if (!v?.vin) return;
+    if (db.vehicles.some(x => x.vin === v.vin && x.status !== 'archived')) { skipped++; return; }
+
+    const clone = structuredClone ? structuredClone(v) : JSON.parse(JSON.stringify(v));
+    clone.id = ++db.lastId;
+    clone.status = targetStatus;
+    clone.timeline = clone.timeline || [];
+    clone.timeline.push({
+      timestamp: new Date().toISOString(),
+      user: 'Sistema',
+      action: 'Importado desde archivo. Estado: ' + (CONFIG.statusLabels[targetStatus] || targetStatus),
+      data: { status: targetStatus }
+    });
+    db.vehicles.push(clone);
+    imported++;
+  });
+
+  saveDB();
+  refreshAllLists();
+  updateProgressBar();
+  window._importArchiveData = null;
+  showToast('Importación: ' + imported + ' importados, ' + skipped + ' omitidos por duplicado.', imported > 0 ? 'success' : 'warning');
 }
 
 
@@ -3515,10 +3560,10 @@ const KIA_LOGO_B64 = 'data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUND
 
 function generateCOP15PDF(vehicleId) {
   const vehicle = db.vehicles.find(v => v.id == vehicleId);
-  if (!vehicle) { alert('❌ No hay vehículo seleccionado.'); return; }
+  if (!vehicle) { showToast('No hay vehículo seleccionado.', 'error'); return; }
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
-    alert('⚠️ PDF COP15-F05 solo aplica para Emisiones.\nEste vehículo: ' + vehicle.purpose);
+    showToast('PDF COP15-F05 solo aplica para Emisiones. Este vehículo: ' + vehicle.purpose, 'warning');
     return;
   }
 
@@ -3945,7 +3990,7 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // =====================================================
   const fname = 'COP15-F05_'+(vehicle.vin||'SIN-VIN')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
   doc.save(fname);
-  alert('✅ PDF generado: ' + fname);
+  showToast('PDF generado: ' + fname, 'success');
 }
 
 
@@ -3957,7 +4002,7 @@ function openConfigPanel() {
     const isCustom = !!localStorage.getItem('kia_config_csv_raw');
     const srcEl = document.getElementById('configSource');
     if (srcEl) srcEl.innerHTML = isCustom 
-        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="if(confirm(\'Restaurar CSV original embebido?\')){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();alert(\'Restaurado\');}" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>' 
+        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="if(confirm(\'Restaurar CSV original embebido?\')){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');}" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>' 
         : '<span style="color:#94a3b8;">CSV embebido (original)</span>';
 }
 function handleConfigCSVImport(event) {
@@ -4116,7 +4161,7 @@ function soakTimerTick() {
         }
 
         // Also alert in case notifications are blocked
-        alert('SOAK COMPLETADO - El vehiculo esta listo para prueba.');
+        showToast('SOAK COMPLETADO - El vehiculo esta listo para prueba.', 'success');
         return;
     }
 
@@ -4231,9 +4276,30 @@ function invSwitchTab(tabId) {
     invRender();
 }
 
+// Proactive alerts on module open (runs once per session)
+var _invAlertShown = false;
+function invCheckProactiveAlerts() {
+    if (_invAlertShown) return;
+    _invAlertShown = true;
+    var criticals = [];
+    invState.gases.forEach(function(g) {
+        if (invGasExpiry(g).status === 'expired') criticals.push(g.formula + ' #' + g.controlNo + ' VENCIDO');
+        if (invGasLevel(g).pct < 10 && invGasLevel(g).pct >= 0) criticals.push(g.formula + ' #' + g.controlNo + ' nivel critico');
+    });
+    invState.equipment.forEach(function(e) {
+        if (!e.nextCalDate) return;
+        var diff = Math.round((new Date(e.nextCalDate) - new Date()) / (1000*60*60*24));
+        if (diff < 0) criticals.push(e.name + ' calibracion vencida');
+    });
+    if (criticals.length > 0) {
+        showToast(criticals.length + ' alertas criticas en inventario', 'error');
+    }
+}
+
 function invRender() {
     var el = document.getElementById('inv-content');
     if (!el) return;
+    invCheckProactiveAlerts();
     var t = invState.activeTab;
     if (t === 'inv-dashboard') invRenderDashboard(el);
     else if (t === 'inv-gases') invRenderGases(el);
@@ -4469,7 +4535,7 @@ function invUpdateConcOpts() {
 function invSaveGas(editId) {
     var controlNo = document.getElementById('inv-g-control').value.trim();
     var zone = document.getElementById('inv-g-zone').value;
-    if (!controlNo) { alert('No. Control es requerido'); return; }
+    if (!controlNo) { showToast('No. Control es requerido', 'error'); return; }
 
     var gasType = document.getElementById('inv-g-type').value;
     var gt = invState.gasTypes.find(function(t){ return t.name === gasType; });
@@ -4661,9 +4727,9 @@ function invBulkReading() {
             }
         }
     });
-    if (count === 0) { alert('No se ingresaron lecturas'); return; }
+    if (count === 0) { showToast('No se ingresaron lecturas', 'warning'); return; }
     invSave(); invRender();
-    alert(count + ' lecturas guardadas para ' + date);
+    showToast(count + ' lecturas guardadas para ' + date, 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -4741,7 +4807,7 @@ function invSaveEquipment(editId) {
         nextCalDate: document.getElementById('inv-eq-nextcal').value,
         calCertNo: document.getElementById('inv-eq-cert').value.trim()
     };
-    if (!obj.name) { alert('Nombre requerido'); return; }
+    if (!obj.name) { showToast('Nombre requerido', 'error'); return; }
     if (editId) {
         var e = invState.equipment.find(function(x){return x.id===editId;});
         if (e) Object.assign(e, obj);
@@ -4917,8 +4983,8 @@ function invHandleImport(event) {
             if (data.usageLog) invState.usageLog = data.usageLog;
             if (data.fuelTanks) invState.fuelTanks = data.fuelTanks;
             invSave(); invPreloadData(); invRender(); invUpdateBadges();
-            alert('Importado: ' + (invState.gases.length) + ' gases, ' + (invState.equipment.length) + ' equipos');
-        } catch(err) { alert('Error: ' + err.message); }
+            showToast('Importado: ' + (invState.gases.length) + ' gases, ' + (invState.equipment.length) + ' equipos', 'success');
+        } catch(err) { showToast('Error: ' + err.message, 'error'); }
     };
     r.readAsText(f);
     event.target.value = '';
@@ -5032,7 +5098,7 @@ function invSaveFuelTank(editId) {
         regDate: document.getElementById('inv-ft-date').value,
         fuelStatus: document.getElementById('inv-ft-status').value
     };
-    if (!obj.name) { alert('Nombre requerido'); return; }
+    if (!obj.name) { showToast('Nombre requerido', 'error'); return; }
     if (editId) {
         var t = (invState.fuelTanks||[]).find(function(x){return x.id===editId;});
         if (t) {
@@ -5058,12 +5124,29 @@ function invEditFuelTank(id) { invAddFuelTank(id); }
 function invFuelReading(tankId) {
     var t = (invState.fuelTanks||[]).find(function(x){return x.id===tankId;});
     if (!t) return;
-    var level = parseFloat(prompt('Nivel actual de ' + t.name + ' (' + (t.unit||'L') + '):', t.currentLevel));
-    if (isNaN(level)) return;
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+    modal.innerHTML = '<div style="max-width:360px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
+        '<h3 style="margin:0 0 12px;color:#0f172a;">Lectura: ' + t.name + '</h3>' +
+        '<div><label style="font-size:10px;color:#64748b;">Nivel actual (' + (t.unit||'L') + ')</label>' +
+        '<input id="inv-fuel-level" type="number" step="0.1" value="' + (t.currentLevel||0) + '" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:6px;font-size:16px;margin-top:4px;"></div>' +
+        '<button onclick="invSaveFuelReading(\x27' + tankId + '\x27)" style="width:100%;margin-top:14px;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar Lectura</button>' +
+        '</div>';
+    setTimeout(function(){ var inp = document.getElementById('inv-fuel-level'); if(inp) inp.focus(); }, 100);
+}
+
+function invSaveFuelReading(tankId) {
+    var t = (invState.fuelTanks||[]).find(function(x){return x.id===tankId;});
+    if (!t) return;
+    var level = parseFloat(document.getElementById('inv-fuel-level').value);
+    if (isNaN(level)) { showToast('Nivel inválido', 'error'); return; }
     t.currentLevel = level;
     if (!t.readings) t.readings = [];
     t.readings.push({ date: new Date().toISOString().slice(0,10), level: level });
     invSave(); invRender();
+    document.getElementById('invModal').style.display = 'none';
+    showToast('Lectura guardada: ' + level + ' ' + (t.unit||'L'), 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -5193,7 +5276,7 @@ function invExportReport() {
     a.href = URL.createObjectURL(blob);
     a.download = 'consumables_report_' + new Date().toISOString().slice(0,10) + '.html';
     a.click();
-    alert('Reporte HTML descargado. Puedes abrirlo en el navegador o copiar su contenido al email.');
+    showToast('Reporte HTML descargado', 'success');
 }
 
 function invRenderConfig(el) {
@@ -5284,15 +5367,15 @@ function invSaveZoneModal(idx) {
 
     if (!isEdit) {
         id = (document.getElementById('inv-zone-id').value || '').trim().toUpperCase();
-        if (!id || id.length > 2) { alert('ID debe ser 1-2 caracteres'); return; }
-        if (invState.zones.some(function(z){ return z.id === id; })) { alert('Zona ' + id + ' ya existe'); return; }
+        if (!id || id.length > 2) { showToast('ID debe ser 1-2 caracteres', 'error'); return; }
+        if (invState.zones.some(function(z){ return z.id === id; })) { showToast('Zona ' + id + ' ya existe', 'error'); return; }
     }
 
     label = document.getElementById('inv-zone-label').value.trim();
     slots = parseInt(document.getElementById('inv-zone-slots').value);
     type = document.getElementById('inv-zone-type').value;
 
-    if (!label) { alert('Nombre requerido'); return; }
+    if (!label) { showToast('Nombre requerido', 'error'); return; }
 
     if (isEdit) {
         var z = invState.zones[idx];
@@ -5310,7 +5393,7 @@ function invSaveZoneModal(idx) {
 function invDeleteZone(idx) {
     var z = invState.zones[idx]; if (!z) return;
     var occupied = invState.gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); }).length;
-    if (occupied > 0) { alert('Zona ' + z.id + ' tiene ' + occupied + ' cilindros. Reubicalos primero.'); return; }
+    if (occupied > 0) { showToast('Zona ' + z.id + ' tiene ' + occupied + ' cilindros. Reubícalos primero.', 'warning'); return; }
     if (!confirm('Eliminar zona ' + z.id + '?')) return;
     invState.zones.splice(idx, 1);
     invSave(); invRender();
@@ -5352,7 +5435,7 @@ function invSaveGasTypeModal(idx) {
     var formula = document.getElementById('inv-gt-formula').value.trim();
     var concsStr = document.getElementById('inv-gt-concs').value.trim();
 
-    if (!name) { alert('Nombre requerido'); return; }
+    if (!name) { showToast('Nombre requerido', 'error'); return; }
 
     var concs = concsStr ? concsStr.split(',').map(function(c){ return c.trim(); }) : ['-'];
 
@@ -5423,10 +5506,10 @@ function tpExportWeeklyPlan(wk) {
     t += `${'─'.repeat(28)}\nKIA EmLab ${new Date().toLocaleString('es-MX')}`;
     if (navigator.share) {
         navigator.share({ title: 'Plan Semanal #'+(wk+1), text: t }).catch(() => {
-            navigator.clipboard.writeText(t).then(() => alert('Copiado al portapapeles'));
+            navigator.clipboard.writeText(t).then(() => showToast('Copiado al portapapeles', 'success'));
         });
     } else {
-        navigator.clipboard.writeText(t).then(() => alert('Copiado al portapapeles'));
+        navigator.clipboard.writeText(t).then(() => showToast('Copiado al portapapeles', 'success'));
     }
 }
 
@@ -5492,13 +5575,13 @@ function tpRenderPlanActual(el) {
 function tpCarryOver() {
     const plans = tpState.weeklyPlans || [];
     const last = [...plans].reverse().find(p=>p.accepted);
-    if (!last) { alert('No hay plan aceptado previo'); return; }
+    if (!last) { showToast('No hay plan aceptado previo', 'warning'); return; }
     const inc = last.items.filter(i=>!i.completed);
-    if (inc.length===0) { alert('Todo completado'); return; }
+    if (inc.length===0) { showToast('Todo completado', 'success'); return; }
     window._tpWeeklyManualPicks = window._tpWeeklyManualPicks || [];
     inc.forEach(i => { if (!window._tpWeeklyManualPicks.includes(i.desc)) window._tpWeeklyManualPicks.push(i.desc); });
     tpSwitchTab('tp-weekly');
-    alert(inc.length + ' pendientes agregadas como obligatorias.');
+    showToast(inc.length + ' pendientes agregadas como obligatorias.', 'info');
 }
 
 // ======================================================================
@@ -5649,8 +5732,14 @@ function tpPriorityScore(cfg, testedN) {
     return (volScore * w.volume + compScore * w.compliance + newScore * w.newConfig + urgScore * w.urgency) / 100;
 }
 
+// Cache for tpGetAnalysis — invalidated on plan/tested changes
+var _tpAnalysisCache = { key: '', data: null };
+
 function tpGetAnalysis() {
-    return tpState.planData.map(cfg => {
+    var cacheKey = tpState.planData.length + ':' + tpState.testedList.length + ':' + (tpState.testedList.length > 0 ? tpState.testedList[tpState.testedList.length-1].date : '');
+    if (_tpAnalysisCache.key === cacheKey && _tpAnalysisCache.data) return _tpAnalysisCache.data;
+
+    var result = tpState.planData.map(cfg => {
         const rule = tpGetRule(cfg);
         const n = tpState.testedList.filter(t => t.configText === cfg.desc).length;
         const req = tpCalcRequired(cfg, rule);
@@ -5659,7 +5748,12 @@ function tpGetAnalysis() {
         const sc = tpPriorityScore(cfg, n);
         return { ...cfg, testedN: n, required: req, deficit: Math.max(0, req - n), compliance: comp, status: st, score: sc };
     }).sort((a, b) => b.score - a.score);
+
+    _tpAnalysisCache = { key: cacheKey, data: result };
+    return result;
 }
+
+function tpInvalidateCache() { _tpAnalysisCache = { key: '', data: null }; }
 
 // ── Init: load plan from embedded CSV data ──
 function tpInit() {
@@ -5699,7 +5793,7 @@ function tpAutoFeedFromRelease(vehicle) {
 // ── CSV Import ──
 function tpImportPlanCSV(csvText) {
     const lines = csvText.trim().split('\n');
-    if (lines.length < 2) { alert('CSV vacio'); return; }
+    if (lines.length < 2) { showToast('CSV vacío', 'error'); return; }
     const header = lines[0].split(',').map(h => h.trim());
 
     const idxId = header.indexOf('codigo_config');
@@ -5719,7 +5813,7 @@ function tpImportPlanCSV(csvText) {
     const monthCols = TP_MONTHS.map(m => header.indexOf(m));
     const idxTotalCalc = header.indexOf('Total_Calc');
 
-    if (idxDesc < 0 || idxRgn < 0) { alert('CSV sin columnas requeridas'); return; }
+    if (idxDesc < 0 || idxRgn < 0) { showToast('CSV sin columnas requeridas (codigo_config_text, REGION)', 'error'); return; }
 
     const newData = [];
     for (let i = 1; i < lines.length; i++) {
@@ -5791,7 +5885,7 @@ function tpImportPlanCSV(csvText) {
     if (diff.volUp.length) msg += 'Subieron volumen: ' + diff.volUp.length + '\n';
     if (diff.volDown.length) msg += 'Bajaron volumen: ' + diff.volDown.length + '\n';
     msg += 'Sin cambios: ' + diff.unchanged;
-    alert(msg);
+    showToast(newData.filter(c=>c.total>0).length + ' configs importadas. ' + diff.added.length + ' nuevas, ' + diff.removed.length + ' retiradas.', 'success');
 
     tpRender();
     tpUpdateBadges();
@@ -5933,8 +6027,9 @@ function tpRenderDashboard(el) {
     </div>
 
     <!-- Fix plan button -->
-    <div class="tp-card" style="display:flex;gap:10px;align-items:center;">
+    <div class="tp-card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
         <button class="tp-btn tp-btn-primary" onclick="tpFixPlan()">📌 Fijar Plan de Pruebas</button>
+        <button class="tp-btn tp-btn-ghost" onclick="tpExportGapCSV()" style="font-size:10px;">Exportar CSV</button>
         <span style="font-size:11px;color:var(--tp-dim);">Guarda un snapshot del plan actual con fecha para referencia</span>
         ${tpState.fixedPlan ? `<button class="tp-btn tp-btn-ghost" onclick="tpState.fixedPlan=null;tpSave();tpRender();" style="margin-left:auto;">Desfijar</button>` : ''}
     </div>
@@ -6028,7 +6123,28 @@ function tpFixPlan() {
     };
     tpSave();
     tpRender();
-    alert('📌 Plan fijado con fecha ' + new Date().toLocaleDateString('es-MX'));
+    showToast('Plan fijado con fecha ' + new Date().toLocaleDateString('es-MX'), 'success');
+}
+
+// ═══ CSV EXPORT for Gap Analysis ═══
+function tpExportGapCSV() {
+    var analysis = tpGetAnalysis();
+    if (analysis.length === 0) { showToast('Sin datos para exportar', 'warning'); return; }
+    var rows = ['Config,Modelo,Regulacion,Region,Requeridas,Probadas,Deficit,Score,Status'];
+    analysis.forEach(function(a) {
+        rows.push([
+            '"' + (a.desc || '').replace(/"/g,'""') + '"',
+            a.mod || '', a.reg || '', a.rgn || '',
+            a.required, a.testedN, a.deficit,
+            a.score.toFixed(1), a.status
+        ].join(','));
+    });
+    var blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'gap_analysis_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    showToast('CSV gap analysis exportado', 'success');
 }
 
 
@@ -6310,7 +6426,7 @@ function tpToggleWeeklyItem(weekIdx, itemIdx) {
 }
 
 function tpGenerateWeekly() {
-    if (tpState.planData.length === 0) { alert('Importa el plan primero'); return; }
+    if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     const capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
     const manualPicks = window._tpWeeklyManualPicks || [];
@@ -6339,7 +6455,7 @@ function tpGenerateWeekly() {
         used.add(cfg.desc);
     }
     
-    if (items.length === 0) { alert('Sin configuraciones pendientes'); return; }
+    if (items.length === 0) { showToast('Sin configuraciones pendientes', 'info'); return; }
     tpState.weeklyPlans.push({ id:Date.now(), created:new Date().toISOString(), capacity, items, accepted:false });
     window._tpWeeklyManualPicks = [];
     tpSave(); tpRender(); tpUpdateBadges();
@@ -6350,7 +6466,7 @@ function tpAcceptWeeklyPlan(weekIdx) {
     tpState.weeklyPlans[weekIdx].accepted = true;
     tpState.weeklyPlans[weekIdx].acceptedDate = new Date().toISOString();
     tpSave(); tpRender(); tpUpdateBadges();
-    alert('✅ Plan semana ' + (weekIdx+1) + ' aceptado.');
+    showToast('Plan semana ' + (weekIdx+1) + ' aceptado.', 'success');
 }
 
 // ── Auto-mark weekly items when COP15 releases match ──
@@ -6447,7 +6563,7 @@ function tpRenderProduction(el) {
 
 function tpHandleCSVUpload() {
     const fileInput = document.getElementById('tp-csv-file');
-    if (!fileInput.files[0]) { alert('Selecciona un archivo CSV'); return; }
+    if (!fileInput.files[0]) { showToast('Selecciona un archivo CSV', 'warning'); return; }
     const reader = new FileReader();
     reader.onload = function(e) { tpImportPlanCSV(e.target.result); };
     reader.readAsText(fileInput.files[0]);
@@ -7136,7 +7252,7 @@ function raSave(){
                 localStorage.setItem(RA_LS_KEY, JSON.stringify(compact));
                 console.log('RA: Saved compact version (' + compact.tests.length + ' tests)');
             } catch(e2) {
-                alert('Error: localStorage lleno. Exporta tus datos como JSON y borra para liberar espacio.');
+                showToast('localStorage lleno. Exporta datos y borra para liberar espacio.', 'error');
             }
         }
     }
@@ -7209,7 +7325,10 @@ async function raProcessGroup(grp){
 
     // CustomFields
     if(grp.custom){
-        const rows = raParseCSV(await grp.custom.text());
+        const rawText = await grp.custom.text();
+        if (!rawText || rawText.trim().length < 10) throw new Error('CustomFields.csv vacío o corrupto');
+        const rows = raParseCSV(rawText);
+        if (rows.length < 9) throw new Error('CustomFields.csv: formato inválido (menos de 9 filas)');
         const fld={};
         for(let i=8;i<rows.length;i++) if(rows[i].length>=3) fld[rows[i][0]]=rows[i][2];
         t.vin=fld.VIN||''; t.operator=fld.Operator||''; t.driver=fld.Driver||'';
@@ -7238,9 +7357,11 @@ async function raProcessGroup(grp){
         }
     }
 
-    // CycleResults
+    // CycleResults (with validation)
     if(grp.cycle){
-        const rows = raParseCSV(await grp.cycle.text());
+        const cycleText = await grp.cycle.text();
+        if (!cycleText || cycleText.trim().length < 10) throw new Error('CycleResults.csv vacío o corrupto');
+        const rows = raParseCSV(cycleText);
         if(rows.length>=9){
             const hdr=rows[5]||[]; t.cycleData=[];
             for(let i=8;i<rows.length;i++){
@@ -7408,8 +7529,14 @@ async function raBatchImport(){
     for(const dir of dirs){
         try{
             const test=await raProcessGroup(groups[dir]);
-            // Duplicate check: skip if same VIN + testNumber already exists
-            if(test.vin && test.testNumber && raState.tests.some(x=>x.vin===test.vin&&x.testNumber===test.testNumber)){skipped++;continue;}
+            // Duplicate check: VIN+testNumber, or VIN+testDesc+dateStr for cases without testNumber
+            var isDup = false;
+            if(test.vin && test.testNumber) {
+                isDup = raState.tests.some(x=>x.vin===test.vin && x.testNumber===test.testNumber);
+            } else if(test.vin && test.testDesc) {
+                isDup = raState.tests.some(x=>x.vin===test.vin && x.testDesc===test.testDesc && x.dateStr===test.dateStr);
+            }
+            if(isDup){skipped++;continue;}
             raState.tests.push(test); imported++;
             if(imported%25===0){
                 prog.innerHTML='<span style="color:var(--tp-amber)">' + imported + '/' + dirs.length + ' importadas (' + skipped + ' dup, ' + errors + ' err)...</span>';
@@ -7464,8 +7591,8 @@ function raImportJSON(){
             const data=JSON.parse(e.target.result);
             const arr=Array.isArray(data)?data:[];
             raState.tests=raState.tests.concat(arr);raSave();raUpdateBadges();raRender();
-            alert('✅ '+arr.length+' pruebas importadas desde JSON');
-        }catch(err){alert('❌ JSON inválido: '+err.message);}
+            showToast(arr.length+' pruebas importadas desde JSON', 'success');
+        }catch(err){showToast('JSON inválido: '+err.message, 'error');}
     };
     r.readAsText(f);
 }
@@ -7818,21 +7945,30 @@ function raRenderCapability(el) {
 
         var n = vals.length;
         var mean = vals.reduce(function(s,v){ return s+v; }, 0) / n;
+
+        // Overall std dev (s) for Pp/Ppk
         var variance = vals.reduce(function(s,v){ return s + Math.pow(v - mean, 2); }, 0) / (n - 1);
         var stdDev = Math.sqrt(variance);
 
-        // Pp (Process Performance) - uses overall std dev
-        var Pp = stdDev > 0 ? (USL - LSL) / (6 * stdDev) : 999;
+        // Moving Range (mR) method for Cp/Cpk per AIAG SPC Manual
+        // sigma_within = mR_bar / d2, where d2=1.128 for subgroup size 2
+        var mRsum = 0;
+        for (var i = 1; i < vals.length; i++) mRsum += Math.abs(vals[i] - vals[i - 1]);
+        var mRbar = mRsum / (vals.length - 1);
+        var d2 = 1.128; // constant for n=2 (moving range of 2 consecutive points)
+        var sigmaWithin = mRbar / d2;
 
-        // Ppk (Process Performance Index) - minimum of upper and lower
+        // Pp/Ppk use overall std dev (long-term capability)
+        var Pp = stdDev > 0 ? (USL - LSL) / (6 * stdDev) : 999;
         var Ppu = stdDev > 0 ? (USL - mean) / (3 * stdDev) : 999;
         var Ppl = stdDev > 0 ? (mean - LSL) / (3 * stdDev) : 999;
         var Ppk = Math.min(Ppu, Ppl);
 
-        // Cp and Cpk use within-subgroup variation (for our case, same as Pp/Ppk since no subgroups)
-        // In practice with individual measurements, Cp = Pp and Cpk = Ppk
-        var Cp = Pp;
-        var Cpk = Ppk;
+        // Cp/Cpk use within-subgroup variation (short-term capability, mR method)
+        var Cp = sigmaWithin > 0 ? (USL - LSL) / (6 * sigmaWithin) : 999;
+        var Cpu = sigmaWithin > 0 ? (USL - mean) / (3 * sigmaWithin) : 999;
+        var Cpl = sigmaWithin > 0 ? (mean - LSL) / (3 * sigmaWithin) : 999;
+        var Cpk = Math.min(Cpu, Cpl);
 
         // % of spec used
         var pctSpec = USL > 0 ? (mean / USL * 100) : 0;
@@ -8260,8 +8396,8 @@ function fbShowSettings() {
 
         // Actions
         (fbSync.enabled ? '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
-        '<button onclick="fbPushAll();alert(\x27Datos enviados a Firebase\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Subir todo a nube</button>' +
-        '<button onclick="if(confirm(\x27Esto reemplazara datos locales con los de la nube. Continuar?\x27)){fbPullAll();alert(\x27Datos descargados de Firebase\x27);}" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Descargar de nube</button>' +
+        '<button onclick="fbPushAll();showToast(\x27Datos enviados a Firebase\x27,\x27success\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Subir todo a nube</button>' +
+        '<button onclick="if(confirm(\x27Esto reemplazara datos locales con los de la nube. Continuar?\x27)){fbPullAll();showToast(\x27Datos descargados de Firebase\x27,\x27success\x27);}" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Descargar de nube</button>' +
         '</div>' : '') +
 
         // Setup instructions if not configured

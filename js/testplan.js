@@ -45,10 +45,10 @@ function tpExportWeeklyPlan(wk) {
     t += `${'─'.repeat(28)}\nKIA EmLab ${new Date().toLocaleString('es-MX')}`;
     if (navigator.share) {
         navigator.share({ title: 'Plan Semanal #'+(wk+1), text: t }).catch(() => {
-            navigator.clipboard.writeText(t).then(() => alert('Copiado al portapapeles'));
+            navigator.clipboard.writeText(t).then(() => showToast('Copiado al portapapeles', 'success'));
         });
     } else {
-        navigator.clipboard.writeText(t).then(() => alert('Copiado al portapapeles'));
+        navigator.clipboard.writeText(t).then(() => showToast('Copiado al portapapeles', 'success'));
     }
 }
 
@@ -114,13 +114,13 @@ function tpRenderPlanActual(el) {
 function tpCarryOver() {
     const plans = tpState.weeklyPlans || [];
     const last = [...plans].reverse().find(p=>p.accepted);
-    if (!last) { alert('No hay plan aceptado previo'); return; }
+    if (!last) { showToast('No hay plan aceptado previo', 'warning'); return; }
     const inc = last.items.filter(i=>!i.completed);
-    if (inc.length===0) { alert('Todo completado'); return; }
+    if (inc.length===0) { showToast('Todo completado', 'success'); return; }
     window._tpWeeklyManualPicks = window._tpWeeklyManualPicks || [];
     inc.forEach(i => { if (!window._tpWeeklyManualPicks.includes(i.desc)) window._tpWeeklyManualPicks.push(i.desc); });
     tpSwitchTab('tp-weekly');
-    alert(inc.length + ' pendientes agregadas como obligatorias.');
+    showToast(inc.length + ' pendientes agregadas como obligatorias.', 'info');
 }
 
 // ======================================================================
@@ -271,8 +271,14 @@ function tpPriorityScore(cfg, testedN) {
     return (volScore * w.volume + compScore * w.compliance + newScore * w.newConfig + urgScore * w.urgency) / 100;
 }
 
+// Cache for tpGetAnalysis — invalidated on plan/tested changes
+var _tpAnalysisCache = { key: '', data: null };
+
 function tpGetAnalysis() {
-    return tpState.planData.map(cfg => {
+    var cacheKey = tpState.planData.length + ':' + tpState.testedList.length + ':' + (tpState.testedList.length > 0 ? tpState.testedList[tpState.testedList.length-1].date : '');
+    if (_tpAnalysisCache.key === cacheKey && _tpAnalysisCache.data) return _tpAnalysisCache.data;
+
+    var result = tpState.planData.map(cfg => {
         const rule = tpGetRule(cfg);
         const n = tpState.testedList.filter(t => t.configText === cfg.desc).length;
         const req = tpCalcRequired(cfg, rule);
@@ -281,7 +287,12 @@ function tpGetAnalysis() {
         const sc = tpPriorityScore(cfg, n);
         return { ...cfg, testedN: n, required: req, deficit: Math.max(0, req - n), compliance: comp, status: st, score: sc };
     }).sort((a, b) => b.score - a.score);
+
+    _tpAnalysisCache = { key: cacheKey, data: result };
+    return result;
 }
+
+function tpInvalidateCache() { _tpAnalysisCache = { key: '', data: null }; }
 
 // ── Init: load plan from embedded CSV data ──
 function tpInit() {
@@ -321,7 +332,7 @@ function tpAutoFeedFromRelease(vehicle) {
 // ── CSV Import ──
 function tpImportPlanCSV(csvText) {
     const lines = csvText.trim().split('\n');
-    if (lines.length < 2) { alert('CSV vacio'); return; }
+    if (lines.length < 2) { showToast('CSV vacío', 'error'); return; }
     const header = lines[0].split(',').map(h => h.trim());
 
     const idxId = header.indexOf('codigo_config');
@@ -341,7 +352,7 @@ function tpImportPlanCSV(csvText) {
     const monthCols = TP_MONTHS.map(m => header.indexOf(m));
     const idxTotalCalc = header.indexOf('Total_Calc');
 
-    if (idxDesc < 0 || idxRgn < 0) { alert('CSV sin columnas requeridas'); return; }
+    if (idxDesc < 0 || idxRgn < 0) { showToast('CSV sin columnas requeridas (codigo_config_text, REGION)', 'error'); return; }
 
     const newData = [];
     for (let i = 1; i < lines.length; i++) {
@@ -413,7 +424,7 @@ function tpImportPlanCSV(csvText) {
     if (diff.volUp.length) msg += 'Subieron volumen: ' + diff.volUp.length + '\n';
     if (diff.volDown.length) msg += 'Bajaron volumen: ' + diff.volDown.length + '\n';
     msg += 'Sin cambios: ' + diff.unchanged;
-    alert(msg);
+    showToast(newData.filter(c=>c.total>0).length + ' configs importadas. ' + diff.added.length + ' nuevas, ' + diff.removed.length + ' retiradas.', 'success');
 
     tpRender();
     tpUpdateBadges();
@@ -555,8 +566,9 @@ function tpRenderDashboard(el) {
     </div>
 
     <!-- Fix plan button -->
-    <div class="tp-card" style="display:flex;gap:10px;align-items:center;">
+    <div class="tp-card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
         <button class="tp-btn tp-btn-primary" onclick="tpFixPlan()">📌 Fijar Plan de Pruebas</button>
+        <button class="tp-btn tp-btn-ghost" onclick="tpExportGapCSV()" style="font-size:10px;">Exportar CSV</button>
         <span style="font-size:11px;color:var(--tp-dim);">Guarda un snapshot del plan actual con fecha para referencia</span>
         ${tpState.fixedPlan ? `<button class="tp-btn tp-btn-ghost" onclick="tpState.fixedPlan=null;tpSave();tpRender();" style="margin-left:auto;">Desfijar</button>` : ''}
     </div>
@@ -650,7 +662,28 @@ function tpFixPlan() {
     };
     tpSave();
     tpRender();
-    alert('📌 Plan fijado con fecha ' + new Date().toLocaleDateString('es-MX'));
+    showToast('Plan fijado con fecha ' + new Date().toLocaleDateString('es-MX'), 'success');
+}
+
+// ═══ CSV EXPORT for Gap Analysis ═══
+function tpExportGapCSV() {
+    var analysis = tpGetAnalysis();
+    if (analysis.length === 0) { showToast('Sin datos para exportar', 'warning'); return; }
+    var rows = ['Config,Modelo,Regulacion,Region,Requeridas,Probadas,Deficit,Score,Status'];
+    analysis.forEach(function(a) {
+        rows.push([
+            '"' + (a.desc || '').replace(/"/g,'""') + '"',
+            a.mod || '', a.reg || '', a.rgn || '',
+            a.required, a.testedN, a.deficit,
+            a.score.toFixed(1), a.status
+        ].join(','));
+    });
+    var blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'gap_analysis_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    showToast('CSV gap analysis exportado', 'success');
 }
 
 
@@ -932,7 +965,7 @@ function tpToggleWeeklyItem(weekIdx, itemIdx) {
 }
 
 function tpGenerateWeekly() {
-    if (tpState.planData.length === 0) { alert('Importa el plan primero'); return; }
+    if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     const capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
     const manualPicks = window._tpWeeklyManualPicks || [];
@@ -961,7 +994,7 @@ function tpGenerateWeekly() {
         used.add(cfg.desc);
     }
     
-    if (items.length === 0) { alert('Sin configuraciones pendientes'); return; }
+    if (items.length === 0) { showToast('Sin configuraciones pendientes', 'info'); return; }
     tpState.weeklyPlans.push({ id:Date.now(), created:new Date().toISOString(), capacity, items, accepted:false });
     window._tpWeeklyManualPicks = [];
     tpSave(); tpRender(); tpUpdateBadges();
@@ -972,7 +1005,7 @@ function tpAcceptWeeklyPlan(weekIdx) {
     tpState.weeklyPlans[weekIdx].accepted = true;
     tpState.weeklyPlans[weekIdx].acceptedDate = new Date().toISOString();
     tpSave(); tpRender(); tpUpdateBadges();
-    alert('✅ Plan semana ' + (weekIdx+1) + ' aceptado.');
+    showToast('Plan semana ' + (weekIdx+1) + ' aceptado.', 'success');
 }
 
 // ── Auto-mark weekly items when COP15 releases match ──
@@ -1069,7 +1102,7 @@ function tpRenderProduction(el) {
 
 function tpHandleCSVUpload() {
     const fileInput = document.getElementById('tp-csv-file');
-    if (!fileInput.files[0]) { alert('Selecciona un archivo CSV'); return; }
+    if (!fileInput.files[0]) { showToast('Selecciona un archivo CSV', 'warning'); return; }
     const reader = new FileReader();
     reader.onload = function(e) { tpImportPlanCSV(e.target.result); };
     reader.readAsText(fileInput.files[0]);

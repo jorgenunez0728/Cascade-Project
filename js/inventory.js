@@ -65,9 +65,30 @@ function invSwitchTab(tabId) {
     invRender();
 }
 
+// Proactive alerts on module open (runs once per session)
+var _invAlertShown = false;
+function invCheckProactiveAlerts() {
+    if (_invAlertShown) return;
+    _invAlertShown = true;
+    var criticals = [];
+    invState.gases.forEach(function(g) {
+        if (invGasExpiry(g).status === 'expired') criticals.push(g.formula + ' #' + g.controlNo + ' VENCIDO');
+        if (invGasLevel(g).pct < 10 && invGasLevel(g).pct >= 0) criticals.push(g.formula + ' #' + g.controlNo + ' nivel critico');
+    });
+    invState.equipment.forEach(function(e) {
+        if (!e.nextCalDate) return;
+        var diff = Math.round((new Date(e.nextCalDate) - new Date()) / (1000*60*60*24));
+        if (diff < 0) criticals.push(e.name + ' calibracion vencida');
+    });
+    if (criticals.length > 0) {
+        showToast(criticals.length + ' alertas criticas en inventario', 'error');
+    }
+}
+
 function invRender() {
     var el = document.getElementById('inv-content');
     if (!el) return;
+    invCheckProactiveAlerts();
     var t = invState.activeTab;
     if (t === 'inv-dashboard') invRenderDashboard(el);
     else if (t === 'inv-gases') invRenderGases(el);
@@ -303,7 +324,7 @@ function invUpdateConcOpts() {
 function invSaveGas(editId) {
     var controlNo = document.getElementById('inv-g-control').value.trim();
     var zone = document.getElementById('inv-g-zone').value;
-    if (!controlNo) { alert('No. Control es requerido'); return; }
+    if (!controlNo) { showToast('No. Control es requerido', 'error'); return; }
 
     var gasType = document.getElementById('inv-g-type').value;
     var gt = invState.gasTypes.find(function(t){ return t.name === gasType; });
@@ -495,9 +516,9 @@ function invBulkReading() {
             }
         }
     });
-    if (count === 0) { alert('No se ingresaron lecturas'); return; }
+    if (count === 0) { showToast('No se ingresaron lecturas', 'warning'); return; }
     invSave(); invRender();
-    alert(count + ' lecturas guardadas para ' + date);
+    showToast(count + ' lecturas guardadas para ' + date, 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -575,7 +596,7 @@ function invSaveEquipment(editId) {
         nextCalDate: document.getElementById('inv-eq-nextcal').value,
         calCertNo: document.getElementById('inv-eq-cert').value.trim()
     };
-    if (!obj.name) { alert('Nombre requerido'); return; }
+    if (!obj.name) { showToast('Nombre requerido', 'error'); return; }
     if (editId) {
         var e = invState.equipment.find(function(x){return x.id===editId;});
         if (e) Object.assign(e, obj);
@@ -751,8 +772,8 @@ function invHandleImport(event) {
             if (data.usageLog) invState.usageLog = data.usageLog;
             if (data.fuelTanks) invState.fuelTanks = data.fuelTanks;
             invSave(); invPreloadData(); invRender(); invUpdateBadges();
-            alert('Importado: ' + (invState.gases.length) + ' gases, ' + (invState.equipment.length) + ' equipos');
-        } catch(err) { alert('Error: ' + err.message); }
+            showToast('Importado: ' + (invState.gases.length) + ' gases, ' + (invState.equipment.length) + ' equipos', 'success');
+        } catch(err) { showToast('Error: ' + err.message, 'error'); }
     };
     r.readAsText(f);
     event.target.value = '';
@@ -866,7 +887,7 @@ function invSaveFuelTank(editId) {
         regDate: document.getElementById('inv-ft-date').value,
         fuelStatus: document.getElementById('inv-ft-status').value
     };
-    if (!obj.name) { alert('Nombre requerido'); return; }
+    if (!obj.name) { showToast('Nombre requerido', 'error'); return; }
     if (editId) {
         var t = (invState.fuelTanks||[]).find(function(x){return x.id===editId;});
         if (t) {
@@ -892,12 +913,29 @@ function invEditFuelTank(id) { invAddFuelTank(id); }
 function invFuelReading(tankId) {
     var t = (invState.fuelTanks||[]).find(function(x){return x.id===tankId;});
     if (!t) return;
-    var level = parseFloat(prompt('Nivel actual de ' + t.name + ' (' + (t.unit||'L') + '):', t.currentLevel));
-    if (isNaN(level)) return;
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+    modal.innerHTML = '<div style="max-width:360px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
+        '<h3 style="margin:0 0 12px;color:#0f172a;">Lectura: ' + t.name + '</h3>' +
+        '<div><label style="font-size:10px;color:#64748b;">Nivel actual (' + (t.unit||'L') + ')</label>' +
+        '<input id="inv-fuel-level" type="number" step="0.1" value="' + (t.currentLevel||0) + '" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:6px;font-size:16px;margin-top:4px;"></div>' +
+        '<button onclick="invSaveFuelReading(\x27' + tankId + '\x27)" style="width:100%;margin-top:14px;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar Lectura</button>' +
+        '</div>';
+    setTimeout(function(){ var inp = document.getElementById('inv-fuel-level'); if(inp) inp.focus(); }, 100);
+}
+
+function invSaveFuelReading(tankId) {
+    var t = (invState.fuelTanks||[]).find(function(x){return x.id===tankId;});
+    if (!t) return;
+    var level = parseFloat(document.getElementById('inv-fuel-level').value);
+    if (isNaN(level)) { showToast('Nivel inválido', 'error'); return; }
     t.currentLevel = level;
     if (!t.readings) t.readings = [];
     t.readings.push({ date: new Date().toISOString().slice(0,10), level: level });
     invSave(); invRender();
+    document.getElementById('invModal').style.display = 'none';
+    showToast('Lectura guardada: ' + level + ' ' + (t.unit||'L'), 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -1027,7 +1065,7 @@ function invExportReport() {
     a.href = URL.createObjectURL(blob);
     a.download = 'consumables_report_' + new Date().toISOString().slice(0,10) + '.html';
     a.click();
-    alert('Reporte HTML descargado. Puedes abrirlo en el navegador o copiar su contenido al email.');
+    showToast('Reporte HTML descargado', 'success');
 }
 
 function invRenderConfig(el) {
@@ -1118,15 +1156,15 @@ function invSaveZoneModal(idx) {
 
     if (!isEdit) {
         id = (document.getElementById('inv-zone-id').value || '').trim().toUpperCase();
-        if (!id || id.length > 2) { alert('ID debe ser 1-2 caracteres'); return; }
-        if (invState.zones.some(function(z){ return z.id === id; })) { alert('Zona ' + id + ' ya existe'); return; }
+        if (!id || id.length > 2) { showToast('ID debe ser 1-2 caracteres', 'error'); return; }
+        if (invState.zones.some(function(z){ return z.id === id; })) { showToast('Zona ' + id + ' ya existe', 'error'); return; }
     }
 
     label = document.getElementById('inv-zone-label').value.trim();
     slots = parseInt(document.getElementById('inv-zone-slots').value);
     type = document.getElementById('inv-zone-type').value;
 
-    if (!label) { alert('Nombre requerido'); return; }
+    if (!label) { showToast('Nombre requerido', 'error'); return; }
 
     if (isEdit) {
         var z = invState.zones[idx];
@@ -1144,7 +1182,7 @@ function invSaveZoneModal(idx) {
 function invDeleteZone(idx) {
     var z = invState.zones[idx]; if (!z) return;
     var occupied = invState.gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); }).length;
-    if (occupied > 0) { alert('Zona ' + z.id + ' tiene ' + occupied + ' cilindros. Reubicalos primero.'); return; }
+    if (occupied > 0) { showToast('Zona ' + z.id + ' tiene ' + occupied + ' cilindros. Reubícalos primero.', 'warning'); return; }
     if (!confirm('Eliminar zona ' + z.id + '?')) return;
     invState.zones.splice(idx, 1);
     invSave(); invRender();
@@ -1186,7 +1224,7 @@ function invSaveGasTypeModal(idx) {
     var formula = document.getElementById('inv-gt-formula').value.trim();
     var concsStr = document.getElementById('inv-gt-concs').value.trim();
 
-    if (!name) { alert('Nombre requerido'); return; }
+    if (!name) { showToast('Nombre requerido', 'error'); return; }
 
     var concs = concsStr ? concsStr.split(',').map(function(c){ return c.trim(); }) : ['-'];
 
