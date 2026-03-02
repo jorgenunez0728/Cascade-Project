@@ -362,56 +362,59 @@ function raRenderDashboard(el){
         el.innerHTML=`<div class="tp-card" style="text-align:center;padding:50px;">
             <div style="font-size:48px;margin-bottom:12px;">🧪</div>
             <h3 style="color:#06b6d4;margin-bottom:8px;">No hay resultados importados</h3>
-            <p style="color:var(--tp-dim);margin-bottom:16px;">Ve a 📥 Importar para cargar los CSVs del analizador.</p>
-            <button class="tp-btn tp-btn-primary" onclick="raState.activeTab='ra-import';raRender();document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(b=>b.classList.remove('active'));document.querySelectorAll('#ra-tabs-bar .tp-tab')[1].classList.add('active');">Ir a Importar →</button>
+            <p style="color:var(--tp-dim);margin-bottom:16px;">Ve a Importar para cargar los CSVs del analizador.</p>
+            <button class="tp-btn tp-btn-primary" onclick="raState.activeTab='ra-import';raRender();document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(b=>b.classList.remove('active'));document.querySelectorAll('#ra-tabs-bar .tp-tab')[1].classList.add('active');">Ir a Importar</button>
         </div>`; return;
     }
+    const sf=(v,d)=>typeof v==='number'&&isFinite(v)?v.toFixed(d):'—';
     const tests=raState.tests, models=[...new Set(tests.map(t=>t.testDesc||t.modelName||'?'))];
     const regs=[...new Set(tests.map(t=>t.emissionReg||t.regSpec||'?'))];
     const fuelData=tests.filter(t=>t.cycleData&&t.cycleData.length>0).map(t=>{
         const l=t.cycleData[t.cycleData.length-1];
         return {fc:l.FuelConsumptionBag,co2:l.BagCO2,co:l.BagCO,nox:l.BagNOX,thc:l.BagTHC,vin:t.vin,model:t.testDesc,id:t.id,status:t.testStatus};
-    }).filter(d=>d.fc&&!isNaN(d.fc));
+    }).filter(d=>typeof d.fc==='number'&&isFinite(d.fc));
     const avg=(arr,k)=>arr.length>0?(arr.reduce((s,d)=>s+(d[k]||0),0)/arr.length).toFixed(3):'—';
 
+    try {
     el.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
         <div class="tp-metric"><div class="tp-metric-val" style="color:#06b6d4">${tests.length}</div><div class="tp-metric-label">Pruebas</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">${models.length}</div><div class="tp-metric-label">Modelos</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green)">${regs.length}</div><div class="tp-metric-label">Regulaciones</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:#8b5cf6">${avg(fuelData,'fc')}</div><div class="tp-metric-label">Consumo Prom</div></div>
-        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${avg(fuelData,'co2')}</div><div class="tp-metric-label">CO₂ Prom</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${avg(fuelData,'co2')}</div><div class="tp-metric-label">CO2 Prom</div></div>
     </div>
     <div class="tp-card">
-        <div class="tp-card-title"><span>📋 Últimas Pruebas</span>
+        <div class="tp-card-title"><span>Ultimas Pruebas</span>
             <span style="font-size:10px;color:var(--tp-dim);">${tests.length} total</span>
         </div>
         <div style="max-height:400px;overflow-y:auto;">
             <table class="tp-table">
-                <thead><tr><th>VIN</th><th>Modelo</th><th>Reg.</th><th>Categoría</th><th>Status</th><th style="text-align:right">FC</th><th style="text-align:right">CO₂</th><th style="text-align:right">CO</th><th style="text-align:right">NOx</th><th style="text-align:right">THC</th><th></th></tr></thead>
+                <thead><tr><th>VIN</th><th>Modelo</th><th>Reg.</th><th>Cat.</th><th>Status</th><th style="text-align:right">FC</th><th style="text-align:right">CO2</th><th style="text-align:right">CO</th><th style="text-align:right">NOx</th><th style="text-align:right">THC</th><th></th></tr></thead>
                 <tbody>
                     ${tests.slice(-30).reverse().map(t=>{
                         const c=t.cycleData&&t.cycleData.length>0?t.cycleData[t.cycleData.length-1]:{};
                         const pr=raGetProfile(t); const lims=pr?pr.limits:{};
-                        const chk=(k,v)=>lims[k]&&v&&Math.abs(v)>lims[k]?'color:var(--tp-red);font-weight:700':'';
+                        const chk=(k,v)=>lims[k]&&typeof v==='number'&&Math.abs(v)>lims[k]?'color:var(--tp-red);font-weight:700':'';
                         return `<tr>
                             <td style="font-family:monospace;font-size:9px;color:var(--tp-amber);">${t.vin||'—'}</td>
                             <td style="font-size:10px">${t.testDesc||t.modelName||'—'}</td>
                             <td style="font-size:9px">${t.emissionReg||t.regSpec||'—'}</td>
                             <td style="font-size:9px">${t.testCategory||'—'}</td>
                             <td><span class="tp-badge" style="background:${t.testStatus==='Completed'?'rgba(16,185,129,0.15);color:var(--tp-green)':'rgba(245,158,11,0.15);color:var(--tp-amber)'};border:1px solid currentColor;font-size:8px;">${t.testStatus||'?'}</span></td>
-                            <td style="text-align:right;font-family:monospace;font-size:10px;">${c.FuelConsumptionBag?c.FuelConsumptionBag.toFixed(2):'—'}</td>
-                            <td style="text-align:right;font-family:monospace;font-size:10px;">${c.BagCO2?c.BagCO2.toFixed(1):'—'}</td>
-                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagCO',c.BagCO)}">${c.BagCO?c.BagCO.toFixed(3):'—'}</td>
-                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagNOX',c.BagNOX)}">${c.BagNOX?c.BagNOX.toFixed(4):'—'}</td>
-                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagTHC',c.BagTHC)}">${c.BagTHC?c.BagTHC.toFixed(4):'—'}</td>
-            html += '<td><button class="tp-btn tp-btn-ghost" onclick="raGoDetail(\x27' + t.id + '\x27)" style="font-size:8px;">\uD83D\uDD0D</button></td>';
+                            <td style="text-align:right;font-family:monospace;font-size:10px;">${sf(c.FuelConsumptionBag,2)}</td>
+                            <td style="text-align:right;font-family:monospace;font-size:10px;">${sf(c.BagCO2,1)}</td>
+                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagCO',c.BagCO)}">${sf(c.BagCO,3)}</td>
+                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagNOX',c.BagNOX)}">${sf(c.BagNOX,4)}</td>
+                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagTHC',c.BagTHC)}">${sf(c.BagTHC,4)}</td>
+                            <td><button class="tp-btn tp-btn-ghost" onclick="raGoDetail('${t.id}')" style="font-size:8px;">🔍</button></td>
                         </tr>`;
                     }).join('')}
                 </tbody>
             </table>
         </div>
     </div>`;
+    } catch(e) { el.innerHTML='<div class="tp-card" style="padding:20px;color:var(--tp-red);">Error renderizando dashboard: '+e.message+'</div>'; console.error('RA Dashboard error:',e); }
 }
 
 

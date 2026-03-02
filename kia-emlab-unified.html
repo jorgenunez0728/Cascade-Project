@@ -4826,133 +4826,282 @@ function invEditEquipment(id) { invAddEquipment(id); }
 // PREDICTIONS
 // ══════════════════════════════════════════════════
 function invRenderPredict(el) {
-    var gases = invState.gases.filter(function(g){ return g.readings && g.readings.length >= 2 && g.status === 'In use'; });
+    var gases = invState.gases.filter(function(g) { return g.readings && g.readings.length >= 2 && g.status === 'In use'; });
     var log = invState.usageLog || [];
+    var rates = invCalcConsumptionRates();
 
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Prediccion de Consumo</span></div>';
-    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Basado en lecturas + pruebas de Cascade. Se perfecciona con cada lectura.</div>';
+    // ── Get test plan data for forward projection ──
+    var tpAnalysis = [];
+    var pendingByReg = {};
+    try {
+        if (typeof tpGetAnalysis === 'function') {
+            tpAnalysis = tpGetAnalysis();
+            tpAnalysis.forEach(function(a) {
+                if (a.deficit > 0) {
+                    var reg = (a.reg || a.desc.split(' ')[0] || 'General');
+                    pendingByReg[reg] = (pendingByReg[reg] || 0) + a.deficit;
+                }
+            });
+        }
+    } catch (e) { /* Test Plan not loaded */ }
+    var totalPending = Object.keys(pendingByReg).reduce(function(s, k) { return s + pendingByReg[k]; }, 0);
 
-    // Usage per regulation summary
-    var regUsage = {};
+    // ── Count unique tests by regulation ──
+    var regTestCounts = {};
+    var seenVins = {};
     log.forEach(function(l) {
-        var key = l.regulation || 'General';
-        if (!regUsage[key]) regUsage[key] = { tests: 0, entries: [] };
-        regUsage[key].tests++;
-        regUsage[key].entries.push(l);
+        var key = l.date + '|' + l.vin;
+        if (seenVins[key]) return;
+        seenVins[key] = true;
+        var reg = l.regulation || 'General';
+        regTestCounts[reg] = (regTestCounts[reg] || 0) + 1;
     });
 
-    if (Object.keys(regUsage).length > 0) {
-        html += '<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Pruebas registradas por regulacion</div>';
-        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
-        Object.keys(regUsage).forEach(function(r) {
-            html += '<span style="font-size:9px;padding:3px 8px;border-radius:4px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);color:var(--tp-amber);">' + r + ': ' + regUsage[r].tests + ' pruebas</span>';
+    var html = '';
+
+    // ═══════════════════════════════════════════════
+    // 1. LEARNING STATUS HEADER
+    // ═══════════════════════════════════════════════
+    var hasAdaptiveData = rates.dataPoints > 0;
+    var confidenceLabel = rates.dataPoints >= 20 ? 'Alta' : rates.dataPoints >= 5 ? 'Media' : rates.dataPoints > 0 ? 'Baja' : 'Sin datos';
+    var confidenceClr = rates.dataPoints >= 20 ? '#10b981' : rates.dataPoints >= 5 ? '#f59e0b' : '#ef4444';
+
+    html += '<div class="tp-card" style="border-left:3px solid ' + (hasAdaptiveData ? '#8b5cf6' : 'var(--tp-border)') + ';">';
+    html += '<div class="tp-card-title"><span>Prediccion Activa de Consumo</span>';
+    html += '<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:' + confidenceClr + '20;color:' + confidenceClr + ';border:1px solid ' + confidenceClr + '30;">Confianza: ' + confidenceLabel + ' (' + rates.dataPoints + ' pts)</span></div>';
+    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Modelo adaptativo: aprende del consumo real por regulacion. Se actualiza con cada lectura y liberacion de vehiculo.</div>';
+
+    // Regulation test count badges
+    var regKeys = Object.keys(regTestCounts);
+    if (regKeys.length > 0) {
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">';
+        regKeys.forEach(function(r) {
+            html += '<span style="font-size:9px;padding:3px 8px;border-radius:4px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);color:#a78bfa;">' + r + ': ' + regTestCounts[r] + ' veh.</span>';
         });
-        html += '</div></div>';
+        html += '</div>';
+    }
+    html += '</div>';
+
+    // ═══════════════════════════════════════════════
+    // 2. PER-REGULATION CONSUMPTION RATES
+    // ═══════════════════════════════════════════════
+    var allRegs = {};
+    Object.keys(rates.gas).forEach(function(f) {
+        Object.keys(rates.gas[f]).forEach(function(r) { allRegs[r] = true; });
+    });
+    Object.keys(rates.fuel).forEach(function(r) { allRegs[r] = true; });
+
+    if (Object.keys(allRegs).length > 0) {
+        html += '<div class="tp-card" style="border-left:3px solid #8b5cf6;">';
+        html += '<div class="tp-card-title"><span>Consumo por Regulacion (EWMA)</span></div>';
+
+        Object.keys(allRegs).sort().forEach(function(reg) {
+            var pending = pendingByReg[reg] || 0;
+            html += '<div style="margin-bottom:10px;padding:8px;border:1px solid var(--tp-border);border-radius:6px;background:rgba(139,92,246,0.03);">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+            html += '<span style="font-weight:800;font-size:12px;color:#a78bfa;">' + reg + '</span>';
+            if (pending > 0) html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(59,130,246,0.1);color:var(--tp-blue);border:1px solid rgba(59,130,246,0.2);">' + pending + ' pruebas pendientes</span>';
+            html += '</div>';
+
+            // Gas rates for this regulation
+            var gasFormulas = Object.keys(rates.gas).filter(function(f) { return rates.gas[f][reg]; });
+            if (gasFormulas.length > 0) {
+                html += '<div style="font-size:9px;font-weight:700;color:var(--tp-dim);margin-bottom:3px;">Gas (psi/prueba):</div>';
+                html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:3px;">';
+                gasFormulas.forEach(function(f) {
+                    var r = rates.gas[f][reg];
+                    var conf = r.n >= 10 ? '#10b981' : r.n >= 3 ? '#f59e0b' : '#94a3b8';
+                    html += '<div style="font-size:9px;padding:3px 6px;border-radius:4px;background:var(--tp-card);border:1px solid var(--tp-border);">';
+                    html += '<span style="color:var(--tp-dim);">' + f + ':</span> <strong style="color:var(--tp-amber);">' + r.ewma.toFixed(1) + '</strong> psi';
+                    html += ' <span style="font-size:7px;color:' + conf + ';">(' + r.n + ' obs)</span>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+
+            // Fuel rate for this regulation
+            if (rates.fuel[reg] && rates.fuel[reg].ewma > 0) {
+                html += '<div style="font-size:9px;font-weight:700;color:var(--tp-dim);margin-top:4px;margin-bottom:2px;">Combustible (' + (rates.fuel[reg].unit || 'L') + '/prueba):</div>';
+                html += '<div style="font-size:10px;padding:3px 6px;border-radius:4px;background:var(--tp-card);border:1px solid var(--tp-border);display:inline-block;">';
+                html += '<span style="color:var(--tp-dim);">' + (rates.fuel[reg].tankName || reg) + ':</span> <strong style="color:#f97316;">' + rates.fuel[reg].ewma.toFixed(1) + '</strong> ' + (rates.fuel[reg].unit || 'L');
+                html += ' <span style="font-size:7px;color:' + (rates.fuel[reg].n >= 5 ? '#10b981' : '#f59e0b') + ';">(' + rates.fuel[reg].n + ' obs)</span>';
+                html += '</div>';
+            }
+
+            html += '</div>';
+        });
+        html += '</div>';
     }
 
+    // ═══════════════════════════════════════════════
+    // 3. FORWARD PROJECTION (Test Plan Integration)
+    // ═══════════════════════════════════════════════
+    if (totalPending > 0 && hasAdaptiveData) {
+        html += '<div class="tp-card" style="border-left:3px solid var(--tp-blue);">';
+        html += '<div class="tp-card-title"><span>Proyeccion: Plan de Pruebas (' + totalPending + ' pendientes)</span></div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Consumo estimado para completar las pruebas pendientes del Test Plan.</div>';
+
+        // Gas projection
+        html += '<div style="font-size:10px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Gases</div>';
+        var gasAlerts = [];
+        invState.gases.filter(function(g) { return g.status === 'In use' && g.readings && g.readings.length > 0; }).forEach(function(g) {
+            var lastPsi = g.readings[g.readings.length - 1].psi;
+            var totalNeeded = 0;
+            Object.keys(pendingByReg).forEach(function(reg) {
+                if (rates.gas[g.formula] && rates.gas[g.formula][reg]) {
+                    totalNeeded += rates.gas[g.formula][reg].ewma * pendingByReg[reg];
+                }
+            });
+            if (totalNeeded > 0) {
+                var sufficient = lastPsi >= totalNeeded;
+                var pctUsed = Math.round((totalNeeded / lastPsi) * 100);
+                var clr = sufficient ? (pctUsed > 70 ? '#f59e0b' : '#10b981') : '#ef4444';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;">';
+                html += '<span style="font-size:10px;">' + g.formula + ' ' + (g.concNominal || '') + ' <span style="color:var(--tp-dim);">#' + g.controlNo + '</span></span>';
+                html += '<span style="font-size:10px;">necesita <strong>' + totalNeeded.toFixed(0) + '</strong> / tiene <strong>' + lastPsi + '</strong> psi';
+                html += ' <span style="font-weight:700;color:' + clr + ';">' + (sufficient ? 'OK' : 'INSUFICIENTE') + '</span></span>';
+                html += '</div>';
+                if (!sufficient) gasAlerts.push(g.formula + ' ' + (g.concNominal || ''));
+            }
+        });
+
+        // Fuel projection
+        var fuelRegs = Object.keys(rates.fuel).filter(function(r) { return rates.fuel[r].ewma > 0 && pendingByReg[r]; });
+        if (fuelRegs.length > 0) {
+            html += '<div style="font-size:10px;font-weight:700;color:#f97316;margin-top:8px;margin-bottom:4px;">Combustible</div>';
+            fuelRegs.forEach(function(reg) {
+                var needed = rates.fuel[reg].ewma * pendingByReg[reg];
+                (invState.fuelTanks || []).filter(function(t) { return t.regulation === reg; }).forEach(function(t) {
+                    var sufficient = t.currentLevel >= needed;
+                    var clr = sufficient ? '#10b981' : '#ef4444';
+                    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;">';
+                    html += '<span style="font-size:10px;">' + t.name + '</span>';
+                    html += '<span style="font-size:10px;">necesita <strong>' + needed.toFixed(1) + '</strong> / tiene <strong>' + t.currentLevel + '</strong> ' + (t.unit || 'L');
+                    html += ' <span style="font-weight:700;color:' + clr + ';">' + (sufficient ? 'OK' : 'INSUFICIENTE') + '</span></span>';
+                    html += '</div>';
+                });
+            });
+        }
+
+        if (gasAlerts.length > 0) {
+            html += '<div style="margin-top:6px;padding:6px 10px;border-radius:6px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);font-size:10px;color:#fca5a5;">Atencion: ' + gasAlerts.join(', ') + ' no alcanzan para completar el plan.</div>';
+        }
+        html += '</div>';
+    } else if (totalPending > 0 && !hasAdaptiveData) {
+        html += '<div class="tp-card" style="border-left:3px solid var(--tp-border);"><div class="tp-card-title"><span>Proyeccion Plan (' + totalPending + ' pendientes)</span></div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);padding:10px;">El modelo aun no tiene suficientes datos. Conforme se liberen vehiculos y se registren lecturas, las predicciones por regulacion apareceran aqui.</div></div>';
+    }
+
+    // ═══════════════════════════════════════════════
+    // 4. INDIVIDUAL GAS PREDICTIONS
+    // ═══════════════════════════════════════════════
     if (gases.length === 0) {
-        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Necesitas al menos 2 lecturas en cilindros activos.</div>';
+        html += '<div class="tp-card" style="text-align:center;padding:20px;color:var(--tp-dim);">Necesitas al menos 2 lecturas en cilindros activos para ver predicciones individuales.</div>';
     } else {
-        // Sort by days remaining
+        html += '<div class="tp-card"><div class="tp-card-title"><span>Estado Individual de Cilindros</span></div>';
         var predictions = gases.map(function(g) {
             var rdgs = g.readings;
-            var first = rdgs[0]; var last = rdgs[rdgs.length-1];
-            var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / (1000*60*60*24)));
+            var first = rdgs[0]; var last = rdgs[rdgs.length - 1];
+            var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / (1000 * 60 * 60 * 24)));
             var psiDrop = first.psi - last.psi;
             var dailyRate = psiDrop / daysDiff;
 
-            // Enhanced: calculate psi per test from usage log
-            var gasLog = log.filter(function(l) { return l.gasFormula === g.formula; });
-            var psiPerTest = 0;
-            if (gasLog.length >= 2 && rdgs.length >= 2) {
-                // Find readings that bracket test dates
-                var totalPsiUsed = first.psi - last.psi;
-                var totalTests = gasLog.filter(function(l) {
-                    return l.date >= first.date && l.date <= last.date;
-                }).length;
-                psiPerTest = totalTests > 0 ? (totalPsiUsed / totalTests) : 0;
+            // Use adaptive rate if available, otherwise fallback to linear
+            var adaptiveRateLabel = '';
+            var adaptivePsiPerTest = 0;
+            if (rates.gas[g.formula]) {
+                var regRates = rates.gas[g.formula];
+                var regs = Object.keys(regRates);
+                if (regs.length > 0) {
+                    // Weighted average across regulations based on pending tests
+                    var totalW = 0; var sumW = 0;
+                    regs.forEach(function(r) {
+                        var w = pendingByReg[r] || regTestCounts[r] || 1;
+                        sumW += regRates[r].ewma * w;
+                        totalW += w;
+                    });
+                    adaptivePsiPerTest = totalW > 0 ? sumW / totalW : 0;
+                    adaptiveRateLabel = regs.map(function(r) {
+                        return r + ': ' + regRates[r].ewma.toFixed(1);
+                    }).join(', ');
+                }
             }
 
+            // Estimate tests remaining
+            var testsRemaining = adaptivePsiPerTest > 0 ? Math.floor(last.psi / adaptivePsiPerTest) : 0;
             var weeklyRate = dailyRate * 7;
             var daysLeft = dailyRate > 0 ? Math.round(last.psi / dailyRate) : 999;
             var emptyDate = new Date(); emptyDate.setDate(emptyDate.getDate() + daysLeft);
             var pctLeft = first.psi > 0 ? Math.round((last.psi / first.psi) * 100) : 0;
 
-            return { g:g, dailyRate:dailyRate, weeklyRate:weeklyRate, daysLeft:daysLeft, emptyDate:emptyDate, pctLeft:pctLeft, psiPerTest:psiPerTest, lastPsi:last.psi, readings:rdgs.length };
-        }).sort(function(a,b) { return a.daysLeft - b.daysLeft; });
+            return { g: g, dailyRate: dailyRate, weeklyRate: weeklyRate, daysLeft: daysLeft, emptyDate: emptyDate, pctLeft: pctLeft, adaptivePsiPerTest: adaptivePsiPerTest, adaptiveRateLabel: adaptiveRateLabel, testsRemaining: testsRemaining, lastPsi: last.psi, readings: rdgs.length };
+        }).sort(function(a, b) { return a.daysLeft - b.daysLeft; });
 
         predictions.forEach(function(p) {
             var g = p.g;
-            html += '<div style="padding:10px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:8px;border-left:3px solid ' + (p.daysLeft < 14 ? '#ef4444' : p.daysLeft < 30 ? '#f59e0b' : '#10b981') + ';background:var(--tp-card);">';
+            var borderClr = p.daysLeft < 14 ? '#ef4444' : p.daysLeft < 30 ? '#f59e0b' : '#10b981';
+            html += '<div style="padding:10px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:8px;border-left:3px solid ' + borderClr + ';background:var(--tp-card);">';
             html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">';
-            html += '<div><span style="font-weight:700;font-size:11px;">' + g.formula + ' ' + (g.concNominal||'') + '</span> <span style="font-size:9px;color:var(--tp-dim);">#' + g.controlNo + ' (' + (g.zone||'?') + ')</span></div>';
-            html += '<span style="font-size:9px;font-weight:700;color:' + (p.daysLeft < 14 ? '#ef4444' : p.daysLeft < 30 ? '#f59e0b' : '#10b981') + ';">' + (p.daysLeft > 365 ? '>1 ano' : '~' + p.daysLeft + ' dias') + '</span>';
+            html += '<div><span style="font-weight:700;font-size:11px;">' + g.formula + ' ' + (g.concNominal || '') + '</span> <span style="font-size:9px;color:var(--tp-dim);">#' + g.controlNo + ' (' + (g.zone || '?') + ')</span></div>';
+            html += '<span style="font-size:9px;font-weight:700;color:' + borderClr + ';">' + (p.daysLeft > 365 ? '>1 ano' : '~' + p.daysLeft + ' dias') + '</span>';
             html += '</div>';
             html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap:4px;margin-top:6px;">';
             html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">Actual:</span> <strong>' + p.lastPsi + ' psi</strong></div>';
             html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">psi/dia:</span> <strong>' + p.dailyRate.toFixed(1) + '</strong></div>';
             html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">psi/sem:</span> <strong>' + p.weeklyRate.toFixed(0) + '</strong></div>';
-            if (p.psiPerTest > 0) html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">psi/prueba:</span> <strong style="color:var(--tp-amber);">' + p.psiPerTest.toFixed(1) + '</strong></div>';
-            html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">Vacio:</span> <strong>' + (p.daysLeft > 365 ? '>1 ano' : p.emptyDate.toLocaleDateString('es-MX',{day:'numeric',month:'short'})) + '</strong></div>';
-            html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">Lecturas:</span> <strong>' + p.readings + '</strong></div>';
+            if (p.adaptivePsiPerTest > 0) {
+                html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">psi/prueba:</span> <strong style="color:#a78bfa;">' + p.adaptivePsiPerTest.toFixed(1) + '</strong></div>';
+                html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">Pruebas rest.:</span> <strong style="color:var(--tp-amber);">' + p.testsRemaining + '</strong></div>';
+            }
+            html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">Vacio:</span> <strong>' + (p.daysLeft > 365 ? '>1 ano' : p.emptyDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })) + '</strong></div>';
             html += '</div>';
+            // Per-regulation breakdown
+            if (p.adaptiveRateLabel) {
+                html += '<div style="font-size:8px;color:#a78bfa;margin-top:3px;">Tasa adaptativa: ' + p.adaptiveRateLabel + ' psi/prueba</div>';
+            }
             html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:6px;"><div class="tp-bar-fill" style="width:' + p.pctLeft + '%;background:' + (p.pctLeft < 15 ? '#ef4444' : p.pctLeft < 30 ? '#f59e0b' : '#10b981') + ';"></div></div>';
             html += '</div>';
         });
-
-        // Weekly plan estimation
-        var wp = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
-        if (wp.length > 0) {
-            var lastWp = wp[wp.length - 1];
-            var pending = lastWp.items ? lastWp.items.filter(function(i){return !i.completed;}).length : 0;
-            if (pending > 0) {
-                html += '<div class="tp-card" style="border-left:3px solid var(--tp-blue);margin-top:8px;"><div class="tp-card-title"><span>Estimacion para plan semanal (' + pending + ' pruebas pendientes)</span></div>';
-                var hasData = predictions.some(function(p){ return p.psiPerTest > 0; });
-                if (hasData) {
-                    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:6px;">Basado en consumo promedio por prueba:</div>';
-                    predictions.filter(function(p){return p.psiPerTest > 0;}).forEach(function(p) {
-                        var needed = p.psiPerTest * pending;
-                        var sufficient = p.lastPsi >= needed;
-                        html += '<div style="font-size:10px;padding:3px 6px;margin-bottom:2px;color:' + (sufficient?'var(--tp-green)':'var(--tp-red)') + ';">' + p.g.formula + ': necesita ~' + needed.toFixed(0) + ' psi, tiene ' + p.lastPsi + ' psi ' + (sufficient ? 'OK' : 'INSUFICIENTE') + '</div>';
-                    });
-                } else {
-                    html += '<div style="font-size:10px;color:var(--tp-dim);">Aun no hay datos suficientes de psi/prueba. Se calcula conforme se liberen vehiculos y se registren lecturas.</div>';
-                }
-                html += '</div>';
-            }
-        }
+        html += '</div>';
     }
-    html += '</div>';
 
-    // Fuel prediction
+    // ═══════════════════════════════════════════════
+    // 5. FUEL PREDICTIONS
+    // ═══════════════════════════════════════════════
     var fuelTanks = invState.fuelTanks || [];
-    var fuelWithReadings = fuelTanks.filter(function(t){ return t.readings && t.readings.length >= 1; });
+    var fuelWithReadings = fuelTanks.filter(function(t) { return t.readings && t.readings.length >= 1; });
     if (fuelWithReadings.length > 0) {
-        html += '<div class="tp-card" style="margin-top:8px;"><div class="tp-card-title"><span>Prediccion Combustible</span></div>';
+        html += '<div class="tp-card"><div class="tp-card-title"><span>Prediccion Combustible</span></div>';
         fuelWithReadings.forEach(function(t) {
             var rdgs = t.readings;
-            var last = rdgs[rdgs.length-1];
+            var last = rdgs[rdgs.length - 1];
             var pct = t.capacity > 0 ? Math.round((last.level / t.capacity) * 100) : 0;
             var dailyRate = 0; var daysLeft = 999;
             if (rdgs.length >= 2) {
                 var first = rdgs[0];
-                var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date))/(1000*60*60*24)));
+                var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / (1000 * 60 * 60 * 24)));
                 var drop = first.level - last.level;
                 dailyRate = drop / daysDiff;
                 daysLeft = dailyRate > 0 ? Math.round(last.level / dailyRate) : 999;
             }
+            var adaptiveFuelPerTest = (t.regulation && rates.fuel[t.regulation]) ? rates.fuel[t.regulation].ewma : 0;
+            var testsRemaining = adaptiveFuelPerTest > 0 ? Math.floor(last.level / adaptiveFuelPerTest) : 0;
             var clr = daysLeft < 14 ? '#ef4444' : daysLeft < 30 ? '#f59e0b' : '#10b981';
             html += '<div style="padding:8px;margin-bottom:4px;border:1px solid var(--tp-border);border-radius:6px;border-left:3px solid ' + clr + ';background:var(--tp-card);">';
             html += '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;">';
-            html += '<div><strong>' + t.name + '</strong> <span style="font-size:9px;color:var(--tp-dim);">(' + (t.regulation||t.fuelType||'') + ')</span></div>';
+            html += '<div><strong>' + t.name + '</strong> <span style="font-size:9px;color:var(--tp-dim);">(' + (t.regulation || t.fuelType || '') + ')</span></div>';
             html += '<span style="font-size:10px;font-weight:700;color:' + clr + ';">' + (daysLeft > 365 ? '>1 ano' : '~' + daysLeft + ' dias') + '</span>';
             html += '</div>';
-            html += '<div style="display:flex;gap:12px;font-size:9px;margin-top:4px;">';
-            html += '<span>Nivel: <strong>' + last.level + '/' + t.capacity + ' ' + (t.unit||'L') + '</strong></span>';
-            if (dailyRate > 0) html += '<span>Consumo/dia: <strong>' + dailyRate.toFixed(1) + ' ' + (t.unit||'L') + '</strong></span>';
-            if (dailyRate > 0) html += '<span>Consumo/sem: <strong>' + (dailyRate*7).toFixed(1) + ' ' + (t.unit||'L') + '</strong></span>';
+            html += '<div style="display:flex;gap:12px;font-size:9px;margin-top:4px;flex-wrap:wrap;">';
+            html += '<span>Nivel: <strong>' + last.level + '/' + t.capacity + ' ' + (t.unit || 'L') + '</strong></span>';
+            if (dailyRate > 0) html += '<span>' + (t.unit || 'L') + '/dia: <strong>' + dailyRate.toFixed(1) + '</strong></span>';
+            if (dailyRate > 0) html += '<span>' + (t.unit || 'L') + '/sem: <strong>' + (dailyRate * 7).toFixed(1) + '</strong></span>';
+            if (adaptiveFuelPerTest > 0) {
+                html += '<span style="color:#f97316;">' + (t.unit || 'L') + '/prueba: <strong>' + adaptiveFuelPerTest.toFixed(1) + '</strong></span>';
+                html += '<span style="color:var(--tp-amber);">Pruebas rest.: <strong>' + testsRemaining + '</strong></span>';
+            }
             html += '</div>';
-            html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:6px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + (pct<15?'#ef4444':pct<30?'#f59e0b':'#10b981') + ';"></div></div>';
+            html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:6px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + (pct < 15 ? '#ef4444' : pct < 30 ? '#f59e0b' : '#10b981') + ';"></div></div>';
             html += '</div>';
         });
         html += '</div>';
@@ -4996,17 +5145,39 @@ function invHandleImport(event) {
 // ══════════════════════════════════════════════════
 function invLogTestUsage(vehicle) {
     if (!vehicle) return;
+    var date = new Date().toISOString().slice(0,10);
+    var regulation = vehicle.configCode ? vehicle.configCode.split(' ')[0] : '';
+
+    // Snapshot current PSI levels for correlation with next reading
+    var psiSnapshot = {};
+    invState.gases.forEach(function(g) {
+        if (g.status === 'In use' && g.readings && g.readings.length > 0) {
+            psiSnapshot[g.formula] = g.readings[g.readings.length - 1].psi;
+        }
+    });
+
+    // Snapshot fuel levels for matching regulation
+    var fuelSnapshot = {};
+    (invState.fuelTanks || []).forEach(function(t) {
+        if (t.regulation === regulation || !t.regulation) {
+            fuelSnapshot[t.id] = t.currentLevel;
+        }
+    });
+
     var entry = {
-        date: new Date().toISOString().slice(0,10),
+        date: date,
         vin: vehicle.vin || '',
         configCode: vehicle.configCode || '',
         purpose: vehicle.purpose || '',
-        regulation: vehicle.configCode ? vehicle.configCode.split(' ')[0] : '',
-        gasFormula: '', // Will be populated per gas type used
-        timestamp: new Date().toISOString()
+        regulation: regulation,
+        gasFormula: '',
+        timestamp: new Date().toISOString(),
+        psiSnap: psiSnapshot,
+        fuelSnap: fuelSnapshot
     };
-    // Log one entry per gas type in use (they all get consumed per test)
-    var inUse = invState.gases.filter(function(g){ return g.status === 'In use'; });
+
+    // Log one entry per gas formula in use
+    var inUse = invState.gases.filter(function(g) { return g.status === 'In use'; });
     var formulas = {};
     inUse.forEach(function(g) { formulas[g.formula] = true; });
     Object.keys(formulas).forEach(function(f) {
@@ -5015,8 +5186,136 @@ function invLogTestUsage(vehicle) {
         invState.usageLog.push(logEntry);
     });
     // Keep log manageable
-    if (invState.usageLog.length > 2000) invState.usageLog = invState.usageLog.slice(-1500);
+    if (invState.usageLog.length > 3000) invState.usageLog = invState.usageLog.slice(-2000);
     invSave();
+}
+
+// ══════════════════════════════════════════════════
+// ACTIVE PREDICTION ENGINE — Consumption Rate Calculator
+// ══════════════════════════════════════════════════
+function invCalcConsumptionRates() {
+    var rates = { gas: {}, fuel: {}, lastCalc: new Date().toISOString(), dataPoints: 0 };
+    var log = invState.usageLog || [];
+    if (log.length === 0) return rates;
+
+    var ALPHA = 0.3; // EWMA weight for newest observation
+
+    // ── GAS RATES: correlate readings with test events ──
+    var gasFormulas = {};
+    invState.gases.forEach(function(g) {
+        if (g.status !== 'In use' || !g.readings || g.readings.length < 2) return;
+        if (!gasFormulas[g.formula]) gasFormulas[g.formula] = [];
+        gasFormulas[g.formula].push(g);
+    });
+
+    Object.keys(gasFormulas).forEach(function(formula) {
+        var formulaLog = log.filter(function(l) { return l.gasFormula === formula; });
+        if (formulaLog.length === 0) return;
+
+        // Use primary cylinder for rate calc
+        var g = gasFormulas[formula][0];
+        var readings = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+
+        // Between consecutive readings, count tests by regulation
+        for (var i = 0; i < readings.length - 1; i++) {
+            var d1 = readings[i].date;
+            var d2 = readings[i + 1].date;
+            var psiDrop = readings[i].psi - readings[i + 1].psi;
+            if (psiDrop <= 0) continue; // No consumption or refill
+
+            var testsBetween = formulaLog.filter(function(l) {
+                return l.date >= d1 && l.date <= d2;
+            });
+            if (testsBetween.length === 0) continue;
+
+            // Group by regulation
+            var regCounts = {};
+            testsBetween.forEach(function(l) {
+                var reg = l.regulation || 'General';
+                regCounts[reg] = (regCounts[reg] || 0) + 1;
+            });
+            var totalTests = testsBetween.length;
+            var regKeys = Object.keys(regCounts);
+
+            // Compute psi/test per regulation
+            if (regKeys.length === 1) {
+                // Single regulation — direct measurement
+                var reg = regKeys[0];
+                var psiPerTest = psiDrop / totalTests;
+                if (!rates.gas[formula]) rates.gas[formula] = {};
+                if (!rates.gas[formula][reg]) rates.gas[formula][reg] = { obs: [], ewma: 0, n: 0 };
+                rates.gas[formula][reg].obs.push({ ppt: psiPerTest, cnt: totalTests, d1: d1, d2: d2 });
+            } else {
+                // Mixed regulations — proportional distribution
+                var psiPerTest = psiDrop / totalTests;
+                regKeys.forEach(function(reg) {
+                    if (!rates.gas[formula]) rates.gas[formula] = {};
+                    if (!rates.gas[formula][reg]) rates.gas[formula][reg] = { obs: [], ewma: 0, n: 0 };
+                    rates.gas[formula][reg].obs.push({ ppt: psiPerTest, cnt: regCounts[reg], d1: d1, d2: d2 });
+                });
+            }
+        }
+    });
+
+    // EWMA for each gas/regulation
+    Object.keys(rates.gas).forEach(function(formula) {
+        Object.keys(rates.gas[formula]).forEach(function(reg) {
+            var r = rates.gas[formula][reg];
+            if (r.obs.length === 0) return;
+            r.obs.sort(function(a, b) { return a.d1.localeCompare(b.d1); });
+            var ewma = r.obs[0].ppt;
+            for (var j = 1; j < r.obs.length; j++) {
+                ewma = ALPHA * r.obs[j].ppt + (1 - ALPHA) * ewma;
+            }
+            r.ewma = ewma;
+            r.n = r.obs.reduce(function(s, v) { return s + v.cnt; }, 0);
+            rates.dataPoints += r.n;
+        });
+    });
+
+    // ── FUEL RATES: correlate fuel readings with test events ──
+    (invState.fuelTanks || []).forEach(function(t) {
+        if (!t.readings || t.readings.length < 2 || !t.regulation) return;
+        var readings = t.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+        var reg = t.regulation;
+
+        // Deduplicate tests by date+vin (one release = one fuel usage)
+        var regTests = log.filter(function(l) { return l.regulation === reg; });
+        var uniqueTests = [];
+        var seen = {};
+        regTests.forEach(function(l) {
+            var key = l.date + '|' + l.vin;
+            if (!seen[key]) { seen[key] = true; uniqueTests.push(l); }
+        });
+
+        if (!rates.fuel[reg]) rates.fuel[reg] = { obs: [], ewma: 0, n: 0, unit: t.unit || 'L', tankName: t.name };
+
+        for (var i = 0; i < readings.length - 1; i++) {
+            var d1 = readings[i].date;
+            var d2 = readings[i + 1].date;
+            var levelDrop = readings[i].level - readings[i + 1].level;
+            if (levelDrop <= 0) continue;
+
+            var testsBetween = uniqueTests.filter(function(l) { return l.date >= d1 && l.date <= d2; });
+            if (testsBetween.length === 0) continue;
+
+            rates.fuel[reg].obs.push({ fpt: levelDrop / testsBetween.length, cnt: testsBetween.length, d1: d1, d2: d2 });
+        }
+
+        // EWMA for fuel
+        if (rates.fuel[reg].obs.length > 0) {
+            rates.fuel[reg].obs.sort(function(a, b) { return a.d1.localeCompare(b.d1); });
+            var ewma = rates.fuel[reg].obs[0].fpt;
+            for (var j = 1; j < rates.fuel[reg].obs.length; j++) {
+                ewma = ALPHA * rates.fuel[reg].obs[j].fpt + (1 - ALPHA) * ewma;
+            }
+            rates.fuel[reg].ewma = ewma;
+            rates.fuel[reg].n = rates.fuel[reg].obs.reduce(function(s, v) { return s + v.cnt; }, 0);
+            rates.dataPoints += rates.fuel[reg].n;
+        }
+    });
+
+    return rates;
 }
 
 // ══════════════════════════════════════════════════
@@ -7407,56 +7706,59 @@ function raRenderDashboard(el){
         el.innerHTML=`<div class="tp-card" style="text-align:center;padding:50px;">
             <div style="font-size:48px;margin-bottom:12px;">🧪</div>
             <h3 style="color:#06b6d4;margin-bottom:8px;">No hay resultados importados</h3>
-            <p style="color:var(--tp-dim);margin-bottom:16px;">Ve a 📥 Importar para cargar los CSVs del analizador.</p>
-            <button class="tp-btn tp-btn-primary" onclick="raState.activeTab='ra-import';raRender();document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(b=>b.classList.remove('active'));document.querySelectorAll('#ra-tabs-bar .tp-tab')[1].classList.add('active');">Ir a Importar →</button>
+            <p style="color:var(--tp-dim);margin-bottom:16px;">Ve a Importar para cargar los CSVs del analizador.</p>
+            <button class="tp-btn tp-btn-primary" onclick="raState.activeTab='ra-import';raRender();document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(b=>b.classList.remove('active'));document.querySelectorAll('#ra-tabs-bar .tp-tab')[1].classList.add('active');">Ir a Importar</button>
         </div>`; return;
     }
+    const sf=(v,d)=>typeof v==='number'&&isFinite(v)?v.toFixed(d):'—';
     const tests=raState.tests, models=[...new Set(tests.map(t=>t.testDesc||t.modelName||'?'))];
     const regs=[...new Set(tests.map(t=>t.emissionReg||t.regSpec||'?'))];
     const fuelData=tests.filter(t=>t.cycleData&&t.cycleData.length>0).map(t=>{
         const l=t.cycleData[t.cycleData.length-1];
         return {fc:l.FuelConsumptionBag,co2:l.BagCO2,co:l.BagCO,nox:l.BagNOX,thc:l.BagTHC,vin:t.vin,model:t.testDesc,id:t.id,status:t.testStatus};
-    }).filter(d=>d.fc&&!isNaN(d.fc));
+    }).filter(d=>typeof d.fc==='number'&&isFinite(d.fc));
     const avg=(arr,k)=>arr.length>0?(arr.reduce((s,d)=>s+(d[k]||0),0)/arr.length).toFixed(3):'—';
 
+    try {
     el.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
         <div class="tp-metric"><div class="tp-metric-val" style="color:#06b6d4">${tests.length}</div><div class="tp-metric-label">Pruebas</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">${models.length}</div><div class="tp-metric-label">Modelos</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green)">${regs.length}</div><div class="tp-metric-label">Regulaciones</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:#8b5cf6">${avg(fuelData,'fc')}</div><div class="tp-metric-label">Consumo Prom</div></div>
-        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${avg(fuelData,'co2')}</div><div class="tp-metric-label">CO₂ Prom</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${avg(fuelData,'co2')}</div><div class="tp-metric-label">CO2 Prom</div></div>
     </div>
     <div class="tp-card">
-        <div class="tp-card-title"><span>📋 Últimas Pruebas</span>
+        <div class="tp-card-title"><span>Ultimas Pruebas</span>
             <span style="font-size:10px;color:var(--tp-dim);">${tests.length} total</span>
         </div>
         <div style="max-height:400px;overflow-y:auto;">
             <table class="tp-table">
-                <thead><tr><th>VIN</th><th>Modelo</th><th>Reg.</th><th>Categoría</th><th>Status</th><th style="text-align:right">FC</th><th style="text-align:right">CO₂</th><th style="text-align:right">CO</th><th style="text-align:right">NOx</th><th style="text-align:right">THC</th><th></th></tr></thead>
+                <thead><tr><th>VIN</th><th>Modelo</th><th>Reg.</th><th>Cat.</th><th>Status</th><th style="text-align:right">FC</th><th style="text-align:right">CO2</th><th style="text-align:right">CO</th><th style="text-align:right">NOx</th><th style="text-align:right">THC</th><th></th></tr></thead>
                 <tbody>
                     ${tests.slice(-30).reverse().map(t=>{
                         const c=t.cycleData&&t.cycleData.length>0?t.cycleData[t.cycleData.length-1]:{};
                         const pr=raGetProfile(t); const lims=pr?pr.limits:{};
-                        const chk=(k,v)=>lims[k]&&v&&Math.abs(v)>lims[k]?'color:var(--tp-red);font-weight:700':'';
+                        const chk=(k,v)=>lims[k]&&typeof v==='number'&&Math.abs(v)>lims[k]?'color:var(--tp-red);font-weight:700':'';
                         return `<tr>
                             <td style="font-family:monospace;font-size:9px;color:var(--tp-amber);">${t.vin||'—'}</td>
                             <td style="font-size:10px">${t.testDesc||t.modelName||'—'}</td>
                             <td style="font-size:9px">${t.emissionReg||t.regSpec||'—'}</td>
                             <td style="font-size:9px">${t.testCategory||'—'}</td>
                             <td><span class="tp-badge" style="background:${t.testStatus==='Completed'?'rgba(16,185,129,0.15);color:var(--tp-green)':'rgba(245,158,11,0.15);color:var(--tp-amber)'};border:1px solid currentColor;font-size:8px;">${t.testStatus||'?'}</span></td>
-                            <td style="text-align:right;font-family:monospace;font-size:10px;">${c.FuelConsumptionBag?c.FuelConsumptionBag.toFixed(2):'—'}</td>
-                            <td style="text-align:right;font-family:monospace;font-size:10px;">${c.BagCO2?c.BagCO2.toFixed(1):'—'}</td>
-                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagCO',c.BagCO)}">${c.BagCO?c.BagCO.toFixed(3):'—'}</td>
-                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagNOX',c.BagNOX)}">${c.BagNOX?c.BagNOX.toFixed(4):'—'}</td>
-                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagTHC',c.BagTHC)}">${c.BagTHC?c.BagTHC.toFixed(4):'—'}</td>
-            html += '<td><button class="tp-btn tp-btn-ghost" onclick="raGoDetail(\x27' + t.id + '\x27)" style="font-size:8px;">\uD83D\uDD0D</button></td>';
+                            <td style="text-align:right;font-family:monospace;font-size:10px;">${sf(c.FuelConsumptionBag,2)}</td>
+                            <td style="text-align:right;font-family:monospace;font-size:10px;">${sf(c.BagCO2,1)}</td>
+                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagCO',c.BagCO)}">${sf(c.BagCO,3)}</td>
+                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagNOX',c.BagNOX)}">${sf(c.BagNOX,4)}</td>
+                            <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagTHC',c.BagTHC)}">${sf(c.BagTHC,4)}</td>
+                            <td><button class="tp-btn tp-btn-ghost" onclick="raGoDetail('${t.id}')" style="font-size:8px;">🔍</button></td>
                         </tr>`;
                     }).join('')}
                 </tbody>
             </table>
         </div>
     </div>`;
+    } catch(e) { el.innerHTML='<div class="tp-card" style="padding:20px;color:var(--tp-red);">Error renderizando dashboard: '+e.message+'</div>'; console.error('RA Dashboard error:',e); }
 }
 
 
