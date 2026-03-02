@@ -238,6 +238,7 @@ function raRender(){
     else if(t==='ra-trends') raRenderTrends(el);
     else if(t==='ra-detail') raRenderDetail(el);
     else if(t==='ra-outliers') raRenderOutliers(el);
+    else if(t==='ra-capability') raRenderCapability(el);
     else if(t==='ra-search') raRenderSearch(el);
 }
 
@@ -634,22 +635,20 @@ function raRenderTrends(el){
         return {val:l[fMetric],vin:t.vin,model:t.testDesc,id:t.id,date:t.dateStr,num:t.testNumber,group:groupFn(t)};
     }).filter(p=>p.val!==undefined&&!isNaN(p.val));
 
-    const vals=pts.map(p=>Math.abs(p.val));
-    const minV=vals.length>0?Math.min(...vals):0;
-    const maxV=vals.length>0?Math.max(...vals):1;
     const avgV=pts.length>0?(pts.reduce((s,p)=>s+p.val,0)/pts.length):0;
     const stdV=pts.length>1?Math.sqrt(pts.reduce((s,p)=>s+Math.pow(p.val-avgV,2),0)/(pts.length-1)):0;
     const ucl=avgV+3*stdV, lcl=Math.max(0,avgV-3*stdV);
+    const warn2s=avgV+2*stdV, warn2sL=Math.max(0,avgV-2*stdV);
     const pr=raGetProfile(filtered[0]||{}); const lim=pr?pr.limits[fMetric]:null;
-    const chartMin=Math.max(0,Math.min(minV,lcl,lim||Infinity)*0.9);
-    const chartMax2=Math.max(maxV,ucl,lim||0)*1.1;
-    const chartRange=chartMax2-chartMin||1;
     const metricOpts=['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','BagNMHCpNOX','DilutePN'];
-    const groupByOpts=[{v:'regTestMode',l:'Regulación+TestMode'},{v:'testDesc',l:'Test Description'}];
+    const groupByOpts=[{v:'regTestMode',l:'Regulacion+TestMode'},{v:'testDesc',l:'Test Description'}];
+
+    // Destroy previous chart if exists
+    if(window._raTrendChart){ try{window._raTrendChart.destroy();}catch(e){} window._raTrendChart=null; }
 
     el.innerHTML=`
     <div class="tp-card">
-        <div class="tp-card-title"><span>📈 Tendencias & Control</span></div>
+        <div class="tp-card-title"><span>Tendencias & Control</span></div>
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
             <select class="tp-select" onchange="window._raTrendGroupBy=this.value;window._raTrendGroup='ALL';raRender();" style="font-size:10px;">
                 ${groupByOpts.map(o=>`<option value="${o.v}" ${o.v===fGroupBy?'selected':''}>Agrupar: ${o.l}</option>`).join('')}
@@ -663,41 +662,98 @@ function raRenderTrends(el){
             </select>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:10px;">
-            <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:15px;">${avgV.toFixed(4)}</div><div class="tp-metric-label">x̄</div></div>
-            <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-blue);font-size:15px;">${stdV.toFixed(4)}</div><div class="tp-metric-label">σ</div></div>
-            <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#8b5cf6;font-size:15px;">${ucl.toFixed(4)}</div><div class="tp-metric-label">UCL</div></div>
-            ${lim?`<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:15px;">${lim}</div><div class="tp-metric-label">Límite</div></div>`:''}
+            <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:15px;">${avgV.toFixed(4)}</div><div class="tp-metric-label">x&#772;</div></div>
+            <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-blue);font-size:15px;">${stdV.toFixed(4)}</div><div class="tp-metric-label">&sigma;</div></div>
+            <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#8b5cf6;font-size:15px;">${ucl.toFixed(4)}</div><div class="tp-metric-label">UCL (3&sigma;)</div></div>
+            ${lim?`<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:15px;">${lim}</div><div class="tp-metric-label">Limite</div></div>`:''}
             <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#06b6d4;font-size:15px;">${pts.length}</div><div class="tp-metric-label">N</div></div>
-            <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:${pts.filter(p=>Math.abs(p.val-avgV)>2*stdV).length>0?'var(--tp-red)':'var(--tp-green)'};font-size:15px;">${pts.filter(p=>Math.abs(p.val-avgV)>2*stdV).length}</div><div class="tp-metric-label">>2σ</div></div>
+            <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:${pts.filter(p=>Math.abs(p.val-avgV)>2*stdV).length>0?'var(--tp-red)':'var(--tp-green)'};font-size:15px;">${pts.filter(p=>Math.abs(p.val-avgV)>2*stdV).length}</div><div class="tp-metric-label">>2&sigma;</div></div>
         </div>
-        <div style="display:flex;">
-            <div style="width:40px;display:flex;flex-direction:column;justify-content:space-between;font-size:7px;color:var(--tp-dim);text-align:right;padding-right:4px;height:200px;">
-                <span>${chartMax2.toFixed(3)}</span><span>${((chartMax2+chartMin)/2).toFixed(3)}</span><span>${chartMin.toFixed(3)}</span>
-            </div>
-            <div style="flex:1;position:relative;height:200px;border:1px solid var(--tp-border);border-radius:8px;padding:4px;overflow:hidden;">
-                <div style="position:absolute;left:0;right:0;bottom:${((ucl-chartMin)/chartRange)*100}%;border-top:1px dashed #8b5cf6;z-index:2;"><span style="font-size:7px;color:#8b5cf6;position:absolute;left:2px;top:-10px;">3σ</span></div>
-                <div style="position:absolute;left:0;right:0;bottom:${(((avgV+2*stdV)-chartMin)/chartRange)*100}%;border-top:1px dotted #f59e0b;z-index:2;opacity:0.5;"><span style="font-size:7px;color:#f59e0b;position:absolute;right:2px;top:-10px;">2σ</span></div>
-                <div style="position:absolute;left:0;right:0;bottom:${((avgV-chartMin)/chartRange)*100}%;border-top:1px solid var(--tp-amber);z-index:2;"><span style="font-size:7px;color:var(--tp-amber);position:absolute;left:2px;top:-10px;">x̄</span></div>
-                ${lcl>chartMin?`<div style="position:absolute;left:0;right:0;bottom:${((lcl-chartMin)/chartRange)*100}%;border-top:1px dashed #8b5cf6;z-index:2;"></div>`:''}
-                ${lim&&lim<chartMax2?`<div style="position:absolute;left:0;right:0;bottom:${((lim-chartMin)/chartRange)*100}%;border-top:2px dashed var(--tp-red);z-index:2;"><span style="font-size:7px;color:var(--tp-red);position:absolute;right:2px;top:-10px;">LÍM</span></div>`:''}
-                <div style="display:flex;align-items:flex-end;height:100%;gap:1px;">
-                    ${pts.slice(-60).map(p=>{
-                        const h=((Math.abs(p.val)-chartMin)/chartRange)*100;
-                        const is3s=p.val>ucl||p.val<lcl;
-                        const is2s=Math.abs(p.val-avgV)>2*stdV;
-                        const overLim=lim&&Math.abs(p.val)>lim;
-                        const clr=overLim?'var(--tp-red)':is3s?'#8b5cf6':is2s?'#f59e0b':'var(--tp-green)';
-                        return `<div style="flex:1;height:100%;display:flex;align-items:flex-end;" title="${p.vin}: ${p.val.toFixed(4)}"><div style="width:80%;margin:0 auto;background:${clr};border-radius:2px 2px 0 0;height:${Math.max(h,1)}%;opacity:0.75;"></div></div>`;
-                    }).join('')}
-                </div>
-            </div>
-        </div>
-        <div style="display:flex;gap:10px;justify-content:center;font-size:8px;margin-top:4px;"><span style="color:var(--tp-green);">■ OK</span><span style="color:#f59e0b;">■ >2σ</span><span style="color:#8b5cf6;">■ >3σ</span>${lim?`<span style="color:var(--tp-red);">■ >Límite</span>`:''}</div>
+        <div style="position:relative;height:320px;"><canvas id="ra-trend-canvas"></canvas></div>
     </div>
-    <div class="tp-card"><div class="tp-card-title"><span>📋 Datos</span></div>
-        <div style="max-height:250px;overflow-y:auto;"><table class="tp-table"><thead><tr><th>#</th><th>VIN</th><th>Grupo</th><th style="text-align:right">${fMetric}</th><th>vs Lím</th></tr></thead>
-        <tbody>${pts.slice(-40).reverse().map((p,i)=>`<tr><td style="color:var(--tp-dim)">${pts.length-i}</td><td style="font-family:monospace;font-size:9px;color:var(--tp-amber);">${p.vin||'—'}</td><td style="font-size:9px">${p.group||'—'}</td><td style="text-align:right;font-family:monospace;font-weight:700;${Math.abs(p.val-avgV)>2*stdV?'color:var(--tp-red);':''}${Math.abs(p.val-avgV)>3*stdV?'background:rgba(239,68,68,0.1);':''}">${p.val.toFixed(4)}${Math.abs(p.val-avgV)>2*stdV?' ⚠':''}${Math.abs(p.val-avgV)>3*stdV?' ‼':''}</td><td>${lim?`<span style="color:${Math.abs(p.val)>lim?'var(--tp-red)':'var(--tp-green)'};">${((p.val/lim)*100).toFixed(0)}%</span>`:'—'}</td></tr>`).join('')}</tbody></table></div>
+    <div class="tp-card"><div class="tp-card-title"><span>Datos</span></div>
+        <div style="max-height:250px;overflow-y:auto;"><table class="tp-table"><thead><tr><th>#</th><th>VIN</th><th>Grupo</th><th style="text-align:right">${fMetric}</th><th>vs Lim</th></tr></thead>
+        <tbody>${pts.slice(-40).reverse().map((p,i)=>`<tr><td style="color:var(--tp-dim)">${pts.length-i}</td><td style="font-family:monospace;font-size:9px;color:var(--tp-amber);">${p.vin||'---'}</td><td style="font-size:9px">${p.group||'---'}</td><td style="text-align:right;font-family:monospace;font-weight:700;${Math.abs(p.val-avgV)>2*stdV?'color:var(--tp-red);':''}${Math.abs(p.val-avgV)>3*stdV?'background:rgba(239,68,68,0.1);':''}">${p.val.toFixed(4)}${Math.abs(p.val-avgV)>2*stdV?' !':''}${Math.abs(p.val-avgV)>3*stdV?' !!':''}</td><td>${lim?`<span style="color:${Math.abs(p.val)>lim?'var(--tp-red)':'var(--tp-green)'};">${((p.val/lim)*100).toFixed(0)}%</span>`:'---'}</td></tr>`).join('')}</tbody></table></div>
     </div>`;
+
+    // Build Chart.js scatter plot with control lines
+    const canvas = document.getElementById('ra-trend-canvas');
+    if(!canvas || typeof Chart === 'undefined') return;
+
+    const labels = pts.map((p,i) => p.date || String(i+1));
+    const dataValues = pts.map(p => p.val);
+    const pointColors = pts.map(p => {
+        if(lim && Math.abs(p.val) > lim) return '#ef4444';
+        if(p.val > ucl || p.val < lcl) return '#8b5cf6';
+        if(Math.abs(p.val - avgV) > 2*stdV) return '#f59e0b';
+        return '#10b981';
+    });
+    const pointSizes = pts.map(p => {
+        if(lim && Math.abs(p.val) > lim) return 6;
+        if(Math.abs(p.val - avgV) > 2*stdV) return 5;
+        return 4;
+    });
+
+    const datasets = [
+        { label: fMetric, data: dataValues, borderColor: '#3b82f6', backgroundColor: pointColors,
+          pointBackgroundColor: pointColors, pointRadius: pointSizes, pointHoverRadius: 8,
+          borderWidth: 1.5, fill: false, tension: 0.1, order: 1 },
+        { label: 'x\u0304 (Media)', data: Array(pts.length).fill(avgV),
+          borderColor: '#f59e0b', borderWidth: 2, borderDash: [], pointRadius: 0, fill: false, order: 2 },
+        { label: 'UCL (3\u03C3)', data: Array(pts.length).fill(ucl),
+          borderColor: '#8b5cf6', borderWidth: 1.5, borderDash: [6,3], pointRadius: 0, fill: false, order: 3 },
+        { label: 'LCL (3\u03C3)', data: Array(pts.length).fill(lcl),
+          borderColor: '#8b5cf6', borderWidth: 1.5, borderDash: [6,3], pointRadius: 0, fill: false, order: 4 },
+        { label: 'Warning (2\u03C3)', data: Array(pts.length).fill(warn2s),
+          borderColor: '#f59e0b', borderWidth: 1, borderDash: [3,3], pointRadius: 0, fill: false, order: 5 },
+        { label: 'Warning -2\u03C3', data: Array(pts.length).fill(warn2sL),
+          borderColor: '#f59e0b', borderWidth: 1, borderDash: [3,3], pointRadius: 0, fill: false, order: 6 },
+    ];
+    if(lim) {
+        datasets.push({ label: 'Limite regulatorio', data: Array(pts.length).fill(lim),
+          borderColor: '#ef4444', borderWidth: 2, borderDash: [8,4], pointRadius: 0, fill: false, order: 0 });
+    }
+
+    window._raTrendChart = new Chart(canvas, {
+        type: 'line',
+        data: { labels: labels, datasets: datasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: true, position: 'bottom',
+                    labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, padding: 8,
+                        filter: function(item) { return item.text !== 'Warning -2\u03C3'; }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#1e293b', titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+                    callbacks: {
+                        title: function(ctx) {
+                            const i = ctx[0].dataIndex;
+                            return pts[i] ? (pts[i].vin || 'N/A') + ' - ' + (pts[i].date || '') : '';
+                        },
+                        label: function(ctx) {
+                            if(ctx.datasetIndex === 0) {
+                                const p = pts[ctx.dataIndex];
+                                const sigma = stdV > 0 ? ((p.val - avgV)/stdV).toFixed(1) : '0';
+                                let line = fMetric + ': ' + p.val.toFixed(4) + ' (' + sigma + '\u03C3)';
+                                if(lim) line += ' | ' + ((p.val/lim)*100).toFixed(0) + '% del limite';
+                                return line;
+                            }
+                            return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(4);
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45, maxTicksLimit: 15 },
+                     grid: { color: 'rgba(30,41,59,0.5)' } },
+                y: { ticks: { color: '#64748b', font: { size: 9 } },
+                     grid: { color: 'rgba(30,41,59,0.5)' } }
+            }
+        }
+    });
 }
 
 function raRenderDetail(el){
@@ -781,6 +837,192 @@ function raRenderDetail(el){
             ${raState.tests.map(x=>`<option value="${x.id}" ${String(x.id)===String(tid)?'selected':''}>${x.vin||'NoVIN'} — ${x.testDesc||'?'} #${x.testNumber||'?'}</option>`).join('')}
         </select>
     </div>`;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [M28] RA — PROCESS CAPABILITY (Cpk / Ppk)                        ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raRenderCapability(el) {
+    if (raState.tests.length < 5) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Necesitas al menos 5 pruebas con limites definidos en Perfiles para calcular Cpk/Ppk.</div>';
+        return;
+    }
+
+    var selGroupBy = window._raCpkGroupBy || 'regTestMode';
+    var selGroup = window._raCpkGroup || 'ALL';
+
+    var groupFn;
+    if (selGroupBy === 'regTestMode') groupFn = function(t){ return (t.emissionReg||t.regSpec||'?') + ' ' + (t.testType||'?'); };
+    else groupFn = function(t){ return t.testDesc || t.modelName || '?'; };
+
+    var groups = [...new Set(raState.tests.map(groupFn))].sort();
+    var filtered = selGroup === 'ALL' ? raState.tests : raState.tests.filter(function(t){ return groupFn(t) === selGroup; });
+    var groupByOpts = [{v:'regTestMode',l:'Regulacion+TestMode'},{v:'testDesc',l:'Test Description'}];
+
+    // Find applicable profile
+    var refTest = filtered.find(function(t){ return t.emissionReg || t.regSpec; }) || filtered[0] || {};
+    var profile = raGetProfile(refTest);
+    if (!profile || !profile.limits || Object.keys(profile.limits).length === 0) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay limites regulatorios definidos para este grupo. Configura limites en Perfiles.</div>';
+        return;
+    }
+
+    // Calculate Cpk/Ppk for each metric that has a limit
+    var metrics = Object.keys(profile.limits);
+    var results = [];
+
+    metrics.forEach(function(metric) {
+        var USL = profile.limits[metric]; // Upper Specification Limit
+        var LSL = 0; // Lower spec is 0 for emissions (can't be negative)
+
+        // Extract values for this metric
+        var vals = [];
+        filtered.forEach(function(t) {
+            if (!t.cycleData || t.cycleData.length === 0) return;
+            var last = t.cycleData[t.cycleData.length - 1];
+            var v = last[metric];
+            if (v !== undefined && !isNaN(v) && isFinite(v)) vals.push(parseFloat(v));
+        });
+
+        if (vals.length < 2) return;
+
+        var n = vals.length;
+        var mean = vals.reduce(function(s,v){ return s+v; }, 0) / n;
+        var variance = vals.reduce(function(s,v){ return s + Math.pow(v - mean, 2); }, 0) / (n - 1);
+        var stdDev = Math.sqrt(variance);
+
+        // Pp (Process Performance) - uses overall std dev
+        var Pp = stdDev > 0 ? (USL - LSL) / (6 * stdDev) : 999;
+
+        // Ppk (Process Performance Index) - minimum of upper and lower
+        var Ppu = stdDev > 0 ? (USL - mean) / (3 * stdDev) : 999;
+        var Ppl = stdDev > 0 ? (mean - LSL) / (3 * stdDev) : 999;
+        var Ppk = Math.min(Ppu, Ppl);
+
+        // Cp and Cpk use within-subgroup variation (for our case, same as Pp/Ppk since no subgroups)
+        // In practice with individual measurements, Cp = Pp and Cpk = Ppk
+        var Cp = Pp;
+        var Cpk = Ppk;
+
+        // % of spec used
+        var pctSpec = USL > 0 ? (mean / USL * 100) : 0;
+
+        // Expected PPM out of spec (using normal distribution approximation)
+        var z = stdDev > 0 ? (USL - mean) / stdDev : 99;
+        var ppmEstimate = z > 0 ? Math.round(raPhiComplement(z) * 1000000) : 500000;
+
+        // Rating
+        var rating, ratingColor;
+        if (Cpk >= 1.67) { rating = 'Excelente'; ratingColor = '#10b981'; }
+        else if (Cpk >= 1.33) { rating = 'Capaz'; ratingColor = '#3b82f6'; }
+        else if (Cpk >= 1.0) { rating = 'Marginal'; ratingColor = '#f59e0b'; }
+        else { rating = 'No capaz'; ratingColor = '#ef4444'; }
+
+        results.push({
+            metric: metric,
+            label: (profile.labels && profile.labels[metric]) || metric,
+            n: n, mean: mean, std: stdDev, min: Math.min.apply(null, vals), max: Math.max.apply(null, vals),
+            USL: USL, LSL: LSL,
+            Cp: Cp, Cpk: Cpk, Pp: Pp, Ppk: Ppk,
+            pctSpec: pctSpec, ppm: ppmEstimate,
+            rating: rating, ratingColor: ratingColor
+        });
+    });
+
+    results.sort(function(a,b) { return a.Cpk - b.Cpk; }); // worst first
+
+    // Render
+    var html = '<div class="tp-card">';
+    html += '<div class="tp-card-title"><span>Process Capability - Cpk / Ppk</span></div>';
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
+    html += '<select class="tp-select" onchange="window._raCpkGroupBy=this.value;window._raCpkGroup=\'ALL\';raRender();" style="font-size:10px;">';
+    groupByOpts.forEach(function(o) { html += '<option value="'+o.v+'" '+(o.v===selGroupBy?'selected':'')+'>Agrupar: '+o.l+'</option>'; });
+    html += '</select>';
+    html += '<select class="tp-select" onchange="window._raCpkGroup=this.value;raRender();" style="font-size:10px;">';
+    html += '<option value="ALL">Todos</option>';
+    groups.forEach(function(g) { html += '<option value="'+g+'" '+(g===selGroup?'selected':'')+'>'+g+'</option>'; });
+    html += '</select></div>';
+
+    // Reference guide
+    html += '<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;font-size:9px;">';
+    html += '<span style="padding:3px 8px;border-radius:4px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:#10b981;">Cpk >= 1.67: Excelente</span>';
+    html += '<span style="padding:3px 8px;border-radius:4px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#3b82f6;">Cpk >= 1.33: Capaz</span>';
+    html += '<span style="padding:3px 8px;border-radius:4px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;">Cpk >= 1.0: Marginal</span>';
+    html += '<span style="padding:3px 8px;border-radius:4px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;">Cpk < 1.0: No capaz</span>';
+    html += '</div>';
+
+    if (profile) {
+        html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Perfil: <strong style="color:#8b5cf6;">' + profile.name + '</strong> | ' + filtered.length + ' pruebas analizadas</div>';
+    }
+
+    if (results.length === 0) {
+        html += '<div style="text-align:center;padding:30px;color:var(--tp-dim);">No hay datos suficientes para las metricas con limites definidos.</div>';
+    } else {
+        // Summary metrics
+        var worstCpk = results[0];
+        var avgCpk = results.reduce(function(s,r){ return s+r.Cpk; },0) / results.length;
+        var capable = results.filter(function(r){ return r.Cpk >= 1.33; }).length;
+
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;margin-bottom:14px;">';
+        html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">' + results.length + '</div><div class="tp-metric-label">Metricas</div></div>';
+        html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (capable === results.length ? '#10b981' : '#f59e0b') + '">' + capable + '/' + results.length + '</div><div class="tp-metric-label">Capaces</div></div>';
+        html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (avgCpk >= 1.33 ? '#10b981' : avgCpk >= 1.0 ? '#f59e0b' : '#ef4444') + '">' + avgCpk.toFixed(2) + '</div><div class="tp-metric-label">Cpk Promedio</div></div>';
+        html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + worstCpk.ratingColor + '">' + worstCpk.Cpk.toFixed(2) + '</div><div class="tp-metric-label">Peor Cpk (' + worstCpk.label + ')</div></div>';
+        html += '</div>';
+
+        // Detailed table
+        html += '<div style="overflow-x:auto;"><table class="tp-table" style="width:100%;">';
+        html += '<thead><tr><th>Metrica</th><th>N</th><th style="text-align:right">x&#772;</th><th style="text-align:right">&sigma;</th><th style="text-align:right">Min</th><th style="text-align:right">Max</th><th style="text-align:right">USL</th><th style="text-align:right">% Spec</th><th style="text-align:right;font-weight:800;">Cpk</th><th style="text-align:right;">Ppk</th><th style="text-align:right;">PPM est.</th><th>Evaluacion</th></tr></thead>';
+        html += '<tbody>';
+        results.forEach(function(r) {
+            html += '<tr>';
+            html += '<td style="font-weight:700;font-size:10px;">' + r.label + '</td>';
+            html += '<td>' + r.n + '</td>';
+            html += '<td style="text-align:right;font-family:monospace;font-size:10px;">' + r.mean.toFixed(4) + '</td>';
+            html += '<td style="text-align:right;font-family:monospace;font-size:10px;">' + r.std.toFixed(4) + '</td>';
+            html += '<td style="text-align:right;font-family:monospace;font-size:10px;color:var(--tp-dim);">' + r.min.toFixed(4) + '</td>';
+            html += '<td style="text-align:right;font-family:monospace;font-size:10px;color:var(--tp-dim);">' + r.max.toFixed(4) + '</td>';
+            html += '<td style="text-align:right;font-family:monospace;font-size:10px;color:var(--tp-red);">' + r.USL + '</td>';
+            html += '<td style="text-align:right;"><div class="tp-bar" style="width:60px;display:inline-flex;"><div class="tp-bar-fill" style="width:' + Math.min(r.pctSpec, 100) + '%;background:' + (r.pctSpec > 80 ? '#ef4444' : r.pctSpec > 60 ? '#f59e0b' : '#10b981') + ';"></div><span class="tp-bar-text" style="font-size:7px;">' + r.pctSpec.toFixed(0) + '%</span></div></td>';
+            html += '<td style="text-align:right;font-weight:800;font-size:13px;color:' + r.ratingColor + ';">' + r.Cpk.toFixed(2) + '</td>';
+            html += '<td style="text-align:right;font-family:monospace;font-size:10px;">' + r.Ppk.toFixed(2) + '</td>';
+            html += '<td style="text-align:right;font-family:monospace;font-size:9px;color:' + (r.ppm > 1000 ? 'var(--tp-red)' : r.ppm > 100 ? '#f59e0b' : 'var(--tp-green)') + ';">' + (r.ppm > 999999 ? '>999K' : r.ppm.toLocaleString()) + '</td>';
+            html += '<td><span style="font-size:9px;padding:2px 8px;border-radius:4px;background:' + r.ratingColor + '20;color:' + r.ratingColor + ';border:1px solid ' + r.ratingColor + '40;font-weight:700;">' + r.rating + '</span></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+
+        // Visual Cpk bars
+        html += '<div style="margin-top:14px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:var(--tp-text);margin-bottom:8px;">Cpk Visual</div>';
+        results.forEach(function(r) {
+            var barW = Math.min(r.Cpk / 2.0 * 100, 100);
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">';
+            html += '<span style="font-size:9px;color:var(--tp-dim);width:80px;text-align:right;flex-shrink:0;">' + r.label + '</span>';
+            html += '<div style="flex:1;height:16px;background:var(--tp-border);border-radius:4px;position:relative;overflow:hidden;">';
+            html += '<div style="height:100%;width:' + barW + '%;background:' + r.ratingColor + ';border-radius:4px;transition:width 0.5s;"></div>';
+            // Reference lines at 1.0 and 1.33
+            html += '<div style="position:absolute;left:50%;top:0;bottom:0;border-left:1px dashed #f59e0b;opacity:0.5;" title="Cpk=1.0"></div>';
+            html += '<div style="position:absolute;left:66.5%;top:0;bottom:0;border-left:1px dashed #3b82f6;opacity:0.5;" title="Cpk=1.33"></div>';
+            html += '</div>';
+            html += '<span style="font-size:10px;font-weight:700;color:' + r.ratingColor + ';width:40px;">' + r.Cpk.toFixed(2) + '</span>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+// Normal distribution complement (P(Z > z)) approximation
+function raPhiComplement(z) {
+    if (z < 0) return 1 - raPhiComplement(-z);
+    var t = 1 / (1 + 0.2316419 * z);
+    var d = 0.3989422804014327; // 1/sqrt(2*pi)
+    var p = d * Math.exp(-z * z / 2);
+    return p * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
 }
 
 function raInit(){ raUpdateBadges(); }

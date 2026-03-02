@@ -2100,3 +2100,150 @@ function checkStalledVehicles() {
 // ======================================================================
 // PLAN HISTORY VIEWER
 // ======================================================================
+
+// ======================================================================
+// SOAK TIMER — Countdown de preacondicionamiento con notificaciones
+// ======================================================================
+
+var _soakTimer = { interval: null, endTime: null, totalMs: 0, running: false };
+
+function soakTimerStart() {
+    if (_soakTimer.running) return;
+
+    // Request notification permission on first start
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+
+    var hours = parseFloat(document.getElementById('soak_timer_hours').value) || 24;
+    var now = Date.now();
+
+    // If paused (endTime exists and is in the future), resume
+    if (_soakTimer.endTime && _soakTimer.endTime > now) {
+        // Resume from where we left off
+    } else {
+        // Fresh start
+        _soakTimer.totalMs = hours * 3600 * 1000;
+        _soakTimer.endTime = now + _soakTimer.totalMs;
+    }
+
+    _soakTimer.running = true;
+    document.getElementById('soak_timer_btn_start').style.display = 'none';
+    document.getElementById('soak_timer_btn_stop').style.display = '';
+
+    // Save to localStorage so timer persists across page reloads
+    localStorage.setItem('kia_soak_timer', JSON.stringify({
+        endTime: _soakTimer.endTime,
+        totalMs: _soakTimer.totalMs
+    }));
+
+    _soakTimer.interval = setInterval(soakTimerTick, 1000);
+    soakTimerTick();
+}
+
+function soakTimerStop() {
+    _soakTimer.running = false;
+    if (_soakTimer.interval) { clearInterval(_soakTimer.interval); _soakTimer.interval = null; }
+    document.getElementById('soak_timer_btn_start').style.display = '';
+    document.getElementById('soak_timer_btn_stop').style.display = 'none';
+    document.getElementById('soak_timer_status').textContent = 'Pausado';
+    document.getElementById('soak_timer_status').style.color = '#f59e0b';
+}
+
+function soakTimerReset() {
+    _soakTimer.running = false;
+    if (_soakTimer.interval) { clearInterval(_soakTimer.interval); _soakTimer.interval = null; }
+    _soakTimer.endTime = null;
+    _soakTimer.totalMs = 0;
+    localStorage.removeItem('kia_soak_timer');
+
+    document.getElementById('soak_timer_display').textContent = '00:00:00';
+    document.getElementById('soak_timer_display').style.color = '#64748b';
+    document.getElementById('soak_timer_status').textContent = 'Sin iniciar';
+    document.getElementById('soak_timer_status').style.color = '#64748b';
+    document.getElementById('soak_timer_bar').style.width = '0%';
+    document.getElementById('soak_timer_bar').style.background = '#10b981';
+    document.getElementById('soak_timer_eta').textContent = '';
+    document.getElementById('soak_timer_btn_start').style.display = '';
+    document.getElementById('soak_timer_btn_stop').style.display = 'none';
+}
+
+function soakTimerTick() {
+    var now = Date.now();
+    var remaining = _soakTimer.endTime - now;
+
+    if (remaining <= 0) {
+        // Timer completed
+        clearInterval(_soakTimer.interval);
+        _soakTimer.interval = null;
+        _soakTimer.running = false;
+        localStorage.removeItem('kia_soak_timer');
+
+        document.getElementById('soak_timer_display').textContent = '00:00:00';
+        document.getElementById('soak_timer_display').style.color = '#10b981';
+        document.getElementById('soak_timer_status').textContent = 'SOAK COMPLETADO - Listo para prueba';
+        document.getElementById('soak_timer_status').style.color = '#10b981';
+        document.getElementById('soak_timer_bar').style.width = '100%';
+        document.getElementById('soak_timer_bar').style.background = '#10b981';
+        document.getElementById('soak_timer_btn_start').style.display = '';
+        document.getElementById('soak_timer_btn_stop').style.display = 'none';
+
+        // Auto-fill soak time field
+        var soakField = document.getElementById('soak_time');
+        if (soakField) soakField.value = (_soakTimer.totalMs / 3600000).toFixed(1);
+
+        // Browser notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('KIA EmLab - Soak Completado', {
+                body: 'El tiempo de reposo ha terminado. El vehiculo esta listo para prueba.',
+                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">✅</text></svg>'
+            });
+        }
+
+        // Also alert in case notifications are blocked
+        alert('SOAK COMPLETADO - El vehiculo esta listo para prueba.');
+        return;
+    }
+
+    // Update display
+    var h = Math.floor(remaining / 3600000);
+    var m = Math.floor((remaining % 3600000) / 60000);
+    var s = Math.floor((remaining % 60000) / 1000);
+    var display = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+
+    var pct = _soakTimer.totalMs > 0 ? ((1 - remaining / _soakTimer.totalMs) * 100) : 0;
+    var isLow = remaining < 3600000; // less than 1 hour
+    var barColor = isLow ? '#f59e0b' : '#3b82f6';
+    var textColor = isLow ? '#f59e0b' : '#3b82f6';
+
+    document.getElementById('soak_timer_display').textContent = display;
+    document.getElementById('soak_timer_display').style.color = textColor;
+    document.getElementById('soak_timer_status').textContent = 'En curso...';
+    document.getElementById('soak_timer_status').style.color = textColor;
+    document.getElementById('soak_timer_bar').style.width = pct.toFixed(1) + '%';
+    document.getElementById('soak_timer_bar').style.background = barColor;
+
+    var eta = new Date(_soakTimer.endTime);
+    document.getElementById('soak_timer_eta').textContent = 'Listo a las ' + eta.toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'}) + ' del ' + eta.toLocaleDateString('es-MX', {day:'numeric',month:'short'});
+}
+
+function soakTimerRestore() {
+    var saved = localStorage.getItem('kia_soak_timer');
+    if (!saved) return;
+    try {
+        var data = JSON.parse(saved);
+        if (data.endTime > Date.now()) {
+            _soakTimer.endTime = data.endTime;
+            _soakTimer.totalMs = data.totalMs;
+            soakTimerStart();
+        } else {
+            // Timer already expired while page was closed
+            localStorage.removeItem('kia_soak_timer');
+            document.getElementById('soak_timer_display').textContent = '00:00:00';
+            document.getElementById('soak_timer_display').style.color = '#10b981';
+            document.getElementById('soak_timer_status').textContent = 'SOAK COMPLETADO (termino mientras la app estaba cerrada)';
+            document.getElementById('soak_timer_status').style.color = '#10b981';
+            document.getElementById('soak_timer_bar').style.width = '100%';
+        }
+    } catch(e) { localStorage.removeItem('kia_soak_timer'); }
+}

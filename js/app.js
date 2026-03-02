@@ -372,6 +372,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         tpUpdateBadges();
         tpHookCascadeResult();
         raInit();
+
+        // ═══ Restore Soak Timer if running ═══
+        if (typeof soakTimerRestore === 'function') soakTimerRestore();
         }
 
 window.addEventListener('DOMContentLoaded', initializeSystem);
