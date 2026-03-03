@@ -240,6 +240,7 @@ function raRender(){
     else if(t==='ra-outliers') raRenderOutliers(el);
     else if(t==='ra-capability') raRenderCapability(el);
     else if(t==='ra-search') raRenderSearch(el);
+    else if(t==='ra-filter') raRenderFilter(el);
 }
 
 
@@ -1046,6 +1047,266 @@ function raPhiComplement(z) {
     var d = 0.3989422804014327; // 1/sqrt(2*pi)
     var p = d * Math.exp(-z * z / 2);
     return p * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [M30] RA — ADVANCED FILTER + BULK DELETE                          ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+// Available filter fields: metadata + cycle data metrics
+var RA_FILTER_FIELDS = [
+    // -- Metadata fields (string) --
+    { key:'vin', label:'VIN', type:'string' },
+    { key:'modelName', label:'Model Name', type:'string' },
+    { key:'testDesc', label:'Test Description', type:'string' },
+    { key:'emissionReg', label:'Emission Regulation', type:'string' },
+    { key:'regSpec', label:'Regulation Spec', type:'string' },
+    { key:'testType', label:'Test Type', type:'string' },
+    { key:'testStatus', label:'Test Status', type:'string' },
+    { key:'testCategory', label:'Test Category', type:'string' },
+    { key:'operator', label:'Operator', type:'string' },
+    { key:'driver', label:'Driver', type:'string' },
+    { key:'region', label:'Region', type:'string' },
+    { key:'regulationRegion', label:'Regulation Region', type:'string' },
+    { key:'transmission', label:'Transmission', type:'string' },
+    { key:'engineCapacity', label:'Engine Capacity', type:'string' },
+    { key:'driveType', label:'Drive Type', type:'string' },
+    { key:'bodyType', label:'Body Type', type:'string' },
+    { key:'fuelType', label:'Fuel Type', type:'string' },
+    { key:'envPackage', label:'Env Package', type:'string' },
+    { key:'enginePackage', label:'Engine Package', type:'string' },
+    { key:'modelYear', label:'Model Year', type:'string' },
+    { key:'purposeOfTest', label:'Purpose of Test', type:'string' },
+    { key:'wltpVehicleClass', label:'WLTP Vehicle Class', type:'string' },
+    { key:'dateStr', label:'Import Date', type:'string' },
+    // -- Cycle data metrics (numeric, from last row of cycleData) --
+    { key:'c:BagCO2', label:'BagCO2 (total)', type:'number', cycle:'BagCO2' },
+    { key:'c:BagCO', label:'BagCO (total)', type:'number', cycle:'BagCO' },
+    { key:'c:BagTHC', label:'BagTHC (total)', type:'number', cycle:'BagTHC' },
+    { key:'c:BagNOX', label:'BagNOX (total)', type:'number', cycle:'BagNOX' },
+    { key:'c:BagNMHC', label:'BagNMHC (total)', type:'number', cycle:'BagNMHC' },
+    { key:'c:BagCH4', label:'BagCH4 (total)', type:'number', cycle:'BagCH4' },
+    { key:'c:BagNMHCpNOX', label:'BagNMHC+NOx (total)', type:'number', cycle:'BagNMHCpNOX' },
+    { key:'c:FuelConsumptionBag', label:'Fuel Consumption', type:'number', cycle:'FuelConsumptionBag' },
+    { key:'c:FuelEconomyBag', label:'Fuel Economy', type:'number', cycle:'FuelEconomyBag' },
+    { key:'c:DilutePN', label:'Dilute PN', type:'number', cycle:'DilutePN' },
+    { key:'testMass', label:'Test Mass (kg)', type:'number' },
+];
+
+// Operators by type
+var RA_FILTER_OPS_STRING = [
+    { key:'eq', label:'= (igual)' },
+    { key:'neq', label:'!= (diferente)' },
+    { key:'contains', label:'contiene' },
+    { key:'not_contains', label:'no contiene' },
+    { key:'empty', label:'vacio / null' },
+    { key:'not_empty', label:'no vacio' },
+];
+var RA_FILTER_OPS_NUMBER = [
+    { key:'eq', label:'= (igual)' },
+    { key:'neq', label:'!= (diferente)' },
+    { key:'lt', label:'< (menor que)' },
+    { key:'lte', label:'<= (menor o igual)' },
+    { key:'gt', label:'> (mayor que)' },
+    { key:'gte', label:'>= (mayor o igual)' },
+    { key:'empty', label:'null / 0 / sin dato' },
+    { key:'not_empty', label:'tiene dato (> 0)' },
+];
+
+// Filter state (persisted in window only, not localStorage)
+if (!window._raFilters) window._raFilters = [{ field:'', op:'', value:'' }];
+
+function raGetTestFieldValue(test, fieldDef) {
+    if (fieldDef.cycle) {
+        // Get value from last row of cycleData
+        if (!test.cycleData || test.cycleData.length === 0) return null;
+        var last = test.cycleData[test.cycleData.length - 1];
+        var v = last[fieldDef.cycle];
+        return (v === undefined || v === '' || v === null) ? null : (typeof v === 'number' ? v : parseFloat(v));
+    }
+    if (fieldDef.key === 'testMass') return test.testMass || 0;
+    return test[fieldDef.key] || '';
+}
+
+function raMatchFilter(test, filter) {
+    var fieldDef = RA_FILTER_FIELDS.find(function(f) { return f.key === filter.field; });
+    if (!fieldDef) return true; // no field selected = pass
+    var val = raGetTestFieldValue(test, fieldDef);
+    var op = filter.op;
+    var target = (filter.value || '').trim();
+
+    if (fieldDef.type === 'number') {
+        var numVal = (val === null || val === undefined || isNaN(val)) ? null : parseFloat(val);
+        var numTarget = parseFloat(target);
+
+        if (op === 'empty') return numVal === null || numVal === 0 || isNaN(numVal);
+        if (op === 'not_empty') return numVal !== null && numVal !== 0 && !isNaN(numVal);
+        if (isNaN(numTarget)) return true; // no target entered = pass
+        if (op === 'eq') return numVal === numTarget;
+        if (op === 'neq') return numVal !== numTarget;
+        if (op === 'lt') return numVal !== null && numVal < numTarget;
+        if (op === 'lte') return numVal !== null && numVal <= numTarget;
+        if (op === 'gt') return numVal !== null && numVal > numTarget;
+        if (op === 'gte') return numVal !== null && numVal >= numTarget;
+    } else {
+        var strVal = (val || '').toString().toLowerCase();
+        var strTarget = target.toLowerCase();
+
+        if (op === 'empty') return !strVal || strVal === '—' || strVal === '-';
+        if (op === 'not_empty') return strVal && strVal !== '—' && strVal !== '-';
+        if (!strTarget) return true; // no target = pass
+        if (op === 'eq') return strVal === strTarget;
+        if (op === 'neq') return strVal !== strTarget;
+        if (op === 'contains') return strVal.includes(strTarget);
+        if (op === 'not_contains') return !strVal.includes(strTarget);
+    }
+    return true;
+}
+
+function raApplyFilters() {
+    var filters = window._raFilters.filter(function(f) { return f.field && f.op; });
+    if (filters.length === 0) return raState.tests;
+    return raState.tests.filter(function(test) {
+        return filters.every(function(f) { return raMatchFilter(test, f); });
+    });
+}
+
+function raFilterBulkDelete() {
+    var matched = raApplyFilters();
+    if (matched.length === 0) {
+        showToast('No hay pruebas que coincidan con los filtros', 'info');
+        return;
+    }
+    var msg = 'Se eliminaran ' + matched.length + ' pruebas de ' + raState.tests.length + ' totales.\n\nEsta accion NO se puede deshacer.\n\n¿Continuar?';
+    if (!confirm(msg)) return;
+
+    var idsToDelete = {};
+    matched.forEach(function(t) { idsToDelete[t.id] = true; });
+    raState.tests = raState.tests.filter(function(t) { return !idsToDelete[t.id]; });
+    raSave();
+    raUpdateBadges();
+    showToast(matched.length + ' pruebas eliminadas', 'success');
+    raRender();
+}
+
+function raRenderFilter(el) {
+    var filters = window._raFilters;
+    var matched = raApplyFilters();
+    var activeCount = filters.filter(function(f) { return f.field && f.op; }).length;
+    var sf = function(v, d) { return typeof v === 'number' && isFinite(v) ? v.toFixed(d) : '—'; };
+
+    var html = '';
+
+    // ── Header metrics ──
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:12px;">';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">' + raState.tests.length + '</div><div class="tp-metric-label">Total</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (matched.length < raState.tests.length ? 'var(--tp-amber)' : 'var(--tp-dim)') + '">' + matched.length + '</div><div class="tp-metric-label">Coinciden</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green)">' + activeCount + '</div><div class="tp-metric-label">Filtros activos</div></div>';
+    html += '</div>';
+
+    // ── Filter builder ──
+    html += '<div class="tp-card" style="border-color:var(--tp-amber);">';
+    html += '<div class="tp-card-title"><span>🧹 Filtro Avanzado</span><span style="font-size:9px;color:var(--tp-dim);">Hasta 5 condiciones (AND)</span></div>';
+
+    filters.forEach(function(f, i) {
+        var fieldDef = RA_FILTER_FIELDS.find(function(fd) { return fd.key === f.field; });
+        var isNum = fieldDef && fieldDef.type === 'number';
+        var ops = isNum ? RA_FILTER_OPS_NUMBER : RA_FILTER_OPS_STRING;
+        var needsValue = f.op && f.op !== 'empty' && f.op !== 'not_empty';
+
+        html += '<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap;">';
+
+        // Row number
+        html += '<span style="font-size:10px;font-weight:700;color:var(--tp-amber);width:14px;">' + (i + 1) + '</span>';
+
+        // Field selector
+        html += '<select class="tp-select" style="flex:2;min-width:130px;font-size:10px;" onchange="window._raFilters[' + i + '].field=this.value;window._raFilters[' + i + '].op=\'\';window._raFilters[' + i + '].value=\'\';raRender();">';
+        html += '<option value="">— Variable —</option>';
+        html += '<optgroup label="Metadata">';
+        RA_FILTER_FIELDS.forEach(function(fd) {
+            if (fd.type === 'string') html += '<option value="' + fd.key + '"' + (f.field === fd.key ? ' selected' : '') + '>' + fd.label + '</option>';
+        });
+        html += '</optgroup><optgroup label="Cycle Data (Composite)">';
+        RA_FILTER_FIELDS.forEach(function(fd) {
+            if (fd.type === 'number') html += '<option value="' + fd.key + '"' + (f.field === fd.key ? ' selected' : '') + '>' + fd.label + '</option>';
+        });
+        html += '</optgroup></select>';
+
+        // Operator selector
+        html += '<select class="tp-select" style="flex:1.5;min-width:110px;font-size:10px;" onchange="window._raFilters[' + i + '].op=this.value;raRender();">';
+        html += '<option value="">— Condicion —</option>';
+        ops.forEach(function(o) { html += '<option value="' + o.key + '"' + (f.op === o.key ? ' selected' : '') + '>' + o.label + '</option>'; });
+        html += '</select>';
+
+        // Value input (hide for empty/not_empty)
+        if (needsValue) {
+            html += '<input class="tp-input" style="flex:1.5;min-width:100px;font-size:10px;padding:6px 8px;" placeholder="Valor..." value="' + (f.value || '').replace(/"/g, '&quot;') + '" onchange="window._raFilters[' + i + '].value=this.value;raRender();">';
+        }
+
+        // Remove button
+        if (filters.length > 1) {
+            html += '<button class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;flex-shrink:0;" onclick="window._raFilters.splice(' + i + ',1);raRender();">✕</button>';
+        }
+
+        html += '</div>';
+    });
+
+    // Add filter button (max 5)
+    if (filters.length < 5) {
+        html += '<button class="tp-btn tp-btn-ghost" onclick="window._raFilters.push({field:\'\',op:\'\',value:\'\'});raRender();" style="font-size:10px;margin-top:4px;">+ Agregar condicion</button>';
+    }
+
+    html += '</div>';
+
+    // ── Action buttons ──
+    html += '<div class="tp-card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">';
+    if (activeCount > 0 && matched.length > 0 && matched.length < raState.tests.length) {
+        html += '<button class="tp-btn" style="background:#dc2626;color:#fff;font-size:11px;font-weight:700;padding:10px 20px;" onclick="raFilterBulkDelete()">🗑 Eliminar ' + matched.length + ' pruebas filtradas</button>';
+    } else if (activeCount > 0 && matched.length === raState.tests.length) {
+        html += '<button class="tp-btn" style="background:#7f1d1d;color:#fca5a5;font-size:11px;font-weight:700;padding:10px 20px;opacity:0.5;cursor:not-allowed;" disabled>Todos coinciden — refina el filtro</button>';
+    }
+    html += '<button class="tp-btn tp-btn-ghost" style="font-size:10px;" onclick="window._raFilters=[{field:\'\',op:\'\',value:\'\'}];raRender();">Limpiar filtros</button>';
+    html += '<span style="font-size:10px;color:var(--tp-dim);margin-left:auto;">' + matched.length + ' de ' + raState.tests.length + '</span>';
+    html += '</div>';
+
+    // ── Results table ──
+    if (activeCount > 0) {
+        html += '<div class="tp-card">';
+        html += '<div class="tp-card-title"><span>Resultados (' + matched.length + ')</span></div>';
+
+        if (matched.length === 0) {
+            html += '<div style="text-align:center;padding:20px;color:var(--tp-green);font-size:12px;">Sin resultados que coincidan.</div>';
+        } else {
+            html += '<div style="max-height:500px;overflow-y:auto;"><table class="tp-table" style="width:100%;"><thead><tr>';
+            html += '<th style="width:30px;"></th><th>VIN</th><th>Modelo / Test</th><th>Regulacion</th><th>Status</th><th style="text-align:right">FC</th><th style="text-align:right">CO2</th><th style="text-align:right">CO</th><th style="text-align:right">NOx</th><th>Fecha</th>';
+            html += '</tr></thead><tbody>';
+
+            var shown = matched.slice(0, 200); // limit to 200 for performance
+            shown.forEach(function(t, idx) {
+                var c = (t.cycleData && t.cycleData.length > 0) ? t.cycleData[t.cycleData.length - 1] : {};
+                html += '<tr style="background:rgba(239,68,68,0.04);">';
+                html += '<td style="font-size:9px;color:var(--tp-dim);">' + (idx + 1) + '</td>';
+                html += '<td style="font-family:monospace;font-size:9px;color:var(--tp-amber);max-width:130px;overflow:hidden;text-overflow:ellipsis;">' + (t.vin || '—') + '</td>';
+                html += '<td style="font-size:9px;max-width:160px;overflow:hidden;text-overflow:ellipsis;">' + (t.testDesc || t.modelName || '—') + '</td>';
+                html += '<td style="font-size:9px;">' + (t.emissionReg || t.regSpec || '—') + '</td>';
+                html += '<td style="font-size:9px;">' + (t.testStatus || '—') + '</td>';
+                html += '<td style="text-align:right;font-family:monospace;font-size:9px;">' + sf(c.FuelConsumptionBag, 2) + '</td>';
+                html += '<td style="text-align:right;font-family:monospace;font-size:9px;">' + sf(c.BagCO2, 1) + '</td>';
+                html += '<td style="text-align:right;font-family:monospace;font-size:9px;">' + sf(c.BagCO, 3) + '</td>';
+                html += '<td style="text-align:right;font-family:monospace;font-size:9px;">' + sf(c.BagNOX, 4) + '</td>';
+                html += '<td style="font-size:9px;color:var(--tp-dim);">' + (t.dateStr || '—') + '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            if (matched.length > 200) {
+                html += '<div style="text-align:center;font-size:10px;color:var(--tp-amber);margin-top:6px;">Mostrando 200 de ' + matched.length + ' resultados</div>';
+            }
+        }
+        html += '</div>';
+    }
+
+    el.innerHTML = html;
 }
 
 function raInit(){ raUpdateBadges(); }
