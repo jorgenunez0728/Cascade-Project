@@ -432,6 +432,15 @@ function switchPlatform(platform, swipeDir) {
 })();
 
     function initializeSystem() {
+        // Auth gate — must be authenticated before initializing
+        if (typeof authInit === 'function' && typeof authState !== 'undefined') {
+            if (!authState.sessionActive) {
+                if (typeof pnInit === 'function' && (!pnState || pnState.operators.length === 0)) pnInit();
+                authInit();
+                if (!authState.sessionActive) return; // Wait for login
+            }
+        }
+
         parseCSV();
         populateOperators();
         

@@ -392,7 +392,7 @@ function fbShowSettings() {
         (!hasConfig ? '<div style="padding:12px;background:#1e293b;border-radius:8px;border:1px solid #334155;"><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:6px;">Setup necesario</div><div style="font-size:10px;color:#94a3b8;line-height:1.5;">1. Ve a <strong>console.firebase.google.com</strong><br>2. Crea un proyecto (gratis)<br>3. En Firestore Database, crea una base de datos<br>4. En Project Settings, agrega una Web App<br>5. Copia el firebaseConfig al archivo <strong>js/firebase-sync.js</strong><br>6. Recarga la app</div></div>' : '') +
 
         // Rules
-        (hasConfig ? '<div style="padding:10px;background:#1e293b;border-radius:8px;border:1px solid #334155;margin-top:12px;"><div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:4px;">Security Rules requeridas:</div><pre style="font-size:9px;color:#64748b;margin:0;overflow-x:auto;white-space:pre;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}</pre><div style="font-size:9px;color:#f59e0b;margin-top:4px;">Firestore > Rules > Editar > Publicar</div></div>' : '') +
+        (hasConfig ? '<div style="padding:10px;background:#1e293b;border-radius:8px;border:1px solid #334155;margin-top:12px;"><div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:4px;">Security Rules requeridas:</div><pre style="font-size:9px;color:#64748b;margin:0;overflow-x:auto;white-space:pre;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if request.auth != null;\n    }\n  }\n}</pre><div style="font-size:9px;color:#10b981;margin-top:4px;">Auth requerida — sign-in anonimo automatico al iniciar sesion con PIN</div></div>' : '') +
 
         '</div>';
 }
@@ -1256,8 +1256,10 @@ function fbActivityPost(action, details) {
     if (!fbSync.enabled || fbSync.status !== 'connected') return;
     try {
         var fdb = firebase.firestore();
+        var user = typeof authGetCurrentUser === 'function' ? authGetCurrentUser() : null;
         fdb.collection(FB_ACTIVITY_COLLECTION).add({
             station: fbSync.stationId || 'unknown',
+            operator: user ? user.name : '',
             action: action,
             details: details || '',
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1296,6 +1298,7 @@ function fbActivityLoad(callback) {
                 var d = doc.data();
                 events.push({
                     station: d.station || '?',
+                    operator: d.operator || '',
                     action: d.action || '',
                     details: d.details || '',
                     time: d.timestamp ? d.timestamp.toDate() : new Date(d.localTime || Date.now())
@@ -1362,6 +1365,7 @@ function fbActivityShowFeed() {
                     html += '<div style="font-size:14px;line-height:1;">' + icon + '</div>';
                     html += '<div style="flex:1;">';
                     html += '<span style="font-size:10px;font-weight:700;color:' + sColor + ';padding:1px 6px;background:' + sColor + '20;border-radius:4px;margin-right:4px;">' + e.station + '</span>';
+                    if (e.operator) html += '<span style="font-size:9px;color:#a78bfa;margin-right:4px;">' + e.operator + '</span>';
                     html += '<span style="font-size:10px;color:#cbd5e1;">' + fbActivityLabel(e.action) + '</span>';
                     if (e.details) html += '<div style="font-size:9px;color:#64748b;margin-top:2px;">' + e.details + '</div>';
                     html += '</div></div>';

@@ -708,7 +708,27 @@ function raRenderTrends(el){
             <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#06b6d4;font-size:15px;">${pts.length}</div><div class="tp-metric-label">N</div></div>
             <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:${pts.filter(p=>Math.abs(p.val-avgV)>2*stdV).length>0?'var(--tp-red)':'var(--tp-green)'};font-size:15px;">${pts.filter(p=>Math.abs(p.val-avgV)>2*stdV).length}</div><div class="tp-metric-label">>2&sigma;</div></div>
         </div>
-        <div style="position:relative;height:320px;"><canvas id="ra-trend-canvas"></canvas></div>
+        <details style="margin-bottom:10px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;" ${window._raChartSettingsOpen?'open':''}>
+            <summary onclick="window._raChartSettingsOpen=this.parentElement.open?false:true;" style="padding:8px 12px;cursor:pointer;font-size:10px;font-weight:700;color:var(--tp-dim);background:var(--tp-card);user-select:none;">⚙️ Ajustes del Gráfico</summary>
+            <div style="padding:10px 12px;background:#0d1320;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div style="grid-column:1/-1;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <label style="font-size:10px;color:var(--tp-dim);">Altura: <strong id="ra-height-val" style="color:var(--tp-amber);">${window._raChartHeight||320}px</strong></label>
+                        <button onclick="raChartAutoFit()" class="tp-btn tp-btn-primary" style="font-size:9px;padding:3px 10px;">Auto-fit</button>
+                    </div>
+                    <input type="range" min="200" max="600" step="20" value="${window._raChartHeight||320}" oninput="raChartSetHeight(+this.value)" style="width:100%;accent-color:var(--tp-amber);">
+                </div>
+                <div>
+                    <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Eje Y mínimo</label>
+                    <input type="number" step="any" id="ra-ymin-input" class="tp-input" placeholder="Auto" value="${window._raChartYMin!==null&&window._raChartYMin!==undefined?window._raChartYMin:''}" onchange="raChartSetYRange(this.value===''?null:+this.value,null,'min')" style="width:100%;font-size:11px;">
+                </div>
+                <div>
+                    <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Eje Y máximo</label>
+                    <input type="number" step="any" id="ra-ymax-input" class="tp-input" placeholder="Auto" value="${window._raChartYMax!==null&&window._raChartYMax!==undefined?window._raChartYMax:''}" onchange="raChartSetYRange(null,this.value===''?null:+this.value,'max')" style="width:100%;font-size:11px;">
+                </div>
+            </div>
+        </details>
+        <div id="ra-trend-wrapper" style="position:relative;height:${window._raChartHeight||320}px;"><canvas id="ra-trend-canvas"></canvas></div>
     </div>
     <div class="tp-card"><div class="tp-card-title"><span>Datos</span></div>
         <div style="max-height:250px;overflow-y:auto;"><table class="tp-table"><thead><tr><th>#</th><th>VIN</th><th>Grupo</th><th style="text-align:right">${fMetric}</th><th>vs Lim</th></tr></thead>
@@ -788,11 +808,66 @@ function raRenderTrends(el){
             scales: {
                 x: { ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45, maxTicksLimit: 15 },
                      grid: { color: 'rgba(30,41,59,0.5)' } },
-                y: { ticks: { color: '#64748b', font: { size: 9 } },
+                y: { min: window._raChartYMin !== null && window._raChartYMin !== undefined ? window._raChartYMin : undefined,
+                     max: window._raChartYMax !== null && window._raChartYMax !== undefined ? window._raChartYMax : undefined,
+                     ticks: { color: '#64748b', font: { size: 9 } },
                      grid: { color: 'rgba(30,41,59,0.5)' } }
             }
         }
     });
+}
+
+// ── Chart adjustment helpers (live update without re-render) ──
+function raChartSetHeight(val) {
+    window._raChartHeight = val;
+    var wrapper = document.getElementById('ra-trend-wrapper');
+    if (wrapper) wrapper.style.height = val + 'px';
+    var label = document.getElementById('ra-height-val');
+    if (label) label.textContent = val + 'px';
+    if (window._raTrendChart) window._raTrendChart.resize();
+}
+
+function raChartSetYRange(minVal, maxVal, which) {
+    if (which === 'min') window._raChartYMin = minVal;
+    if (which === 'max') window._raChartYMax = maxVal;
+    if (!window._raTrendChart) return;
+    var yScale = window._raTrendChart.options.scales.y;
+    if (which === 'min') yScale.min = minVal !== null ? minVal : undefined;
+    if (which === 'max') yScale.max = maxVal !== null ? maxVal : undefined;
+    window._raTrendChart.update();
+}
+
+function raChartAutoFit() {
+    if (!window._raTrendChart) return;
+    var ds = window._raTrendChart.data.datasets;
+    var allVals = [];
+    ds.forEach(function(d) { d.data.forEach(function(v) { if (v !== null && v !== undefined && !isNaN(v)) allVals.push(v); }); });
+    if (allVals.length === 0) return;
+    var dataMin = Math.min.apply(null, allVals);
+    var dataMax = Math.max.apply(null, allVals);
+    var range = dataMax - dataMin;
+    var padding = range > 0 ? range * 0.10 : Math.abs(dataMax) * 0.10 || 0.1;
+    var yMin = Math.max(0, dataMin - padding);
+    var yMax = dataMax + padding;
+    // Round to reasonable precision
+    var decimals = range < 1 ? 4 : range < 10 ? 2 : 0;
+    yMin = parseFloat(yMin.toFixed(decimals));
+    yMax = parseFloat(yMax.toFixed(decimals));
+    window._raChartYMin = yMin;
+    window._raChartYMax = yMax;
+    window._raChartHeight = 320;
+    // Update inputs
+    var minInput = document.getElementById('ra-ymin-input');
+    var maxInput = document.getElementById('ra-ymax-input');
+    if (minInput) minInput.value = yMin;
+    if (maxInput) maxInput.value = yMax;
+    // Update chart
+    var yScale = window._raTrendChart.options.scales.y;
+    yScale.min = yMin;
+    yScale.max = yMax;
+    window._raTrendChart.update();
+    // Reset height
+    raChartSetHeight(320);
 }
 
 function raRenderDetail(el){

@@ -114,9 +114,16 @@ function pnRenderDashboard(el) {
     html += '<div class="tp-card" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.08),transparent);">';
     html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">';
     html += '<div>';
+    var authUser = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
     html += '<div style="font-size:18px;font-weight:800;color:var(--tp-blue);">Lab Dashboard</div>';
     html += '<div style="font-size:11px;color:var(--tp-dim);text-transform:capitalize;">' + todayStr + '</div>';
     html += '<div style="font-size:10px;color:var(--tp-amber);margin-top:4px;">' + shiftLabel + '</div>';
+    if (authUser) {
+        html += '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">';
+        html += '<span style="font-size:10px;color:#a78bfa;">Sesion: <strong>' + authUser.name + '</strong></span>';
+        html += '<button onclick="if(typeof authSignOut===\'function\')authSignOut();" style="padding:2px 8px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.2);border-radius:4px;cursor:pointer;font-size:9px;">Salir</button>';
+        html += '</div>';
+    }
     html += '</div>';
     if (currentShift) {
         html += '<div style="padding:8px 14px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;">';
@@ -290,12 +297,14 @@ function pnRenderUsers(el) {
             html += '<span style="font-size:12px;font-weight:700;color:var(--tp-text);">' + op.name + '</span>';
             html += '<span style="font-size:8px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;">' + (op.role || 'Técnico') + '</span>';
             if (!op.active) html += '<span style="font-size:8px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span>';
+            html += op.pinHash ? '<span style="font-size:8px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span>' : '<span style="font-size:8px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span>';
             html += '</div>';
             html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">' + stats.registered + ' registrados | ' + stats.released + ' liberados | ' + stats.active + ' activos</div>';
             html += '</div>';
 
             // Actions
-            html += '<div style="display:flex;gap:4px;flex-shrink:0;">';
+            html += '<div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">';
+            html += '<button onclick="pnSetOperatorPin(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN">' + (op.pinHash ? '🔑' : '🔒') + '</button>';
             html += '<button onclick="pnEditOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">✏️</button>';
             html += '<button onclick="pnToggleOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">' + (op.active ? '🚫' : '✅') + '</button>';
             html += '<button onclick="pnRemoveOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--tp-red);">🗑</button>';
@@ -371,6 +380,40 @@ function pnRemoveOperator(idx) {
     showToast('Operador eliminado', 'info');
 }
 
+function pnHashPin(pin) {
+    // Simple hash for PIN (not cryptographic, but sufficient for local offline use)
+    var hash = 0;
+    var str = 'kia_pin_' + pin + '_salt';
+    for (var i = 0; i < str.length; i++) {
+        var c = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + c;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return 'pin_' + Math.abs(hash).toString(36);
+}
+
+function pnSetOperatorPin(idx) {
+    var op = pnState.operators[idx];
+    if (!op) return;
+    var pin = prompt('PIN de 4 digitos para ' + op.name + ':');
+    if (!pin) return;
+    pin = pin.trim();
+    if (!/^\d{4}$/.test(pin)) {
+        showToast('El PIN debe ser exactamente 4 digitos numericos', 'error');
+        return;
+    }
+    op.pinHash = pnHashPin(pin);
+    pnSave();
+    pnRender();
+    showToast('PIN configurado para ' + op.name, 'success');
+}
+
+function pnVerifyPin(idx, pin) {
+    var op = pnState.operators[idx];
+    if (!op || !op.pinHash) return false;
+    return op.pinHash === pnHashPin(pin);
+}
+
 function pnSyncOperators() {
     // Update CONFIG.operators and repopulate dropdowns
     var activeOps = pnState.operators.filter(function(o) { return o.active; }).map(function(o) { return o.name; });
@@ -416,9 +459,10 @@ function pnRenderShiftLog(el) {
 
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">';
     html += '<div><label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Operador</label>';
+    var currentUserName = (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : '';
     html += '<select id="pn-shift-operator" class="tp-select" style="width:100%;">';
     html += '<option value="">Seleccionar...</option>';
-    activeOps.forEach(function(n) { html += '<option value="' + n + '">' + n + '</option>'; });
+    activeOps.forEach(function(n) { html += '<option value="' + n + '"' + (n === currentUserName ? ' selected' : '') + '>' + n + '</option>'; });
     html += '</select></div>';
 
     html += '<div><label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Categoria</label>';
