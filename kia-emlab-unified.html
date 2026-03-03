@@ -1618,6 +1618,32 @@ body{ overflow-x: hidden; }
 </nav>
 
 <script>
+// ════════════════════════════════════════════════════════════════════════
+// FIREBASE INITIALIZATION - CRITICAL!
+// ════════════════════════════════════════════════════════════════════════
+
+if (!firebase.apps.length && typeof firebase !== 'undefined') {
+  const firebaseConfig = {
+    apiKey: "AIzaSyBJGgz7rHKq-LF7xF_v8Z2pK9LmN0q1qJ4",
+    authDomain: "kia-emlab.firebaseapp.com",
+    projectId: "kia-emlab",
+    storageBucket: "kia-emlab.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abcdef1234567890"
+  };
+  
+  try {
+    firebase.initializeApp(firebaseConfig);
+    console.log('✅ Firebase inicializado correctamente');
+  } catch (error) {
+    console.error('❌ Error inicializando Firebase:', error);
+  }
+} else {
+  console.warn('⚠️ Firebase no disponible o ya inicializado');
+}
+</script>
+	
+<script>
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — App Core (Config, Utilities, Platform, Init)          ║
