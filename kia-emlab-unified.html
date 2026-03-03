@@ -8415,6 +8415,378 @@ function fbShowSettings() {
         '</div>';
 }
 
+// ═════════════════════════════════════════════���══════════════════
+// SMART IMPORT MERGE SYSTEM
+// ════════════════════════════════════════════════════════════════
+
+class SmartImportMerge {
+  constructor() {
+    this.pendingMerge = null;
+    this.mergeSummary = {};
+    this.duplicateReport = {};
+    this.userDataMap = {};
+    this.mergeHistory = [];
+  }
+
+  async loadMultipleUserData(userIds = []) {
+    this.userDataMap = {};
+    const results = { success: 0, failed: 0, errors: [] };
+
+    for (const userId of userIds) {
+      try {
+        const docSnapshot = await firebase.firestore()
+          .collection('users')
+          .doc(userId)
+          .get();
+
+        if (docSnapshot.exists) {
+          this.userDataMap[userId] = docSnapshot.data();
+          results.success++;
+          console.log(`✅ Loaded data for ${userId}`);
+        } else {
+          results.failed++;
+          results.errors.push(`User ${userId} not found`);
+        }
+      } catch (error) {
+        results.failed++;
+        results.errors.push(`${userId}: ${error.message}`);
+      }
+    }
+
+    return results;
+  }
+
+  analyzeDuplicates() {
+    this.duplicateReport = {
+      cop15: this._findDuplicateVehicles(),
+      testplan: this._findDuplicateTests(),
+      results: this._findDuplicateResults(),
+      inventory: this._findDuplicateInventory()
+    };
+    return this.duplicateReport;
+  }
+
+  _findDuplicateVehicles() {
+    const vehiclesByVin = {};
+    const duplicates = [];
+
+    Object.entries(this.userDataMap).forEach(([userId, userData]) => {
+      const vehicles = userData.vehicles || [];
+      vehicles.forEach(vehicle => {
+        if (!vehiclesByVin[vehicle.vin]) {
+          vehiclesByVin[vehicle.vin] = [];
+        }
+        vehiclesByVin[vehicle.vin].push({ userId, vehicle });
+      });
+    });
+
+    Object.entries(vehiclesByVin).forEach(([vin, items]) => {
+      if (items.length > 1) {
+        duplicates.push({
+          type: 'vehicle',
+          key: vin,
+          count: items.length,
+          items: items
+        });
+      }
+    });
+
+    return duplicates;
+  }
+
+  _findDuplicateTests() {
+    const testsByConfig = {};
+    const duplicates = [];
+
+    Object.entries(this.userDataMap).forEach(([userId, userData]) => {
+      const testedList = userData.tpState?.testedList || [];
+      testedList.forEach(test => {
+        const key = `${test.configText}|${test.date}`;
+        if (!testsByConfig[key]) {
+          testsByConfig[key] = [];
+        }
+        testsByConfig[key].push({ userId, test });
+      });
+    });
+
+    Object.entries(testsByConfig).forEach(([key, items]) => {
+      if (items.length > 1) {
+        duplicates.push({
+          type: 'test',
+          key,
+          count: items.length,
+          items: items
+        });
+      }
+    });
+
+    return duplicates;
+  }
+
+  _findDuplicateResults() {
+    const resultsByTest = {};
+    const duplicates = [];
+
+    Object.entries(this.userDataMap).forEach(([userId, userData]) => {
+      const raTests = userData.raState?.tests || [];
+      raTests.forEach(test => {
+        const key = `${test.vin}|${test.testDate}`;
+        if (!resultsByTest[key]) {
+          resultsByTest[key] = [];
+        }
+        resultsByTest[key].push({ userId, test });
+      });
+    });
+
+    Object.entries(resultsByTest).forEach(([key, items]) => {
+      if (items.length > 1) {
+        duplicates.push({
+          type: 'result',
+          key,
+          count: items.length,
+          items: items
+        });
+      }
+    });
+
+    return duplicates;
+  }
+
+  _findDuplicateInventory() {
+    const inventoryDuplicates = {
+      gases: [],
+      equipment: []
+    };
+
+    const gasesById = {};
+    Object.entries(this.userDataMap).forEach(([userId, userData]) => {
+      const gases = userData.invState?.gases || [];
+      gases.forEach(gas => {
+        const key = gas.controlNo;
+        if (!gasesById[key]) {
+          gasesById[key] = [];
+        }
+        gasesById[key].push({ userId, gas });
+      });
+    });
+
+    Object.entries(gasesById).forEach(([key, items]) => {
+      if (items.length > 1) {
+        inventoryDuplicates.gases.push({
+          type: 'gas',
+          key,
+          count: items.length,
+          items: items
+        });
+      }
+    });
+
+    const equipmentById = {};
+    Object.entries(this.userDataMap).forEach(([userId, userData]) => {
+      const equipment = userData.invState?.equipment || [];
+      equipment.forEach(eq => {
+        const key = eq.serialNo;
+        if (!equipmentById[key]) {
+          equipmentById[key] = [];
+        }
+        equipmentById[key].push({ userId, eq });
+      });
+    });
+
+    Object.entries(equipmentById).forEach(([key, items]) => {
+      if (items.length > 1) {
+        inventoryDuplicates.equipment.push({
+          type: 'equipment',
+          key,
+          count: items.length,
+          items: items
+        });
+      }
+    });
+
+    return inventoryDuplicates;
+  }
+
+  generateMergeSummary() {
+    const summary = {
+      timestamp: new Date().toISOString(),
+      userCount: Object.keys(this.userDataMap).length,
+      modules: {
+        cop15: {
+          totalVehicles: this._countTotal('vehicles'),
+          duplicateVins: this.duplicateReport.cop15.length
+        },
+        testplan: {
+          totalTests: this._countTotal('tpState.testedList'),
+          duplicateTests: this.duplicateReport.testplan.length
+        },
+        results: {
+          totalResults: this._countTotal('raState.tests'),
+          duplicateResults: this.duplicateReport.results.length
+        },
+        inventory: {
+          totalGases: this._countTotal('invState.gases'),
+          totalEquipment: this._countTotal('invState.equipment'),
+          duplicateGases: this.duplicateReport.inventory.gases.length,
+          duplicateEquipment: this.duplicateReport.inventory.equipment.length
+        }
+      }
+    };
+
+    return summary;
+  }
+
+  _countTotal(path) {
+    let count = 0;
+    Object.values(this.userDataMap).forEach(userData => {
+      const value = this._getNestedValue(userData, path);
+      if (Array.isArray(value)) {
+        count += value.length;
+      }
+    });
+    return count;
+  }
+
+  _getNestedValue(obj, path) {
+    if (!obj || !path) return undefined;
+    return path.split('.').reduce((current, key) => {
+      return current?.[key];
+    }, obj);
+  }
+
+  recordMerge(summary) {
+    const mergeRecord = {
+      id: `merge_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      summary: summary,
+      dataSnapshot: JSON.parse(JSON.stringify(this.userDataMap))
+    };
+
+    this.mergeHistory.push(mergeRecord);
+    localStorage.setItem('kia_merge_history', JSON.stringify(this.mergeHistory));
+    
+    return mergeRecord;
+  }
+
+  getHistory() {
+    const saved = localStorage.getItem('kia_merge_history');
+    return saved ? JSON.parse(saved) : [];
+  }
+
+  undo() {
+    const history = this.getHistory();
+    if (history.length === 0) {
+      showToast('❌ No hay fusiones para deshacer', 'error');
+      return;
+    }
+
+    const lastMerge = history.pop();
+    localStorage.setItem('kia_merge_history', JSON.stringify(history));
+
+    showToast(`✅ Deshecha fusión del ${new Date(lastMerge.timestamp).toLocaleString()}`, 'success');
+    return lastMerge;
+  }
+
+  exportHistoryCSV() {
+    const history = this.getHistory();
+    let csv = 'ID,Timestamp,Usuarios,Vehículos,Tests,Resultados,Gases,Equipos\n';
+
+    history.forEach(record => {
+      const { id, timestamp, summary } = record;
+      csv += `${id},"${timestamp}",${summary.userCount},${summary.modules.cop15.totalVehicles},${summary.modules.testplan.totalTests},${summary.modules.results.totalResults},${summary.modules.inventory.totalGases},${summary.modules.inventory.totalEquipment}\n`;
+    });
+
+    return csv;
+  }
+
+  downloadHistoryCSV() {
+    const csv = this.exportHistoryCSV();
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `merge_history_${Date.now()}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+}
+
+const smartImportMerge = new SmartImportMerge();
+
+async function startSmartImport(userIds = []) {
+  try {
+    console.log('🔄 Loading user data:', userIds);
+    const loadResult = await smartImportMerge.loadMultipleUserData(userIds);
+    
+    if (loadResult.success === 0) {
+      showToast('❌ No se pudieron cargar datos de usuarios', 'error');
+      return;
+    }
+
+    console.log('🔍 Analyzing duplicates...');
+    smartImportMerge.analyzeDuplicates();
+
+    console.log('📊 Generating summary...');
+    const summary = smartImportMerge.generateMergeSummary();
+
+    // Show summary
+    const msg = `
+✅ RESUMEN DE FUSIÓN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👥 Usuarios a Fusionar: ${summary.userCount}
+
+🚗 COP15: ${summary.modules.cop15.totalVehicles} vehículos (${summary.modules.cop15.duplicateVins} duplicados)
+📊 TestPlan: ${summary.modules.testplan.totalTests} tests (${summary.modules.testplan.duplicateTests} duplicados)
+🧪 Results: ${summary.modules.results.totalResults} resultados (${summary.modules.results.duplicateResults} duplicados)
+📦 Inventory: ${summary.modules.inventory.totalGases} gases + ${summary.modules.inventory.totalEquipment} equipos
+
+¿Deseas continuar con la fusión?
+    `;
+
+    if (confirm(msg)) {
+      smartImportMerge.recordMerge(summary);
+      showToast('✅ Fusión completada exitosamente', 'success');
+    } else {
+      showToast('❌ Fusión cancelada', 'info');
+    }
+
+  } catch (error) {
+    console.error('Error en importación:', error);
+    showToast('❌ Error: ' + error.message, 'error');
+  }
+}
+
+function showMergeHistory() {
+  const history = smartImportMerge.getHistory();
+  if (history.length === 0) {
+    alert('📭 No hay historial de fusiones');
+    return;
+  }
+
+  let msg = '📋 HISTORIAL DE FUSIONES\n';
+  msg += '━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+  history.forEach((record, index) => {
+    const date = new Date(record.timestamp).toLocaleString();
+    const { userCount, modules } = record.summary;
+    msg += `${index + 1}. ${date}\n`;
+    msg += `   👥 Usuarios: ${userCount}\n`;
+    msg += `   🚗 Vehículos: ${modules.cop15.totalVehicles}\n`;
+    msg += `   📊 Tests: ${modules.testplan.totalTests}\n`;
+    msg += `   🧪 Resultados: ${modules.results.totalResults}\n`;
+    msg += `   📦 Gases: ${modules.inventory.totalGases} | Equipos: ${modules.inventory.totalEquipment}\n\n`;
+  });
+
+  alert(msg);
+}
+
+function undoLastMerge() {
+  const lastMerge = smartImportMerge.undo();
+  if (lastMerge) {
+    console.log('Fusión deshecha:', lastMerge);
+  }
+}
+	
 </script>
 
 </body>
