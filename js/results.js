@@ -10,6 +10,21 @@ function raSearchReset() {
     window._raSearchReg = 'ALL';
     raRender();
 }
+function raApplySearchFilter() {
+    var vinQ = (window._raSearchVin || '').toUpperCase();
+    var opQ = (window._raSearchOp || '').toLowerCase();
+    var dateFrom = window._raSearchFrom || '';
+    var dateTo = window._raSearchTo || '';
+    var regQ = window._raSearchReg || 'ALL';
+    return raState.tests.filter(function(t) {
+        if (vinQ && !(t.vin||'').toUpperCase().includes(vinQ)) return false;
+        if (opQ && !(t.operator||'').toLowerCase().includes(opQ)) return false;
+        if (dateFrom && (t.dateStr||'') < dateFrom) return false;
+        if (dateTo && (t.dateStr||'') > dateTo) return false;
+        if (regQ !== 'ALL' && (t.emissionReg||t.regSpec||'?') !== regQ) return false;
+        return true;
+    });
+}
 function raGoDetail(id) {
     window._raDetailId = id;
     raState.activeTab = 'ra-detail';
@@ -132,10 +147,13 @@ function raRenderSearch(el) {
     html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Regulacion</label><select onchange="window._raSearchReg=this.value;raRender();" class="tp-select" style="width:100%;font-size:10px;">';
     allRegs.forEach(function(r) { html += '<option value="'+r+'" '+(r===regQ?'selected':'')+'>'+r+'</option>'; });
     html += '</select></div>';
-    html += '<div style="display:flex;align-items:flex-end;"><button class="tp-btn tp-btn-ghost" onclick="raSearchReset()" style="font-size:10px;">Limpiar</button></div>';
+    html += '<div style="display:flex;align-items:flex-end;gap:4px;"><button class="tp-btn tp-btn-ghost" onclick="raSearchReset()" style="font-size:10px;">Limpiar</button></div>';
     html += '</div>';
 
-    html += '<div style="font-size:11px;color:var(--tp-dim);margin-bottom:6px;">' + filtered.length + ' de ' + raState.tests.length + ' resultados</div>';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+    html += '<span style="font-size:11px;color:var(--tp-dim);">' + filtered.length + ' de ' + raState.tests.length + ' resultados</span>';
+    if (filtered.length > 0) html += '<button class="tp-btn tp-btn-ghost" onclick="raExportCSV(raApplySearchFilter())" style="font-size:9px;padding:3px 8px;">Exportar CSV (' + filtered.length + ')</button>';
+    html += '</div>';
 
     if (filtered.length > 0) {
         html += '<div style="max-height:400px;overflow-y:auto;"><table class="tp-table" style="width:100%;"><thead><tr><th>VIN</th><th>Modelo</th><th>Regulacion</th><th>Operador</th><th>Fecha</th><th>Test#</th><th></th></tr></thead><tbody>';
@@ -384,14 +402,19 @@ function raRenderDashboard(el){
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green)">${regs.length}</div><div class="tp-metric-label">Regulaciones</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:#8b5cf6">${avg(fuelData,'fc')}</div><div class="tp-metric-label">Consumo Prom</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${avg(fuelData,'co2')}</div><div class="tp-metric-label">CO2 Prom</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green)">${tests.filter(function(t){return raTestVerdict(t)==='PASS';}).length}</div><div class="tp-metric-label">PASS</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${tests.filter(function(t){return raTestVerdict(t)==='FAIL';}).length}</div><div class="tp-metric-label">FAIL</div></div>
     </div>
     <div class="tp-card">
         <div class="tp-card-title"><span>Ultimas Pruebas</span>
-            <span style="font-size:10px;color:var(--tp-dim);">${tests.length} total</span>
+            <div style="display:flex;gap:6px;align-items:center;">
+                <span style="font-size:10px;color:var(--tp-dim);">${tests.length} total</span>
+                <button class="tp-btn tp-btn-ghost" onclick="raExportCSV()" style="font-size:9px;padding:3px 8px;">CSV</button>
+            </div>
         </div>
         <div style="max-height:400px;overflow-y:auto;">
             <table class="tp-table">
-                <thead><tr><th>VIN</th><th>Modelo</th><th>Reg.</th><th>Cat.</th><th>Status</th><th style="text-align:right">FC</th><th style="text-align:right">CO2</th><th style="text-align:right">CO</th><th style="text-align:right">NOx</th><th style="text-align:right">THC</th><th></th></tr></thead>
+                <thead><tr><th>VIN</th><th>Modelo</th><th>Reg.</th><th>P/F</th><th style="text-align:right">FC</th><th style="text-align:right">CO2</th><th style="text-align:right">CO</th><th style="text-align:right">NOx</th><th style="text-align:right">THC</th><th></th></tr></thead>
                 <tbody>
                     ${tests.slice(-30).reverse().map(t=>{
                         const c=t.cycleData&&t.cycleData.length>0?t.cycleData[t.cycleData.length-1]:{};
@@ -401,8 +424,7 @@ function raRenderDashboard(el){
                             <td style="font-family:monospace;font-size:9px;color:var(--tp-amber);">${t.vin||'—'}</td>
                             <td style="font-size:10px">${t.testDesc||t.modelName||'—'}</td>
                             <td style="font-size:9px">${t.emissionReg||t.regSpec||'—'}</td>
-                            <td style="font-size:9px">${t.testCategory||'—'}</td>
-                            <td><span class="tp-badge" style="background:${t.testStatus==='Completed'?'rgba(16,185,129,0.15);color:var(--tp-green)':'rgba(245,158,11,0.15);color:var(--tp-amber)'};border:1px solid currentColor;font-size:8px;">${t.testStatus||'?'}</span></td>
+                            <td>${(function(){var v=raTestVerdict(t);return v==='PASS'?'<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);border:1px solid currentColor;font-size:8px;font-weight:700;">PASS</span>':v==='FAIL'?'<span class="tp-badge" style="background:rgba(239,68,68,0.15);color:var(--tp-red);border:1px solid currentColor;font-size:8px;font-weight:700;">FAIL</span>':'<span style="font-size:8px;color:var(--tp-dim);">—</span>';})()}</td>
                             <td style="text-align:right;font-family:monospace;font-size:10px;">${sf(c.FuelConsumptionBag,2)}</td>
                             <td style="text-align:right;font-family:monospace;font-size:10px;">${sf(c.BagCO2,1)}</td>
                             <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagCO',c.BagCO)}">${sf(c.BagCO,3)}</td>
@@ -1307,6 +1329,86 @@ function raRenderFilter(el) {
     }
 
     el.innerHTML = html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [QW1] RA — EXPORT CSV                                              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raExportCSV(testsSubset) {
+    var tests = testsSubset || raState.tests;
+    if (tests.length === 0) { showToast('No hay pruebas para exportar', 'info'); return; }
+
+    var cols = [
+        {h:'VIN',         f:function(t){return t.vin||''}},
+        {h:'Modelo',      f:function(t){return t.testDesc||t.modelName||''}},
+        {h:'ModelYear',    f:function(t){return t.modelYear||''}},
+        {h:'Regulacion',   f:function(t){return t.emissionReg||t.regSpec||''}},
+        {h:'TestType',     f:function(t){return t.testType||''}},
+        {h:'TestNumber',   f:function(t){return t.testNumber||t.yearlyTestNumber||''}},
+        {h:'Operador',     f:function(t){return t.operator||''}},
+        {h:'Driver',       f:function(t){return t.driver||''}},
+        {h:'Fecha',        f:function(t){return t.dateStr||''}},
+        {h:'Status',       f:function(t){return t.testStatus||''}},
+        {h:'Pass/Fail',    f:function(t){return raTestVerdict(t)}},
+        {h:'Motor',        f:function(t){return t.engineCapacity||''}},
+        {h:'Transmision',  f:function(t){return t.transmission||''}},
+        {h:'Region',       f:function(t){return t.region||''}},
+        {h:'Llanta',       f:function(t){return t.tireAssy||t.wheelSize||''}},
+        {h:'TestMass_kg',  f:function(t){return t.testMass||''}},
+        {h:'FuelConsumption', f:function(t){var c=raLastCycle(t);return c.FuelConsumptionBag!=null?c.FuelConsumptionBag:''}},
+        {h:'FuelEconomy',    f:function(t){var c=raLastCycle(t);return c.FuelEconomyBag!=null?c.FuelEconomyBag:''}},
+        {h:'CO',           f:function(t){var c=raLastCycle(t);return c.BagCO!=null?c.BagCO:''}},
+        {h:'CO2',          f:function(t){var c=raLastCycle(t);return c.BagCO2!=null?c.BagCO2:''}},
+        {h:'THC',          f:function(t){var c=raLastCycle(t);return c.BagTHC!=null?c.BagTHC:''}},
+        {h:'NOx',          f:function(t){var c=raLastCycle(t);return c.BagNOX!=null?c.BagNOX:''}},
+        {h:'NMHC',         f:function(t){var c=raLastCycle(t);return c.BagNMHC!=null?c.BagNMHC:''}},
+        {h:'CH4',          f:function(t){var c=raLastCycle(t);return c.BagCH4!=null?c.BagCH4:''}},
+        {h:'NMHC+NOx',     f:function(t){var c=raLastCycle(t);return c.BagNMHCpNOX!=null?c.BagNMHCpNOX:''}},
+        {h:'PN',           f:function(t){var c=raLastCycle(t);return c.DilutePN!=null?c.DilutePN:''}}
+    ];
+
+    var esc = function(v) {
+        var s = String(v==null?'':v);
+        return s.indexOf(',')>=0||s.indexOf('"')>=0||s.indexOf('\n')>=0 ? '"'+s.replace(/"/g,'""')+'"' : s;
+    };
+
+    var csv = cols.map(function(c){return esc(c.h);}).join(',') + '\n';
+    tests.forEach(function(t) {
+        csv += cols.map(function(c){return esc(c.f(t));}).join(',') + '\n';
+    });
+
+    var blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'results_export_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(tests.length + ' pruebas exportadas a CSV', 'success');
+}
+
+// Helper: get last cycle row (composite/total)
+function raLastCycle(t) {
+    return (t.cycleData && t.cycleData.length > 0) ? t.cycleData[t.cycleData.length - 1] : {};
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [QW2] RA — PASS/FAIL VERDICT PER TEST                             ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raTestVerdict(t) {
+    var pr = raGetProfile(t);
+    if (!pr || !pr.limits) return '—';
+    var c = raLastCycle(t);
+    if (!c || Object.keys(c).length === 0) return '—';
+    var keys = Object.keys(pr.limits);
+    for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        var val = c[k];
+        if (typeof val === 'number' && isFinite(val) && Math.abs(val) > pr.limits[k]) return 'FAIL';
+    }
+    return 'PASS';
 }
 
 function raInit(){ raUpdateBadges(); }

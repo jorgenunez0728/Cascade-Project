@@ -181,8 +181,11 @@ function invRenderDashboard(el) {
         });
         html += '</div>';
     } else if (gases.length > 0) {
-        html += '<div class="tp-card" style="border-left:3px solid var(--tp-green);text-align:center;padding:20px;color:var(--tp-green);">Sin alertas. Todos los gases y equipos OK.</div>';
+        html += '<div class="tp-card" style="border-left:3px solid var(--tp-green);text-align:center;padding:20px;color:var(--tp-green);">Sin alertas de vigencia/nivel. Todos los gases y equipos OK.</div>';
     }
+
+    // Reorder alerts (projected depletion)
+    html += invRenderReorderAlerts();
 
     // Zone map (simplified visual)
     html += '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span></div>';
@@ -252,6 +255,7 @@ function invRenderGases(el) {
             html += '<span style="font-size:8px;padding:2px 6px;border-radius:4px;background:' + exp.color + '20;color:' + exp.color + ';border:1px solid ' + exp.color + '30;">' + exp.text + '</span>';
             html += '<span style="font-size:8px;padding:2px 6px;border-radius:4px;background:' + lvl.color + '20;color:' + lvl.color + ';">' + lvl.text + '</span>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGas(\'' + g.id + '\')" style="font-size:9px;">\u270F</button>';
+            if (g.readings && g.readings.length >= 2) html += '<button class="tp-btn tp-btn-ghost" onclick="invShowTrendChart(\'' + g.id + '\')" style="font-size:9px;" title="Tendencia">&#x1F4C8;</button>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invShowBarcode(\'' + g.id + '\')" style="font-size:9px;">\u{1F4CB}</button>';
             html += '</div></div>';
         });
@@ -1545,3 +1549,228 @@ function invDeleteGasType(idx) {
     invState.gasTypes.splice(idx, 1);
     invSave(); invRender();
 }
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [QW3] TREND CHART — Gas consumption over time (Chart.js)          ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function invShowTrendChart(gasId) {
+    var g = invState.gases.find(function(x) { return x.id === gasId; });
+    if (!g || !g.readings || g.readings.length < 2) {
+        showToast('Necesita al menos 2 lecturas para graficar', 'info');
+        return;
+    }
+
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+    modal.innerHTML = '<div style="max-width:520px;margin:20px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>' +
+        '<h3 style="margin:0 0 2px;color:#06b6d4;">' + g.formula + ' ' + (g.concNominal || '') + '</h3>' +
+        '<div style="font-size:10px;color:#64748b;margin-bottom:12px;">#' + g.controlNo + ' | Zona ' + (g.zone || '?') + ' | ' + g.readings.length + ' lecturas</div>' +
+        '<canvas id="inv-trend-canvas" style="width:100%;height:220px;"></canvas>' +
+        '<div id="inv-trend-stats" style="margin-top:10px;"></div>' +
+        '</div>';
+
+    // Slight delay to ensure DOM is ready
+    setTimeout(function() { invDrawTrendChart(g); }, 50);
+}
+
+function invDrawTrendChart(g) {
+    var canvas = document.getElementById('inv-trend-canvas');
+    if (!canvas || typeof Chart === 'undefined') {
+        showToast('Chart.js no disponible', 'error');
+        return;
+    }
+
+    var readings = g.readings;
+    var labels = readings.map(function(r) { return r.date; });
+    var psiVals = readings.map(function(r) { return r.psi; });
+
+    // Calculate linear regression for projection
+    var n = psiVals.length;
+    var sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for (var i = 0; i < n; i++) {
+        sumX += i; sumY += psiVals[i]; sumXY += i * psiVals[i]; sumXX += i * i;
+    }
+    var slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    var intercept = (sumY - slope * sumX) / n;
+    var dailyDrop = 0;
+    if (n >= 2) {
+        var firstDate = new Date(readings[0].date);
+        var lastDate = new Date(readings[n - 1].date);
+        var daySpan = Math.max(1, (lastDate - firstDate) / (1000 * 60 * 60 * 24));
+        dailyDrop = (psiVals[0] - psiVals[n - 1]) / daySpan;
+    }
+
+    // Project 4 more weeks
+    var projLabels = [];
+    var projVals = [];
+    var lastDate = new Date(readings[n - 1].date);
+    var lastPsi = psiVals[n - 1];
+    for (var w = 1; w <= 4; w++) {
+        var d = new Date(lastDate);
+        d.setDate(d.getDate() + 7 * w);
+        var projPsi = Math.max(0, lastPsi - dailyDrop * 7 * w);
+        projLabels.push(d.toISOString().slice(5, 10));
+        projVals.push(Math.round(projPsi));
+    }
+
+    var allLabels = labels.map(function(l) { return l.slice(5); }).concat(projLabels);
+    var actualData = psiVals.concat(new Array(4).fill(null));
+    var projData = new Array(n).fill(null);
+    projData[n - 1] = psiVals[n - 1]; // connect line
+    projData = projData.concat(projVals);
+
+    // Depletion line at threshold
+    var depletionPsi = g.limitPsi || 150;
+
+    new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: allLabels,
+            datasets: [
+                {
+                    label: 'PSI Actual',
+                    data: actualData,
+                    borderColor: '#06b6d4',
+                    backgroundColor: 'rgba(6,182,212,0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#06b6d4',
+                    borderWidth: 2
+                },
+                {
+                    label: 'Proyeccion',
+                    data: projData,
+                    borderColor: '#f59e0b',
+                    borderDash: [6, 3],
+                    fill: false,
+                    tension: 0,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#f59e0b',
+                    borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true, labels: { color: '#94a3b8', font: { size: 10 } } },
+                annotation: undefined
+            },
+            scales: {
+                x: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(71,85,105,0.2)' } },
+                y: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(71,85,105,0.2)' }, beginAtZero: false }
+            }
+        }
+    });
+
+    // Stats below chart
+    var daysToEmpty = dailyDrop > 0 ? Math.round(lastPsi / dailyDrop) : 999;
+    var emptyDate = new Date(lastDate);
+    emptyDate.setDate(emptyDate.getDate() + daysToEmpty);
+    var weeklyDrop = dailyDrop * 7;
+    var statsEl = document.getElementById('inv-trend-stats');
+    if (statsEl) {
+        statsEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;">' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#06b6d4;">' + lastPsi + '</div><div style="font-size:8px;color:#64748b;">PSI actual</div></div>' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#f59e0b;">' + dailyDrop.toFixed(1) + '</div><div style="font-size:8px;color:#64748b;">PSI/dia</div></div>' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#f59e0b;">' + weeklyDrop.toFixed(0) + '</div><div style="font-size:8px;color:#64748b;">PSI/semana</div></div>' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1a' : daysToEmpty + 'd') + '</div><div style="font-size:8px;color:#64748b;">dias restantes</div></div>' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1 ano' : emptyDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })) + '</div><div style="font-size:8px;color:#64748b;">fecha vacio</div></div>' +
+            '</div>';
+    }
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [QW4] REORDER ALERTS — Smart alerts with reorder specs           ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function invCheckReorderAlerts() {
+    var alerts = [];
+    var WEEKS_THRESHOLD = 6; // Alert when gas projected to last < 6 weeks
+
+    invState.gases.forEach(function(g) {
+        if (g.status !== 'In use' || !g.readings || g.readings.length < 2) return;
+
+        var rdgs = g.readings;
+        var first = rdgs[0];
+        var last = rdgs[rdgs.length - 1];
+        var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / (1000 * 60 * 60 * 24)));
+        var dailyDrop = (first.psi - last.psi) / daysDiff;
+        if (dailyDrop <= 0) return;
+
+        var daysLeft = last.psi / dailyDrop;
+        var weeksLeft = daysLeft / 7;
+
+        if (weeksLeft < WEEKS_THRESHOLD) {
+            // Check if there's a spare of the same formula+concentration
+            var hasSpare = invState.gases.some(function(s) {
+                return s.id !== g.id && s.formula === g.formula && s.concNominal === g.concNominal && s.status === 'Spare';
+            });
+
+            alerts.push({
+                gasId: g.id,
+                controlNo: g.controlNo,
+                formula: g.formula,
+                concNominal: g.concNominal,
+                gasType: g.gasType,
+                traceability: g.traceability || 'EPA',
+                zone: g.zone,
+                currentPsi: last.psi,
+                dailyDrop: dailyDrop,
+                daysLeft: Math.round(daysLeft),
+                weeksLeft: Math.round(weeksLeft * 10) / 10,
+                hasSpare: hasSpare,
+                urgency: weeksLeft < 2 ? 'critica' : weeksLeft < 4 ? 'alta' : 'media'
+            });
+        }
+    });
+
+    alerts.sort(function(a, b) { return a.daysLeft - b.daysLeft; });
+    return alerts;
+}
+
+function invRenderReorderAlerts() {
+    var alerts = invCheckReorderAlerts();
+    if (alerts.length === 0) return '';
+
+    var html = '<div class="tp-card" style="border-left:3px solid #f97316;">';
+    html += '<div class="tp-card-title"><span style="color:#f97316;">Alertas de Reorden (' + alerts.length + ')</span></div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Cilindros que se proyectan a agotarse en menos de 6 semanas.</div>';
+
+    alerts.forEach(function(a) {
+        var urgClr = a.urgency === 'critica' ? '#ef4444' : a.urgency === 'alta' ? '#f59e0b' : '#3b82f6';
+        html += '<div style="padding:8px 10px;margin-bottom:4px;border:1px solid ' + urgClr + '30;border-radius:6px;background:' + urgClr + '08;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">';
+        html += '<div>';
+        html += '<span style="font-weight:700;font-size:11px;">' + a.formula + ' ' + (a.concNominal || '') + '</span>';
+        html += ' <span style="font-size:9px;color:var(--tp-dim);">#' + a.controlNo + ' (' + (a.zone || '?') + ')</span>';
+        html += '</div>';
+        html += '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:' + urgClr + '20;color:' + urgClr + ';border:1px solid ' + urgClr + '40;">' + a.urgency.toUpperCase() + ' ~' + a.weeksLeft + ' sem</span>';
+        html += '</div>';
+        html += '<div style="display:flex;gap:8px;margin-top:4px;font-size:9px;flex-wrap:wrap;">';
+        html += '<span style="color:var(--tp-dim);">Actual: <strong>' + a.currentPsi + ' psi</strong></span>';
+        html += '<span style="color:var(--tp-dim);">Consumo: <strong>' + a.dailyDrop.toFixed(1) + ' psi/dia</strong></span>';
+        html += '<span style="color:var(--tp-dim);">Vacio en: <strong style="color:' + urgClr + ';">' + a.daysLeft + ' dias</strong></span>';
+        if (a.hasSpare) {
+            html += '<span style="color:#10b981;font-weight:700;">Spare disponible</span>';
+        } else {
+            html += '<span style="color:#ef4444;font-weight:700;">SIN SPARE</span>';
+        }
+        html += '</div>';
+        // Reorder spec
+        html += '<div style="margin-top:6px;padding:4px 8px;border-radius:4px;background:rgba(249,115,22,0.06);border:1px dashed ' + urgClr + '30;font-size:9px;color:#f97316;">';
+        html += '<strong>Reorden:</strong> ' + a.gasType + ' | ' + (a.concNominal || '') + ' | Trazabilidad: ' + a.traceability;
+        html += '</div>';
+        html += '</div>';
+    });
+
+    html += '</div>';
+    return html;
+}
+

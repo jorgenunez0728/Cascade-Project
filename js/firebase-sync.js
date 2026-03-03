@@ -67,7 +67,10 @@ function fbInit() {
             if (ok) {
                 fbSync.status = 'connected';
                 fbUpdateIndicator();
-                if (fbSync.stationId) fbPullAll();
+                if (fbSync.stationId) {
+                    fbPullAll();
+                    fbBackupCheck(); // Auto-backup once per day
+                }
             }
         });
 
@@ -344,6 +347,13 @@ function fbShowSettings() {
         '<button onclick="fbPushAll(true)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Subir todo a nube</button>' +
         '<button onclick="if(confirm(\x27Esto reemplazara datos locales con los de la nube. Continuar?\x27)){fbPullAll(true);}" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Descargar de nube</button>' +
         '</div>' : '') +
+
+        // ═══ BACKUP SECTION ═══
+        (fbSync.enabled && fbSync.status === 'connected' ? '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
+        '<button onclick="fbBackupManual()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Backup Manual</button>' +
+        '<button onclick="fbBackupShowList()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Ver Backups</button>' +
+        '</div>' +
+        '<div style="font-size:9px;color:#64748b;margin-bottom:12px;margin-top:-8px;">Auto-backup diario. Ultimo: ' + (localStorage.getItem(FB_BACKUP_LS_KEY) || 'nunca') + '</div>' : '') +
 
         // ═══ SMART MERGE BUTTON ═══
         (fbSync.enabled && fbSync.status === 'connected' ? '<div style="margin-bottom:12px;padding:10px;background:#1e293b;border-radius:8px;border:1px solid #334155;">' +
@@ -1014,4 +1024,204 @@ function fbMergeConfirmAndExecute() {
         html += '</div></div>';
         modal.innerHTML = html;
     }
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [QW5] AUTOMATIC DAILY BACKUP TO FIRESTORE                         ║
+// ║  Saves a timestamped snapshot every 24h, keeps last 30 days        ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var FB_BACKUP_LS_KEY = 'kia_fb_last_backup';
+
+function fbBackupCheck() {
+    if (!fbSync.enabled || !fbSync.db || !fbSync.stationId) return;
+
+    var lastBackup = localStorage.getItem(FB_BACKUP_LS_KEY) || '';
+    var today = new Date().toISOString().slice(0, 10);
+
+    if (lastBackup === today) return; // Already backed up today
+
+    fbBackupNow(function(ok) {
+        if (ok) {
+            localStorage.setItem(FB_BACKUP_LS_KEY, today);
+            console.log('Firebase Backup: Daily backup completed for ' + today);
+        }
+    });
+}
+
+function fbBackupNow(callback) {
+    if (!fbSync.enabled || !fbSync.db || !fbSync.stationId) {
+        if (callback) callback(false);
+        return;
+    }
+
+    var today = new Date().toISOString().slice(0, 10);
+    var snapshot = {
+        cop15: { vehicleCount: (db.vehicles || []).length, data: db },
+        testplan: { testedCount: (tpState.testedList || []).length, data: tpState },
+        results: { testCount: (raState.tests || []).length, data: raState },
+        inventory: { gasCount: (invState.gases || []).length, equipCount: (invState.equipment || []).length, data: invState },
+        meta: {
+            station: fbSync.stationId,
+            date: today,
+            timestamp: new Date().toISOString(),
+            version: 'v11'
+        }
+    };
+
+    var backupRef = fbSync.db.collection('stations').doc(fbSync.stationId)
+        .collection('backups').doc(today);
+
+    backupRef.set(snapshot).then(function() {
+        if (callback) callback(true);
+
+        // Cleanup: delete backups older than 30 days
+        fbBackupCleanup();
+    }).catch(function(err) {
+        console.error('Firebase Backup: Error saving backup', err);
+        if (callback) callback(false);
+    });
+}
+
+function fbBackupCleanup() {
+    var cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    var cutoffStr = cutoff.toISOString().slice(0, 10);
+
+    fbSync.db.collection('stations').doc(fbSync.stationId)
+        .collection('backups')
+        .where('meta.date', '<', cutoffStr)
+        .get()
+        .then(function(snap) {
+            var batch = fbSync.db.batch();
+            var count = 0;
+            snap.forEach(function(doc) {
+                batch.delete(doc.ref);
+                count++;
+            });
+            if (count > 0) {
+                batch.commit().then(function() {
+                    console.log('Firebase Backup: Cleaned up ' + count + ' old backups');
+                });
+            }
+        })
+        .catch(function(err) {
+            console.warn('Firebase Backup: Cleanup error', err);
+        });
+}
+
+function fbBackupManual() {
+    showToast('Creando backup...', 'info');
+    fbBackupNow(function(ok) {
+        if (ok) {
+            localStorage.setItem(FB_BACKUP_LS_KEY, new Date().toISOString().slice(0, 10));
+            showToast('Backup guardado en Firebase', 'success');
+            fbShowSettings();
+        } else {
+            showToast('Error creando backup', 'error');
+        }
+    });
+}
+
+function fbBackupList(callback) {
+    if (!fbSync.enabled || !fbSync.db || !fbSync.stationId) { callback([]); return; }
+
+    fbSync.db.collection('stations').doc(fbSync.stationId)
+        .collection('backups')
+        .orderBy('meta.date', 'desc')
+        .limit(30)
+        .get()
+        .then(function(snap) {
+            var list = [];
+            snap.forEach(function(doc) {
+                var d = doc.data();
+                list.push({
+                    id: doc.id,
+                    date: d.meta ? d.meta.date : doc.id,
+                    timestamp: d.meta ? d.meta.timestamp : '',
+                    vehicles: d.cop15 ? d.cop15.vehicleCount : '?',
+                    tests: d.results ? d.results.testCount : '?',
+                    gases: d.inventory ? d.inventory.gasCount : '?'
+                });
+            });
+            callback(list);
+        })
+        .catch(function(err) {
+            console.error('Firebase Backup: List error', err);
+            callback([]);
+        });
+}
+
+function fbBackupRestore(backupId) {
+    if (!confirm('Restaurar backup del ' + backupId + '?\n\nEsto reemplazara TODOS los datos locales. Se recomienda hacer un backup manual antes.')) return;
+
+    fbSync.db.collection('stations').doc(fbSync.stationId)
+        .collection('backups').doc(backupId)
+        .get()
+        .then(function(doc) {
+            if (!doc.exists) { showToast('Backup no encontrado', 'error'); return; }
+            var d = doc.data();
+
+            if (d.cop15 && d.cop15.data) {
+                db = d.cop15.data;
+                localStorage.setItem('kia_db_v11', JSON.stringify(db));
+                refreshAllLists();
+            }
+            if (d.testplan && d.testplan.data) {
+                tpState = d.testplan.data;
+                localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
+                if (typeof tpRender === 'function') tpRender();
+            }
+            if (d.results && d.results.data) {
+                raState = d.results.data;
+                localStorage.setItem('kia_results_v1', JSON.stringify(raState));
+                if (typeof raRender === 'function') raRender();
+            }
+            if (d.inventory && d.inventory.data) {
+                invState = d.inventory.data;
+                localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
+                if (typeof invRender === 'function') invRender();
+            }
+
+            showToast('Backup del ' + backupId + ' restaurado', 'success');
+            fbShowSettings();
+        })
+        .catch(function(err) {
+            showToast('Error restaurando: ' + err.message, 'error');
+        });
+}
+
+function fbBackupShowList() {
+    var modal = document.getElementById('fbModal');
+    if (!modal) return;
+    modal.innerHTML = '<div style="max-width:480px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;color:#e2e8f0;text-align:center;">' +
+        '<div style="font-size:24px;">Cargando backups...</div></div>';
+
+    fbBackupList(function(list) {
+        var html = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
+        html += '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
+        html += '<h3 style="margin:0 0 12px;color:#3b82f6;">Backups Disponibles (' + list.length + ')</h3>';
+
+        if (list.length === 0) {
+            html += '<div style="text-align:center;padding:20px;color:#64748b;">No hay backups guardados aun.</div>';
+        } else {
+            list.forEach(function(b) {
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:4px;border:1px solid #1e293b;border-radius:6px;background:#1e293b;">';
+                html += '<div>';
+                html += '<div style="font-size:11px;font-weight:700;">' + b.date + '</div>';
+                html += '<div style="font-size:9px;color:#64748b;">' + b.vehicles + ' vehiculos | ' + b.tests + ' pruebas | ' + b.gases + ' gases</div>';
+                html += '</div>';
+                html += '<button onclick="fbBackupRestore(\x27' + b.id + '\x27)" style="padding:5px 12px;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:10px;">Restaurar</button>';
+                html += '</div>';
+            });
+        }
+
+        html += '<div style="display:flex;gap:8px;margin-top:12px;">';
+        html += '<button onclick="fbShowSettings()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Volver</button>';
+        html += '<button onclick="fbBackupManual()" style="flex:1;padding:8px;background:#0f766e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Crear Backup Ahora</button>';
+        html += '</div></div>';
+
+        modal.innerHTML = html;
+    });
 }
