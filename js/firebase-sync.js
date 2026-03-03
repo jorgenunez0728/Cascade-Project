@@ -187,7 +187,7 @@ function fbPushAll(showFeedback) {
         if (!ok && errMsg) errors.push(errMsg);
         pending--;
         if (pending === 0 && showFeedback) {
-            if (errors.length === 0) showToast('Datos enviados a Firebase correctamente', 'success');
+            if (errors.length === 0) { showToast('Datos enviados a Firebase correctamente', 'success'); fbPostSyncPush(); }
             else showToast('Error al subir: ' + errors[0], 'error');
         }
     }
@@ -354,6 +354,11 @@ function fbShowSettings() {
         '<button onclick="fbBackupShowList()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Ver Backups</button>' +
         '</div>' +
         '<div style="font-size:9px;color:#64748b;margin-bottom:12px;margin-top:-8px;">Auto-backup diario. Ultimo: ' + (localStorage.getItem(FB_BACKUP_LS_KEY) || 'nunca') + '</div>' : '') +
+
+        // ═══ ACTIVITY FEED BUTTON ═══
+        (fbSync.enabled && fbSync.status === 'connected' ? '<div style="margin-bottom:12px;">' +
+        '<button onclick="fbActivityShowFeed()" style="width:100%;padding:10px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">📡 Activity Feed (entre estaciones)</button>' +
+        '</div>' : '') +
 
         // ═══ SMART MERGE BUTTON ═══
         (fbSync.enabled && fbSync.status === 'connected' ? '<div style="margin-bottom:12px;padding:10px;background:#1e293b;border-radius:8px;border:1px solid #334155;">' +
@@ -1224,4 +1229,210 @@ function fbBackupShowList() {
 
         modal.innerHTML = html;
     });
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  ACTIVITY FEED — Cross-station event timeline                       ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var FB_ACTIVITY_COLLECTION = 'activity';
+var FB_ACTIVITY_MAX = 200;
+
+function fbActivityPost(action, details) {
+    if (!fbSync.enabled || fbSync.status !== 'connected') return;
+    try {
+        var fdb = firebase.firestore();
+        fdb.collection(FB_ACTIVITY_COLLECTION).add({
+            station: fbSync.stationId || 'unknown',
+            action: action,
+            details: details || '',
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            localTime: new Date().toISOString()
+        }).then(function() {
+            fbActivityCleanup();
+        }).catch(function(e) {
+            console.warn('Activity post failed:', e);
+        });
+    } catch(e) { console.warn('Activity post error:', e); }
+}
+
+function fbActivityCleanup() {
+    try {
+        var fdb = firebase.firestore();
+        fdb.collection(FB_ACTIVITY_COLLECTION).orderBy('timestamp', 'desc').get().then(function(snap) {
+            if (snap.size <= FB_ACTIVITY_MAX) return;
+            var batch = fdb.batch();
+            var count = 0;
+            snap.docs.slice(FB_ACTIVITY_MAX).forEach(function(doc) {
+                batch.delete(doc.ref);
+                count++;
+            });
+            if (count > 0) batch.commit();
+        });
+    } catch(e) {}
+}
+
+function fbActivityLoad(callback) {
+    if (!fbSync.enabled || fbSync.status !== 'connected') { callback([]); return; }
+    try {
+        var fdb = firebase.firestore();
+        fdb.collection(FB_ACTIVITY_COLLECTION).orderBy('timestamp', 'desc').limit(80).get().then(function(snap) {
+            var events = [];
+            snap.forEach(function(doc) {
+                var d = doc.data();
+                events.push({
+                    station: d.station || '?',
+                    action: d.action || '',
+                    details: d.details || '',
+                    time: d.timestamp ? d.timestamp.toDate() : new Date(d.localTime || Date.now())
+                });
+            });
+            callback(events);
+        }).catch(function(e) {
+            console.warn('Activity load failed:', e);
+            callback([]);
+        });
+    } catch(e) { callback([]); }
+}
+
+function fbActivityShowFeed() {
+    var modal = document.getElementById('fbModal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    modal.innerHTML = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">' +
+        '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>' +
+        '<h3 style="margin:0 0 12px;color:#6366f1;">📡 Activity Feed</h3>' +
+        '<div style="text-align:center;padding:30px;color:#64748b;">Cargando actividad...</div></div>';
+
+    fbActivityLoad(function(events) {
+        var html = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
+        html += '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
+        html += '<h3 style="margin:0 0 4px;color:#6366f1;">📡 Activity Feed</h3>';
+        html += '<div style="font-size:10px;color:#64748b;margin-bottom:14px;">Eventos recientes de todas las estaciones</div>';
+
+        if (events.length === 0) {
+            html += '<div style="text-align:center;padding:30px;color:#64748b;">No hay actividad registrada aun.</div>';
+        } else {
+            // Station color map
+            var stationColors = {};
+            var palette = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16'];
+            var ci = 0;
+            events.forEach(function(e) {
+                if (!stationColors[e.station]) { stationColors[e.station] = palette[ci % palette.length]; ci++; }
+            });
+
+            // Group by date
+            var grouped = {};
+            events.forEach(function(e) {
+                var dateKey = e.time.toLocaleDateString('es-MX', { weekday:'short', day:'numeric', month:'short' });
+                if (!grouped[dateKey]) grouped[dateKey] = [];
+                grouped[dateKey].push(e);
+            });
+
+            var actionIcons = {
+                'vehicle_registered': '🚗', 'test_started': '▶️', 'test_completed': '✅',
+                'vehicle_released': '🏁', 'soak_started': '⏱️', 'plan_generated': '📋',
+                'plan_accepted': '✅', 'test_imported': '📥', 'gas_reading': '⛽',
+                'calibration': '🔧', 'sync_push': '☁️', 'sync_pull': '📥',
+                'backup_created': '💾'
+            };
+
+            Object.keys(grouped).forEach(function(dateKey) {
+                html += '<div style="font-size:10px;font-weight:700;color:#475569;margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid #1e293b;">' + dateKey + '</div>';
+                grouped[dateKey].forEach(function(e) {
+                    var icon = actionIcons[e.action] || '📌';
+                    var sColor = stationColors[e.station] || '#64748b';
+                    var timeStr = e.time.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' });
+                    html += '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #0f172a;">';
+                    html += '<div style="min-width:42px;font-size:9px;color:#64748b;padding-top:2px;">' + timeStr + '</div>';
+                    html += '<div style="font-size:14px;line-height:1;">' + icon + '</div>';
+                    html += '<div style="flex:1;">';
+                    html += '<span style="font-size:10px;font-weight:700;color:' + sColor + ';padding:1px 6px;background:' + sColor + '20;border-radius:4px;margin-right:4px;">' + e.station + '</span>';
+                    html += '<span style="font-size:10px;color:#cbd5e1;">' + fbActivityLabel(e.action) + '</span>';
+                    if (e.details) html += '<div style="font-size:9px;color:#64748b;margin-top:2px;">' + e.details + '</div>';
+                    html += '</div></div>';
+                });
+            });
+        }
+
+        html += '<div style="display:flex;gap:8px;margin-top:14px;">';
+        html += '<button onclick="fbShowSettings()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Volver</button>';
+        html += '<button onclick="fbActivityShowFeed()" style="flex:1;padding:8px;background:#6366f1;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Actualizar</button>';
+        html += '</div></div>';
+
+        modal.innerHTML = html;
+    });
+}
+
+function fbActivityLabel(action) {
+    var labels = {
+        'vehicle_registered': 'Vehiculo registrado',
+        'test_started': 'Prueba iniciada',
+        'test_completed': 'Prueba completada',
+        'vehicle_released': 'Vehiculo liberado',
+        'soak_started': 'Soak timer iniciado',
+        'plan_generated': 'Plan semanal generado',
+        'plan_accepted': 'Plan semanal aceptado',
+        'test_imported': 'Resultados importados',
+        'gas_reading': 'Lectura de gas registrada',
+        'calibration': 'Calibracion registrada',
+        'sync_push': 'Datos subidos a nube',
+        'sync_pull': 'Datos descargados de nube',
+        'backup_created': 'Backup creado'
+    };
+    return labels[action] || action.replace(/_/g, ' ');
+}
+
+// Hook activity posts into key operations
+(function() {
+    // Hook saveDB (COP15 operations)
+    var _origSaveDB = typeof saveDB === 'function' ? saveDB : null;
+    if (_origSaveDB) {
+        window.saveDB = function() {
+            var result = _origSaveDB.apply(this, arguments);
+            return result;
+        };
+    }
+
+    // We post activity from specific user actions rather than generic saves
+    // The functions below are called directly from COP15, TestPlan, Results, Inventory
+})();
+
+// Convenience wrappers called from other modules
+function fbPostVehicleRegistered(vin, config) {
+    fbActivityPost('vehicle_registered', vin + ' — ' + (config || ''));
+}
+function fbPostTestStarted(vin) {
+    fbActivityPost('test_started', vin);
+}
+function fbPostTestCompleted(vin, result) {
+    fbActivityPost('test_completed', vin + (result ? ' — ' + result : ''));
+}
+function fbPostVehicleReleased(vin) {
+    fbActivityPost('vehicle_released', vin);
+}
+function fbPostSoakStarted(vin, hours) {
+    fbActivityPost('soak_started', vin + ' — ' + hours + 'h');
+}
+function fbPostPlanGenerated(count) {
+    fbActivityPost('plan_generated', count + ' pruebas programadas');
+}
+function fbPostPlanAccepted(weekNum) {
+    fbActivityPost('plan_accepted', 'Semana #' + weekNum);
+}
+function fbPostTestImported(count) {
+    fbActivityPost('test_imported', count + ' pruebas importadas');
+}
+function fbPostGasReading(gasName, psi) {
+    fbActivityPost('gas_reading', gasName + ': ' + psi + ' PSI');
+}
+function fbPostCalibration(equipName) {
+    fbActivityPost('calibration', equipName);
+}
+function fbPostSyncPush() {
+    fbActivityPost('sync_push', '');
+}
+function fbPostSyncPull() {
+    fbActivityPost('sync_pull', '');
 }

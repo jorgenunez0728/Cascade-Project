@@ -478,6 +478,7 @@ function tpRender() {
     else if (tab === 'tp-weekly') tpRenderWeekly(el);
     else if (tab === 'tp-simulator') tpRenderSimulator(el);
     else if (tab === 'tp-production') tpRenderProduction(el);
+    else if (tab === 'tp-calendar') tpRenderCalendar(el);
 }
 
 // ── Color helpers ──
@@ -1010,6 +1011,7 @@ function tpAcceptWeeklyPlan(weekIdx) {
     tpState.weeklyPlans[weekIdx].accepted = true;
     tpState.weeklyPlans[weekIdx].acceptedDate = new Date().toISOString();
     tpSave(); tpRender(); tpUpdateBadges();
+    if (typeof fbPostPlanAccepted === 'function') fbPostPlanAccepted(weekIdx + 1);
     showToast('Plan semana ' + (weekIdx+1) + ' aceptado.', 'success');
 }
 
@@ -1493,6 +1495,233 @@ function tpRunSimulation(capacity, maxWeeks) {
     return { totalTestsNeeded: totalDeficit, currentCoverage, coverageAtEnd, weeksTo100, curve };
 }
 
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  MONTHLY CALENDAR VIEW                                              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _tpCalendarMonth = null; // { year, month } — null = current
+
+function tpCalendarNav(delta) {
+    if (!_tpCalendarMonth) {
+        var now = new Date();
+        _tpCalendarMonth = { year: now.getFullYear(), month: now.getMonth() };
+    }
+    _tpCalendarMonth.month += delta;
+    if (_tpCalendarMonth.month > 11) { _tpCalendarMonth.month = 0; _tpCalendarMonth.year++; }
+    if (_tpCalendarMonth.month < 0) { _tpCalendarMonth.month = 11; _tpCalendarMonth.year--; }
+    tpRender();
+}
+
+function tpRenderCalendar(el) {
+    var now = new Date();
+    if (!_tpCalendarMonth) _tpCalendarMonth = { year: now.getFullYear(), month: now.getMonth() };
+    var year = _tpCalendarMonth.year;
+    var month = _tpCalendarMonth.month;
+
+    var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    var dayNames = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+
+    // Gather events: weekly plan items + tested list results
+    var events = {}; // dateKey -> [{type, label, color, detail}]
+
+    function addEvent(dateKey, type, label, color, detail) {
+        if (!events[dateKey]) events[dateKey] = [];
+        events[dateKey].push({ type: type, label: label, color: color, detail: detail || '' });
+    }
+
+    // Weekly plan items (use acceptedDate or created as base, items show completion dates)
+    var plans = tpState.weeklyPlans || [];
+    plans.forEach(function(w, wi) {
+        var weekStart = new Date(w.created);
+        w.items.forEach(function(item) {
+            if (item.completed && item.completedDate) {
+                var d = new Date(item.completedDate);
+                var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                var shortDesc = item.desc.length > 30 ? item.desc.substring(0, 28) + '..' : item.desc;
+                addEvent(key, 'completed', shortDesc, '#10b981', 'Sem ' + (wi+1));
+            } else if (!item.completed) {
+                // Pending items: assign to the week's creation date spread
+                var base = new Date(w.created);
+                var key = base.getFullYear() + '-' + String(base.getMonth()+1).padStart(2,'0') + '-' + String(base.getDate()).padStart(2,'0');
+                var shortDesc = item.desc.length > 30 ? item.desc.substring(0, 28) + '..' : item.desc;
+                addEvent(key, 'pending', shortDesc, '#f59e0b', 'Sem ' + (wi+1) + ' pendiente');
+            }
+        });
+        // Week marker
+        var ws = new Date(w.created);
+        var wKey = ws.getFullYear() + '-' + String(ws.getMonth()+1).padStart(2,'0') + '-' + String(ws.getDate()).padStart(2,'0');
+        addEvent(wKey, 'week', 'Sem ' + (wi+1) + (w.accepted ? ' (aceptada)' : ''), '#3b82f6', w.items.length + ' items');
+    });
+
+    // Tested list (actual COP results fed into test plan)
+    var tested = tpState.testedList || [];
+    tested.forEach(function(t) {
+        if (t.date) {
+            var d = new Date(t.date);
+            var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+            var shortDesc = (t.configText || '').length > 30 ? t.configText.substring(0, 28) + '..' : (t.configText || '?');
+            addEvent(key, 'tested', shortDesc, '#8b5cf6', t.vin || '');
+        }
+    });
+
+    // Build calendar grid
+    var firstDay = new Date(year, month, 1);
+    var lastDay = new Date(year, month + 1, 0);
+    var startDow = (firstDay.getDay() + 6) % 7; // Monday=0
+    var daysInMonth = lastDay.getDate();
+    var todayKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+
+    // Stats for this month
+    var monthEvents = 0, monthCompleted = 0, monthPending = 0, monthTested = 0;
+    for (var dk in events) {
+        if (dk.startsWith(year + '-' + String(month+1).padStart(2,'0'))) {
+            events[dk].forEach(function(e) {
+                if (e.type === 'completed') { monthCompleted++; monthEvents++; }
+                else if (e.type === 'pending') { monthPending++; monthEvents++; }
+                else if (e.type === 'tested') { monthTested++; monthEvents++; }
+            });
+        }
+    }
+
+    var html = '';
+    html += '<div class="tp-card" style="padding:14px;">';
+
+    // Header with navigation
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(-1)" style="font-size:16px;padding:4px 10px;">◀</button>';
+    html += '<div style="text-align:center;">';
+    html += '<div style="font-size:16px;font-weight:800;color:var(--tp-amber);">' + monthNames[month] + ' ' + year + '</div>';
+    html += '<div style="font-size:10px;color:var(--tp-dim);">' + monthCompleted + ' completadas | ' + monthPending + ' pendientes | ' + monthTested + ' probadas</div>';
+    html += '</div>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(1)" style="font-size:16px;padding:4px 10px;">▶</button>';
+    html += '</div>';
+
+    // Metrics row
+    html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;">';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green);">' + monthCompleted + '</div><div class="tp-metric-label">Completadas</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber);">' + monthPending + '</div><div class="tp-metric-label">Pendientes</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:#8b5cf6;">' + monthTested + '</div><div class="tp-metric-label">Probadas</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue);">' + (monthCompleted + monthTested) + '</div><div class="tp-metric-label">Total</div></div>';
+    html += '</div>';
+
+    // Day headers
+    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;">';
+    dayNames.forEach(function(dn) {
+        html += '<div style="text-align:center;font-size:9px;font-weight:700;color:var(--tp-dim);padding:4px 0;">' + dn + '</div>';
+    });
+    html += '</div>';
+
+    // Calendar cells
+    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">';
+
+    // Empty cells before first day
+    for (var e = 0; e < startDow; e++) {
+        html += '<div style="min-height:60px;background:var(--tp-bg);border-radius:4px;opacity:0.3;"></div>';
+    }
+
+    for (var d = 1; d <= daysInMonth; d++) {
+        var dateKey = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+        var dayEvents = events[dateKey] || [];
+        var isToday = dateKey === todayKey;
+        var isWeekend = ((startDow + d - 1) % 7) >= 5;
+
+        html += '<div style="min-height:60px;background:' + (isToday ? 'rgba(59,130,246,0.15)' : isWeekend ? 'rgba(100,116,139,0.05)' : 'var(--tp-card)') + ';border-radius:4px;padding:3px;border:1px solid ' + (isToday ? 'var(--tp-blue)' : 'var(--tp-border)') + ';overflow:hidden;" onclick="tpCalendarDayDetail(\'' + dateKey + '\')">';
+        html += '<div style="font-size:10px;font-weight:' + (isToday ? '800' : '600') + ';color:' + (isToday ? 'var(--tp-blue)' : 'var(--tp-text)') + ';margin-bottom:2px;">' + d + '</div>';
+
+        // Show max 3 events as dots/pills
+        var shown = dayEvents.filter(function(ev) { return ev.type !== 'week'; });
+        var weekEv = dayEvents.find(function(ev) { return ev.type === 'week'; });
+        if (weekEv) {
+            html += '<div style="font-size:7px;padding:1px 3px;background:rgba(59,130,246,0.2);color:#3b82f6;border-radius:2px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + weekEv.label + '</div>';
+        }
+        shown.slice(0, 2).forEach(function(ev) {
+            html += '<div style="font-size:7px;padding:1px 3px;background:' + ev.color + '20;color:' + ev.color + ';border-radius:2px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + ev.label + '</div>';
+        });
+        if (shown.length > 2) {
+            html += '<div style="font-size:7px;color:var(--tp-dim);text-align:center;">+' + (shown.length - 2) + '</div>';
+        }
+        html += '</div>';
+    }
+
+    // Empty cells after last day
+    var totalCells = startDow + daysInMonth;
+    var remaining = (7 - (totalCells % 7)) % 7;
+    for (var r = 0; r < remaining; r++) {
+        html += '<div style="min-height:60px;background:var(--tp-bg);border-radius:4px;opacity:0.3;"></div>';
+    }
+    html += '</div>'; // grid end
+
+    // Legend
+    html += '<div style="display:flex;gap:12px;margin-top:10px;justify-content:center;flex-wrap:wrap;">';
+    html += '<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span> Completada</div>';
+    html += '<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Pendiente</div>';
+    html += '<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#8b5cf6;display:inline-block;"></span> Probada (COP)</div>';
+    html += '<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span> Semana Plan</div>';
+    html += '</div>';
+
+    html += '</div>'; // card end
+
+    // Day detail panel (hidden until click)
+    html += '<div id="tp-calendar-detail"></div>';
+
+    el.innerHTML = html;
+}
+
+function tpCalendarDayDetail(dateKey) {
+    var detailEl = document.getElementById('tp-calendar-detail');
+    if (!detailEl) return;
+
+    var parts = dateKey.split('-');
+    var dateLabel = parseInt(parts[2]) + '/' + parseInt(parts[1]) + '/' + parts[0];
+
+    // Gather all events for this day
+    var dayEvents = [];
+
+    var plans = tpState.weeklyPlans || [];
+    plans.forEach(function(w, wi) {
+        w.items.forEach(function(item) {
+            if (item.completed && item.completedDate) {
+                var d = new Date(item.completedDate);
+                var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                if (key === dateKey) dayEvents.push({ type: 'completed', desc: item.desc, detail: 'Semana ' + (wi+1), color: '#10b981', icon: '✅' });
+            } else if (!item.completed) {
+                var base = new Date(w.created);
+                var key = base.getFullYear() + '-' + String(base.getMonth()+1).padStart(2,'0') + '-' + String(base.getDate()).padStart(2,'0');
+                if (key === dateKey) dayEvents.push({ type: 'pending', desc: item.desc, detail: 'Semana ' + (wi+1) + ' — pendiente', color: '#f59e0b', icon: '⏳' });
+            }
+        });
+    });
+
+    var tested = tpState.testedList || [];
+    tested.forEach(function(t) {
+        if (t.date) {
+            var d = new Date(t.date);
+            var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+            if (key === dateKey) dayEvents.push({ type: 'tested', desc: t.configText || '?', detail: 'VIN: ' + (t.vin || '?'), color: '#8b5cf6', icon: '🧪' });
+        }
+    });
+
+    if (dayEvents.length === 0) {
+        detailEl.innerHTML = '<div class="tp-card" style="margin-top:8px;text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin eventos el ' + dateLabel + '</div>';
+        return;
+    }
+
+    var html = '<div class="tp-card" style="margin-top:8px;">';
+    html += '<div class="tp-card-title"><span style="font-size:12px;">📋 ' + dateLabel + ' (' + dayEvents.length + ' eventos)</span></div>';
+    dayEvents.forEach(function(ev) {
+        html += '<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--tp-border);">';
+        html += '<div style="font-size:14px;">' + ev.icon + '</div>';
+        html += '<div style="flex:1;">';
+        html += '<div style="font-size:10px;font-weight:700;color:' + ev.color + ';">' + ev.desc + '</div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);">' + ev.detail + '</div>';
+        html += '</div></div>';
+    });
+    html += '</div>';
+
+    detailEl.innerHTML = html;
+}
 
 
 // ╔══════════════════════════════════════════════════════════════════════╗

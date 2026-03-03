@@ -170,6 +170,7 @@ setAltaDatetimeIfEmpty(true);
             document.querySelectorAll('.tab, .tab-panel').forEach(el => el.classList.remove('active'));
             tab.classList.add('active');
             document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+            if (tab.dataset.tab === 'kanban') renderKanban();
             refreshAllLists();
             updateProgressBar();
         });
@@ -432,7 +433,8 @@ setAltaDatetimeIfEmpty(true);
         
         db.vehicles.push(newVehicle);
         saveDB();
-        
+        if (typeof fbPostVehicleRegistered === 'function') fbPostVehicleRegistered(newVehicle.vin, newVehicle.configCode);
+
         closeModal('modalConfirm');
         showToast('Vehículo registrado exitosamente', 'success');
 
@@ -1227,6 +1229,7 @@ if (vehicle.status !== 'ready-release') {
                 tpAutoFeedFromRelease(vehicle);
                 invLogTestUsage(vehicle);
                 tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                if (typeof fbPostVehicleReleased === 'function') fbPostVehicleReleased(vehicle.vin);
                 showToast('Vehículo liberado. JSON descargado.', 'success');
             } catch(e) {
                 // Rollback on cross-module error
@@ -1318,8 +1321,11 @@ if (vehicle.status !== 'ready-release') {
         renderHistory();
     }
 
-   
+
 function refreshAllLists() {
+  // Render kanban if panel is visible
+  var kanbanPanel = document.getElementById('panel-kanban');
+  if (kanbanPanel && kanbanPanel.classList.contains('active')) renderKanban();
   const activeSelect = document.getElementById('activeVehSelect');
   const releaseSelect = document.getElementById('releaseVehSelect');
 
@@ -2248,4 +2254,131 @@ function soakTimerRestore() {
             document.getElementById('soak_timer_bar').style.width = '100%';
         }
     } catch(e) { localStorage.removeItem('kia_soak_timer'); }
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [B1] KANBAN QUEUE — Visual vehicle pipeline                       ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function renderKanban() {
+    var el = document.getElementById('kanban-board');
+    if (!el) return;
+
+    var vehicles = db.vehicles || [];
+    var columns = [
+        { key: 'registered',    label: 'Registrado',       color: '#3b82f6', icon: '📝' },
+        { key: 'in-progress',   label: 'En Progreso',      color: '#f59e0b', icon: '🔧' },
+        { key: 'testing',       label: 'En Prueba',        color: '#8b5cf6', icon: '🧪' },
+        { key: 'ready-release', label: 'Listo p/ Liberar', color: '#10b981', icon: '✅' }
+    ];
+
+    // Soak timer info
+    var soakData = null;
+    try {
+        var raw = localStorage.getItem('kia_soak_timer');
+        if (raw) soakData = JSON.parse(raw);
+    } catch(e) {}
+
+    var html = '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
+    html += '<h3 style="margin:0;font-size:16px;">Cola de Vehiculos</h3>';
+    var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
+    html += '<span style="font-size:11px;color:#64748b;">' + totalActive + ' activos</span>';
+    html += '</div>';
+
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;align-items:start;">';
+
+    columns.forEach(function(col) {
+        var colVehicles = vehicles.filter(function(v) { return v.status === col.key; });
+
+        html += '<div style="background:#f8fafc;border-radius:10px;padding:10px;border-top:3px solid ' + col.color + ';min-height:120px;">';
+        // Header
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+        html += '<span style="font-weight:700;font-size:12px;color:#0f172a;">' + col.icon + ' ' + col.label + '</span>';
+        html += '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:' + col.color + '20;color:' + col.color + ';font-weight:700;">' + colVehicles.length + '</span>';
+        html += '</div>';
+
+        if (colVehicles.length === 0) {
+            html += '<div style="text-align:center;padding:15px;color:#94a3b8;font-size:10px;">Sin vehiculos</div>';
+        } else {
+            colVehicles.forEach(function(v) {
+                var td = v.testData || {};
+                var timeSince = '';
+                if (v.timeline && v.timeline.length > 0) {
+                    var lastTs = v.timeline[v.timeline.length - 1].timestamp;
+                    var hrs = Math.round((Date.now() - new Date(lastTs).getTime()) / (1000 * 60 * 60));
+                    timeSince = hrs < 1 ? '<1h' : hrs < 24 ? hrs + 'h' : Math.floor(hrs / 24) + 'd';
+                }
+
+                var shortVin = (v.vin || '?').slice(-8);
+                var configShort = (v.configCode || '').split(' ').slice(0, 3).join(' ');
+
+                html += '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
+                // VIN + time
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+                html += '<span style="font-family:monospace;font-size:11px;font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
+                if (timeSince) html += '<span style="font-size:8px;color:#94a3b8;">' + timeSince + '</span>';
+                html += '</div>';
+                // Config
+                html += '<div style="font-size:9px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (configShort || '—') + '</div>';
+                // Purpose badge
+                html += '<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">';
+                if (v.purpose) {
+                    var pColor = v.purpose.includes('COP') ? '#0ea5e9' : v.purpose.includes('EO') ? '#f97316' : '#8b5cf6';
+                    html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:' + pColor + '15;color:' + pColor + ';border:1px solid ' + pColor + '30;">' + v.purpose + '</span>';
+                }
+                // Operator
+                if (td.operator) {
+                    html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#f1f5f9;color:#475569;">' + td.operator + '</span>';
+                }
+                html += '</div>';
+
+                // Soak indicator if applicable
+                if (col.key === 'in-progress' && soakData && soakData.endTime) {
+                    var remaining = soakData.endTime - Date.now();
+                    if (remaining > 0) {
+                        var hrs = Math.floor(remaining / (1000 * 60 * 60));
+                        var mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+                        html += '<div style="margin-top:4px;font-size:8px;padding:2px 6px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Soak: ' + hrs + 'h ' + mins + 'm restantes</div>';
+                    }
+                }
+                html += '</div>';
+            });
+        }
+        html += '</div>';
+    });
+
+    html += '</div>';
+
+    // Summary metrics below
+    var archived = vehicles.filter(function(v){ return v.status === 'archived'; }).length;
+    html += '<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">';
+    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + archived + '</strong> <span style="color:#64748b;">archivados</span></div>';
+    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + vehicles.length + '</strong> <span style="color:#64748b;">total historico</span></div>';
+    html += '</div>';
+
+    el.innerHTML = html;
+}
+
+function kanbanGoVehicle(vehicleId, status) {
+    var v = db.vehicles.find(function(x) { return x.id == vehicleId; });
+    if (!v) return;
+
+    if (status === 'ready-release') {
+        // Go to release tab
+        document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
+        document.querySelector('[data-tab="liberacion"]').classList.add('active');
+        document.getElementById('panel-liberacion').classList.add('active');
+        var sel = document.getElementById('releaseVehSelect');
+        if (sel) { sel.value = vehicleId; sel.dispatchEvent(new Event('change')); }
+    } else {
+        // Go to operation tab
+        document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
+        document.querySelector('[data-tab="seguimiento"]').classList.add('active');
+        document.getElementById('panel-seguimiento').classList.add('active');
+        var sel = document.getElementById('activeVehSelect');
+        if (sel) { sel.value = vehicleId; sel.dispatchEvent(new Event('change')); }
+    }
 }

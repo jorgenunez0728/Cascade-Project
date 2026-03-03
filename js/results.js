@@ -259,6 +259,7 @@ function raRender(){
     else if(t==='ra-capability') raRenderCapability(el);
     else if(t==='ra-search') raRenderSearch(el);
     else if(t==='ra-filter') raRenderFilter(el);
+    else if(t==='ra-compare') raRenderCompare(el);
 }
 
 
@@ -572,6 +573,7 @@ function raImportJSON(){
             const data=JSON.parse(e.target.result);
             const arr=Array.isArray(data)?data:[];
             raState.tests=raState.tests.concat(arr);raSave();raUpdateBadges();raRender();
+            if (typeof fbPostTestImported === 'function') fbPostTestImported(arr.length);
             showToast(arr.length+' pruebas importadas desde JSON', 'success');
         }catch(err){showToast('JSON inválido: '+err.message, 'error');}
     };
@@ -1409,6 +1411,127 @@ function raTestVerdict(t) {
         if (typeof val === 'number' && isFinite(val) && Math.abs(val) > pr.limits[k]) return 'FAIL';
     }
     return 'PASS';
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [B2] RA — SIDE-BY-SIDE TEST COMPARISON                            ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raRenderCompare(el) {
+    var tests = raState.tests;
+    if (tests.length < 2) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Necesitas al menos 2 pruebas importadas para comparar.</div>';
+        return;
+    }
+
+    var idA = window._raCmpA || '';
+    var idB = window._raCmpB || '';
+    var testA = idA ? tests.find(function(t){ return String(t.id) === String(idA); }) : null;
+    var testB = idB ? tests.find(function(t){ return String(t.id) === String(idB); }) : null;
+
+    var opts = tests.map(function(t) {
+        return '<option value="' + t.id + '">' + (t.vin||'NoVIN') + ' — ' + (t.testDesc||t.modelName||'?') + ' #' + (t.testNumber||'?') + ' (' + (t.dateStr||'') + ')</option>';
+    }).join('');
+
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>Comparar 2 Pruebas</span></div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Prueba A</label>';
+    html += '<select class="tp-select" style="width:100%;font-size:10px;" onchange="window._raCmpA=this.value;raRender();"><option value="">Seleccionar...</option>' + opts.replace('value="' + idA + '"', 'value="' + idA + '" selected') + '</select></div>';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Prueba B</label>';
+    html += '<select class="tp-select" style="width:100%;font-size:10px;" onchange="window._raCmpB=this.value;raRender();"><option value="">Seleccionar...</option>' + opts.replace('value="' + idB + '"', 'value="' + idB + '" selected') + '</select></div>';
+    html += '</div></div>';
+
+    if (!testA || !testB) {
+        html += '<div class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">Selecciona dos pruebas para comparar.</div>';
+        el.innerHTML = html;
+        return;
+    }
+
+    var cA = raLastCycle(testA);
+    var cB = raLastCycle(testB);
+    var prA = raGetProfile(testA);
+    var prB = raGetProfile(testB);
+    var limits = (prA && prA.limits) ? prA.limits : ((prB && prB.limits) ? prB.limits : {});
+    var sf = function(v, d) { return typeof v === 'number' && isFinite(v) ? v.toFixed(d) : '—'; };
+
+    // Metadata comparison
+    var metaRows = [
+        ['VIN', testA.vin, testB.vin],
+        ['Modelo', testA.testDesc || testA.modelName, testB.testDesc || testB.modelName],
+        ['Ano', testA.modelYear, testB.modelYear],
+        ['Regulacion', testA.emissionReg || testA.regSpec, testB.emissionReg || testB.regSpec],
+        ['TestType', testA.testType, testB.testType],
+        ['Test#', testA.testNumber, testB.testNumber],
+        ['Fecha', testA.dateStr, testB.dateStr],
+        ['Operador', testA.operator, testB.operator],
+        ['Driver', testA.driver, testB.driver],
+        ['Motor', testA.engineCapacity, testB.engineCapacity],
+        ['Transmision', testA.transmission, testB.transmission],
+        ['Region', testA.region, testB.region],
+        ['TestMass', sf(testA.testMass, 0) + ' kg', sf(testB.testMass, 0) + ' kg'],
+        ['Veredicto', raTestVerdict(testA), raTestVerdict(testB)]
+    ];
+
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Metadata</span></div>';
+    html += '<table class="tp-table" style="width:100%;"><thead><tr><th></th><th style="color:#06b6d4;">A</th><th style="color:#f59e0b;">B</th><th>Diff</th></tr></thead><tbody>';
+    metaRows.forEach(function(r) {
+        var isDiff = String(r[1] || '') !== String(r[2] || '');
+        html += '<tr' + (isDiff ? ' style="background:rgba(245,158,11,0.05);"' : '') + '>';
+        html += '<td style="font-size:9px;font-weight:700;color:var(--tp-dim);">' + r[0] + '</td>';
+        html += '<td style="font-size:10px;">' + (r[1] || '—') + '</td>';
+        html += '<td style="font-size:10px;">' + (r[2] || '—') + '</td>';
+        html += '<td style="font-size:9px;color:' + (isDiff ? 'var(--tp-amber)' : 'var(--tp-dim)') + ';">' + (isDiff ? 'Diferente' : '=') + '</td>';
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+
+    // Emissions comparison
+    var emissionKeys = [
+        { k: 'FuelConsumptionBag', l: 'Fuel Consumption', d: 3, u: 'L/100km' },
+        { k: 'FuelEconomyBag',     l: 'Fuel Economy',     d: 2, u: 'km/L' },
+        { k: 'BagCO2',  l: 'CO2',  d: 2, u: 'g/km' },
+        { k: 'BagCO',   l: 'CO',   d: 4, u: 'g/km' },
+        { k: 'BagTHC',  l: 'THC',  d: 4, u: 'g/km' },
+        { k: 'BagNOX',  l: 'NOx',  d: 4, u: 'g/km' },
+        { k: 'BagNMHC', l: 'NMHC', d: 4, u: 'g/km' },
+        { k: 'BagCH4',  l: 'CH4',  d: 4, u: 'g/km' },
+        { k: 'BagNMHCpNOX', l: 'NMHC+NOx', d: 4, u: 'g/km' },
+        { k: 'DilutePN', l: 'PN', d: 2, u: '#/km' }
+    ];
+
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Resultados de Emision (Composite)</span></div>';
+    html += '<table class="tp-table" style="width:100%;"><thead><tr><th>Contaminante</th><th style="text-align:right;color:#06b6d4;">A</th><th style="text-align:right;color:#f59e0b;">B</th><th style="text-align:right;">Delta</th><th style="text-align:right;">%</th><th>Limite</th></tr></thead><tbody>';
+
+    emissionKeys.forEach(function(ek) {
+        var vA = cA[ek.k];
+        var vB = cB[ek.k];
+        var hasA = typeof vA === 'number' && isFinite(vA);
+        var hasB = typeof vB === 'number' && isFinite(vB);
+        if (!hasA && !hasB) return;
+
+        var delta = (hasA && hasB) ? (vB - vA) : null;
+        var pctDelta = (hasA && hasB && vA !== 0) ? ((vB - vA) / Math.abs(vA) * 100) : null;
+        var lim = limits[ek.k];
+
+        var failA = lim && hasA && Math.abs(vA) > lim;
+        var failB = lim && hasB && Math.abs(vB) > lim;
+        var deltaClr = delta === null ? 'var(--tp-dim)' : delta > 0 ? '#ef4444' : delta < 0 ? '#10b981' : 'var(--tp-dim)';
+
+        html += '<tr>';
+        html += '<td style="font-size:10px;font-weight:600;">' + ek.l + ' <span style="font-size:8px;color:var(--tp-dim);">' + ek.u + '</span></td>';
+        html += '<td style="text-align:right;font-family:monospace;font-size:10px;' + (failA ? 'color:var(--tp-red);font-weight:700;' : '') + '">' + (hasA ? sf(vA, ek.d) : '—') + '</td>';
+        html += '<td style="text-align:right;font-family:monospace;font-size:10px;' + (failB ? 'color:var(--tp-red);font-weight:700;' : '') + '">' + (hasB ? sf(vB, ek.d) : '—') + '</td>';
+        html += '<td style="text-align:right;font-family:monospace;font-size:10px;color:' + deltaClr + ';">' + (delta !== null ? (delta > 0 ? '+' : '') + sf(delta, ek.d) : '—') + '</td>';
+        html += '<td style="text-align:right;font-size:9px;color:' + deltaClr + ';">' + (pctDelta !== null ? (pctDelta > 0 ? '+' : '') + pctDelta.toFixed(1) + '%' : '—') + '</td>';
+        html += '<td style="font-size:9px;color:var(--tp-dim);text-align:center;">' + (lim ? sf(lim, ek.d) : '—') + '</td>';
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    html += '<div style="font-size:8px;color:var(--tp-dim);margin-top:6px;">Delta = B - A. Verde = B menor que A (mejora). Rojo = B mayor que A (peor). Valores en rojo exceden el limite regulatorio.</div>';
+    html += '</div>';
+
+    el.innerHTML = html;
 }
 
 function raInit(){ raUpdateBadges(); }

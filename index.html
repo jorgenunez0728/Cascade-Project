@@ -60,7 +60,8 @@
         <div class="tab active" data-tab="alta">1. Alta</div>
         <div class="tab" data-tab="seguimiento">2. Operación</div>
         <div class="tab" data-tab="liberacion">3. Liberación</div>
-        <div class="tab" data-tab="dashboard">4. Historial</div>
+        <div class="tab" data-tab="kanban">Cola</div>
+        <div class="tab" data-tab="dashboard">Historial</div>
     </div>
 
     <!-- ==================== TAB 1: ALTA ==================== -->
@@ -775,6 +776,11 @@
         </div>
     </div>
 
+    <!-- ==================== KANBAN: COLA VISUAL ==================== -->
+    <div class="tab-panel" id="panel-kanban">
+        <div id="kanban-board"></div>
+    </div>
+
     <!-- ==================== TAB 4: HISTORIAL ==================== -->
     <div class="tab-panel" id="panel-dashboard">
         <div class="card">
@@ -849,6 +855,7 @@
         <button class="tp-tab" onclick="tpSwitchTab('tp-families')">🧬 Familias</button>
         <button class="tp-tab" onclick="tpSwitchTab('tp-rules')">⚙️ Reglas</button>
         <button class="tp-tab" onclick="tpSwitchTab('tp-weekly')">📅 Plan Semanal</button>
+        <button class="tp-tab" onclick="tpSwitchTab('tp-calendar')">🗓️ Calendario</button>
         <button class="tp-tab" onclick="tpSwitchTab('tp-simulator')">🔮 Simulador</button>
         <button class="tp-tab" onclick="tpSwitchTab('tp-production')">🏭 Producción</button>
     </div>
@@ -884,6 +891,7 @@
         <button class="tp-tab" onclick="raSwitchTab('ra-capability')">📐 Cpk/Ppk</button>
         <button class="tp-tab" onclick="raSwitchTab('ra-search')">🔎 Buscar</button>
         <button class="tp-tab" onclick="raSwitchTab('ra-filter')">🧹 Filtro</button>
+        <button class="tp-tab" onclick="raSwitchTab('ra-compare')">🔀 Comparar</button>
     </div>
     <div class="tp-main">
         <div id="ra-content"></div>

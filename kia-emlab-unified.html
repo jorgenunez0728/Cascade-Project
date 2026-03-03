@@ -734,7 +734,8 @@ body{ overflow-x: hidden; }
         <div class="tab active" data-tab="alta">1. Alta</div>
         <div class="tab" data-tab="seguimiento">2. Operación</div>
         <div class="tab" data-tab="liberacion">3. Liberación</div>
-        <div class="tab" data-tab="dashboard">4. Historial</div>
+        <div class="tab" data-tab="kanban">Cola</div>
+        <div class="tab" data-tab="dashboard">Historial</div>
     </div>
 
     <!-- ==================== TAB 1: ALTA ==================== -->
@@ -1449,6 +1450,11 @@ body{ overflow-x: hidden; }
         </div>
     </div>
 
+    <!-- ==================== KANBAN: COLA VISUAL ==================== -->
+    <div class="tab-panel" id="panel-kanban">
+        <div id="kanban-board"></div>
+    </div>
+
     <!-- ==================== TAB 4: HISTORIAL ==================== -->
     <div class="tab-panel" id="panel-dashboard">
         <div class="card">
@@ -1523,6 +1529,7 @@ body{ overflow-x: hidden; }
         <button class="tp-tab" onclick="tpSwitchTab('tp-families')">🧬 Familias</button>
         <button class="tp-tab" onclick="tpSwitchTab('tp-rules')">⚙️ Reglas</button>
         <button class="tp-tab" onclick="tpSwitchTab('tp-weekly')">📅 Plan Semanal</button>
+        <button class="tp-tab" onclick="tpSwitchTab('tp-calendar')">🗓️ Calendario</button>
         <button class="tp-tab" onclick="tpSwitchTab('tp-simulator')">🔮 Simulador</button>
         <button class="tp-tab" onclick="tpSwitchTab('tp-production')">🏭 Producción</button>
     </div>
@@ -1558,6 +1565,7 @@ body{ overflow-x: hidden; }
         <button class="tp-tab" onclick="raSwitchTab('ra-capability')">📐 Cpk/Ppk</button>
         <button class="tp-tab" onclick="raSwitchTab('ra-search')">🔎 Buscar</button>
         <button class="tp-tab" onclick="raSwitchTab('ra-filter')">🧹 Filtro</button>
+        <button class="tp-tab" onclick="raSwitchTab('ra-compare')">🔀 Comparar</button>
     </div>
     <div class="tp-main">
         <div id="ra-content"></div>
@@ -2277,6 +2285,7 @@ setAltaDatetimeIfEmpty(true);
             document.querySelectorAll('.tab, .tab-panel').forEach(el => el.classList.remove('active'));
             tab.classList.add('active');
             document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+            if (tab.dataset.tab === 'kanban') renderKanban();
             refreshAllLists();
             updateProgressBar();
         });
@@ -2539,7 +2548,8 @@ setAltaDatetimeIfEmpty(true);
         
         db.vehicles.push(newVehicle);
         saveDB();
-        
+        if (typeof fbPostVehicleRegistered === 'function') fbPostVehicleRegistered(newVehicle.vin, newVehicle.configCode);
+
         closeModal('modalConfirm');
         showToast('Vehículo registrado exitosamente', 'success');
 
@@ -3334,6 +3344,7 @@ if (vehicle.status !== 'ready-release') {
                 tpAutoFeedFromRelease(vehicle);
                 invLogTestUsage(vehicle);
                 tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                if (typeof fbPostVehicleReleased === 'function') fbPostVehicleReleased(vehicle.vin);
                 showToast('Vehículo liberado. JSON descargado.', 'success');
             } catch(e) {
                 // Rollback on cross-module error
@@ -3425,8 +3436,11 @@ if (vehicle.status !== 'ready-release') {
         renderHistory();
     }
 
-   
+
 function refreshAllLists() {
+  // Render kanban if panel is visible
+  var kanbanPanel = document.getElementById('panel-kanban');
+  if (kanbanPanel && kanbanPanel.classList.contains('active')) renderKanban();
   const activeSelect = document.getElementById('activeVehSelect');
   const releaseSelect = document.getElementById('releaseVehSelect');
 
@@ -4355,6 +4369,133 @@ function soakTimerRestore() {
             document.getElementById('soak_timer_bar').style.width = '100%';
         }
     } catch(e) { localStorage.removeItem('kia_soak_timer'); }
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [B1] KANBAN QUEUE — Visual vehicle pipeline                       ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function renderKanban() {
+    var el = document.getElementById('kanban-board');
+    if (!el) return;
+
+    var vehicles = db.vehicles || [];
+    var columns = [
+        { key: 'registered',    label: 'Registrado',       color: '#3b82f6', icon: '📝' },
+        { key: 'in-progress',   label: 'En Progreso',      color: '#f59e0b', icon: '🔧' },
+        { key: 'testing',       label: 'En Prueba',        color: '#8b5cf6', icon: '🧪' },
+        { key: 'ready-release', label: 'Listo p/ Liberar', color: '#10b981', icon: '✅' }
+    ];
+
+    // Soak timer info
+    var soakData = null;
+    try {
+        var raw = localStorage.getItem('kia_soak_timer');
+        if (raw) soakData = JSON.parse(raw);
+    } catch(e) {}
+
+    var html = '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
+    html += '<h3 style="margin:0;font-size:16px;">Cola de Vehiculos</h3>';
+    var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
+    html += '<span style="font-size:11px;color:#64748b;">' + totalActive + ' activos</span>';
+    html += '</div>';
+
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;align-items:start;">';
+
+    columns.forEach(function(col) {
+        var colVehicles = vehicles.filter(function(v) { return v.status === col.key; });
+
+        html += '<div style="background:#f8fafc;border-radius:10px;padding:10px;border-top:3px solid ' + col.color + ';min-height:120px;">';
+        // Header
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+        html += '<span style="font-weight:700;font-size:12px;color:#0f172a;">' + col.icon + ' ' + col.label + '</span>';
+        html += '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:' + col.color + '20;color:' + col.color + ';font-weight:700;">' + colVehicles.length + '</span>';
+        html += '</div>';
+
+        if (colVehicles.length === 0) {
+            html += '<div style="text-align:center;padding:15px;color:#94a3b8;font-size:10px;">Sin vehiculos</div>';
+        } else {
+            colVehicles.forEach(function(v) {
+                var td = v.testData || {};
+                var timeSince = '';
+                if (v.timeline && v.timeline.length > 0) {
+                    var lastTs = v.timeline[v.timeline.length - 1].timestamp;
+                    var hrs = Math.round((Date.now() - new Date(lastTs).getTime()) / (1000 * 60 * 60));
+                    timeSince = hrs < 1 ? '<1h' : hrs < 24 ? hrs + 'h' : Math.floor(hrs / 24) + 'd';
+                }
+
+                var shortVin = (v.vin || '?').slice(-8);
+                var configShort = (v.configCode || '').split(' ').slice(0, 3).join(' ');
+
+                html += '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
+                // VIN + time
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+                html += '<span style="font-family:monospace;font-size:11px;font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
+                if (timeSince) html += '<span style="font-size:8px;color:#94a3b8;">' + timeSince + '</span>';
+                html += '</div>';
+                // Config
+                html += '<div style="font-size:9px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (configShort || '—') + '</div>';
+                // Purpose badge
+                html += '<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">';
+                if (v.purpose) {
+                    var pColor = v.purpose.includes('COP') ? '#0ea5e9' : v.purpose.includes('EO') ? '#f97316' : '#8b5cf6';
+                    html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:' + pColor + '15;color:' + pColor + ';border:1px solid ' + pColor + '30;">' + v.purpose + '</span>';
+                }
+                // Operator
+                if (td.operator) {
+                    html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#f1f5f9;color:#475569;">' + td.operator + '</span>';
+                }
+                html += '</div>';
+
+                // Soak indicator if applicable
+                if (col.key === 'in-progress' && soakData && soakData.endTime) {
+                    var remaining = soakData.endTime - Date.now();
+                    if (remaining > 0) {
+                        var hrs = Math.floor(remaining / (1000 * 60 * 60));
+                        var mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+                        html += '<div style="margin-top:4px;font-size:8px;padding:2px 6px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Soak: ' + hrs + 'h ' + mins + 'm restantes</div>';
+                    }
+                }
+                html += '</div>';
+            });
+        }
+        html += '</div>';
+    });
+
+    html += '</div>';
+
+    // Summary metrics below
+    var archived = vehicles.filter(function(v){ return v.status === 'archived'; }).length;
+    html += '<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">';
+    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + archived + '</strong> <span style="color:#64748b;">archivados</span></div>';
+    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + vehicles.length + '</strong> <span style="color:#64748b;">total historico</span></div>';
+    html += '</div>';
+
+    el.innerHTML = html;
+}
+
+function kanbanGoVehicle(vehicleId, status) {
+    var v = db.vehicles.find(function(x) { return x.id == vehicleId; });
+    if (!v) return;
+
+    if (status === 'ready-release') {
+        // Go to release tab
+        document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
+        document.querySelector('[data-tab="liberacion"]').classList.add('active');
+        document.getElementById('panel-liberacion').classList.add('active');
+        var sel = document.getElementById('releaseVehSelect');
+        if (sel) { sel.value = vehicleId; sel.dispatchEvent(new Event('change')); }
+    } else {
+        // Go to operation tab
+        document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
+        document.querySelector('[data-tab="seguimiento"]').classList.add('active');
+        document.getElementById('panel-seguimiento').classList.add('active');
+        var sel = document.getElementById('activeVehSelect');
+        if (sel) { sel.value = vehicleId; sel.dispatchEvent(new Event('change')); }
+    }
 }
 
 
@@ -6616,6 +6757,7 @@ function tpRender() {
     else if (tab === 'tp-weekly') tpRenderWeekly(el);
     else if (tab === 'tp-simulator') tpRenderSimulator(el);
     else if (tab === 'tp-production') tpRenderProduction(el);
+    else if (tab === 'tp-calendar') tpRenderCalendar(el);
 }
 
 // ── Color helpers ──
@@ -7148,6 +7290,7 @@ function tpAcceptWeeklyPlan(weekIdx) {
     tpState.weeklyPlans[weekIdx].accepted = true;
     tpState.weeklyPlans[weekIdx].acceptedDate = new Date().toISOString();
     tpSave(); tpRender(); tpUpdateBadges();
+    if (typeof fbPostPlanAccepted === 'function') fbPostPlanAccepted(weekIdx + 1);
     showToast('Plan semana ' + (weekIdx+1) + ' aceptado.', 'success');
 }
 
@@ -7634,6 +7777,233 @@ function tpRunSimulation(capacity, maxWeeks) {
 
 
 // ╔══════════════════════════════════════════════════════════════════════╗
+// ║  MONTHLY CALENDAR VIEW                                              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _tpCalendarMonth = null; // { year, month } — null = current
+
+function tpCalendarNav(delta) {
+    if (!_tpCalendarMonth) {
+        var now = new Date();
+        _tpCalendarMonth = { year: now.getFullYear(), month: now.getMonth() };
+    }
+    _tpCalendarMonth.month += delta;
+    if (_tpCalendarMonth.month > 11) { _tpCalendarMonth.month = 0; _tpCalendarMonth.year++; }
+    if (_tpCalendarMonth.month < 0) { _tpCalendarMonth.month = 11; _tpCalendarMonth.year--; }
+    tpRender();
+}
+
+function tpRenderCalendar(el) {
+    var now = new Date();
+    if (!_tpCalendarMonth) _tpCalendarMonth = { year: now.getFullYear(), month: now.getMonth() };
+    var year = _tpCalendarMonth.year;
+    var month = _tpCalendarMonth.month;
+
+    var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    var dayNames = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+
+    // Gather events: weekly plan items + tested list results
+    var events = {}; // dateKey -> [{type, label, color, detail}]
+
+    function addEvent(dateKey, type, label, color, detail) {
+        if (!events[dateKey]) events[dateKey] = [];
+        events[dateKey].push({ type: type, label: label, color: color, detail: detail || '' });
+    }
+
+    // Weekly plan items (use acceptedDate or created as base, items show completion dates)
+    var plans = tpState.weeklyPlans || [];
+    plans.forEach(function(w, wi) {
+        var weekStart = new Date(w.created);
+        w.items.forEach(function(item) {
+            if (item.completed && item.completedDate) {
+                var d = new Date(item.completedDate);
+                var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                var shortDesc = item.desc.length > 30 ? item.desc.substring(0, 28) + '..' : item.desc;
+                addEvent(key, 'completed', shortDesc, '#10b981', 'Sem ' + (wi+1));
+            } else if (!item.completed) {
+                // Pending items: assign to the week's creation date spread
+                var base = new Date(w.created);
+                var key = base.getFullYear() + '-' + String(base.getMonth()+1).padStart(2,'0') + '-' + String(base.getDate()).padStart(2,'0');
+                var shortDesc = item.desc.length > 30 ? item.desc.substring(0, 28) + '..' : item.desc;
+                addEvent(key, 'pending', shortDesc, '#f59e0b', 'Sem ' + (wi+1) + ' pendiente');
+            }
+        });
+        // Week marker
+        var ws = new Date(w.created);
+        var wKey = ws.getFullYear() + '-' + String(ws.getMonth()+1).padStart(2,'0') + '-' + String(ws.getDate()).padStart(2,'0');
+        addEvent(wKey, 'week', 'Sem ' + (wi+1) + (w.accepted ? ' (aceptada)' : ''), '#3b82f6', w.items.length + ' items');
+    });
+
+    // Tested list (actual COP results fed into test plan)
+    var tested = tpState.testedList || [];
+    tested.forEach(function(t) {
+        if (t.date) {
+            var d = new Date(t.date);
+            var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+            var shortDesc = (t.configText || '').length > 30 ? t.configText.substring(0, 28) + '..' : (t.configText || '?');
+            addEvent(key, 'tested', shortDesc, '#8b5cf6', t.vin || '');
+        }
+    });
+
+    // Build calendar grid
+    var firstDay = new Date(year, month, 1);
+    var lastDay = new Date(year, month + 1, 0);
+    var startDow = (firstDay.getDay() + 6) % 7; // Monday=0
+    var daysInMonth = lastDay.getDate();
+    var todayKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+
+    // Stats for this month
+    var monthEvents = 0, monthCompleted = 0, monthPending = 0, monthTested = 0;
+    for (var dk in events) {
+        if (dk.startsWith(year + '-' + String(month+1).padStart(2,'0'))) {
+            events[dk].forEach(function(e) {
+                if (e.type === 'completed') { monthCompleted++; monthEvents++; }
+                else if (e.type === 'pending') { monthPending++; monthEvents++; }
+                else if (e.type === 'tested') { monthTested++; monthEvents++; }
+            });
+        }
+    }
+
+    var html = '';
+    html += '<div class="tp-card" style="padding:14px;">';
+
+    // Header with navigation
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(-1)" style="font-size:16px;padding:4px 10px;">◀</button>';
+    html += '<div style="text-align:center;">';
+    html += '<div style="font-size:16px;font-weight:800;color:var(--tp-amber);">' + monthNames[month] + ' ' + year + '</div>';
+    html += '<div style="font-size:10px;color:var(--tp-dim);">' + monthCompleted + ' completadas | ' + monthPending + ' pendientes | ' + monthTested + ' probadas</div>';
+    html += '</div>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="tpCalendarNav(1)" style="font-size:16px;padding:4px 10px;">▶</button>';
+    html += '</div>';
+
+    // Metrics row
+    html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;">';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green);">' + monthCompleted + '</div><div class="tp-metric-label">Completadas</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber);">' + monthPending + '</div><div class="tp-metric-label">Pendientes</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:#8b5cf6;">' + monthTested + '</div><div class="tp-metric-label">Probadas</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue);">' + (monthCompleted + monthTested) + '</div><div class="tp-metric-label">Total</div></div>';
+    html += '</div>';
+
+    // Day headers
+    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;">';
+    dayNames.forEach(function(dn) {
+        html += '<div style="text-align:center;font-size:9px;font-weight:700;color:var(--tp-dim);padding:4px 0;">' + dn + '</div>';
+    });
+    html += '</div>';
+
+    // Calendar cells
+    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">';
+
+    // Empty cells before first day
+    for (var e = 0; e < startDow; e++) {
+        html += '<div style="min-height:60px;background:var(--tp-bg);border-radius:4px;opacity:0.3;"></div>';
+    }
+
+    for (var d = 1; d <= daysInMonth; d++) {
+        var dateKey = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+        var dayEvents = events[dateKey] || [];
+        var isToday = dateKey === todayKey;
+        var isWeekend = ((startDow + d - 1) % 7) >= 5;
+
+        html += '<div style="min-height:60px;background:' + (isToday ? 'rgba(59,130,246,0.15)' : isWeekend ? 'rgba(100,116,139,0.05)' : 'var(--tp-card)') + ';border-radius:4px;padding:3px;border:1px solid ' + (isToday ? 'var(--tp-blue)' : 'var(--tp-border)') + ';overflow:hidden;" onclick="tpCalendarDayDetail(\'' + dateKey + '\')">';
+        html += '<div style="font-size:10px;font-weight:' + (isToday ? '800' : '600') + ';color:' + (isToday ? 'var(--tp-blue)' : 'var(--tp-text)') + ';margin-bottom:2px;">' + d + '</div>';
+
+        // Show max 3 events as dots/pills
+        var shown = dayEvents.filter(function(ev) { return ev.type !== 'week'; });
+        var weekEv = dayEvents.find(function(ev) { return ev.type === 'week'; });
+        if (weekEv) {
+            html += '<div style="font-size:7px;padding:1px 3px;background:rgba(59,130,246,0.2);color:#3b82f6;border-radius:2px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + weekEv.label + '</div>';
+        }
+        shown.slice(0, 2).forEach(function(ev) {
+            html += '<div style="font-size:7px;padding:1px 3px;background:' + ev.color + '20;color:' + ev.color + ';border-radius:2px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + ev.label + '</div>';
+        });
+        if (shown.length > 2) {
+            html += '<div style="font-size:7px;color:var(--tp-dim);text-align:center;">+' + (shown.length - 2) + '</div>';
+        }
+        html += '</div>';
+    }
+
+    // Empty cells after last day
+    var totalCells = startDow + daysInMonth;
+    var remaining = (7 - (totalCells % 7)) % 7;
+    for (var r = 0; r < remaining; r++) {
+        html += '<div style="min-height:60px;background:var(--tp-bg);border-radius:4px;opacity:0.3;"></div>';
+    }
+    html += '</div>'; // grid end
+
+    // Legend
+    html += '<div style="display:flex;gap:12px;margin-top:10px;justify-content:center;flex-wrap:wrap;">';
+    html += '<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span> Completada</div>';
+    html += '<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Pendiente</div>';
+    html += '<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#8b5cf6;display:inline-block;"></span> Probada (COP)</div>';
+    html += '<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span> Semana Plan</div>';
+    html += '</div>';
+
+    html += '</div>'; // card end
+
+    // Day detail panel (hidden until click)
+    html += '<div id="tp-calendar-detail"></div>';
+
+    el.innerHTML = html;
+}
+
+function tpCalendarDayDetail(dateKey) {
+    var detailEl = document.getElementById('tp-calendar-detail');
+    if (!detailEl) return;
+
+    var parts = dateKey.split('-');
+    var dateLabel = parseInt(parts[2]) + '/' + parseInt(parts[1]) + '/' + parts[0];
+
+    // Gather all events for this day
+    var dayEvents = [];
+
+    var plans = tpState.weeklyPlans || [];
+    plans.forEach(function(w, wi) {
+        w.items.forEach(function(item) {
+            if (item.completed && item.completedDate) {
+                var d = new Date(item.completedDate);
+                var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                if (key === dateKey) dayEvents.push({ type: 'completed', desc: item.desc, detail: 'Semana ' + (wi+1), color: '#10b981', icon: '✅' });
+            } else if (!item.completed) {
+                var base = new Date(w.created);
+                var key = base.getFullYear() + '-' + String(base.getMonth()+1).padStart(2,'0') + '-' + String(base.getDate()).padStart(2,'0');
+                if (key === dateKey) dayEvents.push({ type: 'pending', desc: item.desc, detail: 'Semana ' + (wi+1) + ' — pendiente', color: '#f59e0b', icon: '⏳' });
+            }
+        });
+    });
+
+    var tested = tpState.testedList || [];
+    tested.forEach(function(t) {
+        if (t.date) {
+            var d = new Date(t.date);
+            var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+            if (key === dateKey) dayEvents.push({ type: 'tested', desc: t.configText || '?', detail: 'VIN: ' + (t.vin || '?'), color: '#8b5cf6', icon: '🧪' });
+        }
+    });
+
+    if (dayEvents.length === 0) {
+        detailEl.innerHTML = '<div class="tp-card" style="margin-top:8px;text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin eventos el ' + dateLabel + '</div>';
+        return;
+    }
+
+    var html = '<div class="tp-card" style="margin-top:8px;">';
+    html += '<div class="tp-card-title"><span style="font-size:12px;">📋 ' + dateLabel + ' (' + dayEvents.length + ' eventos)</span></div>';
+    dayEvents.forEach(function(ev) {
+        html += '<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--tp-border);">';
+        html += '<div style="font-size:14px;">' + ev.icon + '</div>';
+        html += '<div style="flex:1;">';
+        html += '<div style="font-size:10px;font-weight:700;color:' + ev.color + ';">' + ev.desc + '</div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);">' + ev.detail + '</div>';
+        html += '</div></div>';
+    });
+    html += '</div>';
+
+    detailEl.innerHTML = html;
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [M21] COP15 ALTA — SUGGESTION PANEL                               ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
@@ -7986,6 +8356,7 @@ function raRender(){
     else if(t==='ra-capability') raRenderCapability(el);
     else if(t==='ra-search') raRenderSearch(el);
     else if(t==='ra-filter') raRenderFilter(el);
+    else if(t==='ra-compare') raRenderCompare(el);
 }
 
 
@@ -8299,6 +8670,7 @@ function raImportJSON(){
             const data=JSON.parse(e.target.result);
             const arr=Array.isArray(data)?data:[];
             raState.tests=raState.tests.concat(arr);raSave();raUpdateBadges();raRender();
+            if (typeof fbPostTestImported === 'function') fbPostTestImported(arr.length);
             showToast(arr.length+' pruebas importadas desde JSON', 'success');
         }catch(err){showToast('JSON inválido: '+err.message, 'error');}
     };
@@ -9138,6 +9510,127 @@ function raTestVerdict(t) {
     return 'PASS';
 }
 
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [B2] RA — SIDE-BY-SIDE TEST COMPARISON                            ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raRenderCompare(el) {
+    var tests = raState.tests;
+    if (tests.length < 2) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Necesitas al menos 2 pruebas importadas para comparar.</div>';
+        return;
+    }
+
+    var idA = window._raCmpA || '';
+    var idB = window._raCmpB || '';
+    var testA = idA ? tests.find(function(t){ return String(t.id) === String(idA); }) : null;
+    var testB = idB ? tests.find(function(t){ return String(t.id) === String(idB); }) : null;
+
+    var opts = tests.map(function(t) {
+        return '<option value="' + t.id + '">' + (t.vin||'NoVIN') + ' — ' + (t.testDesc||t.modelName||'?') + ' #' + (t.testNumber||'?') + ' (' + (t.dateStr||'') + ')</option>';
+    }).join('');
+
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>Comparar 2 Pruebas</span></div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Prueba A</label>';
+    html += '<select class="tp-select" style="width:100%;font-size:10px;" onchange="window._raCmpA=this.value;raRender();"><option value="">Seleccionar...</option>' + opts.replace('value="' + idA + '"', 'value="' + idA + '" selected') + '</select></div>';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Prueba B</label>';
+    html += '<select class="tp-select" style="width:100%;font-size:10px;" onchange="window._raCmpB=this.value;raRender();"><option value="">Seleccionar...</option>' + opts.replace('value="' + idB + '"', 'value="' + idB + '" selected') + '</select></div>';
+    html += '</div></div>';
+
+    if (!testA || !testB) {
+        html += '<div class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">Selecciona dos pruebas para comparar.</div>';
+        el.innerHTML = html;
+        return;
+    }
+
+    var cA = raLastCycle(testA);
+    var cB = raLastCycle(testB);
+    var prA = raGetProfile(testA);
+    var prB = raGetProfile(testB);
+    var limits = (prA && prA.limits) ? prA.limits : ((prB && prB.limits) ? prB.limits : {});
+    var sf = function(v, d) { return typeof v === 'number' && isFinite(v) ? v.toFixed(d) : '—'; };
+
+    // Metadata comparison
+    var metaRows = [
+        ['VIN', testA.vin, testB.vin],
+        ['Modelo', testA.testDesc || testA.modelName, testB.testDesc || testB.modelName],
+        ['Ano', testA.modelYear, testB.modelYear],
+        ['Regulacion', testA.emissionReg || testA.regSpec, testB.emissionReg || testB.regSpec],
+        ['TestType', testA.testType, testB.testType],
+        ['Test#', testA.testNumber, testB.testNumber],
+        ['Fecha', testA.dateStr, testB.dateStr],
+        ['Operador', testA.operator, testB.operator],
+        ['Driver', testA.driver, testB.driver],
+        ['Motor', testA.engineCapacity, testB.engineCapacity],
+        ['Transmision', testA.transmission, testB.transmission],
+        ['Region', testA.region, testB.region],
+        ['TestMass', sf(testA.testMass, 0) + ' kg', sf(testB.testMass, 0) + ' kg'],
+        ['Veredicto', raTestVerdict(testA), raTestVerdict(testB)]
+    ];
+
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Metadata</span></div>';
+    html += '<table class="tp-table" style="width:100%;"><thead><tr><th></th><th style="color:#06b6d4;">A</th><th style="color:#f59e0b;">B</th><th>Diff</th></tr></thead><tbody>';
+    metaRows.forEach(function(r) {
+        var isDiff = String(r[1] || '') !== String(r[2] || '');
+        html += '<tr' + (isDiff ? ' style="background:rgba(245,158,11,0.05);"' : '') + '>';
+        html += '<td style="font-size:9px;font-weight:700;color:var(--tp-dim);">' + r[0] + '</td>';
+        html += '<td style="font-size:10px;">' + (r[1] || '—') + '</td>';
+        html += '<td style="font-size:10px;">' + (r[2] || '—') + '</td>';
+        html += '<td style="font-size:9px;color:' + (isDiff ? 'var(--tp-amber)' : 'var(--tp-dim)') + ';">' + (isDiff ? 'Diferente' : '=') + '</td>';
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+
+    // Emissions comparison
+    var emissionKeys = [
+        { k: 'FuelConsumptionBag', l: 'Fuel Consumption', d: 3, u: 'L/100km' },
+        { k: 'FuelEconomyBag',     l: 'Fuel Economy',     d: 2, u: 'km/L' },
+        { k: 'BagCO2',  l: 'CO2',  d: 2, u: 'g/km' },
+        { k: 'BagCO',   l: 'CO',   d: 4, u: 'g/km' },
+        { k: 'BagTHC',  l: 'THC',  d: 4, u: 'g/km' },
+        { k: 'BagNOX',  l: 'NOx',  d: 4, u: 'g/km' },
+        { k: 'BagNMHC', l: 'NMHC', d: 4, u: 'g/km' },
+        { k: 'BagCH4',  l: 'CH4',  d: 4, u: 'g/km' },
+        { k: 'BagNMHCpNOX', l: 'NMHC+NOx', d: 4, u: 'g/km' },
+        { k: 'DilutePN', l: 'PN', d: 2, u: '#/km' }
+    ];
+
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Resultados de Emision (Composite)</span></div>';
+    html += '<table class="tp-table" style="width:100%;"><thead><tr><th>Contaminante</th><th style="text-align:right;color:#06b6d4;">A</th><th style="text-align:right;color:#f59e0b;">B</th><th style="text-align:right;">Delta</th><th style="text-align:right;">%</th><th>Limite</th></tr></thead><tbody>';
+
+    emissionKeys.forEach(function(ek) {
+        var vA = cA[ek.k];
+        var vB = cB[ek.k];
+        var hasA = typeof vA === 'number' && isFinite(vA);
+        var hasB = typeof vB === 'number' && isFinite(vB);
+        if (!hasA && !hasB) return;
+
+        var delta = (hasA && hasB) ? (vB - vA) : null;
+        var pctDelta = (hasA && hasB && vA !== 0) ? ((vB - vA) / Math.abs(vA) * 100) : null;
+        var lim = limits[ek.k];
+
+        var failA = lim && hasA && Math.abs(vA) > lim;
+        var failB = lim && hasB && Math.abs(vB) > lim;
+        var deltaClr = delta === null ? 'var(--tp-dim)' : delta > 0 ? '#ef4444' : delta < 0 ? '#10b981' : 'var(--tp-dim)';
+
+        html += '<tr>';
+        html += '<td style="font-size:10px;font-weight:600;">' + ek.l + ' <span style="font-size:8px;color:var(--tp-dim);">' + ek.u + '</span></td>';
+        html += '<td style="text-align:right;font-family:monospace;font-size:10px;' + (failA ? 'color:var(--tp-red);font-weight:700;' : '') + '">' + (hasA ? sf(vA, ek.d) : '—') + '</td>';
+        html += '<td style="text-align:right;font-family:monospace;font-size:10px;' + (failB ? 'color:var(--tp-red);font-weight:700;' : '') + '">' + (hasB ? sf(vB, ek.d) : '—') + '</td>';
+        html += '<td style="text-align:right;font-family:monospace;font-size:10px;color:' + deltaClr + ';">' + (delta !== null ? (delta > 0 ? '+' : '') + sf(delta, ek.d) : '—') + '</td>';
+        html += '<td style="text-align:right;font-size:9px;color:' + deltaClr + ';">' + (pctDelta !== null ? (pctDelta > 0 ? '+' : '') + pctDelta.toFixed(1) + '%' : '—') + '</td>';
+        html += '<td style="font-size:9px;color:var(--tp-dim);text-align:center;">' + (lim ? sf(lim, ek.d) : '—') + '</td>';
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    html += '<div style="font-size:8px;color:var(--tp-dim);margin-top:6px;">Delta = B - A. Verde = B menor que A (mejora). Rojo = B mayor que A (peor). Valores en rojo exceden el limite regulatorio.</div>';
+    html += '</div>';
+
+    el.innerHTML = html;
+}
+
 function raInit(){ raUpdateBadges(); }
 
 
@@ -9330,7 +9823,7 @@ function fbPushAll(showFeedback) {
         if (!ok && errMsg) errors.push(errMsg);
         pending--;
         if (pending === 0 && showFeedback) {
-            if (errors.length === 0) showToast('Datos enviados a Firebase correctamente', 'success');
+            if (errors.length === 0) { showToast('Datos enviados a Firebase correctamente', 'success'); fbPostSyncPush(); }
             else showToast('Error al subir: ' + errors[0], 'error');
         }
     }
@@ -9497,6 +9990,11 @@ function fbShowSettings() {
         '<button onclick="fbBackupShowList()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Ver Backups</button>' +
         '</div>' +
         '<div style="font-size:9px;color:#64748b;margin-bottom:12px;margin-top:-8px;">Auto-backup diario. Ultimo: ' + (localStorage.getItem(FB_BACKUP_LS_KEY) || 'nunca') + '</div>' : '') +
+
+        // ═══ ACTIVITY FEED BUTTON ═══
+        (fbSync.enabled && fbSync.status === 'connected' ? '<div style="margin-bottom:12px;">' +
+        '<button onclick="fbActivityShowFeed()" style="width:100%;padding:10px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">📡 Activity Feed (entre estaciones)</button>' +
+        '</div>' : '') +
 
         // ═══ SMART MERGE BUTTON ═══
         (fbSync.enabled && fbSync.status === 'connected' ? '<div style="margin-bottom:12px;padding:10px;background:#1e293b;border-radius:8px;border:1px solid #334155;">' +
@@ -10367,6 +10865,212 @@ function fbBackupShowList() {
 
         modal.innerHTML = html;
     });
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  ACTIVITY FEED — Cross-station event timeline                       ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var FB_ACTIVITY_COLLECTION = 'activity';
+var FB_ACTIVITY_MAX = 200;
+
+function fbActivityPost(action, details) {
+    if (!fbSync.enabled || fbSync.status !== 'connected') return;
+    try {
+        var fdb = firebase.firestore();
+        fdb.collection(FB_ACTIVITY_COLLECTION).add({
+            station: fbSync.stationId || 'unknown',
+            action: action,
+            details: details || '',
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            localTime: new Date().toISOString()
+        }).then(function() {
+            fbActivityCleanup();
+        }).catch(function(e) {
+            console.warn('Activity post failed:', e);
+        });
+    } catch(e) { console.warn('Activity post error:', e); }
+}
+
+function fbActivityCleanup() {
+    try {
+        var fdb = firebase.firestore();
+        fdb.collection(FB_ACTIVITY_COLLECTION).orderBy('timestamp', 'desc').get().then(function(snap) {
+            if (snap.size <= FB_ACTIVITY_MAX) return;
+            var batch = fdb.batch();
+            var count = 0;
+            snap.docs.slice(FB_ACTIVITY_MAX).forEach(function(doc) {
+                batch.delete(doc.ref);
+                count++;
+            });
+            if (count > 0) batch.commit();
+        });
+    } catch(e) {}
+}
+
+function fbActivityLoad(callback) {
+    if (!fbSync.enabled || fbSync.status !== 'connected') { callback([]); return; }
+    try {
+        var fdb = firebase.firestore();
+        fdb.collection(FB_ACTIVITY_COLLECTION).orderBy('timestamp', 'desc').limit(80).get().then(function(snap) {
+            var events = [];
+            snap.forEach(function(doc) {
+                var d = doc.data();
+                events.push({
+                    station: d.station || '?',
+                    action: d.action || '',
+                    details: d.details || '',
+                    time: d.timestamp ? d.timestamp.toDate() : new Date(d.localTime || Date.now())
+                });
+            });
+            callback(events);
+        }).catch(function(e) {
+            console.warn('Activity load failed:', e);
+            callback([]);
+        });
+    } catch(e) { callback([]); }
+}
+
+function fbActivityShowFeed() {
+    var modal = document.getElementById('fbModal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    modal.innerHTML = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">' +
+        '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>' +
+        '<h3 style="margin:0 0 12px;color:#6366f1;">📡 Activity Feed</h3>' +
+        '<div style="text-align:center;padding:30px;color:#64748b;">Cargando actividad...</div></div>';
+
+    fbActivityLoad(function(events) {
+        var html = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
+        html += '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
+        html += '<h3 style="margin:0 0 4px;color:#6366f1;">📡 Activity Feed</h3>';
+        html += '<div style="font-size:10px;color:#64748b;margin-bottom:14px;">Eventos recientes de todas las estaciones</div>';
+
+        if (events.length === 0) {
+            html += '<div style="text-align:center;padding:30px;color:#64748b;">No hay actividad registrada aun.</div>';
+        } else {
+            // Station color map
+            var stationColors = {};
+            var palette = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16'];
+            var ci = 0;
+            events.forEach(function(e) {
+                if (!stationColors[e.station]) { stationColors[e.station] = palette[ci % palette.length]; ci++; }
+            });
+
+            // Group by date
+            var grouped = {};
+            events.forEach(function(e) {
+                var dateKey = e.time.toLocaleDateString('es-MX', { weekday:'short', day:'numeric', month:'short' });
+                if (!grouped[dateKey]) grouped[dateKey] = [];
+                grouped[dateKey].push(e);
+            });
+
+            var actionIcons = {
+                'vehicle_registered': '🚗', 'test_started': '▶️', 'test_completed': '✅',
+                'vehicle_released': '🏁', 'soak_started': '⏱️', 'plan_generated': '📋',
+                'plan_accepted': '✅', 'test_imported': '📥', 'gas_reading': '⛽',
+                'calibration': '🔧', 'sync_push': '☁️', 'sync_pull': '📥',
+                'backup_created': '💾'
+            };
+
+            Object.keys(grouped).forEach(function(dateKey) {
+                html += '<div style="font-size:10px;font-weight:700;color:#475569;margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid #1e293b;">' + dateKey + '</div>';
+                grouped[dateKey].forEach(function(e) {
+                    var icon = actionIcons[e.action] || '📌';
+                    var sColor = stationColors[e.station] || '#64748b';
+                    var timeStr = e.time.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' });
+                    html += '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #0f172a;">';
+                    html += '<div style="min-width:42px;font-size:9px;color:#64748b;padding-top:2px;">' + timeStr + '</div>';
+                    html += '<div style="font-size:14px;line-height:1;">' + icon + '</div>';
+                    html += '<div style="flex:1;">';
+                    html += '<span style="font-size:10px;font-weight:700;color:' + sColor + ';padding:1px 6px;background:' + sColor + '20;border-radius:4px;margin-right:4px;">' + e.station + '</span>';
+                    html += '<span style="font-size:10px;color:#cbd5e1;">' + fbActivityLabel(e.action) + '</span>';
+                    if (e.details) html += '<div style="font-size:9px;color:#64748b;margin-top:2px;">' + e.details + '</div>';
+                    html += '</div></div>';
+                });
+            });
+        }
+
+        html += '<div style="display:flex;gap:8px;margin-top:14px;">';
+        html += '<button onclick="fbShowSettings()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Volver</button>';
+        html += '<button onclick="fbActivityShowFeed()" style="flex:1;padding:8px;background:#6366f1;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Actualizar</button>';
+        html += '</div></div>';
+
+        modal.innerHTML = html;
+    });
+}
+
+function fbActivityLabel(action) {
+    var labels = {
+        'vehicle_registered': 'Vehiculo registrado',
+        'test_started': 'Prueba iniciada',
+        'test_completed': 'Prueba completada',
+        'vehicle_released': 'Vehiculo liberado',
+        'soak_started': 'Soak timer iniciado',
+        'plan_generated': 'Plan semanal generado',
+        'plan_accepted': 'Plan semanal aceptado',
+        'test_imported': 'Resultados importados',
+        'gas_reading': 'Lectura de gas registrada',
+        'calibration': 'Calibracion registrada',
+        'sync_push': 'Datos subidos a nube',
+        'sync_pull': 'Datos descargados de nube',
+        'backup_created': 'Backup creado'
+    };
+    return labels[action] || action.replace(/_/g, ' ');
+}
+
+// Hook activity posts into key operations
+(function() {
+    // Hook saveDB (COP15 operations)
+    var _origSaveDB = typeof saveDB === 'function' ? saveDB : null;
+    if (_origSaveDB) {
+        window.saveDB = function() {
+            var result = _origSaveDB.apply(this, arguments);
+            return result;
+        };
+    }
+
+    // We post activity from specific user actions rather than generic saves
+    // The functions below are called directly from COP15, TestPlan, Results, Inventory
+})();
+
+// Convenience wrappers called from other modules
+function fbPostVehicleRegistered(vin, config) {
+    fbActivityPost('vehicle_registered', vin + ' — ' + (config || ''));
+}
+function fbPostTestStarted(vin) {
+    fbActivityPost('test_started', vin);
+}
+function fbPostTestCompleted(vin, result) {
+    fbActivityPost('test_completed', vin + (result ? ' — ' + result : ''));
+}
+function fbPostVehicleReleased(vin) {
+    fbActivityPost('vehicle_released', vin);
+}
+function fbPostSoakStarted(vin, hours) {
+    fbActivityPost('soak_started', vin + ' — ' + hours + 'h');
+}
+function fbPostPlanGenerated(count) {
+    fbActivityPost('plan_generated', count + ' pruebas programadas');
+}
+function fbPostPlanAccepted(weekNum) {
+    fbActivityPost('plan_accepted', 'Semana #' + weekNum);
+}
+function fbPostTestImported(count) {
+    fbActivityPost('test_imported', count + ' pruebas importadas');
+}
+function fbPostGasReading(gasName, psi) {
+    fbActivityPost('gas_reading', gasName + ': ' + psi + ' PSI');
+}
+function fbPostCalibration(equipName) {
+    fbActivityPost('calibration', equipName);
+}
+function fbPostSyncPush() {
+    fbActivityPost('sync_push', '');
+}
+function fbPostSyncPull() {
+    fbActivityPost('sync_pull', '');
 }
 
 </script>
