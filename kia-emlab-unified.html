@@ -10996,6 +10996,129 @@ var fbSync = {
     debounceTimers: {}
 };
 
+// ── Rate Limiter & Quota ──
+var FB_QUOTA_LS_KEY = 'kia_fb_quota';
+var FB_QUOTA_LIMITS = {
+    maxWritesPerHour: 60,       // Max Firestore writes per hour
+    maxReadsPerHour: 120,       // Max Firestore reads per hour
+    maxWritesPerDay: 500,       // Max Firestore writes per day
+    maxReadsPerDay: 2000,       // Max Firestore reads per day
+    maxPayloadKB: 900,          // Max payload size in KB (Firestore limit is 1MB)
+    cooldownAfterBurstMs: 30000 // 30s cooldown after hitting hourly limit
+};
+
+var fbQuota = {
+    writes: [],   // timestamps of write operations
+    reads: [],    // timestamps of read operations
+    blocked: 0,   // count of blocked operations today
+    dailyDate: '' // date string for daily reset
+};
+
+function fbQuotaLoad() {
+    try {
+        var saved = JSON.parse(localStorage.getItem(FB_QUOTA_LS_KEY));
+        if (saved) {
+            fbQuota = saved;
+            // Reset if new day
+            var today = new Date().toISOString().slice(0, 10);
+            if (fbQuota.dailyDate !== today) {
+                fbQuota.writes = [];
+                fbQuota.reads = [];
+                fbQuota.blocked = 0;
+                fbQuota.dailyDate = today;
+            }
+        } else {
+            fbQuota.dailyDate = new Date().toISOString().slice(0, 10);
+        }
+    } catch(e) {
+        fbQuota.dailyDate = new Date().toISOString().slice(0, 10);
+    }
+}
+
+function fbQuotaSave() {
+    try {
+        localStorage.setItem(FB_QUOTA_LS_KEY, JSON.stringify(fbQuota));
+    } catch(e) {}
+}
+
+// Prune timestamps older than 1 hour from array
+function fbQuotaPrune(arr) {
+    var cutoff = Date.now() - 3600000;
+    while (arr.length > 0 && arr[0] < cutoff) arr.shift();
+}
+
+// Check if operation is allowed. type = 'write' | 'read'
+function fbQuotaCheck(type) {
+    var today = new Date().toISOString().slice(0, 10);
+    if (fbQuota.dailyDate !== today) {
+        fbQuota.writes = [];
+        fbQuota.reads = [];
+        fbQuota.blocked = 0;
+        fbQuota.dailyDate = today;
+    }
+
+    fbQuotaPrune(fbQuota.writes);
+    fbQuotaPrune(fbQuota.reads);
+
+    var arr = type === 'write' ? fbQuota.writes : fbQuota.reads;
+    var hourlyLimit = type === 'write' ? FB_QUOTA_LIMITS.maxWritesPerHour : FB_QUOTA_LIMITS.maxReadsPerHour;
+    var dailyLimit = type === 'write' ? FB_QUOTA_LIMITS.maxWritesPerDay : FB_QUOTA_LIMITS.maxReadsPerDay;
+    var dailyCount = type === 'write' ? fbQuota.writes.length : fbQuota.reads.length;
+
+    // Check hourly
+    if (arr.length >= hourlyLimit) {
+        fbQuota.blocked++;
+        fbQuotaSave();
+        return { allowed: false, reason: 'Limite por hora alcanzado (' + hourlyLimit + ' ' + type + 's/hora). Espera unos minutos.' };
+    }
+    // Check daily
+    if (dailyCount >= dailyLimit) {
+        fbQuota.blocked++;
+        fbQuotaSave();
+        return { allowed: false, reason: 'Limite diario alcanzado (' + dailyLimit + ' ' + type + 's/dia). Se reinicia manana.' };
+    }
+
+    return { allowed: true };
+}
+
+// Record an operation
+function fbQuotaRecord(type) {
+    var arr = type === 'write' ? fbQuota.writes : fbQuota.reads;
+    arr.push(Date.now());
+    fbQuotaSave();
+}
+
+// Check payload size before push
+function fbQuotaCheckSize(data) {
+    try {
+        var json = JSON.stringify(data);
+        var sizeKB = Math.round(json.length / 1024);
+        if (sizeKB > FB_QUOTA_LIMITS.maxPayloadKB) {
+            return { allowed: false, sizeKB: sizeKB, reason: 'Payload demasiado grande: ' + sizeKB + 'KB (limite: ' + FB_QUOTA_LIMITS.maxPayloadKB + 'KB)' };
+        }
+        return { allowed: true, sizeKB: sizeKB };
+    } catch(e) {
+        return { allowed: true, sizeKB: 0 };
+    }
+}
+
+// Get current usage stats for UI
+function fbQuotaStats() {
+    fbQuotaPrune(fbQuota.writes);
+    fbQuotaPrune(fbQuota.reads);
+    return {
+        writesThisHour: fbQuota.writes.length,
+        readsThisHour: fbQuota.reads.length,
+        writesToday: fbQuota.writes.length,
+        readsToday: fbQuota.reads.length,
+        blockedToday: fbQuota.blocked,
+        maxWritesHour: FB_QUOTA_LIMITS.maxWritesPerHour,
+        maxReadsHour: FB_QUOTA_LIMITS.maxReadsPerHour,
+        maxWritesDay: FB_QUOTA_LIMITS.maxWritesPerDay,
+        maxReadsDay: FB_QUOTA_LIMITS.maxReadsPerDay
+    };
+}
+
 // ── Initialize Firebase ──
 function fbInit() {
     if (!FIREBASE_CONFIG.apiKey || !FIREBASE_CONFIG.projectId) {
@@ -11011,6 +11134,8 @@ function fbInit() {
         fbUpdateIndicator();
         return;
     }
+
+    fbQuotaLoad();
 
     try {
         if (!firebase.apps.length) {
@@ -11063,6 +11188,7 @@ function fbTestConnection(callback) {
         return;
     }
 
+    fbQuotaRecord('read');
     fbSync.db.collection('_ping').doc('test').get().then(function() {
         if (callback) callback(true);
     }).catch(function(err) {
@@ -11114,14 +11240,35 @@ function fbSetStation(id) {
     if (modal && modal.style.display === 'block') fbShowSettings();
 }
 
-// ── Push data to Firestore ──
+// ── Push data to Firestore (rate-limited) ──
 function fbPush(collection, data, onDone) {
     if (!fbSync.enabled || !fbSync.db) { if (onDone) onDone(false, 'Firebase no habilitado'); return; }
     if (!fbSync.stationId) { if (onDone) onDone(false, 'No hay ID de estacion configurado'); return; }
 
+    // Rate limit check
+    var quota = fbQuotaCheck('write');
+    if (!quota.allowed) {
+        console.warn('Firebase rate limit: ' + quota.reason);
+        if (onDone) onDone(false, quota.reason);
+        return;
+    }
+
+    // Payload size check
+    var sizeCheck = fbQuotaCheckSize(data);
+    if (!sizeCheck.allowed) {
+        console.warn('Firebase size limit: ' + sizeCheck.reason);
+        showToast(sizeCheck.reason, 'error');
+        if (onDone) onDone(false, sizeCheck.reason);
+        return;
+    }
+
     if (fbSync.debounceTimers[collection]) clearTimeout(fbSync.debounceTimers[collection]);
 
     fbSync.debounceTimers[collection] = setTimeout(function() {
+        // Re-check quota after debounce (another op may have consumed it)
+        var q2 = fbQuotaCheck('write');
+        if (!q2.allowed) { if (onDone) onDone(false, q2.reason); return; }
+
         fbSync.status = 'syncing';
         fbUpdateIndicator();
 
@@ -11133,6 +11280,7 @@ function fbPush(collection, data, onDone) {
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             station: fbSync.stationId
         }).then(function() {
+            fbQuotaRecord('write');
             fbSync.lastSync = new Date();
             fbSync.status = 'connected';
             fbSync.lastError = '';
@@ -11169,10 +11317,17 @@ function fbPushAll(showFeedback) {
     fbPush('panel', typeof pnState !== 'undefined' ? pnState : {}, onPushDone);
 }
 
-// ── Pull data from Firestore ──
+// ── Pull data from Firestore (rate-limited) ──
 function fbPullAll(showFeedback) {
     if (!fbSync.enabled || !fbSync.db) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
     if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
+
+    // Rate limit check (5 reads: one per collection)
+    var quota = fbQuotaCheck('read');
+    if (!quota.allowed) {
+        if (showFeedback) showToast(quota.reason, 'error');
+        return;
+    }
 
     fbSync.status = 'syncing';
     fbUpdateIndicator();
@@ -11227,6 +11382,9 @@ function fbPullAll(showFeedback) {
                 pulled.push('Panel');
             }
         }
+
+        // Record reads (5 collections fetched)
+        for (var ri = 0; ri < collections.length; ri++) fbQuotaRecord('read');
 
         fbSync.lastSync = new Date();
         fbSync.status = 'connected';
@@ -11315,6 +11473,29 @@ function fbShowSettings() {
         (fbSync.lastError ? '<div style="font-size:10px;color:#ef4444;margin-top:6px;padding:6px 8px;background:rgba(239,68,68,0.1);border-radius:4px;white-space:pre-line;">' + fbSync.lastError + '</div>' : '') +
         '</div>' +
 
+        // Quota usage
+        (hasConfig && fbSync.enabled ? (function() {
+            var qs = fbQuotaStats();
+            var wPct = Math.round((qs.writesThisHour / qs.maxWritesHour) * 100);
+            var rPct = Math.round((qs.readsThisHour / qs.maxReadsHour) * 100);
+            var wColor = wPct > 80 ? '#ef4444' : wPct > 50 ? '#f59e0b' : '#10b981';
+            var rColor = rPct > 80 ? '#ef4444' : rPct > 50 ? '#f59e0b' : '#10b981';
+            return '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:12px;">' +
+                '<div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:8px;">Uso de Quota (proteccion de costos)</div>' +
+                '<div style="display:flex;gap:12px;margin-bottom:6px;">' +
+                '<div style="flex:1;"><div style="font-size:9px;color:#64748b;margin-bottom:3px;">Escrituras/hora</div>' +
+                '<div style="height:6px;background:#1e293b;border-radius:3px;overflow:hidden;">' +
+                '<div style="width:' + Math.min(wPct, 100) + '%;height:100%;background:' + wColor + ';border-radius:3px;transition:width 0.3s;"></div></div>' +
+                '<div style="font-size:9px;color:' + wColor + ';margin-top:2px;">' + qs.writesThisHour + '/' + qs.maxWritesHour + '</div></div>' +
+                '<div style="flex:1;"><div style="font-size:9px;color:#64748b;margin-bottom:3px;">Lecturas/hora</div>' +
+                '<div style="height:6px;background:#1e293b;border-radius:3px;overflow:hidden;">' +
+                '<div style="width:' + Math.min(rPct, 100) + '%;height:100%;background:' + rColor + ';border-radius:3px;transition:width 0.3s;"></div></div>' +
+                '<div style="font-size:9px;color:' + rColor + ';margin-top:2px;">' + qs.readsThisHour + '/' + qs.maxReadsHour + '</div></div></div>' +
+                (qs.blockedToday > 0 ? '<div style="font-size:9px;color:#f59e0b;margin-top:4px;">Operaciones bloqueadas hoy: ' + qs.blockedToday + '</div>' : '') +
+                '<div style="font-size:8px;color:#475569;margin-top:4px;">Limite diario: ' + qs.writesToday + '/' + qs.maxWritesDay + ' escrituras, ' + qs.readsToday + '/' + qs.maxReadsDay + ' lecturas</div>' +
+                '</div>';
+        })() : '') +
+
         // Connection test
         (hasConfig ? '<div style="margin-bottom:12px;"><button onclick="fbTestConnectionUI()" style="width:100%;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Probar conexion a Firestore</button></div>' : '') +
 
@@ -11380,8 +11561,11 @@ var FB_MERGE_HISTORY_KEY = 'kia_merge_history';
 // ── List all stations in Firestore ──
 function fbMergeListStations(callback) {
     if (!fbSync.db) { callback([]); return; }
+    var quota = fbQuotaCheck('read');
+    if (!quota.allowed) { showToast(quota.reason, 'error'); callback([]); return; }
 
     fbSync.db.collection('stations').get().then(function(snap) {
+        fbQuotaRecord('read');
         var stations = [];
         snap.forEach(function(doc) { stations.push(doc.id); });
         callback(stations);
@@ -11394,11 +11578,15 @@ function fbMergeListStations(callback) {
 
 // ── Load all 4 modules from a remote station ──
 function fbMergeLoadStation(stationId, callback) {
+    var quota = fbQuotaCheck('read');
+    if (!quota.allowed) { showToast(quota.reason, 'error'); callback(null); return; }
+
     var ref = fbSync.db.collection('stations').doc(stationId);
     var cols = ['cop15', 'testplan', 'results', 'inventory'];
     var promises = cols.map(function(c) { return ref.collection(c).doc('current').get(); });
 
     Promise.all(promises).then(function(snaps) {
+        for (var ri = 0; ri < cols.length; ri++) fbQuotaRecord('read');
         var data = {};
         cols.forEach(function(c, i) {
             data[c] = snaps[i].exists ? (snaps[i].data().data || null) : null;
@@ -12044,6 +12232,8 @@ function fbBackupNow(callback) {
         if (callback) callback(false);
         return;
     }
+    var quota = fbQuotaCheck('write');
+    if (!quota.allowed) { console.warn('Backup skipped (quota): ' + quota.reason); if (callback) callback(false); return; }
 
     var today = new Date().toISOString().slice(0, 10);
     var snapshot = {
@@ -12063,6 +12253,7 @@ function fbBackupNow(callback) {
         .collection('backups').doc(today);
 
     backupRef.set(snapshot).then(function() {
+        fbQuotaRecord('write');
         if (callback) callback(true);
 
         // Cleanup: delete backups older than 30 days
@@ -12115,6 +12306,8 @@ function fbBackupManual() {
 
 function fbBackupList(callback) {
     if (!fbSync.enabled || !fbSync.db || !fbSync.stationId) { callback([]); return; }
+    var quota = fbQuotaCheck('read');
+    if (!quota.allowed) { showToast(quota.reason, 'error'); callback([]); return; }
 
     fbSync.db.collection('stations').doc(fbSync.stationId)
         .collection('backups')
@@ -12122,6 +12315,7 @@ function fbBackupList(callback) {
         .limit(30)
         .get()
         .then(function(snap) {
+            fbQuotaRecord('read');
             var list = [];
             snap.forEach(function(doc) {
                 var d = doc.data();
@@ -12225,6 +12419,11 @@ var FB_ACTIVITY_MAX = 200;
 
 function fbActivityPost(action, details) {
     if (!fbSync.enabled || fbSync.status !== 'connected') return;
+
+    // Rate limit activity posts too
+    var quota = fbQuotaCheck('write');
+    if (!quota.allowed) { console.warn('Activity post skipped (quota): ' + quota.reason); return; }
+
     try {
         var fdb = firebase.firestore();
         var user = typeof authGetCurrentUser === 'function' ? authGetCurrentUser() : null;
@@ -12236,7 +12435,14 @@ function fbActivityPost(action, details) {
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
             localTime: new Date().toISOString()
         }).then(function() {
-            fbActivityCleanup();
+            fbQuotaRecord('write');
+            // Only cleanup once per day (not every post — saves many reads)
+            var lastCleanup = localStorage.getItem('kia_fb_activity_cleanup') || '';
+            var today = new Date().toISOString().slice(0, 10);
+            if (lastCleanup !== today) {
+                localStorage.setItem('kia_fb_activity_cleanup', today);
+                fbActivityCleanup();
+            }
         }).catch(function(e) {
             console.warn('Activity post failed:', e);
         });
@@ -12261,9 +12467,12 @@ function fbActivityCleanup() {
 
 function fbActivityLoad(callback) {
     if (!fbSync.enabled || fbSync.status !== 'connected') { callback([]); return; }
+    var quota = fbQuotaCheck('read');
+    if (!quota.allowed) { showToast(quota.reason, 'error'); callback([]); return; }
     try {
         var fdb = firebase.firestore();
         fdb.collection(FB_ACTIVITY_COLLECTION).orderBy('timestamp', 'desc').limit(80).get().then(function(snap) {
+            fbQuotaRecord('read');
             var events = [];
             snap.forEach(function(doc) {
                 var d = doc.data();
