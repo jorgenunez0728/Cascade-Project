@@ -328,14 +328,47 @@ function setPrecondDatetimeIfEmpty(force = false) {
 // ║  [M15] PLATFORM SWITCHER                                           ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-function switchPlatform(platform) {
-    document.querySelectorAll('.platform-section').forEach(s => s.classList.remove('active'));
+var PLATFORM_ORDER = ['cop15', 'testplan', 'results', 'inventory'];
+var _currentPlatform = 'cop15';
+
+function switchPlatform(platform, swipeDir) {
+    if (platform === _currentPlatform) return;
+
+    var oldSection = document.getElementById('platform-' + _currentPlatform);
+    var newSection = document.getElementById('platform-' + platform);
+
+    // Swipe animation
+    if (swipeDir && oldSection && newSection) {
+        var exitClass = swipeDir === 'left' ? 'swipe-exit-left' : 'swipe-exit-right';
+        var enterClass = swipeDir === 'left' ? 'swipe-enter-left' : 'swipe-enter-right';
+
+        oldSection.classList.add(exitClass);
+        setTimeout(function() {
+            oldSection.classList.remove('active', exitClass);
+            newSection.classList.add('active', enterClass);
+            setTimeout(function() { newSection.classList.remove(enterClass); }, 260);
+        }, 240);
+    } else {
+        document.querySelectorAll('.platform-section').forEach(s => s.classList.remove('active'));
+        newSection.classList.add('active');
+    }
+
+    // Update top tabs
     document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('platform-' + platform).classList.add('active');
     document.getElementById('ptab-' + platform).classList.add('active');
+
+    // Update bottom nav
+    document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'));
+    var bnavEl = document.getElementById('bnav-' + platform);
+    if (bnavEl) bnavEl.classList.add('active');
+
+    // Theme
     const isDark = platform === 'testplan' || platform === 'results' || platform === 'inventory';
     document.body.style.background = isDark ? 'var(--tp-dark)' : 'var(--bg)';
     document.body.style.color = isDark ? 'var(--tp-text)' : 'var(--text)';
+
+    _currentPlatform = platform;
+
     if (platform === 'testplan') { tpRender(); tpUpdateBadges(); }
     if (platform === 'results') { raRender(); raUpdateBadges(); }
     if (platform === 'inventory') { invPreloadData(); invRender(); invUpdateBadges(); }
@@ -343,7 +376,59 @@ function switchPlatform(platform) {
         const active = db.vehicles.filter(v => v.status !== 'archived').length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
     }
+
+    window.scrollTo(0, 0);
 }
+
+// ── Swipe Navigation ──
+// High threshold (150px) + must be decisively horizontal to prevent accidental swipes
+(function() {
+    var _swStartX = 0, _swStartY = 0, _swStartTime = 0, _swTracking = false;
+
+    document.addEventListener('touchstart', function(e) {
+        // Don't track swipes starting on inputs, selects, textareas, canvas, or buttons
+        var tag = e.target.tagName;
+        if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'CANVAS' || tag === 'BUTTON') return;
+        // Don't track if inside a modal
+        if (e.target.closest('#configModal, #invModal, #fbModal, .modal-overlay')) return;
+        // Don't track if inside horizontal scrollable areas (tabs)
+        if (e.target.closest('.tp-tabs, .tabs')) return;
+
+        _swStartX = e.touches[0].clientX;
+        _swStartY = e.touches[0].clientY;
+        _swStartTime = Date.now();
+        _swTracking = true;
+    }, { passive: true });
+
+    document.addEventListener('touchend', function(e) {
+        if (!_swTracking) return;
+        _swTracking = false;
+
+        var dx = e.changedTouches[0].clientX - _swStartX;
+        var dy = e.changedTouches[0].clientY - _swStartY;
+        var dt = Date.now() - _swStartTime;
+
+        var absDx = Math.abs(dx);
+        var absDy = Math.abs(dy);
+
+        // Requirements for a valid swipe:
+        // 1. At least 150px horizontal distance (decisivo)
+        // 2. Horizontal distance must be at least 3x the vertical (clearly horizontal)
+        // 3. Must complete within 600ms (not a slow drag)
+        if (absDx < 150 || absDy * 3 > absDx || dt > 600) return;
+
+        var idx = PLATFORM_ORDER.indexOf(_currentPlatform);
+        if (idx === -1) return;
+
+        if (dx < 0 && idx < PLATFORM_ORDER.length - 1) {
+            // Swipe left → next module
+            switchPlatform(PLATFORM_ORDER[idx + 1], 'left');
+        } else if (dx > 0 && idx > 0) {
+            // Swipe right → previous module
+            switchPlatform(PLATFORM_ORDER[idx - 1], 'right');
+        }
+    }, { passive: true });
+})();
 
     function initializeSystem() {
         parseCSV();

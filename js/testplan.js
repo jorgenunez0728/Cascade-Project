@@ -550,16 +550,21 @@ function tpRenderDashboard(el) {
     <div class="tp-card">
         <div class="tp-card-title">📊 Pruebas Requeridas vs Probadas por Región</div>
         <div class="tp-chart-bar">
-            ${regionData.map(r => `
+            ${regionData.map(r => {
+                const pct = r.req > 0 ? Math.round(r.tested / r.req * 100) : 0;
+                return `
                 <div class="tp-chart-col">
-                    <div class="tp-chart-value">${r.req}</div>
-                    <div class="tp-chart-fill" style="height:${(r.req/maxReq)*100}%;background:var(--tp-amber);width:45%;display:inline-block;"></div>
-                    <div class="tp-chart-fill" style="height:${(r.tested/maxReq)*100}%;background:var(--tp-green);width:45%;display:inline-block;margin-top:-${(r.tested/maxReq)*100}%;"></div>
+                    <div class="tp-chart-value">${r.tested}/${r.req}</div>
+                    <div class="tp-chart-group">
+                        <div class="tp-chart-fill" style="height:${(r.req/maxReq)*100}%;background:var(--tp-amber);"></div>
+                        <div class="tp-chart-fill" style="height:${(r.tested/maxReq)*100}%;background:var(--tp-green);"></div>
+                    </div>
                     <div class="tp-chart-label">${r.name}</div>
-                </div>
-            `).join('')}
+                    <div style="font-size:8px;font-weight:700;color:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${pct}%</div>
+                </div>`;
+            }).join('')}
         </div>
-        <div style="display:flex;gap:16px;justify-content:center;margin-top:4px;">
+        <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">
             <span style="font-size:10px;color:var(--tp-amber);">■ Requeridas</span>
             <span style="font-size:10px;color:var(--tp-green);">■ Probadas</span>
         </div>
@@ -1049,7 +1054,7 @@ function tpRenderProduction(el) {
     ${hasData ? `
     <div class="tp-card">
         <div class="tp-card-title"><span>📈 Producción Mensual Planeada</span></div>
-        <div class="tp-chart-bar" style="height:140px;">
+        <div class="tp-chart-bar">
             ${(() => {
                 const totals = TP_MONTHS.map((m,i) => plan.reduce((s,c) => s + c.m[i], 0));
                 const maxT = Math.max(...totals, 1);
