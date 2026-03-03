@@ -22,7 +22,8 @@ var fbSync = {
     db: null,           // Firestore reference
     stationId: '',      // Identifies this device/station (set by user)
     lastSync: null,
-    status: 'off',      // 'off' | 'connected' | 'syncing' | 'error'
+    status: 'off',      // 'off' | 'connecting' | 'connected' | 'syncing' | 'error'
+    lastError: '',      // Last error message for diagnostics
     debounceTimers: {}
 };
 
@@ -32,13 +33,15 @@ function fbInit() {
     if (!FIREBASE_CONFIG.apiKey || !FIREBASE_CONFIG.projectId) {
         console.log('Firebase Sync: No config found. Running in offline-only mode.');
         fbSync.status = 'off';
+        fbSync.lastError = '';
         fbUpdateIndicator();
         return;
     }
 
     if (typeof firebase === 'undefined') {
         console.warn('Firebase Sync: SDK not loaded. Running offline.');
-        fbSync.status = 'off';
+        fbSync.status = 'error';
+        fbSync.lastError = 'Firebase SDK no cargado. Verifica conexion a internet.';
         fbUpdateIndicator();
         return;
     }
@@ -63,36 +66,99 @@ function fbInit() {
         fbSync.stationId = localStorage.getItem('kia_fb_station') || '';
 
         fbSync.enabled = true;
-        fbSync.status = 'connected';
+        fbSync.status = 'connecting';
+        fbSync.lastError = '';
         fbUpdateIndicator();
 
-        console.log('Firebase Sync: Connected to project ' + FIREBASE_CONFIG.projectId);
+        console.log('Firebase Sync: SDK initialized for project ' + FIREBASE_CONFIG.projectId);
 
-        // If station ID is set, do initial sync
-        if (fbSync.stationId) {
-            fbPullAll();
-        }
+        // Verify actual Firestore connectivity with a test read
+        fbTestConnection(function(ok) {
+            if (ok) {
+                fbSync.status = 'connected';
+                fbUpdateIndicator();
+                console.log('Firebase Sync: Firestore connection verified.');
+                // If station ID is set, do initial sync
+                if (fbSync.stationId) {
+                    fbPullAll();
+                }
+            }
+            // If test fails, status is already set to 'error' inside fbTestConnection
+        });
 
     } catch (err) {
         console.error('Firebase Sync: Init error', err);
         fbSync.status = 'error';
+        fbSync.lastError = 'Error al inicializar: ' + err.message;
         fbUpdateIndicator();
     }
 }
 
+// ── Connection Test ──
+// Performs a lightweight read to verify Firestore access works
+function fbTestConnection(callback) {
+    if (!fbSync.db) {
+        fbSync.status = 'error';
+        fbSync.lastError = 'Firestore no inicializado.';
+        fbUpdateIndicator();
+        if (callback) callback(false);
+        return;
+    }
+
+    fbSync.db.collection('_ping').doc('test').get().then(function() {
+        // Success — Firestore responded (doc may or may not exist, both are fine)
+        if (callback) callback(true);
+    }).catch(function(err) {
+        console.error('Firebase connection test failed:', err);
+        fbSync.status = 'error';
+
+        if (err.code === 'permission-denied') {
+            fbSync.lastError = 'Acceso denegado. Revisa las Security Rules en Firebase Console:\nFirestore > Rules > Permitir lectura/escritura.';
+        } else if (err.code === 'unavailable') {
+            fbSync.lastError = 'Firestore no disponible. Verifica tu conexion a internet.';
+        } else if (err.code === 'not-found') {
+            // This actually means the read worked but doc doesn't exist — that's OK
+            if (callback) { callback(true); return; }
+        } else {
+            fbSync.lastError = 'Error de conexion: ' + (err.message || err.code);
+        }
+
+        fbUpdateIndicator();
+        if (callback) callback(false);
+    });
+}
+
 // ── Station ID Management ──
 function fbSetStation(id) {
-    if (!id) return;
+    if (!id || !id.trim()) {
+        showToast('Ingresa un ID de estacion', 'error');
+        return;
+    }
     fbSync.stationId = id.trim().toUpperCase();
     localStorage.setItem('kia_fb_station', fbSync.stationId);
+    fbUpdateIndicator();
+    showToast('Estacion guardada: ' + fbSync.stationId, 'success');
+
     if (fbSync.enabled) {
         fbPushAll();
+    }
+    // Refresh the settings panel if open
+    var modal = document.getElementById('fbModal');
+    if (modal && modal.style.display === 'block') {
+        fbShowSettings();
     }
 }
 
 // ── Push data to Firestore ──
-function fbPush(collection, data) {
-    if (!fbSync.enabled || !fbSync.db || !fbSync.stationId) return;
+function fbPush(collection, data, onDone) {
+    if (!fbSync.enabled || !fbSync.db) {
+        if (onDone) onDone(false, 'Firebase no habilitado');
+        return;
+    }
+    if (!fbSync.stationId) {
+        if (onDone) onDone(false, 'No hay ID de estacion configurado');
+        return;
+    }
 
     // Debounce: don't push more than once per 2 seconds per collection
     if (fbSync.debounceTimers[collection]) {
@@ -113,27 +179,61 @@ function fbPush(collection, data) {
         }).then(function() {
             fbSync.lastSync = new Date();
             fbSync.status = 'connected';
+            fbSync.lastError = '';
             fbUpdateIndicator();
+            if (onDone) onDone(true);
         }).catch(function(err) {
             console.error('Firebase push error (' + collection + '):', err);
             fbSync.status = 'error';
+            fbSync.lastError = 'Error al subir ' + collection + ': ' + (err.code === 'permission-denied' ? 'Acceso denegado (Security Rules)' : err.message);
             fbUpdateIndicator();
+            if (onDone) onDone(false, fbSync.lastError);
         });
     }, 2000);
 }
 
-// ── Push all modules ──
-function fbPushAll() {
-    if (!fbSync.enabled) return;
-    fbPush('cop15', db);
-    fbPush('testplan', tpState);
-    fbPush('results', raState);
-    fbPush('inventory', invState);
+// ── Push all modules (with user feedback) ──
+function fbPushAll(showFeedback) {
+    if (!fbSync.enabled) {
+        if (showFeedback) showToast('Firebase no esta habilitado', 'error');
+        return;
+    }
+    if (!fbSync.stationId) {
+        if (showFeedback) showToast('Primero configura un ID de estacion', 'error');
+        return;
+    }
+
+    var pending = 4;
+    var errors = [];
+
+    function onPushDone(ok, errMsg) {
+        if (!ok && errMsg) errors.push(errMsg);
+        pending--;
+        if (pending === 0 && showFeedback) {
+            if (errors.length === 0) {
+                showToast('Datos enviados a Firebase correctamente', 'success');
+            } else {
+                showToast('Error al subir: ' + errors[0], 'error');
+            }
+        }
+    }
+
+    fbPush('cop15', db, onPushDone);
+    fbPush('testplan', tpState, onPushDone);
+    fbPush('results', raState, onPushDone);
+    fbPush('inventory', invState, onPushDone);
 }
 
-// ── Pull data from Firestore ──
-function fbPullAll() {
-    if (!fbSync.enabled || !fbSync.db || !fbSync.stationId) return;
+// ── Pull data from Firestore (with user feedback) ──
+function fbPullAll(showFeedback) {
+    if (!fbSync.enabled || !fbSync.db) {
+        if (showFeedback) showToast('Firebase no esta habilitado', 'error');
+        return;
+    }
+    if (!fbSync.stationId) {
+        if (showFeedback) showToast('Primero configura un ID de estacion', 'error');
+        return;
+    }
 
     fbSync.status = 'syncing';
     fbUpdateIndicator();
@@ -193,16 +293,26 @@ function fbPullAll() {
 
         fbSync.lastSync = new Date();
         fbSync.status = 'connected';
+        fbSync.lastError = '';
         fbUpdateIndicator();
 
         if (pulled.length > 0) {
             console.log('Firebase Sync: Pulled ' + pulled.join(', '));
+            if (showFeedback) showToast('Descargado: ' + pulled.join(', '), 'success');
+        } else {
+            if (showFeedback) showToast('No hay datos en la nube para esta estacion', 'info');
         }
 
     }).catch(function(err) {
         console.error('Firebase pull error:', err);
         fbSync.status = 'error';
+        if (err.code === 'permission-denied') {
+            fbSync.lastError = 'Acceso denegado. Revisa las Security Rules en Firebase Console.';
+        } else {
+            fbSync.lastError = 'Error al descargar: ' + (err.message || err.code);
+        }
         fbUpdateIndicator();
+        if (showFeedback) showToast(fbSync.lastError, 'error');
     });
 }
 
@@ -251,14 +361,14 @@ function fbUpdateIndicator() {
     var el = document.getElementById('fb-sync-indicator');
     if (!el) return;
 
-    var colors = { off: '#475569', connected: '#10b981', syncing: '#3b82f6', error: '#ef4444' };
-    var labels = { off: 'Offline', connected: 'Sync', syncing: 'Syncing...', error: 'Error' };
+    var colors = { off: '#475569', connecting: '#f59e0b', connected: '#10b981', syncing: '#3b82f6', error: '#ef4444' };
+    var labels = { off: 'Offline', connecting: 'Conectando...', connected: 'Sync', syncing: 'Syncing...', error: 'Error' };
     var color = colors[fbSync.status] || '#475569';
     var label = labels[fbSync.status] || 'Off';
 
     el.style.color = color;
     el.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + color + ';margin-right:4px;' +
-        (fbSync.status === 'syncing' ? 'animation:pulse 1s infinite;' : '') +
+        (fbSync.status === 'syncing' || fbSync.status === 'connecting' ? 'animation:pulse 1s infinite;' : '') +
         '"></span>' + label +
         (fbSync.stationId ? ' (' + fbSync.stationId + ')' : '') +
         (fbSync.lastSync ? ' ' + fbSync.lastSync.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '');
@@ -266,8 +376,9 @@ function fbUpdateIndicator() {
 
 // ── Settings Panel ──
 function fbShowSettings() {
-    var modal = document.getElementById('invModal') || document.createElement('div');
-    if (!modal.id) {
+    var modal = document.getElementById('fbModal');
+    if (!modal) {
+        modal = document.createElement('div');
         modal.id = 'fbModal';
         modal.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;';
         document.body.appendChild(modal);
@@ -276,8 +387,15 @@ function fbShowSettings() {
 
     var hasConfig = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId;
 
+    var statusColor = '#64748b';
+    var statusText = 'No configurado';
+    if (fbSync.enabled && fbSync.status === 'connected') { statusColor = '#10b981'; statusText = 'Conectado'; }
+    else if (fbSync.enabled && fbSync.status === 'connecting') { statusColor = '#f59e0b'; statusText = 'Conectando...'; }
+    else if (fbSync.status === 'error') { statusColor = '#ef4444'; statusText = 'Error'; }
+    else if (hasConfig && !fbSync.enabled) { statusColor = '#64748b'; statusText = 'Desconectado'; }
+
     modal.innerHTML = '<div style="max-width:450px;margin:40px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">' +
-        '<button onclick="this.parentElement.parentElement.style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>' +
+        '<button onclick="document.getElementById(\x27fbModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>' +
         '<h3 style="margin:0 0 4px;color:#3b82f6;">Firebase Cloud Sync</h3>' +
         '<div style="font-size:10px;color:#64748b;margin-bottom:16px;">Sincroniza datos entre multiples dispositivos via Firebase.</div>' +
 
@@ -285,10 +403,16 @@ function fbShowSettings() {
         '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:12px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
         '<span style="font-size:11px;">Estado:</span>' +
-        '<span style="font-size:11px;font-weight:700;color:' + (fbSync.enabled ? '#10b981' : '#64748b') + ';">' + (fbSync.enabled ? 'Conectado' : (hasConfig ? 'Desconectado' : 'No configurado')) + '</span>' +
+        '<span style="font-size:11px;font-weight:700;color:' + statusColor + ';">' + statusText + '</span>' +
         '</div>' +
         (fbSync.lastSync ? '<div style="font-size:9px;color:#64748b;margin-top:4px;">Ultima sync: ' + fbSync.lastSync.toLocaleString('es-MX') + '</div>' : '') +
+        (fbSync.lastError ? '<div style="font-size:10px;color:#ef4444;margin-top:6px;padding:6px 8px;background:rgba(239,68,68,0.1);border-radius:4px;white-space:pre-line;">' + fbSync.lastError + '</div>' : '') +
         '</div>' +
+
+        // Connection test button
+        (hasConfig ? '<div style="margin-bottom:12px;">' +
+        '<button onclick="fbTestConnectionUI()" style="width:100%;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Probar conexion a Firestore</button>' +
+        '</div>' : '') +
 
         // Station ID
         '<div style="margin-bottom:12px;">' +
@@ -301,9 +425,14 @@ function fbShowSettings() {
         '</div>' +
 
         // Actions
-        (fbSync.enabled ? '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
-        '<button onclick="fbPushAll();showToast(\x27Datos enviados a Firebase\x27,\x27success\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Subir todo a nube</button>' +
-        '<button onclick="if(confirm(\x27Esto reemplazara datos locales con los de la nube. Continuar?\x27)){fbPullAll();showToast(\x27Datos descargados de Firebase\x27,\x27success\x27);}" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Descargar de nube</button>' +
+        (fbSync.enabled && fbSync.status !== 'error' ? '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
+        '<button onclick="fbPushAll(true)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Subir todo a nube</button>' +
+        '<button onclick="if(confirm(\x27Esto reemplazara datos locales con los de la nube. Continuar?\x27)){fbPullAll(true);}" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Descargar de nube</button>' +
+        '</div>' : '') +
+
+        // Error state: show retry button
+        (fbSync.status === 'error' && hasConfig ? '<div style="margin-bottom:12px;">' +
+        '<button onclick="fbInit();setTimeout(fbShowSettings,1500);" style="width:100%;padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Reintentar conexion</button>' +
         '</div>' : '') +
 
         // Setup instructions if not configured
@@ -318,5 +447,29 @@ function fbShowSettings() {
         '6. Recarga la app<br>' +
         '</div></div>' : '') +
 
+        // Rules reminder (always show when config exists)
+        (hasConfig ? '<div style="padding:10px;background:#1e293b;border-radius:8px;border:1px solid #334155;margin-top:12px;">' +
+        '<div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:4px;">Security Rules requeridas en Firebase Console:</div>' +
+        '<pre style="font-size:9px;color:#64748b;margin:0;overflow-x:auto;white-space:pre;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}</pre>' +
+        '<div style="font-size:9px;color:#f59e0b;margin-top:4px;">Firestore > Rules > Editar > Publicar</div>' +
+        '</div>' : '') +
+
         '</div>';
+}
+
+// ── UI Connection test (called from settings panel) ──
+function fbTestConnectionUI() {
+    showToast('Probando conexion...', 'info');
+    fbTestConnection(function(ok) {
+        if (ok) {
+            fbSync.status = 'connected';
+            fbSync.lastError = '';
+            fbUpdateIndicator();
+            showToast('Conexion a Firestore exitosa', 'success');
+        } else {
+            showToast(fbSync.lastError || 'No se pudo conectar a Firestore', 'error');
+        }
+        // Refresh the settings panel
+        fbShowSettings();
+    });
 }
