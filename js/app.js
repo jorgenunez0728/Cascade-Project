@@ -328,7 +328,7 @@ function setPrecondDatetimeIfEmpty(force = false) {
 // ║  [M15] PLATFORM SWITCHER                                           ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-var PLATFORM_ORDER = ['cop15', 'testplan', 'results', 'inventory'];
+var PLATFORM_ORDER = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
 var _currentPlatform = 'cop15';
 
 function switchPlatform(platform, swipeDir) {
@@ -363,7 +363,7 @@ function switchPlatform(platform, swipeDir) {
     if (bnavEl) bnavEl.classList.add('active');
 
     // Theme
-    const isDark = platform === 'testplan' || platform === 'results' || platform === 'inventory';
+    const isDark = platform === 'testplan' || platform === 'results' || platform === 'inventory' || platform === 'panel';
     document.body.style.background = isDark ? 'var(--tp-dark)' : 'var(--bg)';
     document.body.style.color = isDark ? 'var(--tp-text)' : 'var(--text)';
 
@@ -372,6 +372,7 @@ function switchPlatform(platform, swipeDir) {
     if (platform === 'testplan') { tpRender(); tpUpdateBadges(); }
     if (platform === 'results') { raRender(); raUpdateBadges(); }
     if (platform === 'inventory') { invPreloadData(); invRender(); invUpdateBadges(); }
+    if (platform === 'panel') { pnRender(); pnUpdateBadges(); }
     if (platform === 'cop15') {
         const active = db.vehicles.filter(v => v.status !== 'archived').length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
@@ -473,6 +474,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         tpUpdateBadges();
         tpHookCascadeResult();
         raInit();
+
+        // ═══ Panel Module ═══
+        if (typeof pnInit === 'function') { pnInit(); pnUpdateBadges(); }
 
         // ═══ Restore Soak Timer if running ═══
         if (typeof soakTimerRestore === 'function') soakTimerRestore();

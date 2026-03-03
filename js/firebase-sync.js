@@ -182,7 +182,7 @@ function fbPushAll(showFeedback) {
     if (!fbSync.enabled) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
     if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
 
-    var pending = 4, errors = [];
+    var pending = 5, errors = [];
     function onPushDone(ok, errMsg) {
         if (!ok && errMsg) errors.push(errMsg);
         pending--;
@@ -195,6 +195,7 @@ function fbPushAll(showFeedback) {
     fbPush('testplan', tpState, onPushDone);
     fbPush('results', raState, onPushDone);
     fbPush('inventory', invState, onPushDone);
+    fbPush('panel', typeof pnState !== 'undefined' ? pnState : {}, onPushDone);
 }
 
 // ── Pull data from Firestore ──
@@ -206,7 +207,7 @@ function fbPullAll(showFeedback) {
     fbUpdateIndicator();
 
     var stationRef = fbSync.db.collection('stations').doc(fbSync.stationId);
-    var collections = ['cop15', 'testplan', 'results', 'inventory'];
+    var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
     var promises = collections.map(function(col) { return stationRef.collection(col).doc('current').get(); });
 
     Promise.all(promises).then(function(snapshots) {
@@ -246,6 +247,16 @@ function fbPullAll(showFeedback) {
             pulled.push('Inventory');
         }
 
+        if (snapshots[4] && snapshots[4].exists && snapshots[4].data().data) {
+            var remotePn = snapshots[4].data().data;
+            if (typeof pnState !== 'undefined') {
+                Object.assign(pnState, remotePn);
+                localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
+                if (typeof pnRender === 'function') pnRender();
+                pulled.push('Panel');
+            }
+        }
+
         fbSync.lastSync = new Date();
         fbSync.status = 'connected';
         fbSync.lastError = '';
@@ -276,6 +287,8 @@ function fbHookSaves() {
     if (_origRaSave) { window.raSave = function() { _origRaSave(); fbPush('results', raState); }; }
     var _origInvSave = window.invSave;
     if (_origInvSave) { window.invSave = function() { _origInvSave(); fbPush('inventory', invState); }; }
+    var _origPnSave = window.pnSave;
+    if (_origPnSave) { window.pnSave = function() { _origPnSave(); fbPush('panel', pnState); }; }
 }
 
 // ── UI Indicator ──

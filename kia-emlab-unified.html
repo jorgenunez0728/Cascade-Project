@@ -712,6 +712,10 @@ body{ overflow-x: hidden; }
         📦 LAB INVENTORY
         <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
     </div>
+    <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel">
+        ⚙️ PANEL
+        <span class="pt-badge" style="background:rgba(139,92,246,0.2);color:#c4b5fd;" id="pn-alerts-badge">ok</span>
+    </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
     <div style="flex:1"></div>
     <div style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.3); align-self:center;">
@@ -1589,6 +1593,31 @@ body{ overflow-x: hidden; }
     </div>
 </div><!-- END platform-inventory -->
 
+<!-- ═══════════════════════════════════════════════════════════════
+     PLATFORM 5: PANEL (Dashboard, Users, Shift Log, Alerts)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="platform-section" id="platform-panel">
+    <div class="tp-header" style="background:linear-gradient(135deg,#1e1b4b,#312e81);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+            <div>
+                <h2 style="margin:0;font-size:18px;color:#c4b5fd;">⚙️ Panel de Control</h2>
+                <p style="margin:4px 0 0;font-size:11px;color:#a78bfa;">Dashboard, operadores, bitácora y alertas del laboratorio</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="tp-tabs" id="pn-tabs-bar">
+        <button class="tp-tab active" onclick="pnSwitchTab('pn-dashboard')">📊 Dashboard</button>
+        <button class="tp-tab" onclick="pnSwitchTab('pn-users')">👥 Usuarios</button>
+        <button class="tp-tab" onclick="pnSwitchTab('pn-shift')">📝 Bitácora</button>
+        <button class="tp-tab" onclick="pnSwitchTab('pn-alerts')">🔔 Alertas</button>
+    </div>
+
+    <div class="tp-main">
+        <div id="pn-content"></div>
+    </div>
+</div><!-- END platform-panel -->
+
 <div id="configModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;">
 <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">
 <button onclick="document.getElementById('configModal').style.display='none'" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;">x</button>
@@ -1622,6 +1651,10 @@ body{ overflow-x: hidden; }
     <div class="bottom-nav-item" onclick="switchPlatform('inventory')" id="bnav-inventory">
         <span class="bnav-icon">📦</span>
         <span>Inventory</span>
+    </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('panel')" id="bnav-panel">
+        <span class="bnav-icon">⚙️</span>
+        <span>Panel</span>
     </div>
 </nav>
 
@@ -1957,7 +1990,7 @@ function setPrecondDatetimeIfEmpty(force = false) {
 // ║  [M15] PLATFORM SWITCHER                                           ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-var PLATFORM_ORDER = ['cop15', 'testplan', 'results', 'inventory'];
+var PLATFORM_ORDER = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
 var _currentPlatform = 'cop15';
 
 function switchPlatform(platform, swipeDir) {
@@ -1992,7 +2025,7 @@ function switchPlatform(platform, swipeDir) {
     if (bnavEl) bnavEl.classList.add('active');
 
     // Theme
-    const isDark = platform === 'testplan' || platform === 'results' || platform === 'inventory';
+    const isDark = platform === 'testplan' || platform === 'results' || platform === 'inventory' || platform === 'panel';
     document.body.style.background = isDark ? 'var(--tp-dark)' : 'var(--bg)';
     document.body.style.color = isDark ? 'var(--tp-text)' : 'var(--text)';
 
@@ -2001,6 +2034,7 @@ function switchPlatform(platform, swipeDir) {
     if (platform === 'testplan') { tpRender(); tpUpdateBadges(); }
     if (platform === 'results') { raRender(); raUpdateBadges(); }
     if (platform === 'inventory') { invPreloadData(); invRender(); invUpdateBadges(); }
+    if (platform === 'panel') { pnRender(); pnUpdateBadges(); }
     if (platform === 'cop15') {
         const active = db.vehicles.filter(v => v.status !== 'archived').length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
@@ -2102,6 +2136,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         tpUpdateBadges();
         tpHookCascadeResult();
         raInit();
+
+        // ═══ Panel Module ═══
+        if (typeof pnInit === 'function') { pnInit(); pnUpdateBadges(); }
 
         // ═══ Restore Soak Timer if running ═══
         if (typeof soakTimerRestore === 'function') soakTimerRestore();
@@ -7112,7 +7149,7 @@ function tpRenderRules(el) {
     const wTotal = w.volume + w.compliance + w.newConfig + w.urgency;
 
     el.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;">
+    <div style="display:grid;grid-template-columns:1fr;gap:14px;">
         <div class="tp-card">
             <div class="tp-card-title">
                 <span>⚙️ Reglas de Ratio</span>
@@ -9635,6 +9672,721 @@ function raInit(){ raUpdateBadges(); }
 
 
 // ╔══════════════════════════════════════════════════════════════════════╗
+// ║  KIA EmLab — Panel Module (Dashboard, Users, Shift Log, Alerts)    ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var pnState = {
+    activeTab: 'pn-dashboard',
+    operators: [],
+    shiftLog: [],
+    alerts: []
+};
+
+var PN_LS_KEY = 'kia_panel_v1';
+
+function pnInit() {
+    try {
+        var saved = localStorage.getItem(PN_LS_KEY);
+        if (saved) {
+            var parsed = JSON.parse(saved);
+            pnState = Object.assign(pnState, parsed);
+        }
+    } catch(e) {}
+
+    // Sync operators from CONFIG if pnState.operators is empty
+    if (pnState.operators.length === 0 && CONFIG && CONFIG.operators) {
+        pnState.operators = CONFIG.operators.map(function(name, i) {
+            return { id: i + 1, name: name, role: 'Técnico', active: true, createdAt: new Date().toISOString() };
+        });
+        pnSave();
+    }
+}
+
+function pnSave() {
+    try { localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState)); } catch(e) {}
+}
+
+function pnSwitchTab(tabId) {
+    pnState.activeTab = tabId;
+    document.querySelectorAll('#pn-tabs-bar .tp-tab').forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('onclick').indexOf(tabId) !== -1);
+    });
+    pnRender();
+}
+
+function pnRender() {
+    var el = document.getElementById('pn-content');
+    if (!el) return;
+    var tab = pnState.activeTab;
+    if (tab === 'pn-dashboard') pnRenderDashboard(el);
+    else if (tab === 'pn-users') pnRenderUsers(el);
+    else if (tab === 'pn-shift') pnRenderShiftLog(el);
+    else if (tab === 'pn-alerts') pnRenderAlerts(el);
+}
+
+function pnUpdateBadges() {
+    var badge = document.getElementById('pn-alerts-badge');
+    if (badge) {
+        var count = pnGetActiveAlerts().length;
+        badge.textContent = count > 0 ? count + ' alertas' : 'ok';
+        badge.style.color = count > 0 ? '#fbbf24' : '#34d399';
+    }
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  LAB DASHBOARD — Real-time overview of all modules                  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function pnRenderDashboard(el) {
+    // Gather cross-module stats
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
+    var archivedToday = vehicles.filter(function(v) {
+        if (v.status !== 'archived' || !v.archivedAt) return false;
+        return v.archivedAt.substring(0, 10) === new Date().toISOString().substring(0, 10);
+    });
+
+    var byStatus = {};
+    activeVehicles.forEach(function(v) { byStatus[v.status] = (byStatus[v.status] || 0) + 1; });
+
+    var tpPlans = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
+    var latestPlan = tpPlans.length > 0 ? tpPlans[tpPlans.length - 1] : null;
+    var tpDone = latestPlan ? latestPlan.items.filter(function(i) { return i.completed; }).length : 0;
+    var tpTotal = latestPlan ? latestPlan.items.length : 0;
+    var tpPct = tpTotal > 0 ? Math.round((tpDone / tpTotal) * 100) : 0;
+
+    var raTests = (typeof raState !== 'undefined' && raState.tests) ? raState.tests : [];
+    var raToday = raTests.filter(function(t) {
+        if (!t.importedAt) return false;
+        return t.importedAt.substring(0, 10) === new Date().toISOString().substring(0, 10);
+    }).length;
+
+    var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
+    var lowGases = invGases.filter(function(g) {
+        if (!g.readings || g.readings.length === 0) return false;
+        var last = g.readings[g.readings.length - 1];
+        return last.psi < (g.reorderPSI || 500);
+    });
+
+    var todayStr = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Current shift
+    var hour = new Date().getHours();
+    var shiftLabel = hour >= 6 && hour < 14 ? 'Turno 1 (06:00–14:00)' : hour >= 14 && hour < 22 ? 'Turno 2 (14:00–22:00)' : 'Turno 3 (22:00–06:00)';
+
+    // Active operator from shift log
+    var todayShifts = pnState.shiftLog.filter(function(s) {
+        return s.date === new Date().toISOString().substring(0, 10);
+    });
+    var currentShift = todayShifts.length > 0 ? todayShifts[todayShifts.length - 1] : null;
+
+    var html = '';
+
+    // Header card
+    html += '<div class="tp-card" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.08),transparent);">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">';
+    html += '<div>';
+    html += '<div style="font-size:18px;font-weight:800;color:var(--tp-blue);">Lab Dashboard</div>';
+    html += '<div style="font-size:11px;color:var(--tp-dim);text-transform:capitalize;">' + todayStr + '</div>';
+    html += '<div style="font-size:10px;color:var(--tp-amber);margin-top:4px;">' + shiftLabel + '</div>';
+    html += '</div>';
+    if (currentShift) {
+        html += '<div style="padding:8px 14px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;">';
+        html += '<div style="font-size:9px;color:var(--tp-dim);">Operador en turno</div>';
+        html += '<div style="font-size:12px;font-weight:700;color:var(--tp-green);">' + currentShift.operator + '</div>';
+        html += '</div>';
+    }
+    html += '</div></div>';
+
+    // KPI grid
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px;">';
+
+    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
+    html += '<div style="font-size:24px;font-weight:800;color:#3b82f6;">' + activeVehicles.length + '</div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);">Vehiculos Activos</div>';
+    html += '</div>';
+
+    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
+    html += '<div style="font-size:24px;font-weight:800;color:#10b981;">' + archivedToday.length + '</div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);">Liberados Hoy</div>';
+    html += '</div>';
+
+    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
+    html += '<div style="font-size:24px;font-weight:800;color:#f59e0b;">' + tpPct + '%</div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);">Plan Semanal</div>';
+    html += '</div>';
+
+    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
+    html += '<div style="font-size:24px;font-weight:800;color:#8b5cf6;">' + raTests.length + '</div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);">Pruebas Results</div>';
+    html += '</div>';
+
+    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
+    html += '<div style="font-size:24px;font-weight:800;color:' + (lowGases.length > 0 ? '#ef4444' : '#10b981') + ';">' + lowGases.length + '</div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);">Gases Bajos</div>';
+    html += '</div>';
+
+    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
+    html += '<div style="font-size:24px;font-weight:800;color:#06b6d4;">' + pnState.operators.filter(function(o) { return o.active; }).length + '</div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);">Operadores</div>';
+    html += '</div>';
+    html += '</div>';
+
+    // Vehicle pipeline
+    html += '<div class="tp-card">';
+    html += '<div class="tp-card-title"><span>🔄 Pipeline de Vehiculos</span></div>';
+    var pipeline = [
+        { key: 'registered', label: 'Registrado', color: '#3b82f6', icon: '📝' },
+        { key: 'in-progress', label: 'En Progreso', color: '#f59e0b', icon: '🔧' },
+        { key: 'testing', label: 'En Prueba', color: '#8b5cf6', icon: '🧪' },
+        { key: 'ready-release', label: 'Listo Liberar', color: '#10b981', icon: '🏁' }
+    ];
+    html += '<div style="display:flex;gap:4px;margin-bottom:10px;">';
+    pipeline.forEach(function(st) {
+        var count = byStatus[st.key] || 0;
+        var pct = activeVehicles.length > 0 ? Math.round((count / activeVehicles.length) * 100) : 0;
+        html += '<div style="flex:1;text-align:center;padding:10px 4px;background:' + st.color + '10;border:1px solid ' + st.color + '30;border-radius:8px;">';
+        html += '<div style="font-size:18px;">' + st.icon + '</div>';
+        html += '<div style="font-size:20px;font-weight:800;color:' + st.color + ';">' + count + '</div>';
+        html += '<div style="font-size:8px;color:var(--tp-dim);">' + st.label + '</div>';
+        html += '</div>';
+    });
+    html += '</div></div>';
+
+    // Weekly plan progress
+    if (latestPlan) {
+        html += '<div class="tp-card">';
+        html += '<div class="tp-card-title"><span>📅 Plan Semanal Actual</span><span style="font-size:11px;font-weight:700;color:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';">' + tpDone + '/' + tpTotal + ' (' + tpPct + '%)</span></div>';
+        html += '<div class="tp-bar" style="height:8px;margin-bottom:8px;"><div class="tp-bar-fill" style="width:' + tpPct + '%;background:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';"></div></div>';
+        latestPlan.items.slice(0, 6).forEach(function(item) {
+            var shortDesc = item.desc.length > 50 ? item.desc.substring(0, 48) + '..' : item.desc;
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--tp-border);">';
+            html += '<span style="font-size:10px;color:' + (item.completed ? 'var(--tp-green)' : 'var(--tp-dim)') + ';' + (item.completed ? 'text-decoration:line-through;' : '') + '">' + shortDesc + '</span>';
+            html += '<span style="font-size:10px;">' + (item.completed ? '✅' : '⏳') + '</span>';
+            html += '</div>';
+        });
+        if (latestPlan.items.length > 6) {
+            html += '<div style="font-size:9px;color:var(--tp-dim);text-align:center;margin-top:4px;">+' + (latestPlan.items.length - 6) + ' mas...</div>';
+        }
+        html += '</div>';
+    }
+
+    // Recent activity (from shift log)
+    var recentLogs = pnState.shiftLog.slice(-5).reverse();
+    if (recentLogs.length > 0) {
+        html += '<div class="tp-card">';
+        html += '<div class="tp-card-title"><span>📋 Actividad Reciente (Bitacora)</span></div>';
+        recentLogs.forEach(function(log) {
+            html += '<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--tp-border);">';
+            html += '<div style="font-size:9px;color:var(--tp-dim);min-width:60px;">' + log.date + '</div>';
+            html += '<div style="font-size:10px;font-weight:700;color:var(--tp-blue);min-width:70px;">' + (log.operator || '?') + '</div>';
+            html += '<div style="font-size:10px;color:var(--tp-text);flex:1;">' + (log.notes || '—') + '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // Alerts summary
+    var alerts = pnGetActiveAlerts();
+    if (alerts.length > 0) {
+        html += '<div class="tp-card" style="border-left:3px solid var(--tp-red);">';
+        html += '<div class="tp-card-title"><span style="color:var(--tp-red);">⚠️ Alertas Activas (' + alerts.length + ')</span></div>';
+        alerts.slice(0, 5).forEach(function(a) {
+            html += '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);">';
+            html += '<span style="font-size:8px;padding:2px 6px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:700;">' + a.level + '</span>';
+            html += '<span style="font-size:10px;color:var(--tp-text);flex:1;">' + a.message + '</span>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    el.innerHTML = html;
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  USER PANEL — Operator management                                   ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function pnRenderUsers(el) {
+    var operators = pnState.operators;
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+
+    // Stats per operator
+    var opStats = {};
+    operators.forEach(function(op) { opStats[op.name] = { registered: 0, released: 0, active: 0 }; });
+    vehicles.forEach(function(v) {
+        var regBy = v.registeredBy || '';
+        if (opStats[regBy]) {
+            if (v.status === 'archived') opStats[regBy].released++;
+            else opStats[regBy].active++;
+            opStats[regBy].registered++;
+        }
+    });
+
+    var roles = ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practicante'];
+
+    var html = '';
+
+    // Add operator form
+    html += '<div class="tp-card" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.05),transparent);">';
+    html += '<div class="tp-card-title"><span>👥 Agregar Operador</span></div>';
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">';
+    html += '<div style="flex:1;min-width:150px;"><label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Nombre completo</label>';
+    html += '<input type="text" id="pn-new-op-name" placeholder="Nombre Apellido" class="tp-input" style="width:100%;"></div>';
+    html += '<div style="min-width:120px;"><label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Rol</label>';
+    html += '<select id="pn-new-op-role" class="tp-select" style="width:100%;">' + roles.map(function(r) { return '<option value="' + r + '">' + r + '</option>'; }).join('') + '</select></div>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddOperator()" style="padding:8px 16px;">+ Agregar</button>';
+    html += '</div></div>';
+
+    // Operators list
+    html += '<div class="tp-card">';
+    html += '<div class="tp-card-title"><span>👤 Operadores (' + operators.length + ')</span></div>';
+
+    if (operators.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">No hay operadores registrados.</div>';
+    } else {
+        operators.forEach(function(op, idx) {
+            var stats = opStats[op.name] || { registered: 0, released: 0, active: 0 };
+            html += '<div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;background:' + (op.active ? 'var(--tp-card)' : 'rgba(100,116,139,0.05)') + ';border:1px solid var(--tp-border);border-radius:8px;' + (!op.active ? 'opacity:0.5;' : '') + '">';
+
+            // Avatar
+            var initials = op.name.split(' ').map(function(w) { return w[0]; }).join('').substring(0, 2).toUpperCase();
+            var avatarColors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
+            var aColor = avatarColors[idx % avatarColors.length];
+            html += '<div style="width:38px;height:38px;border-radius:50%;background:' + aColor + '20;color:' + aColor + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">' + initials + '</div>';
+
+            // Info
+            html += '<div style="flex:1;min-width:0;">';
+            html += '<div style="display:flex;align-items:center;gap:6px;">';
+            html += '<span style="font-size:12px;font-weight:700;color:var(--tp-text);">' + op.name + '</span>';
+            html += '<span style="font-size:8px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;">' + (op.role || 'Técnico') + '</span>';
+            if (!op.active) html += '<span style="font-size:8px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span>';
+            html += '</div>';
+            html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">' + stats.registered + ' registrados | ' + stats.released + ' liberados | ' + stats.active + ' activos</div>';
+            html += '</div>';
+
+            // Actions
+            html += '<div style="display:flex;gap:4px;flex-shrink:0;">';
+            html += '<button onclick="pnEditOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">✏️</button>';
+            html += '<button onclick="pnToggleOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">' + (op.active ? '🚫' : '✅') + '</button>';
+            html += '<button onclick="pnRemoveOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--tp-red);">🗑</button>';
+            html += '</div>';
+            html += '</div>';
+        });
+    }
+
+    html += '</div>';
+
+    // Sync info
+    html += '<div class="tp-card" style="padding:10px;text-align:center;">';
+    html += '<div style="font-size:9px;color:var(--tp-dim);">Los operadores se sincronizan automaticamente con los dropdowns de COP15.</div>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnSyncOperators()" style="font-size:10px;margin-top:6px;">🔄 Sincronizar Dropdowns Ahora</button>';
+    html += '</div>';
+
+    el.innerHTML = html;
+}
+
+function pnAddOperator() {
+    var name = document.getElementById('pn-new-op-name');
+    var role = document.getElementById('pn-new-op-role');
+    if (!name || !name.value.trim()) { showToast('Ingresa un nombre', 'error'); return; }
+
+    var maxId = pnState.operators.reduce(function(m, o) { return Math.max(m, o.id || 0); }, 0);
+    pnState.operators.push({
+        id: maxId + 1,
+        name: name.value.trim(),
+        role: role ? role.value : 'Técnico',
+        active: true,
+        createdAt: new Date().toISOString()
+    });
+
+    pnSave();
+    pnSyncOperators();
+    pnRender();
+    showToast('Operador agregado: ' + name.value.trim(), 'success');
+}
+
+function pnEditOperator(idx) {
+    var op = pnState.operators[idx];
+    if (!op) return;
+    var newName = prompt('Nombre:', op.name);
+    if (!newName || !newName.trim()) return;
+    var roles = ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practicante'];
+    var newRole = prompt('Rol (' + roles.join(', ') + '):', op.role || 'Técnico');
+    op.name = newName.trim();
+    if (newRole && roles.indexOf(newRole) !== -1) op.role = newRole;
+    pnSave();
+    pnSyncOperators();
+    pnRender();
+    showToast('Operador actualizado', 'success');
+}
+
+function pnToggleOperator(idx) {
+    var op = pnState.operators[idx];
+    if (!op) return;
+    op.active = !op.active;
+    pnSave();
+    pnSyncOperators();
+    pnRender();
+    showToast(op.name + (op.active ? ' activado' : ' desactivado'), 'info');
+}
+
+function pnRemoveOperator(idx) {
+    var op = pnState.operators[idx];
+    if (!op) return;
+    if (!confirm('¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.')) return;
+    pnState.operators.splice(idx, 1);
+    pnSave();
+    pnSyncOperators();
+    pnRender();
+    showToast('Operador eliminado', 'info');
+}
+
+function pnSyncOperators() {
+    // Update CONFIG.operators and repopulate dropdowns
+    var activeOps = pnState.operators.filter(function(o) { return o.active; }).map(function(o) { return o.name; });
+    if (CONFIG) CONFIG.operators = activeOps;
+
+    // Repopulate all operator dropdowns
+    var dropdownIds = ['reg_operator', 'op_recep', 'test_responsible', 'precond_responsible', 'simple_operator'];
+    dropdownIds.forEach(function(id) {
+        var sel = document.getElementById(id);
+        if (!sel) return;
+        var currentVal = sel.value;
+        // Keep first option (placeholder)
+        var firstOpt = sel.options[0] ? sel.options[0].outerHTML : '<option value="">Seleccionar…</option>';
+        sel.innerHTML = firstOpt;
+        activeOps.forEach(function(name) {
+            var opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            sel.appendChild(opt);
+        });
+        // Restore selection if still valid
+        if (currentVal) sel.value = currentVal;
+    });
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  SHIFT LOG — Bitácora de turno                                      ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function pnRenderShiftLog(el) {
+    var todayStr = new Date().toISOString().substring(0, 10);
+    var activeOps = pnState.operators.filter(function(o) { return o.active; }).map(function(o) { return o.name; });
+
+    // Categories for log entries
+    var categories = ['Inicio de turno', 'Prueba completada', 'Incidencia', 'Mantenimiento', 'Calibración', 'Observación', 'Fin de turno'];
+
+    var html = '';
+
+    // New entry form
+    html += '<div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">';
+    html += '<div class="tp-card-title"><span>📝 Nueva Entrada de Bitácora</span></div>';
+
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">';
+    html += '<div><label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Operador</label>';
+    html += '<select id="pn-shift-operator" class="tp-select" style="width:100%;">';
+    html += '<option value="">Seleccionar...</option>';
+    activeOps.forEach(function(n) { html += '<option value="' + n + '">' + n + '</option>'; });
+    html += '</select></div>';
+
+    html += '<div><label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Categoria</label>';
+    html += '<select id="pn-shift-category" class="tp-select" style="width:100%;">';
+    categories.forEach(function(c) { html += '<option value="' + c + '">' + c + '</option>'; });
+    html += '</select></div>';
+    html += '</div>';
+
+    html += '<div style="margin-bottom:8px;"><label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Notas / Descripcion</label>';
+    html += '<textarea id="pn-shift-notes" class="tp-input" rows="3" placeholder="Describe la actividad, incidencia u observación..." style="width:100%;resize:vertical;font-family:inherit;"></textarea></div>';
+
+    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddShiftEntry()" style="width:100%;padding:10px;font-size:12px;">+ Registrar en Bitácora</button>';
+    html += '</div>';
+
+    // Today's entries
+    var todayEntries = pnState.shiftLog.filter(function(s) { return s.date === todayStr; }).reverse();
+    html += '<div class="tp-card">';
+    html += '<div class="tp-card-title"><span>📋 Hoy (' + todayEntries.length + ' entradas)</span>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportShiftLog()" style="font-size:10px;">📤 Exportar</button></div>';
+
+    if (todayEntries.length === 0) {
+        html += '<div style="text-align:center;padding:30px;color:var(--tp-dim);font-size:11px;">Sin entradas hoy. Registra el inicio de turno.</div>';
+    } else {
+        todayEntries.forEach(function(entry, i) {
+            var catColors = {
+                'Inicio de turno': '#10b981', 'Prueba completada': '#3b82f6', 'Incidencia': '#ef4444',
+                'Mantenimiento': '#f59e0b', 'Calibración': '#8b5cf6', 'Observación': '#64748b', 'Fin de turno': '#06b6d4'
+            };
+            var catColor = catColors[entry.category] || '#64748b';
+            var catIcons = {
+                'Inicio de turno': '🟢', 'Prueba completada': '✅', 'Incidencia': '🔴',
+                'Mantenimiento': '🔧', 'Calibración': '📏', 'Observación': '📌', 'Fin de turno': '🔵'
+            };
+            var icon = catIcons[entry.category] || '📌';
+
+            html += '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--tp-border);">';
+            html += '<div style="min-width:45px;font-size:9px;color:var(--tp-dim);padding-top:2px;">' + (entry.time || '') + '</div>';
+            html += '<div style="font-size:16px;line-height:1;">' + icon + '</div>';
+            html += '<div style="flex:1;">';
+            html += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:2px;">';
+            html += '<span style="font-size:10px;font-weight:700;color:var(--tp-text);">' + (entry.operator || '?') + '</span>';
+            html += '<span style="font-size:8px;padding:1px 6px;background:' + catColor + '20;color:' + catColor + ';border-radius:4px;">' + entry.category + '</span>';
+            html += '</div>';
+            html += '<div style="font-size:10px;color:var(--tp-dim);">' + (entry.notes || '') + '</div>';
+            html += '</div>';
+            html += '<button onclick="pnDeleteShiftEntry(\'' + entry.id + '\')" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:4px;flex-shrink:0;">×</button>';
+            html += '</div>';
+        });
+    }
+    html += '</div>';
+
+    // Previous days (grouped)
+    var prevEntries = pnState.shiftLog.filter(function(s) { return s.date !== todayStr; });
+    if (prevEntries.length > 0) {
+        var grouped = {};
+        prevEntries.forEach(function(e) {
+            if (!grouped[e.date]) grouped[e.date] = [];
+            grouped[e.date].push(e);
+        });
+        var dates = Object.keys(grouped).sort().reverse().slice(0, 7);
+
+        html += '<div class="tp-card">';
+        html += '<div class="tp-card-title"><span>📅 Dias Anteriores</span></div>';
+        dates.forEach(function(date) {
+            var entries = grouped[date];
+            var dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' });
+            html += '<details style="margin-bottom:6px;border:1px solid var(--tp-border);border-radius:6px;overflow:hidden;">';
+            html += '<summary style="padding:8px 12px;cursor:pointer;font-size:11px;font-weight:700;color:var(--tp-text);background:var(--tp-card);display:flex;justify-content:space-between;">';
+            html += '<span>' + dateLabel + '</span><span style="color:var(--tp-dim);">' + entries.length + ' entradas</span></summary>';
+            entries.reverse().forEach(function(entry) {
+                html += '<div style="display:flex;gap:8px;padding:5px 12px;border-top:1px solid var(--tp-border);font-size:10px;">';
+                html += '<span style="color:var(--tp-dim);min-width:40px;">' + (entry.time || '') + '</span>';
+                html += '<span style="font-weight:700;color:var(--tp-blue);min-width:70px;">' + (entry.operator || '?') + '</span>';
+                html += '<span style="color:var(--tp-dim);flex:1;">[' + (entry.category || '') + '] ' + (entry.notes || '') + '</span>';
+                html += '</div>';
+            });
+            html += '</details>';
+        });
+        html += '</div>';
+    }
+
+    el.innerHTML = html;
+}
+
+function pnAddShiftEntry() {
+    var op = document.getElementById('pn-shift-operator');
+    var cat = document.getElementById('pn-shift-category');
+    var notes = document.getElementById('pn-shift-notes');
+    if (!op || !op.value) { showToast('Selecciona un operador', 'error'); return; }
+    if (!notes || !notes.value.trim()) { showToast('Escribe una nota', 'error'); return; }
+
+    var now = new Date();
+    pnState.shiftLog.push({
+        id: 'sl_' + Date.now(),
+        date: now.toISOString().substring(0, 10),
+        time: now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        operator: op.value,
+        category: cat ? cat.value : 'Observación',
+        notes: notes.value.trim(),
+        timestamp: now.toISOString()
+    });
+
+    // Keep last 500 entries
+    if (pnState.shiftLog.length > 500) pnState.shiftLog = pnState.shiftLog.slice(-500);
+
+    pnSave();
+    pnRender();
+    showToast('Entrada registrada', 'success');
+}
+
+function pnDeleteShiftEntry(id) {
+    if (!confirm('¿Eliminar esta entrada?')) return;
+    pnState.shiftLog = pnState.shiftLog.filter(function(s) { return s.id !== id; });
+    pnSave();
+    pnRender();
+}
+
+function pnExportShiftLog() {
+    var todayStr = new Date().toISOString().substring(0, 10);
+    var entries = pnState.shiftLog.filter(function(s) { return s.date === todayStr; });
+    if (entries.length === 0) { showToast('Sin entradas hoy', 'error'); return; }
+
+    var dateLabel = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    var text = 'BITÁCORA DE TURNO\n' + dateLabel + '\n' + '─'.repeat(30) + '\n\n';
+    entries.forEach(function(e, i) {
+        text += (e.time || '??:??') + ' | ' + (e.operator || '?') + ' | [' + (e.category || '') + ']\n';
+        text += '  ' + (e.notes || '') + '\n\n';
+    });
+    text += '─'.repeat(30) + '\nKIA EmLab ' + new Date().toLocaleString('es-MX');
+
+    if (navigator.share) {
+        navigator.share({ title: 'Bitácora ' + todayStr, text: text }).catch(function() {
+            navigator.clipboard.writeText(text).then(function() { showToast('Copiado al portapapeles', 'success'); });
+        });
+    } else {
+        navigator.clipboard.writeText(text).then(function() { showToast('Copiado al portapapeles', 'success'); });
+    }
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  NOTIFICATIONS / ALERTS CENTER                                      ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function pnGetActiveAlerts() {
+    var alerts = [];
+
+    // Check vehicles stuck too long in a status
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var now = Date.now();
+    vehicles.forEach(function(v) {
+        if (v.status === 'archived') return;
+        var lastAction = v.timeline && v.timeline.length > 0 ? new Date(v.timeline[v.timeline.length - 1].timestamp).getTime() : null;
+        if (lastAction) {
+            var hours = (now - lastAction) / 3600000;
+            if (hours > 48 && v.status === 'registered') {
+                alerts.push({ level: 'MEDIA', color: '#f59e0b', message: 'VIN ' + (v.vin || '?').slice(-6) + ' registrado hace ' + Math.round(hours) + 'h sin avanzar', source: 'COP15' });
+            }
+            if (hours > 24 && v.status === 'in-progress') {
+                alerts.push({ level: 'ALTA', color: '#ef4444', message: 'VIN ' + (v.vin || '?').slice(-6) + ' en progreso hace ' + Math.round(hours) + 'h', source: 'COP15' });
+            }
+            if (hours > 12 && v.status === 'ready-release') {
+                alerts.push({ level: 'MEDIA', color: '#f59e0b', message: 'VIN ' + (v.vin || '?').slice(-6) + ' listo para liberar hace ' + Math.round(hours) + 'h', source: 'COP15' });
+            }
+        }
+    });
+
+    // Check gas levels
+    var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
+    invGases.forEach(function(g) {
+        if (!g.readings || g.readings.length === 0) return;
+        var last = g.readings[g.readings.length - 1];
+        if (last.psi < (g.criticalPSI || 200)) {
+            alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Gas ' + g.name + ' en nivel CRITICO: ' + last.psi + ' PSI', source: 'Inventario' });
+        } else if (last.psi < (g.reorderPSI || 500)) {
+            alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Gas ' + g.name + ' bajo: ' + last.psi + ' PSI — reordenar', source: 'Inventario' });
+        }
+    });
+
+    // Check equipment calibrations due
+    var invEquip = (typeof invState !== 'undefined' && invState.equipment) ? invState.equipment : [];
+    invEquip.forEach(function(eq) {
+        if (!eq.nextCalibration) return;
+        var daysUntil = Math.ceil((new Date(eq.nextCalibration).getTime() - now) / 86400000);
+        if (daysUntil < 0) {
+            alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Calibracion de ' + eq.name + ' VENCIDA hace ' + Math.abs(daysUntil) + ' dias', source: 'Inventario' });
+        } else if (daysUntil <= 7) {
+            alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Calibracion de ' + eq.name + ' vence en ' + daysUntil + ' dias', source: 'Inventario' });
+        } else if (daysUntil <= 30) {
+            alerts.push({ level: 'MEDIA', color: '#06b6d4', message: 'Calibracion de ' + eq.name + ' vence en ' + daysUntil + ' dias', source: 'Inventario' });
+        }
+    });
+
+    // Check test plan coverage
+    if (typeof tpState !== 'undefined' && tpState.weeklyPlans && tpState.weeklyPlans.length > 0) {
+        var lastPlan = tpState.weeklyPlans[tpState.weeklyPlans.length - 1];
+        var planAge = (now - new Date(lastPlan.created).getTime()) / 86400000;
+        if (planAge > 7) {
+            alerts.push({ level: 'MEDIA', color: '#f59e0b', message: 'Plan semanal tiene ' + Math.round(planAge) + ' dias — generar nuevo', source: 'Test Plan' });
+        }
+    }
+
+    // Sort by severity
+    var order = { 'CRITICA': 0, 'ALTA': 1, 'MEDIA': 2 };
+    alerts.sort(function(a, b) { return (order[a.level] || 9) - (order[b.level] || 9); });
+
+    return alerts;
+}
+
+function pnRenderAlerts(el) {
+    var alerts = pnGetActiveAlerts();
+
+    var html = '';
+
+    // Summary
+    var critical = alerts.filter(function(a) { return a.level === 'CRITICA'; }).length;
+    var high = alerts.filter(function(a) { return a.level === 'ALTA'; }).length;
+    var medium = alerts.filter(function(a) { return a.level === 'MEDIA'; }).length;
+
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">';
+    html += '<div class="tp-card" style="text-align:center;padding:14px;' + (critical > 0 ? 'border:2px solid #ef4444;' : '') + '">';
+    html += '<div style="font-size:28px;font-weight:800;color:#ef4444;">' + critical + '</div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);">Criticas</div></div>';
+    html += '<div class="tp-card" style="text-align:center;padding:14px;' + (high > 0 ? 'border:2px solid #f59e0b;' : '') + '">';
+    html += '<div style="font-size:28px;font-weight:800;color:#f59e0b;">' + high + '</div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);">Altas</div></div>';
+    html += '<div class="tp-card" style="text-align:center;padding:14px;">';
+    html += '<div style="font-size:28px;font-weight:800;color:#06b6d4;">' + medium + '</div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);">Medias</div></div>';
+    html += '</div>';
+
+    if (alerts.length === 0) {
+        html += '<div class="tp-card" style="text-align:center;padding:40px;">';
+        html += '<div style="font-size:40px;margin-bottom:10px;">✅</div>';
+        html += '<div style="font-size:14px;font-weight:700;color:var(--tp-green);">Sin Alertas</div>';
+        html += '<div style="font-size:11px;color:var(--tp-dim);margin-top:4px;">Todo el laboratorio opera con normalidad.</div>';
+        html += '</div>';
+    } else {
+        // Group by source
+        var bySource = {};
+        alerts.forEach(function(a) {
+            if (!bySource[a.source]) bySource[a.source] = [];
+            bySource[a.source].push(a);
+        });
+
+        Object.keys(bySource).forEach(function(source) {
+            var sourceAlerts = bySource[source];
+            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊' };
+            html += '<div class="tp-card">';
+            html += '<div class="tp-card-title"><span>' + (sourceIcons[source] || '📌') + ' ' + source + ' (' + sourceAlerts.length + ')</span></div>';
+
+            sourceAlerts.forEach(function(a) {
+                html += '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">';
+                html += '<span style="font-size:8px;padding:3px 8px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:800;white-space:nowrap;flex-shrink:0;">' + a.level + '</span>';
+                html += '<span style="font-size:11px;color:var(--tp-text);">' + a.message + '</span>';
+                html += '</div>';
+            });
+            html += '</div>';
+        });
+    }
+
+    // Notification settings
+    html += '<div class="tp-card">';
+    html += '<div class="tp-card-title"><span>🔔 Configuracion de Alertas</span></div>';
+    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Las alertas se generan automaticamente al abrir este panel.</div>';
+    html += '<div style="display:flex;gap:8px;">';
+    html += '<button class="tp-btn tp-btn-primary" onclick="pnRender()" style="flex:1;font-size:11px;">🔄 Actualizar Alertas</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportAlerts()" style="flex:1;font-size:11px;">📤 Exportar Reporte</button>';
+    html += '</div></div>';
+
+    el.innerHTML = html;
+}
+
+function pnExportAlerts() {
+    var alerts = pnGetActiveAlerts();
+    if (alerts.length === 0) { showToast('Sin alertas activas', 'info'); return; }
+
+    var text = 'REPORTE DE ALERTAS — KIA EmLab\n' + new Date().toLocaleString('es-MX') + '\n' + '═'.repeat(40) + '\n\n';
+    text += 'Total: ' + alerts.length + ' alertas activas\n\n';
+    alerts.forEach(function(a, i) {
+        text += (i + 1) + '. [' + a.level + '] ' + a.message + '\n   Fuente: ' + a.source + '\n\n';
+    });
+    text += '═'.repeat(40) + '\nGenerado automaticamente por KIA EmLab';
+
+    if (navigator.share) {
+        navigator.share({ title: 'Alertas EmLab', text: text }).catch(function() {
+            navigator.clipboard.writeText(text).then(function() { showToast('Copiado', 'success'); });
+        });
+    } else {
+        navigator.clipboard.writeText(text).then(function() { showToast('Copiado al portapapeles', 'success'); });
+    }
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Firebase Cloud Sync (Optional)                       ║
 // ║  Works alongside localStorage — app stays 100% offline-capable    ║
 // ╚══════════════════════════════════════════════════════════════════════╝
@@ -9818,7 +10570,7 @@ function fbPushAll(showFeedback) {
     if (!fbSync.enabled) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
     if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
 
-    var pending = 4, errors = [];
+    var pending = 5, errors = [];
     function onPushDone(ok, errMsg) {
         if (!ok && errMsg) errors.push(errMsg);
         pending--;
@@ -9831,6 +10583,7 @@ function fbPushAll(showFeedback) {
     fbPush('testplan', tpState, onPushDone);
     fbPush('results', raState, onPushDone);
     fbPush('inventory', invState, onPushDone);
+    fbPush('panel', typeof pnState !== 'undefined' ? pnState : {}, onPushDone);
 }
 
 // ── Pull data from Firestore ──
@@ -9842,7 +10595,7 @@ function fbPullAll(showFeedback) {
     fbUpdateIndicator();
 
     var stationRef = fbSync.db.collection('stations').doc(fbSync.stationId);
-    var collections = ['cop15', 'testplan', 'results', 'inventory'];
+    var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
     var promises = collections.map(function(col) { return stationRef.collection(col).doc('current').get(); });
 
     Promise.all(promises).then(function(snapshots) {
@@ -9882,6 +10635,16 @@ function fbPullAll(showFeedback) {
             pulled.push('Inventory');
         }
 
+        if (snapshots[4] && snapshots[4].exists && snapshots[4].data().data) {
+            var remotePn = snapshots[4].data().data;
+            if (typeof pnState !== 'undefined') {
+                Object.assign(pnState, remotePn);
+                localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
+                if (typeof pnRender === 'function') pnRender();
+                pulled.push('Panel');
+            }
+        }
+
         fbSync.lastSync = new Date();
         fbSync.status = 'connected';
         fbSync.lastError = '';
@@ -9912,6 +10675,8 @@ function fbHookSaves() {
     if (_origRaSave) { window.raSave = function() { _origRaSave(); fbPush('results', raState); }; }
     var _origInvSave = window.invSave;
     if (_origInvSave) { window.invSave = function() { _origInvSave(); fbPush('inventory', invState); }; }
+    var _origPnSave = window.pnSave;
+    if (_origPnSave) { window.pnSave = function() { _origPnSave(); fbPush('panel', pnState); }; }
 }
 
 // ── UI Indicator ──

@@ -38,6 +38,10 @@
         📦 LAB INVENTORY
         <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
     </div>
+    <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel">
+        ⚙️ PANEL
+        <span class="pt-badge" style="background:rgba(139,92,246,0.2);color:#c4b5fd;" id="pn-alerts-badge">ok</span>
+    </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
     <div style="flex:1"></div>
     <div style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.3); align-self:center;">
@@ -915,6 +919,31 @@
     </div>
 </div><!-- END platform-inventory -->
 
+<!-- ═══════════════════════════════════════════════════════════════
+     PLATFORM 5: PANEL (Dashboard, Users, Shift Log, Alerts)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="platform-section" id="platform-panel">
+    <div class="tp-header" style="background:linear-gradient(135deg,#1e1b4b,#312e81);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+            <div>
+                <h2 style="margin:0;font-size:18px;color:#c4b5fd;">⚙️ Panel de Control</h2>
+                <p style="margin:4px 0 0;font-size:11px;color:#a78bfa;">Dashboard, operadores, bitácora y alertas del laboratorio</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="tp-tabs" id="pn-tabs-bar">
+        <button class="tp-tab active" onclick="pnSwitchTab('pn-dashboard')">📊 Dashboard</button>
+        <button class="tp-tab" onclick="pnSwitchTab('pn-users')">👥 Usuarios</button>
+        <button class="tp-tab" onclick="pnSwitchTab('pn-shift')">📝 Bitácora</button>
+        <button class="tp-tab" onclick="pnSwitchTab('pn-alerts')">🔔 Alertas</button>
+    </div>
+
+    <div class="tp-main">
+        <div id="pn-content"></div>
+    </div>
+</div><!-- END platform-panel -->
+
 <div id="configModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;">
 <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">
 <button onclick="document.getElementById('configModal').style.display='none'" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;">x</button>
@@ -949,6 +978,10 @@
         <span class="bnav-icon">📦</span>
         <span>Inventory</span>
     </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('panel')" id="bnav-panel">
+        <span class="bnav-icon">⚙️</span>
+        <span>Panel</span>
+    </div>
 </nav>
 
 <!-- JS Modules (load order: app core → COP15 → inventory → testplan → results → firebase) -->
@@ -957,6 +990,7 @@
 <script src="js/inventory.js"></script>
 <script src="js/testplan.js"></script>
 <script src="js/results.js"></script>
+<script src="js/panel.js"></script>
 <script src="js/firebase-sync.js"></script>
 
 </body>

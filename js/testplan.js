@@ -833,7 +833,7 @@ function tpRenderRules(el) {
     const wTotal = w.volume + w.compliance + w.newConfig + w.urgency;
 
     el.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;">
+    <div style="display:grid;grid-template-columns:1fr;gap:14px;">
         <div class="tp-card">
             <div class="tp-card-title">
                 <span>⚙️ Reglas de Ratio</span>
