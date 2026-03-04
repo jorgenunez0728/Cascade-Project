@@ -123,6 +123,26 @@ function invUpdateBadges() {
 
 function invGenId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
+// Generate unique barcode serial: KIA-YYYYMMDD-XXXX (deterministic from controlNo, or unique for new)
+function invGenerateSerial(controlNo) {
+    // Format: KIA-{date}-{seq} where seq is a 4-char alphanumeric from controlNo hash
+    var hash = 0;
+    var str = controlNo + 'kia-emlab';
+    for (var i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+    }
+    var hex = Math.abs(hash).toString(36).toUpperCase().slice(0, 4);
+    while (hex.length < 4) hex = '0' + hex;
+    // Check for collisions with existing serials
+    var serial = 'KIA-' + controlNo.replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase() + '-' + hex;
+    var existing = invState.gases.map(function(g) { return g.barcode; });
+    if (existing.indexOf(serial) >= 0) {
+        // Add random suffix to break collision
+        serial += Math.random().toString(36).slice(2, 4).toUpperCase();
+    }
+    return serial;
+}
+
 function invAutoControlNo() {
     var today = new Date().toISOString().slice(0,10).replace(/-/g,'');
     var todayCount = invState.gases.filter(function(g){ return g.controlNo && g.controlNo.startsWith(today); }).length;
@@ -366,7 +386,7 @@ function invSaveGas(editId) {
         position: zone ? parseInt(zone.slice(1)) : 0,
         status: document.getElementById('inv-g-status').value,
         regDate: document.getElementById('inv-g-regdate').value,
-        barcode: '*' + controlNo + '*'
+        barcode: invGenerateSerial(controlNo)
     };
 
     if (editId) {
@@ -406,16 +426,80 @@ function invDeleteGas(id) {
 function invShowBarcode(id) {
     var g = invState.gases.find(function(x){return x.id===id;});
     if (!g) return;
+
+    // Ensure barcode serial exists (backfill for old cylinders)
+    if (!g.barcode || g.barcode.startsWith('*')) {
+        g.barcode = invGenerateSerial(g.controlNo);
+        invSave();
+    }
+
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:350px;margin:40px auto;background:#fff;border-radius:14px;padding:30px;text-align:center;">' +
-        '<h3 style="margin:0 0 10px;">' + g.formula + ' ' + (g.concNominal||'') + '</h3>' +
-        '<div style="font-size:48px;font-family:monospace;letter-spacing:4px;margin:20px 0;">' + g.barcode + '</div>' +
-        '<div style="font-size:14px;color:#64748b;">Control: ' + g.controlNo + '</div>' +
-        '<div style="font-size:12px;color:#94a3b8;">Cilindro: ' + (g.cylinderNo||'?') + ' | Zona: ' + (g.zone||'?') + '</div>' +
-        '<button onclick="window.print()" style="margin-top:15px;padding:8px 20px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;">Imprimir</button>' +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="margin-top:15px;margin-left:8px;padding:8px 20px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cerrar</button>' +
-        '</div>';
+    modal.innerHTML = '<div style="max-width:400px;margin:40px auto;background:#fff;border-radius:14px;padding:30px;text-align:center;">' +
+        '<h3 style="margin:0 0 4px;color:#0f172a;">' + g.formula + ' ' + (g.concNominal||'') + '</h3>' +
+        '<div style="font-size:12px;color:#64748b;margin-bottom:12px;">' + (g.gasType||'') + '</div>' +
+        '<div id="inv-barcode-container" style="margin:10px 0;"></div>' +
+        '<div style="font-size:13px;color:#334155;font-weight:700;margin-top:8px;">Control: ' + g.controlNo + '</div>' +
+        '<div style="font-size:11px;color:#94a3b8;">Cilindro: ' + (g.cylinderNo||'?') + ' | Zona: ' + (g.zone||'?') + '</div>' +
+        '<div style="font-size:10px;color:#94a3b8;margin-top:2px;">Serial: ' + g.barcode + '</div>' +
+        '<div style="display:flex;gap:8px;justify-content:center;margin-top:15px;">' +
+        '<button onclick="window.print()" style="padding:8px 20px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Imprimir</button>' +
+        '<button onclick="invDownloadBarcode(\'' + g.id + '\')" style="padding:8px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Descargar</button>' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:8px 20px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cerrar</button>' +
+        '</div></div>';
+
+    // Render real barcode using JsBarcode
+    var container = document.getElementById('inv-barcode-container');
+    if (typeof JsBarcode !== 'undefined') {
+        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.id = 'inv-barcode-svg';
+        container.appendChild(svg);
+        try {
+            JsBarcode(svg, g.barcode, {
+                format: 'CODE128',
+                width: 2,
+                height: 60,
+                displayValue: true,
+                fontSize: 14,
+                font: 'monospace',
+                textMargin: 4,
+                margin: 10,
+                background: '#ffffff',
+                lineColor: '#000000'
+            });
+        } catch(e) {
+            container.innerHTML = '<div style="font-size:36px;font-family:monospace;letter-spacing:3px;margin:15px 0;">' + g.barcode + '</div>' +
+                '<div style="font-size:10px;color:#ef4444;">Error generando codigo de barras: ' + e.message + '</div>';
+        }
+    } else {
+        container.innerHTML = '<div style="font-size:36px;font-family:monospace;letter-spacing:3px;margin:15px 0;">' + g.barcode + '</div>' +
+            '<div style="font-size:10px;color:#f59e0b;">JsBarcode no cargado. Verifica conexion a internet para la primera carga.</div>';
+    }
+}
+
+function invDownloadBarcode(id) {
+    var g = invState.gases.find(function(x){return x.id===id;});
+    if (!g) return;
+    var svg = document.getElementById('inv-barcode-svg');
+    if (!svg) { showToast('No se pudo generar imagen', 'error'); return; }
+
+    // Convert SVG to canvas then download as PNG
+    var svgData = new XMLSerializer().serializeToString(svg);
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    var img = new Image();
+    img.onload = function() {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        var link = document.createElement('a');
+        link.download = 'barcode-' + g.controlNo + '.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
 }
 
 
