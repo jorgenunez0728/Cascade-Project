@@ -714,9 +714,10 @@ body{ overflow-x: hidden; }
         🧪 RESULTS ANALYZER
         <span class="pt-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" id="ra-count-badge">0 pruebas</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('inventory')" id="ptab-inventory">
+    <div class="platform-tab" onclick="switchPlatform('inventory')" id="ptab-inventory" style="position:relative;">
         📦 LAB INVENTORY
         <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
+        <span id="inv-alert-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:16px;padding:0 4px;">0</span>
     </div>
     <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel">
         ⚙️ PANEL
@@ -1592,6 +1593,8 @@ body{ overflow-x: hidden; }
             <button class="tp-tab" onclick="invSwitchTab('inv-readings')">📏 Lecturas</button>
             <button class="tp-tab" onclick="invSwitchTab('inv-predict')">🔮 Predicción</button>
             <button class="tp-tab" onclick="invSwitchTab('inv-fuel')">⛽ Combustible</button>
+            <button class="tp-tab" onclick="invSwitchTab('inv-zonemap')">🗺️ Mapa</button>
+            <button class="tp-tab" onclick="invSwitchTab('inv-charts')">📈 Graficas</button>
             <button class="tp-tab" onclick="invSwitchTab('inv-config')">⚙️ Config</button>
             <button class="tp-tab" onclick="invSwitchTab('inv-report')">📧 Reporte</button>
         </div>
@@ -3159,6 +3162,7 @@ function saveProgress() {
     });
 
     saveDB();
+    if ((newStatus === 'testing' || newStatus === 'in-progress') && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
     showToast('Progreso guardado (formato simple)', 'success');
     refreshAllLists();
     updateProgressBar();
@@ -3274,6 +3278,7 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   });
 
   saveDB();
+  if (newStatus === 'testing' && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
   showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
   updateProgressBar();
@@ -3396,6 +3401,7 @@ if (vehicle.status !== 'ready-release') {
                 tpAutoFeedFromRelease(vehicle);
                 invLogTestUsage(vehicle);
                 tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                if (typeof fbPostTestCompleted === 'function') { var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : (vehicle.testData && vehicle.testData.simple && vehicle.testData.simple.resultado ? vehicle.testData.simple.resultado : ''); fbPostTestCompleted(vehicle.vin, _res); }
                 if (typeof fbPostVehicleReleased === 'function') fbPostVehicleReleased(vehicle.vin);
                 showToast('Vehículo liberado. JSON descargado.', 'success');
             } catch(e) {
@@ -4312,6 +4318,7 @@ function soakTimerStart() {
         totalMs: _soakTimer.totalMs
     }));
 
+    if (typeof fbPostSoakStarted === 'function') fbPostSoakStarted(typeof activeVehicleId !== 'undefined' ? activeVehicleId : '', hours);
     _soakTimer.interval = setInterval(soakTimerTick, 1000);
     soakTimerTick();
 }
@@ -4649,6 +4656,8 @@ function invRender() {
     else if (t === 'inv-readings') invRenderReadings(el);
     else if (t === 'inv-predict') invRenderPredict(el);
     else if (t === 'inv-fuel') invRenderFuel(el);
+    else if (t === 'inv-zonemap') invRenderZoneMap(el);
+    else if (t === 'inv-charts') invRenderCharts(el);
     else if (t === 'inv-config') invRenderConfig(el);
     else if (t === 'inv-report') invRenderReport(el);
 }
@@ -4656,6 +4665,20 @@ function invRender() {
 function invUpdateBadges() {
     var b = document.getElementById('inv-count-badge');
     if (b) b.textContent = invState.gases.length + ' gases' + ((invState.fuelTanks||[]).length > 0 ? ', ' + invState.fuelTanks.length + ' tambos' : '');
+    // Expiration alert badge on platform tab
+    var expired = invState.gases.filter(function(g){ return invGasExpiry(g).status === 'expired'; }).length;
+    var warning = invState.gases.filter(function(g){ return invGasExpiry(g).status === 'warning'; }).length;
+    var alertCount = expired + warning;
+    var alertBadge = document.getElementById('inv-alert-badge');
+    if (alertBadge) {
+        if (alertCount > 0) {
+            alertBadge.textContent = alertCount;
+            alertBadge.style.display = 'inline-block';
+            alertBadge.style.background = expired > 0 ? '#ef4444' : '#f59e0b';
+        } else {
+            alertBadge.style.display = 'none';
+        }
+    }
 }
 
 function invGenId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
@@ -4799,7 +4822,11 @@ function invRenderGases(el) {
         filtered.sort(function(a,b){ return (a.zone||'').localeCompare(b.zone||''); }).forEach(function(g) {
             var exp = invGasExpiry(g);
             var lvl = invGasLevel(g);
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;border-left:3px solid ' + exp.color + ';background:var(--tp-card);flex-wrap:wrap;gap:4px;">';
+            html += '<div style="position:relative;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;border-left:3px solid ' + exp.color + ';background:var(--tp-card);flex-wrap:wrap;gap:4px;">';
+            if (exp.status === 'expired') {
+                html += '<div style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(239,68,68,0.08);pointer-events:none;border-radius:6px;"></div>';
+                html += '<div style="position:absolute;top:2px;right:8px;font-size:8px;font-weight:900;color:#ef4444;transform:rotate(-12deg);opacity:0.6;">VENCIDO</div>';
+            }
             html += '<div style="flex:1;min-width:180px;">';
             html += '<div style="font-weight:700;font-size:11px;">' + g.formula + ' <span style="color:var(--tp-dim);font-weight:400;">' + (g.concNominal||'') + '</span></div>';
             html += '<div style="font-size:9px;color:var(--tp-dim);">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo||'?') + ' | ' + (g.zone||'?') + '</div>';
@@ -5075,6 +5102,7 @@ function invBulkReading() {
     });
     if (count === 0) { showToast('No se ingresaron lecturas', 'warning'); return; }
     invSave(); invRender();
+    if (typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
     showToast(count + ' lecturas guardadas para ' + date, 'success');
 }
 
@@ -5156,7 +5184,11 @@ function invSaveEquipment(editId) {
     if (!obj.name) { showToast('Nombre requerido', 'error'); return; }
     if (editId) {
         var e = invState.equipment.find(function(x){return x.id===editId;});
-        if (e) Object.assign(e, obj);
+        if (e) {
+            var oldCalDate = e.lastCalDate;
+            Object.assign(e, obj);
+            if (obj.lastCalDate && obj.lastCalDate !== oldCalDate && typeof fbPostCalibration === 'function') fbPostCalibration(obj.name);
+        }
     } else {
         obj.id = invGenId();
         obj.status = 'active';
@@ -5922,6 +5954,184 @@ function invExportReport() {
     a.download = 'consumables_report_' + new Date().toISOString().slice(0,10) + '.html';
     a.click();
     showToast('Reporte HTML descargado', 'success');
+}
+
+// ══════════════════════════════════════════════════
+// ZONE VISUAL MAP
+// ══════════════════════════════════════════════════
+function invRenderZoneMap(el) {
+    var gases = invState.gases;
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span></div>';
+    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Verde >50% | Amarillo 25-50% | Rojo <25% | Gris: vacio</div>';
+
+    invState.zones.forEach(function(z) {
+        var zGases = gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); });
+        html += '<div style="margin-bottom:10px;padding:8px;border:1px solid var(--tp-border);border-radius:8px;">';
+        html += '<div style="font-weight:800;font-size:12px;margin-bottom:6px;">' + z.id +
+            ' — ' + z.label + ' <span style="font-size:9px;color:var(--tp-dim);">(' + z.type + ') ' + zGases.length + '/' + z.slots + '</span></div>';
+
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:4px;">';
+        for (var s = 1; s <= z.slots; s++) {
+            var code = z.id + (s < 10 ? '0' : '') + s;
+            var slotGas = zGases.find(function(g){ return g.zone === code; });
+            var bgColor = '#1e293b';
+            var label = '';
+            var detail = '';
+
+            if (slotGas) {
+                var lvl = invGasLevel(slotGas);
+                bgColor = lvl.pct > 50 ? '#065f46' : lvl.pct > 25 ? '#854d0e' : '#991b1b';
+                label = slotGas.formula.split('/')[0];
+                detail = lvl.pct + '%';
+            }
+
+            html += '<div onclick="invShowZoneSlotDetail(\'' + code + '\')" ' +
+                'style="padding:6px 4px;text-align:center;border-radius:6px;' +
+                'background:' + bgColor + ';border:1px solid var(--tp-border);cursor:pointer;' +
+                'min-height:44px;display:flex;flex-direction:column;justify-content:center;">';
+            html += '<div style="font-size:8px;color:var(--tp-dim);">' + code + '</div>';
+            if (slotGas) {
+                html += '<div style="font-size:10px;font-weight:700;color:#fff;">' + label + '</div>';
+                html += '<div style="font-size:8px;color:#fff;">' + detail + '</div>';
+            } else {
+                html += '<div style="font-size:9px;color:#475569;">---</div>';
+            }
+            html += '</div>';
+        }
+        html += '</div></div>';
+    });
+
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+function invShowZoneSlotDetail(code) {
+    var gas = invState.gases.find(function(g){ return g.zone === code; });
+    if (gas) {
+        invShowTimeline(gas.id);
+    } else {
+        showToast('Posicion ' + code + ' libre', 'info');
+    }
+}
+
+// ══════════════════════════════════════════════════
+// CONSUMPTION CHARTS (Chart.js)
+// ══════════════════════════════════════════════════
+function invRenderCharts(el) {
+    var chartType = window._invChartType || 'gas_psi';
+
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>Graficas de Consumo</span></div>';
+    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">';
+    html += '<button class="tp-btn ' + (chartType === 'gas_psi' ? 'tp-btn-primary' : 'tp-btn-ghost') +
+        '" onclick="window._invChartType=\'gas_psi\';invRender();" style="font-size:10px;">PSI por Cilindro</button>';
+    html += '<button class="tp-btn ' + (chartType === 'fuel_level' ? 'tp-btn-primary' : 'tp-btn-ghost') +
+        '" onclick="window._invChartType=\'fuel_level\';invRender();" style="font-size:10px;">Combustible</button>';
+    html += '<button class="tp-btn ' + (chartType === 'gas_compare' ? 'tp-btn-primary' : 'tp-btn-ghost') +
+        '" onclick="window._invChartType=\'gas_compare\';invRender();" style="font-size:10px;">Comparar Gases</button>';
+    html += '</div>';
+
+    html += '<div style="position:relative;height:300px;margin-bottom:12px;">';
+    html += '<canvas id="inv-chart-main"></canvas>';
+    html += '</div>';
+
+    if (chartType === 'gas_psi') {
+        var gasesWithReadings = invState.gases.filter(function(g){ return g.readings && g.readings.length >= 2; });
+        html += '<div style="margin-bottom:8px;"><select id="inv-chart-gas-sel" onchange="invDrawMainChart()" style="width:100%;padding:8px;background:#1e293b;border:1px solid var(--tp-border);border-radius:6px;color:#e2e8f0;font-size:11px;">';
+        gasesWithReadings.forEach(function(g) {
+            html += '<option value="' + g.id + '">' + g.formula + ' ' + (g.concNominal||'') + ' #' + g.controlNo + '</option>';
+        });
+        html += '</select></div>';
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
+    setTimeout(function(){ invDrawMainChart(); }, 50);
+}
+
+function invDrawMainChart() {
+    var canvas = document.getElementById('inv-chart-main');
+    if (!canvas || typeof Chart === 'undefined') return;
+    if (window._invChartInstance) window._invChartInstance.destroy();
+
+    var chartType = window._invChartType || 'gas_psi';
+    var colors = ['#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#3b82f6','#84cc16'];
+
+    if (chartType === 'gas_psi') {
+        var sel = document.getElementById('inv-chart-gas-sel');
+        var gasId = sel ? sel.value : null;
+        var g = invState.gases.find(function(x){ return x.id === gasId; });
+        if (!g || !g.readings || g.readings.length < 2) return;
+
+        var readings = g.readings;
+        var labels = readings.map(function(r){ return r.date.slice(5); });
+        var psiVals = readings.map(function(r){ return r.psi; });
+
+        // Projection (4 weeks)
+        var n = psiVals.length;
+        var dailyDrop = 0;
+        if (n >= 2) {
+            var d1 = new Date(readings[0].date), d2 = new Date(readings[n-1].date);
+            var daySpan = Math.max(1, (d2 - d1) / 86400000);
+            dailyDrop = (psiVals[0] - psiVals[n-1]) / daySpan;
+        }
+        var projLabels = [], projVals = [];
+        var lastDate = new Date(readings[n-1].date);
+        for (var w = 1; w <= 4; w++) {
+            var pd = new Date(lastDate); pd.setDate(pd.getDate() + 7*w);
+            projLabels.push(pd.toISOString().slice(5,10));
+            projVals.push(Math.max(0, Math.round(psiVals[n-1] - dailyDrop*7*w)));
+        }
+        var allLabels = labels.concat(projLabels);
+        var actualData = psiVals.concat(new Array(4).fill(null));
+        var projData = new Array(n).fill(null);
+        projData[n-1] = psiVals[n-1];
+        projData = projData.concat(projVals);
+
+        window._invChartInstance = new Chart(canvas, {
+            type:'line', data:{ labels:allLabels, datasets:[
+                { label:'PSI Actual', data:actualData, borderColor:'#06b6d4', backgroundColor:'rgba(6,182,212,0.1)', fill:true, tension:0.3, pointRadius:3 },
+                { label:'Proyeccion', data:projData, borderColor:'#f59e0b', borderDash:[5,3], pointRadius:2, fill:false, tension:0.3 }
+            ]},
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#94a3b8', font:{size:10} } } }, scales:{ x:{ ticks:{ color:'#64748b', font:{size:9} } }, y:{ ticks:{ color:'#64748b', font:{size:9} }, title:{ display:true, text:'PSI', color:'#94a3b8' } } } }
+        });
+    }
+    else if (chartType === 'fuel_level') {
+        var tanks = (invState.fuelTanks || []).filter(function(t){ return t.readings && t.readings.length >= 1; });
+        var allDates = {};
+        tanks.forEach(function(t){ t.readings.forEach(function(r){ allDates[r.date] = true; }); });
+        var labels = Object.keys(allDates).sort();
+        var datasets = tanks.map(function(t, i) {
+            var data = labels.map(function(d) {
+                var r = t.readings.find(function(rd){ return rd.date === d; });
+                return r ? r.level : null;
+            });
+            return { label:t.name, data:data, borderColor:colors[i % colors.length], fill:false, spanGaps:true, tension:0.3, pointRadius:3 };
+        });
+
+        window._invChartInstance = new Chart(canvas, {
+            type:'line', data:{ labels:labels.map(function(l){ return l.slice(5); }), datasets:datasets },
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#94a3b8', font:{size:9} } } }, scales:{ x:{ ticks:{ color:'#64748b', font:{size:9} } }, y:{ ticks:{ color:'#64748b', font:{size:9} }, title:{ display:true, text:'Litros', color:'#94a3b8' } } } }
+        });
+    }
+    else if (chartType === 'gas_compare') {
+        var gases = invState.gases.filter(function(g){ return g.status === 'In use' && g.readings && g.readings.length >= 2; });
+        var allDates = {};
+        gases.forEach(function(g){ g.readings.forEach(function(r){ allDates[r.date] = true; }); });
+        var labels = Object.keys(allDates).sort();
+        var datasets = gases.map(function(g, i) {
+            var firstPsi = g.readings[0].psi;
+            var data = labels.map(function(d) {
+                var r = g.readings.find(function(rd){ return rd.date === d; });
+                return r ? Math.round((r.psi / firstPsi) * 100) : null;
+            });
+            return { label:g.formula + ' ' + (g.concNominal||''), data:data, borderColor:colors[i % colors.length], fill:false, spanGaps:true, tension:0.3, pointRadius:2 };
+        });
+
+        window._invChartInstance = new Chart(canvas, {
+            type:'line', data:{ labels:labels.map(function(l){ return l.slice(5); }), datasets:datasets },
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#94a3b8', font:{size:8} } } }, scales:{ x:{ ticks:{ color:'#64748b', font:{size:9} } }, y:{ ticks:{ color:'#64748b', font:{size:9} }, title:{ display:true, text:'% Restante', color:'#94a3b8' } } } }
+        });
+    }
 }
 
 function invRenderConfig(el) {
@@ -7335,6 +7545,7 @@ function tpGenerateWeekly() {
     tpState.weeklyPlans.push({ id:Date.now(), created:new Date().toISOString(), capacity, items, accepted:false });
     window._tpWeeklyManualPicks = [];
     tpSave(); tpRender(); tpUpdateBadges();
+    if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(items.length);
 }
 
 function tpAcceptWeeklyPlan(weekIdx) {
@@ -10985,6 +11196,62 @@ var FIREBASE_CONFIG = {
     measurementId: "G-M3X2Q8WTDC"
 };
 
+// ── Selective Module Sync ──
+var FB_SYNC_MODULES_KEY = 'kia_fb_sync_modules';
+var fbSyncModules = JSON.parse(localStorage.getItem(FB_SYNC_MODULES_KEY)) || {
+    cop15: true, testplan: true, results: true, inventory: true, panel: true
+};
+function fbSaveSyncModules() {
+    localStorage.setItem(FB_SYNC_MODULES_KEY, JSON.stringify(fbSyncModules));
+}
+
+// ── Offline Queue ──
+var FB_QUEUE_LS_KEY = 'kia_fb_offline_queue';
+var fbOfflineQueue = [];
+function fbQueueLoad() {
+    try { fbOfflineQueue = JSON.parse(localStorage.getItem(FB_QUEUE_LS_KEY)) || []; }
+    catch(e) { fbOfflineQueue = []; }
+}
+function fbQueueSave() {
+    try { localStorage.setItem(FB_QUEUE_LS_KEY, JSON.stringify(fbOfflineQueue)); }
+    catch(e) { console.warn('FB Queue: localStorage full'); }
+}
+function fbQueueAdd(collection, data) {
+    fbOfflineQueue.push({
+        id: Date.now().toString(36),
+        collection: collection,
+        data: data,
+        timestamp: new Date().toISOString(),
+        retries: 0
+    });
+    if (fbOfflineQueue.length > 50) fbOfflineQueue = fbOfflineQueue.slice(-50);
+    fbQueueSave();
+    fbUpdateIndicator();
+}
+function fbQueueRetry() {
+    if (fbOfflineQueue.length === 0) return;
+    if (!fbSync.enabled || !fbSync.db || !fbSync.stationId) return;
+    var item = fbOfflineQueue[0];
+    var quota = fbQuotaCheck('write');
+    if (!quota.allowed) return;
+    var docRef = fbSync.db.collection('stations').doc(fbSync.stationId)
+        .collection(item.collection).doc('current');
+    docRef.set({
+        data: item.data,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        station: fbSync.stationId
+    }).then(function() {
+        fbQuotaRecord('write');
+        fbOfflineQueue.shift();
+        fbQueueSave();
+        fbUpdateIndicator();
+        if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 3000);
+    }).catch(function(err) {
+        item.retries = (item.retries || 0) + 1;
+        if (item.retries > 10) { fbOfflineQueue.shift(); fbQueueSave(); }
+    });
+}
+
 // ── State ──
 var fbSync = {
     enabled: false,
@@ -11136,6 +11403,18 @@ function fbInit() {
     }
 
     fbQuotaLoad();
+    fbQueueLoad();
+
+    // Auto-retry queued items when connection recovers
+    window.addEventListener('online', function() {
+        if (fbSync.enabled && fbOfflineQueue.length > 0) {
+            setTimeout(function() {
+                fbTestConnection(function(ok) {
+                    if (ok) { fbSync.status = 'connected'; fbUpdateIndicator(); fbQueueRetry(); }
+                });
+            }, 2000);
+        }
+    });
 
     try {
         if (!firebase.apps.length) {
@@ -11249,6 +11528,7 @@ function fbPush(collection, data, onDone) {
     var quota = fbQuotaCheck('write');
     if (!quota.allowed) {
         console.warn('Firebase rate limit: ' + quota.reason);
+        fbQueueAdd(collection, data);
         if (onDone) onDone(false, quota.reason);
         return;
     }
@@ -11291,6 +11571,7 @@ function fbPush(collection, data, onDone) {
             fbSync.status = 'error';
             fbSync.lastError = 'Error al subir ' + collection + ': ' + (err.code === 'permission-denied' ? 'Acceso denegado (Security Rules)' : err.message);
             fbUpdateIndicator();
+            fbQueueAdd(collection, data);
             if (onDone) onDone(false, fbSync.lastError);
         });
     }, 2000);
@@ -11301,7 +11582,15 @@ function fbPushAll(showFeedback) {
     if (!fbSync.enabled) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
     if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
 
-    var pending = 5, errors = [];
+    var modules = [];
+    if (fbSyncModules.cop15) modules.push({col:'cop15', data:db});
+    if (fbSyncModules.testplan) modules.push({col:'testplan', data:tpState});
+    if (fbSyncModules.results) modules.push({col:'results', data:raState});
+    if (fbSyncModules.inventory) modules.push({col:'inventory', data:invState});
+    if (fbSyncModules.panel) modules.push({col:'panel', data:typeof pnState !== 'undefined' ? pnState : {}});
+    if (modules.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
+
+    var pending = modules.length, errors = [];
     function onPushDone(ok, errMsg) {
         if (!ok && errMsg) errors.push(errMsg);
         pending--;
@@ -11310,11 +11599,7 @@ function fbPushAll(showFeedback) {
             else showToast('Error al subir: ' + errors[0], 'error');
         }
     }
-    fbPush('cop15', db, onPushDone);
-    fbPush('testplan', tpState, onPushDone);
-    fbPush('results', raState, onPushDone);
-    fbPush('inventory', invState, onPushDone);
-    fbPush('panel', typeof pnState !== 'undefined' ? pnState : {}, onPushDone);
+    modules.forEach(function(m) { fbPush(m.col, m.data, onPushDone); });
 }
 
 // ── Pull data from Firestore (rate-limited) ──
@@ -11333,57 +11618,52 @@ function fbPullAll(showFeedback) {
     fbUpdateIndicator();
 
     var stationRef = fbSync.db.collection('stations').doc(fbSync.stationId);
-    var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
+    var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel'].filter(function(c) { return fbSyncModules[c]; });
+    if (collections.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
     var promises = collections.map(function(col) { return stationRef.collection(col).doc('current').get(); });
 
     Promise.all(promises).then(function(snapshots) {
         var pulled = [];
 
-        if (snapshots[0].exists && snapshots[0].data().data) {
-            var remoteDb = snapshots[0].data().data;
-            if (remoteDb.vehicles && remoteDb.vehicles.length >= db.vehicles.length) {
-                db = remoteDb;
-                localStorage.setItem('kia_db_v11', JSON.stringify(db));
-                refreshAllLists();
-                pulled.push('COP15 (' + db.vehicles.length + ' vehiculos)');
+        collections.forEach(function(col, i) {
+            var snap = snapshots[i];
+            if (!snap || !snap.exists || !snap.data().data) return;
+            var remoteData = snap.data().data;
+
+            if (col === 'cop15') {
+                if (remoteData.vehicles && remoteData.vehicles.length >= db.vehicles.length) {
+                    db = remoteData;
+                    localStorage.setItem('kia_db_v11', JSON.stringify(db));
+                    refreshAllLists();
+                    pulled.push('COP15 (' + db.vehicles.length + ' vehiculos)');
+                }
+            } else if (col === 'testplan') {
+                tpState = remoteData;
+                localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
+                if (typeof tpRender === 'function') tpRender();
+                pulled.push('Test Plan');
+            } else if (col === 'results') {
+                if (remoteData.tests && remoteData.tests.length >= raState.tests.length) {
+                    raState = remoteData;
+                    localStorage.setItem('kia_results_v1', JSON.stringify(raState));
+                    if (typeof raRender === 'function') raRender();
+                    pulled.push('Results (' + raState.tests.length + ' pruebas)');
+                }
+            } else if (col === 'inventory') {
+                invState = remoteData;
+                localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
+                if (typeof invRender === 'function') invRender();
+                pulled.push('Inventory');
+            } else if (col === 'panel') {
+                if (typeof pnState !== 'undefined') {
+                    Object.assign(pnState, remoteData);
+                    localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
+                    if (typeof pnRender === 'function') pnRender();
+                    pulled.push('Panel');
+                }
             }
-        }
+        });
 
-        if (snapshots[1].exists && snapshots[1].data().data) {
-            tpState = snapshots[1].data().data;
-            localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
-            if (typeof tpRender === 'function') tpRender();
-            pulled.push('Test Plan');
-        }
-
-        if (snapshots[2].exists && snapshots[2].data().data) {
-            var remoteRa = snapshots[2].data().data;
-            if (remoteRa.tests && remoteRa.tests.length >= raState.tests.length) {
-                raState = remoteRa;
-                localStorage.setItem('kia_results_v1', JSON.stringify(raState));
-                if (typeof raRender === 'function') raRender();
-                pulled.push('Results (' + raState.tests.length + ' pruebas)');
-            }
-        }
-
-        if (snapshots[3].exists && snapshots[3].data().data) {
-            invState = snapshots[3].data().data;
-            localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
-            if (typeof invRender === 'function') invRender();
-            pulled.push('Inventory');
-        }
-
-        if (snapshots[4] && snapshots[4].exists && snapshots[4].data().data) {
-            var remotePn = snapshots[4].data().data;
-            if (typeof pnState !== 'undefined') {
-                Object.assign(pnState, remotePn);
-                localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
-                if (typeof pnRender === 'function') pnRender();
-                pulled.push('Panel');
-            }
-        }
-
-        // Record reads (5 collections fetched)
         for (var ri = 0; ri < collections.length; ri++) fbQuotaRecord('read');
 
         fbSync.lastSync = new Date();
@@ -11393,6 +11673,9 @@ function fbPullAll(showFeedback) {
 
         if (pulled.length > 0) {
             if (showFeedback) showToast('Descargado: ' + pulled.join(', '), 'success');
+            if (typeof fbPostSyncPull === 'function') fbPostSyncPull();
+            // Retry queued items after successful connection
+            if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 2000);
         } else {
             if (showFeedback) showToast('No hay datos en la nube para esta estacion', 'info');
         }
@@ -11409,15 +11692,15 @@ function fbPullAll(showFeedback) {
 // ── Hook into existing save functions ──
 function fbHookSaves() {
     var _origSaveDB = window.saveDB;
-    if (_origSaveDB) { window.saveDB = function() { _origSaveDB(); fbPush('cop15', db); }; }
+    if (_origSaveDB) { window.saveDB = function() { _origSaveDB(); if (fbSyncModules.cop15) fbPush('cop15', db); }; }
     var _origTpSave = window.tpSave;
-    if (_origTpSave) { window.tpSave = function() { _origTpSave(); fbPush('testplan', tpState); }; }
+    if (_origTpSave) { window.tpSave = function() { _origTpSave(); if (fbSyncModules.testplan) fbPush('testplan', tpState); }; }
     var _origRaSave = window.raSave;
-    if (_origRaSave) { window.raSave = function() { _origRaSave(); fbPush('results', raState); }; }
+    if (_origRaSave) { window.raSave = function() { _origRaSave(); if (fbSyncModules.results) fbPush('results', raState); }; }
     var _origInvSave = window.invSave;
-    if (_origInvSave) { window.invSave = function() { _origInvSave(); fbPush('inventory', invState); }; }
+    if (_origInvSave) { window.invSave = function() { _origInvSave(); if (fbSyncModules.inventory) fbPush('inventory', invState); }; }
     var _origPnSave = window.pnSave;
-    if (_origPnSave) { window.pnSave = function() { _origPnSave(); fbPush('panel', pnState); }; }
+    if (_origPnSave) { window.pnSave = function() { _origPnSave(); if (fbSyncModules.panel) fbPush('panel', pnState); }; }
 }
 
 // ── UI Indicator ──
@@ -11433,7 +11716,8 @@ function fbUpdateIndicator() {
         (fbSync.status === 'syncing' || fbSync.status === 'connecting' ? 'animation:pulse 1s infinite;' : '') +
         '"></span>' + label +
         (fbSync.stationId ? ' (' + fbSync.stationId + ')' : '') +
-        (fbSync.lastSync ? ' ' + fbSync.lastSync.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '');
+        (fbSync.lastSync ? ' ' + fbSync.lastSync.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '') +
+        (fbOfflineQueue.length > 0 ? ' <span style="background:#f59e0b;color:#000;padding:1px 5px;border-radius:8px;font-size:8px;font-weight:700;">' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</span>' : '');
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -11506,6 +11790,28 @@ function fbShowSettings() {
         '<input id="fb-station-input" value="' + (fbSync.stationId || '') + '" placeholder="ej: CELDA-1, LAB-TABLET" style="flex:1;padding:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:12px;">' +
         '<button onclick="fbSetStation(document.getElementById(\x27fb-station-input\x27).value)" style="padding:8px 14px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:11px;">Guardar</button>' +
         '</div></div>' +
+
+        // Module sync toggles
+        (hasConfig ? '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:12px;">' +
+        '<div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:8px;">Modulos a sincronizar</div>' +
+        (function() {
+            var mods = [{k:'cop15',l:'COP15 Cascade'},{k:'testplan',l:'Test Plan'},{k:'results',l:'Results'},{k:'inventory',l:'Inventario'},{k:'panel',l:'Panel'}];
+            var h = '';
+            mods.forEach(function(m) {
+                h += '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">' +
+                '<input type="checkbox" ' + (fbSyncModules[m.k] ? 'checked' : '') + ' onchange="fbSyncModules[\'' + m.k + '\']=this.checked;fbSaveSyncModules();">' +
+                '<span style="font-size:11px;">' + m.l + '</span></label>';
+            });
+            return h;
+        })() + '</div>' : '') +
+
+        // Offline queue status
+        (fbOfflineQueue.length > 0 ? '<div style="padding:10px;border:1px solid #854d0e;border-radius:8px;margin-bottom:12px;background:rgba(245,158,11,0.05);">' +
+        '<div style="font-size:10px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Cola Offline: ' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</div>' +
+        '<div style="font-size:9px;color:#64748b;margin-bottom:6px;">Operaciones que fallaron se reintentaran automaticamente.</div>' +
+        '<button onclick="fbQueueRetry();setTimeout(fbShowSettings,1000);" style="padding:6px 12px;background:#f59e0b;color:#000;border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;">Reintentar ahora</button>' +
+        '<button onclick="if(confirm(\x27Vaciar cola offline?\x27)){fbOfflineQueue=[];fbQueueSave();fbUpdateIndicator();fbShowSettings();}" style="padding:6px 12px;background:#334155;color:#e2e8f0;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:6px;">Vaciar cola</button>' +
+        '</div>' : '') +
 
         // Sync actions
         (fbSync.enabled && fbSync.status !== 'error' ? '<div style="display:flex;gap:8px;margin-bottom:12px;">' +

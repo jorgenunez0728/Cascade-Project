@@ -14,6 +14,62 @@ var FIREBASE_CONFIG = {
     measurementId: "G-M3X2Q8WTDC"
 };
 
+// ── Selective Module Sync ──
+var FB_SYNC_MODULES_KEY = 'kia_fb_sync_modules';
+var fbSyncModules = JSON.parse(localStorage.getItem(FB_SYNC_MODULES_KEY)) || {
+    cop15: true, testplan: true, results: true, inventory: true, panel: true
+};
+function fbSaveSyncModules() {
+    localStorage.setItem(FB_SYNC_MODULES_KEY, JSON.stringify(fbSyncModules));
+}
+
+// ── Offline Queue ──
+var FB_QUEUE_LS_KEY = 'kia_fb_offline_queue';
+var fbOfflineQueue = [];
+function fbQueueLoad() {
+    try { fbOfflineQueue = JSON.parse(localStorage.getItem(FB_QUEUE_LS_KEY)) || []; }
+    catch(e) { fbOfflineQueue = []; }
+}
+function fbQueueSave() {
+    try { localStorage.setItem(FB_QUEUE_LS_KEY, JSON.stringify(fbOfflineQueue)); }
+    catch(e) { console.warn('FB Queue: localStorage full'); }
+}
+function fbQueueAdd(collection, data) {
+    fbOfflineQueue.push({
+        id: Date.now().toString(36),
+        collection: collection,
+        data: data,
+        timestamp: new Date().toISOString(),
+        retries: 0
+    });
+    if (fbOfflineQueue.length > 50) fbOfflineQueue = fbOfflineQueue.slice(-50);
+    fbQueueSave();
+    fbUpdateIndicator();
+}
+function fbQueueRetry() {
+    if (fbOfflineQueue.length === 0) return;
+    if (!fbSync.enabled || !fbSync.db || !fbSync.stationId) return;
+    var item = fbOfflineQueue[0];
+    var quota = fbQuotaCheck('write');
+    if (!quota.allowed) return;
+    var docRef = fbSync.db.collection('stations').doc(fbSync.stationId)
+        .collection(item.collection).doc('current');
+    docRef.set({
+        data: item.data,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        station: fbSync.stationId
+    }).then(function() {
+        fbQuotaRecord('write');
+        fbOfflineQueue.shift();
+        fbQueueSave();
+        fbUpdateIndicator();
+        if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 3000);
+    }).catch(function(err) {
+        item.retries = (item.retries || 0) + 1;
+        if (item.retries > 10) { fbOfflineQueue.shift(); fbQueueSave(); }
+    });
+}
+
 // ── State ──
 var fbSync = {
     enabled: false,
@@ -165,6 +221,18 @@ function fbInit() {
     }
 
     fbQuotaLoad();
+    fbQueueLoad();
+
+    // Auto-retry queued items when connection recovers
+    window.addEventListener('online', function() {
+        if (fbSync.enabled && fbOfflineQueue.length > 0) {
+            setTimeout(function() {
+                fbTestConnection(function(ok) {
+                    if (ok) { fbSync.status = 'connected'; fbUpdateIndicator(); fbQueueRetry(); }
+                });
+            }, 2000);
+        }
+    });
 
     try {
         if (!firebase.apps.length) {
@@ -278,6 +346,7 @@ function fbPush(collection, data, onDone) {
     var quota = fbQuotaCheck('write');
     if (!quota.allowed) {
         console.warn('Firebase rate limit: ' + quota.reason);
+        fbQueueAdd(collection, data);
         if (onDone) onDone(false, quota.reason);
         return;
     }
@@ -320,6 +389,7 @@ function fbPush(collection, data, onDone) {
             fbSync.status = 'error';
             fbSync.lastError = 'Error al subir ' + collection + ': ' + (err.code === 'permission-denied' ? 'Acceso denegado (Security Rules)' : err.message);
             fbUpdateIndicator();
+            fbQueueAdd(collection, data);
             if (onDone) onDone(false, fbSync.lastError);
         });
     }, 2000);
@@ -330,7 +400,15 @@ function fbPushAll(showFeedback) {
     if (!fbSync.enabled) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
     if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
 
-    var pending = 5, errors = [];
+    var modules = [];
+    if (fbSyncModules.cop15) modules.push({col:'cop15', data:db});
+    if (fbSyncModules.testplan) modules.push({col:'testplan', data:tpState});
+    if (fbSyncModules.results) modules.push({col:'results', data:raState});
+    if (fbSyncModules.inventory) modules.push({col:'inventory', data:invState});
+    if (fbSyncModules.panel) modules.push({col:'panel', data:typeof pnState !== 'undefined' ? pnState : {}});
+    if (modules.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
+
+    var pending = modules.length, errors = [];
     function onPushDone(ok, errMsg) {
         if (!ok && errMsg) errors.push(errMsg);
         pending--;
@@ -339,11 +417,7 @@ function fbPushAll(showFeedback) {
             else showToast('Error al subir: ' + errors[0], 'error');
         }
     }
-    fbPush('cop15', db, onPushDone);
-    fbPush('testplan', tpState, onPushDone);
-    fbPush('results', raState, onPushDone);
-    fbPush('inventory', invState, onPushDone);
-    fbPush('panel', typeof pnState !== 'undefined' ? pnState : {}, onPushDone);
+    modules.forEach(function(m) { fbPush(m.col, m.data, onPushDone); });
 }
 
 // ── Pull data from Firestore (rate-limited) ──
@@ -362,57 +436,52 @@ function fbPullAll(showFeedback) {
     fbUpdateIndicator();
 
     var stationRef = fbSync.db.collection('stations').doc(fbSync.stationId);
-    var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
+    var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel'].filter(function(c) { return fbSyncModules[c]; });
+    if (collections.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
     var promises = collections.map(function(col) { return stationRef.collection(col).doc('current').get(); });
 
     Promise.all(promises).then(function(snapshots) {
         var pulled = [];
 
-        if (snapshots[0].exists && snapshots[0].data().data) {
-            var remoteDb = snapshots[0].data().data;
-            if (remoteDb.vehicles && remoteDb.vehicles.length >= db.vehicles.length) {
-                db = remoteDb;
-                localStorage.setItem('kia_db_v11', JSON.stringify(db));
-                refreshAllLists();
-                pulled.push('COP15 (' + db.vehicles.length + ' vehiculos)');
+        collections.forEach(function(col, i) {
+            var snap = snapshots[i];
+            if (!snap || !snap.exists || !snap.data().data) return;
+            var remoteData = snap.data().data;
+
+            if (col === 'cop15') {
+                if (remoteData.vehicles && remoteData.vehicles.length >= db.vehicles.length) {
+                    db = remoteData;
+                    localStorage.setItem('kia_db_v11', JSON.stringify(db));
+                    refreshAllLists();
+                    pulled.push('COP15 (' + db.vehicles.length + ' vehiculos)');
+                }
+            } else if (col === 'testplan') {
+                tpState = remoteData;
+                localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
+                if (typeof tpRender === 'function') tpRender();
+                pulled.push('Test Plan');
+            } else if (col === 'results') {
+                if (remoteData.tests && remoteData.tests.length >= raState.tests.length) {
+                    raState = remoteData;
+                    localStorage.setItem('kia_results_v1', JSON.stringify(raState));
+                    if (typeof raRender === 'function') raRender();
+                    pulled.push('Results (' + raState.tests.length + ' pruebas)');
+                }
+            } else if (col === 'inventory') {
+                invState = remoteData;
+                localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
+                if (typeof invRender === 'function') invRender();
+                pulled.push('Inventory');
+            } else if (col === 'panel') {
+                if (typeof pnState !== 'undefined') {
+                    Object.assign(pnState, remoteData);
+                    localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
+                    if (typeof pnRender === 'function') pnRender();
+                    pulled.push('Panel');
+                }
             }
-        }
+        });
 
-        if (snapshots[1].exists && snapshots[1].data().data) {
-            tpState = snapshots[1].data().data;
-            localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
-            if (typeof tpRender === 'function') tpRender();
-            pulled.push('Test Plan');
-        }
-
-        if (snapshots[2].exists && snapshots[2].data().data) {
-            var remoteRa = snapshots[2].data().data;
-            if (remoteRa.tests && remoteRa.tests.length >= raState.tests.length) {
-                raState = remoteRa;
-                localStorage.setItem('kia_results_v1', JSON.stringify(raState));
-                if (typeof raRender === 'function') raRender();
-                pulled.push('Results (' + raState.tests.length + ' pruebas)');
-            }
-        }
-
-        if (snapshots[3].exists && snapshots[3].data().data) {
-            invState = snapshots[3].data().data;
-            localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
-            if (typeof invRender === 'function') invRender();
-            pulled.push('Inventory');
-        }
-
-        if (snapshots[4] && snapshots[4].exists && snapshots[4].data().data) {
-            var remotePn = snapshots[4].data().data;
-            if (typeof pnState !== 'undefined') {
-                Object.assign(pnState, remotePn);
-                localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
-                if (typeof pnRender === 'function') pnRender();
-                pulled.push('Panel');
-            }
-        }
-
-        // Record reads (5 collections fetched)
         for (var ri = 0; ri < collections.length; ri++) fbQuotaRecord('read');
 
         fbSync.lastSync = new Date();
@@ -422,6 +491,9 @@ function fbPullAll(showFeedback) {
 
         if (pulled.length > 0) {
             if (showFeedback) showToast('Descargado: ' + pulled.join(', '), 'success');
+            if (typeof fbPostSyncPull === 'function') fbPostSyncPull();
+            // Retry queued items after successful connection
+            if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 2000);
         } else {
             if (showFeedback) showToast('No hay datos en la nube para esta estacion', 'info');
         }
@@ -438,15 +510,15 @@ function fbPullAll(showFeedback) {
 // ── Hook into existing save functions ──
 function fbHookSaves() {
     var _origSaveDB = window.saveDB;
-    if (_origSaveDB) { window.saveDB = function() { _origSaveDB(); fbPush('cop15', db); }; }
+    if (_origSaveDB) { window.saveDB = function() { _origSaveDB(); if (fbSyncModules.cop15) fbPush('cop15', db); }; }
     var _origTpSave = window.tpSave;
-    if (_origTpSave) { window.tpSave = function() { _origTpSave(); fbPush('testplan', tpState); }; }
+    if (_origTpSave) { window.tpSave = function() { _origTpSave(); if (fbSyncModules.testplan) fbPush('testplan', tpState); }; }
     var _origRaSave = window.raSave;
-    if (_origRaSave) { window.raSave = function() { _origRaSave(); fbPush('results', raState); }; }
+    if (_origRaSave) { window.raSave = function() { _origRaSave(); if (fbSyncModules.results) fbPush('results', raState); }; }
     var _origInvSave = window.invSave;
-    if (_origInvSave) { window.invSave = function() { _origInvSave(); fbPush('inventory', invState); }; }
+    if (_origInvSave) { window.invSave = function() { _origInvSave(); if (fbSyncModules.inventory) fbPush('inventory', invState); }; }
     var _origPnSave = window.pnSave;
-    if (_origPnSave) { window.pnSave = function() { _origPnSave(); fbPush('panel', pnState); }; }
+    if (_origPnSave) { window.pnSave = function() { _origPnSave(); if (fbSyncModules.panel) fbPush('panel', pnState); }; }
 }
 
 // ── UI Indicator ──
@@ -462,7 +534,8 @@ function fbUpdateIndicator() {
         (fbSync.status === 'syncing' || fbSync.status === 'connecting' ? 'animation:pulse 1s infinite;' : '') +
         '"></span>' + label +
         (fbSync.stationId ? ' (' + fbSync.stationId + ')' : '') +
-        (fbSync.lastSync ? ' ' + fbSync.lastSync.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '');
+        (fbSync.lastSync ? ' ' + fbSync.lastSync.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '') +
+        (fbOfflineQueue.length > 0 ? ' <span style="background:#f59e0b;color:#000;padding:1px 5px;border-radius:8px;font-size:8px;font-weight:700;">' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</span>' : '');
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -535,6 +608,28 @@ function fbShowSettings() {
         '<input id="fb-station-input" value="' + (fbSync.stationId || '') + '" placeholder="ej: CELDA-1, LAB-TABLET" style="flex:1;padding:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:12px;">' +
         '<button onclick="fbSetStation(document.getElementById(\x27fb-station-input\x27).value)" style="padding:8px 14px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:11px;">Guardar</button>' +
         '</div></div>' +
+
+        // Module sync toggles
+        (hasConfig ? '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:12px;">' +
+        '<div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:8px;">Modulos a sincronizar</div>' +
+        (function() {
+            var mods = [{k:'cop15',l:'COP15 Cascade'},{k:'testplan',l:'Test Plan'},{k:'results',l:'Results'},{k:'inventory',l:'Inventario'},{k:'panel',l:'Panel'}];
+            var h = '';
+            mods.forEach(function(m) {
+                h += '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">' +
+                '<input type="checkbox" ' + (fbSyncModules[m.k] ? 'checked' : '') + ' onchange="fbSyncModules[\'' + m.k + '\']=this.checked;fbSaveSyncModules();">' +
+                '<span style="font-size:11px;">' + m.l + '</span></label>';
+            });
+            return h;
+        })() + '</div>' : '') +
+
+        // Offline queue status
+        (fbOfflineQueue.length > 0 ? '<div style="padding:10px;border:1px solid #854d0e;border-radius:8px;margin-bottom:12px;background:rgba(245,158,11,0.05);">' +
+        '<div style="font-size:10px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Cola Offline: ' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</div>' +
+        '<div style="font-size:9px;color:#64748b;margin-bottom:6px;">Operaciones que fallaron se reintentaran automaticamente.</div>' +
+        '<button onclick="fbQueueRetry();setTimeout(fbShowSettings,1000);" style="padding:6px 12px;background:#f59e0b;color:#000;border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;">Reintentar ahora</button>' +
+        '<button onclick="if(confirm(\x27Vaciar cola offline?\x27)){fbOfflineQueue=[];fbQueueSave();fbUpdateIndicator();fbShowSettings();}" style="padding:6px 12px;background:#334155;color:#e2e8f0;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:6px;">Vaciar cola</button>' +
+        '</div>' : '') +
 
         // Sync actions
         (fbSync.enabled && fbSync.status !== 'error' ? '<div style="display:flex;gap:8px;margin-bottom:12px;">' +

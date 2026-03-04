@@ -96,6 +96,8 @@ function invRender() {
     else if (t === 'inv-readings') invRenderReadings(el);
     else if (t === 'inv-predict') invRenderPredict(el);
     else if (t === 'inv-fuel') invRenderFuel(el);
+    else if (t === 'inv-zonemap') invRenderZoneMap(el);
+    else if (t === 'inv-charts') invRenderCharts(el);
     else if (t === 'inv-config') invRenderConfig(el);
     else if (t === 'inv-report') invRenderReport(el);
 }
@@ -103,6 +105,20 @@ function invRender() {
 function invUpdateBadges() {
     var b = document.getElementById('inv-count-badge');
     if (b) b.textContent = invState.gases.length + ' gases' + ((invState.fuelTanks||[]).length > 0 ? ', ' + invState.fuelTanks.length + ' tambos' : '');
+    // Expiration alert badge on platform tab
+    var expired = invState.gases.filter(function(g){ return invGasExpiry(g).status === 'expired'; }).length;
+    var warning = invState.gases.filter(function(g){ return invGasExpiry(g).status === 'warning'; }).length;
+    var alertCount = expired + warning;
+    var alertBadge = document.getElementById('inv-alert-badge');
+    if (alertBadge) {
+        if (alertCount > 0) {
+            alertBadge.textContent = alertCount;
+            alertBadge.style.display = 'inline-block';
+            alertBadge.style.background = expired > 0 ? '#ef4444' : '#f59e0b';
+        } else {
+            alertBadge.style.display = 'none';
+        }
+    }
 }
 
 function invGenId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
@@ -246,7 +262,11 @@ function invRenderGases(el) {
         filtered.sort(function(a,b){ return (a.zone||'').localeCompare(b.zone||''); }).forEach(function(g) {
             var exp = invGasExpiry(g);
             var lvl = invGasLevel(g);
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;border-left:3px solid ' + exp.color + ';background:var(--tp-card);flex-wrap:wrap;gap:4px;">';
+            html += '<div style="position:relative;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;border-left:3px solid ' + exp.color + ';background:var(--tp-card);flex-wrap:wrap;gap:4px;">';
+            if (exp.status === 'expired') {
+                html += '<div style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(239,68,68,0.08);pointer-events:none;border-radius:6px;"></div>';
+                html += '<div style="position:absolute;top:2px;right:8px;font-size:8px;font-weight:900;color:#ef4444;transform:rotate(-12deg);opacity:0.6;">VENCIDO</div>';
+            }
             html += '<div style="flex:1;min-width:180px;">';
             html += '<div style="font-weight:700;font-size:11px;">' + g.formula + ' <span style="color:var(--tp-dim);font-weight:400;">' + (g.concNominal||'') + '</span></div>';
             html += '<div style="font-size:9px;color:var(--tp-dim);">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo||'?') + ' | ' + (g.zone||'?') + '</div>';
@@ -522,6 +542,7 @@ function invBulkReading() {
     });
     if (count === 0) { showToast('No se ingresaron lecturas', 'warning'); return; }
     invSave(); invRender();
+    if (typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
     showToast(count + ' lecturas guardadas para ' + date, 'success');
 }
 
@@ -603,7 +624,11 @@ function invSaveEquipment(editId) {
     if (!obj.name) { showToast('Nombre requerido', 'error'); return; }
     if (editId) {
         var e = invState.equipment.find(function(x){return x.id===editId;});
-        if (e) Object.assign(e, obj);
+        if (e) {
+            var oldCalDate = e.lastCalDate;
+            Object.assign(e, obj);
+            if (obj.lastCalDate && obj.lastCalDate !== oldCalDate && typeof fbPostCalibration === 'function') fbPostCalibration(obj.name);
+        }
     } else {
         obj.id = invGenId();
         obj.status = 'active';
@@ -1369,6 +1394,184 @@ function invExportReport() {
     a.download = 'consumables_report_' + new Date().toISOString().slice(0,10) + '.html';
     a.click();
     showToast('Reporte HTML descargado', 'success');
+}
+
+// ══════════════════════════════════════════════════
+// ZONE VISUAL MAP
+// ══════════════════════════════════════════════════
+function invRenderZoneMap(el) {
+    var gases = invState.gases;
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span></div>';
+    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Verde >50% | Amarillo 25-50% | Rojo <25% | Gris: vacio</div>';
+
+    invState.zones.forEach(function(z) {
+        var zGases = gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); });
+        html += '<div style="margin-bottom:10px;padding:8px;border:1px solid var(--tp-border);border-radius:8px;">';
+        html += '<div style="font-weight:800;font-size:12px;margin-bottom:6px;">' + z.id +
+            ' — ' + z.label + ' <span style="font-size:9px;color:var(--tp-dim);">(' + z.type + ') ' + zGases.length + '/' + z.slots + '</span></div>';
+
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:4px;">';
+        for (var s = 1; s <= z.slots; s++) {
+            var code = z.id + (s < 10 ? '0' : '') + s;
+            var slotGas = zGases.find(function(g){ return g.zone === code; });
+            var bgColor = '#1e293b';
+            var label = '';
+            var detail = '';
+
+            if (slotGas) {
+                var lvl = invGasLevel(slotGas);
+                bgColor = lvl.pct > 50 ? '#065f46' : lvl.pct > 25 ? '#854d0e' : '#991b1b';
+                label = slotGas.formula.split('/')[0];
+                detail = lvl.pct + '%';
+            }
+
+            html += '<div onclick="invShowZoneSlotDetail(\'' + code + '\')" ' +
+                'style="padding:6px 4px;text-align:center;border-radius:6px;' +
+                'background:' + bgColor + ';border:1px solid var(--tp-border);cursor:pointer;' +
+                'min-height:44px;display:flex;flex-direction:column;justify-content:center;">';
+            html += '<div style="font-size:8px;color:var(--tp-dim);">' + code + '</div>';
+            if (slotGas) {
+                html += '<div style="font-size:10px;font-weight:700;color:#fff;">' + label + '</div>';
+                html += '<div style="font-size:8px;color:#fff;">' + detail + '</div>';
+            } else {
+                html += '<div style="font-size:9px;color:#475569;">---</div>';
+            }
+            html += '</div>';
+        }
+        html += '</div></div>';
+    });
+
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+function invShowZoneSlotDetail(code) {
+    var gas = invState.gases.find(function(g){ return g.zone === code; });
+    if (gas) {
+        invShowTimeline(gas.id);
+    } else {
+        showToast('Posicion ' + code + ' libre', 'info');
+    }
+}
+
+// ══════════════════════════════════════════════════
+// CONSUMPTION CHARTS (Chart.js)
+// ══════════════════════════════════════════════════
+function invRenderCharts(el) {
+    var chartType = window._invChartType || 'gas_psi';
+
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>Graficas de Consumo</span></div>';
+    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">';
+    html += '<button class="tp-btn ' + (chartType === 'gas_psi' ? 'tp-btn-primary' : 'tp-btn-ghost') +
+        '" onclick="window._invChartType=\'gas_psi\';invRender();" style="font-size:10px;">PSI por Cilindro</button>';
+    html += '<button class="tp-btn ' + (chartType === 'fuel_level' ? 'tp-btn-primary' : 'tp-btn-ghost') +
+        '" onclick="window._invChartType=\'fuel_level\';invRender();" style="font-size:10px;">Combustible</button>';
+    html += '<button class="tp-btn ' + (chartType === 'gas_compare' ? 'tp-btn-primary' : 'tp-btn-ghost') +
+        '" onclick="window._invChartType=\'gas_compare\';invRender();" style="font-size:10px;">Comparar Gases</button>';
+    html += '</div>';
+
+    html += '<div style="position:relative;height:300px;margin-bottom:12px;">';
+    html += '<canvas id="inv-chart-main"></canvas>';
+    html += '</div>';
+
+    if (chartType === 'gas_psi') {
+        var gasesWithReadings = invState.gases.filter(function(g){ return g.readings && g.readings.length >= 2; });
+        html += '<div style="margin-bottom:8px;"><select id="inv-chart-gas-sel" onchange="invDrawMainChart()" style="width:100%;padding:8px;background:#1e293b;border:1px solid var(--tp-border);border-radius:6px;color:#e2e8f0;font-size:11px;">';
+        gasesWithReadings.forEach(function(g) {
+            html += '<option value="' + g.id + '">' + g.formula + ' ' + (g.concNominal||'') + ' #' + g.controlNo + '</option>';
+        });
+        html += '</select></div>';
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
+    setTimeout(function(){ invDrawMainChart(); }, 50);
+}
+
+function invDrawMainChart() {
+    var canvas = document.getElementById('inv-chart-main');
+    if (!canvas || typeof Chart === 'undefined') return;
+    if (window._invChartInstance) window._invChartInstance.destroy();
+
+    var chartType = window._invChartType || 'gas_psi';
+    var colors = ['#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#3b82f6','#84cc16'];
+
+    if (chartType === 'gas_psi') {
+        var sel = document.getElementById('inv-chart-gas-sel');
+        var gasId = sel ? sel.value : null;
+        var g = invState.gases.find(function(x){ return x.id === gasId; });
+        if (!g || !g.readings || g.readings.length < 2) return;
+
+        var readings = g.readings;
+        var labels = readings.map(function(r){ return r.date.slice(5); });
+        var psiVals = readings.map(function(r){ return r.psi; });
+
+        // Projection (4 weeks)
+        var n = psiVals.length;
+        var dailyDrop = 0;
+        if (n >= 2) {
+            var d1 = new Date(readings[0].date), d2 = new Date(readings[n-1].date);
+            var daySpan = Math.max(1, (d2 - d1) / 86400000);
+            dailyDrop = (psiVals[0] - psiVals[n-1]) / daySpan;
+        }
+        var projLabels = [], projVals = [];
+        var lastDate = new Date(readings[n-1].date);
+        for (var w = 1; w <= 4; w++) {
+            var pd = new Date(lastDate); pd.setDate(pd.getDate() + 7*w);
+            projLabels.push(pd.toISOString().slice(5,10));
+            projVals.push(Math.max(0, Math.round(psiVals[n-1] - dailyDrop*7*w)));
+        }
+        var allLabels = labels.concat(projLabels);
+        var actualData = psiVals.concat(new Array(4).fill(null));
+        var projData = new Array(n).fill(null);
+        projData[n-1] = psiVals[n-1];
+        projData = projData.concat(projVals);
+
+        window._invChartInstance = new Chart(canvas, {
+            type:'line', data:{ labels:allLabels, datasets:[
+                { label:'PSI Actual', data:actualData, borderColor:'#06b6d4', backgroundColor:'rgba(6,182,212,0.1)', fill:true, tension:0.3, pointRadius:3 },
+                { label:'Proyeccion', data:projData, borderColor:'#f59e0b', borderDash:[5,3], pointRadius:2, fill:false, tension:0.3 }
+            ]},
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#94a3b8', font:{size:10} } } }, scales:{ x:{ ticks:{ color:'#64748b', font:{size:9} } }, y:{ ticks:{ color:'#64748b', font:{size:9} }, title:{ display:true, text:'PSI', color:'#94a3b8' } } } }
+        });
+    }
+    else if (chartType === 'fuel_level') {
+        var tanks = (invState.fuelTanks || []).filter(function(t){ return t.readings && t.readings.length >= 1; });
+        var allDates = {};
+        tanks.forEach(function(t){ t.readings.forEach(function(r){ allDates[r.date] = true; }); });
+        var labels = Object.keys(allDates).sort();
+        var datasets = tanks.map(function(t, i) {
+            var data = labels.map(function(d) {
+                var r = t.readings.find(function(rd){ return rd.date === d; });
+                return r ? r.level : null;
+            });
+            return { label:t.name, data:data, borderColor:colors[i % colors.length], fill:false, spanGaps:true, tension:0.3, pointRadius:3 };
+        });
+
+        window._invChartInstance = new Chart(canvas, {
+            type:'line', data:{ labels:labels.map(function(l){ return l.slice(5); }), datasets:datasets },
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#94a3b8', font:{size:9} } } }, scales:{ x:{ ticks:{ color:'#64748b', font:{size:9} } }, y:{ ticks:{ color:'#64748b', font:{size:9} }, title:{ display:true, text:'Litros', color:'#94a3b8' } } } }
+        });
+    }
+    else if (chartType === 'gas_compare') {
+        var gases = invState.gases.filter(function(g){ return g.status === 'In use' && g.readings && g.readings.length >= 2; });
+        var allDates = {};
+        gases.forEach(function(g){ g.readings.forEach(function(r){ allDates[r.date] = true; }); });
+        var labels = Object.keys(allDates).sort();
+        var datasets = gases.map(function(g, i) {
+            var firstPsi = g.readings[0].psi;
+            var data = labels.map(function(d) {
+                var r = g.readings.find(function(rd){ return rd.date === d; });
+                return r ? Math.round((r.psi / firstPsi) * 100) : null;
+            });
+            return { label:g.formula + ' ' + (g.concNominal||''), data:data, borderColor:colors[i % colors.length], fill:false, spanGaps:true, tension:0.3, pointRadius:2 };
+        });
+
+        window._invChartInstance = new Chart(canvas, {
+            type:'line', data:{ labels:labels.map(function(l){ return l.slice(5); }), datasets:datasets },
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#94a3b8', font:{size:8} } } }, scales:{ x:{ ticks:{ color:'#64748b', font:{size:9} } }, y:{ ticks:{ color:'#64748b', font:{size:9} }, title:{ display:true, text:'% Restante', color:'#94a3b8' } } } }
+        });
+    }
 }
 
 function invRenderConfig(el) {

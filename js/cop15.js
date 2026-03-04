@@ -992,6 +992,7 @@ function saveProgress() {
     });
 
     saveDB();
+    if ((newStatus === 'testing' || newStatus === 'in-progress') && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
     showToast('Progreso guardado (formato simple)', 'success');
     refreshAllLists();
     updateProgressBar();
@@ -1107,6 +1108,7 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   });
 
   saveDB();
+  if (newStatus === 'testing' && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
   showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
   updateProgressBar();
@@ -1229,6 +1231,7 @@ if (vehicle.status !== 'ready-release') {
                 tpAutoFeedFromRelease(vehicle);
                 invLogTestUsage(vehicle);
                 tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                if (typeof fbPostTestCompleted === 'function') { var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : (vehicle.testData && vehicle.testData.simple && vehicle.testData.simple.resultado ? vehicle.testData.simple.resultado : ''); fbPostTestCompleted(vehicle.vin, _res); }
                 if (typeof fbPostVehicleReleased === 'function') fbPostVehicleReleased(vehicle.vin);
                 showToast('Vehículo liberado. JSON descargado.', 'success');
             } catch(e) {
@@ -2145,6 +2148,7 @@ function soakTimerStart() {
         totalMs: _soakTimer.totalMs
     }));
 
+    if (typeof fbPostSoakStarted === 'function') fbPostSoakStarted(typeof activeVehicleId !== 'undefined' ? activeVehicleId : '', hours);
     _soakTimer.interval = setInterval(soakTimerTick, 1000);
     soakTimerTick();
 }

@@ -40,9 +40,10 @@
         🧪 RESULTS ANALYZER
         <span class="pt-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" id="ra-count-badge">0 pruebas</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('inventory')" id="ptab-inventory">
+    <div class="platform-tab" onclick="switchPlatform('inventory')" id="ptab-inventory" style="position:relative;">
         📦 LAB INVENTORY
         <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
+        <span id="inv-alert-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:16px;padding:0 4px;">0</span>
     </div>
     <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel">
         ⚙️ PANEL
@@ -918,6 +919,8 @@
             <button class="tp-tab" onclick="invSwitchTab('inv-readings')">📏 Lecturas</button>
             <button class="tp-tab" onclick="invSwitchTab('inv-predict')">🔮 Predicción</button>
             <button class="tp-tab" onclick="invSwitchTab('inv-fuel')">⛽ Combustible</button>
+            <button class="tp-tab" onclick="invSwitchTab('inv-zonemap')">🗺️ Mapa</button>
+            <button class="tp-tab" onclick="invSwitchTab('inv-charts')">📈 Graficas</button>
             <button class="tp-tab" onclick="invSwitchTab('inv-config')">⚙️ Config</button>
             <button class="tp-tab" onclick="invSwitchTab('inv-report')">📧 Reporte</button>
         </div>

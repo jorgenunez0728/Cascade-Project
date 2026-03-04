@@ -1004,6 +1004,7 @@ function tpGenerateWeekly() {
     tpState.weeklyPlans.push({ id:Date.now(), created:new Date().toISOString(), capacity, items, accepted:false });
     window._tpWeeklyManualPicks = [];
     tpSave(); tpRender(); tpUpdateBadges();
+    if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(items.length);
 }
 
 function tpAcceptWeeklyPlan(weekIdx) {
