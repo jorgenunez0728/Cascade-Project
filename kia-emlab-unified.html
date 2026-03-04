@@ -12519,9 +12519,24 @@ function fbMergeAnalyze(remoteData) {
         var remoteRulesJSON = JSON.stringify(remoteData.testplan.rules || []);
         var rulesChanged = localRulesJSON !== remoteRulesJSON;
 
-        // Compare planData
+        // Compare planData (production plan configurations)
         var localPlanLen = (tpState.planData || []).length;
         var remotePlanLen = (remoteData.testplan.planData || []).length;
+        var planDataDiff = localPlanLen !== remotePlanLen;
+        // Also check content — remote may have different configs even if same length
+        if (!planDataDiff && remotePlanLen > 0) {
+            var localDescs = (tpState.planData || []).map(function(c) { return c.desc; }).sort().join('|');
+            var remoteDescs = (remoteData.testplan.planData || []).map(function(c) { return c.desc; }).sort().join('|');
+            planDataDiff = localDescs !== remoteDescs;
+        }
+
+        // Compare weeklyPlans
+        var localWeeklyLen = (tpState.weeklyPlans || []).length;
+        var remoteWeeklyLen = (remoteData.testplan.weeklyPlans || []).length;
+        var weeklyPlansDiff = localWeeklyLen !== remoteWeeklyLen;
+        if (!weeklyPlansDiff && remoteWeeklyLen > 0) {
+            weeklyPlansDiff = JSON.stringify(tpState.weeklyPlans || []) !== JSON.stringify(remoteData.testplan.weeklyPlans || []);
+        }
 
         analysis.testplan = {
             localTestedCount: (tpState.testedList || []).length,
@@ -12532,6 +12547,10 @@ function fbMergeAnalyze(remoteData) {
             rulesChanged: rulesChanged,
             localPlanConfigs: localPlanLen,
             remotePlanConfigs: remotePlanLen,
+            planDataDiff: planDataDiff,
+            localWeeklyCount: localWeeklyLen,
+            remoteWeeklyCount: remoteWeeklyLen,
+            weeklyPlansDiff: weeklyPlansDiff,
             remoteTs: remoteData.testplan_ts || null
         };
     }
@@ -12648,20 +12667,79 @@ function fbMergeExecute(remoteData, analysis, choices) {
     // TestPlan
     if (choices.testplan && analysis.testplan) {
         if (choices.testplan === 'new') {
+            // Add new tested items
             if (!tpState.testedList) tpState.testedList = [];
             analysis.testplan.newItems.forEach(function(t) { tpState.testedList.push(t); });
-            merged.push('TestPlan: +' + analysis.testplan.newItems.length + ' pruebas');
+            var parts = ['+' + analysis.testplan.newItems.length + ' pruebas'];
+            // Also import planData if local is empty and remote has data
+            if ((tpState.planData || []).length === 0 && (remoteData.testplan.planData || []).length > 0) {
+                tpState.planData = remoteData.testplan.planData;
+                parts.push('+' + tpState.planData.length + ' configs plan');
+            }
+            // Also import weeklyPlans if local is empty and remote has data
+            if ((tpState.weeklyPlans || []).length === 0 && (remoteData.testplan.weeklyPlans || []).length > 0) {
+                tpState.weeklyPlans = remoteData.testplan.weeklyPlans;
+                parts.push('+' + tpState.weeklyPlans.length + ' planes semanales');
+            }
+            merged.push('TestPlan: ' + parts.join(', '));
         } else if (choices.testplan === 'replace') {
             tpState = remoteData.testplan;
             merged.push('TestPlan: reemplazado con version remota');
         } else if (choices.testplan === 'merge_all') {
+            // Merge tested items
             if (!tpState.testedList) tpState.testedList = [];
             analysis.testplan.newItems.forEach(function(t) { tpState.testedList.push(t); });
+            // Merge rules if different
             if (analysis.testplan.rulesChanged) {
                 tpState.rules = remoteData.testplan.rules;
             }
-            if (analysis.testplan.remotePlanConfigs > analysis.testplan.localPlanConfigs) {
-                tpState.planData = remoteData.testplan.planData;
+            // Merge planData: use remote if local is empty, or if remote has different/more configs
+            if (analysis.testplan.planDataDiff && (remoteData.testplan.planData || []).length > 0) {
+                if ((tpState.planData || []).length === 0) {
+                    tpState.planData = remoteData.testplan.planData;
+                } else {
+                    // Merge: add configs from remote that aren't in local
+                    var localDescs = {};
+                    (tpState.planData || []).forEach(function(c) { localDescs[c.desc] = true; });
+                    (remoteData.testplan.planData || []).forEach(function(c) {
+                        if (!localDescs[c.desc]) tpState.planData.push(c);
+                    });
+                }
+            }
+            // Merge weeklyPlans: use remote if local is empty, or merge weeks
+            if (analysis.testplan.weeklyPlansDiff && (remoteData.testplan.weeklyPlans || []).length > 0) {
+                if ((tpState.weeklyPlans || []).length === 0) {
+                    tpState.weeklyPlans = remoteData.testplan.weeklyPlans;
+                } else {
+                    // Merge by week label — add new weeks, merge items for existing weeks
+                    var localWeekMap = {};
+                    (tpState.weeklyPlans || []).forEach(function(w, i) { localWeekMap[w.week] = i; });
+                    (remoteData.testplan.weeklyPlans || []).forEach(function(rw) {
+                        if (localWeekMap[rw.week] === undefined) {
+                            tpState.weeklyPlans.push(rw);
+                        } else {
+                            // Add items not already present
+                            var lw = tpState.weeklyPlans[localWeekMap[rw.week]];
+                            var existingDescs = {};
+                            (lw.items || []).forEach(function(item) { existingDescs[item.desc] = true; });
+                            (rw.items || []).forEach(function(item) {
+                                if (!existingDescs[item.desc]) {
+                                    if (!lw.items) lw.items = [];
+                                    lw.items.push(item);
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+            // Also merge planHistory if remote has entries
+            if ((remoteData.testplan.planHistory || []).length > 0) {
+                if (!tpState.planHistory) tpState.planHistory = [];
+                var localHistDates = {};
+                tpState.planHistory.forEach(function(h) { localHistDates[h.date + '|' + h.configs] = true; });
+                (remoteData.testplan.planHistory || []).forEach(function(h) {
+                    if (!localHistDates[h.date + '|' + h.configs]) tpState.planHistory.push(h);
+                });
             }
             merged.push('TestPlan: merge completo');
         }
@@ -12965,25 +13043,31 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
     // ── TestPlan ──
     var tp = analysis.testplan;
     if (tp) {
-        var hasChanges = tp.newItems.length > 0 || tp.rulesChanged || tp.remotePlanConfigs > tp.localPlanConfigs;
+        var hasChanges = tp.newItems.length > 0 || tp.rulesChanged || tp.planDataDiff || tp.weeklyPlansDiff;
         html += '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:8px;' + (hasChanges ? 'border-color:#3b82f6;' : '') + '">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
         html += '<span style="font-weight:700;font-size:12px;">Test Plan</span>';
-        html += '<span style="font-size:9px;color:#64748b;">Probados L: ' + tp.localTestedCount + ' | R: ' + tp.remoteTestedCount + '</span></div>';
+        html += '<span style="font-size:9px;color:#64748b;">Probados L:' + tp.localTestedCount + '/R:' + tp.remoteTestedCount + '</span></div>';
         html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">';
-        html += '<span style="color:#10b981;font-weight:700;">+' + tp.newItems.length + ' probados nuevos</span>';
-        html += ' &nbsp; <span style="color:#64748b;">' + tp.duplicates.length + ' iguales</span>';
-        if (tp.rulesChanged) html += ' &nbsp; <span style="color:#f59e0b;">reglas diferentes</span>';
-        if (tp.remotePlanConfigs > tp.localPlanConfigs) html += ' &nbsp; <span style="color:#3b82f6;">plan mas completo</span>';
+        if (tp.newItems.length > 0) html += '<span style="color:#10b981;font-weight:700;">+' + tp.newItems.length + ' probados nuevos</span> ';
+        if (tp.duplicates.length > 0) html += '<span style="color:#64748b;">' + tp.duplicates.length + ' iguales</span> ';
+        if (tp.rulesChanged) html += '<span style="color:#f59e0b;">reglas dif.</span> ';
+        if (tp.planDataDiff) html += '<span style="color:#3b82f6;font-weight:700;">plan produccion dif. (L:' + tp.localPlanConfigs + '/R:' + tp.remotePlanConfigs + ')</span> ';
+        if (tp.weeklyPlansDiff) html += '<span style="color:#a855f7;font-weight:700;">planes semanales dif. (L:' + tp.localWeeklyCount + '/R:' + tp.remoteWeeklyCount + ')</span> ';
+        if (!hasChanges) html += '<span style="color:#10b981;">Sin diferencias</span>';
         html += '</div>';
         if (hasChanges) {
+            var newLabel = 'Agregar nuevo';
+            var newParts = [];
+            if (tp.newItems.length > 0) newParts.push('+' + tp.newItems.length + ' pruebas');
+            if (tp.planDataDiff && tp.localPlanConfigs === 0 && tp.remotePlanConfigs > 0) newParts.push('+plan produccion');
+            if (tp.weeklyPlansDiff && tp.localWeeklyCount === 0 && tp.remoteWeeklyCount > 0) newParts.push('+planes semanales');
+            if (newParts.length > 0) newLabel += ' (' + newParts.join(', ') + ')';
             html += '<select id="fb-merge-testplan" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:10px;">';
             html += '<option value="">No fusionar</option>';
-            html += '<option value="new" selected>Solo pruebas nuevas (+' + tp.newItems.length + ')</option>';
-            html += '<option value="merge_all">Merge completo (pruebas + reglas + plan)</option>';
+            html += '<option value="new">' + newLabel + '</option>';
+            html += '<option value="merge_all" selected>Merge completo (pruebas + reglas + plan + semanales)</option>';
             html += '<option value="replace">Reemplazar todo con remoto</option></select>';
-        } else {
-            html += '<div style="font-size:10px;color:#10b981;">Sin diferencias</div>';
         }
         html += '</div>';
     }
