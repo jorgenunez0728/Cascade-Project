@@ -11422,14 +11422,6 @@ function fbInit() {
         }
         fbSync.db = firebase.firestore();
 
-        fbSync.db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
-            if (err.code === 'failed-precondition') {
-                console.warn('Firebase: Multiple tabs open, persistence only in one.');
-            } else if (err.code === 'unimplemented') {
-                console.warn('Firebase: Persistence not supported in this browser.');
-            }
-        });
-
         fbSync.stationId = localStorage.getItem('kia_fb_station') || '';
         fbSync.enabled = true;
         fbSync.status = 'connecting';
@@ -11438,15 +11430,31 @@ function fbInit() {
 
         console.log('Firebase Sync: SDK initialized for project ' + FIREBASE_CONFIG.projectId);
 
-        fbTestConnection(function(ok) {
-            if (ok) {
-                fbSync.status = 'connected';
-                fbUpdateIndicator();
-                if (fbSync.stationId) {
-                    fbPullAll();
-                    fbBackupCheck(); // Auto-backup once per day
-                }
+        // Chain: persistence → anonymous auth → connection test
+        // Each step is async; we proceed even if persistence/auth fails
+        fbSync.db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
+            if (err.code === 'failed-precondition') {
+                console.warn('Firebase: Multiple tabs open, persistence only in one.');
+            } else if (err.code === 'unimplemented') {
+                console.warn('Firebase: Persistence not supported in this browser.');
             }
+        }).then(function() {
+            // Attempt anonymous auth before testing connection
+            return fbAnonymousAuth();
+        }).then(function() {
+            // Now test connection (with retry)
+            fbTestConnectionWithRetry(2, function(ok) {
+                if (ok) {
+                    fbSync.status = 'connected';
+                    fbUpdateIndicator();
+                    if (fbSync.stationId) {
+                        fbPullAll();
+                        fbBackupCheck();
+                    }
+                    // Drain offline queue
+                    if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 3000);
+                }
+            });
         });
 
     } catch (err) {
@@ -11455,6 +11463,41 @@ function fbInit() {
         fbSync.lastError = 'Error al inicializar: ' + err.message;
         fbUpdateIndicator();
     }
+}
+
+// ── Anonymous Auth (for security rules that require auth) ──
+function fbAnonymousAuth() {
+    try {
+        var auth = firebase.auth();
+        if (auth.currentUser) {
+            return Promise.resolve(); // Already signed in
+        }
+        return auth.signInAnonymously().then(function() {
+            console.log('Firebase: Anonymous auth OK');
+        }).catch(function(err) {
+            // Auth might not be enabled — that's OK if rules use "if true"
+            console.warn('Firebase: Anonymous auth failed (if rules use "if true" this is OK):', err.code || err.message);
+        });
+    } catch(e) {
+        console.warn('Firebase: Auth not available:', e.message);
+        return Promise.resolve(); // Continue without auth
+    }
+}
+
+// ── Connection Test with Retry ──
+function fbTestConnectionWithRetry(retriesLeft, callback) {
+    fbTestConnection(function(ok) {
+        if (ok) {
+            if (callback) callback(true);
+        } else if (retriesLeft > 0) {
+            console.log('Firebase: Retrying connection in 3s... (' + retriesLeft + ' left)');
+            setTimeout(function() {
+                fbTestConnectionWithRetry(retriesLeft - 1, callback);
+            }, 3000);
+        } else {
+            if (callback) callback(false);
+        }
+    });
 }
 
 // ── Connection Test ──
@@ -11475,13 +11518,13 @@ function fbTestConnection(callback) {
         fbSync.status = 'error';
 
         if (err.code === 'permission-denied') {
-            fbSync.lastError = 'Acceso denegado. Revisa las Security Rules en Firebase Console:\nFirestore > Rules > Permitir lectura/escritura.';
+            fbSync.lastError = 'Acceso denegado. Revisa en Firebase Console:\n1. Authentication > Sign-in method > Anonymous (habilitar)\n2. Firestore > Rules > allow read, write: if true;';
         } else if (err.code === 'unavailable') {
-            fbSync.lastError = 'Firestore no disponible. Verifica tu conexion a internet.';
+            fbSync.lastError = 'Firestore no disponible. Verifica:\n1. Conexion a internet\n2. Que la base de datos Firestore exista (Firebase Console > Firestore Database > Create Database)\n3. Que Anonymous Auth este habilitado en Authentication > Sign-in method';
         } else if (err.code === 'not-found') {
             if (callback) { callback(true); return; }
         } else {
-            fbSync.lastError = 'Error de conexion: ' + (err.message || err.code);
+            fbSync.lastError = 'Error de conexion (' + (err.code || '?') + '): ' + (err.message || 'desconocido');
         }
 
         fbUpdateIndicator();
@@ -11847,10 +11890,12 @@ function fbShowSettings() {
         (fbSync.status === 'error' && hasConfig ? '<div style="margin-bottom:12px;"><button onclick="fbInit();setTimeout(fbShowSettings,1500);" style="width:100%;padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Reintentar conexion</button></div>' : '') +
 
         // Setup instructions
-        (!hasConfig ? '<div style="padding:12px;background:#1e293b;border-radius:8px;border:1px solid #334155;"><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:6px;">Setup necesario</div><div style="font-size:10px;color:#94a3b8;line-height:1.5;">1. Ve a <strong>console.firebase.google.com</strong><br>2. Crea un proyecto (gratis)<br>3. En Firestore Database, crea una base de datos<br>4. En Project Settings, agrega una Web App<br>5. Copia el firebaseConfig al archivo <strong>js/firebase-sync.js</strong><br>6. Recarga la app</div></div>' : '') +
+        (!hasConfig ? '<div style="padding:12px;background:#1e293b;border-radius:8px;border:1px solid #334155;"><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:6px;">Setup necesario</div><div style="font-size:10px;color:#94a3b8;line-height:1.5;">1. Ve a <strong>console.firebase.google.com</strong><br>2. Crea un proyecto (gratis)<br>3. En <strong>Authentication > Sign-in method</strong>, habilita <strong>Anonymous</strong><br>4. En <strong>Firestore Database</strong>, crea una base de datos<br>5. En <strong>Firestore > Rules</strong>, pon: allow read, write: if true;<br>6. En Project Settings, agrega una Web App<br>7. Copia el firebaseConfig al archivo <strong>js/firebase-sync.js</strong><br>8. Recarga la app</div></div>' : '') +
 
         // Rules
-        (hasConfig ? '<div style="padding:10px;background:#1e293b;border-radius:8px;border:1px solid #334155;margin-top:12px;"><div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:4px;">Security Rules requeridas:</div><pre style="font-size:9px;color:#64748b;margin:0;overflow-x:auto;white-space:pre;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if request.auth != null;\n    }\n  }\n}</pre><div style="font-size:9px;color:#10b981;margin-top:4px;">Auth requerida — sign-in anonimo automatico al iniciar sesion con PIN</div></div>' : '') +
+        (hasConfig ? '<div style="padding:10px;background:#1e293b;border-radius:8px;border:1px solid #334155;margin-top:12px;"><div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:4px;">Configuracion requerida en Firebase Console:</div>' +
+        '<div style="font-size:9px;color:#f59e0b;margin-bottom:6px;line-height:1.5;">1. <strong>Authentication > Sign-in method > Anonymous</strong> → Habilitar<br>2. <strong>Firestore Database > Rules</strong> → Copiar las reglas de abajo:</div>' +
+        '<pre style="font-size:9px;color:#64748b;margin:0;overflow-x:auto;white-space:pre;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}</pre><div style="font-size:9px;color:#10b981;margin-top:4px;">Firestore > Rules > Editar > Publicar</div></div>' : '') +
 
         '</div>';
 }
