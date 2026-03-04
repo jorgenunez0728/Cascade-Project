@@ -926,6 +926,14 @@ function tpRenderWeekly(el) {
     const manualPicks = window._tpWeeklyManualPicks || [];
     const allConfigs = tpState.planData.map(c => c.desc).sort();
 
+    // Get top suggested configs (highest priority with deficit, excluding already picked)
+    const analysis = tpState.planData.length > 0 ? tpGetAnalysis() : [];
+    const pickedSet = new Set(manualPicks);
+    const suggested = analysis.filter(c => c.deficit > 0 && !pickedSet.has(c.desc)).slice(0, 3);
+    // Build the remaining list for the select (exclude suggested)
+    const suggestedSet = new Set(suggested.map(s => s.desc));
+    const restConfigs = allConfigs.filter(c => !suggestedSet.has(c));
+
     el.innerHTML = `
     <div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">
         <div class="tp-card-title"><span style="font-size:15px;">📅 Generar Plan Semanal</span></div>
@@ -939,10 +947,22 @@ function tpRenderWeekly(el) {
         </div>
         <div style="padding:10px;background:var(--tp-card);border-radius:8px;border:1px solid var(--tp-border);">
             <div style="font-size:10px;font-weight:700;color:var(--tp-amber);margin-bottom:5px;">📌 Pruebas obligatorias</div>
+            ${suggested.length > 0 ? `
+            <div style="font-size:9px;color:var(--tp-dim);margin-bottom:4px;">⚡ Sugeridas (mayor prioridad):</div>
+            <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px;">
+                ${suggested.map(s => `
+                <div onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${s.desc.replace(/'/g,"\\'")}'))window._tpWeeklyManualPicks.push('${s.desc.replace(/'/g,"\\'")}');tpRender();" style="display:flex;align-items:center;gap:4px;padding:5px 8px;background:rgba(245,158,11,0.04);border:1px dashed rgba(245,158,11,0.3);border-radius:6px;cursor:pointer;flex-wrap:wrap;transition:background 0.15s;" onmouseover="this.style.background='rgba(245,158,11,0.12)'" onmouseout="this.style.background='rgba(245,158,11,0.04)'">
+                    <span style="font-size:10px;flex-shrink:0;">⚡</span>
+                    ${tpConfigBadges(s,{fontSize:'8px'})}
+                    <span style="font-size:8px;color:var(--tp-red);margin-left:auto;flex-shrink:0;white-space:nowrap;">deficit ${s.deficit}</span>
+                    <span style="font-size:10px;color:var(--tp-amber);flex-shrink:0;">+</span>
+                </div>`).join('')}
+            </div>` : ''}
             <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">
                 <select id="tp-manual-pick-select" class="tp-select" style="flex:1;min-width:180px;font-size:10px;">
                     <option value="">Seleccionar...</option>
-                    ${allConfigs.map(c => `<option value="${c}">${c}</option>`).join('')}
+                    ${suggested.length > 0 ? `<optgroup label="⚡ Sugeridas">${suggested.map(s => `<option value="${s.desc}">${s.desc}</option>`).join('')}</optgroup>` : ''}
+                    <optgroup label="Todas las configuraciones">${restConfigs.map(c => `<option value="${c}">${c}</option>`).join('')}</optgroup>
                 </select>
                 <button class="tp-btn tp-btn-primary" onclick="tpAddManualPick()" style="font-size:10px;">+</button>
             </div>
