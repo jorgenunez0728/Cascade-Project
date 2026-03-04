@@ -26,7 +26,7 @@ function tpAddToWeek(wk) {
     const rule = tpGetRule(cfg);
     const n = tpState.testedList.filter(t => t.configText === cfg.desc).length;
     const req = tpCalcRequired(cfg, rule);
-    tpState.weeklyPlans[wk].items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, required:req, deficit:Math.max(0,req-n), score:tpPriorityScore(cfg,n), completed:false, completedDate:null, manual:true });
+    tpState.weeklyPlans[wk].items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:req, deficit:Math.max(0,req-n), score:tpPriorityScore(cfg,n), completed:false, completedDate:null, manual:true });
     tpSave(); tpRender();
 }
 
@@ -485,6 +485,34 @@ function tpRender() {
 const tpStatusColor = { ok:'var(--tp-green)', warn:'var(--tp-amber)', crit:'var(--tp-red)' };
 const tpStatusLabel = { ok:'Completo', warn:'Parcial', crit:'Crítico' };
 function tpRegionColor(r) { return r==='USA'?'var(--tp-red)':r==='EUROPE'?'var(--tp-blue)':r==='MEXICO'?'var(--tp-green)':'var(--tp-dim)'; }
+function tpEpLabel(v) { return !v||v==='0'?'':v==='M'?'48V':v; }
+
+// Generate colored config badges HTML for a config item or planData entry
+// Falls back to planData lookup if item is legacy (missing fields)
+function tpConfigBadges(item, opts) {
+    opts = opts || {};
+    var sz = opts.fontSize || '7px';
+    // For legacy items missing fields, try to resolve from planData
+    var c = item;
+    if (!c.my && c.desc && tpState.planData.length > 0) {
+        var found = tpState.planData.find(function(p) { return p.desc === c.desc; });
+        if (found) c = Object.assign({}, found, item);
+    }
+    var h = '';
+    if (c.mod) h += '<span class="tp-badge" style="background:rgba(59,130,246,0.2);color:#3b82f6;font-size:'+sz+';font-weight:800;">'+c.mod+'</span>';
+    if (c.body) h += '<span class="tp-badge" style="background:rgba(148,163,184,0.15);color:#94a3b8;font-size:'+sz+';">'+c.body+'</span>';
+    if (c.eng) h += '<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:#10b981;font-size:'+sz+';">'+c.eng+'</span>';
+    if (c.tx) h += '<span class="tp-badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;font-size:'+sz+';">'+c.tx+'</span>';
+    if (c.my) h += '<span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;font-size:'+sz+';">'+c.my+'</span>';
+    if (c.reg) h += '<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:'+sz+';">'+c.reg+'</span>';
+    if (c.rgn) h += '<span class="tp-badge" style="background:'+tpRegionColor(c.rgn)+'20;color:'+tpRegionColor(c.rgn)+';font-size:'+sz+';">'+c.rgn+'</span>';
+    if (c.drv) h += '<span class="tp-badge" style="background:rgba(236,72,153,0.15);color:#ec4899;font-size:'+sz+';">'+c.drv+'</span>';
+    var ep = tpEpLabel(c.ep);
+    if (ep) h += '<span class="tp-badge" style="background:rgba(251,146,60,0.15);color:#fb923c;font-size:'+sz+';">'+ep+'</span>';
+    if (c.engpkg && c.engpkg !== '0') h += '<span class="tp-badge" style="background:rgba(168,85,247,0.15);color:#a855f7;font-size:'+sz+';">'+c.engpkg+'</span>';
+    if (c.tire) h += '<span class="tp-badge" style="background:rgba(56,189,248,0.15);color:#38bdf8;font-size:'+sz+';">'+c.tire+'</span>';
+    return h;
+}
 
 // ═══ DASHBOARD ═══
 function tpRenderDashboard(el) {
@@ -918,7 +946,14 @@ function tpRenderWeekly(el) {
                 </select>
                 <button class="tp-btn tp-btn-primary" onclick="tpAddManualPick()" style="font-size:10px;">+</button>
             </div>
-            ${manualPicks.length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:3px;">${manualPicks.map((p,i) => `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);border-radius:5px;font-size:8px;color:var(--tp-amber);">📌 ${p.length>35?p.slice(0,35)+'...':p}<button onclick="window._tpWeeklyManualPicks.splice(${i},1);tpRender();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:11px;padding:0 1px;">×</button></span>`).join('')}</div>` : '<div style="font-size:9px;color:var(--tp-dim);">Ninguna — el algoritmo decidirá.</div>'}
+            ${manualPicks.length > 0 ? `<div style="display:flex;flex-direction:column;gap:4px;">${manualPicks.map((p,i) => {
+                const _pc = tpState.planData.find(c => c.desc === p);
+                return `<div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;flex-wrap:wrap;">
+                    <span style="font-size:8px;color:var(--tp-amber);flex-shrink:0;">📌</span>
+                    ${_pc ? tpConfigBadges(_pc,{fontSize:'8px'}) : '<span style="font-size:8px;color:var(--tp-dim);">' + (p.length>40?p.slice(0,40)+'...':p) + '</span>'}
+                    <button onclick="window._tpWeeklyManualPicks.splice(${i},1);tpRender();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:0 2px;margin-left:auto;">×</button>
+                </div>`;
+            }).join('')}</div>` : '<div style="font-size:9px;color:var(--tp-dim);">Ninguna — el algoritmo decidirá.</div>'}
         </div>
     </div>
 
@@ -944,14 +979,13 @@ function tpRenderWeekly(el) {
                 </div>
             </div>
             ${w.items.map((item, ii) => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:2px;border:1px solid var(--tp-border);border-radius:5px;background:${item.completed?'rgba(16,185,129,0.05)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
-                <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
-                    <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;">${item.completed?'✅':'⬜'}</span>
-                    ${item.manual?'<span style="font-size:7px;color:var(--tp-amber);">📌</span>':''}
-                    <span style="font-size:9px;color:var(--tp-amber);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${item.desc}">${item.desc}</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
+                <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
+                    <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':'⬜'}</span>
+                    ${item.manual?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
+                    ${tpConfigBadges(item,{fontSize:'8px'})}
                 </div>
-                <div style="display:flex;gap:4px;align-items:center;">
-                    <span class="tp-badge" style="background:${tpRegionColor(item.rgn)}20;color:${tpRegionColor(item.rgn)};font-size:7px;">${item.rgn||'?'}</span>
+                <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
                     ${isEdit?`<button onclick="tpRemoveWeeklyItem(${idx},${ii})" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:13px;">×</button>`:''}
                 </div>
             </div>`).join('')}
@@ -987,7 +1021,7 @@ function tpGenerateWeekly() {
             const rule = tpGetRule(cfg);
             const n = testedCopy.filter(t => t.configText === cfg.desc).length;
             const req = tpCalcRequired(cfg, rule);
-            items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, required:req, deficit:Math.max(0,req-n), score:tpPriorityScore(cfg,n), completed:false, completedDate:null, manual:true });
+            items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:req, deficit:Math.max(0,req-n), score:tpPriorityScore(cfg,n), completed:false, completedDate:null, manual:true });
             testedCopy.push({ configText:cfg.desc, date:'Manual', source:'plan' });
             used.add(cfg.desc);
         }
@@ -996,7 +1030,7 @@ function tpGenerateWeekly() {
     for (const cfg of pool) {
         if (items.length >= capacity) break;
         if (used.has(cfg.desc)) continue;
-        items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, required:cfg.required, deficit:cfg.deficit, score:cfg.score, completed:false, completedDate:null, manual:false });
+        items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:cfg.required, deficit:cfg.deficit, score:cfg.score, completed:false, completedDate:null, manual:false });
         used.add(cfg.desc);
     }
     
