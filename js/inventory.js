@@ -433,20 +433,143 @@ function invShowBarcode(id) {
         invSave();
     }
 
+    var exp = invGasExpiry(g);
+    var lvl = invGasLevel(g);
+    var lastR = g.readings && g.readings.length > 0 ? g.readings[g.readings.length - 1] : null;
+
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:400px;margin:40px auto;background:#fff;border-radius:14px;padding:30px;text-align:center;">' +
-        '<h3 style="margin:0 0 4px;color:#0f172a;">' + g.formula + ' ' + (g.concNominal||'') + '</h3>' +
-        '<div style="font-size:12px;color:#64748b;margin-bottom:12px;">' + (g.gasType||'') + '</div>' +
-        '<div id="inv-barcode-container" style="margin:10px 0;"></div>' +
-        '<div style="font-size:13px;color:#334155;font-weight:700;margin-top:8px;">Control: ' + g.controlNo + '</div>' +
-        '<div style="font-size:11px;color:#94a3b8;">Cilindro: ' + (g.cylinderNo||'?') + ' | Zona: ' + (g.zone||'?') + '</div>' +
-        '<div style="font-size:10px;color:#94a3b8;margin-top:2px;">Serial: ' + g.barcode + '</div>' +
-        '<div style="display:flex;gap:8px;justify-content:center;margin-top:15px;">' +
-        '<button onclick="window.print()" style="padding:8px 20px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Imprimir</button>' +
-        '<button onclick="invDownloadBarcode(\'' + g.id + '\')" style="padding:8px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Descargar</button>' +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:8px 20px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cerrar</button>' +
-        '</div></div>';
+
+    // ── Print-optimized layout: barcode label strip + data sheet ──
+    var html = '<div id="inv-print-page" style="max-width:700px;margin:20px auto;background:#fff;border-radius:14px;padding:0;color:#0f172a;">';
+
+    // === BARCODE LABEL STRIP (designed to be cut out) ===
+    html += '<div id="inv-barcode-label" style="border:2px dashed #94a3b8;border-radius:10px;padding:12px 20px;margin:20px;page-break-after:auto;">';
+    html += '<div style="display:flex;align-items:center;gap:16px;">';
+    // Left: barcode
+    html += '<div id="inv-barcode-container" style="flex-shrink:0;"></div>';
+    // Right: key info for the label
+    html += '<div style="flex:1;border-left:1px solid #e2e8f0;padding-left:14px;">';
+    html += '<div style="font-size:16px;font-weight:800;">' + g.formula + ' <span style="font-weight:400;color:#64748b;">' + (g.concNominal || '') + '</span></div>';
+    html += '<div style="font-size:11px;color:#334155;margin-top:2px;">' + (g.gasType || '') + '</div>';
+    html += '<table style="font-size:10px;margin-top:6px;border-collapse:collapse;">';
+    html += '<tr><td style="color:#64748b;padding-right:8px;">Control:</td><td style="font-weight:700;">' + g.controlNo + '</td></tr>';
+    html += '<tr><td style="color:#64748b;padding-right:8px;">Cilindro:</td><td style="font-weight:700;">' + (g.cylinderNo || '—') + '</td></tr>';
+    html += '<tr><td style="color:#64748b;padding-right:8px;">Zona:</td><td style="font-weight:700;">' + (g.zone || '—') + '</td></tr>';
+    html += '<tr><td style="color:#64748b;padding-right:8px;">Vence:</td><td style="font-weight:700;color:' + (exp.days < 30 ? '#dc2626' : '#0f172a') + ';">' + (g.validUntil || '—') + '</td></tr>';
+    html += '</table>';
+    html += '</div></div>';
+    html += '<div style="text-align:center;margin-top:4px;font-size:8px;color:#94a3b8;letter-spacing:1px;">✂ RECORTAR POR LINEA PUNTEADA ✂</div>';
+    html += '</div>';
+
+    // === DATA SHEET (full cylinder record for filing) ===
+    html += '<div style="padding:0 24px 24px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;border-bottom:2px solid #0f172a;padding-bottom:8px;">';
+    html += '<div>';
+    html += '<div style="font-size:22px;font-weight:800;">KIA Emissions Lab</div>';
+    html += '<div style="font-size:11px;color:#64748b;">Ficha de Cilindro de Gas — Inventario de Laboratorio</div>';
+    html += '</div>';
+    html += '<div style="text-align:right;font-size:10px;color:#64748b;">';
+    html += '<div>Fecha alta: <strong>' + (g.regDate || '—') + '</strong></div>';
+    html += '<div>Impreso: ' + new Date().toLocaleDateString('es-MX') + '</div>';
+    html += '</div></div>';
+
+    // Two-column info grid
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:14px;">';
+    var fields = [
+        ['Formula / Gas', g.formula + ' ' + (g.concNominal || '')],
+        ['Tipo de Gas', g.gasType || '—'],
+        ['No. Control', g.controlNo],
+        ['No. Cilindro', g.cylinderNo || '—'],
+        ['Conc. Nominal', g.concNominal || '—'],
+        ['Conc. Real', g.concReal || '—'],
+        ['Trazabilidad', g.traceability || '—'],
+        ['Fecha Vigencia', g.validUntil || '—'],
+        ['Zona Asignada', g.zone || '—'],
+        ['Estatus', g.status || '—'],
+        ['Serial Barcode', g.barcode]
+    ];
+    for (var i = 0; i < fields.length; i += 2) {
+        html += '<tr>';
+        html += '<td style="padding:4px 8px;font-size:10px;color:#64748b;border-bottom:1px solid #f1f5f9;width:20%;">' + fields[i][0] + '</td>';
+        html += '<td style="padding:4px 8px;font-size:11px;font-weight:600;border-bottom:1px solid #f1f5f9;width:30%;">' + fields[i][1] + '</td>';
+        if (i + 1 < fields.length) {
+            html += '<td style="padding:4px 8px;font-size:10px;color:#64748b;border-bottom:1px solid #f1f5f9;width:20%;">' + fields[i+1][0] + '</td>';
+            html += '<td style="padding:4px 8px;font-size:11px;font-weight:600;border-bottom:1px solid #f1f5f9;width:30%;">' + fields[i+1][1] + '</td>';
+        } else {
+            html += '<td colspan="2" style="border-bottom:1px solid #f1f5f9;"></td>';
+        }
+        html += '</tr>';
+    }
+    html += '</table>';
+
+    // Status boxes row
+    html += '<div style="display:flex;gap:10px;margin-bottom:14px;">';
+    // Expiry
+    html += '<div style="flex:1;padding:10px;border:1px solid #e2e8f0;border-radius:8px;text-align:center;">';
+    html += '<div style="font-size:9px;color:#64748b;">Vigencia</div>';
+    html += '<div style="font-size:16px;font-weight:700;color:' + (exp.days < 0 ? '#dc2626' : exp.days < 60 ? '#f59e0b' : '#16a34a') + ';">' + (exp.days < 0 ? 'VENCIDO' : exp.days + ' dias') + '</div>';
+    html += '</div>';
+    // Level
+    html += '<div style="flex:1;padding:10px;border:1px solid #e2e8f0;border-radius:8px;text-align:center;">';
+    html += '<div style="font-size:9px;color:#64748b;">Nivel Estimado</div>';
+    html += '<div style="font-size:16px;font-weight:700;color:' + lvl.color + ';">' + Math.round(lvl.pct) + '%</div>';
+    html += '</div>';
+    // Last reading
+    html += '<div style="flex:1;padding:10px;border:1px solid #e2e8f0;border-radius:8px;text-align:center;">';
+    html += '<div style="font-size:9px;color:#64748b;">Ultima Lectura</div>';
+    if (lastR) {
+        html += '<div style="font-size:16px;font-weight:700;">' + lastR.psi + ' psi</div>';
+        html += '<div style="font-size:8px;color:#94a3b8;">' + lastR.date + '</div>';
+    } else {
+        html += '<div style="font-size:12px;color:#94a3b8;">Sin lecturas</div>';
+    }
+    html += '</div></div>';
+
+    // Recent readings table (last 10)
+    if (g.readings && g.readings.length > 0) {
+        html += '<div style="margin-bottom:14px;">';
+        html += '<div style="font-size:11px;font-weight:700;margin-bottom:4px;">Historial de Lecturas (ultimas 10)</div>';
+        html += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
+        html += '<thead><tr style="background:#f8fafc;"><th style="padding:3px 6px;text-align:left;border:1px solid #e2e8f0;">Fecha</th><th style="padding:3px 6px;text-align:right;border:1px solid #e2e8f0;">PSI</th><th style="padding:3px 6px;text-align:right;border:1px solid #e2e8f0;">Cambio</th></tr></thead><tbody>';
+        var rSlice = g.readings.slice(-10).reverse();
+        rSlice.forEach(function(r, i) {
+            var prev = i < rSlice.length - 1 ? rSlice[i + 1] : null;
+            var diff = prev ? r.psi - prev.psi : 0;
+            var diffColor = diff === 0 ? '#94a3b8' : diff < 0 ? '#dc2626' : '#16a34a';
+            html += '<tr><td style="padding:2px 6px;border:1px solid #e2e8f0;">' + r.date + '</td>';
+            html += '<td style="padding:2px 6px;border:1px solid #e2e8f0;text-align:right;font-weight:600;">' + r.psi + '</td>';
+            html += '<td style="padding:2px 6px;border:1px solid #e2e8f0;text-align:right;color:' + diffColor + ';">' + (diff > 0 ? '+' : '') + (prev ? diff : '—') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+    }
+
+    // Timeline
+    if (g.timeline && g.timeline.length > 0) {
+        html += '<div style="margin-bottom:14px;">';
+        html += '<div style="font-size:11px;font-weight:700;margin-bottom:4px;">Timeline del Cilindro</div>';
+        g.timeline.slice(-8).forEach(function(t) {
+            html += '<div style="font-size:9px;color:#64748b;padding:1px 0;">' + (t.date || '').slice(0, 10) + ' — ' + t.action + '</div>';
+        });
+        html += '</div>';
+    }
+
+    // Blank space for notes
+    html += '<div style="border:1px solid #e2e8f0;border-radius:6px;padding:8px;min-height:60px;">';
+    html += '<div style="font-size:9px;color:#94a3b8;margin-bottom:30px;">Notas / Observaciones:</div>';
+    html += '</div>';
+
+    html += '</div>'; // end data sheet
+
+    // === ACTION BUTTONS (hidden on print) ===
+    html += '<div class="inv-no-print" style="display:flex;gap:8px;justify-content:center;padding:0 24px 24px;">';
+    html += '<button onclick="invPrintBarcodePage()" style="padding:10px 24px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Imprimir</button>';
+    html += '<button onclick="invDownloadBarcode(\'' + g.id + '\')" style="padding:10px 24px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Descargar Barcode</button>';
+    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px 24px;background:#e2e8f0;color:#334155;border:none;border-radius:8px;cursor:pointer;">Cerrar</button>';
+    html += '</div>';
+
+    html += '</div>'; // end inv-print-page
+    modal.innerHTML = html;
 
     // Render real barcode using JsBarcode
     var container = document.getElementById('inv-barcode-container');
@@ -458,23 +581,35 @@ function invShowBarcode(id) {
             JsBarcode(svg, g.barcode, {
                 format: 'CODE128',
                 width: 2,
-                height: 60,
+                height: 50,
                 displayValue: true,
-                fontSize: 14,
+                fontSize: 12,
                 font: 'monospace',
-                textMargin: 4,
-                margin: 10,
+                textMargin: 3,
+                margin: 5,
                 background: '#ffffff',
                 lineColor: '#000000'
             });
         } catch(e) {
-            container.innerHTML = '<div style="font-size:36px;font-family:monospace;letter-spacing:3px;margin:15px 0;">' + g.barcode + '</div>' +
-                '<div style="font-size:10px;color:#ef4444;">Error generando codigo de barras: ' + e.message + '</div>';
+            container.innerHTML = '<div style="font-size:28px;font-family:monospace;letter-spacing:3px;">' + g.barcode + '</div>' +
+                '<div style="font-size:10px;color:#ef4444;">Error: ' + e.message + '</div>';
         }
     } else {
-        container.innerHTML = '<div style="font-size:36px;font-family:monospace;letter-spacing:3px;margin:15px 0;">' + g.barcode + '</div>' +
-            '<div style="font-size:10px;color:#f59e0b;">JsBarcode no cargado. Verifica conexion a internet para la primera carga.</div>';
+        container.innerHTML = '<div style="font-size:28px;font-family:monospace;letter-spacing:3px;">' + g.barcode + '</div>' +
+            '<div style="font-size:10px;color:#f59e0b;">JsBarcode no cargado.</div>';
     }
+}
+
+function invPrintBarcodePage() {
+    // Add print styles dynamically
+    var styleId = 'inv-print-styles';
+    if (!document.getElementById(styleId)) {
+        var style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = '@media print { body > *:not(#invModal) { display:none !important; } #invModal { position:static !important; background:#fff !important; overflow:visible !important; } .inv-no-print { display:none !important; } #inv-print-page { margin:0 !important; border-radius:0 !important; box-shadow:none !important; } #inv-barcode-label { border:2px dashed #999 !important; } }';
+        document.head.appendChild(style);
+    }
+    window.print();
 }
 
 function invDownloadBarcode(id) {
