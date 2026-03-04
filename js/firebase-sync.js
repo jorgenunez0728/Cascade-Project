@@ -273,6 +273,11 @@ function fbInit() {
                     if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 3000);
                 }
             });
+        }).catch(function(chainErr) {
+            console.error('Firebase init chain error:', chainErr);
+            fbSync.status = 'error';
+            fbSync.lastError = 'Error en inicializacion: ' + (chainErr.message || chainErr);
+            fbUpdateIndicator();
         });
 
     } catch (err) {
@@ -352,6 +357,24 @@ function fbTestConnection(callback) {
 
 function fbTestConnectionUI() {
     showToast('Probando conexion...', 'info');
+
+    // If Firebase not initialized yet, run full init first
+    if (!fbSync.db || !fbSync.enabled) {
+        fbInit();
+        // Wait for the async init chain (persistence → auth → test)
+        setTimeout(function() {
+            if (fbSync.status === 'connected') {
+                showToast('Conexion a Firestore exitosa', 'success');
+            } else if (fbSync.status === 'error') {
+                showToast(fbSync.lastError || 'No se pudo conectar a Firestore', 'error');
+            } else {
+                showToast('Conectando... intenta de nuevo en unos segundos', 'info');
+            }
+            fbShowSettings();
+        }, 8000); // Wait for init chain (persistence + auth + test with retries)
+        return;
+    }
+
     fbTestConnection(function(ok) {
         if (ok) {
             fbSync.status = 'connected';
@@ -704,8 +727,8 @@ function fbShowSettings() {
         '</div>' : '') +
         '</div>' : '') +
 
-        // Retry
-        (fbSync.status === 'error' && hasConfig ? '<div style="margin-bottom:12px;"><button onclick="fbInit();setTimeout(fbShowSettings,1500);" style="width:100%;padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Reintentar conexion</button></div>' : '') +
+        // Retry — show when status is 'error' OR 'off' (No configurado) with config present
+        ((fbSync.status === 'error' || fbSync.status === 'off') && hasConfig ? '<div style="margin-bottom:12px;"><button onclick="fbInit();setTimeout(fbShowSettings,2500);" style="width:100%;padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">' + (fbSync.status === 'off' ? 'Conectar a Firebase' : 'Reintentar conexion') + '</button></div>' : '') +
 
         // Setup instructions
         (!hasConfig ? '<div style="padding:12px;background:#1e293b;border-radius:8px;border:1px solid #334155;"><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:6px;">Setup necesario</div><div style="font-size:10px;color:#94a3b8;line-height:1.5;">1. Ve a <strong>console.firebase.google.com</strong><br>2. Crea un proyecto (gratis)<br>3. En <strong>Authentication > Sign-in method</strong>, habilita <strong>Anonymous</strong><br>4. En <strong>Firestore Database</strong>, crea una base de datos<br>5. En <strong>Firestore > Rules</strong>, pon: allow read, write: if true;<br>6. En Project Settings, agrega una Web App<br>7. Copia el firebaseConfig al archivo <strong>js/firebase-sync.js</strong><br>8. Recarga la app</div></div>' : '') +

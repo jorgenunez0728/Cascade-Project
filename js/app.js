@@ -491,7 +491,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         if (typeof soakTimerRestore === 'function') soakTimerRestore();
 
         // ═══ Firebase Cloud Sync (optional) ═══
-        if (typeof fbInit === 'function') { fbInit(); fbHookSaves(); fbUpdateIndicator(); }
+        try {
+            if (typeof fbInit === 'function') { fbInit(); fbHookSaves(); fbUpdateIndicator(); }
+        } catch(fbErr) { console.error('Firebase init failed (non-blocking):', fbErr); }
         }
 
 window.addEventListener('DOMContentLoaded', initializeSystem);
