@@ -659,9 +659,45 @@ function fbSetStation(id) {
     localStorage.setItem('kia_fb_station', fbSync.stationId);
     fbUpdateIndicator();
     showToast('Estacion guardada: ' + fbSync.stationId, 'success');
-    if (fbSync.enabled) fbPushAll();
+    if (fbSync.enabled) { fbUpdateStationMeta(); fbPushAll(); }
     var modal = document.getElementById('fbModal');
     if (modal && modal.style.display === 'block') fbShowSettings();
+}
+
+// ── Update station metadata document (makes station discoverable by other devices) ──
+var _fbStationMetaTimer = null;
+function fbUpdateStationMeta() {
+    if (!fbSync.enabled || !fbSync.stationId) return;
+    // Debounce — only write metadata once per 10s even if multiple pushes happen
+    if (_fbStationMetaTimer) clearTimeout(_fbStationMetaTimer);
+    _fbStationMetaTimer = setTimeout(function() {
+        var deviceName = localStorage.getItem('kia_fb_device_name') || fbSync.stationId;
+        var meta = {
+            stationId: fbSync.stationId,
+            deviceName: deviceName,
+            lastPush: new Date().toISOString(),
+            userAgent: (navigator.userAgent || '').substring(0, 120)
+        };
+        if (fbSync._useREST) {
+            // REST: write station parent document
+            var url = 'https://firestore.googleapis.com/v1/projects/' +
+                FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations/' +
+                encodeURIComponent(fbSync.stationId) + '?key=' + FIREBASE_CONFIG.apiKey;
+            fetch(url, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fields: {
+                    stationId: { stringValue: meta.stationId },
+                    deviceName: { stringValue: meta.deviceName },
+                    lastPush: { stringValue: meta.lastPush },
+                    userAgent: { stringValue: meta.userAgent }
+                }})
+            }).catch(function(e) { console.warn('Station meta REST error:', e); });
+        } else if (fbSync.db) {
+            fbSync.db.collection('stations').doc(fbSync.stationId).set(meta, { merge: true })
+                .catch(function(e) { console.warn('Station meta write error:', e); });
+        }
+    }, 3000);
 }
 
 // ── Push data to Firestore (rate-limited, with REST fallback) ──
@@ -699,7 +735,10 @@ function fbPush(collection, data, onDone) {
 
         // Use REST API if SDK transport is broken
         if (fbSync._useREST) {
-            fbPushREST(collection, data, onDone);
+            fbPushREST(collection, data, function(ok, err) {
+                if (ok) fbUpdateStationMeta();
+                if (onDone) onDone(ok, err);
+            });
             return;
         }
 
@@ -718,6 +757,7 @@ function fbPush(collection, data, onDone) {
             fbSync.status = 'connected';
             fbSync.lastError = '';
             fbUpdateIndicator();
+            fbUpdateStationMeta();
             if (onDone) onDone(true);
         }).catch(function(err) {
             console.error('Firebase push error (' + collection + '):', err);
@@ -973,6 +1013,14 @@ function fbShowSettings() {
         '<button onclick="fbSetStation(document.getElementById(\x27fb-station-input\x27).value)" style="padding:8px 14px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:11px;">Guardar</button>' +
         '</div></div>' +
 
+        // Device name label
+        '<div style="margin-bottom:12px;">' +
+        '<label style="font-size:10px;color:#94a3b8;">Nombre del dispositivo (visible en Smart Merge)</label>' +
+        '<div style="display:flex;gap:6px;margin-top:4px;">' +
+        '<input id="fb-device-name-input" value="' + (localStorage.getItem('kia_fb_device_name') || '') + '" placeholder="ej: Tablet Jorge, PC Lab" style="flex:1;padding:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:12px;">' +
+        '<button onclick="var v=document.getElementById(\x27fb-device-name-input\x27).value.trim();localStorage.setItem(\x27kia_fb_device_name\x27,v);showToast(\x27Nombre guardado: \x27+v,\x27success\x27);fbUpdateStationMeta();" style="padding:8px 14px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:11px;">Guardar</button>' +
+        '</div></div>' +
+
         // Module sync toggles
         (hasConfig ? '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:12px;">' +
         '<div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:8px;">Modulos a sincronizar</div>' +
@@ -1048,16 +1096,52 @@ function fbShowSettings() {
 
 var FB_MERGE_HISTORY_KEY = 'kia_merge_history';
 
-// ── List all stations in Firestore ──
+// ── List all stations in Firestore (with REST fallback, returns metadata) ──
 function fbMergeListStations(callback) {
-    if (!fbSync.db) { callback([]); return; }
     var quota = fbQuotaCheck('read');
     if (!quota.allowed) { showToast(quota.reason, 'error'); callback([]); return; }
 
+    // REST API fallback (or primary for non-HTTP origins)
+    if (fbSync._useREST || !fbSync.db) {
+        var url = 'https://firestore.googleapis.com/v1/projects/' +
+            FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations?key=' +
+            FIREBASE_CONFIG.apiKey;
+        fetch(url).then(function(resp) {
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            return resp.json();
+        }).then(function(result) {
+            fbQuotaRecord('read');
+            var stations = [];
+            (result.documents || []).forEach(function(doc) {
+                var id = doc.name.split('/').pop();
+                var meta = { id: id, deviceName: '', lastPush: '' };
+                if (doc.fields) {
+                    if (doc.fields.deviceName) meta.deviceName = doc.fields.deviceName.stringValue || '';
+                    if (doc.fields.lastPush) meta.lastPush = doc.fields.lastPush.stringValue || '';
+                }
+                stations.push(meta);
+            });
+            callback(stations);
+        }).catch(function(err) {
+            console.error('REST list stations error:', err);
+            showToast('Error listando estaciones: ' + err.message, 'error');
+            callback([]);
+        });
+        return;
+    }
+
+    // SDK path
     fbSync.db.collection('stations').get().then(function(snap) {
         fbQuotaRecord('read');
         var stations = [];
-        snap.forEach(function(doc) { stations.push(doc.id); });
+        snap.forEach(function(doc) {
+            var data = doc.data() || {};
+            stations.push({
+                id: doc.id,
+                deviceName: data.deviceName || '',
+                lastPush: data.lastPush || ''
+            });
+        });
         callback(stations);
     }).catch(function(err) {
         console.error('Error listing stations:', err);
@@ -1066,13 +1150,47 @@ function fbMergeListStations(callback) {
     });
 }
 
-// ── Load all 4 modules from a remote station ──
+// ── Load all 4 modules from a remote station (with REST fallback) ──
 function fbMergeLoadStation(stationId, callback) {
     var quota = fbQuotaCheck('read');
     if (!quota.allowed) { showToast(quota.reason, 'error'); callback(null); return; }
 
-    var ref = fbSync.db.collection('stations').doc(stationId);
     var cols = ['cop15', 'testplan', 'results', 'inventory'];
+
+    // REST API fallback
+    if (fbSync._useREST || !fbSync.db) {
+        var restPending = cols.length;
+        var data = {};
+        cols.forEach(function(col) {
+            var url = 'https://firestore.googleapis.com/v1/projects/' +
+                FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations/' +
+                encodeURIComponent(stationId) + '/' + col + '/current?key=' + FIREBASE_CONFIG.apiKey;
+            fetch(url).then(function(resp) {
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                return resp.json();
+            }).then(function(doc) {
+                fbQuotaRecord('read');
+                if (doc && doc.fields && doc.fields.data) {
+                    data[col] = fbFromFirestoreValue(doc.fields.data);
+                    if (doc.fields.updatedAt && doc.fields.updatedAt.timestampValue) {
+                        data[col + '_ts'] = new Date(doc.fields.updatedAt.timestampValue);
+                    }
+                } else {
+                    data[col] = null;
+                }
+            }).catch(function(err) {
+                console.warn('REST load ' + col + ' from ' + stationId + ':', err.message);
+                data[col] = null;
+            }).then(function() {
+                restPending--;
+                if (restPending === 0) callback(data);
+            });
+        });
+        return;
+    }
+
+    // SDK path
+    var ref = fbSync.db.collection('stations').doc(stationId);
     var promises = cols.map(function(c) { return ref.collection(c).doc('current').get(); });
 
     Promise.all(promises).then(function(snaps) {
@@ -1486,21 +1604,48 @@ function fbMergeShowPanel() {
         '</div>';
 
     fbMergeListStations(function(stations) {
-        var others = stations.filter(function(s) { return s !== fbSync.stationId; });
+        var others = stations.filter(function(s) { return s.id !== fbSync.stationId; });
 
         var html = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
         html += '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
         html += '<h3 style="margin:0 0 4px;color:#f59e0b;">Smart Merge</h3>';
         html += '<div style="font-size:10px;color:#64748b;margin-bottom:14px;">Fusiona datos de otra estacion a <strong>' + fbSync.stationId + '</strong></div>';
 
+        // Show all stations info
+        if (stations.length > 0) {
+            html += '<div style="font-size:10px;color:#64748b;margin-bottom:10px;">' + stations.length + ' estacion(es) en Firebase:</div>';
+        }
+
         if (others.length === 0) {
             html += '<div style="text-align:center;padding:20px;color:#64748b;">No hay otras estaciones en Firebase. Sube datos desde otro dispositivo primero.</div>';
         } else {
             html += '<div style="font-size:11px;color:#94a3b8;margin-bottom:8px;">Selecciona la estacion de origen:</div>';
             others.forEach(function(s) {
-                html += '<button onclick="fbMergeLoadAndAnalyze(\x27' + s + '\x27)" style="display:block;width:100%;padding:12px;margin-bottom:6px;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;text-align:left;">' +
-                    '<span style="color:#f59e0b;margin-right:8px;">\u25B6</span>' + s + '</button>';
+                var lastPushLabel = '';
+                if (s.lastPush) {
+                    try {
+                        var d = new Date(s.lastPush);
+                        lastPushLabel = d.toLocaleDateString('es-MX', {day:'2-digit',month:'short'}) + ' ' +
+                            d.toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'});
+                    } catch(e) { lastPushLabel = s.lastPush; }
+                }
+                var deviceLabel = s.deviceName && s.deviceName !== s.id ? s.deviceName : '';
+                html += '<button onclick="fbMergeLoadAndAnalyze(\x27' + s.id + '\x27)" style="display:block;width:100%;padding:12px;margin-bottom:6px;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:8px;cursor:pointer;font-size:12px;text-align:left;">' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+                    '<span><span style="color:#f59e0b;margin-right:8px;">\u25B6</span><strong>' + s.id + '</strong></span>' +
+                    (deviceLabel ? '<span style="background:#334155;color:#94a3b8;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:400;">' + deviceLabel + '</span>' : '') +
+                    '</div>' +
+                    (lastPushLabel ? '<div style="font-size:9px;color:#64748b;margin-top:4px;margin-left:22px;">Ultima sync: ' + lastPushLabel + '</div>' : '') +
+                    '</button>';
             });
+        }
+
+        // Also show current station for reference
+        var mySt = stations.filter(function(s) { return s.id === fbSync.stationId; })[0];
+        if (mySt) {
+            var myLabel = mySt.deviceName && mySt.deviceName !== mySt.id ? ' (' + mySt.deviceName + ')' : '';
+            html += '<div style="margin-top:8px;padding:8px;background:#0f2a1a;border:1px solid #134e2a;border-radius:6px;font-size:10px;color:#4ade80;">' +
+                'Tu estacion: <strong>' + mySt.id + '</strong>' + myLabel + '</div>';
         }
 
         html += '<button onclick="fbShowSettings()" style="width:100%;padding:8px;margin-top:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Volver</button>';
