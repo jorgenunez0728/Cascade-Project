@@ -78,7 +78,10 @@ var fbSync = {
     lastSync: null,
     status: 'off',      // 'off' | 'connecting' | 'connected' | 'syncing' | 'error'
     lastError: '',
-    debounceTimers: {}
+    debounceTimers: {},
+    _persistenceAttempted: false,  // Track if enablePersistence was already called
+    _initialized: false,           // Track if fbInit completed setup
+    _onlineListenerAdded: false    // Prevent duplicate event listeners
 };
 
 // ── Rate Limiter & Quota ──
@@ -220,19 +223,42 @@ function fbInit() {
         return;
     }
 
+    // If already initialized, just re-test connection instead of full re-init
+    if (fbSync._initialized && fbSync.db) {
+        fbSync.status = 'connecting';
+        fbSync.lastError = '';
+        fbUpdateIndicator();
+        fbAnonymousAuth().then(function() {
+            fbTestConnectionWithRetry(2, function(ok) {
+                if (ok) {
+                    fbSync.status = 'connected';
+                    fbUpdateIndicator();
+                    if (fbSync.stationId) {
+                        fbPullAll();
+                    }
+                    if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 3000);
+                }
+            });
+        });
+        return;
+    }
+
     fbQuotaLoad();
     fbQueueLoad();
 
-    // Auto-retry queued items when connection recovers
-    window.addEventListener('online', function() {
-        if (fbSync.enabled && fbOfflineQueue.length > 0) {
-            setTimeout(function() {
-                fbTestConnection(function(ok) {
-                    if (ok) { fbSync.status = 'connected'; fbUpdateIndicator(); fbQueueRetry(); }
-                });
-            }, 2000);
-        }
-    });
+    // Auto-retry queued items when connection recovers (only add listener once)
+    if (!fbSync._onlineListenerAdded) {
+        fbSync._onlineListenerAdded = true;
+        window.addEventListener('online', function() {
+            if (fbSync.enabled && fbOfflineQueue.length > 0) {
+                setTimeout(function() {
+                    fbTestConnection(function(ok) {
+                        if (ok) { fbSync.status = 'connected'; fbUpdateIndicator(); fbQueueRetry(); }
+                    });
+                }, 2000);
+            }
+        });
+    }
 
     try {
         if (!firebase.apps.length) {
@@ -249,17 +275,29 @@ function fbInit() {
         console.log('Firebase Sync: SDK initialized for project ' + FIREBASE_CONFIG.projectId);
 
         // Chain: persistence → anonymous auth → connection test
-        // Each step is async; we proceed even if persistence/auth fails
-        fbSync.db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
-            if (err.code === 'failed-precondition') {
-                console.warn('Firebase: Multiple tabs open, persistence only in one.');
-            } else if (err.code === 'unimplemented') {
-                console.warn('Firebase: Persistence not supported in this browser.');
-            }
-        }).then(function() {
+        // Only attempt enablePersistence once (it cannot be called after Firestore is already started)
+        var persistencePromise;
+        if (!fbSync._persistenceAttempted) {
+            fbSync._persistenceAttempted = true;
+            persistencePromise = fbSync.db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
+                if (err.code === 'failed-precondition') {
+                    console.warn('Firebase: Multiple tabs open, persistence only in one.');
+                } else if (err.code === 'unimplemented') {
+                    console.warn('Firebase: Persistence not supported in this browser.');
+                } else {
+                    console.warn('Firebase: Persistence error (non-blocking):', err.message);
+                }
+                // Always resolve — persistence failure is non-blocking
+            });
+        } else {
+            persistencePromise = Promise.resolve();
+        }
+
+        persistencePromise.then(function() {
             // Attempt anonymous auth before testing connection
             return fbAnonymousAuth();
         }).then(function() {
+            fbSync._initialized = true;
             // Now test connection (with retry)
             fbTestConnectionWithRetry(2, function(ok) {
                 if (ok) {
@@ -275,6 +313,7 @@ function fbInit() {
             });
         }).catch(function(chainErr) {
             console.error('Firebase init chain error:', chainErr);
+            fbSync._initialized = true; // Mark as initialized even on error to prevent re-init loops
             fbSync.status = 'error';
             fbSync.lastError = 'Error en inicializacion: ' + (chainErr.message || chainErr);
             fbUpdateIndicator();
@@ -333,10 +372,27 @@ function fbTestConnection(callback) {
         return;
     }
 
+    var done = false;
+    // Timeout: if Firestore doesn't respond in 15s, fail instead of hanging
+    var timeout = setTimeout(function() {
+        if (done) return;
+        done = true;
+        fbSync.status = 'error';
+        fbSync.lastError = 'Tiempo de espera agotado al conectar a Firestore.\nVerifica tu conexion a internet.';
+        fbUpdateIndicator();
+        if (callback) callback(false);
+    }, 15000);
+
     fbQuotaRecord('read');
     fbSync.db.collection('_ping').doc('test').get().then(function() {
+        if (done) return;
+        done = true;
+        clearTimeout(timeout);
         if (callback) callback(true);
     }).catch(function(err) {
+        if (done) return;
+        done = true;
+        clearTimeout(timeout);
         console.error('Firebase connection test failed:', err);
         fbSync.status = 'error';
 
@@ -574,7 +630,12 @@ function fbPullAll(showFeedback) {
 }
 
 // ── Hook into existing save functions ──
+var _fbHooksApplied = false;
 function fbHookSaves() {
+    // Prevent double-wrapping when initializeSystem() is called multiple times (e.g., after login)
+    if (_fbHooksApplied) return;
+    _fbHooksApplied = true;
+
     var _origSaveDB = window.saveDB;
     if (_origSaveDB) { window.saveDB = function() { _origSaveDB(); if (fbSyncModules.cop15) fbPush('cop15', db); }; }
     var _origTpSave = window.tpSave;

@@ -115,7 +115,7 @@ function authSelectOperator(idx) {
     if (!area) return;
 
     var hasBiometric = authHasStoredCredential(op.id);
-    var webAuthnAvailable = window.PublicKeyCredential !== undefined;
+    var webAuthnAvailable = window.PublicKeyCredential !== undefined && window.isSecureContext;
 
     var html = '<div style="margin-top:20px;padding:20px;background:#111827;border:2px solid #6366f1;border-radius:12px;text-align:center;">';
     html += '<div style="font-size:13px;font-weight:700;color:#c4b5fd;margin-bottom:12px;">' + op.name + '</div>';
@@ -323,6 +323,8 @@ function authHasStoredCredential(operatorId) {
 
 function authOfferBiometricRegistration(operatorId) {
     if (!window.PublicKeyCredential) return;
+    // WebAuthn requires a secure context (valid HTTPS, not self-signed certs)
+    if (!window.isSecureContext) return;
     if (authHasStoredCredential(operatorId)) return;
 
     var user = authState.currentUser;
@@ -336,6 +338,7 @@ function authOfferBiometricRegistration(operatorId) {
 
 function authRegisterBiometric(operatorId) {
     if (!window.PublicKeyCredential) { showToast('WebAuthn no disponible en este dispositivo', 'error'); return; }
+    if (!window.isSecureContext) { showToast('Huella digital requiere HTTPS con certificado valido', 'error'); return; }
 
     var user = authState.currentUser;
     if (!user) return;
@@ -388,6 +391,7 @@ function authVerifyBiometric() {
     if (!op) return;
 
     if (!window.PublicKeyCredential) { showToast('WebAuthn no disponible', 'error'); return; }
+    if (!window.isSecureContext) { showToast('Huella digital requiere HTTPS con certificado valido', 'error'); return; }
 
     var creds = {};
     try { creds = JSON.parse(localStorage.getItem(AUTH_WEBAUTHN_LS) || '{}'); } catch(e) {}
