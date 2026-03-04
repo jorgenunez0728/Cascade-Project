@@ -567,7 +567,10 @@ function invShowZone(zoneId) {
 function invRenderReadings(el) {
     var gases = invState.gases.filter(function(g){ return g.status === 'In use'; });
     var html = '<div class="tp-card"><div class="tp-card-title"><span>Lecturas Diarias de Presion</span>';
-    html += '<button class="tp-btn tp-btn-primary" onclick="invBulkReading()" style="font-size:10px;">Guardar Lecturas</button></div>';
+    html += '<div style="display:flex;gap:6px;">';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size:10px;border-color:#8b5cf6;color:#8b5cf6;">📷 Escanear</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="invBulkReading()" style="font-size:10px;">Guardar Lecturas</button>';
+    html += '</div></div>';
     html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Registra la presion (psi) de cada cilindro en uso.</div>';
 
     if (gases.length === 0) {
@@ -628,6 +631,251 @@ function invBulkReading() {
     invSave(); invRender();
     if (typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
     showToast(count + ' lecturas guardadas para ' + date, 'success');
+}
+
+// ══════════════════════════════════════════════════
+// BARCODE SCANNER + QUICK READING
+// ══════════════════════════════════════════════════
+
+function invScanBarcode() {
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+
+    // Check for camera + BarcodeDetector support
+    var hasBarcodeAPI = typeof BarcodeDetector !== 'undefined';
+    var hasCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+    var html = '<div style="max-width:420px;margin:20px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
+    html += '<button onclick="invScanStop();document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
+    html += '<h3 style="margin:0 0 10px;color:#8b5cf6;">Lectura Rapida</h3>';
+
+    if (hasCamera && hasBarcodeAPI) {
+        html += '<div id="inv-scan-area" style="position:relative;margin-bottom:12px;">';
+        html += '<video id="inv-scan-video" autoplay playsinline style="width:100%;border-radius:8px;background:#000;max-height:220px;object-fit:cover;"></video>';
+        html += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;height:40%;border:2px solid #8b5cf6;border-radius:8px;pointer-events:none;"></div>';
+        html += '<div id="inv-scan-status" style="position:absolute;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;color:#8b5cf6;">Apunta al codigo de barras...</div>';
+        html += '</div>';
+    } else if (hasCamera) {
+        html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size:10px;color:#f59e0b;">BarcodeDetector no disponible. Usa la busqueda rapida abajo.</div>';
+    } else {
+        html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size:10px;color:#f59e0b;">Camara no disponible. Usa la busqueda rapida abajo.</div>';
+    }
+
+    // Quick search fallback (always shown)
+    html += '<div style="margin-bottom:12px;">';
+    html += '<label style="font-size:10px;color:#94a3b8;">Busqueda rapida (No. Control, cilindro o formula)</label>';
+    html += '<input id="inv-scan-search" placeholder="Escribe para buscar..." oninput="invScanFilter()" style="width:100%;padding:10px;margin-top:4px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;">';
+    html += '</div>';
+
+    // Search results
+    html += '<div id="inv-scan-results" style="max-height:250px;overflow-y:auto;"></div>';
+
+    html += '</div>';
+    modal.innerHTML = html;
+
+    // Show all in-use gases initially
+    invScanFilter();
+
+    // Start camera if available
+    if (hasCamera && hasBarcodeAPI) {
+        invScanStart();
+    }
+}
+
+var _invScanStream = null;
+var _invScanInterval = null;
+
+function invScanStart() {
+    navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+    }).then(function(stream) {
+        _invScanStream = stream;
+        var video = document.getElementById('inv-scan-video');
+        if (!video) { invScanStop(); return; }
+        video.srcObject = stream;
+
+        var detector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code'] });
+
+        _invScanInterval = setInterval(function() {
+            if (!video || video.readyState < 2) return;
+            detector.detect(video).then(function(barcodes) {
+                if (barcodes.length > 0) {
+                    var code = barcodes[0].rawValue;
+                    var statusEl = document.getElementById('inv-scan-status');
+                    if (statusEl) statusEl.textContent = 'Detectado: ' + code;
+
+                    // Find matching gas cylinder
+                    var gas = invState.gases.find(function(g) {
+                        return g.barcode === code || g.controlNo === code || g.cylinderNo === code;
+                    });
+
+                    if (gas) {
+                        invScanStop();
+                        invQuickReadPopup(gas);
+                    } else {
+                        if (statusEl) statusEl.textContent = 'Codigo ' + code + ' — no encontrado';
+                    }
+                }
+            }).catch(function() {});
+        }, 500);
+    }).catch(function(err) {
+        console.warn('Camera access failed:', err);
+        var statusEl = document.getElementById('inv-scan-status');
+        if (statusEl) statusEl.textContent = 'Error de camara: ' + err.message;
+        var area = document.getElementById('inv-scan-area');
+        if (area) area.style.display = 'none';
+    });
+}
+
+function invScanStop() {
+    if (_invScanInterval) { clearInterval(_invScanInterval); _invScanInterval = null; }
+    if (_invScanStream) {
+        _invScanStream.getTracks().forEach(function(t) { t.stop(); });
+        _invScanStream = null;
+    }
+}
+
+function invScanFilter() {
+    var input = document.getElementById('inv-scan-search');
+    var container = document.getElementById('inv-scan-results');
+    if (!container) return;
+    var q = input ? input.value.toLowerCase().trim() : '';
+
+    var gases = invState.gases.filter(function(g) { return g.status === 'In use'; });
+    if (q.length > 0) {
+        gases = gases.filter(function(g) {
+            return (g.controlNo || '').toLowerCase().includes(q) ||
+                   (g.cylinderNo || '').toLowerCase().includes(q) ||
+                   (g.formula || '').toLowerCase().includes(q) ||
+                   (g.gasType || '').toLowerCase().includes(q) ||
+                   (g.barcode || '').toLowerCase().includes(q);
+        });
+    }
+
+    if (gases.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:15px;color:#64748b;font-size:11px;">Sin resultados</div>';
+        return;
+    }
+
+    var html = '';
+    gases.forEach(function(g) {
+        var lastR = g.readings && g.readings.length > 0 ? g.readings[g.readings.length - 1] : null;
+        var lvl = invGasLevel(g);
+        html += '<button onclick="invScanStop();invQuickReadPopup(invState.gases.find(function(x){return x.id===\x27' + g.id + '\x27}))" style="display:block;width:100%;padding:10px;margin-bottom:4px;background:#1e293b;border:1px solid #334155;border-radius:8px;cursor:pointer;text-align:left;color:#e2e8f0;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        html += '<div><strong style="font-size:12px;">' + g.formula + '</strong> <span style="font-size:10px;color:#94a3b8;">' + (g.concNominal || '') + '</span>';
+        html += '<div style="font-size:9px;color:#64748b;">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo || '?') + ' | ' + (g.zone || '?') + '</div></div>';
+        html += '<div style="text-align:right;">';
+        if (lastR) {
+            html += '<div style="font-size:14px;font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' psi</div>';
+            html += '<div style="font-size:8px;color:#64748b;">' + lastR.date + '</div>';
+        } else {
+            html += '<div style="font-size:10px;color:#64748b;">Sin lecturas</div>';
+        }
+        html += '</div></div></button>';
+    });
+    container.innerHTML = html;
+}
+
+function invQuickReadPopup(g) {
+    if (!g) return;
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+
+    var lastR = g.readings && g.readings.length > 0 ? g.readings[g.readings.length - 1] : null;
+    var lvl = invGasLevel(g);
+    var today = new Date().toISOString().slice(0, 10);
+
+    var html = '<div style="max-width:400px;margin:30px auto;background:#0f172a;border-radius:14px;padding:24px;position:relative;color:#e2e8f0;">';
+    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
+
+    // Cylinder header
+    html += '<div style="text-align:center;margin-bottom:16px;">';
+    html += '<div style="font-size:20px;font-weight:700;">' + g.formula + ' <span style="color:#94a3b8;font-weight:400;">' + (g.concNominal || '') + '</span></div>';
+    html += '<div style="font-size:11px;color:#64748b;">' + (g.gasType || '') + '</div>';
+    html += '<div style="display:flex;justify-content:center;gap:12px;margin-top:6px;">';
+    html += '<span style="font-size:10px;padding:2px 8px;background:#1e293b;border-radius:10px;border:1px solid #334155;">Control: <strong>' + g.controlNo + '</strong></span>';
+    html += '<span style="font-size:10px;padding:2px 8px;background:#1e293b;border-radius:10px;border:1px solid #334155;">Cil: <strong>' + (g.cylinderNo || '?') + '</strong></span>';
+    html += '<span style="font-size:10px;padding:2px 8px;background:#1e293b;border-radius:10px;border:1px solid #334155;">Zona: <strong>' + (g.zone || '?') + '</strong></span>';
+    html += '</div></div>';
+
+    // Previous reading
+    html += '<div style="background:#1e293b;border-radius:10px;padding:14px;margin-bottom:16px;border:1px solid #334155;">';
+    html += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;">Lectura anterior</div>';
+    if (lastR) {
+        html += '<div style="display:flex;justify-content:space-between;align-items:baseline;">';
+        html += '<span style="font-size:28px;font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' <span style="font-size:14px;font-weight:400;">psi</span></span>';
+        html += '<span style="font-size:11px;color:#64748b;">' + lastR.date + '</span>';
+        html += '</div>';
+        html += '<div style="margin-top:6px;height:4px;background:#0f172a;border-radius:2px;overflow:hidden;">';
+        html += '<div style="width:' + Math.min(lvl.pct, 100) + '%;height:100%;background:' + lvl.color + ';border-radius:2px;"></div></div>';
+        html += '<div style="font-size:9px;color:#64748b;margin-top:3px;">' + lvl.text + '</div>';
+    } else {
+        html += '<div style="font-size:13px;color:#64748b;">Sin lecturas previas</div>';
+    }
+    html += '</div>';
+
+    // New reading input
+    html += '<div style="background:#0c1a2e;border:2px solid #8b5cf6;border-radius:10px;padding:16px;margin-bottom:16px;">';
+    html += '<div style="font-size:11px;color:#8b5cf6;font-weight:700;margin-bottom:8px;">Nueva lectura</div>';
+    html += '<div style="display:flex;gap:10px;align-items:center;">';
+    html += '<div style="flex:1;">';
+    html += '<input id="inv-quick-psi" type="number" inputmode="numeric" placeholder="0" autofocus style="width:100%;padding:14px;font-size:24px;font-weight:700;text-align:center;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#fff;">';
+    html += '<div style="text-align:center;font-size:10px;color:#64748b;margin-top:3px;">psi</div>';
+    html += '</div>';
+    html += '<div>';
+    html += '<input id="inv-quick-date" type="date" value="' + today + '" style="padding:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:11px;">';
+    html += '</div>';
+    html += '</div></div>';
+
+    // Action buttons
+    html += '<div style="display:flex;gap:8px;">';
+    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="flex:1;padding:12px;background:#334155;color:#e2e8f0;border:none;border-radius:8px;cursor:pointer;font-size:12px;">Cancelar</button>';
+    html += '<button onclick="invQuickReadSave(\x27' + g.id + '\x27)" style="flex:2;padding:12px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;">Guardar Lectura</button>';
+    html += '</div>';
+
+    // Quick: scan another
+    html += '<button onclick="invScanBarcode()" style="width:100%;margin-top:8px;padding:8px;background:transparent;color:#8b5cf6;border:1px solid #8b5cf6;border-radius:8px;cursor:pointer;font-size:11px;">📷 Escanear otro cilindro</button>';
+
+    html += '</div>';
+    modal.innerHTML = html;
+
+    // Auto-focus the input
+    setTimeout(function() {
+        var inp = document.getElementById('inv-quick-psi');
+        if (inp) inp.focus();
+    }, 100);
+}
+
+function invQuickReadSave(gasId) {
+    var inp = document.getElementById('inv-quick-psi');
+    var dateInp = document.getElementById('inv-quick-date');
+    if (!inp || !inp.value) { showToast('Ingresa la presion', 'error'); return; }
+
+    var psi = parseFloat(inp.value);
+    if (isNaN(psi) || psi < 0) { showToast('Presion invalida', 'error'); return; }
+
+    var date = dateInp ? dateInp.value : new Date().toISOString().slice(0, 10);
+    var gas = invState.gases.find(function(g) { return g.id === gasId; });
+    if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
+
+    if (!gas.readings) gas.readings = [];
+
+    // Check for duplicate reading on same date
+    var existingToday = gas.readings.find(function(r) { return r.date === date; });
+    if (existingToday) {
+        if (!confirm('Ya existe una lectura del ' + date + ' (' + existingToday.psi + ' psi). ¿Reemplazar?')) return;
+        existingToday.psi = psi;
+    } else {
+        gas.readings.push({ date: date, psi: psi });
+    }
+
+    invSave();
+    invRender();
+    if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
+    showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi guardado', 'success');
+
+    document.getElementById('invModal').style.display = 'none';
 }
 
 // ══════════════════════════════════════════════════
