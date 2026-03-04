@@ -436,6 +436,14 @@ function authFirebaseSignIn() {
     if (typeof firebase === 'undefined') return;
     if (!firebase.apps || firebase.apps.length === 0) return;
 
+    // Skip on non-HTTP origins (content://, file://) — signInAnonymously() may hang
+    // and poison the Firebase SDK internal state, causing Firestore operations to hang too
+    var proto = location.protocol;
+    if (proto !== 'http:' && proto !== 'https:') {
+        console.log('Firebase auth: Skipping on ' + proto + ' origin');
+        return;
+    }
+
     try {
         var auth = firebase.auth();
         if (auth.currentUser) return; // Already signed in

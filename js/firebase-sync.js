@@ -81,8 +81,12 @@ var fbSync = {
     debounceTimers: {},
     _persistenceAttempted: false,  // Track if enablePersistence was already called
     _initialized: false,           // Track if fbInit completed setup
-    _onlineListenerAdded: false    // Prevent duplicate event listeners
+    _onlineListenerAdded: false,   // Prevent duplicate event listeners
+    _useREST: false                // Fall back to REST API if SDK transport broken
 };
+
+// Detect if we're on a non-standard origin (content://, file://)
+var FB_IS_HTTP_ORIGIN = (location.protocol === 'http:' || location.protocol === 'https:');
 
 // ── Rate Limiter & Quota ──
 var FB_QUOTA_LS_KEY = 'kia_fb_quota';
@@ -224,11 +228,11 @@ function fbInit() {
     }
 
     // If already initialized, just re-test connection instead of full re-init
-    if (fbSync._initialized && fbSync.db) {
+    if (fbSync._initialized && (fbSync.db || fbSync._useREST)) {
         fbSync.status = 'connecting';
         fbSync.lastError = '';
         fbUpdateIndicator();
-        fbAnonymousAuth().then(function() {
+        (FB_IS_HTTP_ORIGIN ? fbAnonymousAuth() : Promise.resolve()).then(function() {
             fbTestConnectionWithRetry(2, function(ok) {
                 if (ok) {
                     fbSync.status = 'connected';
@@ -267,16 +271,22 @@ function fbInit() {
         fbSync.db = firebase.firestore();
 
         // Configure Firestore settings BEFORE any other operations
-        // experimentalAutoDetectLongPolling fixes hanging connections on
-        // Android WebView / content:// protocol where WebSocket may not work
+        // MUST be called before enablePersistence() or any get/set/onSnapshot
         try {
-            fbSync.db.settings({
-                experimentalAutoDetectLongPolling: true,
-                merge: true
-            });
+            var fsSettings = { merge: true };
+            if (!FB_IS_HTTP_ORIGIN) {
+                // On content:// or file:// origins, WebSocket/WebChannel hangs.
+                // Force HTTP long polling — skips WebSocket entirely.
+                fsSettings.experimentalForceLongPolling = true;
+                console.log('Firebase: Forcing long polling (origin: ' + location.protocol + ')');
+            } else {
+                // On http/https, auto-detect WebSocket vs long polling
+                fsSettings.experimentalAutoDetectLongPolling = true;
+            }
+            fbSync.db.settings(fsSettings);
         } catch(settingsErr) {
             // Settings may fail if already applied — safe to ignore
-            console.warn('Firebase: Settings already applied or error:', settingsErr.message);
+            console.warn('Firebase: Settings already applied:', settingsErr.message);
         }
 
         fbSync.stationId = localStorage.getItem('kia_fb_station') || '';
@@ -288,11 +298,9 @@ function fbInit() {
         console.log('Firebase Sync: SDK initialized for project ' + FIREBASE_CONFIG.projectId);
 
         // Chain: persistence → anonymous auth → connection test
-        // Only attempt enablePersistence once (it cannot be called after Firestore is already started)
         // Skip persistence on non-http origins (content://, file://) where IndexedDB may not work
         var persistencePromise;
-        var isHttpOrigin = location.protocol === 'http:' || location.protocol === 'https:';
-        if (!fbSync._persistenceAttempted && isHttpOrigin) {
+        if (!fbSync._persistenceAttempted && FB_IS_HTTP_ORIGIN) {
             fbSync._persistenceAttempted = true;
             persistencePromise = fbSync.db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
                 if (err.code === 'failed-precondition') {
@@ -302,15 +310,21 @@ function fbInit() {
                 } else {
                     console.warn('Firebase: Persistence error (non-blocking):', err.message);
                 }
-                // Always resolve — persistence failure is non-blocking
             });
         } else {
+            fbSync._persistenceAttempted = true;
             persistencePromise = Promise.resolve();
         }
 
         persistencePromise.then(function() {
-            // Attempt anonymous auth before testing connection
-            return fbAnonymousAuth();
+            // Skip anonymous auth on non-HTTP origins — signInAnonymously() may hang
+            // on content:// protocol and poison the SDK internal state.
+            // Rules should be "allow read, write: if true;" which doesn't require auth.
+            if (FB_IS_HTTP_ORIGIN) {
+                return fbAnonymousAuth();
+            }
+            console.log('Firebase: Skipping anonymous auth on ' + location.protocol + ' origin');
+            return Promise.resolve();
         }).then(function() {
             fbSync._initialized = true;
             // Now test connection (with retry)
@@ -328,7 +342,7 @@ function fbInit() {
             });
         }).catch(function(chainErr) {
             console.error('Firebase init chain error:', chainErr);
-            fbSync._initialized = true; // Mark as initialized even on error to prevent re-init loops
+            fbSync._initialized = true;
             fbSync.status = 'error';
             fbSync.lastError = 'Error en inicializacion: ' + (chainErr.message || chainErr);
             fbUpdateIndicator();
@@ -344,6 +358,13 @@ function fbInit() {
 
 // ── Anonymous Auth (for security rules that require auth) ──
 function fbAnonymousAuth() {
+    // Skip auth on non-HTTP origins — signInAnonymously() uses HTTP requests
+    // that may hang on content:// or file:// protocols, poisoning SDK state
+    if (!FB_IS_HTTP_ORIGIN) {
+        console.log('Firebase: Skipping auth on non-HTTP origin');
+        return Promise.resolve();
+    }
+
     try {
         var auth = firebase.auth();
         if (auth.currentUser) {
@@ -385,7 +406,7 @@ function fbTestConnectionWithRetry(retriesLeft, callback) {
     });
 }
 
-// ── Connection Test ──
+// ── Connection Test (with REST API fallback) ──
 function fbTestConnection(callback) {
     if (!fbSync.db) {
         fbSync.status = 'error';
@@ -396,24 +417,38 @@ function fbTestConnection(callback) {
     }
 
     var done = false;
-    // Timeout: if Firestore doesn't respond in 15s, fail instead of hanging
+    var sdkTimedOut = false;
+
+    // Timeout: if Firestore SDK doesn't respond in 12s, try REST API fallback
     var timeout = setTimeout(function() {
         if (done) return;
-        done = true;
-        fbSync.status = 'error';
-        fbSync.lastError = 'Tiempo de espera agotado al conectar a Firestore.\nVerifica tu conexion a internet.';
-        fbUpdateIndicator();
-        if (callback) callback(false);
-    }, 15000);
+        sdkTimedOut = true;
+        console.warn('Firebase: SDK connection test timed out, trying REST API fallback...');
+        fbTestConnectionREST(function(restOk) {
+            if (done) return;
+            done = true;
+            if (restOk) {
+                // REST works but SDK doesn't — SDK transport is broken
+                fbSync._useREST = true;
+                console.log('Firebase: REST API works — using REST fallback mode');
+                if (callback) callback(true);
+            } else {
+                fbSync.status = 'error';
+                fbSync.lastError = 'No se puede conectar a Firestore.\nVerifica:\n1. Conexion a internet\n2. Que la base de datos Firestore exista en Firebase Console\n3. Que Firestore Rules permitan acceso';
+                fbUpdateIndicator();
+                if (callback) callback(false);
+            }
+        });
+    }, 12000);
 
     fbQuotaRecord('read');
-    fbSync.db.collection('_ping').doc('test').get().then(function() {
+    fbSync.db.collection('_ping').doc('test').get({ source: 'server' }).then(function() {
         if (done) return;
         done = true;
         clearTimeout(timeout);
         if (callback) callback(true);
     }).catch(function(err) {
-        if (done) return;
+        if (done || sdkTimedOut) return;
         done = true;
         clearTimeout(timeout);
         console.error('Firebase connection test failed:', err);
@@ -422,7 +457,7 @@ function fbTestConnection(callback) {
         if (err.code === 'permission-denied') {
             fbSync.lastError = 'Acceso denegado. Revisa en Firebase Console:\n1. Authentication > Sign-in method > Anonymous (habilitar)\n2. Firestore > Rules > allow read, write: if true;';
         } else if (err.code === 'unavailable') {
-            fbSync.lastError = 'Firestore no disponible. Verifica:\n1. Conexion a internet\n2. Que la base de datos Firestore exista (Firebase Console > Firestore Database > Create Database)\n3. Que Anonymous Auth este habilitado en Authentication > Sign-in method';
+            fbSync.lastError = 'Firestore no disponible. Verifica:\n1. Conexion a internet\n2. Que la base de datos Firestore exista (Firebase Console > Firestore Database > Create Database)';
         } else if (err.code === 'not-found') {
             if (callback) { callback(true); return; }
         } else {
@@ -432,6 +467,153 @@ function fbTestConnection(callback) {
         fbUpdateIndicator();
         if (callback) callback(false);
     });
+}
+
+// ── REST API Connection Test (bypasses Firestore SDK transport layer) ──
+function fbTestConnectionREST(callback) {
+    if (typeof fetch === 'undefined') { callback(false); return; }
+
+    // Try to read a document via Firestore REST API using just the API key.
+    // Any HTTP response (200, 404, 403) means the server is reachable.
+    var url = 'https://firestore.googleapis.com/v1/projects/' +
+        FIREBASE_CONFIG.projectId + '/databases/(default)/documents/_ping/test?key=' +
+        FIREBASE_CONFIG.apiKey;
+
+    var restTimeout = setTimeout(function() { callback(false); }, 10000);
+
+    fetch(url).then(function(resp) {
+        clearTimeout(restTimeout);
+        // 200 = found, 404 = not found (but server responded), 403 = rules block
+        // All mean the server IS reachable
+        console.log('Firebase REST API test: HTTP ' + resp.status);
+        callback(true);
+    }).catch(function(err) {
+        clearTimeout(restTimeout);
+        console.error('Firebase REST API test failed:', err);
+        callback(false);
+    });
+}
+
+// ── REST API Base URL helper ──
+function fbRESTUrl(collection, docId) {
+    return 'https://firestore.googleapis.com/v1/projects/' +
+        FIREBASE_CONFIG.projectId + '/databases/(default)/documents/stations/' +
+        encodeURIComponent(fbSync.stationId) + '/' + collection + '/' + docId +
+        '?key=' + FIREBASE_CONFIG.apiKey;
+}
+
+// ── REST API Push (fallback when SDK transport is broken) ──
+function fbPushREST(collection, data, onDone) {
+    if (typeof fetch === 'undefined') { if (onDone) onDone(false, 'fetch no disponible'); return; }
+
+    var url = fbRESTUrl(collection, 'current');
+    var body = {
+        fields: {
+            data: fbToFirestoreValue(data),
+            station: { stringValue: fbSync.stationId },
+            updatedAt: { timestampValue: new Date().toISOString() }
+        }
+    };
+
+    fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    }).then(function(resp) {
+        if (resp.ok) {
+            fbQuotaRecord('write');
+            fbSync.lastSync = new Date();
+            fbSync.status = 'connected';
+            fbSync.lastError = '';
+            fbUpdateIndicator();
+            if (onDone) onDone(true);
+        } else {
+            return resp.text().then(function(t) {
+                var msg = 'Error REST push (' + resp.status + ')';
+                try { msg = JSON.parse(t).error.message || msg; } catch(e) {}
+                fbSync.status = 'error';
+                fbSync.lastError = msg;
+                fbUpdateIndicator();
+                if (onDone) onDone(false, msg);
+            });
+        }
+    }).catch(function(err) {
+        fbSync.status = 'error';
+        fbSync.lastError = 'Error de red al subir ' + collection;
+        fbUpdateIndicator();
+        fbQueueAdd(collection, data);
+        if (onDone) onDone(false, fbSync.lastError);
+    });
+}
+
+// ── REST API Pull (fallback when SDK transport is broken) ──
+function fbPullREST(collection, onDone) {
+    if (typeof fetch === 'undefined') { if (onDone) onDone(null); return; }
+
+    var url = fbRESTUrl(collection, 'current');
+
+    fetch(url).then(function(resp) {
+        if (resp.ok) {
+            return resp.json().then(function(doc) {
+                fbQuotaRecord('read');
+                if (doc && doc.fields && doc.fields.data) {
+                    var data = fbFromFirestoreValue(doc.fields.data);
+                    if (onDone) onDone(data);
+                } else {
+                    if (onDone) onDone(null);
+                }
+            });
+        } else {
+            if (onDone) onDone(null);
+        }
+    }).catch(function(err) {
+        console.error('REST pull error (' + collection + '):', err);
+        if (onDone) onDone(null);
+    });
+}
+
+// ── Convert JS value → Firestore REST API value format ──
+function fbToFirestoreValue(val) {
+    if (val === null || val === undefined) return { nullValue: null };
+    if (typeof val === 'boolean') return { booleanValue: val };
+    if (typeof val === 'number') {
+        return Number.isInteger(val) ? { integerValue: String(val) } : { doubleValue: val };
+    }
+    if (typeof val === 'string') return { stringValue: val };
+    if (Array.isArray(val)) {
+        return { arrayValue: { values: val.map(fbToFirestoreValue) } };
+    }
+    if (typeof val === 'object') {
+        var fields = {};
+        Object.keys(val).forEach(function(k) {
+            fields[k] = fbToFirestoreValue(val[k]);
+        });
+        return { mapValue: { fields: fields } };
+    }
+    return { stringValue: String(val) };
+}
+
+// ── Convert Firestore REST API value → JS value ──
+function fbFromFirestoreValue(v) {
+    if (!v) return null;
+    if ('nullValue' in v) return null;
+    if ('booleanValue' in v) return v.booleanValue;
+    if ('integerValue' in v) return parseInt(v.integerValue, 10);
+    if ('doubleValue' in v) return v.doubleValue;
+    if ('stringValue' in v) return v.stringValue;
+    if ('timestampValue' in v) return v.timestampValue;
+    if ('arrayValue' in v) {
+        return (v.arrayValue.values || []).map(fbFromFirestoreValue);
+    }
+    if ('mapValue' in v) {
+        var obj = {};
+        var fields = v.mapValue.fields || {};
+        Object.keys(fields).forEach(function(k) {
+            obj[k] = fbFromFirestoreValue(fields[k]);
+        });
+        return obj;
+    }
+    return null;
 }
 
 function fbTestConnectionUI() {
@@ -482,9 +664,9 @@ function fbSetStation(id) {
     if (modal && modal.style.display === 'block') fbShowSettings();
 }
 
-// ── Push data to Firestore (rate-limited) ──
+// ── Push data to Firestore (rate-limited, with REST fallback) ──
 function fbPush(collection, data, onDone) {
-    if (!fbSync.enabled || !fbSync.db) { if (onDone) onDone(false, 'Firebase no habilitado'); return; }
+    if (!fbSync.enabled) { if (onDone) onDone(false, 'Firebase no habilitado'); return; }
     if (!fbSync.stationId) { if (onDone) onDone(false, 'No hay ID de estacion configurado'); return; }
 
     // Rate limit check
@@ -514,6 +696,14 @@ function fbPush(collection, data, onDone) {
 
         fbSync.status = 'syncing';
         fbUpdateIndicator();
+
+        // Use REST API if SDK transport is broken
+        if (fbSync._useREST) {
+            fbPushREST(collection, data, onDone);
+            return;
+        }
+
+        if (!fbSync.db) { if (onDone) onDone(false, 'Firestore no inicializado'); return; }
 
         var docRef = fbSync.db.collection('stations').doc(fbSync.stationId)
             .collection(collection).doc('current');
@@ -565,9 +755,9 @@ function fbPushAll(showFeedback) {
     modules.forEach(function(m) { fbPush(m.col, m.data, onPushDone); });
 }
 
-// ── Pull data from Firestore (rate-limited) ──
+// ── Pull data from Firestore (rate-limited, with REST fallback) ──
 function fbPullAll(showFeedback) {
-    if (!fbSync.enabled || !fbSync.db) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
+    if (!fbSync.enabled) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
     if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
 
     // Rate limit check (5 reads: one per collection)
@@ -580,69 +770,35 @@ function fbPullAll(showFeedback) {
     fbSync.status = 'syncing';
     fbUpdateIndicator();
 
-    var stationRef = fbSync.db.collection('stations').doc(fbSync.stationId);
     var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel'].filter(function(c) { return fbSyncModules[c]; });
     if (collections.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
+
+    // Use REST API if SDK transport is broken
+    if (fbSync._useREST) {
+        var restPending = collections.length;
+        var restResults = {};
+        collections.forEach(function(col) {
+            fbPullREST(col, function(data) {
+                restResults[col] = data;
+                restPending--;
+                if (restPending === 0) fbPullApply(collections, restResults, showFeedback);
+            });
+        });
+        return;
+    }
+
+    if (!fbSync.db) { if (showFeedback) showToast('Firestore no inicializado', 'error'); return; }
+
+    var stationRef = fbSync.db.collection('stations').doc(fbSync.stationId);
     var promises = collections.map(function(col) { return stationRef.collection(col).doc('current').get(); });
 
     Promise.all(promises).then(function(snapshots) {
-        var pulled = [];
-
+        var results = {};
         collections.forEach(function(col, i) {
             var snap = snapshots[i];
-            if (!snap || !snap.exists || !snap.data().data) return;
-            var remoteData = snap.data().data;
-
-            if (col === 'cop15') {
-                if (remoteData.vehicles && remoteData.vehicles.length >= db.vehicles.length) {
-                    db = remoteData;
-                    localStorage.setItem('kia_db_v11', JSON.stringify(db));
-                    refreshAllLists();
-                    pulled.push('COP15 (' + db.vehicles.length + ' vehiculos)');
-                }
-            } else if (col === 'testplan') {
-                tpState = remoteData;
-                localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
-                if (typeof tpRender === 'function') tpRender();
-                pulled.push('Test Plan');
-            } else if (col === 'results') {
-                if (remoteData.tests && remoteData.tests.length >= raState.tests.length) {
-                    raState = remoteData;
-                    localStorage.setItem('kia_results_v1', JSON.stringify(raState));
-                    if (typeof raRender === 'function') raRender();
-                    pulled.push('Results (' + raState.tests.length + ' pruebas)');
-                }
-            } else if (col === 'inventory') {
-                invState = remoteData;
-                localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
-                if (typeof invRender === 'function') invRender();
-                pulled.push('Inventory');
-            } else if (col === 'panel') {
-                if (typeof pnState !== 'undefined') {
-                    Object.assign(pnState, remoteData);
-                    localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
-                    if (typeof pnRender === 'function') pnRender();
-                    pulled.push('Panel');
-                }
-            }
+            results[col] = (snap && snap.exists && snap.data().data) ? snap.data().data : null;
         });
-
-        for (var ri = 0; ri < collections.length; ri++) fbQuotaRecord('read');
-
-        fbSync.lastSync = new Date();
-        fbSync.status = 'connected';
-        fbSync.lastError = '';
-        fbUpdateIndicator();
-
-        if (pulled.length > 0) {
-            if (showFeedback) showToast('Descargado: ' + pulled.join(', '), 'success');
-            if (typeof fbPostSyncPull === 'function') fbPostSyncPull();
-            // Retry queued items after successful connection
-            if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 2000);
-        } else {
-            if (showFeedback) showToast('No hay datos en la nube para esta estacion', 'info');
-        }
-
+        fbPullApply(collections, results, showFeedback);
     }).catch(function(err) {
         console.error('Firebase pull error:', err);
         fbSync.status = 'error';
@@ -650,6 +806,64 @@ function fbPullAll(showFeedback) {
         fbUpdateIndicator();
         if (showFeedback) showToast(fbSync.lastError, 'error');
     });
+}
+
+// ── Apply pulled data to local state ──
+function fbPullApply(collections, results, showFeedback) {
+    var pulled = [];
+
+    collections.forEach(function(col) {
+        var remoteData = results[col];
+        if (!remoteData) return;
+
+        if (col === 'cop15') {
+            if (remoteData.vehicles && remoteData.vehicles.length >= db.vehicles.length) {
+                db = remoteData;
+                localStorage.setItem('kia_db_v11', JSON.stringify(db));
+                refreshAllLists();
+                pulled.push('COP15 (' + db.vehicles.length + ' vehiculos)');
+            }
+        } else if (col === 'testplan') {
+            tpState = remoteData;
+            localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
+            if (typeof tpRender === 'function') tpRender();
+            pulled.push('Test Plan');
+        } else if (col === 'results') {
+            if (remoteData.tests && remoteData.tests.length >= raState.tests.length) {
+                raState = remoteData;
+                localStorage.setItem('kia_results_v1', JSON.stringify(raState));
+                if (typeof raRender === 'function') raRender();
+                pulled.push('Results (' + raState.tests.length + ' pruebas)');
+            }
+        } else if (col === 'inventory') {
+            invState = remoteData;
+            localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
+            if (typeof invRender === 'function') invRender();
+            pulled.push('Inventory');
+        } else if (col === 'panel') {
+            if (typeof pnState !== 'undefined') {
+                Object.assign(pnState, remoteData);
+                localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
+                if (typeof pnRender === 'function') pnRender();
+                pulled.push('Panel');
+            }
+        }
+    });
+
+    for (var ri = 0; ri < collections.length; ri++) fbQuotaRecord('read');
+
+    fbSync.lastSync = new Date();
+    fbSync.status = 'connected';
+    fbSync.lastError = '';
+    fbUpdateIndicator();
+
+    if (pulled.length > 0) {
+        if (showFeedback) showToast('Descargado: ' + pulled.join(', '), 'success');
+        if (typeof fbPostSyncPull === 'function') fbPostSyncPull();
+        if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 2000);
+    } else {
+        if (showFeedback) showToast('No hay datos en la nube para esta estacion', 'info');
+    }
 }
 
 // ── Hook into existing save functions ──
@@ -676,7 +890,7 @@ function fbUpdateIndicator() {
     var el = document.getElementById('fb-sync-indicator');
     if (!el) return;
     var colors = { off: '#475569', connecting: '#f59e0b', connected: '#10b981', syncing: '#3b82f6', error: '#ef4444' };
-    var labels = { off: 'Offline', connecting: 'Conectando...', connected: 'Sync', syncing: 'Syncing...', error: 'Error' };
+    var labels = { off: 'Offline', connecting: 'Conectando...', connected: fbSync._useREST ? 'REST Sync' : 'Sync', syncing: 'Syncing...', error: 'Error' };
     var color = colors[fbSync.status] || '#475569';
     var label = labels[fbSync.status] || 'Off';
     el.style.color = color;
