@@ -7267,9 +7267,10 @@ function tpExportGapCSV() {
 // ═══ TESTED TAB ═══
 function tpRenderTested(el) {
     el.innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:14px;">
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
         <button class="tp-btn ${window._tpTestedMode!=='json'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpTestedMode='manual';tpRender();">✏️ Captura Manual</button>
         <button class="tp-btn ${window._tpTestedMode==='json'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpTestedMode='json';tpRender();">📥 Importar JSON</button>
+        <button class="tp-btn tp-btn-ghost" onclick="tpRecoverFromCOP15()" style="border-color:#8b5cf6;color:#8b5cf6;">🔄 Recuperar de COP15</button>
     </div>
 
     ${window._tpTestedMode !== 'json' ? `
@@ -7395,6 +7396,74 @@ function tpImportJSON() {
     }
 }
 
+
+// ── Recover tested vehicles from COP15 history (archived vehicles) ──
+function tpRecoverFromCOP15() {
+    if (typeof db === 'undefined' || !db.vehicles || db.vehicles.length === 0) {
+        showToast('No hay vehiculos en COP15', 'error');
+        return;
+    }
+
+    // Get all archived (released) vehicles with valid purpose and configCode
+    var archived = db.vehicles.filter(function(v) {
+        return v.status === 'archived' && v.configCode && v.configCode !== 'MANUAL' &&
+            TP_PURPOSES_VALID.includes(v.purpose);
+    });
+
+    if (archived.length === 0) {
+        showToast('No hay vehiculos liberados con proposito valido en COP15', 'info');
+        return;
+    }
+
+    // Build set of existing entries by VIN to detect duplicates
+    var existingVINs = {};
+    (tpState.testedList || []).forEach(function(t) {
+        // Extract VIN from note field (format: "VIN: XXXXX" or "VIN: XXXXX — Auto desde COP15")
+        var vinMatch = (t.note || '').match(/VIN:\s*([^\s—-]+)/);
+        if (vinMatch) existingVINs[vinMatch[1]] = true;
+    });
+
+    // Also check by configText+date as secondary dedup
+    var existingKeys = {};
+    (tpState.testedList || []).forEach(function(t) {
+        existingKeys[t.configText + '|' + (t.date || '')] = true;
+    });
+
+    var added = 0, skipped = 0;
+    if (!tpState.testedList) tpState.testedList = [];
+
+    archived.forEach(function(v) {
+        // Skip if VIN already registered
+        if (existingVINs[v.vin]) { skipped++; return; }
+
+        var date = (v.archivedAt || v.registeredAt || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+        var key = v.configCode + '|' + date;
+
+        // Also skip if same configText+date already exists (unlikely but safe)
+        if (existingKeys[key] && existingVINs[v.vin]) { skipped++; return; }
+
+        tpState.testedList.push({
+            configText: v.configCode,
+            date: date,
+            note: 'VIN: ' + v.vin + ' — Recuperado de COP15',
+            source: 'cop15-recovery',
+            purpose: v.purpose
+        });
+        existingVINs[v.vin] = true;
+        existingKeys[key] = true;
+        added++;
+    });
+
+    if (added > 0) {
+        tpSave();
+        tpRender();
+        tpUpdateBadges();
+    }
+
+    var msg = added + ' vehiculos recuperados de COP15';
+    if (skipped > 0) msg += ', ' + skipped + ' duplicados omitidos';
+    showToast(msg, added > 0 ? 'success' : 'info');
+}
 
 // ═══ RULES TAB ═══
 function tpRenderRules(el) {
