@@ -198,8 +198,8 @@ function authVerifyAndLogin(pin) {
 
     if (pnVerifyPin(fullIdx, pin)) {
         authCreateSession(op);
-        // Offer biometric registration
-        if (window.PublicKeyCredential && !authHasStoredCredential(op.id)) {
+        // Offer biometric registration (only in secure context — no self-signed certs)
+        if (window.PublicKeyCredential && window.isSecureContext && !authHasStoredCredential(op.id)) {
             setTimeout(function() { authOfferBiometricRegistration(op.id); }, 1500);
         }
     } else {

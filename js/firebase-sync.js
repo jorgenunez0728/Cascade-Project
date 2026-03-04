@@ -266,6 +266,19 @@ function fbInit() {
         }
         fbSync.db = firebase.firestore();
 
+        // Configure Firestore settings BEFORE any other operations
+        // experimentalAutoDetectLongPolling fixes hanging connections on
+        // Android WebView / content:// protocol where WebSocket may not work
+        try {
+            fbSync.db.settings({
+                experimentalAutoDetectLongPolling: true,
+                merge: true
+            });
+        } catch(settingsErr) {
+            // Settings may fail if already applied — safe to ignore
+            console.warn('Firebase: Settings already applied or error:', settingsErr.message);
+        }
+
         fbSync.stationId = localStorage.getItem('kia_fb_station') || '';
         fbSync.enabled = true;
         fbSync.status = 'connecting';
@@ -276,8 +289,10 @@ function fbInit() {
 
         // Chain: persistence → anonymous auth → connection test
         // Only attempt enablePersistence once (it cannot be called after Firestore is already started)
+        // Skip persistence on non-http origins (content://, file://) where IndexedDB may not work
         var persistencePromise;
-        if (!fbSync._persistenceAttempted) {
+        var isHttpOrigin = location.protocol === 'http:' || location.protocol === 'https:';
+        if (!fbSync._persistenceAttempted && isHttpOrigin) {
             fbSync._persistenceAttempted = true;
             persistencePromise = fbSync.db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
                 if (err.code === 'failed-precondition') {
@@ -334,12 +349,20 @@ function fbAnonymousAuth() {
         if (auth.currentUser) {
             return Promise.resolve(); // Already signed in
         }
-        return auth.signInAnonymously().then(function() {
+        // Race against a timeout — auth should not block initialization
+        var authPromise = auth.signInAnonymously().then(function() {
             console.log('Firebase: Anonymous auth OK');
         }).catch(function(err) {
             // Auth might not be enabled — that's OK if rules use "if true"
             console.warn('Firebase: Anonymous auth failed (if rules use "if true" this is OK):', err.code || err.message);
         });
+        var timeoutPromise = new Promise(function(resolve) {
+            setTimeout(function() {
+                console.warn('Firebase: Anonymous auth timed out after 10s, continuing without auth');
+                resolve();
+            }, 10000);
+        });
+        return Promise.race([authPromise, timeoutPromise]);
     } catch(e) {
         console.warn('Firebase: Auth not available:', e.message);
         return Promise.resolve(); // Continue without auth
