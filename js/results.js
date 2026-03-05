@@ -619,7 +619,7 @@ function raRenderProfiles(el){
                 <div style="margin-bottom:10px;">
                     <label style="font-size:10px;color:var(--tp-dim);">Límites regulatorios</label>
                     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
-                        ${p.cycleColumns.filter(c=>c.startsWith('Bag')||c==='DilutePN').map(c=>`
+                        ${p.cycleColumns.filter(c=>c.startsWith('Bag')||c.startsWith('Fuel')||c==='DilutePN').map(c=>`
                             <div style="display:flex;align-items:center;gap:3px;">
                                 <span style="font-size:8px;color:var(--tp-dim);width:60px;">${p.labels&&p.labels[c]||c}:</span>
                                 <input class="tp-input" type="number" step="any" value="${p.limits[c]!=null?p.limits[c]:''}" style="width:75px;font-size:10px;" onchange="if(this.value){raState.profiles[${pi}].limits['${c}']=parseFloat(this.value);}else{delete raState.profiles[${pi}].limits['${c}'];}raSave();">
@@ -728,7 +728,9 @@ function raRenderTrends(el){
                 </div>
             </div>
         </details>
-        <div id="ra-trend-wrapper" style="position:relative;height:${window._raChartHeight||320}px;"><canvas id="ra-trend-canvas"></canvas></div>
+        <div id="ra-trend-wrapper" style="position:relative;height:${window._raChartHeight||320}px;">
+            ${pts.length===0?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--tp-dim);"><div style="font-size:28px;margin-bottom:8px;">📉</div><div style="font-size:12px;font-weight:700;">Sin datos para "${fMetric}"</div><div style="font-size:10px;margin-top:4px;">Verifica que las pruebas tengan cycleData con este campo.<br>Si hay pruebas importadas, asegurate de que no se haya compactado la data.</div></div>`:'<canvas id="ra-trend-canvas"></canvas>'}
+        </div>
     </div>
     <div class="tp-card"><div class="tp-card-title"><span>Datos</span></div>
         <div style="max-height:250px;overflow-y:auto;"><table class="tp-table"><thead><tr><th>#</th><th>VIN</th><th>Grupo</th><th style="text-align:right">${fMetric}</th><th>vs Lim</th></tr></thead>
@@ -737,7 +739,7 @@ function raRenderTrends(el){
 
     // Build Chart.js scatter plot with control lines
     const canvas = document.getElementById('ra-trend-canvas');
-    if(!canvas || typeof Chart === 'undefined') return;
+    if(!canvas || typeof Chart === 'undefined' || pts.length === 0) return;
 
     const labels = pts.map((p,i) => p.date || String(i+1));
     const dataValues = pts.map(p => p.val);
@@ -946,11 +948,59 @@ function raRenderDetail(el){
         </div>
     </div>`:''}
 
-    <div style="margin-top:10px;">
-        <select class="tp-select" onchange="window._raDetailId=this.value;raRender();" style="width:100%;">
-            ${raState.tests.map(x=>`<option value="${x.id}" ${String(x.id)===String(tid)?'selected':''}>${x.vin||'NoVIN'} — ${x.testDesc||'?'} #${x.testNumber||'?'}</option>`).join('')}
+    <div class="tp-card" style="margin-top:10px;">
+        <div class="tp-card-title"><span>🔍 Seleccionar Prueba</span></div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+            <input class="tp-input" id="ra-detail-search" placeholder="Buscar VIN, modelo, regulacion..." oninput="raFilterDetailDropdown()" value="${window._raDetailSearch||''}" style="flex:1;min-width:150px;font-size:11px;">
+            <div>
+                <label style="font-size:8px;color:var(--tp-dim);">Desde</label>
+                <input type="date" class="tp-input" id="ra-detail-from" value="${window._raDetailFrom||''}" onchange="window._raDetailFrom=this.value;raFilterDetailDropdown();" style="font-size:10px;">
+            </div>
+            <div>
+                <label style="font-size:8px;color:var(--tp-dim);">Hasta</label>
+                <input type="date" class="tp-input" id="ra-detail-to" value="${window._raDetailTo||''}" onchange="window._raDetailTo=this.value;raFilterDetailDropdown();" style="font-size:10px;">
+            </div>
+            <button class="tp-btn tp-btn-ghost" onclick="window._raDetailSearch='';window._raDetailFrom='';window._raDetailTo='';raFilterDetailDropdown();document.getElementById('ra-detail-search').value='';" style="font-size:9px;">Limpiar</button>
+        </div>
+        <select class="tp-select" id="ra-detail-select" onchange="window._raDetailId=this.value;raRender();" style="width:100%;font-size:11px;">
+            ${raState.tests.slice().sort((a,b)=>{
+                const da=a.dateStr||a.importedAt||'';
+                const db2=b.dateStr||b.importedAt||'';
+                return da.localeCompare(db2);
+            }).map(x=>{
+                const dt=x.dateStr||(x.importedAt?x.importedAt.slice(0,10):'')||'';
+                return '<option value="'+x.id+'" '+(String(x.id)===String(tid)?'selected':'')+'>'+dt+' | '+(x.vin||'NoVIN')+' — '+(x.testDesc||'?')+' #'+(x.testNumber||'?')+'</option>';
+            }).join('')}
         </select>
     </div>`;
+}
+
+function raFilterDetailDropdown(){
+    var search=(document.getElementById('ra-detail-search')||{}).value||'';
+    window._raDetailSearch=search;
+    var from=window._raDetailFrom||'';
+    var to=window._raDetailTo||'';
+    var sel=document.getElementById('ra-detail-select');
+    if(!sel)return;
+    var q=search.toLowerCase();
+    var sorted=raState.tests.slice().sort(function(a,b){
+        var da=a.dateStr||a.importedAt||'';
+        var db2=b.dateStr||b.importedAt||'';
+        return da.localeCompare(db2);
+    });
+    sel.innerHTML=sorted.filter(function(x){
+        var dt=x.dateStr||(x.importedAt?x.importedAt.slice(0,10):'')||'';
+        if(from&&dt<from)return false;
+        if(to&&dt>to)return false;
+        if(q){
+            var hay=(x.vin||'').toLowerCase().includes(q)||(x.testDesc||'').toLowerCase().includes(q)||(x.emissionReg||'').toLowerCase().includes(q)||(x.modelName||'').toLowerCase().includes(q);
+            if(!hay)return false;
+        }
+        return true;
+    }).map(function(x){
+        var dt=x.dateStr||(x.importedAt?x.importedAt.slice(0,10):'')||'';
+        return '<option value="'+x.id+'">'+dt+' | '+(x.vin||'NoVIN')+' — '+(x.testDesc||'?')+' #'+(x.testNumber||'?')+'</option>';
+    }).join('');
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗

@@ -240,6 +240,7 @@ let tpState = JSON.parse(localStorage.getItem(TP_LS_KEY)) || {
     weeks: 4,
     activeTab: 'tp-dashboard',
     planImportDate: null,
+    rulePresets: [],
 };
 
 function tpSave() { localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); }
@@ -772,20 +773,51 @@ function tpRenderTested(el) {
             ${tpState.testedList.length > 0 ? `<button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Borrar todos?')){tpState.testedList=[];tpSave();tpRender();tpUpdateBadges();}" style="font-size:10px;">🗑 Borrar todo</button>` : ''}
         </div>
         ${tpState.testedList.length === 0 ? `<div style="text-align:center;padding:25px;color:var(--tp-dim);"><div style="font-size:24px;margin-bottom:6px;">📭</div>No hay vehículos probados registrados<br><small style="color:var(--tp-dim);">Se agregan automáticamente al liberar vehículos en COP15 (Correlation, COP-Emisiones, EO-Emisiones, Investigación)</small></div>` : `
-        <div style="max-height:300px;overflow-y:auto;">
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:flex-end;">
+            <div>
+                <label style="font-size:9px;color:var(--tp-dim);display:block;">Desde</label>
+                <input type="date" class="tp-input" id="tp-tested-from" value="${window._tpTestedFrom||''}" onchange="window._tpTestedFrom=this.value;tpRender();" style="font-size:10px;">
+            </div>
+            <div>
+                <label style="font-size:9px;color:var(--tp-dim);display:block;">Hasta</label>
+                <input type="date" class="tp-input" id="tp-tested-to" value="${window._tpTestedTo||''}" onchange="window._tpTestedTo=this.value;tpRender();" style="font-size:10px;">
+            </div>
+            <button class="tp-btn tp-btn-ghost" onclick="window._tpTestedFrom='';window._tpTestedTo='';tpRender();" style="font-size:9px;">Limpiar filtro</button>
+            <span style="font-size:9px;color:var(--tp-dim);margin-left:auto;">${(() => {
+                const from = window._tpTestedFrom || '';
+                const to = window._tpTestedTo || '';
+                const filtered = tpState.testedList.filter(t => {
+                    if (from && t.date < from) return false;
+                    if (to && t.date > to) return false;
+                    return true;
+                });
+                return from || to ? filtered.length + ' de ' + tpState.testedList.length + ' mostrados' : '';
+            })()}</span>
+        </div>
+        <div style="max-height:350px;overflow-y:auto;">
             <table class="tp-table">
-                <thead><tr><th>Config Text</th><th>Fecha</th><th>Nota</th><th>Fuente</th><th>Propósito</th><th></th></tr></thead>
+                <thead><tr><th>Config</th><th>VIN</th><th>Fecha</th><th>Fuente</th><th>Proposito</th><th></th></tr></thead>
                 <tbody>
-                    ${tpState.testedList.map((t,i) => `
+                    ${tpState.testedList.filter(t => {
+                        const from = window._tpTestedFrom || '';
+                        const to = window._tpTestedTo || '';
+                        if (from && t.date < from) return false;
+                        if (to && t.date > to) return false;
+                        return true;
+                    }).map((t,i) => {
+                        const origIdx = tpState.testedList.indexOf(t);
+                        const vinMatch = (t.note || '').match(/VIN:\\s*([^\\s—]+)/);
+                        const vin = vinMatch ? vinMatch[1] : '';
+                        return `
                         <tr>
-                            <td style="font-size:9px;color:var(--tp-amber);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.configText}">${t.configText}</td>
-                            <td>${t.date}</td>
-                            <td style="color:var(--tp-dim);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.note||'—'}</td>
+                            <td style="max-width:260px;">${tpConfigBadges({desc:t.configText},{fontSize:'8px'})}</td>
+                            <td style="font-family:monospace;font-size:11px;font-weight:700;color:var(--tp-amber);white-space:nowrap;letter-spacing:0.3px;">${vin || '—'}</td>
+                            <td style="font-size:10px;white-space:nowrap;">${t.date}</td>
                             <td><span class="tp-badge" style="background:${t.source==='cop15-release'?'rgba(139,92,246,0.15);color:#8b5cf6':'rgba(6,182,212,0.15);color:#06b6d4'};border:1px solid currentColor;font-size:9px;">${t.source}</span></td>
                             <td style="font-size:10px">${t.purpose||'—'}</td>
-                            <td><button onclick="tpState.testedList.splice(${i},1);tpSave();tpRender();tpUpdateBadges();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;">×</button></td>
-                        </tr>
-                    `).join('')}
+                            <td><button onclick="tpState.testedList.splice(${origIdx},1);tpSave();tpRender();tpUpdateBadges();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;">×</button></td>
+                        </tr>`;
+                    }).join('')}
                 </tbody>
             </table>
         </div>
@@ -975,6 +1007,26 @@ function tpRenderRules(el) {
                     <span style="font-size:11px;color:${wTotal===100?'var(--tp-green)':'var(--tp-amber)'};font-weight:700;">Total: ${wTotal}% ${wTotal===100?'✓':'(ajustar a 100%)'}</span>
                 </div>
             </div>
+            <div class="tp-card" style="margin-top:14px;">
+                <div class="tp-card-title">
+                    <span>💾 Plantillas de Reglas (${(tpState.rulePresets||[]).length}/5)</span>
+                    <button class="tp-btn tp-btn-primary" onclick="tpSaveRulePreset()" style="font-size:10px;">+ Guardar Actual</button>
+                </div>
+                <p style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Guarda hasta 5 combinaciones de reglas+pesos para cargar rapidamente.</p>
+                ${(tpState.rulePresets||[]).length === 0 ? '<div style="text-align:center;padding:15px;color:var(--tp-dim);font-size:11px;">No hay plantillas guardadas.</div>' :
+                (tpState.rulePresets||[]).map((p,i) => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;margin-bottom:4px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);">
+                        <div>
+                            <div style="font-size:12px;font-weight:700;color:var(--tp-text);">${p.name}</div>
+                            <div style="font-size:9px;color:var(--tp-dim);">${p.rules.length} reglas · ${new Date(p.created).toLocaleDateString('es-MX')}</div>
+                        </div>
+                        <div style="display:flex;gap:5px;">
+                            <button class="tp-btn tp-btn-primary" onclick="tpLoadRulePreset(${i})" style="font-size:10px;">Cargar</button>
+                            <button class="tp-btn tp-btn-ghost" onclick="tpDeleteRulePreset(${i})" style="font-size:10px;color:var(--tp-red);">🗑</button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
         </div>
     </div>
     `;
@@ -985,6 +1037,40 @@ function tpAddRule() {
     tpState.rules.push({id:maxId, region:'*', regulation:'*', ratio:1, per:1000, label:'Nueva regla'});
     tpSave();
     tpRender();
+}
+
+function tpSaveRulePreset() {
+    if (!tpState.rulePresets) tpState.rulePresets = [];
+    if (tpState.rulePresets.length >= 5) { showToast('Maximo 5 plantillas. Elimina una primero.', 'warning'); return; }
+    var name = prompt('Nombre de la plantilla:');
+    if (!name) return;
+    tpState.rulePresets.push({
+        id: Date.now(),
+        name: name,
+        rules: JSON.parse(JSON.stringify(tpState.rules)),
+        weights: JSON.parse(JSON.stringify(tpState.weights)),
+        created: new Date().toISOString()
+    });
+    tpSave(); tpRender();
+    showToast('Plantilla "' + name + '" guardada', 'success');
+}
+
+function tpLoadRulePreset(idx) {
+    if (!tpState.rulePresets || !tpState.rulePresets[idx]) return;
+    if (!confirm('¿Cargar plantilla "' + tpState.rulePresets[idx].name + '"? Esto reemplazara las reglas actuales.')) return;
+    var preset = tpState.rulePresets[idx];
+    tpState.rules = JSON.parse(JSON.stringify(preset.rules));
+    tpState.weights = JSON.parse(JSON.stringify(preset.weights));
+    tpSave(); tpRender(); tpInvalidateCache();
+    showToast('Plantilla "' + preset.name + '" cargada', 'success');
+}
+
+function tpDeleteRulePreset(idx) {
+    if (!tpState.rulePresets || !tpState.rulePresets[idx]) return;
+    if (!confirm('¿Eliminar plantilla "' + tpState.rulePresets[idx].name + '"?')) return;
+    tpState.rulePresets.splice(idx, 1);
+    tpSave(); tpRender();
+    showToast('Plantilla eliminada', 'success');
 }
 
 
@@ -1062,6 +1148,7 @@ function tpRenderWeekly(el) {
                     <span style="font-size:11px;font-weight:700;color:${pct===100?'var(--tp-green)':'var(--tp-amber)'};">${done}/${tot}</span>
                     <div class="tp-bar" style="width:50px;"><div class="tp-bar-fill" style="width:${pct}%;background:${pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size:7px;">${pct}%</span></div>
                     ${!w.accepted?`<button class="tp-btn tp-btn-primary" onclick="tpAcceptWeeklyPlan(${idx})" style="font-size:10px;">✅ Aceptar</button>`:''}
+                    <button class="tp-btn tp-btn-ghost" onclick="tpCarryOverWeekly(${idx})" style="font-size:10px;" title="Copiar items pendientes a nueva semana">➡️ Copiar pendientes</button>
                     <button class="tp-btn tp-btn-ghost" onclick="tpExportWeeklyPlan(${idx})" style="font-size:10px;">📤</button>
                     <button class="tp-btn tp-btn-ghost" onclick="window._tpEditWeek=${isEdit?-1:idx};tpRender();" style="font-size:10px;">${isEdit?'✕':'✏️'}</button>
                     <button class="tp-btn tp-btn-ghost" onclick="if(confirm('¿Eliminar semana ${idx+1}?')){tpState.weeklyPlans.splice(${idx},1);tpSave();tpRender();}" style="font-size:10px;color:var(--tp-red);">🗑</button>
@@ -1137,6 +1224,19 @@ function tpAcceptWeeklyPlan(weekIdx) {
     tpSave(); tpRender(); tpUpdateBadges();
     if (typeof fbPostPlanAccepted === 'function') fbPostPlanAccepted(weekIdx + 1);
     showToast('Plan semana ' + (weekIdx+1) + ' aceptado.', 'success');
+}
+
+function tpCarryOverWeekly(weekIdx) {
+    if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
+    var source = tpState.weeklyPlans[weekIdx];
+    var pending = source.items.filter(function(i) { return !i.completed; });
+    if (pending.length === 0) { showToast('No hay items pendientes para copiar', 'info'); return; }
+    var newItems = pending.map(function(i) {
+        return { desc:i.desc, id:i.id, mod:i.mod, rgn:i.rgn, reg:i.reg, eng:i.eng, tx:i.tx, my:i.my, drv:i.drv, body:i.body, ep:i.ep, engpkg:i.engpkg, tire:i.tire, required:i.required, deficit:i.deficit, score:i.score, completed:false, completedDate:null, manual:i.manual, carriedOver:true };
+    });
+    tpState.weeklyPlans.push({ id:Date.now(), created:new Date().toISOString(), capacity:newItems.length, items:newItems, accepted:false, carriedFrom:weekIdx+1 });
+    tpSave(); tpRender();
+    showToast(pending.length + ' items pendientes copiados a nueva semana', 'success');
 }
 
 // ── Auto-mark weekly items when COP15 releases match ──
