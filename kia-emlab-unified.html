@@ -3469,10 +3469,22 @@ if (vehicle.status !== 'ready-release') {
                     </tr>
                 </thead>
                 <tbody>
-                    ${vehicles.map(v => `
+                    ${vehicles.map(v => {
+                        const cfg = v.config || {};
+                        const modelo = cfg['Modelo'] || '';
+                        const motor = cfg['ENGINE CAPACITY'] || '';
+                        const reg = cfg['EMISSION REGULATION'] || '';
+                        return `
                         <tr>
                             <td><strong>${v.vin}</strong></td>
-                            <td style="font-family: monospace; font-size: 0.85rem;">${truncateMiddle(v.configCode, 30)}</td>
+                            <td>
+                                ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
+                                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
+                                    ${motor ? `<span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;">${motor}</span>` : ''}
+                                    ${reg ? `<span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;">${reg}</span>` : ''}
+                                </div>
+                                <div style="font-family:monospace;font-size:0.7rem;color:#94a3b8;margin-top:2px;">${truncateMiddle(v.configCode, 30)}</div>
+                            </td>
                             <td>${v.purpose}</td>
                             <td><span class="status-badge status-${v.status}">${CONFIG.statusLabels[v.status]}</span></td>
                             <td>${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
@@ -3485,7 +3497,7 @@ if (vehicle.status !== 'ready-release') {
                                 </button>` : ''}
                             </td>
                         </tr>
-                    `).join('')}
+                    `}).join('')}
                 </tbody>
             </table>
         `;
@@ -4488,7 +4500,10 @@ function renderKanban() {
                 }
 
                 var shortVin = (v.vin || '?').slice(-8);
-                var configShort = (v.configCode || '').split(' ').slice(0, 3).join(' ');
+                var cfg = v.config || {};
+                var modelo = cfg['Modelo'] || '';
+                var motor = cfg['ENGINE CAPACITY'] || '';
+                var regulacion = cfg['EMISSION REGULATION'] || '';
 
                 html += '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
                 // VIN + time
@@ -4496,8 +4511,14 @@ function renderKanban() {
                 html += '<span style="font-family:monospace;font-size:11px;font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
                 if (timeSince) html += '<span style="font-size:8px;color:#94a3b8;">' + timeSince + '</span>';
                 html += '</div>';
-                // Config
-                html += '<div style="font-size:9px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (configShort || '—') + '</div>';
+                // Config labels
+                if (modelo) {
+                    html += '<div style="font-size:10px;font-weight:600;color:#0f172a;margin-top:3px;">' + modelo + '</div>';
+                }
+                html += '<div style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap;">';
+                if (motor) html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;">' + motor + '</span>';
+                if (regulacion) html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">' + regulacion + '</span>';
+                html += '</div>';
                 // Purpose badge
                 html += '<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">';
                 if (v.purpose) {
@@ -5355,22 +5376,20 @@ function invScanBarcode() {
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
 
-    // Check for camera + BarcodeDetector support
-    var hasBarcodeAPI = typeof BarcodeDetector !== 'undefined';
     var hasCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    var hasLib = typeof Html5Qrcode !== 'undefined';
 
     var html = '<div style="max-width:420px;margin:20px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
     html += '<button onclick="invScanStop();document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
     html += '<h3 style="margin:0 0 10px;color:#8b5cf6;">Lectura Rapida</h3>';
 
-    if (hasCamera && hasBarcodeAPI) {
+    if (hasCamera && hasLib) {
         html += '<div id="inv-scan-area" style="position:relative;margin-bottom:12px;">';
-        html += '<video id="inv-scan-video" autoplay playsinline style="width:100%;border-radius:8px;background:#000;max-height:220px;object-fit:cover;"></video>';
-        html += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;height:40%;border:2px solid #8b5cf6;border-radius:8px;pointer-events:none;"></div>';
-        html += '<div id="inv-scan-status" style="position:absolute;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;color:#8b5cf6;">Apunta al codigo de barras...</div>';
+        html += '<div id="inv-scan-reader" style="width:100%;border-radius:8px;overflow:hidden;"></div>';
+        html += '<div id="inv-scan-status" style="text-align:center;font-size:10px;color:#8b5cf6;margin-top:6px;">Apunta al codigo de barras...</div>';
         html += '</div>';
-    } else if (hasCamera) {
-        html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size:10px;color:#f59e0b;">BarcodeDetector no disponible. Usa la busqueda rapida abajo.</div>';
+    } else if (!hasLib) {
+        html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size:10px;color:#f59e0b;">Libreria de escaneo no cargada. Usa la busqueda rapida abajo.</div>';
     } else {
         html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size:10px;color:#f59e0b;">Camara no disponible. Usa la busqueda rapida abajo.</div>';
     }
@@ -5390,62 +5409,65 @@ function invScanBarcode() {
     // Show all in-use gases initially
     invScanFilter();
 
-    // Start camera if available
-    if (hasCamera && hasBarcodeAPI) {
+    // Start camera scanner if available
+    if (hasCamera && hasLib) {
         invScanStart();
     }
 }
 
-var _invScanStream = null;
-var _invScanInterval = null;
+var _invHtml5Scanner = null;
 
 function invScanStart() {
-    navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
-    }).then(function(stream) {
-        _invScanStream = stream;
-        var video = document.getElementById('inv-scan-video');
-        if (!video) { invScanStop(); return; }
-        video.srcObject = stream;
+    var readerEl = document.getElementById('inv-scan-reader');
+    if (!readerEl) return;
 
-        var detector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code'] });
+    _invHtml5Scanner = new Html5Qrcode('inv-scan-reader');
 
-        _invScanInterval = setInterval(function() {
-            if (!video || video.readyState < 2) return;
-            detector.detect(video).then(function(barcodes) {
-                if (barcodes.length > 0) {
-                    var code = barcodes[0].rawValue;
-                    var statusEl = document.getElementById('inv-scan-status');
-                    if (statusEl) statusEl.textContent = 'Detectado: ' + code;
+    _invHtml5Scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 100 }, formatsToSupport: [
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.QR_CODE
+        ]},
+        function onSuccess(code) {
+            var statusEl = document.getElementById('inv-scan-status');
+            if (statusEl) statusEl.textContent = 'Detectado: ' + code;
 
-                    // Find matching gas cylinder
-                    var gas = invState.gases.find(function(g) {
-                        return g.barcode === code || g.controlNo === code || g.cylinderNo === code;
-                    });
+            // Find matching gas cylinder
+            var gas = invState.gases.find(function(g) {
+                return g.barcode === code || g.controlNo === code || g.cylinderNo === code;
+            });
 
-                    if (gas) {
-                        invScanStop();
-                        invQuickReadPopup(gas);
-                    } else {
-                        if (statusEl) statusEl.textContent = 'Codigo ' + code + ' — no encontrado';
-                    }
-                }
-            }).catch(function() {});
-        }, 500);
-    }).catch(function(err) {
-        console.warn('Camera access failed:', err);
+            if (gas) {
+                invScanStop();
+                invQuickReadPopup(gas);
+            } else {
+                if (statusEl) statusEl.textContent = 'Codigo ' + code + ' — no encontrado en inventario';
+            }
+        },
+        function onError() {
+            // Silence continuous scan misses
+        }
+    ).catch(function(err) {
+        console.warn('Camera scanner failed:', err);
         var statusEl = document.getElementById('inv-scan-status');
-        if (statusEl) statusEl.textContent = 'Error de camara: ' + err.message;
+        if (statusEl) statusEl.textContent = 'Error de camara: ' + (err.message || err);
         var area = document.getElementById('inv-scan-area');
         if (area) area.style.display = 'none';
     });
 }
 
 function invScanStop() {
-    if (_invScanInterval) { clearInterval(_invScanInterval); _invScanInterval = null; }
-    if (_invScanStream) {
-        _invScanStream.getTracks().forEach(function(t) { t.stop(); });
-        _invScanStream = null;
+    if (_invHtml5Scanner) {
+        _invHtml5Scanner.stop().then(function() {
+            _invHtml5Scanner.clear();
+            _invHtml5Scanner = null;
+        }).catch(function() {
+            _invHtml5Scanner = null;
+        });
     }
 }
 
@@ -8485,16 +8507,35 @@ function tpRenderFamilies(el) {
                             const tire = c.tire || c.desc.match(/\d{3}\/\d{2}\s*R\d+/)?.[0] || '';
                             if (tire) badges = `<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:#38bdf815;color:#38bdf8;border:1px solid #38bdf830;">${tire}</span>`;
                         }
+                        // Build VIN sublist for tested configs
+                        let vinHtml = '';
+                        if (c.testedN > 0 && c.vins && c.vins.length > 0) {
+                            vinHtml = `<div id="tp-vins-${c.desc.replace(/[^a-zA-Z0-9]/g,'_').slice(0,40)}" style="display:none;padding:4px 6px 4px 20px;background:#0a0f1a;border-top:1px solid var(--tp-border);">`;
+                            c.vins.forEach(function(v) {
+                                const vinMatch = (v.note || '').match(/VIN:\s*([^\s—]+)/);
+                                const vin = vinMatch ? vinMatch[1] : (v.note || '?');
+                                vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 4px;font-size:8px;border-bottom:1px solid var(--tp-border);">
+                                    <span style="font-family:monospace;color:var(--tp-text);">${vin}</span>
+                                    <span style="color:var(--tp-dim);">${v.date || '?'}</span>
+                                </div>`;
+                            });
+                            vinHtml += `</div>`;
+                        }
+                        const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${c.desc.replace(/[^a-zA-Z0-9]/g,'_').slice(0,40)}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
                         return `
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;margin-bottom:2px;border:1px solid var(--tp-border);border-radius:4px;background:var(--tp-card);font-size:9px;">
-                            <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap;">
-                                <span class="tp-dot" style="background:${c.testedN>=c.required?'var(--tp-green)':c.testedN>0?'var(--tp-amber)':'var(--tp-red)'}"></span>
-                                ${badges}
+                        <div style="margin-bottom:2px;border:1px solid var(--tp-border);border-radius:4px;background:var(--tp-card);overflow:hidden;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;font-size:9px;" ${clickable}>
+                                <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap;">
+                                    <span class="tp-dot" style="background:${c.testedN>=c.required?'var(--tp-green)':c.testedN>0?'var(--tp-amber)':'var(--tp-red)'}"></span>
+                                    ${badges}
+                                    ${c.testedN > 0 ? '<span style="font-size:7px;color:var(--tp-dim);">▼</span>' : ''}
+                                </div>
+                                <div style="display:flex;gap:4px;align-items:center;">
+                                    <span style="font-size:9px;font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
+                                    <span style="font-size:8px;color:var(--tp-dim);">${c.total.toLocaleString()}</span>
+                                </div>
                             </div>
-                            <div style="display:flex;gap:4px;align-items:center;">
-                                <span style="font-size:9px;font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
-                                <span style="font-size:8px;color:var(--tp-dim);">${c.total.toLocaleString()}</span>
-                            </div>
+                            ${vinHtml}
                         </div>`;
                     }).join('')}
                 </div>

@@ -792,22 +792,20 @@ function invScanBarcode() {
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
 
-    // Check for camera + BarcodeDetector support
-    var hasBarcodeAPI = typeof BarcodeDetector !== 'undefined';
     var hasCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    var hasLib = typeof Html5Qrcode !== 'undefined';
 
     var html = '<div style="max-width:420px;margin:20px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
     html += '<button onclick="invScanStop();document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
     html += '<h3 style="margin:0 0 10px;color:#8b5cf6;">Lectura Rapida</h3>';
 
-    if (hasCamera && hasBarcodeAPI) {
+    if (hasCamera && hasLib) {
         html += '<div id="inv-scan-area" style="position:relative;margin-bottom:12px;">';
-        html += '<video id="inv-scan-video" autoplay playsinline style="width:100%;border-radius:8px;background:#000;max-height:220px;object-fit:cover;"></video>';
-        html += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;height:40%;border:2px solid #8b5cf6;border-radius:8px;pointer-events:none;"></div>';
-        html += '<div id="inv-scan-status" style="position:absolute;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;color:#8b5cf6;">Apunta al codigo de barras...</div>';
+        html += '<div id="inv-scan-reader" style="width:100%;border-radius:8px;overflow:hidden;"></div>';
+        html += '<div id="inv-scan-status" style="text-align:center;font-size:10px;color:#8b5cf6;margin-top:6px;">Apunta al codigo de barras...</div>';
         html += '</div>';
-    } else if (hasCamera) {
-        html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size:10px;color:#f59e0b;">BarcodeDetector no disponible. Usa la busqueda rapida abajo.</div>';
+    } else if (!hasLib) {
+        html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size:10px;color:#f59e0b;">Libreria de escaneo no cargada. Usa la busqueda rapida abajo.</div>';
     } else {
         html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size:10px;color:#f59e0b;">Camara no disponible. Usa la busqueda rapida abajo.</div>';
     }
@@ -827,62 +825,65 @@ function invScanBarcode() {
     // Show all in-use gases initially
     invScanFilter();
 
-    // Start camera if available
-    if (hasCamera && hasBarcodeAPI) {
+    // Start camera scanner if available
+    if (hasCamera && hasLib) {
         invScanStart();
     }
 }
 
-var _invScanStream = null;
-var _invScanInterval = null;
+var _invHtml5Scanner = null;
 
 function invScanStart() {
-    navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
-    }).then(function(stream) {
-        _invScanStream = stream;
-        var video = document.getElementById('inv-scan-video');
-        if (!video) { invScanStop(); return; }
-        video.srcObject = stream;
+    var readerEl = document.getElementById('inv-scan-reader');
+    if (!readerEl) return;
 
-        var detector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code'] });
+    _invHtml5Scanner = new Html5Qrcode('inv-scan-reader');
 
-        _invScanInterval = setInterval(function() {
-            if (!video || video.readyState < 2) return;
-            detector.detect(video).then(function(barcodes) {
-                if (barcodes.length > 0) {
-                    var code = barcodes[0].rawValue;
-                    var statusEl = document.getElementById('inv-scan-status');
-                    if (statusEl) statusEl.textContent = 'Detectado: ' + code;
+    _invHtml5Scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 100 }, formatsToSupport: [
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.QR_CODE
+        ]},
+        function onSuccess(code) {
+            var statusEl = document.getElementById('inv-scan-status');
+            if (statusEl) statusEl.textContent = 'Detectado: ' + code;
 
-                    // Find matching gas cylinder
-                    var gas = invState.gases.find(function(g) {
-                        return g.barcode === code || g.controlNo === code || g.cylinderNo === code;
-                    });
+            // Find matching gas cylinder
+            var gas = invState.gases.find(function(g) {
+                return g.barcode === code || g.controlNo === code || g.cylinderNo === code;
+            });
 
-                    if (gas) {
-                        invScanStop();
-                        invQuickReadPopup(gas);
-                    } else {
-                        if (statusEl) statusEl.textContent = 'Codigo ' + code + ' — no encontrado';
-                    }
-                }
-            }).catch(function() {});
-        }, 500);
-    }).catch(function(err) {
-        console.warn('Camera access failed:', err);
+            if (gas) {
+                invScanStop();
+                invQuickReadPopup(gas);
+            } else {
+                if (statusEl) statusEl.textContent = 'Codigo ' + code + ' — no encontrado en inventario';
+            }
+        },
+        function onError() {
+            // Silence continuous scan misses
+        }
+    ).catch(function(err) {
+        console.warn('Camera scanner failed:', err);
         var statusEl = document.getElementById('inv-scan-status');
-        if (statusEl) statusEl.textContent = 'Error de camara: ' + err.message;
+        if (statusEl) statusEl.textContent = 'Error de camara: ' + (err.message || err);
         var area = document.getElementById('inv-scan-area');
         if (area) area.style.display = 'none';
     });
 }
 
 function invScanStop() {
-    if (_invScanInterval) { clearInterval(_invScanInterval); _invScanInterval = null; }
-    if (_invScanStream) {
-        _invScanStream.getTracks().forEach(function(t) { t.stop(); });
-        _invScanStream = null;
+    if (_invHtml5Scanner) {
+        _invHtml5Scanner.stop().then(function() {
+            _invHtml5Scanner.clear();
+            _invHtml5Scanner = null;
+        }).catch(function() {
+            _invHtml5Scanner = null;
+        });
     }
 }
 

@@ -1296,10 +1296,22 @@ if (vehicle.status !== 'ready-release') {
                     </tr>
                 </thead>
                 <tbody>
-                    ${vehicles.map(v => `
+                    ${vehicles.map(v => {
+                        const cfg = v.config || {};
+                        const modelo = cfg['Modelo'] || '';
+                        const motor = cfg['ENGINE CAPACITY'] || '';
+                        const reg = cfg['EMISSION REGULATION'] || '';
+                        return `
                         <tr>
                             <td><strong>${v.vin}</strong></td>
-                            <td style="font-family: monospace; font-size: 0.85rem;">${truncateMiddle(v.configCode, 30)}</td>
+                            <td>
+                                ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
+                                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
+                                    ${motor ? `<span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;">${motor}</span>` : ''}
+                                    ${reg ? `<span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;">${reg}</span>` : ''}
+                                </div>
+                                <div style="font-family:monospace;font-size:0.7rem;color:#94a3b8;margin-top:2px;">${truncateMiddle(v.configCode, 30)}</div>
+                            </td>
                             <td>${v.purpose}</td>
                             <td><span class="status-badge status-${v.status}">${CONFIG.statusLabels[v.status]}</span></td>
                             <td>${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
@@ -1312,7 +1324,7 @@ if (vehicle.status !== 'ready-release') {
                                 </button>` : ''}
                             </td>
                         </tr>
-                    `).join('')}
+                    `}).join('')}
                 </tbody>
             </table>
         `;
@@ -2315,7 +2327,10 @@ function renderKanban() {
                 }
 
                 var shortVin = (v.vin || '?').slice(-8);
-                var configShort = (v.configCode || '').split(' ').slice(0, 3).join(' ');
+                var cfg = v.config || {};
+                var modelo = cfg['Modelo'] || '';
+                var motor = cfg['ENGINE CAPACITY'] || '';
+                var regulacion = cfg['EMISSION REGULATION'] || '';
 
                 html += '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
                 // VIN + time
@@ -2323,8 +2338,14 @@ function renderKanban() {
                 html += '<span style="font-family:monospace;font-size:11px;font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
                 if (timeSince) html += '<span style="font-size:8px;color:#94a3b8;">' + timeSince + '</span>';
                 html += '</div>';
-                // Config
-                html += '<div style="font-size:9px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (configShort || '—') + '</div>';
+                // Config labels
+                if (modelo) {
+                    html += '<div style="font-size:10px;font-weight:600;color:#0f172a;margin-top:3px;">' + modelo + '</div>';
+                }
+                html += '<div style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap;">';
+                if (motor) html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;">' + motor + '</span>';
+                if (regulacion) html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">' + regulacion + '</span>';
+                html += '</div>';
                 // Purpose badge
                 html += '<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">';
                 if (v.purpose) {

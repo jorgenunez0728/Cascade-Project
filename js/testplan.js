@@ -1458,16 +1458,35 @@ function tpRenderFamilies(el) {
                             const tire = c.tire || c.desc.match(/\d{3}\/\d{2}\s*R\d+/)?.[0] || '';
                             if (tire) badges = `<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:#38bdf815;color:#38bdf8;border:1px solid #38bdf830;">${tire}</span>`;
                         }
+                        // Build VIN sublist for tested configs
+                        let vinHtml = '';
+                        if (c.testedN > 0 && c.vins && c.vins.length > 0) {
+                            vinHtml = `<div id="tp-vins-${c.desc.replace(/[^a-zA-Z0-9]/g,'_').slice(0,40)}" style="display:none;padding:4px 6px 4px 20px;background:#0a0f1a;border-top:1px solid var(--tp-border);">`;
+                            c.vins.forEach(function(v) {
+                                const vinMatch = (v.note || '').match(/VIN:\s*([^\s—]+)/);
+                                const vin = vinMatch ? vinMatch[1] : (v.note || '?');
+                                vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 4px;font-size:8px;border-bottom:1px solid var(--tp-border);">
+                                    <span style="font-family:monospace;color:var(--tp-text);">${vin}</span>
+                                    <span style="color:var(--tp-dim);">${v.date || '?'}</span>
+                                </div>`;
+                            });
+                            vinHtml += `</div>`;
+                        }
+                        const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${c.desc.replace(/[^a-zA-Z0-9]/g,'_').slice(0,40)}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
                         return `
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;margin-bottom:2px;border:1px solid var(--tp-border);border-radius:4px;background:var(--tp-card);font-size:9px;">
-                            <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap;">
-                                <span class="tp-dot" style="background:${c.testedN>=c.required?'var(--tp-green)':c.testedN>0?'var(--tp-amber)':'var(--tp-red)'}"></span>
-                                ${badges}
+                        <div style="margin-bottom:2px;border:1px solid var(--tp-border);border-radius:4px;background:var(--tp-card);overflow:hidden;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;font-size:9px;" ${clickable}>
+                                <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap;">
+                                    <span class="tp-dot" style="background:${c.testedN>=c.required?'var(--tp-green)':c.testedN>0?'var(--tp-amber)':'var(--tp-red)'}"></span>
+                                    ${badges}
+                                    ${c.testedN > 0 ? '<span style="font-size:7px;color:var(--tp-dim);">▼</span>' : ''}
+                                </div>
+                                <div style="display:flex;gap:4px;align-items:center;">
+                                    <span style="font-size:9px;font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
+                                    <span style="font-size:8px;color:var(--tp-dim);">${c.total.toLocaleString()}</span>
+                                </div>
                             </div>
-                            <div style="display:flex;gap:4px;align-items:center;">
-                                <span style="font-size:9px;font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
-                                <span style="font-size:8px;color:var(--tp-dim);">${c.total.toLocaleString()}</span>
-                            </div>
+                            ${vinHtml}
                         </div>`;
                     }).join('')}
                 </div>
