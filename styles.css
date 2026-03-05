@@ -359,6 +359,41 @@ input:focus, select:focus, textarea:focus{
 .history-table th, .history-table td{
   font-size: 0.95rem;
 }
+.hist-filter-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: end;
+}
+.hist-filter-bar label {
+  font-size: 0.75rem;
+  color: #64748b;
+  display: block;
+  margin-bottom: 2px;
+}
+.hist-filter-bar select,
+.hist-filter-bar input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: white;
+  color: #1e293b;
+  min-height: 40px;
+  box-sizing: border-box;
+}
+.hist-filter-bar .hist-filter-actions {
+  display: flex;
+  gap: 6px;
+  align-items: end;
+}
+.hist-filter-count {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-bottom: 8px;
+}
 
 /* ================
    FIX: evitar overflow horizontal en secciones “anchas”

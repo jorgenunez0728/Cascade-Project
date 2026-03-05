@@ -798,11 +798,7 @@
     <div class="tab-panel" id="panel-dashboard">
         <div class="card">
             <div class="card-title">📚 Historial Completo de Pruebas</div>
-            <div style="margin-bottom: 15px; display: flex; gap: 10px;">
-                <button class="btn-secondary" onclick="filterHistory('all')">Todos</button>
-                <button class="btn-secondary" onclick="filterHistory('archived')">Archivados</button>
-                <button class="btn-secondary" onclick="filterHistory('active')">Activos</button>
-            </div>
+            <div id="historyFilterBar"></div>
             <div id="historyList"></div>
         </div>
 

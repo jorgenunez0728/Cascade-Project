@@ -238,6 +238,10 @@ let db = JSON.parse(localStorage.getItem('kia_db_v11')) || {
 
 let activeVehicleId = null;
 let currentFilter = 'all';
+window._histFilterStatus = 'all';
+window._histFilterVin = '';
+window._histFilterYear = '';
+window._histFilterMonth = '';
 let currentUnitSystem = 'SI';
 
 

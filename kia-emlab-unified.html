@@ -376,6 +376,41 @@ input:focus, select:focus, textarea:focus{
 .history-table th, .history-table td{
   font-size: 0.95rem;
 }
+.hist-filter-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: end;
+}
+.hist-filter-bar label {
+  font-size: 0.75rem;
+  color: #64748b;
+  display: block;
+  margin-bottom: 2px;
+}
+.hist-filter-bar select,
+.hist-filter-bar input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: white;
+  color: #1e293b;
+  min-height: 40px;
+  box-sizing: border-box;
+}
+.hist-filter-bar .hist-filter-actions {
+  display: flex;
+  gap: 6px;
+  align-items: end;
+}
+.hist-filter-count {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-bottom: 8px;
+}
 
 /* ================
    FIX: evitar overflow horizontal en secciones “anchas”
@@ -1471,11 +1506,7 @@ body{ overflow-x: hidden; }
     <div class="tab-panel" id="panel-dashboard">
         <div class="card">
             <div class="card-title">📚 Historial Completo de Pruebas</div>
-            <div style="margin-bottom: 15px; display: flex; gap: 10px;">
-                <button class="btn-secondary" onclick="filterHistory('all')">Todos</button>
-                <button class="btn-secondary" onclick="filterHistory('archived')">Archivados</button>
-                <button class="btn-secondary" onclick="filterHistory('active')">Activos</button>
-            </div>
+            <div id="historyFilterBar"></div>
             <div id="historyList"></div>
         </div>
 
@@ -1911,6 +1942,10 @@ let db = JSON.parse(localStorage.getItem('kia_db_v11')) || {
 
 let activeVehicleId = null;
 let currentFilter = 'all';
+window._histFilterStatus = 'all';
+window._histFilterVin = '';
+window._histFilterYear = '';
+window._histFilterMonth = '';
 let currentUnitSystem = 'SI';
 
 
@@ -3442,22 +3477,104 @@ if (vehicle.status !== 'ready-release') {
 // [M11] HISTORIAL Y DASHBOARD]
 // ======================================================================
 
+    function renderHistoryFilters() {
+        var bar = document.getElementById('historyFilterBar');
+        if (!bar) return;
+
+        var statusF = window._histFilterStatus || 'all';
+        var vinQ = window._histFilterVin || '';
+        var yearF = window._histFilterYear || '';
+        var monthF = window._histFilterMonth || '';
+
+        // Build year options from data
+        var yearsSet = {};
+        (db.vehicles || []).forEach(function(v) {
+            if (v.registeredAt) yearsSet[new Date(v.registeredAt).getFullYear()] = true;
+        });
+        var years = Object.keys(yearsSet).sort(function(a, b) { return b - a; });
+        var yearOpts = '<option value="">Todos</option>' + years.map(function(y) {
+            return '<option value="' + y + '"' + (yearF === y ? ' selected' : '') + '>' + y + '</option>';
+        }).join('');
+
+        var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        var monthOpts = '<option value="">Todos</option>' + monthNames.map(function(m, i) {
+            var val = String(i + 1);
+            return '<option value="' + val + '"' + (monthF === val ? ' selected' : '') + '>' + m + '</option>';
+        }).join('');
+
+        var statusOpts = [
+            {v:'all', l:'Todos'},
+            {v:'active', l:'Activos'},
+            {v:'archived', l:'Archivados'},
+            {v:'registered', l: CONFIG.statusLabels['registered'] || 'Registrado'},
+            {v:'in-progress', l: CONFIG.statusLabels['in-progress'] || 'En Progreso'},
+            {v:'testing', l: CONFIG.statusLabels['testing'] || 'En Prueba'},
+            {v:'ready-release', l: CONFIG.statusLabels['ready-release'] || 'Listo para Liberar'}
+        ];
+        var statusHtml = statusOpts.map(function(o) {
+            return '<option value="' + o.v + '"' + (statusF === o.v ? ' selected' : '') + '>' + o.l + '</option>';
+        }).join('');
+
+        bar.innerHTML = '<div class="hist-filter-bar">' +
+            '<div><label>Estado</label><select onchange="window._histFilterStatus=this.value;renderHistory();">' + statusHtml + '</select></div>' +
+            '<div><label>VIN</label><input type="text" value="' + vinQ + '" oninput="window._histFilterVin=this.value;renderHistory();" placeholder="Buscar VIN..."></div>' +
+            '<div><label>Año</label><select onchange="window._histFilterYear=this.value;if(!this.value){window._histFilterMonth=\'\';} renderHistory();">' + yearOpts + '</select></div>' +
+            '<div><label>Mes</label><select onchange="window._histFilterMonth=this.value;renderHistory();"' + (!yearF ? ' disabled' : '') + '>' + monthOpts + '</select></div>' +
+            '<div class="hist-filter-actions"><button class="btn-secondary" onclick="histFilterReset()" style="min-height:40px;font-size:0.8rem;padding:8px 14px;">Limpiar</button></div>' +
+        '</div>';
+    }
+
+    function histFilterReset() {
+        window._histFilterStatus = 'all';
+        window._histFilterVin = '';
+        window._histFilterYear = '';
+        window._histFilterMonth = '';
+        renderHistory();
+    }
+
     function renderHistory() {
+        renderHistoryFilters();
         const container = document.getElementById('historyList');
-        
+        const total = db.vehicles.length;
+
         let vehicles = db.vehicles;
-        if(currentFilter === 'archived') {
+
+        // Status filter
+        var statusF = window._histFilterStatus || 'all';
+        if (statusF === 'archived') {
             vehicles = vehicles.filter(v => v.status === 'archived');
-        } else if(currentFilter === 'active') {
+        } else if (statusF === 'active') {
             vehicles = vehicles.filter(v => v.status !== 'archived');
+        } else if (statusF !== 'all') {
+            vehicles = vehicles.filter(v => v.status === statusF);
         }
-        
+
+        // VIN search
+        var vinQ = (window._histFilterVin || '').toUpperCase();
+        if (vinQ) {
+            vehicles = vehicles.filter(v => (v.vin || '').toUpperCase().includes(vinQ));
+        }
+
+        // Year filter
+        var yearF = window._histFilterYear || '';
+        if (yearF) {
+            vehicles = vehicles.filter(v => new Date(v.registeredAt).getFullYear() === parseInt(yearF));
+        }
+
+        // Month filter (only if year is set)
+        var monthF = window._histFilterMonth || '';
+        if (monthF && yearF) {
+            vehicles = vehicles.filter(v => (new Date(v.registeredAt).getMonth() + 1) === parseInt(monthF));
+        }
+
         if(vehicles.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 20px;">No hay registros</p>';
+            container.innerHTML = '<div class="hist-filter-count">' + 0 + ' de ' + total + ' registros</div>' +
+                '<p style="text-align: center; color: #94a3b8; padding: 20px;">No hay registros con estos filtros</p>';
             return;
         }
-        
+
         container.innerHTML = `
+            <div class="hist-filter-count">${vehicles.length} de ${total} registros</div>
             <table class="history-table">
                 <thead>
                     <tr>
@@ -3504,8 +3621,8 @@ if (vehicle.status !== 'ready-release') {
         `;
     }
 
-
     function filterHistory(filter) {
+        window._histFilterStatus = filter;
         currentFilter = filter;
         renderHistory();
     }
