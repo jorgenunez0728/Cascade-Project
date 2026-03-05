@@ -606,6 +606,14 @@ function tpRenderDashboard(el) {
                         <option value="stacked" ${window._tpChartType==='stacked'?'selected':''}>Barras Apiladas</option>
                     </select>
                 </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Y max (0=auto)</label>
+                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpDashYMax || 0}" min="0" onchange="window._tpDashYMax=parseInt(this.value);tpRender();">
+                </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Altura (px)</label>
+                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpDashChartH || 0}" min="0" max="500" onchange="window._tpDashChartH=parseInt(this.value);tpRender();">
+                </div>
             </div>
         </div>` : ''}
         ${tpRenderDashChart(analysis)}
@@ -649,6 +657,8 @@ function tpRenderDashChart(analysis) {
     const groupBy = window._tpChartGroupBy || 'region';
     const metric = window._tpChartMetric || 'qty';
     const chartType = window._tpChartType || 'bar';
+    const userYMax = window._tpDashYMax || 0;
+    const chartH = window._tpDashChartH || 0;
 
     // Build grouped data
     const groupMap = {};
@@ -672,15 +682,19 @@ function tpRenderDashChart(analysis) {
 
     if (data.length === 0) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin datos</div>';
 
+    const hStyle = chartH > 0 ? `height:${chartH}px;` : '';
+    const autoMax = metric === 'pct' ? 100 : metric === 'deficit' ? Math.max(...data.map(r => Math.max(0, r.req - r.tested)), 1) : Math.max(...data.map(r => r.req), 1);
+    const maxVal = userYMax > 0 ? userYMax : autoMax;
+    const legend = metric === 'qty' ? '<span style="font-size:10px;color:var(--tp-amber);">■ Requeridas</span><span style="font-size:10px;color:var(--tp-green);">■ Probadas</span>' : metric === 'pct' ? '<span style="font-size:10px;color:var(--tp-dim);">% Cumplimiento</span>' : '<span style="font-size:10px;color:var(--tp-red);">■ Deficit</span>';
+
     // Horizontal bars
     if (chartType === 'hbar') {
-        const maxVal = metric === 'pct' ? 100 : metric === 'deficit' ? Math.max(...data.map(r => Math.max(0, r.req - r.tested)), 1) : Math.max(...data.map(r => r.req), 1);
         return `<div style="display:flex;flex-direction:column;gap:4px;">
             ${data.map(r => {
                 const val = metric === 'pct' ? (r.req > 0 ? Math.round(r.tested / r.req * 100) : 0) : metric === 'deficit' ? Math.max(0, r.req - r.tested) : r.req;
                 const val2 = metric === 'qty' ? r.tested : 0;
-                const pct1 = metric === 'pct' ? val : (maxVal > 0 ? Math.round(val / maxVal * 100) : 0);
-                const pct2 = metric === 'qty' && maxVal > 0 ? Math.round(val2 / maxVal * 100) : 0;
+                const pct1 = maxVal > 0 ? Math.min(100, Math.round(val / maxVal * 100)) : 0;
+                const pct2 = metric === 'qty' && maxVal > 0 ? Math.min(100, Math.round(val2 / maxVal * 100)) : 0;
                 const color = metric === 'pct' ? (val >= 100 ? 'var(--tp-green)' : val >= 50 ? 'var(--tp-amber)' : 'var(--tp-red)') : metric === 'deficit' ? 'var(--tp-red)' : 'var(--tp-amber)';
                 return `<div style="display:flex;align-items:center;gap:6px;">
                     <div style="width:80px;font-size:9px;color:var(--tp-text);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.name}">${r.name}</div>
@@ -696,18 +710,15 @@ function tpRenderDashChart(analysis) {
                 </div>`;
             }).join('')}
         </div>
-        <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">
-            ${metric === 'qty' ? '<span style="font-size:10px;color:var(--tp-amber);">■ Requeridas</span><span style="font-size:10px;color:var(--tp-green);">■ Probadas</span>' : metric === 'pct' ? '<span style="font-size:10px;color:var(--tp-dim);">% Cumplimiento</span>' : '<span style="font-size:10px;color:var(--tp-red);">■ Deficit</span>'}
-        </div>`;
+        <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">${legend}</div>`;
     }
 
     // Stacked bars (vertical)
     if (chartType === 'stacked') {
-        const maxVal = Math.max(...data.map(r => r.req), 1);
-        return `<div class="tp-chart-bar">
+        return `<div class="tp-chart-bar" style="${hStyle}">
             ${data.map(r => {
-                const testedH = (r.tested / maxVal) * 100;
-                const defH = (Math.max(0, r.req - r.tested) / maxVal) * 100;
+                const testedH = Math.min(100, (r.tested / maxVal) * 100);
+                const defH = Math.min(100 - testedH, (Math.max(0, r.req - r.tested) / maxVal) * 100);
                 const pct = r.req > 0 ? Math.round(r.tested / r.req * 100) : 0;
                 return `<div class="tp-chart-col">
                     <div class="tp-chart-value" style="font-size:8px;">${r.tested}/${r.req}</div>
@@ -729,15 +740,14 @@ function tpRenderDashChart(analysis) {
     }
 
     // Default vertical bars
-    const maxReq = metric === 'pct' ? 100 : metric === 'deficit' ? Math.max(...data.map(r => Math.max(0, r.req - r.tested)), 1) : Math.max(...data.map(r => r.req), 1);
-    return `<div class="tp-chart-bar">
+    return `<div class="tp-chart-bar" style="${hStyle}">
         ${data.map(r => {
             const pct = r.req > 0 ? Math.round(r.tested / r.req * 100) : 0;
             if (metric === 'pct') {
                 return `<div class="tp-chart-col">
                     <div class="tp-chart-value">${pct}%</div>
                     <div class="tp-chart-group">
-                        <div class="tp-chart-fill" style="height:${pct}%;background:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};"></div>
+                        <div class="tp-chart-fill" style="height:${Math.min(100,pct)}%;background:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};"></div>
                     </div>
                     <div class="tp-chart-label">${r.name.length > 8 ? r.name.slice(0,7) + '..' : r.name}</div>
                 </div>`;
@@ -747,7 +757,7 @@ function tpRenderDashChart(analysis) {
                 return `<div class="tp-chart-col">
                     <div class="tp-chart-value">${def}</div>
                     <div class="tp-chart-group">
-                        <div class="tp-chart-fill" style="height:${maxReq>0?(def/maxReq)*100:0}%;background:var(--tp-red);"></div>
+                        <div class="tp-chart-fill" style="height:${maxVal>0?Math.min(100,(def/maxVal)*100):0}%;background:var(--tp-red);"></div>
                     </div>
                     <div class="tp-chart-label">${r.name.length > 8 ? r.name.slice(0,7) + '..' : r.name}</div>
                 </div>`;
@@ -755,17 +765,15 @@ function tpRenderDashChart(analysis) {
             return `<div class="tp-chart-col">
                 <div class="tp-chart-value">${r.tested}/${r.req}</div>
                 <div class="tp-chart-group">
-                    <div class="tp-chart-fill" style="height:${(r.req/maxReq)*100}%;background:var(--tp-amber);"></div>
-                    <div class="tp-chart-fill" style="height:${(r.tested/maxReq)*100}%;background:var(--tp-green);"></div>
+                    <div class="tp-chart-fill" style="height:${Math.min(100,(r.req/maxVal)*100)}%;background:var(--tp-amber);"></div>
+                    <div class="tp-chart-fill" style="height:${Math.min(100,(r.tested/maxVal)*100)}%;background:var(--tp-green);"></div>
                 </div>
                 <div class="tp-chart-label">${r.name.length > 8 ? r.name.slice(0,7) + '..' : r.name}</div>
                 <div style="font-size:8px;font-weight:700;color:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${pct}%</div>
             </div>`;
         }).join('')}
     </div>
-    <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">
-        ${metric === 'qty' ? '<span style="font-size:10px;color:var(--tp-amber);">■ Requeridas</span><span style="font-size:10px;color:var(--tp-green);">■ Probadas</span>' : metric === 'pct' ? '<span style="font-size:10px;color:var(--tp-dim);">% Cumplimiento</span>' : '<span style="font-size:10px;color:var(--tp-red);">■ Deficit</span>'}
-    </div>`;
+    <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">${legend}</div>`;
 }
 
 function tpRenderDashTable() {
@@ -1696,20 +1704,97 @@ function tpRenderProduction(el) {
 
     ${hasData ? `
     <div class="tp-card">
-        <div class="tp-card-title"><span>📈 Producción Mensual Planeada</span></div>
-        <div class="tp-chart-bar">
-            ${(() => {
-                const totals = TP_MONTHS.map((m,i) => plan.reduce((s,c) => s + c.m[i], 0));
-                const maxT = Math.max(...totals, 1);
-                return TP_MONTHS.map((m,i) => `
-                    <div class="tp-chart-col">
-                        <div class="tp-chart-value">${totals[i].toLocaleString()}</div>
-                        <div class="tp-chart-fill" style="height:${(totals[i]/maxT)*100}%;background:var(--tp-blue);"></div>
-                        <div class="tp-chart-label">${m}</div>
-                    </div>
-                `).join('');
-            })()}
+        <div class="tp-card-title" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>📈 Producción Mensual Planeada</span>
+            <button class="tp-btn tp-btn-ghost" onclick="window._tpProdChartCfg=!window._tpProdChartCfg;tpRender();" style="font-size:11px;">⚙️</button>
         </div>
+        ${window._tpProdChartCfg ? `
+        <div style="padding:10px;background:var(--tp-bg);border:1px solid var(--tp-border);border-radius:8px;margin-bottom:10px;">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Altura grafica (px)</label>
+                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpProdChartH || 140}" min="80" max="400" onchange="window._tpProdChartH=parseInt(this.value);tpRender();">
+                </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Y max (0=auto)</label>
+                    <input type="number" class="tp-select" style="width:80px;font-size:10px;" value="${window._tpProdYMax || 0}" min="0" onchange="window._tpProdYMax=parseInt(this.value);tpRender();">
+                </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Tipo</label>
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpProdChartType=this.value;tpRender();">
+                        <option value="bar" ${(window._tpProdChartType||'bar')==='bar'?'selected':''}>Barras</option>
+                        <option value="hbar" ${window._tpProdChartType==='hbar'?'selected':''}>Horizontal</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Agrupar por</label>
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpProdGroupBy=this.value;tpRender();">
+                        <option value="month" ${(window._tpProdGroupBy||'month')==='month'?'selected':''}>Mes</option>
+                        <option value="region" ${window._tpProdGroupBy==='region'?'selected':''}>Region</option>
+                        <option value="model" ${window._tpProdGroupBy==='model'?'selected':''}>Modelo</option>
+                    </select>
+                </div>
+            </div>
+        </div>` : ''}
+        ${(() => {
+            const chartH = window._tpProdChartH || 140;
+            const groupBy = window._tpProdGroupBy || 'month';
+            const chartType = window._tpProdChartType || 'bar';
+
+            if (groupBy === 'month') {
+                const totals = TP_MONTHS.map((m,i) => plan.reduce((s,c) => s + c.m[i], 0));
+                const maxT = window._tpProdYMax > 0 ? window._tpProdYMax : Math.max(...totals, 1);
+                if (chartType === 'hbar') {
+                    return `<div style="display:flex;flex-direction:column;gap:3px;">
+                        ${TP_MONTHS.map((m,i) => `<div style="display:flex;align-items:center;gap:6px;">
+                            <div style="width:45px;font-size:9px;color:var(--tp-dim);text-align:right;">${m}</div>
+                            <div style="flex:1;height:16px;background:var(--tp-border);border-radius:3px;overflow:hidden;">
+                                <div style="height:100%;width:${Math.min(100,(totals[i]/maxT)*100)}%;background:var(--tp-blue);border-radius:3px;"></div>
+                            </div>
+                            <div style="width:50px;font-size:9px;font-weight:700;color:var(--tp-text);">${totals[i].toLocaleString()}</div>
+                        </div>`).join('')}
+                    </div>`;
+                }
+                return `<div class="tp-chart-bar" style="height:${chartH}px;">
+                    ${TP_MONTHS.map((m,i) => `
+                        <div class="tp-chart-col">
+                            <div class="tp-chart-value">${totals[i].toLocaleString()}</div>
+                            <div class="tp-chart-fill" style="height:${Math.min(100,(totals[i]/maxT)*100)}%;background:var(--tp-blue);"></div>
+                            <div class="tp-chart-label">${m}</div>
+                        </div>
+                    `).join('')}
+                </div>`;
+            }
+            // Group by region or model
+            const gMap = {};
+            plan.forEach(c => {
+                const k = groupBy === 'region' ? (c.rgn||'?') : (c.mod||'?');
+                gMap[k] = (gMap[k]||0) + c.total;
+            });
+            let gData = Object.entries(gMap).sort((a,b) => b[1]-a[1]);
+            if (gData.length > 12) gData = gData.slice(0,12);
+            const maxG = window._tpProdYMax > 0 ? window._tpProdYMax : Math.max(...gData.map(g => g[1]), 1);
+            if (chartType === 'hbar') {
+                return `<div style="display:flex;flex-direction:column;gap:3px;">
+                    ${gData.map(([k,v]) => `<div style="display:flex;align-items:center;gap:6px;">
+                        <div style="width:70px;font-size:9px;color:var(--tp-dim);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${k}</div>
+                        <div style="flex:1;height:16px;background:var(--tp-border);border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${Math.min(100,(v/maxG)*100)}%;background:var(--tp-blue);border-radius:3px;"></div>
+                        </div>
+                        <div style="width:55px;font-size:9px;font-weight:700;color:var(--tp-text);">${v.toLocaleString()}</div>
+                    </div>`).join('')}
+                </div>`;
+            }
+            return `<div class="tp-chart-bar" style="height:${chartH}px;">
+                ${gData.map(([k,v]) => `
+                    <div class="tp-chart-col">
+                        <div class="tp-chart-value">${v.toLocaleString()}</div>
+                        <div class="tp-chart-fill" style="height:${Math.min(100,(v/maxG)*100)}%;background:var(--tp-blue);"></div>
+                        <div class="tp-chart-label">${k.length>6?k.slice(0,5)+'..':k}</div>
+                    </div>
+                `).join('')}
+            </div>`;
+        })()}
     </div>
 
     <div class="tp-card">
@@ -1982,9 +2067,19 @@ function tpRenderFamilies(el) {
                             c.vins.forEach(function(v) {
                                 const vinMatch = (v.note || '').match(/VIN:\s*([^\s—]+)/);
                                 const vin = vinMatch ? vinMatch[1] : (v.note || '?');
+                                // Check if this VIN has a matching RA test
+                                let raTestId = '';
+                                if (typeof raState !== 'undefined' && raState.tests) {
+                                    const raMatch = raState.tests.find(t => t.vin && t.vin === vin);
+                                    if (raMatch) raTestId = raMatch.id;
+                                }
+                                const vinClickable = raTestId ? `onclick="event.stopPropagation();tpGoToRADetail('${raTestId}');" style="cursor:pointer;font-family:monospace;color:var(--tp-amber);text-decoration:underline;" title="Ver detalle en Results Analyzer"` : `style="font-family:monospace;color:var(--tp-text);"`;
                                 vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 4px;font-size:8px;border-bottom:1px solid var(--tp-border);">
-                                    <span style="font-family:monospace;color:var(--tp-text);">${vin}</span>
-                                    <span style="color:var(--tp-dim);">${v.date || '?'}</span>
+                                    <span ${vinClickable}>${vin}</span>
+                                    <div style="display:flex;gap:6px;align-items:center;">
+                                        <span style="color:var(--tp-dim);">${v.date || '?'}</span>
+                                        ${raTestId ? '<span style="font-size:7px;color:var(--tp-blue);">📊</span>' : ''}
+                                    </div>
                                 </div>`;
                             });
                             vinHtml += `</div>`;
@@ -2451,6 +2546,57 @@ function tpRenderAltaSuggestionPanel(configText) {
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [M22] HOOK SUGGESTION INTO COP15 ALTA FLOW                        ║
 // ╚══════════════════════════════════════════════════════════════════════╝
+
+// ═══ CROSS-MODULE NAVIGATION ═══
+// Navigate from Test Plan to Results Analyzer Detail tab
+function tpGoToRADetail(testId) {
+    if (!confirm('¿Deseas ver el detalle de esta prueba en Results Analyzer?')) return;
+    // Store return context so RA can offer a back button
+    window._tpReturnContext = {
+        tab: tpState.activeTab,
+        scroll: window.scrollY
+    };
+    // Set up RA to show this test
+    window._raDetailId = testId;
+    if (typeof raState !== 'undefined') {
+        raState.activeTab = 'ra-detail';
+    }
+    // Switch to Results Analyzer module
+    switchPlatform('results');
+    // Render RA with the detail tab
+    setTimeout(function() {
+        if (typeof raRender === 'function') raRender();
+        // Activate the detail tab button
+        document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
+        var tabs = document.querySelectorAll('#ra-tabs-bar .tp-tab');
+        for (var i = 0; i < tabs.length; i++) {
+            if (tabs[i].textContent.includes('Detalle')) { tabs[i].classList.add('active'); break; }
+        }
+    }, 100);
+}
+
+// Return from RA back to Test Plan at previous position
+function tpReturnFromRA() {
+    var ctx = window._tpReturnContext;
+    if (ctx && ctx.tab) {
+        tpState.activeTab = ctx.tab;
+    }
+    switchPlatform('testplan');
+    setTimeout(function() {
+        tpRender();
+        // Activate the correct tab button
+        document.querySelectorAll('#tp-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
+        var tabs = document.querySelectorAll('#tp-tabs-bar .tp-tab');
+        for (var i = 0; i < tabs.length; i++) {
+            if (tabs[i].onclick && tabs[i].onclick.toString().includes(tpState.activeTab)) {
+                tabs[i].classList.add('active');
+                break;
+            }
+        }
+        if (ctx && ctx.scroll) window.scrollTo(0, ctx.scroll);
+        window._tpReturnContext = null;
+    }, 100);
+}
 
 // Override/extend the cascade filter result to also show TP suggestion
 const _origUpdateConfigResult = typeof updateConfigResult === 'function' ? updateConfigResult : null;

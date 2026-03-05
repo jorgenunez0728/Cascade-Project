@@ -884,7 +884,10 @@ function raRenderDetail(el){
     const phases=test.sampleData||[];
     const comp=test.cycleData&&test.cycleData.length>0?test.cycleData[test.cycleData.length-1]:{};
 
+    const _hasReturnCtx = typeof window._tpReturnContext !== 'undefined' && window._tpReturnContext !== null;
+
     el.innerHTML=`
+    ${_hasReturnCtx ? `<div style="margin-bottom:8px;"><button class="tp-btn tp-btn-ghost" onclick="if(typeof tpReturnFromRA==='function')tpReturnFromRA();" style="font-size:11px;color:var(--tp-amber);border:1px solid var(--tp-amber);padding:5px 14px;">← Volver a Test Plan</button></div>` : ''}
     <div class="tp-card" style="border-color:#06b6d4;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
             <div>
