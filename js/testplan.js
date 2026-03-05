@@ -36,11 +36,14 @@ function tpAddToWeek(wk) {
 function tpExportWeeklyPlan(wk) {
     const plan = tpState.weeklyPlans[wk];
     if (!plan) return;
-    const dt = new Date(plan.created).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
+    const dt = plan.weekDate ? new Date(plan.weekDate + 'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) : new Date(plan.created).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
     const done = plan.items.filter(i=>i.completed).length;
-    let t = `PLAN SEMANAL #${wk+1}\n${dt}\n${done}/${plan.items.length} completadas\n${'─'.repeat(28)}\n\n`;
+    const carryover = plan.items.filter(i=>i.status==='carryover').length;
+    let t = `PLAN SEMANAL #${wk+1}\nSemana del: ${dt}\n${done}/${plan.items.length} completadas${carryover > 0 ? ' | ' + carryover + ' carryover' : ''}\n${'─'.repeat(28)}\n\n`;
     plan.items.forEach((item, i) => {
-        t += `${item.completed?'[X]':'[ ]'} ${i+1}. ${item.desc}\n    ${item.rgn||'?'} | ${item.reg||'?'}${item.manual?' (obligatoria)':''}\n\n`;
+        const schedStr = item.testLabel ? ` [Preacon ${item.preconLabel} → Prueba ${item.testLabel}]` : '';
+        const statusIcon = item.completed ? '[X]' : item.status === 'carryover' ? '[C]' : '[ ]';
+        t += `${statusIcon} ${i+1}. ${item.desc}\n    ${item.rgn||'?'} | ${item.reg||'?'}${item.manual?' (obligatoria)':''}${item.carriedOver?' (carryover)':''}${schedStr}\n\n`;
     });
     t += `${'─'.repeat(28)}\nKIA EmLab ${new Date().toLocaleString('es-MX')}`;
     if (navigator.share) {
@@ -59,8 +62,8 @@ function tpRenderPlanActual(el) {
     const plans = tpState.weeklyPlans || [];
     if (plans.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay planes generados.</div>'; return; }
     const wData = plans.map((w,i) => {
-        const t = w.items.length, d = w.items.filter(x=>x.completed).length;
-        return { week:i+1, total:t, done:d, pct:t>0?Math.round(d/t*100):0, created:w.created, accepted:w.accepted };
+        const t = w.items.length, d = w.items.filter(x=>x.completed).length, co = w.items.filter(x=>x.status==='carryover').length;
+        return { week:i+1, total:t, done:d, carryover:co, pct:t>0?Math.round(d/t*100):0, created:w.created, weekDate:w.weekDate, accepted:w.accepted };
     });
     const avgPct = Math.round(wData.reduce((s,w)=>s+w.pct,0)/wData.length);
     const totDone = wData.reduce((s,w)=>s+w.done,0);
@@ -218,6 +221,7 @@ let tpState = JSON.parse(localStorage.getItem(TP_LS_KEY)) || {
     testedList: [],
     weeklyPlans: [],
     planHistory: [],
+    weekHistory: [],     // archived accepted weeks for historical consultation
     lastDiff: null,      // [{configText, date, note, source, purpose}]
     rules: [
         {id:1,region:"USA",regulation:"SULEV 30",ratio:3,per:1000,label:"USA / SULEV 30"},
@@ -242,6 +246,8 @@ let tpState = JSON.parse(localStorage.getItem(TP_LS_KEY)) || {
     planImportDate: null,
     rulePresets: [],
 };
+// Ensure weekHistory exists for existing localStorage data
+if (!tpState.weekHistory) tpState.weekHistory = [];
 
 function tpSave() { localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); }
 
@@ -480,6 +486,7 @@ function tpRender() {
     else if (tab === 'tp-simulator') tpRenderSimulator(el);
     else if (tab === 'tp-production') tpRenderProduction(el);
     else if (tab === 'tp-calendar') tpRenderCalendar(el);
+    else if (tab === 'tp-weekhistory') tpRenderWeekHistory(el);
 }
 
 // ── Color helpers ──
@@ -1074,6 +1081,74 @@ function tpDeleteRulePreset(idx) {
 }
 
 
+// ═══ SCHEDULE HELPERS ═══
+// Build pairs of (precon day, test day) based on working days
+// Rule: preconditioning on day N requires testing on day N+1 (min 12h soak)
+// Monday: can only precon (no test since Sunday is off unless specified)
+// Friday: can only test (no precon unless Saturday attendance)
+function tpBuildTestSlots(workDays) {
+    const dayOrder = ['lun','mar','mie','jue','vie','sab'];
+    const dayLabels = {lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+    const active = dayOrder.filter(d => workDays[d]);
+    const slots = []; // [{precon:'lun', test:'mar'}]
+    for (let i = 0; i < active.length; i++) {
+        const dayIdx = dayOrder.indexOf(active[i]);
+        // Check if next calendar day is also active
+        if (dayIdx + 1 < dayOrder.length && workDays[dayOrder[dayIdx + 1]]) {
+            slots.push({ precon: active[i], test: dayOrder[dayIdx + 1], preconLabel: dayLabels[active[i]], testLabel: dayLabels[dayOrder[dayIdx + 1]] });
+        }
+    }
+    return slots;
+}
+
+function tpBuildSchedulePreview(workDays) {
+    const slots = tpBuildTestSlots(workDays);
+    if (slots.length === 0) return '<span style="color:var(--tp-red);">No hay pares preacon/prueba posibles con estos dias.</span>';
+    let html = '<span style="font-weight:700;">Pares disponibles:</span> ';
+    html += slots.map(s => `<span style="padding:1px 5px;background:rgba(59,130,246,0.1);border-radius:3px;margin:0 2px;">Preacon ${s.preconLabel} → Prueba ${s.testLabel}</span>`).join(' ');
+    // Count max testable vehicles
+    html += `<br><span style="font-weight:700;">Maximo pruebas posibles:</span> ${slots.length} vehiculos (1 por par)`;
+    return html;
+}
+
+function tpLoadCarryoverPicks() {
+    const plans = tpState.weeklyPlans || [];
+    const lastAccepted = [...plans].reverse().find(p => p.accepted);
+    if (!lastAccepted) { showToast('No hay plan aceptado previo', 'warning'); return; }
+    const pending = lastAccepted.items.filter(i => !i.completed && i.status !== 'completed');
+    window._tpWeeklyManualPicks = window._tpWeeklyManualPicks || [];
+    let added = 0;
+    pending.forEach(i => {
+        if (!window._tpWeeklyManualPicks.includes(i.desc)) {
+            window._tpWeeklyManualPicks.push(i.desc);
+            added++;
+        }
+    });
+    tpRender();
+    showToast(added + ' items de carryover incluidos como obligatorias.', 'info');
+}
+
+// Assign precon/test days to items, randomizing the order
+function tpAssignSchedule(items, workDays) {
+    const slots = tpBuildTestSlots(workDays);
+    if (slots.length === 0) return items; // No assignment possible
+    // Shuffle items for randomization
+    const shuffled = items.slice();
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    // Assign cyclically through available slots
+    shuffled.forEach((item, i) => {
+        const slot = slots[i % slots.length];
+        item.preconDay = slot.precon;
+        item.testDay = slot.test;
+        item.preconLabel = slot.preconLabel;
+        item.testLabel = slot.testLabel;
+    });
+    return shuffled;
+}
+
 // ═══ WEEKLY PLAN TAB ═══
 function tpRenderWeekly(el) {
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
@@ -1089,17 +1164,71 @@ function tpRenderWeekly(el) {
     const suggestedSet = new Set(suggested.map(s => s.desc));
     const restConfigs = allConfigs.filter(c => !suggestedSet.has(c));
 
+    // Detect carryover items from last accepted week
+    const lastAccepted = [...plans].reverse().find(p => p.accepted);
+    const carryoverItems = lastAccepted ? lastAccepted.items.filter(i => !i.completed && i.status !== 'completed') : [];
+    const carryoverDescs = carryoverItems.map(i => i.desc);
+    // Default week start to next Monday
+    const _defDate = new Date();
+    const _dow = _defDate.getDay();
+    const _nextMon = new Date(_defDate);
+    _nextMon.setDate(_defDate.getDate() + ((_dow === 0 ? 1 : _dow === 6 ? 2 : 8 - _dow)));
+    const _defDateStr = _nextMon.toISOString().slice(0, 10);
+    // Persisted working days or default (Mon-Fri)
+    const _workDays = window._tpWorkDays || {lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
+
     el.innerHTML = `
     <div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">
         <div class="tp-card-title"><span style="font-size:15px;">📅 Generar Plan Semanal</span></div>
-        <p style="font-size:11px;color:var(--tp-dim);margin-bottom:10px;">El algoritmo prioriza configuraciones de mayor riesgo. Puedes forzar pruebas antes de generar.</p>
-        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;">
+        <p style="font-size:11px;color:var(--tp-dim);margin-bottom:10px;">El algoritmo prioriza configuraciones de mayor riesgo. Confirma la fecha y dias de trabajo antes de generar.</p>
+
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;">
+            <div>
+                <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Semana del</label>
+                <input type="date" id="tp-weekly-date" value="${window._tpWeekDate || _defDateStr}" class="tp-select" style="width:150px;font-size:11px;" onchange="window._tpWeekDate=this.value;">
+            </div>
             <div>
                 <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Capacidad</label>
-                <input type="number" id="tp-weekly-cap" value="8" min="1" max="20" class="tp-select" style="width:65px;text-align:center;">
+                <input type="number" id="tp-weekly-cap" value="${window._tpWeekCap || 8}" min="1" max="20" class="tp-select" style="width:65px;text-align:center;" onchange="window._tpWeekCap=parseInt(this.value);">
             </div>
             <button class="tp-btn tp-btn-primary" onclick="tpGenerateWeekly()" style="font-size:13px;padding:8px 18px;background:var(--tp-amber);color:#000;font-weight:700;">🚀 Generar</button>
         </div>
+
+        <div style="padding:8px 10px;background:var(--tp-card);border-radius:8px;border:1px solid var(--tp-border);margin-bottom:12px;">
+            <div style="font-size:10px;font-weight:700;color:var(--tp-blue);margin-bottom:6px;">🗓 Dias de asistencia</div>
+            <p style="font-size:9px;color:var(--tp-dim);margin-bottom:6px;">Selecciona los dias que asistiras. El preacondicionamiento requiere min. 12h, por lo que solo puedes probar al dia siguiente de preacondicionar.</p>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${['lun','mar','mie','jue','vie','sab'].map((d,i) => {
+                    const labels = ['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
+                    const checked = _workDays[d] ? 'checked' : '';
+                    return `<label style="display:flex;align-items:center;gap:3px;font-size:10px;color:var(--tp-text);cursor:pointer;padding:4px 8px;border:1px solid var(--tp-border);border-radius:6px;background:${_workDays[d]?'rgba(59,130,246,0.1)':'transparent'};">
+                        <input type="checkbox" ${checked} onchange="if(!window._tpWorkDays)window._tpWorkDays={lun:true,mar:true,mie:true,jue:true,vie:true,sab:false};window._tpWorkDays['${d}']=this.checked;tpRender();" style="accent-color:var(--tp-blue);">
+                        ${labels[i]}
+                    </label>`;
+                }).join('')}
+            </div>
+            <div style="margin-top:6px;font-size:9px;color:var(--tp-dim);" id="tp-schedule-preview">
+                ${tpBuildSchedulePreview(_workDays)}
+            </div>
+        </div>
+
+        ${carryoverItems.length > 0 ? `
+        <div style="padding:8px 10px;background:rgba(139,92,246,0.05);border-radius:8px;border:1px solid rgba(139,92,246,0.3);margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <div style="font-size:10px;font-weight:700;color:#8b5cf6;">🔄 Carryover (${carryoverItems.length} pendientes de semana anterior)</div>
+                <button class="tp-btn tp-btn-primary" onclick="tpLoadCarryoverPicks()" style="font-size:9px;background:#8b5cf6;">Incluir todos</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px;">
+            ${carryoverItems.map(c => {
+                const isAlreadyPicked = manualPicks.includes(c.desc);
+                return `<div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.2);border-radius:5px;flex-wrap:wrap;opacity:${isAlreadyPicked?0.5:1};">
+                    <span style="font-size:8px;color:#8b5cf6;flex-shrink:0;">🔄</span>
+                    ${tpConfigBadges(c,{fontSize:'8px'})}
+                    ${isAlreadyPicked ? '<span style="font-size:7px;color:var(--tp-green);margin-left:auto;">incluido</span>' : `<button onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${c.desc.replace(/'/g,"\\'")}'))window._tpWeeklyManualPicks.push('${c.desc.replace(/'/g,"\\'")}');tpRender();" style="background:none;border:none;color:#8b5cf6;cursor:pointer;font-size:10px;margin-left:auto;">+</button>`}
+                </div>`;
+            }).join('')}
+            </div>
+        </div>` : ''}
         <div style="padding:10px;background:var(--tp-card);border-radius:8px;border:1px solid var(--tp-border);">
             <div style="font-size:10px;font-weight:700;color:var(--tp-amber);margin-bottom:5px;">📌 Pruebas obligatorias</div>
             ${suggested.length > 0 ? `
@@ -1135,15 +1264,33 @@ function tpRenderWeekly(el) {
     ${plans.length === 0 ? '' : plans.slice().reverse().map((w, wi) => {
         const idx = plans.length - 1 - wi;
         const done = w.items.filter(i => i.completed).length;
+        const carryoverCount = w.items.filter(i => i.status === 'carryover').length;
         const tot = w.items.length;
         const pct = tot > 0 ? Math.round((done/tot)*100) : 0;
         const isEdit = window._tpEditWeek === idx;
-        const dt = new Date(w.created).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
+        const dt = w.weekDate ? new Date(w.weekDate + 'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) : new Date(w.created).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
+        const dayLabels = {lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
+        const wdStr = w.workDays ? Object.keys(dayLabels).filter(d => w.workDays[d]).map(d => dayLabels[d]).join('') : '';
+        // Group items by test day for schedule view
+        const dayGroups = {};
+        w.items.forEach((item, ii) => {
+            const key = item.testDay || '_sin';
+            if (!dayGroups[key]) dayGroups[key] = [];
+            dayGroups[key].push({item, ii});
+        });
+        const dayFullLabels = {lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+        const hasSchedule = w.items.some(i => i.testDay);
         return `
-        <div class="tp-card" style="border-left:3px solid ${pct===100?'var(--tp-green)':pct>0?'var(--tp-amber)':'var(--tp-blue)'};">
+        <div class="tp-card" style="border-left:3px solid ${pct===100?'var(--tp-green)':carryoverCount>0&&w.accepted?'#8b5cf6':pct>0?'var(--tp-amber)':'var(--tp-blue)'};">
             <div class="tp-card-title" style="flex-wrap:wrap;gap:6px;">
-                <div><span style="font-size:13px;font-weight:700;">Semana ${idx+1}</span> <span style="font-size:10px;color:var(--tp-dim);">${dt}</span>
-                ${w.accepted?'<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size:8px;">Aceptado</span>':''}</div>
+                <div>
+                    <span style="font-size:13px;font-weight:700;">Semana ${idx+1}</span>
+                    <span style="font-size:10px;color:var(--tp-dim);">${dt}</span>
+                    ${wdStr ? `<span style="font-size:8px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:3px;">${wdStr}</span>` : ''}
+                    ${w.accepted?'<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size:8px;">Aceptado</span>':''}
+                    ${carryoverCount>0&&w.accepted?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:8px;">${carryoverCount} carryover</span>`:''}
+                    ${w.carriedFrom?`<span class="tp-badge" style="background:rgba(139,92,246,0.1);color:#8b5cf6;font-size:8px;">desde Sem ${w.carriedFrom}</span>`:''}
+                </div>
                 <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
                     <span style="font-size:11px;font-weight:700;color:${pct===100?'var(--tp-green)':'var(--tp-amber)'};">${done}/${tot}</span>
                     <div class="tp-bar" style="width:50px;"><div class="tp-bar-fill" style="width:${pct}%;background:${pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size:7px;">${pct}%</span></div>
@@ -1154,11 +1301,36 @@ function tpRenderWeekly(el) {
                     <button class="tp-btn tp-btn-ghost" onclick="if(confirm('¿Eliminar semana ${idx+1}?')){tpState.weeklyPlans.splice(${idx},1);tpSave();tpRender();}" style="font-size:10px;color:var(--tp-red);">🗑</button>
                 </div>
             </div>
-            ${w.items.map((item, ii) => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
+            ${hasSchedule ? ['lun','mar','mie','jue','vie','sab'].filter(d => dayGroups[d] && dayGroups[d].length > 0).map(d => `
+            <div style="margin-bottom:6px;">
+                <div style="font-size:9px;font-weight:700;color:var(--tp-blue);padding:3px 6px;background:rgba(59,130,246,0.06);border-radius:4px;margin-bottom:3px;">
+                    Prueba ${dayFullLabels[d]} (Preacon ${dayFullLabels[dayGroups[d][0].item.preconDay] || '?'})
+                </div>
+                ${dayGroups[d].map(({item, ii}) => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
+                    <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
+                        <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
+                        ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}
+                        ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
+                        ${tpConfigBadges(item,{fontSize:'8px'})}
+                    </div>
+                    <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+                        ${isEdit?`<button onclick="tpRemoveWeeklyItem(${idx},${ii})" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:13px;">×</button>`:''}
+                    </div>
+                </div>`).join('')}
+            </div>`).join('') + (dayGroups['_sin'] ? dayGroups['_sin'].map(({item, ii}) => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);">
+                    <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
+                        <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':'⬜'}</span>
+                        ${tpConfigBadges(item,{fontSize:'8px'})}
+                    </div>
+                </div>`).join('') : '')
+            : w.items.map((item, ii) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
                 <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
-                    <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':'⬜'}</span>
-                    ${item.manual?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
+                    <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
+                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}
+                    ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
                     ${tpConfigBadges(item,{fontSize:'8px'})}
                 </div>
                 <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
@@ -1184,46 +1356,93 @@ function tpGenerateWeekly() {
     if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     const capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
+    const weekDate = document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0,10);
+    const workDays = window._tpWorkDays || {lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
     const manualPicks = window._tpWeeklyManualPicks || [];
     const analysis = tpGetAnalysis();
     const pool = analysis.filter(c => c.deficit > 0).sort((a,b) => b.score - a.score);
     const testedCopy = [...tpState.testedList];
     const items = [];
     const used = new Set();
-    
+
+    // Check if any carryover items are in manual picks
+    const lastAccepted = [...(tpState.weeklyPlans || [])].reverse().find(p => p.accepted);
+    const carryoverDescs = lastAccepted ? new Set(lastAccepted.items.filter(i => !i.completed).map(i => i.desc)) : new Set();
+
     manualPicks.forEach(pick => {
         const cfg = tpState.planData.find(c => c.desc === pick);
         if (cfg && !used.has(cfg.desc)) {
             const rule = tpGetRule(cfg);
             const n = testedCopy.filter(t => t.configText === cfg.desc).length;
             const req = tpCalcRequired(cfg, rule);
-            items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:req, deficit:Math.max(0,req-n), score:tpPriorityScore(cfg,n), completed:false, completedDate:null, manual:true });
+            const isCarryover = carryoverDescs.has(cfg.desc);
+            items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:req, deficit:Math.max(0,req-n), score:tpPriorityScore(cfg,n), completed:false, completedDate:null, manual:true, carriedOver:isCarryover });
             testedCopy.push({ configText:cfg.desc, date:'Manual', source:'plan' });
             used.add(cfg.desc);
         }
     });
-    
+
     for (const cfg of pool) {
         if (items.length >= capacity) break;
         if (used.has(cfg.desc)) continue;
-        items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:cfg.required, deficit:cfg.deficit, score:cfg.score, completed:false, completedDate:null, manual:false });
+        items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:cfg.required, deficit:cfg.deficit, score:cfg.score, completed:false, completedDate:null, manual:false, carriedOver:false });
         used.add(cfg.desc);
     }
-    
+
     if (items.length === 0) { showToast('Sin configuraciones pendientes', 'info'); return; }
-    tpState.weeklyPlans.push({ id:Date.now(), created:new Date().toISOString(), capacity, items, accepted:false });
+
+    // Assign precon/test schedule with randomization
+    const scheduled = tpAssignSchedule(items, workDays);
+
+    tpState.weeklyPlans.push({
+        id: Date.now(),
+        created: new Date().toISOString(),
+        weekDate: weekDate,
+        workDays: JSON.parse(JSON.stringify(workDays)),
+        capacity,
+        items: scheduled,
+        accepted: false
+    });
     window._tpWeeklyManualPicks = [];
     tpSave(); tpRender(); tpUpdateBadges();
-    if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(items.length);
+    if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(scheduled.length);
 }
 
 function tpAcceptWeeklyPlan(weekIdx) {
     if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
-    tpState.weeklyPlans[weekIdx].accepted = true;
-    tpState.weeklyPlans[weekIdx].acceptedDate = new Date().toISOString();
+    const plan = tpState.weeklyPlans[weekIdx];
+    plan.accepted = true;
+    plan.acceptedDate = new Date().toISOString();
+    // Mark incomplete items as carryover status
+    plan.items.forEach(item => {
+        if (!item.completed) {
+            item.status = 'carryover';
+        }
+    });
+    // Archive to week history
+    if (!tpState.weekHistory) tpState.weekHistory = [];
+    tpState.weekHistory.push({
+        weekNum: weekIdx + 1,
+        weekDate: plan.weekDate || null,
+        created: plan.created,
+        acceptedDate: plan.acceptedDate,
+        capacity: plan.capacity,
+        workDays: plan.workDays || null,
+        total: plan.items.length,
+        completed: plan.items.filter(i => i.completed).length,
+        carryover: plan.items.filter(i => i.status === 'carryover').length,
+        items: plan.items.map(i => ({
+            desc: i.desc, mod: i.mod, rgn: i.rgn, reg: i.reg, eng: i.eng,
+            completed: i.completed, completedDate: i.completedDate,
+            status: i.status || (i.completed ? 'completed' : 'carryover'),
+            manual: i.manual, carriedOver: i.carriedOver,
+            preconDay: i.preconDay, testDay: i.testDay,
+            preconLabel: i.preconLabel, testLabel: i.testLabel
+        }))
+    });
     tpSave(); tpRender(); tpUpdateBadges();
     if (typeof fbPostPlanAccepted === 'function') fbPostPlanAccepted(weekIdx + 1);
-    showToast('Plan semana ' + (weekIdx+1) + ' aceptado.', 'success');
+    showToast('Plan semana ' + (weekIdx+1) + ' aceptado. ' + plan.items.filter(i=>i.status==='carryover').length + ' items marcados como carryover.', 'success');
 }
 
 function tpCarryOverWeekly(weekIdx) {
@@ -1231,12 +1450,84 @@ function tpCarryOverWeekly(weekIdx) {
     var source = tpState.weeklyPlans[weekIdx];
     var pending = source.items.filter(function(i) { return !i.completed; });
     if (pending.length === 0) { showToast('No hay items pendientes para copiar', 'info'); return; }
+    // Mark source items as carryover
+    pending.forEach(function(i) { i.status = 'carryover'; });
     var newItems = pending.map(function(i) {
         return { desc:i.desc, id:i.id, mod:i.mod, rgn:i.rgn, reg:i.reg, eng:i.eng, tx:i.tx, my:i.my, drv:i.drv, body:i.body, ep:i.ep, engpkg:i.engpkg, tire:i.tire, required:i.required, deficit:i.deficit, score:i.score, completed:false, completedDate:null, manual:i.manual, carriedOver:true };
     });
     tpState.weeklyPlans.push({ id:Date.now(), created:new Date().toISOString(), capacity:newItems.length, items:newItems, accepted:false, carriedFrom:weekIdx+1 });
     tpSave(); tpRender();
-    showToast(pending.length + ' items pendientes copiados a nueva semana', 'success');
+    showToast(pending.length + ' items pendientes copiados a nueva semana (marcados como carryover)', 'success');
+}
+
+// ═══ WEEK HISTORY TAB ═══
+function tpRenderWeekHistory(el) {
+    if (!tpState.weekHistory) tpState.weekHistory = [];
+    const hist = tpState.weekHistory;
+    if (hist.length === 0) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay semanas archivadas. Las semanas se archivan automaticamente al aceptarlas.</div>';
+        return;
+    }
+    const dayLabels = {lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
+    const dayFull = {lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+    // Summary metrics
+    const totalWeeks = hist.length;
+    const totalCompleted = hist.reduce((s,h) => s + h.completed, 0);
+    const totalCarryover = hist.reduce((s,h) => s + (h.carryover||0), 0);
+    const totalItems = hist.reduce((s,h) => s + h.total, 0);
+    const avgPct = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0;
+
+    let html = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px;">
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue);">${totalWeeks}</div><div class="tp-metric-label">Semanas</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green);">${totalCompleted}</div><div class="tp-metric-label">Completados</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:#8b5cf6;">${totalCarryover}</div><div class="tp-metric-label">Carryover</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber);">${avgPct}%</div><div class="tp-metric-label">Cumplimiento</div></div>
+    </div>`;
+
+    // List each archived week (newest first)
+    hist.slice().reverse().forEach((h, ri) => {
+        const hi = hist.length - 1 - ri;
+        const pct = h.total > 0 ? Math.round((h.completed / h.total) * 100) : 0;
+        const dt = h.weekDate ? new Date(h.weekDate + 'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) : new Date(h.created).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
+        const acceptDt = h.acceptedDate ? new Date(h.acceptedDate).toLocaleDateString('es-MX',{day:'numeric',month:'short'}) : '';
+        const wdStr = h.workDays ? Object.keys(dayLabels).filter(d => h.workDays[d]).map(d => dayLabels[d]).join('') : '';
+        const isExpanded = window._tpHistExpand === hi;
+
+        html += `
+        <div class="tp-card" style="border-left:3px solid ${pct===100?'var(--tp-green)':h.carryover>0?'#8b5cf6':'var(--tp-amber)'};">
+            <div onclick="window._tpHistExpand=${isExpanded?-1:hi};tpRender();" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+                <div>
+                    <span style="font-size:12px;font-weight:700;">Sem ${h.weekNum}</span>
+                    <span style="font-size:10px;color:var(--tp-dim);">${dt}</span>
+                    ${wdStr ? `<span style="font-size:8px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;">${wdStr}</span>` : ''}
+                    <span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size:8px;">Aceptado ${acceptDt}</span>
+                    ${h.carryover>0?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:8px;">${h.carryover} carryover</span>`:''}
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;">
+                    <span style="font-size:11px;font-weight:700;color:${pct===100?'var(--tp-green)':'var(--tp-amber)'};">${h.completed}/${h.total}</span>
+                    <div class="tp-bar" style="width:50px;"><div class="tp-bar-fill" style="width:${pct}%;background:${pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size:7px;">${pct}%</span></div>
+                    <span style="font-size:12px;color:var(--tp-dim);">${isExpanded?'▲':'▼'}</span>
+                </div>
+            </div>
+            ${isExpanded && h.items ? `
+            <div style="margin-top:8px;border-top:1px solid var(--tp-border);padding-top:8px;">
+                ${h.items.map(item => `
+                <div style="display:flex;align-items:center;gap:5px;padding:4px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};flex-wrap:wrap;">
+                    <span style="font-size:13px;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
+                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}
+                    ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);">📌</span>':''}
+                    ${tpConfigBadges(item,{fontSize:'8px'})}
+                    ${item.testLabel?`<span style="font-size:7px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:auto;">Preacon ${item.preconLabel} → Prueba ${item.testLabel}</span>`:''}
+                </div>`).join('')}
+            </div>` : ''}
+        </div>`;
+    });
+
+    // Delete history button
+    html += `<div style="text-align:center;margin-top:10px;"><button class="tp-btn tp-btn-ghost" onclick="if(confirm('¿Borrar todo el historial de semanas?')){tpState.weekHistory=[];tpSave();tpRender();}" style="font-size:9px;color:var(--tp-red);">Borrar historial</button></div>`;
+
+    el.innerHTML = html;
 }
 
 // ── Auto-mark weekly items when COP15 releases match ──
