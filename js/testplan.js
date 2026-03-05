@@ -546,17 +546,6 @@ function tpRenderDashboard(el) {
     };
     stats.deficit = Math.max(0, stats.totalReq - stats.totalT);
 
-    // Region data for chart
-    const regionMap = {};
-    analysis.forEach(a => {
-        if (!regionMap[a.rgn]) regionMap[a.rgn] = {name:a.rgn, req:0, tested:0, vol:0};
-        regionMap[a.rgn].req += a.required;
-        regionMap[a.rgn].tested += a.testedN;
-        regionMap[a.rgn].vol += a.total;
-    });
-    const regionData = Object.values(regionMap).sort((a,b) => b.vol - a.vol);
-    const maxReq = Math.max(...regionData.map(r => r.req), 1);
-
     // Fixed plan banner
     const fixedBanner = tpState.fixedPlan
         ? `<div class="tp-plan-fixed">📌 Plan Fijado: ${new Date(tpState.fixedPlan.date).toLocaleDateString('es-MX')} — ${tpState.fixedPlan.configs} configuraciones, ${tpState.fixedPlan.totalTests} pruebas requeridas</div>`
@@ -583,28 +572,43 @@ function tpRenderDashboard(el) {
         `).join('')}
     </div>
 
-    <!-- Region chart -->
+    <!-- Region chart with config panel -->
     <div class="tp-card">
-        <div class="tp-card-title">📊 Pruebas Requeridas vs Probadas por Región</div>
-        <div class="tp-chart-bar">
-            ${regionData.map(r => {
-                const pct = r.req > 0 ? Math.round(r.tested / r.req * 100) : 0;
-                return `
-                <div class="tp-chart-col">
-                    <div class="tp-chart-value">${r.tested}/${r.req}</div>
-                    <div class="tp-chart-group">
-                        <div class="tp-chart-fill" style="height:${(r.req/maxReq)*100}%;background:var(--tp-amber);"></div>
-                        <div class="tp-chart-fill" style="height:${(r.tested/maxReq)*100}%;background:var(--tp-green);"></div>
-                    </div>
-                    <div class="tp-chart-label">${r.name}</div>
-                    <div style="font-size:8px;font-weight:700;color:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${pct}%</div>
-                </div>`;
-            }).join('')}
+        <div class="tp-card-title" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>📊 ${window._tpChartGroupBy==='family'?'Familias':window._tpChartGroupBy==='regulation'?'Regulación':window._tpChartGroupBy==='model'?'Modelo':'Región'} — ${window._tpChartMetric==='pct'?'% Cumplimiento':'Cantidad'}</span>
+            <button class="tp-btn tp-btn-ghost" onclick="window._tpChartCfgOpen=!window._tpChartCfgOpen;tpRender();" style="font-size:11px;">⚙️</button>
         </div>
-        <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">
-            <span style="font-size:10px;color:var(--tp-amber);">■ Requeridas</span>
-            <span style="font-size:10px;color:var(--tp-green);">■ Probadas</span>
-        </div>
+        ${window._tpChartCfgOpen ? `
+        <div style="padding:10px;background:var(--tp-bg);border:1px solid var(--tp-border);border-radius:8px;margin-bottom:10px;">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Agrupar por</label>
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartGroupBy=this.value;tpRender();">
+                        <option value="region" ${(window._tpChartGroupBy||'region')==='region'?'selected':''}>Region</option>
+                        <option value="model" ${window._tpChartGroupBy==='model'?'selected':''}>Modelo</option>
+                        <option value="regulation" ${window._tpChartGroupBy==='regulation'?'selected':''}>Regulacion</option>
+                        <option value="family" ${window._tpChartGroupBy==='family'?'selected':''}>Familia</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Metrica Y</label>
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartMetric=this.value;tpRender();">
+                        <option value="qty" ${(window._tpChartMetric||'qty')==='qty'?'selected':''}>Cantidad (Req vs Probadas)</option>
+                        <option value="pct" ${window._tpChartMetric==='pct'?'selected':''}>% Cumplimiento</option>
+                        <option value="deficit" ${window._tpChartMetric==='deficit'?'selected':''}>Deficit</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Tipo de grafica</label>
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartType=this.value;tpRender();">
+                        <option value="bar" ${(window._tpChartType||'bar')==='bar'?'selected':''}>Barras</option>
+                        <option value="hbar" ${window._tpChartType==='hbar'?'selected':''}>Barras Horizontales</option>
+                        <option value="stacked" ${window._tpChartType==='stacked'?'selected':''}>Barras Apiladas</option>
+                    </select>
+                </div>
+            </div>
+        </div>` : ''}
+        ${tpRenderDashChart(analysis)}
     </div>
 
     <!-- Fix plan button -->
@@ -638,6 +642,130 @@ function tpRenderDashboard(el) {
     `;
 
     tpRenderDashTable();
+}
+
+// ═══ DASHBOARD CHART RENDERER ═══
+function tpRenderDashChart(analysis) {
+    const groupBy = window._tpChartGroupBy || 'region';
+    const metric = window._tpChartMetric || 'qty';
+    const chartType = window._tpChartType || 'bar';
+
+    // Build grouped data
+    const groupMap = {};
+    analysis.forEach(a => {
+        let key;
+        if (groupBy === 'region') key = a.rgn || 'Otro';
+        else if (groupBy === 'model') key = a.mod || 'Otro';
+        else if (groupBy === 'regulation') key = a.reg || 'Otro';
+        else if (groupBy === 'family') {
+            // Group by model+engine family
+            key = (a.mod || '?') + ' ' + (a.eng || '?');
+        }
+        if (!groupMap[key]) groupMap[key] = {name:key, req:0, tested:0, vol:0};
+        groupMap[key].req += a.required;
+        groupMap[key].tested += a.testedN;
+        groupMap[key].vol += a.total;
+    });
+    let data = Object.values(groupMap).sort((a,b) => b.vol - a.vol);
+    // Limit to top 15 groups for readability
+    if (data.length > 15) data = data.slice(0, 15);
+
+    if (data.length === 0) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin datos</div>';
+
+    // Horizontal bars
+    if (chartType === 'hbar') {
+        const maxVal = metric === 'pct' ? 100 : metric === 'deficit' ? Math.max(...data.map(r => Math.max(0, r.req - r.tested)), 1) : Math.max(...data.map(r => r.req), 1);
+        return `<div style="display:flex;flex-direction:column;gap:4px;">
+            ${data.map(r => {
+                const val = metric === 'pct' ? (r.req > 0 ? Math.round(r.tested / r.req * 100) : 0) : metric === 'deficit' ? Math.max(0, r.req - r.tested) : r.req;
+                const val2 = metric === 'qty' ? r.tested : 0;
+                const pct1 = metric === 'pct' ? val : (maxVal > 0 ? Math.round(val / maxVal * 100) : 0);
+                const pct2 = metric === 'qty' && maxVal > 0 ? Math.round(val2 / maxVal * 100) : 0;
+                const color = metric === 'pct' ? (val >= 100 ? 'var(--tp-green)' : val >= 50 ? 'var(--tp-amber)' : 'var(--tp-red)') : metric === 'deficit' ? 'var(--tp-red)' : 'var(--tp-amber)';
+                return `<div style="display:flex;align-items:center;gap:6px;">
+                    <div style="width:80px;font-size:9px;color:var(--tp-text);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.name}">${r.name}</div>
+                    <div style="flex:1;height:18px;background:var(--tp-border);border-radius:3px;position:relative;overflow:hidden;">
+                        ${metric === 'qty' ? `
+                        <div style="position:absolute;height:100%;width:${pct1}%;background:${color};border-radius:3px;opacity:0.4;"></div>
+                        <div style="position:absolute;height:100%;width:${pct2}%;background:var(--tp-green);border-radius:3px;"></div>
+                        ` : `
+                        <div style="position:absolute;height:100%;width:${pct1}%;background:${color};border-radius:3px;"></div>
+                        `}
+                    </div>
+                    <div style="width:55px;font-size:9px;font-weight:700;color:var(--tp-text);text-align:left;">${metric === 'pct' ? val + '%' : metric === 'qty' ? val2 + '/' + val : val}</div>
+                </div>`;
+            }).join('')}
+        </div>
+        <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">
+            ${metric === 'qty' ? '<span style="font-size:10px;color:var(--tp-amber);">■ Requeridas</span><span style="font-size:10px;color:var(--tp-green);">■ Probadas</span>' : metric === 'pct' ? '<span style="font-size:10px;color:var(--tp-dim);">% Cumplimiento</span>' : '<span style="font-size:10px;color:var(--tp-red);">■ Deficit</span>'}
+        </div>`;
+    }
+
+    // Stacked bars (vertical)
+    if (chartType === 'stacked') {
+        const maxVal = Math.max(...data.map(r => r.req), 1);
+        return `<div class="tp-chart-bar">
+            ${data.map(r => {
+                const testedH = (r.tested / maxVal) * 100;
+                const defH = (Math.max(0, r.req - r.tested) / maxVal) * 100;
+                const pct = r.req > 0 ? Math.round(r.tested / r.req * 100) : 0;
+                return `<div class="tp-chart-col">
+                    <div class="tp-chart-value" style="font-size:8px;">${r.tested}/${r.req}</div>
+                    <div class="tp-chart-group" style="position:relative;">
+                        <div style="position:absolute;bottom:0;width:100%;height:${testedH + defH}%;display:flex;flex-direction:column;justify-content:flex-end;">
+                            <div style="height:${defH > 0 ? (defH/(testedH+defH)*100) : 0}%;background:var(--tp-red);opacity:0.3;border-radius:3px 3px 0 0;"></div>
+                            <div style="height:${testedH > 0 ? (testedH/(testedH+defH)*100) : 0}%;background:var(--tp-green);border-radius:0 0 3px 3px;"></div>
+                        </div>
+                    </div>
+                    <div class="tp-chart-label">${r.name.length > 8 ? r.name.slice(0,7) + '..' : r.name}</div>
+                    <div style="font-size:8px;font-weight:700;color:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${pct}%</div>
+                </div>`;
+            }).join('')}
+        </div>
+        <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">
+            <span style="font-size:10px;color:var(--tp-green);">■ Probadas</span>
+            <span style="font-size:10px;color:var(--tp-red);opacity:0.5;">■ Deficit</span>
+        </div>`;
+    }
+
+    // Default vertical bars
+    const maxReq = metric === 'pct' ? 100 : metric === 'deficit' ? Math.max(...data.map(r => Math.max(0, r.req - r.tested)), 1) : Math.max(...data.map(r => r.req), 1);
+    return `<div class="tp-chart-bar">
+        ${data.map(r => {
+            const pct = r.req > 0 ? Math.round(r.tested / r.req * 100) : 0;
+            if (metric === 'pct') {
+                return `<div class="tp-chart-col">
+                    <div class="tp-chart-value">${pct}%</div>
+                    <div class="tp-chart-group">
+                        <div class="tp-chart-fill" style="height:${pct}%;background:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};"></div>
+                    </div>
+                    <div class="tp-chart-label">${r.name.length > 8 ? r.name.slice(0,7) + '..' : r.name}</div>
+                </div>`;
+            }
+            if (metric === 'deficit') {
+                const def = Math.max(0, r.req - r.tested);
+                return `<div class="tp-chart-col">
+                    <div class="tp-chart-value">${def}</div>
+                    <div class="tp-chart-group">
+                        <div class="tp-chart-fill" style="height:${maxReq>0?(def/maxReq)*100:0}%;background:var(--tp-red);"></div>
+                    </div>
+                    <div class="tp-chart-label">${r.name.length > 8 ? r.name.slice(0,7) + '..' : r.name}</div>
+                </div>`;
+            }
+            return `<div class="tp-chart-col">
+                <div class="tp-chart-value">${r.tested}/${r.req}</div>
+                <div class="tp-chart-group">
+                    <div class="tp-chart-fill" style="height:${(r.req/maxReq)*100}%;background:var(--tp-amber);"></div>
+                    <div class="tp-chart-fill" style="height:${(r.tested/maxReq)*100}%;background:var(--tp-green);"></div>
+                </div>
+                <div class="tp-chart-label">${r.name.length > 8 ? r.name.slice(0,7) + '..' : r.name}</div>
+                <div style="font-size:8px;font-weight:700;color:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${pct}%</div>
+            </div>`;
+        }).join('')}
+    </div>
+    <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">
+        ${metric === 'qty' ? '<span style="font-size:10px;color:var(--tp-amber);">■ Requeridas</span><span style="font-size:10px;color:var(--tp-green);">■ Probadas</span>' : metric === 'pct' ? '<span style="font-size:10px;color:var(--tp-dim);">% Cumplimiento</span>' : '<span style="font-size:10px;color:var(--tp-red);">■ Deficit</span>'}
+    </div>`;
 }
 
 function tpRenderDashTable() {
@@ -1084,18 +1212,16 @@ function tpDeleteRulePreset(idx) {
 // ═══ SCHEDULE HELPERS ═══
 // Build pairs of (precon day, test day) based on working days
 // Rule: preconditioning on day N requires testing on day N+1 (min 12h soak)
-// Monday: can only precon (no test since Sunday is off unless specified)
-// Friday: can only test (no precon unless Saturday attendance)
+// Week runs Dom→Sab. Sunday preacon = Monday test, etc.
 function tpBuildTestSlots(workDays) {
-    const dayOrder = ['lun','mar','mie','jue','vie','sab'];
-    const dayLabels = {lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
-    const active = dayOrder.filter(d => workDays[d]);
-    const slots = []; // [{precon:'lun', test:'mar'}]
-    for (let i = 0; i < active.length; i++) {
-        const dayIdx = dayOrder.indexOf(active[i]);
-        // Check if next calendar day is also active
-        if (dayIdx + 1 < dayOrder.length && workDays[dayOrder[dayIdx + 1]]) {
-            slots.push({ precon: active[i], test: dayOrder[dayIdx + 1], preconLabel: dayLabels[active[i]], testLabel: dayLabels[dayOrder[dayIdx + 1]] });
+    const dayOrder = ['dom','lun','mar','mie','jue','vie','sab'];
+    const dayLabels = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+    const slots = [];
+    for (let i = 0; i < dayOrder.length - 1; i++) {
+        const preDay = dayOrder[i];
+        const testDay = dayOrder[i + 1];
+        if (workDays[preDay] && workDays[testDay]) {
+            slots.push({ precon: preDay, test: testDay, preconLabel: dayLabels[preDay], testLabel: dayLabels[testDay] });
         }
     }
     return slots;
@@ -1175,7 +1301,7 @@ function tpRenderWeekly(el) {
     _nextMon.setDate(_defDate.getDate() + ((_dow === 0 ? 1 : _dow === 6 ? 2 : 8 - _dow)));
     const _defDateStr = _nextMon.toISOString().slice(0, 10);
     // Persisted working days or default (Mon-Fri)
-    const _workDays = window._tpWorkDays || {lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
+    const _workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
 
     el.innerHTML = `
     <div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">
@@ -1198,11 +1324,11 @@ function tpRenderWeekly(el) {
             <div style="font-size:10px;font-weight:700;color:var(--tp-blue);margin-bottom:6px;">🗓 Dias de asistencia</div>
             <p style="font-size:9px;color:var(--tp-dim);margin-bottom:6px;">Selecciona los dias que asistiras. El preacondicionamiento requiere min. 12h, por lo que solo puedes probar al dia siguiente de preacondicionar.</p>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                ${['lun','mar','mie','jue','vie','sab'].map((d,i) => {
-                    const labels = ['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
+                ${['dom','lun','mar','mie','jue','vie','sab'].map((d,i) => {
+                    const labels = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
                     const checked = _workDays[d] ? 'checked' : '';
                     return `<label style="display:flex;align-items:center;gap:3px;font-size:10px;color:var(--tp-text);cursor:pointer;padding:4px 8px;border:1px solid var(--tp-border);border-radius:6px;background:${_workDays[d]?'rgba(59,130,246,0.1)':'transparent'};">
-                        <input type="checkbox" ${checked} onchange="if(!window._tpWorkDays)window._tpWorkDays={lun:true,mar:true,mie:true,jue:true,vie:true,sab:false};window._tpWorkDays['${d}']=this.checked;tpRender();" style="accent-color:var(--tp-blue);">
+                        <input type="checkbox" ${checked} onchange="if(!window._tpWorkDays)window._tpWorkDays={dom:false,lun:true,mar:true,mie:true,jue:true,vie:true,sab:false};window._tpWorkDays['${d}']=this.checked;tpRender();" style="accent-color:var(--tp-blue);">
                         ${labels[i]}
                     </label>`;
                 }).join('')}
@@ -1269,7 +1395,7 @@ function tpRenderWeekly(el) {
         const pct = tot > 0 ? Math.round((done/tot)*100) : 0;
         const isEdit = window._tpEditWeek === idx;
         const dt = w.weekDate ? new Date(w.weekDate + 'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) : new Date(w.created).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
-        const dayLabels = {lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
+        const dayLabels = {dom:'D',lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
         const wdStr = w.workDays ? Object.keys(dayLabels).filter(d => w.workDays[d]).map(d => dayLabels[d]).join('') : '';
         // Group items by test day for schedule view
         const dayGroups = {};
@@ -1278,7 +1404,7 @@ function tpRenderWeekly(el) {
             if (!dayGroups[key]) dayGroups[key] = [];
             dayGroups[key].push({item, ii});
         });
-        const dayFullLabels = {lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+        const dayFullLabels = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
         const hasSchedule = w.items.some(i => i.testDay);
         return `
         <div class="tp-card" style="border-left:3px solid ${pct===100?'var(--tp-green)':carryoverCount>0&&w.accepted?'#8b5cf6':pct>0?'var(--tp-amber)':'var(--tp-blue)'};">
@@ -1301,7 +1427,7 @@ function tpRenderWeekly(el) {
                     <button class="tp-btn tp-btn-ghost" onclick="if(confirm('¿Eliminar semana ${idx+1}?')){tpState.weeklyPlans.splice(${idx},1);tpSave();tpRender();}" style="font-size:10px;color:var(--tp-red);">🗑</button>
                 </div>
             </div>
-            ${hasSchedule ? ['lun','mar','mie','jue','vie','sab'].filter(d => dayGroups[d] && dayGroups[d].length > 0).map(d => `
+            ${hasSchedule ? ['dom','lun','mar','mie','jue','vie','sab'].filter(d => dayGroups[d] && dayGroups[d].length > 0).map(d => `
             <div style="margin-bottom:6px;">
                 <div style="font-size:9px;font-weight:700;color:var(--tp-blue);padding:3px 6px;background:rgba(59,130,246,0.06);border-radius:4px;margin-bottom:3px;">
                     Prueba ${dayFullLabels[d]} (Preacon ${dayFullLabels[dayGroups[d][0].item.preconDay] || '?'})
@@ -1357,7 +1483,7 @@ function tpGenerateWeekly() {
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     const capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
     const weekDate = document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0,10);
-    const workDays = window._tpWorkDays || {lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
+    const workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
     const manualPicks = window._tpWeeklyManualPicks || [];
     const analysis = tpGetAnalysis();
     const pool = analysis.filter(c => c.deficit > 0).sort((a,b) => b.score - a.score);
@@ -1468,8 +1594,8 @@ function tpRenderWeekHistory(el) {
         el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay semanas archivadas. Las semanas se archivan automaticamente al aceptarlas.</div>';
         return;
     }
-    const dayLabels = {lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
-    const dayFull = {lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+    const dayLabels = {dom:'D',lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
+    const dayFull = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
     // Summary metrics
     const totalWeeks = hist.length;
     const totalCompleted = hist.reduce((s,h) => s + h.completed, 0);
