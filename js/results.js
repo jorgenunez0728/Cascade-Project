@@ -196,10 +196,10 @@ if (raState.profiles.length === 0) {
           labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHC:'NMHC',BagCH4:'CH₄',BagNMHCpNOX:'NMHC+NOx',DilutePN:'PN (#/km)',CellTemperature:'Temp.Celda',Barometer:'Presión',CellAirRH:'HR%'}
         },
         { id:'wltp-sulev30', name:'WLTP — SULEV 30 (USA/Canada)', regulation:'SULEV 30', testMode:'WLTP',
-          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagNMHCpNOX','BagNOX','BagTHC','BagCH4','DilutePN'],
-          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagNMHCpNOX','DilutePN','CellTemperature','Barometer'],
-          limits:{BagNMHCpNOX:0.03,BagCO:1.0,DilutePN:6e11},
-          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHCpNOX:'NMHC+NOx',BagCH4:'CH₄',DilutePN:'PN (#/km)'}
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagNMHCpNOX','BagNMOGpNOX','BagNOX','BagTHC','BagCH4','DilutePN'],
+          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagNMHCpNOX','BagNMOGpNOX','DilutePN','CellTemperature','Barometer'],
+          limits:{BagNMHCpNOX:0.03,BagNMOGpNOX:0.03,BagCO:1.0,DilutePN:6e11},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHCpNOX:'NMHC+NOx',BagNMOGpNOX:'NMOG+NOx',BagCH4:'CH₄',DilutePN:'PN (#/km)'}
         },
     ];
     raSave();
@@ -587,7 +587,9 @@ function raImportJSON(){
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function raRenderProfiles(el){
-    const allCols=['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCOMass','BagCO2','BagCO2Mass','BagTHC','BagTHCMass','BagCH4','BagCH4Mass','BagNOX','BagNOXMass','BagNMHC','BagNMHCMass','BagHCpNOX','BagHCpNOXMass','BagNMHCpNOX','BagNMHCpNOXMass','DilutePN','DilutePNFlowWeighted','FuelConsumedBag','BagCO2Regulated','BagCORegulated','BagTHCRegulated','BagNOXRegulated','BagNMHCRegulated','BagCH4Regulated','FuelConsumptionRegulatedBag','BagCO2_RCB','BagCO2SDC','DrivenDistance','REESSEnergyChange'];
+    const allCols=['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCOMass','BagCO2','BagCO2Mass','BagTHC','BagTHCMass','BagCH4','BagCH4Mass','BagNOX','BagNOXMass','BagNMHC','BagNMHCMass','BagHCpNOX','BagHCpNOXMass','BagNMHCpNOX','BagNMHCpNOXMass','BagNMOGpNOX','BagNMOGpNOXMass','DilutePN','DilutePNFlowWeighted','FuelConsumedBag','BagCO2Regulated','BagCORegulated','BagTHCRegulated','BagNOXRegulated','BagNMHCRegulated','BagCH4Regulated','FuelConsumptionRegulatedBag','BagCO2_RCB','BagCO2SDC','DrivenDistance','REESSEnergyChange'];
+    // Track which profile is open
+    const openIdx = window._raProfileOpen != null ? window._raProfileOpen : -1;
 
     el.innerHTML=`
     <div class="tp-card">
@@ -595,31 +597,70 @@ function raRenderProfiles(el){
             <button class="tp-btn tp-btn-primary" onclick="raAddProfile()">+ Nuevo Perfil</button>
         </div>
         <p style="font-size:10px;color:var(--tp-dim);margin-bottom:12px;">Define qué columnas y límites aplican por regulación. El sistema matchea automáticamente al analizar resultados.</p>
-        ${raState.profiles.map((p,pi)=>`
-        <details style="margin-bottom:8px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;">
-            <summary style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;list-style:none;background:var(--tp-card);">
+        ${raState.profiles.map((p,pi)=>{
+            const isOpen = openIdx === pi;
+            return `
+        <div style="margin-bottom:8px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;">
+            <div onclick="window._raProfileOpen=${isOpen?-1:pi};raRender();" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;background:var(--tp-card);">
                 <div><span style="font-weight:700;font-size:12px;color:#06b6d4;">${p.name}</span>
                 <span style="font-size:10px;color:var(--tp-dim);margin-left:8px;">${p.regulation}</span></div>
-                <div style="display:flex;gap:4px;">
+                <div style="display:flex;gap:4px;align-items:center;">
                     <span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;border:1px solid rgba(6,182,212,0.3);font-size:8px;">${p.cycleColumns.length} cols</span>
                     <span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);border:1px solid rgba(245,158,11,0.3);font-size:8px;">${Object.keys(p.limits).length} lím</span>
+                    <span style="font-size:12px;color:var(--tp-dim);">${isOpen?'▲':'▼'}</span>
                 </div>
-            </summary>
+            </div>
+            ${isOpen?`
             <div style="padding:12px 14px;background:#0d1422;border-top:1px solid var(--tp-border);">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
                     <div><label style="font-size:10px;color:var(--tp-dim);">Nombre</label><input class="tp-input" value="${p.name}" onchange="raState.profiles[${pi}].name=this.value;raSave();"></div>
                     <div><label style="font-size:10px;color:var(--tp-dim);">Regulaciones (coma-separadas)</label><input class="tp-input" value="${p.regulation}" onchange="raState.profiles[${pi}].regulation=this.value;raSave();"></div>
                 </div>
+
                 <div style="margin-bottom:10px;">
-                    <label style="font-size:10px;color:var(--tp-dim);">Columnas de CycleResults</label>
-                    <div style="display:flex;flex-wrap:wrap;gap:3px;max-height:130px;overflow-y:auto;margin-top:4px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <label style="font-size:10px;color:var(--tp-dim);">Columnas de CycleResults</label>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:3px;max-height:160px;overflow-y:auto;margin-top:4px;">
                         ${allCols.map(c=>`<label style="font-size:8px;color:var(--tp-text);display:flex;align-items:center;gap:2px;padding:2px 5px;background:${p.cycleColumns.includes(c)?'rgba(6,182,212,0.15)':'var(--tp-card)'};border-radius:3px;border:1px solid ${p.cycleColumns.includes(c)?'rgba(6,182,212,0.3)':'var(--tp-border)'};cursor:pointer;"><input type="checkbox" ${p.cycleColumns.includes(c)?'checked':''} onchange="raToggleCol(${pi},'${c}',this.checked)" style="width:12px;height:12px;"> ${c}</label>`).join('')}
                     </div>
                 </div>
+
+                <div style="margin-bottom:10px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <label style="font-size:10px;color:var(--tp-dim);">Agregar variable personalizada</label>
+                    </div>
+                    <div style="display:flex;gap:5px;align-items:center;">
+                        <input class="tp-input" id="ra-custom-col-${pi}" placeholder="NombreDeColumna" style="flex:1;font-size:10px;">
+                        <button class="tp-btn tp-btn-primary" onclick="raAddCustomCol(${pi})" style="font-size:10px;">+</button>
+                    </div>
+                    <p style="font-size:8px;color:var(--tp-dim);margin-top:3px;">Escribe el nombre exacto de la columna del CSV. Se agregara a la lista de columnas disponibles.</p>
+                </div>
+
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:10px;color:var(--tp-dim);">Unidad de consumo</label>
+                    <div style="display:flex;gap:6px;margin-top:4px;">
+                        <button class="tp-btn ${(p.fuelUnit||'l100km')==='l100km'?'tp-btn-primary':'tp-btn-ghost'}" onclick="raState.profiles[${pi}].fuelUnit='l100km';raSave();raRender();" style="font-size:9px;">L/100km</button>
+                        <button class="tp-btn ${p.fuelUnit==='kml'?'tp-btn-primary':'tp-btn-ghost'}" onclick="raState.profiles[${pi}].fuelUnit='kml';raSave();raRender();" style="font-size:9px;">km/L</button>
+                        <button class="tp-btn ${p.fuelUnit==='mpg'?'tp-btn-primary':'tp-btn-ghost'}" onclick="raState.profiles[${pi}].fuelUnit='mpg';raSave();raRender();" style="font-size:9px;">mpg</button>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:10px;color:var(--tp-dim);">Reportar consumo/FE por fase</label>
+                    <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+                        <label style="font-size:9px;color:var(--tp-text);display:flex;align-items:center;gap:3px;cursor:pointer;">
+                            <input type="checkbox" ${p.showPhaseFuel?'checked':''} onchange="raState.profiles[${pi}].showPhaseFuel=this.checked;raSave();" style="accent-color:#06b6d4;">
+                            Mostrar Fuel en fases individuales (F1-F4)
+                        </label>
+                    </div>
+                    <p style="font-size:8px;color:var(--tp-dim);margin-top:2px;">Aplica para WLTP/Combo con 3-4 fases. Muestra FuelConsumption y FuelEconomy en cada fase.</p>
+                </div>
+
                 <div style="margin-bottom:10px;">
                     <label style="font-size:10px;color:var(--tp-dim);">Límites regulatorios</label>
                     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
-                        ${p.cycleColumns.filter(c=>c.startsWith('Bag')||c.startsWith('Fuel')||c==='DilutePN').map(c=>`
+                        ${p.cycleColumns.filter(c=>c.startsWith('Bag')||c.startsWith('Fuel')||c==='DilutePN'||c.startsWith('BagNMOG')).map(c=>`
                             <div style="display:flex;align-items:center;gap:3px;">
                                 <span style="font-size:8px;color:var(--tp-dim);width:60px;">${p.labels&&p.labels[c]||c}:</span>
                                 <input class="tp-input" type="number" step="any" value="${p.limits[c]!=null?p.limits[c]:''}" style="width:75px;font-size:10px;" onchange="if(this.value){raState.profiles[${pi}].limits['${c}']=parseFloat(this.value);}else{delete raState.profiles[${pi}].limits['${c}'];}raSave();">
@@ -630,9 +671,10 @@ function raRenderProfiles(el){
                     <label style="font-size:10px;color:var(--tp-dim);">Labels personalizados (JSON)</label>
                     <input class="tp-input" value='${JSON.stringify(p.labels||{})}' onchange="try{raState.profiles[${pi}].labels=JSON.parse(this.value);raSave();}catch(e){}" style="font-size:9px;font-family:monospace;">
                 </div>
-                <button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Eliminar?')){raState.profiles.splice(${pi},1);raSave();raRender();}" style="font-size:10px;">🗑 Eliminar</button>
-            </div>
-        </details>`).join('')}
+                <button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Eliminar?')){raState.profiles.splice(${pi},1);window._raProfileOpen=-1;raSave();raRender();}" style="font-size:10px;">🗑 Eliminar</button>
+            </div>`:''}
+        </div>`;
+        }).join('')}
     </div>`;
 }
 
@@ -640,13 +682,42 @@ function raToggleCol(pi,col,checked){
     const arr=raState.profiles[pi].cycleColumns;
     if(checked&&!arr.includes(col)) arr.push(col);
     if(!checked){const i=arr.indexOf(col);if(i>=0)arr.splice(i,1);}
+    raSave();
+    // Re-render keeping the same profile open
+    raRender();
+}
+
+function raAddCustomCol(pi){
+    const input=document.getElementById('ra-custom-col-'+pi);
+    if(!input||!input.value.trim()) return;
+    const colName=input.value.trim();
+    if(!raState.profiles[pi].cycleColumns.includes(colName)){
+        raState.profiles[pi].cycleColumns.push(colName);
+    }
     raSave();raRender();
+}
+
+function raConvertFuel(value, fromUnit, toUnit){
+    // fromUnit is always l/100km (raw data), toUnit is user preference
+    if(!value || typeof value !== 'number' || value===0) return value;
+    if(toUnit==='kml') return 100/value; // km/L
+    if(toUnit==='mpg') return 235.215/value; // US mpg
+    return value; // l/100km
+}
+
+function raGetFuelLabel(profile){
+    const u = profile && profile.fuelUnit || 'l100km';
+    if(u==='kml') return 'km/L';
+    if(u==='mpg') return 'mpg';
+    return 'L/100km';
 }
 
 function raAddProfile(){
     raState.profiles.push({id:'p'+Date.now(),name:'Nuevo Perfil',regulation:'',testMode:'WLTP',
         cycleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX'],
-        sampleColumns:['FuelConsumptionBag','BagCO','BagCO2'],limits:{},labels:{}});
+        sampleColumns:['FuelConsumptionBag','BagCO','BagCO2'],limits:{},labels:{},
+        fuelUnit:'l100km',showPhaseFuel:false});
+    window._raProfileOpen=raState.profiles.length-1;
     raSave();raRender();
 }
 
@@ -883,8 +954,56 @@ function raRenderDetail(el){
     const lbls=profile?profile.labels:{};
     const phases=test.sampleData||[];
     const comp=test.cycleData&&test.cycleData.length>0?test.cycleData[test.cycleData.length-1]:{};
+    const fuelUnit=profile&&profile.fuelUnit||'l100km';
+    const fuelLabel=raGetFuelLabel(profile);
+    const isFuelCol=c=>c==='FuelConsumptionBag'||c==='FuelEconomyBag'||c==='FuelConsumedBag'||c==='FuelConsumptionRegulatedBag';
+
+    function fmtVal(c,v){
+        if(v==null||typeof v!=='number') return v||'—';
+        if(isFuelCol(c)&&(c==='FuelConsumptionBag'||c==='FuelConsumptionRegulatedBag')){
+            const converted=raConvertFuel(v,'l100km',fuelUnit);
+            return Math.abs(converted)>1e6?converted.toExponential(2):converted.toFixed(fuelUnit==='l100km'?4:2);
+        }
+        return Math.abs(v)>1e6?v.toExponential(2):v.toFixed(4);
+    }
+    function colLabel(c){
+        if(isFuelCol(c)&&(c==='FuelConsumptionBag'||c==='FuelConsumptionRegulatedBag')){
+            if(fuelUnit==='kml') return lbls[c]?lbls[c].replace(/l\/100km|L\/100km/i,'km/L'):'Consumo ('+fuelLabel+')';
+            if(fuelUnit==='mpg') return lbls[c]?lbls[c].replace(/l\/100km|L\/100km/i,'mpg'):'Consumo ('+fuelLabel+')';
+        }
+        return lbls[c]||c;
+    }
 
     const _hasReturnCtx = typeof window._tpReturnContext !== 'undefined' && window._tpReturnContext !== null;
+
+    // Build per-phase fuel rows if enabled
+    const showPhaseFuel = profile && profile.showPhaseFuel && phases.length >= 2;
+    let phaseFuelHtml = '';
+    if(showPhaseFuel){
+        const fuelCols = ['FuelConsumptionBag','FuelEconomyBag'].filter(c=>cols.includes(c)||phases.some(ph=>ph[c]!=null));
+        if(fuelCols.length>0){
+            phaseFuelHtml = `<div class="tp-card">
+                <div class="tp-card-title"><span>⛽ Consumo por Fase</span><span style="font-size:9px;color:var(--tp-dim);margin-left:8px;">Unidad: ${fuelLabel}</span></div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;">
+                    ${phases.map((ph,i)=>{
+                        const fc=ph['FuelConsumptionBag'];
+                        const dispVal=fc!=null?fmtVal('FuelConsumptionBag',fc):'—';
+                        const fe=ph['FuelEconomyBag'];
+                        return `<div class="tp-metric" style="border-color:rgba(6,182,212,0.3);">
+                            <div class="tp-metric-val" style="color:#06b6d4;font-size:14px;">${dispVal}</div>
+                            <div class="tp-metric-label">Fase ${i+1} (${fuelLabel})</div>
+                            ${fe!=null?`<div style="font-size:8px;color:var(--tp-dim);">FE: ${fe.toFixed(2)}</div>`:''}
+                        </div>`;
+                    }).join('')}
+                    <div class="tp-metric" style="border-color:rgba(245,158,11,0.3);">
+                        <div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">${comp['FuelConsumptionBag']!=null?fmtVal('FuelConsumptionBag',comp['FuelConsumptionBag']):'—'}</div>
+                        <div class="tp-metric-label">Composite (${fuelLabel})</div>
+                        ${comp['FuelEconomyBag']!=null?`<div style="font-size:8px;color:var(--tp-dim);">FE: ${comp['FuelEconomyBag'].toFixed(2)}</div>`:''}
+                    </div>
+                </div>
+            </div>`;
+        }
+    }
 
     el.innerHTML=`
     ${_hasReturnCtx ? `<div style="margin-bottom:8px;"><button class="tp-btn tp-btn-ghost" onclick="if(typeof tpReturnFromRA==='function')tpReturnFromRA();" style="font-size:11px;color:var(--tp-amber);border:1px solid var(--tp-amber);padding:5px 14px;">← Volver a Test Plan</button></div>` : ''}
@@ -897,6 +1016,7 @@ function raRenderDetail(el){
             <div style="text-align:right;">
                 <span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);border:1px solid rgba(16,185,129,0.3);">${test.testStatus||'?'}</span>
                 ${profile?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);margin-left:4px;">Perfil: ${profile.name}</span>`:''}
+                <span style="font-size:8px;color:var(--tp-dim);display:block;margin-top:2px;">Consumo: ${fuelLabel}</span>
             </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:8px;font-size:10px;color:var(--tp-dim);">
@@ -920,31 +1040,35 @@ function raRenderDetail(el){
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">
             ${cols.map(c=>{
                 const v=comp[c]; const lm=lims[c];
+                const dispV=fmtVal(c,v);
+                const absV=isFuelCol(c)&&v?Math.abs(raConvertFuel(v,'l100km',fuelUnit)):v?Math.abs(v):0;
                 const pct=lm&&v?(Math.abs(v)/lm*100):null;
                 const over=lm&&v&&Math.abs(v)>lm;
                 return `<div class="tp-metric" style="border-color:${over?'var(--tp-red)':pct&&pct>80?'var(--tp-amber)':'var(--tp-border)'};">
-                    <div class="tp-metric-val" style="color:${over?'var(--tp-red)':'var(--tp-text)'};font-size:13px;">${v!=null&&typeof v==='number'?(Math.abs(v)>1e6?v.toExponential(2):v.toFixed(4)):v||'—'}</div>
-                    <div class="tp-metric-label">${lbls[c]||c}</div>
+                    <div class="tp-metric-val" style="color:${over?'var(--tp-red)':'var(--tp-text)'};font-size:13px;">${dispV}</div>
+                    <div class="tp-metric-label">${colLabel(c)}</div>
                     ${lm?`<div style="margin-top:3px;"><div class="tp-bar" style="height:8px;"><div class="tp-bar-fill" style="width:${Math.min(pct||0,100)}%;background:${over?'var(--tp-red)':pct>80?'var(--tp-amber)':'var(--tp-green)'};"></div><span class="tp-bar-text" style="font-size:6px;">${pct?pct.toFixed(0):'0'}%</span></div><div style="font-size:6px;color:var(--tp-dim);text-align:center;">Lím: ${lm}</div></div>`:''}
                 </div>`;
             }).join('')}
         </div>
     </div>
 
+    ${phaseFuelHtml}
+
     ${phases.length>0?`
     <div class="tp-card">
         <div class="tp-card-title"><span>📊 Por Fase</span></div>
         <div style="overflow-x:auto;">
             <table class="tp-table">
-                <thead><tr><th>Fase</th>${cols.map(c=>`<th style="text-align:right;font-size:8px;">${lbls[c]||c}</th>`).join('')}</tr></thead>
+                <thead><tr><th>Fase</th>${cols.map(c=>`<th style="text-align:right;font-size:8px;">${colLabel(c)}</th>`).join('')}</tr></thead>
                 <tbody>
                     ${phases.map((ph,i)=>`<tr>
                         <td style="font-weight:700;color:#06b6d4;">F${i+1}</td>
-                        ${cols.map(c=>{const v=ph[c];const lm=lims[c];return `<td style="text-align:right;font-family:monospace;font-size:9px;color:${lm&&v&&Math.abs(v)>lm?'var(--tp-red)':'var(--tp-text)'};">${v!=null&&typeof v==='number'?(Math.abs(v)>1e6?v.toExponential(2):v.toFixed(4)):'—'}</td>`;}).join('')}
+                        ${cols.map(c=>{const v=ph[c];const lm=lims[c];return `<td style="text-align:right;font-family:monospace;font-size:9px;color:${lm&&v&&Math.abs(v)>lm?'var(--tp-red)':'var(--tp-text)'};">${fmtVal(c,v)}</td>`;}).join('')}
                     </tr>`).join('')}
                     <tr style="font-weight:700;border-top:2px solid var(--tp-border);">
                         <td style="color:var(--tp-amber);">COMP</td>
-                        ${cols.map(c=>{const v=comp[c];return `<td style="text-align:right;font-family:monospace;font-size:9px;color:var(--tp-amber);">${v!=null&&typeof v==='number'?(Math.abs(v)>1e6?v.toExponential(2):v.toFixed(4)):'—'}</td>`;}).join('')}
+                        ${cols.map(c=>{const v=comp[c];return `<td style="text-align:right;font-family:monospace;font-size:9px;color:var(--tp-amber);">${fmtVal(c,v)}</td>`;}).join('')}
                     </tr>
                 </tbody>
             </table>
