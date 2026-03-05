@@ -189,17 +189,40 @@ let raState = JSON.parse(localStorage.getItem(RA_LS_KEY)) || {
 
 if (raState.profiles.length === 0) {
     raState.profiles = [
-        { id:'wltp-euro6', name:'WLTP — EURO 6 / PRE-EURO 7', regulation:'EURO-6C,PRE-EURO 7,EURO-5,EURO-4,EURO-3,EURO-2', testMode:'WLTP',
+        { id:'wltp-euro6', name:'WLTP — Pre-Euro 7 / Euro 6', regulation:'PRE-EURO 7,EURO-6E,EURO-6D,EURO-6C,EURO-6,EURO-4,EURO-3,EURO-2', testMode:'WLTP',
           cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','BagNMHCpNOX','DilutePN'],
           sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','DilutePN','CellTemperature','Barometer','CellAirRH'],
           limits:{BagCO:1.0,BagTHC:0.1,BagNOX:0.06,BagNMHC:0.068,BagNMHCpNOX:0.16,DilutePN:6e11},
-          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHC:'NMHC',BagCH4:'CH₄',BagNMHCpNOX:'NMHC+NOx',DilutePN:'PN (#/km)',CellTemperature:'Temp.Celda',Barometer:'Presión',CellAirRH:'HR%'}
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHC:'NMHC',BagCH4:'CH₄',BagNMHCpNOX:'NMHC+NOx',DilutePN:'PN (#/km)',CellTemperature:'Temp.Celda',Barometer:'Presión',CellAirRH:'HR%'},
+          fuelUnit:'l100km',showPhaseFuel:false
         },
-        { id:'wltp-sulev30', name:'WLTP — SULEV 30 (USA/Canada)', regulation:'SULEV 30', testMode:'WLTP',
+        { id:'nedc-euro5b', name:'NEDC — Euro 5b', regulation:'EURO-5B,EURO-5', testMode:'NEDC',
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','DilutePN'],
+          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','DilutePN','CellTemperature','Barometer','CellAirRH'],
+          limits:{BagCO:1.0,BagTHC:0.1,BagNOX:0.06,BagNMHC:0.068,DilutePN:6e11},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHC:'NMHC',BagCH4:'CH₄',DilutePN:'PN (#/km)',CellTemperature:'Temp.Celda',Barometer:'Presión',CellAirRH:'HR%'},
+          fuelUnit:'l100km',showPhaseFuel:false
+        },
+        { id:'ftp-tier2bin7', name:'FTP-75 — EPA Tier 2 Bin 7', regulation:'TIER 2 BIN 7,TIER2-BIN7,EPA-T2B7,TIER 2,BIN 7', testMode:'FTP',
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMOGpNOX','HCHO','DilutePN'],
+          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMOGpNOX','HCHO','DilutePN','CellTemperature','Barometer'],
+          limits:{BagCO:4.2,BagTHC:0.09,BagNOX:0.07,BagNMOGpNOX:0.16,HCHO:0.018},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMOGpNOX:'NMOG+NOx',HCHO:'Formaldehído',DilutePN:'PN (#/km)',CellTemperature:'Temp.Celda',Barometer:'Presión'},
+          fuelUnit:'l100km',showPhaseFuel:false
+        },
+        { id:'wltp-sulev30', name:'WLTP — SULEV 30 (USA/Canada)', regulation:'SULEV 30,SULEV30,LEV III,LEV-III', testMode:'WLTP',
           cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagNMHCpNOX','BagNMOGpNOX','BagNOX','BagTHC','BagCH4','DilutePN'],
           sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagNMHCpNOX','BagNMOGpNOX','DilutePN','CellTemperature','Barometer'],
           limits:{BagNMHCpNOX:0.03,BagNMOGpNOX:0.03,BagCO:1.0,DilutePN:6e11},
-          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHCpNOX:'NMHC+NOx',BagNMOGpNOX:'NMOG+NOx',BagCH4:'CH₄',DilutePN:'PN (#/km)'}
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHCpNOX:'NMHC+NOx',BagNMOGpNOX:'NMOG+NOx',BagCH4:'CH₄',DilutePN:'PN (#/km)'},
+          fuelUnit:'l100km',showPhaseFuel:false
+        },
+        { id:'ftp-sulev30', name:'FTP-75 — SULEV 30', regulation:'SULEV 30 FTP,SULEV30-FTP,SULEV30 FTP', testMode:'FTP',
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagNMOGpNOX','BagNOX','BagTHC','HCHO','DilutePN'],
+          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagNMOGpNOX','BagNOX','HCHO','DilutePN','CellTemperature','Barometer'],
+          limits:{BagNMOGpNOX:0.03,BagCO:1.0,HCHO:0.004,DilutePN:6e11},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMOGpNOX:'NMOG+NOx',HCHO:'Formaldehído',DilutePN:'PN (#/km)'},
+          fuelUnit:'l100km',showPhaseFuel:false
         },
     ];
     raSave();
