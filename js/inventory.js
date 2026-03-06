@@ -770,7 +770,7 @@ function invShowZone(zoneId) {
 // READINGS (Daily pressure readings)
 // ══════════════════════════════════════════════════
 function invRenderReadings(el) {
-    var gases = invState.gases.filter(function(g){ return g.status === 'In use'; });
+    var gases = invState.gases.filter(function(g){ return g.status !== 'Empty'; });
     var html = '<div class="tp-card"><div class="tp-card-title"><span>Lecturas Diarias de Presion</span>';
     html += '<div style="display:flex;gap:6px;">';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size:10px;border-color:#8b5cf6;color:#8b5cf6;">📷 Escanear</button>';
@@ -821,7 +821,7 @@ function invRenderReadings(el) {
 function invBulkReading() {
     var date = new Date().toISOString().slice(0,10);
     var count = 0;
-    invState.gases.filter(function(g){ return g.status === 'In use'; }).forEach(function(g) {
+    invState.gases.filter(function(g){ return g.status !== 'Empty'; }).forEach(function(g) {
         var inp = document.getElementById('inv-rd-' + g.id);
         if (inp && inp.value) {
             var psi = parseFloat(inp.value);
@@ -947,7 +947,7 @@ function invScanFilter() {
     if (!container) return;
     var q = input ? input.value.toLowerCase().trim() : '';
 
-    var gases = invState.gases.filter(function(g) { return g.status === 'In use'; });
+    var gases = invState.gases.filter(function(g) { return g.status !== 'Empty'; });
     if (q.length > 0) {
         gases = gases.filter(function(g) {
             return (g.controlNo || '').toLowerCase().includes(q) ||
