@@ -1353,6 +1353,61 @@ function invRenderPredict(el) {
     }
 
     // ═══════════════════════════════════════════════
+    // 3.5 WEEKLY PLAN FORECAST (Mejora D)
+    // ═══════════════════════════════════════════════
+    var weeklyForecast = invForecastForWeeklyPlan(rates);
+    if (weeklyForecast && weeklyForecast.items.length > 0) {
+        var wf = weeklyForecast;
+        var criticalCount = wf.items.filter(function(i) { return i.needsReorder; }).length;
+        var borderColor = criticalCount > 0 ? '#ef4444' : '#10b981';
+        html += '<div class="tp-card" style="border-left:3px solid ' + borderColor + ';">';
+        html += '<div class="tp-card-title"><span>🗓 Forecast Semanal: ' + wf.planLabel + '</span>';
+        if (criticalCount > 0) html += '<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">⚠ ' + criticalCount + ' requieren reorden</span>';
+        html += '</div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Consumo estimado para el plan semanal aceptado (' + wf.testCount + ' pruebas). Basado en tasas EWMA aprendidas.</div>';
+
+        // Gas forecast table
+        var gasItems = wf.items.filter(function(i) { return i.type === 'gas'; });
+        if (gasItems.length > 0) {
+            html += '<div style="font-size:10px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Gases</div>';
+            gasItems.forEach(function(item) {
+                var clr = item.needsReorder ? '#ef4444' : item.pctUsage > 50 ? '#f59e0b' : '#10b981';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;flex-wrap:wrap;gap:4px;">';
+                html += '<span style="font-size:10px;">' + item.name + '</span>';
+                html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+                html += '<span style="font-size:9px;color:var(--tp-dim);">Actual: <strong>' + item.currentLevel + '</strong> psi</span>';
+                html += '<span style="font-size:9px;color:var(--tp-amber);">Uso plan: <strong>' + item.estimatedUsage.toFixed(0) + '</strong> psi</span>';
+                html += '<span style="font-size:9px;color:' + clr + ';">Post-plan: <strong>' + item.postPlanLevel.toFixed(0) + '</strong> psi</span>';
+                html += '<span style="font-size:9px;font-weight:700;color:' + clr + ';">' + item.recommendation + '</span>';
+                html += '</div></div>';
+            });
+        }
+
+        // Fuel forecast table
+        var fuelItems = wf.items.filter(function(i) { return i.type === 'fuel'; });
+        if (fuelItems.length > 0) {
+            html += '<div style="font-size:10px;font-weight:700;color:#f97316;margin-top:8px;margin-bottom:4px;">Combustible</div>';
+            fuelItems.forEach(function(item) {
+                var clr = item.needsReorder ? '#ef4444' : item.pctUsage > 50 ? '#f59e0b' : '#10b981';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;flex-wrap:wrap;gap:4px;">';
+                html += '<span style="font-size:10px;">' + item.name + '</span>';
+                html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+                html += '<span style="font-size:9px;color:var(--tp-dim);">Actual: <strong>' + item.currentLevel + '</strong> ' + (item.unit || 'L') + '</span>';
+                html += '<span style="font-size:9px;color:var(--tp-amber);">Uso plan: <strong>' + item.estimatedUsage.toFixed(1) + '</strong> ' + (item.unit || 'L') + '</span>';
+                html += '<span style="font-size:9px;color:' + clr + ';">Post-plan: <strong>' + item.postPlanLevel.toFixed(1) + '</strong> ' + (item.unit || 'L') + '</span>';
+                html += '<span style="font-size:9px;font-weight:700;color:' + clr + ';">' + item.recommendation + '</span>';
+                html += '</div></div>';
+            });
+        }
+
+        // Export button
+        html += '<div style="margin-top:8px;display:flex;gap:8px;">';
+        html += '<button onclick="invExportWeeklyForecast()" class="tp-btn tp-btn-ghost" style="font-size:10px;">📤 Exportar CSV</button>';
+        html += '</div>';
+        html += '</div>';
+    }
+
+    // ═══════════════════════════════════════════════
     // 4. INDIVIDUAL GAS PREDICTIONS
     // ═══════════════════════════════════════════════
     if (gases.length === 0) {
@@ -2821,6 +2876,165 @@ var INV_REFERENCE_RATES = {
     'CO/N2': 3.5, 'NO/N2': 3.0, 'CO2/N2': 2.5, 'CH4/Air': 2.0,
     'C3H8/Air': 2.8, 'N2O/N2': 2.0, 'ZERO': 1.5, 'H2/He': 1.0, 'O2/N2': 1.5
 };
+
+// ══════════════════════════════════════════════════
+// MEJORA D: WEEKLY PLAN FORECAST
+// ══════════════════════════════════════════════════
+
+function invForecastForWeeklyPlan(rates) {
+    // Get latest accepted weekly plan from Test Plan module
+    if (typeof tpState === 'undefined' || !tpState.weeklyPlans) return null;
+    var plan = tpState.weeklyPlans.slice().reverse().find(function(p) { return p.accepted && p.items; });
+    if (!plan) return null;
+
+    var pendingItems = plan.items.filter(function(i) { return !i.completed; });
+    if (pendingItems.length === 0) return null;
+
+    if (!rates) rates = invCalcConsumptionRates();
+
+    // Count tests by regulation
+    var regCounts = {};
+    pendingItems.forEach(function(item) {
+        var reg = item.reg || (item.desc ? item.desc.split(' ')[0] : 'General');
+        regCounts[reg] = (regCounts[reg] || 0) + 1;
+    });
+
+    var result = {
+        planLabel: 'Semana ' + (plan.weekDate || ''),
+        testCount: pendingItems.length,
+        items: []
+    };
+
+    // Gas forecast
+    invState.gases.filter(function(g) {
+        return g.status === 'In use' && g.readings && g.readings.length > 0;
+    }).forEach(function(g) {
+        var lastPsi = g.readings[g.readings.length - 1].psi;
+        var totalNeeded = 0;
+
+        Object.keys(regCounts).forEach(function(reg) {
+            if (rates.gas[g.formula] && rates.gas[g.formula][reg]) {
+                totalNeeded += rates.gas[g.formula][reg].ewma * regCounts[reg];
+            }
+        });
+
+        if (totalNeeded <= 0) return;
+
+        var postPlan = lastPsi - totalNeeded;
+        var pctUsage = lastPsi > 0 ? Math.round((totalNeeded / lastPsi) * 100) : 100;
+        var depletion = invPredictDepletion(g);
+        var daysAfterPlan = depletion ? depletion.daysLeft : 999;
+        var needsReorder = postPlan < 200 || pctUsage > 80;
+
+        var recommendation = 'OK';
+        if (postPlan <= 0) recommendation = 'AGOTADO';
+        else if (needsReorder) recommendation = 'REORDENAR';
+        else if (pctUsage > 50) recommendation = 'MONITOREAR';
+
+        result.items.push({
+            type: 'gas',
+            name: g.formula + ' ' + (g.concNominal || '') + ' #' + g.controlNo,
+            formula: g.formula,
+            currentLevel: lastPsi,
+            estimatedUsage: totalNeeded,
+            postPlanLevel: postPlan,
+            pctUsage: pctUsage,
+            daysAfterPlan: daysAfterPlan,
+            needsReorder: needsReorder,
+            recommendation: recommendation,
+            unit: 'psi'
+        });
+    });
+
+    // Fuel forecast
+    (invState.fuelTanks || []).filter(function(t) {
+        return t.readings && t.readings.length >= 1 && t.regulation;
+    }).forEach(function(t) {
+        var lastLevel = t.readings[t.readings.length - 1].level;
+        var reg = t.regulation;
+        if (!regCounts[reg]) return;
+        if (!rates.fuel[reg] || rates.fuel[reg].ewma <= 0) return;
+
+        var totalNeeded = rates.fuel[reg].ewma * regCounts[reg];
+        var postPlan = lastLevel - totalNeeded;
+        var pctUsage = lastLevel > 0 ? Math.round((totalNeeded / lastLevel) * 100) : 100;
+        var needsReorder = postPlan < (t.capacity * 0.15) || pctUsage > 80;
+
+        var recommendation = 'OK';
+        if (postPlan <= 0) recommendation = 'AGOTADO';
+        else if (needsReorder) recommendation = 'REORDENAR';
+        else if (pctUsage > 50) recommendation = 'MONITOREAR';
+
+        result.items.push({
+            type: 'fuel',
+            name: t.name,
+            currentLevel: lastLevel,
+            estimatedUsage: totalNeeded,
+            postPlanLevel: postPlan,
+            pctUsage: pctUsage,
+            needsReorder: needsReorder,
+            recommendation: recommendation,
+            unit: t.unit || 'L'
+        });
+    });
+
+    return result;
+}
+
+function invExportWeeklyForecast() {
+    var rates = invCalcConsumptionRates();
+    var forecast = invForecastForWeeklyPlan(rates);
+    if (!forecast || forecast.items.length === 0) {
+        showToast('No hay forecast disponible', 'warning');
+        return;
+    }
+
+    var csv = 'Consumible,Tipo,Nivel Actual,Uso Estimado Plan,Nivel Post-Plan,% Uso,Recomendacion\n';
+    forecast.items.forEach(function(item) {
+        csv += '"' + item.name + '",' + item.type + ',' + item.currentLevel + ',' +
+               item.estimatedUsage.toFixed(1) + ',' + item.postPlanLevel.toFixed(1) + ',' +
+               item.pctUsage + '%,' + item.recommendation + '\n';
+    });
+
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = 'forecast_semanal_' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    showToast('Forecast exportado', 'success');
+}
+
+// Also integrate forecast warning into tpSmartGenerate via global hook
+function invGetPlanImpactWarning(planItems) {
+    if (!planItems || planItems.length === 0) return '';
+    var rates = invCalcConsumptionRates();
+    if (rates.dataPoints === 0) return '';
+
+    var regCounts = {};
+    planItems.forEach(function(item) {
+        if (item.completed) return;
+        var reg = item.reg || (item.desc ? item.desc.split(' ')[0] : 'General');
+        regCounts[reg] = (regCounts[reg] || 0) + 1;
+    });
+
+    var criticalGases = [];
+    invState.gases.filter(function(g) {
+        return g.status === 'In use' && g.readings && g.readings.length > 0;
+    }).forEach(function(g) {
+        var lastPsi = g.readings[g.readings.length - 1].psi;
+        var totalNeeded = 0;
+        Object.keys(regCounts).forEach(function(reg) {
+            if (rates.gas[g.formula] && rates.gas[g.formula][reg]) {
+                totalNeeded += rates.gas[g.formula][reg].ewma * regCounts[reg];
+            }
+        });
+        if (totalNeeded > 0 && lastPsi < totalNeeded) {
+            criticalGases.push(g.formula + ' (' + lastPsi + '/' + totalNeeded.toFixed(0) + ' psi)');
+        }
+    });
+
+    if (criticalGases.length === 0) return '';
+    return 'Este plan agotaria: ' + criticalGases.join(', ');
+}
 
 function invPredictDepletion(g) {
     if (!g.readings || g.readings.length < 2) {

@@ -723,6 +723,7 @@ body{ overflow-x: hidden; }
 @keyframes swipeOutRight { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(40px); } }
 @keyframes swipeInLeft { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
 @keyframes swipeInRight { from { opacity:0; transform:translateX(-40px); } to { opacity:1; transform:translateX(0); } }
+@keyframes slideUp { from { opacity:0; transform:translate(-50%,20px); } to { opacity:1; transform:translate(-50%,0); } }
 
     </style>
 </head>
@@ -3599,8 +3600,143 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
   updateProgressBar();
+
+  // Mejora A: Auto-advance suggestion
+  if (isEm) checkAutoAdvance(vehicle);
 }
 
+
+// ======================================================================
+// [M09b] AUTO-AVANCE DE STATUS
+// ======================================================================
+
+function checkAutoAdvance(vehicle) {
+  if (!vehicle || !vehicle.testData) return;
+  var status = vehicle.status;
+  var td = vehicle.testData;
+  var p = td.preconditioning || {};
+  var statusEl = document.getElementById('op_status');
+  if (!statusEl) return;
+
+  var suggestion = null;
+  var nextStatus = null;
+  var missingCount = 0;
+
+  if (status === 'registered' || status === 'in-progress') {
+    // Check if preconditioning section is complete
+    var precondFields = [p.datetime, p.responsible, p.cycle, p.ok];
+    var filled = precondFields.filter(function(f) { return f && f !== ''; }).length;
+    missingCount = precondFields.length - filled;
+
+    if (filled === precondFields.length && p.ok === 'Si') {
+      // Check soak timer
+      var soakData = null;
+      try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
+      var soakDone = !soakData || !soakData.endTime || soakData.endTime <= Date.now();
+
+      if (soakDone) {
+        suggestion = 'Preacondicionamiento completo. ¿Avanzar a "En Prueba"?';
+        nextStatus = 'testing';
+      } else {
+        var remaining = soakData.endTime - Date.now();
+        var hrs = Math.floor(remaining / 3600000);
+        var mins = Math.floor((remaining % 3600000) / 60000);
+        suggestion = 'Precond OK. Soak restante: ' + hrs + 'h ' + mins + 'm';
+        nextStatus = null; // Don't suggest advance yet
+      }
+    } else if (status === 'registered' && filled >= 2) {
+      suggestion = 'Precond en progreso (' + filled + '/' + precondFields.length + '). ¿Avanzar a "En Progreso"?';
+      nextStatus = 'in-progress';
+    }
+  } else if (status === 'testing') {
+    // Check if test verification is complete
+    var tv = td.testVerification || {};
+    var testFields = [tv.tunnel, tv.dyno, tv.fanMode, tv.inertiaOk, tv.chains, tv.slings, tv.hood];
+    var filledTest = testFields.filter(function(f) { return f && f !== ''; }).length;
+    missingCount = testFields.length - filledTest;
+
+    if (filledTest === testFields.length && td.testResponsible && td.testDatetime) {
+      suggestion = 'Verificacion de prueba completa. ¿Avanzar a "Listo para Liberacion"?';
+      nextStatus = 'ready-release';
+    }
+  }
+
+  if (!suggestion) return;
+
+  // Remove any existing auto-advance toast
+  var existing = document.querySelector('.auto-advance-toast');
+  if (existing) existing.remove();
+
+  var toast = document.createElement('div');
+  toast.className = 'auto-advance-toast';
+  toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;background:#1e293b;color:#f8fafc;padding:12px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.3);display:flex;align-items:center;gap:10px;font-size:12px;max-width:90vw;animation:slideUp 0.3s ease;border:1px solid #334155;';
+
+  var icon = status === 'testing' ? '🏁' : '⚡';
+  var html = '<span>' + icon + ' ' + suggestion + '</span>';
+  if (nextStatus) {
+    html += '<button onclick="applyAutoAdvance(\'' + nextStatus + '\')" style="background:#10b981;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Si</button>';
+    html += '<button onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;">No</button>';
+  } else {
+    html += '<button onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;">OK</button>';
+  }
+  toast.innerHTML = html;
+  document.body.appendChild(toast);
+
+  // Auto-dismiss after 8 seconds
+  setTimeout(function() { if (toast.parentElement) toast.remove(); }, 8000);
+}
+
+function applyAutoAdvance(nextStatus) {
+  var statusEl = document.getElementById('op_status');
+  if (!statusEl) return;
+
+  // Remove toast
+  var toast = document.querySelector('.auto-advance-toast');
+  if (toast) toast.remove();
+
+  // If advancing to ready-release, validate first
+  if (nextStatus === 'ready-release') {
+    var missing = validateReadyForRelease();
+    if (missing.length > 0) {
+      showToast('Faltan campos para liberacion', 'warning');
+      showMissingPopup(missing);
+      return;
+    }
+  }
+
+  statusEl.value = nextStatus;
+  statusEl.dataset.prev = nextStatus;
+  updateTestVerificationVisibility();
+
+  // Update vehicle status
+  var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+  if (vehicle) {
+    vehicle.status = nextStatus;
+    vehicle.timeline = vehicle.timeline || [];
+    vehicle.timeline.push({
+      timestamp: new Date().toISOString(),
+      user: vehicle.testData?.operator || vehicle.testData?.testResponsible || 'Sistema',
+      action: 'Auto-avance a: ' + (CONFIG.statusLabels[nextStatus] || nextStatus),
+      data: { status: nextStatus, autoAdvance: true }
+    });
+    saveDB();
+    refreshAllLists();
+
+    // Auto-fill test datetime when advancing to testing
+    if (nextStatus === 'testing') {
+      var testDt = document.getElementById('test_datetime');
+      if (testDt && !testDt.value) {
+        var tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        if (tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
+        if (tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
+        testDt.value = tomorrow.toISOString().slice(0, 16).replace('T', 'T') || tomorrow.toISOString().slice(0, 10) + 'T08:00';
+      }
+    }
+  }
+
+  showToast('Estado avanzado a: ' + (CONFIG.statusLabels[nextStatus] || nextStatus), 'success');
+}
 
 // ======================================================================
 // [M10] LIBERACIÓN]
@@ -4970,10 +5106,14 @@ function renderKanban() {
         if (raw) soakData = JSON.parse(raw);
     } catch(e) {}
 
+    var precondCount = vehicles.filter(function(v) { return v.status === 'registered' || v.status === 'in-progress'; }).length;
     var html = '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
     html += '<h3 style="margin:0;font-size:16px;">Cola de Vehiculos</h3>';
     var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
     html += '<span style="font-size:11px;color:#64748b;">' + totalActive + ' activos</span>';
+    if (precondCount > 0) {
+        html += '<button onclick="renderPrecondBatchView()" style="margin-left:auto;background:#f59e0b;color:#000;border:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 Precond Lote (' + precondCount + ')</button>';
+    }
     html += '</div>';
 
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;align-items:start;">';
@@ -5057,6 +5197,194 @@ function renderKanban() {
     html += '</div>';
 
     el.innerHTML = html;
+}
+
+// ======================================================================
+// [M11b] CHECKLIST PREACONDICIONAMIENTO EN LOTE
+// ======================================================================
+
+function renderPrecondBatchView() {
+    var el = document.getElementById('kanban-board');
+    if (!el) return;
+
+    var vehicles = (db.vehicles || []).filter(function(v) {
+        return v.status === 'registered' || v.status === 'in-progress';
+    });
+
+    if (vehicles.length === 0) {
+        showToast('No hay vehiculos en preacondicionamiento', 'info');
+        return;
+    }
+
+    // Soak timer data
+    var soakData = null;
+    try { var raw = localStorage.getItem('kia_soak_timer'); if (raw) soakData = JSON.parse(raw); } catch(e) {}
+
+    var html = '<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">';
+    html += '<button onclick="renderKanban()" style="background:#334155;color:#f8fafc;border:none;padding:6px 12px;border-radius:8px;font-size:11px;cursor:pointer;">← Kanban</button>';
+    html += '<h3 style="margin:0;font-size:16px;">📋 Preacondicionamiento en Lote</h3>';
+    html += '<span style="font-size:11px;color:#64748b;">' + vehicles.length + ' vehiculos</span>';
+    html += '</div>';
+
+    // Batch actions
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
+    html += '<button onclick="batchScheduleTests()" style="background:#10b981;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">🗓 Programar Tests (seleccionados)</button>';
+    html += '</div>';
+
+    // Table header
+    html += '<div style="overflow-x:auto;">';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:11px;">';
+    html += '<thead><tr style="background:#f1f5f9;text-align:left;">';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;width:30px;"><input type="checkbox" id="batch-select-all" onchange="batchToggleAll(this.checked)" style="accent-color:#f59e0b;"></th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">VIN</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Modelo</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Status</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Precond</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Soak</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Acciones</th>';
+    html += '</tr></thead><tbody>';
+
+    vehicles.forEach(function(v) {
+        var td = v.testData || {};
+        var p = td.preconditioning || {};
+        var isEm = typeof isEmissionsPurpose === 'function' ? isEmissionsPurpose(v.purpose) : true;
+
+        // Precond completeness
+        var precondFields = isEm ? [p.datetime, p.responsible, p.cycle, p.ok] : [td.simple?.operator, td.simple?.datetime];
+        var filled = precondFields.filter(function(f) { return f && f !== ''; }).length;
+        var total = precondFields.length;
+        var precondPct = Math.round((filled / total) * 100);
+        var precondOk = isEm ? (p.ok === 'Si') : (filled === total);
+
+        // Soak status
+        var soakStatus = '—';
+        var soakColor = '#94a3b8';
+        if (soakData && soakData.endTime) {
+            var remaining = soakData.endTime - Date.now();
+            if (remaining > 0) {
+                var hrs = Math.floor(remaining / 3600000);
+                var mins = Math.floor((remaining % 3600000) / 60000);
+                soakStatus = hrs + 'h ' + mins + 'm';
+                soakColor = '#f59e0b';
+            } else {
+                soakStatus = 'Listo';
+                soakColor = '#10b981';
+            }
+        } else if (p.soakTimeH) {
+            soakStatus = p.soakTimeH + 'h (manual)';
+            soakColor = '#8b5cf6';
+        }
+
+        var model = '';
+        if (v.config && v.config['Modelo']) model = v.config['Modelo'];
+        else if (v.configCode) model = v.configCode.split(' ').slice(0, 2).join(' ');
+
+        var statusLabel = CONFIG.statusLabels[v.status] || v.status;
+        var statusColor = v.status === 'registered' ? '#3b82f6' : '#f59e0b';
+
+        var barColor = precondPct === 100 ? '#10b981' : precondPct >= 50 ? '#f59e0b' : '#ef4444';
+
+        html += '<tr style="border-bottom:1px solid #e2e8f0;" data-vid="' + v.id + '">';
+        html += '<td style="padding:8px 6px;"><input type="checkbox" class="batch-check" value="' + v.id + '" style="accent-color:#f59e0b;"></td>';
+        html += '<td style="padding:8px 6px;font-weight:600;font-family:monospace;font-size:10px;">' + (v.vin || '').slice(-6) + '</td>';
+        html += '<td style="padding:8px 6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (v.configCode || '') + '">' + model + '</td>';
+        html += '<td style="padding:8px 6px;"><span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + statusColor + '15;color:' + statusColor + ';border:1px solid ' + statusColor + '30;">' + statusLabel + '</span></td>';
+        html += '<td style="padding:8px 6px;">';
+        html += '<div style="display:flex;align-items:center;gap:4px;">';
+        html += '<div style="width:50px;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;"><div style="width:' + precondPct + '%;height:100%;background:' + barColor + ';border-radius:3px;"></div></div>';
+        html += '<span style="font-size:9px;color:' + barColor + ';">' + filled + '/' + total + '</span>';
+        if (precondOk) html += ' <span style="font-size:9px;">✅</span>';
+        html += '</div></td>';
+        html += '<td style="padding:8px 6px;"><span style="font-size:10px;color:' + soakColor + ';">' + soakStatus + '</span></td>';
+        html += '<td style="padding:8px 6px;">';
+        if (precondOk) {
+            html += '<button onclick="batchAdvanceToTesting(\'' + v.id + '\')" style="background:#10b981;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;" title="Avanzar a Testing">→ Testing</button>';
+        } else {
+            html += '<button onclick="kanbanGoVehicle(\'' + v.id + '\',\'' + v.status + '\')" style="background:#3b82f6;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:10px;cursor:pointer;" title="Editar vehiculo">Editar</button>';
+        }
+        html += '</td></tr>';
+    });
+
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+}
+
+function batchToggleAll(checked) {
+    document.querySelectorAll('.batch-check').forEach(function(cb) { cb.checked = checked; });
+}
+
+function batchAdvanceToTesting(vehicleId) {
+    var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
+    if (!vehicle) return;
+
+    vehicle.status = 'testing';
+    vehicle.timeline = vehicle.timeline || [];
+    vehicle.timeline.push({
+        timestamp: new Date().toISOString(),
+        user: vehicle.testData?.operator || vehicle.testData?.testResponsible || 'Sistema',
+        action: 'Auto-avance lote a: En Prueba',
+        data: { status: 'testing', batchAdvance: true }
+    });
+
+    // Auto-fill test datetime
+    if (vehicle.testData && !vehicle.testData.testDatetime) {
+        var tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        if (tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
+        if (tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
+        vehicle.testData.testDatetime = tomorrow.toISOString().slice(0, 10) + 'T08:00';
+    }
+
+    saveDB();
+    renderPrecondBatchView();
+    showToast('VIN ...' + (vehicle.vin || '').slice(-6) + ' avanzado a Testing', 'success');
+}
+
+function batchScheduleTests() {
+    var checked = document.querySelectorAll('.batch-check:checked');
+    if (checked.length === 0) { showToast('Selecciona al menos un vehiculo', 'warning'); return; }
+
+    var ids = [];
+    checked.forEach(function(cb) { ids.push(cb.value); });
+
+    // Schedule sequentially: 8:00, 10:00, 12:00, 14:00...
+    var baseDate = new Date();
+    baseDate.setDate(baseDate.getDate() + 1);
+    if (baseDate.getDay() === 0) baseDate.setDate(baseDate.getDate() + 1);
+    if (baseDate.getDay() === 6) baseDate.setDate(baseDate.getDate() + 2);
+
+    var advancedCount = 0;
+    ids.forEach(function(id, idx) {
+        var vehicle = db.vehicles.find(function(v) { return v.id == id; });
+        if (!vehicle) return;
+
+        var p = vehicle.testData?.preconditioning || {};
+        var precondOk = p.ok === 'Si';
+        if (!precondOk) return; // Only advance precond-complete vehicles
+
+        var hour = 8 + (idx * 2); // 8, 10, 12, 14...
+        var dateStr = baseDate.toISOString().slice(0, 10) + 'T' + String(hour).padStart(2, '0') + ':00';
+
+        vehicle.status = 'testing';
+        vehicle.testData = vehicle.testData || {};
+        vehicle.testData.testDatetime = dateStr;
+        vehicle.timeline = vehicle.timeline || [];
+        vehicle.timeline.push({
+            timestamp: new Date().toISOString(),
+            user: 'Sistema',
+            action: 'Programado en lote: Testing ' + dateStr,
+            data: { status: 'testing', batchSchedule: true, scheduledTime: dateStr }
+        });
+        advancedCount++;
+    });
+
+    if (advancedCount > 0) {
+        saveDB();
+        renderPrecondBatchView();
+        showToast(advancedCount + ' vehiculos programados para testing', 'success');
+    } else {
+        showToast('Ningun vehiculo seleccionado tiene precond completo', 'warning');
+    }
 }
 
 function kanbanGoVehicle(vehicleId, status) {
@@ -6435,6 +6763,61 @@ function invRenderPredict(el) {
     } else if (totalPending > 0 && !hasAdaptiveData) {
         html += '<div class="tp-card" style="border-left:3px solid var(--tp-border);"><div class="tp-card-title"><span>Proyeccion Plan (' + totalPending + ' pendientes)</span></div>';
         html += '<div style="font-size:10px;color:var(--tp-dim);padding:10px;">El modelo aun no tiene suficientes datos. Conforme se liberen vehiculos y se registren lecturas, las predicciones por regulacion apareceran aqui.</div></div>';
+    }
+
+    // ═══════════════════════════════════════════════
+    // 3.5 WEEKLY PLAN FORECAST (Mejora D)
+    // ═══════════════════════════════════════════════
+    var weeklyForecast = invForecastForWeeklyPlan(rates);
+    if (weeklyForecast && weeklyForecast.items.length > 0) {
+        var wf = weeklyForecast;
+        var criticalCount = wf.items.filter(function(i) { return i.needsReorder; }).length;
+        var borderColor = criticalCount > 0 ? '#ef4444' : '#10b981';
+        html += '<div class="tp-card" style="border-left:3px solid ' + borderColor + ';">';
+        html += '<div class="tp-card-title"><span>🗓 Forecast Semanal: ' + wf.planLabel + '</span>';
+        if (criticalCount > 0) html += '<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">⚠ ' + criticalCount + ' requieren reorden</span>';
+        html += '</div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Consumo estimado para el plan semanal aceptado (' + wf.testCount + ' pruebas). Basado en tasas EWMA aprendidas.</div>';
+
+        // Gas forecast table
+        var gasItems = wf.items.filter(function(i) { return i.type === 'gas'; });
+        if (gasItems.length > 0) {
+            html += '<div style="font-size:10px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Gases</div>';
+            gasItems.forEach(function(item) {
+                var clr = item.needsReorder ? '#ef4444' : item.pctUsage > 50 ? '#f59e0b' : '#10b981';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;flex-wrap:wrap;gap:4px;">';
+                html += '<span style="font-size:10px;">' + item.name + '</span>';
+                html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+                html += '<span style="font-size:9px;color:var(--tp-dim);">Actual: <strong>' + item.currentLevel + '</strong> psi</span>';
+                html += '<span style="font-size:9px;color:var(--tp-amber);">Uso plan: <strong>' + item.estimatedUsage.toFixed(0) + '</strong> psi</span>';
+                html += '<span style="font-size:9px;color:' + clr + ';">Post-plan: <strong>' + item.postPlanLevel.toFixed(0) + '</strong> psi</span>';
+                html += '<span style="font-size:9px;font-weight:700;color:' + clr + ';">' + item.recommendation + '</span>';
+                html += '</div></div>';
+            });
+        }
+
+        // Fuel forecast table
+        var fuelItems = wf.items.filter(function(i) { return i.type === 'fuel'; });
+        if (fuelItems.length > 0) {
+            html += '<div style="font-size:10px;font-weight:700;color:#f97316;margin-top:8px;margin-bottom:4px;">Combustible</div>';
+            fuelItems.forEach(function(item) {
+                var clr = item.needsReorder ? '#ef4444' : item.pctUsage > 50 ? '#f59e0b' : '#10b981';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;flex-wrap:wrap;gap:4px;">';
+                html += '<span style="font-size:10px;">' + item.name + '</span>';
+                html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+                html += '<span style="font-size:9px;color:var(--tp-dim);">Actual: <strong>' + item.currentLevel + '</strong> ' + (item.unit || 'L') + '</span>';
+                html += '<span style="font-size:9px;color:var(--tp-amber);">Uso plan: <strong>' + item.estimatedUsage.toFixed(1) + '</strong> ' + (item.unit || 'L') + '</span>';
+                html += '<span style="font-size:9px;color:' + clr + ';">Post-plan: <strong>' + item.postPlanLevel.toFixed(1) + '</strong> ' + (item.unit || 'L') + '</span>';
+                html += '<span style="font-size:9px;font-weight:700;color:' + clr + ';">' + item.recommendation + '</span>';
+                html += '</div></div>';
+            });
+        }
+
+        // Export button
+        html += '<div style="margin-top:8px;display:flex;gap:8px;">';
+        html += '<button onclick="invExportWeeklyForecast()" class="tp-btn tp-btn-ghost" style="font-size:10px;">📤 Exportar CSV</button>';
+        html += '</div>';
+        html += '</div>';
     }
 
     // ═══════════════════════════════════════════════
@@ -7906,6 +8289,165 @@ var INV_REFERENCE_RATES = {
     'CO/N2': 3.5, 'NO/N2': 3.0, 'CO2/N2': 2.5, 'CH4/Air': 2.0,
     'C3H8/Air': 2.8, 'N2O/N2': 2.0, 'ZERO': 1.5, 'H2/He': 1.0, 'O2/N2': 1.5
 };
+
+// ══════════════════════════════════════════════════
+// MEJORA D: WEEKLY PLAN FORECAST
+// ══════════════════════════════════════════════════
+
+function invForecastForWeeklyPlan(rates) {
+    // Get latest accepted weekly plan from Test Plan module
+    if (typeof tpState === 'undefined' || !tpState.weeklyPlans) return null;
+    var plan = tpState.weeklyPlans.slice().reverse().find(function(p) { return p.accepted && p.items; });
+    if (!plan) return null;
+
+    var pendingItems = plan.items.filter(function(i) { return !i.completed; });
+    if (pendingItems.length === 0) return null;
+
+    if (!rates) rates = invCalcConsumptionRates();
+
+    // Count tests by regulation
+    var regCounts = {};
+    pendingItems.forEach(function(item) {
+        var reg = item.reg || (item.desc ? item.desc.split(' ')[0] : 'General');
+        regCounts[reg] = (regCounts[reg] || 0) + 1;
+    });
+
+    var result = {
+        planLabel: 'Semana ' + (plan.weekDate || ''),
+        testCount: pendingItems.length,
+        items: []
+    };
+
+    // Gas forecast
+    invState.gases.filter(function(g) {
+        return g.status === 'In use' && g.readings && g.readings.length > 0;
+    }).forEach(function(g) {
+        var lastPsi = g.readings[g.readings.length - 1].psi;
+        var totalNeeded = 0;
+
+        Object.keys(regCounts).forEach(function(reg) {
+            if (rates.gas[g.formula] && rates.gas[g.formula][reg]) {
+                totalNeeded += rates.gas[g.formula][reg].ewma * regCounts[reg];
+            }
+        });
+
+        if (totalNeeded <= 0) return;
+
+        var postPlan = lastPsi - totalNeeded;
+        var pctUsage = lastPsi > 0 ? Math.round((totalNeeded / lastPsi) * 100) : 100;
+        var depletion = invPredictDepletion(g);
+        var daysAfterPlan = depletion ? depletion.daysLeft : 999;
+        var needsReorder = postPlan < 200 || pctUsage > 80;
+
+        var recommendation = 'OK';
+        if (postPlan <= 0) recommendation = 'AGOTADO';
+        else if (needsReorder) recommendation = 'REORDENAR';
+        else if (pctUsage > 50) recommendation = 'MONITOREAR';
+
+        result.items.push({
+            type: 'gas',
+            name: g.formula + ' ' + (g.concNominal || '') + ' #' + g.controlNo,
+            formula: g.formula,
+            currentLevel: lastPsi,
+            estimatedUsage: totalNeeded,
+            postPlanLevel: postPlan,
+            pctUsage: pctUsage,
+            daysAfterPlan: daysAfterPlan,
+            needsReorder: needsReorder,
+            recommendation: recommendation,
+            unit: 'psi'
+        });
+    });
+
+    // Fuel forecast
+    (invState.fuelTanks || []).filter(function(t) {
+        return t.readings && t.readings.length >= 1 && t.regulation;
+    }).forEach(function(t) {
+        var lastLevel = t.readings[t.readings.length - 1].level;
+        var reg = t.regulation;
+        if (!regCounts[reg]) return;
+        if (!rates.fuel[reg] || rates.fuel[reg].ewma <= 0) return;
+
+        var totalNeeded = rates.fuel[reg].ewma * regCounts[reg];
+        var postPlan = lastLevel - totalNeeded;
+        var pctUsage = lastLevel > 0 ? Math.round((totalNeeded / lastLevel) * 100) : 100;
+        var needsReorder = postPlan < (t.capacity * 0.15) || pctUsage > 80;
+
+        var recommendation = 'OK';
+        if (postPlan <= 0) recommendation = 'AGOTADO';
+        else if (needsReorder) recommendation = 'REORDENAR';
+        else if (pctUsage > 50) recommendation = 'MONITOREAR';
+
+        result.items.push({
+            type: 'fuel',
+            name: t.name,
+            currentLevel: lastLevel,
+            estimatedUsage: totalNeeded,
+            postPlanLevel: postPlan,
+            pctUsage: pctUsage,
+            needsReorder: needsReorder,
+            recommendation: recommendation,
+            unit: t.unit || 'L'
+        });
+    });
+
+    return result;
+}
+
+function invExportWeeklyForecast() {
+    var rates = invCalcConsumptionRates();
+    var forecast = invForecastForWeeklyPlan(rates);
+    if (!forecast || forecast.items.length === 0) {
+        showToast('No hay forecast disponible', 'warning');
+        return;
+    }
+
+    var csv = 'Consumible,Tipo,Nivel Actual,Uso Estimado Plan,Nivel Post-Plan,% Uso,Recomendacion\n';
+    forecast.items.forEach(function(item) {
+        csv += '"' + item.name + '",' + item.type + ',' + item.currentLevel + ',' +
+               item.estimatedUsage.toFixed(1) + ',' + item.postPlanLevel.toFixed(1) + ',' +
+               item.pctUsage + '%,' + item.recommendation + '\n';
+    });
+
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = 'forecast_semanal_' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    showToast('Forecast exportado', 'success');
+}
+
+// Also integrate forecast warning into tpSmartGenerate via global hook
+function invGetPlanImpactWarning(planItems) {
+    if (!planItems || planItems.length === 0) return '';
+    var rates = invCalcConsumptionRates();
+    if (rates.dataPoints === 0) return '';
+
+    var regCounts = {};
+    planItems.forEach(function(item) {
+        if (item.completed) return;
+        var reg = item.reg || (item.desc ? item.desc.split(' ')[0] : 'General');
+        regCounts[reg] = (regCounts[reg] || 0) + 1;
+    });
+
+    var criticalGases = [];
+    invState.gases.filter(function(g) {
+        return g.status === 'In use' && g.readings && g.readings.length > 0;
+    }).forEach(function(g) {
+        var lastPsi = g.readings[g.readings.length - 1].psi;
+        var totalNeeded = 0;
+        Object.keys(regCounts).forEach(function(reg) {
+            if (rates.gas[g.formula] && rates.gas[g.formula][reg]) {
+                totalNeeded += rates.gas[g.formula][reg].ewma * regCounts[reg];
+            }
+        });
+        if (totalNeeded > 0 && lastPsi < totalNeeded) {
+            criticalGases.push(g.formula + ' (' + lastPsi + '/' + totalNeeded.toFixed(0) + ' psi)');
+        }
+    });
+
+    if (criticalGases.length === 0) return '';
+    return 'Este plan agotaria: ' + criticalGases.join(', ');
+}
 
 function invPredictDepletion(g) {
     if (!g.readings || g.readings.length < 2) {
@@ -9487,6 +10029,7 @@ function tpRenderWeekly(el) {
         const dayLabels = {dom:'D',lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
         const wdStr = w.workDays ? Object.keys(dayLabels).filter(d => w.workDays[d]).map(d => dayLabels[d]).join('') : '';
         // Group items by test day for schedule view
+        const _subPreds = typeof tpPredictSubstitutions === 'function' ? tpPredictSubstitutions(w.items) : [];
         const dayGroups = {};
         w.items.forEach((item, ii) => {
             const key = item.testDay || '_sin';
@@ -9525,7 +10068,7 @@ function tpRenderWeekly(el) {
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
                     <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
                         <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                        ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
+                        ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
                         ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
                         ${tpConfigBadges(item,{fontSize:'8px'})}
                     </div>
@@ -9544,7 +10087,7 @@ function tpRenderWeekly(el) {
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
                 <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
                     <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
+                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
                     ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
                     ${tpConfigBadges(item,{fontSize:'8px'})}
                 </div>
@@ -9731,9 +10274,20 @@ function tpSmartGenerate() {
     tpSave(); tpRender(); tpUpdateBadges();
     if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(scheduled.length);
 
+    // Substitution predictions for generated plan
+    var subPreds = typeof tpPredictSubstitutions === 'function' ? tpPredictSubstitutions(scheduled) : [];
     var msg = scheduled.length + ' configs seleccionadas (score + inventario)';
     if (skippedInv.length > 0) msg += '. ' + skippedInv.length + ' omitidas por inventario bajo.';
+    if (subPreds.length > 0) msg += '. 🔮 ' + subPreds.length + ' con sustitucion probable.';
     showToast(msg, 'success');
+
+    // Inventory impact warning (Mejora D)
+    if (typeof invGetPlanImpactWarning === 'function') {
+        var impactWarning = invGetPlanImpactWarning(scheduled);
+        if (impactWarning) {
+            setTimeout(function() { showToast('⚠️ ' + impactWarning, 'warning'); }, 1500);
+        }
+    }
 }
 
 function tpAcceptWeeklyPlan(weekIdx) {
@@ -10896,6 +11450,106 @@ function tpReturnFromRA() {
         if (ctx && ctx.scroll) window.scrollTo(0, ctx.scroll);
         window._tpReturnContext = null;
     }, 100);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MEJORA B: SUBSTITUTION PREDICTION ENGINE
+// ══════════════════════════════════════════════════════════════════
+
+function tpBuildSubstitutionHistory() {
+    var history = {}; // { originalDesc: { testedDesc: count, ... } }
+    if (!tpState.weeklyPlans) return history;
+
+    tpState.weeklyPlans.forEach(function(plan) {
+        if (!plan.items) return;
+        plan.items.forEach(function(item) {
+            if (item.substituted && item.substitution) {
+                var orig = item.substitution.originalDesc || item.desc;
+                var tested = item.substitution.testedDesc;
+                if (!tested || orig === tested) return;
+                if (!history[orig]) history[orig] = {};
+                history[orig][tested] = (history[orig][tested] || 0) + 1;
+            }
+        });
+    });
+    return history;
+}
+
+function tpPredictSubstitutions(items) {
+    var history = tpBuildSubstitutionHistory();
+    if (Object.keys(history).length === 0) return [];
+
+    var predictions = [];
+    items.forEach(function(item, idx) {
+        if (item.completed) return;
+        var desc = item.desc;
+        if (!history[desc]) return;
+
+        // Find most common substitution
+        var subs = history[desc];
+        var totalSubs = 0;
+        var bestSub = null;
+        var bestCount = 0;
+
+        Object.keys(subs).forEach(function(testedDesc) {
+            totalSubs += subs[testedDesc];
+            if (subs[testedDesc] > bestCount) {
+                bestCount = subs[testedDesc];
+                bestSub = testedDesc;
+            }
+        });
+
+        // Count total times this config appeared in plans (substituted or not)
+        var totalAppearances = 0;
+        tpState.weeklyPlans.forEach(function(plan) {
+            if (!plan.items) return;
+            plan.items.forEach(function(i) {
+                if (i.desc === desc || (i.substitution && i.substitution.originalDesc === desc)) totalAppearances++;
+            });
+        });
+
+        if (totalAppearances < 2) return; // Need at least 2 data points
+        var probability = Math.round((totalSubs / totalAppearances) * 100);
+
+        if (probability >= 30 && bestSub) {
+            // Find the differences between planned and predicted
+            var diffs = [];
+            var planned = tpState.planData.find(function(c) { return c.desc === desc; });
+            var predicted = tpState.planData.find(function(c) { return c.desc === bestSub; });
+            if (planned && predicted) {
+                var flexFields = ['ep', 'engpkg', 'tire', 'drv', 'body'];
+                flexFields.forEach(function(f) {
+                    var pv = (planned[f] || '').toUpperCase();
+                    var rv = (predicted[f] || '').toUpperCase();
+                    if (pv !== rv && (pv || rv)) {
+                        diffs.push({ field: f, planned: planned[f] || '—', predicted: predicted[f] || '—' });
+                    }
+                });
+            }
+
+            predictions.push({
+                itemIdx: idx,
+                desc: desc,
+                predictedSub: bestSub,
+                probability: probability,
+                count: bestCount,
+                totalSubs: totalSubs,
+                diffs: diffs
+            });
+        }
+    });
+
+    return predictions.sort(function(a, b) { return b.probability - a.probability; });
+}
+
+function tpGetSubstitutionBadge(item, itemIdx, predictions) {
+    if (!predictions || predictions.length === 0) return '';
+    var pred = predictions.find(function(p) { return p.itemIdx === itemIdx; });
+    if (!pred) return '';
+
+    var color = pred.probability >= 70 ? '#f59e0b' : '#8b5cf6';
+    var diffsText = pred.diffs.map(function(d) { return d.field + ': ' + d.planned + ' → ' + d.predicted; }).join(', ');
+    return '<span style="font-size:7px;padding:1px 4px;border-radius:2px;background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;cursor:help;" title="Sustitucion probable (' + pred.probability + '%) → ' + diffsText + '">🔮 ' + pred.probability + '%</span>';
 }
 
 // Override/extend the cascade filter result to also show TP suggestion

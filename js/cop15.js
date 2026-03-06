@@ -1112,8 +1112,143 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
   updateProgressBar();
+
+  // Mejora A: Auto-advance suggestion
+  if (isEm) checkAutoAdvance(vehicle);
 }
 
+
+// ======================================================================
+// [M09b] AUTO-AVANCE DE STATUS
+// ======================================================================
+
+function checkAutoAdvance(vehicle) {
+  if (!vehicle || !vehicle.testData) return;
+  var status = vehicle.status;
+  var td = vehicle.testData;
+  var p = td.preconditioning || {};
+  var statusEl = document.getElementById('op_status');
+  if (!statusEl) return;
+
+  var suggestion = null;
+  var nextStatus = null;
+  var missingCount = 0;
+
+  if (status === 'registered' || status === 'in-progress') {
+    // Check if preconditioning section is complete
+    var precondFields = [p.datetime, p.responsible, p.cycle, p.ok];
+    var filled = precondFields.filter(function(f) { return f && f !== ''; }).length;
+    missingCount = precondFields.length - filled;
+
+    if (filled === precondFields.length && p.ok === 'Si') {
+      // Check soak timer
+      var soakData = null;
+      try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
+      var soakDone = !soakData || !soakData.endTime || soakData.endTime <= Date.now();
+
+      if (soakDone) {
+        suggestion = 'Preacondicionamiento completo. ¿Avanzar a "En Prueba"?';
+        nextStatus = 'testing';
+      } else {
+        var remaining = soakData.endTime - Date.now();
+        var hrs = Math.floor(remaining / 3600000);
+        var mins = Math.floor((remaining % 3600000) / 60000);
+        suggestion = 'Precond OK. Soak restante: ' + hrs + 'h ' + mins + 'm';
+        nextStatus = null; // Don't suggest advance yet
+      }
+    } else if (status === 'registered' && filled >= 2) {
+      suggestion = 'Precond en progreso (' + filled + '/' + precondFields.length + '). ¿Avanzar a "En Progreso"?';
+      nextStatus = 'in-progress';
+    }
+  } else if (status === 'testing') {
+    // Check if test verification is complete
+    var tv = td.testVerification || {};
+    var testFields = [tv.tunnel, tv.dyno, tv.fanMode, tv.inertiaOk, tv.chains, tv.slings, tv.hood];
+    var filledTest = testFields.filter(function(f) { return f && f !== ''; }).length;
+    missingCount = testFields.length - filledTest;
+
+    if (filledTest === testFields.length && td.testResponsible && td.testDatetime) {
+      suggestion = 'Verificacion de prueba completa. ¿Avanzar a "Listo para Liberacion"?';
+      nextStatus = 'ready-release';
+    }
+  }
+
+  if (!suggestion) return;
+
+  // Remove any existing auto-advance toast
+  var existing = document.querySelector('.auto-advance-toast');
+  if (existing) existing.remove();
+
+  var toast = document.createElement('div');
+  toast.className = 'auto-advance-toast';
+  toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;background:#1e293b;color:#f8fafc;padding:12px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.3);display:flex;align-items:center;gap:10px;font-size:12px;max-width:90vw;animation:slideUp 0.3s ease;border:1px solid #334155;';
+
+  var icon = status === 'testing' ? '🏁' : '⚡';
+  var html = '<span>' + icon + ' ' + suggestion + '</span>';
+  if (nextStatus) {
+    html += '<button onclick="applyAutoAdvance(\'' + nextStatus + '\')" style="background:#10b981;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Si</button>';
+    html += '<button onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;">No</button>';
+  } else {
+    html += '<button onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;">OK</button>';
+  }
+  toast.innerHTML = html;
+  document.body.appendChild(toast);
+
+  // Auto-dismiss after 8 seconds
+  setTimeout(function() { if (toast.parentElement) toast.remove(); }, 8000);
+}
+
+function applyAutoAdvance(nextStatus) {
+  var statusEl = document.getElementById('op_status');
+  if (!statusEl) return;
+
+  // Remove toast
+  var toast = document.querySelector('.auto-advance-toast');
+  if (toast) toast.remove();
+
+  // If advancing to ready-release, validate first
+  if (nextStatus === 'ready-release') {
+    var missing = validateReadyForRelease();
+    if (missing.length > 0) {
+      showToast('Faltan campos para liberacion', 'warning');
+      showMissingPopup(missing);
+      return;
+    }
+  }
+
+  statusEl.value = nextStatus;
+  statusEl.dataset.prev = nextStatus;
+  updateTestVerificationVisibility();
+
+  // Update vehicle status
+  var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+  if (vehicle) {
+    vehicle.status = nextStatus;
+    vehicle.timeline = vehicle.timeline || [];
+    vehicle.timeline.push({
+      timestamp: new Date().toISOString(),
+      user: vehicle.testData?.operator || vehicle.testData?.testResponsible || 'Sistema',
+      action: 'Auto-avance a: ' + (CONFIG.statusLabels[nextStatus] || nextStatus),
+      data: { status: nextStatus, autoAdvance: true }
+    });
+    saveDB();
+    refreshAllLists();
+
+    // Auto-fill test datetime when advancing to testing
+    if (nextStatus === 'testing') {
+      var testDt = document.getElementById('test_datetime');
+      if (testDt && !testDt.value) {
+        var tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        if (tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
+        if (tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
+        testDt.value = tomorrow.toISOString().slice(0, 16).replace('T', 'T') || tomorrow.toISOString().slice(0, 10) + 'T08:00';
+      }
+    }
+  }
+
+  showToast('Estado avanzado a: ' + (CONFIG.statusLabels[nextStatus] || nextStatus), 'success');
+}
 
 // ======================================================================
 // [M10] LIBERACIÓN]
@@ -2483,10 +2618,14 @@ function renderKanban() {
         if (raw) soakData = JSON.parse(raw);
     } catch(e) {}
 
+    var precondCount = vehicles.filter(function(v) { return v.status === 'registered' || v.status === 'in-progress'; }).length;
     var html = '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
     html += '<h3 style="margin:0;font-size:16px;">Cola de Vehiculos</h3>';
     var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
     html += '<span style="font-size:11px;color:#64748b;">' + totalActive + ' activos</span>';
+    if (precondCount > 0) {
+        html += '<button onclick="renderPrecondBatchView()" style="margin-left:auto;background:#f59e0b;color:#000;border:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 Precond Lote (' + precondCount + ')</button>';
+    }
     html += '</div>';
 
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;align-items:start;">';
@@ -2570,6 +2709,194 @@ function renderKanban() {
     html += '</div>';
 
     el.innerHTML = html;
+}
+
+// ======================================================================
+// [M11b] CHECKLIST PREACONDICIONAMIENTO EN LOTE
+// ======================================================================
+
+function renderPrecondBatchView() {
+    var el = document.getElementById('kanban-board');
+    if (!el) return;
+
+    var vehicles = (db.vehicles || []).filter(function(v) {
+        return v.status === 'registered' || v.status === 'in-progress';
+    });
+
+    if (vehicles.length === 0) {
+        showToast('No hay vehiculos en preacondicionamiento', 'info');
+        return;
+    }
+
+    // Soak timer data
+    var soakData = null;
+    try { var raw = localStorage.getItem('kia_soak_timer'); if (raw) soakData = JSON.parse(raw); } catch(e) {}
+
+    var html = '<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">';
+    html += '<button onclick="renderKanban()" style="background:#334155;color:#f8fafc;border:none;padding:6px 12px;border-radius:8px;font-size:11px;cursor:pointer;">← Kanban</button>';
+    html += '<h3 style="margin:0;font-size:16px;">📋 Preacondicionamiento en Lote</h3>';
+    html += '<span style="font-size:11px;color:#64748b;">' + vehicles.length + ' vehiculos</span>';
+    html += '</div>';
+
+    // Batch actions
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
+    html += '<button onclick="batchScheduleTests()" style="background:#10b981;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">🗓 Programar Tests (seleccionados)</button>';
+    html += '</div>';
+
+    // Table header
+    html += '<div style="overflow-x:auto;">';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:11px;">';
+    html += '<thead><tr style="background:#f1f5f9;text-align:left;">';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;width:30px;"><input type="checkbox" id="batch-select-all" onchange="batchToggleAll(this.checked)" style="accent-color:#f59e0b;"></th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">VIN</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Modelo</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Status</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Precond</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Soak</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Acciones</th>';
+    html += '</tr></thead><tbody>';
+
+    vehicles.forEach(function(v) {
+        var td = v.testData || {};
+        var p = td.preconditioning || {};
+        var isEm = typeof isEmissionsPurpose === 'function' ? isEmissionsPurpose(v.purpose) : true;
+
+        // Precond completeness
+        var precondFields = isEm ? [p.datetime, p.responsible, p.cycle, p.ok] : [td.simple?.operator, td.simple?.datetime];
+        var filled = precondFields.filter(function(f) { return f && f !== ''; }).length;
+        var total = precondFields.length;
+        var precondPct = Math.round((filled / total) * 100);
+        var precondOk = isEm ? (p.ok === 'Si') : (filled === total);
+
+        // Soak status
+        var soakStatus = '—';
+        var soakColor = '#94a3b8';
+        if (soakData && soakData.endTime) {
+            var remaining = soakData.endTime - Date.now();
+            if (remaining > 0) {
+                var hrs = Math.floor(remaining / 3600000);
+                var mins = Math.floor((remaining % 3600000) / 60000);
+                soakStatus = hrs + 'h ' + mins + 'm';
+                soakColor = '#f59e0b';
+            } else {
+                soakStatus = 'Listo';
+                soakColor = '#10b981';
+            }
+        } else if (p.soakTimeH) {
+            soakStatus = p.soakTimeH + 'h (manual)';
+            soakColor = '#8b5cf6';
+        }
+
+        var model = '';
+        if (v.config && v.config['Modelo']) model = v.config['Modelo'];
+        else if (v.configCode) model = v.configCode.split(' ').slice(0, 2).join(' ');
+
+        var statusLabel = CONFIG.statusLabels[v.status] || v.status;
+        var statusColor = v.status === 'registered' ? '#3b82f6' : '#f59e0b';
+
+        var barColor = precondPct === 100 ? '#10b981' : precondPct >= 50 ? '#f59e0b' : '#ef4444';
+
+        html += '<tr style="border-bottom:1px solid #e2e8f0;" data-vid="' + v.id + '">';
+        html += '<td style="padding:8px 6px;"><input type="checkbox" class="batch-check" value="' + v.id + '" style="accent-color:#f59e0b;"></td>';
+        html += '<td style="padding:8px 6px;font-weight:600;font-family:monospace;font-size:10px;">' + (v.vin || '').slice(-6) + '</td>';
+        html += '<td style="padding:8px 6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (v.configCode || '') + '">' + model + '</td>';
+        html += '<td style="padding:8px 6px;"><span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + statusColor + '15;color:' + statusColor + ';border:1px solid ' + statusColor + '30;">' + statusLabel + '</span></td>';
+        html += '<td style="padding:8px 6px;">';
+        html += '<div style="display:flex;align-items:center;gap:4px;">';
+        html += '<div style="width:50px;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;"><div style="width:' + precondPct + '%;height:100%;background:' + barColor + ';border-radius:3px;"></div></div>';
+        html += '<span style="font-size:9px;color:' + barColor + ';">' + filled + '/' + total + '</span>';
+        if (precondOk) html += ' <span style="font-size:9px;">✅</span>';
+        html += '</div></td>';
+        html += '<td style="padding:8px 6px;"><span style="font-size:10px;color:' + soakColor + ';">' + soakStatus + '</span></td>';
+        html += '<td style="padding:8px 6px;">';
+        if (precondOk) {
+            html += '<button onclick="batchAdvanceToTesting(\'' + v.id + '\')" style="background:#10b981;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;" title="Avanzar a Testing">→ Testing</button>';
+        } else {
+            html += '<button onclick="kanbanGoVehicle(\'' + v.id + '\',\'' + v.status + '\')" style="background:#3b82f6;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:10px;cursor:pointer;" title="Editar vehiculo">Editar</button>';
+        }
+        html += '</td></tr>';
+    });
+
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+}
+
+function batchToggleAll(checked) {
+    document.querySelectorAll('.batch-check').forEach(function(cb) { cb.checked = checked; });
+}
+
+function batchAdvanceToTesting(vehicleId) {
+    var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
+    if (!vehicle) return;
+
+    vehicle.status = 'testing';
+    vehicle.timeline = vehicle.timeline || [];
+    vehicle.timeline.push({
+        timestamp: new Date().toISOString(),
+        user: vehicle.testData?.operator || vehicle.testData?.testResponsible || 'Sistema',
+        action: 'Auto-avance lote a: En Prueba',
+        data: { status: 'testing', batchAdvance: true }
+    });
+
+    // Auto-fill test datetime
+    if (vehicle.testData && !vehicle.testData.testDatetime) {
+        var tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        if (tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
+        if (tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
+        vehicle.testData.testDatetime = tomorrow.toISOString().slice(0, 10) + 'T08:00';
+    }
+
+    saveDB();
+    renderPrecondBatchView();
+    showToast('VIN ...' + (vehicle.vin || '').slice(-6) + ' avanzado a Testing', 'success');
+}
+
+function batchScheduleTests() {
+    var checked = document.querySelectorAll('.batch-check:checked');
+    if (checked.length === 0) { showToast('Selecciona al menos un vehiculo', 'warning'); return; }
+
+    var ids = [];
+    checked.forEach(function(cb) { ids.push(cb.value); });
+
+    // Schedule sequentially: 8:00, 10:00, 12:00, 14:00...
+    var baseDate = new Date();
+    baseDate.setDate(baseDate.getDate() + 1);
+    if (baseDate.getDay() === 0) baseDate.setDate(baseDate.getDate() + 1);
+    if (baseDate.getDay() === 6) baseDate.setDate(baseDate.getDate() + 2);
+
+    var advancedCount = 0;
+    ids.forEach(function(id, idx) {
+        var vehicle = db.vehicles.find(function(v) { return v.id == id; });
+        if (!vehicle) return;
+
+        var p = vehicle.testData?.preconditioning || {};
+        var precondOk = p.ok === 'Si';
+        if (!precondOk) return; // Only advance precond-complete vehicles
+
+        var hour = 8 + (idx * 2); // 8, 10, 12, 14...
+        var dateStr = baseDate.toISOString().slice(0, 10) + 'T' + String(hour).padStart(2, '0') + ':00';
+
+        vehicle.status = 'testing';
+        vehicle.testData = vehicle.testData || {};
+        vehicle.testData.testDatetime = dateStr;
+        vehicle.timeline = vehicle.timeline || [];
+        vehicle.timeline.push({
+            timestamp: new Date().toISOString(),
+            user: 'Sistema',
+            action: 'Programado en lote: Testing ' + dateStr,
+            data: { status: 'testing', batchSchedule: true, scheduledTime: dateStr }
+        });
+        advancedCount++;
+    });
+
+    if (advancedCount > 0) {
+        saveDB();
+        renderPrecondBatchView();
+        showToast(advancedCount + ' vehiculos programados para testing', 'success');
+    } else {
+        showToast('Ningun vehiculo seleccionado tiene precond completo', 'warning');
+    }
 }
 
 function kanbanGoVehicle(vehicleId, status) {

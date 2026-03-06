@@ -1536,6 +1536,7 @@ function tpRenderWeekly(el) {
         const dayLabels = {dom:'D',lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
         const wdStr = w.workDays ? Object.keys(dayLabels).filter(d => w.workDays[d]).map(d => dayLabels[d]).join('') : '';
         // Group items by test day for schedule view
+        const _subPreds = typeof tpPredictSubstitutions === 'function' ? tpPredictSubstitutions(w.items) : [];
         const dayGroups = {};
         w.items.forEach((item, ii) => {
             const key = item.testDay || '_sin';
@@ -1574,7 +1575,7 @@ function tpRenderWeekly(el) {
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
                     <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
                         <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                        ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
+                        ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
                         ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
                         ${tpConfigBadges(item,{fontSize:'8px'})}
                     </div>
@@ -1593,7 +1594,7 @@ function tpRenderWeekly(el) {
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
                 <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
                     <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
+                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
                     ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
                     ${tpConfigBadges(item,{fontSize:'8px'})}
                 </div>
@@ -1780,9 +1781,20 @@ function tpSmartGenerate() {
     tpSave(); tpRender(); tpUpdateBadges();
     if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(scheduled.length);
 
+    // Substitution predictions for generated plan
+    var subPreds = typeof tpPredictSubstitutions === 'function' ? tpPredictSubstitutions(scheduled) : [];
     var msg = scheduled.length + ' configs seleccionadas (score + inventario)';
     if (skippedInv.length > 0) msg += '. ' + skippedInv.length + ' omitidas por inventario bajo.';
+    if (subPreds.length > 0) msg += '. 🔮 ' + subPreds.length + ' con sustitucion probable.';
     showToast(msg, 'success');
+
+    // Inventory impact warning (Mejora D)
+    if (typeof invGetPlanImpactWarning === 'function') {
+        var impactWarning = invGetPlanImpactWarning(scheduled);
+        if (impactWarning) {
+            setTimeout(function() { showToast('⚠️ ' + impactWarning, 'warning'); }, 1500);
+        }
+    }
 }
 
 function tpAcceptWeeklyPlan(weekIdx) {
@@ -2945,6 +2957,106 @@ function tpReturnFromRA() {
         if (ctx && ctx.scroll) window.scrollTo(0, ctx.scroll);
         window._tpReturnContext = null;
     }, 100);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MEJORA B: SUBSTITUTION PREDICTION ENGINE
+// ══════════════════════════════════════════════════════════════════
+
+function tpBuildSubstitutionHistory() {
+    var history = {}; // { originalDesc: { testedDesc: count, ... } }
+    if (!tpState.weeklyPlans) return history;
+
+    tpState.weeklyPlans.forEach(function(plan) {
+        if (!plan.items) return;
+        plan.items.forEach(function(item) {
+            if (item.substituted && item.substitution) {
+                var orig = item.substitution.originalDesc || item.desc;
+                var tested = item.substitution.testedDesc;
+                if (!tested || orig === tested) return;
+                if (!history[orig]) history[orig] = {};
+                history[orig][tested] = (history[orig][tested] || 0) + 1;
+            }
+        });
+    });
+    return history;
+}
+
+function tpPredictSubstitutions(items) {
+    var history = tpBuildSubstitutionHistory();
+    if (Object.keys(history).length === 0) return [];
+
+    var predictions = [];
+    items.forEach(function(item, idx) {
+        if (item.completed) return;
+        var desc = item.desc;
+        if (!history[desc]) return;
+
+        // Find most common substitution
+        var subs = history[desc];
+        var totalSubs = 0;
+        var bestSub = null;
+        var bestCount = 0;
+
+        Object.keys(subs).forEach(function(testedDesc) {
+            totalSubs += subs[testedDesc];
+            if (subs[testedDesc] > bestCount) {
+                bestCount = subs[testedDesc];
+                bestSub = testedDesc;
+            }
+        });
+
+        // Count total times this config appeared in plans (substituted or not)
+        var totalAppearances = 0;
+        tpState.weeklyPlans.forEach(function(plan) {
+            if (!plan.items) return;
+            plan.items.forEach(function(i) {
+                if (i.desc === desc || (i.substitution && i.substitution.originalDesc === desc)) totalAppearances++;
+            });
+        });
+
+        if (totalAppearances < 2) return; // Need at least 2 data points
+        var probability = Math.round((totalSubs / totalAppearances) * 100);
+
+        if (probability >= 30 && bestSub) {
+            // Find the differences between planned and predicted
+            var diffs = [];
+            var planned = tpState.planData.find(function(c) { return c.desc === desc; });
+            var predicted = tpState.planData.find(function(c) { return c.desc === bestSub; });
+            if (planned && predicted) {
+                var flexFields = ['ep', 'engpkg', 'tire', 'drv', 'body'];
+                flexFields.forEach(function(f) {
+                    var pv = (planned[f] || '').toUpperCase();
+                    var rv = (predicted[f] || '').toUpperCase();
+                    if (pv !== rv && (pv || rv)) {
+                        diffs.push({ field: f, planned: planned[f] || '—', predicted: predicted[f] || '—' });
+                    }
+                });
+            }
+
+            predictions.push({
+                itemIdx: idx,
+                desc: desc,
+                predictedSub: bestSub,
+                probability: probability,
+                count: bestCount,
+                totalSubs: totalSubs,
+                diffs: diffs
+            });
+        }
+    });
+
+    return predictions.sort(function(a, b) { return b.probability - a.probability; });
+}
+
+function tpGetSubstitutionBadge(item, itemIdx, predictions) {
+    if (!predictions || predictions.length === 0) return '';
+    var pred = predictions.find(function(p) { return p.itemIdx === itemIdx; });
+    if (!pred) return '';
+
+    var color = pred.probability >= 70 ? '#f59e0b' : '#8b5cf6';
+    var diffsText = pred.diffs.map(function(d) { return d.field + ': ' + d.planned + ' → ' + d.predicted; }).join(', ');
+    return '<span style="font-size:7px;padding:1px 4px;border-radius:2px;background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;cursor:help;" title="Sustitucion probable (' + pred.probability + '%) → ' + diffsText + '">🔮 ' + pred.probability + '%</span>';
 }
 
 // Override/extend the cascade filter result to also show TP suggestion
