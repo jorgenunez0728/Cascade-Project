@@ -2211,6 +2211,161 @@ function globalVinSearch(query) {
     res.innerHTML = html;
 }
 
+// ── Weekly Status PDF Report ──
+function generateWeeklyStatusPDF() {
+    if (typeof window.jspdf === 'undefined') {
+        showToast('jsPDF no está disponible. Verifica la conexión CDN.', 'error');
+        return;
+    }
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+    var W = doc.internal.pageSize.getWidth();
+    var ML = 15, MR = 15, CW = W - ML - MR;
+    var y = 15;
+    var today = new Date();
+    var weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7);
+    var weekAgoISO = weekAgo.toISOString();
+
+    // Helper functions
+    function setF(style, size) { doc.setFontSize(size); doc.setFont('helvetica', style); }
+    function addSection(title, yPos) {
+        doc.setDrawColor(187, 22, 43);
+        doc.setFillColor(187, 22, 43);
+        doc.rect(ML, yPos, CW, 7, 'F');
+        setF('bold', 11);
+        doc.setTextColor(255, 255, 255);
+        doc.text(title, ML + 3, yPos + 5);
+        doc.setTextColor(0, 0, 0);
+        return yPos + 10;
+    }
+    function addRow(label, value, yPos, color) {
+        setF('normal', 9);
+        doc.setTextColor(80, 80, 80);
+        doc.text(label, ML + 3, yPos);
+        setF('bold', 9);
+        if (color) doc.setTextColor(color[0], color[1], color[2]);
+        else doc.setTextColor(0, 0, 0);
+        doc.text(String(value), ML + CW / 2, yPos);
+        doc.setTextColor(0, 0, 0);
+        return yPos + 5;
+    }
+
+    // Header
+    setF('bold', 16);
+    doc.setTextColor(187, 22, 43);
+    doc.text('KIA Laboratorio de Emisiones', ML, y);
+    y += 6;
+    setF('normal', 10);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Reporte Semanal — ' + today.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), ML, y);
+    y += 3;
+    doc.setDrawColor(187, 22, 43);
+    doc.setLineWidth(0.5);
+    doc.line(ML, y, ML + CW, y);
+    y += 8;
+
+    // ── Section 1: COP15 Pipeline ──
+    y = addSection('COP15 — Pipeline de Vehículos', y);
+    var statuses = ['registered', 'in-progress', 'testing', 'ready-release'];
+    statuses.forEach(function(s) {
+        var count = (db.vehicles || []).filter(function(v) { return v.status === s; }).length;
+        y = addRow(CONFIG.statusLabels[s] || s, count, y);
+    });
+    var archivedThisWeek = (db.vehicles || []).filter(function(v) {
+        return v.status === 'archived' && v.archivedAt && v.archivedAt >= weekAgoISO;
+    }).length;
+    y = addRow('Liberados esta semana', archivedThisWeek, y, [16, 185, 129]);
+    y += 5;
+
+    // ── Section 2: Test Plan ──
+    y = addSection('Test Plan — Progreso', y);
+    try {
+        var analysis = typeof tpGetAnalysis === 'function' ? tpGetAnalysis() : [];
+        var totalReq = analysis.reduce(function(s, a) { return s + a.required; }, 0);
+        var totalTested = analysis.reduce(function(s, a) { return s + a.testedN; }, 0);
+        var deficit = Math.max(0, totalReq - totalTested);
+        y = addRow('Pruebas requeridas', totalReq, y);
+        y = addRow('Probadas', totalTested, y, [16, 185, 129]);
+        y = addRow('Déficit', deficit, y, deficit > 0 ? [239, 68, 68] : [16, 185, 129]);
+
+        // Active weekly plan completion
+        var plans = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
+        if (plans.length > 0) {
+            var latest = plans[plans.length - 1];
+            var done = latest.items ? latest.items.filter(function(i) { return i.completed; }).length : 0;
+            var total = latest.items ? latest.items.length : 0;
+            var pct = total > 0 ? Math.round(done / total * 100) : 0;
+            y = addRow('Plan semanal activo', done + '/' + total + ' (' + pct + '%)', y);
+            var subs = latest.items ? latest.items.filter(function(i) { return i.substituted; }).length : 0;
+            if (subs > 0) y = addRow('Sustituciones', subs, y, [245, 158, 11]);
+        }
+
+        var testedThisWeek = (typeof tpState !== 'undefined' && tpState.testedList) ?
+            tpState.testedList.filter(function(t) { return t.date && t.date >= weekAgoISO.slice(0, 10); }).length : 0;
+        y = addRow('Probados esta semana', testedThisWeek, y);
+    } catch (e) { y = addRow('Error cargando datos', e.message, y, [239, 68, 68]); }
+    y += 5;
+
+    // ── Section 3: Results Analyzer ──
+    y = addSection('Results Analyzer — Emisiones', y);
+    try {
+        var raTests = (typeof raState !== 'undefined' && raState.tests) ? raState.tests : [];
+        var importedThisWeek = raTests.filter(function(t) {
+            var d = t.importDate || t.dateStr || '';
+            return d >= weekAgoISO.slice(0, 10);
+        }).length;
+        var passCount = raTests.filter(function(t) { return typeof raTestVerdict === 'function' && raTestVerdict(t) === 'PASS'; }).length;
+        var failCount = raTests.filter(function(t) { return typeof raTestVerdict === 'function' && raTestVerdict(t) === 'FAIL'; }).length;
+        var passRate = raTests.length > 0 ? (passCount / raTests.length * 100).toFixed(1) : '—';
+
+        y = addRow('Total pruebas', raTests.length, y);
+        y = addRow('Importadas esta semana', importedThisWeek, y);
+        y = addRow('Pass rate global', passRate + '%', y, passCount >= failCount ? [16, 185, 129] : [239, 68, 68]);
+        y = addRow('PASS / FAIL', passCount + ' / ' + failCount, y);
+    } catch (e) { y = addRow('Error', e.message, y, [239, 68, 68]); }
+    y += 5;
+
+    // ── Section 4: Inventario ──
+    y = addSection('Inventario — Alertas', y);
+    try {
+        var gases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
+        var equip = (typeof invState !== 'undefined' && invState.equipment) ? invState.equipment : [];
+
+        var lowGas = gases.filter(function(g) {
+            if (!g.readings || g.readings.length === 0 || g.status !== 'In use') return false;
+            return g.readings[g.readings.length - 1].psi < 500;
+        }).length;
+        var expiredGas = gases.filter(function(g) {
+            return g.validUntil && new Date(g.validUntil) < today;
+        }).length;
+        var calExpired = equip.filter(function(e) {
+            return e.nextCalDate && new Date(e.nextCalDate) < today;
+        }).length;
+        var calWarning = equip.filter(function(e) {
+            if (!e.nextCalDate) return false;
+            var diff = (new Date(e.nextCalDate) - today) / (1000 * 60 * 60 * 24);
+            return diff > 0 && diff < 7;
+        }).length;
+
+        y = addRow('Cilindros con presión baja (<500 psi)', lowGas, y, lowGas > 0 ? [239, 68, 68] : [16, 185, 129]);
+        y = addRow('Gases vencidos', expiredGas, y, expiredGas > 0 ? [239, 68, 68] : [16, 185, 129]);
+        y = addRow('Equipos calibración vencida', calExpired, y, calExpired > 0 ? [239, 68, 68] : [16, 185, 129]);
+        y = addRow('Equipos cal. próxima a vencer (<7d)', calWarning, y, calWarning > 0 ? [245, 158, 11] : [16, 185, 129]);
+    } catch (e) { y = addRow('Error', e.message, y, [239, 68, 68]); }
+
+    // Footer
+    y += 10;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(ML, y, ML + CW, y);
+    y += 5;
+    setF('italic', 8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Generado automáticamente por KIA EmLab Plataforma Integrada — ' + today.toISOString(), ML, y);
+
+    doc.save('KIA-EmLab-Semanal-' + today.toISOString().slice(0, 10) + '.pdf');
+    showToast('Reporte PDF semanal generado', 'success');
+}
+
 // ── Swipe Navigation ──
 // High threshold (150px) + must be decisively horizontal to prevent accidental swipes
 (function() {
@@ -8007,6 +8162,14 @@ function tpRenderDashboard(el) {
         ${tpRenderDashChart(analysis)}
     </div>
 
+    <!-- Burndown chart -->
+    <div class="tp-card">
+        <details ${window._tpBurndownOpen ? 'open' : ''}>
+            <summary onclick="window._tpBurndownOpen=!this.parentElement.open;" style="cursor:pointer;font-weight:700;font-size:12px;color:var(--tp-amber);user-select:none;padding:4px 0;">📉 Burndown de Deficit — Proyeccion de Completacion</summary>
+            <div style="margin-top:10px;" id="tp-burndown-container">${tpRenderBurndownChart(stats)}</div>
+        </details>
+    </div>
+
     <!-- Fix plan button -->
     <div class="tp-card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
         <button class="tp-btn tp-btn-primary" onclick="tpFixPlan()">📌 Fijar Plan de Pruebas</button>
@@ -8038,6 +8201,127 @@ function tpRenderDashboard(el) {
     `;
 
     tpRenderDashTable();
+}
+
+// ═══ BURNDOWN CHART ═══
+function tpRenderBurndownChart(stats) {
+    var tested = (tpState.testedList || []).slice();
+    if (tested.length < 2) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:10px;">Necesitas al menos 2 pruebas completadas para generar burndown.</div>';
+
+    tested.sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
+
+    // Group by ISO week
+    var weekMap = {};
+    var totalReq = stats.totalReq || 0;
+    tested.forEach(function(t) {
+        if (!t.date) return;
+        var d = new Date(t.date);
+        var wk = tpISOWeekKey(d);
+        weekMap[wk] = (weekMap[wk] || 0) + 1;
+    });
+
+    var weeks = Object.keys(weekMap).sort();
+    var cumul = 0;
+    var series = weeks.map(function(wk) {
+        cumul += weekMap[wk];
+        return { week: wk, tested: weekMap[wk], cumulative: cumul, remaining: Math.max(0, totalReq - cumul) };
+    });
+
+    // Velocity metrics
+    var totalWeeks = series.length;
+    var avgVelocity = totalWeeks > 0 ? cumul / totalWeeks : 0;
+    var recent = series.slice(-2);
+    var recentVelocity = recent.length > 0 ? recent.reduce(function(s, p) { return s + p.tested; }, 0) / recent.length : 0;
+    var remaining = series.length > 0 ? series[series.length - 1].remaining : totalReq;
+    var weeksLeft = recentVelocity > 0 ? Math.ceil(remaining / recentVelocity) : (avgVelocity > 0 ? Math.ceil(remaining / avgVelocity) : 0);
+    var completionDate = '—';
+    if (weeksLeft > 0 && weeksLeft < 200) {
+        var est = new Date();
+        est.setDate(est.getDate() + weeksLeft * 7);
+        completionDate = est.toLocaleDateString('es-MX');
+    } else if (remaining === 0) {
+        completionDate = 'Completado';
+    }
+
+    // Linear regression for forecast line
+    var forecastPts = [];
+    if (series.length >= 2 && remaining > 0) {
+        var xs = series.map(function(_, i) { return i; });
+        var ys = series.map(function(p) { return p.remaining; });
+        var n = xs.length;
+        var sumX = xs.reduce(function(s, v) { return s + v; }, 0);
+        var sumY = ys.reduce(function(s, v) { return s + v; }, 0);
+        var sumXY = xs.reduce(function(s, v, i) { return s + v * ys[i]; }, 0);
+        var sumX2 = xs.reduce(function(s, v) { return s + v * v; }, 0);
+        var slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        var intercept = (sumY - slope * sumX) / n;
+        // Project forward
+        for (var i = 0; i <= n + weeksLeft + 2; i++) {
+            var y = intercept + slope * i;
+            forecastPts.push(Math.max(0, y));
+        }
+    }
+
+    // Build chart labels
+    var labels = series.map(function(p) { return p.week; });
+    // Extend labels for forecast
+    if (forecastPts.length > labels.length) {
+        var lastDate = series.length > 0 ? new Date(series[series.length - 1].week + 'T00:00:00') : new Date();
+        for (var i = labels.length; i < forecastPts.length; i++) {
+            lastDate.setDate(lastDate.getDate() + 7);
+            labels.push(tpISOWeekKey(lastDate));
+        }
+    }
+
+    // Metrics
+    var html = '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">' + avgVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Promedio/sem</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-blue);font-size:14px;">' + recentVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Reciente/sem</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + remaining + '</div><div class="tp-metric-label">Deficit Actual</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#8b5cf6;font-size:14px;">' + (weeksLeft > 0 ? weeksLeft : '—') + '</div><div class="tp-metric-label">Semanas Rest.</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-green);font-size:13px;">' + completionDate + '</div><div class="tp-metric-label">Est. Completacion</div></div>' +
+    '</div>';
+    html += '<div style="height:250px;"><canvas id="tp-burndown-canvas"></canvas></div>';
+
+    // Schedule chart render after DOM update
+    setTimeout(function() {
+        if (window._tpBurndownChart) { try { window._tpBurndownChart.destroy(); } catch(e) {} }
+        var ctx = document.getElementById('tp-burndown-canvas');
+        if (!ctx || typeof Chart === 'undefined') return;
+
+        var datasets = [
+            { label: 'Deficit Restante', data: series.map(function(p) { return p.remaining; }), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', pointRadius: 4, borderWidth: 2, fill: true, tension: 0.1 }
+        ];
+        if (forecastPts.length > 0) {
+            var forecastData = [];
+            for (var i = 0; i < series.length - 1; i++) forecastData.push(null);
+            for (var i = Math.max(0, series.length - 1); i < forecastPts.length; i++) forecastData.push(forecastPts[i]);
+            datasets.push({ label: 'Forecast (regresion)', data: forecastData, borderColor: '#64748b', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0 });
+        }
+        datasets.push({ label: 'Meta (0)', data: Array(labels.length).fill(0), borderColor: '#10b981', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false });
+
+        window._tpBurndownChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { title: { display: true, text: 'Deficit', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' }, min: 0 }
+                }
+            }
+        });
+    }, 50);
+
+    return html;
+}
+
+function tpISOWeekKey(d) {
+    var dt = new Date(d);
+    dt.setHours(0, 0, 0, 0);
+    dt.setDate(dt.getDate() - (dt.getDay() || 7) + 1); // Monday
+    return dt.toISOString().slice(0, 10);
 }
 
 // ═══ DASHBOARD CHART RENDERER ═══
@@ -8958,6 +9242,8 @@ function tpAcceptWeeklyPlan(weekIdx) {
             completed: i.completed, completedDate: i.completedDate,
             status: i.status || (i.completed ? 'completed' : 'carryover'),
             manual: i.manual, carriedOver: i.carriedOver,
+            substituted: i.substituted || false,
+            substitution: i.substitution || null,
             preconDay: i.preconDay, testDay: i.testDay,
             preconLabel: i.preconLabel, testLabel: i.testLabel
         }))
@@ -8975,7 +9261,7 @@ function tpCarryOverWeekly(weekIdx) {
     // Mark source items as carryover
     pending.forEach(function(i) { i.status = 'carryover'; });
     var newItems = pending.map(function(i) {
-        return { desc:i.desc, id:i.id, mod:i.mod, rgn:i.rgn, reg:i.reg, eng:i.eng, tx:i.tx, my:i.my, drv:i.drv, body:i.body, ep:i.ep, engpkg:i.engpkg, tire:i.tire, required:i.required, deficit:i.deficit, score:i.score, completed:false, completedDate:null, manual:i.manual, carriedOver:true };
+        return { desc:i.desc, id:i.id, mod:i.mod, rgn:i.rgn, reg:i.reg, eng:i.eng, tx:i.tx, my:i.my, drv:i.drv, body:i.body, ep:i.ep, engpkg:i.engpkg, tire:i.tire, required:i.required, deficit:i.deficit, score:i.score, completed:false, completedDate:null, manual:i.manual, carriedOver:true, previouslySubstituted:i.substituted||false, previousSubstitution:i.substitution||null };
     });
     tpState.weeklyPlans.push({ id:Date.now(), created:new Date().toISOString(), capacity:newItems.length, items:newItems, accepted:false, carriedFrom:weekIdx+1 });
     tpSave(); tpRender();
@@ -9038,6 +9324,7 @@ function tpRenderWeekHistory(el) {
                 <div style="display:flex;align-items:center;gap:5px;padding:4px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};flex-wrap:wrap;">
                     <span style="font-size:13px;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
                     ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}
+                    ${item.substituted?'<span style="font-size:7px;color:#f59e0b;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
                     ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);">📌</span>':''}
                     ${tpConfigBadges(item,{fontSize:'8px'})}
                     ${item.testLabel?`<span style="font-size:7px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:auto;">Preacon ${item.preconLabel} → Prueba ${item.testLabel}</span>`:''}
@@ -10576,8 +10863,127 @@ function raRenderDashboard(el){
                 </tbody>
             </table>
         </div>
+    </div>
+
+    <!-- Compliance Trending by Regulation -->
+    <div class="tp-card">
+        <div class="tp-card-title"><span>📈 Tendencia de Cumplimiento por Regulacion</span></div>
+        ${raBuildComplianceTrendHTML()}
     </div>`;
     } catch(e) { el.innerHTML='<div class="tp-card" style="padding:20px;color:var(--tp-red);">Error renderizando dashboard: '+e.message+'</div>'; console.error('RA Dashboard error:',e); }
+}
+
+function raBuildComplianceTrendHTML() {
+    var tests = raState.tests;
+    if (tests.length < 3) return '<div style="text-align:center;padding:15px;color:var(--tp-dim);font-size:10px;">Necesitas al menos 3 pruebas para ver tendencias.</div>';
+
+    // Group by month and regulation
+    var monthRegs = {};
+    var allRegs = {};
+    tests.forEach(function(t) {
+        var dateStr = t.dateStr || t.importDate || '';
+        if (!dateStr) return;
+        var month = dateStr.slice(0, 7); // YYYY-MM
+        if (!month || month.length < 7) return;
+        var reg = t.emissionReg || t.regSpec || '?';
+        allRegs[reg] = true;
+        if (!monthRegs[month]) monthRegs[month] = {};
+        if (!monthRegs[month][reg]) monthRegs[month][reg] = { pass: 0, fail: 0, total: 0 };
+        var verdict = raTestVerdict(t);
+        monthRegs[month][reg].total++;
+        if (verdict === 'PASS') monthRegs[month][reg].pass++;
+        else if (verdict === 'FAIL') monthRegs[month][reg].fail++;
+    });
+
+    var months = Object.keys(monthRegs).sort();
+    var regs = Object.keys(allRegs).sort();
+
+    if (months.length < 1 || regs.length < 1) return '<div style="text-align:center;padding:15px;color:var(--tp-dim);font-size:10px;">Sin datos suficientes por regulacion/mes.</div>';
+
+    // Build per-regulation summary
+    var regSummaries = regs.map(function(reg) {
+        var totalPass = 0, totalFail = 0, totalTests = 0;
+        var lastMonthRate = null, prevAvgRate = null;
+        var rates = [];
+        months.forEach(function(m, mi) {
+            var d = monthRegs[m][reg];
+            if (d) {
+                totalPass += d.pass;
+                totalFail += d.fail;
+                totalTests += d.total;
+                rates.push(d.total > 0 ? (d.pass / d.total * 100) : null);
+            } else {
+                rates.push(null);
+            }
+        });
+        var overallRate = totalTests > 0 ? (totalPass / totalTests * 100) : 0;
+        // Trend: last month vs average of prior months
+        var validRates = rates.filter(function(r) { return r !== null; });
+        if (validRates.length >= 2) {
+            lastMonthRate = validRates[validRates.length - 1];
+            prevAvgRate = validRates.slice(0, -1).reduce(function(s, v) { return s + v; }, 0) / (validRates.length - 1);
+        }
+        var trendDelta = (lastMonthRate !== null && prevAvgRate !== null) ? lastMonthRate - prevAvgRate : 0;
+        var trendArrow = trendDelta > 1 ? '↑' : trendDelta < -1 ? '↓' : '→';
+        var trendColor = trendDelta > 1 ? 'var(--tp-green)' : trendDelta < -1 ? 'var(--tp-red)' : 'var(--tp-dim)';
+        return { reg: reg, pass: totalPass, fail: totalFail, total: totalTests, rate: overallRate, rates: rates, trendArrow: trendArrow, trendDelta: trendDelta, trendColor: trendColor };
+    });
+
+    // Chart
+    var regColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
+    var html = '<div style="height:220px;margin-bottom:12px;"><canvas id="ra-compliance-canvas"></canvas></div>';
+
+    // Summary table
+    html += '<table style="width:100%;font-size:10px;border-collapse:collapse;">';
+    html += '<tr style="border-bottom:1px solid var(--tp-border);"><th style="text-align:left;padding:4px 8px;color:var(--tp-dim);">Regulacion</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Total</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Pass</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Fail</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Rate</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Tend.</th></tr>';
+    regSummaries.forEach(function(r) {
+        var rateClr = r.rate >= 95 ? 'var(--tp-green)' : r.rate >= 80 ? 'var(--tp-amber)' : 'var(--tp-red)';
+        html += '<tr style="border-bottom:1px solid var(--tp-border);">';
+        html += '<td style="padding:4px 8px;font-weight:600;color:var(--tp-text);">' + r.reg + '</td>';
+        html += '<td style="text-align:center;padding:4px;">' + r.total + '</td>';
+        html += '<td style="text-align:center;padding:4px;color:var(--tp-green);">' + r.pass + '</td>';
+        html += '<td style="text-align:center;padding:4px;color:var(--tp-red);">' + r.fail + '</td>';
+        html += '<td style="text-align:center;padding:4px;font-weight:700;color:' + rateClr + ';">' + r.rate.toFixed(1) + '%</td>';
+        html += '<td style="text-align:center;padding:4px;font-weight:700;color:' + r.trendColor + ';">' + r.trendArrow + ' (' + (r.trendDelta >= 0 ? '+' : '') + r.trendDelta.toFixed(1) + '%)</td>';
+        html += '</tr>';
+    });
+    html += '</table>';
+
+    // Schedule chart render
+    setTimeout(function() {
+        if (window._raComplianceChart) { try { window._raComplianceChart.destroy(); } catch(e) {} }
+        var ctx = document.getElementById('ra-compliance-canvas');
+        if (!ctx || typeof Chart === 'undefined') return;
+
+        var datasets = regSummaries.map(function(r, ri) {
+            return {
+                label: r.reg,
+                data: r.rates.map(function(v) { return v !== null ? v : undefined; }),
+                borderColor: regColors[ri % regColors.length],
+                backgroundColor: regColors[ri % regColors.length] + '20',
+                pointRadius: 3, borderWidth: 2, fill: false, tension: 0.2,
+                spanGaps: true
+            };
+        });
+        // Add 100% and 90% reference lines
+        datasets.push({ label: 'Meta 100%', data: Array(months.length).fill(100), borderColor: '#10b98140', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false });
+        datasets.push({ label: 'Umbral 90%', data: Array(months.length).fill(90), borderColor: '#f59e0b40', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false });
+
+        window._raComplianceChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: months, datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { min: 0, max: 105, title: { display: true, text: '% Pass Rate', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' } }
+                }
+            }
+        });
+    }, 50);
+
+    return html;
 }
 
 
@@ -11929,6 +12335,95 @@ function raRenderCompare(el) {
 // SPC I-mR Control Charts
 // ══════════════════════════════════════════
 
+// Nelson Run Rules detection for SPC
+function raSpcDetectNelson(values, cl, ucl, lcl) {
+    var violations = [];
+    var n = values.length;
+    if (n < 2) return violations;
+
+    // Rule 1: Point beyond ±3σ (UCL/LCL)
+    for (var i = 0; i < n; i++) {
+        if (values[i] > ucl || values[i] < lcl) {
+            violations.push({ rule: 1, name: 'Fuera de ±3σ', idx: i, startIdx: i, endIdx: i, color: '#ef4444' });
+        }
+    }
+
+    // Rule 2: 9 consecutive points on same side of CL
+    if (n >= 9) {
+        var side = 0, run = 1;
+        for (var i = 1; i < n; i++) {
+            var curSide = values[i] >= cl ? 1 : -1;
+            var prevSide = values[i - 1] >= cl ? 1 : -1;
+            if (curSide === prevSide) { run++; } else { run = 1; }
+            if (run >= 9) {
+                violations.push({ rule: 2, name: '9 consecutivos mismo lado', idx: i, startIdx: i - 8, endIdx: i, color: '#f97316' });
+            }
+        }
+    }
+
+    // Rule 3: 6 consecutive increasing or decreasing
+    if (n >= 6) {
+        var incr = 1, decr = 1;
+        for (var i = 1; i < n; i++) {
+            if (values[i] > values[i - 1]) { incr++; decr = 1; }
+            else if (values[i] < values[i - 1]) { decr++; incr = 1; }
+            else { incr = 1; decr = 1; }
+            if (incr >= 6) {
+                violations.push({ rule: 3, name: '6 consecutivos monotonicos', idx: i, startIdx: i - 5, endIdx: i, color: '#eab308' });
+            }
+            if (decr >= 6) {
+                violations.push({ rule: 3, name: '6 consecutivos monotonicos', idx: i, startIdx: i - 5, endIdx: i, color: '#eab308' });
+            }
+        }
+    }
+
+    // Rule 4: 14 consecutive alternating up/down
+    if (n >= 14) {
+        var alt = 1;
+        for (var i = 2; i < n; i++) {
+            var d1 = values[i] - values[i - 1];
+            var d2 = values[i - 1] - values[i - 2];
+            if ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) { alt++; } else { alt = 1; }
+            if (alt >= 14) {
+                violations.push({ rule: 4, name: '14 consecutivos alternando', idx: i, startIdx: i - 13, endIdx: i, color: '#a855f7' });
+            }
+        }
+    }
+
+    return violations;
+}
+
+function raSpcNelsonPointColors(nPts, violations) {
+    var colors = [];
+    for (var i = 0; i < nPts; i++) colors.push('#3b82f6');
+    // Apply violation colors (later rules override earlier)
+    violations.forEach(function(v) {
+        for (var i = v.startIdx; i <= v.endIdx && i < nPts; i++) {
+            colors[i] = v.color;
+        }
+    });
+    return colors;
+}
+
+function raSpcNelsonTableRows(violations) {
+    var rules = [
+        { id: 1, desc: 'Punto fuera de ±3σ (UCL/LCL)', color: '#ef4444' },
+        { id: 2, desc: '9 consecutivos del mismo lado del CL', color: '#f97316' },
+        { id: 3, desc: '6 consecutivos ascendentes o descendentes', color: '#eab308' },
+        { id: 4, desc: '14 consecutivos alternando arriba/abajo', color: '#a855f7' }
+    ];
+    return rules.map(function(r) {
+        var rvs = violations.filter(function(v) { return v.rule === r.id; });
+        var pts = rvs.length > 0 ? rvs.map(function(v) { return v.startIdx === v.endIdx ? '#' + (v.idx + 1) : '#' + (v.startIdx + 1) + '-#' + (v.endIdx + 1); }).join(', ') : '—';
+        var clr = rvs.length > 0 ? r.color : 'var(--tp-dim)';
+        return '<tr style="border-bottom:1px solid var(--tp-border);">' +
+            '<td style="padding:4px 8px;font-weight:700;color:' + r.color + ';">R' + r.id + '</td>' +
+            '<td style="padding:4px 8px;color:var(--tp-text);">' + r.desc + '</td>' +
+            '<td style="padding:4px 8px;text-align:center;font-weight:700;color:' + clr + ';">' + rvs.length + '</td>' +
+            '<td style="padding:4px 8px;color:var(--tp-dim);font-size:9px;">' + pts + '</td></tr>';
+    }).join('');
+}
+
 function raRenderSPC(el) {
     if (raState.tests.length < 3) {
         el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Necesitas al menos 3 pruebas para generar cartas SPC.</div>';
@@ -11985,8 +12480,9 @@ function raRenderSPC(el) {
     // Cpk from SPC
     var cpkSpc = (regLimit && sigmaEst > 0) ? ((regLimit - xBar) / (3 * sigmaEst)).toFixed(3) : '—';
 
-    // Out of control signals (Nelson Rule 1: beyond 3sigma)
-    var ooc = pts.filter(function(p) { return p.val > iUCL || p.val < iLCL; }).length;
+    // Nelson Run Rules detection
+    var nelsonViolations = raSpcDetectNelson(pts.map(function(p) { return p.val; }), xBar, iUCL, iLCL);
+    var ooc = nelsonViolations.length;
 
     var metricOpts = ['BagCO', 'BagCO2', 'BagTHC', 'BagNOX', 'BagNMHC', 'BagCH4', 'BagNMHCpNOX', 'BagNMOGpNOX', 'FuelConsumptionBag', 'FuelEconomyBag', 'DilutePN', 'HCHO'];
     var groupByOpts = [{ v: 'regTestMode', l: 'Regulacion+TestMode' }, { v: 'testDesc', l: 'Test Description' }];
@@ -12021,12 +12517,19 @@ function raRenderSPC(el) {
             '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (sigmaEst > 0 ? 'var(--tp-blue)' : 'var(--tp-dim)') + ';font-size:14px;">' + sigmaEst.toFixed(4) + '</div><div class="tp-metric-label">&sigma;&#770; (mR/d2)</div></div>' +
             (regLimit ? '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + regLimit + '</div><div class="tp-metric-label">Limite Reg.</div></div>' : '') +
             '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (cpkSpc !== '—' && parseFloat(cpkSpc) < 1.33 ? 'var(--tp-red)' : 'var(--tp-green)') + ';font-size:14px;">' + cpkSpc + '</div><div class="tp-metric-label">Cpk (SPC)</div></div>' +
-            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (ooc > 0 ? 'var(--tp-red)' : 'var(--tp-green)') + ';font-size:14px;">' + ooc + '</div><div class="tp-metric-label">Fuera Ctrl</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (ooc > 0 ? 'var(--tp-red)' : 'var(--tp-green)') + ';font-size:14px;">' + ooc + '</div><div class="tp-metric-label">Nelson Viol.</div></div>' +
         '</div>' +
 
         // Chart containers
         '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Carta Individual (I)</div><div style="height:280px;"><canvas id="ra-spc-i-canvas"></canvas></div></div>' +
-        '<div><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Carta Rango Movil (mR)</div><div style="height:200px;"><canvas id="ra-spc-mr-canvas"></canvas></div></div>' +
+        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Carta Rango Movil (mR)</div><div style="height:200px;"><canvas id="ra-spc-mr-canvas"></canvas></div></div>' +
+
+        // Nelson Rules summary table
+        '<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:700;color:#8b5cf6;margin-bottom:6px;">Reglas de Nelson</div>' +
+        '<table style="width:100%;font-size:10px;border-collapse:collapse;">' +
+        '<tr style="border-bottom:1px solid var(--tp-border);"><th style="text-align:left;padding:4px 8px;color:var(--tp-dim);">Regla</th><th style="text-align:left;padding:4px 8px;color:var(--tp-dim);">Descripcion</th><th style="text-align:center;padding:4px 8px;color:var(--tp-dim);">Violaciones</th><th style="text-align:left;padding:4px 8px;color:var(--tp-dim);">Puntos</th></tr>' +
+        raSpcNelsonTableRows(nelsonViolations) +
+        '</table></div>' +
         '</div>';
 
     // Build I-Chart
@@ -12034,8 +12537,9 @@ function raRenderSPC(el) {
         var labels = pts.map(function(p, i) { return (i + 1) + (p.vin ? '\n' + p.vin.slice(-6) : ''); });
         var iCtx = document.getElementById('ra-spc-i-canvas');
         if (iCtx) {
+            var nelsonColors = raSpcNelsonPointColors(pts.length, nelsonViolations);
             var iDatasets = [
-                { label: fMetric, data: pts.map(function(p) { return p.val; }), borderColor: '#3b82f6', backgroundColor: pts.map(function(p) { return (p.val > iUCL || p.val < iLCL) ? '#ef4444' : '#3b82f6'; }), pointBackgroundColor: pts.map(function(p) { return (p.val > iUCL || p.val < iLCL) ? '#ef4444' : '#3b82f6'; }), pointRadius: 4, borderWidth: 1.5, fill: false, tension: 0 },
+                { label: fMetric, data: pts.map(function(p) { return p.val; }), borderColor: '#3b82f6', backgroundColor: nelsonColors, pointBackgroundColor: nelsonColors, pointRadius: nelsonColors.map(function(c) { return c === '#3b82f6' ? 4 : 6; }), borderWidth: 1.5, fill: false, tension: 0 },
                 { label: 'x\u0304 (CL)', data: Array(pts.length).fill(xBar), borderColor: '#f59e0b', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false },
                 { label: 'UCL', data: Array(pts.length).fill(iUCL), borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false },
                 { label: 'LCL', data: Array(pts.length).fill(iLCL), borderColor: '#06b6d4', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false }
@@ -12317,6 +12821,14 @@ function pnRenderDashboard(el) {
         });
         html += '</div>';
     }
+
+    // Weekly PDF Report button
+    html += '<div class="tp-card" style="text-align:center;padding:16px;">';
+    html += '<button onclick="if(typeof generateWeeklyStatusPDF===\'function\')generateWeeklyStatusPDF();else showToast(\'Funcion no disponible\',\'error\');" ';
+    html += 'style="padding:12px 24px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.3);">';
+    html += '📄 Generar Reporte Semanal (PDF)</button>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:6px;">Resumen cross-modulo: COP15, Plan, Resultados, Inventario</div>';
+    html += '</div>';
 
     el.innerHTML = html;
 }

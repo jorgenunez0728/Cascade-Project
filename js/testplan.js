@@ -619,6 +619,14 @@ function tpRenderDashboard(el) {
         ${tpRenderDashChart(analysis)}
     </div>
 
+    <!-- Burndown chart -->
+    <div class="tp-card">
+        <details ${window._tpBurndownOpen ? 'open' : ''}>
+            <summary onclick="window._tpBurndownOpen=!this.parentElement.open;" style="cursor:pointer;font-weight:700;font-size:12px;color:var(--tp-amber);user-select:none;padding:4px 0;">📉 Burndown de Deficit — Proyeccion de Completacion</summary>
+            <div style="margin-top:10px;" id="tp-burndown-container">${tpRenderBurndownChart(stats)}</div>
+        </details>
+    </div>
+
     <!-- Fix plan button -->
     <div class="tp-card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
         <button class="tp-btn tp-btn-primary" onclick="tpFixPlan()">📌 Fijar Plan de Pruebas</button>
@@ -650,6 +658,127 @@ function tpRenderDashboard(el) {
     `;
 
     tpRenderDashTable();
+}
+
+// ═══ BURNDOWN CHART ═══
+function tpRenderBurndownChart(stats) {
+    var tested = (tpState.testedList || []).slice();
+    if (tested.length < 2) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:10px;">Necesitas al menos 2 pruebas completadas para generar burndown.</div>';
+
+    tested.sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
+
+    // Group by ISO week
+    var weekMap = {};
+    var totalReq = stats.totalReq || 0;
+    tested.forEach(function(t) {
+        if (!t.date) return;
+        var d = new Date(t.date);
+        var wk = tpISOWeekKey(d);
+        weekMap[wk] = (weekMap[wk] || 0) + 1;
+    });
+
+    var weeks = Object.keys(weekMap).sort();
+    var cumul = 0;
+    var series = weeks.map(function(wk) {
+        cumul += weekMap[wk];
+        return { week: wk, tested: weekMap[wk], cumulative: cumul, remaining: Math.max(0, totalReq - cumul) };
+    });
+
+    // Velocity metrics
+    var totalWeeks = series.length;
+    var avgVelocity = totalWeeks > 0 ? cumul / totalWeeks : 0;
+    var recent = series.slice(-2);
+    var recentVelocity = recent.length > 0 ? recent.reduce(function(s, p) { return s + p.tested; }, 0) / recent.length : 0;
+    var remaining = series.length > 0 ? series[series.length - 1].remaining : totalReq;
+    var weeksLeft = recentVelocity > 0 ? Math.ceil(remaining / recentVelocity) : (avgVelocity > 0 ? Math.ceil(remaining / avgVelocity) : 0);
+    var completionDate = '—';
+    if (weeksLeft > 0 && weeksLeft < 200) {
+        var est = new Date();
+        est.setDate(est.getDate() + weeksLeft * 7);
+        completionDate = est.toLocaleDateString('es-MX');
+    } else if (remaining === 0) {
+        completionDate = 'Completado';
+    }
+
+    // Linear regression for forecast line
+    var forecastPts = [];
+    if (series.length >= 2 && remaining > 0) {
+        var xs = series.map(function(_, i) { return i; });
+        var ys = series.map(function(p) { return p.remaining; });
+        var n = xs.length;
+        var sumX = xs.reduce(function(s, v) { return s + v; }, 0);
+        var sumY = ys.reduce(function(s, v) { return s + v; }, 0);
+        var sumXY = xs.reduce(function(s, v, i) { return s + v * ys[i]; }, 0);
+        var sumX2 = xs.reduce(function(s, v) { return s + v * v; }, 0);
+        var slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        var intercept = (sumY - slope * sumX) / n;
+        // Project forward
+        for (var i = 0; i <= n + weeksLeft + 2; i++) {
+            var y = intercept + slope * i;
+            forecastPts.push(Math.max(0, y));
+        }
+    }
+
+    // Build chart labels
+    var labels = series.map(function(p) { return p.week; });
+    // Extend labels for forecast
+    if (forecastPts.length > labels.length) {
+        var lastDate = series.length > 0 ? new Date(series[series.length - 1].week + 'T00:00:00') : new Date();
+        for (var i = labels.length; i < forecastPts.length; i++) {
+            lastDate.setDate(lastDate.getDate() + 7);
+            labels.push(tpISOWeekKey(lastDate));
+        }
+    }
+
+    // Metrics
+    var html = '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">' + avgVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Promedio/sem</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-blue);font-size:14px;">' + recentVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Reciente/sem</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + remaining + '</div><div class="tp-metric-label">Deficit Actual</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#8b5cf6;font-size:14px;">' + (weeksLeft > 0 ? weeksLeft : '—') + '</div><div class="tp-metric-label">Semanas Rest.</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-green);font-size:13px;">' + completionDate + '</div><div class="tp-metric-label">Est. Completacion</div></div>' +
+    '</div>';
+    html += '<div style="height:250px;"><canvas id="tp-burndown-canvas"></canvas></div>';
+
+    // Schedule chart render after DOM update
+    setTimeout(function() {
+        if (window._tpBurndownChart) { try { window._tpBurndownChart.destroy(); } catch(e) {} }
+        var ctx = document.getElementById('tp-burndown-canvas');
+        if (!ctx || typeof Chart === 'undefined') return;
+
+        var datasets = [
+            { label: 'Deficit Restante', data: series.map(function(p) { return p.remaining; }), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', pointRadius: 4, borderWidth: 2, fill: true, tension: 0.1 }
+        ];
+        if (forecastPts.length > 0) {
+            var forecastData = [];
+            for (var i = 0; i < series.length - 1; i++) forecastData.push(null);
+            for (var i = Math.max(0, series.length - 1); i < forecastPts.length; i++) forecastData.push(forecastPts[i]);
+            datasets.push({ label: 'Forecast (regresion)', data: forecastData, borderColor: '#64748b', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0 });
+        }
+        datasets.push({ label: 'Meta (0)', data: Array(labels.length).fill(0), borderColor: '#10b981', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false });
+
+        window._tpBurndownChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { title: { display: true, text: 'Deficit', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' }, min: 0 }
+                }
+            }
+        });
+    }, 50);
+
+    return html;
+}
+
+function tpISOWeekKey(d) {
+    var dt = new Date(d);
+    dt.setHours(0, 0, 0, 0);
+    dt.setDate(dt.getDate() - (dt.getDay() || 7) + 1); // Monday
+    return dt.toISOString().slice(0, 10);
 }
 
 // ═══ DASHBOARD CHART RENDERER ═══
@@ -1570,6 +1699,8 @@ function tpAcceptWeeklyPlan(weekIdx) {
             completed: i.completed, completedDate: i.completedDate,
             status: i.status || (i.completed ? 'completed' : 'carryover'),
             manual: i.manual, carriedOver: i.carriedOver,
+            substituted: i.substituted || false,
+            substitution: i.substitution || null,
             preconDay: i.preconDay, testDay: i.testDay,
             preconLabel: i.preconLabel, testLabel: i.testLabel
         }))
@@ -1587,7 +1718,7 @@ function tpCarryOverWeekly(weekIdx) {
     // Mark source items as carryover
     pending.forEach(function(i) { i.status = 'carryover'; });
     var newItems = pending.map(function(i) {
-        return { desc:i.desc, id:i.id, mod:i.mod, rgn:i.rgn, reg:i.reg, eng:i.eng, tx:i.tx, my:i.my, drv:i.drv, body:i.body, ep:i.ep, engpkg:i.engpkg, tire:i.tire, required:i.required, deficit:i.deficit, score:i.score, completed:false, completedDate:null, manual:i.manual, carriedOver:true };
+        return { desc:i.desc, id:i.id, mod:i.mod, rgn:i.rgn, reg:i.reg, eng:i.eng, tx:i.tx, my:i.my, drv:i.drv, body:i.body, ep:i.ep, engpkg:i.engpkg, tire:i.tire, required:i.required, deficit:i.deficit, score:i.score, completed:false, completedDate:null, manual:i.manual, carriedOver:true, previouslySubstituted:i.substituted||false, previousSubstitution:i.substitution||null };
     });
     tpState.weeklyPlans.push({ id:Date.now(), created:new Date().toISOString(), capacity:newItems.length, items:newItems, accepted:false, carriedFrom:weekIdx+1 });
     tpSave(); tpRender();
@@ -1650,6 +1781,7 @@ function tpRenderWeekHistory(el) {
                 <div style="display:flex;align-items:center;gap:5px;padding:4px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};flex-wrap:wrap;">
                     <span style="font-size:13px;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
                     ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}
+                    ${item.substituted?'<span style="font-size:7px;color:#f59e0b;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
                     ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);">📌</span>':''}
                     ${tpConfigBadges(item,{fontSize:'8px'})}
                     ${item.testLabel?`<span style="font-size:7px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:auto;">Preacon ${item.preconLabel} → Prueba ${item.testLabel}</span>`:''}

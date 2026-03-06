@@ -461,8 +461,127 @@ function raRenderDashboard(el){
                 </tbody>
             </table>
         </div>
+    </div>
+
+    <!-- Compliance Trending by Regulation -->
+    <div class="tp-card">
+        <div class="tp-card-title"><span>📈 Tendencia de Cumplimiento por Regulacion</span></div>
+        ${raBuildComplianceTrendHTML()}
     </div>`;
     } catch(e) { el.innerHTML='<div class="tp-card" style="padding:20px;color:var(--tp-red);">Error renderizando dashboard: '+e.message+'</div>'; console.error('RA Dashboard error:',e); }
+}
+
+function raBuildComplianceTrendHTML() {
+    var tests = raState.tests;
+    if (tests.length < 3) return '<div style="text-align:center;padding:15px;color:var(--tp-dim);font-size:10px;">Necesitas al menos 3 pruebas para ver tendencias.</div>';
+
+    // Group by month and regulation
+    var monthRegs = {};
+    var allRegs = {};
+    tests.forEach(function(t) {
+        var dateStr = t.dateStr || t.importDate || '';
+        if (!dateStr) return;
+        var month = dateStr.slice(0, 7); // YYYY-MM
+        if (!month || month.length < 7) return;
+        var reg = t.emissionReg || t.regSpec || '?';
+        allRegs[reg] = true;
+        if (!monthRegs[month]) monthRegs[month] = {};
+        if (!monthRegs[month][reg]) monthRegs[month][reg] = { pass: 0, fail: 0, total: 0 };
+        var verdict = raTestVerdict(t);
+        monthRegs[month][reg].total++;
+        if (verdict === 'PASS') monthRegs[month][reg].pass++;
+        else if (verdict === 'FAIL') monthRegs[month][reg].fail++;
+    });
+
+    var months = Object.keys(monthRegs).sort();
+    var regs = Object.keys(allRegs).sort();
+
+    if (months.length < 1 || regs.length < 1) return '<div style="text-align:center;padding:15px;color:var(--tp-dim);font-size:10px;">Sin datos suficientes por regulacion/mes.</div>';
+
+    // Build per-regulation summary
+    var regSummaries = regs.map(function(reg) {
+        var totalPass = 0, totalFail = 0, totalTests = 0;
+        var lastMonthRate = null, prevAvgRate = null;
+        var rates = [];
+        months.forEach(function(m, mi) {
+            var d = monthRegs[m][reg];
+            if (d) {
+                totalPass += d.pass;
+                totalFail += d.fail;
+                totalTests += d.total;
+                rates.push(d.total > 0 ? (d.pass / d.total * 100) : null);
+            } else {
+                rates.push(null);
+            }
+        });
+        var overallRate = totalTests > 0 ? (totalPass / totalTests * 100) : 0;
+        // Trend: last month vs average of prior months
+        var validRates = rates.filter(function(r) { return r !== null; });
+        if (validRates.length >= 2) {
+            lastMonthRate = validRates[validRates.length - 1];
+            prevAvgRate = validRates.slice(0, -1).reduce(function(s, v) { return s + v; }, 0) / (validRates.length - 1);
+        }
+        var trendDelta = (lastMonthRate !== null && prevAvgRate !== null) ? lastMonthRate - prevAvgRate : 0;
+        var trendArrow = trendDelta > 1 ? '↑' : trendDelta < -1 ? '↓' : '→';
+        var trendColor = trendDelta > 1 ? 'var(--tp-green)' : trendDelta < -1 ? 'var(--tp-red)' : 'var(--tp-dim)';
+        return { reg: reg, pass: totalPass, fail: totalFail, total: totalTests, rate: overallRate, rates: rates, trendArrow: trendArrow, trendDelta: trendDelta, trendColor: trendColor };
+    });
+
+    // Chart
+    var regColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
+    var html = '<div style="height:220px;margin-bottom:12px;"><canvas id="ra-compliance-canvas"></canvas></div>';
+
+    // Summary table
+    html += '<table style="width:100%;font-size:10px;border-collapse:collapse;">';
+    html += '<tr style="border-bottom:1px solid var(--tp-border);"><th style="text-align:left;padding:4px 8px;color:var(--tp-dim);">Regulacion</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Total</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Pass</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Fail</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Rate</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Tend.</th></tr>';
+    regSummaries.forEach(function(r) {
+        var rateClr = r.rate >= 95 ? 'var(--tp-green)' : r.rate >= 80 ? 'var(--tp-amber)' : 'var(--tp-red)';
+        html += '<tr style="border-bottom:1px solid var(--tp-border);">';
+        html += '<td style="padding:4px 8px;font-weight:600;color:var(--tp-text);">' + r.reg + '</td>';
+        html += '<td style="text-align:center;padding:4px;">' + r.total + '</td>';
+        html += '<td style="text-align:center;padding:4px;color:var(--tp-green);">' + r.pass + '</td>';
+        html += '<td style="text-align:center;padding:4px;color:var(--tp-red);">' + r.fail + '</td>';
+        html += '<td style="text-align:center;padding:4px;font-weight:700;color:' + rateClr + ';">' + r.rate.toFixed(1) + '%</td>';
+        html += '<td style="text-align:center;padding:4px;font-weight:700;color:' + r.trendColor + ';">' + r.trendArrow + ' (' + (r.trendDelta >= 0 ? '+' : '') + r.trendDelta.toFixed(1) + '%)</td>';
+        html += '</tr>';
+    });
+    html += '</table>';
+
+    // Schedule chart render
+    setTimeout(function() {
+        if (window._raComplianceChart) { try { window._raComplianceChart.destroy(); } catch(e) {} }
+        var ctx = document.getElementById('ra-compliance-canvas');
+        if (!ctx || typeof Chart === 'undefined') return;
+
+        var datasets = regSummaries.map(function(r, ri) {
+            return {
+                label: r.reg,
+                data: r.rates.map(function(v) { return v !== null ? v : undefined; }),
+                borderColor: regColors[ri % regColors.length],
+                backgroundColor: regColors[ri % regColors.length] + '20',
+                pointRadius: 3, borderWidth: 2, fill: false, tension: 0.2,
+                spanGaps: true
+            };
+        });
+        // Add 100% and 90% reference lines
+        datasets.push({ label: 'Meta 100%', data: Array(months.length).fill(100), borderColor: '#10b98140', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false });
+        datasets.push({ label: 'Umbral 90%', data: Array(months.length).fill(90), borderColor: '#f59e0b40', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false });
+
+        window._raComplianceChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: months, datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { min: 0, max: 105, title: { display: true, text: '% Pass Rate', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' } }
+                }
+            }
+        });
+    }, 50);
+
+    return html;
 }
 
 
@@ -1814,6 +1933,95 @@ function raRenderCompare(el) {
 // SPC I-mR Control Charts
 // ══════════════════════════════════════════
 
+// Nelson Run Rules detection for SPC
+function raSpcDetectNelson(values, cl, ucl, lcl) {
+    var violations = [];
+    var n = values.length;
+    if (n < 2) return violations;
+
+    // Rule 1: Point beyond ±3σ (UCL/LCL)
+    for (var i = 0; i < n; i++) {
+        if (values[i] > ucl || values[i] < lcl) {
+            violations.push({ rule: 1, name: 'Fuera de ±3σ', idx: i, startIdx: i, endIdx: i, color: '#ef4444' });
+        }
+    }
+
+    // Rule 2: 9 consecutive points on same side of CL
+    if (n >= 9) {
+        var side = 0, run = 1;
+        for (var i = 1; i < n; i++) {
+            var curSide = values[i] >= cl ? 1 : -1;
+            var prevSide = values[i - 1] >= cl ? 1 : -1;
+            if (curSide === prevSide) { run++; } else { run = 1; }
+            if (run >= 9) {
+                violations.push({ rule: 2, name: '9 consecutivos mismo lado', idx: i, startIdx: i - 8, endIdx: i, color: '#f97316' });
+            }
+        }
+    }
+
+    // Rule 3: 6 consecutive increasing or decreasing
+    if (n >= 6) {
+        var incr = 1, decr = 1;
+        for (var i = 1; i < n; i++) {
+            if (values[i] > values[i - 1]) { incr++; decr = 1; }
+            else if (values[i] < values[i - 1]) { decr++; incr = 1; }
+            else { incr = 1; decr = 1; }
+            if (incr >= 6) {
+                violations.push({ rule: 3, name: '6 consecutivos monotonicos', idx: i, startIdx: i - 5, endIdx: i, color: '#eab308' });
+            }
+            if (decr >= 6) {
+                violations.push({ rule: 3, name: '6 consecutivos monotonicos', idx: i, startIdx: i - 5, endIdx: i, color: '#eab308' });
+            }
+        }
+    }
+
+    // Rule 4: 14 consecutive alternating up/down
+    if (n >= 14) {
+        var alt = 1;
+        for (var i = 2; i < n; i++) {
+            var d1 = values[i] - values[i - 1];
+            var d2 = values[i - 1] - values[i - 2];
+            if ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) { alt++; } else { alt = 1; }
+            if (alt >= 14) {
+                violations.push({ rule: 4, name: '14 consecutivos alternando', idx: i, startIdx: i - 13, endIdx: i, color: '#a855f7' });
+            }
+        }
+    }
+
+    return violations;
+}
+
+function raSpcNelsonPointColors(nPts, violations) {
+    var colors = [];
+    for (var i = 0; i < nPts; i++) colors.push('#3b82f6');
+    // Apply violation colors (later rules override earlier)
+    violations.forEach(function(v) {
+        for (var i = v.startIdx; i <= v.endIdx && i < nPts; i++) {
+            colors[i] = v.color;
+        }
+    });
+    return colors;
+}
+
+function raSpcNelsonTableRows(violations) {
+    var rules = [
+        { id: 1, desc: 'Punto fuera de ±3σ (UCL/LCL)', color: '#ef4444' },
+        { id: 2, desc: '9 consecutivos del mismo lado del CL', color: '#f97316' },
+        { id: 3, desc: '6 consecutivos ascendentes o descendentes', color: '#eab308' },
+        { id: 4, desc: '14 consecutivos alternando arriba/abajo', color: '#a855f7' }
+    ];
+    return rules.map(function(r) {
+        var rvs = violations.filter(function(v) { return v.rule === r.id; });
+        var pts = rvs.length > 0 ? rvs.map(function(v) { return v.startIdx === v.endIdx ? '#' + (v.idx + 1) : '#' + (v.startIdx + 1) + '-#' + (v.endIdx + 1); }).join(', ') : '—';
+        var clr = rvs.length > 0 ? r.color : 'var(--tp-dim)';
+        return '<tr style="border-bottom:1px solid var(--tp-border);">' +
+            '<td style="padding:4px 8px;font-weight:700;color:' + r.color + ';">R' + r.id + '</td>' +
+            '<td style="padding:4px 8px;color:var(--tp-text);">' + r.desc + '</td>' +
+            '<td style="padding:4px 8px;text-align:center;font-weight:700;color:' + clr + ';">' + rvs.length + '</td>' +
+            '<td style="padding:4px 8px;color:var(--tp-dim);font-size:9px;">' + pts + '</td></tr>';
+    }).join('');
+}
+
 function raRenderSPC(el) {
     if (raState.tests.length < 3) {
         el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Necesitas al menos 3 pruebas para generar cartas SPC.</div>';
@@ -1870,8 +2078,9 @@ function raRenderSPC(el) {
     // Cpk from SPC
     var cpkSpc = (regLimit && sigmaEst > 0) ? ((regLimit - xBar) / (3 * sigmaEst)).toFixed(3) : '—';
 
-    // Out of control signals (Nelson Rule 1: beyond 3sigma)
-    var ooc = pts.filter(function(p) { return p.val > iUCL || p.val < iLCL; }).length;
+    // Nelson Run Rules detection
+    var nelsonViolations = raSpcDetectNelson(pts.map(function(p) { return p.val; }), xBar, iUCL, iLCL);
+    var ooc = nelsonViolations.length;
 
     var metricOpts = ['BagCO', 'BagCO2', 'BagTHC', 'BagNOX', 'BagNMHC', 'BagCH4', 'BagNMHCpNOX', 'BagNMOGpNOX', 'FuelConsumptionBag', 'FuelEconomyBag', 'DilutePN', 'HCHO'];
     var groupByOpts = [{ v: 'regTestMode', l: 'Regulacion+TestMode' }, { v: 'testDesc', l: 'Test Description' }];
@@ -1906,12 +2115,19 @@ function raRenderSPC(el) {
             '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (sigmaEst > 0 ? 'var(--tp-blue)' : 'var(--tp-dim)') + ';font-size:14px;">' + sigmaEst.toFixed(4) + '</div><div class="tp-metric-label">&sigma;&#770; (mR/d2)</div></div>' +
             (regLimit ? '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + regLimit + '</div><div class="tp-metric-label">Limite Reg.</div></div>' : '') +
             '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (cpkSpc !== '—' && parseFloat(cpkSpc) < 1.33 ? 'var(--tp-red)' : 'var(--tp-green)') + ';font-size:14px;">' + cpkSpc + '</div><div class="tp-metric-label">Cpk (SPC)</div></div>' +
-            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (ooc > 0 ? 'var(--tp-red)' : 'var(--tp-green)') + ';font-size:14px;">' + ooc + '</div><div class="tp-metric-label">Fuera Ctrl</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (ooc > 0 ? 'var(--tp-red)' : 'var(--tp-green)') + ';font-size:14px;">' + ooc + '</div><div class="tp-metric-label">Nelson Viol.</div></div>' +
         '</div>' +
 
         // Chart containers
         '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Carta Individual (I)</div><div style="height:280px;"><canvas id="ra-spc-i-canvas"></canvas></div></div>' +
-        '<div><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Carta Rango Movil (mR)</div><div style="height:200px;"><canvas id="ra-spc-mr-canvas"></canvas></div></div>' +
+        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Carta Rango Movil (mR)</div><div style="height:200px;"><canvas id="ra-spc-mr-canvas"></canvas></div></div>' +
+
+        // Nelson Rules summary table
+        '<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:700;color:#8b5cf6;margin-bottom:6px;">Reglas de Nelson</div>' +
+        '<table style="width:100%;font-size:10px;border-collapse:collapse;">' +
+        '<tr style="border-bottom:1px solid var(--tp-border);"><th style="text-align:left;padding:4px 8px;color:var(--tp-dim);">Regla</th><th style="text-align:left;padding:4px 8px;color:var(--tp-dim);">Descripcion</th><th style="text-align:center;padding:4px 8px;color:var(--tp-dim);">Violaciones</th><th style="text-align:left;padding:4px 8px;color:var(--tp-dim);">Puntos</th></tr>' +
+        raSpcNelsonTableRows(nelsonViolations) +
+        '</table></div>' +
         '</div>';
 
     // Build I-Chart
@@ -1919,8 +2135,9 @@ function raRenderSPC(el) {
         var labels = pts.map(function(p, i) { return (i + 1) + (p.vin ? '\n' + p.vin.slice(-6) : ''); });
         var iCtx = document.getElementById('ra-spc-i-canvas');
         if (iCtx) {
+            var nelsonColors = raSpcNelsonPointColors(pts.length, nelsonViolations);
             var iDatasets = [
-                { label: fMetric, data: pts.map(function(p) { return p.val; }), borderColor: '#3b82f6', backgroundColor: pts.map(function(p) { return (p.val > iUCL || p.val < iLCL) ? '#ef4444' : '#3b82f6'; }), pointBackgroundColor: pts.map(function(p) { return (p.val > iUCL || p.val < iLCL) ? '#ef4444' : '#3b82f6'; }), pointRadius: 4, borderWidth: 1.5, fill: false, tension: 0 },
+                { label: fMetric, data: pts.map(function(p) { return p.val; }), borderColor: '#3b82f6', backgroundColor: nelsonColors, pointBackgroundColor: nelsonColors, pointRadius: nelsonColors.map(function(c) { return c === '#3b82f6' ? 4 : 6; }), borderWidth: 1.5, fill: false, tension: 0 },
                 { label: 'x\u0304 (CL)', data: Array(pts.length).fill(xBar), borderColor: '#f59e0b', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false },
                 { label: 'UCL', data: Array(pts.length).fill(iUCL), borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false },
                 { label: 'LCL', data: Array(pts.length).fill(iLCL), borderColor: '#06b6d4', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false }
