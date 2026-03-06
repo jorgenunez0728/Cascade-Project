@@ -104,7 +104,7 @@ function authShowLogin() {
 
 // ── Operator selected → show PIN entry ──
 function authSelectOperator(idx) {
-    var operators = pnState.operators.filter(function(o) { return o.active; });
+    var operators = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }) : [];
     var op = operators[idx];
     if (!op) return;
 

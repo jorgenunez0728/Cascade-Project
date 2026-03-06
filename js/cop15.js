@@ -2243,11 +2243,15 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
 function openConfigPanel() {
     document.getElementById('configModal').style.display = 'block';
     document.getElementById('configCount').textContent = allConfigurations.length;
+    var modalCount = document.getElementById('configCountModal'); if (modalCount) modalCount.textContent = allConfigurations.length;
     const isCustom = !!localStorage.getItem('kia_config_csv_raw');
     const srcEl = document.getElementById('configSource');
-    if (srcEl) srcEl.innerHTML = isCustom 
-        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="if(confirm(\'Restaurar CSV original embebido?\')){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');}" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>' 
+    var modalSrc = document.getElementById('configSourceModal');
+    var srcHtml = isCustom
+        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="if(confirm(\'Restaurar CSV original embebido?\')){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');}" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>'
         : '<span style="color:#94a3b8;">CSV embebido (original)</span>';
+    if (srcEl) srcEl.innerHTML = srcHtml;
+    if (modalSrc) modalSrc.innerHTML = srcHtml;
 }
 function handleConfigCSVImport(event) {
     const file = event.target.files[0]; if (!file) return;
@@ -2266,8 +2270,10 @@ function handleConfigCSVImport(event) {
                 uniqueModels.forEach(m => { modelSelect.innerHTML += '<option value="'+m+'">'+m+'</option>'; });
             }
             document.getElementById('configCount').textContent = allConfigurations.length;
+            var mc = document.getElementById('configCountModal'); if (mc) mc.textContent = allConfigurations.length;
             const srcEl = document.getElementById('configSource');
             if (srcEl) srcEl.innerHTML = '<span style="color:#f59e0b;">CSV importado</span>';
+            var ms = document.getElementById('configSourceModal'); if (ms) ms.innerHTML = '<span style="color:#f59e0b;">CSV importado</span>';
             st.innerHTML = '<span style="color:#16a34a;">OK: '+allConfigurations.length+' configs (antes: '+oldCount+'). Los vehiculos ya registrados no se afectan.</span>';
         } catch(err) { st.innerHTML = '<span style="color:#dc2626;">Error: '+err.message+'</span>'; }
     };

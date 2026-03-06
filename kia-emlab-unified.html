@@ -1688,7 +1688,7 @@ body{ overflow-x: hidden; }
 <input type="file" id="configCSVUpload" accept=".csv" style="display:none;" onchange="handleConfigCSVImport(event)">
 <button onclick="document.getElementById('configCSVUpload').click()" style="padding:7px 14px;background:#0f766e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:12px;">Importar CSV</button>
 <div id="configCSVStatus" style="margin-top:8px;font-size:11px;"></div>
-<div style="margin-top:6px;font-size:10px;color:#94a3b8;">Actual: <strong id="configCount">0</strong> configuraciones — <span id="configSource"></span></div>
+<div style="margin-top:6px;font-size:10px;color:#94a3b8;">Actual: <strong id="configCountModal">0</strong> configuraciones — <span id="configSourceModal"></span></div>
 </div></div></div>
 
 <div id="invModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
@@ -4730,11 +4730,15 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
 function openConfigPanel() {
     document.getElementById('configModal').style.display = 'block';
     document.getElementById('configCount').textContent = allConfigurations.length;
+    var modalCount = document.getElementById('configCountModal'); if (modalCount) modalCount.textContent = allConfigurations.length;
     const isCustom = !!localStorage.getItem('kia_config_csv_raw');
     const srcEl = document.getElementById('configSource');
-    if (srcEl) srcEl.innerHTML = isCustom 
-        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="if(confirm(\'Restaurar CSV original embebido?\')){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');}" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>' 
+    var modalSrc = document.getElementById('configSourceModal');
+    var srcHtml = isCustom
+        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="if(confirm(\'Restaurar CSV original embebido?\')){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');}" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>'
         : '<span style="color:#94a3b8;">CSV embebido (original)</span>';
+    if (srcEl) srcEl.innerHTML = srcHtml;
+    if (modalSrc) modalSrc.innerHTML = srcHtml;
 }
 function handleConfigCSVImport(event) {
     const file = event.target.files[0]; if (!file) return;
@@ -4753,8 +4757,10 @@ function handleConfigCSVImport(event) {
                 uniqueModels.forEach(m => { modelSelect.innerHTML += '<option value="'+m+'">'+m+'</option>'; });
             }
             document.getElementById('configCount').textContent = allConfigurations.length;
+            var mc = document.getElementById('configCountModal'); if (mc) mc.textContent = allConfigurations.length;
             const srcEl = document.getElementById('configSource');
             if (srcEl) srcEl.innerHTML = '<span style="color:#f59e0b;">CSV importado</span>';
+            var ms = document.getElementById('configSourceModal'); if (ms) ms.innerHTML = '<span style="color:#f59e0b;">CSV importado</span>';
             st.innerHTML = '<span style="color:#16a34a;">OK: '+allConfigurations.length+' configs (antes: '+oldCount+'). Los vehiculos ya registrados no se afectan.</span>';
         } catch(err) { st.innerHTML = '<span style="color:#dc2626;">Error: '+err.message+'</span>'; }
     };
@@ -12351,7 +12357,7 @@ function raSpcDetectNelson(values, cl, ucl, lcl) {
 
     // Rule 2: 9 consecutive points on same side of CL
     if (n >= 9) {
-        var side = 0, run = 1;
+        var run = 1;
         for (var i = 1; i < n; i++) {
             var curSide = values[i] > cl ? 1 : values[i] < cl ? -1 : 0;
             var prevSide = values[i - 1] > cl ? 1 : values[i - 1] < cl ? -1 : 0;
@@ -13459,7 +13465,7 @@ function authShowLogin() {
 
 // ── Operator selected → show PIN entry ──
 function authSelectOperator(idx) {
-    var operators = pnState.operators.filter(function(o) { return o.active; });
+    var operators = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }) : [];
     var op = operators[idx];
     if (!op) return;
 

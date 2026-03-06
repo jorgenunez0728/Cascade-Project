@@ -1948,7 +1948,7 @@ function raSpcDetectNelson(values, cl, ucl, lcl) {
 
     // Rule 2: 9 consecutive points on same side of CL
     if (n >= 9) {
-        var side = 0, run = 1;
+        var run = 1;
         for (var i = 1; i < n; i++) {
             var curSide = values[i] > cl ? 1 : values[i] < cl ? -1 : 0;
             var prevSide = values[i - 1] > cl ? 1 : values[i - 1] < cl ? -1 : 0;
