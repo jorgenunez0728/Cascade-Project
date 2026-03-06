@@ -223,6 +223,9 @@ function invRenderDashboard(el) {
         html += '<div class="tp-card" style="border-left:3px solid var(--tp-green);text-align:center;padding:20px;color:var(--tp-green);">Sin alertas de vigencia/nivel. Todos los gases y equipos OK.</div>';
     }
 
+    // Anomaly detection banner
+    html += invRenderAnomalyBanner();
+
     // Reorder alerts (projected depletion)
     html += invRenderReorderAlerts();
 
@@ -771,7 +774,8 @@ function invShowZone(zoneId) {
 // ══════════════════════════════════════════════════
 function invRenderReadings(el) {
     var gases = invState.gases.filter(function(g){ return g.status !== 'Empty'; });
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Lecturas Diarias de Presion</span>';
+    var html = invRenderAnomalyBanner();
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Lecturas Diarias de Presion</span>';
     html += '<div style="display:flex;gap:6px;">';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size:10px;border-color:#8b5cf6;color:#8b5cf6;">📷 Escanear</button>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invBulkReading()" style="font-size:10px;">Guardar Lecturas</button>';
@@ -2718,5 +2722,143 @@ function invRenderReorderAlerts() {
 
     html += '</div>';
     return html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [INV-ANOMALY] Anomaly Detection — Leak & Unusual Consumption      ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function invDetectAnomalies() {
+    var anomalies = [];
+    invState.gases.forEach(function(g) {
+        if (g.status === 'Empty' || !g.readings || g.readings.length < 3) return;
+        var rdgs = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+
+        // Calculate average daily drop rate from all consecutive pairs
+        var drops = [];
+        for (var i = 1; i < rdgs.length; i++) {
+            var daysDiff = Math.max(1, Math.round((new Date(rdgs[i].date) - new Date(rdgs[i-1].date)) / 86400000));
+            var psiDrop = rdgs[i-1].psi - rdgs[i].psi;
+            if (psiDrop > 0) drops.push(psiDrop / daysDiff);
+        }
+        if (drops.length < 2) return;
+
+        // Mean and std deviation of daily drop rates
+        var mean = drops.reduce(function(s, v) { return s + v; }, 0) / drops.length;
+        var variance = drops.reduce(function(s, v) { return s + (v - mean) * (v - mean); }, 0) / drops.length;
+        var std = Math.sqrt(variance);
+        if (mean <= 0) return;
+
+        // Check latest drop against historical pattern
+        var lastDrop = rdgs[rdgs.length - 2].psi - rdgs[rdgs.length - 1].psi;
+        var lastDays = Math.max(1, Math.round((new Date(rdgs[rdgs.length - 1].date) - new Date(rdgs[rdgs.length - 2].date)) / 86400000));
+        var lastRate = lastDrop / lastDays;
+
+        if (lastDrop <= 0) return; // refill or no change
+
+        var zScore = std > 0 ? (lastRate - mean) / std : 0;
+        var ratio = lastRate / mean;
+
+        if (ratio >= 3 || zScore >= 3) {
+            anomalies.push({
+                gasId: g.id, controlNo: g.controlNo, formula: g.formula,
+                concNominal: g.concNominal, zone: g.zone,
+                type: 'leak', severity: 'critica',
+                message: 'Posible FUGA: caida de ' + lastDrop.toFixed(0) + ' psi en ' + lastDays + 'd (' + ratio.toFixed(1) + 'x promedio)',
+                lastPsi: rdgs[rdgs.length - 1].psi, drop: lastDrop, ratio: ratio,
+                date: rdgs[rdgs.length - 1].date
+            });
+        } else if (ratio >= 2 || zScore >= 2) {
+            anomalies.push({
+                gasId: g.id, controlNo: g.controlNo, formula: g.formula,
+                concNominal: g.concNominal, zone: g.zone,
+                type: 'unusual', severity: 'alta',
+                message: 'Consumo inusual: caida de ' + lastDrop.toFixed(0) + ' psi en ' + lastDays + 'd (' + ratio.toFixed(1) + 'x promedio)',
+                lastPsi: rdgs[rdgs.length - 1].psi, drop: lastDrop, ratio: ratio,
+                date: rdgs[rdgs.length - 1].date
+            });
+        }
+    });
+
+    anomalies.sort(function(a, b) { return a.severity === 'critica' ? -1 : 1; });
+    return anomalies;
+}
+
+function invRenderAnomalyBanner() {
+    var anomalies = invDetectAnomalies();
+    if (anomalies.length === 0) return '';
+
+    var html = '<div class="tp-card" style="border-left:3px solid #ef4444;background:rgba(239,68,68,0.04);">';
+    html += '<div class="tp-card-title"><span style="color:#ef4444;">Anomalias Detectadas (' + anomalies.length + ')</span></div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Cilindros con consumo inusual vs. su patron historico.</div>';
+
+    anomalies.forEach(function(a) {
+        var clr = a.severity === 'critica' ? '#ef4444' : '#f59e0b';
+        var icon = a.type === 'leak' ? '🚨' : '⚠️';
+        html += '<div style="padding:8px 10px;margin-bottom:4px;border:1px solid ' + clr + '30;border-radius:6px;background:' + clr + '08;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">';
+        html += '<div>';
+        html += '<span style="font-size:13px;">' + icon + '</span> ';
+        html += '<span style="font-weight:700;font-size:11px;">' + a.formula + ' ' + (a.concNominal || '') + '</span>';
+        html += ' <span style="font-size:9px;color:var(--tp-dim);">#' + a.controlNo + ' (' + (a.zone || '?') + ')</span>';
+        html += '</div>';
+        html += '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:' + clr + '20;color:' + clr + ';border:1px solid ' + clr + '40;text-transform:uppercase;">' + a.severity + '</span>';
+        html += '</div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);margin-top:4px;">' + a.message + '</div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">Actual: <strong>' + a.lastPsi + ' psi</strong> | Fecha: ' + a.date + '</div>';
+        html += '</div>';
+    });
+
+    html += '</div>';
+    return html;
+}
+
+// ══════════════════════════════════════════════════
+// IMPROVED PREDICTION — Bayesian blend with reference rates
+// ══════════════════════════════════════════════════
+
+var INV_REFERENCE_RATES = {
+    'CO/N2': 3.5, 'NO/N2': 3.0, 'CO2/N2': 2.5, 'CH4/Air': 2.0,
+    'C3H8/Air': 2.8, 'N2O/N2': 2.0, 'ZERO': 1.5, 'H2/He': 1.0, 'O2/N2': 1.5
+};
+
+function invPredictDepletion(g) {
+    if (!g.readings || g.readings.length < 2) {
+        // Use reference rate if available
+        var refRate = INV_REFERENCE_RATES[g.formula] || 0;
+        if (refRate > 0 && g.readings && g.readings.length === 1) {
+            var lastPsi = g.readings[0].psi;
+            var daysLeft = lastPsi / refRate;
+            return { daysLeft: Math.round(daysLeft), weeksLeft: Math.round(daysLeft / 7 * 10) / 10, confidence: 'baja', source: 'referencia', dailyRate: refRate };
+        }
+        return null;
+    }
+
+    var rdgs = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+    var first = rdgs[0], last = rdgs[rdgs.length - 1];
+    var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / 86400000));
+    var totalDrop = first.psi - last.psi;
+    if (totalDrop <= 0) return null;
+
+    var observedRate = totalDrop / daysDiff;
+    var refRate = INV_REFERENCE_RATES[g.formula] || observedRate;
+    var n = rdgs.length;
+
+    // Bayesian blend: more data → trust observed more
+    var weight = Math.min(n / 10, 1); // full trust at 10+ readings
+    var blendedRate = observedRate * weight + refRate * (1 - weight);
+
+    var daysLeft = last.psi / blendedRate;
+    var confidence = n >= 10 ? 'alta' : n >= 5 ? 'media' : 'baja';
+
+    return {
+        daysLeft: Math.round(daysLeft),
+        weeksLeft: Math.round(daysLeft / 7 * 10) / 10,
+        confidence: confidence,
+        source: weight >= 1 ? 'historico' : 'mixto',
+        dailyRate: Math.round(blendedRate * 10) / 10,
+        observedRate: Math.round(observedRate * 10) / 10,
+        dataPoints: n
+    };
 }
 

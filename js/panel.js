@@ -235,6 +235,104 @@ function pnRenderDashboard(el) {
         html += '</div>';
     }
 
+    // ── Cpk/Process Capability Summary ──
+    if (raTests.length >= 3) {
+        html += '<div class="tp-card">';
+        html += '<div class="tp-card-title"><span>📈 Capacidad de Proceso (Cpk)</span></div>';
+        var regGroups = {};
+        raTests.forEach(function(t) {
+            var reg = t.emissionReg || t.regSpec || '?';
+            if (!regGroups[reg]) regGroups[reg] = [];
+            regGroups[reg].push(t);
+        });
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;">';
+        Object.keys(regGroups).slice(0, 6).forEach(function(reg) {
+            var tests = regGroups[reg];
+            var passCount = tests.filter(function(t) { return typeof raTestVerdict === 'function' && raTestVerdict(t) === 'PASS'; }).length;
+            var passRate = tests.length > 0 ? Math.round((passCount / tests.length) * 100) : 0;
+            var clr = passRate >= 90 ? '#10b981' : passRate >= 70 ? '#f59e0b' : '#ef4444';
+            html += '<div style="padding:10px;border:1px solid ' + clr + '30;border-radius:8px;background:' + clr + '08;text-align:center;">';
+            html += '<div style="font-size:9px;color:var(--tp-dim);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + reg + '">' + reg + '</div>';
+            html += '<div style="font-size:20px;font-weight:800;color:' + clr + ';">' + passRate + '%</div>';
+            html += '<div style="font-size:8px;color:var(--tp-dim);">' + passCount + '/' + tests.length + ' PASS</div>';
+            html += '</div>';
+        });
+        html += '</div></div>';
+    }
+
+    // ── Inventory Anomalies ──
+    if (typeof invDetectAnomalies === 'function') {
+        var anomalies = invDetectAnomalies();
+        if (anomalies.length > 0) {
+            html += '<div class="tp-card" style="border-left:3px solid #ef4444;">';
+            html += '<div class="tp-card-title"><span style="color:#ef4444;">🚨 Anomalias de Gas (' + anomalies.length + ')</span>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="switchPlatform(\'inventory\')" style="font-size:9px;">Ver en Inventario</button></div>';
+            anomalies.slice(0, 3).forEach(function(a) {
+                var clr = a.severity === 'critica' ? '#ef4444' : '#f59e0b';
+                html += '<div style="padding:6px 8px;margin-bottom:3px;border:1px solid ' + clr + '30;border-radius:6px;font-size:10px;color:' + clr + ';">';
+                html += '<strong>' + a.formula + '</strong> #' + a.controlNo + ' — ' + a.message;
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+    }
+
+    // ── Improved Depletion Predictions ──
+    if (typeof invPredictDepletion === 'function' && invGases.length > 0) {
+        var predictions = [];
+        invGases.forEach(function(g) {
+            if (g.status === 'Empty') return;
+            var pred = invPredictDepletion(g);
+            if (pred && pred.daysLeft < 45) {
+                predictions.push({ gas: g, pred: pred });
+            }
+        });
+        if (predictions.length > 0) {
+            predictions.sort(function(a, b) { return a.pred.daysLeft - b.pred.daysLeft; });
+            html += '<div class="tp-card">';
+            html += '<div class="tp-card-title"><span>⏳ Prediccion de Agotamiento</span></div>';
+            predictions.slice(0, 5).forEach(function(p) {
+                var urgClr = p.pred.daysLeft < 14 ? '#ef4444' : p.pred.daysLeft < 30 ? '#f59e0b' : '#3b82f6';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);font-size:10px;">';
+                html += '<span style="color:var(--tp-text);">' + p.gas.formula + ' ' + (p.gas.concNominal || '') + ' <span style="color:var(--tp-dim);">#' + p.gas.controlNo + '</span></span>';
+                html += '<span style="font-weight:700;color:' + urgClr + ';">~' + p.pred.daysLeft + 'd <span style="font-size:8px;font-weight:400;">(' + p.pred.confidence + ')</span></span>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+    }
+
+    // ── Soak Timer Status ──
+    var soakData = null;
+    try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
+    if (soakData && soakData.active) {
+        var elapsed = Math.round((Date.now() - soakData.start) / 60000);
+        var remaining = Math.max(0, (soakData.duration || 720) - elapsed);
+        var hrs = Math.floor(remaining / 60);
+        var mins = remaining % 60;
+        var pct = Math.round((elapsed / (soakData.duration || 720)) * 100);
+        html += '<div class="tp-card" style="border:2px solid #8b5cf6;">';
+        html += '<div class="tp-card-title"><span style="color:#8b5cf6;">🕐 Soak Timer Activo</span></div>';
+        html += '<div style="text-align:center;padding:8px;">';
+        html += '<div style="font-size:24px;font-weight:800;color:#8b5cf6;">' + hrs + 'h ' + mins + 'm restantes</div>';
+        html += '<div class="tp-bar" style="height:6px;margin:8px 0;"><div class="tp-bar-fill" style="width:' + Math.min(pct, 100) + '%;background:#8b5cf6;"></div></div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);">VIN: ' + (soakData.vin || '?') + ' | ' + pct + '% completado</div>';
+        html += '</div></div>';
+    }
+
+    // ── Firebase Sync Status ──
+    if (typeof fbSync !== 'undefined' && fbSync.enabled) {
+        var syncClr = fbSync.status === 'connected' ? '#10b981' : fbSync.status === 'error' ? '#ef4444' : '#f59e0b';
+        var queueLen = (typeof fbOfflineQueue !== 'undefined') ? fbOfflineQueue.length : 0;
+        html += '<div class="tp-card" style="border-left:3px solid ' + syncClr + ';">';
+        html += '<div class="tp-card-title"><span>☁️ Firebase Sync</span>';
+        html += '<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:' + syncClr + '20;color:' + syncClr + ';font-weight:700;">' + fbSync.status.toUpperCase() + '</span></div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);">Estacion: ' + (fbSync.stationId || '?') + '</div>';
+        if (queueLen > 0) html += '<div style="font-size:10px;color:#f59e0b;margin-top:4px;">' + queueLen + ' operaciones en cola offline</div>';
+        if (fbSync.lastSync) html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">Ultimo sync: ' + new Date(fbSync.lastSync).toLocaleTimeString('es-MX') + '</div>';
+        html += '</div>';
+    }
+
     // Weekly PDF Report button
     html += '<div class="tp-card" style="text-align:center;padding:16px;">';
     html += '<button onclick="if(typeof generateWeeklyStatusPDF===\'function\')generateWeeklyStatusPDF();else showToast(\'Funcion no disponible\',\'error\');" ';

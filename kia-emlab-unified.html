@@ -5308,6 +5308,9 @@ function invRenderDashboard(el) {
         html += '<div class="tp-card" style="border-left:3px solid var(--tp-green);text-align:center;padding:20px;color:var(--tp-green);">Sin alertas de vigencia/nivel. Todos los gases y equipos OK.</div>';
     }
 
+    // Anomaly detection banner
+    html += invRenderAnomalyBanner();
+
     // Reorder alerts (projected depletion)
     html += invRenderReorderAlerts();
 
@@ -5856,7 +5859,8 @@ function invShowZone(zoneId) {
 // ══════════════════════════════════════════════════
 function invRenderReadings(el) {
     var gases = invState.gases.filter(function(g){ return g.status !== 'Empty'; });
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Lecturas Diarias de Presion</span>';
+    var html = invRenderAnomalyBanner();
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Lecturas Diarias de Presion</span>';
     html += '<div style="display:flex;gap:6px;">';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size:10px;border-color:#8b5cf6;color:#8b5cf6;">📷 Escanear</button>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invBulkReading()" style="font-size:10px;">Guardar Lecturas</button>';
@@ -7805,6 +7809,144 @@ function invRenderReorderAlerts() {
     return html;
 }
 
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [INV-ANOMALY] Anomaly Detection — Leak & Unusual Consumption      ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function invDetectAnomalies() {
+    var anomalies = [];
+    invState.gases.forEach(function(g) {
+        if (g.status === 'Empty' || !g.readings || g.readings.length < 3) return;
+        var rdgs = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+
+        // Calculate average daily drop rate from all consecutive pairs
+        var drops = [];
+        for (var i = 1; i < rdgs.length; i++) {
+            var daysDiff = Math.max(1, Math.round((new Date(rdgs[i].date) - new Date(rdgs[i-1].date)) / 86400000));
+            var psiDrop = rdgs[i-1].psi - rdgs[i].psi;
+            if (psiDrop > 0) drops.push(psiDrop / daysDiff);
+        }
+        if (drops.length < 2) return;
+
+        // Mean and std deviation of daily drop rates
+        var mean = drops.reduce(function(s, v) { return s + v; }, 0) / drops.length;
+        var variance = drops.reduce(function(s, v) { return s + (v - mean) * (v - mean); }, 0) / drops.length;
+        var std = Math.sqrt(variance);
+        if (mean <= 0) return;
+
+        // Check latest drop against historical pattern
+        var lastDrop = rdgs[rdgs.length - 2].psi - rdgs[rdgs.length - 1].psi;
+        var lastDays = Math.max(1, Math.round((new Date(rdgs[rdgs.length - 1].date) - new Date(rdgs[rdgs.length - 2].date)) / 86400000));
+        var lastRate = lastDrop / lastDays;
+
+        if (lastDrop <= 0) return; // refill or no change
+
+        var zScore = std > 0 ? (lastRate - mean) / std : 0;
+        var ratio = lastRate / mean;
+
+        if (ratio >= 3 || zScore >= 3) {
+            anomalies.push({
+                gasId: g.id, controlNo: g.controlNo, formula: g.formula,
+                concNominal: g.concNominal, zone: g.zone,
+                type: 'leak', severity: 'critica',
+                message: 'Posible FUGA: caida de ' + lastDrop.toFixed(0) + ' psi en ' + lastDays + 'd (' + ratio.toFixed(1) + 'x promedio)',
+                lastPsi: rdgs[rdgs.length - 1].psi, drop: lastDrop, ratio: ratio,
+                date: rdgs[rdgs.length - 1].date
+            });
+        } else if (ratio >= 2 || zScore >= 2) {
+            anomalies.push({
+                gasId: g.id, controlNo: g.controlNo, formula: g.formula,
+                concNominal: g.concNominal, zone: g.zone,
+                type: 'unusual', severity: 'alta',
+                message: 'Consumo inusual: caida de ' + lastDrop.toFixed(0) + ' psi en ' + lastDays + 'd (' + ratio.toFixed(1) + 'x promedio)',
+                lastPsi: rdgs[rdgs.length - 1].psi, drop: lastDrop, ratio: ratio,
+                date: rdgs[rdgs.length - 1].date
+            });
+        }
+    });
+
+    anomalies.sort(function(a, b) { return a.severity === 'critica' ? -1 : 1; });
+    return anomalies;
+}
+
+function invRenderAnomalyBanner() {
+    var anomalies = invDetectAnomalies();
+    if (anomalies.length === 0) return '';
+
+    var html = '<div class="tp-card" style="border-left:3px solid #ef4444;background:rgba(239,68,68,0.04);">';
+    html += '<div class="tp-card-title"><span style="color:#ef4444;">Anomalias Detectadas (' + anomalies.length + ')</span></div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Cilindros con consumo inusual vs. su patron historico.</div>';
+
+    anomalies.forEach(function(a) {
+        var clr = a.severity === 'critica' ? '#ef4444' : '#f59e0b';
+        var icon = a.type === 'leak' ? '🚨' : '⚠️';
+        html += '<div style="padding:8px 10px;margin-bottom:4px;border:1px solid ' + clr + '30;border-radius:6px;background:' + clr + '08;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">';
+        html += '<div>';
+        html += '<span style="font-size:13px;">' + icon + '</span> ';
+        html += '<span style="font-weight:700;font-size:11px;">' + a.formula + ' ' + (a.concNominal || '') + '</span>';
+        html += ' <span style="font-size:9px;color:var(--tp-dim);">#' + a.controlNo + ' (' + (a.zone || '?') + ')</span>';
+        html += '</div>';
+        html += '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:' + clr + '20;color:' + clr + ';border:1px solid ' + clr + '40;text-transform:uppercase;">' + a.severity + '</span>';
+        html += '</div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);margin-top:4px;">' + a.message + '</div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">Actual: <strong>' + a.lastPsi + ' psi</strong> | Fecha: ' + a.date + '</div>';
+        html += '</div>';
+    });
+
+    html += '</div>';
+    return html;
+}
+
+// ══════════════════════════════════════════════════
+// IMPROVED PREDICTION — Bayesian blend with reference rates
+// ══════════════════════════════════════════════════
+
+var INV_REFERENCE_RATES = {
+    'CO/N2': 3.5, 'NO/N2': 3.0, 'CO2/N2': 2.5, 'CH4/Air': 2.0,
+    'C3H8/Air': 2.8, 'N2O/N2': 2.0, 'ZERO': 1.5, 'H2/He': 1.0, 'O2/N2': 1.5
+};
+
+function invPredictDepletion(g) {
+    if (!g.readings || g.readings.length < 2) {
+        // Use reference rate if available
+        var refRate = INV_REFERENCE_RATES[g.formula] || 0;
+        if (refRate > 0 && g.readings && g.readings.length === 1) {
+            var lastPsi = g.readings[0].psi;
+            var daysLeft = lastPsi / refRate;
+            return { daysLeft: Math.round(daysLeft), weeksLeft: Math.round(daysLeft / 7 * 10) / 10, confidence: 'baja', source: 'referencia', dailyRate: refRate };
+        }
+        return null;
+    }
+
+    var rdgs = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+    var first = rdgs[0], last = rdgs[rdgs.length - 1];
+    var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / 86400000));
+    var totalDrop = first.psi - last.psi;
+    if (totalDrop <= 0) return null;
+
+    var observedRate = totalDrop / daysDiff;
+    var refRate = INV_REFERENCE_RATES[g.formula] || observedRate;
+    var n = rdgs.length;
+
+    // Bayesian blend: more data → trust observed more
+    var weight = Math.min(n / 10, 1); // full trust at 10+ readings
+    var blendedRate = observedRate * weight + refRate * (1 - weight);
+
+    var daysLeft = last.psi / blendedRate;
+    var confidence = n >= 10 ? 'alta' : n >= 5 ? 'media' : 'baja';
+
+    return {
+        daysLeft: Math.round(daysLeft),
+        weeksLeft: Math.round(daysLeft / 7 * 10) / 10,
+        confidence: confidence,
+        source: weight >= 1 ? 'historico' : 'mixto',
+        dailyRate: Math.round(blendedRate * 10) / 10,
+        observedRate: Math.round(observedRate * 10) / 10,
+        dataPoints: n
+    };
+}
+
 
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -9263,7 +9405,8 @@ function tpRenderWeekly(el) {
                 <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Capacidad</label>
                 <input type="number" id="tp-weekly-cap" value="${window._tpWeekCap || 8}" min="1" max="20" class="tp-select" style="width:65px;text-align:center;" onchange="window._tpWeekCap=parseInt(this.value);">
             </div>
-            <button class="tp-btn tp-btn-primary" onclick="tpGenerateWeekly()" style="font-size:13px;padding:8px 18px;background:var(--tp-amber);color:#000;font-weight:700;">🚀 Generar</button>
+            <button class="tp-btn tp-btn-primary" onclick="tpGenerateWeekly()" style="font-size:12px;padding:8px 14px;background:var(--tp-amber);color:#000;font-weight:700;">🚀 Generar</button>
+            <button class="tp-btn tp-btn-primary" onclick="tpSmartGenerate()" style="font-size:12px;padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;" title="Genera plan optimo con validacion de inventario y carryover automatico">⚡ Smart</button>
         </div>
 
         <div style="padding:8px 10px;background:var(--tp-card);border-radius:8px;border:1px solid var(--tp-border);margin-bottom:12px;">
@@ -9478,6 +9621,119 @@ function tpGenerateWeekly() {
     window._tpWeeklyManualPicks = [];
     tpSave(); tpRender(); tpUpdateBadges();
     if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(scheduled.length);
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  SMART PLAN GENERATION — One-click with inventory validation        ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function tpCheckInventoryForConfig(cfg) {
+    if (typeof invState === 'undefined' || !invState.gases) return { ok: true, reason: '' };
+    var reg = cfg.reg || '';
+    // Check if there's at least one non-empty gas cylinder with sufficient level
+    var gases = invState.gases.filter(function(g) {
+        return g.status !== 'Empty' && g.readings && g.readings.length > 0;
+    });
+    if (gases.length === 0) return { ok: true, reason: 'sin datos inventario' };
+
+    var lowGases = gases.filter(function(g) {
+        var lvl = typeof invGasLevel === 'function' ? invGasLevel(g) : { pct: 100 };
+        return lvl.pct < 10;
+    });
+
+    // If more than half of the gases are critically low, warn
+    if (lowGases.length > gases.length * 0.5) {
+        return { ok: false, reason: lowGases.length + ' cilindros nivel critico (<10%)' };
+    }
+    return { ok: true, reason: '' };
+}
+
+function tpSmartGenerate() {
+    if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
+    if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
+
+    var capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
+    var weekDate = document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0, 10);
+    var workDays = window._tpWorkDays || { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
+
+    var analysis = tpGetAnalysis();
+    var pool = analysis.filter(function(c) { return c.deficit > 0; }).sort(function(a, b) { return b.score - a.score; });
+    var testedCopy = tpState.testedList.slice();
+    var items = [];
+    var used = new Set();
+    var skippedInv = [];
+
+    // Auto-include carryover from last accepted plan
+    var lastAccepted = tpState.weeklyPlans.slice().reverse().find(function(p) { return p.accepted; });
+    if (lastAccepted) {
+        lastAccepted.items.filter(function(i) { return !i.completed; }).forEach(function(i) {
+            if (items.length >= capacity || used.has(i.desc)) return;
+            var cfg = tpState.planData.find(function(c) { return c.desc === i.desc; });
+            if (!cfg) return;
+            var invCheck = tpCheckInventoryForConfig(cfg);
+            if (!invCheck.ok) { skippedInv.push({ desc: i.desc, reason: invCheck.reason }); return; }
+            var rule = tpGetRule(cfg);
+            var n = testedCopy.filter(function(t) { return t.configText === cfg.desc; }).length;
+            var req = tpCalcRequired(cfg, rule);
+            items.push({
+                desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg,
+                eng: cfg.eng, tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body,
+                ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire,
+                required: req, deficit: Math.max(0, req - n),
+                score: tpPriorityScore(cfg, n), completed: false, completedDate: null,
+                manual: false, carriedOver: true
+            });
+            testedCopy.push({ configText: cfg.desc, date: 'Smart', source: 'plan' });
+            used.add(cfg.desc);
+        });
+    }
+
+    // Fill remaining capacity from highest-priority configs
+    for (var i = 0; i < pool.length && items.length < capacity; i++) {
+        var cfg = pool[i];
+        if (used.has(cfg.desc)) continue;
+
+        // Check inventory
+        var invCheck = tpCheckInventoryForConfig(cfg);
+        if (!invCheck.ok) {
+            skippedInv.push({ desc: cfg.desc, reason: invCheck.reason });
+            continue;
+        }
+
+        items.push({
+            desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg,
+            eng: cfg.eng, tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body,
+            ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire,
+            required: cfg.required, deficit: cfg.deficit, score: cfg.score,
+            completed: false, completedDate: null, manual: false, carriedOver: false
+        });
+        used.add(cfg.desc);
+    }
+
+    if (items.length === 0) { showToast('Sin configuraciones pendientes con inventario disponible', 'info'); return; }
+
+    // Assign precon/test schedule
+    var scheduled = tpAssignSchedule(items, workDays);
+
+    tpState.weeklyPlans.push({
+        id: Date.now(),
+        created: new Date().toISOString(),
+        weekDate: weekDate,
+        workDays: JSON.parse(JSON.stringify(workDays)),
+        capacity: capacity,
+        items: scheduled,
+        accepted: false,
+        smartGenerated: true,
+        skippedInventory: skippedInv
+    });
+
+    window._tpWeeklyManualPicks = [];
+    tpSave(); tpRender(); tpUpdateBadges();
+    if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(scheduled.length);
+
+    var msg = scheduled.length + ' configs seleccionadas (score + inventario)';
+    if (skippedInv.length > 0) msg += '. ' + skippedInv.length + ' omitidas por inventario bajo.';
+    showToast(msg, 'success');
 }
 
 function tpAcceptWeeklyPlan(weekIdx) {
@@ -13088,6 +13344,104 @@ function pnRenderDashboard(el) {
         html += '</div>';
     }
 
+    // ── Cpk/Process Capability Summary ──
+    if (raTests.length >= 3) {
+        html += '<div class="tp-card">';
+        html += '<div class="tp-card-title"><span>📈 Capacidad de Proceso (Cpk)</span></div>';
+        var regGroups = {};
+        raTests.forEach(function(t) {
+            var reg = t.emissionReg || t.regSpec || '?';
+            if (!regGroups[reg]) regGroups[reg] = [];
+            regGroups[reg].push(t);
+        });
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;">';
+        Object.keys(regGroups).slice(0, 6).forEach(function(reg) {
+            var tests = regGroups[reg];
+            var passCount = tests.filter(function(t) { return typeof raTestVerdict === 'function' && raTestVerdict(t) === 'PASS'; }).length;
+            var passRate = tests.length > 0 ? Math.round((passCount / tests.length) * 100) : 0;
+            var clr = passRate >= 90 ? '#10b981' : passRate >= 70 ? '#f59e0b' : '#ef4444';
+            html += '<div style="padding:10px;border:1px solid ' + clr + '30;border-radius:8px;background:' + clr + '08;text-align:center;">';
+            html += '<div style="font-size:9px;color:var(--tp-dim);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + reg + '">' + reg + '</div>';
+            html += '<div style="font-size:20px;font-weight:800;color:' + clr + ';">' + passRate + '%</div>';
+            html += '<div style="font-size:8px;color:var(--tp-dim);">' + passCount + '/' + tests.length + ' PASS</div>';
+            html += '</div>';
+        });
+        html += '</div></div>';
+    }
+
+    // ── Inventory Anomalies ──
+    if (typeof invDetectAnomalies === 'function') {
+        var anomalies = invDetectAnomalies();
+        if (anomalies.length > 0) {
+            html += '<div class="tp-card" style="border-left:3px solid #ef4444;">';
+            html += '<div class="tp-card-title"><span style="color:#ef4444;">🚨 Anomalias de Gas (' + anomalies.length + ')</span>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="switchPlatform(\'inventory\')" style="font-size:9px;">Ver en Inventario</button></div>';
+            anomalies.slice(0, 3).forEach(function(a) {
+                var clr = a.severity === 'critica' ? '#ef4444' : '#f59e0b';
+                html += '<div style="padding:6px 8px;margin-bottom:3px;border:1px solid ' + clr + '30;border-radius:6px;font-size:10px;color:' + clr + ';">';
+                html += '<strong>' + a.formula + '</strong> #' + a.controlNo + ' — ' + a.message;
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+    }
+
+    // ── Improved Depletion Predictions ──
+    if (typeof invPredictDepletion === 'function' && invGases.length > 0) {
+        var predictions = [];
+        invGases.forEach(function(g) {
+            if (g.status === 'Empty') return;
+            var pred = invPredictDepletion(g);
+            if (pred && pred.daysLeft < 45) {
+                predictions.push({ gas: g, pred: pred });
+            }
+        });
+        if (predictions.length > 0) {
+            predictions.sort(function(a, b) { return a.pred.daysLeft - b.pred.daysLeft; });
+            html += '<div class="tp-card">';
+            html += '<div class="tp-card-title"><span>⏳ Prediccion de Agotamiento</span></div>';
+            predictions.slice(0, 5).forEach(function(p) {
+                var urgClr = p.pred.daysLeft < 14 ? '#ef4444' : p.pred.daysLeft < 30 ? '#f59e0b' : '#3b82f6';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);font-size:10px;">';
+                html += '<span style="color:var(--tp-text);">' + p.gas.formula + ' ' + (p.gas.concNominal || '') + ' <span style="color:var(--tp-dim);">#' + p.gas.controlNo + '</span></span>';
+                html += '<span style="font-weight:700;color:' + urgClr + ';">~' + p.pred.daysLeft + 'd <span style="font-size:8px;font-weight:400;">(' + p.pred.confidence + ')</span></span>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+    }
+
+    // ── Soak Timer Status ──
+    var soakData = null;
+    try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
+    if (soakData && soakData.active) {
+        var elapsed = Math.round((Date.now() - soakData.start) / 60000);
+        var remaining = Math.max(0, (soakData.duration || 720) - elapsed);
+        var hrs = Math.floor(remaining / 60);
+        var mins = remaining % 60;
+        var pct = Math.round((elapsed / (soakData.duration || 720)) * 100);
+        html += '<div class="tp-card" style="border:2px solid #8b5cf6;">';
+        html += '<div class="tp-card-title"><span style="color:#8b5cf6;">🕐 Soak Timer Activo</span></div>';
+        html += '<div style="text-align:center;padding:8px;">';
+        html += '<div style="font-size:24px;font-weight:800;color:#8b5cf6;">' + hrs + 'h ' + mins + 'm restantes</div>';
+        html += '<div class="tp-bar" style="height:6px;margin:8px 0;"><div class="tp-bar-fill" style="width:' + Math.min(pct, 100) + '%;background:#8b5cf6;"></div></div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);">VIN: ' + (soakData.vin || '?') + ' | ' + pct + '% completado</div>';
+        html += '</div></div>';
+    }
+
+    // ── Firebase Sync Status ──
+    if (typeof fbSync !== 'undefined' && fbSync.enabled) {
+        var syncClr = fbSync.status === 'connected' ? '#10b981' : fbSync.status === 'error' ? '#ef4444' : '#f59e0b';
+        var queueLen = (typeof fbOfflineQueue !== 'undefined') ? fbOfflineQueue.length : 0;
+        html += '<div class="tp-card" style="border-left:3px solid ' + syncClr + ';">';
+        html += '<div class="tp-card-title"><span>☁️ Firebase Sync</span>';
+        html += '<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:' + syncClr + '20;color:' + syncClr + ';font-weight:700;">' + fbSync.status.toUpperCase() + '</span></div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);">Estacion: ' + (fbSync.stationId || '?') + '</div>';
+        if (queueLen > 0) html += '<div style="font-size:10px;color:#f59e0b;margin-top:4px;">' + queueLen + ' operaciones en cola offline</div>';
+        if (fbSync.lastSync) html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">Ultimo sync: ' + new Date(fbSync.lastSync).toLocaleTimeString('es-MX') + '</div>';
+        html += '</div>';
+    }
+
     // Weekly PDF Report button
     html += '<div class="tp-card" style="text-align:center;padding:16px;">';
     html += '<button onclick="if(typeof generateWeeklyStatusPDF===\'function\')generateWeeklyStatusPDF();else showToast(\'Funcion no disponible\',\'error\');" ';
@@ -14104,6 +14458,43 @@ function fbSaveSyncModules() {
     localStorage.setItem(FB_SYNC_MODULES_KEY, JSON.stringify(fbSyncModules));
 }
 
+// Dependency validation for sync module toggles
+var FB_SYNC_DEPS = {
+    testplan: { requires: ['cop15'], warn: 'Test Plan depende de COP15 para auto-feed de releases.' },
+    results: { recommends: ['testplan'], warn: 'Results se beneficia de Test Plan para cruce de datos.' },
+    inventory: { recommends: ['testplan'], warn: 'Inventario alimenta predicciones del Test Plan.' }
+};
+
+function fbToggleSyncModule(key, enabled) {
+    if (enabled) {
+        // When enabling, check if required dependencies are on
+        var dep = FB_SYNC_DEPS[key];
+        if (dep && dep.requires) {
+            var missing = dep.requires.filter(function(r) { return !fbSyncModules[r]; });
+            if (missing.length > 0) {
+                if (confirm(dep.warn + '\n\n¿Activar tambien ' + missing.join(', ') + '?')) {
+                    missing.forEach(function(m) { fbSyncModules[m] = true; });
+                }
+            }
+        }
+        fbSyncModules[key] = true;
+    } else {
+        // When disabling, check if anything depends on this module
+        var dependents = Object.keys(FB_SYNC_DEPS).filter(function(k) {
+            var d = FB_SYNC_DEPS[k];
+            return d.requires && d.requires.indexOf(key) !== -1 && fbSyncModules[k];
+        });
+        if (dependents.length > 0) {
+            if (!confirm('Los modulos ' + dependents.join(', ') + ' dependen de ' + key + '.\n\n¿Desactivar de todos modos?')) {
+                return; // Don't toggle
+            }
+        }
+        fbSyncModules[key] = false;
+    }
+    fbSaveSyncModules();
+    fbShowSettings(); // Re-render to update checkbox states
+}
+
 // ── Offline Queue ──
 var FB_QUEUE_LS_KEY = 'kia_fb_offline_queue';
 var fbOfflineQueue = [];
@@ -14115,14 +14506,25 @@ function fbQueueSave() {
     try { localStorage.setItem(FB_QUEUE_LS_KEY, JSON.stringify(fbOfflineQueue)); }
     catch(e) { console.warn('FB Queue: localStorage full'); }
 }
-function fbQueueAdd(collection, data) {
+// Priority levels: 1=critical, 2=normal, 3=low
+var FB_PRIORITY_MAP = {
+    'cop15': 1, 'cop15-release': 1, 'readings-anomaly': 1,
+    'testplan': 2, 'results': 2, 'inventory': 2, 'readings': 2, 'panel': 2,
+    'backups': 3, 'activity': 3, 'merge-history': 3
+};
+
+function fbQueueAdd(collection, data, priority) {
+    var prio = priority || FB_PRIORITY_MAP[collection] || 2;
     fbOfflineQueue.push({
         id: Date.now().toString(36),
         collection: collection,
         data: data,
         timestamp: new Date().toISOString(),
-        retries: 0
+        retries: 0,
+        priority: prio
     });
+    // Sort by priority (lower number = higher priority)
+    fbOfflineQueue.sort(function(a, b) { return (a.priority || 2) - (b.priority || 2); });
     if (fbOfflineQueue.length > 50) fbOfflineQueue = fbOfflineQueue.slice(-50);
     fbQueueSave();
     fbUpdateIndicator();
@@ -14130,9 +14532,21 @@ function fbQueueAdd(collection, data) {
 function fbQueueRetry() {
     if (fbOfflineQueue.length === 0) return;
     if (!fbSync.enabled || !fbSync.db || !fbSync.stationId) return;
-    var item = fbOfflineQueue[0];
+
+    // Smart quota gating by priority
     var quota = fbQuotaCheck('write');
-    if (!quota.allowed) return;
+    if (!quota.allowed) {
+        // Even when quota blocked, allow priority 1 (critical) items if under 90% daily
+        var dailyUsed = fbQuota.writes.length;
+        var dailyLimit = FB_QUOTA_LIMITS.maxWritesPerDay;
+        var criticalItem = fbOfflineQueue.find(function(i) { return (i.priority || 2) === 1; });
+        if (!criticalItem || dailyUsed >= dailyLimit * 0.9) return;
+        // Move critical item to front
+        var idx = fbOfflineQueue.indexOf(criticalItem);
+        if (idx > 0) { fbOfflineQueue.splice(idx, 1); fbOfflineQueue.unshift(criticalItem); }
+    }
+
+    var item = fbOfflineQueue[0];
     var docRef = fbSync.db.collection('stations').doc(fbSync.stationId)
         .collection(item.collection).doc('current');
     docRef.set({
@@ -15110,7 +15524,7 @@ function fbShowSettings() {
             var h = '';
             mods.forEach(function(m) {
                 h += '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">' +
-                '<input type="checkbox" ' + (fbSyncModules[m.k] ? 'checked' : '') + ' onchange="fbSyncModules[\'' + m.k + '\']=this.checked;fbSaveSyncModules();">' +
+                '<input type="checkbox" ' + (fbSyncModules[m.k] ? 'checked' : '') + ' onchange="fbToggleSyncModule(\'' + m.k + '\',this.checked);this.checked=fbSyncModules[\'' + m.k + '\'];">' +
                 '<span style="font-size:11px;">' + m.l + '</span></label>';
             });
             return h;
@@ -16136,8 +16550,21 @@ function fbBackupList(callback) {
         });
 }
 
-function fbBackupRestore(backupId) {
-    if (!confirm('Restaurar backup del ' + backupId + '?\n\nEsto reemplazara TODOS los datos locales. Se recomienda hacer un backup manual antes.')) return;
+function fbBackupRestore(backupId, modules) {
+    // If modules not specified, show selection UI
+    if (!modules) {
+        fbBackupRestoreSelectModules(backupId);
+        return;
+    }
+
+    // Create pre-restore snapshot for undo
+    var snapshot = {
+        cop15: JSON.parse(localStorage.getItem('kia_db_v11') || 'null'),
+        testplan: JSON.parse(localStorage.getItem('kia_testplan_v1') || 'null'),
+        results: JSON.parse(localStorage.getItem('kia_results_v1') || 'null'),
+        inventory: JSON.parse(localStorage.getItem('kia_lab_inventory') || 'null')
+    };
+    try { localStorage.setItem('kia_fb_prerestore_snapshot', JSON.stringify(snapshot)); } catch(e) {}
 
     fbSync.db.collection('stations').doc(fbSync.stationId)
         .collection('backups').doc(backupId)
@@ -16145,34 +16572,102 @@ function fbBackupRestore(backupId) {
         .then(function(doc) {
             if (!doc.exists) { showToast('Backup no encontrado', 'error'); return; }
             var d = doc.data();
+            var restored = [];
 
-            if (d.cop15 && d.cop15.data) {
+            if (modules.cop15 && d.cop15 && d.cop15.data) {
                 db = d.cop15.data;
                 localStorage.setItem('kia_db_v11', JSON.stringify(db));
-                refreshAllLists();
+                if (typeof refreshAllLists === 'function') refreshAllLists();
+                restored.push('COP15');
             }
-            if (d.testplan && d.testplan.data) {
+            if (modules.testplan && d.testplan && d.testplan.data) {
                 tpState = d.testplan.data;
                 localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
                 if (typeof tpRender === 'function') tpRender();
+                restored.push('Test Plan');
             }
-            if (d.results && d.results.data) {
+            if (modules.results && d.results && d.results.data) {
                 raState = d.results.data;
                 localStorage.setItem('kia_results_v1', JSON.stringify(raState));
                 if (typeof raRender === 'function') raRender();
+                restored.push('Results');
             }
-            if (d.inventory && d.inventory.data) {
+            if (modules.inventory && d.inventory && d.inventory.data) {
                 invState = d.inventory.data;
                 localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
                 if (typeof invRender === 'function') invRender();
+                restored.push('Inventario');
             }
 
-            showToast('Backup del ' + backupId + ' restaurado', 'success');
+            showToast('Restaurado: ' + restored.join(', '), 'success');
             fbShowSettings();
         })
         .catch(function(err) {
             showToast('Error restaurando: ' + err.message, 'error');
         });
+}
+
+function fbBackupRestoreSelectModules(backupId) {
+    var modal = document.getElementById('fbModal');
+    if (!modal) return;
+
+    var html = '<div style="max-width:420px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
+    html += '<button onclick="fbBackupShowList()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
+    html += '<h3 style="margin:0 0 12px;color:#3b82f6;">Restaurar Backup</h3>';
+    html += '<div style="font-size:10px;color:#64748b;margin-bottom:12px;">Backup: ' + backupId + '</div>';
+    html += '<div style="font-size:11px;color:#e2e8f0;margin-bottom:12px;">Selecciona los modulos a restaurar:</div>';
+
+    var mods = [
+        { key: 'cop15', label: 'COP15 (Vehiculos)', icon: '🔬' },
+        { key: 'testplan', label: 'Test Plan', icon: '📊' },
+        { key: 'results', label: 'Results Analyzer', icon: '🧪' },
+        { key: 'inventory', label: 'Lab Inventory', icon: '📦' }
+    ];
+
+    mods.forEach(function(m) {
+        html += '<label style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:4px;background:#1e293b;border-radius:8px;cursor:pointer;border:1px solid #334155;">';
+        html += '<input type="checkbox" id="fb-restore-' + m.key + '" checked style="accent-color:#3b82f6;width:18px;height:18px;">';
+        html += '<span style="font-size:16px;">' + m.icon + '</span>';
+        html += '<span style="font-size:12px;">' + m.label + '</span>';
+        html += '</label>';
+    });
+
+    html += '<div style="padding:8px;margin-top:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size:9px;color:#f59e0b;">';
+    html += 'Se guardara un snapshot previo. Puedes deshacer la restauracion si es necesario.</div>';
+
+    html += '<div style="display:flex;gap:8px;margin-top:12px;">';
+    html += '<button onclick="fbBackupShowList()" style="flex:1;padding:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-size:11px;">Cancelar</button>';
+    html += '<button onclick="fbBackupRestoreConfirm(\'' + backupId + '\')" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;">Restaurar Seleccion</button>';
+    html += '</div></div>';
+
+    modal.innerHTML = html;
+}
+
+function fbBackupRestoreConfirm(backupId) {
+    var modules = {
+        cop15: document.getElementById('fb-restore-cop15') ? document.getElementById('fb-restore-cop15').checked : false,
+        testplan: document.getElementById('fb-restore-testplan') ? document.getElementById('fb-restore-testplan').checked : false,
+        results: document.getElementById('fb-restore-results') ? document.getElementById('fb-restore-results').checked : false,
+        inventory: document.getElementById('fb-restore-inventory') ? document.getElementById('fb-restore-inventory').checked : false
+    };
+    var anySelected = modules.cop15 || modules.testplan || modules.results || modules.inventory;
+    if (!anySelected) { showToast('Selecciona al menos un modulo', 'error'); return; }
+    fbBackupRestore(backupId, modules);
+}
+
+function fbBackupUndoRestore() {
+    var snapshot = null;
+    try { snapshot = JSON.parse(localStorage.getItem('kia_fb_prerestore_snapshot')); } catch(e) {}
+    if (!snapshot) { showToast('No hay snapshot de pre-restauracion', 'error'); return; }
+    if (!confirm('Deshacer la ultima restauracion y volver al estado anterior?')) return;
+
+    if (snapshot.cop15) { db = snapshot.cop15; localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
+    if (snapshot.testplan) { tpState = snapshot.testplan; localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState)); if (typeof tpRender === 'function') tpRender(); }
+    if (snapshot.results) { raState = snapshot.results; localStorage.setItem('kia_results_v1', JSON.stringify(raState)); if (typeof raRender === 'function') raRender(); }
+    if (snapshot.inventory) { invState = snapshot.inventory; localStorage.setItem('kia_lab_inventory', JSON.stringify(invState)); if (typeof invRender === 'function') invRender(); }
+
+    localStorage.removeItem('kia_fb_prerestore_snapshot');
+    showToast('Restauracion deshecha — datos anteriores restaurados', 'success');
 }
 
 function fbBackupShowList() {
@@ -16200,9 +16695,13 @@ function fbBackupShowList() {
             });
         }
 
-        html += '<div style="display:flex;gap:8px;margin-top:12px;">';
+        var hasSnapshot = !!localStorage.getItem('kia_fb_prerestore_snapshot');
+        html += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">';
         html += '<button onclick="fbShowSettings()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Volver</button>';
         html += '<button onclick="fbBackupManual()" style="flex:1;padding:8px;background:#0f766e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Crear Backup Ahora</button>';
+        if (hasSnapshot) {
+            html += '<button onclick="fbBackupUndoRestore()" style="flex-basis:100%;padding:8px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:6px;cursor:pointer;font-size:11px;">↩ Deshacer Ultima Restauracion</button>';
+        }
         html += '</div></div>';
 
         modal.innerHTML = html;

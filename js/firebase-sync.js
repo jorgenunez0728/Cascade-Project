@@ -23,6 +23,43 @@ function fbSaveSyncModules() {
     localStorage.setItem(FB_SYNC_MODULES_KEY, JSON.stringify(fbSyncModules));
 }
 
+// Dependency validation for sync module toggles
+var FB_SYNC_DEPS = {
+    testplan: { requires: ['cop15'], warn: 'Test Plan depende de COP15 para auto-feed de releases.' },
+    results: { recommends: ['testplan'], warn: 'Results se beneficia de Test Plan para cruce de datos.' },
+    inventory: { recommends: ['testplan'], warn: 'Inventario alimenta predicciones del Test Plan.' }
+};
+
+function fbToggleSyncModule(key, enabled) {
+    if (enabled) {
+        // When enabling, check if required dependencies are on
+        var dep = FB_SYNC_DEPS[key];
+        if (dep && dep.requires) {
+            var missing = dep.requires.filter(function(r) { return !fbSyncModules[r]; });
+            if (missing.length > 0) {
+                if (confirm(dep.warn + '\n\n¿Activar tambien ' + missing.join(', ') + '?')) {
+                    missing.forEach(function(m) { fbSyncModules[m] = true; });
+                }
+            }
+        }
+        fbSyncModules[key] = true;
+    } else {
+        // When disabling, check if anything depends on this module
+        var dependents = Object.keys(FB_SYNC_DEPS).filter(function(k) {
+            var d = FB_SYNC_DEPS[k];
+            return d.requires && d.requires.indexOf(key) !== -1 && fbSyncModules[k];
+        });
+        if (dependents.length > 0) {
+            if (!confirm('Los modulos ' + dependents.join(', ') + ' dependen de ' + key + '.\n\n¿Desactivar de todos modos?')) {
+                return; // Don't toggle
+            }
+        }
+        fbSyncModules[key] = false;
+    }
+    fbSaveSyncModules();
+    fbShowSettings(); // Re-render to update checkbox states
+}
+
 // ── Offline Queue ──
 var FB_QUEUE_LS_KEY = 'kia_fb_offline_queue';
 var fbOfflineQueue = [];
@@ -34,14 +71,25 @@ function fbQueueSave() {
     try { localStorage.setItem(FB_QUEUE_LS_KEY, JSON.stringify(fbOfflineQueue)); }
     catch(e) { console.warn('FB Queue: localStorage full'); }
 }
-function fbQueueAdd(collection, data) {
+// Priority levels: 1=critical, 2=normal, 3=low
+var FB_PRIORITY_MAP = {
+    'cop15': 1, 'cop15-release': 1, 'readings-anomaly': 1,
+    'testplan': 2, 'results': 2, 'inventory': 2, 'readings': 2, 'panel': 2,
+    'backups': 3, 'activity': 3, 'merge-history': 3
+};
+
+function fbQueueAdd(collection, data, priority) {
+    var prio = priority || FB_PRIORITY_MAP[collection] || 2;
     fbOfflineQueue.push({
         id: Date.now().toString(36),
         collection: collection,
         data: data,
         timestamp: new Date().toISOString(),
-        retries: 0
+        retries: 0,
+        priority: prio
     });
+    // Sort by priority (lower number = higher priority)
+    fbOfflineQueue.sort(function(a, b) { return (a.priority || 2) - (b.priority || 2); });
     if (fbOfflineQueue.length > 50) fbOfflineQueue = fbOfflineQueue.slice(-50);
     fbQueueSave();
     fbUpdateIndicator();
@@ -49,9 +97,21 @@ function fbQueueAdd(collection, data) {
 function fbQueueRetry() {
     if (fbOfflineQueue.length === 0) return;
     if (!fbSync.enabled || !fbSync.db || !fbSync.stationId) return;
-    var item = fbOfflineQueue[0];
+
+    // Smart quota gating by priority
     var quota = fbQuotaCheck('write');
-    if (!quota.allowed) return;
+    if (!quota.allowed) {
+        // Even when quota blocked, allow priority 1 (critical) items if under 90% daily
+        var dailyUsed = fbQuota.writes.length;
+        var dailyLimit = FB_QUOTA_LIMITS.maxWritesPerDay;
+        var criticalItem = fbOfflineQueue.find(function(i) { return (i.priority || 2) === 1; });
+        if (!criticalItem || dailyUsed >= dailyLimit * 0.9) return;
+        // Move critical item to front
+        var idx = fbOfflineQueue.indexOf(criticalItem);
+        if (idx > 0) { fbOfflineQueue.splice(idx, 1); fbOfflineQueue.unshift(criticalItem); }
+    }
+
+    var item = fbOfflineQueue[0];
     var docRef = fbSync.db.collection('stations').doc(fbSync.stationId)
         .collection(item.collection).doc('current');
     docRef.set({
@@ -1029,7 +1089,7 @@ function fbShowSettings() {
             var h = '';
             mods.forEach(function(m) {
                 h += '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">' +
-                '<input type="checkbox" ' + (fbSyncModules[m.k] ? 'checked' : '') + ' onchange="fbSyncModules[\'' + m.k + '\']=this.checked;fbSaveSyncModules();">' +
+                '<input type="checkbox" ' + (fbSyncModules[m.k] ? 'checked' : '') + ' onchange="fbToggleSyncModule(\'' + m.k + '\',this.checked);this.checked=fbSyncModules[\'' + m.k + '\'];">' +
                 '<span style="font-size:11px;">' + m.l + '</span></label>';
             });
             return h;
@@ -2055,8 +2115,21 @@ function fbBackupList(callback) {
         });
 }
 
-function fbBackupRestore(backupId) {
-    if (!confirm('Restaurar backup del ' + backupId + '?\n\nEsto reemplazara TODOS los datos locales. Se recomienda hacer un backup manual antes.')) return;
+function fbBackupRestore(backupId, modules) {
+    // If modules not specified, show selection UI
+    if (!modules) {
+        fbBackupRestoreSelectModules(backupId);
+        return;
+    }
+
+    // Create pre-restore snapshot for undo
+    var snapshot = {
+        cop15: JSON.parse(localStorage.getItem('kia_db_v11') || 'null'),
+        testplan: JSON.parse(localStorage.getItem('kia_testplan_v1') || 'null'),
+        results: JSON.parse(localStorage.getItem('kia_results_v1') || 'null'),
+        inventory: JSON.parse(localStorage.getItem('kia_lab_inventory') || 'null')
+    };
+    try { localStorage.setItem('kia_fb_prerestore_snapshot', JSON.stringify(snapshot)); } catch(e) {}
 
     fbSync.db.collection('stations').doc(fbSync.stationId)
         .collection('backups').doc(backupId)
@@ -2064,34 +2137,102 @@ function fbBackupRestore(backupId) {
         .then(function(doc) {
             if (!doc.exists) { showToast('Backup no encontrado', 'error'); return; }
             var d = doc.data();
+            var restored = [];
 
-            if (d.cop15 && d.cop15.data) {
+            if (modules.cop15 && d.cop15 && d.cop15.data) {
                 db = d.cop15.data;
                 localStorage.setItem('kia_db_v11', JSON.stringify(db));
-                refreshAllLists();
+                if (typeof refreshAllLists === 'function') refreshAllLists();
+                restored.push('COP15');
             }
-            if (d.testplan && d.testplan.data) {
+            if (modules.testplan && d.testplan && d.testplan.data) {
                 tpState = d.testplan.data;
                 localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
                 if (typeof tpRender === 'function') tpRender();
+                restored.push('Test Plan');
             }
-            if (d.results && d.results.data) {
+            if (modules.results && d.results && d.results.data) {
                 raState = d.results.data;
                 localStorage.setItem('kia_results_v1', JSON.stringify(raState));
                 if (typeof raRender === 'function') raRender();
+                restored.push('Results');
             }
-            if (d.inventory && d.inventory.data) {
+            if (modules.inventory && d.inventory && d.inventory.data) {
                 invState = d.inventory.data;
                 localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
                 if (typeof invRender === 'function') invRender();
+                restored.push('Inventario');
             }
 
-            showToast('Backup del ' + backupId + ' restaurado', 'success');
+            showToast('Restaurado: ' + restored.join(', '), 'success');
             fbShowSettings();
         })
         .catch(function(err) {
             showToast('Error restaurando: ' + err.message, 'error');
         });
+}
+
+function fbBackupRestoreSelectModules(backupId) {
+    var modal = document.getElementById('fbModal');
+    if (!modal) return;
+
+    var html = '<div style="max-width:420px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
+    html += '<button onclick="fbBackupShowList()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
+    html += '<h3 style="margin:0 0 12px;color:#3b82f6;">Restaurar Backup</h3>';
+    html += '<div style="font-size:10px;color:#64748b;margin-bottom:12px;">Backup: ' + backupId + '</div>';
+    html += '<div style="font-size:11px;color:#e2e8f0;margin-bottom:12px;">Selecciona los modulos a restaurar:</div>';
+
+    var mods = [
+        { key: 'cop15', label: 'COP15 (Vehiculos)', icon: '🔬' },
+        { key: 'testplan', label: 'Test Plan', icon: '📊' },
+        { key: 'results', label: 'Results Analyzer', icon: '🧪' },
+        { key: 'inventory', label: 'Lab Inventory', icon: '📦' }
+    ];
+
+    mods.forEach(function(m) {
+        html += '<label style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:4px;background:#1e293b;border-radius:8px;cursor:pointer;border:1px solid #334155;">';
+        html += '<input type="checkbox" id="fb-restore-' + m.key + '" checked style="accent-color:#3b82f6;width:18px;height:18px;">';
+        html += '<span style="font-size:16px;">' + m.icon + '</span>';
+        html += '<span style="font-size:12px;">' + m.label + '</span>';
+        html += '</label>';
+    });
+
+    html += '<div style="padding:8px;margin-top:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size:9px;color:#f59e0b;">';
+    html += 'Se guardara un snapshot previo. Puedes deshacer la restauracion si es necesario.</div>';
+
+    html += '<div style="display:flex;gap:8px;margin-top:12px;">';
+    html += '<button onclick="fbBackupShowList()" style="flex:1;padding:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-size:11px;">Cancelar</button>';
+    html += '<button onclick="fbBackupRestoreConfirm(\'' + backupId + '\')" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;">Restaurar Seleccion</button>';
+    html += '</div></div>';
+
+    modal.innerHTML = html;
+}
+
+function fbBackupRestoreConfirm(backupId) {
+    var modules = {
+        cop15: document.getElementById('fb-restore-cop15') ? document.getElementById('fb-restore-cop15').checked : false,
+        testplan: document.getElementById('fb-restore-testplan') ? document.getElementById('fb-restore-testplan').checked : false,
+        results: document.getElementById('fb-restore-results') ? document.getElementById('fb-restore-results').checked : false,
+        inventory: document.getElementById('fb-restore-inventory') ? document.getElementById('fb-restore-inventory').checked : false
+    };
+    var anySelected = modules.cop15 || modules.testplan || modules.results || modules.inventory;
+    if (!anySelected) { showToast('Selecciona al menos un modulo', 'error'); return; }
+    fbBackupRestore(backupId, modules);
+}
+
+function fbBackupUndoRestore() {
+    var snapshot = null;
+    try { snapshot = JSON.parse(localStorage.getItem('kia_fb_prerestore_snapshot')); } catch(e) {}
+    if (!snapshot) { showToast('No hay snapshot de pre-restauracion', 'error'); return; }
+    if (!confirm('Deshacer la ultima restauracion y volver al estado anterior?')) return;
+
+    if (snapshot.cop15) { db = snapshot.cop15; localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
+    if (snapshot.testplan) { tpState = snapshot.testplan; localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState)); if (typeof tpRender === 'function') tpRender(); }
+    if (snapshot.results) { raState = snapshot.results; localStorage.setItem('kia_results_v1', JSON.stringify(raState)); if (typeof raRender === 'function') raRender(); }
+    if (snapshot.inventory) { invState = snapshot.inventory; localStorage.setItem('kia_lab_inventory', JSON.stringify(invState)); if (typeof invRender === 'function') invRender(); }
+
+    localStorage.removeItem('kia_fb_prerestore_snapshot');
+    showToast('Restauracion deshecha — datos anteriores restaurados', 'success');
 }
 
 function fbBackupShowList() {
@@ -2119,9 +2260,13 @@ function fbBackupShowList() {
             });
         }
 
-        html += '<div style="display:flex;gap:8px;margin-top:12px;">';
+        var hasSnapshot = !!localStorage.getItem('kia_fb_prerestore_snapshot');
+        html += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">';
         html += '<button onclick="fbShowSettings()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Volver</button>';
         html += '<button onclick="fbBackupManual()" style="flex:1;padding:8px;background:#0f766e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Crear Backup Ahora</button>';
+        if (hasSnapshot) {
+            html += '<button onclick="fbBackupUndoRestore()" style="flex-basis:100%;padding:8px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:6px;cursor:pointer;font-size:11px;">↩ Deshacer Ultima Restauracion</button>';
+        }
         html += '</div></div>';
 
         modal.innerHTML = html;

@@ -1454,7 +1454,8 @@ function tpRenderWeekly(el) {
                 <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Capacidad</label>
                 <input type="number" id="tp-weekly-cap" value="${window._tpWeekCap || 8}" min="1" max="20" class="tp-select" style="width:65px;text-align:center;" onchange="window._tpWeekCap=parseInt(this.value);">
             </div>
-            <button class="tp-btn tp-btn-primary" onclick="tpGenerateWeekly()" style="font-size:13px;padding:8px 18px;background:var(--tp-amber);color:#000;font-weight:700;">🚀 Generar</button>
+            <button class="tp-btn tp-btn-primary" onclick="tpGenerateWeekly()" style="font-size:12px;padding:8px 14px;background:var(--tp-amber);color:#000;font-weight:700;">🚀 Generar</button>
+            <button class="tp-btn tp-btn-primary" onclick="tpSmartGenerate()" style="font-size:12px;padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;" title="Genera plan optimo con validacion de inventario y carryover automatico">⚡ Smart</button>
         </div>
 
         <div style="padding:8px 10px;background:var(--tp-card);border-radius:8px;border:1px solid var(--tp-border);margin-bottom:12px;">
@@ -1669,6 +1670,119 @@ function tpGenerateWeekly() {
     window._tpWeeklyManualPicks = [];
     tpSave(); tpRender(); tpUpdateBadges();
     if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(scheduled.length);
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  SMART PLAN GENERATION — One-click with inventory validation        ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function tpCheckInventoryForConfig(cfg) {
+    if (typeof invState === 'undefined' || !invState.gases) return { ok: true, reason: '' };
+    var reg = cfg.reg || '';
+    // Check if there's at least one non-empty gas cylinder with sufficient level
+    var gases = invState.gases.filter(function(g) {
+        return g.status !== 'Empty' && g.readings && g.readings.length > 0;
+    });
+    if (gases.length === 0) return { ok: true, reason: 'sin datos inventario' };
+
+    var lowGases = gases.filter(function(g) {
+        var lvl = typeof invGasLevel === 'function' ? invGasLevel(g) : { pct: 100 };
+        return lvl.pct < 10;
+    });
+
+    // If more than half of the gases are critically low, warn
+    if (lowGases.length > gases.length * 0.5) {
+        return { ok: false, reason: lowGases.length + ' cilindros nivel critico (<10%)' };
+    }
+    return { ok: true, reason: '' };
+}
+
+function tpSmartGenerate() {
+    if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
+    if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
+
+    var capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
+    var weekDate = document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0, 10);
+    var workDays = window._tpWorkDays || { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
+
+    var analysis = tpGetAnalysis();
+    var pool = analysis.filter(function(c) { return c.deficit > 0; }).sort(function(a, b) { return b.score - a.score; });
+    var testedCopy = tpState.testedList.slice();
+    var items = [];
+    var used = new Set();
+    var skippedInv = [];
+
+    // Auto-include carryover from last accepted plan
+    var lastAccepted = tpState.weeklyPlans.slice().reverse().find(function(p) { return p.accepted; });
+    if (lastAccepted) {
+        lastAccepted.items.filter(function(i) { return !i.completed; }).forEach(function(i) {
+            if (items.length >= capacity || used.has(i.desc)) return;
+            var cfg = tpState.planData.find(function(c) { return c.desc === i.desc; });
+            if (!cfg) return;
+            var invCheck = tpCheckInventoryForConfig(cfg);
+            if (!invCheck.ok) { skippedInv.push({ desc: i.desc, reason: invCheck.reason }); return; }
+            var rule = tpGetRule(cfg);
+            var n = testedCopy.filter(function(t) { return t.configText === cfg.desc; }).length;
+            var req = tpCalcRequired(cfg, rule);
+            items.push({
+                desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg,
+                eng: cfg.eng, tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body,
+                ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire,
+                required: req, deficit: Math.max(0, req - n),
+                score: tpPriorityScore(cfg, n), completed: false, completedDate: null,
+                manual: false, carriedOver: true
+            });
+            testedCopy.push({ configText: cfg.desc, date: 'Smart', source: 'plan' });
+            used.add(cfg.desc);
+        });
+    }
+
+    // Fill remaining capacity from highest-priority configs
+    for (var i = 0; i < pool.length && items.length < capacity; i++) {
+        var cfg = pool[i];
+        if (used.has(cfg.desc)) continue;
+
+        // Check inventory
+        var invCheck = tpCheckInventoryForConfig(cfg);
+        if (!invCheck.ok) {
+            skippedInv.push({ desc: cfg.desc, reason: invCheck.reason });
+            continue;
+        }
+
+        items.push({
+            desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg,
+            eng: cfg.eng, tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body,
+            ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire,
+            required: cfg.required, deficit: cfg.deficit, score: cfg.score,
+            completed: false, completedDate: null, manual: false, carriedOver: false
+        });
+        used.add(cfg.desc);
+    }
+
+    if (items.length === 0) { showToast('Sin configuraciones pendientes con inventario disponible', 'info'); return; }
+
+    // Assign precon/test schedule
+    var scheduled = tpAssignSchedule(items, workDays);
+
+    tpState.weeklyPlans.push({
+        id: Date.now(),
+        created: new Date().toISOString(),
+        weekDate: weekDate,
+        workDays: JSON.parse(JSON.stringify(workDays)),
+        capacity: capacity,
+        items: scheduled,
+        accepted: false,
+        smartGenerated: true,
+        skippedInventory: skippedInv
+    });
+
+    window._tpWeeklyManualPicks = [];
+    tpSave(); tpRender(); tpUpdateBadges();
+    if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(scheduled.length);
+
+    var msg = scheduled.length + ' configs seleccionadas (score + inventario)';
+    if (skippedInv.length > 0) msg += '. ' + skippedInv.length + ' omitidas por inventario bajo.';
+    showToast(msg, 'success');
 }
 
 function tpAcceptWeeklyPlan(weekIdx) {
