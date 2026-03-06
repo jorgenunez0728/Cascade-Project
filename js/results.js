@@ -556,7 +556,7 @@ function raBuildComplianceTrendHTML() {
         var datasets = regSummaries.map(function(r, ri) {
             return {
                 label: r.reg,
-                data: r.rates.map(function(v) { return v !== null ? v : undefined; }),
+                data: r.rates,
                 borderColor: regColors[ri % regColors.length],
                 backgroundColor: regColors[ri % regColors.length] + '20',
                 pointRadius: 3, borderWidth: 2, fill: false, tension: 0.2,
@@ -1950,9 +1950,9 @@ function raSpcDetectNelson(values, cl, ucl, lcl) {
     if (n >= 9) {
         var side = 0, run = 1;
         for (var i = 1; i < n; i++) {
-            var curSide = values[i] >= cl ? 1 : -1;
-            var prevSide = values[i - 1] >= cl ? 1 : -1;
-            if (curSide === prevSide) { run++; } else { run = 1; }
+            var curSide = values[i] > cl ? 1 : values[i] < cl ? -1 : 0;
+            var prevSide = values[i - 1] > cl ? 1 : values[i - 1] < cl ? -1 : 0;
+            if (curSide !== 0 && prevSide !== 0 && curSide === prevSide) { run++; } else if (curSide === 0) { run = 1; } else { run = 1; }
             if (run >= 9) {
                 violations.push({ rule: 2, name: '9 consecutivos mismo lado', idx: i, startIdx: i - 8, endIdx: i, color: '#f97316' });
             }
@@ -1977,11 +1977,11 @@ function raSpcDetectNelson(values, cl, ucl, lcl) {
 
     // Rule 4: 14 consecutive alternating up/down
     if (n >= 14) {
-        var alt = 1;
+        var alt = 2;
         for (var i = 2; i < n; i++) {
             var d1 = values[i] - values[i - 1];
             var d2 = values[i - 1] - values[i - 2];
-            if ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) { alt++; } else { alt = 1; }
+            if ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) { alt++; } else { alt = 2; }
             if (alt >= 14) {
                 violations.push({ rule: 4, name: '14 consecutivos alternando', idx: i, startIdx: i - 13, endIdx: i, color: '#a855f7' });
             }
