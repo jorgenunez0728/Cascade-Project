@@ -283,6 +283,7 @@ function raRender(){
     else if(t==='ra-search') raRenderSearch(el);
     else if(t==='ra-filter') raRenderFilter(el);
     else if(t==='ra-compare') raRenderCompare(el);
+    else if(t==='ra-spc') raRenderSPC(el);
 }
 
 
@@ -1807,6 +1808,159 @@ function raRenderCompare(el) {
     html += '</div>';
 
     el.innerHTML = html;
+}
+
+// ══════════════════════════════════════════
+// SPC I-mR Control Charts
+// ══════════════════════════════════════════
+
+function raRenderSPC(el) {
+    if (raState.tests.length < 3) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Necesitas al menos 3 pruebas para generar cartas SPC.</div>';
+        return;
+    }
+
+    var fGroupBy = window._raSpcGroupBy || 'regTestMode';
+    var fGroup = window._raSpcGroup || 'ALL';
+    var fMetric = window._raSpcMetric || 'BagCO';
+
+    var groupFn;
+    if (fGroupBy === 'regTestMode') groupFn = function(t) { return (t.emissionReg || t.regSpec || '?') + ' ' + (t.testType || '?'); };
+    else groupFn = function(t) { return t.testDesc || t.modelName || '?'; };
+
+    var groups = [];
+    var seen = {};
+    raState.tests.forEach(function(t) { var g = groupFn(t); if (!seen[g]) { seen[g] = true; groups.push(g); } });
+    groups.sort();
+
+    var filtered = fGroup === 'ALL' ? raState.tests : raState.tests.filter(function(t) { return groupFn(t) === fGroup; });
+    var pts = [];
+    filtered.forEach(function(t) {
+        if (!t.cycleData || t.cycleData.length === 0) return;
+        var last = t.cycleData[t.cycleData.length - 1];
+        var val = last[fMetric];
+        if (val === undefined || isNaN(val)) return;
+        pts.push({ val: val, vin: t.vin || '', date: t.dateStr || '', id: t.id });
+    });
+
+    // SPC constants for n=2
+    var E2 = 2.660, D4 = 3.267, d2 = 1.128;
+
+    // Compute moving ranges
+    var mRanges = [];
+    for (var i = 1; i < pts.length; i++) {
+        mRanges.push(Math.abs(pts[i].val - pts[i - 1].val));
+    }
+
+    var xBar = pts.length > 0 ? pts.reduce(function(s, p) { return s + p.val; }, 0) / pts.length : 0;
+    var mRBar = mRanges.length > 0 ? mRanges.reduce(function(s, v) { return s + v; }, 0) / mRanges.length : 0;
+
+    // I-chart limits
+    var iUCL = xBar + E2 * mRBar;
+    var iLCL = Math.max(0, xBar - E2 * mRBar);
+
+    // mR-chart limits
+    var mrUCL = D4 * mRBar;
+
+    // Process capability
+    var sigmaEst = mRBar / d2;
+    var pr = raGetProfile(filtered[0] || {});
+    var regLimit = pr ? pr.limits[fMetric] : null;
+
+    // Cpk from SPC
+    var cpkSpc = (regLimit && sigmaEst > 0) ? ((regLimit - xBar) / (3 * sigmaEst)).toFixed(3) : '—';
+
+    // Out of control signals (Nelson Rule 1: beyond 3sigma)
+    var ooc = pts.filter(function(p) { return p.val > iUCL || p.val < iLCL; }).length;
+
+    var metricOpts = ['BagCO', 'BagCO2', 'BagTHC', 'BagNOX', 'BagNMHC', 'BagCH4', 'BagNMHCpNOX', 'BagNMOGpNOX', 'FuelConsumptionBag', 'FuelEconomyBag', 'DilutePN', 'HCHO'];
+    var groupByOpts = [{ v: 'regTestMode', l: 'Regulacion+TestMode' }, { v: 'testDesc', l: 'Test Description' }];
+
+    // Destroy previous charts
+    if (window._raSpcIChart) { try { window._raSpcIChart.destroy(); } catch (e) { } window._raSpcIChart = null; }
+    if (window._raSpcMRChart) { try { window._raSpcMRChart.destroy(); } catch (e) { } window._raSpcMRChart = null; }
+
+    el.innerHTML =
+        '<div class="tp-card">' +
+        '<div class="tp-card-title"><span>Cartas de Control SPC (I-mR)</span></div>' +
+        '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Carta Individual y Rango Movil para monitoreo de proceso. Constantes SPC: E2=2.660, D4=3.267, d2=1.128</div>' +
+        '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">' +
+            '<select class="tp-select" onchange="window._raSpcGroupBy=this.value;window._raSpcGroup=\'ALL\';raRender();" style="font-size:10px;">' +
+                groupByOpts.map(function(o) { return '<option value="' + o.v + '"' + (o.v === fGroupBy ? ' selected' : '') + '>Agrupar: ' + o.l + '</option>'; }).join('') +
+            '</select>' +
+            '<select class="tp-select" onchange="window._raSpcGroup=this.value;raRender();" style="font-size:10px;">' +
+                '<option value="ALL">Todos</option>' +
+                groups.map(function(g) { return '<option value="' + g + '"' + (g === fGroup ? ' selected' : '') + '>' + g + '</option>'; }).join('') +
+            '</select>' +
+            '<select class="tp-select" onchange="window._raSpcMetric=this.value;raRender();" style="font-size:10px;">' +
+                metricOpts.map(function(m) { return '<option value="' + m + '"' + (m === fMetric ? ' selected' : '') + '>' + m + '</option>'; }).join('') +
+            '</select>' +
+        '</div>' +
+
+        // Metrics row
+        '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">' + xBar.toFixed(4) + '</div><div class="tp-metric-label">x&#772; (CL)</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#8b5cf6;font-size:14px;">' + iUCL.toFixed(4) + '</div><div class="tp-metric-label">UCL</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#06b6d4;font-size:14px;">' + iLCL.toFixed(4) + '</div><div class="tp-metric-label">LCL</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#f59e0b;font-size:14px;">' + mRBar.toFixed(4) + '</div><div class="tp-metric-label">mR&#772;</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (sigmaEst > 0 ? 'var(--tp-blue)' : 'var(--tp-dim)') + ';font-size:14px;">' + sigmaEst.toFixed(4) + '</div><div class="tp-metric-label">&sigma;&#770; (mR/d2)</div></div>' +
+            (regLimit ? '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + regLimit + '</div><div class="tp-metric-label">Limite Reg.</div></div>' : '') +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (cpkSpc !== '—' && parseFloat(cpkSpc) < 1.33 ? 'var(--tp-red)' : 'var(--tp-green)') + ';font-size:14px;">' + cpkSpc + '</div><div class="tp-metric-label">Cpk (SPC)</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (ooc > 0 ? 'var(--tp-red)' : 'var(--tp-green)') + ';font-size:14px;">' + ooc + '</div><div class="tp-metric-label">Fuera Ctrl</div></div>' +
+        '</div>' +
+
+        // Chart containers
+        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Carta Individual (I)</div><div style="height:280px;"><canvas id="ra-spc-i-canvas"></canvas></div></div>' +
+        '<div><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Carta Rango Movil (mR)</div><div style="height:200px;"><canvas id="ra-spc-mr-canvas"></canvas></div></div>' +
+        '</div>';
+
+    // Build I-Chart
+    if (pts.length > 0 && typeof Chart !== 'undefined') {
+        var labels = pts.map(function(p, i) { return (i + 1) + (p.vin ? '\n' + p.vin.slice(-6) : ''); });
+        var iCtx = document.getElementById('ra-spc-i-canvas');
+        if (iCtx) {
+            var iDatasets = [
+                { label: fMetric, data: pts.map(function(p) { return p.val; }), borderColor: '#3b82f6', backgroundColor: pts.map(function(p) { return (p.val > iUCL || p.val < iLCL) ? '#ef4444' : '#3b82f6'; }), pointBackgroundColor: pts.map(function(p) { return (p.val > iUCL || p.val < iLCL) ? '#ef4444' : '#3b82f6'; }), pointRadius: 4, borderWidth: 1.5, fill: false, tension: 0 },
+                { label: 'x\u0304 (CL)', data: Array(pts.length).fill(xBar), borderColor: '#f59e0b', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false },
+                { label: 'UCL', data: Array(pts.length).fill(iUCL), borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false },
+                { label: 'LCL', data: Array(pts.length).fill(iLCL), borderColor: '#06b6d4', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false }
+            ];
+            if (regLimit) {
+                iDatasets.push({ label: 'Limite', data: Array(pts.length).fill(regLimit), borderColor: '#dc2626', borderWidth: 2, borderDash: [8, 4], pointRadius: 0, fill: false });
+            }
+            window._raSpcIChart = new Chart(iCtx, {
+                type: 'line',
+                data: { labels: labels, datasets: iDatasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: true, labels: { color: '#94a3b8', font: { size: 9 } } }, tooltip: { callbacks: { afterLabel: function(ctx) { return pts[ctx.dataIndex] ? 'VIN: ' + pts[ctx.dataIndex].vin + '\nFecha: ' + pts[ctx.dataIndex].date : ''; } } } },
+                    scales: { x: { ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' } } }
+                }
+            });
+        }
+
+        // Build mR-Chart
+        var mrCtx = document.getElementById('ra-spc-mr-canvas');
+        if (mrCtx && mRanges.length > 0) {
+            var mrLabels = mRanges.map(function(_, i) { return (i + 2); });
+            window._raSpcMRChart = new Chart(mrCtx, {
+                type: 'line',
+                data: {
+                    labels: mrLabels,
+                    datasets: [
+                        { label: 'mR', data: mRanges, borderColor: '#f59e0b', backgroundColor: mRanges.map(function(v) { return v > mrUCL ? '#ef4444' : '#f59e0b'; }), pointBackgroundColor: mRanges.map(function(v) { return v > mrUCL ? '#ef4444' : '#f59e0b'; }), pointRadius: 4, borderWidth: 1.5, fill: false, tension: 0 },
+                        { label: 'mR\u0304 (CL)', data: Array(mRanges.length).fill(mRBar), borderColor: '#f59e0b', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false },
+                        { label: 'UCL', data: Array(mRanges.length).fill(mrUCL), borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: true, labels: { color: '#94a3b8', font: { size: 9 } } } },
+                    scales: { x: { title: { display: true, text: 'Observacion', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { title: { display: true, text: 'Rango Movil', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' } } }
+                }
+            });
+        }
+    }
 }
 
 function raInit(){ raUpdateBadges(); }

@@ -1230,7 +1230,21 @@ if (vehicle.status !== 'ready-release') {
                 exportSingleArchivedVehicle(vehicle.id);
                 tpAutoFeedFromRelease(vehicle);
                 invLogTestUsage(vehicle);
-                tpAutoMarkWeeklyCompletion(vehicle.configCode);
+
+                // Try exact match first, then offer flexible substitution
+                var exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                if (!exactMatch && typeof tpFindFlexibleMatches === 'function') {
+                    var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
+                    if (flexMatches.length > 0) {
+                        // Store pending substitution data and show modal AFTER release completes
+                        window._pendingSubstitution = {
+                            configCode: vehicle.configCode,
+                            vin: vehicle.vin,
+                            matches: flexMatches
+                        };
+                    }
+                }
+
                 if (typeof fbPostTestCompleted === 'function') { var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : (vehicle.testData && vehicle.testData.simple && vehicle.testData.simple.resultado ? vehicle.testData.simple.resultado : ''); fbPostTestCompleted(vehicle.vin, _res); }
                 if (typeof fbPostVehicleReleased === 'function') fbPostVehicleReleased(vehicle.vin);
                 showToast('Vehículo liberado. JSON descargado.', 'success');
@@ -1260,8 +1274,80 @@ if (vehicle.status !== 'ready-release') {
 
         document.getElementById('releaseVehSelect').value = '';
         document.getElementById('lib-content').style.display = 'none';
+
+        // Show flexible substitution modal if pending
+        if (window._pendingSubstitution) {
+            showSubstitutionModal(window._pendingSubstitution);
+            window._pendingSubstitution = null;
+        }
     }
 
+
+// ======================================================================
+
+// [M10b] FLEXIBLE SUBSTITUTION MODAL
+// ======================================================================
+
+function showSubstitutionModal(data) {
+    var modal = document.getElementById('substitutionModal');
+    if (!modal) return;
+
+    var html = '<div style="font-size:0.85rem;color:#64748b;margin-bottom:16px;">' +
+        'El vehículo <strong style="color:#1e293b;">' + data.vin + '</strong> con configuración ' +
+        '<span style="font-family:monospace;font-size:0.75rem;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + (data.configCode.length > 50 ? data.configCode.substring(0, 48) + '..' : data.configCode) + '</span>' +
+        ' no coincide exactamente con ninguna configuración pendiente en el plan semanal.' +
+        '</div>' +
+        '<div style="font-size:0.85rem;font-weight:700;color:#1e293b;margin-bottom:10px;">Configuraciones similares encontradas:</div>';
+
+    data.matches.slice(0, 5).forEach(function(m, idx) {
+        var borderClr = m.diffs.length === 1 ? '#10b981' : m.diffs.length === 2 ? '#f59e0b' : '#ef4444';
+        html += '<div style="border:1px solid ' + borderClr + '30;border-left:3px solid ' + borderClr + ';border-radius:8px;padding:12px;margin-bottom:10px;background:' + borderClr + '05;">';
+        html += '<div style="font-size:0.8rem;font-weight:600;color:#1e293b;margin-bottom:6px;">' + (m.item.desc.length > 60 ? m.item.desc.substring(0, 58) + '..' : m.item.desc) + '</div>';
+
+        // Show differences
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">';
+        m.diffs.forEach(function(d) {
+            html += '<span style="font-size:0.7rem;padding:3px 8px;border-radius:4px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">' +
+                d.label + ': <s>' + d.planned + '</s> → <strong>' + d.actual + '</strong></span>';
+        });
+        html += '</div>';
+
+        html += '<div style="display:flex;gap:8px;align-items:center;">';
+        html += '<span style="font-size:0.7rem;color:#64748b;">' + m.diffs.length + ' diferencia' + (m.diffs.length > 1 ? 's' : '') + '</span>';
+        html += '<button class="btn-primary" onclick="applySubstitution(' + m.planIdx + ',' + m.itemIdx + ',\'' + data.configCode.replace(/'/g, "\\'") + '\',\'' + data.vin + '\',' + idx + ')" ' +
+            'style="margin-left:auto;padding:6px 16px;font-size:0.8rem;border-radius:6px;">Sustituir</button>';
+        html += '</div></div>';
+    });
+
+    html += '<div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;">' +
+        '<button class="btn-secondary" onclick="closeSubstitutionModal()" style="padding:8px 20px;font-size:0.85rem;">No sustituir, solo liberar</button>' +
+        '</div>';
+
+    document.getElementById('substitutionContent').innerHTML = html;
+    modal.style.display = 'flex';
+
+    // Store diffs for applying
+    window._substitutionData = data;
+}
+
+function applySubstitution(planIdx, itemIdx, configCode, vin, matchIdx) {
+    var data = window._substitutionData;
+    if (!data || !data.matches[matchIdx]) return;
+    var m = data.matches[matchIdx];
+
+    if (typeof tpSubstituteItem === 'function') {
+        tpSubstituteItem(planIdx, itemIdx, configCode, vin, m.diffs);
+        showToast('Sustitución aplicada: el vehículo ' + vin + ' toma el lugar de la configuración planeada.', 'success');
+    }
+
+    closeSubstitutionModal();
+}
+
+function closeSubstitutionModal() {
+    var modal = document.getElementById('substitutionModal');
+    if (modal) modal.style.display = 'none';
+    window._substitutionData = null;
+}
 
 // ======================================================================
 
@@ -1320,6 +1406,12 @@ if (vehicle.status !== 'ready-release') {
         window._histFilterVin = '';
         window._histFilterYear = '';
         window._histFilterMonth = '';
+        window._histPageSize = 25;
+        renderHistory();
+    }
+
+    function histShowMore() {
+        window._histPageSize = (window._histPageSize || 25) + 25;
         renderHistory();
     }
 
@@ -1364,8 +1456,14 @@ if (vehicle.status !== 'ready-release') {
             return;
         }
 
+        var filtered = vehicles.length;
+        var pageSize = window._histPageSize || 25;
+        var showing = Math.min(pageSize, filtered);
+        vehicles = vehicles.slice(0, pageSize);
+        var hasMore = filtered > pageSize;
+
         container.innerHTML = `
-            <div class="hist-filter-count">${vehicles.length} de ${total} registros</div>
+            <div class="hist-filter-count">Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</div>
             <table class="history-table">
                 <thead>
                     <tr>
@@ -1409,6 +1507,7 @@ if (vehicle.status !== 'ready-release') {
                     `}).join('')}
                 </tbody>
             </table>
+            ${hasMore ? `<div style="text-align:center;margin-top:12px;"><button class="btn-secondary" onclick="histShowMore()" style="padding:10px 24px;font-size:0.85rem;">Mostrar 25 más (${filtered - showing} restantes)</button></div>` : ''}
         `;
     }
 

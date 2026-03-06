@@ -1444,7 +1444,7 @@ function tpRenderWeekly(el) {
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
                     <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
                         <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                        ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}
+                        ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
                         ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
                         ${tpConfigBadges(item,{fontSize:'8px'})}
                     </div>
@@ -1463,7 +1463,7 @@ function tpRenderWeekly(el) {
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
                 <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
                     <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}
+                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
                     ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
                     ${tpConfigBadges(item,{fontSize:'8px'})}
                 </div>
@@ -1666,7 +1666,7 @@ function tpRenderWeekHistory(el) {
 
 // ── Auto-mark weekly items when COP15 releases match ──
 function tpAutoMarkWeeklyCompletion(configText) {
-    if (!tpState.weeklyPlans || tpState.weeklyPlans.length === 0) return;
+    if (!tpState.weeklyPlans || tpState.weeklyPlans.length === 0) return false;
     // Search all weekly plans for a matching pending item
     for (const plan of tpState.weeklyPlans) {
         if (!plan.items) continue;
@@ -1676,10 +1676,113 @@ function tpAutoMarkWeeklyCompletion(configText) {
                 item.completedDate = new Date().toISOString().slice(0,10);
                 tpSave();
                 console.log('TP: Auto-marked weekly item as completed:', configText);
-                return;
+                return true;
             }
         }
     }
+    return false;
+}
+
+// ── Flexible Substitution ──
+// Maps vehicle.config full field names → weekly plan item short field names
+var _tpFieldMap = {
+    'Modelo': 'mod',
+    'MODEL YEAR (VIN)': 'my',
+    'ENGINE CAPACITY': 'eng',
+    'TRANSMISSION': 'tx',
+    'ENVIRONMENT PACKAGE': 'ep',
+    'EMISSION REGULATION': 'reg',
+    'REGION': 'rgn',
+    'TIRE ASSY': 'tire',
+    'BODY TYPE': 'body',
+    'DRIVE TYPE': 'drv',
+    'ENGINE PACKAGE': 'engpkg'
+};
+
+// Core fields that MUST match for substitution eligibility
+var _tpCoreFields = ['mod', 'eng', 'tx', 'my', 'reg', 'rgn'];
+// Flexible fields that CAN differ
+var _tpFlexFields = ['tire', 'body', 'drv', 'ep', 'engpkg'];
+var _tpFlexLabels = { tire: 'Rin/Llanta', body: 'Tipo Carrocería', drv: 'Tipo Tracción', ep: 'Paq. Ambiental', engpkg: 'Paq. Motor' };
+
+function tpFindFlexibleMatches(configCode, vehicleConfig) {
+    if (!tpState.weeklyPlans || tpState.weeklyPlans.length === 0) return [];
+    if (!vehicleConfig) return [];
+
+    // Extract short fields from vehicle config
+    var vFields = {};
+    for (var fullName in _tpFieldMap) {
+        var short = _tpFieldMap[fullName];
+        vFields[short] = (vehicleConfig[fullName] || '').trim();
+    }
+
+    var matches = [];
+
+    for (var pi = 0; pi < tpState.weeklyPlans.length; pi++) {
+        var plan = tpState.weeklyPlans[pi];
+        if (!plan.items) continue;
+        for (var ii = 0; ii < plan.items.length; ii++) {
+            var item = plan.items[ii];
+            if (item.completed) continue;
+            if (item.desc === configCode) continue; // skip exact matches
+
+            // Check core fields match
+            var coreMatch = true;
+            for (var ci = 0; ci < _tpCoreFields.length; ci++) {
+                var f = _tpCoreFields[ci];
+                var vVal = (vFields[f] || '').toUpperCase();
+                var iVal = (item[f] || '').toUpperCase();
+                if (vVal !== iVal) { coreMatch = false; break; }
+            }
+            if (!coreMatch) continue;
+
+            // Compute differences in flex fields
+            var diffs = [];
+            for (var fi = 0; fi < _tpFlexFields.length; fi++) {
+                var ff = _tpFlexFields[fi];
+                var vv = (vFields[ff] || '').toUpperCase();
+                var iv = (item[ff] || '').toUpperCase();
+                if (vv !== iv && (vv || iv)) {
+                    diffs.push({ field: ff, label: _tpFlexLabels[ff] || ff, planned: item[ff] || '—', actual: vehicleConfig[_tpFieldMapReverse(ff)] || '—' });
+                }
+            }
+
+            if (diffs.length > 0) {
+                matches.push({ planIdx: pi, itemIdx: ii, planId: plan.id, item: item, diffs: diffs });
+            }
+        }
+    }
+
+    // Sort by fewest differences
+    matches.sort(function(a, b) { return a.diffs.length - b.diffs.length; });
+    return matches;
+}
+
+function _tpFieldMapReverse(shortName) {
+    for (var k in _tpFieldMap) {
+        if (_tpFieldMap[k] === shortName) return k;
+    }
+    return shortName;
+}
+
+function tpSubstituteItem(planIdx, itemIdx, testedConfigCode, testedVin, diffs) {
+    var plan = tpState.weeklyPlans[planIdx];
+    if (!plan || !plan.items || !plan.items[itemIdx]) return false;
+    var item = plan.items[itemIdx];
+
+    item.completed = true;
+    item.completedDate = new Date().toISOString().slice(0, 10);
+    item.substituted = true;
+    item.substitution = {
+        originalDesc: item.desc,
+        testedDesc: testedConfigCode,
+        testedVin: testedVin,
+        differences: diffs
+    };
+
+    tpSave();
+    console.log('TP: Substituted weekly item:', item.desc, '→', testedConfigCode);
+    return true;
 }
 
 

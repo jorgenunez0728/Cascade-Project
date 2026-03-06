@@ -242,6 +242,7 @@ window._histFilterStatus = 'all';
 window._histFilterVin = '';
 window._histFilterYear = '';
 window._histFilterMonth = '';
+window._histPageSize = 25;
 let currentUnitSystem = 'SI';
 
 
@@ -383,6 +384,109 @@ function switchPlatform(platform, swipeDir) {
     }
 
     window.scrollTo(0, 0);
+}
+
+// ── Global VIN Search ──
+function toggleGlobalSearch() {
+    var bar = document.getElementById('globalSearchBar');
+    if (!bar) return;
+    var visible = bar.style.display !== 'none';
+    bar.style.display = visible ? 'none' : 'block';
+    if (!visible) {
+        var inp = document.getElementById('globalVinInput');
+        if (inp) { inp.value = ''; inp.focus(); }
+        var res = document.getElementById('globalSearchResults');
+        if (res) res.innerHTML = '';
+    }
+}
+
+function globalVinSearch(query) {
+    var res = document.getElementById('globalSearchResults');
+    if (!res) return;
+    if (!query || query.length < 3) { res.innerHTML = ''; return; }
+
+    var q = query.toUpperCase();
+    var results = [];
+
+    // Search COP15 vehicles
+    (db.vehicles || []).forEach(function(v) {
+        if ((v.vin || '').toUpperCase().includes(q)) {
+            results.push({
+                module: 'COP15',
+                icon: '🚗',
+                vin: v.vin,
+                detail: (v.config && v.config['Modelo'] ? v.config['Modelo'] + ' — ' : '') + (CONFIG.statusLabels[v.status] || v.status),
+                date: v.registeredAt ? new Date(v.registeredAt).toLocaleDateString('es-MX') : '',
+                action: 'switchPlatform("cop15")'
+            });
+        }
+    });
+
+    // Search Results Analyzer
+    if (typeof raState !== 'undefined' && raState.tests) {
+        var seenVins = {};
+        raState.tests.forEach(function(t) {
+            var tVin = (t.vin || t.VIN || '').toUpperCase();
+            if (tVin.includes(q) && !seenVins[tVin]) {
+                seenVins[tVin] = true;
+                results.push({
+                    module: 'Results',
+                    icon: '🧪',
+                    vin: tVin,
+                    detail: (t.regulation || t.testDesc || '') + (t.verdict ? ' — ' + t.verdict : ''),
+                    date: t.date || t.importDate || '',
+                    action: 'switchPlatform("results")'
+                });
+            }
+        });
+    }
+
+    // Search Test Plan tested list
+    if (typeof tpState !== 'undefined' && tpState.testedList) {
+        var seenTP = {};
+        tpState.testedList.forEach(function(t) {
+            var note = t.note || '';
+            var vinMatch = note.match(/VIN:\s*(\S+)/i);
+            if (vinMatch) {
+                var tVin = vinMatch[1].toUpperCase();
+                if (tVin.includes(q) && !seenTP[tVin]) {
+                    seenTP[tVin] = true;
+                    results.push({
+                        module: 'Test Plan',
+                        icon: '📋',
+                        vin: tVin,
+                        detail: t.configText ? t.configText.substring(0, 40) + '...' : '',
+                        date: t.date || '',
+                        action: 'switchPlatform("testplan")'
+                    });
+                }
+            }
+        });
+    }
+
+    if (results.length === 0) {
+        res.innerHTML = '<div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:0 0 8px 8px;color:#94a3b8;font-size:0.85rem;text-align:center;">No se encontraron resultados para "' + query + '"</div>';
+        return;
+    }
+
+    var html = '<div style="background:#1e293b;border:1px solid #334155;border-radius:0 0 8px 8px;overflow:hidden;">';
+    results.slice(0, 15).forEach(function(r) {
+        html += '<div onclick="' + r.action + ';toggleGlobalSearch();" style="padding:10px 14px;border-bottom:1px solid #0f172a;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background=\'#334155\'" onmouseout="this.style.background=\'transparent\'">';
+        html += '<span style="font-size:16px;">' + r.icon + '</span>';
+        html += '<div style="flex:1;min-width:0;">';
+        html += '<div style="font-size:0.85rem;font-weight:600;color:#f1f5f9;">' + r.vin + '</div>';
+        html += '<div style="font-size:0.75rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + r.detail + '</div>';
+        html += '</div>';
+        html += '<div style="text-align:right;">';
+        html += '<span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,0.15);color:#818cf8;">' + r.module + '</span>';
+        if (r.date) html += '<div style="font-size:0.65rem;color:#64748b;margin-top:2px;">' + r.date + '</div>';
+        html += '</div></div>';
+    });
+    if (results.length > 15) {
+        html += '<div style="padding:8px;text-align:center;font-size:0.75rem;color:#64748b;">...y ' + (results.length - 15) + ' más</div>';
+    }
+    html += '</div>';
+    res.innerHTML = html;
 }
 
 // ── Swipe Navigation ──

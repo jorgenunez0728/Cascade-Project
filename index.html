@@ -52,9 +52,18 @@
         <span class="pt-badge" style="background:rgba(139,92,246,0.2);color:#c4b5fd;" id="pn-alerts-badge">ok</span>
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
+    <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos">🔍</button></div>
     <div style="flex:1"></div>
     <div style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.3); align-self:center;">
         KIA Laboratorio de Emisiones — Plataforma Integrada v14.0
+    </div>
+</div>
+
+<!-- Global VIN Search Bar -->
+<div id="globalSearchBar" style="display:none;padding:8px 16px;background:#0f172a;border-bottom:1px solid #1e293b;">
+    <div style="position:relative;max-width:600px;margin:0 auto;">
+        <input type="text" id="globalVinInput" oninput="globalVinSearch(this.value)" placeholder="Buscar VIN en todos los módulos..." style="width:100%;padding:10px 14px;border:1px solid #334155;border-radius:8px;background:#1e293b;color:#f1f5f9;font-size:0.9rem;box-sizing:border-box;">
+        <div id="globalSearchResults" style="position:absolute;left:0;right:0;top:100%;z-index:999;max-height:300px;overflow-y:auto;"></div>
     </div>
 </div>
 
@@ -839,6 +848,14 @@
     </div>
 </div>
 
+<!-- ==================== MODAL SUSTITUCIÓN FLEXIBLE ==================== -->
+<div id="substitutionModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;justify-content:center;align-items:center;padding:16px;">
+    <div style="background:white;border-radius:16px;padding:24px;max-width:520px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <h3 style="margin:0 0 12px;color:#1e293b;font-size:1.05rem;">🔄 Unidad similar encontrada en el plan</h3>
+        <div id="substitutionContent"></div>
+    </div>
+</div>
+
 </div><!-- END platform-cop15 -->
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -902,6 +919,7 @@
         <button class="tp-tab" onclick="raSwitchTab('ra-search')">🔎 Buscar</button>
         <button class="tp-tab" onclick="raSwitchTab('ra-filter')">🧹 Filtro</button>
         <button class="tp-tab" onclick="raSwitchTab('ra-compare')">🔀 Comparar</button>
+        <button class="tp-tab" onclick="raSwitchTab('ra-spc')">📉 SPC</button>
     </div>
     <div class="tp-main">
         <div id="ra-content"></div>

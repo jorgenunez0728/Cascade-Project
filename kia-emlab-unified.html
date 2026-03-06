@@ -760,9 +760,18 @@ body{ overflow-x: hidden; }
         <span class="pt-badge" style="background:rgba(139,92,246,0.2);color:#c4b5fd;" id="pn-alerts-badge">ok</span>
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
+    <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos">🔍</button></div>
     <div style="flex:1"></div>
     <div style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.3); align-self:center;">
         KIA Laboratorio de Emisiones — Plataforma Integrada v14.0
+    </div>
+</div>
+
+<!-- Global VIN Search Bar -->
+<div id="globalSearchBar" style="display:none;padding:8px 16px;background:#0f172a;border-bottom:1px solid #1e293b;">
+    <div style="position:relative;max-width:600px;margin:0 auto;">
+        <input type="text" id="globalVinInput" oninput="globalVinSearch(this.value)" placeholder="Buscar VIN en todos los módulos..." style="width:100%;padding:10px 14px;border:1px solid #334155;border-radius:8px;background:#1e293b;color:#f1f5f9;font-size:0.9rem;box-sizing:border-box;">
+        <div id="globalSearchResults" style="position:absolute;left:0;right:0;top:100%;z-index:999;max-height:300px;overflow-y:auto;"></div>
     </div>
 </div>
 
@@ -1547,6 +1556,14 @@ body{ overflow-x: hidden; }
     </div>
 </div>
 
+<!-- ==================== MODAL SUSTITUCIÓN FLEXIBLE ==================== -->
+<div id="substitutionModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;justify-content:center;align-items:center;padding:16px;">
+    <div style="background:white;border-radius:16px;padding:24px;max-width:520px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <h3 style="margin:0 0 12px;color:#1e293b;font-size:1.05rem;">🔄 Unidad similar encontrada en el plan</h3>
+        <div id="substitutionContent"></div>
+    </div>
+</div>
+
 </div><!-- END platform-cop15 -->
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1610,6 +1627,7 @@ body{ overflow-x: hidden; }
         <button class="tp-tab" onclick="raSwitchTab('ra-search')">🔎 Buscar</button>
         <button class="tp-tab" onclick="raSwitchTab('ra-filter')">🧹 Filtro</button>
         <button class="tp-tab" onclick="raSwitchTab('ra-compare')">🔀 Comparar</button>
+        <button class="tp-tab" onclick="raSwitchTab('ra-spc')">📉 SPC</button>
     </div>
     <div class="tp-main">
         <div id="ra-content"></div>
@@ -1946,6 +1964,7 @@ window._histFilterStatus = 'all';
 window._histFilterVin = '';
 window._histFilterYear = '';
 window._histFilterMonth = '';
+window._histPageSize = 25;
 let currentUnitSystem = 'SI';
 
 
@@ -2087,6 +2106,109 @@ function switchPlatform(platform, swipeDir) {
     }
 
     window.scrollTo(0, 0);
+}
+
+// ── Global VIN Search ──
+function toggleGlobalSearch() {
+    var bar = document.getElementById('globalSearchBar');
+    if (!bar) return;
+    var visible = bar.style.display !== 'none';
+    bar.style.display = visible ? 'none' : 'block';
+    if (!visible) {
+        var inp = document.getElementById('globalVinInput');
+        if (inp) { inp.value = ''; inp.focus(); }
+        var res = document.getElementById('globalSearchResults');
+        if (res) res.innerHTML = '';
+    }
+}
+
+function globalVinSearch(query) {
+    var res = document.getElementById('globalSearchResults');
+    if (!res) return;
+    if (!query || query.length < 3) { res.innerHTML = ''; return; }
+
+    var q = query.toUpperCase();
+    var results = [];
+
+    // Search COP15 vehicles
+    (db.vehicles || []).forEach(function(v) {
+        if ((v.vin || '').toUpperCase().includes(q)) {
+            results.push({
+                module: 'COP15',
+                icon: '🚗',
+                vin: v.vin,
+                detail: (v.config && v.config['Modelo'] ? v.config['Modelo'] + ' — ' : '') + (CONFIG.statusLabels[v.status] || v.status),
+                date: v.registeredAt ? new Date(v.registeredAt).toLocaleDateString('es-MX') : '',
+                action: 'switchPlatform("cop15")'
+            });
+        }
+    });
+
+    // Search Results Analyzer
+    if (typeof raState !== 'undefined' && raState.tests) {
+        var seenVins = {};
+        raState.tests.forEach(function(t) {
+            var tVin = (t.vin || t.VIN || '').toUpperCase();
+            if (tVin.includes(q) && !seenVins[tVin]) {
+                seenVins[tVin] = true;
+                results.push({
+                    module: 'Results',
+                    icon: '🧪',
+                    vin: tVin,
+                    detail: (t.regulation || t.testDesc || '') + (t.verdict ? ' — ' + t.verdict : ''),
+                    date: t.date || t.importDate || '',
+                    action: 'switchPlatform("results")'
+                });
+            }
+        });
+    }
+
+    // Search Test Plan tested list
+    if (typeof tpState !== 'undefined' && tpState.testedList) {
+        var seenTP = {};
+        tpState.testedList.forEach(function(t) {
+            var note = t.note || '';
+            var vinMatch = note.match(/VIN:\s*(\S+)/i);
+            if (vinMatch) {
+                var tVin = vinMatch[1].toUpperCase();
+                if (tVin.includes(q) && !seenTP[tVin]) {
+                    seenTP[tVin] = true;
+                    results.push({
+                        module: 'Test Plan',
+                        icon: '📋',
+                        vin: tVin,
+                        detail: t.configText ? t.configText.substring(0, 40) + '...' : '',
+                        date: t.date || '',
+                        action: 'switchPlatform("testplan")'
+                    });
+                }
+            }
+        });
+    }
+
+    if (results.length === 0) {
+        res.innerHTML = '<div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:0 0 8px 8px;color:#94a3b8;font-size:0.85rem;text-align:center;">No se encontraron resultados para "' + query + '"</div>';
+        return;
+    }
+
+    var html = '<div style="background:#1e293b;border:1px solid #334155;border-radius:0 0 8px 8px;overflow:hidden;">';
+    results.slice(0, 15).forEach(function(r) {
+        html += '<div onclick="' + r.action + ';toggleGlobalSearch();" style="padding:10px 14px;border-bottom:1px solid #0f172a;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background=\'#334155\'" onmouseout="this.style.background=\'transparent\'">';
+        html += '<span style="font-size:16px;">' + r.icon + '</span>';
+        html += '<div style="flex:1;min-width:0;">';
+        html += '<div style="font-size:0.85rem;font-weight:600;color:#f1f5f9;">' + r.vin + '</div>';
+        html += '<div style="font-size:0.75rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + r.detail + '</div>';
+        html += '</div>';
+        html += '<div style="text-align:right;">';
+        html += '<span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,0.15);color:#818cf8;">' + r.module + '</span>';
+        if (r.date) html += '<div style="font-size:0.65rem;color:#64748b;margin-top:2px;">' + r.date + '</div>';
+        html += '</div></div>';
+    });
+    if (results.length > 15) {
+        html += '<div style="padding:8px;text-align:center;font-size:0.75rem;color:#64748b;">...y ' + (results.length - 15) + ' más</div>';
+    }
+    html += '</div>';
+    res.innerHTML = html;
 }
 
 // ── Swipe Navigation ──
@@ -3439,7 +3561,21 @@ if (vehicle.status !== 'ready-release') {
                 exportSingleArchivedVehicle(vehicle.id);
                 tpAutoFeedFromRelease(vehicle);
                 invLogTestUsage(vehicle);
-                tpAutoMarkWeeklyCompletion(vehicle.configCode);
+
+                // Try exact match first, then offer flexible substitution
+                var exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                if (!exactMatch && typeof tpFindFlexibleMatches === 'function') {
+                    var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
+                    if (flexMatches.length > 0) {
+                        // Store pending substitution data and show modal AFTER release completes
+                        window._pendingSubstitution = {
+                            configCode: vehicle.configCode,
+                            vin: vehicle.vin,
+                            matches: flexMatches
+                        };
+                    }
+                }
+
                 if (typeof fbPostTestCompleted === 'function') { var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : (vehicle.testData && vehicle.testData.simple && vehicle.testData.simple.resultado ? vehicle.testData.simple.resultado : ''); fbPostTestCompleted(vehicle.vin, _res); }
                 if (typeof fbPostVehicleReleased === 'function') fbPostVehicleReleased(vehicle.vin);
                 showToast('Vehículo liberado. JSON descargado.', 'success');
@@ -3469,8 +3605,80 @@ if (vehicle.status !== 'ready-release') {
 
         document.getElementById('releaseVehSelect').value = '';
         document.getElementById('lib-content').style.display = 'none';
+
+        // Show flexible substitution modal if pending
+        if (window._pendingSubstitution) {
+            showSubstitutionModal(window._pendingSubstitution);
+            window._pendingSubstitution = null;
+        }
     }
 
+
+// ======================================================================
+
+// [M10b] FLEXIBLE SUBSTITUTION MODAL
+// ======================================================================
+
+function showSubstitutionModal(data) {
+    var modal = document.getElementById('substitutionModal');
+    if (!modal) return;
+
+    var html = '<div style="font-size:0.85rem;color:#64748b;margin-bottom:16px;">' +
+        'El vehículo <strong style="color:#1e293b;">' + data.vin + '</strong> con configuración ' +
+        '<span style="font-family:monospace;font-size:0.75rem;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + (data.configCode.length > 50 ? data.configCode.substring(0, 48) + '..' : data.configCode) + '</span>' +
+        ' no coincide exactamente con ninguna configuración pendiente en el plan semanal.' +
+        '</div>' +
+        '<div style="font-size:0.85rem;font-weight:700;color:#1e293b;margin-bottom:10px;">Configuraciones similares encontradas:</div>';
+
+    data.matches.slice(0, 5).forEach(function(m, idx) {
+        var borderClr = m.diffs.length === 1 ? '#10b981' : m.diffs.length === 2 ? '#f59e0b' : '#ef4444';
+        html += '<div style="border:1px solid ' + borderClr + '30;border-left:3px solid ' + borderClr + ';border-radius:8px;padding:12px;margin-bottom:10px;background:' + borderClr + '05;">';
+        html += '<div style="font-size:0.8rem;font-weight:600;color:#1e293b;margin-bottom:6px;">' + (m.item.desc.length > 60 ? m.item.desc.substring(0, 58) + '..' : m.item.desc) + '</div>';
+
+        // Show differences
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">';
+        m.diffs.forEach(function(d) {
+            html += '<span style="font-size:0.7rem;padding:3px 8px;border-radius:4px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">' +
+                d.label + ': <s>' + d.planned + '</s> → <strong>' + d.actual + '</strong></span>';
+        });
+        html += '</div>';
+
+        html += '<div style="display:flex;gap:8px;align-items:center;">';
+        html += '<span style="font-size:0.7rem;color:#64748b;">' + m.diffs.length + ' diferencia' + (m.diffs.length > 1 ? 's' : '') + '</span>';
+        html += '<button class="btn-primary" onclick="applySubstitution(' + m.planIdx + ',' + m.itemIdx + ',\'' + data.configCode.replace(/'/g, "\\'") + '\',\'' + data.vin + '\',' + idx + ')" ' +
+            'style="margin-left:auto;padding:6px 16px;font-size:0.8rem;border-radius:6px;">Sustituir</button>';
+        html += '</div></div>';
+    });
+
+    html += '<div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;">' +
+        '<button class="btn-secondary" onclick="closeSubstitutionModal()" style="padding:8px 20px;font-size:0.85rem;">No sustituir, solo liberar</button>' +
+        '</div>';
+
+    document.getElementById('substitutionContent').innerHTML = html;
+    modal.style.display = 'flex';
+
+    // Store diffs for applying
+    window._substitutionData = data;
+}
+
+function applySubstitution(planIdx, itemIdx, configCode, vin, matchIdx) {
+    var data = window._substitutionData;
+    if (!data || !data.matches[matchIdx]) return;
+    var m = data.matches[matchIdx];
+
+    if (typeof tpSubstituteItem === 'function') {
+        tpSubstituteItem(planIdx, itemIdx, configCode, vin, m.diffs);
+        showToast('Sustitución aplicada: el vehículo ' + vin + ' toma el lugar de la configuración planeada.', 'success');
+    }
+
+    closeSubstitutionModal();
+}
+
+function closeSubstitutionModal() {
+    var modal = document.getElementById('substitutionModal');
+    if (modal) modal.style.display = 'none';
+    window._substitutionData = null;
+}
 
 // ======================================================================
 
@@ -3529,6 +3737,12 @@ if (vehicle.status !== 'ready-release') {
         window._histFilterVin = '';
         window._histFilterYear = '';
         window._histFilterMonth = '';
+        window._histPageSize = 25;
+        renderHistory();
+    }
+
+    function histShowMore() {
+        window._histPageSize = (window._histPageSize || 25) + 25;
         renderHistory();
     }
 
@@ -3573,8 +3787,14 @@ if (vehicle.status !== 'ready-release') {
             return;
         }
 
+        var filtered = vehicles.length;
+        var pageSize = window._histPageSize || 25;
+        var showing = Math.min(pageSize, filtered);
+        vehicles = vehicles.slice(0, pageSize);
+        var hasMore = filtered > pageSize;
+
         container.innerHTML = `
-            <div class="hist-filter-count">${vehicles.length} de ${total} registros</div>
+            <div class="hist-filter-count">Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</div>
             <table class="history-table">
                 <thead>
                     <tr>
@@ -3618,6 +3838,7 @@ if (vehicle.status !== 'ready-release') {
                     `}).join('')}
                 </tbody>
             </table>
+            ${hasMore ? `<div style="text-align:center;margin-top:12px;"><button class="btn-secondary" onclick="histShowMore()" style="padding:10px 24px;font-size:0.85rem;">Mostrar 25 más (${filtered - showing} restantes)</button></div>` : ''}
         `;
     }
 
@@ -8611,7 +8832,7 @@ function tpRenderWeekly(el) {
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
                     <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
                         <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                        ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}
+                        ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
                         ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
                         ${tpConfigBadges(item,{fontSize:'8px'})}
                     </div>
@@ -8630,7 +8851,7 @@ function tpRenderWeekly(el) {
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
                 <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
                     <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}
+                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
                     ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
                     ${tpConfigBadges(item,{fontSize:'8px'})}
                 </div>
@@ -8833,7 +9054,7 @@ function tpRenderWeekHistory(el) {
 
 // ── Auto-mark weekly items when COP15 releases match ──
 function tpAutoMarkWeeklyCompletion(configText) {
-    if (!tpState.weeklyPlans || tpState.weeklyPlans.length === 0) return;
+    if (!tpState.weeklyPlans || tpState.weeklyPlans.length === 0) return false;
     // Search all weekly plans for a matching pending item
     for (const plan of tpState.weeklyPlans) {
         if (!plan.items) continue;
@@ -8843,10 +9064,113 @@ function tpAutoMarkWeeklyCompletion(configText) {
                 item.completedDate = new Date().toISOString().slice(0,10);
                 tpSave();
                 console.log('TP: Auto-marked weekly item as completed:', configText);
-                return;
+                return true;
             }
         }
     }
+    return false;
+}
+
+// ── Flexible Substitution ──
+// Maps vehicle.config full field names → weekly plan item short field names
+var _tpFieldMap = {
+    'Modelo': 'mod',
+    'MODEL YEAR (VIN)': 'my',
+    'ENGINE CAPACITY': 'eng',
+    'TRANSMISSION': 'tx',
+    'ENVIRONMENT PACKAGE': 'ep',
+    'EMISSION REGULATION': 'reg',
+    'REGION': 'rgn',
+    'TIRE ASSY': 'tire',
+    'BODY TYPE': 'body',
+    'DRIVE TYPE': 'drv',
+    'ENGINE PACKAGE': 'engpkg'
+};
+
+// Core fields that MUST match for substitution eligibility
+var _tpCoreFields = ['mod', 'eng', 'tx', 'my', 'reg', 'rgn'];
+// Flexible fields that CAN differ
+var _tpFlexFields = ['tire', 'body', 'drv', 'ep', 'engpkg'];
+var _tpFlexLabels = { tire: 'Rin/Llanta', body: 'Tipo Carrocería', drv: 'Tipo Tracción', ep: 'Paq. Ambiental', engpkg: 'Paq. Motor' };
+
+function tpFindFlexibleMatches(configCode, vehicleConfig) {
+    if (!tpState.weeklyPlans || tpState.weeklyPlans.length === 0) return [];
+    if (!vehicleConfig) return [];
+
+    // Extract short fields from vehicle config
+    var vFields = {};
+    for (var fullName in _tpFieldMap) {
+        var short = _tpFieldMap[fullName];
+        vFields[short] = (vehicleConfig[fullName] || '').trim();
+    }
+
+    var matches = [];
+
+    for (var pi = 0; pi < tpState.weeklyPlans.length; pi++) {
+        var plan = tpState.weeklyPlans[pi];
+        if (!plan.items) continue;
+        for (var ii = 0; ii < plan.items.length; ii++) {
+            var item = plan.items[ii];
+            if (item.completed) continue;
+            if (item.desc === configCode) continue; // skip exact matches
+
+            // Check core fields match
+            var coreMatch = true;
+            for (var ci = 0; ci < _tpCoreFields.length; ci++) {
+                var f = _tpCoreFields[ci];
+                var vVal = (vFields[f] || '').toUpperCase();
+                var iVal = (item[f] || '').toUpperCase();
+                if (vVal !== iVal) { coreMatch = false; break; }
+            }
+            if (!coreMatch) continue;
+
+            // Compute differences in flex fields
+            var diffs = [];
+            for (var fi = 0; fi < _tpFlexFields.length; fi++) {
+                var ff = _tpFlexFields[fi];
+                var vv = (vFields[ff] || '').toUpperCase();
+                var iv = (item[ff] || '').toUpperCase();
+                if (vv !== iv && (vv || iv)) {
+                    diffs.push({ field: ff, label: _tpFlexLabels[ff] || ff, planned: item[ff] || '—', actual: vehicleConfig[_tpFieldMapReverse(ff)] || '—' });
+                }
+            }
+
+            if (diffs.length > 0) {
+                matches.push({ planIdx: pi, itemIdx: ii, planId: plan.id, item: item, diffs: diffs });
+            }
+        }
+    }
+
+    // Sort by fewest differences
+    matches.sort(function(a, b) { return a.diffs.length - b.diffs.length; });
+    return matches;
+}
+
+function _tpFieldMapReverse(shortName) {
+    for (var k in _tpFieldMap) {
+        if (_tpFieldMap[k] === shortName) return k;
+    }
+    return shortName;
+}
+
+function tpSubstituteItem(planIdx, itemIdx, testedConfigCode, testedVin, diffs) {
+    var plan = tpState.weeklyPlans[planIdx];
+    if (!plan || !plan.items || !plan.items[itemIdx]) return false;
+    var item = plan.items[itemIdx];
+
+    item.completed = true;
+    item.completedDate = new Date().toISOString().slice(0, 10);
+    item.substituted = true;
+    item.substitution = {
+        originalDesc: item.desc,
+        testedDesc: testedConfigCode,
+        testedVin: testedVin,
+        differences: diffs
+    };
+
+    tpSave();
+    console.log('TP: Substituted weekly item:', item.desc, '→', testedConfigCode);
+    return true;
 }
 
 
@@ -10074,6 +10398,7 @@ function raRender(){
     else if(t==='ra-search') raRenderSearch(el);
     else if(t==='ra-filter') raRenderFilter(el);
     else if(t==='ra-compare') raRenderCompare(el);
+    else if(t==='ra-spc') raRenderSPC(el);
 }
 
 
@@ -11598,6 +11923,159 @@ function raRenderCompare(el) {
     html += '</div>';
 
     el.innerHTML = html;
+}
+
+// ══════════════════════════════════════════
+// SPC I-mR Control Charts
+// ══════════════════════════════════════════
+
+function raRenderSPC(el) {
+    if (raState.tests.length < 3) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Necesitas al menos 3 pruebas para generar cartas SPC.</div>';
+        return;
+    }
+
+    var fGroupBy = window._raSpcGroupBy || 'regTestMode';
+    var fGroup = window._raSpcGroup || 'ALL';
+    var fMetric = window._raSpcMetric || 'BagCO';
+
+    var groupFn;
+    if (fGroupBy === 'regTestMode') groupFn = function(t) { return (t.emissionReg || t.regSpec || '?') + ' ' + (t.testType || '?'); };
+    else groupFn = function(t) { return t.testDesc || t.modelName || '?'; };
+
+    var groups = [];
+    var seen = {};
+    raState.tests.forEach(function(t) { var g = groupFn(t); if (!seen[g]) { seen[g] = true; groups.push(g); } });
+    groups.sort();
+
+    var filtered = fGroup === 'ALL' ? raState.tests : raState.tests.filter(function(t) { return groupFn(t) === fGroup; });
+    var pts = [];
+    filtered.forEach(function(t) {
+        if (!t.cycleData || t.cycleData.length === 0) return;
+        var last = t.cycleData[t.cycleData.length - 1];
+        var val = last[fMetric];
+        if (val === undefined || isNaN(val)) return;
+        pts.push({ val: val, vin: t.vin || '', date: t.dateStr || '', id: t.id });
+    });
+
+    // SPC constants for n=2
+    var E2 = 2.660, D4 = 3.267, d2 = 1.128;
+
+    // Compute moving ranges
+    var mRanges = [];
+    for (var i = 1; i < pts.length; i++) {
+        mRanges.push(Math.abs(pts[i].val - pts[i - 1].val));
+    }
+
+    var xBar = pts.length > 0 ? pts.reduce(function(s, p) { return s + p.val; }, 0) / pts.length : 0;
+    var mRBar = mRanges.length > 0 ? mRanges.reduce(function(s, v) { return s + v; }, 0) / mRanges.length : 0;
+
+    // I-chart limits
+    var iUCL = xBar + E2 * mRBar;
+    var iLCL = Math.max(0, xBar - E2 * mRBar);
+
+    // mR-chart limits
+    var mrUCL = D4 * mRBar;
+
+    // Process capability
+    var sigmaEst = mRBar / d2;
+    var pr = raGetProfile(filtered[0] || {});
+    var regLimit = pr ? pr.limits[fMetric] : null;
+
+    // Cpk from SPC
+    var cpkSpc = (regLimit && sigmaEst > 0) ? ((regLimit - xBar) / (3 * sigmaEst)).toFixed(3) : '—';
+
+    // Out of control signals (Nelson Rule 1: beyond 3sigma)
+    var ooc = pts.filter(function(p) { return p.val > iUCL || p.val < iLCL; }).length;
+
+    var metricOpts = ['BagCO', 'BagCO2', 'BagTHC', 'BagNOX', 'BagNMHC', 'BagCH4', 'BagNMHCpNOX', 'BagNMOGpNOX', 'FuelConsumptionBag', 'FuelEconomyBag', 'DilutePN', 'HCHO'];
+    var groupByOpts = [{ v: 'regTestMode', l: 'Regulacion+TestMode' }, { v: 'testDesc', l: 'Test Description' }];
+
+    // Destroy previous charts
+    if (window._raSpcIChart) { try { window._raSpcIChart.destroy(); } catch (e) { } window._raSpcIChart = null; }
+    if (window._raSpcMRChart) { try { window._raSpcMRChart.destroy(); } catch (e) { } window._raSpcMRChart = null; }
+
+    el.innerHTML =
+        '<div class="tp-card">' +
+        '<div class="tp-card-title"><span>Cartas de Control SPC (I-mR)</span></div>' +
+        '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Carta Individual y Rango Movil para monitoreo de proceso. Constantes SPC: E2=2.660, D4=3.267, d2=1.128</div>' +
+        '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">' +
+            '<select class="tp-select" onchange="window._raSpcGroupBy=this.value;window._raSpcGroup=\'ALL\';raRender();" style="font-size:10px;">' +
+                groupByOpts.map(function(o) { return '<option value="' + o.v + '"' + (o.v === fGroupBy ? ' selected' : '') + '>Agrupar: ' + o.l + '</option>'; }).join('') +
+            '</select>' +
+            '<select class="tp-select" onchange="window._raSpcGroup=this.value;raRender();" style="font-size:10px;">' +
+                '<option value="ALL">Todos</option>' +
+                groups.map(function(g) { return '<option value="' + g + '"' + (g === fGroup ? ' selected' : '') + '>' + g + '</option>'; }).join('') +
+            '</select>' +
+            '<select class="tp-select" onchange="window._raSpcMetric=this.value;raRender();" style="font-size:10px;">' +
+                metricOpts.map(function(m) { return '<option value="' + m + '"' + (m === fMetric ? ' selected' : '') + '>' + m + '</option>'; }).join('') +
+            '</select>' +
+        '</div>' +
+
+        // Metrics row
+        '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">' + xBar.toFixed(4) + '</div><div class="tp-metric-label">x&#772; (CL)</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#8b5cf6;font-size:14px;">' + iUCL.toFixed(4) + '</div><div class="tp-metric-label">UCL</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#06b6d4;font-size:14px;">' + iLCL.toFixed(4) + '</div><div class="tp-metric-label">LCL</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#f59e0b;font-size:14px;">' + mRBar.toFixed(4) + '</div><div class="tp-metric-label">mR&#772;</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (sigmaEst > 0 ? 'var(--tp-blue)' : 'var(--tp-dim)') + ';font-size:14px;">' + sigmaEst.toFixed(4) + '</div><div class="tp-metric-label">&sigma;&#770; (mR/d2)</div></div>' +
+            (regLimit ? '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + regLimit + '</div><div class="tp-metric-label">Limite Reg.</div></div>' : '') +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (cpkSpc !== '—' && parseFloat(cpkSpc) < 1.33 ? 'var(--tp-red)' : 'var(--tp-green)') + ';font-size:14px;">' + cpkSpc + '</div><div class="tp-metric-label">Cpk (SPC)</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (ooc > 0 ? 'var(--tp-red)' : 'var(--tp-green)') + ';font-size:14px;">' + ooc + '</div><div class="tp-metric-label">Fuera Ctrl</div></div>' +
+        '</div>' +
+
+        // Chart containers
+        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Carta Individual (I)</div><div style="height:280px;"><canvas id="ra-spc-i-canvas"></canvas></div></div>' +
+        '<div><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Carta Rango Movil (mR)</div><div style="height:200px;"><canvas id="ra-spc-mr-canvas"></canvas></div></div>' +
+        '</div>';
+
+    // Build I-Chart
+    if (pts.length > 0 && typeof Chart !== 'undefined') {
+        var labels = pts.map(function(p, i) { return (i + 1) + (p.vin ? '\n' + p.vin.slice(-6) : ''); });
+        var iCtx = document.getElementById('ra-spc-i-canvas');
+        if (iCtx) {
+            var iDatasets = [
+                { label: fMetric, data: pts.map(function(p) { return p.val; }), borderColor: '#3b82f6', backgroundColor: pts.map(function(p) { return (p.val > iUCL || p.val < iLCL) ? '#ef4444' : '#3b82f6'; }), pointBackgroundColor: pts.map(function(p) { return (p.val > iUCL || p.val < iLCL) ? '#ef4444' : '#3b82f6'; }), pointRadius: 4, borderWidth: 1.5, fill: false, tension: 0 },
+                { label: 'x\u0304 (CL)', data: Array(pts.length).fill(xBar), borderColor: '#f59e0b', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false },
+                { label: 'UCL', data: Array(pts.length).fill(iUCL), borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false },
+                { label: 'LCL', data: Array(pts.length).fill(iLCL), borderColor: '#06b6d4', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false }
+            ];
+            if (regLimit) {
+                iDatasets.push({ label: 'Limite', data: Array(pts.length).fill(regLimit), borderColor: '#dc2626', borderWidth: 2, borderDash: [8, 4], pointRadius: 0, fill: false });
+            }
+            window._raSpcIChart = new Chart(iCtx, {
+                type: 'line',
+                data: { labels: labels, datasets: iDatasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: true, labels: { color: '#94a3b8', font: { size: 9 } } }, tooltip: { callbacks: { afterLabel: function(ctx) { return pts[ctx.dataIndex] ? 'VIN: ' + pts[ctx.dataIndex].vin + '\nFecha: ' + pts[ctx.dataIndex].date : ''; } } } },
+                    scales: { x: { ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' } } }
+                }
+            });
+        }
+
+        // Build mR-Chart
+        var mrCtx = document.getElementById('ra-spc-mr-canvas');
+        if (mrCtx && mRanges.length > 0) {
+            var mrLabels = mRanges.map(function(_, i) { return (i + 2); });
+            window._raSpcMRChart = new Chart(mrCtx, {
+                type: 'line',
+                data: {
+                    labels: mrLabels,
+                    datasets: [
+                        { label: 'mR', data: mRanges, borderColor: '#f59e0b', backgroundColor: mRanges.map(function(v) { return v > mrUCL ? '#ef4444' : '#f59e0b'; }), pointBackgroundColor: mRanges.map(function(v) { return v > mrUCL ? '#ef4444' : '#f59e0b'; }), pointRadius: 4, borderWidth: 1.5, fill: false, tension: 0 },
+                        { label: 'mR\u0304 (CL)', data: Array(mRanges.length).fill(mRBar), borderColor: '#f59e0b', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false },
+                        { label: 'UCL', data: Array(mRanges.length).fill(mrUCL), borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: true, labels: { color: '#94a3b8', font: { size: 9 } } } },
+                    scales: { x: { title: { display: true, text: 'Observacion', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { title: { display: true, text: 'Rango Movil', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' } } }
+                }
+            });
+        }
+    }
 }
 
 function raInit(){ raUpdateBadges(); }
