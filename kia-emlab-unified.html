@@ -5121,6 +5121,9 @@ let invState = JSON.parse(localStorage.getItem(INV_LS_KEY)) || {
     fuelTanks: [] // {id, name, fuelType, octane, supplier, capacity, currentLevel, unit, readings}
 };
 
+// Drag-and-drop state for zone map
+var _invDrag = { active:false, gasId:null, sourceCode:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false };
+
 function invSave() {
     try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
     catch(e) { console.warn('INV: localStorage full'); }
@@ -5786,8 +5789,59 @@ function invShowTimeline(id) {
             html += '</div>';
         });
     }
+    // Quick reading inline form
+    html += '<div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:10px;">';
+    html += '<button onclick="invMapQuickRead(\'' + g.id + '\')" id="inv-map-read-btn" style="width:100%;padding:10px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">Registrar Lectura</button>';
+    html += '<div id="inv-map-read-area" style="display:none;margin-top:8px;">';
+    html += '<div style="display:flex;gap:6px;align-items:center;">';
+    html += '<input id="inv-map-psi" type="number" inputmode="numeric" placeholder="psi" style="flex:1;padding:10px;font-size:16px;font-weight:700;text-align:center;border:2px solid #8b5cf6;border-radius:8px;background:#f8fafc;color:#0f172a;">';
+    html += '<input id="inv-map-date" type="date" value="' + new Date().toISOString().slice(0,10) + '" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:10px;color:#334155;">';
+    html += '</div>';
+    html += '<div style="display:flex;gap:6px;margin-top:6px;">';
+    html += '<button onclick="document.getElementById(\'inv-map-read-area\').style.display=\'none\';document.getElementById(\'inv-map-read-btn\').style.display=\'block\';" style="flex:1;padding:8px;background:#e2e8f0;color:#334155;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Cancelar</button>';
+    html += '<button onclick="invMapQuickReadSave(\'' + g.id + '\')" style="flex:2;padding:8px;background:#8b5cf6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;">Guardar</button>';
+    html += '</div></div></div>';
     html += '</div>';
     modal.innerHTML = html;
+}
+
+function invMapQuickRead(gasId) {
+    var area = document.getElementById('inv-map-read-area');
+    var btn = document.getElementById('inv-map-read-btn');
+    if (area) area.style.display = 'block';
+    if (btn) btn.style.display = 'none';
+    setTimeout(function() { var inp = document.getElementById('inv-map-psi'); if (inp) inp.focus(); }, 100);
+}
+
+function invMapQuickReadSave(gasId) {
+    var inp = document.getElementById('inv-map-psi');
+    var dateInp = document.getElementById('inv-map-date');
+    if (!inp || !inp.value) { showToast('Ingresa la presion', 'error'); return; }
+
+    var psi = parseFloat(inp.value);
+    if (isNaN(psi) || psi < 0) { showToast('Presion invalida', 'error'); return; }
+
+    var date = dateInp ? dateInp.value : new Date().toISOString().slice(0, 10);
+    var gas = invState.gases.find(function(g) { return g.id === gasId; });
+    if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
+
+    if (!gas.readings) gas.readings = [];
+
+    // Check for duplicate reading on same date
+    var existing = gas.readings.find(function(r) { return r.date === date; });
+    if (existing) {
+        if (!confirm('Ya existe lectura del ' + date + ' (' + existing.psi + ' psi). Reemplazar?')) return;
+        existing.psi = psi;
+    } else {
+        gas.readings.push({ date: date, psi: psi });
+    }
+
+    invSave();
+    if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
+    showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi', 'success');
+
+    // Refresh modal to show updated readings
+    invShowTimeline(gasId);
 }
 
 function invShowZone(zoneId) {
@@ -6971,7 +7025,7 @@ function invExportReport() {
 function invRenderZoneMap(el) {
     var gases = invState.gases;
     var html = '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span></div>';
-    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Verde >50% | Amarillo 25-50% | Rojo <25% | Gris: vacio</div>';
+    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Verde >50% | Amarillo 25-50% | Rojo <25% | Gris: vacio &mdash; Mantener presionado para arrastrar</div>';
 
     invState.zones.forEach(function(z) {
         var zGases = gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); });
@@ -6986,18 +7040,21 @@ function invRenderZoneMap(el) {
             var bgColor = '#1e293b';
             var label = '';
             var detail = '';
+            var gasIdAttr = '';
 
             if (slotGas) {
                 var lvl = invGasLevel(slotGas);
                 bgColor = lvl.pct > 50 ? '#065f46' : lvl.pct > 25 ? '#854d0e' : '#991b1b';
                 label = slotGas.formula.split('/')[0];
                 detail = lvl.pct + '%';
+                gasIdAttr = ' data-gas-id="' + slotGas.id + '"';
             }
 
-            html += '<div onclick="invShowZoneSlotDetail(\'' + code + '\')" ' +
-                'style="padding:6px 4px;text-align:center;border-radius:6px;' +
+            html += '<div class="inv-zone-slot" data-zone-code="' + code + '"' + gasIdAttr +
+                ' style="padding:6px 4px;text-align:center;border-radius:6px;' +
                 'background:' + bgColor + ';border:1px solid var(--tp-border);cursor:pointer;' +
-                'min-height:44px;display:flex;flex-direction:column;justify-content:center;">';
+                'min-height:44px;display:flex;flex-direction:column;justify-content:center;' +
+                'user-select:none;-webkit-user-select:none;touch-action:none;">';
             html += '<div style="font-size:8px;color:var(--tp-dim);">' + code + '</div>';
             if (slotGas) {
                 html += '<div style="font-size:10px;font-weight:700;color:#fff;">' + label + '</div>';
@@ -7012,6 +7069,7 @@ function invRenderZoneMap(el) {
 
     html += '</div>';
     el.innerHTML = html;
+    invInitZoneDrag(el);
 }
 
 function invShowZoneSlotDetail(code) {
@@ -7021,6 +7079,207 @@ function invShowZoneSlotDetail(code) {
     } else {
         showToast('Posicion ' + code + ' libre', 'info');
     }
+}
+
+// ── Zone Map: Drag-and-Drop ──
+function invInitZoneDrag(container) {
+    var slots = container.querySelectorAll('.inv-zone-slot');
+    var LONG_PRESS_MS = 500;
+    var DRAG_THRESHOLD = 30;
+
+    function getXY(e) {
+        if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        if (e.changedTouches && e.changedTouches.length > 0) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    function cancelDrag() {
+        if (_invDrag.timer) { clearTimeout(_invDrag.timer); _invDrag.timer = null; }
+        if (_invDrag.ghostEl) { _invDrag.ghostEl.remove(); _invDrag.ghostEl = null; }
+        // Remove visual highlights
+        container.querySelectorAll('.inv-zone-slot').forEach(function(s) {
+            s.style.outline = '';
+            s.style.opacity = '';
+        });
+        _invDrag.active = false;
+        _invDrag.committed = false;
+        _invDrag.gasId = null;
+        _invDrag.sourceCode = null;
+    }
+
+    function startDragMode(slotEl, pt) {
+        var gasId = slotEl.getAttribute('data-gas-id');
+        if (!gasId) return; // Empty slot, nothing to drag
+        _invDrag.active = true;
+        _invDrag.gasId = gasId;
+        _invDrag.sourceCode = slotEl.getAttribute('data-zone-code');
+
+        // Vibrate if available
+        if (navigator.vibrate) navigator.vibrate(50);
+
+        // Create ghost element
+        var ghost = slotEl.cloneNode(true);
+        ghost.style.position = 'fixed';
+        ghost.style.left = (pt.x - 26) + 'px';
+        ghost.style.top = (pt.y - 26) + 'px';
+        ghost.style.width = '52px';
+        ghost.style.opacity = '0.85';
+        ghost.style.zIndex = '10000';
+        ghost.style.pointerEvents = 'none';
+        ghost.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)';
+        ghost.style.transform = 'scale(1.15)';
+        ghost.style.transition = 'none';
+        document.body.appendChild(ghost);
+        _invDrag.ghostEl = ghost;
+
+        // Highlight source slot
+        slotEl.style.opacity = '0.3';
+        slotEl.style.outline = '2px dashed #eab308';
+
+        // Highlight empty slots as drop targets
+        container.querySelectorAll('.inv-zone-slot').forEach(function(s) {
+            if (s === slotEl) return;
+            if (!s.getAttribute('data-gas-id')) {
+                s.style.outline = '2px dashed #22c55e';
+            }
+        });
+    }
+
+    function onPointerDown(e) {
+        // Only primary button for mouse
+        if (e.type === 'mousedown' && e.button !== 0) return;
+        cancelDrag();
+        var slotEl = e.currentTarget;
+        var pt = getXY(e);
+        _invDrag.startX = pt.x;
+        _invDrag.startY = pt.y;
+        _invDrag.committed = false;
+        _invDrag.sourceCode = slotEl.getAttribute('data-zone-code'); // Store for tap fallback
+        if (!slotEl.getAttribute('data-gas-id')) {
+            // Empty slot: no drag, but still handle tap on pointer-up via a dummy timer
+            _invDrag.timer = setTimeout(function() { _invDrag.timer = null; }, LONG_PRESS_MS);
+            return;
+        }
+        _invDrag.timer = setTimeout(function() {
+            _invDrag.timer = null;
+            startDragMode(slotEl, pt);
+        }, LONG_PRESS_MS);
+    }
+
+    function onPointerMove(e) {
+        var pt = getXY(e);
+        // If timer still running, check if moved too far (cancel long-press)
+        if (_invDrag.timer) {
+            var dx = Math.abs(pt.x - _invDrag.startX);
+            var dy = Math.abs(pt.y - _invDrag.startY);
+            if (dx > 10 || dy > 10) {
+                clearTimeout(_invDrag.timer);
+                _invDrag.timer = null;
+            }
+            return;
+        }
+        if (!_invDrag.active) return;
+        e.preventDefault(); // Prevent scroll during drag
+
+        // Check drag threshold
+        var distX = pt.x - _invDrag.startX;
+        var distY = pt.y - _invDrag.startY;
+        if (!_invDrag.committed && Math.sqrt(distX*distX + distY*distY) > DRAG_THRESHOLD) {
+            _invDrag.committed = true;
+        }
+
+        // Move ghost
+        if (_invDrag.ghostEl) {
+            _invDrag.ghostEl.style.left = (pt.x - 26) + 'px';
+            _invDrag.ghostEl.style.top = (pt.y - 26) + 'px';
+        }
+    }
+
+    function onPointerUp(e) {
+        // If long-press timer still running → normal tap
+        if (_invDrag.timer) {
+            clearTimeout(_invDrag.timer);
+            _invDrag.timer = null;
+            var tapCode = _invDrag.sourceCode;
+            _invDrag.sourceCode = null;
+            if (tapCode) invShowZoneSlotDetail(tapCode);
+            return;
+        }
+        if (!_invDrag.active) return;
+
+        var pt = getXY(e);
+        var wasCommitted = _invDrag.committed;
+        var gasId = _invDrag.gasId;
+        var sourceCode = _invDrag.sourceCode;
+
+        cancelDrag();
+
+        if (!wasCommitted) {
+            // Drag was activated (long-press fired) but didn't move far enough → treat as detail view
+            if (sourceCode) invShowZoneSlotDetail(sourceCode);
+            return;
+        }
+
+        // Find drop target
+        var targetEl = document.elementFromPoint(pt.x, pt.y);
+        if (targetEl) targetEl = targetEl.closest('.inv-zone-slot');
+        if (!targetEl) { showToast('Soltar fuera del mapa — cancelado', 'warning'); return; }
+        var targetCode = targetEl.getAttribute('data-zone-code');
+        if (!targetCode || targetCode === sourceCode) return;
+
+        invDropCylinder(gasId, sourceCode, targetCode);
+    }
+
+    // Cleanup previous listeners before attaching new ones
+    if (window._invDragCleanup) window._invDragCleanup();
+
+    // Attach listeners to each slot
+    slots.forEach(function(slot) {
+        slot.addEventListener('touchstart', onPointerDown, { passive: true });
+        slot.addEventListener('mousedown', onPointerDown);
+    });
+
+    // Move/up on document (so drag continues outside slot boundaries)
+    var onCancel = function() { cancelDrag(); };
+    document.addEventListener('touchmove', onPointerMove, { passive: false });
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('touchend', onPointerUp, { passive: true });
+    document.addEventListener('mouseup', onPointerUp);
+    document.addEventListener('touchcancel', onCancel);
+
+    // Store cleanup ref for re-renders
+    window._invDragCleanup = function() {
+        document.removeEventListener('touchmove', onPointerMove);
+        document.removeEventListener('mousemove', onPointerMove);
+        document.removeEventListener('touchend', onPointerUp);
+        document.removeEventListener('mouseup', onPointerUp);
+        document.removeEventListener('touchcancel', onCancel);
+    };
+}
+
+function invDropCylinder(gasId, sourceCode, targetCode) {
+    var gas = invState.gases.find(function(g) { return g.id === gasId; });
+    if (!gas) return;
+
+    // Check if target is occupied
+    var occupant = invState.gases.find(function(g) { return g.zone === targetCode; });
+    if (occupant) {
+        showToast('Posicion ' + targetCode + ' ocupada', 'warning');
+        return;
+    }
+
+    // Move cylinder
+    gas.zone = targetCode;
+    // Update position number from code
+    gas.position = parseInt(targetCode.substring(1), 10);
+    // Timeline entry
+    if (!gas.timeline) gas.timeline = [];
+    gas.timeline.push({ date: new Date().toISOString(), action: 'Reubicado: ' + sourceCode + ' → ' + targetCode });
+
+    invSave();
+    invRender();
+    if (typeof fbPushModule === 'function') fbPushModule('inventory');
+    showToast(gas.formula + ' movido a ' + targetCode, 'success');
 }
 
 // ══════════════════════════════════════════════════
