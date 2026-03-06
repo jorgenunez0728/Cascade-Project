@@ -189,39 +189,52 @@ let raState = JSON.parse(localStorage.getItem(RA_LS_KEY)) || {
 
 if (raState.profiles.length === 0) {
     raState.profiles = [
+        // ── WLTP Euro 6 (Gasoline) ──
+        // Limits: Reg (EC) 715/2007, Euro 6d. PM/PN apply to GDI only.
         { id:'wltp-euro6', name:'WLTP — Pre-Euro 7 / Euro 6', regulation:'PRE-EURO 7,EURO-6E,EURO-6D,EURO-6C,EURO-6,EURO-4,EURO-3,EURO-2', testMode:'WLTP',
-          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','BagNMHCpNOX','DilutePN'],
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','DilutePN','PM'],
           sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','DilutePN','CellTemperature','Barometer','CellAirRH'],
-          limits:{BagCO:1.0,BagTHC:0.1,BagNOX:0.06,BagNMHC:0.068,BagNMHCpNOX:0.16,DilutePN:6e11},
-          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHC:'NMHC',BagCH4:'CH₄',BagNMHCpNOX:'NMHC+NOx',DilutePN:'PN (#/km)',CellTemperature:'Temp.Celda',Barometer:'Presión',CellAirRH:'HR%'},
+          limits:{BagCO:1.0,BagTHC:0.1,BagNOX:0.06,BagNMHC:0.068,PM:0.005,DilutePN:6e11},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO (g/km)',BagCO2:'CO₂ (g/km)',BagTHC:'THC (g/km)',BagNOX:'NOx (g/km)',BagNMHC:'NMHC (g/km)',BagCH4:'CH₄ (g/km)',DilutePN:'PN (#/km)',PM:'PM (g/km)',CellTemperature:'Temp.Celda',Barometer:'Presión',CellAirRH:'HR%'},
           fuelUnit:'l100km',showPhaseFuel:false
         },
+        // ── NEDC Euro 5b (Gasoline) ──
+        // Limits: Reg (EC) 715/2007, Euro 5. PM/PN for GDI only.
         { id:'nedc-euro5b', name:'NEDC — Euro 5b', regulation:'EURO-5B,EURO-5', testMode:'NEDC',
-          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','DilutePN'],
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','DilutePN','PM'],
           sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','DilutePN','CellTemperature','Barometer','CellAirRH'],
-          limits:{BagCO:1.0,BagTHC:0.1,BagNOX:0.06,BagNMHC:0.068,DilutePN:6e11},
-          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHC:'NMHC',BagCH4:'CH₄',DilutePN:'PN (#/km)',CellTemperature:'Temp.Celda',Barometer:'Presión',CellAirRH:'HR%'},
+          limits:{BagCO:1.0,BagTHC:0.1,BagNOX:0.06,BagNMHC:0.068,PM:0.005,DilutePN:6e11},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO (g/km)',BagCO2:'CO₂ (g/km)',BagTHC:'THC (g/km)',BagNOX:'NOx (g/km)',BagNMHC:'NMHC (g/km)',BagCH4:'CH₄ (g/km)',DilutePN:'PN (#/km)',PM:'PM (g/km)',CellTemperature:'Temp.Celda',Barometer:'Presión',CellAirRH:'HR%'},
           fuelUnit:'l100km',showPhaseFuel:false
         },
+        // ── FTP-75 EPA Tier 2 Bin 7 ──
+        // Limits: 40 CFR 86.1811-04, full useful life (120k mi).
+        // NMOG=0.090, CO=4.2, NOx=0.15, PM=0.02, HCHO=0.018 g/mi.
         { id:'ftp-tier2bin7', name:'FTP-75 — EPA Tier 2 Bin 7', regulation:'TIER 2 BIN 7,TIER2-BIN7,EPA-T2B7,TIER 2,BIN 7', testMode:'FTP',
-          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMOGpNOX','HCHO','DilutePN'],
-          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMOGpNOX','HCHO','DilutePN','CellTemperature','Barometer'],
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMOGpNOX','HCHO','PM','DilutePN'],
+          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMOGpNOX','HCHO','PM','DilutePN','CellTemperature','Barometer'],
           limits:{BagCO:4.2,BagTHC:0.09,BagNOX:0.15,HCHO:0.018,PM:0.02},
-          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMOGpNOX:'NMOG+NOx',HCHO:'Formaldehído',DilutePN:'PN (#/km)',CellTemperature:'Temp.Celda',Barometer:'Presión'},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO (g/mi)',BagCO2:'CO₂ (g/mi)',BagTHC:'NMOG (g/mi)',BagNOX:'NOx (g/mi)',BagNMOGpNOX:'NMOG+NOx (g/mi)',HCHO:'HCHO (g/mi)',PM:'PM (g/mi)',DilutePN:'PN (#/mi)',CellTemperature:'Temp.Celda',Barometer:'Presión'},
           fuelUnit:'l100km',showPhaseFuel:false
         },
+        // ── WLTP SULEV 30 (LEV III / USA-Canada) ──
+        // Limits: CARB LEV III, SULEV30 (Bin 30), 150k mi.
+        // NMOG+NOx=0.030, CO=1.0, PM=0.003, HCHO=0.004 g/mi. No mandatory PN.
         { id:'wltp-sulev30', name:'WLTP — SULEV 30 (USA/Canada)', regulation:'SULEV 30,SULEV30,LEV III,LEV-III', testMode:'WLTP',
-          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagNMHCpNOX','BagNMOGpNOX','BagNOX','BagTHC','BagCH4','DilutePN'],
-          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagNMHCpNOX','BagNMOGpNOX','DilutePN','CellTemperature','Barometer'],
-          limits:{BagNMHCpNOX:0.03,BagNMOGpNOX:0.03,BagCO:1.0,PM:0.003,DilutePN:6e11},
-          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHCpNOX:'NMHC+NOx',BagNMOGpNOX:'NMOG+NOx',BagCH4:'CH₄',DilutePN:'PN (#/km)'},
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagNMOGpNOX','BagNOX','BagTHC','BagCH4','PM','DilutePN'],
+          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagNMOGpNOX','DilutePN','CellTemperature','Barometer'],
+          limits:{BagNMOGpNOX:0.03,BagCO:1.0,PM:0.003,HCHO:0.004},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO (g/mi)',BagCO2:'CO₂ (g/mi)',BagTHC:'THC (g/mi)',BagNOX:'NOx (g/mi)',BagNMOGpNOX:'NMOG+NOx (g/mi)',BagCH4:'CH₄ (g/mi)',PM:'PM (g/mi)',DilutePN:'PN (#/mi)',CellTemperature:'Temp.Celda',Barometer:'Presión'},
           fuelUnit:'l100km',showPhaseFuel:false
         },
+        // ── FTP-75 SULEV 30 ──
+        // Limits: CARB LEV III, SULEV30 FTP, 150k mi.
+        // NMOG+NOx=0.030, CO=1.0, PM=0.003, HCHO=0.004 g/mi. No mandatory PN.
         { id:'ftp-sulev30', name:'FTP-75 — SULEV 30', regulation:'SULEV 30 FTP,SULEV30-FTP,SULEV30 FTP', testMode:'FTP',
-          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagNMOGpNOX','BagNOX','BagTHC','HCHO','DilutePN'],
-          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagNMOGpNOX','BagNOX','HCHO','DilutePN','CellTemperature','Barometer'],
-          limits:{BagNMOGpNOX:0.03,BagCO:1.0,PM:0.003,HCHO:0.004,DilutePN:6e11},
-          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMOGpNOX:'NMOG+NOx',HCHO:'Formaldehído',DilutePN:'PN (#/km)'},
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagNMOGpNOX','BagNOX','BagTHC','HCHO','PM','DilutePN'],
+          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagNMOGpNOX','BagNOX','HCHO','PM','DilutePN','CellTemperature','Barometer'],
+          limits:{BagNMOGpNOX:0.03,BagCO:1.0,PM:0.003,HCHO:0.004},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO (g/mi)',BagCO2:'CO₂ (g/mi)',BagTHC:'THC (g/mi)',BagNOX:'NOx (g/mi)',BagNMOGpNOX:'NMOG+NOx (g/mi)',HCHO:'HCHO (g/mi)',PM:'PM (g/mi)',DilutePN:'PN (#/mi)',CellTemperature:'Temp.Celda',Barometer:'Presión'},
           fuelUnit:'l100km',showPhaseFuel:false
         },
     ];

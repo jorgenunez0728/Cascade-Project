@@ -2382,7 +2382,7 @@ function tpRenderFamilies(el) {
                 <button class="tp-btn ${sortBy==='volume'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpFamSort='volume';tpRender();" style="font-size:9px;">Vol</button>
             </div>
         </div>
-        ${sorted.map(f => {
+        ${sorted.map((f, fi) => {
             const diffs = getDiffFields(f.configs);
             const epTag = f.ep&&f.ep!=='0' ? `<span class="tp-badge" style="background:rgba(251,146,60,0.15);color:#fb923c;font-size:7px;">${epLabel(f.ep)}</span>` : '';
             const engTag = f.engpkg&&f.engpkg!=='0' ? `<span class="tp-badge" style="background:rgba(168,85,247,0.15);color:#a855f7;font-size:7px;">${f.engpkg}</span>` : '';
@@ -2406,7 +2406,7 @@ function tpRenderFamilies(el) {
                 </summary>
                 <div style="padding:6px 8px;background:#0d1422;border-top:1px solid var(--tp-border);">
                     ${diffs.length > 0 ? `<div style="font-size:8px;color:var(--tp-dim);margin-bottom:3px;">Variantes: ${diffs.map(d=>d.label).join(', ')}</div>` : ''}
-                    ${f.configs.sort((a,b)=>b.total-a.total).map(c => {
+                    ${f.configs.sort((a,b)=>b.total-a.total).map((c, _ci) => {
                         let badges = '';
                         if (diffs.length > 0) {
                             badges = diffs.map(d => {
@@ -2424,7 +2424,8 @@ function tpRenderFamilies(el) {
                         // Build VIN sublist for tested configs
                         let vinHtml = '';
                         if (c.testedN > 0 && c.vins && c.vins.length > 0) {
-                            vinHtml = `<div id="tp-vins-${c.desc.replace(/[^a-zA-Z0-9]/g,'_').slice(0,40)}" style="display:none;padding:4px 6px 4px 20px;background:#0a0f1a;border-top:1px solid var(--tp-border);">`;
+                            var _vinId = 'tp-vins-' + fi + '-' + _ci;
+                            vinHtml = `<div id="${_vinId}" style="display:none;padding:4px 6px 4px 20px;background:#0a0f1a;border-top:1px solid var(--tp-border);">`;
                             c.vins.forEach(function(v) {
                                 const vinMatch = (v.note || '').match(/VIN:\s*([^\s—]+)/);
                                 const vin = vinMatch ? vinMatch[1] : (v.note || '?');
@@ -2445,7 +2446,7 @@ function tpRenderFamilies(el) {
                             });
                             vinHtml += `</div>`;
                         }
-                        const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${c.desc.replace(/[^a-zA-Z0-9]/g,'_').slice(0,40)}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
+                        const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${fi}-${_ci}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
                         return `
                         <div style="margin-bottom:2px;border:1px solid var(--tp-border);border-radius:4px;background:var(--tp-card);overflow:hidden;">
                             <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;font-size:9px;" ${clickable}>
