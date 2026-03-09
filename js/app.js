@@ -367,6 +367,9 @@ function switchPlatform(platform, swipeDir) {
     var bnavEl = document.getElementById('bnav-' + platform);
     if (bnavEl) bnavEl.classList.add('active');
 
+    // Hide floating action bar when leaving COP15
+    if (platform !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
+
     // Theme
     const isDark = platform === 'testplan' || platform === 'results' || platform === 'inventory' || platform === 'panel';
     document.body.style.background = isDark ? 'var(--tp-dark)' : 'var(--bg)';

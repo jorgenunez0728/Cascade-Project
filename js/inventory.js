@@ -254,7 +254,7 @@ function invRenderDashboard(el) {
     html += '</div></div>';
 
     if (gases.length === 0) {
-        html += '<div class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">Sin cilindros registrados. Ve a la pestana Gases para agregar.</div>';
+        html += '<div class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">Sin cilindros registrados.<br><button class="tp-btn tp-btn-primary" onclick="invState.activeTab=\'inv-gases\';invRender();document.querySelectorAll(\'#inv-tabs-bar .tp-tab\').forEach(b=>b.classList.remove(\'active\'));document.querySelectorAll(\'#inv-tabs-bar .tp-tab\')[1].classList.add(\'active\');" style="margin-top:12px;">➕ Agregar Gas</button></div>';
     }
 
     el.innerHTML = html;

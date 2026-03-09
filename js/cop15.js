@@ -2,6 +2,38 @@
 // ║  KIA EmLab — COP15 Cascade Module                                 ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// ── Unsaved Changes Tracking ──
+var _unsavedChanges = false;
+
+function markUnsaved() {
+    _unsavedChanges = true;
+    var dot = document.getElementById('unsaved-dot');
+    if (dot) dot.style.display = 'inline';
+    var btn = document.getElementById('btn-save');
+    if (btn && !btn.classList.contains('btn-unsaved')) {
+        btn.classList.add('btn-unsaved');
+        btn.textContent = '💾 Guardar *';
+    }
+}
+
+function clearUnsaved() {
+    _unsavedChanges = false;
+    var dot = document.getElementById('unsaved-dot');
+    if (dot) dot.style.display = 'none';
+    var btn = document.getElementById('btn-save');
+    if (btn) {
+        btn.classList.remove('btn-unsaved');
+        btn.textContent = '💾 Guardar';
+    }
+}
+
+function setupUnsavedTracking() {
+    var container = document.getElementById('op-content');
+    if (!container) return;
+    container.addEventListener('input', markUnsaved);
+    container.addEventListener('change', markUnsaved);
+}
+
 // [M02] FILTRO CASCADA]
 // ======================================================================
 
@@ -166,15 +198,29 @@ setAltaDatetimeIfEmpty(true);
 // ======================================================================
 
     document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
+        tab.addEventListener('click', (e) => {
+            // Warn about unsaved changes when leaving Operation tab
+            if (_unsavedChanges && tab.dataset.tab !== 'seguimiento') {
+                if (!confirm('Tienes cambios sin guardar. ¿Salir sin guardar?')) {
+                    e.stopPropagation();
+                    return;
+                }
+                clearUnsaved();
+            }
             document.querySelectorAll('.tab, .tab-panel').forEach(el => el.classList.remove('active'));
             tab.classList.add('active');
             document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
             if (tab.dataset.tab === 'kanban') renderKanban();
+            // Show/hide floating action bar based on tab
+            var isOp = tab.dataset.tab === 'seguimiento';
+            toggleActionBar(isOp && !!activeVehicleId);
             refreshAllLists();
             updateProgressBar();
         });
     });
+
+    // Setup unsaved changes tracking
+    setupUnsavedTracking();
 
     function toggleMode() {
         const isExternal = document.getElementById('modeToggle').checked;
@@ -191,20 +237,33 @@ setAltaDatetimeIfEmpty(true);
     }
 
 
+    var _operatorSelectIds = ['reg_operator', 'op_recep', 'test_responsible', 'precond_responsible', 'simple_operator'];
+
     function populateOperators() {
-        const operators = [
-            document.getElementById('reg_operator'),
-            document.getElementById('op_recep'),
-    	document.getElementById('test_responsible'), // ✅ NUEVO
-    document.getElementById('precond_responsible'),
-	 document.getElementById('simple_operator') // ✅ NUEVO
-        ];
+        const operators = _operatorSelectIds.map(function(id) { return document.getElementById(id); });
         operators.forEach(select => {
             if(select) {
                 select.innerHTML = '<option value="">Seleccionar...</option>';
                 CONFIG.operators.forEach(op => {
                     select.innerHTML += `<option value="${op}">${op}</option>`;
                 });
+                // Listen for changes to remember last operator
+                select.addEventListener('change', function() {
+                    if (this.value) localStorage.setItem('kia_last_operator', this.value);
+                });
+            }
+        });
+    }
+
+    function autoFillOperators() {
+        var last = localStorage.getItem('kia_last_operator');
+        if (!last) return;
+        _operatorSelectIds.forEach(function(id) {
+            var sel = document.getElementById(id);
+            if (sel && !sel.value) {
+                // Check if the operator exists in options
+                var opts = Array.from(sel.options).map(function(o) { return o.value; });
+                if (opts.includes(last)) sel.value = last;
             }
         });
     }
@@ -267,14 +326,44 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
         const counter = document.getElementById('vinCounter');
         const length = input.value.length;
         counter.textContent = `${length}/17 caracteres`;
-        
+
         if(length === 17) {
             counter.style.color = '#10b981';
             counter.textContent += ' ✓';
+            // Real-time duplicate check
+            var vin = input.value;
+            var dupActive = db.vehicles.find(function(v) { return v.vin === vin && v.status !== 'archived'; });
+            var dupArchived = db.vehicles.find(function(v) { return v.vin === vin && v.status === 'archived'; });
+            var warning = document.getElementById('vin-dup-warning');
+            if (!warning) {
+                warning = document.createElement('div');
+                warning.id = 'vin-dup-warning';
+                warning.style.cssText = 'font-size:12px;padding:6px 10px;border-radius:6px;margin-top:4px;';
+                counter.parentElement.appendChild(warning);
+            }
+            if (dupActive) {
+                warning.style.display = 'block';
+                warning.style.background = 'rgba(239,68,68,0.1)';
+                warning.style.color = '#ef4444';
+                warning.style.border = '1px solid rgba(239,68,68,0.3)';
+                warning.textContent = '⚠️ VIN ya existe como vehiculo activo (' + (CONFIG.statusLabels[dupActive.status] || dupActive.status) + ')';
+            } else if (dupArchived) {
+                warning.style.display = 'block';
+                warning.style.background = 'rgba(245,158,11,0.1)';
+                warning.style.color = '#f59e0b';
+                warning.style.border = '1px solid rgba(245,158,11,0.3)';
+                warning.textContent = '⚠️ VIN existe en archivados (se creará nuevo registro)';
+            } else {
+                warning.style.display = 'none';
+            }
         } else if(length > 0) {
             counter.style.color = '#f59e0b';
+            var warning = document.getElementById('vin-dup-warning');
+            if (warning) warning.style.display = 'none';
         } else {
             counter.style.color = '#64748b';
+            var warning = document.getElementById('vin-dup-warning');
+            if (warning) warning.style.display = 'none';
         }
     }
 
@@ -474,6 +563,11 @@ function updateOperationBlocksByPurpose(purpose) {
 }
 
 
+function toggleActionBar(show) {
+  var bar = document.querySelector('.action-bar');
+  if (bar) bar.classList.toggle('hidden', !show);
+}
+
 function loadVehicle() {
   activeVehicleId = document.getElementById('activeVehSelect').value;
   const content = document.getElementById('op-content');
@@ -481,6 +575,7 @@ function loadVehicle() {
 
   if (!activeVehicleId) {
     content.style.display = 'none';
+    toggleActionBar(false);
     return;
   }
 
@@ -489,6 +584,7 @@ function loadVehicle() {
 
   updateOperationBlocksByPurpose(vehicle.purpose);
   content.style.display = 'block';
+  toggleActionBar(true);
 
   document.getElementById('vehicleInfo').innerHTML = `
     📋 <strong>VIN:</strong> ${vehicle.vin} |
@@ -509,6 +605,7 @@ function loadVehicle() {
     document.getElementById('simple_operator').value = s.operator || '';
     document.getElementById('simple_datetime').value = s.datetime || '';
     document.getElementById('simple_notes').value = s.notes || '';
+    autoFillOperators();
     return;
   }
 
@@ -582,6 +679,12 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
   document.getElementById('dB').value  = show.dB  ? round(show.dB, 6) : '';
   document.getElementById('tC').value  = show.tC  ? round(show.tC, 8) : '';
   document.getElementById('dC').value  = show.dC  ? round(show.dC, 8) : '';
+
+  // Auto-fill empty operator fields with last used
+  autoFillOperators();
+
+  // Show readiness checklist
+  updateReadinessChecklist();
 }
 
 
@@ -955,6 +1058,10 @@ function saveProgress() {
     return;
   }
 
+  // Save button feedback
+  var saveBtn = document.getElementById('btn-save');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ Guardando...'; }
+
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
   if (!vehicle) return;
   vehicle.lastModified = new Date().toISOString();
@@ -993,6 +1100,8 @@ function saveProgress() {
 
     saveDB();
     if ((newStatus === 'testing' || newStatus === 'in-progress') && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
+    clearUnsaved();
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Guardar'; }
     showToast('Progreso guardado (formato simple)', 'success');
     refreshAllLists();
     updateProgressBar();
@@ -1109,14 +1218,69 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
 
   saveDB();
   if (newStatus === 'testing' && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
+  clearUnsaved();
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Guardar'; }
   showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
   updateProgressBar();
+
+  // Update readiness checklist after save
+  updateReadinessChecklist();
 
   // Mejora A: Auto-advance suggestion
   if (isEm) checkAutoAdvance(vehicle);
 }
 
+
+// ======================================================================
+// [M09a] READINESS CHECKLIST
+// ======================================================================
+
+function updateReadinessChecklist() {
+    var el = document.getElementById('readiness-checklist');
+    if (!el || !activeVehicleId) { if (el) el.style.display = 'none'; return; }
+
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || !isEmissionsPurpose(vehicle.purpose)) { el.style.display = 'none'; return; }
+
+    var td = vehicle.testData || {};
+    var p = td.preconditioning || {};
+    var tv = td.testVerification || {};
+
+    // Section checks
+    var sections = [
+        {
+            name: 'Recepcion',
+            fields: [td.operator, td.odometer, td.datetime],
+            total: 3
+        },
+        {
+            name: 'Preacond',
+            fields: [p.datetime, p.responsible, p.tirePressurePsi, p.fuelTypeIn, p.cycle, p.ok],
+            total: 6
+        },
+        {
+            name: 'Test',
+            fields: [td.testResponsible, td.testDatetime, tv.tunnel, tv.dyno, tv.fanMode, tv.inertiaOk, tv.chains],
+            total: 7
+        }
+    ];
+
+    var html = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">';
+    html += '<span style="font-weight:700;color:#475569;font-size:11px;">Progreso:</span>';
+
+    sections.forEach(function(s) {
+        var filled = s.fields.filter(function(f) { return f !== undefined && f !== null && f !== ''; }).length;
+        var pct = Math.round((filled / s.total) * 100);
+        var icon = pct === 100 ? '✅' : pct >= 50 ? '⚠️' : '❌';
+        var color = pct === 100 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+        html += '<span style="font-size:11px;padding:3px 8px;border-radius:6px;background:' + color + '10;color:' + color + ';border:1px solid ' + color + '30;">' + icon + ' ' + s.name + ' ' + filled + '/' + s.total + '</span>';
+    });
+
+    html += '</div>';
+    el.style.display = 'block';
+    el.innerHTML = html;
+}
 
 // ======================================================================
 // [M09b] AUTO-AVANCE DE STATUS

@@ -494,7 +494,7 @@ body{ overflow-x: hidden; }
   .platform-tab { padding: 10px 14px; font-size: 0.75rem; }
   .tp-main { padding: 12px; }
   .tp-tabs { padding: 6px 12px; overflow-x: auto; }
-  .tp-tab { padding: 6px 10px; font-size: 10px; white-space: nowrap; }
+  .tp-tab { padding: 8px 10px; font-size: 11px; white-space: nowrap; min-height: 44px; }
   .tp-card { padding: 12px; }
 }
 
@@ -502,11 +502,11 @@ body{ overflow-x: hidden; }
 @media (max-width: 1024px) {
   .tp-main { padding: 12px; }
   .tp-tabs { padding: 5px 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .tp-tab { white-space: nowrap; padding: 7px 10px; font-size: 10px; }
+  .tp-tab { white-space: nowrap; padding: 8px 10px; font-size: 11px; min-height: 44px; }
   .tp-card { padding: 10px; }
   .tp-card-title { flex-direction: column; align-items: flex-start; gap: 6px; }
-  .tp-select { min-height: 34px; }
-  .tp-btn { min-height: 34px; }
+  .tp-select { min-height: 44px; }
+  .tp-btn { min-height: 44px; }
 }
 @media (max-width: 768px) {
   .platform-bar { flex-wrap: wrap; }
@@ -537,19 +537,32 @@ body{ overflow-x: hidden; }
   box-shadow: 0 0 0 4px rgba(220,38,38,0.18) !important;
 }
 
-/* Barra de acción inferior (tablet) */
+/* Barra de acción inferior — floating fixed */
 .action-bar{
-  position: sticky; /* funciona bien dentro del panel */
-  bottom: 10px;
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(90vw, 500px);
   display: flex;
   gap: 12px;
   padding: 12px;
   border-radius: 16px;
-  background: rgba(255,255,255,0.92);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 10px 25px rgba(2,6,23,0.12);
-  z-index: 1500;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgba(2,6,23,0.18);
+  z-index: 2500;
+  transition: opacity 0.2s, transform 0.2s;
 }
+.action-bar.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(20px);
+}
+.btn-unsaved {
+  animation: pulse-save 1.5s infinite;
+}
+@keyframes pulse-save { 0%,100%{box-shadow:0 0 0 0 rgba(187,22,43,0.4);} 50%{box-shadow:0 0 0 8px rgba(187,22,43,0);} }
 
 .action-bar .btn-primary,
 .action-bar .btn-secondary{
@@ -621,7 +634,7 @@ body{ overflow-x: hidden; }
 .tp-header small { font-size:10px; color:var(--tp-dim); }
 .tp-badge { display:inline-flex; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700; }
 .tp-tabs { display:flex; gap:2px; padding:8px 24px; background:var(--tp-card); border-bottom:1px solid var(--tp-border); }
-.tp-tab { padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-size:11px; font-weight:700; background:transparent; color:var(--tp-dim); transition:all .15s; }
+.tp-tab { padding:10px 16px; border:none; border-radius:6px; cursor:pointer; font-size:12px; font-weight:700; background:transparent; color:var(--tp-dim); transition:all .15s; min-height:44px; display:inline-flex; align-items:center; }
 .tp-tab.active { background:var(--tp-amber); color:#000; }
 .tp-main { padding:20px 24px; max-width:1400px; margin:0 auto; }
 .tp-card { background:var(--tp-card); border-radius:10px; border:1px solid var(--tp-border); padding:18px; margin-bottom:14px; }
@@ -629,9 +642,9 @@ body{ overflow-x: hidden; }
 .tp-metric { text-align:center; padding:14px 10px; background:var(--tp-card); border-radius:10px; border:1px solid var(--tp-border); }
 .tp-metric-val { font-size:24px; font-weight:800; font-family:'Courier New',monospace; }
 .tp-metric-label { font-size:9px; color:var(--tp-dim); margin-top:3px; text-transform:uppercase; letter-spacing:0.08em; }
-.tp-input { background:#161f2e; border:1px solid var(--tp-border); border-radius:6px; padding:6px 10px; color:var(--tp-text); font-size:12px; outline:none; width:100%; }
-.tp-select { background:#161f2e; border:1px solid var(--tp-border); border-radius:6px; padding:6px 10px; color:var(--tp-text); font-size:12px; outline:none; cursor:pointer; }
-.tp-btn { padding:7px 14px; border-radius:6px; border:none; cursor:pointer; font-size:11px; font-weight:700; transition:all .15s; }
+.tp-input { background:#161f2e; border:1px solid var(--tp-border); border-radius:6px; padding:8px 10px; color:var(--tp-text); font-size:13px; outline:none; width:100%; min-height:44px; }
+.tp-select { background:#161f2e; border:1px solid var(--tp-border); border-radius:6px; padding:8px 10px; color:var(--tp-text); font-size:13px; outline:none; cursor:pointer; min-height:44px; }
+.tp-btn { padding:10px 16px; border-radius:6px; border:none; cursor:pointer; font-size:12px; font-weight:700; transition:all .15s; min-height:44px; }
 .tp-btn-primary { background:var(--tp-amber); color:#000; }
 .tp-btn-danger { background:var(--tp-red); color:#fff; }
 .tp-btn-ghost { background:transparent; color:var(--tp-dim); border:1px solid var(--tp-border); }
@@ -789,7 +802,7 @@ body{ overflow-x: hidden; }
 <div class="container">
     <div class="tabs">
         <div class="tab active" data-tab="alta">1. Alta</div>
-        <div class="tab" data-tab="seguimiento">2. Operación</div>
+        <div class="tab" data-tab="seguimiento">2. Operación <span id="unsaved-dot" style="display:none;color:#ef4444;font-size:14px;">●</span></div>
         <div class="tab" data-tab="liberacion">3. Liberación</div>
         <div class="tab" data-tab="kanban">Cola</div>
         <div class="tab" data-tab="dashboard">Historial</div>
@@ -951,7 +964,8 @@ body{ overflow-x: hidden; }
                     maxlength="17"
                     pattern="[A-HJ-NPR-Z0-9]{17}"
                     style="text-align:center; font-size:1.2rem; letter-spacing:2px; text-transform: uppercase;"
-                    oninput="validateVIN(this)">
+                    oninput="validateVIN(this)"
+                    onkeypress="if(event.key==='Enter') confirmAlta()">
                 <small id="vinCounter" style="color: #64748b; text-align: center; display: block; margin-top: 5px;">0/17 caracteres</small>
             </div>
         </div>
@@ -991,9 +1005,10 @@ body{ overflow-x: hidden; }
         
         <div id="op-content" style="display:none;">
             <div class="alert alert-info" id="vehicleInfo"></div>
-<div class="action-bar">
+            <div id="readiness-checklist" style="display:none;padding:8px 12px;margin-bottom:10px;border-radius:10px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #e2e8f0;font-size:12px;"></div>
+<div class="action-bar hidden" id="floating-action-bar">
   <button class="btn-secondary" onclick="scrollToTopOp()">⬆️ Inicio</button>
-  <button class="btn-primary" onclick="saveProgress()">💾 Guardar</button>
+  <button class="btn-primary" id="btn-save" onclick="saveProgress()">💾 Guardar</button>
 </div>
 	 	<!-- ✅ BLOQUE SOLO EMISIONES -->
   		<div id="op-emissions-block">
@@ -1015,7 +1030,7 @@ body{ overflow-x: hidden; }
 
     <div class="form-group">
       <label>Odómetro (km)</label>
-      <input type="number" id="op_odo" min="0" step="1" placeholder="Ej: 15234">
+      <input type="number" id="op_odo" min="0" step="1" placeholder="Ej: 15234" inputmode="numeric">
     </div>
 
     <div class="form-group">
@@ -1050,18 +1065,18 @@ body{ overflow-x: hidden; }
 
     <div class="form-group">
       <label>Capacidad del tanque (L)</label>
-      <input type="number" id="tank_capacity" min="0" max="120" step="1" placeholder="Ej: 50">
+      <input type="number" id="tank_capacity" min="0" max="120" step="1" placeholder="Ej: 50" inputmode="numeric">
     </div>
 
     <!-- Fila 3 -->
     <div class="form-group">
       <label>Presión de llantas inicial (psi)</label>
-      <input type="number" id="tire_pressure_in" step="1" placeholder="Ej: 33">
+      <input type="number" id="tire_pressure_in" step="1" placeholder="Ej: 33" inputmode="numeric">
     </div>
 
     <div class="form-group">
       <label>Estado de la batería (SOC %)</label>
-      <input type="number" id="battery_soc" min="0" max="100" step="1" placeholder="Ej: 80">
+      <input type="number" id="battery_soc" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
     </div>
 
   </div><!-- ✅ cierre correcto de form-grid -->
@@ -1095,18 +1110,19 @@ body{ overflow-x: hidden; }
 </div>
 <div class="form-group">
  <label>Presión de llantas (psi)</label>
-      <input type="number" id="tire_pressure" step="1">
+      <input type="number" id="tire_pressure" step="1" inputmode="numeric">
     </div>
 
 	<div class="form-group">
   	<label>Nivel de combustible (L)</label>
-  	<input 
+  	<input
     	type="number"
     	id="fuel_levelpre"
     	min="0"
     	step="1"
 	max="50"
     	placeholder="Litros"
+	inputmode="numeric"
   	>
 	</div>
 
@@ -1170,12 +1186,12 @@ body{ overflow-x: hidden; }
   <div class="form-grid">
     <div class="form-group">
       <label>Tiempo de reposo (h)</label>
-      <input type="number" id="soak_time" step="0.1">
+      <input type="number" id="soak_time" step="0.1" inputmode="decimal">
     </div>
 
     <div class="form-group">
       <label>Odómetro para prueba (km)</label>
-      <input type="number" id="odo_pretest" step="1">
+      <input type="number" id="odo_pretest" step="1" inputmode="numeric">
     </div>
 
     <div class="form-group">
@@ -1233,7 +1249,7 @@ body{ overflow-x: hidden; }
       <label>
         ETW (<span class="unit-text" data-unit="etw">kg</span>)
       </label>
-      <input type="number" id="etw" step="0.01" placeholder="ETW">
+      <input type="number" id="etw" step="0.01" placeholder="ETW" inputmode="decimal">
 
       <div class="unit-toggle">
         <span id="unitSI" class="unit active">SI</span>
@@ -1252,36 +1268,36 @@ body{ overflow-x: hidden; }
         <label>
           Target A (<span class="unit-text" data-unit="force">N</span>)
         </label>
-        <input type="number" id="tA" step="any" min="-999999999">
+        <input type="number" id="tA" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set A (<span class="unit-text" data-unit="force">N</span>)
         </span>
-        <input type="number" id="dA" step="any" min="-999999999">
+        <input type="number" id="dA" step="any" min="-999999999" inputmode="decimal">
       </div>
 
       <div class="target-row">
         <label>
           Target B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
         </label>
-        <input type="number" id="tB" step="any" min="-999999999">
+        <input type="number" id="tB" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
         </span>
-        <input type="number" id="dB" step="any" min="-999999999">
+        <input type="number" id="dB" step="any" min="-999999999" inputmode="decimal">
       </div>
 
       <div class="target-row">
         <label>
           Target C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
         </label>
-        <input type="number" id="tC" step="any" min="-999999999">
+        <input type="number" id="tC" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
         </span>
-        <input type="number" id="dC" step="any" min="-999999999">
+        <input type="number" id="dC" step="any" min="-999999999" inputmode="decimal">
       </div>
 
     </div><!-- /targets-box -->
@@ -2090,6 +2106,9 @@ function switchPlatform(platform, swipeDir) {
     var bnavEl = document.getElementById('bnav-' + platform);
     if (bnavEl) bnavEl.classList.add('active');
 
+    // Hide floating action bar when leaving COP15
+    if (platform !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
+
     // Theme
     const isDark = platform === 'testplan' || platform === 'results' || platform === 'inventory' || platform === 'panel';
     document.body.style.background = isDark ? 'var(--tp-dark)' : 'var(--bg)';
@@ -2490,6 +2509,38 @@ window.addEventListener('DOMContentLoaded', initializeSystem);
 // ║  KIA EmLab — COP15 Cascade Module                                 ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// ── Unsaved Changes Tracking ──
+var _unsavedChanges = false;
+
+function markUnsaved() {
+    _unsavedChanges = true;
+    var dot = document.getElementById('unsaved-dot');
+    if (dot) dot.style.display = 'inline';
+    var btn = document.getElementById('btn-save');
+    if (btn && !btn.classList.contains('btn-unsaved')) {
+        btn.classList.add('btn-unsaved');
+        btn.textContent = '💾 Guardar *';
+    }
+}
+
+function clearUnsaved() {
+    _unsavedChanges = false;
+    var dot = document.getElementById('unsaved-dot');
+    if (dot) dot.style.display = 'none';
+    var btn = document.getElementById('btn-save');
+    if (btn) {
+        btn.classList.remove('btn-unsaved');
+        btn.textContent = '💾 Guardar';
+    }
+}
+
+function setupUnsavedTracking() {
+    var container = document.getElementById('op-content');
+    if (!container) return;
+    container.addEventListener('input', markUnsaved);
+    container.addEventListener('change', markUnsaved);
+}
+
 // [M02] FILTRO CASCADA]
 // ======================================================================
 
@@ -2654,15 +2705,29 @@ setAltaDatetimeIfEmpty(true);
 // ======================================================================
 
     document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
+        tab.addEventListener('click', (e) => {
+            // Warn about unsaved changes when leaving Operation tab
+            if (_unsavedChanges && tab.dataset.tab !== 'seguimiento') {
+                if (!confirm('Tienes cambios sin guardar. ¿Salir sin guardar?')) {
+                    e.stopPropagation();
+                    return;
+                }
+                clearUnsaved();
+            }
             document.querySelectorAll('.tab, .tab-panel').forEach(el => el.classList.remove('active'));
             tab.classList.add('active');
             document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
             if (tab.dataset.tab === 'kanban') renderKanban();
+            // Show/hide floating action bar based on tab
+            var isOp = tab.dataset.tab === 'seguimiento';
+            toggleActionBar(isOp && !!activeVehicleId);
             refreshAllLists();
             updateProgressBar();
         });
     });
+
+    // Setup unsaved changes tracking
+    setupUnsavedTracking();
 
     function toggleMode() {
         const isExternal = document.getElementById('modeToggle').checked;
@@ -2679,20 +2744,33 @@ setAltaDatetimeIfEmpty(true);
     }
 
 
+    var _operatorSelectIds = ['reg_operator', 'op_recep', 'test_responsible', 'precond_responsible', 'simple_operator'];
+
     function populateOperators() {
-        const operators = [
-            document.getElementById('reg_operator'),
-            document.getElementById('op_recep'),
-    	document.getElementById('test_responsible'), // ✅ NUEVO
-    document.getElementById('precond_responsible'),
-	 document.getElementById('simple_operator') // ✅ NUEVO
-        ];
+        const operators = _operatorSelectIds.map(function(id) { return document.getElementById(id); });
         operators.forEach(select => {
             if(select) {
                 select.innerHTML = '<option value="">Seleccionar...</option>';
                 CONFIG.operators.forEach(op => {
                     select.innerHTML += `<option value="${op}">${op}</option>`;
                 });
+                // Listen for changes to remember last operator
+                select.addEventListener('change', function() {
+                    if (this.value) localStorage.setItem('kia_last_operator', this.value);
+                });
+            }
+        });
+    }
+
+    function autoFillOperators() {
+        var last = localStorage.getItem('kia_last_operator');
+        if (!last) return;
+        _operatorSelectIds.forEach(function(id) {
+            var sel = document.getElementById(id);
+            if (sel && !sel.value) {
+                // Check if the operator exists in options
+                var opts = Array.from(sel.options).map(function(o) { return o.value; });
+                if (opts.includes(last)) sel.value = last;
             }
         });
     }
@@ -2755,14 +2833,44 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
         const counter = document.getElementById('vinCounter');
         const length = input.value.length;
         counter.textContent = `${length}/17 caracteres`;
-        
+
         if(length === 17) {
             counter.style.color = '#10b981';
             counter.textContent += ' ✓';
+            // Real-time duplicate check
+            var vin = input.value;
+            var dupActive = db.vehicles.find(function(v) { return v.vin === vin && v.status !== 'archived'; });
+            var dupArchived = db.vehicles.find(function(v) { return v.vin === vin && v.status === 'archived'; });
+            var warning = document.getElementById('vin-dup-warning');
+            if (!warning) {
+                warning = document.createElement('div');
+                warning.id = 'vin-dup-warning';
+                warning.style.cssText = 'font-size:12px;padding:6px 10px;border-radius:6px;margin-top:4px;';
+                counter.parentElement.appendChild(warning);
+            }
+            if (dupActive) {
+                warning.style.display = 'block';
+                warning.style.background = 'rgba(239,68,68,0.1)';
+                warning.style.color = '#ef4444';
+                warning.style.border = '1px solid rgba(239,68,68,0.3)';
+                warning.textContent = '⚠️ VIN ya existe como vehiculo activo (' + (CONFIG.statusLabels[dupActive.status] || dupActive.status) + ')';
+            } else if (dupArchived) {
+                warning.style.display = 'block';
+                warning.style.background = 'rgba(245,158,11,0.1)';
+                warning.style.color = '#f59e0b';
+                warning.style.border = '1px solid rgba(245,158,11,0.3)';
+                warning.textContent = '⚠️ VIN existe en archivados (se creará nuevo registro)';
+            } else {
+                warning.style.display = 'none';
+            }
         } else if(length > 0) {
             counter.style.color = '#f59e0b';
+            var warning = document.getElementById('vin-dup-warning');
+            if (warning) warning.style.display = 'none';
         } else {
             counter.style.color = '#64748b';
+            var warning = document.getElementById('vin-dup-warning');
+            if (warning) warning.style.display = 'none';
         }
     }
 
@@ -2962,6 +3070,11 @@ function updateOperationBlocksByPurpose(purpose) {
 }
 
 
+function toggleActionBar(show) {
+  var bar = document.querySelector('.action-bar');
+  if (bar) bar.classList.toggle('hidden', !show);
+}
+
 function loadVehicle() {
   activeVehicleId = document.getElementById('activeVehSelect').value;
   const content = document.getElementById('op-content');
@@ -2969,6 +3082,7 @@ function loadVehicle() {
 
   if (!activeVehicleId) {
     content.style.display = 'none';
+    toggleActionBar(false);
     return;
   }
 
@@ -2977,6 +3091,7 @@ function loadVehicle() {
 
   updateOperationBlocksByPurpose(vehicle.purpose);
   content.style.display = 'block';
+  toggleActionBar(true);
 
   document.getElementById('vehicleInfo').innerHTML = `
     📋 <strong>VIN:</strong> ${vehicle.vin} |
@@ -2997,6 +3112,7 @@ function loadVehicle() {
     document.getElementById('simple_operator').value = s.operator || '';
     document.getElementById('simple_datetime').value = s.datetime || '';
     document.getElementById('simple_notes').value = s.notes || '';
+    autoFillOperators();
     return;
   }
 
@@ -3070,6 +3186,12 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
   document.getElementById('dB').value  = show.dB  ? round(show.dB, 6) : '';
   document.getElementById('tC').value  = show.tC  ? round(show.tC, 8) : '';
   document.getElementById('dC').value  = show.dC  ? round(show.dC, 8) : '';
+
+  // Auto-fill empty operator fields with last used
+  autoFillOperators();
+
+  // Show readiness checklist
+  updateReadinessChecklist();
 }
 
 
@@ -3443,6 +3565,10 @@ function saveProgress() {
     return;
   }
 
+  // Save button feedback
+  var saveBtn = document.getElementById('btn-save');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ Guardando...'; }
+
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
   if (!vehicle) return;
   vehicle.lastModified = new Date().toISOString();
@@ -3481,6 +3607,8 @@ function saveProgress() {
 
     saveDB();
     if ((newStatus === 'testing' || newStatus === 'in-progress') && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
+    clearUnsaved();
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Guardar'; }
     showToast('Progreso guardado (formato simple)', 'success');
     refreshAllLists();
     updateProgressBar();
@@ -3597,14 +3725,69 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
 
   saveDB();
   if (newStatus === 'testing' && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
+  clearUnsaved();
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Guardar'; }
   showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
   updateProgressBar();
+
+  // Update readiness checklist after save
+  updateReadinessChecklist();
 
   // Mejora A: Auto-advance suggestion
   if (isEm) checkAutoAdvance(vehicle);
 }
 
+
+// ======================================================================
+// [M09a] READINESS CHECKLIST
+// ======================================================================
+
+function updateReadinessChecklist() {
+    var el = document.getElementById('readiness-checklist');
+    if (!el || !activeVehicleId) { if (el) el.style.display = 'none'; return; }
+
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || !isEmissionsPurpose(vehicle.purpose)) { el.style.display = 'none'; return; }
+
+    var td = vehicle.testData || {};
+    var p = td.preconditioning || {};
+    var tv = td.testVerification || {};
+
+    // Section checks
+    var sections = [
+        {
+            name: 'Recepcion',
+            fields: [td.operator, td.odometer, td.datetime],
+            total: 3
+        },
+        {
+            name: 'Preacond',
+            fields: [p.datetime, p.responsible, p.tirePressurePsi, p.fuelTypeIn, p.cycle, p.ok],
+            total: 6
+        },
+        {
+            name: 'Test',
+            fields: [td.testResponsible, td.testDatetime, tv.tunnel, tv.dyno, tv.fanMode, tv.inertiaOk, tv.chains],
+            total: 7
+        }
+    ];
+
+    var html = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">';
+    html += '<span style="font-weight:700;color:#475569;font-size:11px;">Progreso:</span>';
+
+    sections.forEach(function(s) {
+        var filled = s.fields.filter(function(f) { return f !== undefined && f !== null && f !== ''; }).length;
+        var pct = Math.round((filled / s.total) * 100);
+        var icon = pct === 100 ? '✅' : pct >= 50 ? '⚠️' : '❌';
+        var color = pct === 100 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+        html += '<span style="font-size:11px;padding:3px 8px;border-radius:6px;background:' + color + '10;color:' + color + ';border:1px solid ' + color + '30;">' + icon + ' ' + s.name + ' ' + filled + '/' + s.total + '</span>';
+    });
+
+    html += '</div>';
+    el.style.display = 'block';
+    el.innerHTML = html;
+}
 
 // ======================================================================
 // [M09b] AUTO-AVANCE DE STATUS
@@ -5667,7 +5850,7 @@ function invRenderDashboard(el) {
     html += '</div></div>';
 
     if (gases.length === 0) {
-        html += '<div class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">Sin cilindros registrados. Ve a la pestana Gases para agregar.</div>';
+        html += '<div class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">Sin cilindros registrados.<br><button class="tp-btn tp-btn-primary" onclick="invState.activeTab=\'inv-gases\';invRender();document.querySelectorAll(\'#inv-tabs-bar .tp-tab\').forEach(b=>b.classList.remove(\'active\'));document.querySelectorAll(\'#inv-tabs-bar .tp-tab\')[1].classList.add(\'active\');" style="margin-top:12px;">➕ Agregar Gas</button></div>';
     }
 
     el.innerHTML = html;
@@ -8553,7 +8736,7 @@ function tpExportWeeklyPlan(wk) {
 // ======================================================================
 function tpRenderPlanActual(el) {
     const plans = tpState.weeklyPlans || [];
-    if (plans.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay planes generados.</div>'; return; }
+    if (plans.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay planes generados.<br><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-weekly\');document.querySelectorAll(\'#tp-tabs-bar .tp-tab\').forEach(b=>b.classList.remove(\'active\'));document.querySelectorAll(\'#tp-tabs-bar .tp-tab\')[6].classList.add(\'active\');" style="margin-top:12px;">📅 Generar Plan Semanal</button></div>'; return; }
     const wData = plans.map((w,i) => {
         const t = w.items.length, d = w.items.filter(x=>x.completed).length, co = w.items.filter(x=>x.status==='carryover').length;
         return { week:i+1, total:t, done:d, carryover:co, pct:t>0?Math.round(d/t*100):0, created:w.created, weekDate:w.weekDate, accepted:w.accepted };
@@ -8960,14 +9143,24 @@ function tpUpdateBadges() {
 
 function tpSwitchTab(tabId) {
     tpState.activeTab = tabId;
+    window._tpLastTab = tabId;
     document.querySelectorAll('#tp-tabs-bar .tp-tab').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
+    if (event && event.target) event.target.classList.add('active');
     tpRender();
 }
 
 function tpRender() {
     const el = document.getElementById('tp-content');
     if (!el) return;
+    // Restore last active tab if available
+    if (window._tpLastTab && tpState.activeTab === 'tp-dashboard' && window._tpLastTab !== 'tp-dashboard') {
+        tpState.activeTab = window._tpLastTab;
+        // Update tab bar highlight
+        var allTabs = document.querySelectorAll('#tp-tabs-bar .tp-tab');
+        var tabMap = ['tp-dashboard','tp-tested','tp-families','tp-planactual','tp-planhistory','tp-rules','tp-weekly','tp-simulator','tp-production','tp-calendar','tp-weekhistory'];
+        var idx = tabMap.indexOf(window._tpLastTab);
+        if (idx >= 0 && allTabs[idx]) { allTabs.forEach(function(b){b.classList.remove('active');}); allTabs[idx].classList.add('active'); }
+    }
     const tab = tpState.activeTab;
     if (tab === 'tp-dashboard') tpRenderDashboard(el);
     else if (tab === 'tp-tested') tpRenderTested(el);
@@ -9537,7 +9730,7 @@ function tpRenderTested(el) {
             <span>📋 Registro de Pruebas (${tpState.testedList.length})</span>
             ${tpState.testedList.length > 0 ? `<button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Borrar todos?')){tpState.testedList=[];tpSave();tpRender();tpUpdateBadges();}" style="font-size:10px;">🗑 Borrar todo</button>` : ''}
         </div>
-        ${tpState.testedList.length === 0 ? `<div style="text-align:center;padding:25px;color:var(--tp-dim);"><div style="font-size:24px;margin-bottom:6px;">📭</div>No hay vehículos probados registrados<br><small style="color:var(--tp-dim);">Se agregan automáticamente al liberar vehículos en COP15 (Correlation, COP-Emisiones, EO-Emisiones, Investigación)</small></div>` : `
+        ${tpState.testedList.length === 0 ? `<div style="text-align:center;padding:25px;color:var(--tp-dim);"><div style="font-size:24px;margin-bottom:6px;">📭</div>No hay vehículos probados registrados<br><small style="color:var(--tp-dim);">Se agregan automáticamente al liberar vehículos en COP15 (Correlation, COP-Emisiones, EO-Emisiones, Investigación)</small><br><button class="tp-btn tp-btn-primary" onclick="window._tpTestedMode='manual';tpRender();" style="margin-top:12px;">✏️ Agregar Manual</button></div>` : `
         <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:flex-end;">
             <div>
                 <label style="font-size:9px;color:var(--tp-dim);display:block;">Desde</label>

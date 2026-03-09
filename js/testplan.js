@@ -60,7 +60,7 @@ function tpExportWeeklyPlan(wk) {
 // ======================================================================
 function tpRenderPlanActual(el) {
     const plans = tpState.weeklyPlans || [];
-    if (plans.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay planes generados.</div>'; return; }
+    if (plans.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay planes generados.<br><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-weekly\');document.querySelectorAll(\'#tp-tabs-bar .tp-tab\').forEach(b=>b.classList.remove(\'active\'));document.querySelectorAll(\'#tp-tabs-bar .tp-tab\')[6].classList.add(\'active\');" style="margin-top:12px;">📅 Generar Plan Semanal</button></div>'; return; }
     const wData = plans.map((w,i) => {
         const t = w.items.length, d = w.items.filter(x=>x.completed).length, co = w.items.filter(x=>x.status==='carryover').length;
         return { week:i+1, total:t, done:d, carryover:co, pct:t>0?Math.round(d/t*100):0, created:w.created, weekDate:w.weekDate, accepted:w.accepted };
@@ -467,14 +467,24 @@ function tpUpdateBadges() {
 
 function tpSwitchTab(tabId) {
     tpState.activeTab = tabId;
+    window._tpLastTab = tabId;
     document.querySelectorAll('#tp-tabs-bar .tp-tab').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
+    if (event && event.target) event.target.classList.add('active');
     tpRender();
 }
 
 function tpRender() {
     const el = document.getElementById('tp-content');
     if (!el) return;
+    // Restore last active tab if available
+    if (window._tpLastTab && tpState.activeTab === 'tp-dashboard' && window._tpLastTab !== 'tp-dashboard') {
+        tpState.activeTab = window._tpLastTab;
+        // Update tab bar highlight
+        var allTabs = document.querySelectorAll('#tp-tabs-bar .tp-tab');
+        var tabMap = ['tp-dashboard','tp-tested','tp-families','tp-planactual','tp-planhistory','tp-rules','tp-weekly','tp-simulator','tp-production','tp-calendar','tp-weekhistory'];
+        var idx = tabMap.indexOf(window._tpLastTab);
+        if (idx >= 0 && allTabs[idx]) { allTabs.forEach(function(b){b.classList.remove('active');}); allTabs[idx].classList.add('active'); }
+    }
     const tab = tpState.activeTab;
     if (tab === 'tp-dashboard') tpRenderDashboard(el);
     else if (tab === 'tp-tested') tpRenderTested(el);
@@ -1044,7 +1054,7 @@ function tpRenderTested(el) {
             <span>📋 Registro de Pruebas (${tpState.testedList.length})</span>
             ${tpState.testedList.length > 0 ? `<button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Borrar todos?')){tpState.testedList=[];tpSave();tpRender();tpUpdateBadges();}" style="font-size:10px;">🗑 Borrar todo</button>` : ''}
         </div>
-        ${tpState.testedList.length === 0 ? `<div style="text-align:center;padding:25px;color:var(--tp-dim);"><div style="font-size:24px;margin-bottom:6px;">📭</div>No hay vehículos probados registrados<br><small style="color:var(--tp-dim);">Se agregan automáticamente al liberar vehículos en COP15 (Correlation, COP-Emisiones, EO-Emisiones, Investigación)</small></div>` : `
+        ${tpState.testedList.length === 0 ? `<div style="text-align:center;padding:25px;color:var(--tp-dim);"><div style="font-size:24px;margin-bottom:6px;">📭</div>No hay vehículos probados registrados<br><small style="color:var(--tp-dim);">Se agregan automáticamente al liberar vehículos en COP15 (Correlation, COP-Emisiones, EO-Emisiones, Investigación)</small><br><button class="tp-btn tp-btn-primary" onclick="window._tpTestedMode='manual';tpRender();" style="margin-top:12px;">✏️ Agregar Manual</button></div>` : `
         <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:flex-end;">
             <div>
                 <label style="font-size:9px;color:var(--tp-dim);display:block;">Desde</label>

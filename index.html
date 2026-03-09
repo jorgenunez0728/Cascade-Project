@@ -80,7 +80,7 @@
 <div class="container">
     <div class="tabs">
         <div class="tab active" data-tab="alta">1. Alta</div>
-        <div class="tab" data-tab="seguimiento">2. Operación</div>
+        <div class="tab" data-tab="seguimiento">2. Operación <span id="unsaved-dot" style="display:none;color:#ef4444;font-size:14px;">●</span></div>
         <div class="tab" data-tab="liberacion">3. Liberación</div>
         <div class="tab" data-tab="kanban">Cola</div>
         <div class="tab" data-tab="dashboard">Historial</div>
@@ -242,7 +242,8 @@
                     maxlength="17"
                     pattern="[A-HJ-NPR-Z0-9]{17}"
                     style="text-align:center; font-size:1.2rem; letter-spacing:2px; text-transform: uppercase;"
-                    oninput="validateVIN(this)">
+                    oninput="validateVIN(this)"
+                    onkeypress="if(event.key==='Enter') confirmAlta()">
                 <small id="vinCounter" style="color: #64748b; text-align: center; display: block; margin-top: 5px;">0/17 caracteres</small>
             </div>
         </div>
@@ -282,9 +283,10 @@
         
         <div id="op-content" style="display:none;">
             <div class="alert alert-info" id="vehicleInfo"></div>
-<div class="action-bar">
+            <div id="readiness-checklist" style="display:none;padding:8px 12px;margin-bottom:10px;border-radius:10px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #e2e8f0;font-size:12px;"></div>
+<div class="action-bar hidden" id="floating-action-bar">
   <button class="btn-secondary" onclick="scrollToTopOp()">⬆️ Inicio</button>
-  <button class="btn-primary" onclick="saveProgress()">💾 Guardar</button>
+  <button class="btn-primary" id="btn-save" onclick="saveProgress()">💾 Guardar</button>
 </div>
 	 	<!-- ✅ BLOQUE SOLO EMISIONES -->
   		<div id="op-emissions-block">
@@ -306,7 +308,7 @@
 
     <div class="form-group">
       <label>Odómetro (km)</label>
-      <input type="number" id="op_odo" min="0" step="1" placeholder="Ej: 15234">
+      <input type="number" id="op_odo" min="0" step="1" placeholder="Ej: 15234" inputmode="numeric">
     </div>
 
     <div class="form-group">
@@ -341,18 +343,18 @@
 
     <div class="form-group">
       <label>Capacidad del tanque (L)</label>
-      <input type="number" id="tank_capacity" min="0" max="120" step="1" placeholder="Ej: 50">
+      <input type="number" id="tank_capacity" min="0" max="120" step="1" placeholder="Ej: 50" inputmode="numeric">
     </div>
 
     <!-- Fila 3 -->
     <div class="form-group">
       <label>Presión de llantas inicial (psi)</label>
-      <input type="number" id="tire_pressure_in" step="1" placeholder="Ej: 33">
+      <input type="number" id="tire_pressure_in" step="1" placeholder="Ej: 33" inputmode="numeric">
     </div>
 
     <div class="form-group">
       <label>Estado de la batería (SOC %)</label>
-      <input type="number" id="battery_soc" min="0" max="100" step="1" placeholder="Ej: 80">
+      <input type="number" id="battery_soc" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
     </div>
 
   </div><!-- ✅ cierre correcto de form-grid -->
@@ -386,18 +388,19 @@
 </div>
 <div class="form-group">
  <label>Presión de llantas (psi)</label>
-      <input type="number" id="tire_pressure" step="1">
+      <input type="number" id="tire_pressure" step="1" inputmode="numeric">
     </div>
 
 	<div class="form-group">
   	<label>Nivel de combustible (L)</label>
-  	<input 
+  	<input
     	type="number"
     	id="fuel_levelpre"
     	min="0"
     	step="1"
 	max="50"
     	placeholder="Litros"
+	inputmode="numeric"
   	>
 	</div>
 
@@ -461,12 +464,12 @@
   <div class="form-grid">
     <div class="form-group">
       <label>Tiempo de reposo (h)</label>
-      <input type="number" id="soak_time" step="0.1">
+      <input type="number" id="soak_time" step="0.1" inputmode="decimal">
     </div>
 
     <div class="form-group">
       <label>Odómetro para prueba (km)</label>
-      <input type="number" id="odo_pretest" step="1">
+      <input type="number" id="odo_pretest" step="1" inputmode="numeric">
     </div>
 
     <div class="form-group">
@@ -524,7 +527,7 @@
       <label>
         ETW (<span class="unit-text" data-unit="etw">kg</span>)
       </label>
-      <input type="number" id="etw" step="0.01" placeholder="ETW">
+      <input type="number" id="etw" step="0.01" placeholder="ETW" inputmode="decimal">
 
       <div class="unit-toggle">
         <span id="unitSI" class="unit active">SI</span>
@@ -543,36 +546,36 @@
         <label>
           Target A (<span class="unit-text" data-unit="force">N</span>)
         </label>
-        <input type="number" id="tA" step="any" min="-999999999">
+        <input type="number" id="tA" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set A (<span class="unit-text" data-unit="force">N</span>)
         </span>
-        <input type="number" id="dA" step="any" min="-999999999">
+        <input type="number" id="dA" step="any" min="-999999999" inputmode="decimal">
       </div>
 
       <div class="target-row">
         <label>
           Target B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
         </label>
-        <input type="number" id="tB" step="any" min="-999999999">
+        <input type="number" id="tB" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
         </span>
-        <input type="number" id="dB" step="any" min="-999999999">
+        <input type="number" id="dB" step="any" min="-999999999" inputmode="decimal">
       </div>
 
       <div class="target-row">
         <label>
           Target C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
         </label>
-        <input type="number" id="tC" step="any" min="-999999999">
+        <input type="number" id="tC" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
         </span>
-        <input type="number" id="dC" step="any" min="-999999999">
+        <input type="number" id="dC" step="any" min="-999999999" inputmode="decimal">
       </div>
 
     </div><!-- /targets-box -->
