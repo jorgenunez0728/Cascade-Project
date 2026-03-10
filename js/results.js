@@ -664,8 +664,18 @@ function raRenderImport(el){
     el.innerHTML=`
     <div class="tp-card">
         <div class="tp-card-title"><span>📂 Importar Carpeta Completa (Batch ~600 pruebas)</span></div>
-        <p style="font-size:11px;color:var(--tp-dim);margin-bottom:10px;">Selecciona la carpeta raíz de resultados (ej. <code style="color:var(--tp-amber)">D:\\TestResults\\WLTP</code>). Se buscan recursivamente CustomFields.csv, CycleResults.csv, SampleResults.csv y TestDetails.csv.</p>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <p style="font-size:11px;color:var(--tp-dim);margin-bottom:10px;">Selecciona la carpeta raíz de resultados o arrastra archivos CSV a la zona de abajo.</p>
+
+        <div class="ra-drop-zone" id="raDropZone"
+             ondragover="event.preventDefault();this.classList.add('dragover');"
+             ondragleave="this.classList.remove('dragover');"
+             ondrop="event.preventDefault();this.classList.remove('dragover');raHandleDrop(event);">
+            <div class="ra-drop-icon">📁</div>
+            <div class="ra-drop-text">Arrastra carpetas o archivos CSV aquí</div>
+            <div style="font-size:10px;color:var(--tp-dim);margin-top:4px;">o usa el selector de abajo</div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;">
             <input type="file" id="ra-folder-input" webkitdirectory directory multiple style="font-size:12px;color:var(--tp-text);">
             <button class="tp-btn tp-btn-primary" onclick="raBatchImport()">🚀 Importar Carpeta</button>
         </div>
@@ -756,6 +766,101 @@ async function raBatchImport(){
     finalMsg += '<div style="margin-top:6px;"><button class="tp-btn tp-btn-primary" onclick="raState.activeTab=\'ra-dashboard\';raRender();document.querySelectorAll(\'#ra-tabs-bar .tp-tab\').forEach(b=>b.classList.remove(\'active\'));document.querySelectorAll(\'#ra-tabs-bar .tp-tab\')[0].classList.add(\'active\');" style="font-size:11px;">Ver Dashboard (' + raState.tests.length + ' pruebas)</button></div>';
     if(errMsgs.length>0) finalMsg += '<div style="font-size:9px;color:var(--tp-red);margin-top:4px;">' + errMsgs.join('<br>') + '</div>';
     prog.innerHTML = finalMsg;
+}
+
+// ── [R2-M8] Drag-and-Drop CSV Import ──
+async function raHandleDrop(event) {
+    var items = event.dataTransfer.items;
+    var files = [];
+
+    // Collect all files from DataTransferItems (supports folders via webkitGetAsEntry)
+    var promises = [];
+    for (var i = 0; i < items.length; i++) {
+        var entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+        if (entry) {
+            promises.push(_raReadEntry(entry, files));
+        } else if (items[i].kind === 'file') {
+            files.push(items[i].getAsFile());
+        }
+    }
+
+    var prog = document.getElementById('ra-batch-progress');
+    if (prog) prog.innerHTML = '<span style="color:var(--tp-amber);">Leyendo archivos arrastrados...</span>';
+
+    await Promise.all(promises);
+
+    // Filter to only CSV files
+    files = files.filter(function(f) { return f.name.toLowerCase().endsWith('.csv'); });
+    if (files.length === 0) {
+        if (prog) prog.innerHTML = '<span style="color:var(--tp-red);">No se encontraron archivos CSV.</span>';
+        return;
+    }
+
+    if (prog) prog.innerHTML = '<span style="color:var(--tp-amber);">' + files.length + ' CSVs encontrados. Agrupando...</span>';
+    await new Promise(function(r) { setTimeout(r, 50); });
+
+    var groups = raGroupFiles(files);
+    var dirs = Object.keys(groups).filter(function(d) { return groups[d].cycle || groups[d].custom; });
+
+    if (dirs.length === 0) {
+        if (prog) prog.innerHTML = '<span style="color:var(--tp-red);">No se encontraron grupos válidos (CustomFields.csv / CycleResults.csv).</span>';
+        return;
+    }
+
+    // Use same import logic as raBatchImport but with collected files
+    var imported = 0, skipped = 0, errors = 0;
+    var errMsgs = [];
+    for (var di = 0; di < dirs.length; di++) {
+        var dir = dirs[di];
+        try {
+            var test = await raProcessGroup(groups[dir]);
+            var isDup = false;
+            if (test.vin && test.testNumber) {
+                isDup = raState.tests.some(function(x) { return x.vin === test.vin && x.testNumber === test.testNumber; });
+            } else if (test.vin && test.testDesc) {
+                isDup = raState.tests.some(function(x) { return x.vin === test.vin && x.testDesc === test.testDesc && x.dateStr === test.dateStr; });
+            }
+            if (isDup) { skipped++; continue; }
+            raState.tests.push(test);
+            imported++;
+            if (imported % 25 === 0 && prog) {
+                prog.innerHTML = '<span style="color:var(--tp-amber);">' + imported + '/' + dirs.length + ' importadas...</span>';
+                await new Promise(function(r) { setTimeout(r, 10); });
+            }
+        } catch (e) {
+            errors++;
+            if (errMsgs.length < 5) errMsgs.push(dir.slice(0, 40) + ': ' + e.message);
+        }
+    }
+
+    raSave();
+    raUpdateBadges();
+
+    var reportHtml = '<div class="tp-card" style="margin-top:8px;">' +
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;font-weight:700;">' +
+        '<span style="color:var(--tp-green);">✅ ' + imported + ' importados</span>' +
+        '<span style="color:var(--tp-amber);">⏭️ ' + skipped + ' duplicados</span>' +
+        '<span style="color:var(--tp-red);">❌ ' + errors + ' errores</span></div>';
+    if (errMsgs.length > 0) {
+        reportHtml += '<details style="margin-top:6px;"><summary style="font-size:10px;color:var(--tp-red);cursor:pointer;">Ver errores</summary>' +
+            '<div style="font-size:9px;color:var(--tp-red);margin-top:4px;">' + errMsgs.join('<br>') + '</div></details>';
+    }
+    reportHtml += '<div style="margin-top:8px;"><button class="tp-btn tp-btn-primary" onclick="raState.activeTab=\'ra-dashboard\';raRender();" style="font-size:11px;">Ver Dashboard (' + raState.tests.length + ' pruebas)</button></div></div>';
+    if (prog) prog.innerHTML = reportHtml;
+}
+
+function _raReadEntry(entry, files) {
+    return new Promise(function(resolve) {
+        if (entry.isFile) {
+            entry.file(function(f) { files.push(f); resolve(); }, resolve);
+        } else if (entry.isDirectory) {
+            var reader = entry.createReader();
+            reader.readEntries(function(entries) {
+                var ps = entries.map(function(e) { return _raReadEntry(e, files); });
+                Promise.all(ps).then(resolve);
+            }, resolve);
+        } else { resolve(); }
+    });
 }
 
 async function raSingleImport(){

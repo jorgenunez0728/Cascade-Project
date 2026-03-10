@@ -1046,6 +1046,88 @@ button:focus-visible { outline-offset: 1px; }
 /* ═══ Kanban Search Highlight ═══ */
 .kanban-search-match { background: rgba(245,158,11,0.3); border-radius: 2px; }
 
+/* ═══ [R2] Lab Status Dashboard ═══ */
+.lab-dash { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; margin-top: 8px; }
+.lab-dash-alerts { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.lab-dash-alert { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #1e293b; border-radius: 6px; }
+.lab-dash-alert:hover { background: #334155; }
+.lab-dash-alert-badge { font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 3px; white-space: nowrap; }
+.lab-dash-alert-mod { font-size: 9px; font-weight: 700; color: #94a3b8; min-width: 65px; }
+.lab-dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.lab-dash-card { background: #1e293b; border-radius: 10px; padding: 14px; text-align: center; cursor: pointer; border: 1px solid transparent; transition: border-color 0.2s; }
+.lab-dash-card:hover { border-color: #475569; }
+.lab-dash-card-header { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.lab-dash-card-metric { font-size: 28px; font-weight: 800; color: #e2e8f0; }
+.lab-dash-card-sub { font-size: 9px; color: #64748b; margin-bottom: 4px; }
+.lab-dash-card-detail { font-size: 9px; color: #94a3b8; }
+
+/* ═══ [R2] Drag-Drop Import Zone ═══ */
+.ra-drop-zone { border: 2px dashed #334155; border-radius: 12px; padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: rgba(59,130,246,0.03); }
+.ra-drop-zone:hover { border-color: #3b82f6; background: rgba(59,130,246,0.06); }
+.ra-drop-zone.dragover { border-color: #3b82f6; background: rgba(59,130,246,0.12); transform: scale(1.01); }
+.ra-drop-icon { font-size: 36px; margin-bottom: 6px; }
+.ra-drop-text { font-size: 13px; font-weight: 700; color: #94a3b8; }
+
+/* ═══ [R2] Backup Dashboard ═══ */
+.backup-dashboard { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; margin-top: 8px; }
+.backup-card { background: #1e293b; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; color: #e2e8f0; }
+
+/* ═══ [R2] Manual Config Form ═══ */
+.mcf-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mcf-field { display: flex; flex-direction: column; }
+.mcf-label { font-size: 10px; font-weight: 700; color: #475569; margin-bottom: 2px; }
+.mcf-input { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; }
+.mcf-input:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+.mcf-preview { grid-column: 1 / -1; margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; }
+@media (max-width: 480px) { .mcf-form { grid-template-columns: 1fr; } }
+
+/* ═══ [R2] Visual Timeline ═══ */
+.tl-filters { display: flex; gap: 6px; margin-bottom: 10px; }
+.tl-filter-btn { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; color: #64748b; cursor: pointer; }
+.tl-filter-btn.active { background: var(--kia-dark); color: #fff; border-color: var(--kia-dark); }
+.tl-track { position: relative; padding-left: 16px; border-left: 2px solid #e2e8f0; margin-left: 6px; }
+.tl-phase { margin-bottom: 14px; }
+.tl-phase-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; margin-left: -22px; }
+.tl-phase-name { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--kia-dark); background: #f1f5f9; padding: 3px 10px; border-radius: 10px; }
+.tl-phase-dur { font-size: 10px; color: #64748b; font-weight: 600; }
+.tl-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; position: relative; }
+.tl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; margin-left: -22px; border: 2px solid #fff; box-shadow: 0 0 0 1px #e2e8f0; }
+.tl-content { flex: 1; }
+.tl-time { font-size: 10px; color: #94a3b8; font-weight: 600; }
+.tl-action { font-size: 12px; color: #1e293b; line-height: 1.3; }
+.tl-user { font-size: 10px; color: #94a3b8; }
+
+/* ═══ [R2] Quick Review Panel ═══ */
+.qr-section { margin-bottom: 12px; }
+.qr-section-title { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; padding: 4px 8px; background: #f1f5f9; border-radius: 4px; }
+.qr-field { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
+.qr-field:hover { background: #eff6ff !important; }
+.qr-icon { font-size: 11px; flex-shrink: 0; width: 20px; text-align: center; }
+.qr-label { flex: 1; color: #334155; font-weight: 500; }
+.qr-val { color: #475569; font-size: 11px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+
+/* ═══ [R2] Date Suggestion Hints ═══ */
+.date-suggestion {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 4px; padding: 5px 10px;
+    background: #f0fdf4; border: 1px dashed #86efac;
+    border-radius: 6px; font-size: 11px; color: #166534;
+}
+.date-sug-apply {
+    background: #16a34a; color: #fff; border: none;
+    padding: 3px 10px; border-radius: 5px; font-size: 10px;
+    font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.date-sug-apply:active { background: #15803d; }
+
+/* ═══ [R2] Batch PDF Progress ═══ */
+.batch-pdf-progress { background: #1e293b; padding: 30px 40px; border-radius: 14px; text-align: center; min-width: 280px; }
+.batch-pdf-title { font-size: 14px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px; }
+.batch-pdf-bar { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+.batch-pdf-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius: 4px; transition: width 0.2s; width: 0%; }
+.batch-pdf-btn { background: #1e40af !important; color: #fff !important; border: none !important; }
+.hist-chk { width: 16px; height: 16px; cursor: pointer; accent-color: var(--kia-red); }
+
     </style>
 </head>
 
@@ -1312,6 +1394,8 @@ button:focus-visible { outline-offset: 1px; }
             <div id="readiness-checklist" style="display:none;padding:8px 12px;margin-bottom:10px;border-radius:10px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #e2e8f0;font-size:12px;"></div>
 <div class="action-bar hidden" id="floating-action-bar">
   <button class="btn-secondary" onclick="scrollToTopOp()">⬆️ Inicio</button>
+  <button class="btn-secondary" onclick="copyFromLastVehicle()" id="btn-copy-last" title="Copiar datos del último vehículo con misma configuración">📋 Copiar</button>
+  <button class="btn-secondary" onclick="openQuickReview()" id="btn-quick-review" title="Vista rápida de todos los campos">🔍 Review</button>
   <button class="btn-primary" id="btn-save" onclick="saveProgress()">💾 Guardar</button>
 </div>
 	 	<!-- ✅ BLOQUE SOLO EMISIONES -->
@@ -2007,9 +2091,13 @@ button:focus-visible { outline-offset: 1px; }
 <h4 style="margin:0 0 6px;">Configuraciones Vehiculares (CSV)</h4>
 <p style="font-size:11px;color:#64748b;margin:0 0 10px;">Vehiculos ya registrados NO se afectan.</p>
 <input type="file" id="configCSVUpload" accept=".csv" style="display:none;" onchange="handleConfigCSVImport(event)">
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
 <button onclick="document.getElementById('configCSVUpload').click()" style="padding:7px 14px;background:#0f766e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:12px;">Importar CSV</button>
+<button onclick="openManualConfigForm()" style="padding:7px 14px;background:#1d4ed8;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:12px;">+ Agregar Manual</button>
+</div>
 <div id="configCSVStatus" style="margin-top:8px;font-size:11px;"></div>
 <div style="margin-top:6px;font-size:10px;color:#94a3b8;">Actual: <strong id="configCountModal">0</strong> configuraciones — <span id="configSourceModal"></span></div>
+<div id="manualConfigsList" style="margin-top:10px;"></div>
 </div></div></div>
 
 <div id="invModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
@@ -3210,6 +3298,390 @@ document.addEventListener('keydown', function(e) {
 
 
 // ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [R2-M10] CROSS-MODULE RISK DASHBOARD                              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function renderLabDashboard(container) {
+    var alerts = [];
+
+    // ── COP15 Module ──
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var active = vehicles.filter(function(v) { return v.status !== 'archived'; });
+    var now = Date.now();
+
+    // Find oldest stalled vehicle
+    var oldest = null;
+    var oldestHours = 0;
+    active.forEach(function(v) {
+        var lastUp = v.lastModified || v.registeredAt;
+        if (!lastUp) return;
+        var h = (now - new Date(lastUp).getTime()) / 3600000;
+        if (h > oldestHours) { oldestHours = h; oldest = v; }
+    });
+    if (oldest && oldestHours > 48) {
+        var vinShort = '...' + (oldest.vin || '').slice(-6);
+        var daysStalled = Math.floor(oldestHours / 24);
+        alerts.push({ level: 'CRITICO', color: '#ef4444', module: 'COP15',
+            message: 'VIN ' + vinShort + ' lleva ' + daysStalled + 'd en "' + (oldest.status || '?') + '"',
+            action: 'cop15' });
+    }
+    if (active.length > 10) {
+        alerts.push({ level: 'ALTO', color: '#f59e0b', module: 'COP15',
+            message: active.length + ' vehiculos activos — considerar agilizar liberaciones',
+            action: 'cop15' });
+    }
+
+    // ── Test Plan Module ──
+    var tpAnalysis = null;
+    if (typeof tpGetAnalysis === 'function') {
+        try { tpAnalysis = tpGetAnalysis(); } catch(e) {}
+    }
+    if (tpAnalysis && tpAnalysis.totalReq > 0) {
+        var deficit = tpAnalysis.totalReq - (tpAnalysis.totalDone || 0);
+        var coverage = tpAnalysis.coveragePct || 0;
+        if (coverage < 50) {
+            alerts.push({ level: 'CRITICO', color: '#ef4444', module: 'Test Plan',
+                message: 'Cobertura al ' + coverage + '%. Deficit: ' + deficit + ' tests',
+                action: 'testplan' });
+        } else if (coverage < 80) {
+            alerts.push({ level: 'MEDIO', color: '#f59e0b', module: 'Test Plan',
+                message: 'Cobertura al ' + coverage + '%. Deficit: ' + deficit + ' tests',
+                action: 'testplan' });
+        }
+    }
+
+    // ── Results Module ──
+    var raTests = (typeof raState !== 'undefined' && raState.tests) ? raState.tests : [];
+    var thisWeekTests = 0;
+    var weekAgo = now - 7 * 86400000;
+    var failCount = 0;
+    raTests.forEach(function(t) {
+        var tDate = t.importedAt ? new Date(t.importedAt).getTime() : 0;
+        if (tDate >= weekAgo) {
+            thisWeekTests++;
+            if (typeof raTestVerdict === 'function' && raTestVerdict(t) !== 'PASS') failCount++;
+        }
+    });
+    if (failCount > 0) {
+        alerts.push({ level: 'MEDIO', color: '#f59e0b', module: 'Resultados',
+            message: failCount + ' pruebas FAIL esta semana de ' + thisWeekTests + ' totales',
+            action: 'results' });
+    }
+
+    // ── Inventory Module ──
+    var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
+    var criticalGases = invGases.filter(function(g) {
+        if (!g.readings || g.readings.length === 0 || g.status === 'Empty') return false;
+        var last = g.readings[g.readings.length - 1];
+        return last.psi < (g.reorderPSI || 500);
+    });
+    if (criticalGases.length > 0) {
+        alerts.push({ level: 'ALTO', color: '#ef4444', module: 'Inventario',
+            message: criticalGases.length + ' gas(es) bajo nivel de reorden',
+            action: 'inventory' });
+    }
+
+    // ── Weekly productivity ──
+    var thisWeekReleased = vehicles.filter(function(v) {
+        if (v.status !== 'archived' || !v.archivedAt) return false;
+        return new Date(v.archivedAt).getTime() >= weekAgo;
+    }).length;
+    var lastWeekReleased = vehicles.filter(function(v) {
+        if (v.status !== 'archived' || !v.archivedAt) return false;
+        var t = new Date(v.archivedAt).getTime();
+        return t >= weekAgo - 7*86400000 && t < weekAgo;
+    }).length;
+    var diff = thisWeekReleased - lastWeekReleased;
+
+    // Sort alerts by severity
+    var levelOrder = { 'CRITICO': 0, 'ALTO': 1, 'MEDIO': 2, 'BAJO': 3 };
+    alerts.sort(function(a, b) { return (levelOrder[a.level] || 9) - (levelOrder[b.level] || 9); });
+
+    // Render
+    var html = '<div class="lab-dash">';
+    html += '<h3 style="margin:0 0 12px;font-size:14px;color:#c4b5fd;">🏭 Lab Status — Vista Consolidada de Riesgos</h3>';
+
+    // Consolidated alerts
+    if (alerts.length > 0) {
+        html += '<div class="lab-dash-alerts">';
+        alerts.forEach(function(a) {
+            html += '<div class="lab-dash-alert" onclick="switchPlatform(\'' + a.action + '\')" style="cursor:pointer;">' +
+                '<span class="lab-dash-alert-badge" style="background:' + a.color + '20;color:' + a.color + ';">' + a.level + '</span>' +
+                '<span class="lab-dash-alert-mod">' + a.module + '</span>' +
+                '<span style="flex:1;font-size:10px;color:#e2e8f0;">' + a.message + '</span>' +
+                '<span style="font-size:9px;color:#64748b;">→</span></div>';
+        });
+        html += '</div>';
+    } else {
+        html += '<div style="padding:12px;text-align:center;background:#10b98115;border:1px solid #10b98130;border-radius:8px;font-size:12px;color:#10b981;font-weight:700;">✅ Sin alertas activas — Laboratorio operando normalmente</div>';
+    }
+
+    // Module summary cards
+    html += '<div class="lab-dash-grid">';
+
+    // COP15 card
+    var byStatus = {};
+    active.forEach(function(v) { byStatus[v.status] = (byStatus[v.status] || 0) + 1; });
+    html += '<div class="lab-dash-card" onclick="switchPlatform(\'cop15\')">' +
+        '<div class="lab-dash-card-header" style="color:#3b82f6;">COP15</div>' +
+        '<div class="lab-dash-card-metric">' + active.length + '</div>' +
+        '<div class="lab-dash-card-sub">activos</div>' +
+        '<div class="lab-dash-card-detail">' +
+        (byStatus['registered'] || 0) + ' reg · ' + (byStatus['in-progress'] || 0) + ' prog · ' +
+        (byStatus['testing'] || 0) + ' test · ' + (byStatus['ready-release'] || 0) + ' listo</div></div>';
+
+    // Test Plan card
+    html += '<div class="lab-dash-card" onclick="switchPlatform(\'testplan\')">' +
+        '<div class="lab-dash-card-header" style="color:#f59e0b;">Test Plan</div>' +
+        '<div class="lab-dash-card-metric">' + (tpAnalysis ? (tpAnalysis.coveragePct || 0) : '—') + '%</div>' +
+        '<div class="lab-dash-card-sub">cobertura</div>' +
+        '<div class="lab-dash-card-detail">Deficit: ' + (tpAnalysis ? (tpAnalysis.totalReq - (tpAnalysis.totalDone || 0)) : '—') + ' tests</div></div>';
+
+    // Results card
+    html += '<div class="lab-dash-card" onclick="switchPlatform(\'results\')">' +
+        '<div class="lab-dash-card-header" style="color:#8b5cf6;">Resultados</div>' +
+        '<div class="lab-dash-card-metric">' + raTests.length + '</div>' +
+        '<div class="lab-dash-card-sub">pruebas total</div>' +
+        '<div class="lab-dash-card-detail">' + thisWeekTests + ' esta sem' + (failCount > 0 ? ' · ' + failCount + ' FAIL' : '') + '</div></div>';
+
+    // Inventory card
+    html += '<div class="lab-dash-card" onclick="switchPlatform(\'inventory\')">' +
+        '<div class="lab-dash-card-header" style="color:#06b6d4;">Inventario</div>' +
+        '<div class="lab-dash-card-metric">' + invGases.length + '</div>' +
+        '<div class="lab-dash-card-sub">cilindros</div>' +
+        '<div class="lab-dash-card-detail">' + (criticalGases.length > 0 ? '<span style="color:#ef4444;">' + criticalGases.length + ' criticos</span>' : 'Niveles OK') + '</div></div>';
+
+    html += '</div>';
+
+    // Weekly productivity
+    html += '<div style="margin-top:10px;padding:10px;background:#1e293b;border-radius:8px;display:flex;justify-content:space-between;align-items:center;">' +
+        '<span style="font-size:11px;color:#94a3b8;">Productividad semanal:</span>' +
+        '<span style="font-size:13px;font-weight:700;color:' + (diff >= 0 ? '#10b981' : '#ef4444') + ';">' +
+        thisWeekReleased + ' liberados ' + (diff !== 0 ? '(' + (diff > 0 ? '↑' : '↓') + ' ' + Math.abs(diff) + ' vs sem pasada)' : '(= sem pasada)') +
+        '</span></div>';
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [R2-M7] BACKUP HEALTH DASHBOARD + AUTO-BACKUP TO INDEXEDDB        ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _backupDBName = 'kia_emlab_backups';
+var _backupStoreName = 'snapshots';
+var _backupMaxCount = 5;
+
+function _openBackupDB(callback) {
+    var req = indexedDB.open(_backupDBName, 1);
+    req.onupgradeneeded = function(e) {
+        var idb = e.target.result;
+        if (!idb.objectStoreNames.contains(_backupStoreName)) {
+            idb.createObjectStore(_backupStoreName, { keyPath: 'id', autoIncrement: true });
+        }
+    };
+    req.onsuccess = function(e) { callback(e.target.result); };
+    req.onerror = function() { console.warn('IndexedDB backup error'); };
+}
+
+function autoBackup() {
+    _openBackupDB(function(idb) {
+        var snapshot = {
+            timestamp: new Date().toISOString(),
+            db: localStorage.getItem('kia_db_v11') || '{}',
+            tpState: localStorage.getItem('kia_testplan_v1') || '{}',
+            raState: localStorage.getItem('kia_results_v1') || '{}',
+            invState: localStorage.getItem('kia_lab_inventory') || '{}'
+        };
+        snapshot.sizeBytes = (snapshot.db + snapshot.tpState + snapshot.raState + snapshot.invState).length * 2;
+
+        // Count vehicles for preview
+        try {
+            var parsed = JSON.parse(snapshot.db);
+            snapshot.vehicleCount = (parsed.vehicles || []).length;
+            snapshot.activeCount = (parsed.vehicles || []).filter(function(v) { return v.status !== 'archived'; }).length;
+        } catch(e) { snapshot.vehicleCount = 0; snapshot.activeCount = 0; }
+
+        var tx = idb.transaction(_backupStoreName, 'readwrite');
+        var store = tx.objectStore(_backupStoreName);
+        store.add(snapshot);
+
+        tx.oncomplete = function() {
+            // Prune old snapshots beyond max
+            var readTx = idb.transaction(_backupStoreName, 'readwrite');
+            var readStore = readTx.objectStore(_backupStoreName);
+            var countReq = readStore.count();
+            countReq.onsuccess = function() {
+                if (countReq.result > _backupMaxCount) {
+                    var cursor = readStore.openCursor();
+                    var toDelete = countReq.result - _backupMaxCount;
+                    cursor.onsuccess = function(e) {
+                        var c = e.target.result;
+                        if (c && toDelete > 0) {
+                            c.delete();
+                            toDelete--;
+                            c.continue();
+                        }
+                    };
+                }
+            };
+        };
+    });
+}
+
+// Hook into saveDB to auto-backup
+var _origSaveDB = saveDB;
+saveDB = function() {
+    _origSaveDB();
+    autoBackup();
+};
+
+function _formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(2) + ' MB';
+}
+
+function _getLocalStorageUsage() {
+    var total = 0;
+    for (var key in localStorage) {
+        if (localStorage.hasOwnProperty(key)) {
+            total += (localStorage[key].length + key.length) * 2;
+        }
+    }
+    return total;
+}
+
+function renderBackupStatus(container) {
+    var usage = _getLocalStorageUsage();
+    var maxBytes = 5 * 1024 * 1024;
+    var pct = Math.round((usage / maxBytes) * 100);
+    var barColor = pct > 90 ? '#ef4444' : pct > 80 ? '#f59e0b' : '#10b981';
+
+    var html = '<div class="backup-dashboard">' +
+        '<h3 style="margin:0 0 12px;font-size:14px;color:#c4b5fd;">💾 Backup & Almacenamiento</h3>';
+
+    // Storage bar
+    html += '<div class="backup-card">' +
+        '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">' +
+        '<span>localStorage</span><span>' + _formatBytes(usage) + ' / 5 MB (' + pct + '%)</span></div>' +
+        '<div style="height:8px;background:#1e293b;border-radius:4px;overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;"></div></div></div>';
+
+    // Backup snapshots (async from IndexedDB)
+    html += '<div class="backup-card" id="backupSnapshotsList">' +
+        '<div style="font-size:11px;color:#94a3b8;">Cargando snapshots...</div></div>';
+
+    // Actions
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">' +
+        '<button class="btn-secondary" onclick="downloadFullBackup()" style="font-size:11px;padding:6px 14px;">📥 Descargar Backup Completo</button>' +
+        '<button class="btn-secondary" onclick="openRestoreBackup()" style="font-size:11px;padding:6px 14px;">♻️ Restaurar desde Backup</button>' +
+        '</div></div>';
+
+    container.innerHTML = html;
+
+    // Load snapshots from IndexedDB
+    _openBackupDB(function(idb) {
+        var tx = idb.transaction(_backupStoreName, 'readonly');
+        var store = tx.objectStore(_backupStoreName);
+        var all = store.getAll();
+        all.onsuccess = function() {
+            var snapshots = all.result || [];
+            var el = document.getElementById('backupSnapshotsList');
+            if (!el) return;
+            if (snapshots.length === 0) {
+                el.innerHTML = '<div style="font-size:11px;color:#94a3b8;">Sin snapshots automáticos aún</div>';
+                return;
+            }
+            var sHtml = '<div style="font-size:11px;font-weight:700;color:#e2e8f0;margin-bottom:6px;">' + snapshots.length + ' snapshots en IndexedDB</div>';
+            snapshots.reverse().forEach(function(s) {
+                var ago = _timeAgo(s.timestamp);
+                sHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #1e293b;font-size:10px;">' +
+                    '<span style="color:#a78bfa;">' + ago + '</span>' +
+                    '<span style="color:#94a3b8;">' + _formatBytes(s.sizeBytes || 0) + ' · ' + (s.vehicleCount || 0) + ' veh (' + (s.activeCount || 0) + ' activos)</span>' +
+                    '</div>';
+            });
+            el.innerHTML = sHtml;
+        };
+    });
+}
+
+function downloadFullBackup() {
+    var backup = {
+        exportDate: new Date().toISOString(),
+        version: 'kia-emlab-backup-v1',
+        db: JSON.parse(localStorage.getItem('kia_db_v11') || '{}'),
+        tpState: JSON.parse(localStorage.getItem('kia_testplan_v1') || '{}'),
+        raState: JSON.parse(localStorage.getItem('kia_results_v1') || '{}'),
+        invState: JSON.parse(localStorage.getItem('kia_lab_inventory') || '{}'),
+        manualConfigs: JSON.parse(localStorage.getItem('kia_manual_configs') || '[]')
+    };
+    var blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'kia-emlab-backup_' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Backup completo descargado', 'success');
+}
+
+function openRestoreBackup() {
+    _openBackupDB(function(idb) {
+        var tx = idb.transaction(_backupStoreName, 'readonly');
+        var store = tx.objectStore(_backupStoreName);
+        var all = store.getAll();
+        all.onsuccess = function() {
+            var snapshots = (all.result || []).reverse();
+            if (snapshots.length === 0) {
+                showToast('No hay snapshots disponibles para restaurar', 'warning');
+                return;
+            }
+            var html = '<div style="max-height:300px;overflow-y:auto;">';
+            snapshots.forEach(function(s, i) {
+                var ago = _timeAgo(s.timestamp);
+                var dt = new Date(s.timestamp).toLocaleString('es-MX');
+                html += '<div class="backup-restore-item" onclick="restoreFromBackup(' + s.id + ')" style="cursor:pointer;padding:10px;margin-bottom:6px;background:#1e293b;border-radius:8px;border:1px solid #334155;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                    '<span style="font-size:12px;font-weight:700;color:#e2e8f0;">' + dt + '</span>' +
+                    '<span style="font-size:10px;color:#94a3b8;">' + ago + '</span></div>' +
+                    '<div style="font-size:10px;color:#94a3b8;margin-top:4px;">' + _formatBytes(s.sizeBytes || 0) + ' · ' + (s.vehicleCount || 0) + ' vehículos (' + (s.activeCount || 0) + ' activos)</div>' +
+                    '</div>';
+            });
+            html += '</div>';
+            html += '<div style="margin-top:10px;padding:8px;background:rgba(245,158,11,0.15);border-radius:6px;font-size:10px;color:#f59e0b;">' +
+                '⚠️ Restaurar reemplazará TODOS los datos actuales. Se creará un backup automático antes de restaurar.</div>';
+            showModal(html, 'Restaurar desde Backup');
+        };
+    });
+}
+
+function restoreFromBackup(snapshotId) {
+    showConfirm('¿Restaurar este backup? Se hará un backup automático de los datos actuales antes de restaurar.', function() {
+        // Auto-backup current state first
+        autoBackup();
+
+        _openBackupDB(function(idb) {
+            var tx = idb.transaction(_backupStoreName, 'readonly');
+            var store = tx.objectStore(_backupStoreName);
+            var req = store.get(snapshotId);
+            req.onsuccess = function() {
+                var s = req.result;
+                if (!s) { showToast('Snapshot no encontrado', 'error'); return; }
+                localStorage.setItem('kia_db_v11', s.db);
+                localStorage.setItem('kia_testplan_v1', s.tpState);
+                localStorage.setItem('kia_results_v1', s.raState);
+                localStorage.setItem('kia_lab_inventory', s.invState);
+
+                showToast('Datos restaurados. Recargando...', 'success');
+                setTimeout(function() { location.reload(); }, 1500);
+            };
+        });
+    }, { title: 'Confirmar Restauración', type: 'warning', confirmText: 'Restaurar' });
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — COP15 Cascade Module                                 ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
@@ -4185,6 +4657,9 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
 
   // Show readiness checklist
   updateReadinessChecklist();
+
+  // Auto-suggest dates based on cascade logic
+  autoSuggestDates();
 }
 
 
@@ -4980,26 +5455,104 @@ if (vehicle.status !== 'ready-release') {
 }
 
 
+   var _tlFilter = 'all';
+
+   function _tlClassifyAction(action) {
+       var a = (action || '').toLowerCase();
+       if (a.includes('status') || a.includes('estado') || a.includes('moved to') || a.includes('cambió')) return 'status';
+       if (a.includes('error') || a.includes('rollback') || a.includes('revert')) return 'error';
+       if (a.includes('release') || a.includes('liberado') || a.includes('archivado') || a.includes('auto-')) return 'system';
+       return 'data';
+   }
+
+   function _tlClassifyPhase(action) {
+       var a = (action || '').toLowerCase();
+       if (a.includes('register') || a.includes('alta') || a.includes('recep')) return 'Recepción';
+       if (a.includes('precond') || a.includes('soak') || a.includes('preacond')) return 'Preacondicionamiento';
+       if (a.includes('test') || a.includes('prueba') || a.includes('emisi')) return 'Prueba';
+       if (a.includes('release') || a.includes('libera') || a.includes('archiv')) return 'Liberación';
+       return 'General';
+   }
+
+   var _tlTypeConfig = {
+       status: { color: '#3b82f6', icon: '🔵', label: 'Status' },
+       data:   { color: '#f59e0b', icon: '🟡', label: 'Datos' },
+       system: { color: '#10b981', icon: '🟢', label: 'Sistema' },
+       error:  { color: '#ef4444', icon: '🔴', label: 'Error' }
+   };
+
    function renderTimeline(vehicle) {
-  const container = document.getElementById('vehicleTimeline');
-  if (!container) return;
+       var container = document.getElementById('vehicleTimeline');
+       if (!container) return;
 
-  if (!vehicle.timeline || vehicle.timeline.length === 0) {
-    container.innerHTML = '<em>No hay actividades registradas</em>';
-    return;
-  }
+       if (!vehicle.timeline || vehicle.timeline.length === 0) {
+           container.innerHTML = '<em>No hay actividades registradas</em>';
+           return;
+       }
 
-  container.innerHTML = vehicle.timeline.map(item => {
-    const date = new Date(item.timestamp);
-    return `
-      <div class="timeline-item">
-        <div class="timeline-time">${date.toLocaleString('es-MX')}</div>
-        <div class="timeline-action">${item.action}</div>
-        <div style="font-size: 0.85rem; color: #64748b;">Por: ${item.user}</div>
-      </div>
-    `;
-  }).join('');
-}
+       // Filter toggle
+       var filterHtml = '<div class="tl-filters">' +
+           '<button class="tl-filter-btn' + (_tlFilter==='all'?' active':'') + '" onclick="_tlFilter=\'all\';renderTimeline(db.vehicles.find(function(v){return v.id==activeVehicleId}))">Todos</button>' +
+           '<button class="tl-filter-btn' + (_tlFilter==='status'?' active':'') + '" onclick="_tlFilter=\'status\';renderTimeline(db.vehicles.find(function(v){return v.id==activeVehicleId}))">Solo Status</button>' +
+           '</div>';
+
+       // Group by phase
+       var phases = {};
+       var phaseOrder = ['Recepción', 'Preacondicionamiento', 'Prueba', 'Liberación', 'General'];
+       var phaseFirstTs = {};
+       var phaseLastTs = {};
+
+       vehicle.timeline.forEach(function(item) {
+           var type = _tlClassifyAction(item.action);
+           if (_tlFilter !== 'all' && type !== _tlFilter) return;
+
+           var phase = _tlClassifyPhase(item.action);
+           if (!phases[phase]) phases[phase] = [];
+           phases[phase].push(item);
+
+           var ts = new Date(item.timestamp).getTime();
+           if (!phaseFirstTs[phase] || ts < phaseFirstTs[phase]) phaseFirstTs[phase] = ts;
+           if (!phaseLastTs[phase] || ts > phaseLastTs[phase]) phaseLastTs[phase] = ts;
+       });
+
+       var html = filterHtml + '<div class="tl-track">';
+
+       phaseOrder.forEach(function(phase) {
+           if (!phases[phase] || phases[phase].length === 0) return;
+           var durMs = (phaseLastTs[phase] || 0) - (phaseFirstTs[phase] || 0);
+           var durStr = '';
+           if (durMs > 0) {
+               var h = Math.floor(durMs / 3600000);
+               var m = Math.floor((durMs % 3600000) / 60000);
+               durStr = h > 24 ? Math.round(h/24) + 'd ' + (h%24) + 'h' : h + 'h ' + m + 'm';
+           }
+
+           html += '<div class="tl-phase">' +
+               '<div class="tl-phase-header"><span class="tl-phase-name">' + phase + '</span>' +
+               (durStr ? '<span class="tl-phase-dur">' + durStr + '</span>' : '') + '</div>';
+
+           phases[phase].forEach(function(item) {
+               var d = new Date(item.timestamp);
+               var type = _tlClassifyAction(item.action);
+               var cfg = _tlTypeConfig[type];
+               var timeStr = d.toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'});
+               var dateStr = d.toLocaleDateString('es-MX', {day:'numeric',month:'short'});
+
+               html += '<div class="tl-item">' +
+                   '<div class="tl-dot" style="background:' + cfg.color + ';"></div>' +
+                   '<div class="tl-content">' +
+                   '<div class="tl-time">' + dateStr + ' ' + timeStr + '</div>' +
+                   '<div class="tl-action">' + (item.action || '') + '</div>' +
+                   (item.user ? '<div class="tl-user">' + item.user + '</div>' : '') +
+                   '</div></div>';
+           });
+
+           html += '</div>';
+       });
+
+       html += '</div>';
+       container.innerHTML = html;
+   }
 
 
 
@@ -5262,10 +5815,14 @@ function closeSubstitutionModal() {
         var hasMore = filtered > pageSize;
 
         container.innerHTML = `
-            <div class="hist-filter-count">Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</div>
+            <div class="hist-filter-count" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span>Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</span>
+                <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;">PDF Seleccionados</button>
+            </div>
             <table class="history-table">
                 <thead>
                     <tr>
+                        <th style="width:30px;"><input type="checkbox" onchange="histToggleAll(this.checked)" title="Seleccionar todos"></th>
                         <th>VIN</th>
                         <th>Código Config</th>
                         <th>Propósito</th>
@@ -5282,6 +5839,7 @@ function closeSubstitutionModal() {
                         const reg = cfg['EMISSION REGULATION'] || '';
                         return `
                         <tr>
+                            <td><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
                             <td><strong>${v.vin}</strong></td>
                             <td>
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
@@ -5315,6 +5873,148 @@ function closeSubstitutionModal() {
         currentFilter = filter;
         renderHistory();
     }
+
+// ── [R2-M4] Batch PDF Export helpers ──
+function histToggleAll(checked) {
+    document.querySelectorAll('.hist-chk').forEach(function(cb) { cb.checked = checked; });
+    histUpdateBatchBtn();
+}
+
+function histUpdateBatchBtn() {
+    var checked = document.querySelectorAll('.hist-chk:checked');
+    var btn = document.getElementById('batchPdfBtn');
+    if (!btn) return;
+    if (checked.length > 0) {
+        btn.style.display = '';
+        btn.textContent = 'PDF ' + checked.length + ' seleccionados';
+    } else {
+        btn.style.display = 'none';
+    }
+}
+
+function batchPDFExport() {
+    var ids = [];
+    document.querySelectorAll('.hist-chk:checked').forEach(function(cb) {
+        ids.push(parseInt(cb.dataset.vid));
+    });
+    if (ids.length === 0) { showToast('Selecciona al menos un vehículo', 'warning'); return; }
+
+    showConfirm(
+        '<p>Generar PDF con <strong>' + ids.length + ' vehículos</strong> en un solo documento?</p>' +
+        '<p style="font-size:11px;color:#64748b;">Cada vehículo será una página del PDF.</p>',
+        function() { _doBatchPDF(ids); },
+        { title: 'Batch PDF Export', type: 'info', confirmText: 'Generar PDF' }
+    );
+}
+
+function _doBatchPDF(ids) {
+    if (typeof jspdf === 'undefined' && typeof window.jspdf === 'undefined') {
+        showToast('jsPDF no disponible', 'error');
+        return;
+    }
+    var jsPDF = (window.jspdf && window.jspdf.jsPDF) || jspdf.jsPDF;
+    var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+    var total = ids.length;
+    var overlay = document.createElement('div');
+    overlay.id = 'batch-pdf-overlay';
+    overlay.innerHTML = '<div class="batch-pdf-progress"><div class="batch-pdf-title">Generando PDF...</div>' +
+        '<div class="batch-pdf-bar"><div class="batch-pdf-fill" id="batchPdfFill"></div></div>' +
+        '<div id="batchPdfStatus" style="font-size:12px;color:#94a3b8;">0/' + total + '</div></div>';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    document.body.appendChild(overlay);
+
+    var idx = 0;
+    function next() {
+        if (idx >= total) {
+            overlay.remove();
+            var dateStr = new Date().toISOString().slice(0,10);
+            doc.save('COP15-F05_Batch_' + dateStr + '.pdf');
+            showToast(total + ' vehículos exportados a PDF', 'success');
+            return;
+        }
+        if (idx > 0) doc.addPage();
+        var vehicle = db.vehicles.find(function(v) { return v.id === ids[idx]; });
+        if (vehicle) {
+            _renderVehiclePDFPage(doc, vehicle);
+        }
+        idx++;
+        var fill = document.getElementById('batchPdfFill');
+        var st = document.getElementById('batchPdfStatus');
+        if (fill) fill.style.width = Math.round((idx/total)*100) + '%';
+        if (st) st.textContent = idx + '/' + total;
+        setTimeout(next, 50);
+    }
+    next();
+}
+
+function _renderVehiclePDFPage(doc, vehicle) {
+    var ML = 14, y = 14;
+    var W = doc.internal.pageSize.getWidth();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('KIA EmLab — COP15-F05', ML, y); y += 6;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('VIN: ' + (vehicle.vin || 'N/A') + '  |  Config: ' + (vehicle.configCode || 'N/A'), ML, y); y += 5;
+    doc.text('Propósito: ' + (vehicle.purpose || '') + '  |  Estado: ' + (vehicle.status || '') + '  |  Fecha: ' + new Date(vehicle.registeredAt).toLocaleDateString('es-MX'), ML, y); y += 7;
+
+    // Preconditioning data
+    var td = vehicle.testData || {};
+    var p = td.preconditioning || {};
+    var tv = td.testVerification || {};
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Preacondicionamiento', ML, y); y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    var preRows = [
+        ['Responsable: ' + (p.responsible || '-'), 'Fecha: ' + (p.datetime || '-'), 'Ciclo: ' + (p.cycle || '-')],
+        ['Presión llantas: ' + (p.tirePressurePsi || '-') + ' psi', 'Comb. entrada: ' + (p.fuelTypeIn || '-'), 'Nivel: ' + (p.fuelLevelFractionIn || '-')],
+        ['Soak (h): ' + (p.soakTimeH != null ? p.soakTimeH : '-'), 'Precond OK: ' + (p.ok || '-'), 'Odo pretest: ' + (p.odoPretestKm || '-') + ' km']
+    ];
+    preRows.forEach(function(row) {
+        var colW = (W - ML*2) / row.length;
+        row.forEach(function(cell, ci) { doc.text(cell, ML + ci*colW, y); });
+        y += 4;
+    });
+    y += 3;
+
+    // Test verification
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Verificación de Prueba', ML, y); y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    var tvRows = [
+        ['Responsable: ' + (td.testResponsible || '-'), 'Fecha: ' + (td.testDatetime || '-'), 'Túnel: ' + (tv.tunnel || '-')],
+        ['Dinamómetro: ' + (tv.dyno || '-'), 'Ventilador: ' + (tv.fanMode || '-') + ' ' + (tv.fanSpeedKmh || '-') + 'km/h', 'Inercia: ' + (tv.inertiaOk || '-')],
+        ['Cadenas: ' + (tv.chains || '-'), 'Eslingas: ' + (tv.slings || '-'), 'Cofre: ' + (tv.hood || '-')]
+    ];
+    tvRows.forEach(function(row) {
+        var colW = (W - ML*2) / row.length;
+        row.forEach(function(cell, ci) { doc.text(cell, ML + ci*colW, y); });
+        y += 4;
+    });
+    y += 3;
+
+    // Coefficients
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Coeficientes', ML, y); y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text('ETW: ' + (td.etw || '-') + '  A: ' + (td.targetA || '-') + '/' + (td.dynoA || '-') +
+             '  B: ' + (td.targetB || '-') + '/' + (td.dynoB || '-') +
+             '  C: ' + (td.targetC || '-') + '/' + (td.dynoC || '-'), ML, y);
+    y += 6;
+
+    // Footer
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text('Generado: ' + new Date().toLocaleString('es-MX') + '  |  KIA EmLab Batch Export', ML, doc.internal.pageSize.getHeight() - 8);
+    doc.setTextColor(0);
+}
 
 
 function refreshAllLists() {
@@ -6082,6 +6782,661 @@ function handleConfigCSVImport(event) {
     event.target.value = '';
 }
 
+
+// ======================================================================
+// [R2-M5] MANUAL CONFIGURATION MANAGER
+// ======================================================================
+
+var _manualConfigFields = [
+    { key: 'Modelo', label: 'Modelo' },
+    { key: 'MODEL YEAR (VIN)', label: 'Año Modelo (VIN)' },
+    { key: 'ENGINE CAPACITY', label: 'Motor' },
+    { key: 'TRANSMISSION', label: 'Transmisión' },
+    { key: 'ENVIRONMENT PACKAGE', label: 'Environment Package' },
+    { key: 'EMISSION REGULATION', label: 'Regulación Emisiones' },
+    { key: 'DRIVE TYPE', label: 'Tipo Drive' },
+    { key: 'TIRE ASSY', label: 'Llantas' },
+    { key: 'REGION', label: 'Región' },
+    { key: 'BODY TYPE', label: 'Carrocería' },
+    { key: 'ENGINE PACKAGE', label: 'Engine Package' }
+];
+
+function getManualConfigs() {
+    try { return JSON.parse(localStorage.getItem('kia_manual_configs')) || []; }
+    catch(e) { return []; }
+}
+
+function _saveManualConfigs(configs) {
+    localStorage.setItem('kia_manual_configs', JSON.stringify(configs));
+}
+
+function _buildConfigCode(cfg) {
+    return [cfg['Modelo'], cfg['MODEL YEAR (VIN)'], cfg['TRANSMISSION'],
+            cfg['ENVIRONMENT PACKAGE'], cfg['EMISSION REGULATION'], cfg['DRIVE TYPE'],
+            cfg['ENGINE CAPACITY'], cfg['TIRE ASSY'], cfg['REGION'],
+            cfg['BODY TYPE'], cfg['ENGINE PACKAGE']].filter(Boolean).join('-');
+}
+
+function _getExistingValues(key) {
+    var vals = new Set();
+    allConfigurations.forEach(function(c) { if (c[key]) vals.add(c[key]); });
+    return Array.from(vals).sort();
+}
+
+function openManualConfigForm(editIdx) {
+    var existing = (editIdx !== undefined) ? getManualConfigs()[editIdx] : null;
+    var html = '<div class="mcf-form">';
+
+    _manualConfigFields.forEach(function(f) {
+        var dlId = 'mcf_dl_' + f.key.replace(/[^a-zA-Z]/g, '');
+        var existingVals = _getExistingValues(f.key);
+        html += '<div class="mcf-field">' +
+            '<label class="mcf-label">' + f.label + ' <span style="color:#ef4444;">*</span></label>' +
+            '<input type="text" class="mcf-input" id="mcf_' + f.key.replace(/[^a-zA-Z]/g, '') + '" ' +
+            'data-key="' + f.key + '" list="' + dlId + '" value="' + (existing ? (existing[f.key] || '') : '') + '" ' +
+            'oninput="updateManualConfigPreview()" autocomplete="off" placeholder="Escribe o selecciona...">' +
+            '<datalist id="' + dlId + '">' +
+            existingVals.map(function(v) { return '<option value="' + v + '">'; }).join('') +
+            '</datalist></div>';
+    });
+
+    html += '<div class="mcf-preview" id="mcfPreview">' +
+        '<div style="font-size:10px;color:#64748b;margin-bottom:2px;">Código generado:</div>' +
+        '<div id="mcfPreviewCode" style="font-family:monospace;font-size:11px;color:var(--kia-red);font-weight:700;word-break:break-all;">-</div>' +
+        '</div></div>';
+
+    showModal(html, editIdx !== undefined ? 'Editar Configuración Manual' : 'Nueva Configuración Manual',
+        [{ text: 'Guardar', class: 'btn-primary', onclick: 'saveManualConfig(' + (editIdx !== undefined ? editIdx : -1) + ')' }]
+    );
+    setTimeout(updateManualConfigPreview, 50);
+}
+
+function updateManualConfigPreview() {
+    var code = [];
+    _manualConfigFields.forEach(function(f) {
+        var el = document.getElementById('mcf_' + f.key.replace(/[^a-zA-Z]/g, ''));
+        if (el && el.value.trim()) code.push(el.value.trim());
+    });
+    var preview = document.getElementById('mcfPreviewCode');
+    if (preview) preview.textContent = code.length > 0 ? code.join('-') : '(llena los campos)';
+}
+
+function saveManualConfig(editIdx) {
+    var newConfig = {};
+    var missing = [];
+
+    _manualConfigFields.forEach(function(f) {
+        var el = document.getElementById('mcf_' + f.key.replace(/[^a-zA-Z]/g, ''));
+        var val = el ? el.value.trim() : '';
+        if (!val) missing.push(f.label);
+        newConfig[f.key] = val;
+    });
+
+    if (missing.length > 0) {
+        showToast('Campos requeridos: ' + missing.slice(0, 3).join(', ') + (missing.length > 3 ? '...' : ''), 'error');
+        return;
+    }
+
+    newConfig.codigo_config_text = _buildConfigCode(newConfig);
+    newConfig._source = 'manual';
+
+    // Check for conflicts
+    var conflict = checkConfigConflicts(newConfig, editIdx);
+    if (conflict === 'duplicate') {
+        showToast('Ya existe esta configuración exacta en el catálogo', 'error');
+        return;
+    }
+
+    if (conflict === 'similar') {
+        showConfirm(
+            'Existe una configuración similar (mismo Modelo + Año + Motor + Transmisión). ¿Desea continuar?',
+            function() { _doSaveManualConfig(newConfig, editIdx); },
+            { title: 'Configuración Similar', type: 'warning', confirmText: 'Guardar de todas formas' }
+        );
+        return;
+    }
+
+    _doSaveManualConfig(newConfig, editIdx);
+}
+
+function _doSaveManualConfig(newConfig, editIdx) {
+    var manuals = getManualConfigs();
+    if (editIdx >= 0 && editIdx < manuals.length) {
+        manuals[editIdx] = newConfig;
+    } else {
+        manuals.push(newConfig);
+    }
+    _saveManualConfigs(manuals);
+
+    // Rebuild allConfigurations
+    _mergeManualConfigsIntoAll();
+
+    // Close modal & refresh
+    var overlay = document.querySelector('.modal-overlay');
+    if (overlay) overlay.remove();
+
+    openConfigPanel();
+    showToast('Configuración manual guardada (' + allConfigurations.length + ' total)', 'success');
+
+    // Refresh cascade if visible
+    var modelSelect = document.getElementById('cfg_model');
+    if (modelSelect) {
+        var uniqueModels = [].concat(Array.from(new Set(allConfigurations.map(function(c){return c.Modelo;}))).sort());
+        modelSelect.innerHTML = '<option value="">Seleccionar...</option>';
+        uniqueModels.forEach(function(m) { modelSelect.innerHTML += '<option value="'+m+'">'+m+'</option>'; });
+    }
+}
+
+function checkConfigConflicts(newConfig, editIdx) {
+    var manuals = getManualConfigs();
+    // Check all configs (CSV + manual) for exact duplicates
+    for (var i = 0; i < allConfigurations.length; i++) {
+        var c = allConfigurations[i];
+        // Skip the one being edited
+        if (c._source === 'manual') {
+            var manIdx = manuals.indexOf(c);
+            if (manIdx === editIdx) continue;
+        }
+        var allMatch = true;
+        _manualConfigFields.forEach(function(f) {
+            if (c[f.key] !== newConfig[f.key]) allMatch = false;
+        });
+        if (allMatch) return 'duplicate';
+    }
+
+    // Check for similar (same Model + Year + Engine + Trans)
+    var similarKeys = ['Modelo', 'MODEL YEAR (VIN)', 'ENGINE CAPACITY', 'TRANSMISSION'];
+    for (var j = 0; j < allConfigurations.length; j++) {
+        var c2 = allConfigurations[j];
+        if (c2._source === 'manual') {
+            var manIdx2 = manuals.indexOf(c2);
+            if (manIdx2 === editIdx) continue;
+        }
+        var keyMatch = true;
+        similarKeys.forEach(function(k) {
+            if (c2[k] !== newConfig[k]) keyMatch = false;
+        });
+        if (keyMatch) {
+            var allMatch2 = true;
+            _manualConfigFields.forEach(function(f) {
+                if (c2[f.key] !== newConfig[f.key]) allMatch2 = false;
+            });
+            if (!allMatch2) return 'similar';
+        }
+    }
+    return null;
+}
+
+function _mergeManualConfigsIntoAll() {
+    // Remove existing manual entries
+    allConfigurations = allConfigurations.filter(function(c) { return c._source !== 'manual'; });
+    // Add current manual configs
+    var manuals = getManualConfigs();
+    manuals.forEach(function(mc) {
+        mc._source = 'manual';
+        if (!mc.codigo_config_text) mc.codigo_config_text = _buildConfigCode(mc);
+        allConfigurations.push(mc);
+    });
+}
+
+function deleteManualConfig(idx) {
+    showConfirm('¿Eliminar esta configuración manual?', function() {
+        var manuals = getManualConfigs();
+        manuals.splice(idx, 1);
+        _saveManualConfigs(manuals);
+        _mergeManualConfigsIntoAll();
+        openConfigPanel();
+        showToast('Configuración eliminada', 'success');
+    }, { title: 'Eliminar Config', type: 'warning', confirmText: 'Eliminar' });
+}
+
+function renderManualConfigsList() {
+    var container = document.getElementById('manualConfigsList');
+    if (!container) return;
+    var manuals = getManualConfigs();
+    if (manuals.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    var csvCount = allConfigurations.filter(function(c) { return c._source !== 'manual'; }).length;
+    var html = '<div style="margin-top:10px;padding:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">' +
+        '<div style="font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:6px;">' +
+        manuals.length + ' manual(es) + ' + csvCount + ' CSV = ' + allConfigurations.length + ' total</div>';
+
+    manuals.forEach(function(mc, i) {
+        var code = mc.codigo_config_text || _buildConfigCode(mc);
+        html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #dbeafe;font-size:10px;">' +
+            '<span style="flex:1;font-family:monospace;color:#1e40af;word-break:break-all;">' + code + '</span>' +
+            '<button onclick="openManualConfigForm(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Editar">✏️</button>' +
+            '<button onclick="deleteManualConfig(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Eliminar">🗑️</button>' +
+            '</div>';
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// ── Modify parseCSV to include manual configs ──
+var _origParseCSV = parseCSV;
+parseCSV = function() {
+    _origParseCSV();
+    _mergeManualConfigsIntoAll();
+};
+
+// ── Modify openConfigPanel to show manual list ──
+var _origOpenConfigPanel = openConfigPanel;
+openConfigPanel = function() {
+    _origOpenConfigPanel();
+    renderManualConfigsList();
+};
+
+// ── Modify handleConfigCSVImport to check manual config conflicts ──
+var _origHandleConfigCSVImport = handleConfigCSVImport;
+handleConfigCSVImport = function(event) {
+    var manuals = getManualConfigs();
+    if (manuals.length === 0) {
+        _origHandleConfigCSVImport(event);
+        return;
+    }
+    // Store file for later processing
+    var file = event.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var csvText = e.target.result;
+        // Parse new CSV temporarily
+        var lines = csvText.trim().split('\n');
+        var headers = lines[0].split(',');
+        var newConfigs = [];
+        for (var i = 1; i < lines.length; i++) {
+            var values = lines[i].split(',');
+            var cfg = {};
+            headers.forEach(function(h, idx) { cfg[h] = values[idx] || ''; });
+            newConfigs.push(cfg);
+        }
+
+        // Check which manuals conflict with new CSV
+        var dupes = 0, unique = 0;
+        manuals.forEach(function(mc) {
+            var isDupe = newConfigs.some(function(nc) {
+                return _manualConfigFields.every(function(f) { return nc[f.key] === mc[f.key]; });
+            });
+            if (isDupe) dupes++; else unique++;
+        });
+
+        showConfirm(
+            '<div style="text-align:left;">' +
+            '<p>Nuevo CSV: <strong>' + newConfigs.length + '</strong> configs</p>' +
+            '<p>Configs manuales: <strong>' + manuals.length + '</strong> (' + dupes + ' ya existen en CSV, ' + unique + ' únicas)</p>' +
+            '<p style="margin-top:8px;font-size:12px;">¿Qué hacer con las configuraciones manuales?</p>' +
+            '</div>',
+            function() {
+                // Keep unique manuals
+                localStorage.setItem('kia_config_csv_raw', csvText);
+                var kept = manuals.filter(function(mc) {
+                    return !newConfigs.some(function(nc) {
+                        return _manualConfigFields.every(function(f) { return nc[f.key] === mc[f.key]; });
+                    });
+                });
+                _saveManualConfigs(kept);
+                parseCSV();
+                openConfigPanel();
+                showToast('CSV importado. ' + kept.length + ' configs manuales únicas mantenidas.', 'success');
+            },
+            {
+                title: 'Importar CSV — Configs Manuales',
+                type: 'warning',
+                confirmText: 'Mantener únicas (' + unique + ')',
+                cancelText: 'Eliminar todas las manuales',
+                onCancel: function() {
+                    _saveManualConfigs([]);
+                    localStorage.setItem('kia_config_csv_raw', csvText);
+                    parseCSV();
+                    openConfigPanel();
+                    showToast('CSV importado. Configs manuales eliminadas.', 'success');
+                }
+            }
+        );
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+};
+
+// Also update displayConfigResult to show manual badge
+var _origDisplayConfigResult = displayConfigResult;
+displayConfigResult = function(filtered) {
+    _origDisplayConfigResult(filtered);
+    if (filtered.length === 1 && filtered[0]._source === 'manual') {
+        var resultDiv = document.getElementById('cfg_result');
+        if (resultDiv) {
+            var badge = '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:4px;background:#dbeafe;color:#1d4ed8;font-size:9px;font-weight:700;">MANUAL</span>';
+            resultDiv.querySelector('div') && (resultDiv.querySelector('strong').innerHTML += badge);
+        }
+    }
+};
+
+
+// ======================================================================
+// [R2-M2] QUICK REVIEW PANEL
+// ======================================================================
+
+var _reviewSections = [
+    { title: 'Recepción', fields: [
+        {id:'precond_responsible',label:'Responsable'},
+        {id:'precond_datetime',label:'Fecha Precond'},
+        {id:'tire_pressure',label:'Presión llantas (psi)', warn:function(v){var n=parseFloat(v);return n>0&&(n<25||n>50);}},
+        {id:'tire_pressure_in',label:'Presión entrada (psi)'},
+        {id:'fuel_typein',label:'Combustible entrada'},
+        {id:'fuel_levelin',label:'Nivel combustible entrada'},
+        {id:'fuel_typepre',label:'Combustible precond'},
+        {id:'fuel_levelpre',label:'Nivel litros precond'},
+        {id:'tank_capacity',label:'Capacidad tanque (L)'},
+        {id:'battery_soc',label:'SOC Batería (%)'}
+    ]},
+    { title: 'Preacondicionamiento', fields: [
+        {id:'precond_cycle',label:'Ciclo'},
+        {id:'soak_time',label:'Tiempo reposo (h)'},
+        {id:'odo_pretest',label:'Odómetro pre-test (km)'},
+        {id:'precond_ok',label:'Precond OK'},
+        {id:'op_odo',label:'Odómetro (km)', warn:function(v){return v==='0'||v===0;}},
+        {id:'dtc_pending_before',label:'DTC Pendientes'},
+        {id:'dtc_confirmed_before',label:'DTC Confirmados'},
+        {id:'dtc_permanent_before',label:'DTC Permanentes'}
+    ]},
+    { title: 'Verificación de Prueba', fields: [
+        {id:'test_responsible',label:'Responsable prueba'},
+        {id:'test_datetime',label:'Fecha prueba'},
+        {id:'test_tunnel',label:'Túnel'},
+        {id:'test_dyno_on',label:'Dinamómetro'},
+        {id:'test_fan_mode',label:'Modo ventilador'},
+        {id:'test_fan_speed',label:'Vel. ventilador'},
+        {id:'test_chains',label:'Cadenas'},
+        {id:'test_slings',label:'Eslingas'},
+        {id:'test_hood',label:'Cofre'},
+        {id:'test_rear_rollers',label:'Rodillos traseros'},
+        {id:'test_screen',label:'Pantalla'},
+        {id:'test_inertia_ok',label:'Inercia OK'}
+    ]},
+    { title: 'Coeficientes Dinamo', fields: [
+        {id:'etw',label:'ETW'},
+        {id:'tA',label:'Target A'}, {id:'dA',label:'Dyno A'},
+        {id:'tB',label:'Target B'}, {id:'dB',label:'Dyno B'},
+        {id:'tC',label:'Target C'}, {id:'dC',label:'Dyno C'}
+    ]}
+];
+
+function openQuickReview() {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) { showToast('Selecciona un vehículo', 'warning'); return; }
+
+    var total = 0, filled = 0, empty = 0, warnings = 0;
+    var html = '<div style="max-height:60vh;overflow-y:auto;">';
+
+    _reviewSections.forEach(function(sec) {
+        var secHtml = '';
+        sec.fields.forEach(function(f) {
+            var el = document.getElementById(f.id);
+            if (!el) return;
+            total++;
+            var val = el.value;
+            var isEmpty = !val || val === '';
+            var isWarn = !isEmpty && f.warn && f.warn(val);
+            var icon, color;
+            if (isEmpty) { icon = '❌'; color = '#fef2f2'; empty++; }
+            else if (isWarn) { icon = '⚠️'; color = '#fffbeb'; warnings++; }
+            else { icon = '✅'; color = 'transparent'; filled++; }
+
+            var displayVal = isEmpty ? '<em style="color:#94a3b8;">vacío</em>' : (val.length > 25 ? val.substring(0,23)+'..' : val);
+
+            secHtml += '<div class="qr-field" style="background:' + color + ';" onclick="quickReviewGoTo(\'' + f.id + '\')">' +
+                '<span class="qr-icon">' + icon + '</span>' +
+                '<span class="qr-label">' + f.label + '</span>' +
+                '<span class="qr-val">' + displayVal + '</span></div>';
+        });
+        html += '<div class="qr-section"><div class="qr-section-title">' + sec.title + '</div>' + secHtml + '</div>';
+    });
+
+    html += '</div>';
+
+    var pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+    var barColor = pct === 100 ? '#10b981' : pct >= 70 ? '#f59e0b' : '#ef4444';
+
+    var header = '<div style="margin-bottom:14px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+        '<span style="font-size:13px;font-weight:700;">' + filled + '/' + total + ' campos completados</span>' +
+        '<span style="font-size:11px;color:#64748b;">' + empty + ' pendientes' + (warnings ? ' · ' + warnings + ' advertencias' : '') + '</span></div>' +
+        '<div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;transition:width 0.3s;"></div></div></div>';
+
+    showModal(header + html, 'Quick Review — ' + (vehicle.vin || '').slice(-8));
+}
+
+function quickReviewGoTo(fieldId) {
+    // Close the modal
+    var modal = document.querySelector('.modal-overlay');
+    if (modal) modal.remove();
+
+    var el = document.getElementById(fieldId);
+    if (!el) return;
+
+    // Open the parent accordion
+    var acc = el.closest('details.acc');
+    if (acc && !acc.open) acc.open = true;
+
+    // Scroll and focus
+    setTimeout(function() {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.focus();
+        el.style.outline = '3px solid #3b82f6';
+        el.style.outlineOffset = '2px';
+        setTimeout(function() { el.style.outline = ''; el.style.outlineOffset = ''; }, 3000);
+    }, 150);
+}
+
+// ======================================================================
+// [R2-M6] COPY FROM LAST VEHICLE
+// ======================================================================
+
+var _copyableFields = [
+    {id:'precond_responsible', label:'Responsable Precond'},
+    {id:'tire_pressure', label:'Presión llantas'},
+    {id:'fuel_typein', label:'Tipo combustible entrada'},
+    {id:'fuel_typepre', label:'Tipo combustible precond'},
+    {id:'precond_cycle', label:'Ciclo precond'},
+    {id:'soak_time', label:'Tiempo reposo (h)'},
+    {id:'tank_capacity', label:'Capacidad tanque'},
+    {id:'test_tunnel', label:'Túnel'},
+    {id:'test_dyno_on', label:'Dinamómetro'},
+    {id:'test_fan_mode', label:'Modo ventilador'},
+    {id:'test_fan_speed', label:'Vel. ventilador'},
+    {id:'test_fan_flow', label:'Flujo ventilador'},
+    {id:'test_chains', label:'Cadenas'},
+    {id:'test_slings', label:'Eslingas'},
+    {id:'test_hood', label:'Cofre'},
+    {id:'test_rear_rollers', label:'Rodillos traseros'},
+    {id:'test_screen', label:'Pantalla'},
+    {id:'test_inertia_ok', label:'Inercia'},
+    {id:'etw', label:'ETW'},
+    {id:'tA', label:'Target A'},
+    {id:'dA', label:'Dyno A'},
+    {id:'tB', label:'Target B'},
+    {id:'dB', label:'Dyno B'},
+    {id:'tC', label:'Target C'},
+    {id:'dC', label:'Dyno C'},
+    {id:'test_responsible', label:'Responsable prueba'}
+];
+
+function copyFromLastVehicle() {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) { showToast('No hay vehículo seleccionado', 'error'); return; }
+
+    // Find last archived vehicle with same configCode
+    var candidates = db.vehicles.filter(function(v) {
+        return v.id !== vehicle.id && v.configCode === vehicle.configCode &&
+               (v.status === 'archived' || v.status === 'released' || v.status === 'ready-release') &&
+               v.testData;
+    }).sort(function(a, b) {
+        return new Date(b.lastModified || b.registeredAt) - new Date(a.lastModified || a.registeredAt);
+    });
+
+    if (candidates.length === 0) {
+        showToast('No hay vehículo anterior con config ' + (vehicle.configCode || '').substring(0, 30) + '...', 'warning');
+        return;
+    }
+
+    var source = candidates[0];
+    var td = source.testData || {};
+    var p = td.preconditioning || {};
+    var tv = td.testVerification || {};
+
+    // Build values map from source
+    var sourceValues = {
+        'precond_responsible': p.responsible || '',
+        'tire_pressure': p.tirePressurePsi || '',
+        'fuel_typein': p.fuelTypeIn || '',
+        'fuel_typepre': p.fuelTypePre || '',
+        'precond_cycle': p.cycle || '',
+        'soak_time': p.soakTimeH != null ? String(p.soakTimeH) : '',
+        'tank_capacity': p.tankCapacityL || '',
+        'test_tunnel': tv.tunnel || '',
+        'test_dyno_on': tv.dyno || '',
+        'test_fan_mode': tv.fanMode || '',
+        'test_fan_speed': tv.fanSpeedKmh || '',
+        'test_fan_flow': tv.fanFlowM3Min || '',
+        'test_chains': tv.chains || '',
+        'test_slings': tv.slings || '',
+        'test_hood': tv.hood || '',
+        'test_rear_rollers': tv.rearRollers || '',
+        'test_screen': tv.screen || '',
+        'test_inertia_ok': tv.inertiaOk || '',
+        'test_responsible': td.testResponsible || '',
+        'etw': td.etw || '', 'tA': td.targetA || '', 'dA': td.dynoA || '',
+        'tB': td.targetB || '', 'dB': td.dynoB || '',
+        'tC': td.targetC || '', 'dC': td.dynoC || ''
+    };
+
+    // Count non-empty fields to copy
+    var fieldsToCopy = _copyableFields.filter(function(f) { return sourceValues[f.id]; });
+    if (fieldsToCopy.length === 0) {
+        showToast('El vehículo anterior no tiene datos para copiar', 'warning');
+        return;
+    }
+
+    var sourceDate = new Date(source.lastModified || source.registeredAt).toLocaleDateString('es-MX');
+    var vinShort = '...' + source.vin.slice(-6);
+
+    showConfirm(
+        '<div style="text-align:left;">' +
+        '<p><strong>Copiar datos de VIN ' + vinShort + '</strong> (archivado ' + sourceDate + ')</p>' +
+        '<p style="font-size:11px;color:#64748b;margin:8px 0 4px;">Campos a copiar (' + fieldsToCopy.length + '):</p>' +
+        '<div style="font-size:11px;color:#475569;max-height:150px;overflow-y:auto;columns:2;column-gap:12px;">' +
+        fieldsToCopy.map(function(f) { return '<div>• ' + f.label + '</div>'; }).join('') +
+        '</div></div>',
+        function() {
+            // Apply values
+            fieldsToCopy.forEach(function(f) {
+                var el = document.getElementById(f.id);
+                if (el) {
+                    el.value = sourceValues[f.id];
+                    // Visual feedback - pulsing blue border
+                    el.style.outline = '2px dashed #3b82f6';
+                    el.style.outlineOffset = '2px';
+                    setTimeout(function() {
+                        el.style.outline = '';
+                        el.style.outlineOffset = '';
+                    }, 4000);
+                }
+            });
+            updateFanFieldsByMode();
+            showToast(fieldsToCopy.length + ' campos copiados de VIN ' + vinShort, 'success');
+        },
+        { title: 'Copiar de Último Vehículo', type: 'info', confirmText: 'Copiar' }
+    );
+}
+
+// ======================================================================
+// [R2-M3] AUTO-SUGGEST INTELLIGENT DATES
+// ======================================================================
+
+function _nextBusinessDay(date) {
+    var d = new Date(date);
+    d.setDate(d.getDate() + 1);
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    d.setHours(8, 0, 0, 0);
+    return d;
+}
+
+function _toLocalDatetimeStr(d) {
+    var yr = d.getFullYear();
+    var mo = String(d.getMonth() + 1).padStart(2, '0');
+    var dy = String(d.getDate()).padStart(2, '0');
+    var hh = String(d.getHours()).padStart(2, '0');
+    var mm = String(d.getMinutes()).padStart(2, '0');
+    return yr + '-' + mo + '-' + dy + 'T' + hh + ':' + mm;
+}
+
+function _formatSuggestionLabel(d) {
+    var days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    return days[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth()+1) + '/' + d.getFullYear() +
+           ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+function autoSuggestDates() {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) return;
+    if (!isEmissionsPurpose(vehicle.purpose)) return;
+
+    var regDt = vehicle.registeredAt ? new Date(vehicle.registeredAt) : null;
+    var precondEl = document.getElementById('precond_datetime');
+    var testEl = document.getElementById('test_datetime');
+    var soakEl = document.getElementById('soak_time');
+    if (!precondEl || !testEl) return;
+
+    // Remove old suggestion hints
+    document.querySelectorAll('.date-suggestion').forEach(function(el) { el.remove(); });
+
+    // Suggest precond date if empty
+    if (!precondEl.value && regDt) {
+        var sugPrecond = _nextBusinessDay(regDt);
+        _renderDateSuggestion(precondEl, sugPrecond, 'Sugerido: ' + _formatSuggestionLabel(sugPrecond) + ' (sig. día hábil)');
+    }
+
+    // Suggest test date if precond is set but test is empty
+    if (precondEl.value && !testEl.value) {
+        var precondDate = new Date(precondEl.value);
+        var soakH = parseFloat(soakEl?.value) || 0;
+
+        // Check if soak timer is active and use its end time
+        var soakData = null;
+        try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
+        var sugTest;
+
+        if (soakData && soakData.endTime) {
+            sugTest = new Date(soakData.endTime);
+            sugTest.setHours(sugTest.getHours() + 2); // 2h margin after soak
+            _renderDateSuggestion(testEl, sugTest, 'Sugerido: ' + _formatSuggestionLabel(sugTest) + ' (soak + 2h margen)');
+        } else if (soakH > 0) {
+            sugTest = new Date(precondDate.getTime() + (soakH + 2) * 3600000);
+            // Skip weekends
+            while (sugTest.getDay() === 0 || sugTest.getDay() === 6) sugTest.setDate(sugTest.getDate() + 1);
+            _renderDateSuggestion(testEl, sugTest, 'Sugerido: ' + _formatSuggestionLabel(sugTest) + ' (soak ' + soakH + 'h + 2h)');
+        } else {
+            // Default: precond + 26h (typical 24h soak + 2h margin)
+            sugTest = new Date(precondDate.getTime() + 26 * 3600000);
+            while (sugTest.getDay() === 0 || sugTest.getDay() === 6) sugTest.setDate(sugTest.getDate() + 1);
+            _renderDateSuggestion(testEl, sugTest, 'Sugerido: ' + _formatSuggestionLabel(sugTest) + ' (24h soak + 2h)');
+        }
+    }
+}
+
+function _renderDateSuggestion(inputEl, suggestedDate, label) {
+    var hint = document.createElement('div');
+    hint.className = 'date-suggestion';
+    hint.innerHTML = '<span style="flex:1;">' + label + '</span>' +
+        '<button type="button" class="date-sug-apply" onclick="this.parentElement.previousElementSibling.value=\'' +
+        _toLocalDatetimeStr(suggestedDate) + '\';this.parentElement.remove();autoSuggestDates();">Aplicar</button>';
+    inputEl.parentElement.appendChild(hint);
+}
 
 // ======================================================================
 // STALLED VEHICLE ALERTS
@@ -10497,6 +11852,11 @@ function tpRenderDashboard(el) {
     <div class="tp-card">
         <details ${window._tpBurndownOpen ? 'open' : ''}>
             <summary onclick="window._tpBurndownOpen=!this.parentElement.open;" style="cursor:pointer;font-weight:700;font-size:12px;color:var(--tp-amber);user-select:none;padding:4px 0;">📉 Burndown de Deficit — Proyeccion de Completacion</summary>
+            <div style="display:flex;align-items:center;gap:8px;margin:10px 0 6px;flex-wrap:wrap;">
+                <label style="font-size:10px;color:var(--tp-dim);">Deadline:</label>
+                <input type="date" id="tp-deadline-input" value="${tpState.deadline || ''}" onchange="tpState.deadline=this.value;tpSave();document.getElementById('tp-burndown-container').innerHTML=tpRenderBurndownChart(tpGetAnalysis());" style="background:var(--tp-card);color:var(--tp-text);border:1px solid var(--tp-border);border-radius:6px;padding:4px 8px;font-size:11px;">
+                ${tpState.deadline ? '<button class="tp-btn tp-btn-ghost" onclick="tpState.deadline=\\'\\';tpSave();document.getElementById(\\'tp-deadline-input\\').value=\\'\\';document.getElementById(\\'tp-burndown-container\\').innerHTML=tpRenderBurndownChart(tpGetAnalysis());" style="font-size:9px;">Quitar deadline</button>' : ''}
+            </div>
             <div style="margin-top:10px;" id="tp-burndown-container">${tpRenderBurndownChart(stats)}</div>
         </details>
     </div>
@@ -10604,14 +11964,80 @@ function tpRenderBurndownChart(stats) {
         }
     }
 
+    // ── [R2-M9] Risk Assessment ──
+    var deadline = tpState.deadline || null;
+    var deadlineWeeks = 0;
+    var requiredVelocity = 0;
+    var riskLevel = 'unknown';
+    var riskColor = '#64748b';
+    var riskIcon = '❓';
+    var riskMsg = '';
+
+    if (deadline && remaining > 0) {
+        var now = new Date();
+        var dl = new Date(deadline);
+        deadlineWeeks = Math.max(0, Math.ceil((dl - now) / (7 * 86400000)));
+        requiredVelocity = deadlineWeeks > 0 ? remaining / deadlineWeeks : remaining;
+
+        if (recentVelocity >= requiredVelocity) {
+            riskLevel = 'on-track';
+            riskColor = '#10b981';
+            riskIcon = '✅';
+            riskMsg = 'En camino. ETA: ' + completionDate + (weeksLeft > 0 && deadlineWeeks > weeksLeft ? ' (' + (deadlineWeeks - weeksLeft) + ' sem antes del deadline)' : '');
+        } else if (recentVelocity >= requiredVelocity * 0.8) {
+            riskLevel = 'at-risk';
+            riskColor = '#f59e0b';
+            riskIcon = '⚠️';
+            riskMsg = 'En riesgo. Vel. actual: ' + recentVelocity.toFixed(1) + '/sem. Necesitas: ' + requiredVelocity.toFixed(1) + '/sem (+' + Math.round((requiredVelocity/recentVelocity - 1)*100) + '%)';
+        } else {
+            riskLevel = 'behind';
+            riskColor = '#ef4444';
+            riskIcon = '🔴';
+            var delayWeeks = recentVelocity > 0 ? Math.ceil(remaining / recentVelocity) - deadlineWeeks : 99;
+            riskMsg = 'Atrasado. Vel. actual: ' + recentVelocity.toFixed(1) + '/sem. Necesitas: ' + requiredVelocity.toFixed(1) + '/sem. Retraso est: ~' + delayWeeks + ' semanas';
+        }
+    } else if (remaining === 0) {
+        riskLevel = 'complete';
+        riskColor = '#10b981';
+        riskIcon = '🏆';
+        riskMsg = 'Plan completado al 100%';
+    }
+
+    // Velocity trend (last 4 weeks)
+    var velTrend = series.slice(-4).map(function(s) { return s.tested; });
+
+    // Risk alert banner
+    var html = '';
+    if (riskMsg) {
+        html += '<div style="padding:10px 14px;background:' + riskColor + '15;border:1px solid ' + riskColor + '40;border-radius:10px;margin-bottom:10px;display:flex;align-items:center;gap:10px;">' +
+            '<span style="font-size:18px;">' + riskIcon + '</span>' +
+            '<div><div style="font-size:12px;font-weight:700;color:' + riskColor + ';">' + riskMsg + '</div>';
+        if (deadline) html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">Deadline: ' + new Date(deadline).toLocaleDateString('es-MX') + ' (' + deadlineWeeks + ' semanas restantes)</div>';
+        html += '</div></div>';
+    }
+
     // Metrics
-    var html = '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
+    html += '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">' + avgVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Promedio/sem</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-blue);font-size:14px;">' + recentVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Reciente/sem</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + remaining + '</div><div class="tp-metric-label">Deficit Actual</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#8b5cf6;font-size:14px;">' + (weeksLeft > 0 ? weeksLeft : '—') + '</div><div class="tp-metric-label">Semanas Rest.</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-green);font-size:13px;">' + completionDate + '</div><div class="tp-metric-label">Est. Completacion</div></div>' +
     '</div>';
+
+    // Velocity trend mini-table
+    if (velTrend.length >= 2) {
+        html += '<div style="display:flex;gap:4px;margin-bottom:8px;align-items:center;">' +
+            '<span style="font-size:9px;color:var(--tp-dim);margin-right:4px;">Vel. reciente:</span>';
+        velTrend.forEach(function(v, i) {
+            var prevV = i > 0 ? velTrend[i-1] : v;
+            var arrow = v > prevV ? '↑' : v < prevV ? '↓' : '→';
+            var clr = v > prevV ? '#10b981' : v < prevV ? '#ef4444' : '#64748b';
+            html += '<span style="font-size:11px;font-weight:700;color:' + clr + ';padding:2px 8px;background:' + clr + '15;border-radius:4px;">' + v + ' ' + arrow + '</span>';
+        });
+        html += '</div>';
+    }
+
     html += '<div style="height:250px;"><canvas id="tp-burndown-canvas"></canvas></div>';
 
     // Schedule chart render after DOM update
@@ -10620,16 +12046,38 @@ function tpRenderBurndownChart(stats) {
         var ctx = document.getElementById('tp-burndown-canvas');
         if (!ctx || typeof Chart === 'undefined') return;
 
-        var datasets = [
-            { label: 'Deficit Restante', data: series.map(function(p) { return p.remaining; }), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', pointRadius: 4, borderWidth: 2, fill: true, tension: 0.1 }
-        ];
+        // [R2-M9] Risk band datasets
+        var datasets = [];
+
+        // Calculate risk bands if deadline exists
+        if (deadline && totalReq > 0 && labels.length > 0) {
+            var onTrackLine = [];
+            var atRiskLine = [];
+            var behindLine = [];
+            for (var bi = 0; bi < labels.length; bi++) {
+                // Ideal pace: linear from first remaining to 0 at deadline
+                var startRemaining = series.length > 0 ? series[0].remaining + series[0].tested : totalReq;
+                var idealPerWeek = startRemaining / Math.max(1, labels.length - 1);
+                var idealRemaining = Math.max(0, startRemaining - idealPerWeek * bi);
+                onTrackLine.push(idealRemaining);
+                atRiskLine.push(Math.min(idealRemaining * 1.2, totalReq));
+                behindLine.push(Math.min(idealRemaining * 1.5, totalReq));
+            }
+            datasets.push({ label: 'Zona Atrasado', data: behindLine, borderColor: 'transparent', backgroundColor: 'rgba(239,68,68,0.06)', pointRadius: 0, borderWidth: 0, fill: true, order: 10 });
+            datasets.push({ label: 'Zona En Riesgo', data: atRiskLine, borderColor: 'transparent', backgroundColor: 'rgba(245,158,11,0.06)', pointRadius: 0, borderWidth: 0, fill: true, order: 9 });
+            datasets.push({ label: 'Zona On Track', data: onTrackLine, borderColor: 'transparent', backgroundColor: 'rgba(16,185,129,0.06)', pointRadius: 0, borderWidth: 0, fill: true, order: 8 });
+        }
+
+        datasets.push(
+            { label: 'Deficit Restante', data: series.map(function(p) { return p.remaining; }), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', pointRadius: 4, borderWidth: 2, fill: true, tension: 0.1, order: 1 }
+        );
         if (forecastPts.length > 0) {
             var forecastData = [];
             for (var i = 0; i < series.length - 1; i++) forecastData.push(null);
             for (var i = Math.max(0, series.length - 1); i < forecastPts.length; i++) forecastData.push(forecastPts[i]);
-            datasets.push({ label: 'Forecast (regresion)', data: forecastData, borderColor: '#64748b', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0 });
+            datasets.push({ label: 'Forecast (regresion)', data: forecastData, borderColor: '#64748b', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0, order: 2 });
         }
-        datasets.push({ label: 'Meta (0)', data: Array(labels.length).fill(0), borderColor: '#10b981', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false });
+        datasets.push({ label: 'Meta (0)', data: Array(labels.length).fill(0), borderColor: '#10b981', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false, order: 3 });
 
         window._tpBurndownChart = new Chart(ctx, {
             type: 'line',
@@ -13641,8 +15089,18 @@ function raRenderImport(el){
     el.innerHTML=`
     <div class="tp-card">
         <div class="tp-card-title"><span>📂 Importar Carpeta Completa (Batch ~600 pruebas)</span></div>
-        <p style="font-size:11px;color:var(--tp-dim);margin-bottom:10px;">Selecciona la carpeta raíz de resultados (ej. <code style="color:var(--tp-amber)">D:\\TestResults\\WLTP</code>). Se buscan recursivamente CustomFields.csv, CycleResults.csv, SampleResults.csv y TestDetails.csv.</p>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <p style="font-size:11px;color:var(--tp-dim);margin-bottom:10px;">Selecciona la carpeta raíz de resultados o arrastra archivos CSV a la zona de abajo.</p>
+
+        <div class="ra-drop-zone" id="raDropZone"
+             ondragover="event.preventDefault();this.classList.add('dragover');"
+             ondragleave="this.classList.remove('dragover');"
+             ondrop="event.preventDefault();this.classList.remove('dragover');raHandleDrop(event);">
+            <div class="ra-drop-icon">📁</div>
+            <div class="ra-drop-text">Arrastra carpetas o archivos CSV aquí</div>
+            <div style="font-size:10px;color:var(--tp-dim);margin-top:4px;">o usa el selector de abajo</div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;">
             <input type="file" id="ra-folder-input" webkitdirectory directory multiple style="font-size:12px;color:var(--tp-text);">
             <button class="tp-btn tp-btn-primary" onclick="raBatchImport()">🚀 Importar Carpeta</button>
         </div>
@@ -13733,6 +15191,101 @@ async function raBatchImport(){
     finalMsg += '<div style="margin-top:6px;"><button class="tp-btn tp-btn-primary" onclick="raState.activeTab=\'ra-dashboard\';raRender();document.querySelectorAll(\'#ra-tabs-bar .tp-tab\').forEach(b=>b.classList.remove(\'active\'));document.querySelectorAll(\'#ra-tabs-bar .tp-tab\')[0].classList.add(\'active\');" style="font-size:11px;">Ver Dashboard (' + raState.tests.length + ' pruebas)</button></div>';
     if(errMsgs.length>0) finalMsg += '<div style="font-size:9px;color:var(--tp-red);margin-top:4px;">' + errMsgs.join('<br>') + '</div>';
     prog.innerHTML = finalMsg;
+}
+
+// ── [R2-M8] Drag-and-Drop CSV Import ──
+async function raHandleDrop(event) {
+    var items = event.dataTransfer.items;
+    var files = [];
+
+    // Collect all files from DataTransferItems (supports folders via webkitGetAsEntry)
+    var promises = [];
+    for (var i = 0; i < items.length; i++) {
+        var entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+        if (entry) {
+            promises.push(_raReadEntry(entry, files));
+        } else if (items[i].kind === 'file') {
+            files.push(items[i].getAsFile());
+        }
+    }
+
+    var prog = document.getElementById('ra-batch-progress');
+    if (prog) prog.innerHTML = '<span style="color:var(--tp-amber);">Leyendo archivos arrastrados...</span>';
+
+    await Promise.all(promises);
+
+    // Filter to only CSV files
+    files = files.filter(function(f) { return f.name.toLowerCase().endsWith('.csv'); });
+    if (files.length === 0) {
+        if (prog) prog.innerHTML = '<span style="color:var(--tp-red);">No se encontraron archivos CSV.</span>';
+        return;
+    }
+
+    if (prog) prog.innerHTML = '<span style="color:var(--tp-amber);">' + files.length + ' CSVs encontrados. Agrupando...</span>';
+    await new Promise(function(r) { setTimeout(r, 50); });
+
+    var groups = raGroupFiles(files);
+    var dirs = Object.keys(groups).filter(function(d) { return groups[d].cycle || groups[d].custom; });
+
+    if (dirs.length === 0) {
+        if (prog) prog.innerHTML = '<span style="color:var(--tp-red);">No se encontraron grupos válidos (CustomFields.csv / CycleResults.csv).</span>';
+        return;
+    }
+
+    // Use same import logic as raBatchImport but with collected files
+    var imported = 0, skipped = 0, errors = 0;
+    var errMsgs = [];
+    for (var di = 0; di < dirs.length; di++) {
+        var dir = dirs[di];
+        try {
+            var test = await raProcessGroup(groups[dir]);
+            var isDup = false;
+            if (test.vin && test.testNumber) {
+                isDup = raState.tests.some(function(x) { return x.vin === test.vin && x.testNumber === test.testNumber; });
+            } else if (test.vin && test.testDesc) {
+                isDup = raState.tests.some(function(x) { return x.vin === test.vin && x.testDesc === test.testDesc && x.dateStr === test.dateStr; });
+            }
+            if (isDup) { skipped++; continue; }
+            raState.tests.push(test);
+            imported++;
+            if (imported % 25 === 0 && prog) {
+                prog.innerHTML = '<span style="color:var(--tp-amber);">' + imported + '/' + dirs.length + ' importadas...</span>';
+                await new Promise(function(r) { setTimeout(r, 10); });
+            }
+        } catch (e) {
+            errors++;
+            if (errMsgs.length < 5) errMsgs.push(dir.slice(0, 40) + ': ' + e.message);
+        }
+    }
+
+    raSave();
+    raUpdateBadges();
+
+    var reportHtml = '<div class="tp-card" style="margin-top:8px;">' +
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;font-weight:700;">' +
+        '<span style="color:var(--tp-green);">✅ ' + imported + ' importados</span>' +
+        '<span style="color:var(--tp-amber);">⏭️ ' + skipped + ' duplicados</span>' +
+        '<span style="color:var(--tp-red);">❌ ' + errors + ' errores</span></div>';
+    if (errMsgs.length > 0) {
+        reportHtml += '<details style="margin-top:6px;"><summary style="font-size:10px;color:var(--tp-red);cursor:pointer;">Ver errores</summary>' +
+            '<div style="font-size:9px;color:var(--tp-red);margin-top:4px;">' + errMsgs.join('<br>') + '</div></details>';
+    }
+    reportHtml += '<div style="margin-top:8px;"><button class="tp-btn tp-btn-primary" onclick="raState.activeTab=\'ra-dashboard\';raRender();" style="font-size:11px;">Ver Dashboard (' + raState.tests.length + ' pruebas)</button></div></div>';
+    if (prog) prog.innerHTML = reportHtml;
+}
+
+function _raReadEntry(entry, files) {
+    return new Promise(function(resolve) {
+        if (entry.isFile) {
+            entry.file(function(f) { files.push(f); resolve(); }, resolve);
+        } else if (entry.isDirectory) {
+            var reader = entry.createReader();
+            reader.readEntries(function(entries) {
+                var ps = entries.map(function(e) { return _raReadEntry(e, files); });
+                Promise.all(ps).then(resolve);
+            }, resolve);
+        } else { resolve(); }
+    });
 }
 
 async function raSingleImport(){
@@ -15612,7 +17165,25 @@ function pnRenderDashboard(el) {
     html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:6px;">Resumen cross-modulo: COP15, Plan, Resultados, Inventario</div>';
     html += '</div>';
 
+    // Cross-module risk dashboard
+    html += '<div id="labDashContainer"></div>';
+
+    // Backup Health section
+    html += '<div id="backupHealthContainer"></div>';
+
     el.innerHTML = html;
+
+    // Render lab dashboard
+    var labEl = document.getElementById('labDashContainer');
+    if (labEl && typeof renderLabDashboard === 'function') {
+        renderLabDashboard(labEl);
+    }
+
+    // Render backup health async (needs IndexedDB)
+    var backupEl = document.getElementById('backupHealthContainer');
+    if (backupEl && typeof renderBackupStatus === 'function') {
+        renderBackupStatus(backupEl);
+    }
 }
 
 

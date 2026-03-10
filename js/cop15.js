@@ -974,6 +974,9 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
 
   // Show readiness checklist
   updateReadinessChecklist();
+
+  // Auto-suggest dates based on cascade logic
+  autoSuggestDates();
 }
 
 
@@ -1769,26 +1772,104 @@ if (vehicle.status !== 'ready-release') {
 }
 
 
+   var _tlFilter = 'all';
+
+   function _tlClassifyAction(action) {
+       var a = (action || '').toLowerCase();
+       if (a.includes('status') || a.includes('estado') || a.includes('moved to') || a.includes('cambió')) return 'status';
+       if (a.includes('error') || a.includes('rollback') || a.includes('revert')) return 'error';
+       if (a.includes('release') || a.includes('liberado') || a.includes('archivado') || a.includes('auto-')) return 'system';
+       return 'data';
+   }
+
+   function _tlClassifyPhase(action) {
+       var a = (action || '').toLowerCase();
+       if (a.includes('register') || a.includes('alta') || a.includes('recep')) return 'Recepción';
+       if (a.includes('precond') || a.includes('soak') || a.includes('preacond')) return 'Preacondicionamiento';
+       if (a.includes('test') || a.includes('prueba') || a.includes('emisi')) return 'Prueba';
+       if (a.includes('release') || a.includes('libera') || a.includes('archiv')) return 'Liberación';
+       return 'General';
+   }
+
+   var _tlTypeConfig = {
+       status: { color: '#3b82f6', icon: '🔵', label: 'Status' },
+       data:   { color: '#f59e0b', icon: '🟡', label: 'Datos' },
+       system: { color: '#10b981', icon: '🟢', label: 'Sistema' },
+       error:  { color: '#ef4444', icon: '🔴', label: 'Error' }
+   };
+
    function renderTimeline(vehicle) {
-  const container = document.getElementById('vehicleTimeline');
-  if (!container) return;
+       var container = document.getElementById('vehicleTimeline');
+       if (!container) return;
 
-  if (!vehicle.timeline || vehicle.timeline.length === 0) {
-    container.innerHTML = '<em>No hay actividades registradas</em>';
-    return;
-  }
+       if (!vehicle.timeline || vehicle.timeline.length === 0) {
+           container.innerHTML = '<em>No hay actividades registradas</em>';
+           return;
+       }
 
-  container.innerHTML = vehicle.timeline.map(item => {
-    const date = new Date(item.timestamp);
-    return `
-      <div class="timeline-item">
-        <div class="timeline-time">${date.toLocaleString('es-MX')}</div>
-        <div class="timeline-action">${item.action}</div>
-        <div style="font-size: 0.85rem; color: #64748b;">Por: ${item.user}</div>
-      </div>
-    `;
-  }).join('');
-}
+       // Filter toggle
+       var filterHtml = '<div class="tl-filters">' +
+           '<button class="tl-filter-btn' + (_tlFilter==='all'?' active':'') + '" onclick="_tlFilter=\'all\';renderTimeline(db.vehicles.find(function(v){return v.id==activeVehicleId}))">Todos</button>' +
+           '<button class="tl-filter-btn' + (_tlFilter==='status'?' active':'') + '" onclick="_tlFilter=\'status\';renderTimeline(db.vehicles.find(function(v){return v.id==activeVehicleId}))">Solo Status</button>' +
+           '</div>';
+
+       // Group by phase
+       var phases = {};
+       var phaseOrder = ['Recepción', 'Preacondicionamiento', 'Prueba', 'Liberación', 'General'];
+       var phaseFirstTs = {};
+       var phaseLastTs = {};
+
+       vehicle.timeline.forEach(function(item) {
+           var type = _tlClassifyAction(item.action);
+           if (_tlFilter !== 'all' && type !== _tlFilter) return;
+
+           var phase = _tlClassifyPhase(item.action);
+           if (!phases[phase]) phases[phase] = [];
+           phases[phase].push(item);
+
+           var ts = new Date(item.timestamp).getTime();
+           if (!phaseFirstTs[phase] || ts < phaseFirstTs[phase]) phaseFirstTs[phase] = ts;
+           if (!phaseLastTs[phase] || ts > phaseLastTs[phase]) phaseLastTs[phase] = ts;
+       });
+
+       var html = filterHtml + '<div class="tl-track">';
+
+       phaseOrder.forEach(function(phase) {
+           if (!phases[phase] || phases[phase].length === 0) return;
+           var durMs = (phaseLastTs[phase] || 0) - (phaseFirstTs[phase] || 0);
+           var durStr = '';
+           if (durMs > 0) {
+               var h = Math.floor(durMs / 3600000);
+               var m = Math.floor((durMs % 3600000) / 60000);
+               durStr = h > 24 ? Math.round(h/24) + 'd ' + (h%24) + 'h' : h + 'h ' + m + 'm';
+           }
+
+           html += '<div class="tl-phase">' +
+               '<div class="tl-phase-header"><span class="tl-phase-name">' + phase + '</span>' +
+               (durStr ? '<span class="tl-phase-dur">' + durStr + '</span>' : '') + '</div>';
+
+           phases[phase].forEach(function(item) {
+               var d = new Date(item.timestamp);
+               var type = _tlClassifyAction(item.action);
+               var cfg = _tlTypeConfig[type];
+               var timeStr = d.toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'});
+               var dateStr = d.toLocaleDateString('es-MX', {day:'numeric',month:'short'});
+
+               html += '<div class="tl-item">' +
+                   '<div class="tl-dot" style="background:' + cfg.color + ';"></div>' +
+                   '<div class="tl-content">' +
+                   '<div class="tl-time">' + dateStr + ' ' + timeStr + '</div>' +
+                   '<div class="tl-action">' + (item.action || '') + '</div>' +
+                   (item.user ? '<div class="tl-user">' + item.user + '</div>' : '') +
+                   '</div></div>';
+           });
+
+           html += '</div>';
+       });
+
+       html += '</div>';
+       container.innerHTML = html;
+   }
 
 
 
@@ -2051,10 +2132,14 @@ function closeSubstitutionModal() {
         var hasMore = filtered > pageSize;
 
         container.innerHTML = `
-            <div class="hist-filter-count">Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</div>
+            <div class="hist-filter-count" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span>Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</span>
+                <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;">PDF Seleccionados</button>
+            </div>
             <table class="history-table">
                 <thead>
                     <tr>
+                        <th style="width:30px;"><input type="checkbox" onchange="histToggleAll(this.checked)" title="Seleccionar todos"></th>
                         <th>VIN</th>
                         <th>Código Config</th>
                         <th>Propósito</th>
@@ -2071,6 +2156,7 @@ function closeSubstitutionModal() {
                         const reg = cfg['EMISSION REGULATION'] || '';
                         return `
                         <tr>
+                            <td><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
                             <td><strong>${v.vin}</strong></td>
                             <td>
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
@@ -2104,6 +2190,148 @@ function closeSubstitutionModal() {
         currentFilter = filter;
         renderHistory();
     }
+
+// ── [R2-M4] Batch PDF Export helpers ──
+function histToggleAll(checked) {
+    document.querySelectorAll('.hist-chk').forEach(function(cb) { cb.checked = checked; });
+    histUpdateBatchBtn();
+}
+
+function histUpdateBatchBtn() {
+    var checked = document.querySelectorAll('.hist-chk:checked');
+    var btn = document.getElementById('batchPdfBtn');
+    if (!btn) return;
+    if (checked.length > 0) {
+        btn.style.display = '';
+        btn.textContent = 'PDF ' + checked.length + ' seleccionados';
+    } else {
+        btn.style.display = 'none';
+    }
+}
+
+function batchPDFExport() {
+    var ids = [];
+    document.querySelectorAll('.hist-chk:checked').forEach(function(cb) {
+        ids.push(parseInt(cb.dataset.vid));
+    });
+    if (ids.length === 0) { showToast('Selecciona al menos un vehículo', 'warning'); return; }
+
+    showConfirm(
+        '<p>Generar PDF con <strong>' + ids.length + ' vehículos</strong> en un solo documento?</p>' +
+        '<p style="font-size:11px;color:#64748b;">Cada vehículo será una página del PDF.</p>',
+        function() { _doBatchPDF(ids); },
+        { title: 'Batch PDF Export', type: 'info', confirmText: 'Generar PDF' }
+    );
+}
+
+function _doBatchPDF(ids) {
+    if (typeof jspdf === 'undefined' && typeof window.jspdf === 'undefined') {
+        showToast('jsPDF no disponible', 'error');
+        return;
+    }
+    var jsPDF = (window.jspdf && window.jspdf.jsPDF) || jspdf.jsPDF;
+    var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+    var total = ids.length;
+    var overlay = document.createElement('div');
+    overlay.id = 'batch-pdf-overlay';
+    overlay.innerHTML = '<div class="batch-pdf-progress"><div class="batch-pdf-title">Generando PDF...</div>' +
+        '<div class="batch-pdf-bar"><div class="batch-pdf-fill" id="batchPdfFill"></div></div>' +
+        '<div id="batchPdfStatus" style="font-size:12px;color:#94a3b8;">0/' + total + '</div></div>';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    document.body.appendChild(overlay);
+
+    var idx = 0;
+    function next() {
+        if (idx >= total) {
+            overlay.remove();
+            var dateStr = new Date().toISOString().slice(0,10);
+            doc.save('COP15-F05_Batch_' + dateStr + '.pdf');
+            showToast(total + ' vehículos exportados a PDF', 'success');
+            return;
+        }
+        if (idx > 0) doc.addPage();
+        var vehicle = db.vehicles.find(function(v) { return v.id === ids[idx]; });
+        if (vehicle) {
+            _renderVehiclePDFPage(doc, vehicle);
+        }
+        idx++;
+        var fill = document.getElementById('batchPdfFill');
+        var st = document.getElementById('batchPdfStatus');
+        if (fill) fill.style.width = Math.round((idx/total)*100) + '%';
+        if (st) st.textContent = idx + '/' + total;
+        setTimeout(next, 50);
+    }
+    next();
+}
+
+function _renderVehiclePDFPage(doc, vehicle) {
+    var ML = 14, y = 14;
+    var W = doc.internal.pageSize.getWidth();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('KIA EmLab — COP15-F05', ML, y); y += 6;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('VIN: ' + (vehicle.vin || 'N/A') + '  |  Config: ' + (vehicle.configCode || 'N/A'), ML, y); y += 5;
+    doc.text('Propósito: ' + (vehicle.purpose || '') + '  |  Estado: ' + (vehicle.status || '') + '  |  Fecha: ' + new Date(vehicle.registeredAt).toLocaleDateString('es-MX'), ML, y); y += 7;
+
+    // Preconditioning data
+    var td = vehicle.testData || {};
+    var p = td.preconditioning || {};
+    var tv = td.testVerification || {};
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Preacondicionamiento', ML, y); y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    var preRows = [
+        ['Responsable: ' + (p.responsible || '-'), 'Fecha: ' + (p.datetime || '-'), 'Ciclo: ' + (p.cycle || '-')],
+        ['Presión llantas: ' + (p.tirePressurePsi || '-') + ' psi', 'Comb. entrada: ' + (p.fuelTypeIn || '-'), 'Nivel: ' + (p.fuelLevelFractionIn || '-')],
+        ['Soak (h): ' + (p.soakTimeH != null ? p.soakTimeH : '-'), 'Precond OK: ' + (p.ok || '-'), 'Odo pretest: ' + (p.odoPretestKm || '-') + ' km']
+    ];
+    preRows.forEach(function(row) {
+        var colW = (W - ML*2) / row.length;
+        row.forEach(function(cell, ci) { doc.text(cell, ML + ci*colW, y); });
+        y += 4;
+    });
+    y += 3;
+
+    // Test verification
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Verificación de Prueba', ML, y); y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    var tvRows = [
+        ['Responsable: ' + (td.testResponsible || '-'), 'Fecha: ' + (td.testDatetime || '-'), 'Túnel: ' + (tv.tunnel || '-')],
+        ['Dinamómetro: ' + (tv.dyno || '-'), 'Ventilador: ' + (tv.fanMode || '-') + ' ' + (tv.fanSpeedKmh || '-') + 'km/h', 'Inercia: ' + (tv.inertiaOk || '-')],
+        ['Cadenas: ' + (tv.chains || '-'), 'Eslingas: ' + (tv.slings || '-'), 'Cofre: ' + (tv.hood || '-')]
+    ];
+    tvRows.forEach(function(row) {
+        var colW = (W - ML*2) / row.length;
+        row.forEach(function(cell, ci) { doc.text(cell, ML + ci*colW, y); });
+        y += 4;
+    });
+    y += 3;
+
+    // Coefficients
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Coeficientes', ML, y); y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text('ETW: ' + (td.etw || '-') + '  A: ' + (td.targetA || '-') + '/' + (td.dynoA || '-') +
+             '  B: ' + (td.targetB || '-') + '/' + (td.dynoB || '-') +
+             '  C: ' + (td.targetC || '-') + '/' + (td.dynoC || '-'), ML, y);
+    y += 6;
+
+    // Footer
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text('Generado: ' + new Date().toLocaleString('es-MX') + '  |  KIA EmLab Batch Export', ML, doc.internal.pageSize.getHeight() - 8);
+    doc.setTextColor(0);
+}
 
 
 function refreshAllLists() {
@@ -2871,6 +3099,661 @@ function handleConfigCSVImport(event) {
     event.target.value = '';
 }
 
+
+// ======================================================================
+// [R2-M5] MANUAL CONFIGURATION MANAGER
+// ======================================================================
+
+var _manualConfigFields = [
+    { key: 'Modelo', label: 'Modelo' },
+    { key: 'MODEL YEAR (VIN)', label: 'Año Modelo (VIN)' },
+    { key: 'ENGINE CAPACITY', label: 'Motor' },
+    { key: 'TRANSMISSION', label: 'Transmisión' },
+    { key: 'ENVIRONMENT PACKAGE', label: 'Environment Package' },
+    { key: 'EMISSION REGULATION', label: 'Regulación Emisiones' },
+    { key: 'DRIVE TYPE', label: 'Tipo Drive' },
+    { key: 'TIRE ASSY', label: 'Llantas' },
+    { key: 'REGION', label: 'Región' },
+    { key: 'BODY TYPE', label: 'Carrocería' },
+    { key: 'ENGINE PACKAGE', label: 'Engine Package' }
+];
+
+function getManualConfigs() {
+    try { return JSON.parse(localStorage.getItem('kia_manual_configs')) || []; }
+    catch(e) { return []; }
+}
+
+function _saveManualConfigs(configs) {
+    localStorage.setItem('kia_manual_configs', JSON.stringify(configs));
+}
+
+function _buildConfigCode(cfg) {
+    return [cfg['Modelo'], cfg['MODEL YEAR (VIN)'], cfg['TRANSMISSION'],
+            cfg['ENVIRONMENT PACKAGE'], cfg['EMISSION REGULATION'], cfg['DRIVE TYPE'],
+            cfg['ENGINE CAPACITY'], cfg['TIRE ASSY'], cfg['REGION'],
+            cfg['BODY TYPE'], cfg['ENGINE PACKAGE']].filter(Boolean).join('-');
+}
+
+function _getExistingValues(key) {
+    var vals = new Set();
+    allConfigurations.forEach(function(c) { if (c[key]) vals.add(c[key]); });
+    return Array.from(vals).sort();
+}
+
+function openManualConfigForm(editIdx) {
+    var existing = (editIdx !== undefined) ? getManualConfigs()[editIdx] : null;
+    var html = '<div class="mcf-form">';
+
+    _manualConfigFields.forEach(function(f) {
+        var dlId = 'mcf_dl_' + f.key.replace(/[^a-zA-Z]/g, '');
+        var existingVals = _getExistingValues(f.key);
+        html += '<div class="mcf-field">' +
+            '<label class="mcf-label">' + f.label + ' <span style="color:#ef4444;">*</span></label>' +
+            '<input type="text" class="mcf-input" id="mcf_' + f.key.replace(/[^a-zA-Z]/g, '') + '" ' +
+            'data-key="' + f.key + '" list="' + dlId + '" value="' + (existing ? (existing[f.key] || '') : '') + '" ' +
+            'oninput="updateManualConfigPreview()" autocomplete="off" placeholder="Escribe o selecciona...">' +
+            '<datalist id="' + dlId + '">' +
+            existingVals.map(function(v) { return '<option value="' + v + '">'; }).join('') +
+            '</datalist></div>';
+    });
+
+    html += '<div class="mcf-preview" id="mcfPreview">' +
+        '<div style="font-size:10px;color:#64748b;margin-bottom:2px;">Código generado:</div>' +
+        '<div id="mcfPreviewCode" style="font-family:monospace;font-size:11px;color:var(--kia-red);font-weight:700;word-break:break-all;">-</div>' +
+        '</div></div>';
+
+    showModal(html, editIdx !== undefined ? 'Editar Configuración Manual' : 'Nueva Configuración Manual',
+        [{ text: 'Guardar', class: 'btn-primary', onclick: 'saveManualConfig(' + (editIdx !== undefined ? editIdx : -1) + ')' }]
+    );
+    setTimeout(updateManualConfigPreview, 50);
+}
+
+function updateManualConfigPreview() {
+    var code = [];
+    _manualConfigFields.forEach(function(f) {
+        var el = document.getElementById('mcf_' + f.key.replace(/[^a-zA-Z]/g, ''));
+        if (el && el.value.trim()) code.push(el.value.trim());
+    });
+    var preview = document.getElementById('mcfPreviewCode');
+    if (preview) preview.textContent = code.length > 0 ? code.join('-') : '(llena los campos)';
+}
+
+function saveManualConfig(editIdx) {
+    var newConfig = {};
+    var missing = [];
+
+    _manualConfigFields.forEach(function(f) {
+        var el = document.getElementById('mcf_' + f.key.replace(/[^a-zA-Z]/g, ''));
+        var val = el ? el.value.trim() : '';
+        if (!val) missing.push(f.label);
+        newConfig[f.key] = val;
+    });
+
+    if (missing.length > 0) {
+        showToast('Campos requeridos: ' + missing.slice(0, 3).join(', ') + (missing.length > 3 ? '...' : ''), 'error');
+        return;
+    }
+
+    newConfig.codigo_config_text = _buildConfigCode(newConfig);
+    newConfig._source = 'manual';
+
+    // Check for conflicts
+    var conflict = checkConfigConflicts(newConfig, editIdx);
+    if (conflict === 'duplicate') {
+        showToast('Ya existe esta configuración exacta en el catálogo', 'error');
+        return;
+    }
+
+    if (conflict === 'similar') {
+        showConfirm(
+            'Existe una configuración similar (mismo Modelo + Año + Motor + Transmisión). ¿Desea continuar?',
+            function() { _doSaveManualConfig(newConfig, editIdx); },
+            { title: 'Configuración Similar', type: 'warning', confirmText: 'Guardar de todas formas' }
+        );
+        return;
+    }
+
+    _doSaveManualConfig(newConfig, editIdx);
+}
+
+function _doSaveManualConfig(newConfig, editIdx) {
+    var manuals = getManualConfigs();
+    if (editIdx >= 0 && editIdx < manuals.length) {
+        manuals[editIdx] = newConfig;
+    } else {
+        manuals.push(newConfig);
+    }
+    _saveManualConfigs(manuals);
+
+    // Rebuild allConfigurations
+    _mergeManualConfigsIntoAll();
+
+    // Close modal & refresh
+    var overlay = document.querySelector('.modal-overlay');
+    if (overlay) overlay.remove();
+
+    openConfigPanel();
+    showToast('Configuración manual guardada (' + allConfigurations.length + ' total)', 'success');
+
+    // Refresh cascade if visible
+    var modelSelect = document.getElementById('cfg_model');
+    if (modelSelect) {
+        var uniqueModels = [].concat(Array.from(new Set(allConfigurations.map(function(c){return c.Modelo;}))).sort());
+        modelSelect.innerHTML = '<option value="">Seleccionar...</option>';
+        uniqueModels.forEach(function(m) { modelSelect.innerHTML += '<option value="'+m+'">'+m+'</option>'; });
+    }
+}
+
+function checkConfigConflicts(newConfig, editIdx) {
+    var manuals = getManualConfigs();
+    // Check all configs (CSV + manual) for exact duplicates
+    for (var i = 0; i < allConfigurations.length; i++) {
+        var c = allConfigurations[i];
+        // Skip the one being edited
+        if (c._source === 'manual') {
+            var manIdx = manuals.indexOf(c);
+            if (manIdx === editIdx) continue;
+        }
+        var allMatch = true;
+        _manualConfigFields.forEach(function(f) {
+            if (c[f.key] !== newConfig[f.key]) allMatch = false;
+        });
+        if (allMatch) return 'duplicate';
+    }
+
+    // Check for similar (same Model + Year + Engine + Trans)
+    var similarKeys = ['Modelo', 'MODEL YEAR (VIN)', 'ENGINE CAPACITY', 'TRANSMISSION'];
+    for (var j = 0; j < allConfigurations.length; j++) {
+        var c2 = allConfigurations[j];
+        if (c2._source === 'manual') {
+            var manIdx2 = manuals.indexOf(c2);
+            if (manIdx2 === editIdx) continue;
+        }
+        var keyMatch = true;
+        similarKeys.forEach(function(k) {
+            if (c2[k] !== newConfig[k]) keyMatch = false;
+        });
+        if (keyMatch) {
+            var allMatch2 = true;
+            _manualConfigFields.forEach(function(f) {
+                if (c2[f.key] !== newConfig[f.key]) allMatch2 = false;
+            });
+            if (!allMatch2) return 'similar';
+        }
+    }
+    return null;
+}
+
+function _mergeManualConfigsIntoAll() {
+    // Remove existing manual entries
+    allConfigurations = allConfigurations.filter(function(c) { return c._source !== 'manual'; });
+    // Add current manual configs
+    var manuals = getManualConfigs();
+    manuals.forEach(function(mc) {
+        mc._source = 'manual';
+        if (!mc.codigo_config_text) mc.codigo_config_text = _buildConfigCode(mc);
+        allConfigurations.push(mc);
+    });
+}
+
+function deleteManualConfig(idx) {
+    showConfirm('¿Eliminar esta configuración manual?', function() {
+        var manuals = getManualConfigs();
+        manuals.splice(idx, 1);
+        _saveManualConfigs(manuals);
+        _mergeManualConfigsIntoAll();
+        openConfigPanel();
+        showToast('Configuración eliminada', 'success');
+    }, { title: 'Eliminar Config', type: 'warning', confirmText: 'Eliminar' });
+}
+
+function renderManualConfigsList() {
+    var container = document.getElementById('manualConfigsList');
+    if (!container) return;
+    var manuals = getManualConfigs();
+    if (manuals.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    var csvCount = allConfigurations.filter(function(c) { return c._source !== 'manual'; }).length;
+    var html = '<div style="margin-top:10px;padding:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">' +
+        '<div style="font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:6px;">' +
+        manuals.length + ' manual(es) + ' + csvCount + ' CSV = ' + allConfigurations.length + ' total</div>';
+
+    manuals.forEach(function(mc, i) {
+        var code = mc.codigo_config_text || _buildConfigCode(mc);
+        html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #dbeafe;font-size:10px;">' +
+            '<span style="flex:1;font-family:monospace;color:#1e40af;word-break:break-all;">' + code + '</span>' +
+            '<button onclick="openManualConfigForm(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Editar">✏️</button>' +
+            '<button onclick="deleteManualConfig(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Eliminar">🗑️</button>' +
+            '</div>';
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// ── Modify parseCSV to include manual configs ──
+var _origParseCSV = parseCSV;
+parseCSV = function() {
+    _origParseCSV();
+    _mergeManualConfigsIntoAll();
+};
+
+// ── Modify openConfigPanel to show manual list ──
+var _origOpenConfigPanel = openConfigPanel;
+openConfigPanel = function() {
+    _origOpenConfigPanel();
+    renderManualConfigsList();
+};
+
+// ── Modify handleConfigCSVImport to check manual config conflicts ──
+var _origHandleConfigCSVImport = handleConfigCSVImport;
+handleConfigCSVImport = function(event) {
+    var manuals = getManualConfigs();
+    if (manuals.length === 0) {
+        _origHandleConfigCSVImport(event);
+        return;
+    }
+    // Store file for later processing
+    var file = event.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var csvText = e.target.result;
+        // Parse new CSV temporarily
+        var lines = csvText.trim().split('\n');
+        var headers = lines[0].split(',');
+        var newConfigs = [];
+        for (var i = 1; i < lines.length; i++) {
+            var values = lines[i].split(',');
+            var cfg = {};
+            headers.forEach(function(h, idx) { cfg[h] = values[idx] || ''; });
+            newConfigs.push(cfg);
+        }
+
+        // Check which manuals conflict with new CSV
+        var dupes = 0, unique = 0;
+        manuals.forEach(function(mc) {
+            var isDupe = newConfigs.some(function(nc) {
+                return _manualConfigFields.every(function(f) { return nc[f.key] === mc[f.key]; });
+            });
+            if (isDupe) dupes++; else unique++;
+        });
+
+        showConfirm(
+            '<div style="text-align:left;">' +
+            '<p>Nuevo CSV: <strong>' + newConfigs.length + '</strong> configs</p>' +
+            '<p>Configs manuales: <strong>' + manuals.length + '</strong> (' + dupes + ' ya existen en CSV, ' + unique + ' únicas)</p>' +
+            '<p style="margin-top:8px;font-size:12px;">¿Qué hacer con las configuraciones manuales?</p>' +
+            '</div>',
+            function() {
+                // Keep unique manuals
+                localStorage.setItem('kia_config_csv_raw', csvText);
+                var kept = manuals.filter(function(mc) {
+                    return !newConfigs.some(function(nc) {
+                        return _manualConfigFields.every(function(f) { return nc[f.key] === mc[f.key]; });
+                    });
+                });
+                _saveManualConfigs(kept);
+                parseCSV();
+                openConfigPanel();
+                showToast('CSV importado. ' + kept.length + ' configs manuales únicas mantenidas.', 'success');
+            },
+            {
+                title: 'Importar CSV — Configs Manuales',
+                type: 'warning',
+                confirmText: 'Mantener únicas (' + unique + ')',
+                cancelText: 'Eliminar todas las manuales',
+                onCancel: function() {
+                    _saveManualConfigs([]);
+                    localStorage.setItem('kia_config_csv_raw', csvText);
+                    parseCSV();
+                    openConfigPanel();
+                    showToast('CSV importado. Configs manuales eliminadas.', 'success');
+                }
+            }
+        );
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+};
+
+// Also update displayConfigResult to show manual badge
+var _origDisplayConfigResult = displayConfigResult;
+displayConfigResult = function(filtered) {
+    _origDisplayConfigResult(filtered);
+    if (filtered.length === 1 && filtered[0]._source === 'manual') {
+        var resultDiv = document.getElementById('cfg_result');
+        if (resultDiv) {
+            var badge = '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:4px;background:#dbeafe;color:#1d4ed8;font-size:9px;font-weight:700;">MANUAL</span>';
+            resultDiv.querySelector('div') && (resultDiv.querySelector('strong').innerHTML += badge);
+        }
+    }
+};
+
+
+// ======================================================================
+// [R2-M2] QUICK REVIEW PANEL
+// ======================================================================
+
+var _reviewSections = [
+    { title: 'Recepción', fields: [
+        {id:'precond_responsible',label:'Responsable'},
+        {id:'precond_datetime',label:'Fecha Precond'},
+        {id:'tire_pressure',label:'Presión llantas (psi)', warn:function(v){var n=parseFloat(v);return n>0&&(n<25||n>50);}},
+        {id:'tire_pressure_in',label:'Presión entrada (psi)'},
+        {id:'fuel_typein',label:'Combustible entrada'},
+        {id:'fuel_levelin',label:'Nivel combustible entrada'},
+        {id:'fuel_typepre',label:'Combustible precond'},
+        {id:'fuel_levelpre',label:'Nivel litros precond'},
+        {id:'tank_capacity',label:'Capacidad tanque (L)'},
+        {id:'battery_soc',label:'SOC Batería (%)'}
+    ]},
+    { title: 'Preacondicionamiento', fields: [
+        {id:'precond_cycle',label:'Ciclo'},
+        {id:'soak_time',label:'Tiempo reposo (h)'},
+        {id:'odo_pretest',label:'Odómetro pre-test (km)'},
+        {id:'precond_ok',label:'Precond OK'},
+        {id:'op_odo',label:'Odómetro (km)', warn:function(v){return v==='0'||v===0;}},
+        {id:'dtc_pending_before',label:'DTC Pendientes'},
+        {id:'dtc_confirmed_before',label:'DTC Confirmados'},
+        {id:'dtc_permanent_before',label:'DTC Permanentes'}
+    ]},
+    { title: 'Verificación de Prueba', fields: [
+        {id:'test_responsible',label:'Responsable prueba'},
+        {id:'test_datetime',label:'Fecha prueba'},
+        {id:'test_tunnel',label:'Túnel'},
+        {id:'test_dyno_on',label:'Dinamómetro'},
+        {id:'test_fan_mode',label:'Modo ventilador'},
+        {id:'test_fan_speed',label:'Vel. ventilador'},
+        {id:'test_chains',label:'Cadenas'},
+        {id:'test_slings',label:'Eslingas'},
+        {id:'test_hood',label:'Cofre'},
+        {id:'test_rear_rollers',label:'Rodillos traseros'},
+        {id:'test_screen',label:'Pantalla'},
+        {id:'test_inertia_ok',label:'Inercia OK'}
+    ]},
+    { title: 'Coeficientes Dinamo', fields: [
+        {id:'etw',label:'ETW'},
+        {id:'tA',label:'Target A'}, {id:'dA',label:'Dyno A'},
+        {id:'tB',label:'Target B'}, {id:'dB',label:'Dyno B'},
+        {id:'tC',label:'Target C'}, {id:'dC',label:'Dyno C'}
+    ]}
+];
+
+function openQuickReview() {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) { showToast('Selecciona un vehículo', 'warning'); return; }
+
+    var total = 0, filled = 0, empty = 0, warnings = 0;
+    var html = '<div style="max-height:60vh;overflow-y:auto;">';
+
+    _reviewSections.forEach(function(sec) {
+        var secHtml = '';
+        sec.fields.forEach(function(f) {
+            var el = document.getElementById(f.id);
+            if (!el) return;
+            total++;
+            var val = el.value;
+            var isEmpty = !val || val === '';
+            var isWarn = !isEmpty && f.warn && f.warn(val);
+            var icon, color;
+            if (isEmpty) { icon = '❌'; color = '#fef2f2'; empty++; }
+            else if (isWarn) { icon = '⚠️'; color = '#fffbeb'; warnings++; }
+            else { icon = '✅'; color = 'transparent'; filled++; }
+
+            var displayVal = isEmpty ? '<em style="color:#94a3b8;">vacío</em>' : (val.length > 25 ? val.substring(0,23)+'..' : val);
+
+            secHtml += '<div class="qr-field" style="background:' + color + ';" onclick="quickReviewGoTo(\'' + f.id + '\')">' +
+                '<span class="qr-icon">' + icon + '</span>' +
+                '<span class="qr-label">' + f.label + '</span>' +
+                '<span class="qr-val">' + displayVal + '</span></div>';
+        });
+        html += '<div class="qr-section"><div class="qr-section-title">' + sec.title + '</div>' + secHtml + '</div>';
+    });
+
+    html += '</div>';
+
+    var pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+    var barColor = pct === 100 ? '#10b981' : pct >= 70 ? '#f59e0b' : '#ef4444';
+
+    var header = '<div style="margin-bottom:14px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+        '<span style="font-size:13px;font-weight:700;">' + filled + '/' + total + ' campos completados</span>' +
+        '<span style="font-size:11px;color:#64748b;">' + empty + ' pendientes' + (warnings ? ' · ' + warnings + ' advertencias' : '') + '</span></div>' +
+        '<div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;transition:width 0.3s;"></div></div></div>';
+
+    showModal(header + html, 'Quick Review — ' + (vehicle.vin || '').slice(-8));
+}
+
+function quickReviewGoTo(fieldId) {
+    // Close the modal
+    var modal = document.querySelector('.modal-overlay');
+    if (modal) modal.remove();
+
+    var el = document.getElementById(fieldId);
+    if (!el) return;
+
+    // Open the parent accordion
+    var acc = el.closest('details.acc');
+    if (acc && !acc.open) acc.open = true;
+
+    // Scroll and focus
+    setTimeout(function() {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.focus();
+        el.style.outline = '3px solid #3b82f6';
+        el.style.outlineOffset = '2px';
+        setTimeout(function() { el.style.outline = ''; el.style.outlineOffset = ''; }, 3000);
+    }, 150);
+}
+
+// ======================================================================
+// [R2-M6] COPY FROM LAST VEHICLE
+// ======================================================================
+
+var _copyableFields = [
+    {id:'precond_responsible', label:'Responsable Precond'},
+    {id:'tire_pressure', label:'Presión llantas'},
+    {id:'fuel_typein', label:'Tipo combustible entrada'},
+    {id:'fuel_typepre', label:'Tipo combustible precond'},
+    {id:'precond_cycle', label:'Ciclo precond'},
+    {id:'soak_time', label:'Tiempo reposo (h)'},
+    {id:'tank_capacity', label:'Capacidad tanque'},
+    {id:'test_tunnel', label:'Túnel'},
+    {id:'test_dyno_on', label:'Dinamómetro'},
+    {id:'test_fan_mode', label:'Modo ventilador'},
+    {id:'test_fan_speed', label:'Vel. ventilador'},
+    {id:'test_fan_flow', label:'Flujo ventilador'},
+    {id:'test_chains', label:'Cadenas'},
+    {id:'test_slings', label:'Eslingas'},
+    {id:'test_hood', label:'Cofre'},
+    {id:'test_rear_rollers', label:'Rodillos traseros'},
+    {id:'test_screen', label:'Pantalla'},
+    {id:'test_inertia_ok', label:'Inercia'},
+    {id:'etw', label:'ETW'},
+    {id:'tA', label:'Target A'},
+    {id:'dA', label:'Dyno A'},
+    {id:'tB', label:'Target B'},
+    {id:'dB', label:'Dyno B'},
+    {id:'tC', label:'Target C'},
+    {id:'dC', label:'Dyno C'},
+    {id:'test_responsible', label:'Responsable prueba'}
+];
+
+function copyFromLastVehicle() {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) { showToast('No hay vehículo seleccionado', 'error'); return; }
+
+    // Find last archived vehicle with same configCode
+    var candidates = db.vehicles.filter(function(v) {
+        return v.id !== vehicle.id && v.configCode === vehicle.configCode &&
+               (v.status === 'archived' || v.status === 'released' || v.status === 'ready-release') &&
+               v.testData;
+    }).sort(function(a, b) {
+        return new Date(b.lastModified || b.registeredAt) - new Date(a.lastModified || a.registeredAt);
+    });
+
+    if (candidates.length === 0) {
+        showToast('No hay vehículo anterior con config ' + (vehicle.configCode || '').substring(0, 30) + '...', 'warning');
+        return;
+    }
+
+    var source = candidates[0];
+    var td = source.testData || {};
+    var p = td.preconditioning || {};
+    var tv = td.testVerification || {};
+
+    // Build values map from source
+    var sourceValues = {
+        'precond_responsible': p.responsible || '',
+        'tire_pressure': p.tirePressurePsi || '',
+        'fuel_typein': p.fuelTypeIn || '',
+        'fuel_typepre': p.fuelTypePre || '',
+        'precond_cycle': p.cycle || '',
+        'soak_time': p.soakTimeH != null ? String(p.soakTimeH) : '',
+        'tank_capacity': p.tankCapacityL || '',
+        'test_tunnel': tv.tunnel || '',
+        'test_dyno_on': tv.dyno || '',
+        'test_fan_mode': tv.fanMode || '',
+        'test_fan_speed': tv.fanSpeedKmh || '',
+        'test_fan_flow': tv.fanFlowM3Min || '',
+        'test_chains': tv.chains || '',
+        'test_slings': tv.slings || '',
+        'test_hood': tv.hood || '',
+        'test_rear_rollers': tv.rearRollers || '',
+        'test_screen': tv.screen || '',
+        'test_inertia_ok': tv.inertiaOk || '',
+        'test_responsible': td.testResponsible || '',
+        'etw': td.etw || '', 'tA': td.targetA || '', 'dA': td.dynoA || '',
+        'tB': td.targetB || '', 'dB': td.dynoB || '',
+        'tC': td.targetC || '', 'dC': td.dynoC || ''
+    };
+
+    // Count non-empty fields to copy
+    var fieldsToCopy = _copyableFields.filter(function(f) { return sourceValues[f.id]; });
+    if (fieldsToCopy.length === 0) {
+        showToast('El vehículo anterior no tiene datos para copiar', 'warning');
+        return;
+    }
+
+    var sourceDate = new Date(source.lastModified || source.registeredAt).toLocaleDateString('es-MX');
+    var vinShort = '...' + source.vin.slice(-6);
+
+    showConfirm(
+        '<div style="text-align:left;">' +
+        '<p><strong>Copiar datos de VIN ' + vinShort + '</strong> (archivado ' + sourceDate + ')</p>' +
+        '<p style="font-size:11px;color:#64748b;margin:8px 0 4px;">Campos a copiar (' + fieldsToCopy.length + '):</p>' +
+        '<div style="font-size:11px;color:#475569;max-height:150px;overflow-y:auto;columns:2;column-gap:12px;">' +
+        fieldsToCopy.map(function(f) { return '<div>• ' + f.label + '</div>'; }).join('') +
+        '</div></div>',
+        function() {
+            // Apply values
+            fieldsToCopy.forEach(function(f) {
+                var el = document.getElementById(f.id);
+                if (el) {
+                    el.value = sourceValues[f.id];
+                    // Visual feedback - pulsing blue border
+                    el.style.outline = '2px dashed #3b82f6';
+                    el.style.outlineOffset = '2px';
+                    setTimeout(function() {
+                        el.style.outline = '';
+                        el.style.outlineOffset = '';
+                    }, 4000);
+                }
+            });
+            updateFanFieldsByMode();
+            showToast(fieldsToCopy.length + ' campos copiados de VIN ' + vinShort, 'success');
+        },
+        { title: 'Copiar de Último Vehículo', type: 'info', confirmText: 'Copiar' }
+    );
+}
+
+// ======================================================================
+// [R2-M3] AUTO-SUGGEST INTELLIGENT DATES
+// ======================================================================
+
+function _nextBusinessDay(date) {
+    var d = new Date(date);
+    d.setDate(d.getDate() + 1);
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    d.setHours(8, 0, 0, 0);
+    return d;
+}
+
+function _toLocalDatetimeStr(d) {
+    var yr = d.getFullYear();
+    var mo = String(d.getMonth() + 1).padStart(2, '0');
+    var dy = String(d.getDate()).padStart(2, '0');
+    var hh = String(d.getHours()).padStart(2, '0');
+    var mm = String(d.getMinutes()).padStart(2, '0');
+    return yr + '-' + mo + '-' + dy + 'T' + hh + ':' + mm;
+}
+
+function _formatSuggestionLabel(d) {
+    var days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    return days[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth()+1) + '/' + d.getFullYear() +
+           ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+function autoSuggestDates() {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) return;
+    if (!isEmissionsPurpose(vehicle.purpose)) return;
+
+    var regDt = vehicle.registeredAt ? new Date(vehicle.registeredAt) : null;
+    var precondEl = document.getElementById('precond_datetime');
+    var testEl = document.getElementById('test_datetime');
+    var soakEl = document.getElementById('soak_time');
+    if (!precondEl || !testEl) return;
+
+    // Remove old suggestion hints
+    document.querySelectorAll('.date-suggestion').forEach(function(el) { el.remove(); });
+
+    // Suggest precond date if empty
+    if (!precondEl.value && regDt) {
+        var sugPrecond = _nextBusinessDay(regDt);
+        _renderDateSuggestion(precondEl, sugPrecond, 'Sugerido: ' + _formatSuggestionLabel(sugPrecond) + ' (sig. día hábil)');
+    }
+
+    // Suggest test date if precond is set but test is empty
+    if (precondEl.value && !testEl.value) {
+        var precondDate = new Date(precondEl.value);
+        var soakH = parseFloat(soakEl?.value) || 0;
+
+        // Check if soak timer is active and use its end time
+        var soakData = null;
+        try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
+        var sugTest;
+
+        if (soakData && soakData.endTime) {
+            sugTest = new Date(soakData.endTime);
+            sugTest.setHours(sugTest.getHours() + 2); // 2h margin after soak
+            _renderDateSuggestion(testEl, sugTest, 'Sugerido: ' + _formatSuggestionLabel(sugTest) + ' (soak + 2h margen)');
+        } else if (soakH > 0) {
+            sugTest = new Date(precondDate.getTime() + (soakH + 2) * 3600000);
+            // Skip weekends
+            while (sugTest.getDay() === 0 || sugTest.getDay() === 6) sugTest.setDate(sugTest.getDate() + 1);
+            _renderDateSuggestion(testEl, sugTest, 'Sugerido: ' + _formatSuggestionLabel(sugTest) + ' (soak ' + soakH + 'h + 2h)');
+        } else {
+            // Default: precond + 26h (typical 24h soak + 2h margin)
+            sugTest = new Date(precondDate.getTime() + 26 * 3600000);
+            while (sugTest.getDay() === 0 || sugTest.getDay() === 6) sugTest.setDate(sugTest.getDate() + 1);
+            _renderDateSuggestion(testEl, sugTest, 'Sugerido: ' + _formatSuggestionLabel(sugTest) + ' (24h soak + 2h)');
+        }
+    }
+}
+
+function _renderDateSuggestion(inputEl, suggestedDate, label) {
+    var hint = document.createElement('div');
+    hint.className = 'date-suggestion';
+    hint.innerHTML = '<span style="flex:1;">' + label + '</span>' +
+        '<button type="button" class="date-sug-apply" onclick="this.parentElement.previousElementSibling.value=\'' +
+        _toLocalDatetimeStr(suggestedDate) + '\';this.parentElement.remove();autoSuggestDates();">Aplicar</button>';
+    inputEl.parentElement.appendChild(hint);
+}
 
 // ======================================================================
 // STALLED VEHICLE ALERTS

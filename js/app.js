@@ -1137,3 +1137,387 @@ document.addEventListener('keydown', function(e) {
         return;
     }
 });
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [R2-M10] CROSS-MODULE RISK DASHBOARD                              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function renderLabDashboard(container) {
+    var alerts = [];
+
+    // ── COP15 Module ──
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var active = vehicles.filter(function(v) { return v.status !== 'archived'; });
+    var now = Date.now();
+
+    // Find oldest stalled vehicle
+    var oldest = null;
+    var oldestHours = 0;
+    active.forEach(function(v) {
+        var lastUp = v.lastModified || v.registeredAt;
+        if (!lastUp) return;
+        var h = (now - new Date(lastUp).getTime()) / 3600000;
+        if (h > oldestHours) { oldestHours = h; oldest = v; }
+    });
+    if (oldest && oldestHours > 48) {
+        var vinShort = '...' + (oldest.vin || '').slice(-6);
+        var daysStalled = Math.floor(oldestHours / 24);
+        alerts.push({ level: 'CRITICO', color: '#ef4444', module: 'COP15',
+            message: 'VIN ' + vinShort + ' lleva ' + daysStalled + 'd en "' + (oldest.status || '?') + '"',
+            action: 'cop15' });
+    }
+    if (active.length > 10) {
+        alerts.push({ level: 'ALTO', color: '#f59e0b', module: 'COP15',
+            message: active.length + ' vehiculos activos — considerar agilizar liberaciones',
+            action: 'cop15' });
+    }
+
+    // ── Test Plan Module ──
+    var tpAnalysis = null;
+    if (typeof tpGetAnalysis === 'function') {
+        try { tpAnalysis = tpGetAnalysis(); } catch(e) {}
+    }
+    if (tpAnalysis && tpAnalysis.totalReq > 0) {
+        var deficit = tpAnalysis.totalReq - (tpAnalysis.totalDone || 0);
+        var coverage = tpAnalysis.coveragePct || 0;
+        if (coverage < 50) {
+            alerts.push({ level: 'CRITICO', color: '#ef4444', module: 'Test Plan',
+                message: 'Cobertura al ' + coverage + '%. Deficit: ' + deficit + ' tests',
+                action: 'testplan' });
+        } else if (coverage < 80) {
+            alerts.push({ level: 'MEDIO', color: '#f59e0b', module: 'Test Plan',
+                message: 'Cobertura al ' + coverage + '%. Deficit: ' + deficit + ' tests',
+                action: 'testplan' });
+        }
+    }
+
+    // ── Results Module ──
+    var raTests = (typeof raState !== 'undefined' && raState.tests) ? raState.tests : [];
+    var thisWeekTests = 0;
+    var weekAgo = now - 7 * 86400000;
+    var failCount = 0;
+    raTests.forEach(function(t) {
+        var tDate = t.importedAt ? new Date(t.importedAt).getTime() : 0;
+        if (tDate >= weekAgo) {
+            thisWeekTests++;
+            if (typeof raTestVerdict === 'function' && raTestVerdict(t) !== 'PASS') failCount++;
+        }
+    });
+    if (failCount > 0) {
+        alerts.push({ level: 'MEDIO', color: '#f59e0b', module: 'Resultados',
+            message: failCount + ' pruebas FAIL esta semana de ' + thisWeekTests + ' totales',
+            action: 'results' });
+    }
+
+    // ── Inventory Module ──
+    var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
+    var criticalGases = invGases.filter(function(g) {
+        if (!g.readings || g.readings.length === 0 || g.status === 'Empty') return false;
+        var last = g.readings[g.readings.length - 1];
+        return last.psi < (g.reorderPSI || 500);
+    });
+    if (criticalGases.length > 0) {
+        alerts.push({ level: 'ALTO', color: '#ef4444', module: 'Inventario',
+            message: criticalGases.length + ' gas(es) bajo nivel de reorden',
+            action: 'inventory' });
+    }
+
+    // ── Weekly productivity ──
+    var thisWeekReleased = vehicles.filter(function(v) {
+        if (v.status !== 'archived' || !v.archivedAt) return false;
+        return new Date(v.archivedAt).getTime() >= weekAgo;
+    }).length;
+    var lastWeekReleased = vehicles.filter(function(v) {
+        if (v.status !== 'archived' || !v.archivedAt) return false;
+        var t = new Date(v.archivedAt).getTime();
+        return t >= weekAgo - 7*86400000 && t < weekAgo;
+    }).length;
+    var diff = thisWeekReleased - lastWeekReleased;
+
+    // Sort alerts by severity
+    var levelOrder = { 'CRITICO': 0, 'ALTO': 1, 'MEDIO': 2, 'BAJO': 3 };
+    alerts.sort(function(a, b) { return (levelOrder[a.level] || 9) - (levelOrder[b.level] || 9); });
+
+    // Render
+    var html = '<div class="lab-dash">';
+    html += '<h3 style="margin:0 0 12px;font-size:14px;color:#c4b5fd;">🏭 Lab Status — Vista Consolidada de Riesgos</h3>';
+
+    // Consolidated alerts
+    if (alerts.length > 0) {
+        html += '<div class="lab-dash-alerts">';
+        alerts.forEach(function(a) {
+            html += '<div class="lab-dash-alert" onclick="switchPlatform(\'' + a.action + '\')" style="cursor:pointer;">' +
+                '<span class="lab-dash-alert-badge" style="background:' + a.color + '20;color:' + a.color + ';">' + a.level + '</span>' +
+                '<span class="lab-dash-alert-mod">' + a.module + '</span>' +
+                '<span style="flex:1;font-size:10px;color:#e2e8f0;">' + a.message + '</span>' +
+                '<span style="font-size:9px;color:#64748b;">→</span></div>';
+        });
+        html += '</div>';
+    } else {
+        html += '<div style="padding:12px;text-align:center;background:#10b98115;border:1px solid #10b98130;border-radius:8px;font-size:12px;color:#10b981;font-weight:700;">✅ Sin alertas activas — Laboratorio operando normalmente</div>';
+    }
+
+    // Module summary cards
+    html += '<div class="lab-dash-grid">';
+
+    // COP15 card
+    var byStatus = {};
+    active.forEach(function(v) { byStatus[v.status] = (byStatus[v.status] || 0) + 1; });
+    html += '<div class="lab-dash-card" onclick="switchPlatform(\'cop15\')">' +
+        '<div class="lab-dash-card-header" style="color:#3b82f6;">COP15</div>' +
+        '<div class="lab-dash-card-metric">' + active.length + '</div>' +
+        '<div class="lab-dash-card-sub">activos</div>' +
+        '<div class="lab-dash-card-detail">' +
+        (byStatus['registered'] || 0) + ' reg · ' + (byStatus['in-progress'] || 0) + ' prog · ' +
+        (byStatus['testing'] || 0) + ' test · ' + (byStatus['ready-release'] || 0) + ' listo</div></div>';
+
+    // Test Plan card
+    html += '<div class="lab-dash-card" onclick="switchPlatform(\'testplan\')">' +
+        '<div class="lab-dash-card-header" style="color:#f59e0b;">Test Plan</div>' +
+        '<div class="lab-dash-card-metric">' + (tpAnalysis ? (tpAnalysis.coveragePct || 0) : '—') + '%</div>' +
+        '<div class="lab-dash-card-sub">cobertura</div>' +
+        '<div class="lab-dash-card-detail">Deficit: ' + (tpAnalysis ? (tpAnalysis.totalReq - (tpAnalysis.totalDone || 0)) : '—') + ' tests</div></div>';
+
+    // Results card
+    html += '<div class="lab-dash-card" onclick="switchPlatform(\'results\')">' +
+        '<div class="lab-dash-card-header" style="color:#8b5cf6;">Resultados</div>' +
+        '<div class="lab-dash-card-metric">' + raTests.length + '</div>' +
+        '<div class="lab-dash-card-sub">pruebas total</div>' +
+        '<div class="lab-dash-card-detail">' + thisWeekTests + ' esta sem' + (failCount > 0 ? ' · ' + failCount + ' FAIL' : '') + '</div></div>';
+
+    // Inventory card
+    html += '<div class="lab-dash-card" onclick="switchPlatform(\'inventory\')">' +
+        '<div class="lab-dash-card-header" style="color:#06b6d4;">Inventario</div>' +
+        '<div class="lab-dash-card-metric">' + invGases.length + '</div>' +
+        '<div class="lab-dash-card-sub">cilindros</div>' +
+        '<div class="lab-dash-card-detail">' + (criticalGases.length > 0 ? '<span style="color:#ef4444;">' + criticalGases.length + ' criticos</span>' : 'Niveles OK') + '</div></div>';
+
+    html += '</div>';
+
+    // Weekly productivity
+    html += '<div style="margin-top:10px;padding:10px;background:#1e293b;border-radius:8px;display:flex;justify-content:space-between;align-items:center;">' +
+        '<span style="font-size:11px;color:#94a3b8;">Productividad semanal:</span>' +
+        '<span style="font-size:13px;font-weight:700;color:' + (diff >= 0 ? '#10b981' : '#ef4444') + ';">' +
+        thisWeekReleased + ' liberados ' + (diff !== 0 ? '(' + (diff > 0 ? '↑' : '↓') + ' ' + Math.abs(diff) + ' vs sem pasada)' : '(= sem pasada)') +
+        '</span></div>';
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [R2-M7] BACKUP HEALTH DASHBOARD + AUTO-BACKUP TO INDEXEDDB        ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _backupDBName = 'kia_emlab_backups';
+var _backupStoreName = 'snapshots';
+var _backupMaxCount = 5;
+
+function _openBackupDB(callback) {
+    var req = indexedDB.open(_backupDBName, 1);
+    req.onupgradeneeded = function(e) {
+        var idb = e.target.result;
+        if (!idb.objectStoreNames.contains(_backupStoreName)) {
+            idb.createObjectStore(_backupStoreName, { keyPath: 'id', autoIncrement: true });
+        }
+    };
+    req.onsuccess = function(e) { callback(e.target.result); };
+    req.onerror = function() { console.warn('IndexedDB backup error'); };
+}
+
+function autoBackup() {
+    _openBackupDB(function(idb) {
+        var snapshot = {
+            timestamp: new Date().toISOString(),
+            db: localStorage.getItem('kia_db_v11') || '{}',
+            tpState: localStorage.getItem('kia_testplan_v1') || '{}',
+            raState: localStorage.getItem('kia_results_v1') || '{}',
+            invState: localStorage.getItem('kia_lab_inventory') || '{}'
+        };
+        snapshot.sizeBytes = (snapshot.db + snapshot.tpState + snapshot.raState + snapshot.invState).length * 2;
+
+        // Count vehicles for preview
+        try {
+            var parsed = JSON.parse(snapshot.db);
+            snapshot.vehicleCount = (parsed.vehicles || []).length;
+            snapshot.activeCount = (parsed.vehicles || []).filter(function(v) { return v.status !== 'archived'; }).length;
+        } catch(e) { snapshot.vehicleCount = 0; snapshot.activeCount = 0; }
+
+        var tx = idb.transaction(_backupStoreName, 'readwrite');
+        var store = tx.objectStore(_backupStoreName);
+        store.add(snapshot);
+
+        tx.oncomplete = function() {
+            // Prune old snapshots beyond max
+            var readTx = idb.transaction(_backupStoreName, 'readwrite');
+            var readStore = readTx.objectStore(_backupStoreName);
+            var countReq = readStore.count();
+            countReq.onsuccess = function() {
+                if (countReq.result > _backupMaxCount) {
+                    var cursor = readStore.openCursor();
+                    var toDelete = countReq.result - _backupMaxCount;
+                    cursor.onsuccess = function(e) {
+                        var c = e.target.result;
+                        if (c && toDelete > 0) {
+                            c.delete();
+                            toDelete--;
+                            c.continue();
+                        }
+                    };
+                }
+            };
+        };
+    });
+}
+
+// Hook into saveDB to auto-backup
+var _origSaveDB = saveDB;
+saveDB = function() {
+    _origSaveDB();
+    autoBackup();
+};
+
+function _formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(2) + ' MB';
+}
+
+function _getLocalStorageUsage() {
+    var total = 0;
+    for (var key in localStorage) {
+        if (localStorage.hasOwnProperty(key)) {
+            total += (localStorage[key].length + key.length) * 2;
+        }
+    }
+    return total;
+}
+
+function renderBackupStatus(container) {
+    var usage = _getLocalStorageUsage();
+    var maxBytes = 5 * 1024 * 1024;
+    var pct = Math.round((usage / maxBytes) * 100);
+    var barColor = pct > 90 ? '#ef4444' : pct > 80 ? '#f59e0b' : '#10b981';
+
+    var html = '<div class="backup-dashboard">' +
+        '<h3 style="margin:0 0 12px;font-size:14px;color:#c4b5fd;">💾 Backup & Almacenamiento</h3>';
+
+    // Storage bar
+    html += '<div class="backup-card">' +
+        '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">' +
+        '<span>localStorage</span><span>' + _formatBytes(usage) + ' / 5 MB (' + pct + '%)</span></div>' +
+        '<div style="height:8px;background:#1e293b;border-radius:4px;overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;"></div></div></div>';
+
+    // Backup snapshots (async from IndexedDB)
+    html += '<div class="backup-card" id="backupSnapshotsList">' +
+        '<div style="font-size:11px;color:#94a3b8;">Cargando snapshots...</div></div>';
+
+    // Actions
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">' +
+        '<button class="btn-secondary" onclick="downloadFullBackup()" style="font-size:11px;padding:6px 14px;">📥 Descargar Backup Completo</button>' +
+        '<button class="btn-secondary" onclick="openRestoreBackup()" style="font-size:11px;padding:6px 14px;">♻️ Restaurar desde Backup</button>' +
+        '</div></div>';
+
+    container.innerHTML = html;
+
+    // Load snapshots from IndexedDB
+    _openBackupDB(function(idb) {
+        var tx = idb.transaction(_backupStoreName, 'readonly');
+        var store = tx.objectStore(_backupStoreName);
+        var all = store.getAll();
+        all.onsuccess = function() {
+            var snapshots = all.result || [];
+            var el = document.getElementById('backupSnapshotsList');
+            if (!el) return;
+            if (snapshots.length === 0) {
+                el.innerHTML = '<div style="font-size:11px;color:#94a3b8;">Sin snapshots automáticos aún</div>';
+                return;
+            }
+            var sHtml = '<div style="font-size:11px;font-weight:700;color:#e2e8f0;margin-bottom:6px;">' + snapshots.length + ' snapshots en IndexedDB</div>';
+            snapshots.reverse().forEach(function(s) {
+                var ago = _timeAgo(s.timestamp);
+                sHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #1e293b;font-size:10px;">' +
+                    '<span style="color:#a78bfa;">' + ago + '</span>' +
+                    '<span style="color:#94a3b8;">' + _formatBytes(s.sizeBytes || 0) + ' · ' + (s.vehicleCount || 0) + ' veh (' + (s.activeCount || 0) + ' activos)</span>' +
+                    '</div>';
+            });
+            el.innerHTML = sHtml;
+        };
+    });
+}
+
+function downloadFullBackup() {
+    var backup = {
+        exportDate: new Date().toISOString(),
+        version: 'kia-emlab-backup-v1',
+        db: JSON.parse(localStorage.getItem('kia_db_v11') || '{}'),
+        tpState: JSON.parse(localStorage.getItem('kia_testplan_v1') || '{}'),
+        raState: JSON.parse(localStorage.getItem('kia_results_v1') || '{}'),
+        invState: JSON.parse(localStorage.getItem('kia_lab_inventory') || '{}'),
+        manualConfigs: JSON.parse(localStorage.getItem('kia_manual_configs') || '[]')
+    };
+    var blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'kia-emlab-backup_' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Backup completo descargado', 'success');
+}
+
+function openRestoreBackup() {
+    _openBackupDB(function(idb) {
+        var tx = idb.transaction(_backupStoreName, 'readonly');
+        var store = tx.objectStore(_backupStoreName);
+        var all = store.getAll();
+        all.onsuccess = function() {
+            var snapshots = (all.result || []).reverse();
+            if (snapshots.length === 0) {
+                showToast('No hay snapshots disponibles para restaurar', 'warning');
+                return;
+            }
+            var html = '<div style="max-height:300px;overflow-y:auto;">';
+            snapshots.forEach(function(s, i) {
+                var ago = _timeAgo(s.timestamp);
+                var dt = new Date(s.timestamp).toLocaleString('es-MX');
+                html += '<div class="backup-restore-item" onclick="restoreFromBackup(' + s.id + ')" style="cursor:pointer;padding:10px;margin-bottom:6px;background:#1e293b;border-radius:8px;border:1px solid #334155;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                    '<span style="font-size:12px;font-weight:700;color:#e2e8f0;">' + dt + '</span>' +
+                    '<span style="font-size:10px;color:#94a3b8;">' + ago + '</span></div>' +
+                    '<div style="font-size:10px;color:#94a3b8;margin-top:4px;">' + _formatBytes(s.sizeBytes || 0) + ' · ' + (s.vehicleCount || 0) + ' vehículos (' + (s.activeCount || 0) + ' activos)</div>' +
+                    '</div>';
+            });
+            html += '</div>';
+            html += '<div style="margin-top:10px;padding:8px;background:rgba(245,158,11,0.15);border-radius:6px;font-size:10px;color:#f59e0b;">' +
+                '⚠️ Restaurar reemplazará TODOS los datos actuales. Se creará un backup automático antes de restaurar.</div>';
+            showModal(html, 'Restaurar desde Backup');
+        };
+    });
+}
+
+function restoreFromBackup(snapshotId) {
+    showConfirm('¿Restaurar este backup? Se hará un backup automático de los datos actuales antes de restaurar.', function() {
+        // Auto-backup current state first
+        autoBackup();
+
+        _openBackupDB(function(idb) {
+            var tx = idb.transaction(_backupStoreName, 'readonly');
+            var store = tx.objectStore(_backupStoreName);
+            var req = store.get(snapshotId);
+            req.onsuccess = function() {
+                var s = req.result;
+                if (!s) { showToast('Snapshot no encontrado', 'error'); return; }
+                localStorage.setItem('kia_db_v11', s.db);
+                localStorage.setItem('kia_testplan_v1', s.tpState);
+                localStorage.setItem('kia_results_v1', s.raState);
+                localStorage.setItem('kia_lab_inventory', s.invState);
+
+                showToast('Datos restaurados. Recargando...', 'success');
+                setTimeout(function() { location.reload(); }, 1500);
+            };
+        });
+    }, { title: 'Confirmar Restauración', type: 'warning', confirmText: 'Restaurar' });
+}

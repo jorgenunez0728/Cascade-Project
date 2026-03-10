@@ -341,7 +341,25 @@ function pnRenderDashboard(el) {
     html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:6px;">Resumen cross-modulo: COP15, Plan, Resultados, Inventario</div>';
     html += '</div>';
 
+    // Cross-module risk dashboard
+    html += '<div id="labDashContainer"></div>';
+
+    // Backup Health section
+    html += '<div id="backupHealthContainer"></div>';
+
     el.innerHTML = html;
+
+    // Render lab dashboard
+    var labEl = document.getElementById('labDashContainer');
+    if (labEl && typeof renderLabDashboard === 'function') {
+        renderLabDashboard(labEl);
+    }
+
+    // Render backup health async (needs IndexedDB)
+    var backupEl = document.getElementById('backupHealthContainer');
+    if (backupEl && typeof renderBackupStatus === 'function') {
+        renderBackupStatus(backupEl);
+    }
 }
 
 

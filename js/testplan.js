@@ -633,6 +633,11 @@ function tpRenderDashboard(el) {
     <div class="tp-card">
         <details ${window._tpBurndownOpen ? 'open' : ''}>
             <summary onclick="window._tpBurndownOpen=!this.parentElement.open;" style="cursor:pointer;font-weight:700;font-size:12px;color:var(--tp-amber);user-select:none;padding:4px 0;">📉 Burndown de Deficit — Proyeccion de Completacion</summary>
+            <div style="display:flex;align-items:center;gap:8px;margin:10px 0 6px;flex-wrap:wrap;">
+                <label style="font-size:10px;color:var(--tp-dim);">Deadline:</label>
+                <input type="date" id="tp-deadline-input" value="${tpState.deadline || ''}" onchange="tpState.deadline=this.value;tpSave();document.getElementById('tp-burndown-container').innerHTML=tpRenderBurndownChart(tpGetAnalysis());" style="background:var(--tp-card);color:var(--tp-text);border:1px solid var(--tp-border);border-radius:6px;padding:4px 8px;font-size:11px;">
+                ${tpState.deadline ? '<button class="tp-btn tp-btn-ghost" onclick="tpState.deadline=\\'\\';tpSave();document.getElementById(\\'tp-deadline-input\\').value=\\'\\';document.getElementById(\\'tp-burndown-container\\').innerHTML=tpRenderBurndownChart(tpGetAnalysis());" style="font-size:9px;">Quitar deadline</button>' : ''}
+            </div>
             <div style="margin-top:10px;" id="tp-burndown-container">${tpRenderBurndownChart(stats)}</div>
         </details>
     </div>
@@ -740,14 +745,80 @@ function tpRenderBurndownChart(stats) {
         }
     }
 
+    // ── [R2-M9] Risk Assessment ──
+    var deadline = tpState.deadline || null;
+    var deadlineWeeks = 0;
+    var requiredVelocity = 0;
+    var riskLevel = 'unknown';
+    var riskColor = '#64748b';
+    var riskIcon = '❓';
+    var riskMsg = '';
+
+    if (deadline && remaining > 0) {
+        var now = new Date();
+        var dl = new Date(deadline);
+        deadlineWeeks = Math.max(0, Math.ceil((dl - now) / (7 * 86400000)));
+        requiredVelocity = deadlineWeeks > 0 ? remaining / deadlineWeeks : remaining;
+
+        if (recentVelocity >= requiredVelocity) {
+            riskLevel = 'on-track';
+            riskColor = '#10b981';
+            riskIcon = '✅';
+            riskMsg = 'En camino. ETA: ' + completionDate + (weeksLeft > 0 && deadlineWeeks > weeksLeft ? ' (' + (deadlineWeeks - weeksLeft) + ' sem antes del deadline)' : '');
+        } else if (recentVelocity >= requiredVelocity * 0.8) {
+            riskLevel = 'at-risk';
+            riskColor = '#f59e0b';
+            riskIcon = '⚠️';
+            riskMsg = 'En riesgo. Vel. actual: ' + recentVelocity.toFixed(1) + '/sem. Necesitas: ' + requiredVelocity.toFixed(1) + '/sem (+' + Math.round((requiredVelocity/recentVelocity - 1)*100) + '%)';
+        } else {
+            riskLevel = 'behind';
+            riskColor = '#ef4444';
+            riskIcon = '🔴';
+            var delayWeeks = recentVelocity > 0 ? Math.ceil(remaining / recentVelocity) - deadlineWeeks : 99;
+            riskMsg = 'Atrasado. Vel. actual: ' + recentVelocity.toFixed(1) + '/sem. Necesitas: ' + requiredVelocity.toFixed(1) + '/sem. Retraso est: ~' + delayWeeks + ' semanas';
+        }
+    } else if (remaining === 0) {
+        riskLevel = 'complete';
+        riskColor = '#10b981';
+        riskIcon = '🏆';
+        riskMsg = 'Plan completado al 100%';
+    }
+
+    // Velocity trend (last 4 weeks)
+    var velTrend = series.slice(-4).map(function(s) { return s.tested; });
+
+    // Risk alert banner
+    var html = '';
+    if (riskMsg) {
+        html += '<div style="padding:10px 14px;background:' + riskColor + '15;border:1px solid ' + riskColor + '40;border-radius:10px;margin-bottom:10px;display:flex;align-items:center;gap:10px;">' +
+            '<span style="font-size:18px;">' + riskIcon + '</span>' +
+            '<div><div style="font-size:12px;font-weight:700;color:' + riskColor + ';">' + riskMsg + '</div>';
+        if (deadline) html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">Deadline: ' + new Date(deadline).toLocaleDateString('es-MX') + ' (' + deadlineWeeks + ' semanas restantes)</div>';
+        html += '</div></div>';
+    }
+
     // Metrics
-    var html = '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
+    html += '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">' + avgVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Promedio/sem</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-blue);font-size:14px;">' + recentVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Reciente/sem</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + remaining + '</div><div class="tp-metric-label">Deficit Actual</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#8b5cf6;font-size:14px;">' + (weeksLeft > 0 ? weeksLeft : '—') + '</div><div class="tp-metric-label">Semanas Rest.</div></div>' +
         '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-green);font-size:13px;">' + completionDate + '</div><div class="tp-metric-label">Est. Completacion</div></div>' +
     '</div>';
+
+    // Velocity trend mini-table
+    if (velTrend.length >= 2) {
+        html += '<div style="display:flex;gap:4px;margin-bottom:8px;align-items:center;">' +
+            '<span style="font-size:9px;color:var(--tp-dim);margin-right:4px;">Vel. reciente:</span>';
+        velTrend.forEach(function(v, i) {
+            var prevV = i > 0 ? velTrend[i-1] : v;
+            var arrow = v > prevV ? '↑' : v < prevV ? '↓' : '→';
+            var clr = v > prevV ? '#10b981' : v < prevV ? '#ef4444' : '#64748b';
+            html += '<span style="font-size:11px;font-weight:700;color:' + clr + ';padding:2px 8px;background:' + clr + '15;border-radius:4px;">' + v + ' ' + arrow + '</span>';
+        });
+        html += '</div>';
+    }
+
     html += '<div style="height:250px;"><canvas id="tp-burndown-canvas"></canvas></div>';
 
     // Schedule chart render after DOM update
@@ -756,16 +827,38 @@ function tpRenderBurndownChart(stats) {
         var ctx = document.getElementById('tp-burndown-canvas');
         if (!ctx || typeof Chart === 'undefined') return;
 
-        var datasets = [
-            { label: 'Deficit Restante', data: series.map(function(p) { return p.remaining; }), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', pointRadius: 4, borderWidth: 2, fill: true, tension: 0.1 }
-        ];
+        // [R2-M9] Risk band datasets
+        var datasets = [];
+
+        // Calculate risk bands if deadline exists
+        if (deadline && totalReq > 0 && labels.length > 0) {
+            var onTrackLine = [];
+            var atRiskLine = [];
+            var behindLine = [];
+            for (var bi = 0; bi < labels.length; bi++) {
+                // Ideal pace: linear from first remaining to 0 at deadline
+                var startRemaining = series.length > 0 ? series[0].remaining + series[0].tested : totalReq;
+                var idealPerWeek = startRemaining / Math.max(1, labels.length - 1);
+                var idealRemaining = Math.max(0, startRemaining - idealPerWeek * bi);
+                onTrackLine.push(idealRemaining);
+                atRiskLine.push(Math.min(idealRemaining * 1.2, totalReq));
+                behindLine.push(Math.min(idealRemaining * 1.5, totalReq));
+            }
+            datasets.push({ label: 'Zona Atrasado', data: behindLine, borderColor: 'transparent', backgroundColor: 'rgba(239,68,68,0.06)', pointRadius: 0, borderWidth: 0, fill: true, order: 10 });
+            datasets.push({ label: 'Zona En Riesgo', data: atRiskLine, borderColor: 'transparent', backgroundColor: 'rgba(245,158,11,0.06)', pointRadius: 0, borderWidth: 0, fill: true, order: 9 });
+            datasets.push({ label: 'Zona On Track', data: onTrackLine, borderColor: 'transparent', backgroundColor: 'rgba(16,185,129,0.06)', pointRadius: 0, borderWidth: 0, fill: true, order: 8 });
+        }
+
+        datasets.push(
+            { label: 'Deficit Restante', data: series.map(function(p) { return p.remaining; }), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', pointRadius: 4, borderWidth: 2, fill: true, tension: 0.1, order: 1 }
+        );
         if (forecastPts.length > 0) {
             var forecastData = [];
             for (var i = 0; i < series.length - 1; i++) forecastData.push(null);
             for (var i = Math.max(0, series.length - 1); i < forecastPts.length; i++) forecastData.push(forecastPts[i]);
-            datasets.push({ label: 'Forecast (regresion)', data: forecastData, borderColor: '#64748b', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0 });
+            datasets.push({ label: 'Forecast (regresion)', data: forecastData, borderColor: '#64748b', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0, order: 2 });
         }
-        datasets.push({ label: 'Meta (0)', data: Array(labels.length).fill(0), borderColor: '#10b981', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false });
+        datasets.push({ label: 'Meta (0)', data: Array(labels.length).fill(0), borderColor: '#10b981', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false, order: 3 });
 
         window._tpBurndownChart = new Chart(ctx, {
             type: 'line',

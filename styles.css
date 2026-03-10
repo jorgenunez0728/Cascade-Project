@@ -1029,3 +1029,85 @@ button:focus-visible { outline-offset: 1px; }
 /* ═══ Kanban Search Highlight ═══ */
 .kanban-search-match { background: rgba(245,158,11,0.3); border-radius: 2px; }
 
+/* ═══ [R2] Lab Status Dashboard ═══ */
+.lab-dash { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; margin-top: 8px; }
+.lab-dash-alerts { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.lab-dash-alert { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #1e293b; border-radius: 6px; }
+.lab-dash-alert:hover { background: #334155; }
+.lab-dash-alert-badge { font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 3px; white-space: nowrap; }
+.lab-dash-alert-mod { font-size: 9px; font-weight: 700; color: #94a3b8; min-width: 65px; }
+.lab-dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.lab-dash-card { background: #1e293b; border-radius: 10px; padding: 14px; text-align: center; cursor: pointer; border: 1px solid transparent; transition: border-color 0.2s; }
+.lab-dash-card:hover { border-color: #475569; }
+.lab-dash-card-header { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.lab-dash-card-metric { font-size: 28px; font-weight: 800; color: #e2e8f0; }
+.lab-dash-card-sub { font-size: 9px; color: #64748b; margin-bottom: 4px; }
+.lab-dash-card-detail { font-size: 9px; color: #94a3b8; }
+
+/* ═══ [R2] Drag-Drop Import Zone ═══ */
+.ra-drop-zone { border: 2px dashed #334155; border-radius: 12px; padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: rgba(59,130,246,0.03); }
+.ra-drop-zone:hover { border-color: #3b82f6; background: rgba(59,130,246,0.06); }
+.ra-drop-zone.dragover { border-color: #3b82f6; background: rgba(59,130,246,0.12); transform: scale(1.01); }
+.ra-drop-icon { font-size: 36px; margin-bottom: 6px; }
+.ra-drop-text { font-size: 13px; font-weight: 700; color: #94a3b8; }
+
+/* ═══ [R2] Backup Dashboard ═══ */
+.backup-dashboard { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; margin-top: 8px; }
+.backup-card { background: #1e293b; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; color: #e2e8f0; }
+
+/* ═══ [R2] Manual Config Form ═══ */
+.mcf-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mcf-field { display: flex; flex-direction: column; }
+.mcf-label { font-size: 10px; font-weight: 700; color: #475569; margin-bottom: 2px; }
+.mcf-input { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; }
+.mcf-input:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+.mcf-preview { grid-column: 1 / -1; margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; }
+@media (max-width: 480px) { .mcf-form { grid-template-columns: 1fr; } }
+
+/* ═══ [R2] Visual Timeline ═══ */
+.tl-filters { display: flex; gap: 6px; margin-bottom: 10px; }
+.tl-filter-btn { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; color: #64748b; cursor: pointer; }
+.tl-filter-btn.active { background: var(--kia-dark); color: #fff; border-color: var(--kia-dark); }
+.tl-track { position: relative; padding-left: 16px; border-left: 2px solid #e2e8f0; margin-left: 6px; }
+.tl-phase { margin-bottom: 14px; }
+.tl-phase-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; margin-left: -22px; }
+.tl-phase-name { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--kia-dark); background: #f1f5f9; padding: 3px 10px; border-radius: 10px; }
+.tl-phase-dur { font-size: 10px; color: #64748b; font-weight: 600; }
+.tl-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; position: relative; }
+.tl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; margin-left: -22px; border: 2px solid #fff; box-shadow: 0 0 0 1px #e2e8f0; }
+.tl-content { flex: 1; }
+.tl-time { font-size: 10px; color: #94a3b8; font-weight: 600; }
+.tl-action { font-size: 12px; color: #1e293b; line-height: 1.3; }
+.tl-user { font-size: 10px; color: #94a3b8; }
+
+/* ═══ [R2] Quick Review Panel ═══ */
+.qr-section { margin-bottom: 12px; }
+.qr-section-title { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; padding: 4px 8px; background: #f1f5f9; border-radius: 4px; }
+.qr-field { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
+.qr-field:hover { background: #eff6ff !important; }
+.qr-icon { font-size: 11px; flex-shrink: 0; width: 20px; text-align: center; }
+.qr-label { flex: 1; color: #334155; font-weight: 500; }
+.qr-val { color: #475569; font-size: 11px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+
+/* ═══ [R2] Date Suggestion Hints ═══ */
+.date-suggestion {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 4px; padding: 5px 10px;
+    background: #f0fdf4; border: 1px dashed #86efac;
+    border-radius: 6px; font-size: 11px; color: #166534;
+}
+.date-sug-apply {
+    background: #16a34a; color: #fff; border: none;
+    padding: 3px 10px; border-radius: 5px; font-size: 10px;
+    font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.date-sug-apply:active { background: #15803d; }
+
+/* ═══ [R2] Batch PDF Progress ═══ */
+.batch-pdf-progress { background: #1e293b; padding: 30px 40px; border-radius: 14px; text-align: center; min-width: 280px; }
+.batch-pdf-title { font-size: 14px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px; }
+.batch-pdf-bar { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+.batch-pdf-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius: 4px; transition: width 0.2s; width: 0%; }
+.batch-pdf-btn { background: #1e40af !important; color: #fff !important; border: none !important; }
+.hist-chk { width: 16px; height: 16px; cursor: pointer; accent-color: var(--kia-red); }
+
