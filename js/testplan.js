@@ -1052,7 +1052,7 @@ function tpRenderTested(el) {
     <div class="tp-card">
         <div class="tp-card-title">
             <span>📋 Registro de Pruebas (${tpState.testedList.length})</span>
-            ${tpState.testedList.length > 0 ? `<button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Borrar todos?')){tpState.testedList=[];tpSave();tpRender();tpUpdateBadges();}" style="font-size:10px;">🗑 Borrar todo</button>` : ''}
+            ${tpState.testedList.length > 0 ? `<button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Borrar todos los registros de pruebas?',function(){tpState.testedList=[];tpSave();tpRender();tpUpdateBadges();},{title:'Borrar registros',type:'danger',confirmText:'Borrar todo'})" style="font-size:10px;">🗑 Borrar todo</button>` : ''}
         </div>
         ${tpState.testedList.length === 0 ? `<div style="text-align:center;padding:25px;color:var(--tp-dim);"><div style="font-size:24px;margin-bottom:6px;">📭</div>No hay vehículos probados registrados<br><small style="color:var(--tp-dim);">Se agregan automáticamente al liberar vehículos en COP15 (Correlation, COP-Emisiones, EO-Emisiones, Investigación)</small><br><button class="tp-btn tp-btn-primary" onclick="window._tpTestedMode='manual';tpRender();" style="margin-top:12px;">✏️ Agregar Manual</button></div>` : `
         <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:flex-end;">
@@ -1250,7 +1250,7 @@ function tpRenderRules(el) {
                 <span>⚙️ Reglas de Ratio</span>
                 <div style="display:flex;gap:6px;">
                     <button class="tp-btn tp-btn-primary" onclick="tpAddRule()">+ Nueva</button>
-                    <button class="tp-btn tp-btn-ghost" onclick="if(confirm('¿Restaurar reglas por defecto?')){tpState.rules=[{id:1,region:'USA',regulation:'SULEV 30',ratio:3,per:1000,label:'USA / SULEV 30'},{id:2,region:'USA',regulation:'*',ratio:3,per:1000,label:'USA / Otros'},{id:3,region:'CANADA',regulation:'*',ratio:3,per:1000,label:'Canada'},{id:4,region:'EUROPE',regulation:'EURO-6C',ratio:4,per:1000,label:'Europe / EURO-6C'},{id:5,region:'EUROPE',regulation:'*',ratio:3,per:1000,label:'Europe / Otros'},{id:6,region:'MEXICO',regulation:'*',ratio:2,per:1000,label:'Mexico'},{id:7,region:'GENERAL',regulation:'EURO-6C',ratio:3,per:1000,label:'General / EURO-6C'},{id:8,region:'GENERAL',regulation:'*',ratio:2,per:1000,label:'General / Otros'},{id:9,region:'MIDDLE EAST',regulation:'*',ratio:2,per:1000,label:'Middle East'},{id:10,region:'BRAZIL',regulation:'*',ratio:2,per:1000,label:'Brazil'},{id:11,region:'AUSTRALIA',regulation:'*',ratio:2,per:1000,label:'Australia'},{id:12,region:'*',regulation:'*',ratio:1,per:1000,label:'Default (catch-all)'}];tpSave();tpRender();}">↺ Reset</button>
+                    <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Restaurar reglas por defecto?',function(){tpState.rules=[{id:1,region:'USA',regulation:'SULEV 30',ratio:3,per:1000,label:'USA / SULEV 30'},{id:2,region:'USA',regulation:'*',ratio:3,per:1000,label:'USA / Otros'},{id:3,region:'CANADA',regulation:'*',ratio:3,per:1000,label:'Canada'},{id:4,region:'EUROPE',regulation:'EURO-6C',ratio:4,per:1000,label:'Europe / EURO-6C'},{id:5,region:'EUROPE',regulation:'*',ratio:3,per:1000,label:'Europe / Otros'},{id:6,region:'MEXICO',regulation:'*',ratio:2,per:1000,label:'Mexico'},{id:7,region:'GENERAL',regulation:'EURO-6C',ratio:3,per:1000,label:'General / EURO-6C'},{id:8,region:'GENERAL',regulation:'*',ratio:2,per:1000,label:'General / Otros'},{id:9,region:'MIDDLE EAST',regulation:'*',ratio:2,per:1000,label:'Middle East'},{id:10,region:'BRAZIL',regulation:'*',ratio:2,per:1000,label:'Brazil'},{id:11,region:'AUSTRALIA',regulation:'*',ratio:2,per:1000,label:'Australia'},{id:12,region:'*',regulation:'*',ratio:1,per:1000,label:'Default (catch-all)'}];tpSave();tpRender();},{title:'Restaurar reglas',type:'warning',confirmText:'Restaurar'})">↺ Reset</button>
                 </div>
             </div>
             <p style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Cuántas pruebas por cada N unidades. Reglas específicas (región+regulación) tienen prioridad sobre genéricas (*).</p>
@@ -1573,7 +1573,7 @@ function tpRenderWeekly(el) {
                     <button class="tp-btn tp-btn-ghost" onclick="tpCarryOverWeekly(${idx})" style="font-size:10px;" title="Copiar items pendientes a nueva semana">➡️ Copiar pendientes</button>
                     <button class="tp-btn tp-btn-ghost" onclick="tpExportWeeklyPlan(${idx})" style="font-size:10px;">📤</button>
                     <button class="tp-btn tp-btn-ghost" onclick="window._tpEditWeek=${isEdit?-1:idx};tpRender();" style="font-size:10px;">${isEdit?'✕':'✏️'}</button>
-                    <button class="tp-btn tp-btn-ghost" onclick="if(confirm('¿Eliminar semana ${idx+1}?')){tpState.weeklyPlans.splice(${idx},1);tpSave();tpRender();}" style="font-size:10px;color:var(--tp-red);">🗑</button>
+                    <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Eliminar semana ${idx+1}?',function(){tpState.weeklyPlans.splice(${idx},1);tpSave();tpRender();},{title:'Eliminar semana',type:'danger',confirmText:'Eliminar'})" style="font-size:10px;color:var(--tp-red);">🗑</button>
                 </div>
             </div>
             ${hasSchedule ? ['dom','lun','mar','mie','jue','vie','sab'].filter(d => dayGroups[d] && dayGroups[d].length > 0).map(d => `
@@ -1927,7 +1927,7 @@ function tpRenderWeekHistory(el) {
     });
 
     // Delete history button
-    html += `<div style="text-align:center;margin-top:10px;"><button class="tp-btn tp-btn-ghost" onclick="if(confirm('¿Borrar todo el historial de semanas?')){tpState.weekHistory=[];tpSave();tpRender();}" style="font-size:9px;color:var(--tp-red);">Borrar historial</button></div>`;
+    html += `<div style="text-align:center;margin-top:10px;"><button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Borrar todo el historial de semanas?',function(){tpState.weekHistory=[];tpSave();tpRender();},{title:'Borrar historial',type:'danger',confirmText:'Borrar todo'})" style="font-size:9px;color:var(--tp-red);">Borrar historial</button></div>`;
 
     el.innerHTML = html;
 }

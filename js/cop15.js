@@ -201,23 +201,64 @@ setAltaDatetimeIfEmpty(true);
         tab.addEventListener('click', (e) => {
             // Warn about unsaved changes when leaving Operation tab
             if (_unsavedChanges && tab.dataset.tab !== 'seguimiento') {
-                if (!confirm('Tienes cambios sin guardar. ¿Salir sin guardar?')) {
-                    e.stopPropagation();
-                    return;
-                }
-                clearUnsaved();
+                e.stopPropagation();
+                showConfirm('Tienes cambios sin guardar. ¿Salir sin guardar?', function(){
+                    clearUnsaved();
+                    _switchToCop15Tab(tab);
+                }, {title:'Cambios sin guardar', type:'warning', confirmText:'Salir sin guardar'});
+                return;
             }
-            document.querySelectorAll('.tab, .tab-panel').forEach(el => el.classList.remove('active'));
-            tab.classList.add('active');
-            document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
-            if (tab.dataset.tab === 'kanban') renderKanban();
-            // Show/hide floating action bar based on tab
-            var isOp = tab.dataset.tab === 'seguimiento';
-            toggleActionBar(isOp && !!activeVehicleId);
-            refreshAllLists();
-            updateProgressBar();
+            _switchToCop15Tab(tab);
         });
     });
+
+    function _switchToCop15Tab(tab) {
+        document.querySelectorAll('.tab, .tab-panel').forEach(function(el){ el.classList.remove('active'); });
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        localStorage.setItem('kia_cop15_activeTab', tab.dataset.tab);
+        if (tab.dataset.tab === 'kanban') renderKanban();
+        var isOp = tab.dataset.tab === 'seguimiento';
+        toggleActionBar(isOp && !!activeVehicleId);
+        refreshAllLists();
+        updateProgressBar();
+    }
+
+    // Setup real-time field validation for Alta form
+    (function setupAltaValidation() {
+        var vinInput = document.getElementById('vin');
+        var purposeSelect = document.getElementById('vehiclePurpose');
+        var regOperator = document.getElementById('reg_operator');
+
+        if (vinInput) {
+            vinInput.addEventListener('input', function() {
+                validateField(vinInput, {
+                    required: true,
+                    exactLength: 17,
+                    pattern: /^[A-HJ-NPR-Z0-9]{17}$/,
+                    patternMsg: '17 caracteres alfanuméricos (sin I, O, Q)'
+                });
+            });
+            vinInput.addEventListener('blur', function() {
+                validateField(vinInput, {
+                    required: true,
+                    exactLength: 17,
+                    pattern: /^[A-HJ-NPR-Z0-9]{17}$/,
+                    patternMsg: '17 caracteres alfanuméricos (sin I, O, Q)'
+                });
+            });
+        }
+        if (purposeSelect) {
+            purposeSelect.addEventListener('change', function() {
+                validateField(purposeSelect, { required: true });
+            });
+        }
+        if (regOperator) {
+            regOperator.addEventListener('change', function() {
+                validateField(regOperator, { required: true });
+            });
+        }
+    })();
 
     // Setup unsaved changes tracking
     setupUnsavedTracking();
@@ -1060,7 +1101,7 @@ function saveProgress() {
 
   // Save button feedback
   var saveBtn = document.getElementById('btn-save');
-  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ Guardando...'; }
+  if (saveBtn) { setBtnLoading(saveBtn, true, 'Guardando...'); }
 
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
   if (!vehicle) return;
@@ -1101,7 +1142,7 @@ function saveProgress() {
     saveDB();
     if ((newStatus === 'testing' || newStatus === 'in-progress') && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
     clearUnsaved();
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Guardar'; }
+    if (saveBtn) { setBtnLoading(saveBtn, false); }
     showToast('Progreso guardado (formato simple)', 'success');
     refreshAllLists();
     updateProgressBar();
@@ -1219,7 +1260,7 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   saveDB();
   if (newStatus === 'testing' && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
   clearUnsaved();
-  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Guardar'; }
+  if (saveBtn) { setBtnLoading(saveBtn, false); }
   showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
   updateProgressBar();
@@ -1884,12 +1925,12 @@ opt.dataset.fullConfig = v.configCode;
 
 
     function confirmReset() {
-        if(confirm('⚠️ ¿SEGURO que desea BORRAR TODOS los datos? Esta acción NO se puede deshacer.')) {
-            if(confirm('⚠️ ÚLTIMA CONFIRMACIÓN: Se borrarán TODOS los vehículos y pruebas.')) {
+        showConfirm('¿SEGURO que desea BORRAR TODOS los datos? Esta acción NO se puede deshacer.', function(){
+            showConfirm('ÚLTIMA CONFIRMACIÓN: Se borrarán TODOS los vehículos y pruebas.', function(){
                 localStorage.removeItem('kia_db_v11');
                 location.reload();
-            }
-        }
+            }, {title:'Última confirmación', type:'danger', confirmText:'Borrar todo'});
+        }, {title:'Resetear base de datos', type:'danger', confirmText:'Sí, borrar'});
     }
 
 
@@ -2104,6 +2145,7 @@ const KIA_LOGO_B64 = 'data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUND
 function generateCOP15PDF(vehicleId) {
   const vehicle = db.vehicles.find(v => v.id == vehicleId);
   if (!vehicle) { showToast('No hay vehículo seleccionado.', 'error'); return; }
+  showOverlayLoading('Generando PDF...');
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
     showToast('PDF COP15-F05 solo aplica para Emisiones. Este vehículo: ' + vehicle.purpose, 'warning');
@@ -2533,6 +2575,7 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // =====================================================
   const fname = 'COP15-F05_'+(vehicle.vin||'SIN-VIN')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
   doc.save(fname);
+  hideOverlayLoading();
   showToast('PDF generado: ' + fname, 'success');
 }
 
@@ -2547,7 +2590,7 @@ function openConfigPanel() {
     const srcEl = document.getElementById('configSource');
     var modalSrc = document.getElementById('configSourceModal');
     var srcHtml = isCustom
-        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="if(confirm(\'Restaurar CSV original embebido?\')){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');}" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>'
+        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="showConfirm(\'Restaurar CSV original embebido?\',function(){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');},{title:\'Restaurar CSV\',type:\'warning\',confirmText:\'Restaurar\'})" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>'
         : '<span style="color:#94a3b8;">CSV embebido (original)</span>';
     if (srcEl) srcEl.innerHTML = srcHtml;
     if (modalSrc) modalSrc.innerHTML = srcHtml;
@@ -2783,16 +2826,18 @@ function renderKanban() {
     } catch(e) {}
 
     var precondCount = vehicles.filter(function(v) { return v.status === 'registered' || v.status === 'in-progress'; }).length;
+    var _kanbanCompact = getViewMode('kanban') === 'compact';
     var html = '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
     html += '<h3 style="margin:0;font-size:16px;">Cola de Vehiculos</h3>';
     var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
     html += '<span style="font-size:11px;color:#64748b;">' + totalActive + ' activos</span>';
+    html += '<span style="margin-left:auto;">' + renderViewModeToggle('kanban', true) + '</span>';
     if (precondCount > 0) {
         html += '<button onclick="renderPrecondBatchView()" style="margin-left:auto;background:#f59e0b;color:#000;border:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 Precond Lote (' + precondCount + ')</button>';
     }
     html += '</div>';
 
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;align-items:start;">';
+    html += '<div class="' + (_kanbanCompact ? 'list-compact' : '') + '" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;align-items:start;">';
 
     columns.forEach(function(col) {
         var colVehicles = vehicles.filter(function(v) { return v.status === col.key; });
@@ -2832,12 +2877,12 @@ function renderKanban() {
                 if (modelo) {
                     html += '<div style="font-size:10px;font-weight:600;color:#0f172a;margin-top:3px;">' + modelo + '</div>';
                 }
-                html += '<div style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap;">';
+                html += '<div class="compact-hide" style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap;">';
                 if (motor) html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;">' + motor + '</span>';
                 if (regulacion) html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">' + regulacion + '</span>';
                 html += '</div>';
                 // Purpose badge
-                html += '<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">';
+                html += '<div class="compact-hide" style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">';
                 if (v.purpose) {
                     var pColor = v.purpose.includes('COP') ? '#0ea5e9' : v.purpose.includes('EO') ? '#f97316' : '#8b5cf6';
                     html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:' + pColor + '15;color:' + pColor + ';border:1px solid ' + pColor + '30;">' + v.purpose + '</span>';
@@ -2854,7 +2899,7 @@ function renderKanban() {
                     if (remaining > 0) {
                         var hrs = Math.floor(remaining / (1000 * 60 * 60));
                         var mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-                        html += '<div style="margin-top:4px;font-size:8px;padding:2px 6px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Soak: ' + hrs + 'h ' + mins + 'm restantes</div>';
+                        html += '<div class="compact-hide" style="margin-top:4px;font-size:8px;padding:2px 6px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Soak: ' + hrs + 'h ' + mins + 'm restantes</div>';
                     }
                 }
                 html += '</div>';

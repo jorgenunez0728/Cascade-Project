@@ -689,6 +689,49 @@ body{ overflow-x: hidden; }
 @keyframes toastIn { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
 @keyframes toastOut { from { opacity:1; } to { opacity:0; transform:translateY(-10px); } }
 
+/* ═══ Custom Modal System ═══ */
+.custom-modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999;
+    background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center;
+    animation: modalFadeIn 0.2s ease; backdrop-filter: blur(2px);
+}
+.custom-modal-box {
+    background: #1e293b; border: 1px solid #334155; border-radius: 14px;
+    padding: 24px; min-width: 300px; max-width: 90vw; max-height: 80vh;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5); animation: modalSlideIn 0.25s ease;
+}
+.custom-modal-box.modal-light {
+    background: #fff; border-color: #e2e5ea; color: #1a1a2e;
+}
+.custom-modal-title {
+    font-size: 16px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+    color: #f1f5f9;
+}
+.modal-light .custom-modal-title { color: #1a1a2e; }
+.custom-modal-message {
+    font-size: 14px; color: #94a3b8; line-height: 1.5; margin-bottom: 20px;
+}
+.modal-light .custom-modal-message { color: #64748b; }
+.custom-modal-actions {
+    display: flex; gap: 10px; justify-content: flex-end;
+}
+.custom-modal-actions button {
+    padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600;
+    border: none; cursor: pointer; min-width: 80px; transition: all 0.15s;
+}
+.modal-btn-cancel {
+    background: #334155; color: #e2e8f0;
+}
+.modal-light .modal-btn-cancel { background: #e2e5ea; color: #374151; }
+.modal-btn-cancel:hover { background: #475569; }
+.modal-btn-confirm { background: var(--tp-blue); color: #fff; }
+.modal-btn-confirm:hover { opacity: 0.9; }
+.modal-btn-confirm.modal-type-danger { background: var(--tp-red); }
+.modal-btn-confirm.modal-type-warning { background: var(--tp-amber); color: #1a1a2e; }
+.modal-btn-confirm.modal-type-success { background: var(--tp-green); }
+@keyframes modalFadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes modalSlideIn { from { opacity:0; transform:scale(0.95) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
+
 /* ═══ Inventory Alert Banner ═══ */
 .inv-alert-banner {
     padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 600;
@@ -696,6 +739,64 @@ body{ overflow-x: hidden; }
 }
 .inv-alert-critical { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; }
 .inv-alert-warning { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #f59e0b; }
+
+/* ═══ Compact/Detailed View Mode ═══ */
+.view-mode-toggle {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px; padding: 2px; font-size: 10px;
+}
+.view-mode-toggle button {
+    padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer;
+    background: transparent; color: inherit; font-size: 10px; transition: all 0.15s;
+}
+.view-mode-toggle button.active { background: rgba(255,255,255,0.15); font-weight: 700; }
+.view-mode-toggle.light { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); }
+.view-mode-toggle.light button.active { background: rgba(0,0,0,0.08); }
+
+.list-compact .card-detail-row,
+.list-compact .compact-hide { display: none !important; }
+.list-compact .kanban-card { padding: 6px 8px !important; }
+.list-compact .kanban-card-title { font-size: 11px !important; margin-bottom: 0 !important; }
+
+/* ═══ Accessibility: Focus Indicators ═══ */
+*:focus-visible {
+    outline: 2px solid var(--tp-blue);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+.platform-section[data-theme="light"] *:focus-visible,
+#platform-cop15 *:focus-visible {
+    outline-color: var(--kia-dark);
+}
+button:focus-visible { outline-offset: 1px; }
+
+/* ═══ Real-time Field Validation ═══ */
+.field-valid { border-color: var(--tp-green) !important; box-shadow: 0 0 0 1px rgba(16,185,129,0.3) !important; }
+.field-error { border-color: var(--tp-red) !important; box-shadow: 0 0 0 1px rgba(239,68,68,0.3) !important; }
+.field-hint {
+    font-size: 10px; margin-top: 2px; min-height: 14px; transition: all 0.2s;
+}
+.field-hint-error { color: var(--tp-red); }
+.field-hint-success { color: var(--tp-green); }
+
+/* ═══ Loading Indicators ═══ */
+.loading-spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+}
+.loading-spinner.spinner-dark { border-color: rgba(0,0,0,0.15); border-top-color: #333; }
+.btn-loading { opacity: 0.7; pointer-events: none; position: relative; }
+.loading-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9998;
+    background: rgba(0,0,0,0.4); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+    backdrop-filter: blur(2px); animation: modalFadeIn 0.2s ease;
+}
+.loading-overlay-spinner { width: 40px; height: 40px; border-width: 3px; }
+.loading-overlay-text { color: #fff; font-size: 14px; font-weight: 600; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ═══ Bottom Navigation Bar ═══ */
 .bottom-nav {
@@ -751,7 +852,7 @@ body{ overflow-x: hidden; }
 <div class="progress-container"><div class="progress-bar" id="mainProgress"></div></div>
 
 <!-- ═══ PLATFORM SWITCHER ═══ -->
-<div class="platform-bar">
+<div class="platform-bar" role="navigation" aria-label="Navegación principal entre módulos">
     <div class="platform-tab active" onclick="switchPlatform('cop15')" id="ptab-cop15">
         🔬 COP15 CASCADE
         <span class="pt-badge" style="background:rgba(187,22,43,0.2);color:#f87171;" id="cop15-count-badge">0 activos</span>
@@ -790,7 +891,7 @@ body{ overflow-x: hidden; }
 </div>
 
 <!-- ═══ PLATFORM 1: COP15 CASCADE ═══ -->
-<div class="platform-section active" id="platform-cop15">
+<div class="platform-section active" id="platform-cop15" role="main" aria-label="COP15 Cascade">
 
 <div class="topbar">
     <div><strong>KIA Laboratorio de Emisiones</strong> <span style="font-size:0.8rem; opacity:0.7;">v1.0615 EmLab CASCADE System</span>
@@ -800,8 +901,8 @@ body{ overflow-x: hidden; }
 </div>
 
 <div class="container">
-    <div class="tabs">
-        <div class="tab active" data-tab="alta">1. Alta</div>
+    <div class="tabs" role="tablist" aria-label="Secciones COP15">
+        <div class="tab active" data-tab="alta" role="tab">1. Alta</div>
         <div class="tab" data-tab="seguimiento">2. Operación <span id="unsaved-dot" style="display:none;color:#ef4444;font-size:14px;">●</span></div>
         <div class="tab" data-tab="liberacion">3. Liberación</div>
         <div class="tab" data-tab="kanban">Cola</div>
@@ -1586,7 +1687,7 @@ body{ overflow-x: hidden; }
 <!-- ═══════════════════════════════════════════════════════════════
      PLATFORM 2: TEST PLAN MANAGER
      ═══════════════════════════════════════════════════════════════ -->
-<div class="platform-section" id="platform-testplan">
+<div class="platform-section" id="platform-testplan" role="main" aria-label="Test Plan Manager">
 
     <div class="tp-header">
         <div>
@@ -1622,7 +1723,7 @@ body{ overflow-x: hidden; }
 <!-- ═══════════════════════════════════════════════════════════════
      PLATFORM 3: RESULTS ANALYZER
      ═══════════════════════════════════════════════════════════════ -->
-<div class="platform-section" id="platform-results">
+<div class="platform-section" id="platform-results" role="main" aria-label="Results Analyzer">
     <div class="tp-header">
         <div>
             <h2>🧪 RESULTS ANALYZER</h2>
@@ -1651,7 +1752,7 @@ body{ overflow-x: hidden; }
     </div>
 </div><!-- END platform-results -->
 
-<div class="platform-section" id="platform-inventory">
+<div class="platform-section" id="platform-inventory" role="main" aria-label="Lab Inventory">
     <div class="tp-main">
         <div class="tp-header" style="margin-bottom:12px;"><h2 style="margin:0;font-size:16px;color:var(--tp-text);">📦 Lab Inventory</h2></div>
         <div class="tp-tabs" id="inv-tabs-bar" style="margin-bottom:12px;">
@@ -1712,7 +1813,7 @@ body{ overflow-x: hidden; }
 <div id="fbModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
 
 <!-- ═══ BOTTOM NAVIGATION BAR ═══ -->
-<nav class="bottom-nav" id="bottomNav">
+<nav class="bottom-nav" id="bottomNav" role="navigation" aria-label="Barra de navegación inferior">
     <div class="bottom-nav-item active" onclick="switchPlatform('cop15')" id="bnav-cop15">
         <span class="bnav-icon">🔬</span>
         <span>COP15</span>
@@ -1995,6 +2096,162 @@ let currentUnitSystem = 'SI';
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
     }
 
+// ── View Mode (Compact/Detailed) ──
+var _viewModes = {};
+(function loadViewModes(){
+    try { _viewModes = JSON.parse(localStorage.getItem('kia_viewModes') || '{}'); } catch(e){ _viewModes = {}; }
+})();
+function toggleViewMode(module) {
+    _viewModes[module] = _viewModes[module] === 'compact' ? 'detailed' : 'compact';
+    localStorage.setItem('kia_viewModes', JSON.stringify(_viewModes));
+    // Re-render appropriate module
+    if (module === 'kanban' && typeof renderKanban === 'function') renderKanban();
+    if (module === 'inv-gases' && typeof invRender === 'function') invRender();
+    if (module === 'tp-tested' && typeof tpRender === 'function') tpRender();
+}
+function getViewMode(module) { return _viewModes[module] || 'detailed'; }
+function renderViewModeToggle(module, isLight) {
+    var mode = getViewMode(module);
+    return '<div class="view-mode-toggle' + (isLight ? ' light' : '') + '">' +
+        '<button class="' + (mode==='detailed'?'active':'') + '" onclick="event.stopPropagation();_viewModes[\'' + module + '\']=\'detailed\';localStorage.setItem(\'kia_viewModes\',JSON.stringify(_viewModes));' +
+        (module==='kanban'?'renderKanban()':module==='inv-gases'?'invRender()':'tpRender()') + '">Detalle</button>' +
+        '<button class="' + (mode==='compact'?'active':'') + '" onclick="event.stopPropagation();_viewModes[\'' + module + '\']=\'compact\';localStorage.setItem(\'kia_viewModes\',JSON.stringify(_viewModes));' +
+        (module==='kanban'?'renderKanban()':module==='inv-gases'?'invRender()':'tpRender()') + '">Compacto</button>' +
+        '</div>';
+}
+
+// ── Real-time Field Validation ──
+function validateField(input, rules) {
+    if (!input) return false;
+    var val = (input.value || '').trim();
+    var hint = input.parentElement ? input.parentElement.querySelector('.field-hint') : null;
+
+    // Create hint element if it doesn't exist
+    if (!hint && input.parentElement) {
+        hint = document.createElement('div');
+        hint.className = 'field-hint';
+        input.parentElement.appendChild(hint);
+    }
+
+    var valid = true;
+    var msg = '';
+
+    if (rules.required && !val) {
+        valid = false; msg = 'Campo requerido';
+    } else if (rules.minLength && val.length < rules.minLength) {
+        valid = false; msg = 'Mínimo ' + rules.minLength + ' caracteres';
+    } else if (rules.exactLength && val.length !== rules.exactLength && val.length > 0) {
+        valid = false; msg = 'Debe tener exactamente ' + rules.exactLength + ' caracteres';
+    } else if (rules.pattern && val && !rules.pattern.test(val)) {
+        valid = false; msg = rules.patternMsg || 'Formato inválido';
+    }
+
+    input.classList.remove('field-valid', 'field-error', 'field-missing');
+    if (val.length > 0) {
+        input.classList.add(valid ? 'field-valid' : 'field-error');
+    }
+    if (hint) {
+        hint.textContent = valid ? '' : msg;
+        hint.className = 'field-hint ' + (valid ? 'field-hint-success' : 'field-hint-error');
+    }
+    return valid;
+}
+
+// ── Loading Indicators ──
+function setBtnLoading(btn, isLoading, loadingText) {
+    if (!btn) return;
+    if (isLoading) {
+        btn._origText = btn.innerHTML;
+        btn.innerHTML = '<span class="loading-spinner" style="vertical-align:middle;margin-right:6px;"></span>' + (loadingText || 'Guardando...');
+        btn.classList.add('btn-loading');
+        btn.disabled = true;
+    } else {
+        btn.innerHTML = btn._origText || btn.innerHTML;
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+    }
+}
+
+function showOverlayLoading(message) {
+    var existing = document.getElementById('_loadingOverlay');
+    if (existing) existing.remove();
+    var overlay = document.createElement('div');
+    overlay.id = '_loadingOverlay';
+    overlay.className = 'loading-overlay';
+    overlay.innerHTML = '<div class="loading-spinner loading-overlay-spinner"></div><div class="loading-overlay-text">' + (message || 'Procesando...') + '</div>';
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+function hideOverlayLoading() {
+    var overlay = document.getElementById('_loadingOverlay');
+    if (overlay) overlay.remove();
+}
+
+// ── Custom Modal System ──
+function showModal(opts) {
+    var title = opts.title || '';
+    var message = opts.message || '';
+    var confirmText = opts.confirmText || 'Aceptar';
+    var cancelText = opts.cancelText || 'Cancelar';
+    var onConfirm = opts.onConfirm || null;
+    var onCancel = opts.onCancel || null;
+    var type = opts.type || 'info'; // danger, warning, info, success
+    var showCancel = opts.showCancel !== false;
+    var isLight = _currentPlatform === 'cop15';
+
+    var overlay = document.createElement('div');
+    overlay.className = 'custom-modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+
+    var icons = {danger:'⚠️',warning:'⚡',info:'ℹ️',success:'✅'};
+    var box = document.createElement('div');
+    box.className = 'custom-modal-box' + (isLight ? ' modal-light' : '');
+    box.innerHTML = '<div class="custom-modal-title">' + (icons[type]||'') + ' ' + title + '</div>' +
+        '<div class="custom-modal-message">' + message + '</div>' +
+        '<div class="custom-modal-actions">' +
+        (showCancel ? '<button class="modal-btn-cancel" id="_modal_cancel">' + cancelText + '</button>' : '') +
+        '<button class="modal-btn-confirm modal-type-' + type + '" id="_modal_confirm">' + confirmText + '</button>' +
+        '</div>';
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    var confirmBtn = box.querySelector('#_modal_confirm');
+    var cancelBtn = box.querySelector('#_modal_cancel');
+    confirmBtn.focus();
+
+    function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+    confirmBtn.addEventListener('click', function(){ close(); if(onConfirm) onConfirm(); });
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ close(); if(onCancel) onCancel(); });
+    overlay.addEventListener('click', function(e){ if(e.target === overlay){ close(); if(onCancel) onCancel(); } });
+}
+
+function showConfirm(message, onConfirm, opts) {
+    opts = opts || {};
+    showModal({
+        title: opts.title || 'Confirmar',
+        message: message,
+        confirmText: opts.confirmText || 'Sí, continuar',
+        cancelText: opts.cancelText || 'Cancelar',
+        type: opts.type || 'warning',
+        onConfirm: onConfirm,
+        onCancel: opts.onCancel || null
+    });
+}
+
+function showAlert(message, opts) {
+    opts = opts || {};
+    showModal({
+        title: opts.title || 'Aviso',
+        message: message,
+        confirmText: opts.confirmText || 'Entendido',
+        type: opts.type || 'info',
+        showCancel: false,
+        onConfirm: opts.onConfirm || null
+    });
+}
+
 // ── Toast Notification System ──
 function showToast(msg, type) {
     type = type || 'info';
@@ -2002,6 +2259,8 @@ function showToast(msg, type) {
     if (!container) {
         container = document.createElement('div');
         container.id = 'toast-container';
+        container.setAttribute('aria-live', 'polite');
+        container.setAttribute('role', 'status');
         document.body.appendChild(container);
     }
     var toast = document.createElement('div');
@@ -2117,12 +2376,24 @@ function switchPlatform(platform, swipeDir) {
     _currentPlatform = platform;
 
     if (platform === 'testplan') { tpRender(); tpUpdateBadges(); }
-    if (platform === 'results') { raRender(); raUpdateBadges(); }
-    if (platform === 'inventory') { invPreloadData(); invRender(); invUpdateBadges(); }
+    if (platform === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
+    if (platform === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
     if (platform === 'panel') { pnRender(); pnUpdateBadges(); }
     if (platform === 'cop15') {
         const active = db.vehicles.filter(v => v.status !== 'archived').length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
+        // Restore COP15 active tab
+        var savedCop15Tab = localStorage.getItem('kia_cop15_activeTab');
+        if (savedCop15Tab) {
+            var tabEl = document.querySelector('.tab[data-tab="' + savedCop15Tab + '"]');
+            if (tabEl) {
+                document.querySelectorAll('.tab, .tab-panel').forEach(function(el){ el.classList.remove('active'); });
+                tabEl.classList.add('active');
+                var panel = document.getElementById('panel-' + savedCop15Tab);
+                if (panel) panel.classList.add('active');
+                if (savedCop15Tab === 'kanban' && typeof renderKanban === 'function') renderKanban();
+            }
+        }
     }
 
     window.scrollTo(0, 0);
@@ -2708,23 +2979,64 @@ setAltaDatetimeIfEmpty(true);
         tab.addEventListener('click', (e) => {
             // Warn about unsaved changes when leaving Operation tab
             if (_unsavedChanges && tab.dataset.tab !== 'seguimiento') {
-                if (!confirm('Tienes cambios sin guardar. ¿Salir sin guardar?')) {
-                    e.stopPropagation();
-                    return;
-                }
-                clearUnsaved();
+                e.stopPropagation();
+                showConfirm('Tienes cambios sin guardar. ¿Salir sin guardar?', function(){
+                    clearUnsaved();
+                    _switchToCop15Tab(tab);
+                }, {title:'Cambios sin guardar', type:'warning', confirmText:'Salir sin guardar'});
+                return;
             }
-            document.querySelectorAll('.tab, .tab-panel').forEach(el => el.classList.remove('active'));
-            tab.classList.add('active');
-            document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
-            if (tab.dataset.tab === 'kanban') renderKanban();
-            // Show/hide floating action bar based on tab
-            var isOp = tab.dataset.tab === 'seguimiento';
-            toggleActionBar(isOp && !!activeVehicleId);
-            refreshAllLists();
-            updateProgressBar();
+            _switchToCop15Tab(tab);
         });
     });
+
+    function _switchToCop15Tab(tab) {
+        document.querySelectorAll('.tab, .tab-panel').forEach(function(el){ el.classList.remove('active'); });
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        localStorage.setItem('kia_cop15_activeTab', tab.dataset.tab);
+        if (tab.dataset.tab === 'kanban') renderKanban();
+        var isOp = tab.dataset.tab === 'seguimiento';
+        toggleActionBar(isOp && !!activeVehicleId);
+        refreshAllLists();
+        updateProgressBar();
+    }
+
+    // Setup real-time field validation for Alta form
+    (function setupAltaValidation() {
+        var vinInput = document.getElementById('vin');
+        var purposeSelect = document.getElementById('vehiclePurpose');
+        var regOperator = document.getElementById('reg_operator');
+
+        if (vinInput) {
+            vinInput.addEventListener('input', function() {
+                validateField(vinInput, {
+                    required: true,
+                    exactLength: 17,
+                    pattern: /^[A-HJ-NPR-Z0-9]{17}$/,
+                    patternMsg: '17 caracteres alfanuméricos (sin I, O, Q)'
+                });
+            });
+            vinInput.addEventListener('blur', function() {
+                validateField(vinInput, {
+                    required: true,
+                    exactLength: 17,
+                    pattern: /^[A-HJ-NPR-Z0-9]{17}$/,
+                    patternMsg: '17 caracteres alfanuméricos (sin I, O, Q)'
+                });
+            });
+        }
+        if (purposeSelect) {
+            purposeSelect.addEventListener('change', function() {
+                validateField(purposeSelect, { required: true });
+            });
+        }
+        if (regOperator) {
+            regOperator.addEventListener('change', function() {
+                validateField(regOperator, { required: true });
+            });
+        }
+    })();
 
     // Setup unsaved changes tracking
     setupUnsavedTracking();
@@ -3567,7 +3879,7 @@ function saveProgress() {
 
   // Save button feedback
   var saveBtn = document.getElementById('btn-save');
-  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ Guardando...'; }
+  if (saveBtn) { setBtnLoading(saveBtn, true, 'Guardando...'); }
 
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
   if (!vehicle) return;
@@ -3608,7 +3920,7 @@ function saveProgress() {
     saveDB();
     if ((newStatus === 'testing' || newStatus === 'in-progress') && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
     clearUnsaved();
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Guardar'; }
+    if (saveBtn) { setBtnLoading(saveBtn, false); }
     showToast('Progreso guardado (formato simple)', 'success');
     refreshAllLists();
     updateProgressBar();
@@ -3726,7 +4038,7 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   saveDB();
   if (newStatus === 'testing' && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
   clearUnsaved();
-  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Guardar'; }
+  if (saveBtn) { setBtnLoading(saveBtn, false); }
   showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
   updateProgressBar();
@@ -4391,12 +4703,12 @@ opt.dataset.fullConfig = v.configCode;
 
 
     function confirmReset() {
-        if(confirm('⚠️ ¿SEGURO que desea BORRAR TODOS los datos? Esta acción NO se puede deshacer.')) {
-            if(confirm('⚠️ ÚLTIMA CONFIRMACIÓN: Se borrarán TODOS los vehículos y pruebas.')) {
+        showConfirm('¿SEGURO que desea BORRAR TODOS los datos? Esta acción NO se puede deshacer.', function(){
+            showConfirm('ÚLTIMA CONFIRMACIÓN: Se borrarán TODOS los vehículos y pruebas.', function(){
                 localStorage.removeItem('kia_db_v11');
                 location.reload();
-            }
-        }
+            }, {title:'Última confirmación', type:'danger', confirmText:'Borrar todo'});
+        }, {title:'Resetear base de datos', type:'danger', confirmText:'Sí, borrar'});
     }
 
 
@@ -4611,6 +4923,7 @@ const KIA_LOGO_B64 = 'data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUND
 function generateCOP15PDF(vehicleId) {
   const vehicle = db.vehicles.find(v => v.id == vehicleId);
   if (!vehicle) { showToast('No hay vehículo seleccionado.', 'error'); return; }
+  showOverlayLoading('Generando PDF...');
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
     showToast('PDF COP15-F05 solo aplica para Emisiones. Este vehículo: ' + vehicle.purpose, 'warning');
@@ -5040,6 +5353,7 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // =====================================================
   const fname = 'COP15-F05_'+(vehicle.vin||'SIN-VIN')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
   doc.save(fname);
+  hideOverlayLoading();
   showToast('PDF generado: ' + fname, 'success');
 }
 
@@ -5054,7 +5368,7 @@ function openConfigPanel() {
     const srcEl = document.getElementById('configSource');
     var modalSrc = document.getElementById('configSourceModal');
     var srcHtml = isCustom
-        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="if(confirm(\'Restaurar CSV original embebido?\')){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');}" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>'
+        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="showConfirm(\'Restaurar CSV original embebido?\',function(){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');},{title:\'Restaurar CSV\',type:\'warning\',confirmText:\'Restaurar\'})" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>'
         : '<span style="color:#94a3b8;">CSV embebido (original)</span>';
     if (srcEl) srcEl.innerHTML = srcHtml;
     if (modalSrc) modalSrc.innerHTML = srcHtml;
@@ -5290,16 +5604,18 @@ function renderKanban() {
     } catch(e) {}
 
     var precondCount = vehicles.filter(function(v) { return v.status === 'registered' || v.status === 'in-progress'; }).length;
+    var _kanbanCompact = getViewMode('kanban') === 'compact';
     var html = '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
     html += '<h3 style="margin:0;font-size:16px;">Cola de Vehiculos</h3>';
     var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
     html += '<span style="font-size:11px;color:#64748b;">' + totalActive + ' activos</span>';
+    html += '<span style="margin-left:auto;">' + renderViewModeToggle('kanban', true) + '</span>';
     if (precondCount > 0) {
         html += '<button onclick="renderPrecondBatchView()" style="margin-left:auto;background:#f59e0b;color:#000;border:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 Precond Lote (' + precondCount + ')</button>';
     }
     html += '</div>';
 
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;align-items:start;">';
+    html += '<div class="' + (_kanbanCompact ? 'list-compact' : '') + '" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;align-items:start;">';
 
     columns.forEach(function(col) {
         var colVehicles = vehicles.filter(function(v) { return v.status === col.key; });
@@ -5339,12 +5655,12 @@ function renderKanban() {
                 if (modelo) {
                     html += '<div style="font-size:10px;font-weight:600;color:#0f172a;margin-top:3px;">' + modelo + '</div>';
                 }
-                html += '<div style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap;">';
+                html += '<div class="compact-hide" style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap;">';
                 if (motor) html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;">' + motor + '</span>';
                 if (regulacion) html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">' + regulacion + '</span>';
                 html += '</div>';
                 // Purpose badge
-                html += '<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">';
+                html += '<div class="compact-hide" style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">';
                 if (v.purpose) {
                     var pColor = v.purpose.includes('COP') ? '#0ea5e9' : v.purpose.includes('EO') ? '#f97316' : '#8b5cf6';
                     html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:' + pColor + '15;color:' + pColor + ';border:1px solid ' + pColor + '30;">' + v.purpose + '</span>';
@@ -5361,7 +5677,7 @@ function renderKanban() {
                     if (remaining > 0) {
                         var hrs = Math.floor(remaining / (1000 * 60 * 60));
                         var mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-                        html += '<div style="margin-top:4px;font-size:8px;padding:2px 6px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Soak: ' + hrs + 'h ' + mins + 'm restantes</div>';
+                        html += '<div class="compact-hide" style="margin-top:4px;font-size:8px;padding:2px 6px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Soak: ' + hrs + 'h ' + mins + 'm restantes</div>';
                     }
                 }
                 html += '</div>';
@@ -5659,9 +5975,16 @@ function invPreloadData() {
 
 function invSwitchTab(tabId) {
     invState.activeTab = tabId;
+    localStorage.setItem('kia_inv_activeTab', tabId);
     document.querySelectorAll('#inv-tabs-bar .tp-tab').forEach(function(b){b.classList.remove('active');});
-    event.target.classList.add('active');
+    var targetBtn = document.querySelector('#inv-tabs-bar .tp-tab[onclick*="' + tabId + '"]');
+    if (event && event.target) event.target.classList.add('active');
+    else if (targetBtn) targetBtn.classList.add('active');
     invRender();
+}
+function invRestoreTab() {
+    var saved = localStorage.getItem('kia_inv_activeTab');
+    if (saved) { invSwitchTab(saved); }
 }
 
 // Proactive alerts on module open (runs once per session)
@@ -5865,8 +6188,10 @@ function invRenderGases(el) {
     var allZones = invState.zones.map(function(z){return z.id;});
     var filtered = filterZone === 'ALL' ? gases : gases.filter(function(g){ return g.zone && g.zone.startsWith(filterZone); });
 
+    var _invGasCompact = getViewMode('inv-gases') === 'compact';
     var html = '<div class="tp-card"><div class="tp-card-title"><span>Gestion de Cilindros (' + gases.length + ')</span>';
-    html += '<div style="display:flex;gap:5px;"><button class="tp-btn tp-btn-primary" onclick="invShowAddGas()" style="font-size:10px;">+ Nuevo Cilindro</button>';
+    html += '<div style="display:flex;gap:5px;align-items:center;">' + renderViewModeToggle('inv-gases', false);
+    html += '<button class="tp-btn tp-btn-primary" onclick="invShowAddGas()" style="font-size:10px;">+ Nuevo Cilindro</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invExportGases()" style="font-size:10px;">Exportar</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invImportGases()" style="font-size:10px;">Importar</button></div></div>';
     html += '<input type="file" id="inv-import-file" accept=".json" style="display:none;" onchange="invHandleImport(event)">';
@@ -5880,7 +6205,7 @@ function invRenderGases(el) {
     if (filtered.length === 0) {
         html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin cilindros' + (filterZone !== 'ALL' ? ' en zona ' + filterZone : '') + '</div>';
     } else {
-        html += '<div style="max-height:500px;overflow-y:auto;">';
+        html += '<div class="' + (_invGasCompact ? 'list-compact' : '') + '" style="max-height:500px;overflow-y:auto;">';
         filtered.sort(function(a,b){ return (a.zone||'').localeCompare(b.zone||''); }).forEach(function(g) {
             var exp = invGasExpiry(g);
             var lvl = invGasLevel(g);
@@ -5891,7 +6216,7 @@ function invRenderGases(el) {
             }
             html += '<div style="flex:1;min-width:180px;">';
             html += '<div style="font-weight:700;font-size:11px;">' + g.formula + ' <span style="color:var(--tp-dim);font-weight:400;">' + (g.concNominal||'') + '</span></div>';
-            html += '<div style="font-size:9px;color:var(--tp-dim);">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo||'?') + ' | ' + (g.zone||'?') + '</div>';
+            html += '<div class="compact-hide" style="font-size:9px;color:var(--tp-dim);">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo||'?') + ' | ' + (g.zone||'?') + '</div>';
             html += '</div>';
             html += '<div style="display:flex;gap:6px;align-items:center;">';
             html += '<span style="font-size:8px;padding:2px 6px;border-radius:4px;background:' + exp.color + '20;color:' + exp.color + ';border:1px solid ' + exp.color + '30;">' + exp.text + '</span>';
@@ -5948,7 +6273,7 @@ function invShowAddGas(editId) {
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveGas(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="if(confirm(\x27Eliminar cilindro?\x27)){invDeleteGas(\x27' + editId + '\x27);}" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar cilindro?\',function(){invDeleteGas(\x27' + editId + '\x27);},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 
@@ -6739,7 +7064,7 @@ function invAddEquipment(editId) {
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveEquipment(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="if(confirm(\x27Eliminar?\x27)){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;}" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar equipo?\',function(){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 }
@@ -7390,7 +7715,7 @@ function invAddFuelTank(editId) {
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveFuelTank(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="if(confirm(\x27Eliminar?\x27)){invState.fuelTanks=invState.fuelTanks.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;}" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar tanque?\',function(){invState.fuelTanks=invState.fuelTanks.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 }
@@ -8012,7 +8337,7 @@ function invRenderConfig(el) {
     html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invExportGases()" style="font-size:10px;">Exportar JSON</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invImportGases()" style="font-size:10px;">Importar JSON</button>';
-    html += '<button class="tp-btn tp-btn-danger" onclick="if(confirm(\x27Borrar TODOS los datos de inventario?\x27)){invState.gases=[];invState.equipment=[];invState.fuelTanks=[];invState.usageLog=[];invSave();invRender();invUpdateBadges();}" style="font-size:10px;">Resetear</button>';
+    html += '<button class="tp-btn tp-btn-danger" onclick="showConfirm(\'Borrar TODOS los datos de inventario?\',function(){invState.gases=[];invState.equipment=[];invState.fuelTanks=[];invState.usageLog=[];invSave();invRender();invUpdateBadges();},{title:\'Resetear inventario\',type:\'danger\',confirmText:\'Borrar todo\'})" style="font-size:10px;">Resetear</button>';
     html += '</div>';
     html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:4px;">' + invState.gases.length + ' gases, ' + invState.equipment.length + ' equipos, ' + (invState.usageLog||[]).length + ' registros de uso</div>';
     html += '</div>';
@@ -8117,7 +8442,7 @@ function invShowGasTypeModal(idx) {
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveGasTypeModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="if(confirm(\x27Eliminar tipo de gas?\x27)){invState.gasTypes.splice(' + idx + ',1);invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;}" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar tipo de gas?\',function(){invState.gasTypes.splice(' + idx + ',1);invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 }
@@ -9728,7 +10053,7 @@ function tpRenderTested(el) {
     <div class="tp-card">
         <div class="tp-card-title">
             <span>📋 Registro de Pruebas (${tpState.testedList.length})</span>
-            ${tpState.testedList.length > 0 ? `<button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Borrar todos?')){tpState.testedList=[];tpSave();tpRender();tpUpdateBadges();}" style="font-size:10px;">🗑 Borrar todo</button>` : ''}
+            ${tpState.testedList.length > 0 ? `<button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Borrar todos los registros de pruebas?',function(){tpState.testedList=[];tpSave();tpRender();tpUpdateBadges();},{title:'Borrar registros',type:'danger',confirmText:'Borrar todo'})" style="font-size:10px;">🗑 Borrar todo</button>` : ''}
         </div>
         ${tpState.testedList.length === 0 ? `<div style="text-align:center;padding:25px;color:var(--tp-dim);"><div style="font-size:24px;margin-bottom:6px;">📭</div>No hay vehículos probados registrados<br><small style="color:var(--tp-dim);">Se agregan automáticamente al liberar vehículos en COP15 (Correlation, COP-Emisiones, EO-Emisiones, Investigación)</small><br><button class="tp-btn tp-btn-primary" onclick="window._tpTestedMode='manual';tpRender();" style="margin-top:12px;">✏️ Agregar Manual</button></div>` : `
         <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:flex-end;">
@@ -9926,7 +10251,7 @@ function tpRenderRules(el) {
                 <span>⚙️ Reglas de Ratio</span>
                 <div style="display:flex;gap:6px;">
                     <button class="tp-btn tp-btn-primary" onclick="tpAddRule()">+ Nueva</button>
-                    <button class="tp-btn tp-btn-ghost" onclick="if(confirm('¿Restaurar reglas por defecto?')){tpState.rules=[{id:1,region:'USA',regulation:'SULEV 30',ratio:3,per:1000,label:'USA / SULEV 30'},{id:2,region:'USA',regulation:'*',ratio:3,per:1000,label:'USA / Otros'},{id:3,region:'CANADA',regulation:'*',ratio:3,per:1000,label:'Canada'},{id:4,region:'EUROPE',regulation:'EURO-6C',ratio:4,per:1000,label:'Europe / EURO-6C'},{id:5,region:'EUROPE',regulation:'*',ratio:3,per:1000,label:'Europe / Otros'},{id:6,region:'MEXICO',regulation:'*',ratio:2,per:1000,label:'Mexico'},{id:7,region:'GENERAL',regulation:'EURO-6C',ratio:3,per:1000,label:'General / EURO-6C'},{id:8,region:'GENERAL',regulation:'*',ratio:2,per:1000,label:'General / Otros'},{id:9,region:'MIDDLE EAST',regulation:'*',ratio:2,per:1000,label:'Middle East'},{id:10,region:'BRAZIL',regulation:'*',ratio:2,per:1000,label:'Brazil'},{id:11,region:'AUSTRALIA',regulation:'*',ratio:2,per:1000,label:'Australia'},{id:12,region:'*',regulation:'*',ratio:1,per:1000,label:'Default (catch-all)'}];tpSave();tpRender();}">↺ Reset</button>
+                    <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Restaurar reglas por defecto?',function(){tpState.rules=[{id:1,region:'USA',regulation:'SULEV 30',ratio:3,per:1000,label:'USA / SULEV 30'},{id:2,region:'USA',regulation:'*',ratio:3,per:1000,label:'USA / Otros'},{id:3,region:'CANADA',regulation:'*',ratio:3,per:1000,label:'Canada'},{id:4,region:'EUROPE',regulation:'EURO-6C',ratio:4,per:1000,label:'Europe / EURO-6C'},{id:5,region:'EUROPE',regulation:'*',ratio:3,per:1000,label:'Europe / Otros'},{id:6,region:'MEXICO',regulation:'*',ratio:2,per:1000,label:'Mexico'},{id:7,region:'GENERAL',regulation:'EURO-6C',ratio:3,per:1000,label:'General / EURO-6C'},{id:8,region:'GENERAL',regulation:'*',ratio:2,per:1000,label:'General / Otros'},{id:9,region:'MIDDLE EAST',regulation:'*',ratio:2,per:1000,label:'Middle East'},{id:10,region:'BRAZIL',regulation:'*',ratio:2,per:1000,label:'Brazil'},{id:11,region:'AUSTRALIA',regulation:'*',ratio:2,per:1000,label:'Australia'},{id:12,region:'*',regulation:'*',ratio:1,per:1000,label:'Default (catch-all)'}];tpSave();tpRender();},{title:'Restaurar reglas',type:'warning',confirmText:'Restaurar'})">↺ Reset</button>
                 </div>
             </div>
             <p style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Cuántas pruebas por cada N unidades. Reglas específicas (región+regulación) tienen prioridad sobre genéricas (*).</p>
@@ -10249,7 +10574,7 @@ function tpRenderWeekly(el) {
                     <button class="tp-btn tp-btn-ghost" onclick="tpCarryOverWeekly(${idx})" style="font-size:10px;" title="Copiar items pendientes a nueva semana">➡️ Copiar pendientes</button>
                     <button class="tp-btn tp-btn-ghost" onclick="tpExportWeeklyPlan(${idx})" style="font-size:10px;">📤</button>
                     <button class="tp-btn tp-btn-ghost" onclick="window._tpEditWeek=${isEdit?-1:idx};tpRender();" style="font-size:10px;">${isEdit?'✕':'✏️'}</button>
-                    <button class="tp-btn tp-btn-ghost" onclick="if(confirm('¿Eliminar semana ${idx+1}?')){tpState.weeklyPlans.splice(${idx},1);tpSave();tpRender();}" style="font-size:10px;color:var(--tp-red);">🗑</button>
+                    <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Eliminar semana ${idx+1}?',function(){tpState.weeklyPlans.splice(${idx},1);tpSave();tpRender();},{title:'Eliminar semana',type:'danger',confirmText:'Eliminar'})" style="font-size:10px;color:var(--tp-red);">🗑</button>
                 </div>
             </div>
             ${hasSchedule ? ['dom','lun','mar','mie','jue','vie','sab'].filter(d => dayGroups[d] && dayGroups[d].length > 0).map(d => `
@@ -10603,7 +10928,7 @@ function tpRenderWeekHistory(el) {
     });
 
     // Delete history button
-    html += `<div style="text-align:center;margin-top:10px;"><button class="tp-btn tp-btn-ghost" onclick="if(confirm('¿Borrar todo el historial de semanas?')){tpState.weekHistory=[];tpSave();tpRender();}" style="font-size:9px;color:var(--tp-red);">Borrar historial</button></div>`;
+    html += `<div style="text-align:center;margin-top:10px;"><button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Borrar todo el historial de semanas?',function(){tpState.weekHistory=[];tpSave();tpRender();},{title:'Borrar historial',type:'danger',confirmText:'Borrar todo'})" style="font-size:9px;color:var(--tp-red);">Borrar historial</button></div>`;
 
     el.innerHTML = html;
 }
@@ -12049,9 +12374,16 @@ function raUpdateBadges(){
 
 function raSwitchTab(tabId){
     raState.activeTab = tabId;
+    localStorage.setItem('kia_ra_activeTab', tabId);
     document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(b=>b.classList.remove('active'));
+    var targetBtn = document.querySelector('#ra-tabs-bar .tp-tab[onclick*="' + tabId + '"]');
     if(event && event.target) event.target.classList.add('active');
+    else if(targetBtn) targetBtn.classList.add('active');
     raRender();
+}
+function raRestoreTab(){
+    var saved = localStorage.getItem('kia_ra_activeTab');
+    if(saved){ raSwitchTab(saved); }
 }
 
 function raRender(){
@@ -12404,7 +12736,7 @@ function raRenderImport(el){
     </div>
     <div class="tp-card">
         <div class="tp-card-title"><span>💾 Almacenamiento (${raState.tests.length} pruebas)</span>
-            ${raState.tests.length>0?`<div style="display:flex;gap:6px;"><button class="tp-btn tp-btn-ghost" onclick="raExportAll()" style="font-size:10px;">📤 Export JSON</button><button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Borrar TODAS las pruebas importadas?')){raState.tests=[];raSave();raRender();raUpdateBadges();}" style="font-size:10px;">🗑 Borrar</button></div>`:''}
+            ${raState.tests.length>0?`<div style="display:flex;gap:6px;"><button class="tp-btn tp-btn-ghost" onclick="raExportAll()" style="font-size:10px;">📤 Export JSON</button><button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Borrar TODAS las pruebas importadas?',function(){raState.tests=[];raSave();raRender();raUpdateBadges();},{title:'Borrar pruebas',type:'danger',confirmText:'Borrar todo'})" style="font-size:10px;">🗑 Borrar</button></div>`:''}
         </div>
         <p style="font-size:10px;color:var(--tp-dim);">${raState.tests.length>0?`~${(JSON.stringify(raState.tests).length/1024).toFixed(0)} KB en localStorage`:'Sin datos.'}</p>
     </div>`;
@@ -12599,7 +12931,7 @@ function raRenderProfiles(el){
                     <label style="font-size:10px;color:var(--tp-dim);">Labels personalizados (JSON)</label>
                     <input class="tp-input" value='${JSON.stringify(p.labels||{})}' onchange="try{raState.profiles[${pi}].labels=JSON.parse(this.value);raSave();}catch(e){}" style="font-size:9px;font-family:monospace;">
                 </div>
-                <button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Eliminar?')){raState.profiles.splice(${pi},1);window._raProfileOpen=-1;raSave();raRender();}" style="font-size:10px;">🗑 Eliminar</button>
+                <button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Eliminar este perfil?',function(){raState.profiles.splice(${pi},1);window._raProfileOpen=-1;raSave();raRender();},{title:'Eliminar perfil',type:'danger',confirmText:'Eliminar'})" style="font-size:10px;">🗑 Eliminar</button>
             </div>`:''}
         </div>`;
         }).join('')}

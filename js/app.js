@@ -256,6 +256,162 @@ let currentUnitSystem = 'SI';
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
     }
 
+// ── View Mode (Compact/Detailed) ──
+var _viewModes = {};
+(function loadViewModes(){
+    try { _viewModes = JSON.parse(localStorage.getItem('kia_viewModes') || '{}'); } catch(e){ _viewModes = {}; }
+})();
+function toggleViewMode(module) {
+    _viewModes[module] = _viewModes[module] === 'compact' ? 'detailed' : 'compact';
+    localStorage.setItem('kia_viewModes', JSON.stringify(_viewModes));
+    // Re-render appropriate module
+    if (module === 'kanban' && typeof renderKanban === 'function') renderKanban();
+    if (module === 'inv-gases' && typeof invRender === 'function') invRender();
+    if (module === 'tp-tested' && typeof tpRender === 'function') tpRender();
+}
+function getViewMode(module) { return _viewModes[module] || 'detailed'; }
+function renderViewModeToggle(module, isLight) {
+    var mode = getViewMode(module);
+    return '<div class="view-mode-toggle' + (isLight ? ' light' : '') + '">' +
+        '<button class="' + (mode==='detailed'?'active':'') + '" onclick="event.stopPropagation();_viewModes[\'' + module + '\']=\'detailed\';localStorage.setItem(\'kia_viewModes\',JSON.stringify(_viewModes));' +
+        (module==='kanban'?'renderKanban()':module==='inv-gases'?'invRender()':'tpRender()') + '">Detalle</button>' +
+        '<button class="' + (mode==='compact'?'active':'') + '" onclick="event.stopPropagation();_viewModes[\'' + module + '\']=\'compact\';localStorage.setItem(\'kia_viewModes\',JSON.stringify(_viewModes));' +
+        (module==='kanban'?'renderKanban()':module==='inv-gases'?'invRender()':'tpRender()') + '">Compacto</button>' +
+        '</div>';
+}
+
+// ── Real-time Field Validation ──
+function validateField(input, rules) {
+    if (!input) return false;
+    var val = (input.value || '').trim();
+    var hint = input.parentElement ? input.parentElement.querySelector('.field-hint') : null;
+
+    // Create hint element if it doesn't exist
+    if (!hint && input.parentElement) {
+        hint = document.createElement('div');
+        hint.className = 'field-hint';
+        input.parentElement.appendChild(hint);
+    }
+
+    var valid = true;
+    var msg = '';
+
+    if (rules.required && !val) {
+        valid = false; msg = 'Campo requerido';
+    } else if (rules.minLength && val.length < rules.minLength) {
+        valid = false; msg = 'Mínimo ' + rules.minLength + ' caracteres';
+    } else if (rules.exactLength && val.length !== rules.exactLength && val.length > 0) {
+        valid = false; msg = 'Debe tener exactamente ' + rules.exactLength + ' caracteres';
+    } else if (rules.pattern && val && !rules.pattern.test(val)) {
+        valid = false; msg = rules.patternMsg || 'Formato inválido';
+    }
+
+    input.classList.remove('field-valid', 'field-error', 'field-missing');
+    if (val.length > 0) {
+        input.classList.add(valid ? 'field-valid' : 'field-error');
+    }
+    if (hint) {
+        hint.textContent = valid ? '' : msg;
+        hint.className = 'field-hint ' + (valid ? 'field-hint-success' : 'field-hint-error');
+    }
+    return valid;
+}
+
+// ── Loading Indicators ──
+function setBtnLoading(btn, isLoading, loadingText) {
+    if (!btn) return;
+    if (isLoading) {
+        btn._origText = btn.innerHTML;
+        btn.innerHTML = '<span class="loading-spinner" style="vertical-align:middle;margin-right:6px;"></span>' + (loadingText || 'Guardando...');
+        btn.classList.add('btn-loading');
+        btn.disabled = true;
+    } else {
+        btn.innerHTML = btn._origText || btn.innerHTML;
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+    }
+}
+
+function showOverlayLoading(message) {
+    var existing = document.getElementById('_loadingOverlay');
+    if (existing) existing.remove();
+    var overlay = document.createElement('div');
+    overlay.id = '_loadingOverlay';
+    overlay.className = 'loading-overlay';
+    overlay.innerHTML = '<div class="loading-spinner loading-overlay-spinner"></div><div class="loading-overlay-text">' + (message || 'Procesando...') + '</div>';
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+function hideOverlayLoading() {
+    var overlay = document.getElementById('_loadingOverlay');
+    if (overlay) overlay.remove();
+}
+
+// ── Custom Modal System ──
+function showModal(opts) {
+    var title = opts.title || '';
+    var message = opts.message || '';
+    var confirmText = opts.confirmText || 'Aceptar';
+    var cancelText = opts.cancelText || 'Cancelar';
+    var onConfirm = opts.onConfirm || null;
+    var onCancel = opts.onCancel || null;
+    var type = opts.type || 'info'; // danger, warning, info, success
+    var showCancel = opts.showCancel !== false;
+    var isLight = _currentPlatform === 'cop15';
+
+    var overlay = document.createElement('div');
+    overlay.className = 'custom-modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+
+    var icons = {danger:'⚠️',warning:'⚡',info:'ℹ️',success:'✅'};
+    var box = document.createElement('div');
+    box.className = 'custom-modal-box' + (isLight ? ' modal-light' : '');
+    box.innerHTML = '<div class="custom-modal-title">' + (icons[type]||'') + ' ' + title + '</div>' +
+        '<div class="custom-modal-message">' + message + '</div>' +
+        '<div class="custom-modal-actions">' +
+        (showCancel ? '<button class="modal-btn-cancel" id="_modal_cancel">' + cancelText + '</button>' : '') +
+        '<button class="modal-btn-confirm modal-type-' + type + '" id="_modal_confirm">' + confirmText + '</button>' +
+        '</div>';
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    var confirmBtn = box.querySelector('#_modal_confirm');
+    var cancelBtn = box.querySelector('#_modal_cancel');
+    confirmBtn.focus();
+
+    function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+    confirmBtn.addEventListener('click', function(){ close(); if(onConfirm) onConfirm(); });
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){ close(); if(onCancel) onCancel(); });
+    overlay.addEventListener('click', function(e){ if(e.target === overlay){ close(); if(onCancel) onCancel(); } });
+}
+
+function showConfirm(message, onConfirm, opts) {
+    opts = opts || {};
+    showModal({
+        title: opts.title || 'Confirmar',
+        message: message,
+        confirmText: opts.confirmText || 'Sí, continuar',
+        cancelText: opts.cancelText || 'Cancelar',
+        type: opts.type || 'warning',
+        onConfirm: onConfirm,
+        onCancel: opts.onCancel || null
+    });
+}
+
+function showAlert(message, opts) {
+    opts = opts || {};
+    showModal({
+        title: opts.title || 'Aviso',
+        message: message,
+        confirmText: opts.confirmText || 'Entendido',
+        type: opts.type || 'info',
+        showCancel: false,
+        onConfirm: opts.onConfirm || null
+    });
+}
+
 // ── Toast Notification System ──
 function showToast(msg, type) {
     type = type || 'info';
@@ -263,6 +419,8 @@ function showToast(msg, type) {
     if (!container) {
         container = document.createElement('div');
         container.id = 'toast-container';
+        container.setAttribute('aria-live', 'polite');
+        container.setAttribute('role', 'status');
         document.body.appendChild(container);
     }
     var toast = document.createElement('div');
@@ -378,12 +536,24 @@ function switchPlatform(platform, swipeDir) {
     _currentPlatform = platform;
 
     if (platform === 'testplan') { tpRender(); tpUpdateBadges(); }
-    if (platform === 'results') { raRender(); raUpdateBadges(); }
-    if (platform === 'inventory') { invPreloadData(); invRender(); invUpdateBadges(); }
+    if (platform === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
+    if (platform === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
     if (platform === 'panel') { pnRender(); pnUpdateBadges(); }
     if (platform === 'cop15') {
         const active = db.vehicles.filter(v => v.status !== 'archived').length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
+        // Restore COP15 active tab
+        var savedCop15Tab = localStorage.getItem('kia_cop15_activeTab');
+        if (savedCop15Tab) {
+            var tabEl = document.querySelector('.tab[data-tab="' + savedCop15Tab + '"]');
+            if (tabEl) {
+                document.querySelectorAll('.tab, .tab-panel').forEach(function(el){ el.classList.remove('active'); });
+                tabEl.classList.add('active');
+                var panel = document.getElementById('panel-' + savedCop15Tab);
+                if (panel) panel.classList.add('active');
+                if (savedCop15Tab === 'kanban' && typeof renderKanban === 'function') renderKanban();
+            }
+        }
     }
 
     window.scrollTo(0, 0);

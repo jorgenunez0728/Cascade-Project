@@ -277,9 +277,16 @@ function raUpdateBadges(){
 
 function raSwitchTab(tabId){
     raState.activeTab = tabId;
+    localStorage.setItem('kia_ra_activeTab', tabId);
     document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(b=>b.classList.remove('active'));
+    var targetBtn = document.querySelector('#ra-tabs-bar .tp-tab[onclick*="' + tabId + '"]');
     if(event && event.target) event.target.classList.add('active');
+    else if(targetBtn) targetBtn.classList.add('active');
     raRender();
+}
+function raRestoreTab(){
+    var saved = localStorage.getItem('kia_ra_activeTab');
+    if(saved){ raSwitchTab(saved); }
 }
 
 function raRender(){
@@ -632,7 +639,7 @@ function raRenderImport(el){
     </div>
     <div class="tp-card">
         <div class="tp-card-title"><span>💾 Almacenamiento (${raState.tests.length} pruebas)</span>
-            ${raState.tests.length>0?`<div style="display:flex;gap:6px;"><button class="tp-btn tp-btn-ghost" onclick="raExportAll()" style="font-size:10px;">📤 Export JSON</button><button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Borrar TODAS las pruebas importadas?')){raState.tests=[];raSave();raRender();raUpdateBadges();}" style="font-size:10px;">🗑 Borrar</button></div>`:''}
+            ${raState.tests.length>0?`<div style="display:flex;gap:6px;"><button class="tp-btn tp-btn-ghost" onclick="raExportAll()" style="font-size:10px;">📤 Export JSON</button><button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Borrar TODAS las pruebas importadas?',function(){raState.tests=[];raSave();raRender();raUpdateBadges();},{title:'Borrar pruebas',type:'danger',confirmText:'Borrar todo'})" style="font-size:10px;">🗑 Borrar</button></div>`:''}
         </div>
         <p style="font-size:10px;color:var(--tp-dim);">${raState.tests.length>0?`~${(JSON.stringify(raState.tests).length/1024).toFixed(0)} KB en localStorage`:'Sin datos.'}</p>
     </div>`;
@@ -827,7 +834,7 @@ function raRenderProfiles(el){
                     <label style="font-size:10px;color:var(--tp-dim);">Labels personalizados (JSON)</label>
                     <input class="tp-input" value='${JSON.stringify(p.labels||{})}' onchange="try{raState.profiles[${pi}].labels=JSON.parse(this.value);raSave();}catch(e){}" style="font-size:9px;font-family:monospace;">
                 </div>
-                <button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Eliminar?')){raState.profiles.splice(${pi},1);window._raProfileOpen=-1;raSave();raRender();}" style="font-size:10px;">🗑 Eliminar</button>
+                <button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Eliminar este perfil?',function(){raState.profiles.splice(${pi},1);window._raProfileOpen=-1;raSave();raRender();},{title:'Eliminar perfil',type:'danger',confirmText:'Eliminar'})" style="font-size:10px;">🗑 Eliminar</button>
             </div>`:''}
         </div>`;
         }).join('')}

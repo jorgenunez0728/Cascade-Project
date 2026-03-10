@@ -29,7 +29,7 @@
 <div class="progress-container"><div class="progress-bar" id="mainProgress"></div></div>
 
 <!-- ═══ PLATFORM SWITCHER ═══ -->
-<div class="platform-bar">
+<div class="platform-bar" role="navigation" aria-label="Navegación principal entre módulos">
     <div class="platform-tab active" onclick="switchPlatform('cop15')" id="ptab-cop15">
         🔬 COP15 CASCADE
         <span class="pt-badge" style="background:rgba(187,22,43,0.2);color:#f87171;" id="cop15-count-badge">0 activos</span>
@@ -68,7 +68,7 @@
 </div>
 
 <!-- ═══ PLATFORM 1: COP15 CASCADE ═══ -->
-<div class="platform-section active" id="platform-cop15">
+<div class="platform-section active" id="platform-cop15" role="main" aria-label="COP15 Cascade">
 
 <div class="topbar">
     <div><strong>KIA Laboratorio de Emisiones</strong> <span style="font-size:0.8rem; opacity:0.7;">v1.0615 EmLab CASCADE System</span>
@@ -78,8 +78,8 @@
 </div>
 
 <div class="container">
-    <div class="tabs">
-        <div class="tab active" data-tab="alta">1. Alta</div>
+    <div class="tabs" role="tablist" aria-label="Secciones COP15">
+        <div class="tab active" data-tab="alta" role="tab">1. Alta</div>
         <div class="tab" data-tab="seguimiento">2. Operación <span id="unsaved-dot" style="display:none;color:#ef4444;font-size:14px;">●</span></div>
         <div class="tab" data-tab="liberacion">3. Liberación</div>
         <div class="tab" data-tab="kanban">Cola</div>
@@ -864,7 +864,7 @@
 <!-- ═══════════════════════════════════════════════════════════════
      PLATFORM 2: TEST PLAN MANAGER
      ═══════════════════════════════════════════════════════════════ -->
-<div class="platform-section" id="platform-testplan">
+<div class="platform-section" id="platform-testplan" role="main" aria-label="Test Plan Manager">
 
     <div class="tp-header">
         <div>
@@ -900,7 +900,7 @@
 <!-- ═══════════════════════════════════════════════════════════════
      PLATFORM 3: RESULTS ANALYZER
      ═══════════════════════════════════════════════════════════════ -->
-<div class="platform-section" id="platform-results">
+<div class="platform-section" id="platform-results" role="main" aria-label="Results Analyzer">
     <div class="tp-header">
         <div>
             <h2>🧪 RESULTS ANALYZER</h2>
@@ -929,7 +929,7 @@
     </div>
 </div><!-- END platform-results -->
 
-<div class="platform-section" id="platform-inventory">
+<div class="platform-section" id="platform-inventory" role="main" aria-label="Lab Inventory">
     <div class="tp-main">
         <div class="tp-header" style="margin-bottom:12px;"><h2 style="margin:0;font-size:16px;color:var(--tp-text);">📦 Lab Inventory</h2></div>
         <div class="tp-tabs" id="inv-tabs-bar" style="margin-bottom:12px;">
@@ -990,7 +990,7 @@
 <div id="fbModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
 
 <!-- ═══ BOTTOM NAVIGATION BAR ═══ -->
-<nav class="bottom-nav" id="bottomNav">
+<nav class="bottom-nav" id="bottomNav" role="navigation" aria-label="Barra de navegación inferior">
     <div class="bottom-nav-item active" onclick="switchPlatform('cop15')" id="bnav-cop15">
         <span class="bnav-icon">🔬</span>
         <span>COP15</span>
