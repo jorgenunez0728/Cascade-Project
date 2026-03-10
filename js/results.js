@@ -189,17 +189,53 @@ let raState = JSON.parse(localStorage.getItem(RA_LS_KEY)) || {
 
 if (raState.profiles.length === 0) {
     raState.profiles = [
-        { id:'wltp-euro6', name:'WLTP — EURO 6 / PRE-EURO 7', regulation:'EURO-6C,PRE-EURO 7,EURO-5,EURO-4,EURO-3,EURO-2', testMode:'WLTP',
-          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','BagNMHCpNOX','DilutePN'],
+        // ── WLTP Euro 6 (Gasoline) ──
+        // Limits: Reg (EC) 715/2007, Euro 6d. PM/PN apply to GDI only.
+        { id:'wltp-euro6', name:'WLTP — Pre-Euro 7 / Euro 6', regulation:'PRE-EURO 7,EURO-6E,EURO-6D,EURO-6C,EURO-6,EURO-4,EURO-3,EURO-2', testMode:'WLTP',
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','DilutePN','PM'],
           sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','DilutePN','CellTemperature','Barometer','CellAirRH'],
-          limits:{BagCO:1.0,BagTHC:0.1,BagNOX:0.06,BagNMHC:0.068,BagNMHCpNOX:0.16,DilutePN:6e11},
-          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHC:'NMHC',BagCH4:'CH₄',BagNMHCpNOX:'NMHC+NOx',DilutePN:'PN (#/km)',CellTemperature:'Temp.Celda',Barometer:'Presión',CellAirRH:'HR%'}
+          limits:{BagCO:1.0,BagTHC:0.1,BagNOX:0.06,BagNMHC:0.068,PM:0.005,DilutePN:6e11},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO (g/km)',BagCO2:'CO₂ (g/km)',BagTHC:'THC (g/km)',BagNOX:'NOx (g/km)',BagNMHC:'NMHC (g/km)',BagCH4:'CH₄ (g/km)',DilutePN:'PN (#/km)',PM:'PM (g/km)',CellTemperature:'Temp.Celda',Barometer:'Presión',CellAirRH:'HR%'},
+          fuelUnit:'l100km',showPhaseFuel:false
         },
-        { id:'wltp-sulev30', name:'WLTP — SULEV 30 (USA/Canada)', regulation:'SULEV 30', testMode:'WLTP',
-          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagNMHCpNOX','BagNOX','BagTHC','BagCH4','DilutePN'],
-          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagNMHCpNOX','DilutePN','CellTemperature','Barometer'],
-          limits:{BagNMHCpNOX:0.03,BagCO:1.0,DilutePN:6e11},
-          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO',BagCO2:'CO₂',BagTHC:'THC',BagNOX:'NOx',BagNMHCpNOX:'NMHC+NOx',BagCH4:'CH₄',DilutePN:'PN (#/km)'}
+        // ── NEDC Euro 5b (Gasoline) ──
+        // Limits: Reg (EC) 715/2007, Euro 5. PM/PN for GDI only.
+        { id:'nedc-euro5b', name:'NEDC — Euro 5b', regulation:'EURO-5B,EURO-5', testMode:'NEDC',
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','DilutePN','PM'],
+          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMHC','BagCH4','DilutePN','CellTemperature','Barometer','CellAirRH'],
+          limits:{BagCO:1.0,BagTHC:0.1,BagNOX:0.06,BagNMHC:0.068,PM:0.005,DilutePN:6e11},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO (g/km)',BagCO2:'CO₂ (g/km)',BagTHC:'THC (g/km)',BagNOX:'NOx (g/km)',BagNMHC:'NMHC (g/km)',BagCH4:'CH₄ (g/km)',DilutePN:'PN (#/km)',PM:'PM (g/km)',CellTemperature:'Temp.Celda',Barometer:'Presión',CellAirRH:'HR%'},
+          fuelUnit:'l100km',showPhaseFuel:false
+        },
+        // ── FTP-75 EPA Tier 2 Bin 7 ──
+        // Limits: 40 CFR 86.1811-04, full useful life (120k mi).
+        // NMOG=0.090, CO=4.2, NOx=0.15, PM=0.02, HCHO=0.018 g/mi.
+        { id:'ftp-tier2bin7', name:'FTP-75 — EPA Tier 2 Bin 7', regulation:'TIER 2 BIN 7,TIER2-BIN7,EPA-T2B7,TIER 2,BIN 7', testMode:'FTP',
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMOGpNOX','HCHO','PM','DilutePN'],
+          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX','BagNMOGpNOX','HCHO','PM','DilutePN','CellTemperature','Barometer'],
+          limits:{BagCO:4.2,BagTHC:0.09,BagNOX:0.15,HCHO:0.018,PM:0.02},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO (g/mi)',BagCO2:'CO₂ (g/mi)',BagTHC:'NMOG (g/mi)',BagNOX:'NOx (g/mi)',BagNMOGpNOX:'NMOG+NOx (g/mi)',HCHO:'HCHO (g/mi)',PM:'PM (g/mi)',DilutePN:'PN (#/mi)',CellTemperature:'Temp.Celda',Barometer:'Presión'},
+          fuelUnit:'l100km',showPhaseFuel:false
+        },
+        // ── WLTP SULEV 30 (LEV III / USA-Canada) ──
+        // Limits: CARB LEV III, SULEV30 (Bin 30), 150k mi.
+        // NMOG+NOx=0.030, CO=1.0, PM=0.003, HCHO=0.004 g/mi. No mandatory PN.
+        { id:'wltp-sulev30', name:'WLTP — SULEV 30 (USA/Canada)', regulation:'SULEV 30,SULEV30,LEV III,LEV-III', testMode:'WLTP',
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagNMOGpNOX','BagNOX','BagTHC','BagCH4','PM','DilutePN'],
+          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagNMOGpNOX','DilutePN','CellTemperature','Barometer'],
+          limits:{BagNMOGpNOX:0.03,BagCO:1.0,PM:0.003,HCHO:0.004},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO (g/mi)',BagCO2:'CO₂ (g/mi)',BagTHC:'THC (g/mi)',BagNOX:'NOx (g/mi)',BagNMOGpNOX:'NMOG+NOx (g/mi)',BagCH4:'CH₄ (g/mi)',PM:'PM (g/mi)',DilutePN:'PN (#/mi)',CellTemperature:'Temp.Celda',Barometer:'Presión'},
+          fuelUnit:'l100km',showPhaseFuel:false
+        },
+        // ── FTP-75 SULEV 30 ──
+        // Limits: CARB LEV III, SULEV30 FTP, 150k mi.
+        // NMOG+NOx=0.030, CO=1.0, PM=0.003, HCHO=0.004 g/mi. No mandatory PN.
+        { id:'ftp-sulev30', name:'FTP-75 — SULEV 30', regulation:'SULEV 30 FTP,SULEV30-FTP,SULEV30 FTP', testMode:'FTP',
+          cycleColumns:['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCO2','BagNMOGpNOX','BagNOX','BagTHC','HCHO','PM','DilutePN'],
+          sampleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagNMOGpNOX','BagNOX','HCHO','PM','DilutePN','CellTemperature','Barometer'],
+          limits:{BagNMOGpNOX:0.03,BagCO:1.0,PM:0.003,HCHO:0.004},
+          labels:{FuelConsumptionBag:'Consumo (l/100km)',FuelEconomyBag:'FE (mpg)',BagCO:'CO (g/mi)',BagCO2:'CO₂ (g/mi)',BagTHC:'THC (g/mi)',BagNOX:'NOx (g/mi)',BagNMOGpNOX:'NMOG+NOx (g/mi)',HCHO:'HCHO (g/mi)',PM:'PM (g/mi)',DilutePN:'PN (#/mi)',CellTemperature:'Temp.Celda',Barometer:'Presión'},
+          fuelUnit:'l100km',showPhaseFuel:false
         },
     ];
     raSave();
@@ -260,6 +296,7 @@ function raRender(){
     else if(t==='ra-search') raRenderSearch(el);
     else if(t==='ra-filter') raRenderFilter(el);
     else if(t==='ra-compare') raRenderCompare(el);
+    else if(t==='ra-spc') raRenderSPC(el);
 }
 
 
@@ -437,8 +474,127 @@ function raRenderDashboard(el){
                 </tbody>
             </table>
         </div>
+    </div>
+
+    <!-- Compliance Trending by Regulation -->
+    <div class="tp-card">
+        <div class="tp-card-title"><span>📈 Tendencia de Cumplimiento por Regulacion</span></div>
+        ${raBuildComplianceTrendHTML()}
     </div>`;
     } catch(e) { el.innerHTML='<div class="tp-card" style="padding:20px;color:var(--tp-red);">Error renderizando dashboard: '+e.message+'</div>'; console.error('RA Dashboard error:',e); }
+}
+
+function raBuildComplianceTrendHTML() {
+    var tests = raState.tests;
+    if (tests.length < 3) return '<div style="text-align:center;padding:15px;color:var(--tp-dim);font-size:10px;">Necesitas al menos 3 pruebas para ver tendencias.</div>';
+
+    // Group by month and regulation
+    var monthRegs = {};
+    var allRegs = {};
+    tests.forEach(function(t) {
+        var dateStr = t.dateStr || t.importDate || '';
+        if (!dateStr) return;
+        var month = dateStr.slice(0, 7); // YYYY-MM
+        if (!month || month.length < 7) return;
+        var reg = t.emissionReg || t.regSpec || '?';
+        allRegs[reg] = true;
+        if (!monthRegs[month]) monthRegs[month] = {};
+        if (!monthRegs[month][reg]) monthRegs[month][reg] = { pass: 0, fail: 0, total: 0 };
+        var verdict = raTestVerdict(t);
+        monthRegs[month][reg].total++;
+        if (verdict === 'PASS') monthRegs[month][reg].pass++;
+        else if (verdict === 'FAIL') monthRegs[month][reg].fail++;
+    });
+
+    var months = Object.keys(monthRegs).sort();
+    var regs = Object.keys(allRegs).sort();
+
+    if (months.length < 1 || regs.length < 1) return '<div style="text-align:center;padding:15px;color:var(--tp-dim);font-size:10px;">Sin datos suficientes por regulacion/mes.</div>';
+
+    // Build per-regulation summary
+    var regSummaries = regs.map(function(reg) {
+        var totalPass = 0, totalFail = 0, totalTests = 0;
+        var lastMonthRate = null, prevAvgRate = null;
+        var rates = [];
+        months.forEach(function(m, mi) {
+            var d = monthRegs[m][reg];
+            if (d) {
+                totalPass += d.pass;
+                totalFail += d.fail;
+                totalTests += d.total;
+                rates.push(d.total > 0 ? (d.pass / d.total * 100) : null);
+            } else {
+                rates.push(null);
+            }
+        });
+        var overallRate = totalTests > 0 ? (totalPass / totalTests * 100) : 0;
+        // Trend: last month vs average of prior months
+        var validRates = rates.filter(function(r) { return r !== null; });
+        if (validRates.length >= 2) {
+            lastMonthRate = validRates[validRates.length - 1];
+            prevAvgRate = validRates.slice(0, -1).reduce(function(s, v) { return s + v; }, 0) / (validRates.length - 1);
+        }
+        var trendDelta = (lastMonthRate !== null && prevAvgRate !== null) ? lastMonthRate - prevAvgRate : 0;
+        var trendArrow = trendDelta > 1 ? '↑' : trendDelta < -1 ? '↓' : '→';
+        var trendColor = trendDelta > 1 ? 'var(--tp-green)' : trendDelta < -1 ? 'var(--tp-red)' : 'var(--tp-dim)';
+        return { reg: reg, pass: totalPass, fail: totalFail, total: totalTests, rate: overallRate, rates: rates, trendArrow: trendArrow, trendDelta: trendDelta, trendColor: trendColor };
+    });
+
+    // Chart
+    var regColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
+    var html = '<div style="height:220px;margin-bottom:12px;"><canvas id="ra-compliance-canvas"></canvas></div>';
+
+    // Summary table
+    html += '<table style="width:100%;font-size:10px;border-collapse:collapse;">';
+    html += '<tr style="border-bottom:1px solid var(--tp-border);"><th style="text-align:left;padding:4px 8px;color:var(--tp-dim);">Regulacion</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Total</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Pass</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Fail</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Rate</th><th style="text-align:center;padding:4px;color:var(--tp-dim);">Tend.</th></tr>';
+    regSummaries.forEach(function(r) {
+        var rateClr = r.rate >= 95 ? 'var(--tp-green)' : r.rate >= 80 ? 'var(--tp-amber)' : 'var(--tp-red)';
+        html += '<tr style="border-bottom:1px solid var(--tp-border);">';
+        html += '<td style="padding:4px 8px;font-weight:600;color:var(--tp-text);">' + r.reg + '</td>';
+        html += '<td style="text-align:center;padding:4px;">' + r.total + '</td>';
+        html += '<td style="text-align:center;padding:4px;color:var(--tp-green);">' + r.pass + '</td>';
+        html += '<td style="text-align:center;padding:4px;color:var(--tp-red);">' + r.fail + '</td>';
+        html += '<td style="text-align:center;padding:4px;font-weight:700;color:' + rateClr + ';">' + r.rate.toFixed(1) + '%</td>';
+        html += '<td style="text-align:center;padding:4px;font-weight:700;color:' + r.trendColor + ';">' + r.trendArrow + ' (' + (r.trendDelta >= 0 ? '+' : '') + r.trendDelta.toFixed(1) + '%)</td>';
+        html += '</tr>';
+    });
+    html += '</table>';
+
+    // Schedule chart render
+    setTimeout(function() {
+        if (window._raComplianceChart) { try { window._raComplianceChart.destroy(); } catch(e) {} }
+        var ctx = document.getElementById('ra-compliance-canvas');
+        if (!ctx || typeof Chart === 'undefined') return;
+
+        var datasets = regSummaries.map(function(r, ri) {
+            return {
+                label: r.reg,
+                data: r.rates,
+                borderColor: regColors[ri % regColors.length],
+                backgroundColor: regColors[ri % regColors.length] + '20',
+                pointRadius: 3, borderWidth: 2, fill: false, tension: 0.2,
+                spanGaps: true
+            };
+        });
+        // Add 100% and 90% reference lines
+        datasets.push({ label: 'Meta 100%', data: Array(months.length).fill(100), borderColor: '#10b98140', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false });
+        datasets.push({ label: 'Umbral 90%', data: Array(months.length).fill(90), borderColor: '#f59e0b40', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false });
+
+        window._raComplianceChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: months, datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { min: 0, max: 105, title: { display: true, text: '% Pass Rate', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' } }
+                }
+            }
+        });
+    }, 50);
+
+    return html;
 }
 
 
@@ -587,7 +743,9 @@ function raImportJSON(){
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function raRenderProfiles(el){
-    const allCols=['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCOMass','BagCO2','BagCO2Mass','BagTHC','BagTHCMass','BagCH4','BagCH4Mass','BagNOX','BagNOXMass','BagNMHC','BagNMHCMass','BagHCpNOX','BagHCpNOXMass','BagNMHCpNOX','BagNMHCpNOXMass','DilutePN','DilutePNFlowWeighted','FuelConsumedBag','BagCO2Regulated','BagCORegulated','BagTHCRegulated','BagNOXRegulated','BagNMHCRegulated','BagCH4Regulated','FuelConsumptionRegulatedBag','BagCO2_RCB','BagCO2SDC','DrivenDistance','REESSEnergyChange'];
+    const allCols=['FuelConsumptionBag','FuelEconomyBag','BagCO','BagCOMass','BagCO2','BagCO2Mass','BagTHC','BagTHCMass','BagCH4','BagCH4Mass','BagNOX','BagNOXMass','BagNMHC','BagNMHCMass','BagHCpNOX','BagHCpNOXMass','BagNMHCpNOX','BagNMHCpNOXMass','BagNMOGpNOX','BagNMOGpNOXMass','DilutePN','DilutePNFlowWeighted','FuelConsumedBag','BagCO2Regulated','BagCORegulated','BagTHCRegulated','BagNOXRegulated','BagNMHCRegulated','BagCH4Regulated','FuelConsumptionRegulatedBag','BagCO2_RCB','BagCO2SDC','DrivenDistance','REESSEnergyChange'];
+    // Track which profile is open
+    const openIdx = window._raProfileOpen != null ? window._raProfileOpen : -1;
 
     el.innerHTML=`
     <div class="tp-card">
@@ -595,31 +753,70 @@ function raRenderProfiles(el){
             <button class="tp-btn tp-btn-primary" onclick="raAddProfile()">+ Nuevo Perfil</button>
         </div>
         <p style="font-size:10px;color:var(--tp-dim);margin-bottom:12px;">Define qué columnas y límites aplican por regulación. El sistema matchea automáticamente al analizar resultados.</p>
-        ${raState.profiles.map((p,pi)=>`
-        <details style="margin-bottom:8px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;">
-            <summary style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;list-style:none;background:var(--tp-card);">
+        ${raState.profiles.map((p,pi)=>{
+            const isOpen = openIdx === pi;
+            return `
+        <div style="margin-bottom:8px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;">
+            <div onclick="window._raProfileOpen=${isOpen?-1:pi};raRender();" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;background:var(--tp-card);">
                 <div><span style="font-weight:700;font-size:12px;color:#06b6d4;">${p.name}</span>
                 <span style="font-size:10px;color:var(--tp-dim);margin-left:8px;">${p.regulation}</span></div>
-                <div style="display:flex;gap:4px;">
+                <div style="display:flex;gap:4px;align-items:center;">
                     <span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;border:1px solid rgba(6,182,212,0.3);font-size:8px;">${p.cycleColumns.length} cols</span>
                     <span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);border:1px solid rgba(245,158,11,0.3);font-size:8px;">${Object.keys(p.limits).length} lím</span>
+                    <span style="font-size:12px;color:var(--tp-dim);">${isOpen?'▲':'▼'}</span>
                 </div>
-            </summary>
+            </div>
+            ${isOpen?`
             <div style="padding:12px 14px;background:#0d1422;border-top:1px solid var(--tp-border);">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
                     <div><label style="font-size:10px;color:var(--tp-dim);">Nombre</label><input class="tp-input" value="${p.name}" onchange="raState.profiles[${pi}].name=this.value;raSave();"></div>
                     <div><label style="font-size:10px;color:var(--tp-dim);">Regulaciones (coma-separadas)</label><input class="tp-input" value="${p.regulation}" onchange="raState.profiles[${pi}].regulation=this.value;raSave();"></div>
                 </div>
+
                 <div style="margin-bottom:10px;">
-                    <label style="font-size:10px;color:var(--tp-dim);">Columnas de CycleResults</label>
-                    <div style="display:flex;flex-wrap:wrap;gap:3px;max-height:130px;overflow-y:auto;margin-top:4px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <label style="font-size:10px;color:var(--tp-dim);">Columnas de CycleResults</label>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:3px;max-height:160px;overflow-y:auto;margin-top:4px;">
                         ${allCols.map(c=>`<label style="font-size:8px;color:var(--tp-text);display:flex;align-items:center;gap:2px;padding:2px 5px;background:${p.cycleColumns.includes(c)?'rgba(6,182,212,0.15)':'var(--tp-card)'};border-radius:3px;border:1px solid ${p.cycleColumns.includes(c)?'rgba(6,182,212,0.3)':'var(--tp-border)'};cursor:pointer;"><input type="checkbox" ${p.cycleColumns.includes(c)?'checked':''} onchange="raToggleCol(${pi},'${c}',this.checked)" style="width:12px;height:12px;"> ${c}</label>`).join('')}
                     </div>
                 </div>
+
+                <div style="margin-bottom:10px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <label style="font-size:10px;color:var(--tp-dim);">Agregar variable personalizada</label>
+                    </div>
+                    <div style="display:flex;gap:5px;align-items:center;">
+                        <input class="tp-input" id="ra-custom-col-${pi}" placeholder="NombreDeColumna" style="flex:1;font-size:10px;">
+                        <button class="tp-btn tp-btn-primary" onclick="raAddCustomCol(${pi})" style="font-size:10px;">+</button>
+                    </div>
+                    <p style="font-size:8px;color:var(--tp-dim);margin-top:3px;">Escribe el nombre exacto de la columna del CSV. Se agregara a la lista de columnas disponibles.</p>
+                </div>
+
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:10px;color:var(--tp-dim);">Unidad de consumo</label>
+                    <div style="display:flex;gap:6px;margin-top:4px;">
+                        <button class="tp-btn ${(p.fuelUnit||'l100km')==='l100km'?'tp-btn-primary':'tp-btn-ghost'}" onclick="raState.profiles[${pi}].fuelUnit='l100km';raSave();raRender();" style="font-size:9px;">L/100km</button>
+                        <button class="tp-btn ${p.fuelUnit==='kml'?'tp-btn-primary':'tp-btn-ghost'}" onclick="raState.profiles[${pi}].fuelUnit='kml';raSave();raRender();" style="font-size:9px;">km/L</button>
+                        <button class="tp-btn ${p.fuelUnit==='mpg'?'tp-btn-primary':'tp-btn-ghost'}" onclick="raState.profiles[${pi}].fuelUnit='mpg';raSave();raRender();" style="font-size:9px;">mpg</button>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:10px;color:var(--tp-dim);">Reportar consumo/FE por fase</label>
+                    <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+                        <label style="font-size:9px;color:var(--tp-text);display:flex;align-items:center;gap:3px;cursor:pointer;">
+                            <input type="checkbox" ${p.showPhaseFuel?'checked':''} onchange="raState.profiles[${pi}].showPhaseFuel=this.checked;raSave();" style="accent-color:#06b6d4;">
+                            Mostrar Fuel en fases individuales (F1-F4)
+                        </label>
+                    </div>
+                    <p style="font-size:8px;color:var(--tp-dim);margin-top:2px;">Aplica para WLTP/Combo con 3-4 fases. Muestra FuelConsumption y FuelEconomy en cada fase.</p>
+                </div>
+
                 <div style="margin-bottom:10px;">
                     <label style="font-size:10px;color:var(--tp-dim);">Límites regulatorios</label>
                     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
-                        ${p.cycleColumns.filter(c=>c.startsWith('Bag')||c==='DilutePN').map(c=>`
+                        ${p.cycleColumns.filter(c=>c.startsWith('Bag')||c.startsWith('Fuel')||c==='DilutePN'||c.startsWith('BagNMOG')).map(c=>`
                             <div style="display:flex;align-items:center;gap:3px;">
                                 <span style="font-size:8px;color:var(--tp-dim);width:60px;">${p.labels&&p.labels[c]||c}:</span>
                                 <input class="tp-input" type="number" step="any" value="${p.limits[c]!=null?p.limits[c]:''}" style="width:75px;font-size:10px;" onchange="if(this.value){raState.profiles[${pi}].limits['${c}']=parseFloat(this.value);}else{delete raState.profiles[${pi}].limits['${c}'];}raSave();">
@@ -630,9 +827,10 @@ function raRenderProfiles(el){
                     <label style="font-size:10px;color:var(--tp-dim);">Labels personalizados (JSON)</label>
                     <input class="tp-input" value='${JSON.stringify(p.labels||{})}' onchange="try{raState.profiles[${pi}].labels=JSON.parse(this.value);raSave();}catch(e){}" style="font-size:9px;font-family:monospace;">
                 </div>
-                <button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Eliminar?')){raState.profiles.splice(${pi},1);raSave();raRender();}" style="font-size:10px;">🗑 Eliminar</button>
-            </div>
-        </details>`).join('')}
+                <button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Eliminar?')){raState.profiles.splice(${pi},1);window._raProfileOpen=-1;raSave();raRender();}" style="font-size:10px;">🗑 Eliminar</button>
+            </div>`:''}
+        </div>`;
+        }).join('')}
     </div>`;
 }
 
@@ -640,13 +838,42 @@ function raToggleCol(pi,col,checked){
     const arr=raState.profiles[pi].cycleColumns;
     if(checked&&!arr.includes(col)) arr.push(col);
     if(!checked){const i=arr.indexOf(col);if(i>=0)arr.splice(i,1);}
+    raSave();
+    // Re-render keeping the same profile open
+    raRender();
+}
+
+function raAddCustomCol(pi){
+    const input=document.getElementById('ra-custom-col-'+pi);
+    if(!input||!input.value.trim()) return;
+    const colName=input.value.trim();
+    if(!raState.profiles[pi].cycleColumns.includes(colName)){
+        raState.profiles[pi].cycleColumns.push(colName);
+    }
     raSave();raRender();
+}
+
+function raConvertFuel(value, fromUnit, toUnit){
+    // fromUnit is always l/100km (raw data), toUnit is user preference
+    if(!value || typeof value !== 'number' || value===0) return value;
+    if(toUnit==='kml') return 100/value; // km/L
+    if(toUnit==='mpg') return 235.215/value; // US mpg
+    return value; // l/100km
+}
+
+function raGetFuelLabel(profile){
+    const u = profile && profile.fuelUnit || 'l100km';
+    if(u==='kml') return 'km/L';
+    if(u==='mpg') return 'mpg';
+    return 'L/100km';
 }
 
 function raAddProfile(){
     raState.profiles.push({id:'p'+Date.now(),name:'Nuevo Perfil',regulation:'',testMode:'WLTP',
         cycleColumns:['FuelConsumptionBag','BagCO','BagCO2','BagTHC','BagNOX'],
-        sampleColumns:['FuelConsumptionBag','BagCO','BagCO2'],limits:{},labels:{}});
+        sampleColumns:['FuelConsumptionBag','BagCO','BagCO2'],limits:{},labels:{},
+        fuelUnit:'l100km',showPhaseFuel:false});
+    window._raProfileOpen=raState.profiles.length-1;
     raSave();raRender();
 }
 
@@ -728,7 +955,9 @@ function raRenderTrends(el){
                 </div>
             </div>
         </details>
-        <div id="ra-trend-wrapper" style="position:relative;height:${window._raChartHeight||320}px;"><canvas id="ra-trend-canvas"></canvas></div>
+        <div id="ra-trend-wrapper" style="position:relative;height:${window._raChartHeight||320}px;">
+            ${pts.length===0?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--tp-dim);"><div style="font-size:28px;margin-bottom:8px;">📉</div><div style="font-size:12px;font-weight:700;">Sin datos para "${fMetric}"</div><div style="font-size:10px;margin-top:4px;">Verifica que las pruebas tengan cycleData con este campo.<br>Si hay pruebas importadas, asegurate de que no se haya compactado la data.</div></div>`:'<canvas id="ra-trend-canvas"></canvas>'}
+        </div>
     </div>
     <div class="tp-card"><div class="tp-card-title"><span>Datos</span></div>
         <div style="max-height:250px;overflow-y:auto;"><table class="tp-table"><thead><tr><th>#</th><th>VIN</th><th>Grupo</th><th style="text-align:right">${fMetric}</th><th>vs Lim</th></tr></thead>
@@ -737,7 +966,7 @@ function raRenderTrends(el){
 
     // Build Chart.js scatter plot with control lines
     const canvas = document.getElementById('ra-trend-canvas');
-    if(!canvas || typeof Chart === 'undefined') return;
+    if(!canvas || typeof Chart === 'undefined' || pts.length === 0) return;
 
     const labels = pts.map((p,i) => p.date || String(i+1));
     const dataValues = pts.map(p => p.val);
@@ -881,8 +1110,59 @@ function raRenderDetail(el){
     const lbls=profile?profile.labels:{};
     const phases=test.sampleData||[];
     const comp=test.cycleData&&test.cycleData.length>0?test.cycleData[test.cycleData.length-1]:{};
+    const fuelUnit=profile&&profile.fuelUnit||'l100km';
+    const fuelLabel=raGetFuelLabel(profile);
+    const isFuelCol=c=>c==='FuelConsumptionBag'||c==='FuelEconomyBag'||c==='FuelConsumedBag'||c==='FuelConsumptionRegulatedBag';
+
+    function fmtVal(c,v){
+        if(v==null||typeof v!=='number') return v||'—';
+        if(isFuelCol(c)&&(c==='FuelConsumptionBag'||c==='FuelConsumptionRegulatedBag')){
+            const converted=raConvertFuel(v,'l100km',fuelUnit);
+            return Math.abs(converted)>1e6?converted.toExponential(2):converted.toFixed(fuelUnit==='l100km'?4:2);
+        }
+        return Math.abs(v)>1e6?v.toExponential(2):v.toFixed(4);
+    }
+    function colLabel(c){
+        if(isFuelCol(c)&&(c==='FuelConsumptionBag'||c==='FuelConsumptionRegulatedBag')){
+            if(fuelUnit==='kml') return lbls[c]?lbls[c].replace(/l\/100km|L\/100km/i,'km/L'):'Consumo ('+fuelLabel+')';
+            if(fuelUnit==='mpg') return lbls[c]?lbls[c].replace(/l\/100km|L\/100km/i,'mpg'):'Consumo ('+fuelLabel+')';
+        }
+        return lbls[c]||c;
+    }
+
+    const _hasReturnCtx = typeof window._tpReturnContext !== 'undefined' && window._tpReturnContext !== null;
+
+    // Build per-phase fuel rows if enabled
+    const showPhaseFuel = profile && profile.showPhaseFuel && phases.length >= 2;
+    let phaseFuelHtml = '';
+    if(showPhaseFuel){
+        const fuelCols = ['FuelConsumptionBag','FuelEconomyBag'].filter(c=>cols.includes(c)||phases.some(ph=>ph[c]!=null));
+        if(fuelCols.length>0){
+            phaseFuelHtml = `<div class="tp-card">
+                <div class="tp-card-title"><span>⛽ Consumo por Fase</span><span style="font-size:9px;color:var(--tp-dim);margin-left:8px;">Unidad: ${fuelLabel}</span></div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;">
+                    ${phases.map((ph,i)=>{
+                        const fc=ph['FuelConsumptionBag'];
+                        const dispVal=fc!=null?fmtVal('FuelConsumptionBag',fc):'—';
+                        const fe=ph['FuelEconomyBag'];
+                        return `<div class="tp-metric" style="border-color:rgba(6,182,212,0.3);">
+                            <div class="tp-metric-val" style="color:#06b6d4;font-size:14px;">${dispVal}</div>
+                            <div class="tp-metric-label">Fase ${i+1} (${fuelLabel})</div>
+                            ${fe!=null?`<div style="font-size:8px;color:var(--tp-dim);">FE: ${fe.toFixed(2)}</div>`:''}
+                        </div>`;
+                    }).join('')}
+                    <div class="tp-metric" style="border-color:rgba(245,158,11,0.3);">
+                        <div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">${comp['FuelConsumptionBag']!=null?fmtVal('FuelConsumptionBag',comp['FuelConsumptionBag']):'—'}</div>
+                        <div class="tp-metric-label">Composite (${fuelLabel})</div>
+                        ${comp['FuelEconomyBag']!=null?`<div style="font-size:8px;color:var(--tp-dim);">FE: ${comp['FuelEconomyBag'].toFixed(2)}</div>`:''}
+                    </div>
+                </div>
+            </div>`;
+        }
+    }
 
     el.innerHTML=`
+    ${_hasReturnCtx ? `<div style="margin-bottom:8px;"><button class="tp-btn tp-btn-ghost" onclick="if(typeof tpReturnFromRA==='function')tpReturnFromRA();" style="font-size:11px;color:var(--tp-amber);border:1px solid var(--tp-amber);padding:5px 14px;">← Volver a Test Plan</button></div>` : ''}
     <div class="tp-card" style="border-color:#06b6d4;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
             <div>
@@ -892,6 +1172,7 @@ function raRenderDetail(el){
             <div style="text-align:right;">
                 <span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);border:1px solid rgba(16,185,129,0.3);">${test.testStatus||'?'}</span>
                 ${profile?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);margin-left:4px;">Perfil: ${profile.name}</span>`:''}
+                <span style="font-size:8px;color:var(--tp-dim);display:block;margin-top:2px;">Consumo: ${fuelLabel}</span>
             </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:8px;font-size:10px;color:var(--tp-dim);">
@@ -915,42 +1196,94 @@ function raRenderDetail(el){
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">
             ${cols.map(c=>{
                 const v=comp[c]; const lm=lims[c];
+                const dispV=fmtVal(c,v);
+                const absV=isFuelCol(c)&&v?Math.abs(raConvertFuel(v,'l100km',fuelUnit)):v?Math.abs(v):0;
                 const pct=lm&&v?(Math.abs(v)/lm*100):null;
                 const over=lm&&v&&Math.abs(v)>lm;
                 return `<div class="tp-metric" style="border-color:${over?'var(--tp-red)':pct&&pct>80?'var(--tp-amber)':'var(--tp-border)'};">
-                    <div class="tp-metric-val" style="color:${over?'var(--tp-red)':'var(--tp-text)'};font-size:13px;">${v!=null&&typeof v==='number'?(Math.abs(v)>1e6?v.toExponential(2):v.toFixed(4)):v||'—'}</div>
-                    <div class="tp-metric-label">${lbls[c]||c}</div>
+                    <div class="tp-metric-val" style="color:${over?'var(--tp-red)':'var(--tp-text)'};font-size:13px;">${dispV}</div>
+                    <div class="tp-metric-label">${colLabel(c)}</div>
                     ${lm?`<div style="margin-top:3px;"><div class="tp-bar" style="height:8px;"><div class="tp-bar-fill" style="width:${Math.min(pct||0,100)}%;background:${over?'var(--tp-red)':pct>80?'var(--tp-amber)':'var(--tp-green)'};"></div><span class="tp-bar-text" style="font-size:6px;">${pct?pct.toFixed(0):'0'}%</span></div><div style="font-size:6px;color:var(--tp-dim);text-align:center;">Lím: ${lm}</div></div>`:''}
                 </div>`;
             }).join('')}
         </div>
     </div>
 
+    ${phaseFuelHtml}
+
     ${phases.length>0?`
     <div class="tp-card">
         <div class="tp-card-title"><span>📊 Por Fase</span></div>
         <div style="overflow-x:auto;">
             <table class="tp-table">
-                <thead><tr><th>Fase</th>${cols.map(c=>`<th style="text-align:right;font-size:8px;">${lbls[c]||c}</th>`).join('')}</tr></thead>
+                <thead><tr><th>Fase</th>${cols.map(c=>`<th style="text-align:right;font-size:8px;">${colLabel(c)}</th>`).join('')}</tr></thead>
                 <tbody>
                     ${phases.map((ph,i)=>`<tr>
                         <td style="font-weight:700;color:#06b6d4;">F${i+1}</td>
-                        ${cols.map(c=>{const v=ph[c];const lm=lims[c];return `<td style="text-align:right;font-family:monospace;font-size:9px;color:${lm&&v&&Math.abs(v)>lm?'var(--tp-red)':'var(--tp-text)'};">${v!=null&&typeof v==='number'?(Math.abs(v)>1e6?v.toExponential(2):v.toFixed(4)):'—'}</td>`;}).join('')}
+                        ${cols.map(c=>{const v=ph[c];const lm=lims[c];return `<td style="text-align:right;font-family:monospace;font-size:9px;color:${lm&&v&&Math.abs(v)>lm?'var(--tp-red)':'var(--tp-text)'};">${fmtVal(c,v)}</td>`;}).join('')}
                     </tr>`).join('')}
                     <tr style="font-weight:700;border-top:2px solid var(--tp-border);">
                         <td style="color:var(--tp-amber);">COMP</td>
-                        ${cols.map(c=>{const v=comp[c];return `<td style="text-align:right;font-family:monospace;font-size:9px;color:var(--tp-amber);">${v!=null&&typeof v==='number'?(Math.abs(v)>1e6?v.toExponential(2):v.toFixed(4)):'—'}</td>`;}).join('')}
+                        ${cols.map(c=>{const v=comp[c];return `<td style="text-align:right;font-family:monospace;font-size:9px;color:var(--tp-amber);">${fmtVal(c,v)}</td>`;}).join('')}
                     </tr>
                 </tbody>
             </table>
         </div>
     </div>`:''}
 
-    <div style="margin-top:10px;">
-        <select class="tp-select" onchange="window._raDetailId=this.value;raRender();" style="width:100%;">
-            ${raState.tests.map(x=>`<option value="${x.id}" ${String(x.id)===String(tid)?'selected':''}>${x.vin||'NoVIN'} — ${x.testDesc||'?'} #${x.testNumber||'?'}</option>`).join('')}
+    <div class="tp-card" style="margin-top:10px;">
+        <div class="tp-card-title"><span>🔍 Seleccionar Prueba</span></div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+            <input class="tp-input" id="ra-detail-search" placeholder="Buscar VIN, modelo, regulacion..." oninput="raFilterDetailDropdown()" value="${window._raDetailSearch||''}" style="flex:1;min-width:150px;font-size:11px;">
+            <div>
+                <label style="font-size:8px;color:var(--tp-dim);">Desde</label>
+                <input type="date" class="tp-input" id="ra-detail-from" value="${window._raDetailFrom||''}" onchange="window._raDetailFrom=this.value;raFilterDetailDropdown();" style="font-size:10px;">
+            </div>
+            <div>
+                <label style="font-size:8px;color:var(--tp-dim);">Hasta</label>
+                <input type="date" class="tp-input" id="ra-detail-to" value="${window._raDetailTo||''}" onchange="window._raDetailTo=this.value;raFilterDetailDropdown();" style="font-size:10px;">
+            </div>
+            <button class="tp-btn tp-btn-ghost" onclick="window._raDetailSearch='';window._raDetailFrom='';window._raDetailTo='';raFilterDetailDropdown();document.getElementById('ra-detail-search').value='';" style="font-size:9px;">Limpiar</button>
+        </div>
+        <select class="tp-select" id="ra-detail-select" onchange="window._raDetailId=this.value;raRender();" style="width:100%;font-size:11px;">
+            ${raState.tests.slice().sort((a,b)=>{
+                const da=a.dateStr||a.importedAt||'';
+                const db2=b.dateStr||b.importedAt||'';
+                return da.localeCompare(db2);
+            }).map(x=>{
+                const dt=x.dateStr||(x.importedAt?x.importedAt.slice(0,10):'')||'';
+                return '<option value="'+x.id+'" '+(String(x.id)===String(tid)?'selected':'')+'>'+dt+' | '+(x.vin||'NoVIN')+' — '+(x.testDesc||'?')+' #'+(x.testNumber||'?')+'</option>';
+            }).join('')}
         </select>
     </div>`;
+}
+
+function raFilterDetailDropdown(){
+    var search=(document.getElementById('ra-detail-search')||{}).value||'';
+    window._raDetailSearch=search;
+    var from=window._raDetailFrom||'';
+    var to=window._raDetailTo||'';
+    var sel=document.getElementById('ra-detail-select');
+    if(!sel)return;
+    var q=search.toLowerCase();
+    var sorted=raState.tests.slice().sort(function(a,b){
+        var da=a.dateStr||a.importedAt||'';
+        var db2=b.dateStr||b.importedAt||'';
+        return da.localeCompare(db2);
+    });
+    sel.innerHTML=sorted.filter(function(x){
+        var dt=x.dateStr||(x.importedAt?x.importedAt.slice(0,10):'')||'';
+        if(from&&dt<from)return false;
+        if(to&&dt>to)return false;
+        if(q){
+            var hay=(x.vin||'').toLowerCase().includes(q)||(x.testDesc||'').toLowerCase().includes(q)||(x.emissionReg||'').toLowerCase().includes(q)||(x.modelName||'').toLowerCase().includes(q);
+            if(!hay)return false;
+        }
+        return true;
+    }).map(function(x){
+        var dt=x.dateStr||(x.importedAt?x.importedAt.slice(0,10):'')||'';
+        return '<option value="'+x.id+'">'+dt+' | '+(x.vin||'NoVIN')+' — '+(x.testDesc||'?')+' #'+(x.testNumber||'?')+'</option>';
+    }).join('');
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -1607,6 +1940,257 @@ function raRenderCompare(el) {
     html += '</div>';
 
     el.innerHTML = html;
+}
+
+// ══════════════════════════════════════════
+// SPC I-mR Control Charts
+// ══════════════════════════════════════════
+
+// Nelson Run Rules detection for SPC
+function raSpcDetectNelson(values, cl, ucl, lcl) {
+    var violations = [];
+    var n = values.length;
+    if (n < 2) return violations;
+
+    // Rule 1: Point beyond ±3σ (UCL/LCL)
+    for (var i = 0; i < n; i++) {
+        if (values[i] > ucl || values[i] < lcl) {
+            violations.push({ rule: 1, name: 'Fuera de ±3σ', idx: i, startIdx: i, endIdx: i, color: '#ef4444' });
+        }
+    }
+
+    // Rule 2: 9 consecutive points on same side of CL
+    if (n >= 9) {
+        var run = 1;
+        for (var i = 1; i < n; i++) {
+            var curSide = values[i] > cl ? 1 : values[i] < cl ? -1 : 0;
+            var prevSide = values[i - 1] > cl ? 1 : values[i - 1] < cl ? -1 : 0;
+            if (curSide !== 0 && prevSide !== 0 && curSide === prevSide) { run++; } else if (curSide === 0) { run = 1; } else { run = 1; }
+            if (run >= 9) {
+                violations.push({ rule: 2, name: '9 consecutivos mismo lado', idx: i, startIdx: i - 8, endIdx: i, color: '#f97316' });
+            }
+        }
+    }
+
+    // Rule 3: 6 consecutive increasing or decreasing
+    if (n >= 6) {
+        var incr = 1, decr = 1;
+        for (var i = 1; i < n; i++) {
+            if (values[i] > values[i - 1]) { incr++; decr = 1; }
+            else if (values[i] < values[i - 1]) { decr++; incr = 1; }
+            else { incr = 1; decr = 1; }
+            if (incr >= 6) {
+                violations.push({ rule: 3, name: '6 consecutivos monotonicos', idx: i, startIdx: i - 5, endIdx: i, color: '#eab308' });
+            }
+            if (decr >= 6) {
+                violations.push({ rule: 3, name: '6 consecutivos monotonicos', idx: i, startIdx: i - 5, endIdx: i, color: '#eab308' });
+            }
+        }
+    }
+
+    // Rule 4: 14 consecutive alternating up/down
+    if (n >= 14) {
+        var alt = 2;
+        for (var i = 2; i < n; i++) {
+            var d1 = values[i] - values[i - 1];
+            var d2 = values[i - 1] - values[i - 2];
+            if ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) { alt++; } else { alt = 2; }
+            if (alt >= 14) {
+                violations.push({ rule: 4, name: '14 consecutivos alternando', idx: i, startIdx: i - 13, endIdx: i, color: '#a855f7' });
+            }
+        }
+    }
+
+    return violations;
+}
+
+function raSpcNelsonPointColors(nPts, violations) {
+    var colors = [];
+    for (var i = 0; i < nPts; i++) colors.push('#3b82f6');
+    // Apply violation colors (later rules override earlier)
+    violations.forEach(function(v) {
+        for (var i = v.startIdx; i <= v.endIdx && i < nPts; i++) {
+            colors[i] = v.color;
+        }
+    });
+    return colors;
+}
+
+function raSpcNelsonTableRows(violations) {
+    var rules = [
+        { id: 1, desc: 'Punto fuera de ±3σ (UCL/LCL)', color: '#ef4444' },
+        { id: 2, desc: '9 consecutivos del mismo lado del CL', color: '#f97316' },
+        { id: 3, desc: '6 consecutivos ascendentes o descendentes', color: '#eab308' },
+        { id: 4, desc: '14 consecutivos alternando arriba/abajo', color: '#a855f7' }
+    ];
+    return rules.map(function(r) {
+        var rvs = violations.filter(function(v) { return v.rule === r.id; });
+        var pts = rvs.length > 0 ? rvs.map(function(v) { return v.startIdx === v.endIdx ? '#' + (v.idx + 1) : '#' + (v.startIdx + 1) + '-#' + (v.endIdx + 1); }).join(', ') : '—';
+        var clr = rvs.length > 0 ? r.color : 'var(--tp-dim)';
+        return '<tr style="border-bottom:1px solid var(--tp-border);">' +
+            '<td style="padding:4px 8px;font-weight:700;color:' + r.color + ';">R' + r.id + '</td>' +
+            '<td style="padding:4px 8px;color:var(--tp-text);">' + r.desc + '</td>' +
+            '<td style="padding:4px 8px;text-align:center;font-weight:700;color:' + clr + ';">' + rvs.length + '</td>' +
+            '<td style="padding:4px 8px;color:var(--tp-dim);font-size:9px;">' + pts + '</td></tr>';
+    }).join('');
+}
+
+function raRenderSPC(el) {
+    if (raState.tests.length < 3) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Necesitas al menos 3 pruebas para generar cartas SPC.</div>';
+        return;
+    }
+
+    var fGroupBy = window._raSpcGroupBy || 'regTestMode';
+    var fGroup = window._raSpcGroup || 'ALL';
+    var fMetric = window._raSpcMetric || 'BagCO';
+
+    var groupFn;
+    if (fGroupBy === 'regTestMode') groupFn = function(t) { return (t.emissionReg || t.regSpec || '?') + ' ' + (t.testType || '?'); };
+    else groupFn = function(t) { return t.testDesc || t.modelName || '?'; };
+
+    var groups = [];
+    var seen = {};
+    raState.tests.forEach(function(t) { var g = groupFn(t); if (!seen[g]) { seen[g] = true; groups.push(g); } });
+    groups.sort();
+
+    var filtered = fGroup === 'ALL' ? raState.tests : raState.tests.filter(function(t) { return groupFn(t) === fGroup; });
+    var pts = [];
+    filtered.forEach(function(t) {
+        if (!t.cycleData || t.cycleData.length === 0) return;
+        var last = t.cycleData[t.cycleData.length - 1];
+        var val = last[fMetric];
+        if (val === undefined || isNaN(val)) return;
+        pts.push({ val: val, vin: t.vin || '', date: t.dateStr || '', id: t.id });
+    });
+
+    // SPC constants for n=2
+    var E2 = 2.660, D4 = 3.267, d2 = 1.128;
+
+    // Compute moving ranges
+    var mRanges = [];
+    for (var i = 1; i < pts.length; i++) {
+        mRanges.push(Math.abs(pts[i].val - pts[i - 1].val));
+    }
+
+    var xBar = pts.length > 0 ? pts.reduce(function(s, p) { return s + p.val; }, 0) / pts.length : 0;
+    var mRBar = mRanges.length > 0 ? mRanges.reduce(function(s, v) { return s + v; }, 0) / mRanges.length : 0;
+
+    // I-chart limits
+    var iUCL = xBar + E2 * mRBar;
+    var iLCL = Math.max(0, xBar - E2 * mRBar);
+
+    // mR-chart limits
+    var mrUCL = D4 * mRBar;
+
+    // Process capability
+    var sigmaEst = mRBar / d2;
+    var pr = raGetProfile(filtered[0] || {});
+    var regLimit = pr ? pr.limits[fMetric] : null;
+
+    // Cpk from SPC
+    var cpkSpc = (regLimit && sigmaEst > 0) ? ((regLimit - xBar) / (3 * sigmaEst)).toFixed(3) : '—';
+
+    // Nelson Run Rules detection
+    var nelsonViolations = raSpcDetectNelson(pts.map(function(p) { return p.val; }), xBar, iUCL, iLCL);
+    var ooc = nelsonViolations.length;
+
+    var metricOpts = ['BagCO', 'BagCO2', 'BagTHC', 'BagNOX', 'BagNMHC', 'BagCH4', 'BagNMHCpNOX', 'BagNMOGpNOX', 'FuelConsumptionBag', 'FuelEconomyBag', 'DilutePN', 'HCHO'];
+    var groupByOpts = [{ v: 'regTestMode', l: 'Regulacion+TestMode' }, { v: 'testDesc', l: 'Test Description' }];
+
+    // Destroy previous charts
+    if (window._raSpcIChart) { try { window._raSpcIChart.destroy(); } catch (e) { } window._raSpcIChart = null; }
+    if (window._raSpcMRChart) { try { window._raSpcMRChart.destroy(); } catch (e) { } window._raSpcMRChart = null; }
+
+    el.innerHTML =
+        '<div class="tp-card">' +
+        '<div class="tp-card-title"><span>Cartas de Control SPC (I-mR)</span></div>' +
+        '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Carta Individual y Rango Movil para monitoreo de proceso. Constantes SPC: E2=2.660, D4=3.267, d2=1.128</div>' +
+        '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">' +
+            '<select class="tp-select" onchange="window._raSpcGroupBy=this.value;window._raSpcGroup=\'ALL\';raRender();" style="font-size:10px;">' +
+                groupByOpts.map(function(o) { return '<option value="' + o.v + '"' + (o.v === fGroupBy ? ' selected' : '') + '>Agrupar: ' + o.l + '</option>'; }).join('') +
+            '</select>' +
+            '<select class="tp-select" onchange="window._raSpcGroup=this.value;raRender();" style="font-size:10px;">' +
+                '<option value="ALL">Todos</option>' +
+                groups.map(function(g) { return '<option value="' + g + '"' + (g === fGroup ? ' selected' : '') + '>' + g + '</option>'; }).join('') +
+            '</select>' +
+            '<select class="tp-select" onchange="window._raSpcMetric=this.value;raRender();" style="font-size:10px;">' +
+                metricOpts.map(function(m) { return '<option value="' + m + '"' + (m === fMetric ? ' selected' : '') + '>' + m + '</option>'; }).join('') +
+            '</select>' +
+        '</div>' +
+
+        // Metrics row
+        '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">' + xBar.toFixed(4) + '</div><div class="tp-metric-label">x&#772; (CL)</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#8b5cf6;font-size:14px;">' + iUCL.toFixed(4) + '</div><div class="tp-metric-label">UCL</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#06b6d4;font-size:14px;">' + iLCL.toFixed(4) + '</div><div class="tp-metric-label">LCL</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#f59e0b;font-size:14px;">' + mRBar.toFixed(4) + '</div><div class="tp-metric-label">mR&#772;</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (sigmaEst > 0 ? 'var(--tp-blue)' : 'var(--tp-dim)') + ';font-size:14px;">' + sigmaEst.toFixed(4) + '</div><div class="tp-metric-label">&sigma;&#770; (mR/d2)</div></div>' +
+            (regLimit ? '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + regLimit + '</div><div class="tp-metric-label">Limite Reg.</div></div>' : '') +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (cpkSpc !== '—' && parseFloat(cpkSpc) < 1.33 ? 'var(--tp-red)' : 'var(--tp-green)') + ';font-size:14px;">' + cpkSpc + '</div><div class="tp-metric-label">Cpk (SPC)</div></div>' +
+            '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:' + (ooc > 0 ? 'var(--tp-red)' : 'var(--tp-green)') + ';font-size:14px;">' + ooc + '</div><div class="tp-metric-label">Nelson Viol.</div></div>' +
+        '</div>' +
+
+        // Chart containers
+        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Carta Individual (I)</div><div style="height:280px;"><canvas id="ra-spc-i-canvas"></canvas></div></div>' +
+        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Carta Rango Movil (mR)</div><div style="height:200px;"><canvas id="ra-spc-mr-canvas"></canvas></div></div>' +
+
+        // Nelson Rules summary table
+        '<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:700;color:#8b5cf6;margin-bottom:6px;">Reglas de Nelson</div>' +
+        '<table style="width:100%;font-size:10px;border-collapse:collapse;">' +
+        '<tr style="border-bottom:1px solid var(--tp-border);"><th style="text-align:left;padding:4px 8px;color:var(--tp-dim);">Regla</th><th style="text-align:left;padding:4px 8px;color:var(--tp-dim);">Descripcion</th><th style="text-align:center;padding:4px 8px;color:var(--tp-dim);">Violaciones</th><th style="text-align:left;padding:4px 8px;color:var(--tp-dim);">Puntos</th></tr>' +
+        raSpcNelsonTableRows(nelsonViolations) +
+        '</table></div>' +
+        '</div>';
+
+    // Build I-Chart
+    if (pts.length > 0 && typeof Chart !== 'undefined') {
+        var labels = pts.map(function(p, i) { return (i + 1) + (p.vin ? '\n' + p.vin.slice(-6) : ''); });
+        var iCtx = document.getElementById('ra-spc-i-canvas');
+        if (iCtx) {
+            var nelsonColors = raSpcNelsonPointColors(pts.length, nelsonViolations);
+            var iDatasets = [
+                { label: fMetric, data: pts.map(function(p) { return p.val; }), borderColor: '#3b82f6', backgroundColor: nelsonColors, pointBackgroundColor: nelsonColors, pointRadius: nelsonColors.map(function(c) { return c === '#3b82f6' ? 4 : 6; }), borderWidth: 1.5, fill: false, tension: 0 },
+                { label: 'x\u0304 (CL)', data: Array(pts.length).fill(xBar), borderColor: '#f59e0b', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false },
+                { label: 'UCL', data: Array(pts.length).fill(iUCL), borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false },
+                { label: 'LCL', data: Array(pts.length).fill(iLCL), borderColor: '#06b6d4', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false }
+            ];
+            if (regLimit) {
+                iDatasets.push({ label: 'Limite', data: Array(pts.length).fill(regLimit), borderColor: '#dc2626', borderWidth: 2, borderDash: [8, 4], pointRadius: 0, fill: false });
+            }
+            window._raSpcIChart = new Chart(iCtx, {
+                type: 'line',
+                data: { labels: labels, datasets: iDatasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: true, labels: { color: '#94a3b8', font: { size: 9 } } }, tooltip: { callbacks: { afterLabel: function(ctx) { return pts[ctx.dataIndex] ? 'VIN: ' + pts[ctx.dataIndex].vin + '\nFecha: ' + pts[ctx.dataIndex].date : ''; } } } },
+                    scales: { x: { ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' } } }
+                }
+            });
+        }
+
+        // Build mR-Chart
+        var mrCtx = document.getElementById('ra-spc-mr-canvas');
+        if (mrCtx && mRanges.length > 0) {
+            var mrLabels = mRanges.map(function(_, i) { return (i + 2); });
+            window._raSpcMRChart = new Chart(mrCtx, {
+                type: 'line',
+                data: {
+                    labels: mrLabels,
+                    datasets: [
+                        { label: 'mR', data: mRanges, borderColor: '#f59e0b', backgroundColor: mRanges.map(function(v) { return v > mrUCL ? '#ef4444' : '#f59e0b'; }), pointBackgroundColor: mRanges.map(function(v) { return v > mrUCL ? '#ef4444' : '#f59e0b'; }), pointRadius: 4, borderWidth: 1.5, fill: false, tension: 0 },
+                        { label: 'mR\u0304 (CL)', data: Array(mRanges.length).fill(mRBar), borderColor: '#f59e0b', borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, fill: false },
+                        { label: 'UCL', data: Array(mRanges.length).fill(mrUCL), borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: true, labels: { color: '#94a3b8', font: { size: 9 } } } },
+                    scales: { x: { title: { display: true, text: 'Observacion', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { title: { display: true, text: 'Rango Movil', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' } } }
+                }
+            });
+        }
+    }
 }
 
 function raInit(){ raUpdateBadges(); }

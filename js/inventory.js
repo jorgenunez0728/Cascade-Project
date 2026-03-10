@@ -36,6 +36,9 @@ let invState = JSON.parse(localStorage.getItem(INV_LS_KEY)) || {
     fuelTanks: [] // {id, name, fuelType, octane, supplier, capacity, currentLevel, unit, readings}
 };
 
+// Drag-and-drop state for zone map
+var _invDrag = { active:false, gasId:null, sourceCode:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false };
+
 function invSave() {
     try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
     catch(e) { console.warn('INV: localStorage full'); }
@@ -123,6 +126,26 @@ function invUpdateBadges() {
 
 function invGenId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
+// Generate unique barcode serial: KIA-YYYYMMDD-XXXX (deterministic from controlNo, or unique for new)
+function invGenerateSerial(controlNo) {
+    // Format: KIA-{date}-{seq} where seq is a 4-char alphanumeric from controlNo hash
+    var hash = 0;
+    var str = controlNo + 'kia-emlab';
+    for (var i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+    }
+    var hex = Math.abs(hash).toString(36).toUpperCase().slice(0, 4);
+    while (hex.length < 4) hex = '0' + hex;
+    // Check for collisions with existing serials
+    var serial = 'KIA-' + controlNo.replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase() + '-' + hex;
+    var existing = invState.gases.map(function(g) { return g.barcode; });
+    if (existing.indexOf(serial) >= 0) {
+        // Add random suffix to break collision
+        serial += Math.random().toString(36).slice(2, 4).toUpperCase();
+    }
+    return serial;
+}
+
 function invAutoControlNo() {
     var today = new Date().toISOString().slice(0,10).replace(/-/g,'');
     var todayCount = invState.gases.filter(function(g){ return g.controlNo && g.controlNo.startsWith(today); }).length;
@@ -200,6 +223,9 @@ function invRenderDashboard(el) {
         html += '<div class="tp-card" style="border-left:3px solid var(--tp-green);text-align:center;padding:20px;color:var(--tp-green);">Sin alertas de vigencia/nivel. Todos los gases y equipos OK.</div>';
     }
 
+    // Anomaly detection banner
+    html += invRenderAnomalyBanner();
+
     // Reorder alerts (projected depletion)
     html += invRenderReorderAlerts();
 
@@ -228,7 +254,7 @@ function invRenderDashboard(el) {
     html += '</div></div>';
 
     if (gases.length === 0) {
-        html += '<div class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">Sin cilindros registrados. Ve a la pestana Gases para agregar.</div>';
+        html += '<div class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">Sin cilindros registrados.<br><button class="tp-btn tp-btn-primary" onclick="invState.activeTab=\'inv-gases\';invRender();document.querySelectorAll(\'#inv-tabs-bar .tp-tab\').forEach(b=>b.classList.remove(\'active\'));document.querySelectorAll(\'#inv-tabs-bar .tp-tab\')[1].classList.add(\'active\');" style="margin-top:12px;">➕ Agregar Gas</button></div>';
     }
 
     el.innerHTML = html;
@@ -366,7 +392,7 @@ function invSaveGas(editId) {
         position: zone ? parseInt(zone.slice(1)) : 0,
         status: document.getElementById('inv-g-status').value,
         regDate: document.getElementById('inv-g-regdate').value,
-        barcode: '*' + controlNo + '*'
+        barcode: invGenerateSerial(controlNo)
     };
 
     if (editId) {
@@ -406,16 +432,231 @@ function invDeleteGas(id) {
 function invShowBarcode(id) {
     var g = invState.gases.find(function(x){return x.id===id;});
     if (!g) return;
+
+    // Ensure barcode serial exists (backfill for old cylinders)
+    if (!g.barcode || g.barcode.startsWith('*')) {
+        g.barcode = invGenerateSerial(g.controlNo);
+        invSave();
+    }
+
+    var exp = invGasExpiry(g);
+    var lvl = invGasLevel(g);
+    var lastR = g.readings && g.readings.length > 0 ? g.readings[g.readings.length - 1] : null;
+
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:350px;margin:40px auto;background:#fff;border-radius:14px;padding:30px;text-align:center;">' +
-        '<h3 style="margin:0 0 10px;">' + g.formula + ' ' + (g.concNominal||'') + '</h3>' +
-        '<div style="font-size:48px;font-family:monospace;letter-spacing:4px;margin:20px 0;">' + g.barcode + '</div>' +
-        '<div style="font-size:14px;color:#64748b;">Control: ' + g.controlNo + '</div>' +
-        '<div style="font-size:12px;color:#94a3b8;">Cilindro: ' + (g.cylinderNo||'?') + ' | Zona: ' + (g.zone||'?') + '</div>' +
-        '<button onclick="window.print()" style="margin-top:15px;padding:8px 20px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;">Imprimir</button>' +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="margin-top:15px;margin-left:8px;padding:8px 20px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cerrar</button>' +
-        '</div>';
+
+    // ── Print-optimized layout: barcode label strip + data sheet ──
+    var html = '<div id="inv-print-page" style="max-width:700px;margin:20px auto;background:#fff;border-radius:14px;padding:0;color:#0f172a;">';
+
+    // === BARCODE LABEL STRIP (designed to be cut out) ===
+    html += '<div id="inv-barcode-label" style="border:2px dashed #94a3b8;border-radius:10px;padding:12px 20px;margin:20px;page-break-after:auto;">';
+    html += '<div style="display:flex;align-items:center;gap:16px;">';
+    // Left: barcode
+    html += '<div id="inv-barcode-container" style="flex-shrink:0;"></div>';
+    // Right: key info for the label
+    html += '<div style="flex:1;border-left:1px solid #e2e8f0;padding-left:14px;">';
+    html += '<div style="font-size:16px;font-weight:800;">' + g.formula + ' <span style="font-weight:400;color:#64748b;">' + (g.concNominal || '') + '</span></div>';
+    html += '<div style="font-size:11px;color:#334155;margin-top:2px;">' + (g.gasType || '') + '</div>';
+    html += '<table style="font-size:10px;margin-top:6px;border-collapse:collapse;">';
+    html += '<tr><td style="color:#64748b;padding-right:8px;">Control:</td><td style="font-weight:700;">' + g.controlNo + '</td></tr>';
+    html += '<tr><td style="color:#64748b;padding-right:8px;">Cilindro:</td><td style="font-weight:700;">' + (g.cylinderNo || '—') + '</td></tr>';
+    html += '<tr><td style="color:#64748b;padding-right:8px;">Zona:</td><td style="font-weight:700;">' + (g.zone || '—') + '</td></tr>';
+    html += '<tr><td style="color:#64748b;padding-right:8px;">Vence:</td><td style="font-weight:700;color:' + (exp.days < 30 ? '#dc2626' : '#0f172a') + ';">' + (g.validUntil || '—') + '</td></tr>';
+    html += '</table>';
+    html += '</div></div>';
+    html += '<div style="text-align:center;margin-top:4px;font-size:8px;color:#94a3b8;letter-spacing:1px;">✂ RECORTAR POR LINEA PUNTEADA ✂</div>';
+    html += '</div>';
+
+    // === FICHA DE RECEPCION DE CILINDRO ===
+    html += '<div style="padding:0 24px 24px;">';
+
+    // Header
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;border-bottom:2px solid #0f172a;padding-bottom:8px;">';
+    html += '<div>';
+    html += '<div style="font-size:20px;font-weight:800;">KIA Emissions Lab</div>';
+    html += '<div style="font-size:11px;color:#64748b;">Ficha de Recepcion de Cilindro de Gas</div>';
+    html += '</div>';
+    html += '<div style="text-align:right;font-size:10px;color:#64748b;">';
+    html += '<div>Fecha recepcion: <strong style="color:#0f172a;font-size:12px;">' + (g.regDate || new Date().toISOString().slice(0,10)) + '</strong></div>';
+    html += '<div>Folio: ' + g.controlNo + '</div>';
+    html += '</div></div>';
+
+    // Identification table
+    html += '<div style="font-size:11px;font-weight:700;margin-bottom:4px;color:#334155;">1. Identificacion del Cilindro</div>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;border:1px solid #cbd5e1;">';
+    var idFields = [
+        ['Formula / Gas', g.formula],
+        ['Tipo de Gas', g.gasType || '—'],
+        ['No. Control Interno', g.controlNo],
+        ['No. Cilindro (proveedor)', g.cylinderNo || '—'],
+        ['Conc. Nominal', g.concNominal || '—'],
+        ['Conc. Real (certificado)', g.concReal || '—'],
+        ['Trazabilidad / Lote', g.traceability || '—'],
+        ['Serial Barcode', g.barcode],
+        ['Zona Asignada', g.zone || '—'],
+        ['Fecha de Vigencia', g.validUntil || '—']
+    ];
+    for (var i = 0; i < idFields.length; i += 2) {
+        html += '<tr>';
+        html += '<td style="padding:3px 8px;font-size:9px;color:#64748b;border:1px solid #e2e8f0;width:22%;background:#f8fafc;">' + idFields[i][0] + '</td>';
+        html += '<td style="padding:3px 8px;font-size:10px;font-weight:600;border:1px solid #e2e8f0;width:28%;">' + idFields[i][1] + '</td>';
+        if (i + 1 < idFields.length) {
+            html += '<td style="padding:3px 8px;font-size:9px;color:#64748b;border:1px solid #e2e8f0;width:22%;background:#f8fafc;">' + idFields[i+1][0] + '</td>';
+            html += '<td style="padding:3px 8px;font-size:10px;font-weight:600;border:1px solid #e2e8f0;width:28%;">' + idFields[i+1][1] + '</td>';
+        } else {
+            html += '<td colspan="2" style="border:1px solid #e2e8f0;"></td>';
+        }
+        html += '</tr>';
+    }
+    html += '</table>';
+
+    // Checklist de recepcion
+    html += '<div style="font-size:11px;font-weight:700;margin-bottom:4px;color:#334155;">2. Checklist de Recepcion</div>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;border:1px solid #cbd5e1;font-size:10px;">';
+    html += '<thead><tr style="background:#f8fafc;"><th style="padding:3px 8px;border:1px solid #e2e8f0;text-align:left;width:60%;">Verificacion</th><th style="padding:3px 8px;border:1px solid #e2e8f0;width:10%;">OK</th><th style="padding:3px 8px;border:1px solid #e2e8f0;width:10%;">N/A</th><th style="padding:3px 8px;border:1px solid #e2e8f0;text-align:left;">Observaciones</th></tr></thead><tbody>';
+    var checks = [
+        'Cilindro sin dano visible (golpes, corrosion, abolladuras)',
+        'Valvula en buenas condiciones y cierra correctamente',
+        'Etiqueta del proveedor legible y coincide con certificado',
+        'Certificado de analisis recibido y archivado',
+        'Concentracion real dentro de tolerancia vs nominal',
+        'Fecha de vigencia vigente al momento de recepcion',
+        'Presion inicial registrada (ver seccion 3)',
+        'Regulador/adaptador compatible verificado',
+        'Zona de almacenamiento asignada y etiquetada'
+    ];
+    checks.forEach(function(c) {
+        html += '<tr><td style="padding:3px 8px;border:1px solid #e2e8f0;">' + c + '</td>';
+        html += '<td style="padding:3px 8px;border:1px solid #e2e8f0;text-align:center;">&#9744;</td>';
+        html += '<td style="padding:3px 8px;border:1px solid #e2e8f0;text-align:center;">&#9744;</td>';
+        html += '<td style="padding:3px 8px;border:1px solid #e2e8f0;"></td></tr>';
+    });
+    html += '</tbody></table>';
+
+    // Presion inicial
+    html += '<div style="font-size:11px;font-weight:700;margin-bottom:4px;color:#334155;">3. Presion Inicial</div>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;border:1px solid #cbd5e1;font-size:10px;">';
+    html += '<tr>';
+    html += '<td style="padding:6px 8px;border:1px solid #e2e8f0;width:30%;background:#f8fafc;">Presion al recibir (psi):</td>';
+    html += '<td style="padding:6px 8px;border:1px solid #e2e8f0;width:20%;font-size:14px;font-weight:700;min-height:24px;">&nbsp;</td>';
+    html += '<td style="padding:6px 8px;border:1px solid #e2e8f0;width:25%;background:#f8fafc;">Fecha de lectura:</td>';
+    html += '<td style="padding:6px 8px;border:1px solid #e2e8f0;width:25%;">' + (g.regDate || '') + '</td>';
+    html += '</tr></table>';
+
+    // Bitacora de lecturas (blank rows to fill by hand)
+    html += '<div style="font-size:11px;font-weight:700;margin-bottom:4px;color:#334155;">4. Bitacora de Lecturas de Presion</div>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;border:1px solid #cbd5e1;font-size:10px;">';
+    html += '<thead><tr style="background:#f8fafc;">';
+    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;width:18%;">Fecha</th>';
+    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;width:14%;">PSI</th>';
+    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;width:14%;">Temp. (&deg;C)</th>';
+    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;">Operador</th>';
+    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;">Observaciones</th>';
+    html += '</tr></thead><tbody>';
+    for (var r = 0; r < 15; r++) {
+        html += '<tr>';
+        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;height:18px;">&nbsp;</td>';
+        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;">&nbsp;</td>';
+        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;">&nbsp;</td>';
+        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;">&nbsp;</td>';
+        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;">&nbsp;</td>';
+        html += '</tr>';
+    }
+    html += '</tbody></table>';
+
+    // Firmas
+    html += '<div style="font-size:11px;font-weight:700;margin-bottom:8px;color:#334155;">5. Firmas de Recepcion</div>';
+    html += '<div style="display:flex;gap:20px;margin-bottom:14px;">';
+    html += '<div style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:8px;text-align:center;">';
+    html += '<div style="height:50px;"></div>';
+    html += '<div style="border-top:1px solid #0f172a;padding-top:4px;font-size:9px;color:#64748b;">Recibio — Nombre y firma</div></div>';
+    html += '<div style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:8px;text-align:center;">';
+    html += '<div style="height:50px;"></div>';
+    html += '<div style="border-top:1px solid #0f172a;padding-top:4px;font-size:9px;color:#64748b;">Verifico — Nombre y firma</div></div>';
+    html += '</div>';
+
+    // Notas
+    html += '<div style="border:1px solid #e2e8f0;border-radius:6px;padding:8px;min-height:40px;">';
+    html += '<div style="font-size:9px;color:#94a3b8;">Notas / Observaciones:</div>';
+    html += '</div>';
+
+    html += '</div>'; // end data sheet
+
+    // === ACTION BUTTONS (hidden on print) ===
+    html += '<div class="inv-no-print" style="display:flex;gap:8px;justify-content:center;padding:0 24px 24px;">';
+    html += '<button onclick="invPrintBarcodePage()" style="padding:10px 24px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Imprimir</button>';
+    html += '<button onclick="invDownloadBarcode(\'' + g.id + '\')" style="padding:10px 24px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Descargar Barcode</button>';
+    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px 24px;background:#e2e8f0;color:#334155;border:none;border-radius:8px;cursor:pointer;">Cerrar</button>';
+    html += '</div>';
+
+    html += '</div>'; // end inv-print-page
+    modal.innerHTML = html;
+
+    // Render real barcode using JsBarcode
+    var container = document.getElementById('inv-barcode-container');
+    if (typeof JsBarcode !== 'undefined') {
+        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.id = 'inv-barcode-svg';
+        container.appendChild(svg);
+        try {
+            JsBarcode(svg, g.barcode, {
+                format: 'CODE128',
+                width: 2,
+                height: 50,
+                displayValue: true,
+                fontSize: 12,
+                font: 'monospace',
+                textMargin: 3,
+                margin: 5,
+                background: '#ffffff',
+                lineColor: '#000000'
+            });
+        } catch(e) {
+            container.innerHTML = '<div style="font-size:28px;font-family:monospace;letter-spacing:3px;">' + g.barcode + '</div>' +
+                '<div style="font-size:10px;color:#ef4444;">Error: ' + e.message + '</div>';
+        }
+    } else {
+        container.innerHTML = '<div style="font-size:28px;font-family:monospace;letter-spacing:3px;">' + g.barcode + '</div>' +
+            '<div style="font-size:10px;color:#f59e0b;">JsBarcode no cargado.</div>';
+    }
+}
+
+function invPrintBarcodePage() {
+    // Add print styles dynamically
+    var styleId = 'inv-print-styles';
+    if (!document.getElementById(styleId)) {
+        var style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = '@media print { body > *:not(#invModal) { display:none !important; } #invModal { position:static !important; background:#fff !important; overflow:visible !important; } .inv-no-print { display:none !important; } #inv-print-page { margin:0 !important; border-radius:0 !important; box-shadow:none !important; } #inv-barcode-label { border:2px dashed #999 !important; } }';
+        document.head.appendChild(style);
+    }
+    window.print();
+}
+
+function invDownloadBarcode(id) {
+    var g = invState.gases.find(function(x){return x.id===id;});
+    if (!g) return;
+    var svg = document.getElementById('inv-barcode-svg');
+    if (!svg) { showToast('No se pudo generar imagen', 'error'); return; }
+
+    // Convert SVG to canvas then download as PNG
+    var svgData = new XMLSerializer().serializeToString(svg);
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    var img = new Image();
+    img.onload = function() {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        var link = document.createElement('a');
+        link.download = 'barcode-' + g.controlNo + '.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
 }
 
 
@@ -466,8 +707,59 @@ function invShowTimeline(id) {
             html += '</div>';
         });
     }
+    // Quick reading inline form
+    html += '<div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:10px;">';
+    html += '<button onclick="invMapQuickRead(\'' + g.id + '\')" id="inv-map-read-btn" style="width:100%;padding:10px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">Registrar Lectura</button>';
+    html += '<div id="inv-map-read-area" style="display:none;margin-top:8px;">';
+    html += '<div style="display:flex;gap:6px;align-items:center;">';
+    html += '<input id="inv-map-psi" type="number" inputmode="numeric" placeholder="psi" style="flex:1;padding:10px;font-size:16px;font-weight:700;text-align:center;border:2px solid #8b5cf6;border-radius:8px;background:#f8fafc;color:#0f172a;">';
+    html += '<input id="inv-map-date" type="date" value="' + new Date().toISOString().slice(0,10) + '" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:10px;color:#334155;">';
+    html += '</div>';
+    html += '<div style="display:flex;gap:6px;margin-top:6px;">';
+    html += '<button onclick="document.getElementById(\'inv-map-read-area\').style.display=\'none\';document.getElementById(\'inv-map-read-btn\').style.display=\'block\';" style="flex:1;padding:8px;background:#e2e8f0;color:#334155;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Cancelar</button>';
+    html += '<button onclick="invMapQuickReadSave(\'' + g.id + '\')" style="flex:2;padding:8px;background:#8b5cf6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;">Guardar</button>';
+    html += '</div></div></div>';
     html += '</div>';
     modal.innerHTML = html;
+}
+
+function invMapQuickRead(gasId) {
+    var area = document.getElementById('inv-map-read-area');
+    var btn = document.getElementById('inv-map-read-btn');
+    if (area) area.style.display = 'block';
+    if (btn) btn.style.display = 'none';
+    setTimeout(function() { var inp = document.getElementById('inv-map-psi'); if (inp) inp.focus(); }, 100);
+}
+
+function invMapQuickReadSave(gasId) {
+    var inp = document.getElementById('inv-map-psi');
+    var dateInp = document.getElementById('inv-map-date');
+    if (!inp || !inp.value) { showToast('Ingresa la presion', 'error'); return; }
+
+    var psi = parseFloat(inp.value);
+    if (isNaN(psi) || psi < 0) { showToast('Presion invalida', 'error'); return; }
+
+    var date = dateInp ? dateInp.value : new Date().toISOString().slice(0, 10);
+    var gas = invState.gases.find(function(g) { return g.id === gasId; });
+    if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
+
+    if (!gas.readings) gas.readings = [];
+
+    // Check for duplicate reading on same date
+    var existing = gas.readings.find(function(r) { return r.date === date; });
+    if (existing) {
+        if (!confirm('Ya existe lectura del ' + date + ' (' + existing.psi + ' psi). Reemplazar?')) return;
+        existing.psi = psi;
+    } else {
+        gas.readings.push({ date: date, psi: psi });
+    }
+
+    invSave();
+    if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
+    showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi', 'success');
+
+    // Refresh modal to show updated readings
+    invShowTimeline(gasId);
 }
 
 function invShowZone(zoneId) {
@@ -481,9 +773,13 @@ function invShowZone(zoneId) {
 // READINGS (Daily pressure readings)
 // ══════════════════════════════════════════════════
 function invRenderReadings(el) {
-    var gases = invState.gases.filter(function(g){ return g.status === 'In use'; });
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Lecturas Diarias de Presion</span>';
-    html += '<button class="tp-btn tp-btn-primary" onclick="invBulkReading()" style="font-size:10px;">Guardar Lecturas</button></div>';
+    var gases = invState.gases.filter(function(g){ return g.status !== 'Empty'; });
+    var html = invRenderAnomalyBanner();
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Lecturas Diarias de Presion</span>';
+    html += '<div style="display:flex;gap:6px;">';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size:10px;border-color:#8b5cf6;color:#8b5cf6;">📷 Escanear</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="invBulkReading()" style="font-size:10px;">Guardar Lecturas</button>';
+    html += '</div></div>';
     html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Registra la presion (psi) de cada cilindro en uso.</div>';
 
     if (gases.length === 0) {
@@ -529,7 +825,7 @@ function invRenderReadings(el) {
 function invBulkReading() {
     var date = new Date().toISOString().slice(0,10);
     var count = 0;
-    invState.gases.filter(function(g){ return g.status === 'In use'; }).forEach(function(g) {
+    invState.gases.filter(function(g){ return g.status !== 'Empty'; }).forEach(function(g) {
         var inp = document.getElementById('inv-rd-' + g.id);
         if (inp && inp.value) {
             var psi = parseFloat(inp.value);
@@ -544,6 +840,252 @@ function invBulkReading() {
     invSave(); invRender();
     if (typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
     showToast(count + ' lecturas guardadas para ' + date, 'success');
+}
+
+// ══════════════════════════════════════════════════
+// BARCODE SCANNER + QUICK READING
+// ══════════════════════════════════════════════════
+
+function invScanBarcode() {
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+
+    var hasCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    var hasLib = typeof Html5Qrcode !== 'undefined';
+
+    var html = '<div style="max-width:420px;margin:20px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
+    html += '<button onclick="invScanStop();document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
+    html += '<h3 style="margin:0 0 10px;color:#8b5cf6;">Lectura Rapida</h3>';
+
+    if (hasCamera && hasLib) {
+        html += '<div id="inv-scan-area" style="position:relative;margin-bottom:12px;">';
+        html += '<div id="inv-scan-reader" style="width:100%;border-radius:8px;overflow:hidden;"></div>';
+        html += '<div id="inv-scan-status" style="text-align:center;font-size:10px;color:#8b5cf6;margin-top:6px;">Apunta al codigo de barras...</div>';
+        html += '</div>';
+    } else if (!hasLib) {
+        html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size:10px;color:#f59e0b;">Libreria de escaneo no cargada. Usa la busqueda rapida abajo.</div>';
+    } else {
+        html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size:10px;color:#f59e0b;">Camara no disponible. Usa la busqueda rapida abajo.</div>';
+    }
+
+    // Quick search fallback (always shown)
+    html += '<div style="margin-bottom:12px;">';
+    html += '<label style="font-size:10px;color:#94a3b8;">Busqueda rapida (No. Control, cilindro o formula)</label>';
+    html += '<input id="inv-scan-search" placeholder="Escribe para buscar..." oninput="invScanFilter()" style="width:100%;padding:10px;margin-top:4px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;">';
+    html += '</div>';
+
+    // Search results
+    html += '<div id="inv-scan-results" style="max-height:250px;overflow-y:auto;"></div>';
+
+    html += '</div>';
+    modal.innerHTML = html;
+
+    // Show all in-use gases initially
+    invScanFilter();
+
+    // Start camera scanner if available
+    if (hasCamera && hasLib) {
+        invScanStart();
+    }
+}
+
+var _invHtml5Scanner = null;
+
+function invScanStart() {
+    var readerEl = document.getElementById('inv-scan-reader');
+    if (!readerEl) return;
+
+    _invHtml5Scanner = new Html5Qrcode('inv-scan-reader');
+
+    _invHtml5Scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 100 }, formatsToSupport: [
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.QR_CODE
+        ]},
+        function onSuccess(code) {
+            var statusEl = document.getElementById('inv-scan-status');
+            if (statusEl) statusEl.textContent = 'Detectado: ' + code;
+
+            // Find matching gas cylinder
+            var gas = invState.gases.find(function(g) {
+                return g.barcode === code || g.controlNo === code || g.cylinderNo === code;
+            });
+
+            if (gas) {
+                invScanStop();
+                invQuickReadPopup(gas);
+            } else {
+                if (statusEl) statusEl.textContent = 'Codigo ' + code + ' — no encontrado en inventario';
+            }
+        },
+        function onError() {
+            // Silence continuous scan misses
+        }
+    ).catch(function(err) {
+        console.warn('Camera scanner failed:', err);
+        var statusEl = document.getElementById('inv-scan-status');
+        if (statusEl) statusEl.textContent = 'Error de camara: ' + (err.message || err);
+        var area = document.getElementById('inv-scan-area');
+        if (area) area.style.display = 'none';
+    });
+}
+
+function invScanStop() {
+    if (_invHtml5Scanner) {
+        _invHtml5Scanner.stop().then(function() {
+            _invHtml5Scanner.clear();
+            _invHtml5Scanner = null;
+        }).catch(function() {
+            _invHtml5Scanner = null;
+        });
+    }
+}
+
+function invScanFilter() {
+    var input = document.getElementById('inv-scan-search');
+    var container = document.getElementById('inv-scan-results');
+    if (!container) return;
+    var q = input ? input.value.toLowerCase().trim() : '';
+
+    var gases = invState.gases.filter(function(g) { return g.status !== 'Empty'; });
+    if (q.length > 0) {
+        gases = gases.filter(function(g) {
+            return (g.controlNo || '').toLowerCase().includes(q) ||
+                   (g.cylinderNo || '').toLowerCase().includes(q) ||
+                   (g.formula || '').toLowerCase().includes(q) ||
+                   (g.gasType || '').toLowerCase().includes(q) ||
+                   (g.barcode || '').toLowerCase().includes(q);
+        });
+    }
+
+    if (gases.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:15px;color:#64748b;font-size:11px;">Sin resultados</div>';
+        return;
+    }
+
+    var html = '';
+    gases.forEach(function(g) {
+        var lastR = g.readings && g.readings.length > 0 ? g.readings[g.readings.length - 1] : null;
+        var lvl = invGasLevel(g);
+        html += '<button onclick="invScanStop();invQuickReadPopup(invState.gases.find(function(x){return x.id===\x27' + g.id + '\x27}))" style="display:block;width:100%;padding:10px;margin-bottom:4px;background:#1e293b;border:1px solid #334155;border-radius:8px;cursor:pointer;text-align:left;color:#e2e8f0;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        html += '<div><strong style="font-size:12px;">' + g.formula + '</strong> <span style="font-size:10px;color:#94a3b8;">' + (g.concNominal || '') + '</span>';
+        html += '<div style="font-size:9px;color:#64748b;">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo || '?') + ' | ' + (g.zone || '?') + '</div></div>';
+        html += '<div style="text-align:right;">';
+        if (lastR) {
+            html += '<div style="font-size:14px;font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' psi</div>';
+            html += '<div style="font-size:8px;color:#64748b;">' + lastR.date + '</div>';
+        } else {
+            html += '<div style="font-size:10px;color:#64748b;">Sin lecturas</div>';
+        }
+        html += '</div></div></button>';
+    });
+    container.innerHTML = html;
+}
+
+function invQuickReadPopup(g) {
+    if (!g) return;
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+
+    var lastR = g.readings && g.readings.length > 0 ? g.readings[g.readings.length - 1] : null;
+    var lvl = invGasLevel(g);
+    var today = new Date().toISOString().slice(0, 10);
+
+    var html = '<div style="max-width:400px;margin:30px auto;background:#0f172a;border-radius:14px;padding:24px;position:relative;color:#e2e8f0;">';
+    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
+
+    // Cylinder header
+    html += '<div style="text-align:center;margin-bottom:16px;">';
+    html += '<div style="font-size:20px;font-weight:700;">' + g.formula + ' <span style="color:#94a3b8;font-weight:400;">' + (g.concNominal || '') + '</span></div>';
+    html += '<div style="font-size:11px;color:#64748b;">' + (g.gasType || '') + '</div>';
+    html += '<div style="display:flex;justify-content:center;gap:12px;margin-top:6px;">';
+    html += '<span style="font-size:10px;padding:2px 8px;background:#1e293b;border-radius:10px;border:1px solid #334155;">Control: <strong>' + g.controlNo + '</strong></span>';
+    html += '<span style="font-size:10px;padding:2px 8px;background:#1e293b;border-radius:10px;border:1px solid #334155;">Cil: <strong>' + (g.cylinderNo || '?') + '</strong></span>';
+    html += '<span style="font-size:10px;padding:2px 8px;background:#1e293b;border-radius:10px;border:1px solid #334155;">Zona: <strong>' + (g.zone || '?') + '</strong></span>';
+    html += '</div></div>';
+
+    // Previous reading
+    html += '<div style="background:#1e293b;border-radius:10px;padding:14px;margin-bottom:16px;border:1px solid #334155;">';
+    html += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;">Lectura anterior</div>';
+    if (lastR) {
+        html += '<div style="display:flex;justify-content:space-between;align-items:baseline;">';
+        html += '<span style="font-size:28px;font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' <span style="font-size:14px;font-weight:400;">psi</span></span>';
+        html += '<span style="font-size:11px;color:#64748b;">' + lastR.date + '</span>';
+        html += '</div>';
+        html += '<div style="margin-top:6px;height:4px;background:#0f172a;border-radius:2px;overflow:hidden;">';
+        html += '<div style="width:' + Math.min(lvl.pct, 100) + '%;height:100%;background:' + lvl.color + ';border-radius:2px;"></div></div>';
+        html += '<div style="font-size:9px;color:#64748b;margin-top:3px;">' + lvl.text + '</div>';
+    } else {
+        html += '<div style="font-size:13px;color:#64748b;">Sin lecturas previas</div>';
+    }
+    html += '</div>';
+
+    // New reading input
+    html += '<div style="background:#0c1a2e;border:2px solid #8b5cf6;border-radius:10px;padding:16px;margin-bottom:16px;">';
+    html += '<div style="font-size:11px;color:#8b5cf6;font-weight:700;margin-bottom:8px;">Nueva lectura</div>';
+    html += '<div style="display:flex;gap:10px;align-items:center;">';
+    html += '<div style="flex:1;">';
+    html += '<input id="inv-quick-psi" type="number" inputmode="numeric" placeholder="0" autofocus style="width:100%;padding:14px;font-size:24px;font-weight:700;text-align:center;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#fff;">';
+    html += '<div style="text-align:center;font-size:10px;color:#64748b;margin-top:3px;">psi</div>';
+    html += '</div>';
+    html += '<div>';
+    html += '<input id="inv-quick-date" type="date" value="' + today + '" style="padding:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:11px;">';
+    html += '</div>';
+    html += '</div></div>';
+
+    // Action buttons
+    html += '<div style="display:flex;gap:8px;">';
+    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="flex:1;padding:12px;background:#334155;color:#e2e8f0;border:none;border-radius:8px;cursor:pointer;font-size:12px;">Cancelar</button>';
+    html += '<button onclick="invQuickReadSave(\x27' + g.id + '\x27)" style="flex:2;padding:12px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;">Guardar Lectura</button>';
+    html += '</div>';
+
+    // Quick: scan another
+    html += '<button onclick="invScanBarcode()" style="width:100%;margin-top:8px;padding:8px;background:transparent;color:#8b5cf6;border:1px solid #8b5cf6;border-radius:8px;cursor:pointer;font-size:11px;">📷 Escanear otro cilindro</button>';
+
+    html += '</div>';
+    modal.innerHTML = html;
+
+    // Auto-focus the input
+    setTimeout(function() {
+        var inp = document.getElementById('inv-quick-psi');
+        if (inp) inp.focus();
+    }, 100);
+}
+
+function invQuickReadSave(gasId) {
+    var inp = document.getElementById('inv-quick-psi');
+    var dateInp = document.getElementById('inv-quick-date');
+    if (!inp || !inp.value) { showToast('Ingresa la presion', 'error'); return; }
+
+    var psi = parseFloat(inp.value);
+    if (isNaN(psi) || psi < 0) { showToast('Presion invalida', 'error'); return; }
+
+    var date = dateInp ? dateInp.value : new Date().toISOString().slice(0, 10);
+    var gas = invState.gases.find(function(g) { return g.id === gasId; });
+    if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
+
+    if (!gas.readings) gas.readings = [];
+
+    // Check for duplicate reading on same date
+    var existingToday = gas.readings.find(function(r) { return r.date === date; });
+    if (existingToday) {
+        if (!confirm('Ya existe una lectura del ' + date + ' (' + existingToday.psi + ' psi). ¿Reemplazar?')) return;
+        existingToday.psi = psi;
+    } else {
+        gas.readings.push({ date: date, psi: psi });
+    }
+
+    invSave();
+    invRender();
+    if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
+    showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi guardado', 'success');
+
+    document.getElementById('invModal').style.display = 'none';
 }
 
 // ══════════════════════════════════════════════════
@@ -808,6 +1350,61 @@ function invRenderPredict(el) {
     } else if (totalPending > 0 && !hasAdaptiveData) {
         html += '<div class="tp-card" style="border-left:3px solid var(--tp-border);"><div class="tp-card-title"><span>Proyeccion Plan (' + totalPending + ' pendientes)</span></div>';
         html += '<div style="font-size:10px;color:var(--tp-dim);padding:10px;">El modelo aun no tiene suficientes datos. Conforme se liberen vehiculos y se registren lecturas, las predicciones por regulacion apareceran aqui.</div></div>';
+    }
+
+    // ═══════════════════════════════════════════════
+    // 3.5 WEEKLY PLAN FORECAST (Mejora D)
+    // ═══════════════════════════════════════════════
+    var weeklyForecast = invForecastForWeeklyPlan(rates);
+    if (weeklyForecast && weeklyForecast.items.length > 0) {
+        var wf = weeklyForecast;
+        var criticalCount = wf.items.filter(function(i) { return i.needsReorder; }).length;
+        var borderColor = criticalCount > 0 ? '#ef4444' : '#10b981';
+        html += '<div class="tp-card" style="border-left:3px solid ' + borderColor + ';">';
+        html += '<div class="tp-card-title"><span>🗓 Forecast Semanal: ' + wf.planLabel + '</span>';
+        if (criticalCount > 0) html += '<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">⚠ ' + criticalCount + ' requieren reorden</span>';
+        html += '</div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Consumo estimado para el plan semanal aceptado (' + wf.testCount + ' pruebas). Basado en tasas EWMA aprendidas.</div>';
+
+        // Gas forecast table
+        var gasItems = wf.items.filter(function(i) { return i.type === 'gas'; });
+        if (gasItems.length > 0) {
+            html += '<div style="font-size:10px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Gases</div>';
+            gasItems.forEach(function(item) {
+                var clr = item.needsReorder ? '#ef4444' : item.pctUsage > 50 ? '#f59e0b' : '#10b981';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;flex-wrap:wrap;gap:4px;">';
+                html += '<span style="font-size:10px;">' + item.name + '</span>';
+                html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+                html += '<span style="font-size:9px;color:var(--tp-dim);">Actual: <strong>' + item.currentLevel + '</strong> psi</span>';
+                html += '<span style="font-size:9px;color:var(--tp-amber);">Uso plan: <strong>' + item.estimatedUsage.toFixed(0) + '</strong> psi</span>';
+                html += '<span style="font-size:9px;color:' + clr + ';">Post-plan: <strong>' + item.postPlanLevel.toFixed(0) + '</strong> psi</span>';
+                html += '<span style="font-size:9px;font-weight:700;color:' + clr + ';">' + item.recommendation + '</span>';
+                html += '</div></div>';
+            });
+        }
+
+        // Fuel forecast table
+        var fuelItems = wf.items.filter(function(i) { return i.type === 'fuel'; });
+        if (fuelItems.length > 0) {
+            html += '<div style="font-size:10px;font-weight:700;color:#f97316;margin-top:8px;margin-bottom:4px;">Combustible</div>';
+            fuelItems.forEach(function(item) {
+                var clr = item.needsReorder ? '#ef4444' : item.pctUsage > 50 ? '#f59e0b' : '#10b981';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;flex-wrap:wrap;gap:4px;">';
+                html += '<span style="font-size:10px;">' + item.name + '</span>';
+                html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+                html += '<span style="font-size:9px;color:var(--tp-dim);">Actual: <strong>' + item.currentLevel + '</strong> ' + (item.unit || 'L') + '</span>';
+                html += '<span style="font-size:9px;color:var(--tp-amber);">Uso plan: <strong>' + item.estimatedUsage.toFixed(1) + '</strong> ' + (item.unit || 'L') + '</span>';
+                html += '<span style="font-size:9px;color:' + clr + ';">Post-plan: <strong>' + item.postPlanLevel.toFixed(1) + '</strong> ' + (item.unit || 'L') + '</span>';
+                html += '<span style="font-size:9px;font-weight:700;color:' + clr + ';">' + item.recommendation + '</span>';
+                html += '</div></div>';
+            });
+        }
+
+        // Export button
+        html += '<div style="margin-top:8px;display:flex;gap:8px;">';
+        html += '<button onclick="invExportWeeklyForecast()" class="tp-btn tp-btn-ghost" style="font-size:10px;">📤 Exportar CSV</button>';
+        html += '</div>';
+        html += '</div>';
     }
 
     // ═══════════════════════════════════════════════
@@ -1402,7 +1999,7 @@ function invExportReport() {
 function invRenderZoneMap(el) {
     var gases = invState.gases;
     var html = '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span></div>';
-    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Verde >50% | Amarillo 25-50% | Rojo <25% | Gris: vacio</div>';
+    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Verde >50% | Amarillo 25-50% | Rojo <25% | Gris: vacio &mdash; Mantener presionado para arrastrar</div>';
 
     invState.zones.forEach(function(z) {
         var zGases = gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); });
@@ -1417,18 +2014,21 @@ function invRenderZoneMap(el) {
             var bgColor = '#1e293b';
             var label = '';
             var detail = '';
+            var gasIdAttr = '';
 
             if (slotGas) {
                 var lvl = invGasLevel(slotGas);
                 bgColor = lvl.pct > 50 ? '#065f46' : lvl.pct > 25 ? '#854d0e' : '#991b1b';
                 label = slotGas.formula.split('/')[0];
                 detail = lvl.pct + '%';
+                gasIdAttr = ' data-gas-id="' + slotGas.id + '"';
             }
 
-            html += '<div onclick="invShowZoneSlotDetail(\'' + code + '\')" ' +
-                'style="padding:6px 4px;text-align:center;border-radius:6px;' +
+            html += '<div class="inv-zone-slot" data-zone-code="' + code + '"' + gasIdAttr +
+                ' style="padding:6px 4px;text-align:center;border-radius:6px;' +
                 'background:' + bgColor + ';border:1px solid var(--tp-border);cursor:pointer;' +
-                'min-height:44px;display:flex;flex-direction:column;justify-content:center;">';
+                'min-height:44px;display:flex;flex-direction:column;justify-content:center;' +
+                'user-select:none;-webkit-user-select:none;touch-action:none;">';
             html += '<div style="font-size:8px;color:var(--tp-dim);">' + code + '</div>';
             if (slotGas) {
                 html += '<div style="font-size:10px;font-weight:700;color:#fff;">' + label + '</div>';
@@ -1443,6 +2043,7 @@ function invRenderZoneMap(el) {
 
     html += '</div>';
     el.innerHTML = html;
+    invInitZoneDrag(el);
 }
 
 function invShowZoneSlotDetail(code) {
@@ -1452,6 +2053,207 @@ function invShowZoneSlotDetail(code) {
     } else {
         showToast('Posicion ' + code + ' libre', 'info');
     }
+}
+
+// ── Zone Map: Drag-and-Drop ──
+function invInitZoneDrag(container) {
+    var slots = container.querySelectorAll('.inv-zone-slot');
+    var LONG_PRESS_MS = 500;
+    var DRAG_THRESHOLD = 30;
+
+    function getXY(e) {
+        if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        if (e.changedTouches && e.changedTouches.length > 0) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    function cancelDrag() {
+        if (_invDrag.timer) { clearTimeout(_invDrag.timer); _invDrag.timer = null; }
+        if (_invDrag.ghostEl) { _invDrag.ghostEl.remove(); _invDrag.ghostEl = null; }
+        // Remove visual highlights
+        container.querySelectorAll('.inv-zone-slot').forEach(function(s) {
+            s.style.outline = '';
+            s.style.opacity = '';
+        });
+        _invDrag.active = false;
+        _invDrag.committed = false;
+        _invDrag.gasId = null;
+        _invDrag.sourceCode = null;
+    }
+
+    function startDragMode(slotEl, pt) {
+        var gasId = slotEl.getAttribute('data-gas-id');
+        if (!gasId) return; // Empty slot, nothing to drag
+        _invDrag.active = true;
+        _invDrag.gasId = gasId;
+        _invDrag.sourceCode = slotEl.getAttribute('data-zone-code');
+
+        // Vibrate if available
+        if (navigator.vibrate) navigator.vibrate(50);
+
+        // Create ghost element
+        var ghost = slotEl.cloneNode(true);
+        ghost.style.position = 'fixed';
+        ghost.style.left = (pt.x - 26) + 'px';
+        ghost.style.top = (pt.y - 26) + 'px';
+        ghost.style.width = '52px';
+        ghost.style.opacity = '0.85';
+        ghost.style.zIndex = '10000';
+        ghost.style.pointerEvents = 'none';
+        ghost.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)';
+        ghost.style.transform = 'scale(1.15)';
+        ghost.style.transition = 'none';
+        document.body.appendChild(ghost);
+        _invDrag.ghostEl = ghost;
+
+        // Highlight source slot
+        slotEl.style.opacity = '0.3';
+        slotEl.style.outline = '2px dashed #eab308';
+
+        // Highlight empty slots as drop targets
+        container.querySelectorAll('.inv-zone-slot').forEach(function(s) {
+            if (s === slotEl) return;
+            if (!s.getAttribute('data-gas-id')) {
+                s.style.outline = '2px dashed #22c55e';
+            }
+        });
+    }
+
+    function onPointerDown(e) {
+        // Only primary button for mouse
+        if (e.type === 'mousedown' && e.button !== 0) return;
+        cancelDrag();
+        var slotEl = e.currentTarget;
+        var pt = getXY(e);
+        _invDrag.startX = pt.x;
+        _invDrag.startY = pt.y;
+        _invDrag.committed = false;
+        _invDrag.sourceCode = slotEl.getAttribute('data-zone-code'); // Store for tap fallback
+        if (!slotEl.getAttribute('data-gas-id')) {
+            // Empty slot: no drag, but still handle tap on pointer-up via a dummy timer
+            _invDrag.timer = setTimeout(function() { _invDrag.timer = null; }, LONG_PRESS_MS);
+            return;
+        }
+        _invDrag.timer = setTimeout(function() {
+            _invDrag.timer = null;
+            startDragMode(slotEl, pt);
+        }, LONG_PRESS_MS);
+    }
+
+    function onPointerMove(e) {
+        var pt = getXY(e);
+        // If timer still running, check if moved too far (cancel long-press)
+        if (_invDrag.timer) {
+            var dx = Math.abs(pt.x - _invDrag.startX);
+            var dy = Math.abs(pt.y - _invDrag.startY);
+            if (dx > 10 || dy > 10) {
+                clearTimeout(_invDrag.timer);
+                _invDrag.timer = null;
+            }
+            return;
+        }
+        if (!_invDrag.active) return;
+        e.preventDefault(); // Prevent scroll during drag
+
+        // Check drag threshold
+        var distX = pt.x - _invDrag.startX;
+        var distY = pt.y - _invDrag.startY;
+        if (!_invDrag.committed && Math.sqrt(distX*distX + distY*distY) > DRAG_THRESHOLD) {
+            _invDrag.committed = true;
+        }
+
+        // Move ghost
+        if (_invDrag.ghostEl) {
+            _invDrag.ghostEl.style.left = (pt.x - 26) + 'px';
+            _invDrag.ghostEl.style.top = (pt.y - 26) + 'px';
+        }
+    }
+
+    function onPointerUp(e) {
+        // If long-press timer still running → normal tap
+        if (_invDrag.timer) {
+            clearTimeout(_invDrag.timer);
+            _invDrag.timer = null;
+            var tapCode = _invDrag.sourceCode;
+            _invDrag.sourceCode = null;
+            if (tapCode) invShowZoneSlotDetail(tapCode);
+            return;
+        }
+        if (!_invDrag.active) return;
+
+        var pt = getXY(e);
+        var wasCommitted = _invDrag.committed;
+        var gasId = _invDrag.gasId;
+        var sourceCode = _invDrag.sourceCode;
+
+        cancelDrag();
+
+        if (!wasCommitted) {
+            // Drag was activated (long-press fired) but didn't move far enough → treat as detail view
+            if (sourceCode) invShowZoneSlotDetail(sourceCode);
+            return;
+        }
+
+        // Find drop target
+        var targetEl = document.elementFromPoint(pt.x, pt.y);
+        if (targetEl) targetEl = targetEl.closest('.inv-zone-slot');
+        if (!targetEl) { showToast('Soltar fuera del mapa — cancelado', 'warning'); return; }
+        var targetCode = targetEl.getAttribute('data-zone-code');
+        if (!targetCode || targetCode === sourceCode) return;
+
+        invDropCylinder(gasId, sourceCode, targetCode);
+    }
+
+    // Cleanup previous listeners before attaching new ones
+    if (window._invDragCleanup) window._invDragCleanup();
+
+    // Attach listeners to each slot
+    slots.forEach(function(slot) {
+        slot.addEventListener('touchstart', onPointerDown, { passive: true });
+        slot.addEventListener('mousedown', onPointerDown);
+    });
+
+    // Move/up on document (so drag continues outside slot boundaries)
+    var onCancel = function() { cancelDrag(); };
+    document.addEventListener('touchmove', onPointerMove, { passive: false });
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('touchend', onPointerUp, { passive: true });
+    document.addEventListener('mouseup', onPointerUp);
+    document.addEventListener('touchcancel', onCancel);
+
+    // Store cleanup ref for re-renders
+    window._invDragCleanup = function() {
+        document.removeEventListener('touchmove', onPointerMove);
+        document.removeEventListener('mousemove', onPointerMove);
+        document.removeEventListener('touchend', onPointerUp);
+        document.removeEventListener('mouseup', onPointerUp);
+        document.removeEventListener('touchcancel', onCancel);
+    };
+}
+
+function invDropCylinder(gasId, sourceCode, targetCode) {
+    var gas = invState.gases.find(function(g) { return g.id === gasId; });
+    if (!gas) return;
+
+    // Check if target is occupied
+    var occupant = invState.gases.find(function(g) { return g.zone === targetCode; });
+    if (occupant) {
+        showToast('Posicion ' + targetCode + ' ocupada', 'warning');
+        return;
+    }
+
+    // Move cylinder
+    gas.zone = targetCode;
+    // Update position number from code
+    gas.position = parseInt(targetCode.substring(1), 10);
+    // Timeline entry
+    if (!gas.timeline) gas.timeline = [];
+    gas.timeline.push({ date: new Date().toISOString(), action: 'Reubicado: ' + sourceCode + ' → ' + targetCode });
+
+    invSave();
+    invRender();
+    if (typeof fbPushModule === 'function') fbPushModule('inventory');
+    showToast(gas.formula + ' movido a ' + targetCode, 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -1975,5 +2777,302 @@ function invRenderReorderAlerts() {
 
     html += '</div>';
     return html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [INV-ANOMALY] Anomaly Detection — Leak & Unusual Consumption      ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function invDetectAnomalies() {
+    var anomalies = [];
+    invState.gases.forEach(function(g) {
+        if (g.status === 'Empty' || !g.readings || g.readings.length < 3) return;
+        var rdgs = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+
+        // Calculate average daily drop rate from all consecutive pairs
+        var drops = [];
+        for (var i = 1; i < rdgs.length; i++) {
+            var daysDiff = Math.max(1, Math.round((new Date(rdgs[i].date) - new Date(rdgs[i-1].date)) / 86400000));
+            var psiDrop = rdgs[i-1].psi - rdgs[i].psi;
+            if (psiDrop > 0) drops.push(psiDrop / daysDiff);
+        }
+        if (drops.length < 2) return;
+
+        // Mean and std deviation of daily drop rates
+        var mean = drops.reduce(function(s, v) { return s + v; }, 0) / drops.length;
+        var variance = drops.reduce(function(s, v) { return s + (v - mean) * (v - mean); }, 0) / drops.length;
+        var std = Math.sqrt(variance);
+        if (mean <= 0) return;
+
+        // Check latest drop against historical pattern
+        var lastDrop = rdgs[rdgs.length - 2].psi - rdgs[rdgs.length - 1].psi;
+        var lastDays = Math.max(1, Math.round((new Date(rdgs[rdgs.length - 1].date) - new Date(rdgs[rdgs.length - 2].date)) / 86400000));
+        var lastRate = lastDrop / lastDays;
+
+        if (lastDrop <= 0) return; // refill or no change
+
+        var zScore = std > 0 ? (lastRate - mean) / std : 0;
+        var ratio = lastRate / mean;
+
+        if (ratio >= 3 || zScore >= 3) {
+            anomalies.push({
+                gasId: g.id, controlNo: g.controlNo, formula: g.formula,
+                concNominal: g.concNominal, zone: g.zone,
+                type: 'leak', severity: 'critica',
+                message: 'Posible FUGA: caida de ' + lastDrop.toFixed(0) + ' psi en ' + lastDays + 'd (' + ratio.toFixed(1) + 'x promedio)',
+                lastPsi: rdgs[rdgs.length - 1].psi, drop: lastDrop, ratio: ratio,
+                date: rdgs[rdgs.length - 1].date
+            });
+        } else if (ratio >= 2 || zScore >= 2) {
+            anomalies.push({
+                gasId: g.id, controlNo: g.controlNo, formula: g.formula,
+                concNominal: g.concNominal, zone: g.zone,
+                type: 'unusual', severity: 'alta',
+                message: 'Consumo inusual: caida de ' + lastDrop.toFixed(0) + ' psi en ' + lastDays + 'd (' + ratio.toFixed(1) + 'x promedio)',
+                lastPsi: rdgs[rdgs.length - 1].psi, drop: lastDrop, ratio: ratio,
+                date: rdgs[rdgs.length - 1].date
+            });
+        }
+    });
+
+    anomalies.sort(function(a, b) { return a.severity === 'critica' ? -1 : 1; });
+    return anomalies;
+}
+
+function invRenderAnomalyBanner() {
+    var anomalies = invDetectAnomalies();
+    if (anomalies.length === 0) return '';
+
+    var html = '<div class="tp-card" style="border-left:3px solid #ef4444;background:rgba(239,68,68,0.04);">';
+    html += '<div class="tp-card-title"><span style="color:#ef4444;">Anomalias Detectadas (' + anomalies.length + ')</span></div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Cilindros con consumo inusual vs. su patron historico.</div>';
+
+    anomalies.forEach(function(a) {
+        var clr = a.severity === 'critica' ? '#ef4444' : '#f59e0b';
+        var icon = a.type === 'leak' ? '🚨' : '⚠️';
+        html += '<div style="padding:8px 10px;margin-bottom:4px;border:1px solid ' + clr + '30;border-radius:6px;background:' + clr + '08;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">';
+        html += '<div>';
+        html += '<span style="font-size:13px;">' + icon + '</span> ';
+        html += '<span style="font-weight:700;font-size:11px;">' + a.formula + ' ' + (a.concNominal || '') + '</span>';
+        html += ' <span style="font-size:9px;color:var(--tp-dim);">#' + a.controlNo + ' (' + (a.zone || '?') + ')</span>';
+        html += '</div>';
+        html += '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:' + clr + '20;color:' + clr + ';border:1px solid ' + clr + '40;text-transform:uppercase;">' + a.severity + '</span>';
+        html += '</div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);margin-top:4px;">' + a.message + '</div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">Actual: <strong>' + a.lastPsi + ' psi</strong> | Fecha: ' + a.date + '</div>';
+        html += '</div>';
+    });
+
+    html += '</div>';
+    return html;
+}
+
+// ══════════════════════════════════════════════════
+// IMPROVED PREDICTION — Bayesian blend with reference rates
+// ══════════════════════════════════════════════════
+
+var INV_REFERENCE_RATES = {
+    'CO/N2': 3.5, 'NO/N2': 3.0, 'CO2/N2': 2.5, 'CH4/Air': 2.0,
+    'C3H8/Air': 2.8, 'N2O/N2': 2.0, 'ZERO': 1.5, 'H2/He': 1.0, 'O2/N2': 1.5
+};
+
+// ══════════════════════════════════════════════════
+// MEJORA D: WEEKLY PLAN FORECAST
+// ══════════════════════════════════════════════════
+
+function invForecastForWeeklyPlan(rates) {
+    // Get latest accepted weekly plan from Test Plan module
+    if (typeof tpState === 'undefined' || !tpState.weeklyPlans) return null;
+    var plan = tpState.weeklyPlans.slice().reverse().find(function(p) { return p.accepted && p.items; });
+    if (!plan) return null;
+
+    var pendingItems = plan.items.filter(function(i) { return !i.completed; });
+    if (pendingItems.length === 0) return null;
+
+    if (!rates) rates = invCalcConsumptionRates();
+
+    // Count tests by regulation
+    var regCounts = {};
+    pendingItems.forEach(function(item) {
+        var reg = item.reg || (item.desc ? item.desc.split(' ')[0] : 'General');
+        regCounts[reg] = (regCounts[reg] || 0) + 1;
+    });
+
+    var result = {
+        planLabel: 'Semana ' + (plan.weekDate || ''),
+        testCount: pendingItems.length,
+        items: []
+    };
+
+    // Gas forecast
+    invState.gases.filter(function(g) {
+        return g.status === 'In use' && g.readings && g.readings.length > 0;
+    }).forEach(function(g) {
+        var lastPsi = g.readings[g.readings.length - 1].psi;
+        var totalNeeded = 0;
+
+        Object.keys(regCounts).forEach(function(reg) {
+            if (rates.gas[g.formula] && rates.gas[g.formula][reg]) {
+                totalNeeded += rates.gas[g.formula][reg].ewma * regCounts[reg];
+            }
+        });
+
+        if (totalNeeded <= 0) return;
+
+        var postPlan = lastPsi - totalNeeded;
+        var pctUsage = lastPsi > 0 ? Math.round((totalNeeded / lastPsi) * 100) : 100;
+        var depletion = invPredictDepletion(g);
+        var daysAfterPlan = depletion ? depletion.daysLeft : 999;
+        var needsReorder = postPlan < 200 || pctUsage > 80;
+
+        var recommendation = 'OK';
+        if (postPlan <= 0) recommendation = 'AGOTADO';
+        else if (needsReorder) recommendation = 'REORDENAR';
+        else if (pctUsage > 50) recommendation = 'MONITOREAR';
+
+        result.items.push({
+            type: 'gas',
+            name: g.formula + ' ' + (g.concNominal || '') + ' #' + g.controlNo,
+            formula: g.formula,
+            currentLevel: lastPsi,
+            estimatedUsage: totalNeeded,
+            postPlanLevel: postPlan,
+            pctUsage: pctUsage,
+            daysAfterPlan: daysAfterPlan,
+            needsReorder: needsReorder,
+            recommendation: recommendation,
+            unit: 'psi'
+        });
+    });
+
+    // Fuel forecast
+    (invState.fuelTanks || []).filter(function(t) {
+        return t.readings && t.readings.length >= 1 && t.regulation;
+    }).forEach(function(t) {
+        var lastLevel = t.readings[t.readings.length - 1].level;
+        var reg = t.regulation;
+        if (!regCounts[reg]) return;
+        if (!rates.fuel[reg] || rates.fuel[reg].ewma <= 0) return;
+
+        var totalNeeded = rates.fuel[reg].ewma * regCounts[reg];
+        var postPlan = lastLevel - totalNeeded;
+        var pctUsage = lastLevel > 0 ? Math.round((totalNeeded / lastLevel) * 100) : 100;
+        var needsReorder = postPlan < (t.capacity * 0.15) || pctUsage > 80;
+
+        var recommendation = 'OK';
+        if (postPlan <= 0) recommendation = 'AGOTADO';
+        else if (needsReorder) recommendation = 'REORDENAR';
+        else if (pctUsage > 50) recommendation = 'MONITOREAR';
+
+        result.items.push({
+            type: 'fuel',
+            name: t.name,
+            currentLevel: lastLevel,
+            estimatedUsage: totalNeeded,
+            postPlanLevel: postPlan,
+            pctUsage: pctUsage,
+            needsReorder: needsReorder,
+            recommendation: recommendation,
+            unit: t.unit || 'L'
+        });
+    });
+
+    return result;
+}
+
+function invExportWeeklyForecast() {
+    var rates = invCalcConsumptionRates();
+    var forecast = invForecastForWeeklyPlan(rates);
+    if (!forecast || forecast.items.length === 0) {
+        showToast('No hay forecast disponible', 'warning');
+        return;
+    }
+
+    var csv = 'Consumible,Tipo,Nivel Actual,Uso Estimado Plan,Nivel Post-Plan,% Uso,Recomendacion\n';
+    forecast.items.forEach(function(item) {
+        csv += '"' + item.name + '",' + item.type + ',' + item.currentLevel + ',' +
+               item.estimatedUsage.toFixed(1) + ',' + item.postPlanLevel.toFixed(1) + ',' +
+               item.pctUsage + '%,' + item.recommendation + '\n';
+    });
+
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = 'forecast_semanal_' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    showToast('Forecast exportado', 'success');
+}
+
+// Also integrate forecast warning into tpSmartGenerate via global hook
+function invGetPlanImpactWarning(planItems) {
+    if (!planItems || planItems.length === 0) return '';
+    var rates = invCalcConsumptionRates();
+    if (rates.dataPoints === 0) return '';
+
+    var regCounts = {};
+    planItems.forEach(function(item) {
+        if (item.completed) return;
+        var reg = item.reg || (item.desc ? item.desc.split(' ')[0] : 'General');
+        regCounts[reg] = (regCounts[reg] || 0) + 1;
+    });
+
+    var criticalGases = [];
+    invState.gases.filter(function(g) {
+        return g.status === 'In use' && g.readings && g.readings.length > 0;
+    }).forEach(function(g) {
+        var lastPsi = g.readings[g.readings.length - 1].psi;
+        var totalNeeded = 0;
+        Object.keys(regCounts).forEach(function(reg) {
+            if (rates.gas[g.formula] && rates.gas[g.formula][reg]) {
+                totalNeeded += rates.gas[g.formula][reg].ewma * regCounts[reg];
+            }
+        });
+        if (totalNeeded > 0 && lastPsi < totalNeeded) {
+            criticalGases.push(g.formula + ' (' + lastPsi + '/' + totalNeeded.toFixed(0) + ' psi)');
+        }
+    });
+
+    if (criticalGases.length === 0) return '';
+    return 'Este plan agotaria: ' + criticalGases.join(', ');
+}
+
+function invPredictDepletion(g) {
+    if (!g.readings || g.readings.length < 2) {
+        // Use reference rate if available
+        var refRate = INV_REFERENCE_RATES[g.formula] || 0;
+        if (refRate > 0 && g.readings && g.readings.length === 1) {
+            var lastPsi = g.readings[0].psi;
+            var daysLeft = lastPsi / refRate;
+            return { daysLeft: Math.round(daysLeft), weeksLeft: Math.round(daysLeft / 7 * 10) / 10, confidence: 'baja', source: 'referencia', dailyRate: refRate };
+        }
+        return null;
+    }
+
+    var rdgs = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+    var first = rdgs[0], last = rdgs[rdgs.length - 1];
+    var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / 86400000));
+    var totalDrop = first.psi - last.psi;
+    if (totalDrop <= 0) return null;
+
+    var observedRate = totalDrop / daysDiff;
+    var refRate = INV_REFERENCE_RATES[g.formula] || observedRate;
+    var n = rdgs.length;
+
+    // Bayesian blend: more data → trust observed more
+    var weight = Math.min(n / 10, 1); // full trust at 10+ readings
+    var blendedRate = observedRate * weight + refRate * (1 - weight);
+
+    var daysLeft = last.psi / blendedRate;
+    var confidence = n >= 10 ? 'alta' : n >= 5 ? 'media' : 'baja';
+
+    return {
+        daysLeft: Math.round(daysLeft),
+        weeksLeft: Math.round(daysLeft / 7 * 10) / 10,
+        confidence: confidence,
+        source: weight >= 1 ? 'historico' : 'mixto',
+        dailyRate: Math.round(blendedRate * 10) / 10,
+        observedRate: Math.round(observedRate * 10) / 10,
+        dataPoints: n
+    };
 }
 

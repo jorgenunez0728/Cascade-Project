@@ -238,6 +238,11 @@ let db = JSON.parse(localStorage.getItem('kia_db_v11')) || {
 
 let activeVehicleId = null;
 let currentFilter = 'all';
+window._histFilterStatus = 'all';
+window._histFilterVin = '';
+window._histFilterYear = '';
+window._histFilterMonth = '';
+window._histPageSize = 25;
 let currentUnitSystem = 'SI';
 
 
@@ -362,6 +367,9 @@ function switchPlatform(platform, swipeDir) {
     var bnavEl = document.getElementById('bnav-' + platform);
     if (bnavEl) bnavEl.classList.add('active');
 
+    // Hide floating action bar when leaving COP15
+    if (platform !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
+
     // Theme
     const isDark = platform === 'testplan' || platform === 'results' || platform === 'inventory' || platform === 'panel';
     document.body.style.background = isDark ? 'var(--tp-dark)' : 'var(--bg)';
@@ -379,6 +387,265 @@ function switchPlatform(platform, swipeDir) {
     }
 
     window.scrollTo(0, 0);
+}
+
+// ── Global VIN Search ──
+function toggleGlobalSearch() {
+    var bar = document.getElementById('globalSearchBar');
+    if (!bar) return;
+    var visible = bar.style.display !== 'none';
+    bar.style.display = visible ? 'none' : 'block';
+    if (!visible) {
+        var inp = document.getElementById('globalVinInput');
+        if (inp) { inp.value = ''; inp.focus(); }
+        var res = document.getElementById('globalSearchResults');
+        if (res) res.innerHTML = '';
+    }
+}
+
+function globalVinSearch(query) {
+    var res = document.getElementById('globalSearchResults');
+    if (!res) return;
+    if (!query || query.length < 3) { res.innerHTML = ''; return; }
+
+    var q = query.toUpperCase();
+    var results = [];
+
+    // Search COP15 vehicles
+    (db.vehicles || []).forEach(function(v) {
+        if ((v.vin || '').toUpperCase().includes(q)) {
+            results.push({
+                module: 'COP15',
+                icon: '🚗',
+                vin: v.vin,
+                detail: (v.config && v.config['Modelo'] ? v.config['Modelo'] + ' — ' : '') + (CONFIG.statusLabels[v.status] || v.status),
+                date: v.registeredAt ? new Date(v.registeredAt).toLocaleDateString('es-MX') : '',
+                action: 'switchPlatform("cop15")'
+            });
+        }
+    });
+
+    // Search Results Analyzer
+    if (typeof raState !== 'undefined' && raState.tests) {
+        var seenVins = {};
+        raState.tests.forEach(function(t) {
+            var tVin = (t.vin || t.VIN || '').toUpperCase();
+            if (tVin.includes(q) && !seenVins[tVin]) {
+                seenVins[tVin] = true;
+                results.push({
+                    module: 'Results',
+                    icon: '🧪',
+                    vin: tVin,
+                    detail: (t.regulation || t.testDesc || '') + (t.verdict ? ' — ' + t.verdict : ''),
+                    date: t.date || t.importDate || '',
+                    action: 'switchPlatform("results")'
+                });
+            }
+        });
+    }
+
+    // Search Test Plan tested list
+    if (typeof tpState !== 'undefined' && tpState.testedList) {
+        var seenTP = {};
+        tpState.testedList.forEach(function(t) {
+            var note = t.note || '';
+            var vinMatch = note.match(/VIN:\s*(\S+)/i);
+            if (vinMatch) {
+                var tVin = vinMatch[1].toUpperCase();
+                if (tVin.includes(q) && !seenTP[tVin]) {
+                    seenTP[tVin] = true;
+                    results.push({
+                        module: 'Test Plan',
+                        icon: '📋',
+                        vin: tVin,
+                        detail: t.configText ? t.configText.substring(0, 40) + '...' : '',
+                        date: t.date || '',
+                        action: 'switchPlatform("testplan")'
+                    });
+                }
+            }
+        });
+    }
+
+    if (results.length === 0) {
+        var safeQuery = query.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        res.innerHTML = '<div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:0 0 8px 8px;color:#94a3b8;font-size:0.85rem;text-align:center;">No se encontraron resultados para "' + safeQuery + '"</div>';
+        return;
+    }
+
+    var html = '<div style="background:#1e293b;border:1px solid #334155;border-radius:0 0 8px 8px;overflow:hidden;">';
+    results.slice(0, 15).forEach(function(r) {
+        html += '<div onclick="' + r.action + ';toggleGlobalSearch();" style="padding:10px 14px;border-bottom:1px solid #0f172a;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background=\'#334155\'" onmouseout="this.style.background=\'transparent\'">';
+        html += '<span style="font-size:16px;">' + r.icon + '</span>';
+        html += '<div style="flex:1;min-width:0;">';
+        html += '<div style="font-size:0.85rem;font-weight:600;color:#f1f5f9;">' + r.vin + '</div>';
+        html += '<div style="font-size:0.75rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + r.detail + '</div>';
+        html += '</div>';
+        html += '<div style="text-align:right;">';
+        html += '<span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,0.15);color:#818cf8;">' + r.module + '</span>';
+        if (r.date) html += '<div style="font-size:0.65rem;color:#64748b;margin-top:2px;">' + r.date + '</div>';
+        html += '</div></div>';
+    });
+    if (results.length > 15) {
+        html += '<div style="padding:8px;text-align:center;font-size:0.75rem;color:#64748b;">...y ' + (results.length - 15) + ' más</div>';
+    }
+    html += '</div>';
+    res.innerHTML = html;
+}
+
+// ── Weekly Status PDF Report ──
+function generateWeeklyStatusPDF() {
+    if (typeof window.jspdf === 'undefined') {
+        showToast('jsPDF no está disponible. Verifica la conexión CDN.', 'error');
+        return;
+    }
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+    var W = doc.internal.pageSize.getWidth();
+    var ML = 15, MR = 15, CW = W - ML - MR;
+    var y = 15;
+    var today = new Date();
+    var weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7);
+    var weekAgoISO = weekAgo.toISOString();
+
+    // Helper functions
+    function setF(style, size) { doc.setFontSize(size); doc.setFont('helvetica', style); }
+    function addSection(title, yPos) {
+        doc.setDrawColor(187, 22, 43);
+        doc.setFillColor(187, 22, 43);
+        doc.rect(ML, yPos, CW, 7, 'F');
+        setF('bold', 11);
+        doc.setTextColor(255, 255, 255);
+        doc.text(title, ML + 3, yPos + 5);
+        doc.setTextColor(0, 0, 0);
+        return yPos + 10;
+    }
+    function addRow(label, value, yPos, color) {
+        setF('normal', 9);
+        doc.setTextColor(80, 80, 80);
+        doc.text(label, ML + 3, yPos);
+        setF('bold', 9);
+        if (color) doc.setTextColor(color[0], color[1], color[2]);
+        else doc.setTextColor(0, 0, 0);
+        doc.text(String(value), ML + CW / 2, yPos);
+        doc.setTextColor(0, 0, 0);
+        return yPos + 5;
+    }
+
+    // Header
+    setF('bold', 16);
+    doc.setTextColor(187, 22, 43);
+    doc.text('KIA Laboratorio de Emisiones', ML, y);
+    y += 6;
+    setF('normal', 10);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Reporte Semanal — ' + today.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), ML, y);
+    y += 3;
+    doc.setDrawColor(187, 22, 43);
+    doc.setLineWidth(0.5);
+    doc.line(ML, y, ML + CW, y);
+    y += 8;
+
+    // ── Section 1: COP15 Pipeline ──
+    y = addSection('COP15 — Pipeline de Vehículos', y);
+    var statuses = ['registered', 'in-progress', 'testing', 'ready-release'];
+    statuses.forEach(function(s) {
+        var count = (db.vehicles || []).filter(function(v) { return v.status === s; }).length;
+        y = addRow(CONFIG.statusLabels[s] || s, count, y);
+    });
+    var archivedThisWeek = (db.vehicles || []).filter(function(v) {
+        return v.status === 'archived' && v.archivedAt && v.archivedAt >= weekAgoISO;
+    }).length;
+    y = addRow('Liberados esta semana', archivedThisWeek, y, [16, 185, 129]);
+    y += 5;
+
+    // ── Section 2: Test Plan ──
+    y = addSection('Test Plan — Progreso', y);
+    try {
+        var analysis = typeof tpGetAnalysis === 'function' ? tpGetAnalysis() : [];
+        var totalReq = analysis.reduce(function(s, a) { return s + a.required; }, 0);
+        var totalTested = analysis.reduce(function(s, a) { return s + a.testedN; }, 0);
+        var deficit = Math.max(0, totalReq - totalTested);
+        y = addRow('Pruebas requeridas', totalReq, y);
+        y = addRow('Probadas', totalTested, y, [16, 185, 129]);
+        y = addRow('Déficit', deficit, y, deficit > 0 ? [239, 68, 68] : [16, 185, 129]);
+
+        // Active weekly plan completion
+        var plans = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
+        if (plans.length > 0) {
+            var latest = plans[plans.length - 1];
+            var done = latest.items ? latest.items.filter(function(i) { return i.completed; }).length : 0;
+            var total = latest.items ? latest.items.length : 0;
+            var pct = total > 0 ? Math.round(done / total * 100) : 0;
+            y = addRow('Plan semanal activo', done + '/' + total + ' (' + pct + '%)', y);
+            var subs = latest.items ? latest.items.filter(function(i) { return i.substituted; }).length : 0;
+            if (subs > 0) y = addRow('Sustituciones', subs, y, [245, 158, 11]);
+        }
+
+        var testedThisWeek = (typeof tpState !== 'undefined' && tpState.testedList) ?
+            tpState.testedList.filter(function(t) { return t.date && t.date >= weekAgoISO.slice(0, 10); }).length : 0;
+        y = addRow('Probados esta semana', testedThisWeek, y);
+    } catch (e) { y = addRow('Error cargando datos', e.message, y, [239, 68, 68]); }
+    y += 5;
+
+    // ── Section 3: Results Analyzer ──
+    y = addSection('Results Analyzer — Emisiones', y);
+    try {
+        var raTests = (typeof raState !== 'undefined' && raState.tests) ? raState.tests : [];
+        var importedThisWeek = raTests.filter(function(t) {
+            var d = t.importDate || t.dateStr || '';
+            return d >= weekAgoISO.slice(0, 10);
+        }).length;
+        var passCount = raTests.filter(function(t) { return typeof raTestVerdict === 'function' && raTestVerdict(t) === 'PASS'; }).length;
+        var failCount = raTests.filter(function(t) { return typeof raTestVerdict === 'function' && raTestVerdict(t) === 'FAIL'; }).length;
+        var passRate = raTests.length > 0 ? (passCount / raTests.length * 100).toFixed(1) : '—';
+
+        y = addRow('Total pruebas', raTests.length, y);
+        y = addRow('Importadas esta semana', importedThisWeek, y);
+        y = addRow('Pass rate global', passRate + '%', y, passCount >= failCount ? [16, 185, 129] : [239, 68, 68]);
+        y = addRow('PASS / FAIL', passCount + ' / ' + failCount, y);
+    } catch (e) { y = addRow('Error', e.message, y, [239, 68, 68]); }
+    y += 5;
+
+    // ── Section 4: Inventario ──
+    y = addSection('Inventario — Alertas', y);
+    try {
+        var gases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
+        var equip = (typeof invState !== 'undefined' && invState.equipment) ? invState.equipment : [];
+
+        var lowGas = gases.filter(function(g) {
+            if (!g.readings || g.readings.length === 0 || g.status !== 'In use') return false;
+            return g.readings[g.readings.length - 1].psi < 500;
+        }).length;
+        var expiredGas = gases.filter(function(g) {
+            return g.validUntil && new Date(g.validUntil) < today;
+        }).length;
+        var calExpired = equip.filter(function(e) {
+            return e.nextCalDate && new Date(e.nextCalDate) < today;
+        }).length;
+        var calWarning = equip.filter(function(e) {
+            if (!e.nextCalDate) return false;
+            var diff = (new Date(e.nextCalDate) - today) / (1000 * 60 * 60 * 24);
+            return diff > 0 && diff < 7;
+        }).length;
+
+        y = addRow('Cilindros con presión baja (<500 psi)', lowGas, y, lowGas > 0 ? [239, 68, 68] : [16, 185, 129]);
+        y = addRow('Gases vencidos', expiredGas, y, expiredGas > 0 ? [239, 68, 68] : [16, 185, 129]);
+        y = addRow('Equipos calibración vencida', calExpired, y, calExpired > 0 ? [239, 68, 68] : [16, 185, 129]);
+        y = addRow('Equipos cal. próxima a vencer (<7d)', calWarning, y, calWarning > 0 ? [245, 158, 11] : [16, 185, 129]);
+    } catch (e) { y = addRow('Error', e.message, y, [239, 68, 68]); }
+
+    // Footer
+    y += 10;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(ML, y, ML + CW, y);
+    y += 5;
+    setF('italic', 8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Generado automáticamente por KIA EmLab Plataforma Integrada — ' + today.toISOString(), ML, y);
+
+    doc.save('KIA-EmLab-Semanal-' + today.toISOString().slice(0, 10) + '.pdf');
+    showToast('Reporte PDF semanal generado', 'success');
 }
 
 // ── Swipe Navigation ──

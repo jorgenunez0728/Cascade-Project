@@ -26,7 +26,7 @@ function tpAddToWeek(wk) {
     const rule = tpGetRule(cfg);
     const n = tpState.testedList.filter(t => t.configText === cfg.desc).length;
     const req = tpCalcRequired(cfg, rule);
-    tpState.weeklyPlans[wk].items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, required:req, deficit:Math.max(0,req-n), score:tpPriorityScore(cfg,n), completed:false, completedDate:null, manual:true });
+    tpState.weeklyPlans[wk].items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:req, deficit:Math.max(0,req-n), score:tpPriorityScore(cfg,n), completed:false, completedDate:null, manual:true });
     tpSave(); tpRender();
 }
 
@@ -36,11 +36,14 @@ function tpAddToWeek(wk) {
 function tpExportWeeklyPlan(wk) {
     const plan = tpState.weeklyPlans[wk];
     if (!plan) return;
-    const dt = new Date(plan.created).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
+    const dt = plan.weekDate ? new Date(plan.weekDate + 'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) : new Date(plan.created).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
     const done = plan.items.filter(i=>i.completed).length;
-    let t = `PLAN SEMANAL #${wk+1}\n${dt}\n${done}/${plan.items.length} completadas\n${'─'.repeat(28)}\n\n`;
+    const carryover = plan.items.filter(i=>i.status==='carryover').length;
+    let t = `PLAN SEMANAL #${wk+1}\nSemana del: ${dt}\n${done}/${plan.items.length} completadas${carryover > 0 ? ' | ' + carryover + ' carryover' : ''}\n${'─'.repeat(28)}\n\n`;
     plan.items.forEach((item, i) => {
-        t += `${item.completed?'[X]':'[ ]'} ${i+1}. ${item.desc}\n    ${item.rgn||'?'} | ${item.reg||'?'}${item.manual?' (obligatoria)':''}\n\n`;
+        const schedStr = item.testLabel ? ` [Preacon ${item.preconLabel} → Prueba ${item.testLabel}]` : '';
+        const statusIcon = item.completed ? '[X]' : item.status === 'carryover' ? '[C]' : '[ ]';
+        t += `${statusIcon} ${i+1}. ${item.desc}\n    ${item.rgn||'?'} | ${item.reg||'?'}${item.manual?' (obligatoria)':''}${item.carriedOver?' (carryover)':''}${schedStr}\n\n`;
     });
     t += `${'─'.repeat(28)}\nKIA EmLab ${new Date().toLocaleString('es-MX')}`;
     if (navigator.share) {
@@ -57,10 +60,10 @@ function tpExportWeeklyPlan(wk) {
 // ======================================================================
 function tpRenderPlanActual(el) {
     const plans = tpState.weeklyPlans || [];
-    if (plans.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay planes generados.</div>'; return; }
+    if (plans.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay planes generados.<br><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-weekly\');document.querySelectorAll(\'#tp-tabs-bar .tp-tab\').forEach(b=>b.classList.remove(\'active\'));document.querySelectorAll(\'#tp-tabs-bar .tp-tab\')[6].classList.add(\'active\');" style="margin-top:12px;">📅 Generar Plan Semanal</button></div>'; return; }
     const wData = plans.map((w,i) => {
-        const t = w.items.length, d = w.items.filter(x=>x.completed).length;
-        return { week:i+1, total:t, done:d, pct:t>0?Math.round(d/t*100):0, created:w.created, accepted:w.accepted };
+        const t = w.items.length, d = w.items.filter(x=>x.completed).length, co = w.items.filter(x=>x.status==='carryover').length;
+        return { week:i+1, total:t, done:d, carryover:co, pct:t>0?Math.round(d/t*100):0, created:w.created, weekDate:w.weekDate, accepted:w.accepted };
     });
     const avgPct = Math.round(wData.reduce((s,w)=>s+w.pct,0)/wData.length);
     const totDone = wData.reduce((s,w)=>s+w.done,0);
@@ -218,6 +221,7 @@ let tpState = JSON.parse(localStorage.getItem(TP_LS_KEY)) || {
     testedList: [],
     weeklyPlans: [],
     planHistory: [],
+    weekHistory: [],     // archived accepted weeks for historical consultation
     lastDiff: null,      // [{configText, date, note, source, purpose}]
     rules: [
         {id:1,region:"USA",regulation:"SULEV 30",ratio:3,per:1000,label:"USA / SULEV 30"},
@@ -240,7 +244,10 @@ let tpState = JSON.parse(localStorage.getItem(TP_LS_KEY)) || {
     weeks: 4,
     activeTab: 'tp-dashboard',
     planImportDate: null,
+    rulePresets: [],
 };
+// Ensure weekHistory exists for existing localStorage data
+if (!tpState.weekHistory) tpState.weekHistory = [];
 
 function tpSave() { localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); }
 
@@ -460,14 +467,24 @@ function tpUpdateBadges() {
 
 function tpSwitchTab(tabId) {
     tpState.activeTab = tabId;
+    window._tpLastTab = tabId;
     document.querySelectorAll('#tp-tabs-bar .tp-tab').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
+    if (event && event.target) event.target.classList.add('active');
     tpRender();
 }
 
 function tpRender() {
     const el = document.getElementById('tp-content');
     if (!el) return;
+    // Restore last active tab if available
+    if (window._tpLastTab && tpState.activeTab === 'tp-dashboard' && window._tpLastTab !== 'tp-dashboard') {
+        tpState.activeTab = window._tpLastTab;
+        // Update tab bar highlight
+        var allTabs = document.querySelectorAll('#tp-tabs-bar .tp-tab');
+        var tabMap = ['tp-dashboard','tp-tested','tp-families','tp-planactual','tp-planhistory','tp-rules','tp-weekly','tp-simulator','tp-production','tp-calendar','tp-weekhistory'];
+        var idx = tabMap.indexOf(window._tpLastTab);
+        if (idx >= 0 && allTabs[idx]) { allTabs.forEach(function(b){b.classList.remove('active');}); allTabs[idx].classList.add('active'); }
+    }
     const tab = tpState.activeTab;
     if (tab === 'tp-dashboard') tpRenderDashboard(el);
     else if (tab === 'tp-tested') tpRenderTested(el);
@@ -479,12 +496,41 @@ function tpRender() {
     else if (tab === 'tp-simulator') tpRenderSimulator(el);
     else if (tab === 'tp-production') tpRenderProduction(el);
     else if (tab === 'tp-calendar') tpRenderCalendar(el);
+    else if (tab === 'tp-weekhistory') tpRenderWeekHistory(el);
 }
 
 // ── Color helpers ──
 const tpStatusColor = { ok:'var(--tp-green)', warn:'var(--tp-amber)', crit:'var(--tp-red)' };
 const tpStatusLabel = { ok:'Completo', warn:'Parcial', crit:'Crítico' };
 function tpRegionColor(r) { return r==='USA'?'var(--tp-red)':r==='EUROPE'?'var(--tp-blue)':r==='MEXICO'?'var(--tp-green)':'var(--tp-dim)'; }
+function tpEpLabel(v) { return !v||v==='0'?'':v==='M'?'48V':v; }
+
+// Generate colored config badges HTML for a config item or planData entry
+// Falls back to planData lookup if item is legacy (missing fields)
+function tpConfigBadges(item, opts) {
+    opts = opts || {};
+    var sz = opts.fontSize || '7px';
+    // For legacy items missing fields, try to resolve from planData
+    var c = item;
+    if (!c.my && c.desc && tpState.planData.length > 0) {
+        var found = tpState.planData.find(function(p) { return p.desc === c.desc; });
+        if (found) c = Object.assign({}, found, item);
+    }
+    var h = '';
+    if (c.mod) h += '<span class="tp-badge" style="background:rgba(59,130,246,0.2);color:#3b82f6;font-size:'+sz+';font-weight:800;">'+c.mod+'</span>';
+    if (c.body) h += '<span class="tp-badge" style="background:rgba(148,163,184,0.15);color:#94a3b8;font-size:'+sz+';">'+c.body+'</span>';
+    if (c.eng) h += '<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:#10b981;font-size:'+sz+';">'+c.eng+'</span>';
+    if (c.tx) h += '<span class="tp-badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;font-size:'+sz+';">'+c.tx+'</span>';
+    if (c.my) h += '<span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;font-size:'+sz+';">'+c.my+'</span>';
+    if (c.reg) h += '<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:'+sz+';">'+c.reg+'</span>';
+    if (c.rgn) h += '<span class="tp-badge" style="background:'+tpRegionColor(c.rgn)+'20;color:'+tpRegionColor(c.rgn)+';font-size:'+sz+';">'+c.rgn+'</span>';
+    if (c.drv) h += '<span class="tp-badge" style="background:rgba(236,72,153,0.15);color:#ec4899;font-size:'+sz+';">'+c.drv+'</span>';
+    var ep = tpEpLabel(c.ep);
+    if (ep) h += '<span class="tp-badge" style="background:rgba(251,146,60,0.15);color:#fb923c;font-size:'+sz+';">'+ep+'</span>';
+    if (c.engpkg && c.engpkg !== '0') h += '<span class="tp-badge" style="background:rgba(168,85,247,0.15);color:#a855f7;font-size:'+sz+';">'+c.engpkg+'</span>';
+    if (c.tire) h += '<span class="tp-badge" style="background:rgba(56,189,248,0.15);color:#38bdf8;font-size:'+sz+';">'+c.tire+'</span>';
+    return h;
+}
 
 // ═══ DASHBOARD ═══
 function tpRenderDashboard(el) {
@@ -509,17 +555,6 @@ function tpRenderDashboard(el) {
         neverTested: analysis.filter(a => a.testedN === 0 && a.total > 0).length,
     };
     stats.deficit = Math.max(0, stats.totalReq - stats.totalT);
-
-    // Region data for chart
-    const regionMap = {};
-    analysis.forEach(a => {
-        if (!regionMap[a.rgn]) regionMap[a.rgn] = {name:a.rgn, req:0, tested:0, vol:0};
-        regionMap[a.rgn].req += a.required;
-        regionMap[a.rgn].tested += a.testedN;
-        regionMap[a.rgn].vol += a.total;
-    });
-    const regionData = Object.values(regionMap).sort((a,b) => b.vol - a.vol);
-    const maxReq = Math.max(...regionData.map(r => r.req), 1);
 
     // Fixed plan banner
     const fixedBanner = tpState.fixedPlan
@@ -547,28 +582,59 @@ function tpRenderDashboard(el) {
         `).join('')}
     </div>
 
-    <!-- Region chart -->
+    <!-- Region chart with config panel -->
     <div class="tp-card">
-        <div class="tp-card-title">📊 Pruebas Requeridas vs Probadas por Región</div>
-        <div class="tp-chart-bar">
-            ${regionData.map(r => {
-                const pct = r.req > 0 ? Math.round(r.tested / r.req * 100) : 0;
-                return `
-                <div class="tp-chart-col">
-                    <div class="tp-chart-value">${r.tested}/${r.req}</div>
-                    <div class="tp-chart-group">
-                        <div class="tp-chart-fill" style="height:${(r.req/maxReq)*100}%;background:var(--tp-amber);"></div>
-                        <div class="tp-chart-fill" style="height:${(r.tested/maxReq)*100}%;background:var(--tp-green);"></div>
-                    </div>
-                    <div class="tp-chart-label">${r.name}</div>
-                    <div style="font-size:8px;font-weight:700;color:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${pct}%</div>
-                </div>`;
-            }).join('')}
+        <div class="tp-card-title" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>📊 ${window._tpChartGroupBy==='family'?'Familias':window._tpChartGroupBy==='regulation'?'Regulación':window._tpChartGroupBy==='model'?'Modelo':'Región'} — ${window._tpChartMetric==='pct'?'% Cumplimiento':'Cantidad'}</span>
+            <button class="tp-btn tp-btn-ghost" onclick="window._tpChartCfgOpen=!window._tpChartCfgOpen;tpRender();" style="font-size:11px;">⚙️</button>
         </div>
-        <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">
-            <span style="font-size:10px;color:var(--tp-amber);">■ Requeridas</span>
-            <span style="font-size:10px;color:var(--tp-green);">■ Probadas</span>
-        </div>
+        ${window._tpChartCfgOpen ? `
+        <div style="padding:10px;background:var(--tp-bg);border:1px solid var(--tp-border);border-radius:8px;margin-bottom:10px;">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Agrupar por</label>
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartGroupBy=this.value;tpRender();">
+                        <option value="region" ${(window._tpChartGroupBy||'region')==='region'?'selected':''}>Region</option>
+                        <option value="model" ${window._tpChartGroupBy==='model'?'selected':''}>Modelo</option>
+                        <option value="regulation" ${window._tpChartGroupBy==='regulation'?'selected':''}>Regulacion</option>
+                        <option value="family" ${window._tpChartGroupBy==='family'?'selected':''}>Familia</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Metrica Y</label>
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartMetric=this.value;tpRender();">
+                        <option value="qty" ${(window._tpChartMetric||'qty')==='qty'?'selected':''}>Cantidad (Req vs Probadas)</option>
+                        <option value="pct" ${window._tpChartMetric==='pct'?'selected':''}>% Cumplimiento</option>
+                        <option value="deficit" ${window._tpChartMetric==='deficit'?'selected':''}>Deficit</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Tipo de grafica</label>
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartType=this.value;tpRender();">
+                        <option value="bar" ${(window._tpChartType||'bar')==='bar'?'selected':''}>Barras</option>
+                        <option value="hbar" ${window._tpChartType==='hbar'?'selected':''}>Barras Horizontales</option>
+                        <option value="stacked" ${window._tpChartType==='stacked'?'selected':''}>Barras Apiladas</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Y max (0=auto)</label>
+                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpDashYMax || 0}" min="0" onchange="window._tpDashYMax=parseInt(this.value);tpRender();">
+                </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Altura (px)</label>
+                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpDashChartH || 0}" min="0" max="500" onchange="window._tpDashChartH=parseInt(this.value);tpRender();">
+                </div>
+            </div>
+        </div>` : ''}
+        ${tpRenderDashChart(analysis)}
+    </div>
+
+    <!-- Burndown chart -->
+    <div class="tp-card">
+        <details ${window._tpBurndownOpen ? 'open' : ''}>
+            <summary onclick="window._tpBurndownOpen=!this.parentElement.open;" style="cursor:pointer;font-weight:700;font-size:12px;color:var(--tp-amber);user-select:none;padding:4px 0;">📉 Burndown de Deficit — Proyeccion de Completacion</summary>
+            <div style="margin-top:10px;" id="tp-burndown-container">${tpRenderBurndownChart(stats)}</div>
+        </details>
     </div>
 
     <!-- Fix plan button -->
@@ -602,6 +668,251 @@ function tpRenderDashboard(el) {
     `;
 
     tpRenderDashTable();
+}
+
+// ═══ BURNDOWN CHART ═══
+function tpRenderBurndownChart(stats) {
+    var tested = (tpState.testedList || []).slice();
+    if (tested.length < 2) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:10px;">Necesitas al menos 2 pruebas completadas para generar burndown.</div>';
+
+    tested.sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
+
+    // Group by ISO week
+    var weekMap = {};
+    var totalReq = stats.totalReq || 0;
+    tested.forEach(function(t) {
+        if (!t.date) return;
+        var d = new Date(t.date);
+        var wk = tpISOWeekKey(d);
+        weekMap[wk] = (weekMap[wk] || 0) + 1;
+    });
+
+    var weeks = Object.keys(weekMap).sort();
+    var cumul = 0;
+    var series = weeks.map(function(wk) {
+        cumul += weekMap[wk];
+        return { week: wk, tested: weekMap[wk], cumulative: cumul, remaining: Math.max(0, totalReq - cumul) };
+    });
+
+    // Velocity metrics
+    var totalWeeks = series.length;
+    var avgVelocity = totalWeeks > 0 ? cumul / totalWeeks : 0;
+    var recent = series.slice(-2);
+    var recentVelocity = recent.length > 0 ? recent.reduce(function(s, p) { return s + p.tested; }, 0) / recent.length : 0;
+    var remaining = series.length > 0 ? series[series.length - 1].remaining : totalReq;
+    var weeksLeft = recentVelocity > 0 ? Math.ceil(remaining / recentVelocity) : (avgVelocity > 0 ? Math.ceil(remaining / avgVelocity) : 0);
+    var completionDate = '—';
+    if (weeksLeft > 0 && weeksLeft < 200) {
+        var est = new Date();
+        est.setDate(est.getDate() + weeksLeft * 7);
+        completionDate = est.toLocaleDateString('es-MX');
+    } else if (remaining === 0) {
+        completionDate = 'Completado';
+    }
+
+    // Linear regression for forecast line
+    var forecastPts = [];
+    if (series.length >= 2 && remaining > 0) {
+        var xs = series.map(function(_, i) { return i; });
+        var ys = series.map(function(p) { return p.remaining; });
+        var n = xs.length;
+        var sumX = xs.reduce(function(s, v) { return s + v; }, 0);
+        var sumY = ys.reduce(function(s, v) { return s + v; }, 0);
+        var sumXY = xs.reduce(function(s, v, i) { return s + v * ys[i]; }, 0);
+        var sumX2 = xs.reduce(function(s, v) { return s + v * v; }, 0);
+        var slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        var intercept = (sumY - slope * sumX) / n;
+        // Project forward
+        for (var i = 0; i <= n + weeksLeft + 2; i++) {
+            var y = intercept + slope * i;
+            forecastPts.push(Math.max(0, y));
+        }
+    }
+
+    // Build chart labels
+    var labels = series.map(function(p) { return p.week; });
+    // Extend labels for forecast
+    if (forecastPts.length > labels.length) {
+        var lastDate = series.length > 0 ? new Date(series[series.length - 1].week + 'T00:00:00') : new Date();
+        for (var i = labels.length; i < forecastPts.length; i++) {
+            lastDate.setDate(lastDate.getDate() + 7);
+            labels.push(tpISOWeekKey(lastDate));
+        }
+    }
+
+    // Metrics
+    var html = '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">' + avgVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Promedio/sem</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-blue);font-size:14px;">' + recentVelocity.toFixed(1) + '</div><div class="tp-metric-label">Vel. Reciente/sem</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-red);font-size:14px;">' + remaining + '</div><div class="tp-metric-label">Deficit Actual</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#8b5cf6;font-size:14px;">' + (weeksLeft > 0 ? weeksLeft : '—') + '</div><div class="tp-metric-label">Semanas Rest.</div></div>' +
+        '<div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:var(--tp-green);font-size:13px;">' + completionDate + '</div><div class="tp-metric-label">Est. Completacion</div></div>' +
+    '</div>';
+    html += '<div style="height:250px;"><canvas id="tp-burndown-canvas"></canvas></div>';
+
+    // Schedule chart render after DOM update
+    setTimeout(function() {
+        if (window._tpBurndownChart) { try { window._tpBurndownChart.destroy(); } catch(e) {} }
+        var ctx = document.getElementById('tp-burndown-canvas');
+        if (!ctx || typeof Chart === 'undefined') return;
+
+        var datasets = [
+            { label: 'Deficit Restante', data: series.map(function(p) { return p.remaining; }), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', pointRadius: 4, borderWidth: 2, fill: true, tension: 0.1 }
+        ];
+        if (forecastPts.length > 0) {
+            var forecastData = [];
+            for (var i = 0; i < series.length - 1; i++) forecastData.push(null);
+            for (var i = Math.max(0, series.length - 1); i < forecastPts.length; i++) forecastData.push(forecastPts[i]);
+            datasets.push({ label: 'Forecast (regresion)', data: forecastData, borderColor: '#64748b', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0 });
+        }
+        datasets.push({ label: 'Meta (0)', data: Array(labels.length).fill(0), borderColor: '#10b981', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false });
+
+        window._tpBurndownChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { title: { display: true, text: 'Deficit', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' }, min: 0 }
+                }
+            }
+        });
+    }, 50);
+
+    return html;
+}
+
+function tpISOWeekKey(d) {
+    var dt = new Date(d);
+    dt.setHours(0, 0, 0, 0);
+    dt.setDate(dt.getDate() - (dt.getDay() || 7) + 1); // Monday
+    return dt.toISOString().slice(0, 10);
+}
+
+// ═══ DASHBOARD CHART RENDERER ═══
+function tpRenderDashChart(analysis) {
+    const groupBy = window._tpChartGroupBy || 'region';
+    const metric = window._tpChartMetric || 'qty';
+    const chartType = window._tpChartType || 'bar';
+    const userYMax = window._tpDashYMax || 0;
+    const chartH = window._tpDashChartH || 0;
+
+    // Build grouped data
+    const groupMap = {};
+    analysis.forEach(a => {
+        let key;
+        if (groupBy === 'region') key = a.rgn || 'Otro';
+        else if (groupBy === 'model') key = a.mod || 'Otro';
+        else if (groupBy === 'regulation') key = a.reg || 'Otro';
+        else if (groupBy === 'family') {
+            // Group by model+engine family
+            key = (a.mod || '?') + ' ' + (a.eng || '?');
+        }
+        if (!groupMap[key]) groupMap[key] = {name:key, req:0, tested:0, vol:0};
+        groupMap[key].req += a.required;
+        groupMap[key].tested += a.testedN;
+        groupMap[key].vol += a.total;
+    });
+    let data = Object.values(groupMap).sort((a,b) => b.vol - a.vol);
+    // Limit to top 15 groups for readability
+    if (data.length > 15) data = data.slice(0, 15);
+
+    if (data.length === 0) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin datos</div>';
+
+    const hStyle = chartH > 0 ? `height:${chartH}px;` : '';
+    const autoMax = metric === 'pct' ? 100 : metric === 'deficit' ? Math.max(...data.map(r => Math.max(0, r.req - r.tested)), 1) : Math.max(...data.map(r => r.req), 1);
+    const maxVal = userYMax > 0 ? userYMax : autoMax;
+    const legend = metric === 'qty' ? '<span style="font-size:10px;color:var(--tp-amber);">■ Requeridas</span><span style="font-size:10px;color:var(--tp-green);">■ Probadas</span>' : metric === 'pct' ? '<span style="font-size:10px;color:var(--tp-dim);">% Cumplimiento</span>' : '<span style="font-size:10px;color:var(--tp-red);">■ Deficit</span>';
+
+    // Horizontal bars
+    if (chartType === 'hbar') {
+        return `<div style="display:flex;flex-direction:column;gap:4px;">
+            ${data.map(r => {
+                const val = metric === 'pct' ? (r.req > 0 ? Math.round(r.tested / r.req * 100) : 0) : metric === 'deficit' ? Math.max(0, r.req - r.tested) : r.req;
+                const val2 = metric === 'qty' ? r.tested : 0;
+                const pct1 = maxVal > 0 ? Math.min(100, Math.round(val / maxVal * 100)) : 0;
+                const pct2 = metric === 'qty' && maxVal > 0 ? Math.min(100, Math.round(val2 / maxVal * 100)) : 0;
+                const color = metric === 'pct' ? (val >= 100 ? 'var(--tp-green)' : val >= 50 ? 'var(--tp-amber)' : 'var(--tp-red)') : metric === 'deficit' ? 'var(--tp-red)' : 'var(--tp-amber)';
+                return `<div style="display:flex;align-items:center;gap:6px;">
+                    <div style="width:80px;font-size:9px;color:var(--tp-text);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.name}">${r.name}</div>
+                    <div style="flex:1;height:18px;background:var(--tp-border);border-radius:3px;position:relative;overflow:hidden;">
+                        ${metric === 'qty' ? `
+                        <div style="position:absolute;height:100%;width:${pct1}%;background:${color};border-radius:3px;opacity:0.4;"></div>
+                        <div style="position:absolute;height:100%;width:${pct2}%;background:var(--tp-green);border-radius:3px;"></div>
+                        ` : `
+                        <div style="position:absolute;height:100%;width:${pct1}%;background:${color};border-radius:3px;"></div>
+                        `}
+                    </div>
+                    <div style="width:55px;font-size:9px;font-weight:700;color:var(--tp-text);text-align:left;">${metric === 'pct' ? val + '%' : metric === 'qty' ? val2 + '/' + val : val}</div>
+                </div>`;
+            }).join('')}
+        </div>
+        <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">${legend}</div>`;
+    }
+
+    // Stacked bars (vertical)
+    if (chartType === 'stacked') {
+        return `<div class="tp-chart-bar" style="${hStyle}">
+            ${data.map(r => {
+                const testedH = Math.min(100, (r.tested / maxVal) * 100);
+                const defH = Math.min(100 - testedH, (Math.max(0, r.req - r.tested) / maxVal) * 100);
+                const pct = r.req > 0 ? Math.round(r.tested / r.req * 100) : 0;
+                return `<div class="tp-chart-col">
+                    <div class="tp-chart-value" style="font-size:8px;">${r.tested}/${r.req}</div>
+                    <div class="tp-chart-group" style="position:relative;">
+                        <div style="position:absolute;bottom:0;width:100%;height:${testedH + defH}%;display:flex;flex-direction:column;justify-content:flex-end;">
+                            <div style="height:${defH > 0 ? (defH/(testedH+defH)*100) : 0}%;background:var(--tp-red);opacity:0.3;border-radius:3px 3px 0 0;"></div>
+                            <div style="height:${testedH > 0 ? (testedH/(testedH+defH)*100) : 0}%;background:var(--tp-green);border-radius:0 0 3px 3px;"></div>
+                        </div>
+                    </div>
+                    <div class="tp-chart-label">${r.name.length > 8 ? r.name.slice(0,7) + '..' : r.name}</div>
+                    <div style="font-size:8px;font-weight:700;color:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${pct}%</div>
+                </div>`;
+            }).join('')}
+        </div>
+        <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">
+            <span style="font-size:10px;color:var(--tp-green);">■ Probadas</span>
+            <span style="font-size:10px;color:var(--tp-red);opacity:0.5;">■ Deficit</span>
+        </div>`;
+    }
+
+    // Default vertical bars
+    return `<div class="tp-chart-bar" style="${hStyle}">
+        ${data.map(r => {
+            const pct = r.req > 0 ? Math.round(r.tested / r.req * 100) : 0;
+            if (metric === 'pct') {
+                return `<div class="tp-chart-col">
+                    <div class="tp-chart-value">${pct}%</div>
+                    <div class="tp-chart-group">
+                        <div class="tp-chart-fill" style="height:${Math.min(100,pct)}%;background:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};"></div>
+                    </div>
+                    <div class="tp-chart-label">${r.name.length > 8 ? r.name.slice(0,7) + '..' : r.name}</div>
+                </div>`;
+            }
+            if (metric === 'deficit') {
+                const def = Math.max(0, r.req - r.tested);
+                return `<div class="tp-chart-col">
+                    <div class="tp-chart-value">${def}</div>
+                    <div class="tp-chart-group">
+                        <div class="tp-chart-fill" style="height:${maxVal>0?Math.min(100,(def/maxVal)*100):0}%;background:var(--tp-red);"></div>
+                    </div>
+                    <div class="tp-chart-label">${r.name.length > 8 ? r.name.slice(0,7) + '..' : r.name}</div>
+                </div>`;
+            }
+            return `<div class="tp-chart-col">
+                <div class="tp-chart-value">${r.tested}/${r.req}</div>
+                <div class="tp-chart-group">
+                    <div class="tp-chart-fill" style="height:${Math.min(100,(r.req/maxVal)*100)}%;background:var(--tp-amber);"></div>
+                    <div class="tp-chart-fill" style="height:${Math.min(100,(r.tested/maxVal)*100)}%;background:var(--tp-green);"></div>
+                </div>
+                <div class="tp-chart-label">${r.name.length > 8 ? r.name.slice(0,7) + '..' : r.name}</div>
+                <div style="font-size:8px;font-weight:700;color:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${pct}%</div>
+            </div>`;
+        }).join('')}
+    </div>
+    <div style="display:flex;gap:16px;justify-content:center;margin-top:6px;">${legend}</div>`;
 }
 
 function tpRenderDashTable() {
@@ -696,9 +1007,10 @@ function tpExportGapCSV() {
 // ═══ TESTED TAB ═══
 function tpRenderTested(el) {
     el.innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:14px;">
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
         <button class="tp-btn ${window._tpTestedMode!=='json'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpTestedMode='manual';tpRender();">✏️ Captura Manual</button>
         <button class="tp-btn ${window._tpTestedMode==='json'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpTestedMode='json';tpRender();">📥 Importar JSON</button>
+        <button class="tp-btn tp-btn-ghost" onclick="tpRecoverFromCOP15()" style="border-color:#8b5cf6;color:#8b5cf6;">🔄 Recuperar de COP15</button>
     </div>
 
     ${window._tpTestedMode !== 'json' ? `
@@ -742,21 +1054,52 @@ function tpRenderTested(el) {
             <span>📋 Registro de Pruebas (${tpState.testedList.length})</span>
             ${tpState.testedList.length > 0 ? `<button class="tp-btn tp-btn-danger" onclick="if(confirm('¿Borrar todos?')){tpState.testedList=[];tpSave();tpRender();tpUpdateBadges();}" style="font-size:10px;">🗑 Borrar todo</button>` : ''}
         </div>
-        ${tpState.testedList.length === 0 ? `<div style="text-align:center;padding:25px;color:var(--tp-dim);"><div style="font-size:24px;margin-bottom:6px;">📭</div>No hay vehículos probados registrados<br><small style="color:var(--tp-dim);">Se agregan automáticamente al liberar vehículos en COP15 (Correlation, COP-Emisiones, EO-Emisiones, Investigación)</small></div>` : `
-        <div style="max-height:300px;overflow-y:auto;">
+        ${tpState.testedList.length === 0 ? `<div style="text-align:center;padding:25px;color:var(--tp-dim);"><div style="font-size:24px;margin-bottom:6px;">📭</div>No hay vehículos probados registrados<br><small style="color:var(--tp-dim);">Se agregan automáticamente al liberar vehículos en COP15 (Correlation, COP-Emisiones, EO-Emisiones, Investigación)</small><br><button class="tp-btn tp-btn-primary" onclick="window._tpTestedMode='manual';tpRender();" style="margin-top:12px;">✏️ Agregar Manual</button></div>` : `
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:flex-end;">
+            <div>
+                <label style="font-size:9px;color:var(--tp-dim);display:block;">Desde</label>
+                <input type="date" class="tp-input" id="tp-tested-from" value="${window._tpTestedFrom||''}" onchange="window._tpTestedFrom=this.value;tpRender();" style="font-size:10px;">
+            </div>
+            <div>
+                <label style="font-size:9px;color:var(--tp-dim);display:block;">Hasta</label>
+                <input type="date" class="tp-input" id="tp-tested-to" value="${window._tpTestedTo||''}" onchange="window._tpTestedTo=this.value;tpRender();" style="font-size:10px;">
+            </div>
+            <button class="tp-btn tp-btn-ghost" onclick="window._tpTestedFrom='';window._tpTestedTo='';tpRender();" style="font-size:9px;">Limpiar filtro</button>
+            <span style="font-size:9px;color:var(--tp-dim);margin-left:auto;">${(() => {
+                const from = window._tpTestedFrom || '';
+                const to = window._tpTestedTo || '';
+                const filtered = tpState.testedList.filter(t => {
+                    if (from && t.date < from) return false;
+                    if (to && t.date > to) return false;
+                    return true;
+                });
+                return from || to ? filtered.length + ' de ' + tpState.testedList.length + ' mostrados' : '';
+            })()}</span>
+        </div>
+        <div style="max-height:350px;overflow-y:auto;">
             <table class="tp-table">
-                <thead><tr><th>Config Text</th><th>Fecha</th><th>Nota</th><th>Fuente</th><th>Propósito</th><th></th></tr></thead>
+                <thead><tr><th>Config</th><th>VIN</th><th>Fecha</th><th>Fuente</th><th>Proposito</th><th></th></tr></thead>
                 <tbody>
-                    ${tpState.testedList.map((t,i) => `
+                    ${tpState.testedList.filter(t => {
+                        const from = window._tpTestedFrom || '';
+                        const to = window._tpTestedTo || '';
+                        if (from && t.date < from) return false;
+                        if (to && t.date > to) return false;
+                        return true;
+                    }).map((t,i) => {
+                        const origIdx = tpState.testedList.indexOf(t);
+                        const vinMatch = (t.note || '').match(/VIN:\\s*([^\\s—]+)/);
+                        const vin = vinMatch ? vinMatch[1] : '';
+                        return `
                         <tr>
-                            <td style="font-size:9px;color:var(--tp-amber);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.configText}">${t.configText}</td>
-                            <td>${t.date}</td>
-                            <td style="color:var(--tp-dim);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.note||'—'}</td>
+                            <td style="max-width:260px;">${tpConfigBadges({desc:t.configText},{fontSize:'8px'})}</td>
+                            <td style="font-family:monospace;font-size:11px;font-weight:700;color:var(--tp-amber);white-space:nowrap;letter-spacing:0.3px;">${vin || '—'}</td>
+                            <td style="font-size:10px;white-space:nowrap;">${t.date}</td>
                             <td><span class="tp-badge" style="background:${t.source==='cop15-release'?'rgba(139,92,246,0.15);color:#8b5cf6':'rgba(6,182,212,0.15);color:#06b6d4'};border:1px solid currentColor;font-size:9px;">${t.source}</span></td>
                             <td style="font-size:10px">${t.purpose||'—'}</td>
-                            <td><button onclick="tpState.testedList.splice(${i},1);tpSave();tpRender();tpUpdateBadges();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;">×</button></td>
-                        </tr>
-                    `).join('')}
+                            <td><button onclick="tpState.testedList.splice(${origIdx},1);tpSave();tpRender();tpUpdateBadges();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;">×</button></td>
+                        </tr>`;
+                    }).join('')}
                 </tbody>
             </table>
         </div>
@@ -825,6 +1168,74 @@ function tpImportJSON() {
 }
 
 
+// ── Recover tested vehicles from COP15 history (archived vehicles) ──
+function tpRecoverFromCOP15() {
+    if (typeof db === 'undefined' || !db.vehicles || db.vehicles.length === 0) {
+        showToast('No hay vehiculos en COP15', 'error');
+        return;
+    }
+
+    // Get all archived (released) vehicles with valid purpose and configCode
+    var archived = db.vehicles.filter(function(v) {
+        return v.status === 'archived' && v.configCode && v.configCode !== 'MANUAL' &&
+            TP_PURPOSES_VALID.includes(v.purpose);
+    });
+
+    if (archived.length === 0) {
+        showToast('No hay vehiculos liberados con proposito valido en COP15', 'info');
+        return;
+    }
+
+    // Build set of existing entries by VIN to detect duplicates
+    var existingVINs = {};
+    (tpState.testedList || []).forEach(function(t) {
+        // Extract VIN from note field (format: "VIN: XXXXX" or "VIN: XXXXX — Auto desde COP15")
+        var vinMatch = (t.note || '').match(/VIN:\s*([^\s—-]+)/);
+        if (vinMatch) existingVINs[vinMatch[1]] = true;
+    });
+
+    // Also check by configText+date as secondary dedup
+    var existingKeys = {};
+    (tpState.testedList || []).forEach(function(t) {
+        existingKeys[t.configText + '|' + (t.date || '')] = true;
+    });
+
+    var added = 0, skipped = 0;
+    if (!tpState.testedList) tpState.testedList = [];
+
+    archived.forEach(function(v) {
+        // Skip if VIN already registered
+        if (existingVINs[v.vin]) { skipped++; return; }
+
+        var date = (v.archivedAt || v.registeredAt || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+        var key = v.configCode + '|' + date;
+
+        // Also skip if same configText+date already exists (unlikely but safe)
+        if (existingKeys[key] && existingVINs[v.vin]) { skipped++; return; }
+
+        tpState.testedList.push({
+            configText: v.configCode,
+            date: date,
+            note: 'VIN: ' + v.vin + ' — Recuperado de COP15',
+            source: 'cop15-recovery',
+            purpose: v.purpose
+        });
+        existingVINs[v.vin] = true;
+        existingKeys[key] = true;
+        added++;
+    });
+
+    if (added > 0) {
+        tpSave();
+        tpRender();
+        tpUpdateBadges();
+    }
+
+    var msg = added + ' vehiculos recuperados de COP15';
+    if (skipped > 0) msg += ', ' + skipped + ' duplicados omitidos';
+    showToast(msg, added > 0 ? 'success' : 'info');
+}
+
 // ═══ RULES TAB ═══
 function tpRenderRules(el) {
     const regions = ['*','AUSTRALIA','BRAZIL','CANADA','EUROPE','GENERAL','MEXICO','MIDDLE EAST','RUSSIA','USA'];
@@ -878,6 +1289,26 @@ function tpRenderRules(el) {
                     <span style="font-size:11px;color:${wTotal===100?'var(--tp-green)':'var(--tp-amber)'};font-weight:700;">Total: ${wTotal}% ${wTotal===100?'✓':'(ajustar a 100%)'}</span>
                 </div>
             </div>
+            <div class="tp-card" style="margin-top:14px;">
+                <div class="tp-card-title">
+                    <span>💾 Plantillas de Reglas (${(tpState.rulePresets||[]).length}/5)</span>
+                    <button class="tp-btn tp-btn-primary" onclick="tpSaveRulePreset()" style="font-size:10px;">+ Guardar Actual</button>
+                </div>
+                <p style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Guarda hasta 5 combinaciones de reglas+pesos para cargar rapidamente.</p>
+                ${(tpState.rulePresets||[]).length === 0 ? '<div style="text-align:center;padding:15px;color:var(--tp-dim);font-size:11px;">No hay plantillas guardadas.</div>' :
+                (tpState.rulePresets||[]).map((p,i) => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;margin-bottom:4px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);">
+                        <div>
+                            <div style="font-size:12px;font-weight:700;color:var(--tp-text);">${p.name}</div>
+                            <div style="font-size:9px;color:var(--tp-dim);">${p.rules.length} reglas · ${new Date(p.created).toLocaleDateString('es-MX')}</div>
+                        </div>
+                        <div style="display:flex;gap:5px;">
+                            <button class="tp-btn tp-btn-primary" onclick="tpLoadRulePreset(${i})" style="font-size:10px;">Cargar</button>
+                            <button class="tp-btn tp-btn-ghost" onclick="tpDeleteRulePreset(${i})" style="font-size:10px;color:var(--tp-red);">🗑</button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
         </div>
     </div>
     `;
@@ -890,6 +1321,106 @@ function tpAddRule() {
     tpRender();
 }
 
+function tpSaveRulePreset() {
+    if (!tpState.rulePresets) tpState.rulePresets = [];
+    if (tpState.rulePresets.length >= 5) { showToast('Maximo 5 plantillas. Elimina una primero.', 'warning'); return; }
+    var name = prompt('Nombre de la plantilla:');
+    if (!name) return;
+    tpState.rulePresets.push({
+        id: Date.now(),
+        name: name,
+        rules: JSON.parse(JSON.stringify(tpState.rules)),
+        weights: JSON.parse(JSON.stringify(tpState.weights)),
+        created: new Date().toISOString()
+    });
+    tpSave(); tpRender();
+    showToast('Plantilla "' + name + '" guardada', 'success');
+}
+
+function tpLoadRulePreset(idx) {
+    if (!tpState.rulePresets || !tpState.rulePresets[idx]) return;
+    if (!confirm('¿Cargar plantilla "' + tpState.rulePresets[idx].name + '"? Esto reemplazara las reglas actuales.')) return;
+    var preset = tpState.rulePresets[idx];
+    tpState.rules = JSON.parse(JSON.stringify(preset.rules));
+    tpState.weights = JSON.parse(JSON.stringify(preset.weights));
+    tpSave(); tpRender(); tpInvalidateCache();
+    showToast('Plantilla "' + preset.name + '" cargada', 'success');
+}
+
+function tpDeleteRulePreset(idx) {
+    if (!tpState.rulePresets || !tpState.rulePresets[idx]) return;
+    if (!confirm('¿Eliminar plantilla "' + tpState.rulePresets[idx].name + '"?')) return;
+    tpState.rulePresets.splice(idx, 1);
+    tpSave(); tpRender();
+    showToast('Plantilla eliminada', 'success');
+}
+
+
+// ═══ SCHEDULE HELPERS ═══
+// Build pairs of (precon day, test day) based on working days
+// Rule: preconditioning on day N requires testing on day N+1 (min 12h soak)
+// Week runs Dom→Sab. Sunday preacon = Monday test, etc.
+function tpBuildTestSlots(workDays) {
+    const dayOrder = ['dom','lun','mar','mie','jue','vie','sab'];
+    const dayLabels = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+    const slots = [];
+    for (let i = 0; i < dayOrder.length - 1; i++) {
+        const preDay = dayOrder[i];
+        const testDay = dayOrder[i + 1];
+        if (workDays[preDay] && workDays[testDay]) {
+            slots.push({ precon: preDay, test: testDay, preconLabel: dayLabels[preDay], testLabel: dayLabels[testDay] });
+        }
+    }
+    return slots;
+}
+
+function tpBuildSchedulePreview(workDays) {
+    const slots = tpBuildTestSlots(workDays);
+    if (slots.length === 0) return '<span style="color:var(--tp-red);">No hay pares preacon/prueba posibles con estos dias.</span>';
+    let html = '<span style="font-weight:700;">Pares disponibles:</span> ';
+    html += slots.map(s => `<span style="padding:1px 5px;background:rgba(59,130,246,0.1);border-radius:3px;margin:0 2px;">Preacon ${s.preconLabel} → Prueba ${s.testLabel}</span>`).join(' ');
+    // Count max testable vehicles
+    html += `<br><span style="font-weight:700;">Maximo pruebas posibles:</span> ${slots.length} vehiculos (1 por par)`;
+    return html;
+}
+
+function tpLoadCarryoverPicks() {
+    const plans = tpState.weeklyPlans || [];
+    const lastAccepted = [...plans].reverse().find(p => p.accepted);
+    if (!lastAccepted) { showToast('No hay plan aceptado previo', 'warning'); return; }
+    const pending = lastAccepted.items.filter(i => !i.completed && i.status !== 'completed');
+    window._tpWeeklyManualPicks = window._tpWeeklyManualPicks || [];
+    let added = 0;
+    pending.forEach(i => {
+        if (!window._tpWeeklyManualPicks.includes(i.desc)) {
+            window._tpWeeklyManualPicks.push(i.desc);
+            added++;
+        }
+    });
+    tpRender();
+    showToast(added + ' items de carryover incluidos como obligatorias.', 'info');
+}
+
+// Assign precon/test days to items, randomizing the order
+function tpAssignSchedule(items, workDays) {
+    const slots = tpBuildTestSlots(workDays);
+    if (slots.length === 0) return items; // No assignment possible
+    // Shuffle items for randomization
+    const shuffled = items.slice();
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    // Assign cyclically through available slots
+    shuffled.forEach((item, i) => {
+        const slot = slots[i % slots.length];
+        item.preconDay = slot.precon;
+        item.testDay = slot.test;
+        item.preconLabel = slot.preconLabel;
+        item.testLabel = slot.testLabel;
+    });
+    return shuffled;
+}
 
 // ═══ WEEKLY PLAN TAB ═══
 function tpRenderWeekly(el) {
@@ -898,60 +1429,186 @@ function tpRenderWeekly(el) {
     const manualPicks = window._tpWeeklyManualPicks || [];
     const allConfigs = tpState.planData.map(c => c.desc).sort();
 
+    // Get top suggested configs (highest priority with deficit, excluding already picked)
+    const analysis = tpState.planData.length > 0 ? tpGetAnalysis() : [];
+    const pickedSet = new Set(manualPicks);
+    const suggested = analysis.filter(c => c.deficit > 0 && !pickedSet.has(c.desc)).slice(0, 3);
+    // Build the remaining list for the select (exclude suggested)
+    const suggestedSet = new Set(suggested.map(s => s.desc));
+    const restConfigs = allConfigs.filter(c => !suggestedSet.has(c));
+
+    // Detect carryover items from last accepted week
+    const lastAccepted = [...plans].reverse().find(p => p.accepted);
+    const carryoverItems = lastAccepted ? lastAccepted.items.filter(i => !i.completed && i.status !== 'completed') : [];
+    const carryoverDescs = carryoverItems.map(i => i.desc);
+    // Default week start to next Monday
+    const _defDate = new Date();
+    const _dow = _defDate.getDay();
+    const _nextMon = new Date(_defDate);
+    _nextMon.setDate(_defDate.getDate() + ((_dow === 0 ? 1 : _dow === 6 ? 2 : 8 - _dow)));
+    const _defDateStr = _nextMon.toISOString().slice(0, 10);
+    // Persisted working days or default (Mon-Fri)
+    const _workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
+
     el.innerHTML = `
     <div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">
         <div class="tp-card-title"><span style="font-size:15px;">📅 Generar Plan Semanal</span></div>
-        <p style="font-size:11px;color:var(--tp-dim);margin-bottom:10px;">El algoritmo prioriza configuraciones de mayor riesgo. Puedes forzar pruebas antes de generar.</p>
-        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;">
+        <p style="font-size:11px;color:var(--tp-dim);margin-bottom:10px;">El algoritmo prioriza configuraciones de mayor riesgo. Confirma la fecha y dias de trabajo antes de generar.</p>
+
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;">
+            <div>
+                <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Semana del</label>
+                <input type="date" id="tp-weekly-date" value="${window._tpWeekDate || _defDateStr}" class="tp-select" style="width:150px;font-size:11px;" onchange="window._tpWeekDate=this.value;">
+            </div>
             <div>
                 <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Capacidad</label>
-                <input type="number" id="tp-weekly-cap" value="8" min="1" max="20" class="tp-select" style="width:65px;text-align:center;">
+                <input type="number" id="tp-weekly-cap" value="${window._tpWeekCap || 8}" min="1" max="20" class="tp-select" style="width:65px;text-align:center;" onchange="window._tpWeekCap=parseInt(this.value);">
             </div>
-            <button class="tp-btn tp-btn-primary" onclick="tpGenerateWeekly()" style="font-size:13px;padding:8px 18px;background:var(--tp-amber);color:#000;font-weight:700;">🚀 Generar</button>
+            <button class="tp-btn tp-btn-primary" onclick="tpGenerateWeekly()" style="font-size:12px;padding:8px 14px;background:var(--tp-amber);color:#000;font-weight:700;">🚀 Generar</button>
+            <button class="tp-btn tp-btn-primary" onclick="tpSmartGenerate()" style="font-size:12px;padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;" title="Genera plan optimo con validacion de inventario y carryover automatico">⚡ Smart</button>
         </div>
+
+        <div style="padding:8px 10px;background:var(--tp-card);border-radius:8px;border:1px solid var(--tp-border);margin-bottom:12px;">
+            <div style="font-size:10px;font-weight:700;color:var(--tp-blue);margin-bottom:6px;">🗓 Dias de asistencia</div>
+            <p style="font-size:9px;color:var(--tp-dim);margin-bottom:6px;">Selecciona los dias que asistiras. El preacondicionamiento requiere min. 12h, por lo que solo puedes probar al dia siguiente de preacondicionar.</p>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${['dom','lun','mar','mie','jue','vie','sab'].map((d,i) => {
+                    const labels = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
+                    const checked = _workDays[d] ? 'checked' : '';
+                    return `<label style="display:flex;align-items:center;gap:3px;font-size:10px;color:var(--tp-text);cursor:pointer;padding:4px 8px;border:1px solid var(--tp-border);border-radius:6px;background:${_workDays[d]?'rgba(59,130,246,0.1)':'transparent'};">
+                        <input type="checkbox" ${checked} onchange="if(!window._tpWorkDays)window._tpWorkDays={dom:false,lun:true,mar:true,mie:true,jue:true,vie:true,sab:false};window._tpWorkDays['${d}']=this.checked;tpRender();" style="accent-color:var(--tp-blue);">
+                        ${labels[i]}
+                    </label>`;
+                }).join('')}
+            </div>
+            <div style="margin-top:6px;font-size:9px;color:var(--tp-dim);" id="tp-schedule-preview">
+                ${tpBuildSchedulePreview(_workDays)}
+            </div>
+        </div>
+
+        ${carryoverItems.length > 0 ? `
+        <div style="padding:8px 10px;background:rgba(139,92,246,0.05);border-radius:8px;border:1px solid rgba(139,92,246,0.3);margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <div style="font-size:10px;font-weight:700;color:#8b5cf6;">🔄 Carryover (${carryoverItems.length} pendientes de semana anterior)</div>
+                <button class="tp-btn tp-btn-primary" onclick="tpLoadCarryoverPicks()" style="font-size:9px;background:#8b5cf6;">Incluir todos</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px;">
+            ${carryoverItems.map(c => {
+                const isAlreadyPicked = manualPicks.includes(c.desc);
+                return `<div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.2);border-radius:5px;flex-wrap:wrap;opacity:${isAlreadyPicked?0.5:1};">
+                    <span style="font-size:8px;color:#8b5cf6;flex-shrink:0;">🔄</span>
+                    ${tpConfigBadges(c,{fontSize:'8px'})}
+                    ${isAlreadyPicked ? '<span style="font-size:7px;color:var(--tp-green);margin-left:auto;">incluido</span>' : `<button onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${c.desc.replace(/'/g,"\\'")}'))window._tpWeeklyManualPicks.push('${c.desc.replace(/'/g,"\\'")}');tpRender();" style="background:none;border:none;color:#8b5cf6;cursor:pointer;font-size:10px;margin-left:auto;">+</button>`}
+                </div>`;
+            }).join('')}
+            </div>
+        </div>` : ''}
         <div style="padding:10px;background:var(--tp-card);border-radius:8px;border:1px solid var(--tp-border);">
             <div style="font-size:10px;font-weight:700;color:var(--tp-amber);margin-bottom:5px;">📌 Pruebas obligatorias</div>
+            ${suggested.length > 0 ? `
+            <div style="font-size:9px;color:var(--tp-dim);margin-bottom:4px;">⚡ Sugeridas (mayor prioridad):</div>
+            <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px;">
+                ${suggested.map(s => `
+                <div onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${s.desc.replace(/'/g,"\\'")}'))window._tpWeeklyManualPicks.push('${s.desc.replace(/'/g,"\\'")}');tpRender();" style="display:flex;align-items:center;gap:4px;padding:5px 8px;background:rgba(245,158,11,0.04);border:1px dashed rgba(245,158,11,0.3);border-radius:6px;cursor:pointer;flex-wrap:wrap;transition:background 0.15s;" onmouseover="this.style.background='rgba(245,158,11,0.12)'" onmouseout="this.style.background='rgba(245,158,11,0.04)'">
+                    <span style="font-size:10px;flex-shrink:0;">⚡</span>
+                    ${tpConfigBadges(s,{fontSize:'8px'})}
+                    <span style="font-size:8px;color:var(--tp-red);margin-left:auto;flex-shrink:0;white-space:nowrap;">deficit ${s.deficit}</span>
+                    <span style="font-size:10px;color:var(--tp-amber);flex-shrink:0;">+</span>
+                </div>`).join('')}
+            </div>` : ''}
             <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">
                 <select id="tp-manual-pick-select" class="tp-select" style="flex:1;min-width:180px;font-size:10px;">
                     <option value="">Seleccionar...</option>
-                    ${allConfigs.map(c => `<option value="${c}">${c}</option>`).join('')}
+                    ${suggested.length > 0 ? `<optgroup label="⚡ Sugeridas">${suggested.map(s => `<option value="${s.desc}">${s.desc}</option>`).join('')}</optgroup>` : ''}
+                    <optgroup label="Todas las configuraciones">${restConfigs.map(c => `<option value="${c}">${c}</option>`).join('')}</optgroup>
                 </select>
                 <button class="tp-btn tp-btn-primary" onclick="tpAddManualPick()" style="font-size:10px;">+</button>
             </div>
-            ${manualPicks.length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:3px;">${manualPicks.map((p,i) => `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);border-radius:5px;font-size:8px;color:var(--tp-amber);">📌 ${p.length>35?p.slice(0,35)+'...':p}<button onclick="window._tpWeeklyManualPicks.splice(${i},1);tpRender();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:11px;padding:0 1px;">×</button></span>`).join('')}</div>` : '<div style="font-size:9px;color:var(--tp-dim);">Ninguna — el algoritmo decidirá.</div>'}
+            ${manualPicks.length > 0 ? `<div style="display:flex;flex-direction:column;gap:4px;">${manualPicks.map((p,i) => {
+                const _pc = tpState.planData.find(c => c.desc === p);
+                return `<div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;flex-wrap:wrap;">
+                    <span style="font-size:8px;color:var(--tp-amber);flex-shrink:0;">📌</span>
+                    ${_pc ? tpConfigBadges(_pc,{fontSize:'8px'}) : '<span style="font-size:8px;color:var(--tp-dim);">' + (p.length>40?p.slice(0,40)+'...':p) + '</span>'}
+                    <button onclick="window._tpWeeklyManualPicks.splice(${i},1);tpRender();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:0 2px;margin-left:auto;">×</button>
+                </div>`;
+            }).join('')}</div>` : '<div style="font-size:9px;color:var(--tp-dim);">Ninguna — el algoritmo decidirá.</div>'}
         </div>
     </div>
 
     ${plans.length === 0 ? '' : plans.slice().reverse().map((w, wi) => {
         const idx = plans.length - 1 - wi;
         const done = w.items.filter(i => i.completed).length;
+        const carryoverCount = w.items.filter(i => i.status === 'carryover').length;
         const tot = w.items.length;
         const pct = tot > 0 ? Math.round((done/tot)*100) : 0;
         const isEdit = window._tpEditWeek === idx;
-        const dt = new Date(w.created).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
+        const dt = w.weekDate ? new Date(w.weekDate + 'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) : new Date(w.created).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
+        const dayLabels = {dom:'D',lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
+        const wdStr = w.workDays ? Object.keys(dayLabels).filter(d => w.workDays[d]).map(d => dayLabels[d]).join('') : '';
+        // Group items by test day for schedule view
+        const _subPreds = typeof tpPredictSubstitutions === 'function' ? tpPredictSubstitutions(w.items) : [];
+        const dayGroups = {};
+        w.items.forEach((item, ii) => {
+            const key = item.testDay || '_sin';
+            if (!dayGroups[key]) dayGroups[key] = [];
+            dayGroups[key].push({item, ii});
+        });
+        const dayFullLabels = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+        const hasSchedule = w.items.some(i => i.testDay);
         return `
-        <div class="tp-card" style="border-left:3px solid ${pct===100?'var(--tp-green)':pct>0?'var(--tp-amber)':'var(--tp-blue)'};">
+        <div class="tp-card" style="border-left:3px solid ${pct===100?'var(--tp-green)':carryoverCount>0&&w.accepted?'#8b5cf6':pct>0?'var(--tp-amber)':'var(--tp-blue)'};">
             <div class="tp-card-title" style="flex-wrap:wrap;gap:6px;">
-                <div><span style="font-size:13px;font-weight:700;">Semana ${idx+1}</span> <span style="font-size:10px;color:var(--tp-dim);">${dt}</span>
-                ${w.accepted?'<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size:8px;">Aceptado</span>':''}</div>
+                <div>
+                    <span style="font-size:13px;font-weight:700;">Semana ${idx+1}</span>
+                    <span style="font-size:10px;color:var(--tp-dim);">${dt}</span>
+                    ${wdStr ? `<span style="font-size:8px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:3px;">${wdStr}</span>` : ''}
+                    ${w.accepted?'<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size:8px;">Aceptado</span>':''}
+                    ${carryoverCount>0&&w.accepted?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:8px;">${carryoverCount} carryover</span>`:''}
+                    ${w.carriedFrom?`<span class="tp-badge" style="background:rgba(139,92,246,0.1);color:#8b5cf6;font-size:8px;">desde Sem ${w.carriedFrom}</span>`:''}
+                </div>
                 <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
                     <span style="font-size:11px;font-weight:700;color:${pct===100?'var(--tp-green)':'var(--tp-amber)'};">${done}/${tot}</span>
                     <div class="tp-bar" style="width:50px;"><div class="tp-bar-fill" style="width:${pct}%;background:${pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size:7px;">${pct}%</span></div>
                     ${!w.accepted?`<button class="tp-btn tp-btn-primary" onclick="tpAcceptWeeklyPlan(${idx})" style="font-size:10px;">✅ Aceptar</button>`:''}
+                    <button class="tp-btn tp-btn-ghost" onclick="tpCarryOverWeekly(${idx})" style="font-size:10px;" title="Copiar items pendientes a nueva semana">➡️ Copiar pendientes</button>
                     <button class="tp-btn tp-btn-ghost" onclick="tpExportWeeklyPlan(${idx})" style="font-size:10px;">📤</button>
                     <button class="tp-btn tp-btn-ghost" onclick="window._tpEditWeek=${isEdit?-1:idx};tpRender();" style="font-size:10px;">${isEdit?'✕':'✏️'}</button>
                     <button class="tp-btn tp-btn-ghost" onclick="if(confirm('¿Eliminar semana ${idx+1}?')){tpState.weeklyPlans.splice(${idx},1);tpSave();tpRender();}" style="font-size:10px;color:var(--tp-red);">🗑</button>
                 </div>
             </div>
-            ${w.items.map((item, ii) => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:2px;border:1px solid var(--tp-border);border-radius:5px;background:${item.completed?'rgba(16,185,129,0.05)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
-                <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
-                    <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;">${item.completed?'✅':'⬜'}</span>
-                    ${item.manual?'<span style="font-size:7px;color:var(--tp-amber);">📌</span>':''}
-                    <span style="font-size:9px;color:var(--tp-amber);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${item.desc}">${item.desc}</span>
+            ${hasSchedule ? ['dom','lun','mar','mie','jue','vie','sab'].filter(d => dayGroups[d] && dayGroups[d].length > 0).map(d => `
+            <div style="margin-bottom:6px;">
+                <div style="font-size:9px;font-weight:700;color:var(--tp-blue);padding:3px 6px;background:rgba(59,130,246,0.06);border-radius:4px;margin-bottom:3px;">
+                    Prueba ${dayFullLabels[d]} (Preacon ${dayFullLabels[dayGroups[d][0].item.preconDay] || '?'})
                 </div>
-                <div style="display:flex;gap:4px;align-items:center;">
-                    <span class="tp-badge" style="background:${tpRegionColor(item.rgn)}20;color:${tpRegionColor(item.rgn)};font-size:7px;">${item.rgn||'?'}</span>
+                ${dayGroups[d].map(({item, ii}) => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
+                    <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
+                        <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
+                        ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
+                        ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
+                        ${tpConfigBadges(item,{fontSize:'8px'})}
+                    </div>
+                    <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+                        ${isEdit?`<button onclick="tpRemoveWeeklyItem(${idx},${ii})" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:13px;">×</button>`:''}
+                    </div>
+                </div>`).join('')}
+            </div>`).join('') + (dayGroups['_sin'] ? dayGroups['_sin'].map(({item, ii}) => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);">
+                    <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
+                        <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':'⬜'}</span>
+                        ${tpConfigBadges(item,{fontSize:'8px'})}
+                    </div>
+                </div>`).join('') : '')
+            : w.items.map((item, ii) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
+                <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
+                    <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
+                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
+                    ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
+                    ${tpConfigBadges(item,{fontSize:'8px'})}
+                </div>
+                <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
                     ${isEdit?`<button onclick="tpRemoveWeeklyItem(${idx},${ii})" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:13px;">×</button>`:''}
                 </div>
             </div>`).join('')}
@@ -974,51 +1631,310 @@ function tpGenerateWeekly() {
     if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     const capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
+    const weekDate = document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0,10);
+    const workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
     const manualPicks = window._tpWeeklyManualPicks || [];
     const analysis = tpGetAnalysis();
     const pool = analysis.filter(c => c.deficit > 0).sort((a,b) => b.score - a.score);
     const testedCopy = [...tpState.testedList];
     const items = [];
     const used = new Set();
-    
+
+    // Check if any carryover items are in manual picks
+    const lastAccepted = [...(tpState.weeklyPlans || [])].reverse().find(p => p.accepted);
+    const carryoverDescs = lastAccepted ? new Set(lastAccepted.items.filter(i => !i.completed).map(i => i.desc)) : new Set();
+
     manualPicks.forEach(pick => {
         const cfg = tpState.planData.find(c => c.desc === pick);
         if (cfg && !used.has(cfg.desc)) {
             const rule = tpGetRule(cfg);
             const n = testedCopy.filter(t => t.configText === cfg.desc).length;
             const req = tpCalcRequired(cfg, rule);
-            items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, required:req, deficit:Math.max(0,req-n), score:tpPriorityScore(cfg,n), completed:false, completedDate:null, manual:true });
+            const isCarryover = carryoverDescs.has(cfg.desc);
+            items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:req, deficit:Math.max(0,req-n), score:tpPriorityScore(cfg,n), completed:false, completedDate:null, manual:true, carriedOver:isCarryover });
             testedCopy.push({ configText:cfg.desc, date:'Manual', source:'plan' });
             used.add(cfg.desc);
         }
     });
-    
+
     for (const cfg of pool) {
         if (items.length >= capacity) break;
         if (used.has(cfg.desc)) continue;
-        items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, required:cfg.required, deficit:cfg.deficit, score:cfg.score, completed:false, completedDate:null, manual:false });
+        items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:cfg.required, deficit:cfg.deficit, score:cfg.score, completed:false, completedDate:null, manual:false, carriedOver:false });
         used.add(cfg.desc);
     }
-    
+
     if (items.length === 0) { showToast('Sin configuraciones pendientes', 'info'); return; }
-    tpState.weeklyPlans.push({ id:Date.now(), created:new Date().toISOString(), capacity, items, accepted:false });
+
+    // Assign precon/test schedule with randomization
+    const scheduled = tpAssignSchedule(items, workDays);
+
+    tpState.weeklyPlans.push({
+        id: Date.now(),
+        created: new Date().toISOString(),
+        weekDate: weekDate,
+        workDays: JSON.parse(JSON.stringify(workDays)),
+        capacity,
+        items: scheduled,
+        accepted: false
+    });
     window._tpWeeklyManualPicks = [];
     tpSave(); tpRender(); tpUpdateBadges();
-    if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(items.length);
+    if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(scheduled.length);
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  SMART PLAN GENERATION — One-click with inventory validation        ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function tpCheckInventoryForConfig(cfg) {
+    if (typeof invState === 'undefined' || !invState.gases) return { ok: true, reason: '' };
+    var reg = cfg.reg || '';
+    // Check if there's at least one non-empty gas cylinder with sufficient level
+    var gases = invState.gases.filter(function(g) {
+        return g.status !== 'Empty' && g.readings && g.readings.length > 0;
+    });
+    if (gases.length === 0) return { ok: true, reason: 'sin datos inventario' };
+
+    var lowGases = gases.filter(function(g) {
+        var lvl = typeof invGasLevel === 'function' ? invGasLevel(g) : { pct: 100 };
+        return lvl.pct < 10;
+    });
+
+    // If more than half of the gases are critically low, warn
+    if (lowGases.length > gases.length * 0.5) {
+        return { ok: false, reason: lowGases.length + ' cilindros nivel critico (<10%)' };
+    }
+    return { ok: true, reason: '' };
+}
+
+function tpSmartGenerate() {
+    if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
+    if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
+
+    var capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
+    var weekDate = document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0, 10);
+    var workDays = window._tpWorkDays || { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
+
+    var analysis = tpGetAnalysis();
+    var pool = analysis.filter(function(c) { return c.deficit > 0; }).sort(function(a, b) { return b.score - a.score; });
+    var testedCopy = tpState.testedList.slice();
+    var items = [];
+    var used = new Set();
+    var skippedInv = [];
+
+    // Auto-include carryover from last accepted plan
+    var lastAccepted = tpState.weeklyPlans.slice().reverse().find(function(p) { return p.accepted; });
+    if (lastAccepted) {
+        lastAccepted.items.filter(function(i) { return !i.completed; }).forEach(function(i) {
+            if (items.length >= capacity || used.has(i.desc)) return;
+            var cfg = tpState.planData.find(function(c) { return c.desc === i.desc; });
+            if (!cfg) return;
+            var invCheck = tpCheckInventoryForConfig(cfg);
+            if (!invCheck.ok) { skippedInv.push({ desc: i.desc, reason: invCheck.reason }); return; }
+            var rule = tpGetRule(cfg);
+            var n = testedCopy.filter(function(t) { return t.configText === cfg.desc; }).length;
+            var req = tpCalcRequired(cfg, rule);
+            items.push({
+                desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg,
+                eng: cfg.eng, tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body,
+                ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire,
+                required: req, deficit: Math.max(0, req - n),
+                score: tpPriorityScore(cfg, n), completed: false, completedDate: null,
+                manual: false, carriedOver: true
+            });
+            testedCopy.push({ configText: cfg.desc, date: 'Smart', source: 'plan' });
+            used.add(cfg.desc);
+        });
+    }
+
+    // Fill remaining capacity from highest-priority configs
+    for (var i = 0; i < pool.length && items.length < capacity; i++) {
+        var cfg = pool[i];
+        if (used.has(cfg.desc)) continue;
+
+        // Check inventory
+        var invCheck = tpCheckInventoryForConfig(cfg);
+        if (!invCheck.ok) {
+            skippedInv.push({ desc: cfg.desc, reason: invCheck.reason });
+            continue;
+        }
+
+        items.push({
+            desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg,
+            eng: cfg.eng, tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body,
+            ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire,
+            required: cfg.required, deficit: cfg.deficit, score: cfg.score,
+            completed: false, completedDate: null, manual: false, carriedOver: false
+        });
+        used.add(cfg.desc);
+    }
+
+    if (items.length === 0) { showToast('Sin configuraciones pendientes con inventario disponible', 'info'); return; }
+
+    // Assign precon/test schedule
+    var scheduled = tpAssignSchedule(items, workDays);
+
+    tpState.weeklyPlans.push({
+        id: Date.now(),
+        created: new Date().toISOString(),
+        weekDate: weekDate,
+        workDays: JSON.parse(JSON.stringify(workDays)),
+        capacity: capacity,
+        items: scheduled,
+        accepted: false,
+        smartGenerated: true,
+        skippedInventory: skippedInv
+    });
+
+    window._tpWeeklyManualPicks = [];
+    tpSave(); tpRender(); tpUpdateBadges();
+    if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(scheduled.length);
+
+    // Substitution predictions for generated plan
+    var subPreds = typeof tpPredictSubstitutions === 'function' ? tpPredictSubstitutions(scheduled) : [];
+    var msg = scheduled.length + ' configs seleccionadas (score + inventario)';
+    if (skippedInv.length > 0) msg += '. ' + skippedInv.length + ' omitidas por inventario bajo.';
+    if (subPreds.length > 0) msg += '. 🔮 ' + subPreds.length + ' con sustitucion probable.';
+    showToast(msg, 'success');
+
+    // Inventory impact warning (Mejora D)
+    if (typeof invGetPlanImpactWarning === 'function') {
+        var impactWarning = invGetPlanImpactWarning(scheduled);
+        if (impactWarning) {
+            setTimeout(function() { showToast('⚠️ ' + impactWarning, 'warning'); }, 1500);
+        }
+    }
 }
 
 function tpAcceptWeeklyPlan(weekIdx) {
     if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
-    tpState.weeklyPlans[weekIdx].accepted = true;
-    tpState.weeklyPlans[weekIdx].acceptedDate = new Date().toISOString();
+    const plan = tpState.weeklyPlans[weekIdx];
+    plan.accepted = true;
+    plan.acceptedDate = new Date().toISOString();
+    // Mark incomplete items as carryover status
+    plan.items.forEach(item => {
+        if (!item.completed) {
+            item.status = 'carryover';
+        }
+    });
+    // Archive to week history
+    if (!tpState.weekHistory) tpState.weekHistory = [];
+    tpState.weekHistory.push({
+        weekNum: weekIdx + 1,
+        weekDate: plan.weekDate || null,
+        created: plan.created,
+        acceptedDate: plan.acceptedDate,
+        capacity: plan.capacity,
+        workDays: plan.workDays || null,
+        total: plan.items.length,
+        completed: plan.items.filter(i => i.completed).length,
+        carryover: plan.items.filter(i => i.status === 'carryover').length,
+        items: plan.items.map(i => ({
+            desc: i.desc, mod: i.mod, rgn: i.rgn, reg: i.reg, eng: i.eng,
+            completed: i.completed, completedDate: i.completedDate,
+            status: i.status || (i.completed ? 'completed' : 'carryover'),
+            manual: i.manual, carriedOver: i.carriedOver,
+            substituted: i.substituted || false,
+            substitution: i.substitution || null,
+            preconDay: i.preconDay, testDay: i.testDay,
+            preconLabel: i.preconLabel, testLabel: i.testLabel
+        }))
+    });
     tpSave(); tpRender(); tpUpdateBadges();
     if (typeof fbPostPlanAccepted === 'function') fbPostPlanAccepted(weekIdx + 1);
-    showToast('Plan semana ' + (weekIdx+1) + ' aceptado.', 'success');
+    showToast('Plan semana ' + (weekIdx+1) + ' aceptado. ' + plan.items.filter(i=>i.status==='carryover').length + ' items marcados como carryover.', 'success');
+}
+
+function tpCarryOverWeekly(weekIdx) {
+    if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
+    var source = tpState.weeklyPlans[weekIdx];
+    var pending = source.items.filter(function(i) { return !i.completed; });
+    if (pending.length === 0) { showToast('No hay items pendientes para copiar', 'info'); return; }
+    // Mark source items as carryover
+    pending.forEach(function(i) { i.status = 'carryover'; });
+    var newItems = pending.map(function(i) {
+        return { desc:i.desc, id:i.id, mod:i.mod, rgn:i.rgn, reg:i.reg, eng:i.eng, tx:i.tx, my:i.my, drv:i.drv, body:i.body, ep:i.ep, engpkg:i.engpkg, tire:i.tire, required:i.required, deficit:i.deficit, score:i.score, completed:false, completedDate:null, manual:i.manual, carriedOver:true, previouslySubstituted:i.substituted||false, previousSubstitution:i.substitution||null };
+    });
+    tpState.weeklyPlans.push({ id:Date.now(), created:new Date().toISOString(), capacity:newItems.length, items:newItems, accepted:false, carriedFrom:weekIdx+1 });
+    tpSave(); tpRender();
+    showToast(pending.length + ' items pendientes copiados a nueva semana (marcados como carryover)', 'success');
+}
+
+// ═══ WEEK HISTORY TAB ═══
+function tpRenderWeekHistory(el) {
+    if (!tpState.weekHistory) tpState.weekHistory = [];
+    const hist = tpState.weekHistory;
+    if (hist.length === 0) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay semanas archivadas. Las semanas se archivan automaticamente al aceptarlas.</div>';
+        return;
+    }
+    const dayLabels = {dom:'D',lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
+    const dayFull = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+    // Summary metrics
+    const totalWeeks = hist.length;
+    const totalCompleted = hist.reduce((s,h) => s + h.completed, 0);
+    const totalCarryover = hist.reduce((s,h) => s + (h.carryover||0), 0);
+    const totalItems = hist.reduce((s,h) => s + h.total, 0);
+    const avgPct = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0;
+
+    let html = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px;">
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue);">${totalWeeks}</div><div class="tp-metric-label">Semanas</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green);">${totalCompleted}</div><div class="tp-metric-label">Completados</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:#8b5cf6;">${totalCarryover}</div><div class="tp-metric-label">Carryover</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber);">${avgPct}%</div><div class="tp-metric-label">Cumplimiento</div></div>
+    </div>`;
+
+    // List each archived week (newest first)
+    hist.slice().reverse().forEach((h, ri) => {
+        const hi = hist.length - 1 - ri;
+        const pct = h.total > 0 ? Math.round((h.completed / h.total) * 100) : 0;
+        const dt = h.weekDate ? new Date(h.weekDate + 'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) : new Date(h.created).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
+        const acceptDt = h.acceptedDate ? new Date(h.acceptedDate).toLocaleDateString('es-MX',{day:'numeric',month:'short'}) : '';
+        const wdStr = h.workDays ? Object.keys(dayLabels).filter(d => h.workDays[d]).map(d => dayLabels[d]).join('') : '';
+        const isExpanded = window._tpHistExpand === hi;
+
+        html += `
+        <div class="tp-card" style="border-left:3px solid ${pct===100?'var(--tp-green)':h.carryover>0?'#8b5cf6':'var(--tp-amber)'};">
+            <div onclick="window._tpHistExpand=${isExpanded?-1:hi};tpRender();" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+                <div>
+                    <span style="font-size:12px;font-weight:700;">Sem ${h.weekNum}</span>
+                    <span style="font-size:10px;color:var(--tp-dim);">${dt}</span>
+                    ${wdStr ? `<span style="font-size:8px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;">${wdStr}</span>` : ''}
+                    <span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size:8px;">Aceptado ${acceptDt}</span>
+                    ${h.carryover>0?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:8px;">${h.carryover} carryover</span>`:''}
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;">
+                    <span style="font-size:11px;font-weight:700;color:${pct===100?'var(--tp-green)':'var(--tp-amber)'};">${h.completed}/${h.total}</span>
+                    <div class="tp-bar" style="width:50px;"><div class="tp-bar-fill" style="width:${pct}%;background:${pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size:7px;">${pct}%</span></div>
+                    <span style="font-size:12px;color:var(--tp-dim);">${isExpanded?'▲':'▼'}</span>
+                </div>
+            </div>
+            ${isExpanded && h.items ? `
+            <div style="margin-top:8px;border-top:1px solid var(--tp-border);padding-top:8px;">
+                ${h.items.map(item => `
+                <div style="display:flex;align-items:center;gap:5px;padding:4px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};flex-wrap:wrap;">
+                    <span style="font-size:13px;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
+                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}
+                    ${item.substituted?'<span style="font-size:7px;color:#f59e0b;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
+                    ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);">📌</span>':''}
+                    ${tpConfigBadges(item,{fontSize:'8px'})}
+                    ${item.testLabel?`<span style="font-size:7px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:auto;">Preacon ${item.preconLabel} → Prueba ${item.testLabel}</span>`:''}
+                </div>`).join('')}
+            </div>` : ''}
+        </div>`;
+    });
+
+    // Delete history button
+    html += `<div style="text-align:center;margin-top:10px;"><button class="tp-btn tp-btn-ghost" onclick="if(confirm('¿Borrar todo el historial de semanas?')){tpState.weekHistory=[];tpSave();tpRender();}" style="font-size:9px;color:var(--tp-red);">Borrar historial</button></div>`;
+
+    el.innerHTML = html;
 }
 
 // ── Auto-mark weekly items when COP15 releases match ──
 function tpAutoMarkWeeklyCompletion(configText) {
-    if (!tpState.weeklyPlans || tpState.weeklyPlans.length === 0) return;
+    if (!tpState.weeklyPlans || tpState.weeklyPlans.length === 0) return false;
     // Search all weekly plans for a matching pending item
     for (const plan of tpState.weeklyPlans) {
         if (!plan.items) continue;
@@ -1028,10 +1944,113 @@ function tpAutoMarkWeeklyCompletion(configText) {
                 item.completedDate = new Date().toISOString().slice(0,10);
                 tpSave();
                 console.log('TP: Auto-marked weekly item as completed:', configText);
-                return;
+                return true;
             }
         }
     }
+    return false;
+}
+
+// ── Flexible Substitution ──
+// Maps vehicle.config full field names → weekly plan item short field names
+var _tpFieldMap = {
+    'Modelo': 'mod',
+    'MODEL YEAR (VIN)': 'my',
+    'ENGINE CAPACITY': 'eng',
+    'TRANSMISSION': 'tx',
+    'ENVIRONMENT PACKAGE': 'ep',
+    'EMISSION REGULATION': 'reg',
+    'REGION': 'rgn',
+    'TIRE ASSY': 'tire',
+    'BODY TYPE': 'body',
+    'DRIVE TYPE': 'drv',
+    'ENGINE PACKAGE': 'engpkg'
+};
+
+// Core fields that MUST match for substitution eligibility
+var _tpCoreFields = ['mod', 'eng', 'tx', 'my', 'reg', 'rgn'];
+// Flexible fields that CAN differ
+var _tpFlexFields = ['tire', 'body', 'drv', 'ep', 'engpkg'];
+var _tpFlexLabels = { tire: 'Rin/Llanta', body: 'Tipo Carrocería', drv: 'Tipo Tracción', ep: 'Paq. Ambiental', engpkg: 'Paq. Motor' };
+
+function tpFindFlexibleMatches(configCode, vehicleConfig) {
+    if (!tpState.weeklyPlans || tpState.weeklyPlans.length === 0) return [];
+    if (!vehicleConfig) return [];
+
+    // Extract short fields from vehicle config
+    var vFields = {};
+    for (var fullName in _tpFieldMap) {
+        var short = _tpFieldMap[fullName];
+        vFields[short] = (vehicleConfig[fullName] || '').trim();
+    }
+
+    var matches = [];
+
+    for (var pi = 0; pi < tpState.weeklyPlans.length; pi++) {
+        var plan = tpState.weeklyPlans[pi];
+        if (!plan.items) continue;
+        for (var ii = 0; ii < plan.items.length; ii++) {
+            var item = plan.items[ii];
+            if (item.completed) continue;
+            if (item.desc === configCode) continue; // skip exact matches
+
+            // Check core fields match
+            var coreMatch = true;
+            for (var ci = 0; ci < _tpCoreFields.length; ci++) {
+                var f = _tpCoreFields[ci];
+                var vVal = (vFields[f] || '').toUpperCase();
+                var iVal = (item[f] || '').toUpperCase();
+                if (vVal !== iVal) { coreMatch = false; break; }
+            }
+            if (!coreMatch) continue;
+
+            // Compute differences in flex fields
+            var diffs = [];
+            for (var fi = 0; fi < _tpFlexFields.length; fi++) {
+                var ff = _tpFlexFields[fi];
+                var vv = (vFields[ff] || '').toUpperCase();
+                var iv = (item[ff] || '').toUpperCase();
+                if (vv !== iv && (vv || iv)) {
+                    diffs.push({ field: ff, label: _tpFlexLabels[ff] || ff, planned: item[ff] || '—', actual: vehicleConfig[_tpFieldMapReverse(ff)] || '—' });
+                }
+            }
+
+            if (diffs.length > 0) {
+                matches.push({ planIdx: pi, itemIdx: ii, planId: plan.id, item: item, diffs: diffs });
+            }
+        }
+    }
+
+    // Sort by fewest differences
+    matches.sort(function(a, b) { return a.diffs.length - b.diffs.length; });
+    return matches;
+}
+
+function _tpFieldMapReverse(shortName) {
+    for (var k in _tpFieldMap) {
+        if (_tpFieldMap[k] === shortName) return k;
+    }
+    return shortName;
+}
+
+function tpSubstituteItem(planIdx, itemIdx, testedConfigCode, testedVin, diffs) {
+    var plan = tpState.weeklyPlans[planIdx];
+    if (!plan || !plan.items || !plan.items[itemIdx]) return false;
+    var item = plan.items[itemIdx];
+
+    item.completed = true;
+    item.completedDate = new Date().toISOString().slice(0, 10);
+    item.substituted = true;
+    item.substitution = {
+        originalDesc: item.desc,
+        testedDesc: testedConfigCode,
+        testedVin: testedVin,
+        differences: diffs
+    };
+
+    tpSave();
+    console.log('TP: Substituted weekly item:', item.desc, '→', testedConfigCode);
+    return true;
 }
 
 
@@ -1056,20 +2075,97 @@ function tpRenderProduction(el) {
 
     ${hasData ? `
     <div class="tp-card">
-        <div class="tp-card-title"><span>📈 Producción Mensual Planeada</span></div>
-        <div class="tp-chart-bar">
-            ${(() => {
-                const totals = TP_MONTHS.map((m,i) => plan.reduce((s,c) => s + c.m[i], 0));
-                const maxT = Math.max(...totals, 1);
-                return TP_MONTHS.map((m,i) => `
-                    <div class="tp-chart-col">
-                        <div class="tp-chart-value">${totals[i].toLocaleString()}</div>
-                        <div class="tp-chart-fill" style="height:${(totals[i]/maxT)*100}%;background:var(--tp-blue);"></div>
-                        <div class="tp-chart-label">${m}</div>
-                    </div>
-                `).join('');
-            })()}
+        <div class="tp-card-title" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>📈 Producción Mensual Planeada</span>
+            <button class="tp-btn tp-btn-ghost" onclick="window._tpProdChartCfg=!window._tpProdChartCfg;tpRender();" style="font-size:11px;">⚙️</button>
         </div>
+        ${window._tpProdChartCfg ? `
+        <div style="padding:10px;background:var(--tp-bg);border:1px solid var(--tp-border);border-radius:8px;margin-bottom:10px;">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Altura grafica (px)</label>
+                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpProdChartH || 140}" min="80" max="400" onchange="window._tpProdChartH=parseInt(this.value);tpRender();">
+                </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Y max (0=auto)</label>
+                    <input type="number" class="tp-select" style="width:80px;font-size:10px;" value="${window._tpProdYMax || 0}" min="0" onchange="window._tpProdYMax=parseInt(this.value);tpRender();">
+                </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Tipo</label>
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpProdChartType=this.value;tpRender();">
+                        <option value="bar" ${(window._tpProdChartType||'bar')==='bar'?'selected':''}>Barras</option>
+                        <option value="hbar" ${window._tpProdChartType==='hbar'?'selected':''}>Horizontal</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Agrupar por</label>
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpProdGroupBy=this.value;tpRender();">
+                        <option value="month" ${(window._tpProdGroupBy||'month')==='month'?'selected':''}>Mes</option>
+                        <option value="region" ${window._tpProdGroupBy==='region'?'selected':''}>Region</option>
+                        <option value="model" ${window._tpProdGroupBy==='model'?'selected':''}>Modelo</option>
+                    </select>
+                </div>
+            </div>
+        </div>` : ''}
+        ${(() => {
+            const chartH = window._tpProdChartH || 140;
+            const groupBy = window._tpProdGroupBy || 'month';
+            const chartType = window._tpProdChartType || 'bar';
+
+            if (groupBy === 'month') {
+                const totals = TP_MONTHS.map((m,i) => plan.reduce((s,c) => s + c.m[i], 0));
+                const maxT = window._tpProdYMax > 0 ? window._tpProdYMax : Math.max(...totals, 1);
+                if (chartType === 'hbar') {
+                    return `<div style="display:flex;flex-direction:column;gap:3px;">
+                        ${TP_MONTHS.map((m,i) => `<div style="display:flex;align-items:center;gap:6px;">
+                            <div style="width:45px;font-size:9px;color:var(--tp-dim);text-align:right;">${m}</div>
+                            <div style="flex:1;height:16px;background:var(--tp-border);border-radius:3px;overflow:hidden;">
+                                <div style="height:100%;width:${Math.min(100,(totals[i]/maxT)*100)}%;background:var(--tp-blue);border-radius:3px;"></div>
+                            </div>
+                            <div style="width:50px;font-size:9px;font-weight:700;color:var(--tp-text);">${totals[i].toLocaleString()}</div>
+                        </div>`).join('')}
+                    </div>`;
+                }
+                return `<div class="tp-chart-bar" style="height:${chartH}px;">
+                    ${TP_MONTHS.map((m,i) => `
+                        <div class="tp-chart-col">
+                            <div class="tp-chart-value">${totals[i].toLocaleString()}</div>
+                            <div class="tp-chart-fill" style="height:${Math.min(100,(totals[i]/maxT)*100)}%;background:var(--tp-blue);"></div>
+                            <div class="tp-chart-label">${m}</div>
+                        </div>
+                    `).join('')}
+                </div>`;
+            }
+            // Group by region or model
+            const gMap = {};
+            plan.forEach(c => {
+                const k = groupBy === 'region' ? (c.rgn||'?') : (c.mod||'?');
+                gMap[k] = (gMap[k]||0) + c.total;
+            });
+            let gData = Object.entries(gMap).sort((a,b) => b[1]-a[1]);
+            if (gData.length > 12) gData = gData.slice(0,12);
+            const maxG = window._tpProdYMax > 0 ? window._tpProdYMax : Math.max(...gData.map(g => g[1]), 1);
+            if (chartType === 'hbar') {
+                return `<div style="display:flex;flex-direction:column;gap:3px;">
+                    ${gData.map(([k,v]) => `<div style="display:flex;align-items:center;gap:6px;">
+                        <div style="width:70px;font-size:9px;color:var(--tp-dim);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${k}</div>
+                        <div style="flex:1;height:16px;background:var(--tp-border);border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${Math.min(100,(v/maxG)*100)}%;background:var(--tp-blue);border-radius:3px;"></div>
+                        </div>
+                        <div style="width:55px;font-size:9px;font-weight:700;color:var(--tp-text);">${v.toLocaleString()}</div>
+                    </div>`).join('')}
+                </div>`;
+            }
+            return `<div class="tp-chart-bar" style="height:${chartH}px;">
+                ${gData.map(([k,v]) => `
+                    <div class="tp-chart-col">
+                        <div class="tp-chart-value">${v.toLocaleString()}</div>
+                        <div class="tp-chart-fill" style="height:${Math.min(100,(v/maxG)*100)}%;background:var(--tp-blue);"></div>
+                        <div class="tp-chart-label">${k.length>6?k.slice(0,5)+'..':k}</div>
+                    </div>
+                `).join('')}
+            </div>`;
+        })()}
     </div>
 
     <div class="tp-card">
@@ -1296,7 +2392,7 @@ function tpRenderFamilies(el) {
                 <button class="tp-btn ${sortBy==='volume'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpFamSort='volume';tpRender();" style="font-size:9px;">Vol</button>
             </div>
         </div>
-        ${sorted.map(f => {
+        ${sorted.map((f, fi) => {
             const diffs = getDiffFields(f.configs);
             const epTag = f.ep&&f.ep!=='0' ? `<span class="tp-badge" style="background:rgba(251,146,60,0.15);color:#fb923c;font-size:7px;">${epLabel(f.ep)}</span>` : '';
             const engTag = f.engpkg&&f.engpkg!=='0' ? `<span class="tp-badge" style="background:rgba(168,85,247,0.15);color:#a855f7;font-size:7px;">${f.engpkg}</span>` : '';
@@ -1320,7 +2416,7 @@ function tpRenderFamilies(el) {
                 </summary>
                 <div style="padding:6px 8px;background:#0d1422;border-top:1px solid var(--tp-border);">
                     ${diffs.length > 0 ? `<div style="font-size:8px;color:var(--tp-dim);margin-bottom:3px;">Variantes: ${diffs.map(d=>d.label).join(', ')}</div>` : ''}
-                    ${f.configs.sort((a,b)=>b.total-a.total).map(c => {
+                    ${f.configs.sort((a,b)=>b.total-a.total).map((c, _ci) => {
                         let badges = '';
                         if (diffs.length > 0) {
                             badges = diffs.map(d => {
@@ -1335,16 +2431,46 @@ function tpRenderFamilies(el) {
                             const tire = c.tire || c.desc.match(/\d{3}\/\d{2}\s*R\d+/)?.[0] || '';
                             if (tire) badges = `<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:#38bdf815;color:#38bdf8;border:1px solid #38bdf830;">${tire}</span>`;
                         }
+                        // Build VIN sublist for tested configs
+                        let vinHtml = '';
+                        if (c.testedN > 0 && c.vins && c.vins.length > 0) {
+                            var _vinId = 'tp-vins-' + fi + '-' + _ci;
+                            vinHtml = `<div id="${_vinId}" style="display:none;padding:4px 6px 4px 20px;background:#0a0f1a;border-top:1px solid var(--tp-border);">`;
+                            c.vins.forEach(function(v) {
+                                const vinMatch = (v.note || '').match(/VIN:\s*([^\s—]+)/);
+                                const vin = vinMatch ? vinMatch[1] : (v.note || '?');
+                                // Check if this VIN has a matching RA test
+                                let raTestId = '';
+                                if (typeof raState !== 'undefined' && raState.tests) {
+                                    const raMatch = raState.tests.find(t => t.vin && t.vin === vin);
+                                    if (raMatch) raTestId = raMatch.id;
+                                }
+                                const vinClickable = raTestId ? `onclick="event.stopPropagation();tpGoToRADetail('${raTestId}');" style="cursor:pointer;font-family:monospace;color:var(--tp-amber);text-decoration:underline;" title="Ver detalle en Results Analyzer"` : `style="font-family:monospace;color:var(--tp-text);"`;
+                                vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 4px;font-size:8px;border-bottom:1px solid var(--tp-border);">
+                                    <span ${vinClickable}>${vin}</span>
+                                    <div style="display:flex;gap:6px;align-items:center;">
+                                        <span style="color:var(--tp-dim);">${v.date || '?'}</span>
+                                        ${raTestId ? '<span style="font-size:7px;color:var(--tp-blue);">📊</span>' : ''}
+                                    </div>
+                                </div>`;
+                            });
+                            vinHtml += `</div>`;
+                        }
+                        const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${fi}-${_ci}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
                         return `
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;margin-bottom:2px;border:1px solid var(--tp-border);border-radius:4px;background:var(--tp-card);font-size:9px;">
-                            <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap;">
-                                <span class="tp-dot" style="background:${c.testedN>=c.required?'var(--tp-green)':c.testedN>0?'var(--tp-amber)':'var(--tp-red)'}"></span>
-                                ${badges}
+                        <div style="margin-bottom:2px;border:1px solid var(--tp-border);border-radius:4px;background:var(--tp-card);overflow:hidden;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;font-size:9px;" ${clickable}>
+                                <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap;">
+                                    <span class="tp-dot" style="background:${c.testedN>=c.required?'var(--tp-green)':c.testedN>0?'var(--tp-amber)':'var(--tp-red)'}"></span>
+                                    ${badges}
+                                    ${c.testedN > 0 ? '<span style="font-size:7px;color:var(--tp-dim);">▼</span>' : ''}
+                                </div>
+                                <div style="display:flex;gap:4px;align-items:center;">
+                                    <span style="font-size:9px;font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
+                                    <span style="font-size:8px;color:var(--tp-dim);">${c.total.toLocaleString()}</span>
+                                </div>
                             </div>
-                            <div style="display:flex;gap:4px;align-items:center;">
-                                <span style="font-size:9px;font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
-                                <span style="font-size:8px;color:var(--tp-dim);">${c.total.toLocaleString()}</span>
-                            </div>
+                            ${vinHtml}
                         </div>`;
                     }).join('')}
                 </div>
@@ -1792,6 +2918,157 @@ function tpRenderAltaSuggestionPanel(configText) {
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [M22] HOOK SUGGESTION INTO COP15 ALTA FLOW                        ║
 // ╚══════════════════════════════════════════════════════════════════════╝
+
+// ═══ CROSS-MODULE NAVIGATION ═══
+// Navigate from Test Plan to Results Analyzer Detail tab
+function tpGoToRADetail(testId) {
+    if (!confirm('¿Deseas ver el detalle de esta prueba en Results Analyzer?')) return;
+    // Store return context so RA can offer a back button
+    window._tpReturnContext = {
+        tab: tpState.activeTab,
+        scroll: window.scrollY
+    };
+    // Set up RA to show this test
+    window._raDetailId = testId;
+    if (typeof raState !== 'undefined') {
+        raState.activeTab = 'ra-detail';
+    }
+    // Switch to Results Analyzer module
+    switchPlatform('results');
+    // Render RA with the detail tab
+    setTimeout(function() {
+        if (typeof raRender === 'function') raRender();
+        // Activate the detail tab button
+        document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
+        var tabs = document.querySelectorAll('#ra-tabs-bar .tp-tab');
+        for (var i = 0; i < tabs.length; i++) {
+            if (tabs[i].textContent.includes('Detalle')) { tabs[i].classList.add('active'); break; }
+        }
+    }, 100);
+}
+
+// Return from RA back to Test Plan at previous position
+function tpReturnFromRA() {
+    var ctx = window._tpReturnContext;
+    if (ctx && ctx.tab) {
+        tpState.activeTab = ctx.tab;
+    }
+    switchPlatform('testplan');
+    setTimeout(function() {
+        tpRender();
+        // Activate the correct tab button
+        document.querySelectorAll('#tp-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
+        var tabs = document.querySelectorAll('#tp-tabs-bar .tp-tab');
+        for (var i = 0; i < tabs.length; i++) {
+            if (tabs[i].onclick && tabs[i].onclick.toString().includes(tpState.activeTab)) {
+                tabs[i].classList.add('active');
+                break;
+            }
+        }
+        if (ctx && ctx.scroll) window.scrollTo(0, ctx.scroll);
+        window._tpReturnContext = null;
+    }, 100);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MEJORA B: SUBSTITUTION PREDICTION ENGINE
+// ══════════════════════════════════════════════════════════════════
+
+function tpBuildSubstitutionHistory() {
+    var history = {}; // { originalDesc: { testedDesc: count, ... } }
+    if (!tpState.weeklyPlans) return history;
+
+    tpState.weeklyPlans.forEach(function(plan) {
+        if (!plan.items) return;
+        plan.items.forEach(function(item) {
+            if (item.substituted && item.substitution) {
+                var orig = item.substitution.originalDesc || item.desc;
+                var tested = item.substitution.testedDesc;
+                if (!tested || orig === tested) return;
+                if (!history[orig]) history[orig] = {};
+                history[orig][tested] = (history[orig][tested] || 0) + 1;
+            }
+        });
+    });
+    return history;
+}
+
+function tpPredictSubstitutions(items) {
+    var history = tpBuildSubstitutionHistory();
+    if (Object.keys(history).length === 0) return [];
+
+    var predictions = [];
+    items.forEach(function(item, idx) {
+        if (item.completed) return;
+        var desc = item.desc;
+        if (!history[desc]) return;
+
+        // Find most common substitution
+        var subs = history[desc];
+        var totalSubs = 0;
+        var bestSub = null;
+        var bestCount = 0;
+
+        Object.keys(subs).forEach(function(testedDesc) {
+            totalSubs += subs[testedDesc];
+            if (subs[testedDesc] > bestCount) {
+                bestCount = subs[testedDesc];
+                bestSub = testedDesc;
+            }
+        });
+
+        // Count total times this config appeared in plans (substituted or not)
+        var totalAppearances = 0;
+        tpState.weeklyPlans.forEach(function(plan) {
+            if (!plan.items) return;
+            plan.items.forEach(function(i) {
+                if (i.desc === desc || (i.substitution && i.substitution.originalDesc === desc)) totalAppearances++;
+            });
+        });
+
+        if (totalAppearances < 2) return; // Need at least 2 data points
+        var probability = Math.round((totalSubs / totalAppearances) * 100);
+
+        if (probability >= 30 && bestSub) {
+            // Find the differences between planned and predicted
+            var diffs = [];
+            var planned = tpState.planData.find(function(c) { return c.desc === desc; });
+            var predicted = tpState.planData.find(function(c) { return c.desc === bestSub; });
+            if (planned && predicted) {
+                var flexFields = ['ep', 'engpkg', 'tire', 'drv', 'body'];
+                flexFields.forEach(function(f) {
+                    var pv = (planned[f] || '').toUpperCase();
+                    var rv = (predicted[f] || '').toUpperCase();
+                    if (pv !== rv && (pv || rv)) {
+                        diffs.push({ field: f, planned: planned[f] || '—', predicted: predicted[f] || '—' });
+                    }
+                });
+            }
+
+            predictions.push({
+                itemIdx: idx,
+                desc: desc,
+                predictedSub: bestSub,
+                probability: probability,
+                count: bestCount,
+                totalSubs: totalSubs,
+                diffs: diffs
+            });
+        }
+    });
+
+    return predictions.sort(function(a, b) { return b.probability - a.probability; });
+}
+
+function tpGetSubstitutionBadge(item, itemIdx, predictions) {
+    if (!predictions || predictions.length === 0) return '';
+    var pred = predictions.find(function(p) { return p.itemIdx === itemIdx; });
+    if (!pred) return '';
+
+    var color = pred.probability >= 70 ? '#f59e0b' : '#8b5cf6';
+    var diffsText = pred.diffs.map(function(d) { return d.field + ': ' + d.planned + ' → ' + d.predicted; }).join(', ');
+    return '<span style="font-size:7px;padding:1px 4px;border-radius:2px;background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;cursor:help;" title="Sustitucion probable (' + pred.probability + '%) → ' + diffsText + '">🔮 ' + pred.probability + '%</span>';
+}
 
 // Override/extend the cascade filter result to also show TP suggestion
 const _origUpdateConfigResult = typeof updateConfigResult === 'function' ? updateConfigResult : null;

@@ -359,6 +359,41 @@ input:focus, select:focus, textarea:focus{
 .history-table th, .history-table td{
   font-size: 0.95rem;
 }
+.hist-filter-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: end;
+}
+.hist-filter-bar label {
+  font-size: 0.75rem;
+  color: #64748b;
+  display: block;
+  margin-bottom: 2px;
+}
+.hist-filter-bar select,
+.hist-filter-bar input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: white;
+  color: #1e293b;
+  min-height: 40px;
+  box-sizing: border-box;
+}
+.hist-filter-bar .hist-filter-actions {
+  display: flex;
+  gap: 6px;
+  align-items: end;
+}
+.hist-filter-count {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-bottom: 8px;
+}
 
 /* ================
    FIX: evitar overflow horizontal en secciones “anchas”
@@ -442,7 +477,7 @@ body{ overflow-x: hidden; }
   .platform-tab { padding: 10px 14px; font-size: 0.75rem; }
   .tp-main { padding: 12px; }
   .tp-tabs { padding: 6px 12px; overflow-x: auto; }
-  .tp-tab { padding: 6px 10px; font-size: 10px; white-space: nowrap; }
+  .tp-tab { padding: 8px 10px; font-size: 11px; white-space: nowrap; min-height: 44px; }
   .tp-card { padding: 12px; }
 }
 
@@ -450,11 +485,11 @@ body{ overflow-x: hidden; }
 @media (max-width: 1024px) {
   .tp-main { padding: 12px; }
   .tp-tabs { padding: 5px 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .tp-tab { white-space: nowrap; padding: 7px 10px; font-size: 10px; }
+  .tp-tab { white-space: nowrap; padding: 8px 10px; font-size: 11px; min-height: 44px; }
   .tp-card { padding: 10px; }
   .tp-card-title { flex-direction: column; align-items: flex-start; gap: 6px; }
-  .tp-select { min-height: 34px; }
-  .tp-btn { min-height: 34px; }
+  .tp-select { min-height: 44px; }
+  .tp-btn { min-height: 44px; }
 }
 @media (max-width: 768px) {
   .platform-bar { flex-wrap: wrap; }
@@ -485,19 +520,32 @@ body{ overflow-x: hidden; }
   box-shadow: 0 0 0 4px rgba(220,38,38,0.18) !important;
 }
 
-/* Barra de acción inferior (tablet) */
+/* Barra de acción inferior — floating fixed */
 .action-bar{
-  position: sticky; /* funciona bien dentro del panel */
-  bottom: 10px;
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(90vw, 500px);
   display: flex;
   gap: 12px;
   padding: 12px;
   border-radius: 16px;
-  background: rgba(255,255,255,0.92);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 10px 25px rgba(2,6,23,0.12);
-  z-index: 1500;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgba(2,6,23,0.18);
+  z-index: 2500;
+  transition: opacity 0.2s, transform 0.2s;
 }
+.action-bar.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(20px);
+}
+.btn-unsaved {
+  animation: pulse-save 1.5s infinite;
+}
+@keyframes pulse-save { 0%,100%{box-shadow:0 0 0 0 rgba(187,22,43,0.4);} 50%{box-shadow:0 0 0 8px rgba(187,22,43,0);} }
 
 .action-bar .btn-primary,
 .action-bar .btn-secondary{
@@ -569,7 +617,7 @@ body{ overflow-x: hidden; }
 .tp-header small { font-size:10px; color:var(--tp-dim); }
 .tp-badge { display:inline-flex; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700; }
 .tp-tabs { display:flex; gap:2px; padding:8px 24px; background:var(--tp-card); border-bottom:1px solid var(--tp-border); }
-.tp-tab { padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-size:11px; font-weight:700; background:transparent; color:var(--tp-dim); transition:all .15s; }
+.tp-tab { padding:10px 16px; border:none; border-radius:6px; cursor:pointer; font-size:12px; font-weight:700; background:transparent; color:var(--tp-dim); transition:all .15s; min-height:44px; display:inline-flex; align-items:center; }
 .tp-tab.active { background:var(--tp-amber); color:#000; }
 .tp-main { padding:20px 24px; max-width:1400px; margin:0 auto; }
 .tp-card { background:var(--tp-card); border-radius:10px; border:1px solid var(--tp-border); padding:18px; margin-bottom:14px; }
@@ -577,9 +625,9 @@ body{ overflow-x: hidden; }
 .tp-metric { text-align:center; padding:14px 10px; background:var(--tp-card); border-radius:10px; border:1px solid var(--tp-border); }
 .tp-metric-val { font-size:24px; font-weight:800; font-family:'Courier New',monospace; }
 .tp-metric-label { font-size:9px; color:var(--tp-dim); margin-top:3px; text-transform:uppercase; letter-spacing:0.08em; }
-.tp-input { background:#161f2e; border:1px solid var(--tp-border); border-radius:6px; padding:6px 10px; color:var(--tp-text); font-size:12px; outline:none; width:100%; }
-.tp-select { background:#161f2e; border:1px solid var(--tp-border); border-radius:6px; padding:6px 10px; color:var(--tp-text); font-size:12px; outline:none; cursor:pointer; }
-.tp-btn { padding:7px 14px; border-radius:6px; border:none; cursor:pointer; font-size:11px; font-weight:700; transition:all .15s; }
+.tp-input { background:#161f2e; border:1px solid var(--tp-border); border-radius:6px; padding:8px 10px; color:var(--tp-text); font-size:13px; outline:none; width:100%; min-height:44px; }
+.tp-select { background:#161f2e; border:1px solid var(--tp-border); border-radius:6px; padding:8px 10px; color:var(--tp-text); font-size:13px; outline:none; cursor:pointer; min-height:44px; }
+.tp-btn { padding:10px 16px; border-radius:6px; border:none; cursor:pointer; font-size:12px; font-weight:700; transition:all .15s; min-height:44px; }
 .tp-btn-primary { background:var(--tp-amber); color:#000; }
 .tp-btn-danger { background:var(--tp-red); color:#fff; }
 .tp-btn-ghost { background:transparent; color:var(--tp-dim); border:1px solid var(--tp-border); }
@@ -671,4 +719,5 @@ body{ overflow-x: hidden; }
 @keyframes swipeOutRight { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(40px); } }
 @keyframes swipeInLeft { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
 @keyframes swipeInRight { from { opacity:0; transform:translateX(-40px); } to { opacity:1; transform:translateX(0); } }
+@keyframes slideUp { from { opacity:0; transform:translate(-50%,20px); } to { opacity:1; transform:translate(-50%,0); } }
 
