@@ -249,7 +249,7 @@ function safeParse(key, fallback) {
         return (typeof parsed === 'object' && parsed !== null) ? parsed : fallback;
     } catch(e) {
         console.error('Corrupted localStorage key: ' + key, e);
-        showToast('Datos corruptos en ' + key + '. Usando valores por defecto.', 'error');
+        try { showToast('Datos corruptos en ' + key + '. Usando valores por defecto.', 'error'); } catch(e2) {}
         return fallback;
     }
 }

@@ -2547,7 +2547,7 @@ function safeParse(key, fallback) {
         return (typeof parsed === 'object' && parsed !== null) ? parsed : fallback;
     } catch(e) {
         console.error('Corrupted localStorage key: ' + key, e);
-        showToast('Datos corruptos en ' + key + '. Usando valores por defecto.', 'error');
+        try { showToast('Datos corruptos en ' + key + '. Usando valores por defecto.', 'error'); } catch(e2) {}
         return fallback;
     }
 }
@@ -12315,7 +12315,7 @@ function tpRenderDashboard(el) {
             <div style="display:flex;align-items:center;gap:8px;margin:10px 0 6px;flex-wrap:wrap;">
                 <label style="font-size:10px;color:var(--tp-dim);">Deadline:</label>
                 <input type="date" id="tp-deadline-input" value="${tpState.deadline || ''}" onchange="tpState.deadline=this.value;tpSave();document.getElementById('tp-burndown-container').innerHTML=tpRenderBurndownChart(tpGetAnalysis());" style="background:var(--tp-card);color:var(--tp-text);border:1px solid var(--tp-border);border-radius:6px;padding:4px 8px;font-size:11px;">
-                ${tpState.deadline ? '<button class="tp-btn tp-btn-ghost" onclick="tpState.deadline=\\'\\';tpSave();document.getElementById(\\'tp-deadline-input\\').value=\\'\\';document.getElementById(\\'tp-burndown-container\\').innerHTML=tpRenderBurndownChart(tpGetAnalysis());" style="font-size:9px;">Quitar deadline</button>' : ''}
+                ${tpState.deadline ? "<button class=\"tp-btn tp-btn-ghost\" onclick=\"tpState.deadline=&#39;&#39;;tpSave();document.getElementById(&#39;tp-deadline-input&#39;).value=&#39;&#39;;document.getElementById(&#39;tp-burndown-container&#39;).innerHTML=tpRenderBurndownChart(tpGetAnalysis());\" style=\"font-size:9px;\">Quitar deadline</button>" : ''}
             </div>
             <div style="margin-top:10px;" id="tp-burndown-container">${tpRenderBurndownChart(stats)}</div>
         </details>
