@@ -49,6 +49,8 @@ function pnRender() {
     else if (tab === 'pn-users') pnRenderUsers(el);
     else if (tab === 'pn-shift') pnRenderShiftLog(el);
     else if (tab === 'pn-alerts') pnRenderAlerts(el);
+    else if (tab === 'pn-intelligence') pnRenderIntelligence(el);
+    else if (tab === 'pn-system') pnRenderSystemHealth(el);
 }
 
 function pnUpdateBadges() {
@@ -879,4 +881,488 @@ function pnExportAlerts() {
     } else {
         navigator.clipboard.writeText(text).then(function() { showToast('Copiado al portapapeles', 'success'); });
     }
+}
+
+// ── [R4-M5] Auto-Correlación Cross-Module (Intelligence Panel) ──────────────
+
+function pnRenderIntelligence(el) {
+    var html = '<div style="padding:12px 0;">';
+    html += '<h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">🧠 Panel de Inteligencia</h3>';
+    html += '<p style="color:var(--tp-dim);font-size:11px;margin:0 0 16px 0;">Correlaciones automáticas entre módulos para detectar patrones.</p>';
+
+    // Gather data from all modules
+    var tests = (typeof raState !== 'undefined' && raState.tests) ? raState.tests : [];
+    var gasItems = [];
+    var fuelItems = [];
+    if (typeof invState !== 'undefined' && invState.items) {
+        invState.items.forEach(function(it) {
+            if (it.type === 'gas') gasItems.push(it);
+            else if (it.type === 'fuel') fuelItems.push(it);
+        });
+    }
+    var tpPlans = (typeof tpState !== 'undefined' && tpState.plans) ? tpState.plans : [];
+    var cop15Vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+
+    // ── Correlation 1: Gas Consumption vs Test Volume (weekly) ──
+    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">📊 Consumo de Gas vs Volumen de Pruebas</h4>';
+
+    var weeklyData = {};
+    tests.forEach(function(t) {
+        if (!t.date) return;
+        var d = new Date(t.date);
+        var weekStart = new Date(d);
+        weekStart.setDate(d.getDate() - d.getDay());
+        var wk = weekStart.toISOString().slice(0, 10);
+        if (!weeklyData[wk]) weeklyData[wk] = { tests: 0, gasUsed: 0 };
+        weeklyData[wk].tests++;
+    });
+
+    // Cross-reference gas usage logs
+    gasItems.forEach(function(g) {
+        if (g.usageLog) {
+            g.usageLog.forEach(function(log) {
+                if (!log.date) return;
+                var d = new Date(log.date);
+                var weekStart = new Date(d);
+                weekStart.setDate(d.getDate() - d.getDay());
+                var wk = weekStart.toISOString().slice(0, 10);
+                if (!weeklyData[wk]) weeklyData[wk] = { tests: 0, gasUsed: 0 };
+                weeklyData[wk].gasUsed += (log.psiUsed || 0);
+            });
+        }
+    });
+
+    var wkKeys = Object.keys(weeklyData).sort().slice(-12);
+    if (wkKeys.length >= 2) {
+        html += '<canvas id="pn-intel-gas-tests" height="200"></canvas>';
+    } else {
+        html += '<p style="color:var(--tp-dim);font-size:10px;">Datos insuficientes. Se necesitan al menos 2 semanas con pruebas y consumo de gas registrados.</p>';
+    }
+    html += '</div>';
+
+    // ── Correlation 2: Fail Rate vs Gas Age ──
+    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">⚠️ Tasa de Fallo vs Antigüedad del Gas</h4>';
+
+    var gasAgeGroups = { fresh: { pass: 0, fail: 0 }, mid: { pass: 0, fail: 0 }, old: { pass: 0, fail: 0 } };
+    var gasDateMap = {};
+    gasItems.forEach(function(g) {
+        if (g.installDate || g.receivedDate) {
+            gasDateMap[g.gasType || g.name] = new Date(g.installDate || g.receivedDate);
+        }
+    });
+
+    tests.forEach(function(t) {
+        if (!t.date || !t.gasType) return;
+        var gasDate = gasDateMap[t.gasType];
+        if (!gasDate) return;
+        var ageDays = Math.floor((new Date(t.date) - gasDate) / 86400000);
+        var bucket = ageDays < 30 ? 'fresh' : ageDays < 90 ? 'mid' : 'old';
+        if (t.result === 'FAIL' || t.status === 'fail') gasAgeGroups[bucket].fail++;
+        else gasAgeGroups[bucket].pass++;
+    });
+
+    var hasAgeData = gasAgeGroups.fresh.pass + gasAgeGroups.fresh.fail + gasAgeGroups.mid.pass + gasAgeGroups.mid.fail + gasAgeGroups.old.pass + gasAgeGroups.old.fail > 0;
+    if (hasAgeData) {
+        html += '<canvas id="pn-intel-fail-age" height="200"></canvas>';
+    } else {
+        html += '<p style="color:var(--tp-dim);font-size:10px;">Sin datos de correlación. Requiere pruebas con gasType asociado a cilindros con fecha de instalación.</p>';
+    }
+    html += '</div>';
+
+    // ── Correlation 3: Plan Velocity vs Pipeline Load ──
+    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">🚀 Velocidad del Plan vs Carga del Pipeline</h4>';
+
+    var velocityData = [];
+    tpPlans.forEach(function(plan) {
+        if (!plan.records || !plan.families) return;
+        var totalFamilies = plan.families.length;
+        var completedRecords = plan.records.filter(function(r) { return r.status === 'completed'; }).length;
+        var pendingRecords = plan.records.filter(function(r) { return r.status !== 'completed'; }).length;
+        var velocity = totalFamilies > 0 ? Math.round((completedRecords / totalFamilies) * 100) : 0;
+        velocityData.push({
+            name: plan.name || ('Plan ' + plan.id),
+            velocity: velocity,
+            pipeline: pendingRecords,
+            completed: completedRecords
+        });
+    });
+
+    if (velocityData.length >= 1) {
+        html += '<canvas id="pn-intel-velocity" height="200"></canvas>';
+    } else {
+        html += '<p style="color:var(--tp-dim);font-size:10px;">Sin planes de prueba activos. Cree un plan en Test Plan Manager para ver la correlación.</p>';
+    }
+    html += '</div>';
+
+    // ── Summary Stats ──
+    html += '<div class="tp-card" style="padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">📈 Resumen Cross-Module</h4>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+
+    var totalTests = tests.length;
+    var totalGas = gasItems.length;
+    var totalVehicles = cop15Vehicles.length;
+    var totalPlans = tpPlans.length;
+    var failRate = totalTests > 0 ? ((tests.filter(function(t) { return t.result === 'FAIL' || t.status === 'fail'; }).length / totalTests) * 100).toFixed(1) : '0.0';
+
+    html += '<div style="text-align:center;padding:8px;background:rgba(59,130,246,0.1);border-radius:6px;"><div style="font-size:18px;font-weight:700;color:#3b82f6;">' + totalTests + '</div><div style="font-size:9px;color:var(--tp-dim);">Pruebas Totales</div></div>';
+    html += '<div style="text-align:center;padding:8px;background:rgba(16,185,129,0.1);border-radius:6px;"><div style="font-size:18px;font-weight:700;color:#10b981;">' + totalVehicles + '</div><div style="font-size:9px;color:var(--tp-dim);">Vehículos COP15</div></div>';
+    html += '<div style="text-align:center;padding:8px;background:rgba(245,158,11,0.1);border-radius:6px;"><div style="font-size:18px;font-weight:700;color:#f59e0b;">' + totalGas + '</div><div style="font-size:9px;color:var(--tp-dim);">Cilindros Gas</div></div>';
+    html += '<div style="text-align:center;padding:8px;background:rgba(239,68,68,0.1);border-radius:6px;"><div style="font-size:18px;font-weight:700;color:#ef4444;">' + failRate + '%</div><div style="font-size:9px;color:var(--tp-dim);">Tasa de Fallo</div></div>';
+    html += '</div></div>';
+
+    html += '</div>';
+    el.innerHTML = html;
+
+    // Render charts after DOM is ready
+    setTimeout(function() { _pnIntelRenderCharts(wkKeys, weeklyData, gasAgeGroups, hasAgeData, velocityData); }, 50);
+}
+
+function _pnIntelRenderCharts(wkKeys, weeklyData, gasAgeGroups, hasAgeData, velocityData) {
+    if (typeof Chart === 'undefined') return;
+
+    // Chart 1: Gas Consumption vs Test Volume
+    var c1 = document.getElementById('pn-intel-gas-tests');
+    if (c1 && wkKeys.length >= 2) {
+        var labels = wkKeys.map(function(w) { return w.slice(5); });
+        var testCounts = wkKeys.map(function(w) { return weeklyData[w].tests; });
+        var gasCounts = wkKeys.map(function(w) { return weeklyData[w].gasUsed; });
+        if (window._pnIntelChart1) { try { window._pnIntelChart1.destroy(); } catch(e) {} }
+        window._pnIntelChart1 = new Chart(c1.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Pruebas', data: testCounts, backgroundColor: 'rgba(59,130,246,0.7)', yAxisID: 'y', order: 2 },
+                    { label: 'PSI Consumidos', data: gasCounts, type: 'line', borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, yAxisID: 'y1', order: 1 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(30,41,59,0.5)' } },
+                    y: { position: 'left', title: { display: true, text: 'Pruebas', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(30,41,59,0.3)' } },
+                    y1: { position: 'right', title: { display: true, text: 'PSI', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 8 } }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Chart 2: Fail Rate vs Gas Age
+    var c2 = document.getElementById('pn-intel-fail-age');
+    if (c2 && hasAgeData) {
+        var ageLabels = ['< 30 días', '30-90 días', '> 90 días'];
+        var ageBuckets = ['fresh', 'mid', 'old'];
+        var failRates = ageBuckets.map(function(b) {
+            var total = gasAgeGroups[b].pass + gasAgeGroups[b].fail;
+            return total > 0 ? Math.round((gasAgeGroups[b].fail / total) * 100) : 0;
+        });
+        var totalPerBucket = ageBuckets.map(function(b) { return gasAgeGroups[b].pass + gasAgeGroups[b].fail; });
+        if (window._pnIntelChart2) { try { window._pnIntelChart2.destroy(); } catch(e) {} }
+        window._pnIntelChart2 = new Chart(c2.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ageLabels,
+                datasets: [
+                    { label: '% Fallo', data: failRates, backgroundColor: ['rgba(16,185,129,0.7)', 'rgba(245,158,11,0.7)', 'rgba(239,68,68,0.7)'] },
+                    { label: 'Total Pruebas', data: totalPerBucket, type: 'line', borderColor: '#8b5cf6', backgroundColor: 'transparent', tension: 0.3, yAxisID: 'y1' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(30,41,59,0.3)' } },
+                    y: { title: { display: true, text: '% Fallo', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(30,41,59,0.3)' }, max: 100 },
+                    y1: { position: 'right', title: { display: true, text: 'Pruebas', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 8 } }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Chart 3: Plan Velocity vs Pipeline
+    var c3 = document.getElementById('pn-intel-velocity');
+    if (c3 && velocityData.length >= 1) {
+        var planLabels = velocityData.map(function(v) { return v.name.length > 15 ? v.name.slice(0, 15) + '…' : v.name; });
+        var velocities = velocityData.map(function(v) { return v.velocity; });
+        var pipelines = velocityData.map(function(v) { return v.pipeline; });
+        if (window._pnIntelChart3) { try { window._pnIntelChart3.destroy(); } catch(e) {} }
+        window._pnIntelChart3 = new Chart(c3.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: planLabels,
+                datasets: [
+                    { label: '% Completado', data: velocities, backgroundColor: 'rgba(16,185,129,0.7)' },
+                    { label: 'Pendientes', data: pipelines, backgroundColor: 'rgba(239,68,68,0.5)' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(30,41,59,0.3)' } },
+                    y: { ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(30,41,59,0.3)' } }
+                }
+            }
+        });
+    }
+}
+
+// ── [R4-M8] Monitor de Salud del Sistema ────────────────────────────────────
+
+function pnRenderSystemHealth(el) {
+    var html = '<div style="padding:12px 0;">';
+    html += '<h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">💾 Monitor de Salud del Sistema</h3>';
+
+    // Storage breakdown
+    var storageKeys = [
+        { key: 'kia_db_v11', label: 'COP15 (Base de Datos)', module: 'cop15' },
+        { key: 'kia_testplan_v1', label: 'Test Plan Manager', module: 'testplan' },
+        { key: 'kia_results_v1', label: 'Results Analyzer', module: 'results' },
+        { key: 'kia_lab_inventory', label: 'Lab Inventory', module: 'inventory' },
+        { key: 'kia_panel_v1', label: 'Panel', module: 'panel' },
+        { key: 'kia_chart_configs', label: 'Chart Configs', module: 'charts' },
+        { key: 'kia_entity_notes', label: 'Notas', module: 'notes' },
+        { key: 'kia_soak_timer', label: 'Soak Timer', module: 'soak' },
+        { key: 'kia_firebase_queue', label: 'Firebase Queue', module: 'firebase' }
+    ];
+
+    var totalBytes = 0;
+    var breakdown = [];
+    storageKeys.forEach(function(sk) {
+        try {
+            var val = localStorage.getItem(sk.key);
+            var bytes = val ? new Blob([val]).size : 0;
+            totalBytes += bytes;
+            breakdown.push({ key: sk.key, label: sk.label, module: sk.module, bytes: bytes, raw: val });
+        } catch(e) {
+            breakdown.push({ key: sk.key, label: sk.label, module: sk.module, bytes: 0, raw: null });
+        }
+    });
+
+    // Also count unknown keys
+    var knownKeys = storageKeys.map(function(s) { return s.key; });
+    var otherBytes = 0;
+    for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (knownKeys.indexOf(k) === -1) {
+            try {
+                var v = localStorage.getItem(k);
+                otherBytes += v ? new Blob([v]).size : 0;
+            } catch(e) {}
+        }
+    }
+    if (otherBytes > 0) {
+        totalBytes += otherBytes;
+        breakdown.push({ key: '_other', label: 'Otros', module: 'other', bytes: otherBytes, raw: null });
+    }
+
+    var maxStorage = 5 * 1024 * 1024; // 5MB
+    var usedPct = ((totalBytes / maxStorage) * 100).toFixed(1);
+    var barColor = totalBytes > maxStorage * 0.8 ? '#ef4444' : totalBytes > maxStorage * 0.5 ? '#f59e0b' : '#10b981';
+
+    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+    html += '<span style="font-size:11px;color:var(--tp-dim);">' + _pnFormatBytes(totalBytes) + ' / 5 MB</span>';
+    html += '<span style="font-size:11px;font-weight:700;color:' + barColor + ';">' + usedPct + '%</span>';
+    html += '</div>';
+    html += '<div style="width:100%;height:8px;background:rgba(30,41,59,0.8);border-radius:4px;overflow:hidden;">';
+    html += '<div style="width:' + Math.min(parseFloat(usedPct), 100) + '%;height:100%;background:' + barColor + ';border-radius:4px;transition:width 0.3s;"></div>';
+    html += '</div>';
+
+    // Per-module breakdown
+    html += '<div style="margin-top:10px;">';
+    breakdown.sort(function(a, b) { return b.bytes - a.bytes; });
+    breakdown.forEach(function(b) {
+        if (b.bytes === 0) return;
+        var pct = totalBytes > 0 ? ((b.bytes / totalBytes) * 100).toFixed(1) : '0.0';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(30,41,59,0.3);">';
+        html += '<span style="font-size:10px;color:#e2e8f0;">' + b.label + '</span>';
+        html += '<span style="font-size:10px;color:var(--tp-dim);">' + _pnFormatBytes(b.bytes) + ' (' + pct + '%)</span>';
+        html += '</div>';
+    });
+    html += '</div></div>';
+
+    // ── Data Aging ──
+    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">📅 Antigüedad de Datos</h4>';
+
+    var now = Date.now();
+    var agingData = [];
+
+    // COP15 vehicles aging
+    if (typeof db !== 'undefined' && db.vehicles) {
+        var cop30 = 0, cop60 = 0, cop90 = 0;
+        db.vehicles.forEach(function(v) {
+            var ts = v.timestamp || v.createdAt;
+            if (!ts) return;
+            var age = (now - new Date(ts).getTime()) / 86400000;
+            if (age > 90) cop90++;
+            else if (age > 60) cop60++;
+            else if (age > 30) cop30++;
+        });
+        agingData.push({ label: 'COP15 Vehículos', module: 'cop15', d30: cop30, d60: cop60, d90: cop90, total: db.vehicles.length });
+    }
+
+    // RA tests aging
+    if (typeof raState !== 'undefined' && raState.tests) {
+        var ra30 = 0, ra60 = 0, ra90 = 0;
+        raState.tests.forEach(function(t) {
+            if (!t.date) return;
+            var age = (now - new Date(t.date).getTime()) / 86400000;
+            if (age > 90) ra90++;
+            else if (age > 60) ra60++;
+            else if (age > 30) ra30++;
+        });
+        agingData.push({ label: 'Resultados (Pruebas)', module: 'results', d30: ra30, d60: ra60, d90: ra90, total: raState.tests.length });
+    }
+
+    // TP records aging
+    if (typeof tpState !== 'undefined' && tpState.plans) {
+        var tp30 = 0, tp60 = 0, tp90 = 0, tpTotal = 0;
+        tpState.plans.forEach(function(p) {
+            if (!p.records) return;
+            p.records.forEach(function(r) {
+                tpTotal++;
+                var ts = r.completedAt || r.createdAt;
+                if (!ts) return;
+                var age = (now - new Date(ts).getTime()) / 86400000;
+                if (age > 90) tp90++;
+                else if (age > 60) tp60++;
+                else if (age > 30) tp30++;
+            });
+        });
+        agingData.push({ label: 'Test Plan (Registros)', module: 'testplan', d30: tp30, d60: tp60, d90: tp90, total: tpTotal });
+    }
+
+    if (agingData.length > 0) {
+        html += '<table style="width:100%;font-size:10px;border-collapse:collapse;">';
+        html += '<tr style="color:var(--tp-dim);border-bottom:1px solid rgba(30,41,59,0.5);">';
+        html += '<th style="text-align:left;padding:4px;">Módulo</th>';
+        html += '<th style="text-align:center;padding:4px;">Total</th>';
+        html += '<th style="text-align:center;padding:4px;">30-60d</th>';
+        html += '<th style="text-align:center;padding:4px;">60-90d</th>';
+        html += '<th style="text-align:center;padding:4px;">>90d</th>';
+        html += '</tr>';
+        agingData.forEach(function(a) {
+            html += '<tr style="color:#e2e8f0;border-bottom:1px solid rgba(30,41,59,0.2);">';
+            html += '<td style="padding:4px;">' + a.label + '</td>';
+            html += '<td style="text-align:center;padding:4px;">' + a.total + '</td>';
+            html += '<td style="text-align:center;padding:4px;color:#f59e0b;">' + a.d30 + '</td>';
+            html += '<td style="text-align:center;padding:4px;color:#ef4444;">' + a.d60 + '</td>';
+            html += '<td style="text-align:center;padding:4px;color:#dc2626;font-weight:700;">' + a.d90 + '</td>';
+            html += '</tr>';
+        });
+        html += '</table>';
+    } else {
+        html += '<p style="color:var(--tp-dim);font-size:10px;">Sin datos para analizar antigüedad.</p>';
+    }
+    html += '</div>';
+
+    // ── Purge Tools ──
+    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">🗑️ Herramientas de Limpieza</h4>';
+    html += '<p style="color:var(--tp-dim);font-size:10px;margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>';
+
+    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'cop15\', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'results\', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Resultados >90 días</button>';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'testplan\', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'notes\', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>';
+    html += '</div>';
+    html += '</div>';
+
+    // ── Performance ──
+    html += '<div class="tp-card" style="padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">⚡ Rendimiento</h4>';
+    var perfData = _pnMeasurePerformance();
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">';
+    html += '<div style="text-align:center;padding:6px;background:rgba(59,130,246,0.1);border-radius:6px;"><div style="font-size:16px;font-weight:700;color:#3b82f6;">' + perfData.lsKeys + '</div><div style="font-size:9px;color:var(--tp-dim);">Keys localStorage</div></div>';
+    html += '<div style="text-align:center;padding:6px;background:rgba(16,185,129,0.1);border-radius:6px;"><div style="font-size:16px;font-weight:700;color:#10b981;">' + perfData.domNodes + '</div><div style="font-size:9px;color:var(--tp-dim);">DOM Nodes</div></div>';
+    html += '<div style="text-align:center;padding:6px;background:rgba(245,158,11,0.1);border-radius:6px;"><div style="font-size:16px;font-weight:700;color:#f59e0b;">' + perfData.memoryMB + '</div><div style="font-size:9px;color:var(--tp-dim);">Memoria (MB)</div></div>';
+    html += '<div style="text-align:center;padding:6px;background:rgba(139,92,246,0.1);border-radius:6px;"><div style="font-size:16px;font-weight:700;color:#8b5cf6;">' + perfData.charts + '</div><div style="font-size:9px;color:var(--tp-dim);">Charts Activos</div></div>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+function _pnFormatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(2) + ' MB';
+}
+
+function _pnMeasurePerformance() {
+    var lsKeys = 0;
+    try { lsKeys = localStorage.length; } catch(e) {}
+    var domNodes = document.querySelectorAll('*').length;
+    var memoryMB = '—';
+    if (performance && performance.memory) {
+        memoryMB = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
+    }
+    var charts = 0;
+    ['_raTrendChart', '_raComplianceChart', '_raSpcIChart', '_raSpcMrChart', '_tpBurndownChart', '_invChartInstance', '_pnIntelChart1', '_pnIntelChart2', '_pnIntelChart3'].forEach(function(name) {
+        if (window[name]) charts++;
+    });
+    return { lsKeys: lsKeys, domNodes: domNodes, memoryMB: memoryMB, charts: charts };
+}
+
+function pnPurgeOldData(module, maxDays) {
+    showConfirm('¿Eliminar datos de ' + module + ' con más de ' + maxDays + ' días? Esta acción es irreversible.', function() {
+        var cutoff = Date.now() - (maxDays * 86400000);
+        var count = 0;
+
+        if (module === 'cop15' && typeof db !== 'undefined' && db.vehicles) {
+            var before = db.vehicles.length;
+            db.vehicles = db.vehicles.filter(function(v) {
+                var ts = v.timestamp || v.createdAt;
+                return !ts || new Date(ts).getTime() >= cutoff;
+            });
+            count = before - db.vehicles.length;
+            if (count > 0) saveDB();
+        } else if (module === 'results' && typeof raState !== 'undefined' && raState.tests) {
+            var before2 = raState.tests.length;
+            raState.tests = raState.tests.filter(function(t) {
+                return !t.date || new Date(t.date).getTime() >= cutoff;
+            });
+            count = before2 - raState.tests.length;
+            if (count > 0 && typeof raSave === 'function') raSave();
+        } else if (module === 'testplan' && typeof tpState !== 'undefined' && tpState.plans) {
+            tpState.plans.forEach(function(p) {
+                if (!p.records) return;
+                var before3 = p.records.length;
+                p.records = p.records.filter(function(r) {
+                    var ts = r.completedAt || r.createdAt;
+                    return !ts || new Date(ts).getTime() >= cutoff;
+                });
+                count += before3 - p.records.length;
+            });
+            if (count > 0 && typeof tpSave === 'function') tpSave();
+        } else if (module === 'notes') {
+            try {
+                var notes = JSON.parse(localStorage.getItem('kia_entity_notes') || '{}');
+                Object.keys(notes).forEach(function(entityKey) {
+                    var arr = notes[entityKey];
+                    if (!Array.isArray(arr)) return;
+                    var before4 = arr.length;
+                    notes[entityKey] = arr.filter(function(n) {
+                        return !n.ts || new Date(n.ts).getTime() >= cutoff;
+                    });
+                    count += before4 - notes[entityKey].length;
+                    if (notes[entityKey].length === 0) delete notes[entityKey];
+                });
+                localStorage.setItem('kia_entity_notes', JSON.stringify(notes));
+            } catch(e) {}
+        }
+
+        showToast('Eliminados ' + count + ' registros de ' + module, count > 0 ? 'success' : 'info');
+        pnRenderSystemHealth(document.getElementById('pn-content'));
+    });
 }

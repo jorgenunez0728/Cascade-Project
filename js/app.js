@@ -505,14 +505,342 @@ function showToast(msg, type) {
     var toast = document.createElement('div');
     toast.className = 'toast toast-' + type;
     toast.textContent = msg;
+    if (arguments.length >= 4 && typeof arguments[3] === 'function') {
+        var undoBtn = document.createElement('button');
+        undoBtn.textContent = ' Deshacer';
+        undoBtn.style.cssText = 'margin-left:8px;padding:2px 8px;border:1px solid currentColor;border-radius:4px;background:transparent;color:inherit;cursor:pointer;font-size:11px;font-weight:700;';
+        var undoFn = arguments[3];
+        undoBtn.onclick = function() { undoFn(); if (toast.parentNode) toast.parentNode.removeChild(toast); };
+        toast.appendChild(undoBtn);
+    }
     container.appendChild(toast);
-    setTimeout(function(){ if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3200);
+    var dur = (arguments.length >= 4 && typeof arguments[3] === 'function') ? 6000 : 3200;
+    setTimeout(function(){ if (toast.parentNode) toast.parentNode.removeChild(toast); }, dur);
 }
 
 
     function closeModal(modalId) {
         document.getElementById(modalId).style.display = 'none';
     }
+
+// ══════════════════════════════════════════════════════════════════════
+// [R4-M1] CHART CONFIGURATION ENGINE
+// ══════════════════════════════════════════════════════════════════════
+
+var CHART_CONFIG_LS_KEY = 'kia_chart_configs';
+
+var CHART_DEFAULTS = {
+    height: 320, yMin: null, yMax: null,
+    pointRadius: 4, borderWidth: 2, tension: 0.1,
+    legendPosition: 'bottom', legendFontSize: 10,
+    gridColor: 'rgba(30,41,59,0.5)', gridDisplay: true,
+    tickFontSize: 9, tickColor: '#64748b',
+    animationDuration: 400, colorPalette: 'default'
+};
+
+var CHART_COLOR_PALETTES = {
+    default:    ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16'],
+    vivid:      ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#d35400'],
+    pastel:     ['#74b9ff','#55efc4','#ffeaa7','#fab1a0','#a29bfe','#81ecec','#fd79a8','#00cec9'],
+    monochrome: ['#2d3436','#636e72','#b2bec3','#dfe6e9','#0984e3','#74b9ff','#a29bfe','#6c5ce7']
+};
+
+var _chartConfigs = {};
+function chartConfigLoad() {
+    try { var s = localStorage.getItem(CHART_CONFIG_LS_KEY); if (s) _chartConfigs = JSON.parse(s); } catch(e) { _chartConfigs = {}; }
+}
+function chartConfigSave() {
+    try { localStorage.setItem(CHART_CONFIG_LS_KEY, JSON.stringify(_chartConfigs)); } catch(e) {}
+}
+function chartConfigGet(chartId) {
+    return Object.assign({}, CHART_DEFAULTS, _chartConfigs[chartId] || {});
+}
+function chartConfigSet(chartId, key, val) {
+    if (!_chartConfigs[chartId]) _chartConfigs[chartId] = {};
+    _chartConfigs[chartId][key] = val;
+    chartConfigSave();
+}
+function chartConfigReset(chartId) {
+    delete _chartConfigs[chartId];
+    chartConfigSave();
+    showToast('Configuracion del grafico restaurada', 'success');
+}
+
+function chartConfigApply(chartId, instanceVar) {
+    var chart = window[instanceVar];
+    if (!chart) return;
+    var cfg = chartConfigGet(chartId);
+    // Scales
+    if (chart.options.scales && chart.options.scales.y) {
+        var yS = chart.options.scales.y;
+        yS.min = cfg.yMin !== null ? cfg.yMin : undefined;
+        yS.max = cfg.yMax !== null ? cfg.yMax : undefined;
+        if (yS.ticks) { yS.ticks.font = yS.ticks.font || {}; yS.ticks.font.size = cfg.tickFontSize; yS.ticks.color = cfg.tickColor; }
+        if (yS.grid) { yS.grid.display = cfg.gridDisplay; yS.grid.color = cfg.gridColor; }
+    }
+    if (chart.options.scales && chart.options.scales.x) {
+        var xS = chart.options.scales.x;
+        if (xS.ticks) { xS.ticks.font = xS.ticks.font || {}; xS.ticks.font.size = cfg.tickFontSize; }
+        if (xS.grid) { xS.grid.display = cfg.gridDisplay; }
+    }
+    // Legend
+    var leg = chart.options.plugins && chart.options.plugins.legend;
+    if (leg) {
+        if (cfg.legendPosition === 'hidden') { leg.display = false; }
+        else { leg.display = true; leg.position = cfg.legendPosition; if (leg.labels) { leg.labels.font = leg.labels.font || {}; leg.labels.font.size = cfg.legendFontSize; } }
+    }
+    // Dataset styles — only for primary data series, skip control lines (borderDash)
+    chart.data.datasets.forEach(function(ds) {
+        if (ds.borderDash && ds.borderDash.length > 0) return;
+        if (ds._isControlLine) return;
+        if (typeof ds.pointRadius === 'number' && ds.pointRadius !== 0) ds.pointRadius = cfg.pointRadius;
+        if (ds.borderWidth) ds.borderWidth = cfg.borderWidth;
+        ds.tension = cfg.tension;
+    });
+    chart.options.animation = { duration: cfg.animationDuration };
+    // Resize wrapper
+    var wrapper = document.getElementById(chartId + '-wrapper');
+    if (wrapper) wrapper.style.height = cfg.height + 'px';
+    chart.resize();
+    chart.update();
+}
+
+function chartConfigAutoFit(chartId, instanceVar) {
+    var chart = window[instanceVar];
+    if (!chart) return;
+    var allVals = [];
+    chart.data.datasets.forEach(function(d) { d.data.forEach(function(v) { if (v !== null && v !== undefined && !isNaN(v)) allVals.push(v); }); });
+    if (allVals.length === 0) return;
+    var dMin = Math.min.apply(null, allVals), dMax = Math.max.apply(null, allVals);
+    var range = dMax - dMin;
+    var pad = range > 0 ? range * 0.10 : Math.abs(dMax) * 0.10 || 0.1;
+    var yMin = Math.max(0, dMin - pad), yMax = dMax + pad;
+    var dec = range < 1 ? 4 : range < 10 ? 2 : 0;
+    yMin = parseFloat(yMin.toFixed(dec)); yMax = parseFloat(yMax.toFixed(dec));
+    chartConfigSet(chartId, 'yMin', yMin);
+    chartConfigSet(chartId, 'yMax', yMax);
+    chartConfigSet(chartId, 'height', 320);
+    chartConfigApply(chartId, instanceVar);
+    // Update inputs if visible
+    var el1 = document.getElementById(chartId + '-ymin'); if (el1) el1.value = yMin;
+    var el2 = document.getElementById(chartId + '-ymax'); if (el2) el2.value = yMax;
+    var el3 = document.getElementById(chartId + '-height-val'); if (el3) el3.textContent = '320px';
+    var el4 = document.getElementById(chartId + '-height-slider'); if (el4) el4.value = 320;
+}
+
+function chartConfigBuildPanel(chartId, instanceVar, opts) {
+    opts = opts || {};
+    var cfg = chartConfigGet(chartId);
+    var paletteOptions = Object.keys(CHART_COLOR_PALETTES).map(function(k) {
+        return '<option value="' + k + '" ' + (cfg.colorPalette === k ? 'selected' : '') + '>' + k.charAt(0).toUpperCase() + k.slice(1) + '</option>';
+    }).join('');
+    var legendOpts = ['bottom','top','left','right','hidden'].map(function(v) {
+        return '<option value="' + v + '" ' + (cfg.legendPosition === v ? 'selected' : '') + '>' + (v === 'hidden' ? 'Oculta' : v.charAt(0).toUpperCase() + v.slice(1)) + '</option>';
+    }).join('');
+
+    return '<details class="chart-config-panel" ' + (window['_ccOpen_' + chartId] ? 'open' : '') + '>' +
+        '<summary onclick="window[\'_ccOpen_' + chartId + '\']=!this.parentElement.open;">⚙️ Configurar Grafico</summary>' +
+        '<div style="padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        // Row 1: Height
+        '<div style="grid-column:1/-1;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">' +
+                '<label class="cfg-label">Altura: <strong id="' + chartId + '-height-val" class="cfg-value">' + cfg.height + 'px</strong></label>' +
+                '<button onclick="chartConfigAutoFit(\'' + chartId + '\',\'' + instanceVar + '\')" class="tp-btn tp-btn-primary" style="font-size:9px;padding:2px 8px;">Auto-fit</button>' +
+            '</div>' +
+            '<input type="range" id="' + chartId + '-height-slider" min="200" max="600" step="20" value="' + cfg.height + '" oninput="chartConfigSet(\'' + chartId + '\',\'height\',+this.value);document.getElementById(\'' + chartId + '-height-val\').textContent=this.value+\'px\';chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
+        '</div>' +
+        // Row 2: Y min / Y max
+        '<div>' +
+            '<label class="cfg-label" style="display:block;margin-bottom:2px;">Eje Y min</label>' +
+            '<input type="number" step="any" id="' + chartId + '-ymin" class="tp-input" placeholder="Auto" value="' + (cfg.yMin !== null ? cfg.yMin : '') + '" onchange="chartConfigSet(\'' + chartId + '\',\'yMin\',this.value===\'\'?null:+this.value);chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');" style="width:100%;font-size:11px;">' +
+        '</div>' +
+        '<div>' +
+            '<label class="cfg-label" style="display:block;margin-bottom:2px;">Eje Y max</label>' +
+            '<input type="number" step="any" id="' + chartId + '-ymax" class="tp-input" placeholder="Auto" value="' + (cfg.yMax !== null ? cfg.yMax : '') + '" onchange="chartConfigSet(\'' + chartId + '\',\'yMax\',this.value===\'\'?null:+this.value);chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');" style="width:100%;font-size:11px;">' +
+        '</div>' +
+        // Row 3: Point radius / Line width
+        '<div>' +
+            '<label class="cfg-label">Puntos: <strong class="cfg-value">' + cfg.pointRadius + '</strong></label>' +
+            '<input type="range" min="0" max="10" step="1" value="' + cfg.pointRadius + '" oninput="chartConfigSet(\'' + chartId + '\',\'pointRadius\',+this.value);this.previousElementSibling.querySelector(\'strong\').textContent=this.value;chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
+        '</div>' +
+        '<div>' +
+            '<label class="cfg-label">Linea: <strong class="cfg-value">' + cfg.borderWidth + 'px</strong></label>' +
+            '<input type="range" min="1" max="5" step="0.5" value="' + cfg.borderWidth + '" oninput="chartConfigSet(\'' + chartId + '\',\'borderWidth\',+this.value);this.previousElementSibling.querySelector(\'strong\').textContent=this.value+\'px\';chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
+        '</div>' +
+        // Row 4: Tension / Animation
+        '<div>' +
+            '<label class="cfg-label">Curvatura: <strong class="cfg-value">' + cfg.tension + '</strong></label>' +
+            '<input type="range" min="0" max="0.4" step="0.05" value="' + cfg.tension + '" oninput="chartConfigSet(\'' + chartId + '\',\'tension\',+this.value);this.previousElementSibling.querySelector(\'strong\').textContent=this.value;chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
+        '</div>' +
+        '<div>' +
+            '<label class="cfg-label">Animacion: <strong class="cfg-value">' + cfg.animationDuration + 'ms</strong></label>' +
+            '<input type="range" min="0" max="800" step="100" value="' + cfg.animationDuration + '" oninput="chartConfigSet(\'' + chartId + '\',\'animationDuration\',+this.value);this.previousElementSibling.querySelector(\'strong\').textContent=this.value+\'ms\';chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
+        '</div>' +
+        // Row 5: Legend / Palette
+        '<div>' +
+            '<label class="cfg-label" style="display:block;margin-bottom:2px;">Leyenda</label>' +
+            '<select class="tp-select" style="font-size:10px;width:100%;" onchange="chartConfigSet(\'' + chartId + '\',\'legendPosition\',this.value);chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' + legendOpts + '</select>' +
+        '</div>' +
+        '<div>' +
+            '<label class="cfg-label" style="display:block;margin-bottom:2px;">Paleta</label>' +
+            '<select class="tp-select" style="font-size:10px;width:100%;" onchange="chartConfigSet(\'' + chartId + '\',\'colorPalette\',this.value);chartConfigApplyColors(\'' + chartId + '\',\'' + instanceVar + '\');">' + paletteOptions + '</select>' +
+        '</div>' +
+        // Row 6: Grid toggle / Font size
+        '<div>' +
+            '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:10px;color:var(--tp-dim);">' +
+                '<input type="checkbox" ' + (cfg.gridDisplay ? 'checked' : '') + ' onchange="chartConfigSet(\'' + chartId + '\',\'gridDisplay\',this.checked);chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');" style="accent-color:var(--tp-amber);">' +
+                'Mostrar grid' +
+            '</label>' +
+        '</div>' +
+        '<div>' +
+            '<label class="cfg-label">Font ticks: <strong class="cfg-value">' + cfg.tickFontSize + '</strong></label>' +
+            '<input type="range" min="7" max="14" step="1" value="' + cfg.tickFontSize + '" oninput="chartConfigSet(\'' + chartId + '\',\'tickFontSize\',+this.value);this.previousElementSibling.querySelector(\'strong\').textContent=this.value;chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
+        '</div>' +
+        // Row 7: Export + Reset
+        '<div style="grid-column:1/-1;display:flex;gap:6px;margin-top:4px;">' +
+            '<button onclick="chartExportPNG(\'' + instanceVar + '\',\'' + chartId + '\')" class="tp-btn tp-btn-ghost" style="font-size:9px;flex:1;">📷 PNG</button>' +
+            '<button onclick="chartExportPDF(\'' + instanceVar + '\',\'' + chartId + '\')" class="tp-btn tp-btn-ghost" style="font-size:9px;flex:1;">📄 PDF</button>' +
+            '<button onclick="chartConfigReset(\'' + chartId + '\');' + (opts.rerenderFn || '') + '" class="tp-btn tp-btn-ghost" style="font-size:9px;flex:1;color:var(--tp-red);">↺ Reset</button>' +
+        '</div>' +
+        '</div></details>';
+}
+
+function chartConfigApplyColors(chartId, instanceVar) {
+    var chart = window[instanceVar];
+    if (!chart) return;
+    var cfg = chartConfigGet(chartId);
+    var palette = CHART_COLOR_PALETTES[cfg.colorPalette] || CHART_COLOR_PALETTES['default'];
+    var ci = 0;
+    chart.data.datasets.forEach(function(ds) {
+        if (ds.borderDash && ds.borderDash.length > 0) return;
+        if (ds._isControlLine) return;
+        ds.borderColor = palette[ci % palette.length];
+        if (!Array.isArray(ds.backgroundColor)) ds.backgroundColor = palette[ci % palette.length] + '20';
+        ci++;
+    });
+    chart.update();
+}
+
+function chartExportPNG(instanceVar, chartId) {
+    var chart = window[instanceVar];
+    if (!chart) { showToast('Grafico no disponible', 'error'); return; }
+    var a = document.createElement('a');
+    a.download = 'KIA-EmLab-' + (chartId || 'chart') + '.png';
+    a.href = chart.toBase64Image('image/png', 1);
+    a.click();
+    showToast('PNG exportado', 'success');
+}
+
+function chartExportPDF(instanceVar, chartId) {
+    var chart = window[instanceVar];
+    if (!chart || typeof window.jspdf === 'undefined') { showToast('jsPDF o grafico no disponible', 'error'); return; }
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+    doc.setFontSize(14);
+    doc.setTextColor(5, 20, 31);
+    doc.text('KIA EmLab — ' + (chartId || 'Chart'), 15, 15);
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text(new Date().toLocaleString(), 15, 22);
+    var img = chart.toBase64Image('image/png', 1);
+    doc.addImage(img, 'PNG', 15, 28, 245, 140);
+    doc.save('KIA-EmLab-' + (chartId || 'chart') + '.pdf');
+    showToast('PDF exportado', 'success');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R4-M2] SNAPSHOT UNDO ENGINE
+// ══════════════════════════════════════════════════════════════════════
+
+var UNDO_MAX = 10;
+var _undoStack = [];
+
+function undoPush(module, actionLabel) {
+    var snapshot = {};
+    try {
+        if (module === 'cop15' || module === 'all') snapshot.cop15 = JSON.stringify(db);
+        if (module === 'testplan' || module === 'all') snapshot.testplan = typeof tpState !== 'undefined' ? JSON.stringify(tpState) : null;
+        if (module === 'results' || module === 'all') snapshot.results = typeof raState !== 'undefined' ? JSON.stringify(raState) : null;
+        if (module === 'inventory' || module === 'all') snapshot.inventory = typeof invState !== 'undefined' ? JSON.stringify(invState) : null;
+    } catch(e) { console.error('Undo snapshot failed:', e); return; }
+    _undoStack.push({ module: module, label: actionLabel, timestamp: new Date().toISOString(), data: snapshot });
+    if (_undoStack.length > UNDO_MAX) _undoStack.shift();
+}
+
+function undoPop() {
+    if (_undoStack.length === 0) { showToast('No hay acciones para deshacer', 'info'); return; }
+    var entry = _undoStack.pop();
+    try {
+        if (entry.data.cop15) { var restored = JSON.parse(entry.data.cop15); Object.keys(restored).forEach(function(k) { db[k] = restored[k]; }); saveDB(); }
+        if (entry.data.testplan && typeof tpState !== 'undefined') { var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; }); if (typeof tpSave === 'function') tpSave(); }
+        if (entry.data.results && typeof raState !== 'undefined') { var restored = JSON.parse(entry.data.results); Object.keys(restored).forEach(function(k) { raState[k] = restored[k]; }); if (typeof raSave === 'function') raSave(); }
+        if (entry.data.inventory && typeof invState !== 'undefined') { var restored = JSON.parse(entry.data.inventory); Object.keys(restored).forEach(function(k) { invState[k] = restored[k]; }); if (typeof invSave === 'function') invSave(); }
+    } catch(e) { console.error('Undo restore failed:', e); showToast('Error al deshacer', 'error'); return; }
+    // Re-render affected modules
+    if (entry.data.cop15 && typeof refreshAllLists === 'function') refreshAllLists();
+    if (entry.data.testplan && typeof tpRender === 'function') tpRender();
+    if (entry.data.results && typeof raRender === 'function') raRender();
+    if (entry.data.inventory && typeof invRender === 'function') invRender();
+    showToast('Deshecho: ' + entry.label, 'success');
+}
+
+function undoGetStack() { return _undoStack.slice(); }
+
+// ══════════════════════════════════════════════════════════════════════
+// [R4-M7] ENTITY NOTES SYSTEM
+// ══════════════════════════════════════════════════════════════════════
+
+var NOTES_LS_KEY = 'kia_entity_notes';
+var _entityNotes = {};
+try { var _nr = localStorage.getItem(NOTES_LS_KEY); if (_nr) _entityNotes = JSON.parse(_nr); } catch(e) { _entityNotes = {}; }
+
+function noteAdd(entityType, entityId, text) {
+    var key = entityType + ':' + entityId;
+    if (!_entityNotes[key]) _entityNotes[key] = [];
+    _entityNotes[key].push({ id: Date.now(), text: text, timestamp: new Date().toISOString() });
+    try { localStorage.setItem(NOTES_LS_KEY, JSON.stringify(_entityNotes)); } catch(e) {}
+}
+function noteGet(entityType, entityId) { return _entityNotes[entityType + ':' + entityId] || []; }
+function noteDelete(entityType, entityId, noteId) {
+    var key = entityType + ':' + entityId;
+    if (!_entityNotes[key]) return;
+    _entityNotes[key] = _entityNotes[key].filter(function(n) { return n.id !== noteId; });
+    if (_entityNotes[key].length === 0) delete _entityNotes[key];
+    try { localStorage.setItem(NOTES_LS_KEY, JSON.stringify(_entityNotes)); } catch(e) {}
+}
+function noteCount(entityType, entityId) { return noteGet(entityType, entityId).length; }
+
+function noteBuildButton(entityType, entityId) {
+    var c = noteCount(entityType, entityId);
+    return '<button onclick="noteShowModal(\'' + entityType + '\',\'' + entityId + '\')" class="tp-btn tp-btn-ghost" style="font-size:9px;position:relative;padding:3px 8px;">' +
+        '📝 Notas' + (c > 0 ? ' <span style="background:var(--tp-amber);color:#000;font-size:8px;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-left:2px;">' + c + '</span>' : '') +
+        '</button>';
+}
+
+function noteShowModal(entityType, entityId) {
+    var notes = noteGet(entityType, entityId);
+    var html = '<div style="max-height:300px;overflow-y:auto;margin-bottom:10px;">';
+    if (notes.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin notas</div>';
+    } else {
+        notes.slice().reverse().forEach(function(n) {
+            html += '<div style="padding:8px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-bg);">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+            html += '<span style="font-size:8px;color:var(--tp-dim);">' + new Date(n.timestamp).toLocaleString('es-MX') + '</span>';
+            html += '<button onclick="noteDelete(\'' + entityType + '\',\'' + entityId + '\',' + n.id + ');noteShowModal(\'' + entityType + '\',\'' + entityId + '\');" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:0 4px;">×</button>';
+            html += '</div>';
+            html += '<div style="font-size:11px;color:var(--tp-text);white-space:pre-wrap;">' + escapeHtml(n.text) + '</div>';
+            html += '</div>';
+        });
+    }
+    html += '</div>';
+    html += '<div style="display:flex;gap:6px;">';
+    html += '<input type="text" id="_noteInput" class="tp-input" placeholder="Agregar nota..." style="flex:1;font-size:11px;padding:8px;" onkeydown="if(event.key===\'Enter\'){var v=this.value.trim();if(v){noteAdd(\'' + entityType + '\',\'' + entityId + '\',v);noteShowModal(\'' + entityType + '\',\'' + entityId + '\');}}">';
+    html += '<button onclick="var inp=document.getElementById(\'_noteInput\');var v=inp.value.trim();if(v){noteAdd(\'' + entityType + '\',\'' + entityId + '\',v);noteShowModal(\'' + entityType + '\',\'' + entityId + '\');}" class="tp-btn tp-btn-primary" style="font-size:10px;padding:8px 14px;">+</button>';
+    html += '</div>';
+
+    showModal('Notas — ' + entityType + ':' + entityId.substring(0, 15), html, []);
+}
 
 function round(x, decimals = 4) {
   if (!isFinite(x)) return '';
@@ -716,6 +1044,68 @@ function globalVinSearch(query) {
         });
     }
 
+    // ═══ [R4-M4] Cross-module search: Inventory gases + equipment ═══
+    if (typeof invState !== 'undefined') {
+        (invState.gases || []).forEach(function(g) {
+            var searchStr = ((g.controlNo || '') + ' ' + (g.formula || '') + ' ' + (g.gasType || '') + ' ' + (g.concNominal || '')).toUpperCase();
+            if (searchStr.includes(q)) {
+                results.push({
+                    module: 'Inventario',
+                    icon: '🧪',
+                    vin: g.formula + ' ' + (g.concNominal || '') + ' #' + (g.controlNo || ''),
+                    detail: 'Zona: ' + (g.zone || '—') + ' | PSI: ' + (g.readings && g.readings.length > 0 ? g.readings[g.readings.length-1].psi : '—'),
+                    date: g.validUntil || '',
+                    action: 'switchPlatform("inventory")'
+                });
+            }
+        });
+        (invState.equipment || []).forEach(function(e) {
+            var searchStr = ((e.name || '') + ' ' + (e.serialNo || '') + ' ' + (e.kmmId || '')).toUpperCase();
+            if (searchStr.includes(q)) {
+                results.push({
+                    module: 'Inventario',
+                    icon: '🔧',
+                    vin: e.name || 'Equipo',
+                    detail: 'S/N: ' + (e.serialNo || '—') + ' | KMM: ' + (e.kmmId || '—'),
+                    date: e.nextCalDate || '',
+                    action: 'switchPlatform("inventory")'
+                });
+            }
+        });
+    }
+
+    // [R4-M4] Also search COP15 by configCode and model
+    (db.vehicles || []).forEach(function(v) {
+        var configStr = ((v.configCode || '') + ' ' + (v.config && v.config['Modelo'] ? v.config['Modelo'] : '')).toUpperCase();
+        if (configStr.includes(q) && !(v.vin || '').toUpperCase().includes(q)) {
+            results.push({
+                module: 'COP15',
+                icon: '🚗',
+                vin: v.configCode || v.vin || '?',
+                detail: (v.config && v.config['Modelo'] ? v.config['Modelo'] + ' — ' : '') + (CONFIG.statusLabels[v.status] || v.status),
+                date: v.registeredAt ? new Date(v.registeredAt).toLocaleDateString('es-MX') : '',
+                action: 'switchPlatform("cop15")'
+            });
+        }
+    });
+
+    // [R4-M4] Search RA by operator, testDesc, regulation
+    if (typeof raState !== 'undefined' && raState.tests) {
+        raState.tests.forEach(function(t) {
+            var searchStr = ((t.operator || '') + ' ' + (t.testDesc || '') + ' ' + (t.regulation || '') + ' ' + (t.emissionReg || '')).toUpperCase();
+            if (searchStr.includes(q) && !((t.vin || t.VIN || '').toUpperCase().includes(q))) {
+                results.push({
+                    module: 'Results',
+                    icon: '📊',
+                    vin: t.testDesc || t.regulation || '?',
+                    detail: 'Op: ' + (t.operator || '—') + (t.verdict ? ' — ' + t.verdict : ''),
+                    date: t.date || t.importDate || '',
+                    action: 'switchPlatform("results")'
+                });
+            }
+        });
+    }
+
     if (results.length === 0) {
         res.innerHTML = '<div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:0 0 8px 8px;color:#94a3b8;font-size:0.85rem;text-align:center;">No se encontraron resultados para "' + escapeHtml(query) + '"</div>';
         return;
@@ -886,7 +1276,39 @@ function generateWeeklyStatusPDF() {
         y = addRow('Equipos cal. próxima a vencer (<7d)', calWarning, y, calWarning > 0 ? [245, 158, 11] : [16, 185, 129]);
     } catch (e) { y = addRow('Error', e.message, y, [239, 68, 68]); }
 
+    // ═══ [R4-M3] Embed chart images if available ═══
+    var chartsToEmbed = [
+        { instance: '_tpBurndownChart', title: 'Burndown - Test Plan' },
+        { instance: '_raComplianceChart', title: 'Compliance Rate - Resultados' },
+        { instance: '_raTrendChart', title: 'Trend Analysis - Resultados' },
+        { instance: '_invChartInstance', title: 'Consumo - Inventario' }
+    ];
+    var embeddedAny = false;
+    chartsToEmbed.forEach(function(ch) {
+        try {
+            var chart = window[ch.instance];
+            if (!chart || typeof chart.toBase64Image !== 'function') return;
+            if (y > PH - 80) { doc.addPage(); y = 20; }
+            if (!embeddedAny) {
+                y += 5;
+                setF('bold', 11); doc.setTextColor(5, 20, 31);
+                doc.text('Graficos', ML, y); y += 3;
+                doc.setDrawColor(239, 68, 68); doc.setLineWidth(0.5);
+                doc.line(ML, y, ML + CW, y); y += 5;
+                embeddedAny = true;
+            }
+            setF('normal', 9); doc.setTextColor(80);
+            doc.text(ch.title, ML, y); y += 3;
+            var img = chart.toBase64Image('image/png', 1);
+            var imgH = 45;
+            if (y + imgH > PH - 20) { doc.addPage(); y = 20; }
+            doc.addImage(img, 'PNG', ML, y, CW, imgH);
+            y += imgH + 5;
+        } catch(e) { /* skip chart if error */ }
+    });
+
     // Footer
+    if (y > PH - 20) { doc.addPage(); y = 20; }
     y += 10;
     doc.setDrawColor(200, 200, 200);
     doc.line(ML, y, ML + CW, y);
@@ -1015,6 +1437,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try {
             if (typeof fbInit === 'function') { fbInit(); fbHookSaves(); fbUpdateIndicator(); }
         } catch(fbErr) { console.error('Firebase init failed (non-blocking):', fbErr); }
+
+        // ═══ [R4-M1] Load chart configurations ═══
+        chartConfigLoad();
 
         // ═══ [R3-M6] Health check at boot ═══
         try {
@@ -1154,6 +1579,7 @@ var _commandPaletteCommands = [
     { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'action' },
     { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'action' },
     { label: 'Exportar CSV Resultados', icon: '📊', action: function(){ if(typeof raExportCSV==='function') raExportCSV(); }, cat: 'action' },
+    { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'action' },
     { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'action' },
     { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'action' },
     { label: 'Generar Plan Smart', icon: '⚡', action: function(){ switchPlatform('testplan'); setTimeout(function(){ if(typeof tpSmartGenerate==='function') tpSmartGenerate(); }, 300); }, cat: 'action' },
@@ -1182,11 +1608,50 @@ function closeCommandPalette() {
 
 function filterCommands(query) {
     var q = query.toLowerCase().trim();
+    // [R4-M4] Power search: prefix > searches across all modules
+    if (q.startsWith('>') && q.length > 1) {
+        var searchQ = q.slice(1).trim();
+        _cmdFiltered = _globalCrossSearchForPalette(searchQ);
+        _cmdActiveIdx = 0;
+        renderCommandResults();
+        return;
+    }
     _cmdFiltered = q ? _commandPaletteCommands.filter(function(c) {
         return c.label.toLowerCase().includes(q) || (c.cat && c.cat.includes(q));
     }) : _commandPaletteCommands;
     _cmdActiveIdx = 0;
     renderCommandResults();
+}
+
+function _globalCrossSearchForPalette(q) {
+    var results = [];
+    var qUp = q.toUpperCase();
+    // COP15 vehicles
+    (db.vehicles || []).slice(-50).forEach(function(v) {
+        if (((v.vin||'')+(v.configCode||'')).toUpperCase().includes(qUp)) {
+            results.push({ label: v.vin + ' — ' + (v.configCode || '').substring(0,30), icon: '🚗', action: function(){ switchPlatform('cop15'); }, cat: 'COP15' });
+        }
+    });
+    // Inventory
+    if (typeof invState !== 'undefined') {
+        (invState.gases || []).slice(0,30).forEach(function(g) {
+            if (((g.formula||'')+(g.controlNo||'')).toUpperCase().includes(qUp)) {
+                results.push({ label: g.formula + ' #' + (g.controlNo||''), icon: '🧪', action: function(){ switchPlatform('inventory'); }, cat: 'Inventario' });
+            }
+        });
+    }
+    // Results
+    if (typeof raState !== 'undefined' && raState.tests) {
+        var seen = {};
+        raState.tests.slice(-30).forEach(function(t) {
+            var desc = (t.vin||'') + ' ' + (t.testDesc||'');
+            if (desc.toUpperCase().includes(qUp) && !seen[desc]) {
+                seen[desc] = true;
+                results.push({ label: (t.vin||'?') + ' — ' + (t.testDesc||'').substring(0,30), icon: '📊', action: function(){ switchPlatform('results'); }, cat: 'Results' });
+            }
+        });
+    }
+    return results.slice(0, 15);
 }
 
 function renderCommandResults() {
@@ -1230,6 +1695,10 @@ document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '5') {
         var platforms = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
         e.preventDefault(); switchPlatform(platforms[parseInt(e.key) - 1]); return;
+    }
+    // Ctrl+Z: Undo
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault(); undoPop(); return;
     }
     // Ctrl+S: Save
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {

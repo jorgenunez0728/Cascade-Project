@@ -1838,10 +1838,11 @@ if (vehicle.status !== 'ready-release') {
            return;
        }
 
-       // Filter toggle
-       var filterHtml = '<div class="tl-filters">' +
+       // Filter toggle + Notes button
+       var filterHtml = '<div class="tl-filters" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
            '<button class="tl-filter-btn' + (_tlFilter==='all'?' active':'') + '" onclick="_tlFilter=\'all\';renderTimeline(db.vehicles.find(function(v){return v.id==activeVehicleId}))">Todos</button>' +
            '<button class="tl-filter-btn' + (_tlFilter==='status'?' active':'') + '" onclick="_tlFilter=\'status\';renderTimeline(db.vehicles.find(function(v){return v.id==activeVehicleId}))">Solo Status</button>' +
+           (typeof noteBuildButton === 'function' ? '<span style="margin-left:auto;">' + noteBuildButton('vehicle', String(vehicle.id)) + '</span>' : '') +
            '</div>';
 
        // Group by phase

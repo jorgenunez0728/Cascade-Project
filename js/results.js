@@ -599,7 +599,9 @@ function raBuildComplianceTrendHTML() {
 
     // Chart
     var regColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
-    var html = '<div style="height:220px;margin-bottom:12px;"><canvas id="ra-compliance-canvas"></canvas></div>';
+    var _ccCfg = typeof chartConfigGet === 'function' ? chartConfigGet('ra_compliance') : {height:220};
+    var html = (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel('ra_compliance', '_raComplianceChart', {rerenderFn:'raRender();'}) : '');
+    html += '<div id="ra_compliance-wrapper" style="height:' + _ccCfg.height + 'px;margin-bottom:12px;"><canvas id="ra-compliance-canvas"></canvas></div>';
 
     // Summary table
     html += '<table style="width:100%;font-size:10px;border-collapse:collapse;">';
@@ -699,7 +701,7 @@ function raRenderImport(el){
     </div>
     <div class="tp-card">
         <div class="tp-card-title"><span>💾 Almacenamiento (${raState.tests.length} pruebas)</span>
-            ${raState.tests.length>0?`<div style="display:flex;gap:6px;"><button class="tp-btn tp-btn-ghost" onclick="raExportAll()" style="font-size:10px;">📤 Export JSON</button><button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Borrar TODAS las pruebas importadas?',function(){raState.tests=[];raSave();raRender();raUpdateBadges();},{title:'Borrar pruebas',type:'danger',confirmText:'Borrar todo'})" style="font-size:10px;">🗑 Borrar</button></div>`:''}
+            ${raState.tests.length>0?`<div style="display:flex;gap:6px;"><button class="tp-btn tp-btn-ghost" onclick="raExportAll()" style="font-size:10px;">📤 Export JSON</button><button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Borrar TODAS las pruebas importadas?',function(){if(typeof undoPush==='function')undoPush('results','Borrar todas las pruebas');raState.tests=[];raSave();raRender();raUpdateBadges();showToast('Pruebas borradas','success',null,undoPop);},{title:'Borrar pruebas',type:'danger',confirmText:'Borrar todo'})" style="font-size:10px;">🗑 Borrar</button></div>`:''}
         </div>
         <p style="font-size:10px;color:var(--tp-dim);">${raState.tests.length>0?`~${(JSON.stringify(raState.tests).length/1024).toFixed(0)} KB en localStorage`:'Sin datos.'}</p>
     </div>`;
@@ -1104,26 +1106,7 @@ function raRenderTrends(el){
             <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#06b6d4;font-size:15px;">${pts.length}</div><div class="tp-metric-label">N</div></div>
             <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:${pts.filter(p=>Math.abs(p.val-avgV)>2*stdV).length>0?'var(--tp-red)':'var(--tp-green)'};font-size:15px;">${pts.filter(p=>Math.abs(p.val-avgV)>2*stdV).length}</div><div class="tp-metric-label">>2&sigma;</div></div>
         </div>
-        <details style="margin-bottom:10px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;" ${window._raChartSettingsOpen?'open':''}>
-            <summary onclick="window._raChartSettingsOpen=this.parentElement.open?false:true;" style="padding:8px 12px;cursor:pointer;font-size:10px;font-weight:700;color:var(--tp-dim);background:var(--tp-card);user-select:none;">⚙️ Ajustes del Gráfico</summary>
-            <div style="padding:10px 12px;background:#0d1320;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div style="grid-column:1/-1;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                        <label style="font-size:10px;color:var(--tp-dim);">Altura: <strong id="ra-height-val" style="color:var(--tp-amber);">${window._raChartHeight||320}px</strong></label>
-                        <button onclick="raChartAutoFit()" class="tp-btn tp-btn-primary" style="font-size:9px;padding:3px 10px;">Auto-fit</button>
-                    </div>
-                    <input type="range" min="200" max="600" step="20" value="${window._raChartHeight||320}" oninput="raChartSetHeight(+this.value)" style="width:100%;accent-color:var(--tp-amber);">
-                </div>
-                <div>
-                    <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Eje Y mínimo</label>
-                    <input type="number" step="any" id="ra-ymin-input" class="tp-input" placeholder="Auto" value="${window._raChartYMin!==null&&window._raChartYMin!==undefined?window._raChartYMin:''}" onchange="raChartSetYRange(this.value===''?null:+this.value,null,'min')" style="width:100%;font-size:11px;">
-                </div>
-                <div>
-                    <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Eje Y máximo</label>
-                    <input type="number" step="any" id="ra-ymax-input" class="tp-input" placeholder="Auto" value="${window._raChartYMax!==null&&window._raChartYMax!==undefined?window._raChartYMax:''}" onchange="raChartSetYRange(null,this.value===''?null:+this.value,'max')" style="width:100%;font-size:11px;">
-                </div>
-            </div>
-        </details>
+        ${typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel('ra_trend', '_raTrendChart', {rerenderFn:'raRender();'}) : ''}
         <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
             <span style="font-size:9px;color:var(--tp-dim);font-weight:600;">Rango:</span>
             <button class="tp-btn tp-btn-ghost" onclick="raFilterTrendRange(7)" style="font-size:9px;padding:3px 8px;">7 dias</button>
@@ -1132,7 +1115,7 @@ function raRenderTrends(el){
             <button class="tp-btn tp-btn-ghost" onclick="raFilterTrendRange(0)" style="font-size:9px;padding:3px 8px;">Todo</button>
             <button class="tp-btn tp-btn-ghost" onclick="raResetTrendZoom()" style="font-size:9px;padding:3px 8px;margin-left:auto;">Reset Zoom</button>
         </div>
-        <div id="ra-trend-wrapper" style="position:relative;height:${window._raChartHeight||320}px;">
+        <div id="ra_trend-wrapper" style="position:relative;height:${typeof chartConfigGet==='function'?chartConfigGet('ra_trend').height:(window._raChartHeight||320)}px;">
             ${pts.length===0?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--tp-dim);"><div style="font-size:28px;margin-bottom:8px;">📉</div><div style="font-size:12px;font-weight:700;">Sin datos para "${fMetric}"</div><div style="font-size:10px;margin-top:4px;">Verifica que las pruebas tengan cycleData con este campo.<br>Si hay pruebas importadas, asegurate de que no se haya compactado la data.</div></div>`:'<canvas id="ra-trend-canvas"></canvas>'}
         </div>
     </div>
@@ -1219,8 +1202,8 @@ function raRenderTrends(el){
             scales: {
                 x: { ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45, maxTicksLimit: 15 },
                      grid: { color: 'rgba(30,41,59,0.5)' } },
-                y: { min: window._raChartYMin !== null && window._raChartYMin !== undefined ? window._raChartYMin : undefined,
-                     max: window._raChartYMax !== null && window._raChartYMax !== undefined ? window._raChartYMax : undefined,
+                y: { min: (typeof chartConfigGet==='function'&&chartConfigGet('ra_trend').yMin!==null)?chartConfigGet('ra_trend').yMin:undefined,
+                     max: (typeof chartConfigGet==='function'&&chartConfigGet('ra_trend').yMax!==null)?chartConfigGet('ra_trend').yMax:undefined,
                      ticks: { color: '#64748b', font: { size: 9 } },
                      grid: { color: 'rgba(30,41,59,0.5)' } }
             }
@@ -1228,17 +1211,16 @@ function raRenderTrends(el){
     });
 }
 
-// ── Chart adjustment helpers (live update without re-render) ──
+// ── Chart adjustment helpers — redirected to unified chart config system ──
 function raChartSetHeight(val) {
+    if (typeof chartConfigSet === 'function') { chartConfigSet('ra_trend', 'height', val); chartConfigApply('ra_trend', '_raTrendChart'); return; }
     window._raChartHeight = val;
-    var wrapper = document.getElementById('ra-trend-wrapper');
+    var wrapper = document.getElementById('ra_trend-wrapper');
     if (wrapper) wrapper.style.height = val + 'px';
-    var label = document.getElementById('ra-height-val');
-    if (label) label.textContent = val + 'px';
     if (window._raTrendChart) window._raTrendChart.resize();
 }
-
 function raChartSetYRange(minVal, maxVal, which) {
+    if (typeof chartConfigSet === 'function') { chartConfigSet('ra_trend', which === 'min' ? 'yMin' : 'yMax', which === 'min' ? minVal : maxVal); chartConfigApply('ra_trend', '_raTrendChart'); return; }
     if (which === 'min') window._raChartYMin = minVal;
     if (which === 'max') window._raChartYMax = maxVal;
     if (!window._raTrendChart) return;
@@ -1247,38 +1229,8 @@ function raChartSetYRange(minVal, maxVal, which) {
     if (which === 'max') yScale.max = maxVal !== null ? maxVal : undefined;
     window._raTrendChart.update();
 }
-
 function raChartAutoFit() {
-    if (!window._raTrendChart) return;
-    var ds = window._raTrendChart.data.datasets;
-    var allVals = [];
-    ds.forEach(function(d) { d.data.forEach(function(v) { if (v !== null && v !== undefined && !isNaN(v)) allVals.push(v); }); });
-    if (allVals.length === 0) return;
-    var dataMin = Math.min.apply(null, allVals);
-    var dataMax = Math.max.apply(null, allVals);
-    var range = dataMax - dataMin;
-    var padding = range > 0 ? range * 0.10 : Math.abs(dataMax) * 0.10 || 0.1;
-    var yMin = Math.max(0, dataMin - padding);
-    var yMax = dataMax + padding;
-    // Round to reasonable precision
-    var decimals = range < 1 ? 4 : range < 10 ? 2 : 0;
-    yMin = parseFloat(yMin.toFixed(decimals));
-    yMax = parseFloat(yMax.toFixed(decimals));
-    window._raChartYMin = yMin;
-    window._raChartYMax = yMax;
-    window._raChartHeight = 320;
-    // Update inputs
-    var minInput = document.getElementById('ra-ymin-input');
-    var maxInput = document.getElementById('ra-ymax-input');
-    if (minInput) minInput.value = yMin;
-    if (maxInput) maxInput.value = yMax;
-    // Update chart
-    var yScale = window._raTrendChart.options.scales.y;
-    yScale.min = yMin;
-    yScale.max = yMax;
-    window._raTrendChart.update();
-    // Reset height
-    raChartSetHeight(320);
+    if (typeof chartConfigAutoFit === 'function') { chartConfigAutoFit('ra_trend', '_raTrendChart'); return; }
 }
 
 function raFilterTrendRange(days) {
@@ -1374,6 +1326,7 @@ function raRenderDetail(el){
                 <span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);border:1px solid rgba(16,185,129,0.3);">${test.testStatus||'?'}</span>
                 ${profile?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);margin-left:4px;">Perfil: ${profile.name}</span>`:''}
                 <span style="font-size:8px;color:var(--tp-dim);display:block;margin-top:2px;">Consumo: ${fuelLabel}</span>
+                ${typeof noteBuildButton === 'function' ? noteBuildButton('test', String(test.id)) : ''}
             </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:8px;font-size:10px;color:var(--tp-dim);">
@@ -2140,6 +2093,42 @@ function raRenderCompare(el) {
     html += '<div style="font-size:8px;color:var(--tp-dim);margin-top:6px;">Delta = B - A. Verde = B menor que A (mejora). Rojo = B mayor que A (peor). Valores en rojo exceden el limite regulatorio.</div>';
     html += '</div>';
 
+    // [R4-M6] Radar chart comparison normalized to regulatory limits
+    var radarKeys = emissionKeys.filter(function(ek) {
+        return (typeof cA[ek.k] === 'number' || typeof cB[ek.k] === 'number') && limits[ek.k];
+    });
+    if (radarKeys.length >= 3 && typeof Chart !== 'undefined') {
+        html += '<div class="tp-card"><div class="tp-card-title"><span>Radar Comparativo (% del Limite)</span></div>';
+        html += (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel('ra_compare_radar', '_raCompareRadar', {rerenderFn:'raRender();'}) : '');
+        var radarH = typeof chartConfigGet === 'function' ? chartConfigGet('ra_compare_radar').height : 280;
+        html += '<div id="ra_compare_radar-wrapper" style="height:' + radarH + 'px;"><canvas id="ra-compare-radar"></canvas></div></div>';
+
+        setTimeout(function() {
+            if (window._raCompareRadar) { try { window._raCompareRadar.destroy(); } catch(e) {} }
+            var rCtx = document.getElementById('ra-compare-radar');
+            if (!rCtx) return;
+            var rLabels = radarKeys.map(function(ek) { return ek.l; });
+            var rDataA = radarKeys.map(function(ek) { var v = cA[ek.k]; return (typeof v === 'number' && limits[ek.k]) ? Math.round(Math.abs(v) / limits[ek.k] * 100) : 0; });
+            var rDataB = radarKeys.map(function(ek) { var v = cB[ek.k]; return (typeof v === 'number' && limits[ek.k]) ? Math.round(Math.abs(v) / limits[ek.k] * 100) : 0; });
+            window._raCompareRadar = new Chart(rCtx, {
+                type: 'radar',
+                data: {
+                    labels: rLabels,
+                    datasets: [
+                        { label: 'Test A', data: rDataA, borderColor: '#06b6d4', backgroundColor: 'rgba(6,182,212,0.15)', pointRadius: 3, borderWidth: 2 },
+                        { label: 'Test B', data: rDataB, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.15)', pointRadius: 3, borderWidth: 2 },
+                        { label: 'Limite (100%)', data: radarKeys.map(function() { return 100; }), borderColor: '#ef444480', borderDash: [4,4], borderWidth: 1.5, pointRadius: 0, fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } },
+                    scales: { r: { ticks: { color: '#64748b', font: { size: 8 }, backdropColor: 'transparent' }, grid: { color: 'rgba(255,255,255,0.1)' }, angleLines: { color: 'rgba(255,255,255,0.1)' }, pointLabels: { color: '#94a3b8', font: { size: 9 } }, suggestedMin: 0, suggestedMax: 120 } }
+                }
+            });
+        }, 50);
+    }
+
     el.innerHTML = html;
 }
 
@@ -2333,8 +2322,12 @@ function raRenderSPC(el) {
         '</div>' +
 
         // Chart containers
-        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Carta Individual (I)</div><div style="height:280px;"><canvas id="ra-spc-i-canvas"></canvas></div></div>' +
-        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Carta Rango Movil (mR)</div><div style="height:200px;"><canvas id="ra-spc-mr-canvas"></canvas></div></div>' +
+        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Carta Individual (I)</div>' +
+        (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel('ra_spc_i', '_raSpcIChart', {rerenderFn:'raRender();'}) : '') +
+        '<div id="ra_spc_i-wrapper" style="height:' + (typeof chartConfigGet==='function'?chartConfigGet('ra_spc_i').height:280) + 'px;"><canvas id="ra-spc-i-canvas"></canvas></div></div>' +
+        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Carta Rango Movil (mR)</div>' +
+        (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel('ra_spc_mr', '_raSpcMRChart', {rerenderFn:'raRender();'}) : '') +
+        '<div id="ra_spc_mr-wrapper" style="height:' + (typeof chartConfigGet==='function'?chartConfigGet('ra_spc_mr').height:200) + 'px;"><canvas id="ra-spc-mr-canvas"></canvas></div></div>' +
 
         // Nelson Rules summary table
         '<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:700;color:#8b5cf6;margin-bottom:6px;">Reglas de Nelson</div>' +

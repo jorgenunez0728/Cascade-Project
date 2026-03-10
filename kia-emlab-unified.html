@@ -1263,6 +1263,18 @@ button:focus-visible { outline-offset: 1px; }
 }
 #pwa-install-btn:hover { background: #059669; }
 
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R4-M1] Chart Configuration Panel                                    */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.chart-config-panel { margin-bottom:10px; border:1px solid var(--tp-border); border-radius:8px; overflow:hidden; }
+.chart-config-panel summary { padding:8px 12px; cursor:pointer; font-size:10px; font-weight:700; color:var(--tp-dim); background:var(--tp-card); user-select:none; }
+.chart-config-panel summary:hover { color:var(--tp-amber); }
+.chart-config-panel .cfg-label { font-size:10px; color:var(--tp-dim); display:flex; align-items:center; gap:4px; margin-bottom:2px; }
+.chart-config-panel .cfg-value { font-size:10px; font-weight:700; color:var(--tp-amber); }
+.chart-config-panel input[type="range"] { width:100%; accent-color:var(--tp-amber); }
+.chart-config-panel > div { background:#0d1320; }
+
     </style>
 </head>
 
@@ -2218,6 +2230,8 @@ button:focus-visible { outline-offset: 1px; }
         <button class="tp-tab" onclick="pnSwitchTab('pn-users')">👥 Usuarios</button>
         <button class="tp-tab" onclick="pnSwitchTab('pn-shift')">📝 Bitácora</button>
         <button class="tp-tab" onclick="pnSwitchTab('pn-alerts')">🔔 Alertas</button>
+        <button class="tp-tab" onclick="pnSwitchTab('pn-intelligence')">🧠 Inteligencia</button>
+        <button class="tp-tab" onclick="pnSwitchTab('pn-system')">💾 Sistema</button>
     </div>
 
     <div class="tp-main">
@@ -2805,14 +2819,342 @@ function showToast(msg, type) {
     var toast = document.createElement('div');
     toast.className = 'toast toast-' + type;
     toast.textContent = msg;
+    if (arguments.length >= 4 && typeof arguments[3] === 'function') {
+        var undoBtn = document.createElement('button');
+        undoBtn.textContent = ' Deshacer';
+        undoBtn.style.cssText = 'margin-left:8px;padding:2px 8px;border:1px solid currentColor;border-radius:4px;background:transparent;color:inherit;cursor:pointer;font-size:11px;font-weight:700;';
+        var undoFn = arguments[3];
+        undoBtn.onclick = function() { undoFn(); if (toast.parentNode) toast.parentNode.removeChild(toast); };
+        toast.appendChild(undoBtn);
+    }
     container.appendChild(toast);
-    setTimeout(function(){ if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3200);
+    var dur = (arguments.length >= 4 && typeof arguments[3] === 'function') ? 6000 : 3200;
+    setTimeout(function(){ if (toast.parentNode) toast.parentNode.removeChild(toast); }, dur);
 }
 
 
     function closeModal(modalId) {
         document.getElementById(modalId).style.display = 'none';
     }
+
+// ══════════════════════════════════════════════════════════════════════
+// [R4-M1] CHART CONFIGURATION ENGINE
+// ══════════════════════════════════════════════════════════════════════
+
+var CHART_CONFIG_LS_KEY = 'kia_chart_configs';
+
+var CHART_DEFAULTS = {
+    height: 320, yMin: null, yMax: null,
+    pointRadius: 4, borderWidth: 2, tension: 0.1,
+    legendPosition: 'bottom', legendFontSize: 10,
+    gridColor: 'rgba(30,41,59,0.5)', gridDisplay: true,
+    tickFontSize: 9, tickColor: '#64748b',
+    animationDuration: 400, colorPalette: 'default'
+};
+
+var CHART_COLOR_PALETTES = {
+    default:    ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16'],
+    vivid:      ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#d35400'],
+    pastel:     ['#74b9ff','#55efc4','#ffeaa7','#fab1a0','#a29bfe','#81ecec','#fd79a8','#00cec9'],
+    monochrome: ['#2d3436','#636e72','#b2bec3','#dfe6e9','#0984e3','#74b9ff','#a29bfe','#6c5ce7']
+};
+
+var _chartConfigs = {};
+function chartConfigLoad() {
+    try { var s = localStorage.getItem(CHART_CONFIG_LS_KEY); if (s) _chartConfigs = JSON.parse(s); } catch(e) { _chartConfigs = {}; }
+}
+function chartConfigSave() {
+    try { localStorage.setItem(CHART_CONFIG_LS_KEY, JSON.stringify(_chartConfigs)); } catch(e) {}
+}
+function chartConfigGet(chartId) {
+    return Object.assign({}, CHART_DEFAULTS, _chartConfigs[chartId] || {});
+}
+function chartConfigSet(chartId, key, val) {
+    if (!_chartConfigs[chartId]) _chartConfigs[chartId] = {};
+    _chartConfigs[chartId][key] = val;
+    chartConfigSave();
+}
+function chartConfigReset(chartId) {
+    delete _chartConfigs[chartId];
+    chartConfigSave();
+    showToast('Configuracion del grafico restaurada', 'success');
+}
+
+function chartConfigApply(chartId, instanceVar) {
+    var chart = window[instanceVar];
+    if (!chart) return;
+    var cfg = chartConfigGet(chartId);
+    // Scales
+    if (chart.options.scales && chart.options.scales.y) {
+        var yS = chart.options.scales.y;
+        yS.min = cfg.yMin !== null ? cfg.yMin : undefined;
+        yS.max = cfg.yMax !== null ? cfg.yMax : undefined;
+        if (yS.ticks) { yS.ticks.font = yS.ticks.font || {}; yS.ticks.font.size = cfg.tickFontSize; yS.ticks.color = cfg.tickColor; }
+        if (yS.grid) { yS.grid.display = cfg.gridDisplay; yS.grid.color = cfg.gridColor; }
+    }
+    if (chart.options.scales && chart.options.scales.x) {
+        var xS = chart.options.scales.x;
+        if (xS.ticks) { xS.ticks.font = xS.ticks.font || {}; xS.ticks.font.size = cfg.tickFontSize; }
+        if (xS.grid) { xS.grid.display = cfg.gridDisplay; }
+    }
+    // Legend
+    var leg = chart.options.plugins && chart.options.plugins.legend;
+    if (leg) {
+        if (cfg.legendPosition === 'hidden') { leg.display = false; }
+        else { leg.display = true; leg.position = cfg.legendPosition; if (leg.labels) { leg.labels.font = leg.labels.font || {}; leg.labels.font.size = cfg.legendFontSize; } }
+    }
+    // Dataset styles — only for primary data series, skip control lines (borderDash)
+    chart.data.datasets.forEach(function(ds) {
+        if (ds.borderDash && ds.borderDash.length > 0) return;
+        if (ds._isControlLine) return;
+        if (typeof ds.pointRadius === 'number' && ds.pointRadius !== 0) ds.pointRadius = cfg.pointRadius;
+        if (ds.borderWidth) ds.borderWidth = cfg.borderWidth;
+        ds.tension = cfg.tension;
+    });
+    chart.options.animation = { duration: cfg.animationDuration };
+    // Resize wrapper
+    var wrapper = document.getElementById(chartId + '-wrapper');
+    if (wrapper) wrapper.style.height = cfg.height + 'px';
+    chart.resize();
+    chart.update();
+}
+
+function chartConfigAutoFit(chartId, instanceVar) {
+    var chart = window[instanceVar];
+    if (!chart) return;
+    var allVals = [];
+    chart.data.datasets.forEach(function(d) { d.data.forEach(function(v) { if (v !== null && v !== undefined && !isNaN(v)) allVals.push(v); }); });
+    if (allVals.length === 0) return;
+    var dMin = Math.min.apply(null, allVals), dMax = Math.max.apply(null, allVals);
+    var range = dMax - dMin;
+    var pad = range > 0 ? range * 0.10 : Math.abs(dMax) * 0.10 || 0.1;
+    var yMin = Math.max(0, dMin - pad), yMax = dMax + pad;
+    var dec = range < 1 ? 4 : range < 10 ? 2 : 0;
+    yMin = parseFloat(yMin.toFixed(dec)); yMax = parseFloat(yMax.toFixed(dec));
+    chartConfigSet(chartId, 'yMin', yMin);
+    chartConfigSet(chartId, 'yMax', yMax);
+    chartConfigSet(chartId, 'height', 320);
+    chartConfigApply(chartId, instanceVar);
+    // Update inputs if visible
+    var el1 = document.getElementById(chartId + '-ymin'); if (el1) el1.value = yMin;
+    var el2 = document.getElementById(chartId + '-ymax'); if (el2) el2.value = yMax;
+    var el3 = document.getElementById(chartId + '-height-val'); if (el3) el3.textContent = '320px';
+    var el4 = document.getElementById(chartId + '-height-slider'); if (el4) el4.value = 320;
+}
+
+function chartConfigBuildPanel(chartId, instanceVar, opts) {
+    opts = opts || {};
+    var cfg = chartConfigGet(chartId);
+    var paletteOptions = Object.keys(CHART_COLOR_PALETTES).map(function(k) {
+        return '<option value="' + k + '" ' + (cfg.colorPalette === k ? 'selected' : '') + '>' + k.charAt(0).toUpperCase() + k.slice(1) + '</option>';
+    }).join('');
+    var legendOpts = ['bottom','top','left','right','hidden'].map(function(v) {
+        return '<option value="' + v + '" ' + (cfg.legendPosition === v ? 'selected' : '') + '>' + (v === 'hidden' ? 'Oculta' : v.charAt(0).toUpperCase() + v.slice(1)) + '</option>';
+    }).join('');
+
+    return '<details class="chart-config-panel" ' + (window['_ccOpen_' + chartId] ? 'open' : '') + '>' +
+        '<summary onclick="window[\'_ccOpen_' + chartId + '\']=!this.parentElement.open;">⚙️ Configurar Grafico</summary>' +
+        '<div style="padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        // Row 1: Height
+        '<div style="grid-column:1/-1;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">' +
+                '<label class="cfg-label">Altura: <strong id="' + chartId + '-height-val" class="cfg-value">' + cfg.height + 'px</strong></label>' +
+                '<button onclick="chartConfigAutoFit(\'' + chartId + '\',\'' + instanceVar + '\')" class="tp-btn tp-btn-primary" style="font-size:9px;padding:2px 8px;">Auto-fit</button>' +
+            '</div>' +
+            '<input type="range" id="' + chartId + '-height-slider" min="200" max="600" step="20" value="' + cfg.height + '" oninput="chartConfigSet(\'' + chartId + '\',\'height\',+this.value);document.getElementById(\'' + chartId + '-height-val\').textContent=this.value+\'px\';chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
+        '</div>' +
+        // Row 2: Y min / Y max
+        '<div>' +
+            '<label class="cfg-label" style="display:block;margin-bottom:2px;">Eje Y min</label>' +
+            '<input type="number" step="any" id="' + chartId + '-ymin" class="tp-input" placeholder="Auto" value="' + (cfg.yMin !== null ? cfg.yMin : '') + '" onchange="chartConfigSet(\'' + chartId + '\',\'yMin\',this.value===\'\'?null:+this.value);chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');" style="width:100%;font-size:11px;">' +
+        '</div>' +
+        '<div>' +
+            '<label class="cfg-label" style="display:block;margin-bottom:2px;">Eje Y max</label>' +
+            '<input type="number" step="any" id="' + chartId + '-ymax" class="tp-input" placeholder="Auto" value="' + (cfg.yMax !== null ? cfg.yMax : '') + '" onchange="chartConfigSet(\'' + chartId + '\',\'yMax\',this.value===\'\'?null:+this.value);chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');" style="width:100%;font-size:11px;">' +
+        '</div>' +
+        // Row 3: Point radius / Line width
+        '<div>' +
+            '<label class="cfg-label">Puntos: <strong class="cfg-value">' + cfg.pointRadius + '</strong></label>' +
+            '<input type="range" min="0" max="10" step="1" value="' + cfg.pointRadius + '" oninput="chartConfigSet(\'' + chartId + '\',\'pointRadius\',+this.value);this.previousElementSibling.querySelector(\'strong\').textContent=this.value;chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
+        '</div>' +
+        '<div>' +
+            '<label class="cfg-label">Linea: <strong class="cfg-value">' + cfg.borderWidth + 'px</strong></label>' +
+            '<input type="range" min="1" max="5" step="0.5" value="' + cfg.borderWidth + '" oninput="chartConfigSet(\'' + chartId + '\',\'borderWidth\',+this.value);this.previousElementSibling.querySelector(\'strong\').textContent=this.value+\'px\';chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
+        '</div>' +
+        // Row 4: Tension / Animation
+        '<div>' +
+            '<label class="cfg-label">Curvatura: <strong class="cfg-value">' + cfg.tension + '</strong></label>' +
+            '<input type="range" min="0" max="0.4" step="0.05" value="' + cfg.tension + '" oninput="chartConfigSet(\'' + chartId + '\',\'tension\',+this.value);this.previousElementSibling.querySelector(\'strong\').textContent=this.value;chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
+        '</div>' +
+        '<div>' +
+            '<label class="cfg-label">Animacion: <strong class="cfg-value">' + cfg.animationDuration + 'ms</strong></label>' +
+            '<input type="range" min="0" max="800" step="100" value="' + cfg.animationDuration + '" oninput="chartConfigSet(\'' + chartId + '\',\'animationDuration\',+this.value);this.previousElementSibling.querySelector(\'strong\').textContent=this.value+\'ms\';chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
+        '</div>' +
+        // Row 5: Legend / Palette
+        '<div>' +
+            '<label class="cfg-label" style="display:block;margin-bottom:2px;">Leyenda</label>' +
+            '<select class="tp-select" style="font-size:10px;width:100%;" onchange="chartConfigSet(\'' + chartId + '\',\'legendPosition\',this.value);chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' + legendOpts + '</select>' +
+        '</div>' +
+        '<div>' +
+            '<label class="cfg-label" style="display:block;margin-bottom:2px;">Paleta</label>' +
+            '<select class="tp-select" style="font-size:10px;width:100%;" onchange="chartConfigSet(\'' + chartId + '\',\'colorPalette\',this.value);chartConfigApplyColors(\'' + chartId + '\',\'' + instanceVar + '\');">' + paletteOptions + '</select>' +
+        '</div>' +
+        // Row 6: Grid toggle / Font size
+        '<div>' +
+            '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:10px;color:var(--tp-dim);">' +
+                '<input type="checkbox" ' + (cfg.gridDisplay ? 'checked' : '') + ' onchange="chartConfigSet(\'' + chartId + '\',\'gridDisplay\',this.checked);chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');" style="accent-color:var(--tp-amber);">' +
+                'Mostrar grid' +
+            '</label>' +
+        '</div>' +
+        '<div>' +
+            '<label class="cfg-label">Font ticks: <strong class="cfg-value">' + cfg.tickFontSize + '</strong></label>' +
+            '<input type="range" min="7" max="14" step="1" value="' + cfg.tickFontSize + '" oninput="chartConfigSet(\'' + chartId + '\',\'tickFontSize\',+this.value);this.previousElementSibling.querySelector(\'strong\').textContent=this.value;chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
+        '</div>' +
+        // Row 7: Export + Reset
+        '<div style="grid-column:1/-1;display:flex;gap:6px;margin-top:4px;">' +
+            '<button onclick="chartExportPNG(\'' + instanceVar + '\',\'' + chartId + '\')" class="tp-btn tp-btn-ghost" style="font-size:9px;flex:1;">📷 PNG</button>' +
+            '<button onclick="chartExportPDF(\'' + instanceVar + '\',\'' + chartId + '\')" class="tp-btn tp-btn-ghost" style="font-size:9px;flex:1;">📄 PDF</button>' +
+            '<button onclick="chartConfigReset(\'' + chartId + '\');' + (opts.rerenderFn || '') + '" class="tp-btn tp-btn-ghost" style="font-size:9px;flex:1;color:var(--tp-red);">↺ Reset</button>' +
+        '</div>' +
+        '</div></details>';
+}
+
+function chartConfigApplyColors(chartId, instanceVar) {
+    var chart = window[instanceVar];
+    if (!chart) return;
+    var cfg = chartConfigGet(chartId);
+    var palette = CHART_COLOR_PALETTES[cfg.colorPalette] || CHART_COLOR_PALETTES['default'];
+    var ci = 0;
+    chart.data.datasets.forEach(function(ds) {
+        if (ds.borderDash && ds.borderDash.length > 0) return;
+        if (ds._isControlLine) return;
+        ds.borderColor = palette[ci % palette.length];
+        if (!Array.isArray(ds.backgroundColor)) ds.backgroundColor = palette[ci % palette.length] + '20';
+        ci++;
+    });
+    chart.update();
+}
+
+function chartExportPNG(instanceVar, chartId) {
+    var chart = window[instanceVar];
+    if (!chart) { showToast('Grafico no disponible', 'error'); return; }
+    var a = document.createElement('a');
+    a.download = 'KIA-EmLab-' + (chartId || 'chart') + '.png';
+    a.href = chart.toBase64Image('image/png', 1);
+    a.click();
+    showToast('PNG exportado', 'success');
+}
+
+function chartExportPDF(instanceVar, chartId) {
+    var chart = window[instanceVar];
+    if (!chart || typeof window.jspdf === 'undefined') { showToast('jsPDF o grafico no disponible', 'error'); return; }
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+    doc.setFontSize(14);
+    doc.setTextColor(5, 20, 31);
+    doc.text('KIA EmLab — ' + (chartId || 'Chart'), 15, 15);
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text(new Date().toLocaleString(), 15, 22);
+    var img = chart.toBase64Image('image/png', 1);
+    doc.addImage(img, 'PNG', 15, 28, 245, 140);
+    doc.save('KIA-EmLab-' + (chartId || 'chart') + '.pdf');
+    showToast('PDF exportado', 'success');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R4-M2] SNAPSHOT UNDO ENGINE
+// ══════════════════════════════════════════════════════════════════════
+
+var UNDO_MAX = 10;
+var _undoStack = [];
+
+function undoPush(module, actionLabel) {
+    var snapshot = {};
+    try {
+        if (module === 'cop15' || module === 'all') snapshot.cop15 = JSON.stringify(db);
+        if (module === 'testplan' || module === 'all') snapshot.testplan = typeof tpState !== 'undefined' ? JSON.stringify(tpState) : null;
+        if (module === 'results' || module === 'all') snapshot.results = typeof raState !== 'undefined' ? JSON.stringify(raState) : null;
+        if (module === 'inventory' || module === 'all') snapshot.inventory = typeof invState !== 'undefined' ? JSON.stringify(invState) : null;
+    } catch(e) { console.error('Undo snapshot failed:', e); return; }
+    _undoStack.push({ module: module, label: actionLabel, timestamp: new Date().toISOString(), data: snapshot });
+    if (_undoStack.length > UNDO_MAX) _undoStack.shift();
+}
+
+function undoPop() {
+    if (_undoStack.length === 0) { showToast('No hay acciones para deshacer', 'info'); return; }
+    var entry = _undoStack.pop();
+    try {
+        if (entry.data.cop15) { var restored = JSON.parse(entry.data.cop15); Object.keys(restored).forEach(function(k) { db[k] = restored[k]; }); saveDB(); }
+        if (entry.data.testplan && typeof tpState !== 'undefined') { var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; }); if (typeof tpSave === 'function') tpSave(); }
+        if (entry.data.results && typeof raState !== 'undefined') { var restored = JSON.parse(entry.data.results); Object.keys(restored).forEach(function(k) { raState[k] = restored[k]; }); if (typeof raSave === 'function') raSave(); }
+        if (entry.data.inventory && typeof invState !== 'undefined') { var restored = JSON.parse(entry.data.inventory); Object.keys(restored).forEach(function(k) { invState[k] = restored[k]; }); if (typeof invSave === 'function') invSave(); }
+    } catch(e) { console.error('Undo restore failed:', e); showToast('Error al deshacer', 'error'); return; }
+    // Re-render affected modules
+    if (entry.data.cop15 && typeof refreshAllLists === 'function') refreshAllLists();
+    if (entry.data.testplan && typeof tpRender === 'function') tpRender();
+    if (entry.data.results && typeof raRender === 'function') raRender();
+    if (entry.data.inventory && typeof invRender === 'function') invRender();
+    showToast('Deshecho: ' + entry.label, 'success');
+}
+
+function undoGetStack() { return _undoStack.slice(); }
+
+// ══════════════════════════════════════════════════════════════════════
+// [R4-M7] ENTITY NOTES SYSTEM
+// ══════════════════════════════════════════════════════════════════════
+
+var NOTES_LS_KEY = 'kia_entity_notes';
+var _entityNotes = {};
+try { var _nr = localStorage.getItem(NOTES_LS_KEY); if (_nr) _entityNotes = JSON.parse(_nr); } catch(e) { _entityNotes = {}; }
+
+function noteAdd(entityType, entityId, text) {
+    var key = entityType + ':' + entityId;
+    if (!_entityNotes[key]) _entityNotes[key] = [];
+    _entityNotes[key].push({ id: Date.now(), text: text, timestamp: new Date().toISOString() });
+    try { localStorage.setItem(NOTES_LS_KEY, JSON.stringify(_entityNotes)); } catch(e) {}
+}
+function noteGet(entityType, entityId) { return _entityNotes[entityType + ':' + entityId] || []; }
+function noteDelete(entityType, entityId, noteId) {
+    var key = entityType + ':' + entityId;
+    if (!_entityNotes[key]) return;
+    _entityNotes[key] = _entityNotes[key].filter(function(n) { return n.id !== noteId; });
+    if (_entityNotes[key].length === 0) delete _entityNotes[key];
+    try { localStorage.setItem(NOTES_LS_KEY, JSON.stringify(_entityNotes)); } catch(e) {}
+}
+function noteCount(entityType, entityId) { return noteGet(entityType, entityId).length; }
+
+function noteBuildButton(entityType, entityId) {
+    var c = noteCount(entityType, entityId);
+    return '<button onclick="noteShowModal(\'' + entityType + '\',\'' + entityId + '\')" class="tp-btn tp-btn-ghost" style="font-size:9px;position:relative;padding:3px 8px;">' +
+        '📝 Notas' + (c > 0 ? ' <span style="background:var(--tp-amber);color:#000;font-size:8px;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-left:2px;">' + c + '</span>' : '') +
+        '</button>';
+}
+
+function noteShowModal(entityType, entityId) {
+    var notes = noteGet(entityType, entityId);
+    var html = '<div style="max-height:300px;overflow-y:auto;margin-bottom:10px;">';
+    if (notes.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin notas</div>';
+    } else {
+        notes.slice().reverse().forEach(function(n) {
+            html += '<div style="padding:8px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-bg);">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+            html += '<span style="font-size:8px;color:var(--tp-dim);">' + new Date(n.timestamp).toLocaleString('es-MX') + '</span>';
+            html += '<button onclick="noteDelete(\'' + entityType + '\',\'' + entityId + '\',' + n.id + ');noteShowModal(\'' + entityType + '\',\'' + entityId + '\');" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:0 4px;">×</button>';
+            html += '</div>';
+            html += '<div style="font-size:11px;color:var(--tp-text);white-space:pre-wrap;">' + escapeHtml(n.text) + '</div>';
+            html += '</div>';
+        });
+    }
+    html += '</div>';
+    html += '<div style="display:flex;gap:6px;">';
+    html += '<input type="text" id="_noteInput" class="tp-input" placeholder="Agregar nota..." style="flex:1;font-size:11px;padding:8px;" onkeydown="if(event.key===\'Enter\'){var v=this.value.trim();if(v){noteAdd(\'' + entityType + '\',\'' + entityId + '\',v);noteShowModal(\'' + entityType + '\',\'' + entityId + '\');}}">';
+    html += '<button onclick="var inp=document.getElementById(\'_noteInput\');var v=inp.value.trim();if(v){noteAdd(\'' + entityType + '\',\'' + entityId + '\',v);noteShowModal(\'' + entityType + '\',\'' + entityId + '\');}" class="tp-btn tp-btn-primary" style="font-size:10px;padding:8px 14px;">+</button>';
+    html += '</div>';
+
+    showModal('Notas — ' + entityType + ':' + entityId.substring(0, 15), html, []);
+}
 
 function round(x, decimals = 4) {
   if (!isFinite(x)) return '';
@@ -3016,6 +3358,68 @@ function globalVinSearch(query) {
         });
     }
 
+    // ═══ [R4-M4] Cross-module search: Inventory gases + equipment ═══
+    if (typeof invState !== 'undefined') {
+        (invState.gases || []).forEach(function(g) {
+            var searchStr = ((g.controlNo || '') + ' ' + (g.formula || '') + ' ' + (g.gasType || '') + ' ' + (g.concNominal || '')).toUpperCase();
+            if (searchStr.includes(q)) {
+                results.push({
+                    module: 'Inventario',
+                    icon: '🧪',
+                    vin: g.formula + ' ' + (g.concNominal || '') + ' #' + (g.controlNo || ''),
+                    detail: 'Zona: ' + (g.zone || '—') + ' | PSI: ' + (g.readings && g.readings.length > 0 ? g.readings[g.readings.length-1].psi : '—'),
+                    date: g.validUntil || '',
+                    action: 'switchPlatform("inventory")'
+                });
+            }
+        });
+        (invState.equipment || []).forEach(function(e) {
+            var searchStr = ((e.name || '') + ' ' + (e.serialNo || '') + ' ' + (e.kmmId || '')).toUpperCase();
+            if (searchStr.includes(q)) {
+                results.push({
+                    module: 'Inventario',
+                    icon: '🔧',
+                    vin: e.name || 'Equipo',
+                    detail: 'S/N: ' + (e.serialNo || '—') + ' | KMM: ' + (e.kmmId || '—'),
+                    date: e.nextCalDate || '',
+                    action: 'switchPlatform("inventory")'
+                });
+            }
+        });
+    }
+
+    // [R4-M4] Also search COP15 by configCode and model
+    (db.vehicles || []).forEach(function(v) {
+        var configStr = ((v.configCode || '') + ' ' + (v.config && v.config['Modelo'] ? v.config['Modelo'] : '')).toUpperCase();
+        if (configStr.includes(q) && !(v.vin || '').toUpperCase().includes(q)) {
+            results.push({
+                module: 'COP15',
+                icon: '🚗',
+                vin: v.configCode || v.vin || '?',
+                detail: (v.config && v.config['Modelo'] ? v.config['Modelo'] + ' — ' : '') + (CONFIG.statusLabels[v.status] || v.status),
+                date: v.registeredAt ? new Date(v.registeredAt).toLocaleDateString('es-MX') : '',
+                action: 'switchPlatform("cop15")'
+            });
+        }
+    });
+
+    // [R4-M4] Search RA by operator, testDesc, regulation
+    if (typeof raState !== 'undefined' && raState.tests) {
+        raState.tests.forEach(function(t) {
+            var searchStr = ((t.operator || '') + ' ' + (t.testDesc || '') + ' ' + (t.regulation || '') + ' ' + (t.emissionReg || '')).toUpperCase();
+            if (searchStr.includes(q) && !((t.vin || t.VIN || '').toUpperCase().includes(q))) {
+                results.push({
+                    module: 'Results',
+                    icon: '📊',
+                    vin: t.testDesc || t.regulation || '?',
+                    detail: 'Op: ' + (t.operator || '—') + (t.verdict ? ' — ' + t.verdict : ''),
+                    date: t.date || t.importDate || '',
+                    action: 'switchPlatform("results")'
+                });
+            }
+        });
+    }
+
     if (results.length === 0) {
         res.innerHTML = '<div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:0 0 8px 8px;color:#94a3b8;font-size:0.85rem;text-align:center;">No se encontraron resultados para "' + escapeHtml(query) + '"</div>';
         return;
@@ -3186,7 +3590,39 @@ function generateWeeklyStatusPDF() {
         y = addRow('Equipos cal. próxima a vencer (<7d)', calWarning, y, calWarning > 0 ? [245, 158, 11] : [16, 185, 129]);
     } catch (e) { y = addRow('Error', e.message, y, [239, 68, 68]); }
 
+    // ═══ [R4-M3] Embed chart images if available ═══
+    var chartsToEmbed = [
+        { instance: '_tpBurndownChart', title: 'Burndown - Test Plan' },
+        { instance: '_raComplianceChart', title: 'Compliance Rate - Resultados' },
+        { instance: '_raTrendChart', title: 'Trend Analysis - Resultados' },
+        { instance: '_invChartInstance', title: 'Consumo - Inventario' }
+    ];
+    var embeddedAny = false;
+    chartsToEmbed.forEach(function(ch) {
+        try {
+            var chart = window[ch.instance];
+            if (!chart || typeof chart.toBase64Image !== 'function') return;
+            if (y > PH - 80) { doc.addPage(); y = 20; }
+            if (!embeddedAny) {
+                y += 5;
+                setF('bold', 11); doc.setTextColor(5, 20, 31);
+                doc.text('Graficos', ML, y); y += 3;
+                doc.setDrawColor(239, 68, 68); doc.setLineWidth(0.5);
+                doc.line(ML, y, ML + CW, y); y += 5;
+                embeddedAny = true;
+            }
+            setF('normal', 9); doc.setTextColor(80);
+            doc.text(ch.title, ML, y); y += 3;
+            var img = chart.toBase64Image('image/png', 1);
+            var imgH = 45;
+            if (y + imgH > PH - 20) { doc.addPage(); y = 20; }
+            doc.addImage(img, 'PNG', ML, y, CW, imgH);
+            y += imgH + 5;
+        } catch(e) { /* skip chart if error */ }
+    });
+
     // Footer
+    if (y > PH - 20) { doc.addPage(); y = 20; }
     y += 10;
     doc.setDrawColor(200, 200, 200);
     doc.line(ML, y, ML + CW, y);
@@ -3315,6 +3751,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try {
             if (typeof fbInit === 'function') { fbInit(); fbHookSaves(); fbUpdateIndicator(); }
         } catch(fbErr) { console.error('Firebase init failed (non-blocking):', fbErr); }
+
+        // ═══ [R4-M1] Load chart configurations ═══
+        chartConfigLoad();
 
         // ═══ [R3-M6] Health check at boot ═══
         try {
@@ -3454,6 +3893,7 @@ var _commandPaletteCommands = [
     { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'action' },
     { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'action' },
     { label: 'Exportar CSV Resultados', icon: '📊', action: function(){ if(typeof raExportCSV==='function') raExportCSV(); }, cat: 'action' },
+    { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'action' },
     { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'action' },
     { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'action' },
     { label: 'Generar Plan Smart', icon: '⚡', action: function(){ switchPlatform('testplan'); setTimeout(function(){ if(typeof tpSmartGenerate==='function') tpSmartGenerate(); }, 300); }, cat: 'action' },
@@ -3482,11 +3922,50 @@ function closeCommandPalette() {
 
 function filterCommands(query) {
     var q = query.toLowerCase().trim();
+    // [R4-M4] Power search: prefix > searches across all modules
+    if (q.startsWith('>') && q.length > 1) {
+        var searchQ = q.slice(1).trim();
+        _cmdFiltered = _globalCrossSearchForPalette(searchQ);
+        _cmdActiveIdx = 0;
+        renderCommandResults();
+        return;
+    }
     _cmdFiltered = q ? _commandPaletteCommands.filter(function(c) {
         return c.label.toLowerCase().includes(q) || (c.cat && c.cat.includes(q));
     }) : _commandPaletteCommands;
     _cmdActiveIdx = 0;
     renderCommandResults();
+}
+
+function _globalCrossSearchForPalette(q) {
+    var results = [];
+    var qUp = q.toUpperCase();
+    // COP15 vehicles
+    (db.vehicles || []).slice(-50).forEach(function(v) {
+        if (((v.vin||'')+(v.configCode||'')).toUpperCase().includes(qUp)) {
+            results.push({ label: v.vin + ' — ' + (v.configCode || '').substring(0,30), icon: '🚗', action: function(){ switchPlatform('cop15'); }, cat: 'COP15' });
+        }
+    });
+    // Inventory
+    if (typeof invState !== 'undefined') {
+        (invState.gases || []).slice(0,30).forEach(function(g) {
+            if (((g.formula||'')+(g.controlNo||'')).toUpperCase().includes(qUp)) {
+                results.push({ label: g.formula + ' #' + (g.controlNo||''), icon: '🧪', action: function(){ switchPlatform('inventory'); }, cat: 'Inventario' });
+            }
+        });
+    }
+    // Results
+    if (typeof raState !== 'undefined' && raState.tests) {
+        var seen = {};
+        raState.tests.slice(-30).forEach(function(t) {
+            var desc = (t.vin||'') + ' ' + (t.testDesc||'');
+            if (desc.toUpperCase().includes(qUp) && !seen[desc]) {
+                seen[desc] = true;
+                results.push({ label: (t.vin||'?') + ' — ' + (t.testDesc||'').substring(0,30), icon: '📊', action: function(){ switchPlatform('results'); }, cat: 'Results' });
+            }
+        });
+    }
+    return results.slice(0, 15);
 }
 
 function renderCommandResults() {
@@ -3530,6 +4009,10 @@ document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '5') {
         var platforms = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
         e.preventDefault(); switchPlatform(platforms[parseInt(e.key) - 1]); return;
+    }
+    // Ctrl+Z: Undo
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault(); undoPop(); return;
     }
     // Ctrl+S: Save
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -5943,10 +6426,11 @@ if (vehicle.status !== 'ready-release') {
            return;
        }
 
-       // Filter toggle
-       var filterHtml = '<div class="tl-filters">' +
+       // Filter toggle + Notes button
+       var filterHtml = '<div class="tl-filters" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
            '<button class="tl-filter-btn' + (_tlFilter==='all'?' active':'') + '" onclick="_tlFilter=\'all\';renderTimeline(db.vehicles.find(function(v){return v.id==activeVehicleId}))">Todos</button>' +
            '<button class="tl-filter-btn' + (_tlFilter==='status'?' active':'') + '" onclick="_tlFilter=\'status\';renderTimeline(db.vehicles.find(function(v){return v.id==activeVehicleId}))">Solo Status</button>' +
+           (typeof noteBuildButton === 'function' ? '<span style="margin-left:auto;">' + noteBuildButton('vehicle', String(vehicle.id)) + '</span>' : '') +
            '</div>';
 
        // Group by phase
@@ -10871,7 +11355,10 @@ function invRenderCharts(el) {
         '" onclick="window._invChartType=\'gas_compare\';invRender();" style="font-size:10px;">Comparar Gases</button>';
     html += '</div>';
 
-    html += '<div style="position:relative;height:300px;margin-bottom:12px;">';
+    var _invChartId = 'inv_' + chartType;
+    html += (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel(_invChartId, '_invChartInstance', {rerenderFn:'invRender();'}) : '');
+    var _invCH = typeof chartConfigGet === 'function' ? chartConfigGet(_invChartId).height : 300;
+    html += '<div id="' + _invChartId + '-wrapper" style="position:relative;height:' + _invCH + 'px;margin-bottom:12px;">';
     html += '<canvas id="inv-chart-main"></canvas>';
     html += '</div>';
 
@@ -11015,7 +11502,7 @@ function invRenderConfig(el) {
     html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invExportGases()" style="font-size:10px;">Exportar JSON</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invImportGases()" style="font-size:10px;">Importar JSON</button>';
-    html += '<button class="tp-btn tp-btn-danger" onclick="showConfirm(\'Borrar TODOS los datos de inventario?\',function(){invState.gases=[];invState.equipment=[];invState.fuelTanks=[];invState.usageLog=[];invSave();invRender();invUpdateBadges();},{title:\'Resetear inventario\',type:\'danger\',confirmText:\'Borrar todo\'})" style="font-size:10px;">Resetear</button>';
+    html += '<button class="tp-btn tp-btn-danger" onclick="showConfirm(\'Borrar TODOS los datos de inventario?\',function(){if(typeof undoPush===\\x27function\\x27)undoPush(\\x27inventory\\x27,\\x27Resetear inventario\\x27);invState.gases=[];invState.equipment=[];invState.fuelTanks=[];invState.usageLog=[];invSave();invRender();invUpdateBadges();showToast(\\x27Inventario reseteado\\x27,\\x27success\\x27,null,undoPop);},{title:\'Resetear inventario\',type:\'danger\',confirmText:\'Borrar todo\'})" style="font-size:10px;">Resetear</button>';
     html += '</div>';
     html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:4px;">' + invState.gases.length + ' gases, ' + invState.equipment.length + ' equipos, ' + (invState.usageLog||[]).length + ' registros de uso</div>';
     html += '</div>';
@@ -12274,7 +12761,7 @@ function tpRenderDashboard(el) {
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
                 <div>
                     <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Agrupar por</label>
-                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartGroupBy=this.value;tpRender();">
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartGroupBy=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','groupBy',this.value);tpRender();">
                         <option value="region" ${(window._tpChartGroupBy||'region')==='region'?'selected':''}>Region</option>
                         <option value="model" ${window._tpChartGroupBy==='model'?'selected':''}>Modelo</option>
                         <option value="regulation" ${window._tpChartGroupBy==='regulation'?'selected':''}>Regulacion</option>
@@ -12283,7 +12770,7 @@ function tpRenderDashboard(el) {
                 </div>
                 <div>
                     <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Metrica Y</label>
-                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartMetric=this.value;tpRender();">
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartMetric=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','metric',this.value);tpRender();">
                         <option value="qty" ${(window._tpChartMetric||'qty')==='qty'?'selected':''}>Cantidad (Req vs Probadas)</option>
                         <option value="pct" ${window._tpChartMetric==='pct'?'selected':''}>% Cumplimiento</option>
                         <option value="deficit" ${window._tpChartMetric==='deficit'?'selected':''}>Deficit</option>
@@ -12291,7 +12778,7 @@ function tpRenderDashboard(el) {
                 </div>
                 <div>
                     <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Tipo de grafica</label>
-                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartType=this.value;tpRender();">
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartType=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','chartType',this.value);tpRender();">
                         <option value="bar" ${(window._tpChartType||'bar')==='bar'?'selected':''}>Barras</option>
                         <option value="hbar" ${window._tpChartType==='hbar'?'selected':''}>Barras Horizontales</option>
                         <option value="stacked" ${window._tpChartType==='stacked'?'selected':''}>Barras Apiladas</option>
@@ -12299,11 +12786,11 @@ function tpRenderDashboard(el) {
                 </div>
                 <div>
                     <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Y max (0=auto)</label>
-                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpDashYMax || 0}" min="0" onchange="window._tpDashYMax=parseInt(this.value);tpRender();">
+                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpDashYMax || 0}" min="0" onchange="window._tpDashYMax=parseInt(this.value);if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','yMax',parseInt(this.value));tpRender();">
                 </div>
                 <div>
                     <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Altura (px)</label>
-                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpDashChartH || 0}" min="0" max="500" onchange="window._tpDashChartH=parseInt(this.value);tpRender();">
+                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpDashChartH || 0}" min="0" max="500" onchange="window._tpDashChartH=parseInt(this.value);if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','chartH',parseInt(this.value));tpRender();">
                 </div>
             </div>
         </div>` : ''}
@@ -12500,7 +12987,8 @@ function tpRenderBurndownChart(stats) {
         html += '</div>';
     }
 
-    html += '<div style="height:250px;"><canvas id="tp-burndown-canvas"></canvas></div>';
+    html += (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel('tp_burndown', '_tpBurndownChart', {rerenderFn:'tpRender();'}) : '');
+    html += '<div id="tp_burndown-wrapper" style="height:' + (typeof chartConfigGet==='function'?chartConfigGet('tp_burndown').height:250) + 'px;"><canvas id="tp-burndown-canvas"></canvas></div>';
 
     // Schedule chart render after DOM update
     setTimeout(function() {
@@ -12567,6 +13055,15 @@ function tpISOWeekKey(d) {
 
 // ═══ DASHBOARD CHART RENDERER ═══
 function tpRenderDashChart(analysis) {
+    // Restore persisted config
+    if (typeof chartConfigGet === 'function') {
+        var _tpDashCfg = chartConfigGet('tp_dashboard');
+        if (_tpDashCfg.groupBy && !window._tpChartGroupBy) window._tpChartGroupBy = _tpDashCfg.groupBy;
+        if (_tpDashCfg.metric && !window._tpChartMetric) window._tpChartMetric = _tpDashCfg.metric;
+        if (_tpDashCfg.chartType && !window._tpChartType) window._tpChartType = _tpDashCfg.chartType;
+        if (_tpDashCfg.yMax && !window._tpDashYMax) window._tpDashYMax = _tpDashCfg.yMax;
+        if (_tpDashCfg.chartH && !window._tpDashChartH) window._tpDashChartH = _tpDashCfg.chartH;
+    }
     const groupBy = window._tpChartGroupBy || 'region';
     const metric = window._tpChartMetric || 'qty';
     const chartType = window._tpChartType || 'bar';
@@ -12826,7 +13323,7 @@ function tpRenderTested(el) {
     <div class="tp-card">
         <div class="tp-card-title">
             <span>📋 Registro de Pruebas (${tpState.testedList.length})</span>
-            ${tpState.testedList.length > 0 ? `<button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Borrar todos los registros de pruebas?',function(){tpState.testedList=[];tpSave();tpRender();tpUpdateBadges();},{title:'Borrar registros',type:'danger',confirmText:'Borrar todo'})" style="font-size:10px;">🗑 Borrar todo</button>` : ''}
+            ${tpState.testedList.length > 0 ? `<button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Borrar todos los registros de pruebas?',function(){if(typeof undoPush==='function')undoPush('testplan','Borrar registros de pruebas');tpState.testedList=[];tpSave();tpRender();tpUpdateBadges();showToast('Registros borrados','success',null,undoPop);},{title:'Borrar registros',type:'danger',confirmText:'Borrar todo'})" style="font-size:10px;">🗑 Borrar todo</button>` : ''}
         </div>
         ${tpState.testedList.length === 0 ? `<div style="text-align:center;padding:25px;color:var(--tp-dim);"><div style="font-size:24px;margin-bottom:6px;">📭</div>No hay vehículos probados registrados<br><small style="color:var(--tp-dim);">Se agregan automáticamente al liberar vehículos en COP15 (Correlation, COP-Emisiones, EO-Emisiones, Investigación)</small><br><button class="tp-btn tp-btn-primary" onclick="window._tpTestedMode='manual';tpRender();" style="margin-top:12px;">✏️ Agregar Manual</button></div>` : `
         <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:flex-end;">
@@ -15486,7 +15983,9 @@ function raBuildComplianceTrendHTML() {
 
     // Chart
     var regColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
-    var html = '<div style="height:220px;margin-bottom:12px;"><canvas id="ra-compliance-canvas"></canvas></div>';
+    var _ccCfg = typeof chartConfigGet === 'function' ? chartConfigGet('ra_compliance') : {height:220};
+    var html = (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel('ra_compliance', '_raComplianceChart', {rerenderFn:'raRender();'}) : '');
+    html += '<div id="ra_compliance-wrapper" style="height:' + _ccCfg.height + 'px;margin-bottom:12px;"><canvas id="ra-compliance-canvas"></canvas></div>';
 
     // Summary table
     html += '<table style="width:100%;font-size:10px;border-collapse:collapse;">';
@@ -15586,7 +16085,7 @@ function raRenderImport(el){
     </div>
     <div class="tp-card">
         <div class="tp-card-title"><span>💾 Almacenamiento (${raState.tests.length} pruebas)</span>
-            ${raState.tests.length>0?`<div style="display:flex;gap:6px;"><button class="tp-btn tp-btn-ghost" onclick="raExportAll()" style="font-size:10px;">📤 Export JSON</button><button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Borrar TODAS las pruebas importadas?',function(){raState.tests=[];raSave();raRender();raUpdateBadges();},{title:'Borrar pruebas',type:'danger',confirmText:'Borrar todo'})" style="font-size:10px;">🗑 Borrar</button></div>`:''}
+            ${raState.tests.length>0?`<div style="display:flex;gap:6px;"><button class="tp-btn tp-btn-ghost" onclick="raExportAll()" style="font-size:10px;">📤 Export JSON</button><button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Borrar TODAS las pruebas importadas?',function(){if(typeof undoPush==='function')undoPush('results','Borrar todas las pruebas');raState.tests=[];raSave();raRender();raUpdateBadges();showToast('Pruebas borradas','success',null,undoPop);},{title:'Borrar pruebas',type:'danger',confirmText:'Borrar todo'})" style="font-size:10px;">🗑 Borrar</button></div>`:''}
         </div>
         <p style="font-size:10px;color:var(--tp-dim);">${raState.tests.length>0?`~${(JSON.stringify(raState.tests).length/1024).toFixed(0)} KB en localStorage`:'Sin datos.'}</p>
     </div>`;
@@ -15991,26 +16490,7 @@ function raRenderTrends(el){
             <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:#06b6d4;font-size:15px;">${pts.length}</div><div class="tp-metric-label">N</div></div>
             <div class="tp-metric" style="flex:1"><div class="tp-metric-val" style="color:${pts.filter(p=>Math.abs(p.val-avgV)>2*stdV).length>0?'var(--tp-red)':'var(--tp-green)'};font-size:15px;">${pts.filter(p=>Math.abs(p.val-avgV)>2*stdV).length}</div><div class="tp-metric-label">>2&sigma;</div></div>
         </div>
-        <details style="margin-bottom:10px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;" ${window._raChartSettingsOpen?'open':''}>
-            <summary onclick="window._raChartSettingsOpen=this.parentElement.open?false:true;" style="padding:8px 12px;cursor:pointer;font-size:10px;font-weight:700;color:var(--tp-dim);background:var(--tp-card);user-select:none;">⚙️ Ajustes del Gráfico</summary>
-            <div style="padding:10px 12px;background:#0d1320;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div style="grid-column:1/-1;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                        <label style="font-size:10px;color:var(--tp-dim);">Altura: <strong id="ra-height-val" style="color:var(--tp-amber);">${window._raChartHeight||320}px</strong></label>
-                        <button onclick="raChartAutoFit()" class="tp-btn tp-btn-primary" style="font-size:9px;padding:3px 10px;">Auto-fit</button>
-                    </div>
-                    <input type="range" min="200" max="600" step="20" value="${window._raChartHeight||320}" oninput="raChartSetHeight(+this.value)" style="width:100%;accent-color:var(--tp-amber);">
-                </div>
-                <div>
-                    <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Eje Y mínimo</label>
-                    <input type="number" step="any" id="ra-ymin-input" class="tp-input" placeholder="Auto" value="${window._raChartYMin!==null&&window._raChartYMin!==undefined?window._raChartYMin:''}" onchange="raChartSetYRange(this.value===''?null:+this.value,null,'min')" style="width:100%;font-size:11px;">
-                </div>
-                <div>
-                    <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Eje Y máximo</label>
-                    <input type="number" step="any" id="ra-ymax-input" class="tp-input" placeholder="Auto" value="${window._raChartYMax!==null&&window._raChartYMax!==undefined?window._raChartYMax:''}" onchange="raChartSetYRange(null,this.value===''?null:+this.value,'max')" style="width:100%;font-size:11px;">
-                </div>
-            </div>
-        </details>
+        ${typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel('ra_trend', '_raTrendChart', {rerenderFn:'raRender();'}) : ''}
         <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
             <span style="font-size:9px;color:var(--tp-dim);font-weight:600;">Rango:</span>
             <button class="tp-btn tp-btn-ghost" onclick="raFilterTrendRange(7)" style="font-size:9px;padding:3px 8px;">7 dias</button>
@@ -16019,7 +16499,7 @@ function raRenderTrends(el){
             <button class="tp-btn tp-btn-ghost" onclick="raFilterTrendRange(0)" style="font-size:9px;padding:3px 8px;">Todo</button>
             <button class="tp-btn tp-btn-ghost" onclick="raResetTrendZoom()" style="font-size:9px;padding:3px 8px;margin-left:auto;">Reset Zoom</button>
         </div>
-        <div id="ra-trend-wrapper" style="position:relative;height:${window._raChartHeight||320}px;">
+        <div id="ra_trend-wrapper" style="position:relative;height:${typeof chartConfigGet==='function'?chartConfigGet('ra_trend').height:(window._raChartHeight||320)}px;">
             ${pts.length===0?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--tp-dim);"><div style="font-size:28px;margin-bottom:8px;">📉</div><div style="font-size:12px;font-weight:700;">Sin datos para "${fMetric}"</div><div style="font-size:10px;margin-top:4px;">Verifica que las pruebas tengan cycleData con este campo.<br>Si hay pruebas importadas, asegurate de que no se haya compactado la data.</div></div>`:'<canvas id="ra-trend-canvas"></canvas>'}
         </div>
     </div>
@@ -16106,8 +16586,8 @@ function raRenderTrends(el){
             scales: {
                 x: { ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45, maxTicksLimit: 15 },
                      grid: { color: 'rgba(30,41,59,0.5)' } },
-                y: { min: window._raChartYMin !== null && window._raChartYMin !== undefined ? window._raChartYMin : undefined,
-                     max: window._raChartYMax !== null && window._raChartYMax !== undefined ? window._raChartYMax : undefined,
+                y: { min: (typeof chartConfigGet==='function'&&chartConfigGet('ra_trend').yMin!==null)?chartConfigGet('ra_trend').yMin:undefined,
+                     max: (typeof chartConfigGet==='function'&&chartConfigGet('ra_trend').yMax!==null)?chartConfigGet('ra_trend').yMax:undefined,
                      ticks: { color: '#64748b', font: { size: 9 } },
                      grid: { color: 'rgba(30,41,59,0.5)' } }
             }
@@ -16115,17 +16595,16 @@ function raRenderTrends(el){
     });
 }
 
-// ── Chart adjustment helpers (live update without re-render) ──
+// ── Chart adjustment helpers — redirected to unified chart config system ──
 function raChartSetHeight(val) {
+    if (typeof chartConfigSet === 'function') { chartConfigSet('ra_trend', 'height', val); chartConfigApply('ra_trend', '_raTrendChart'); return; }
     window._raChartHeight = val;
-    var wrapper = document.getElementById('ra-trend-wrapper');
+    var wrapper = document.getElementById('ra_trend-wrapper');
     if (wrapper) wrapper.style.height = val + 'px';
-    var label = document.getElementById('ra-height-val');
-    if (label) label.textContent = val + 'px';
     if (window._raTrendChart) window._raTrendChart.resize();
 }
-
 function raChartSetYRange(minVal, maxVal, which) {
+    if (typeof chartConfigSet === 'function') { chartConfigSet('ra_trend', which === 'min' ? 'yMin' : 'yMax', which === 'min' ? minVal : maxVal); chartConfigApply('ra_trend', '_raTrendChart'); return; }
     if (which === 'min') window._raChartYMin = minVal;
     if (which === 'max') window._raChartYMax = maxVal;
     if (!window._raTrendChart) return;
@@ -16134,38 +16613,8 @@ function raChartSetYRange(minVal, maxVal, which) {
     if (which === 'max') yScale.max = maxVal !== null ? maxVal : undefined;
     window._raTrendChart.update();
 }
-
 function raChartAutoFit() {
-    if (!window._raTrendChart) return;
-    var ds = window._raTrendChart.data.datasets;
-    var allVals = [];
-    ds.forEach(function(d) { d.data.forEach(function(v) { if (v !== null && v !== undefined && !isNaN(v)) allVals.push(v); }); });
-    if (allVals.length === 0) return;
-    var dataMin = Math.min.apply(null, allVals);
-    var dataMax = Math.max.apply(null, allVals);
-    var range = dataMax - dataMin;
-    var padding = range > 0 ? range * 0.10 : Math.abs(dataMax) * 0.10 || 0.1;
-    var yMin = Math.max(0, dataMin - padding);
-    var yMax = dataMax + padding;
-    // Round to reasonable precision
-    var decimals = range < 1 ? 4 : range < 10 ? 2 : 0;
-    yMin = parseFloat(yMin.toFixed(decimals));
-    yMax = parseFloat(yMax.toFixed(decimals));
-    window._raChartYMin = yMin;
-    window._raChartYMax = yMax;
-    window._raChartHeight = 320;
-    // Update inputs
-    var minInput = document.getElementById('ra-ymin-input');
-    var maxInput = document.getElementById('ra-ymax-input');
-    if (minInput) minInput.value = yMin;
-    if (maxInput) maxInput.value = yMax;
-    // Update chart
-    var yScale = window._raTrendChart.options.scales.y;
-    yScale.min = yMin;
-    yScale.max = yMax;
-    window._raTrendChart.update();
-    // Reset height
-    raChartSetHeight(320);
+    if (typeof chartConfigAutoFit === 'function') { chartConfigAutoFit('ra_trend', '_raTrendChart'); return; }
 }
 
 function raFilterTrendRange(days) {
@@ -16261,6 +16710,7 @@ function raRenderDetail(el){
                 <span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);border:1px solid rgba(16,185,129,0.3);">${test.testStatus||'?'}</span>
                 ${profile?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);margin-left:4px;">Perfil: ${profile.name}</span>`:''}
                 <span style="font-size:8px;color:var(--tp-dim);display:block;margin-top:2px;">Consumo: ${fuelLabel}</span>
+                ${typeof noteBuildButton === 'function' ? noteBuildButton('test', String(test.id)) : ''}
             </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:8px;font-size:10px;color:var(--tp-dim);">
@@ -17027,6 +17477,42 @@ function raRenderCompare(el) {
     html += '<div style="font-size:8px;color:var(--tp-dim);margin-top:6px;">Delta = B - A. Verde = B menor que A (mejora). Rojo = B mayor que A (peor). Valores en rojo exceden el limite regulatorio.</div>';
     html += '</div>';
 
+    // [R4-M6] Radar chart comparison normalized to regulatory limits
+    var radarKeys = emissionKeys.filter(function(ek) {
+        return (typeof cA[ek.k] === 'number' || typeof cB[ek.k] === 'number') && limits[ek.k];
+    });
+    if (radarKeys.length >= 3 && typeof Chart !== 'undefined') {
+        html += '<div class="tp-card"><div class="tp-card-title"><span>Radar Comparativo (% del Limite)</span></div>';
+        html += (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel('ra_compare_radar', '_raCompareRadar', {rerenderFn:'raRender();'}) : '');
+        var radarH = typeof chartConfigGet === 'function' ? chartConfigGet('ra_compare_radar').height : 280;
+        html += '<div id="ra_compare_radar-wrapper" style="height:' + radarH + 'px;"><canvas id="ra-compare-radar"></canvas></div></div>';
+
+        setTimeout(function() {
+            if (window._raCompareRadar) { try { window._raCompareRadar.destroy(); } catch(e) {} }
+            var rCtx = document.getElementById('ra-compare-radar');
+            if (!rCtx) return;
+            var rLabels = radarKeys.map(function(ek) { return ek.l; });
+            var rDataA = radarKeys.map(function(ek) { var v = cA[ek.k]; return (typeof v === 'number' && limits[ek.k]) ? Math.round(Math.abs(v) / limits[ek.k] * 100) : 0; });
+            var rDataB = radarKeys.map(function(ek) { var v = cB[ek.k]; return (typeof v === 'number' && limits[ek.k]) ? Math.round(Math.abs(v) / limits[ek.k] * 100) : 0; });
+            window._raCompareRadar = new Chart(rCtx, {
+                type: 'radar',
+                data: {
+                    labels: rLabels,
+                    datasets: [
+                        { label: 'Test A', data: rDataA, borderColor: '#06b6d4', backgroundColor: 'rgba(6,182,212,0.15)', pointRadius: 3, borderWidth: 2 },
+                        { label: 'Test B', data: rDataB, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.15)', pointRadius: 3, borderWidth: 2 },
+                        { label: 'Limite (100%)', data: radarKeys.map(function() { return 100; }), borderColor: '#ef444480', borderDash: [4,4], borderWidth: 1.5, pointRadius: 0, fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } },
+                    scales: { r: { ticks: { color: '#64748b', font: { size: 8 }, backdropColor: 'transparent' }, grid: { color: 'rgba(255,255,255,0.1)' }, angleLines: { color: 'rgba(255,255,255,0.1)' }, pointLabels: { color: '#94a3b8', font: { size: 9 } }, suggestedMin: 0, suggestedMax: 120 } }
+                }
+            });
+        }, 50);
+    }
+
     el.innerHTML = html;
 }
 
@@ -17220,8 +17706,12 @@ function raRenderSPC(el) {
         '</div>' +
 
         // Chart containers
-        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Carta Individual (I)</div><div style="height:280px;"><canvas id="ra-spc-i-canvas"></canvas></div></div>' +
-        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Carta Rango Movil (mR)</div><div style="height:200px;"><canvas id="ra-spc-mr-canvas"></canvas></div></div>' +
+        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Carta Individual (I)</div>' +
+        (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel('ra_spc_i', '_raSpcIChart', {rerenderFn:'raRender();'}) : '') +
+        '<div id="ra_spc_i-wrapper" style="height:' + (typeof chartConfigGet==='function'?chartConfigGet('ra_spc_i').height:280) + 'px;"><canvas id="ra-spc-i-canvas"></canvas></div></div>' +
+        '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Carta Rango Movil (mR)</div>' +
+        (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel('ra_spc_mr', '_raSpcMRChart', {rerenderFn:'raRender();'}) : '') +
+        '<div id="ra_spc_mr-wrapper" style="height:' + (typeof chartConfigGet==='function'?chartConfigGet('ra_spc_mr').height:200) + 'px;"><canvas id="ra-spc-mr-canvas"></canvas></div></div>' +
 
         // Nelson Rules summary table
         '<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:700;color:#8b5cf6;margin-bottom:6px;">Reglas de Nelson</div>' +
@@ -17335,6 +17825,8 @@ function pnRender() {
     else if (tab === 'pn-users') pnRenderUsers(el);
     else if (tab === 'pn-shift') pnRenderShiftLog(el);
     else if (tab === 'pn-alerts') pnRenderAlerts(el);
+    else if (tab === 'pn-intelligence') pnRenderIntelligence(el);
+    else if (tab === 'pn-system') pnRenderSystemHealth(el);
 }
 
 function pnUpdateBadges() {
@@ -18165,6 +18657,490 @@ function pnExportAlerts() {
     } else {
         navigator.clipboard.writeText(text).then(function() { showToast('Copiado al portapapeles', 'success'); });
     }
+}
+
+// ── [R4-M5] Auto-Correlación Cross-Module (Intelligence Panel) ──────────────
+
+function pnRenderIntelligence(el) {
+    var html = '<div style="padding:12px 0;">';
+    html += '<h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">🧠 Panel de Inteligencia</h3>';
+    html += '<p style="color:var(--tp-dim);font-size:11px;margin:0 0 16px 0;">Correlaciones automáticas entre módulos para detectar patrones.</p>';
+
+    // Gather data from all modules
+    var tests = (typeof raState !== 'undefined' && raState.tests) ? raState.tests : [];
+    var gasItems = [];
+    var fuelItems = [];
+    if (typeof invState !== 'undefined' && invState.items) {
+        invState.items.forEach(function(it) {
+            if (it.type === 'gas') gasItems.push(it);
+            else if (it.type === 'fuel') fuelItems.push(it);
+        });
+    }
+    var tpPlans = (typeof tpState !== 'undefined' && tpState.plans) ? tpState.plans : [];
+    var cop15Vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+
+    // ── Correlation 1: Gas Consumption vs Test Volume (weekly) ──
+    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">📊 Consumo de Gas vs Volumen de Pruebas</h4>';
+
+    var weeklyData = {};
+    tests.forEach(function(t) {
+        if (!t.date) return;
+        var d = new Date(t.date);
+        var weekStart = new Date(d);
+        weekStart.setDate(d.getDate() - d.getDay());
+        var wk = weekStart.toISOString().slice(0, 10);
+        if (!weeklyData[wk]) weeklyData[wk] = { tests: 0, gasUsed: 0 };
+        weeklyData[wk].tests++;
+    });
+
+    // Cross-reference gas usage logs
+    gasItems.forEach(function(g) {
+        if (g.usageLog) {
+            g.usageLog.forEach(function(log) {
+                if (!log.date) return;
+                var d = new Date(log.date);
+                var weekStart = new Date(d);
+                weekStart.setDate(d.getDate() - d.getDay());
+                var wk = weekStart.toISOString().slice(0, 10);
+                if (!weeklyData[wk]) weeklyData[wk] = { tests: 0, gasUsed: 0 };
+                weeklyData[wk].gasUsed += (log.psiUsed || 0);
+            });
+        }
+    });
+
+    var wkKeys = Object.keys(weeklyData).sort().slice(-12);
+    if (wkKeys.length >= 2) {
+        html += '<canvas id="pn-intel-gas-tests" height="200"></canvas>';
+    } else {
+        html += '<p style="color:var(--tp-dim);font-size:10px;">Datos insuficientes. Se necesitan al menos 2 semanas con pruebas y consumo de gas registrados.</p>';
+    }
+    html += '</div>';
+
+    // ── Correlation 2: Fail Rate vs Gas Age ──
+    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">⚠️ Tasa de Fallo vs Antigüedad del Gas</h4>';
+
+    var gasAgeGroups = { fresh: { pass: 0, fail: 0 }, mid: { pass: 0, fail: 0 }, old: { pass: 0, fail: 0 } };
+    var gasDateMap = {};
+    gasItems.forEach(function(g) {
+        if (g.installDate || g.receivedDate) {
+            gasDateMap[g.gasType || g.name] = new Date(g.installDate || g.receivedDate);
+        }
+    });
+
+    tests.forEach(function(t) {
+        if (!t.date || !t.gasType) return;
+        var gasDate = gasDateMap[t.gasType];
+        if (!gasDate) return;
+        var ageDays = Math.floor((new Date(t.date) - gasDate) / 86400000);
+        var bucket = ageDays < 30 ? 'fresh' : ageDays < 90 ? 'mid' : 'old';
+        if (t.result === 'FAIL' || t.status === 'fail') gasAgeGroups[bucket].fail++;
+        else gasAgeGroups[bucket].pass++;
+    });
+
+    var hasAgeData = gasAgeGroups.fresh.pass + gasAgeGroups.fresh.fail + gasAgeGroups.mid.pass + gasAgeGroups.mid.fail + gasAgeGroups.old.pass + gasAgeGroups.old.fail > 0;
+    if (hasAgeData) {
+        html += '<canvas id="pn-intel-fail-age" height="200"></canvas>';
+    } else {
+        html += '<p style="color:var(--tp-dim);font-size:10px;">Sin datos de correlación. Requiere pruebas con gasType asociado a cilindros con fecha de instalación.</p>';
+    }
+    html += '</div>';
+
+    // ── Correlation 3: Plan Velocity vs Pipeline Load ──
+    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">🚀 Velocidad del Plan vs Carga del Pipeline</h4>';
+
+    var velocityData = [];
+    tpPlans.forEach(function(plan) {
+        if (!plan.records || !plan.families) return;
+        var totalFamilies = plan.families.length;
+        var completedRecords = plan.records.filter(function(r) { return r.status === 'completed'; }).length;
+        var pendingRecords = plan.records.filter(function(r) { return r.status !== 'completed'; }).length;
+        var velocity = totalFamilies > 0 ? Math.round((completedRecords / totalFamilies) * 100) : 0;
+        velocityData.push({
+            name: plan.name || ('Plan ' + plan.id),
+            velocity: velocity,
+            pipeline: pendingRecords,
+            completed: completedRecords
+        });
+    });
+
+    if (velocityData.length >= 1) {
+        html += '<canvas id="pn-intel-velocity" height="200"></canvas>';
+    } else {
+        html += '<p style="color:var(--tp-dim);font-size:10px;">Sin planes de prueba activos. Cree un plan en Test Plan Manager para ver la correlación.</p>';
+    }
+    html += '</div>';
+
+    // ── Summary Stats ──
+    html += '<div class="tp-card" style="padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">📈 Resumen Cross-Module</h4>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+
+    var totalTests = tests.length;
+    var totalGas = gasItems.length;
+    var totalVehicles = cop15Vehicles.length;
+    var totalPlans = tpPlans.length;
+    var failRate = totalTests > 0 ? ((tests.filter(function(t) { return t.result === 'FAIL' || t.status === 'fail'; }).length / totalTests) * 100).toFixed(1) : '0.0';
+
+    html += '<div style="text-align:center;padding:8px;background:rgba(59,130,246,0.1);border-radius:6px;"><div style="font-size:18px;font-weight:700;color:#3b82f6;">' + totalTests + '</div><div style="font-size:9px;color:var(--tp-dim);">Pruebas Totales</div></div>';
+    html += '<div style="text-align:center;padding:8px;background:rgba(16,185,129,0.1);border-radius:6px;"><div style="font-size:18px;font-weight:700;color:#10b981;">' + totalVehicles + '</div><div style="font-size:9px;color:var(--tp-dim);">Vehículos COP15</div></div>';
+    html += '<div style="text-align:center;padding:8px;background:rgba(245,158,11,0.1);border-radius:6px;"><div style="font-size:18px;font-weight:700;color:#f59e0b;">' + totalGas + '</div><div style="font-size:9px;color:var(--tp-dim);">Cilindros Gas</div></div>';
+    html += '<div style="text-align:center;padding:8px;background:rgba(239,68,68,0.1);border-radius:6px;"><div style="font-size:18px;font-weight:700;color:#ef4444;">' + failRate + '%</div><div style="font-size:9px;color:var(--tp-dim);">Tasa de Fallo</div></div>';
+    html += '</div></div>';
+
+    html += '</div>';
+    el.innerHTML = html;
+
+    // Render charts after DOM is ready
+    setTimeout(function() { _pnIntelRenderCharts(wkKeys, weeklyData, gasAgeGroups, hasAgeData, velocityData); }, 50);
+}
+
+function _pnIntelRenderCharts(wkKeys, weeklyData, gasAgeGroups, hasAgeData, velocityData) {
+    if (typeof Chart === 'undefined') return;
+
+    // Chart 1: Gas Consumption vs Test Volume
+    var c1 = document.getElementById('pn-intel-gas-tests');
+    if (c1 && wkKeys.length >= 2) {
+        var labels = wkKeys.map(function(w) { return w.slice(5); });
+        var testCounts = wkKeys.map(function(w) { return weeklyData[w].tests; });
+        var gasCounts = wkKeys.map(function(w) { return weeklyData[w].gasUsed; });
+        if (window._pnIntelChart1) { try { window._pnIntelChart1.destroy(); } catch(e) {} }
+        window._pnIntelChart1 = new Chart(c1.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Pruebas', data: testCounts, backgroundColor: 'rgba(59,130,246,0.7)', yAxisID: 'y', order: 2 },
+                    { label: 'PSI Consumidos', data: gasCounts, type: 'line', borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, yAxisID: 'y1', order: 1 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(30,41,59,0.5)' } },
+                    y: { position: 'left', title: { display: true, text: 'Pruebas', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(30,41,59,0.3)' } },
+                    y1: { position: 'right', title: { display: true, text: 'PSI', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 8 } }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Chart 2: Fail Rate vs Gas Age
+    var c2 = document.getElementById('pn-intel-fail-age');
+    if (c2 && hasAgeData) {
+        var ageLabels = ['< 30 días', '30-90 días', '> 90 días'];
+        var ageBuckets = ['fresh', 'mid', 'old'];
+        var failRates = ageBuckets.map(function(b) {
+            var total = gasAgeGroups[b].pass + gasAgeGroups[b].fail;
+            return total > 0 ? Math.round((gasAgeGroups[b].fail / total) * 100) : 0;
+        });
+        var totalPerBucket = ageBuckets.map(function(b) { return gasAgeGroups[b].pass + gasAgeGroups[b].fail; });
+        if (window._pnIntelChart2) { try { window._pnIntelChart2.destroy(); } catch(e) {} }
+        window._pnIntelChart2 = new Chart(c2.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ageLabels,
+                datasets: [
+                    { label: '% Fallo', data: failRates, backgroundColor: ['rgba(16,185,129,0.7)', 'rgba(245,158,11,0.7)', 'rgba(239,68,68,0.7)'] },
+                    { label: 'Total Pruebas', data: totalPerBucket, type: 'line', borderColor: '#8b5cf6', backgroundColor: 'transparent', tension: 0.3, yAxisID: 'y1' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(30,41,59,0.3)' } },
+                    y: { title: { display: true, text: '% Fallo', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(30,41,59,0.3)' }, max: 100 },
+                    y1: { position: 'right', title: { display: true, text: 'Pruebas', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 8 } }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Chart 3: Plan Velocity vs Pipeline
+    var c3 = document.getElementById('pn-intel-velocity');
+    if (c3 && velocityData.length >= 1) {
+        var planLabels = velocityData.map(function(v) { return v.name.length > 15 ? v.name.slice(0, 15) + '…' : v.name; });
+        var velocities = velocityData.map(function(v) { return v.velocity; });
+        var pipelines = velocityData.map(function(v) { return v.pipeline; });
+        if (window._pnIntelChart3) { try { window._pnIntelChart3.destroy(); } catch(e) {} }
+        window._pnIntelChart3 = new Chart(c3.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: planLabels,
+                datasets: [
+                    { label: '% Completado', data: velocities, backgroundColor: 'rgba(16,185,129,0.7)' },
+                    { label: 'Pendientes', data: pipelines, backgroundColor: 'rgba(239,68,68,0.5)' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(30,41,59,0.3)' } },
+                    y: { ticks: { color: '#64748b', font: { size: 8 } }, grid: { color: 'rgba(30,41,59,0.3)' } }
+                }
+            }
+        });
+    }
+}
+
+// ── [R4-M8] Monitor de Salud del Sistema ────────────────────────────────────
+
+function pnRenderSystemHealth(el) {
+    var html = '<div style="padding:12px 0;">';
+    html += '<h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">💾 Monitor de Salud del Sistema</h3>';
+
+    // Storage breakdown
+    var storageKeys = [
+        { key: 'kia_db_v11', label: 'COP15 (Base de Datos)', module: 'cop15' },
+        { key: 'kia_testplan_v1', label: 'Test Plan Manager', module: 'testplan' },
+        { key: 'kia_results_v1', label: 'Results Analyzer', module: 'results' },
+        { key: 'kia_lab_inventory', label: 'Lab Inventory', module: 'inventory' },
+        { key: 'kia_panel_v1', label: 'Panel', module: 'panel' },
+        { key: 'kia_chart_configs', label: 'Chart Configs', module: 'charts' },
+        { key: 'kia_entity_notes', label: 'Notas', module: 'notes' },
+        { key: 'kia_soak_timer', label: 'Soak Timer', module: 'soak' },
+        { key: 'kia_firebase_queue', label: 'Firebase Queue', module: 'firebase' }
+    ];
+
+    var totalBytes = 0;
+    var breakdown = [];
+    storageKeys.forEach(function(sk) {
+        try {
+            var val = localStorage.getItem(sk.key);
+            var bytes = val ? new Blob([val]).size : 0;
+            totalBytes += bytes;
+            breakdown.push({ key: sk.key, label: sk.label, module: sk.module, bytes: bytes, raw: val });
+        } catch(e) {
+            breakdown.push({ key: sk.key, label: sk.label, module: sk.module, bytes: 0, raw: null });
+        }
+    });
+
+    // Also count unknown keys
+    var knownKeys = storageKeys.map(function(s) { return s.key; });
+    var otherBytes = 0;
+    for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (knownKeys.indexOf(k) === -1) {
+            try {
+                var v = localStorage.getItem(k);
+                otherBytes += v ? new Blob([v]).size : 0;
+            } catch(e) {}
+        }
+    }
+    if (otherBytes > 0) {
+        totalBytes += otherBytes;
+        breakdown.push({ key: '_other', label: 'Otros', module: 'other', bytes: otherBytes, raw: null });
+    }
+
+    var maxStorage = 5 * 1024 * 1024; // 5MB
+    var usedPct = ((totalBytes / maxStorage) * 100).toFixed(1);
+    var barColor = totalBytes > maxStorage * 0.8 ? '#ef4444' : totalBytes > maxStorage * 0.5 ? '#f59e0b' : '#10b981';
+
+    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+    html += '<span style="font-size:11px;color:var(--tp-dim);">' + _pnFormatBytes(totalBytes) + ' / 5 MB</span>';
+    html += '<span style="font-size:11px;font-weight:700;color:' + barColor + ';">' + usedPct + '%</span>';
+    html += '</div>';
+    html += '<div style="width:100%;height:8px;background:rgba(30,41,59,0.8);border-radius:4px;overflow:hidden;">';
+    html += '<div style="width:' + Math.min(parseFloat(usedPct), 100) + '%;height:100%;background:' + barColor + ';border-radius:4px;transition:width 0.3s;"></div>';
+    html += '</div>';
+
+    // Per-module breakdown
+    html += '<div style="margin-top:10px;">';
+    breakdown.sort(function(a, b) { return b.bytes - a.bytes; });
+    breakdown.forEach(function(b) {
+        if (b.bytes === 0) return;
+        var pct = totalBytes > 0 ? ((b.bytes / totalBytes) * 100).toFixed(1) : '0.0';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(30,41,59,0.3);">';
+        html += '<span style="font-size:10px;color:#e2e8f0;">' + b.label + '</span>';
+        html += '<span style="font-size:10px;color:var(--tp-dim);">' + _pnFormatBytes(b.bytes) + ' (' + pct + '%)</span>';
+        html += '</div>';
+    });
+    html += '</div></div>';
+
+    // ── Data Aging ──
+    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">📅 Antigüedad de Datos</h4>';
+
+    var now = Date.now();
+    var agingData = [];
+
+    // COP15 vehicles aging
+    if (typeof db !== 'undefined' && db.vehicles) {
+        var cop30 = 0, cop60 = 0, cop90 = 0;
+        db.vehicles.forEach(function(v) {
+            var ts = v.timestamp || v.createdAt;
+            if (!ts) return;
+            var age = (now - new Date(ts).getTime()) / 86400000;
+            if (age > 90) cop90++;
+            else if (age > 60) cop60++;
+            else if (age > 30) cop30++;
+        });
+        agingData.push({ label: 'COP15 Vehículos', module: 'cop15', d30: cop30, d60: cop60, d90: cop90, total: db.vehicles.length });
+    }
+
+    // RA tests aging
+    if (typeof raState !== 'undefined' && raState.tests) {
+        var ra30 = 0, ra60 = 0, ra90 = 0;
+        raState.tests.forEach(function(t) {
+            if (!t.date) return;
+            var age = (now - new Date(t.date).getTime()) / 86400000;
+            if (age > 90) ra90++;
+            else if (age > 60) ra60++;
+            else if (age > 30) ra30++;
+        });
+        agingData.push({ label: 'Resultados (Pruebas)', module: 'results', d30: ra30, d60: ra60, d90: ra90, total: raState.tests.length });
+    }
+
+    // TP records aging
+    if (typeof tpState !== 'undefined' && tpState.plans) {
+        var tp30 = 0, tp60 = 0, tp90 = 0, tpTotal = 0;
+        tpState.plans.forEach(function(p) {
+            if (!p.records) return;
+            p.records.forEach(function(r) {
+                tpTotal++;
+                var ts = r.completedAt || r.createdAt;
+                if (!ts) return;
+                var age = (now - new Date(ts).getTime()) / 86400000;
+                if (age > 90) tp90++;
+                else if (age > 60) tp60++;
+                else if (age > 30) tp30++;
+            });
+        });
+        agingData.push({ label: 'Test Plan (Registros)', module: 'testplan', d30: tp30, d60: tp60, d90: tp90, total: tpTotal });
+    }
+
+    if (agingData.length > 0) {
+        html += '<table style="width:100%;font-size:10px;border-collapse:collapse;">';
+        html += '<tr style="color:var(--tp-dim);border-bottom:1px solid rgba(30,41,59,0.5);">';
+        html += '<th style="text-align:left;padding:4px;">Módulo</th>';
+        html += '<th style="text-align:center;padding:4px;">Total</th>';
+        html += '<th style="text-align:center;padding:4px;">30-60d</th>';
+        html += '<th style="text-align:center;padding:4px;">60-90d</th>';
+        html += '<th style="text-align:center;padding:4px;">>90d</th>';
+        html += '</tr>';
+        agingData.forEach(function(a) {
+            html += '<tr style="color:#e2e8f0;border-bottom:1px solid rgba(30,41,59,0.2);">';
+            html += '<td style="padding:4px;">' + a.label + '</td>';
+            html += '<td style="text-align:center;padding:4px;">' + a.total + '</td>';
+            html += '<td style="text-align:center;padding:4px;color:#f59e0b;">' + a.d30 + '</td>';
+            html += '<td style="text-align:center;padding:4px;color:#ef4444;">' + a.d60 + '</td>';
+            html += '<td style="text-align:center;padding:4px;color:#dc2626;font-weight:700;">' + a.d90 + '</td>';
+            html += '</tr>';
+        });
+        html += '</table>';
+    } else {
+        html += '<p style="color:var(--tp-dim);font-size:10px;">Sin datos para analizar antigüedad.</p>';
+    }
+    html += '</div>';
+
+    // ── Purge Tools ──
+    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">🗑️ Herramientas de Limpieza</h4>';
+    html += '<p style="color:var(--tp-dim);font-size:10px;margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>';
+
+    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'cop15\', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'results\', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Resultados >90 días</button>';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'testplan\', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'notes\', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>';
+    html += '</div>';
+    html += '</div>';
+
+    // ── Performance ──
+    html += '<div class="tp-card" style="padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">⚡ Rendimiento</h4>';
+    var perfData = _pnMeasurePerformance();
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">';
+    html += '<div style="text-align:center;padding:6px;background:rgba(59,130,246,0.1);border-radius:6px;"><div style="font-size:16px;font-weight:700;color:#3b82f6;">' + perfData.lsKeys + '</div><div style="font-size:9px;color:var(--tp-dim);">Keys localStorage</div></div>';
+    html += '<div style="text-align:center;padding:6px;background:rgba(16,185,129,0.1);border-radius:6px;"><div style="font-size:16px;font-weight:700;color:#10b981;">' + perfData.domNodes + '</div><div style="font-size:9px;color:var(--tp-dim);">DOM Nodes</div></div>';
+    html += '<div style="text-align:center;padding:6px;background:rgba(245,158,11,0.1);border-radius:6px;"><div style="font-size:16px;font-weight:700;color:#f59e0b;">' + perfData.memoryMB + '</div><div style="font-size:9px;color:var(--tp-dim);">Memoria (MB)</div></div>';
+    html += '<div style="text-align:center;padding:6px;background:rgba(139,92,246,0.1);border-radius:6px;"><div style="font-size:16px;font-weight:700;color:#8b5cf6;">' + perfData.charts + '</div><div style="font-size:9px;color:var(--tp-dim);">Charts Activos</div></div>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+function _pnFormatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(2) + ' MB';
+}
+
+function _pnMeasurePerformance() {
+    var lsKeys = 0;
+    try { lsKeys = localStorage.length; } catch(e) {}
+    var domNodes = document.querySelectorAll('*').length;
+    var memoryMB = '—';
+    if (performance && performance.memory) {
+        memoryMB = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
+    }
+    var charts = 0;
+    ['_raTrendChart', '_raComplianceChart', '_raSpcIChart', '_raSpcMrChart', '_tpBurndownChart', '_invChartInstance', '_pnIntelChart1', '_pnIntelChart2', '_pnIntelChart3'].forEach(function(name) {
+        if (window[name]) charts++;
+    });
+    return { lsKeys: lsKeys, domNodes: domNodes, memoryMB: memoryMB, charts: charts };
+}
+
+function pnPurgeOldData(module, maxDays) {
+    showConfirm('¿Eliminar datos de ' + module + ' con más de ' + maxDays + ' días? Esta acción es irreversible.', function() {
+        var cutoff = Date.now() - (maxDays * 86400000);
+        var count = 0;
+
+        if (module === 'cop15' && typeof db !== 'undefined' && db.vehicles) {
+            var before = db.vehicles.length;
+            db.vehicles = db.vehicles.filter(function(v) {
+                var ts = v.timestamp || v.createdAt;
+                return !ts || new Date(ts).getTime() >= cutoff;
+            });
+            count = before - db.vehicles.length;
+            if (count > 0) saveDB();
+        } else if (module === 'results' && typeof raState !== 'undefined' && raState.tests) {
+            var before2 = raState.tests.length;
+            raState.tests = raState.tests.filter(function(t) {
+                return !t.date || new Date(t.date).getTime() >= cutoff;
+            });
+            count = before2 - raState.tests.length;
+            if (count > 0 && typeof raSave === 'function') raSave();
+        } else if (module === 'testplan' && typeof tpState !== 'undefined' && tpState.plans) {
+            tpState.plans.forEach(function(p) {
+                if (!p.records) return;
+                var before3 = p.records.length;
+                p.records = p.records.filter(function(r) {
+                    var ts = r.completedAt || r.createdAt;
+                    return !ts || new Date(ts).getTime() >= cutoff;
+                });
+                count += before3 - p.records.length;
+            });
+            if (count > 0 && typeof tpSave === 'function') tpSave();
+        } else if (module === 'notes') {
+            try {
+                var notes = JSON.parse(localStorage.getItem('kia_entity_notes') || '{}');
+                Object.keys(notes).forEach(function(entityKey) {
+                    var arr = notes[entityKey];
+                    if (!Array.isArray(arr)) return;
+                    var before4 = arr.length;
+                    notes[entityKey] = arr.filter(function(n) {
+                        return !n.ts || new Date(n.ts).getTime() >= cutoff;
+                    });
+                    count += before4 - notes[entityKey].length;
+                    if (notes[entityKey].length === 0) delete notes[entityKey];
+                });
+                localStorage.setItem('kia_entity_notes', JSON.stringify(notes));
+            } catch(e) {}
+        }
+
+        showToast('Eliminados ' + count + ' registros de ' + module, count > 0 ? 'success' : 'info');
+        pnRenderSystemHealth(document.getElementById('pn-content'));
+    });
 }
 
 

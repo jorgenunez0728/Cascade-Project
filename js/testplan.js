@@ -593,7 +593,7 @@ function tpRenderDashboard(el) {
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
                 <div>
                     <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Agrupar por</label>
-                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartGroupBy=this.value;tpRender();">
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartGroupBy=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','groupBy',this.value);tpRender();">
                         <option value="region" ${(window._tpChartGroupBy||'region')==='region'?'selected':''}>Region</option>
                         <option value="model" ${window._tpChartGroupBy==='model'?'selected':''}>Modelo</option>
                         <option value="regulation" ${window._tpChartGroupBy==='regulation'?'selected':''}>Regulacion</option>
@@ -602,7 +602,7 @@ function tpRenderDashboard(el) {
                 </div>
                 <div>
                     <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Metrica Y</label>
-                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartMetric=this.value;tpRender();">
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartMetric=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','metric',this.value);tpRender();">
                         <option value="qty" ${(window._tpChartMetric||'qty')==='qty'?'selected':''}>Cantidad (Req vs Probadas)</option>
                         <option value="pct" ${window._tpChartMetric==='pct'?'selected':''}>% Cumplimiento</option>
                         <option value="deficit" ${window._tpChartMetric==='deficit'?'selected':''}>Deficit</option>
@@ -610,7 +610,7 @@ function tpRenderDashboard(el) {
                 </div>
                 <div>
                     <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Tipo de grafica</label>
-                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartType=this.value;tpRender();">
+                    <select class="tp-select" style="font-size:10px;" onchange="window._tpChartType=this.value;if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','chartType',this.value);tpRender();">
                         <option value="bar" ${(window._tpChartType||'bar')==='bar'?'selected':''}>Barras</option>
                         <option value="hbar" ${window._tpChartType==='hbar'?'selected':''}>Barras Horizontales</option>
                         <option value="stacked" ${window._tpChartType==='stacked'?'selected':''}>Barras Apiladas</option>
@@ -618,11 +618,11 @@ function tpRenderDashboard(el) {
                 </div>
                 <div>
                     <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Y max (0=auto)</label>
-                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpDashYMax || 0}" min="0" onchange="window._tpDashYMax=parseInt(this.value);tpRender();">
+                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpDashYMax || 0}" min="0" onchange="window._tpDashYMax=parseInt(this.value);if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','yMax',parseInt(this.value));tpRender();">
                 </div>
                 <div>
                     <label style="font-size:9px;color:var(--tp-dim);display:block;margin-bottom:2px;">Altura (px)</label>
-                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpDashChartH || 0}" min="0" max="500" onchange="window._tpDashChartH=parseInt(this.value);tpRender();">
+                    <input type="number" class="tp-select" style="width:70px;font-size:10px;" value="${window._tpDashChartH || 0}" min="0" max="500" onchange="window._tpDashChartH=parseInt(this.value);if(typeof chartConfigSet==='function')chartConfigSet('tp_dashboard','chartH',parseInt(this.value));tpRender();">
                 </div>
             </div>
         </div>` : ''}
@@ -819,7 +819,8 @@ function tpRenderBurndownChart(stats) {
         html += '</div>';
     }
 
-    html += '<div style="height:250px;"><canvas id="tp-burndown-canvas"></canvas></div>';
+    html += (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel('tp_burndown', '_tpBurndownChart', {rerenderFn:'tpRender();'}) : '');
+    html += '<div id="tp_burndown-wrapper" style="height:' + (typeof chartConfigGet==='function'?chartConfigGet('tp_burndown').height:250) + 'px;"><canvas id="tp-burndown-canvas"></canvas></div>';
 
     // Schedule chart render after DOM update
     setTimeout(function() {
@@ -886,6 +887,15 @@ function tpISOWeekKey(d) {
 
 // ═══ DASHBOARD CHART RENDERER ═══
 function tpRenderDashChart(analysis) {
+    // Restore persisted config
+    if (typeof chartConfigGet === 'function') {
+        var _tpDashCfg = chartConfigGet('tp_dashboard');
+        if (_tpDashCfg.groupBy && !window._tpChartGroupBy) window._tpChartGroupBy = _tpDashCfg.groupBy;
+        if (_tpDashCfg.metric && !window._tpChartMetric) window._tpChartMetric = _tpDashCfg.metric;
+        if (_tpDashCfg.chartType && !window._tpChartType) window._tpChartType = _tpDashCfg.chartType;
+        if (_tpDashCfg.yMax && !window._tpDashYMax) window._tpDashYMax = _tpDashCfg.yMax;
+        if (_tpDashCfg.chartH && !window._tpDashChartH) window._tpDashChartH = _tpDashCfg.chartH;
+    }
     const groupBy = window._tpChartGroupBy || 'region';
     const metric = window._tpChartMetric || 'qty';
     const chartType = window._tpChartType || 'bar';
@@ -1145,7 +1155,7 @@ function tpRenderTested(el) {
     <div class="tp-card">
         <div class="tp-card-title">
             <span>📋 Registro de Pruebas (${tpState.testedList.length})</span>
-            ${tpState.testedList.length > 0 ? `<button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Borrar todos los registros de pruebas?',function(){tpState.testedList=[];tpSave();tpRender();tpUpdateBadges();},{title:'Borrar registros',type:'danger',confirmText:'Borrar todo'})" style="font-size:10px;">🗑 Borrar todo</button>` : ''}
+            ${tpState.testedList.length > 0 ? `<button class="tp-btn tp-btn-danger" onclick="showConfirm('¿Borrar todos los registros de pruebas?',function(){if(typeof undoPush==='function')undoPush('testplan','Borrar registros de pruebas');tpState.testedList=[];tpSave();tpRender();tpUpdateBadges();showToast('Registros borrados','success',null,undoPop);},{title:'Borrar registros',type:'danger',confirmText:'Borrar todo'})" style="font-size:10px;">🗑 Borrar todo</button>` : ''}
         </div>
         ${tpState.testedList.length === 0 ? `<div style="text-align:center;padding:25px;color:var(--tp-dim);"><div style="font-size:24px;margin-bottom:6px;">📭</div>No hay vehículos probados registrados<br><small style="color:var(--tp-dim);">Se agregan automáticamente al liberar vehículos en COP15 (Correlation, COP-Emisiones, EO-Emisiones, Investigación)</small><br><button class="tp-btn tp-btn-primary" onclick="window._tpTestedMode='manual';tpRender();" style="margin-top:12px;">✏️ Agregar Manual</button></div>` : `
         <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:flex-end;">

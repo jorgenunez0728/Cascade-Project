@@ -1238,3 +1238,15 @@ button:focus-visible { outline-offset: 1px; }
 }
 #pwa-install-btn:hover { background: #059669; }
 
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R4-M1] Chart Configuration Panel                                    */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.chart-config-panel { margin-bottom:10px; border:1px solid var(--tp-border); border-radius:8px; overflow:hidden; }
+.chart-config-panel summary { padding:8px 12px; cursor:pointer; font-size:10px; font-weight:700; color:var(--tp-dim); background:var(--tp-card); user-select:none; }
+.chart-config-panel summary:hover { color:var(--tp-amber); }
+.chart-config-panel .cfg-label { font-size:10px; color:var(--tp-dim); display:flex; align-items:center; gap:4px; margin-bottom:2px; }
+.chart-config-panel .cfg-value { font-size:10px; font-weight:700; color:var(--tp-amber); }
+.chart-config-panel input[type="range"] { width:100%; accent-color:var(--tp-amber); }
+.chart-config-panel > div { background:#0d1320; }
+

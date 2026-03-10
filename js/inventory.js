@@ -2316,7 +2316,10 @@ function invRenderCharts(el) {
         '" onclick="window._invChartType=\'gas_compare\';invRender();" style="font-size:10px;">Comparar Gases</button>';
     html += '</div>';
 
-    html += '<div style="position:relative;height:300px;margin-bottom:12px;">';
+    var _invChartId = 'inv_' + chartType;
+    html += (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel(_invChartId, '_invChartInstance', {rerenderFn:'invRender();'}) : '');
+    var _invCH = typeof chartConfigGet === 'function' ? chartConfigGet(_invChartId).height : 300;
+    html += '<div id="' + _invChartId + '-wrapper" style="position:relative;height:' + _invCH + 'px;margin-bottom:12px;">';
     html += '<canvas id="inv-chart-main"></canvas>';
     html += '</div>';
 
@@ -2460,7 +2463,7 @@ function invRenderConfig(el) {
     html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invExportGases()" style="font-size:10px;">Exportar JSON</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invImportGases()" style="font-size:10px;">Importar JSON</button>';
-    html += '<button class="tp-btn tp-btn-danger" onclick="showConfirm(\'Borrar TODOS los datos de inventario?\',function(){invState.gases=[];invState.equipment=[];invState.fuelTanks=[];invState.usageLog=[];invSave();invRender();invUpdateBadges();},{title:\'Resetear inventario\',type:\'danger\',confirmText:\'Borrar todo\'})" style="font-size:10px;">Resetear</button>';
+    html += '<button class="tp-btn tp-btn-danger" onclick="showConfirm(\'Borrar TODOS los datos de inventario?\',function(){if(typeof undoPush===\\x27function\\x27)undoPush(\\x27inventory\\x27,\\x27Resetear inventario\\x27);invState.gases=[];invState.equipment=[];invState.fuelTanks=[];invState.usageLog=[];invSave();invRender();invUpdateBadges();showToast(\\x27Inventario reseteado\\x27,\\x27success\\x27,null,undoPop);},{title:\'Resetear inventario\',type:\'danger\',confirmText:\'Borrar todo\'})" style="font-size:10px;">Resetear</button>';
     html += '</div>';
     html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:4px;">' + invState.gases.length + ' gases, ' + invState.equipment.length + ' equipos, ' + (invState.usageLog||[]).length + ' registros de uso</div>';
     html += '</div>';
