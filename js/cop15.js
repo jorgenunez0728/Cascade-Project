@@ -194,6 +194,251 @@ setAltaDatetimeIfEmpty(true);
 
 
 
+// [M02b] VISUAL CASCADE TREE
+// ======================================================================
+
+var cascadeSelections = {};
+var cascadeAutoSelected = {};
+
+var cascadeFieldLabels = {
+    'Modelo': 'MODELO',
+    'MODEL YEAR (VIN)': 'AÑO',
+    'ENGINE CAPACITY': 'MOTOR',
+    'TRANSMISSION': 'TRANSMISIÓN',
+    'ENVIRONMENT PACKAGE': 'ENV PKG',
+    'EMISSION REGULATION': 'REGULACIÓN',
+    'REGION': 'REGIÓN',
+    'TIRE ASSY': 'LLANTAS',
+    'BODY TYPE': 'CARROCERÍA',
+    'DRIVE TYPE': 'DRIVE',
+    'ENGINE PACKAGE': 'ENG PKG'
+};
+
+function getCascadeOptionsForLevel(fieldName) {
+    var filtered = allConfigurations.filter(function(config) {
+        for (var f in cascadeSelections) {
+            if (config[f] !== cascadeSelections[f]) return false;
+        }
+        return true;
+    });
+    var counts = {};
+    filtered.forEach(function(config) {
+        var val = config[fieldName];
+        if (val) counts[val] = (counts[val] || 0) + 1;
+    });
+    var options = Object.keys(counts).sort().map(function(val) {
+        return { value: val, count: counts[val] };
+    });
+    return { options: options, totalFiltered: filtered.length };
+}
+
+function renderCascadeTree() {
+    var fields = Object.keys(fieldMapping);
+    var levelsEl = document.getElementById('cascade-levels');
+    var breadcrumbEl = document.getElementById('cascade-breadcrumb');
+    if (!levelsEl || !breadcrumbEl) return;
+
+    // Determine which levels are completed/active/pending
+    var firstUnselected = -1;
+    for (var i = 0; i < fields.length; i++) {
+        if (!cascadeSelections[fields[i]]) {
+            firstUnselected = i;
+            break;
+        }
+    }
+    if (firstUnselected === -1) firstUnselected = fields.length;
+
+    // Render breadcrumb
+    var crumbHtml = '';
+    if (firstUnselected === 0) {
+        crumbHtml = '<span class="cascade-breadcrumb-placeholder">Seleccione un modelo para comenzar</span>';
+    } else {
+        for (var b = 0; b < firstUnselected; b++) {
+            if (b > 0) crumbHtml += '<span class="cascade-breadcrumb-sep">›</span>';
+            var autoTag = cascadeAutoSelected[fields[b]] ? ' <span style="font-size:0.6rem;opacity:0.6;">auto</span>' : '';
+            crumbHtml += '<span class="cascade-breadcrumb-item" onclick="deselectCascadeLevel(\'' + fields[b] + '\')">' +
+                '<span class="crumb-label">' + cascadeFieldLabels[fields[b]] + ':</span> ' +
+                cascadeSelections[fields[b]] + autoTag + '</span>';
+        }
+    }
+    breadcrumbEl.innerHTML = crumbHtml;
+
+    // Render levels
+    var html = '';
+    for (var lvl = 0; lvl < fields.length; lvl++) {
+        var field = fields[lvl];
+        var label = cascadeFieldLabels[field];
+        var state = 'pending';
+        if (cascadeSelections[field]) {
+            state = 'completed';
+        } else if (lvl === firstUnselected) {
+            state = 'active';
+        }
+
+        html += '<div class="cascade-level ' + state + '">';
+        html += '<div class="cascade-level-header">';
+        html += '<span><span class="level-step">' + (lvl + 1) + '</span>' + label + '</span>';
+        if (state === 'completed') {
+            html += '<span class="level-change" onclick="deselectCascadeLevel(\'' + field + '\')">cambiar</span>';
+        }
+        html += '</div>';
+
+        if (state === 'active') {
+            var data = getCascadeOptionsForLevel(field);
+            html += '<div class="cascade-chips">';
+            if (data.options.length === 0) {
+                html += '<span style="color:#94a3b8;font-size:0.85rem;">Sin opciones disponibles</span>';
+            } else {
+                data.options.forEach(function(opt) {
+                    var escaped = opt.value.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;');
+                    var escapedAttr = opt.value.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+                    html += '<button class="cascade-chip" onclick="selectCascadeChip(\'' + field + '\',\'' + escapedAttr + '\')">' +
+                        escaped + ' <span class="chip-count">(' + opt.count + ')</span></button>';
+                });
+            }
+            html += '</div>';
+        } else if (state === 'completed') {
+            // Show selected value inline in header (already via breadcrumb)
+        } else {
+            // Pending — just the collapsed header
+        }
+
+        html += '</div>';
+    }
+    levelsEl.innerHTML = html;
+
+    // Update counter
+    var totalFiltered = allConfigurations.filter(function(config) {
+        for (var f in cascadeSelections) {
+            if (config[f] !== cascadeSelections[f]) return false;
+        }
+        return true;
+    });
+    document.getElementById('configCount').textContent = totalFiltered.length;
+    displayConfigResult(totalFiltered);
+}
+
+function selectCascadeChip(fieldName, value) {
+    var fields = Object.keys(fieldMapping);
+    var idx = fields.indexOf(fieldName);
+
+    // Set this selection
+    cascadeSelections[fieldName] = value;
+
+    // Clear all subsequent selections
+    for (var i = idx + 1; i < fields.length; i++) {
+        delete cascadeSelections[fields[i]];
+        delete cascadeAutoSelected[fields[i]];
+    }
+
+    // Sync hidden select and call existing cascadeFilter
+    var selectId = fieldMapping[fieldName];
+    var selectEl = document.getElementById(selectId);
+    if (selectEl) {
+        selectEl.value = value;
+        selectEl.classList.add('selected');
+    }
+    currentFilters[fieldName] = value;
+
+    // Clear downstream filters and selects
+    for (var j = idx + 1; j < fields.length; j++) {
+        delete currentFilters[fields[j]];
+        var sid = fieldMapping[fields[j]];
+        var sel = document.getElementById(sid);
+        if (sel) {
+            sel.value = '';
+            sel.classList.remove('selected');
+        }
+    }
+
+    // Update hidden selects via existing filter logic
+    var filtered = allConfigurations.filter(function(config) {
+        for (var f in currentFilters) {
+            if (config[f] !== currentFilters[f]) return false;
+        }
+        return true;
+    });
+    updateSelectOptions(filtered);
+
+    // Auto-advance: if next level has only 1 option, auto-select it
+    renderCascadeTree();
+    autoAdvanceCascade();
+}
+
+function autoAdvanceCascade() {
+    var fields = Object.keys(fieldMapping);
+    for (var i = 0; i < fields.length; i++) {
+        if (!cascadeSelections[fields[i]]) {
+            var data = getCascadeOptionsForLevel(fields[i]);
+            if (data.options.length === 1) {
+                // Auto-select the only option
+                cascadeSelections[fields[i]] = data.options[0].value;
+                cascadeAutoSelected[fields[i]] = true;
+                currentFilters[fields[i]] = data.options[0].value;
+                var selectId = fieldMapping[fields[i]];
+                var selectEl = document.getElementById(selectId);
+                if (selectEl) {
+                    selectEl.value = data.options[0].value;
+                    selectEl.classList.add('selected');
+                }
+                // Continue checking next levels
+                var filtered = allConfigurations.filter(function(config) {
+                    for (var f in currentFilters) {
+                        if (config[f] !== currentFilters[f]) return false;
+                    }
+                    return true;
+                });
+                updateSelectOptions(filtered);
+            } else {
+                break;
+            }
+        }
+    }
+    renderCascadeTree();
+}
+
+function deselectCascadeLevel(fieldName) {
+    var fields = Object.keys(fieldMapping);
+    var idx = fields.indexOf(fieldName);
+
+    // Clear this and all subsequent selections
+    for (var i = idx; i < fields.length; i++) {
+        delete cascadeSelections[fields[i]];
+        delete cascadeAutoSelected[fields[i]];
+        delete currentFilters[fields[i]];
+        var selectId = fieldMapping[fields[i]];
+        var selectEl = document.getElementById(selectId);
+        if (selectEl) {
+            selectEl.value = '';
+            selectEl.classList.remove('selected');
+        }
+    }
+
+    // Rebuild filtered options
+    var filtered = allConfigurations.filter(function(config) {
+        for (var f in currentFilters) {
+            if (config[f] !== currentFilters[f]) return false;
+        }
+        return true;
+    });
+    updateSelectOptions(filtered);
+    renderCascadeTree();
+}
+
+function resetCascadeTree() {
+    cascadeSelections = {};
+    cascadeAutoSelected = {};
+    resetFilters();
+    renderCascadeTree();
+}
+
+function initCascadeTree() {
+    if (!allConfigurations || allConfigurations.length === 0) return;
+    cascadeSelections = {};
+    cascadeAutoSelected = {};
+    renderCascadeTree();
+}
+
 // [M03] INTERFAZ Y NAVEGACIÓN]
 // ======================================================================
 
@@ -573,7 +818,7 @@ setAltaDatetimeIfEmpty(true);
         // Reset
         document.getElementById('vin').value = '';
         document.getElementById('vehiclePurpose').value = '';
-        resetFilters();
+        resetCascadeTree();
         validateVIN(document.getElementById('vin'));
         
         refreshAllLists();

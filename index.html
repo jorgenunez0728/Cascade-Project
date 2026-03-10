@@ -116,92 +116,87 @@
 
             <!-- MODO INTERNO: Configuración con filtros en cascada -->
             <div id="container-internal">
-                <div class="alert alert-info">
-                    ℹ️ Seleccione los campos en orden para filtrar las configuraciones válidas
+                <!-- Visual Cascade Tree -->
+                <div id="cascade-tree-container">
+                    <div id="cascade-breadcrumb" class="cascade-breadcrumb"></div>
+                    <div id="cascade-levels"></div>
                 </div>
-                
-                <div class="form-group">
-                    <label>MODELO</label>
-                    <select id="cfg_model" onchange="cascadeFilter('Modelo')">
-                        <option value="">Seleccionar...</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>AÑO MODELO</label>
-                    <select id="cfg_year" onchange="cascadeFilter('MODEL YEAR (VIN)')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>MOTOR</label>
-                    <select id="cfg_engine" onchange="cascadeFilter('ENGINE CAPACITY')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>TRANSMISIÓN</label>
-                    <select id="cfg_transmission" onchange="cascadeFilter('TRANSMISSION')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>REGULACIÓN</label>
-                    <select id="cfg_regulation" onchange="cascadeFilter('EMISSION REGULATION')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-	<div class="form-group">
- 	 <label>ENV PACKAGE</label>
-	  <select id="cfg_envpkg" onchange="cascadeFilter('ENVIRONMENT PACKAGE')">
-  	  <option value="">Todos</option>
- 	 </select>
-	</div>
 
-                <div class="form-group">
-                    <label>REGIÓN</label>
-                    <select id="cfg_region" onchange="cascadeFilter('REGION')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>LLANTAS</label>
-                    <select id="cfg_tires" onchange="cascadeFilter('TIRE ASSY')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>CARROCERÍA</label>
-                    <select id="cfg_body" onchange="cascadeFilter('BODY TYPE')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>DRIVE TYPE</label>
-                    <select id="cfg_drive" onchange="cascadeFilter('DRIVE TYPE')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>ENGINE PACKAGE</label>
-                    <select id="cfg_enginepkg" onchange="cascadeFilter('ENGINE PACKAGE')">
-                        <option value="">Todos</option>
-                    </select>
+                <!-- Hidden original selects (kept for backward compatibility) -->
+                <div id="cascade-legacy-selects" style="display:none;">
+                    <div class="form-group">
+                        <label>MODELO</label>
+                        <select id="cfg_model" onchange="cascadeFilter('Modelo')">
+                            <option value="">Seleccionar...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>AÑO MODELO</label>
+                        <select id="cfg_year" onchange="cascadeFilter('MODEL YEAR (VIN)')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>MOTOR</label>
+                        <select id="cfg_engine" onchange="cascadeFilter('ENGINE CAPACITY')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>TRANSMISIÓN</label>
+                        <select id="cfg_transmission" onchange="cascadeFilter('TRANSMISSION')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>REGULACIÓN</label>
+                        <select id="cfg_regulation" onchange="cascadeFilter('EMISSION REGULATION')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>ENV PACKAGE</label>
+                        <select id="cfg_envpkg" onchange="cascadeFilter('ENVIRONMENT PACKAGE')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>REGIÓN</label>
+                        <select id="cfg_region" onchange="cascadeFilter('REGION')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>LLANTAS</label>
+                        <select id="cfg_tires" onchange="cascadeFilter('TIRE ASSY')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>CARROCERÍA</label>
+                        <select id="cfg_body" onchange="cascadeFilter('BODY TYPE')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>DRIVE TYPE</label>
+                        <select id="cfg_drive" onchange="cascadeFilter('DRIVE TYPE')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>ENGINE PACKAGE</label>
+                        <select id="cfg_enginepkg" onchange="cascadeFilter('ENGINE PACKAGE')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div id="cfg_counter" class="config-counter">
                     Configuraciones disponibles: <span id="configCount">0</span>
                 </div>
 
-                <button class="btn-reset" onclick="resetFilters()">🔄 REINICIAR FILTROS</button>
+                <button class="btn-reset" onclick="resetCascadeTree()">🔄 REINICIAR FILTROS</button>
 
                 <div id="cfg_result" class="config-result empty">
                     <strong>Código de Configuración:</strong> Seleccione al menos el MODELO para ver configuraciones disponibles

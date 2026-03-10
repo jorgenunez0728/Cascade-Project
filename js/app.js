@@ -892,7 +892,10 @@ function generateWeeklyStatusPDF() {
         // Inicializar otros selectores
         updateSelectOptions(allConfigurations);
         document.getElementById('configCount').textContent = allConfigurations.length;
-        
+
+        // Initialize visual cascade tree
+        if (typeof initCascadeTree === 'function') initCascadeTree();
+
         updateProgressBar();
         refreshAllLists();
         

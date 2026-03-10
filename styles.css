@@ -781,6 +781,178 @@ button:focus-visible { outline-offset: 1px; }
 .loading-overlay-text { color: #fff; font-size: 14px; font-weight: 600; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ═══ Cascade Visual Tree ═══ */
+.cascade-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 12px;
+    background: var(--kia-dark);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    min-height: 42px;
+}
+.cascade-breadcrumb-placeholder {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    font-style: italic;
+}
+.cascade-breadcrumb-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 6px;
+    color: #e2e8f0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+}
+.cascade-breadcrumb-item:hover {
+    background: rgba(187,22,43,0.3);
+}
+.cascade-breadcrumb-item .crumb-label {
+    color: #94a3b8;
+    font-weight: 400;
+    font-size: 0.7rem;
+}
+.cascade-breadcrumb-sep {
+    color: #475569;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.cascade-level {
+    margin-bottom: 10px;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: opacity 0.2s, max-height 0.3s ease;
+}
+.cascade-level.pending {
+    opacity: 0.35;
+    pointer-events: none;
+    max-height: 36px;
+}
+.cascade-level.active {
+    opacity: 1;
+}
+.cascade-level.completed {
+    opacity: 0.7;
+}
+.cascade-level-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #f1f5f9;
+    border: 1px solid var(--border);
+    border-radius: 10px 10px 0 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.cascade-level.completed .cascade-level-header {
+    border-radius: 10px;
+}
+.cascade-level-header .level-step {
+    background: var(--kia-dark);
+    color: #fff;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+.cascade-level.completed .cascade-level-header .level-step {
+    background: var(--tp-green);
+}
+.cascade-level-header .level-change {
+    font-size: 0.7rem;
+    color: var(--kia-red);
+    cursor: pointer;
+    font-weight: 600;
+}
+.cascade-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+}
+.cascade-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
+}
+.cascade-chip:hover {
+    border-color: var(--kia-red);
+    background: #fff5f5;
+}
+.cascade-chip:active {
+    transform: scale(0.97);
+}
+.cascade-chip.selected {
+    background: var(--kia-red);
+    color: #fff;
+    border-color: var(--kia-red);
+}
+.cascade-chip.auto-selected {
+    background: #d1fae5;
+    color: #065f46;
+    border-color: #10b981;
+}
+.cascade-chip .chip-count {
+    font-size: 0.72rem;
+    font-weight: 400;
+    opacity: 0.7;
+}
+.cascade-chip.selected .chip-count {
+    opacity: 0.85;
+}
+@keyframes chipPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+.cascade-chip.just-selected {
+    animation: chipPulse 0.2s ease;
+}
+
+/* ═══ Drag-Ready Feedback ═══ */
+.drag-ready {
+    transform: scale(1.08);
+    opacity: 0.85;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
 /* ═══ Bottom Navigation Bar ═══ */
 .bottom-nav {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 2000;

@@ -798,6 +798,178 @@ button:focus-visible { outline-offset: 1px; }
 .loading-overlay-text { color: #fff; font-size: 14px; font-weight: 600; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ═══ Cascade Visual Tree ═══ */
+.cascade-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 12px;
+    background: var(--kia-dark);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    min-height: 42px;
+}
+.cascade-breadcrumb-placeholder {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    font-style: italic;
+}
+.cascade-breadcrumb-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 6px;
+    color: #e2e8f0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+}
+.cascade-breadcrumb-item:hover {
+    background: rgba(187,22,43,0.3);
+}
+.cascade-breadcrumb-item .crumb-label {
+    color: #94a3b8;
+    font-weight: 400;
+    font-size: 0.7rem;
+}
+.cascade-breadcrumb-sep {
+    color: #475569;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.cascade-level {
+    margin-bottom: 10px;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: opacity 0.2s, max-height 0.3s ease;
+}
+.cascade-level.pending {
+    opacity: 0.35;
+    pointer-events: none;
+    max-height: 36px;
+}
+.cascade-level.active {
+    opacity: 1;
+}
+.cascade-level.completed {
+    opacity: 0.7;
+}
+.cascade-level-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #f1f5f9;
+    border: 1px solid var(--border);
+    border-radius: 10px 10px 0 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.cascade-level.completed .cascade-level-header {
+    border-radius: 10px;
+}
+.cascade-level-header .level-step {
+    background: var(--kia-dark);
+    color: #fff;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+.cascade-level.completed .cascade-level-header .level-step {
+    background: var(--tp-green);
+}
+.cascade-level-header .level-change {
+    font-size: 0.7rem;
+    color: var(--kia-red);
+    cursor: pointer;
+    font-weight: 600;
+}
+.cascade-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+}
+.cascade-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
+}
+.cascade-chip:hover {
+    border-color: var(--kia-red);
+    background: #fff5f5;
+}
+.cascade-chip:active {
+    transform: scale(0.97);
+}
+.cascade-chip.selected {
+    background: var(--kia-red);
+    color: #fff;
+    border-color: var(--kia-red);
+}
+.cascade-chip.auto-selected {
+    background: #d1fae5;
+    color: #065f46;
+    border-color: #10b981;
+}
+.cascade-chip .chip-count {
+    font-size: 0.72rem;
+    font-weight: 400;
+    opacity: 0.7;
+}
+.cascade-chip.selected .chip-count {
+    opacity: 0.85;
+}
+@keyframes chipPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+.cascade-chip.just-selected {
+    animation: chipPulse 0.2s ease;
+}
+
+/* ═══ Drag-Ready Feedback ═══ */
+.drag-ready {
+    transform: scale(1.08);
+    opacity: 0.85;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
 /* ═══ Bottom Navigation Bar ═══ */
 .bottom-nav {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 2000;
@@ -939,92 +1111,87 @@ button:focus-visible { outline-offset: 1px; }
 
             <!-- MODO INTERNO: Configuración con filtros en cascada -->
             <div id="container-internal">
-                <div class="alert alert-info">
-                    ℹ️ Seleccione los campos en orden para filtrar las configuraciones válidas
+                <!-- Visual Cascade Tree -->
+                <div id="cascade-tree-container">
+                    <div id="cascade-breadcrumb" class="cascade-breadcrumb"></div>
+                    <div id="cascade-levels"></div>
                 </div>
-                
-                <div class="form-group">
-                    <label>MODELO</label>
-                    <select id="cfg_model" onchange="cascadeFilter('Modelo')">
-                        <option value="">Seleccionar...</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>AÑO MODELO</label>
-                    <select id="cfg_year" onchange="cascadeFilter('MODEL YEAR (VIN)')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>MOTOR</label>
-                    <select id="cfg_engine" onchange="cascadeFilter('ENGINE CAPACITY')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>TRANSMISIÓN</label>
-                    <select id="cfg_transmission" onchange="cascadeFilter('TRANSMISSION')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>REGULACIÓN</label>
-                    <select id="cfg_regulation" onchange="cascadeFilter('EMISSION REGULATION')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-	<div class="form-group">
- 	 <label>ENV PACKAGE</label>
-	  <select id="cfg_envpkg" onchange="cascadeFilter('ENVIRONMENT PACKAGE')">
-  	  <option value="">Todos</option>
- 	 </select>
-	</div>
 
-                <div class="form-group">
-                    <label>REGIÓN</label>
-                    <select id="cfg_region" onchange="cascadeFilter('REGION')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>LLANTAS</label>
-                    <select id="cfg_tires" onchange="cascadeFilter('TIRE ASSY')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>CARROCERÍA</label>
-                    <select id="cfg_body" onchange="cascadeFilter('BODY TYPE')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>DRIVE TYPE</label>
-                    <select id="cfg_drive" onchange="cascadeFilter('DRIVE TYPE')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>ENGINE PACKAGE</label>
-                    <select id="cfg_enginepkg" onchange="cascadeFilter('ENGINE PACKAGE')">
-                        <option value="">Todos</option>
-                    </select>
+                <!-- Hidden original selects (kept for backward compatibility) -->
+                <div id="cascade-legacy-selects" style="display:none;">
+                    <div class="form-group">
+                        <label>MODELO</label>
+                        <select id="cfg_model" onchange="cascadeFilter('Modelo')">
+                            <option value="">Seleccionar...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>AÑO MODELO</label>
+                        <select id="cfg_year" onchange="cascadeFilter('MODEL YEAR (VIN)')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>MOTOR</label>
+                        <select id="cfg_engine" onchange="cascadeFilter('ENGINE CAPACITY')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>TRANSMISIÓN</label>
+                        <select id="cfg_transmission" onchange="cascadeFilter('TRANSMISSION')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>REGULACIÓN</label>
+                        <select id="cfg_regulation" onchange="cascadeFilter('EMISSION REGULATION')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>ENV PACKAGE</label>
+                        <select id="cfg_envpkg" onchange="cascadeFilter('ENVIRONMENT PACKAGE')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>REGIÓN</label>
+                        <select id="cfg_region" onchange="cascadeFilter('REGION')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>LLANTAS</label>
+                        <select id="cfg_tires" onchange="cascadeFilter('TIRE ASSY')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>CARROCERÍA</label>
+                        <select id="cfg_body" onchange="cascadeFilter('BODY TYPE')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>DRIVE TYPE</label>
+                        <select id="cfg_drive" onchange="cascadeFilter('DRIVE TYPE')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>ENGINE PACKAGE</label>
+                        <select id="cfg_enginepkg" onchange="cascadeFilter('ENGINE PACKAGE')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div id="cfg_counter" class="config-counter">
                     Configuraciones disponibles: <span id="configCount">0</span>
                 </div>
 
-                <button class="btn-reset" onclick="resetFilters()">🔄 REINICIAR FILTROS</button>
+                <button class="btn-reset" onclick="resetCascadeTree()">🔄 REINICIAR FILTROS</button>
 
                 <div id="cfg_result" class="config-result empty">
                     <strong>Código de Configuración:</strong> Seleccione al menos el MODELO para ver configuraciones disponibles
@@ -2732,7 +2899,10 @@ function generateWeeklyStatusPDF() {
         // Inicializar otros selectores
         updateSelectOptions(allConfigurations);
         document.getElementById('configCount').textContent = allConfigurations.length;
-        
+
+        // Initialize visual cascade tree
+        if (typeof initCascadeTree === 'function') initCascadeTree();
+
         updateProgressBar();
         refreshAllLists();
         
@@ -2971,6 +3141,251 @@ setAltaDatetimeIfEmpty(true);
     }
 
 
+
+// [M02b] VISUAL CASCADE TREE
+// ======================================================================
+
+var cascadeSelections = {};
+var cascadeAutoSelected = {};
+
+var cascadeFieldLabels = {
+    'Modelo': 'MODELO',
+    'MODEL YEAR (VIN)': 'AÑO',
+    'ENGINE CAPACITY': 'MOTOR',
+    'TRANSMISSION': 'TRANSMISIÓN',
+    'ENVIRONMENT PACKAGE': 'ENV PKG',
+    'EMISSION REGULATION': 'REGULACIÓN',
+    'REGION': 'REGIÓN',
+    'TIRE ASSY': 'LLANTAS',
+    'BODY TYPE': 'CARROCERÍA',
+    'DRIVE TYPE': 'DRIVE',
+    'ENGINE PACKAGE': 'ENG PKG'
+};
+
+function getCascadeOptionsForLevel(fieldName) {
+    var filtered = allConfigurations.filter(function(config) {
+        for (var f in cascadeSelections) {
+            if (config[f] !== cascadeSelections[f]) return false;
+        }
+        return true;
+    });
+    var counts = {};
+    filtered.forEach(function(config) {
+        var val = config[fieldName];
+        if (val) counts[val] = (counts[val] || 0) + 1;
+    });
+    var options = Object.keys(counts).sort().map(function(val) {
+        return { value: val, count: counts[val] };
+    });
+    return { options: options, totalFiltered: filtered.length };
+}
+
+function renderCascadeTree() {
+    var fields = Object.keys(fieldMapping);
+    var levelsEl = document.getElementById('cascade-levels');
+    var breadcrumbEl = document.getElementById('cascade-breadcrumb');
+    if (!levelsEl || !breadcrumbEl) return;
+
+    // Determine which levels are completed/active/pending
+    var firstUnselected = -1;
+    for (var i = 0; i < fields.length; i++) {
+        if (!cascadeSelections[fields[i]]) {
+            firstUnselected = i;
+            break;
+        }
+    }
+    if (firstUnselected === -1) firstUnselected = fields.length;
+
+    // Render breadcrumb
+    var crumbHtml = '';
+    if (firstUnselected === 0) {
+        crumbHtml = '<span class="cascade-breadcrumb-placeholder">Seleccione un modelo para comenzar</span>';
+    } else {
+        for (var b = 0; b < firstUnselected; b++) {
+            if (b > 0) crumbHtml += '<span class="cascade-breadcrumb-sep">›</span>';
+            var autoTag = cascadeAutoSelected[fields[b]] ? ' <span style="font-size:0.6rem;opacity:0.6;">auto</span>' : '';
+            crumbHtml += '<span class="cascade-breadcrumb-item" onclick="deselectCascadeLevel(\'' + fields[b] + '\')">' +
+                '<span class="crumb-label">' + cascadeFieldLabels[fields[b]] + ':</span> ' +
+                cascadeSelections[fields[b]] + autoTag + '</span>';
+        }
+    }
+    breadcrumbEl.innerHTML = crumbHtml;
+
+    // Render levels
+    var html = '';
+    for (var lvl = 0; lvl < fields.length; lvl++) {
+        var field = fields[lvl];
+        var label = cascadeFieldLabels[field];
+        var state = 'pending';
+        if (cascadeSelections[field]) {
+            state = 'completed';
+        } else if (lvl === firstUnselected) {
+            state = 'active';
+        }
+
+        html += '<div class="cascade-level ' + state + '">';
+        html += '<div class="cascade-level-header">';
+        html += '<span><span class="level-step">' + (lvl + 1) + '</span>' + label + '</span>';
+        if (state === 'completed') {
+            html += '<span class="level-change" onclick="deselectCascadeLevel(\'' + field + '\')">cambiar</span>';
+        }
+        html += '</div>';
+
+        if (state === 'active') {
+            var data = getCascadeOptionsForLevel(field);
+            html += '<div class="cascade-chips">';
+            if (data.options.length === 0) {
+                html += '<span style="color:#94a3b8;font-size:0.85rem;">Sin opciones disponibles</span>';
+            } else {
+                data.options.forEach(function(opt) {
+                    var escaped = opt.value.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;');
+                    var escapedAttr = opt.value.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+                    html += '<button class="cascade-chip" onclick="selectCascadeChip(\'' + field + '\',\'' + escapedAttr + '\')">' +
+                        escaped + ' <span class="chip-count">(' + opt.count + ')</span></button>';
+                });
+            }
+            html += '</div>';
+        } else if (state === 'completed') {
+            // Show selected value inline in header (already via breadcrumb)
+        } else {
+            // Pending — just the collapsed header
+        }
+
+        html += '</div>';
+    }
+    levelsEl.innerHTML = html;
+
+    // Update counter
+    var totalFiltered = allConfigurations.filter(function(config) {
+        for (var f in cascadeSelections) {
+            if (config[f] !== cascadeSelections[f]) return false;
+        }
+        return true;
+    });
+    document.getElementById('configCount').textContent = totalFiltered.length;
+    displayConfigResult(totalFiltered);
+}
+
+function selectCascadeChip(fieldName, value) {
+    var fields = Object.keys(fieldMapping);
+    var idx = fields.indexOf(fieldName);
+
+    // Set this selection
+    cascadeSelections[fieldName] = value;
+
+    // Clear all subsequent selections
+    for (var i = idx + 1; i < fields.length; i++) {
+        delete cascadeSelections[fields[i]];
+        delete cascadeAutoSelected[fields[i]];
+    }
+
+    // Sync hidden select and call existing cascadeFilter
+    var selectId = fieldMapping[fieldName];
+    var selectEl = document.getElementById(selectId);
+    if (selectEl) {
+        selectEl.value = value;
+        selectEl.classList.add('selected');
+    }
+    currentFilters[fieldName] = value;
+
+    // Clear downstream filters and selects
+    for (var j = idx + 1; j < fields.length; j++) {
+        delete currentFilters[fields[j]];
+        var sid = fieldMapping[fields[j]];
+        var sel = document.getElementById(sid);
+        if (sel) {
+            sel.value = '';
+            sel.classList.remove('selected');
+        }
+    }
+
+    // Update hidden selects via existing filter logic
+    var filtered = allConfigurations.filter(function(config) {
+        for (var f in currentFilters) {
+            if (config[f] !== currentFilters[f]) return false;
+        }
+        return true;
+    });
+    updateSelectOptions(filtered);
+
+    // Auto-advance: if next level has only 1 option, auto-select it
+    renderCascadeTree();
+    autoAdvanceCascade();
+}
+
+function autoAdvanceCascade() {
+    var fields = Object.keys(fieldMapping);
+    for (var i = 0; i < fields.length; i++) {
+        if (!cascadeSelections[fields[i]]) {
+            var data = getCascadeOptionsForLevel(fields[i]);
+            if (data.options.length === 1) {
+                // Auto-select the only option
+                cascadeSelections[fields[i]] = data.options[0].value;
+                cascadeAutoSelected[fields[i]] = true;
+                currentFilters[fields[i]] = data.options[0].value;
+                var selectId = fieldMapping[fields[i]];
+                var selectEl = document.getElementById(selectId);
+                if (selectEl) {
+                    selectEl.value = data.options[0].value;
+                    selectEl.classList.add('selected');
+                }
+                // Continue checking next levels
+                var filtered = allConfigurations.filter(function(config) {
+                    for (var f in currentFilters) {
+                        if (config[f] !== currentFilters[f]) return false;
+                    }
+                    return true;
+                });
+                updateSelectOptions(filtered);
+            } else {
+                break;
+            }
+        }
+    }
+    renderCascadeTree();
+}
+
+function deselectCascadeLevel(fieldName) {
+    var fields = Object.keys(fieldMapping);
+    var idx = fields.indexOf(fieldName);
+
+    // Clear this and all subsequent selections
+    for (var i = idx; i < fields.length; i++) {
+        delete cascadeSelections[fields[i]];
+        delete cascadeAutoSelected[fields[i]];
+        delete currentFilters[fields[i]];
+        var selectId = fieldMapping[fields[i]];
+        var selectEl = document.getElementById(selectId);
+        if (selectEl) {
+            selectEl.value = '';
+            selectEl.classList.remove('selected');
+        }
+    }
+
+    // Rebuild filtered options
+    var filtered = allConfigurations.filter(function(config) {
+        for (var f in currentFilters) {
+            if (config[f] !== currentFilters[f]) return false;
+        }
+        return true;
+    });
+    updateSelectOptions(filtered);
+    renderCascadeTree();
+}
+
+function resetCascadeTree() {
+    cascadeSelections = {};
+    cascadeAutoSelected = {};
+    resetFilters();
+    renderCascadeTree();
+}
+
+function initCascadeTree() {
+    if (!allConfigurations || allConfigurations.length === 0) return;
+    cascadeSelections = {};
+    cascadeAutoSelected = {};
+    renderCascadeTree();
+}
 
 // [M03] INTERFAZ Y NAVEGACIÓN]
 // ======================================================================
@@ -3351,7 +3766,7 @@ setAltaDatetimeIfEmpty(true);
         // Reset
         document.getElementById('vin').value = '';
         document.getElementById('vehiclePurpose').value = '';
-        resetFilters();
+        resetCascadeTree();
         validateVIN(document.getElementById('vin'));
         
         refreshAllLists();
@@ -7979,8 +8394,8 @@ function invShowZoneSlotDetail(code) {
 // ── Zone Map: Drag-and-Drop ──
 function invInitZoneDrag(container) {
     var slots = container.querySelectorAll('.inv-zone-slot');
-    var LONG_PRESS_MS = 500;
-    var DRAG_THRESHOLD = 30;
+    var LONG_PRESS_MS = 380;
+    var DRAG_THRESHOLD = 15;
 
     function getXY(e) {
         if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -7995,7 +8410,9 @@ function invInitZoneDrag(container) {
         container.querySelectorAll('.inv-zone-slot').forEach(function(s) {
             s.style.outline = '';
             s.style.opacity = '';
+            s.classList.remove('drag-ready');
         });
+        container.style.touchAction = '';
         _invDrag.active = false;
         _invDrag.committed = false;
         _invDrag.gasId = null;
@@ -8057,6 +8474,8 @@ function invInitZoneDrag(container) {
         }
         _invDrag.timer = setTimeout(function() {
             _invDrag.timer = null;
+            slotEl.classList.add('drag-ready');
+            container.style.touchAction = 'none';
             startDragMode(slotEl, pt);
         }, LONG_PRESS_MS);
     }
@@ -8067,7 +8486,7 @@ function invInitZoneDrag(container) {
         if (_invDrag.timer) {
             var dx = Math.abs(pt.x - _invDrag.startX);
             var dy = Math.abs(pt.y - _invDrag.startY);
-            if (dx > 10 || dy > 10) {
+            if (dx > 12 || dy > 12) {
                 clearTimeout(_invDrag.timer);
                 _invDrag.timer = null;
             }

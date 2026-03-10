@@ -2067,8 +2067,8 @@ function invShowZoneSlotDetail(code) {
 // ── Zone Map: Drag-and-Drop ──
 function invInitZoneDrag(container) {
     var slots = container.querySelectorAll('.inv-zone-slot');
-    var LONG_PRESS_MS = 500;
-    var DRAG_THRESHOLD = 30;
+    var LONG_PRESS_MS = 380;
+    var DRAG_THRESHOLD = 15;
 
     function getXY(e) {
         if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -2083,7 +2083,9 @@ function invInitZoneDrag(container) {
         container.querySelectorAll('.inv-zone-slot').forEach(function(s) {
             s.style.outline = '';
             s.style.opacity = '';
+            s.classList.remove('drag-ready');
         });
+        container.style.touchAction = '';
         _invDrag.active = false;
         _invDrag.committed = false;
         _invDrag.gasId = null;
@@ -2145,6 +2147,8 @@ function invInitZoneDrag(container) {
         }
         _invDrag.timer = setTimeout(function() {
             _invDrag.timer = null;
+            slotEl.classList.add('drag-ready');
+            container.style.touchAction = 'none';
             startDragMode(slotEl, pt);
         }, LONG_PRESS_MS);
     }
@@ -2155,7 +2159,7 @@ function invInitZoneDrag(container) {
         if (_invDrag.timer) {
             var dx = Math.abs(pt.x - _invDrag.startX);
             var dy = Math.abs(pt.y - _invDrag.startY);
-            if (dx > 10 || dy > 10) {
+            if (dx > 12 || dy > 12) {
                 clearTimeout(_invDrag.timer);
                 _invDrag.timer = null;
             }
