@@ -1,0 +1,22 @@
+{
+  "name": "KIA EmLab — Laboratorio de Emisiones",
+  "short_name": "EmLab",
+  "description": "Plataforma integrada para el laboratorio de emisiones KIA México",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#05141f",
+  "background_color": "#05141f",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='24' fill='%2305141f'/><text x='96' y='120' text-anchor='middle' font-size='80' font-weight='900' fill='%23bb162b' font-family='sans-serif'>KIA</text><text x='96' y='155' text-anchor='middle' font-size='28' font-weight='700' fill='%23e2e8f0' font-family='sans-serif'>EmLab</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='64' fill='%2305141f'/><text x='256' y='300' text-anchor='middle' font-size='200' font-weight='900' fill='%23bb162b' font-family='sans-serif'>KIA</text><text x='256' y='400' text-anchor='middle' font-size='72' font-weight='700' fill='%23e2e8f0' font-family='sans-serif'>EmLab</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

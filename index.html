@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kia EmLab — Plataforma Integrada v14.0</title>
 
+    <!-- [R3-M1] PWA Meta -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#05141f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
@@ -31,30 +37,33 @@
 
 <!-- ═══ PLATFORM SWITCHER ═══ -->
 <div class="platform-bar" role="navigation" aria-label="Navegación principal entre módulos">
-    <div class="platform-tab active" onclick="switchPlatform('cop15')" id="ptab-cop15">
+    <div class="platform-tab active" onclick="switchPlatform('cop15')" id="ptab-cop15" title="COP15: Registro y operación de vehículos de emisiones">
         🔬 COP15 CASCADE
         <span class="pt-badge" style="background:rgba(187,22,43,0.2);color:#f87171;" id="cop15-count-badge">0 activos</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('testplan')" id="ptab-testplan">
+    <div class="platform-tab" onclick="switchPlatform('testplan')" id="ptab-testplan" title="Test Plan: Planificación y priorización de pruebas semanales">
         📊 TEST PLAN MANAGER
         <span class="pt-badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;" id="tp-coverage-badge">—</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('results')" id="ptab-results">
+    <div class="platform-tab" onclick="switchPlatform('results')" id="ptab-results" title="Results: Análisis de resultados, tendencias Cpk/Ppk">
         🧪 RESULTS ANALYZER
         <span class="pt-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" id="ra-count-badge">0 pruebas</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('inventory')" id="ptab-inventory" style="position:relative;">
+    <div class="platform-tab" onclick="switchPlatform('inventory')" id="ptab-inventory" style="position:relative;" title="Inventory: Cilindros de gas, equipos y mapa de zonas">
         📦 LAB INVENTORY
         <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
         <span id="inv-alert-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:16px;padding:0 4px;">0</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel">
+    <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel" title="Panel: Dashboard, operadores, backups y configuración">
         ⚙️ PANEL
         <span class="pt-badge" style="background:rgba(139,92,246,0.2);color:#c4b5fd;" id="pn-alerts-badge">ok</span>
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
-    <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos">🔍</button></div>
-    <div style="padding:4px 4px;align-self:center;position:relative;"><button onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
+    <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión">🟢</span>
+    <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
+    <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)">🔍</button></div>
+    <div style="padding:4px 4px;align-self:center;position:relative;"><button onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
+    <div style="padding:4px 4px;align-self:center;"><button onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación">?</button></div>
     <div style="flex:1"></div>
     <div style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.3); align-self:center;">
         KIA Laboratorio de Emisiones — Plataforma Integrada v14.0
@@ -64,10 +73,13 @@
 <!-- Global VIN Search Bar -->
 <div id="globalSearchBar" style="display:none;padding:8px 16px;background:#0f172a;border-bottom:1px solid #1e293b;">
     <div style="position:relative;max-width:600px;margin:0 auto;">
-        <input type="text" id="globalVinInput" oninput="globalVinSearch(this.value)" placeholder="Buscar VIN en todos los módulos..." style="width:100%;padding:10px 14px;border:1px solid #334155;border-radius:8px;background:#1e293b;color:#f1f5f9;font-size:0.9rem;box-sizing:border-box;">
+        <input type="text" id="globalVinInput" oninput="_debouncedGlobalVinSearch(this.value)" placeholder="Buscar VIN en todos los módulos..." style="width:100%;padding:10px 14px;border:1px solid #334155;border-radius:8px;background:#1e293b;color:#f1f5f9;font-size:0.9rem;box-sizing:border-box;">
         <div id="globalSearchResults" style="position:absolute;left:0;right:0;top:100%;z-index:999;max-height:300px;overflow-y:auto;"></div>
     </div>
 </div>
+
+<!-- [R3-M8] Print-only header -->
+<div class="print-only">KIA EmLab — Reporte generado el <script>document.write(new Date().toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'}))</script></div>
 
 <!-- ═══ PLATFORM 1: COP15 CASCADE ═══ -->
 <div class="platform-section active" id="platform-cop15" role="main" aria-label="COP15 Cascade">
@@ -93,8 +105,8 @@
         <div class="card">
             <div class="card-title">🎯 Propósito y Tipo</div>
             <div class="form-group">
-                <label>Propósito de la Prueba</label>
-                <select id="vehiclePurpose" required>
+                <label for="vehiclePurpose">Propósito de la Prueba</label>
+                <select id="vehiclePurpose" required aria-required="true">
                     <option value="">Seleccione...</option>
                     <option value="COP-Emisiones">Conformidad de Producción: Emisiones</option>
                     <option value="COP-OBD2">Conformidad de Producción: OBD-II</option>
@@ -231,10 +243,11 @@
         <div class="card">
             <div class="card-title">🔢 VIN (Número de Identificación)</div>
             <div class="form-group">
-                <label>VIN debe ser exactamente 17 caracteres alfanuméricos</label>
-                <input 
-                    type="text" 
-                    id="vin" 
+                <label for="vin">VIN debe ser exactamente 17 caracteres alfanuméricos</label>
+                <input
+                    type="text"
+                    id="vin"
+                    aria-required="true"
                     placeholder="Ejemplo: KNDJP3A59K7123456" 
                     maxlength="17"
                     pattern="[A-HJ-NPR-Z0-9]{17}"
@@ -257,7 +270,7 @@
     </div>
 
     <div class="form-group">
-      <label>Fecha/Hora de Alta</label>
+      <label for="reg_datetime">Fecha/Hora de Alta</label>
       <input type="datetime-local" id="reg_datetime" readonly>
     </div>
   </div><!-- ✅ cierre form-grid -->

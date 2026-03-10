@@ -216,7 +216,7 @@ const TP_PURPOSES_VALID = ['Correlacion', 'Investigacion', 'COP-Emisiones', 'EO-
 const TP_MONTHS = ['Feb-26','Mar-26','Apr-26','May-26','Jun-26','Jul-26'];
 const TP_LS_KEY = 'kia_testplan_v1';
 
-let tpState = JSON.parse(localStorage.getItem(TP_LS_KEY)) || {
+let tpState = safeParse(TP_LS_KEY, null) || {
     planData: [],        // production plan configs
     testedList: [],
     weeklyPlans: [],

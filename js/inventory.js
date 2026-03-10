@@ -7,7 +7,7 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 const INV_LS_KEY = 'kia_lab_inventory';
-let invState = JSON.parse(localStorage.getItem(INV_LS_KEY)) || {
+let invState = safeParse(INV_LS_KEY, null) || {
     gases: [],       // {id, controlNo, cylinderNo, formula, gasType, concNominal, concReal, traceability, validUntil, zone, position, status, regDate, gasCategory, readings:[], barcode}
     equipment: [],   // {id, name, type, serialNo, location, lastCalDate, nextCalDate, calCertNo, status, notes}
     zones: [
@@ -882,7 +882,7 @@ function invScanBarcode() {
     // Quick search fallback (always shown)
     html += '<div style="margin-bottom:12px;">';
     html += '<label style="font-size:10px;color:#94a3b8;">Busqueda rapida (No. Control, cilindro o formula)</label>';
-    html += '<input id="inv-scan-search" placeholder="Escribe para buscar..." oninput="invScanFilter()" style="width:100%;padding:10px;margin-top:4px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;">';
+    html += '<input id="inv-scan-search" placeholder="Escribe para buscar..." oninput="_debouncedInvScanFilter()" style="width:100%;padding:10px;margin-top:4px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;">';
     html += '</div>';
 
     // Search results
@@ -3120,3 +3120,5 @@ function invPredictDepletion(g) {
     };
 }
 
+// [R3-M3] Debounced version for scan filter input
+var _debouncedInvScanFilter = debounce(function() { invScanFilter(); }, 200);

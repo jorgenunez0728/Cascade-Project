@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kia EmLab — Plataforma Integrada v14.0</title>
 
+    <!-- [R3-M1] PWA Meta -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#05141f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
@@ -1128,6 +1134,133 @@ button:focus-visible { outline-offset: 1px; }
 .batch-pdf-btn { background: #1e40af !important; color: #fff !important; border: none !important; }
 .hist-chk { width: 16px; height: 16px; cursor: pointer; accent-color: var(--kia-red); }
 
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R3-M2] ACCESSIBILITY — Reduced Motion                              */
+/* ══════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R3-M7] MICRO-INTERACTIONS — Ripple, Confetti, Shake, Skeleton      */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* Ripple effect */
+.ripple-effect {
+    position: absolute; border-radius: 50%;
+    background: rgba(255,255,255,0.35);
+    animation: rippleExpand 0.45s ease-out forwards;
+    pointer-events: none;
+}
+@keyframes rippleExpand {
+    0% { transform: scale(0); opacity: 1; }
+    100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* Error shake */
+.field-shake { animation: fieldShake 0.35s ease-in-out; }
+@keyframes fieldShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-5px); }
+    40% { transform: translateX(5px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(3px); }
+}
+
+/* Confetti */
+@keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+/* Skeleton loader */
+.skeleton {
+    background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.2s infinite;
+    border-radius: 8px; height: 20px; margin-bottom: 8px;
+}
+@keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: 200px 0; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R3-M8] PRINT SUPPORT                                               */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* Print-only header */
+.print-only { display: none; }
+
+@media print {
+    body { background: #fff !important; color: #000 !important; padding: 0 !important; }
+    .platform-bar, .bottom-nav, .action-bar, .tp-tabs,
+    .custom-modal-overlay, .toast-container, #soak-floating-badge,
+    #notification-center, #cmd-palette, #globalSearchBar,
+    .progress-container, #auth-overlay, .topbar,
+    .tour-overlay { display: none !important; }
+    .print-only { display: block !important; text-align: center; margin-bottom: 15px; font-size: 14px; font-weight: 700; border-bottom: 2px solid #000; padding-bottom: 8px; }
+    .platform-section { display: block !important; position: static !important; }
+    .platform-section:not(.active) { display: none !important; }
+    .tp-card, .card { border: 1px solid #ddd !important; background: #fff !important; color: #000 !important; break-inside: avoid; margin-bottom: 10px; }
+    .history-table { width: 100%; border-collapse: collapse; }
+    .history-table th, .history-table td { border: 1px solid #999 !important; padding: 4px 8px !important; font-size: 10px !important; color: #000 !important; background: #fff !important; }
+    .status-badge { border: 1px solid #999; background: transparent !important; color: #000 !important; }
+    button, .btn-primary, .btn-secondary, .hist-chk { display: none !important; }
+    .hist-filter-count button { display: none !important; }
+    @page { margin: 1cm; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R3-M9] ONBOARDING TOUR                                             */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.tour-overlay {
+    position: fixed; inset: 0; z-index: 100000;
+    background: rgba(0,0,0,0.6);
+}
+.tour-highlight {
+    position: relative; z-index: 100001 !important;
+    box-shadow: 0 0 0 4px rgba(59,130,246,0.6), 0 0 20px rgba(59,130,246,0.3);
+    border-radius: 6px;
+}
+.tour-tooltip {
+    position: fixed; z-index: 100002;
+    background: #fff; color: #1a1a2e;
+    border-radius: 12px; padding: 16px 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    max-width: 300px; width: 90vw;
+}
+.tour-title { font-size: 14px; font-weight: 800; margin-bottom: 6px; color: #0f172a; }
+.tour-text { font-size: 12px; line-height: 1.5; color: #475569; margin-bottom: 12px; }
+.tour-footer { display: flex; justify-content: space-between; align-items: center; }
+.tour-progress { font-size: 10px; color: #94a3b8; }
+.tour-actions { display: flex; gap: 6px; }
+.tour-btn {
+    padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 6px;
+    background: #f8fafc; color: #475569; font-size: 11px; font-weight: 600;
+    cursor: pointer;
+}
+.tour-btn:hover { background: #e2e8f0; }
+.tour-btn-primary { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+.tour-btn-primary:hover { background: #2563eb; }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R3-M1] PWA — Online/offline indicator                              */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+#online-status-badge { font-size: 8px; cursor: default; }
+#pwa-install-btn {
+    padding: 4px 10px; font-size: 10px; font-weight: 700;
+    background: #10b981; color: #fff; border: none; border-radius: 6px;
+    cursor: pointer;
+}
+#pwa-install-btn:hover { background: #059669; }
+
     </style>
 </head>
 
@@ -1142,30 +1275,33 @@ button:focus-visible { outline-offset: 1px; }
 
 <!-- ═══ PLATFORM SWITCHER ═══ -->
 <div class="platform-bar" role="navigation" aria-label="Navegación principal entre módulos">
-    <div class="platform-tab active" onclick="switchPlatform('cop15')" id="ptab-cop15">
+    <div class="platform-tab active" onclick="switchPlatform('cop15')" id="ptab-cop15" title="COP15: Registro y operación de vehículos de emisiones">
         🔬 COP15 CASCADE
         <span class="pt-badge" style="background:rgba(187,22,43,0.2);color:#f87171;" id="cop15-count-badge">0 activos</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('testplan')" id="ptab-testplan">
+    <div class="platform-tab" onclick="switchPlatform('testplan')" id="ptab-testplan" title="Test Plan: Planificación y priorización de pruebas semanales">
         📊 TEST PLAN MANAGER
         <span class="pt-badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;" id="tp-coverage-badge">—</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('results')" id="ptab-results">
+    <div class="platform-tab" onclick="switchPlatform('results')" id="ptab-results" title="Results: Análisis de resultados, tendencias Cpk/Ppk">
         🧪 RESULTS ANALYZER
         <span class="pt-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" id="ra-count-badge">0 pruebas</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('inventory')" id="ptab-inventory" style="position:relative;">
+    <div class="platform-tab" onclick="switchPlatform('inventory')" id="ptab-inventory" style="position:relative;" title="Inventory: Cilindros de gas, equipos y mapa de zonas">
         📦 LAB INVENTORY
         <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
         <span id="inv-alert-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:16px;padding:0 4px;">0</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel">
+    <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel" title="Panel: Dashboard, operadores, backups y configuración">
         ⚙️ PANEL
         <span class="pt-badge" style="background:rgba(139,92,246,0.2);color:#c4b5fd;" id="pn-alerts-badge">ok</span>
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
-    <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos">🔍</button></div>
-    <div style="padding:4px 4px;align-self:center;position:relative;"><button onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
+    <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión">🟢</span>
+    <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
+    <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)">🔍</button></div>
+    <div style="padding:4px 4px;align-self:center;position:relative;"><button onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
+    <div style="padding:4px 4px;align-self:center;"><button onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación">?</button></div>
     <div style="flex:1"></div>
     <div style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.3); align-self:center;">
         KIA Laboratorio de Emisiones — Plataforma Integrada v14.0
@@ -1175,10 +1311,13 @@ button:focus-visible { outline-offset: 1px; }
 <!-- Global VIN Search Bar -->
 <div id="globalSearchBar" style="display:none;padding:8px 16px;background:#0f172a;border-bottom:1px solid #1e293b;">
     <div style="position:relative;max-width:600px;margin:0 auto;">
-        <input type="text" id="globalVinInput" oninput="globalVinSearch(this.value)" placeholder="Buscar VIN en todos los módulos..." style="width:100%;padding:10px 14px;border:1px solid #334155;border-radius:8px;background:#1e293b;color:#f1f5f9;font-size:0.9rem;box-sizing:border-box;">
+        <input type="text" id="globalVinInput" oninput="_debouncedGlobalVinSearch(this.value)" placeholder="Buscar VIN en todos los módulos..." style="width:100%;padding:10px 14px;border:1px solid #334155;border-radius:8px;background:#1e293b;color:#f1f5f9;font-size:0.9rem;box-sizing:border-box;">
         <div id="globalSearchResults" style="position:absolute;left:0;right:0;top:100%;z-index:999;max-height:300px;overflow-y:auto;"></div>
     </div>
 </div>
+
+<!-- [R3-M8] Print-only header -->
+<div class="print-only">KIA EmLab — Reporte generado el <script>document.write(new Date().toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'}))</script></div>
 
 <!-- ═══ PLATFORM 1: COP15 CASCADE ═══ -->
 <div class="platform-section active" id="platform-cop15" role="main" aria-label="COP15 Cascade">
@@ -1204,8 +1343,8 @@ button:focus-visible { outline-offset: 1px; }
         <div class="card">
             <div class="card-title">🎯 Propósito y Tipo</div>
             <div class="form-group">
-                <label>Propósito de la Prueba</label>
-                <select id="vehiclePurpose" required>
+                <label for="vehiclePurpose">Propósito de la Prueba</label>
+                <select id="vehiclePurpose" required aria-required="true">
                     <option value="">Seleccione...</option>
                     <option value="COP-Emisiones">Conformidad de Producción: Emisiones</option>
                     <option value="COP-OBD2">Conformidad de Producción: OBD-II</option>
@@ -1342,10 +1481,11 @@ button:focus-visible { outline-offset: 1px; }
         <div class="card">
             <div class="card-title">🔢 VIN (Número de Identificación)</div>
             <div class="form-group">
-                <label>VIN debe ser exactamente 17 caracteres alfanuméricos</label>
-                <input 
-                    type="text" 
-                    id="vin" 
+                <label for="vin">VIN debe ser exactamente 17 caracteres alfanuméricos</label>
+                <input
+                    type="text"
+                    id="vin"
+                    aria-required="true"
                     placeholder="Ejemplo: KNDJP3A59K7123456" 
                     maxlength="17"
                     pattern="[A-HJ-NPR-Z0-9]{17}"
@@ -1368,7 +1508,7 @@ button:focus-visible { outline-offset: 1px; }
     </div>
 
     <div class="form-group">
-      <label>Fecha/Hora de Alta</label>
+      <label for="reg_datetime">Fecha/Hora de Alta</label>
       <input type="datetime-local" id="reg_datetime" readonly>
     </div>
   </div><!-- ✅ cierre form-grid -->
@@ -2388,11 +2528,44 @@ const UNIT_CONVERSION = {
   kmh_to_mph: 0.6213711922
 };
 
-let db = JSON.parse(localStorage.getItem('kia_db_v11')) || {
+// ======================================================================
+// [R3] CORE UTILITIES — Security, Data Integrity, Performance
+// ======================================================================
+
+// ── [R3-M5] escapeHtml — XSS prevention ──
+function escapeHtml(text) {
+    var map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+    return String(text == null ? '' : text).replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+// ── [R3-M6] safeParse — Corruption-safe localStorage parsing ──
+function safeParse(key, fallback) {
+    try {
+        var raw = localStorage.getItem(key);
+        if (!raw) return fallback;
+        var parsed = JSON.parse(raw);
+        return (typeof parsed === 'object' && parsed !== null) ? parsed : fallback;
+    } catch(e) {
+        console.error('Corrupted localStorage key: ' + key, e);
+        showToast('Datos corruptos en ' + key + '. Usando valores por defecto.', 'error');
+        return fallback;
+    }
+}
+
+// ── [R3-M3] debounce — Performance utility ──
+function debounce(fn, ms) {
+    var timer; return function() {
+        var ctx = this, args = arguments;
+        clearTimeout(timer);
+        timer = setTimeout(function() { fn.apply(ctx, args); }, ms);
+    };
+}
+
+let db = safeParse('kia_db_v11', {
   version: '11.0',
   vehicles: [],
   lastId: 0
-};
+});
 
 let activeVehicleId = null;
 let currentFilter = 'all';
@@ -2467,6 +2640,8 @@ function validateField(input, rules) {
     input.classList.remove('field-valid', 'field-error', 'field-missing');
     if (val.length > 0) {
         input.classList.add(valid ? 'field-valid' : 'field-error');
+        // [R3-M7] Shake on validation error
+        if (!valid && typeof shakeElement === 'function') shakeElement(input);
     }
     if (hint) {
         hint.textContent = valid ? '' : msg;
@@ -2518,10 +2693,14 @@ function showModal(opts) {
     var showCancel = opts.showCancel !== false;
     var isLight = _currentPlatform === 'cop15';
 
+    // [R3-M2] Save previous focus for restoration
+    var _prevFocus = document.activeElement;
+
     var overlay = document.createElement('div');
     overlay.className = 'custom-modal-overlay';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', title || 'Diálogo');
 
     var icons = {danger:'⚠️',warning:'⚡',info:'ℹ️',success:'✅'};
     var box = document.createElement('div');
@@ -2539,7 +2718,25 @@ function showModal(opts) {
     var cancelBtn = box.querySelector('#_modal_cancel');
     confirmBtn.focus();
 
-    function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+    function close() {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        if (_prevFocus && _prevFocus.focus) try { _prevFocus.focus(); } catch(e){}
+    }
+
+    // [R3-M2] Focus trap — Tab/Shift+Tab cycle within modal
+    var focusableEls = box.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    var firstFocusable = focusableEls[0];
+    var lastFocusable = focusableEls[focusableEls.length - 1];
+    overlay.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') { close(); if(onCancel) onCancel(); return; }
+        if (e.key !== 'Tab') return;
+        if (e.shiftKey) {
+            if (document.activeElement === firstFocusable) { e.preventDefault(); lastFocusable.focus(); }
+        } else {
+            if (document.activeElement === lastFocusable) { e.preventDefault(); firstFocusable.focus(); }
+        }
+    });
+
     confirmBtn.addEventListener('click', function(){ close(); if(onConfirm) onConfirm(); });
     if (cancelBtn) cancelBtn.addEventListener('click', function(){ close(); if(onCancel) onCancel(); });
     overlay.addEventListener('click', function(e){ if(e.target === overlay){ close(); if(onCancel) onCancel(); } });
@@ -2818,8 +3015,7 @@ function globalVinSearch(query) {
     }
 
     if (results.length === 0) {
-        var safeQuery = query.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        res.innerHTML = '<div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:0 0 8px 8px;color:#94a3b8;font-size:0.85rem;text-align:center;">No se encontraron resultados para "' + safeQuery + '"</div>';
+        res.innerHTML = '<div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:0 0 8px 8px;color:#94a3b8;font-size:0.85rem;text-align:center;">No se encontraron resultados para "' + escapeHtml(query) + '"</div>';
         return;
     }
 
@@ -2828,12 +3024,12 @@ function globalVinSearch(query) {
         html += '<div onclick="' + r.action + ';toggleGlobalSearch();" style="padding:10px 14px;border-bottom:1px solid #0f172a;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background=\'#334155\'" onmouseout="this.style.background=\'transparent\'">';
         html += '<span style="font-size:16px;">' + r.icon + '</span>';
         html += '<div style="flex:1;min-width:0;">';
-        html += '<div style="font-size:0.85rem;font-weight:600;color:#f1f5f9;">' + r.vin + '</div>';
-        html += '<div style="font-size:0.75rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + r.detail + '</div>';
+        html += '<div style="font-size:0.85rem;font-weight:600;color:#f1f5f9;">' + escapeHtml(r.vin) + '</div>';
+        html += '<div style="font-size:0.75rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(r.detail) + '</div>';
         html += '</div>';
         html += '<div style="text-align:right;">';
-        html += '<span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,0.15);color:#818cf8;">' + r.module + '</span>';
-        if (r.date) html += '<div style="font-size:0.65rem;color:#64748b;margin-top:2px;">' + r.date + '</div>';
+        html += '<span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,0.15);color:#818cf8;">' + escapeHtml(r.module) + '</span>';
+        if (r.date) html += '<div style="font-size:0.65rem;color:#64748b;margin-top:2px;">' + escapeHtml(r.date) + '</div>';
         html += '</div></div>';
     });
     if (results.length > 15) {
@@ -2842,6 +3038,9 @@ function globalVinSearch(query) {
     html += '</div>';
     res.innerHTML = html;
 }
+
+// [R3-M3] Debounced version for input events
+var _debouncedGlobalVinSearch = debounce(function(val) { globalVinSearch(val); }, 250);
 
 // ── Weekly Status PDF Report ──
 function generateWeeklyStatusPDF() {
@@ -3114,6 +3313,48 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try {
             if (typeof fbInit === 'function') { fbInit(); fbHookSaves(); fbUpdateIndicator(); }
         } catch(fbErr) { console.error('Firebase init failed (non-blocking):', fbErr); }
+
+        // ═══ [R3-M6] Health check at boot ═══
+        try {
+            var lsUsage = _getLocalStorageUsage();
+            var lsPercent = Math.round((lsUsage / (5 * 1024 * 1024)) * 100);
+            if (lsPercent > 90) {
+                showToast('Almacenamiento al ' + lsPercent + '%. Considere purgar datos antiguos.', 'warning');
+            }
+            console.log('Storage: ' + _formatBytes(lsUsage) + ' (' + lsPercent + '%)');
+        } catch(e) { console.error('Health check error:', e); }
+
+        // ═══ [R3-M1] PWA — Register Service Worker ═══
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(function(reg) {
+                console.log('SW registered:', reg.scope);
+            }).catch(function(err) { console.log('SW registration skipped:', err.message); });
+        }
+
+        // ═══ [R3-M1] Online/Offline indicator ═══
+        _updateOnlineStatus();
+        window.addEventListener('online', _updateOnlineStatus);
+        window.addEventListener('offline', _updateOnlineStatus);
+
+        // ═══ [R3-M1] PWA install prompt ═══
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            window._deferredInstallPrompt = e;
+            var installBtn = document.getElementById('pwa-install-btn');
+            if (installBtn) installBtn.style.display = '';
+        });
+
+        // ═══ [R3-M7] Ripple effect on buttons ═══
+        document.addEventListener('click', function(e) {
+            var btn = e.target.closest('.btn-primary, .btn-secondary, .modal-btn-confirm');
+            if (!btn || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            _addRipple(e, btn);
+        });
+
+        // ═══ [R3-M9] Onboarding tour — first visit ═══
+        if (!localStorage.getItem('kia_tour_done')) {
+            setTimeout(function() { if (typeof startTour === 'function') startTour(); }, 1500);
+        }
         }
 
 window.addEventListener('DOMContentLoaded', initializeSystem);
@@ -3678,6 +3919,185 @@ function restoreFromBackup(snapshotId) {
             };
         });
     }, { title: 'Confirmar Restauración', type: 'warning', confirmText: 'Restaurar' });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R3-M1] PWA — Online/Offline Status + Install Prompt
+// ══════════════════════════════════════════════════════════════════════
+
+function _updateOnlineStatus() {
+    var badge = document.getElementById('online-status-badge');
+    if (!badge) return;
+    if (navigator.onLine) {
+        badge.textContent = '🟢';
+        badge.title = 'Conectado a internet';
+    } else {
+        badge.textContent = '🔴';
+        badge.title = 'Sin conexión — modo offline';
+    }
+}
+
+function pwaInstall() {
+    if (!window._deferredInstallPrompt) return;
+    window._deferredInstallPrompt.prompt();
+    window._deferredInstallPrompt.userChoice.then(function(choice) {
+        if (choice.outcome === 'accepted') showToast('App instalada exitosamente', 'success');
+        window._deferredInstallPrompt = null;
+        var btn = document.getElementById('pwa-install-btn');
+        if (btn) btn.style.display = 'none';
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R3-M7] MICRO-INTERACTIONS — Ripple, Confetti, Shake
+// ══════════════════════════════════════════════════════════════════════
+
+function _addRipple(e, btn) {
+    var rect = btn.getBoundingClientRect();
+    var ripple = document.createElement('span');
+    ripple.className = 'ripple-effect';
+    var size = Math.max(rect.width, rect.height);
+    ripple.style.width = ripple.style.height = size + 'px';
+    ripple.style.left = (e.clientX - rect.left - size/2) + 'px';
+    ripple.style.top = (e.clientY - rect.top - size/2) + 'px';
+    btn.style.position = 'relative';
+    btn.style.overflow = 'hidden';
+    btn.appendChild(ripple);
+    setTimeout(function() { ripple.remove(); }, 500);
+}
+
+function showConfetti() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var colors = ['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899'];
+    var container = document.createElement('div');
+    container.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:99999;overflow:hidden;';
+    for (var i = 0; i < 40; i++) {
+        var piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.cssText = 'position:absolute;width:' + (6 + Math.random()*6) + 'px;height:' + (6 + Math.random()*6) + 'px;' +
+            'background:' + colors[Math.floor(Math.random()*colors.length)] + ';' +
+            'left:' + (Math.random()*100) + '%;top:-10px;' +
+            'border-radius:' + (Math.random() > 0.5 ? '50%' : '2px') + ';' +
+            'animation:confettiFall ' + (1.5 + Math.random()*1.5) + 's ease-out forwards;' +
+            'animation-delay:' + (Math.random()*0.5) + 's;';
+        container.appendChild(piece);
+    }
+    document.body.appendChild(container);
+    setTimeout(function() { container.remove(); }, 3500);
+}
+
+function shakeElement(el) {
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    el.classList.add('field-shake');
+    setTimeout(function() { el.classList.remove('field-shake'); }, 400);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R3-M9] ONBOARDING TOUR
+// ══════════════════════════════════════════════════════════════════════
+
+var _tourSteps = [
+    { target: '.platform-bar', title: 'Navegación', text: 'Usa estas pestañas para cambiar entre los 5 módulos: COP15, Test Plan, Results, Inventory y Panel.', position: 'bottom' },
+    { target: '#ptab-cop15', title: 'COP15 Cascade', text: 'Aquí registras vehículos, operas pruebas de emisiones y liberas resultados.', position: 'bottom' },
+    { target: '#panel-alta', title: 'Registro de Vehículos', text: 'Selecciona configuración del vehículo, captura VIN y registra para iniciar el flujo COP15.', position: 'top', tab: 'alta' },
+    { target: '#ptab-testplan', title: 'Test Plan Manager', text: 'Gestiona el plan de pruebas semanal, prioriza configuraciones y monitorea cobertura.', position: 'bottom' },
+    { target: '#ptab-results', title: 'Results Analyzer', text: 'Importa resultados de pruebas, analiza tendencias Cpk/Ppk y genera reportes.', position: 'bottom' },
+    { target: '#ptab-inventory', title: 'Lab Inventory', text: 'Controla cilindros de gas, equipos y lectura de presiones con mapa de zonas.', position: 'bottom' },
+    { target: '#ptab-panel', title: 'Panel Admin', text: 'Dashboard general, operadores, backups y configuración del sistema.', position: 'bottom' }
+];
+var _tourCurrent = 0;
+
+function startTour() {
+    _tourCurrent = 0;
+    _renderTourStep();
+}
+
+function _renderTourStep() {
+    // Remove existing
+    var old = document.getElementById('tour-overlay');
+    if (old) old.remove();
+
+    if (_tourCurrent >= _tourSteps.length) {
+        localStorage.setItem('kia_tour_done', '1');
+        showToast('Tour completado. Puedes reiniciarlo con el botón ?', 'success');
+        return;
+    }
+
+    var step = _tourSteps[_tourCurrent];
+
+    // Navigate to correct tab if needed
+    if (step.tab) {
+        var tabEl = document.querySelector('.tab[data-tab="' + step.tab + '"]');
+        if (tabEl) tabEl.click();
+    }
+
+    var targetEl = document.querySelector(step.target);
+    var overlay = document.createElement('div');
+    overlay.id = 'tour-overlay';
+    overlay.className = 'tour-overlay';
+
+    var tooltip = document.createElement('div');
+    tooltip.className = 'tour-tooltip';
+    tooltip.innerHTML = '<div class="tour-title">' + escapeHtml(step.title) + '</div>' +
+        '<div class="tour-text">' + escapeHtml(step.text) + '</div>' +
+        '<div class="tour-footer">' +
+        '<span class="tour-progress">Paso ' + (_tourCurrent + 1) + ' de ' + _tourSteps.length + '</span>' +
+        '<div class="tour-actions">' +
+        (_tourCurrent > 0 ? '<button class="tour-btn" onclick="_tourPrev()">Anterior</button>' : '') +
+        '<button class="tour-btn" onclick="_tourSkip()">Saltar</button>' +
+        '<button class="tour-btn tour-btn-primary" onclick="_tourNext()">' + (_tourCurrent === _tourSteps.length - 1 ? 'Finalizar' : 'Siguiente') + '</button>' +
+        '</div></div>';
+
+    overlay.appendChild(tooltip);
+    document.body.appendChild(overlay);
+
+    // Position tooltip near target
+    if (targetEl) {
+        var rect = targetEl.getBoundingClientRect();
+        targetEl.style.position = targetEl.style.position || 'relative';
+        targetEl.style.zIndex = '100001';
+        targetEl.classList.add('tour-highlight');
+
+        var pos = step.position || 'bottom';
+        if (pos === 'bottom') {
+            tooltip.style.top = (rect.bottom + 12) + 'px';
+            tooltip.style.left = Math.max(10, Math.min(rect.left, window.innerWidth - 320)) + 'px';
+        } else {
+            tooltip.style.top = Math.max(10, rect.top - 160) + 'px';
+            tooltip.style.left = Math.max(10, Math.min(rect.left, window.innerWidth - 320)) + 'px';
+        }
+    } else {
+        tooltip.style.top = '50%';
+        tooltip.style.left = '50%';
+        tooltip.style.transform = 'translate(-50%,-50%)';
+    }
+}
+
+function _tourNext() {
+    _cleanTourHighlight();
+    _tourCurrent++;
+    _renderTourStep();
+}
+
+function _tourPrev() {
+    _cleanTourHighlight();
+    _tourCurrent--;
+    _renderTourStep();
+}
+
+function _tourSkip() {
+    _cleanTourHighlight();
+    var old = document.getElementById('tour-overlay');
+    if (old) old.remove();
+    localStorage.setItem('kia_tour_done', '1');
+    showToast('Tour saltado. Reinicia con el botón ?', 'info');
+}
+
+function _cleanTourHighlight() {
+    document.querySelectorAll('.tour-highlight').forEach(function(el) {
+        el.classList.remove('tour-highlight');
+        el.style.zIndex = '';
+    });
 }
 
 
@@ -4293,6 +4713,20 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
 // [M04] REGISTRO DE VEHÍCULOS]
 // ======================================================================
 
+    // [R3-M6] VIN ISO 3779 checksum validation
+    function _vinCheckDigit(vin) {
+        var translitMap = {A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9};
+        var weights = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
+        var sum = 0;
+        for (var i = 0; i < 17; i++) {
+            var c = vin[i];
+            var val = /\d/.test(c) ? parseInt(c) : (translitMap[c] || 0);
+            sum += val * weights[i];
+        }
+        var rem = sum % 11;
+        return rem === 10 ? 'X' : String(rem);
+    }
+
     function validateVIN(input) {
         input.value = input.value.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
         const counter = document.getElementById('vinCounter');
@@ -4302,6 +4736,23 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
         if(length === 17) {
             counter.style.color = '#10b981';
             counter.textContent += ' ✓';
+
+            // [R3-M6] Checksum validation
+            var checkResult = _vinCheckDigit(input.value);
+            var checksumHint = document.getElementById('vin-checksum-hint');
+            if (!checksumHint) {
+                checksumHint = document.createElement('div');
+                checksumHint.id = 'vin-checksum-hint';
+                checksumHint.style.cssText = 'font-size:10px;padding:2px 0;margin-top:2px;';
+                counter.parentElement.appendChild(checksumHint);
+            }
+            if (input.value[8] === checkResult) {
+                checksumHint.style.color = '#10b981';
+                checksumHint.textContent = '✅ Check digit válido (ISO 3779)';
+            } else {
+                checksumHint.style.color = '#f59e0b';
+                checksumHint.textContent = '⚠️ Check digit no coincide (esperado: ' + checkResult + ')';
+            }
             // Real-time duplicate check
             var vin = input.value;
             var dupActive = db.vehicles.find(function(v) { return v.vin === vin && v.status !== 'archived'; });
@@ -5542,8 +5993,8 @@ if (vehicle.status !== 'ready-release') {
                    '<div class="tl-dot" style="background:' + cfg.color + ';"></div>' +
                    '<div class="tl-content">' +
                    '<div class="tl-time">' + dateStr + ' ' + timeStr + '</div>' +
-                   '<div class="tl-action">' + (item.action || '') + '</div>' +
-                   (item.user ? '<div class="tl-user">' + item.user + '</div>' : '') +
+                   '<div class="tl-action">' + escapeHtml(item.action || '') + '</div>' +
+                   (item.user ? '<div class="tl-user">' + escapeHtml(item.user) + '</div>' : '') +
                    '</div></div>';
            });
 
@@ -5623,6 +6074,9 @@ if (vehicle.status !== 'ready-release') {
         saveDB();
         refreshAllLists();
         updateProgressBar();
+
+        // [R3-M7] Confetti celebration on successful release
+        if (!isRetest && typeof showConfetti === 'function') showConfetti();
 
         document.getElementById('releaseVehSelect').value = '';
         document.getElementById('lib-content').style.display = 'none';
@@ -5818,6 +6272,7 @@ function closeSubstitutionModal() {
             <div class="hist-filter-count" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <span>Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</span>
                 <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;">PDF Seleccionados</button>
+                <button class="btn-secondary" onclick="window.print()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Imprimir tabla de historial">🖨️ Imprimir</button>
             </div>
             <table class="history-table">
                 <thead>
@@ -5834,29 +6289,32 @@ function closeSubstitutionModal() {
                 <tbody>
                     ${vehicles.map(v => {
                         const cfg = v.config || {};
-                        const modelo = cfg['Modelo'] || '';
-                        const motor = cfg['ENGINE CAPACITY'] || '';
-                        const reg = cfg['EMISSION REGULATION'] || '';
+                        const modelo = escapeHtml(cfg['Modelo'] || '');
+                        const motor = escapeHtml(cfg['ENGINE CAPACITY'] || '');
+                        const reg = escapeHtml(cfg['EMISSION REGULATION'] || '');
+                        const safeVin = escapeHtml(v.vin);
+                        const safePurpose = escapeHtml(v.purpose);
+                        const safeConfigCode = escapeHtml(truncateMiddle(v.configCode, 30));
                         return `
                         <tr>
                             <td><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
-                            <td><strong>${v.vin}</strong></td>
+                            <td><strong>${safeVin}</strong></td>
                             <td>
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
                                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
                                     ${motor ? `<span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;">${motor}</span>` : ''}
                                     ${reg ? `<span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;">${reg}</span>` : ''}
                                 </div>
-                                <div style="font-family:monospace;font-size:0.7rem;color:#94a3b8;margin-top:2px;">${truncateMiddle(v.configCode, 30)}</div>
+                                <div style="font-family:monospace;font-size:0.7rem;color:#94a3b8;margin-top:2px;">${safeConfigCode}</div>
                             </td>
-                            <td>${v.purpose}</td>
-                            <td><span class="status-badge status-${v.status}">${CONFIG.statusLabels[v.status]}</span></td>
+                            <td>${safePurpose}</td>
+                            <td><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
                             <td>${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
                             <td>
-                                <button class="btn-secondary" onclick="generateCOP15PDF(${v.id})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
+                                <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
                                 </button>
-                                ${v.status === 'archived' ? `<button class="btn-secondary" onclick="purgeSingleVehicle(${v.id})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Purgar del sistema">
+                                ${v.status === 'archived' ? `<button class="btn-secondary" onclick="purgeSingleVehicle(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Purgar del sistema">
                                     Purgar
                                 </button>` : ''}
                             </td>
@@ -7807,12 +8265,12 @@ function renderKanban() {
                     timeSince = hrs < 1 ? '<1h' : hrs < 24 ? hrs + 'h' : Math.floor(hrs / 24) + 'd';
                 }
 
-                var shortVin = (v.vin || '?').slice(-8);
+                var shortVin = escapeHtml((v.vin || '?').slice(-8));
                 var fullVin = v.vin || '';
                 var cfg = v.config || {};
-                var modelo = cfg['Modelo'] || '';
-                var motor = cfg['ENGINE CAPACITY'] || '';
-                var regulacion = cfg['EMISSION REGULATION'] || '';
+                var modelo = escapeHtml(cfg['Modelo'] || '');
+                var motor = escapeHtml(cfg['ENGINE CAPACITY'] || '');
+                var regulacion = escapeHtml(cfg['EMISSION REGULATION'] || '');
 
                 // Purpose color for left border
                 var purposeBorder = '#e2e8f0';
@@ -8102,7 +8560,7 @@ function kanbanGoVehicle(vehicleId, status) {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 const INV_LS_KEY = 'kia_lab_inventory';
-let invState = JSON.parse(localStorage.getItem(INV_LS_KEY)) || {
+let invState = safeParse(INV_LS_KEY, null) || {
     gases: [],       // {id, controlNo, cylinderNo, formula, gasType, concNominal, concReal, traceability, validUntil, zone, position, status, regDate, gasCategory, readings:[], barcode}
     equipment: [],   // {id, name, type, serialNo, location, lastCalDate, nextCalDate, calCertNo, status, notes}
     zones: [
@@ -8977,7 +9435,7 @@ function invScanBarcode() {
     // Quick search fallback (always shown)
     html += '<div style="margin-bottom:12px;">';
     html += '<label style="font-size:10px;color:#94a3b8;">Busqueda rapida (No. Control, cilindro o formula)</label>';
-    html += '<input id="inv-scan-search" placeholder="Escribe para buscar..." oninput="invScanFilter()" style="width:100%;padding:10px;margin-top:4px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;">';
+    html += '<input id="inv-scan-search" placeholder="Escribe para buscar..." oninput="_debouncedInvScanFilter()" style="width:100%;padding:10px;margin-top:4px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;">';
     html += '</div>';
 
     // Search results
@@ -11215,6 +11673,8 @@ function invPredictDepletion(g) {
     };
 }
 
+// [R3-M3] Debounced version for scan filter input
+var _debouncedInvScanFilter = debounce(function() { invScanFilter(); }, 200);
 
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -11435,7 +11895,7 @@ const TP_PURPOSES_VALID = ['Correlacion', 'Investigacion', 'COP-Emisiones', 'EO-
 const TP_MONTHS = ['Feb-26','Mar-26','Apr-26','May-26','Jun-26','Jul-26'];
 const TP_LS_KEY = 'kia_testplan_v1';
 
-let tpState = JSON.parse(localStorage.getItem(TP_LS_KEY)) || {
+let tpState = safeParse(TP_LS_KEY, null) || {
     planData: [],        // production plan configs
     testedList: [],
     weeklyPlans: [],
@@ -14606,7 +15066,7 @@ function raRenderSearch(el) {
 
 const RA_LS_KEY = 'kia_results_v1';
 
-let raState = JSON.parse(localStorage.getItem(RA_LS_KEY)) || {
+let raState = safeParse(RA_LS_KEY, null) || {
     tests: [],
     profiles: [],
     activeTab: 'ra-dashboard',
@@ -17162,6 +17622,7 @@ function pnRenderDashboard(el) {
     html += '<button onclick="if(typeof generateWeeklyStatusPDF===\'function\')generateWeeklyStatusPDF();else showToast(\'Funcion no disponible\',\'error\');" ';
     html += 'style="padding:12px 24px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.3);">';
     html += '📄 Generar Reporte Semanal (PDF)</button>';
+    html += ' <button onclick="window.print()" style="padding:12px 24px;background:linear-gradient(135deg,#475569,#64748b);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🖨️ Imprimir Dashboard</button>';
     html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:6px;">Resumen cross-modulo: COP15, Plan, Resultados, Inventario</div>';
     html += '</div>';
 

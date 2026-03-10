@@ -610,6 +610,20 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
 // [M04] REGISTRO DE VEHÍCULOS]
 // ======================================================================
 
+    // [R3-M6] VIN ISO 3779 checksum validation
+    function _vinCheckDigit(vin) {
+        var translitMap = {A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9};
+        var weights = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
+        var sum = 0;
+        for (var i = 0; i < 17; i++) {
+            var c = vin[i];
+            var val = /\d/.test(c) ? parseInt(c) : (translitMap[c] || 0);
+            sum += val * weights[i];
+        }
+        var rem = sum % 11;
+        return rem === 10 ? 'X' : String(rem);
+    }
+
     function validateVIN(input) {
         input.value = input.value.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
         const counter = document.getElementById('vinCounter');
@@ -619,6 +633,23 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
         if(length === 17) {
             counter.style.color = '#10b981';
             counter.textContent += ' ✓';
+
+            // [R3-M6] Checksum validation
+            var checkResult = _vinCheckDigit(input.value);
+            var checksumHint = document.getElementById('vin-checksum-hint');
+            if (!checksumHint) {
+                checksumHint = document.createElement('div');
+                checksumHint.id = 'vin-checksum-hint';
+                checksumHint.style.cssText = 'font-size:10px;padding:2px 0;margin-top:2px;';
+                counter.parentElement.appendChild(checksumHint);
+            }
+            if (input.value[8] === checkResult) {
+                checksumHint.style.color = '#10b981';
+                checksumHint.textContent = '✅ Check digit válido (ISO 3779)';
+            } else {
+                checksumHint.style.color = '#f59e0b';
+                checksumHint.textContent = '⚠️ Check digit no coincide (esperado: ' + checkResult + ')';
+            }
             // Real-time duplicate check
             var vin = input.value;
             var dupActive = db.vehicles.find(function(v) { return v.vin === vin && v.status !== 'archived'; });
@@ -1859,8 +1890,8 @@ if (vehicle.status !== 'ready-release') {
                    '<div class="tl-dot" style="background:' + cfg.color + ';"></div>' +
                    '<div class="tl-content">' +
                    '<div class="tl-time">' + dateStr + ' ' + timeStr + '</div>' +
-                   '<div class="tl-action">' + (item.action || '') + '</div>' +
-                   (item.user ? '<div class="tl-user">' + item.user + '</div>' : '') +
+                   '<div class="tl-action">' + escapeHtml(item.action || '') + '</div>' +
+                   (item.user ? '<div class="tl-user">' + escapeHtml(item.user) + '</div>' : '') +
                    '</div></div>';
            });
 
@@ -1940,6 +1971,9 @@ if (vehicle.status !== 'ready-release') {
         saveDB();
         refreshAllLists();
         updateProgressBar();
+
+        // [R3-M7] Confetti celebration on successful release
+        if (!isRetest && typeof showConfetti === 'function') showConfetti();
 
         document.getElementById('releaseVehSelect').value = '';
         document.getElementById('lib-content').style.display = 'none';
@@ -2135,6 +2169,7 @@ function closeSubstitutionModal() {
             <div class="hist-filter-count" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <span>Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</span>
                 <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;">PDF Seleccionados</button>
+                <button class="btn-secondary" onclick="window.print()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Imprimir tabla de historial">🖨️ Imprimir</button>
             </div>
             <table class="history-table">
                 <thead>
@@ -2151,29 +2186,32 @@ function closeSubstitutionModal() {
                 <tbody>
                     ${vehicles.map(v => {
                         const cfg = v.config || {};
-                        const modelo = cfg['Modelo'] || '';
-                        const motor = cfg['ENGINE CAPACITY'] || '';
-                        const reg = cfg['EMISSION REGULATION'] || '';
+                        const modelo = escapeHtml(cfg['Modelo'] || '');
+                        const motor = escapeHtml(cfg['ENGINE CAPACITY'] || '');
+                        const reg = escapeHtml(cfg['EMISSION REGULATION'] || '');
+                        const safeVin = escapeHtml(v.vin);
+                        const safePurpose = escapeHtml(v.purpose);
+                        const safeConfigCode = escapeHtml(truncateMiddle(v.configCode, 30));
                         return `
                         <tr>
                             <td><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
-                            <td><strong>${v.vin}</strong></td>
+                            <td><strong>${safeVin}</strong></td>
                             <td>
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
                                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
                                     ${motor ? `<span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;">${motor}</span>` : ''}
                                     ${reg ? `<span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;">${reg}</span>` : ''}
                                 </div>
-                                <div style="font-family:monospace;font-size:0.7rem;color:#94a3b8;margin-top:2px;">${truncateMiddle(v.configCode, 30)}</div>
+                                <div style="font-family:monospace;font-size:0.7rem;color:#94a3b8;margin-top:2px;">${safeConfigCode}</div>
                             </td>
-                            <td>${v.purpose}</td>
-                            <td><span class="status-badge status-${v.status}">${CONFIG.statusLabels[v.status]}</span></td>
+                            <td>${safePurpose}</td>
+                            <td><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
                             <td>${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
                             <td>
-                                <button class="btn-secondary" onclick="generateCOP15PDF(${v.id})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
+                                <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
                                 </button>
-                                ${v.status === 'archived' ? `<button class="btn-secondary" onclick="purgeSingleVehicle(${v.id})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Purgar del sistema">
+                                ${v.status === 'archived' ? `<button class="btn-secondary" onclick="purgeSingleVehicle(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Purgar del sistema">
                                     Purgar
                                 </button>` : ''}
                             </td>
@@ -4124,12 +4162,12 @@ function renderKanban() {
                     timeSince = hrs < 1 ? '<1h' : hrs < 24 ? hrs + 'h' : Math.floor(hrs / 24) + 'd';
                 }
 
-                var shortVin = (v.vin || '?').slice(-8);
+                var shortVin = escapeHtml((v.vin || '?').slice(-8));
                 var fullVin = v.vin || '';
                 var cfg = v.config || {};
-                var modelo = cfg['Modelo'] || '';
-                var motor = cfg['ENGINE CAPACITY'] || '';
-                var regulacion = cfg['EMISSION REGULATION'] || '';
+                var modelo = escapeHtml(cfg['Modelo'] || '');
+                var motor = escapeHtml(cfg['ENGINE CAPACITY'] || '');
+                var regulacion = escapeHtml(cfg['EMISSION REGULATION'] || '');
 
                 // Purpose color for left border
                 var purposeBorder = '#e2e8f0';

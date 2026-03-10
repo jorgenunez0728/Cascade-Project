@@ -181,7 +181,7 @@ function raRenderSearch(el) {
 
 const RA_LS_KEY = 'kia_results_v1';
 
-let raState = JSON.parse(localStorage.getItem(RA_LS_KEY)) || {
+let raState = safeParse(RA_LS_KEY, null) || {
     tests: [],
     profiles: [],
     activeTab: 'ra-dashboard',

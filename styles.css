@@ -1111,3 +1111,130 @@ button:focus-visible { outline-offset: 1px; }
 .batch-pdf-btn { background: #1e40af !important; color: #fff !important; border: none !important; }
 .hist-chk { width: 16px; height: 16px; cursor: pointer; accent-color: var(--kia-red); }
 
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R3-M2] ACCESSIBILITY — Reduced Motion                              */
+/* ══════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R3-M7] MICRO-INTERACTIONS — Ripple, Confetti, Shake, Skeleton      */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* Ripple effect */
+.ripple-effect {
+    position: absolute; border-radius: 50%;
+    background: rgba(255,255,255,0.35);
+    animation: rippleExpand 0.45s ease-out forwards;
+    pointer-events: none;
+}
+@keyframes rippleExpand {
+    0% { transform: scale(0); opacity: 1; }
+    100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* Error shake */
+.field-shake { animation: fieldShake 0.35s ease-in-out; }
+@keyframes fieldShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-5px); }
+    40% { transform: translateX(5px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(3px); }
+}
+
+/* Confetti */
+@keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+/* Skeleton loader */
+.skeleton {
+    background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.2s infinite;
+    border-radius: 8px; height: 20px; margin-bottom: 8px;
+}
+@keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: 200px 0; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R3-M8] PRINT SUPPORT                                               */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* Print-only header */
+.print-only { display: none; }
+
+@media print {
+    body { background: #fff !important; color: #000 !important; padding: 0 !important; }
+    .platform-bar, .bottom-nav, .action-bar, .tp-tabs,
+    .custom-modal-overlay, .toast-container, #soak-floating-badge,
+    #notification-center, #cmd-palette, #globalSearchBar,
+    .progress-container, #auth-overlay, .topbar,
+    .tour-overlay { display: none !important; }
+    .print-only { display: block !important; text-align: center; margin-bottom: 15px; font-size: 14px; font-weight: 700; border-bottom: 2px solid #000; padding-bottom: 8px; }
+    .platform-section { display: block !important; position: static !important; }
+    .platform-section:not(.active) { display: none !important; }
+    .tp-card, .card { border: 1px solid #ddd !important; background: #fff !important; color: #000 !important; break-inside: avoid; margin-bottom: 10px; }
+    .history-table { width: 100%; border-collapse: collapse; }
+    .history-table th, .history-table td { border: 1px solid #999 !important; padding: 4px 8px !important; font-size: 10px !important; color: #000 !important; background: #fff !important; }
+    .status-badge { border: 1px solid #999; background: transparent !important; color: #000 !important; }
+    button, .btn-primary, .btn-secondary, .hist-chk { display: none !important; }
+    .hist-filter-count button { display: none !important; }
+    @page { margin: 1cm; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R3-M9] ONBOARDING TOUR                                             */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.tour-overlay {
+    position: fixed; inset: 0; z-index: 100000;
+    background: rgba(0,0,0,0.6);
+}
+.tour-highlight {
+    position: relative; z-index: 100001 !important;
+    box-shadow: 0 0 0 4px rgba(59,130,246,0.6), 0 0 20px rgba(59,130,246,0.3);
+    border-radius: 6px;
+}
+.tour-tooltip {
+    position: fixed; z-index: 100002;
+    background: #fff; color: #1a1a2e;
+    border-radius: 12px; padding: 16px 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    max-width: 300px; width: 90vw;
+}
+.tour-title { font-size: 14px; font-weight: 800; margin-bottom: 6px; color: #0f172a; }
+.tour-text { font-size: 12px; line-height: 1.5; color: #475569; margin-bottom: 12px; }
+.tour-footer { display: flex; justify-content: space-between; align-items: center; }
+.tour-progress { font-size: 10px; color: #94a3b8; }
+.tour-actions { display: flex; gap: 6px; }
+.tour-btn {
+    padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 6px;
+    background: #f8fafc; color: #475569; font-size: 11px; font-weight: 600;
+    cursor: pointer;
+}
+.tour-btn:hover { background: #e2e8f0; }
+.tour-btn-primary { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+.tour-btn-primary:hover { background: #2563eb; }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R3-M1] PWA — Online/offline indicator                              */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+#online-status-badge { font-size: 8px; cursor: default; }
+#pwa-install-btn {
+    padding: 4px 10px; font-size: 10px; font-weight: 700;
+    background: #10b981; color: #fff; border: none; border-radius: 6px;
+    cursor: pointer;
+}
+#pwa-install-btn:hover { background: #059669; }
+

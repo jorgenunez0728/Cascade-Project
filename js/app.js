@@ -230,11 +230,44 @@ const UNIT_CONVERSION = {
   kmh_to_mph: 0.6213711922
 };
 
-let db = JSON.parse(localStorage.getItem('kia_db_v11')) || {
+// ======================================================================
+// [R3] CORE UTILITIES — Security, Data Integrity, Performance
+// ======================================================================
+
+// ── [R3-M5] escapeHtml — XSS prevention ──
+function escapeHtml(text) {
+    var map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+    return String(text == null ? '' : text).replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+// ── [R3-M6] safeParse — Corruption-safe localStorage parsing ──
+function safeParse(key, fallback) {
+    try {
+        var raw = localStorage.getItem(key);
+        if (!raw) return fallback;
+        var parsed = JSON.parse(raw);
+        return (typeof parsed === 'object' && parsed !== null) ? parsed : fallback;
+    } catch(e) {
+        console.error('Corrupted localStorage key: ' + key, e);
+        showToast('Datos corruptos en ' + key + '. Usando valores por defecto.', 'error');
+        return fallback;
+    }
+}
+
+// ── [R3-M3] debounce — Performance utility ──
+function debounce(fn, ms) {
+    var timer; return function() {
+        var ctx = this, args = arguments;
+        clearTimeout(timer);
+        timer = setTimeout(function() { fn.apply(ctx, args); }, ms);
+    };
+}
+
+let db = safeParse('kia_db_v11', {
   version: '11.0',
   vehicles: [],
   lastId: 0
-};
+});
 
 let activeVehicleId = null;
 let currentFilter = 'all';
@@ -309,6 +342,8 @@ function validateField(input, rules) {
     input.classList.remove('field-valid', 'field-error', 'field-missing');
     if (val.length > 0) {
         input.classList.add(valid ? 'field-valid' : 'field-error');
+        // [R3-M7] Shake on validation error
+        if (!valid && typeof shakeElement === 'function') shakeElement(input);
     }
     if (hint) {
         hint.textContent = valid ? '' : msg;
@@ -360,10 +395,14 @@ function showModal(opts) {
     var showCancel = opts.showCancel !== false;
     var isLight = _currentPlatform === 'cop15';
 
+    // [R3-M2] Save previous focus for restoration
+    var _prevFocus = document.activeElement;
+
     var overlay = document.createElement('div');
     overlay.className = 'custom-modal-overlay';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', title || 'Diálogo');
 
     var icons = {danger:'⚠️',warning:'⚡',info:'ℹ️',success:'✅'};
     var box = document.createElement('div');
@@ -381,7 +420,25 @@ function showModal(opts) {
     var cancelBtn = box.querySelector('#_modal_cancel');
     confirmBtn.focus();
 
-    function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+    function close() {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        if (_prevFocus && _prevFocus.focus) try { _prevFocus.focus(); } catch(e){}
+    }
+
+    // [R3-M2] Focus trap — Tab/Shift+Tab cycle within modal
+    var focusableEls = box.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    var firstFocusable = focusableEls[0];
+    var lastFocusable = focusableEls[focusableEls.length - 1];
+    overlay.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') { close(); if(onCancel) onCancel(); return; }
+        if (e.key !== 'Tab') return;
+        if (e.shiftKey) {
+            if (document.activeElement === firstFocusable) { e.preventDefault(); lastFocusable.focus(); }
+        } else {
+            if (document.activeElement === lastFocusable) { e.preventDefault(); firstFocusable.focus(); }
+        }
+    });
+
     confirmBtn.addEventListener('click', function(){ close(); if(onConfirm) onConfirm(); });
     if (cancelBtn) cancelBtn.addEventListener('click', function(){ close(); if(onCancel) onCancel(); });
     overlay.addEventListener('click', function(e){ if(e.target === overlay){ close(); if(onCancel) onCancel(); } });
@@ -660,8 +717,7 @@ function globalVinSearch(query) {
     }
 
     if (results.length === 0) {
-        var safeQuery = query.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        res.innerHTML = '<div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:0 0 8px 8px;color:#94a3b8;font-size:0.85rem;text-align:center;">No se encontraron resultados para "' + safeQuery + '"</div>';
+        res.innerHTML = '<div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:0 0 8px 8px;color:#94a3b8;font-size:0.85rem;text-align:center;">No se encontraron resultados para "' + escapeHtml(query) + '"</div>';
         return;
     }
 
@@ -670,12 +726,12 @@ function globalVinSearch(query) {
         html += '<div onclick="' + r.action + ';toggleGlobalSearch();" style="padding:10px 14px;border-bottom:1px solid #0f172a;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background=\'#334155\'" onmouseout="this.style.background=\'transparent\'">';
         html += '<span style="font-size:16px;">' + r.icon + '</span>';
         html += '<div style="flex:1;min-width:0;">';
-        html += '<div style="font-size:0.85rem;font-weight:600;color:#f1f5f9;">' + r.vin + '</div>';
-        html += '<div style="font-size:0.75rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + r.detail + '</div>';
+        html += '<div style="font-size:0.85rem;font-weight:600;color:#f1f5f9;">' + escapeHtml(r.vin) + '</div>';
+        html += '<div style="font-size:0.75rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(r.detail) + '</div>';
         html += '</div>';
         html += '<div style="text-align:right;">';
-        html += '<span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,0.15);color:#818cf8;">' + r.module + '</span>';
-        if (r.date) html += '<div style="font-size:0.65rem;color:#64748b;margin-top:2px;">' + r.date + '</div>';
+        html += '<span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,0.15);color:#818cf8;">' + escapeHtml(r.module) + '</span>';
+        if (r.date) html += '<div style="font-size:0.65rem;color:#64748b;margin-top:2px;">' + escapeHtml(r.date) + '</div>';
         html += '</div></div>';
     });
     if (results.length > 15) {
@@ -684,6 +740,9 @@ function globalVinSearch(query) {
     html += '</div>';
     res.innerHTML = html;
 }
+
+// [R3-M3] Debounced version for input events
+var _debouncedGlobalVinSearch = debounce(function(val) { globalVinSearch(val); }, 250);
 
 // ── Weekly Status PDF Report ──
 function generateWeeklyStatusPDF() {
@@ -956,6 +1015,48 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try {
             if (typeof fbInit === 'function') { fbInit(); fbHookSaves(); fbUpdateIndicator(); }
         } catch(fbErr) { console.error('Firebase init failed (non-blocking):', fbErr); }
+
+        // ═══ [R3-M6] Health check at boot ═══
+        try {
+            var lsUsage = _getLocalStorageUsage();
+            var lsPercent = Math.round((lsUsage / (5 * 1024 * 1024)) * 100);
+            if (lsPercent > 90) {
+                showToast('Almacenamiento al ' + lsPercent + '%. Considere purgar datos antiguos.', 'warning');
+            }
+            console.log('Storage: ' + _formatBytes(lsUsage) + ' (' + lsPercent + '%)');
+        } catch(e) { console.error('Health check error:', e); }
+
+        // ═══ [R3-M1] PWA — Register Service Worker ═══
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(function(reg) {
+                console.log('SW registered:', reg.scope);
+            }).catch(function(err) { console.log('SW registration skipped:', err.message); });
+        }
+
+        // ═══ [R3-M1] Online/Offline indicator ═══
+        _updateOnlineStatus();
+        window.addEventListener('online', _updateOnlineStatus);
+        window.addEventListener('offline', _updateOnlineStatus);
+
+        // ═══ [R3-M1] PWA install prompt ═══
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            window._deferredInstallPrompt = e;
+            var installBtn = document.getElementById('pwa-install-btn');
+            if (installBtn) installBtn.style.display = '';
+        });
+
+        // ═══ [R3-M7] Ripple effect on buttons ═══
+        document.addEventListener('click', function(e) {
+            var btn = e.target.closest('.btn-primary, .btn-secondary, .modal-btn-confirm');
+            if (!btn || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            _addRipple(e, btn);
+        });
+
+        // ═══ [R3-M9] Onboarding tour — first visit ═══
+        if (!localStorage.getItem('kia_tour_done')) {
+            setTimeout(function() { if (typeof startTour === 'function') startTour(); }, 1500);
+        }
         }
 
 window.addEventListener('DOMContentLoaded', initializeSystem);
@@ -1520,4 +1621,183 @@ function restoreFromBackup(snapshotId) {
             };
         });
     }, { title: 'Confirmar Restauración', type: 'warning', confirmText: 'Restaurar' });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R3-M1] PWA — Online/Offline Status + Install Prompt
+// ══════════════════════════════════════════════════════════════════════
+
+function _updateOnlineStatus() {
+    var badge = document.getElementById('online-status-badge');
+    if (!badge) return;
+    if (navigator.onLine) {
+        badge.textContent = '🟢';
+        badge.title = 'Conectado a internet';
+    } else {
+        badge.textContent = '🔴';
+        badge.title = 'Sin conexión — modo offline';
+    }
+}
+
+function pwaInstall() {
+    if (!window._deferredInstallPrompt) return;
+    window._deferredInstallPrompt.prompt();
+    window._deferredInstallPrompt.userChoice.then(function(choice) {
+        if (choice.outcome === 'accepted') showToast('App instalada exitosamente', 'success');
+        window._deferredInstallPrompt = null;
+        var btn = document.getElementById('pwa-install-btn');
+        if (btn) btn.style.display = 'none';
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R3-M7] MICRO-INTERACTIONS — Ripple, Confetti, Shake
+// ══════════════════════════════════════════════════════════════════════
+
+function _addRipple(e, btn) {
+    var rect = btn.getBoundingClientRect();
+    var ripple = document.createElement('span');
+    ripple.className = 'ripple-effect';
+    var size = Math.max(rect.width, rect.height);
+    ripple.style.width = ripple.style.height = size + 'px';
+    ripple.style.left = (e.clientX - rect.left - size/2) + 'px';
+    ripple.style.top = (e.clientY - rect.top - size/2) + 'px';
+    btn.style.position = 'relative';
+    btn.style.overflow = 'hidden';
+    btn.appendChild(ripple);
+    setTimeout(function() { ripple.remove(); }, 500);
+}
+
+function showConfetti() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var colors = ['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899'];
+    var container = document.createElement('div');
+    container.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:99999;overflow:hidden;';
+    for (var i = 0; i < 40; i++) {
+        var piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.cssText = 'position:absolute;width:' + (6 + Math.random()*6) + 'px;height:' + (6 + Math.random()*6) + 'px;' +
+            'background:' + colors[Math.floor(Math.random()*colors.length)] + ';' +
+            'left:' + (Math.random()*100) + '%;top:-10px;' +
+            'border-radius:' + (Math.random() > 0.5 ? '50%' : '2px') + ';' +
+            'animation:confettiFall ' + (1.5 + Math.random()*1.5) + 's ease-out forwards;' +
+            'animation-delay:' + (Math.random()*0.5) + 's;';
+        container.appendChild(piece);
+    }
+    document.body.appendChild(container);
+    setTimeout(function() { container.remove(); }, 3500);
+}
+
+function shakeElement(el) {
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    el.classList.add('field-shake');
+    setTimeout(function() { el.classList.remove('field-shake'); }, 400);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R3-M9] ONBOARDING TOUR
+// ══════════════════════════════════════════════════════════════════════
+
+var _tourSteps = [
+    { target: '.platform-bar', title: 'Navegación', text: 'Usa estas pestañas para cambiar entre los 5 módulos: COP15, Test Plan, Results, Inventory y Panel.', position: 'bottom' },
+    { target: '#ptab-cop15', title: 'COP15 Cascade', text: 'Aquí registras vehículos, operas pruebas de emisiones y liberas resultados.', position: 'bottom' },
+    { target: '#panel-alta', title: 'Registro de Vehículos', text: 'Selecciona configuración del vehículo, captura VIN y registra para iniciar el flujo COP15.', position: 'top', tab: 'alta' },
+    { target: '#ptab-testplan', title: 'Test Plan Manager', text: 'Gestiona el plan de pruebas semanal, prioriza configuraciones y monitorea cobertura.', position: 'bottom' },
+    { target: '#ptab-results', title: 'Results Analyzer', text: 'Importa resultados de pruebas, analiza tendencias Cpk/Ppk y genera reportes.', position: 'bottom' },
+    { target: '#ptab-inventory', title: 'Lab Inventory', text: 'Controla cilindros de gas, equipos y lectura de presiones con mapa de zonas.', position: 'bottom' },
+    { target: '#ptab-panel', title: 'Panel Admin', text: 'Dashboard general, operadores, backups y configuración del sistema.', position: 'bottom' }
+];
+var _tourCurrent = 0;
+
+function startTour() {
+    _tourCurrent = 0;
+    _renderTourStep();
+}
+
+function _renderTourStep() {
+    // Remove existing
+    var old = document.getElementById('tour-overlay');
+    if (old) old.remove();
+
+    if (_tourCurrent >= _tourSteps.length) {
+        localStorage.setItem('kia_tour_done', '1');
+        showToast('Tour completado. Puedes reiniciarlo con el botón ?', 'success');
+        return;
+    }
+
+    var step = _tourSteps[_tourCurrent];
+
+    // Navigate to correct tab if needed
+    if (step.tab) {
+        var tabEl = document.querySelector('.tab[data-tab="' + step.tab + '"]');
+        if (tabEl) tabEl.click();
+    }
+
+    var targetEl = document.querySelector(step.target);
+    var overlay = document.createElement('div');
+    overlay.id = 'tour-overlay';
+    overlay.className = 'tour-overlay';
+
+    var tooltip = document.createElement('div');
+    tooltip.className = 'tour-tooltip';
+    tooltip.innerHTML = '<div class="tour-title">' + escapeHtml(step.title) + '</div>' +
+        '<div class="tour-text">' + escapeHtml(step.text) + '</div>' +
+        '<div class="tour-footer">' +
+        '<span class="tour-progress">Paso ' + (_tourCurrent + 1) + ' de ' + _tourSteps.length + '</span>' +
+        '<div class="tour-actions">' +
+        (_tourCurrent > 0 ? '<button class="tour-btn" onclick="_tourPrev()">Anterior</button>' : '') +
+        '<button class="tour-btn" onclick="_tourSkip()">Saltar</button>' +
+        '<button class="tour-btn tour-btn-primary" onclick="_tourNext()">' + (_tourCurrent === _tourSteps.length - 1 ? 'Finalizar' : 'Siguiente') + '</button>' +
+        '</div></div>';
+
+    overlay.appendChild(tooltip);
+    document.body.appendChild(overlay);
+
+    // Position tooltip near target
+    if (targetEl) {
+        var rect = targetEl.getBoundingClientRect();
+        targetEl.style.position = targetEl.style.position || 'relative';
+        targetEl.style.zIndex = '100001';
+        targetEl.classList.add('tour-highlight');
+
+        var pos = step.position || 'bottom';
+        if (pos === 'bottom') {
+            tooltip.style.top = (rect.bottom + 12) + 'px';
+            tooltip.style.left = Math.max(10, Math.min(rect.left, window.innerWidth - 320)) + 'px';
+        } else {
+            tooltip.style.top = Math.max(10, rect.top - 160) + 'px';
+            tooltip.style.left = Math.max(10, Math.min(rect.left, window.innerWidth - 320)) + 'px';
+        }
+    } else {
+        tooltip.style.top = '50%';
+        tooltip.style.left = '50%';
+        tooltip.style.transform = 'translate(-50%,-50%)';
+    }
+}
+
+function _tourNext() {
+    _cleanTourHighlight();
+    _tourCurrent++;
+    _renderTourStep();
+}
+
+function _tourPrev() {
+    _cleanTourHighlight();
+    _tourCurrent--;
+    _renderTourStep();
+}
+
+function _tourSkip() {
+    _cleanTourHighlight();
+    var old = document.getElementById('tour-overlay');
+    if (old) old.remove();
+    localStorage.setItem('kia_tour_done', '1');
+    showToast('Tour saltado. Reinicia con el botón ?', 'info');
+}
+
+function _cleanTourHighlight() {
+    document.querySelectorAll('.tour-highlight').forEach(function(el) {
+        el.classList.remove('tour-highlight');
+        el.style.zIndex = '';
+    });
 }

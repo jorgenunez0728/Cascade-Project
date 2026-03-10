@@ -21,6 +21,12 @@ cat > "$DIR/$OUTPUT" <<'HEADER'
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kia EmLab — Plataforma Integrada v14.0</title>
 
+    <!-- [R3-M1] PWA Meta -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#05141f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
@@ -61,3 +67,9 @@ echo "</html>" >> "$DIR/$OUTPUT"
 LINES=$(wc -l < "$DIR/$OUTPUT")
 SIZE=$(du -h "$DIR/$OUTPUT" | cut -f1)
 echo "Done! $OUTPUT — $LINES lines, $SIZE"
+
+# [R3-M1] Copy PWA files alongside unified output
+cp "$DIR/manifest.json" "$(dirname "$DIR/$OUTPUT")/" 2>/dev/null || true
+cp "$DIR/sw.js" "$(dirname "$DIR/$OUTPUT")/" 2>/dev/null || true
+
+echo "PWA files (manifest.json, sw.js) copied."
