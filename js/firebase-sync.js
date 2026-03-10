@@ -16,7 +16,9 @@ var FIREBASE_CONFIG = {
 
 // ── Selective Module Sync ──
 var FB_SYNC_MODULES_KEY = 'kia_fb_sync_modules';
-var fbSyncModules = JSON.parse(localStorage.getItem(FB_SYNC_MODULES_KEY)) || {
+var fbSyncModules = (function() {
+    try { return JSON.parse(localStorage.getItem(FB_SYNC_MODULES_KEY)) || null; } catch(e) { return null; }
+})() || {
     cop15: true, testplan: true, results: true, inventory: true, panel: true
 };
 function fbSaveSyncModules() {
@@ -2124,10 +2126,10 @@ function fbBackupRestore(backupId, modules) {
 
     // Create pre-restore snapshot for undo
     var snapshot = {
-        cop15: JSON.parse(localStorage.getItem('kia_db_v11') || 'null'),
-        testplan: JSON.parse(localStorage.getItem('kia_testplan_v1') || 'null'),
-        results: JSON.parse(localStorage.getItem('kia_results_v1') || 'null'),
-        inventory: JSON.parse(localStorage.getItem('kia_lab_inventory') || 'null')
+        cop15: typeof safeParse === 'function' ? safeParse('kia_db_v11', null) : JSON.parse(localStorage.getItem('kia_db_v11') || 'null'),
+        testplan: typeof safeParse === 'function' ? safeParse('kia_testplan_v1', null) : JSON.parse(localStorage.getItem('kia_testplan_v1') || 'null'),
+        results: typeof safeParse === 'function' ? safeParse('kia_results_v1', null) : JSON.parse(localStorage.getItem('kia_results_v1') || 'null'),
+        inventory: typeof safeParse === 'function' ? safeParse('kia_lab_inventory', null) : JSON.parse(localStorage.getItem('kia_lab_inventory') || 'null')
     };
     try { localStorage.setItem('kia_fb_prerestore_snapshot', JSON.stringify(snapshot)); } catch(e) {}
 
