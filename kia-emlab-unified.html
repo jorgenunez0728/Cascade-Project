@@ -1011,6 +1011,41 @@ button:focus-visible { outline-offset: 1px; }
 @keyframes swipeInRight { from { opacity:0; transform:translateX(-40px); } to { opacity:1; transform:translateX(0); } }
 @keyframes slideUp { from { opacity:0; transform:translate(-50%,20px); } to { opacity:1; transform:translate(-50%,0); } }
 
+/* ═══ Soak Floating Badge ═══ */
+@keyframes soakBadgePulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 4px 16px rgba(245,158,11,0.4); }
+    50% { transform: scale(1.05); box-shadow: 0 4px 20px rgba(245,158,11,0.6); }
+}
+
+/* ═══ Notification Center ═══ */
+.notif-item {
+    display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px;
+    border-radius: 8px; margin-bottom: 2px; transition: background 0.15s;
+    cursor: default;
+}
+.notif-item:hover { background: rgba(255,255,255,0.03); }
+.notif-item.notif-unread { background: rgba(59,130,246,0.06); }
+.notif-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.notif-body { flex: 1; min-width: 0; }
+.notif-msg { font-size: 11px; color: #e2e8f0; line-height: 1.3; word-break: break-word; }
+.notif-time { font-size: 9px; color: #64748b; margin-top: 2px; }
+.notif-dismiss { background: none; border: none; color: #64748b; cursor: pointer; font-size: 12px; padding: 0 2px; flex-shrink: 0; }
+.notif-dismiss:hover { color: #ef4444; }
+
+/* ═══ Command Palette ═══ */
+.cmd-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border-radius: 8px; cursor: pointer; transition: background 0.1s;
+}
+.cmd-item:hover, .cmd-item.cmd-active { background: rgba(245,158,11,0.1); }
+.cmd-icon { font-size: 16px; flex-shrink: 0; }
+.cmd-label { font-size: 13px; color: #e2e8f0; font-weight: 600; flex: 1; }
+.cmd-shortcut { font-size: 10px; color: #64748b; background: #334155; padding: 2px 8px; border-radius: 4px; }
+.cmd-desc { font-size: 10px; color: #94a3b8; }
+
+/* ═══ Kanban Search Highlight ═══ */
+.kanban-search-match { background: rgba(245,158,11,0.3); border-radius: 2px; }
+
     </style>
 </head>
 
@@ -1048,6 +1083,7 @@ button:focus-visible { outline-offset: 1px; }
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
     <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos">🔍</button></div>
+    <div style="padding:4px 4px;align-self:center;position:relative;"><button onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
     <div style="flex:1"></div>
     <div style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.3); align-self:center;">
         KIA Laboratorio de Emisiones — Plataforma Integrada v14.0
@@ -1979,6 +2015,33 @@ button:focus-visible { outline-offset: 1px; }
 <div id="invModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
 <div id="fbModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
 
+<!-- ═══ SOAK FLOATING BADGE ═══ -->
+<div id="soak-floating-badge" style="display:none;position:fixed;bottom:68px;right:12px;z-index:1999;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:800;box-shadow:0 4px 16px rgba(245,158,11,0.4);cursor:pointer;align-items:center;gap:6px;animation:soakBadgePulse 2s infinite;" onclick="switchPlatform('cop15');document.querySelector('.tab[data-tab=\\'seguimiento\\']').click();">
+    <span>SOAK</span>
+    <span class="soak-badge-text"></span>
+</div>
+
+<!-- ═══ NOTIFICATION CENTER ═══ -->
+<div id="notification-center" style="display:none;position:fixed;top:50px;right:10px;z-index:9998;width:340px;max-height:420px;background:#1e293b;border:1px solid #334155;border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,0.5);overflow:hidden;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #334155;">
+        <span style="font-size:13px;font-weight:700;color:#e2e8f0;">Notificaciones</span>
+        <button onclick="clearAllNotifications()" style="background:none;border:none;color:#94a3b8;font-size:10px;cursor:pointer;">Limpiar</button>
+    </div>
+    <div id="notification-list" style="max-height:360px;overflow-y:auto;padding:6px;"></div>
+</div>
+
+<!-- ═══ COMMAND PALETTE ═══ -->
+<div id="command-palette-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);backdrop-filter:blur(2px);animation:modalFadeIn 0.2s ease;" onclick="if(event.target===this)closeCommandPalette()">
+    <div style="max-width:520px;margin:80px auto;background:#1e293b;border:1px solid #334155;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.5);overflow:hidden;">
+        <div style="padding:12px 16px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:8px;">
+            <span style="color:#94a3b8;font-size:16px;">></span>
+            <input id="command-palette-input" type="text" placeholder="Escribe un comando..." style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;" oninput="filterCommands(this.value)" onkeydown="handleCommandKey(event)">
+            <kbd style="background:#334155;color:#94a3b8;padding:2px 6px;border-radius:4px;font-size:10px;">ESC</kbd>
+        </div>
+        <div id="command-palette-results" style="max-height:320px;overflow-y:auto;padding:6px;"></div>
+    </div>
+</div>
+
 <!-- ═══ BOTTOM NAVIGATION BAR ═══ -->
 <nav class="bottom-nav" id="bottomNav" role="navigation" aria-label="Barra de navegación inferior">
     <div class="bottom-nav-item active" onclick="switchPlatform('cop15')" id="bnav-cop15">
@@ -2417,6 +2480,28 @@ function showAlert(message, opts) {
         showCancel: false,
         onConfirm: opts.onConfirm || null
     });
+}
+
+// ── Copy to Clipboard Utility ──
+function copyToClipboard(text, btnEl) {
+    var fallback = function() {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } catch(e) {}
+        document.body.removeChild(ta);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(fallback);
+    } else { fallback(); }
+    // Visual feedback on button
+    if (btnEl) {
+        var orig = btnEl.textContent;
+        btnEl.textContent = '✅';
+        btnEl.style.pointerEvents = 'none';
+        setTimeout(function(){ btnEl.textContent = orig; btnEl.style.pointerEvents = ''; }, 1500);
+    }
+    showToast('Copiado al portapapeles', 'success');
 }
 
 // ── Toast Notification System ──
@@ -2945,6 +3030,184 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
 
 window.addEventListener('DOMContentLoaded', initializeSystem);
 
+// ══════════════════════════════════════════════════════════════════════
+// [M20] NOTIFICATION CENTER
+// ══════════════════════════════════════════════════════════════════════
+
+var _notificationLog = [];
+var _notifMaxItems = 50;
+
+// Wrap showToast to also log notifications
+(function() {
+    var _origShowToast = showToast;
+    showToast = function(msg, type) {
+        _origShowToast(msg, type);
+        addNotification(msg, type);
+    };
+})();
+
+function addNotification(msg, type) {
+    _notificationLog.unshift({ message: msg, type: type || 'info', timestamp: Date.now(), read: false });
+    if (_notificationLog.length > _notifMaxItems) _notificationLog.pop();
+    updateNotifBadge();
+}
+
+function updateNotifBadge() {
+    var badge = document.getElementById('notif-badge');
+    if (!badge) return;
+    var unread = _notificationLog.filter(function(n) { return !n.read; }).length;
+    badge.style.display = unread > 0 ? 'inline-block' : 'none';
+    badge.textContent = unread > 9 ? '9+' : unread;
+}
+
+function toggleNotificationCenter() {
+    var el = document.getElementById('notification-center');
+    if (!el) return;
+    var vis = el.style.display !== 'none';
+    el.style.display = vis ? 'none' : 'block';
+    if (!vis) renderNotifications();
+}
+
+function renderNotifications() {
+    var list = document.getElementById('notification-list');
+    if (!list) return;
+    if (_notificationLog.length === 0) {
+        list.innerHTML = '<div style="text-align:center;padding:30px;color:#64748b;font-size:12px;">Sin notificaciones</div>';
+        return;
+    }
+    var icons = { success: '✅', error: '❌', warning: '⚡', info: 'ℹ️' };
+    list.innerHTML = _notificationLog.map(function(n, i) {
+        var ago = _timeAgo(n.timestamp);
+        return '<div class="notif-item' + (n.read ? '' : ' notif-unread') + '" onclick="_notificationLog[' + i + '].read=true;this.classList.remove(\'notif-unread\');updateNotifBadge();">' +
+            '<span class="notif-icon">' + (icons[n.type] || 'ℹ️') + '</span>' +
+            '<div class="notif-body"><div class="notif-msg">' + n.message + '</div><div class="notif-time">' + ago + '</div></div>' +
+            '<button class="notif-dismiss" onclick="event.stopPropagation();_notificationLog.splice(' + i + ',1);renderNotifications();updateNotifBadge();">×</button>' +
+            '</div>';
+    }).join('');
+}
+
+function clearAllNotifications() {
+    _notificationLog = [];
+    renderNotifications();
+    updateNotifBadge();
+}
+
+function _timeAgo(ts) {
+    var diff = Date.now() - ts;
+    if (diff < 60000) return 'ahora';
+    if (diff < 3600000) return Math.floor(diff / 60000) + ' min';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + 'h';
+    return Math.floor(diff / 86400000) + 'd';
+}
+
+// Close notification center when clicking elsewhere
+document.addEventListener('click', function(e) {
+    var nc = document.getElementById('notification-center');
+    if (nc && nc.style.display !== 'none') {
+        if (!nc.contains(e.target) && !e.target.closest('[onclick*="toggleNotificationCenter"]')) {
+            nc.style.display = 'none';
+        }
+    }
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// [M21] COMMAND PALETTE + KEYBOARD SHORTCUTS
+// ══════════════════════════════════════════════════════════════════════
+
+var _commandPaletteCommands = [
+    { label: 'COP15 Cascade', icon: '🔬', action: function(){ switchPlatform('cop15'); }, shortcut: 'Ctrl+1', cat: 'nav' },
+    { label: 'Test Plan Manager', icon: '📊', action: function(){ switchPlatform('testplan'); }, shortcut: 'Ctrl+2', cat: 'nav' },
+    { label: 'Results Analyzer', icon: '🧪', action: function(){ switchPlatform('results'); }, shortcut: 'Ctrl+3', cat: 'nav' },
+    { label: 'Lab Inventory', icon: '📦', action: function(){ switchPlatform('inventory'); }, shortcut: 'Ctrl+4', cat: 'nav' },
+    { label: 'Panel de Control', icon: '⚙️', action: function(){ switchPlatform('panel'); }, shortcut: 'Ctrl+5', cat: 'nav' },
+    { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'action' },
+    { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'action' },
+    { label: 'Exportar CSV Resultados', icon: '📊', action: function(){ if(typeof raExportCSV==='function') raExportCSV(); }, cat: 'action' },
+    { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'action' },
+    { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'action' },
+    { label: 'Generar Plan Smart', icon: '⚡', action: function(){ switchPlatform('testplan'); setTimeout(function(){ if(typeof tpSmartGenerate==='function') tpSmartGenerate(); }, 300); }, cat: 'action' },
+    { label: 'Ver Kanban', icon: '📋', action: function(){ switchPlatform('cop15'); setTimeout(function(){ var t=document.querySelector('.tab[data-tab="kanban"]'); if(t)t.click(); }, 200); }, cat: 'nav' },
+    { label: 'Ver Outliers', icon: '⚠️', action: function(){ switchPlatform('results'); setTimeout(function(){ raState.activeTab='ra-outliers'; raRender(); }, 200); }, cat: 'action' },
+    { label: 'Ver Tendencias', icon: '📈', action: function(){ switchPlatform('results'); setTimeout(function(){ raState.activeTab='ra-trends'; raRender(); }, 200); }, cat: 'action' }
+];
+var _cmdActiveIdx = 0;
+var _cmdFiltered = [];
+
+function openCommandPalette() {
+    var el = document.getElementById('command-palette-overlay');
+    if (!el) return;
+    el.style.display = 'block';
+    var input = document.getElementById('command-palette-input');
+    input.value = '';
+    _cmdActiveIdx = 0;
+    filterCommands('');
+    setTimeout(function(){ input.focus(); }, 50);
+}
+
+function closeCommandPalette() {
+    var el = document.getElementById('command-palette-overlay');
+    if (el) el.style.display = 'none';
+}
+
+function filterCommands(query) {
+    var q = query.toLowerCase().trim();
+    _cmdFiltered = q ? _commandPaletteCommands.filter(function(c) {
+        return c.label.toLowerCase().includes(q) || (c.cat && c.cat.includes(q));
+    }) : _commandPaletteCommands;
+    _cmdActiveIdx = 0;
+    renderCommandResults();
+}
+
+function renderCommandResults() {
+    var el = document.getElementById('command-palette-results');
+    if (!el) return;
+    el.innerHTML = _cmdFiltered.map(function(c, i) {
+        return '<div class="cmd-item' + (i === _cmdActiveIdx ? ' cmd-active' : '') + '" onclick="executeCommand(' + i + ')" onmouseenter="_cmdActiveIdx=' + i + ';renderCommandResults();">' +
+            '<span class="cmd-icon">' + c.icon + '</span>' +
+            '<span class="cmd-label">' + c.label + '</span>' +
+            (c.shortcut ? '<span class="cmd-shortcut">' + c.shortcut + '</span>' : '') +
+            '</div>';
+    }).join('');
+}
+
+function executeCommand(idx) {
+    var cmd = _cmdFiltered[idx];
+    if (cmd && cmd.action) { closeCommandPalette(); cmd.action(); }
+}
+
+function handleCommandKey(e) {
+    if (e.key === 'Escape') { closeCommandPalette(); e.preventDefault(); return; }
+    if (e.key === 'ArrowDown') { _cmdActiveIdx = Math.min(_cmdActiveIdx + 1, _cmdFiltered.length - 1); renderCommandResults(); e.preventDefault(); return; }
+    if (e.key === 'ArrowUp') { _cmdActiveIdx = Math.max(_cmdActiveIdx - 1, 0); renderCommandResults(); e.preventDefault(); return; }
+    if (e.key === 'Enter') { executeCommand(_cmdActiveIdx); e.preventDefault(); return; }
+}
+
+// Global keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl+K: Command palette
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault(); openCommandPalette(); return;
+    }
+    // Escape: Close modals/palette/notification center
+    if (e.key === 'Escape') {
+        var palette = document.getElementById('command-palette-overlay');
+        if (palette && palette.style.display !== 'none') { closeCommandPalette(); e.preventDefault(); return; }
+        var nc = document.getElementById('notification-center');
+        if (nc && nc.style.display !== 'none') { nc.style.display = 'none'; e.preventDefault(); return; }
+    }
+    // Ctrl+1-5: Switch platform
+    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '5') {
+        var platforms = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
+        e.preventDefault(); switchPlatform(platforms[parseInt(e.key) - 1]); return;
+    }
+    // Ctrl+S: Save
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (typeof saveVehicleProgress === 'function') saveVehicleProgress();
+        return;
+    }
+});
+
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — COP15 Cascade Module                                 ║
@@ -3096,15 +3359,18 @@ setAltaDatetimeIfEmpty(true);
             const config = filtered[0];
             resultDiv.innerHTML = `
                 <strong>✅ CONFIGURACIÓN ÚNICA ENCONTRADA:</strong><br>
-                <div style="font-family: monospace; color: var(--kia-red); margin-top: 10px; font-weight: bold;">
-                    ${config.codigo_config_text}
+                <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                    <div style="font-family: monospace; color: var(--kia-red); font-weight: bold;flex:1;">
+                        ${config.codigo_config_text}
+                    </div>
+                    <button onclick="copyToClipboard('${config.codigo_config_text.replace(/'/g,"\\'")}', this)" style="background:var(--kia-dark);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">📋 Copiar</button>
                 </div>
                 <div style="margin-top: 10px; font-size: 0.9rem; color: #475569;">
-                    <strong>Modelo:</strong> ${config.Modelo} | 
-                    <strong>Año:</strong> ${config['MODEL YEAR (VIN)']} | 
+                    <strong>Modelo:</strong> ${config.Modelo} |
+                    <strong>Año:</strong> ${config['MODEL YEAR (VIN)']} |
                     <strong>Motor:</strong> ${config['ENGINE CAPACITY']}<br>
                     <strong>Transmisión:</strong> ${config.TRANSMISSION} |
- 			<strong>Env:</strong> ${config['ENVIRONMENT PACKAGE']} | 
+ 			<strong>Env:</strong> ${config['ENVIRONMENT PACKAGE']} |
                     <strong>Regulación:</strong> ${config['EMISSION REGULATION']}
                 </div>
             `;
@@ -5850,7 +6116,50 @@ function checkStalledVehicles() {
 // SOAK TIMER — Countdown de preacondicionamiento con notificaciones
 // ======================================================================
 
-var _soakTimer = { interval: null, endTime: null, totalMs: 0, running: false };
+var _soakTimer = { interval: null, endTime: null, totalMs: 0, running: false, chimeInterval: null };
+var _soakOrigTitle = document.title;
+
+function soakUpdateTabTitle() {
+    if (!_soakTimer.running) { document.title = _soakOrigTitle; soakUpdateBadge(false); return; }
+    var remaining = _soakTimer.endTime - Date.now();
+    if (remaining <= 0) { document.title = _soakOrigTitle; return; }
+    var h = Math.floor(remaining / 3600000);
+    var m = Math.floor((remaining % 3600000) / 60000);
+    document.title = 'SOAK: ' + h + 'h ' + m + 'm — KIA EmLab';
+    soakUpdateBadge(true, h + 'h ' + m + 'm');
+}
+
+function soakUpdateBadge(show, text) {
+    var badge = document.getElementById('soak-floating-badge');
+    if (!badge) return;
+    if (show) {
+        badge.style.display = 'flex';
+        badge.querySelector('.soak-badge-text').textContent = text || '';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function soakPlayChime() {
+    try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 880; osc.type = 'sine';
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.8);
+        // Second tone
+        var osc2 = ctx.createOscillator();
+        var gain2 = ctx.createGain();
+        osc2.connect(gain2); gain2.connect(ctx.destination);
+        osc2.frequency.value = 1320; osc2.type = 'sine';
+        gain2.gain.setValueAtTime(0.12, ctx.currentTime + 0.3);
+        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.1);
+        osc2.start(ctx.currentTime + 0.3); osc2.stop(ctx.currentTime + 1.1);
+    } catch(e) {}
+}
 
 function soakTimerStart() {
     if (_soakTimer.running) return;
@@ -5890,18 +6199,24 @@ function soakTimerStart() {
 function soakTimerStop() {
     _soakTimer.running = false;
     if (_soakTimer.interval) { clearInterval(_soakTimer.interval); _soakTimer.interval = null; }
+    if (_soakTimer.chimeInterval) { clearInterval(_soakTimer.chimeInterval); _soakTimer.chimeInterval = null; }
     document.getElementById('soak_timer_btn_start').style.display = '';
     document.getElementById('soak_timer_btn_stop').style.display = 'none';
     document.getElementById('soak_timer_status').textContent = 'Pausado';
     document.getElementById('soak_timer_status').style.color = '#f59e0b';
+    document.title = _soakOrigTitle;
+    soakUpdateBadge(false);
 }
 
 function soakTimerReset() {
     _soakTimer.running = false;
     if (_soakTimer.interval) { clearInterval(_soakTimer.interval); _soakTimer.interval = null; }
+    if (_soakTimer.chimeInterval) { clearInterval(_soakTimer.chimeInterval); _soakTimer.chimeInterval = null; }
     _soakTimer.endTime = null;
     _soakTimer.totalMs = 0;
     localStorage.removeItem('kia_soak_timer');
+    document.title = _soakOrigTitle;
+    soakUpdateBadge(false);
 
     document.getElementById('soak_timer_display').textContent = '00:00:00';
     document.getElementById('soak_timer_display').style.color = '#64748b';
@@ -5946,7 +6261,23 @@ function soakTimerTick() {
             });
         }
 
-        // Also alert in case notifications are blocked
+        // Audio chime + vibration
+        soakPlayChime();
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        // Repeat chime every 30s for 5 minutes
+        var chimeCount = 0;
+        _soakTimer.chimeInterval = setInterval(function() {
+            chimeCount++;
+            soakPlayChime();
+            if (navigator.vibrate) navigator.vibrate(200);
+            if (chimeCount >= 10) { clearInterval(_soakTimer.chimeInterval); _soakTimer.chimeInterval = null; }
+        }, 30000);
+
+        // Restore tab title + update badge
+        document.title = 'SOAK LISTO — KIA EmLab';
+        soakUpdateBadge(true, 'LISTO');
+        setTimeout(function(){ document.title = _soakOrigTitle; soakUpdateBadge(false); }, 300000);
+
         showToast('SOAK COMPLETADO - El vehiculo esta listo para prueba.', 'success');
         return;
     }
@@ -5971,6 +6302,10 @@ function soakTimerTick() {
 
     var eta = new Date(_soakTimer.endTime);
     document.getElementById('soak_timer_eta').textContent = 'Listo a las ' + eta.toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'}) + ' del ' + eta.toLocaleDateString('es-MX', {day:'numeric',month:'short'});
+
+    // Update tab title + floating badge (every tick for responsiveness)
+    if (s === 0) soakUpdateTabTitle(); // Once per minute at :00 seconds
+    if (!window._soakBadgeInit) { soakUpdateTabTitle(); window._soakBadgeInit = true; }
 }
 
 function soakTimerRestore() {
@@ -5999,6 +6334,39 @@ function soakTimerRestore() {
 // ║  [B1] KANBAN QUEUE — Visual vehicle pipeline                       ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+var _kanbanFilters = { search: '', sort: 'newest', operator: '' };
+
+function kanbanApplyFilters(vehicles) {
+    var f = _kanbanFilters;
+    var filtered = vehicles;
+    // Search filter
+    if (f.search) {
+        var q = f.search.toLowerCase();
+        filtered = filtered.filter(function(v) {
+            var vin = (v.vin || '').toLowerCase();
+            var modelo = ((v.config || {})['Modelo'] || '').toLowerCase();
+            var purpose = (v.purpose || '').toLowerCase();
+            var op = ((v.testData || {}).operator || '').toLowerCase();
+            return vin.includes(q) || modelo.includes(q) || purpose.includes(q) || op.includes(q);
+        });
+    }
+    // Operator filter
+    if (f.operator) {
+        filtered = filtered.filter(function(v) { return (v.testData || {}).operator === f.operator; });
+    }
+    // Sort
+    filtered.sort(function(a, b) {
+        var tsA = a.timeline && a.timeline.length > 0 ? new Date(a.timeline[a.timeline.length-1].timestamp).getTime() : 0;
+        var tsB = b.timeline && b.timeline.length > 0 ? new Date(b.timeline[b.timeline.length-1].timestamp).getTime() : 0;
+        if (f.sort === 'newest') return tsB - tsA;
+        if (f.sort === 'oldest') return tsA - tsB;
+        if (f.sort === 'model') return ((a.config||{})['Modelo']||'').localeCompare(((b.config||{})['Modelo']||''));
+        if (f.sort === 'operator') return ((a.testData||{}).operator||'').localeCompare(((b.testData||{}).operator||''));
+        return 0;
+    });
+    return filtered;
+}
+
 function renderKanban() {
     var el = document.getElementById('kanban-board');
     if (!el) return;
@@ -6018,6 +6386,11 @@ function renderKanban() {
         if (raw) soakData = JSON.parse(raw);
     } catch(e) {}
 
+    // Collect unique operators for filter
+    var allOps = {};
+    vehicles.forEach(function(v) { var op = (v.testData || {}).operator; if (op) allOps[op] = true; });
+    var opList = Object.keys(allOps).sort();
+
     var precondCount = vehicles.filter(function(v) { return v.status === 'registered' || v.status === 'in-progress'; }).length;
     var _kanbanCompact = getViewMode('kanban') === 'compact';
     var html = '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
@@ -6026,14 +6399,39 @@ function renderKanban() {
     html += '<span style="font-size:11px;color:#64748b;">' + totalActive + ' activos</span>';
     html += '<span style="margin-left:auto;">' + renderViewModeToggle('kanban', true) + '</span>';
     if (precondCount > 0) {
-        html += '<button onclick="renderPrecondBatchView()" style="margin-left:auto;background:#f59e0b;color:#000;border:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 Precond Lote (' + precondCount + ')</button>';
+        html += '<button onclick="renderPrecondBatchView()" style="background:#f59e0b;color:#000;border:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 Precond Lote (' + precondCount + ')</button>';
     }
     html += '</div>';
+
+    // Search + Sort + Filter bar
+    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">';
+    html += '<input type="text" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;renderKanban();" style="flex:1;min-width:140px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;">';
+    html += '<select onchange="_kanbanFilters.sort=this.value;renderKanban();" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;background:#fff;">';
+    html += '<option value="newest"' + (_kanbanFilters.sort==='newest'?' selected':'') + '>Mas reciente</option>';
+    html += '<option value="oldest"' + (_kanbanFilters.sort==='oldest'?' selected':'') + '>Mas antiguo</option>';
+    html += '<option value="model"' + (_kanbanFilters.sort==='model'?' selected':'') + '>Modelo</option>';
+    html += '<option value="operator"' + (_kanbanFilters.sort==='operator'?' selected':'') + '>Operador</option>';
+    html += '</select>';
+    if (opList.length > 0) {
+        html += '<select onchange="_kanbanFilters.operator=this.value;renderKanban();" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;background:#fff;">';
+        html += '<option value="">Todos ops</option>';
+        opList.forEach(function(op) {
+            html += '<option value="' + op + '"' + (_kanbanFilters.operator===op?' selected':'') + '>' + op + '</option>';
+        });
+        html += '</select>';
+    }
+    if (_kanbanFilters.search || _kanbanFilters.operator) {
+        html += '<button onclick="_kanbanFilters.search=\'\';_kanbanFilters.operator=\'\';renderKanban();" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:6px 10px;font-size:10px;cursor:pointer;">✕ Limpiar</button>';
+    }
+    html += '</div>';
+
+    // Apply filters to all non-archived vehicles
+    var filteredVehicles = kanbanApplyFilters(vehicles);
 
     html += '<div class="' + (_kanbanCompact ? 'list-compact' : '') + '" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;align-items:start;">';
 
     columns.forEach(function(col) {
-        var colVehicles = vehicles.filter(function(v) { return v.status === col.key; });
+        var colVehicles = filteredVehicles.filter(function(v) { return v.status === col.key; });
 
         html += '<div style="background:#f8fafc;border-radius:10px;padding:10px;border-top:3px solid ' + col.color + ';min-height:120px;">';
         // Header
@@ -6055,16 +6453,31 @@ function renderKanban() {
                 }
 
                 var shortVin = (v.vin || '?').slice(-8);
+                var fullVin = v.vin || '';
                 var cfg = v.config || {};
                 var modelo = cfg['Modelo'] || '';
                 var motor = cfg['ENGINE CAPACITY'] || '';
                 var regulacion = cfg['EMISSION REGULATION'] || '';
 
-                html += '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
-                // VIN + time
+                // Purpose color for left border
+                var purposeBorder = '#e2e8f0';
+                if (v.purpose) {
+                    if (v.purpose.includes('COP') && v.purpose.includes('Emision')) purposeBorder = '#3b82f6';
+                    else if (v.purpose.includes('COP') && v.purpose.includes('OBD')) purposeBorder = '#8b5cf6';
+                    else if (v.purpose.includes('EO')) purposeBorder = '#f59e0b';
+                    else if (v.purpose.includes('ND')) purposeBorder = '#10b981';
+                    else if (v.purpose.includes('Correlacion') || v.purpose.includes('Investigacion')) purposeBorder = '#64748b';
+                    else purposeBorder = '#0ea5e9';
+                }
+
+                html += '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;border-left:4px solid ' + purposeBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
+                // VIN + copy + time
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+                html += '<span style="display:flex;align-items:center;gap:4px;">';
                 html += '<span style="font-family:monospace;font-size:11px;font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
-                if (timeSince) html += '<span style="font-size:8px;color:#94a3b8;">' + timeSince + '</span>';
+                html += '<button onclick="event.stopPropagation();copyToClipboard(\'' + fullVin.replace(/'/g,"\\'") + '\', this)" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px;" title="Copiar VIN">📋</button>';
+                html += '</span>';
+                if (timeSince) html += '<span style="font-size:8px;color:#94a3b8;" title="Tiempo en este estado">' + timeSince + '</span>';
                 html += '</div>';
                 // Config labels
                 if (modelo) {
@@ -6365,6 +6778,8 @@ let invState = JSON.parse(localStorage.getItem(INV_LS_KEY)) || {
 
 // Drag-and-drop state for zone map
 var _invDrag = { active:false, gasId:null, sourceCode:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false };
+var _invUndoStack = [];
+var _invUndoMaxSize = 5;
 
 function invSave() {
     try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
@@ -8334,14 +8749,22 @@ function invExportReport() {
 // ══════════════════════════════════════════════════
 function invRenderZoneMap(el) {
     var gases = invState.gases;
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span></div>';
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span>';
+    if (_invUndoStack.length > 0) {
+        html += '<button onclick="invUndoLastMove()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;animation:soakBadgePulse 2s 1;">↶ Deshacer (' + _invUndoStack.length + ')</button>';
+    }
+    html += '</div>';
     html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Verde >50% | Amarillo 25-50% | Rojo <25% | Gris: vacio &mdash; Mantener presionado para arrastrar</div>';
 
     invState.zones.forEach(function(z) {
         var zGases = gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); });
+        var capPct = z.slots > 0 ? Math.round((zGases.length / z.slots) * 100) : 0;
+        var capColor = capPct > 80 ? '#ef4444' : capPct > 50 ? '#f59e0b' : '#10b981';
         html += '<div style="margin-bottom:10px;padding:8px;border:1px solid var(--tp-border);border-radius:8px;">';
-        html += '<div style="font-weight:800;font-size:12px;margin-bottom:6px;">' + z.id +
-            ' — ' + z.label + ' <span style="font-size:9px;color:var(--tp-dim);">(' + z.type + ') ' + zGases.length + '/' + z.slots + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:12px;margin-bottom:6px;">';
+        html += '<span>' + z.id + ' — ' + z.label + ' <span style="font-size:9px;color:var(--tp-dim);">(' + z.type + ')</span></span>';
+        html += '<span style="font-size:10px;font-weight:700;color:' + capColor + ';background:' + capColor + '15;padding:2px 8px;border-radius:6px;border:1px solid ' + capColor + '30;">' + zGases.length + '/' + z.slots + ' (' + capPct + '%)</span>';
+        html += '</div>';
 
         html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:4px;">';
         for (var s = 1; s <= z.slots; s++) {
@@ -8582,6 +9005,10 @@ function invDropCylinder(gasId, sourceCode, targetCode) {
         return;
     }
 
+    // Push to undo stack before moving
+    _invUndoStack.push({ gasId: gasId, fromZone: sourceCode, toZone: targetCode, formula: gas.formula });
+    if (_invUndoStack.length > _invUndoMaxSize) _invUndoStack.shift();
+
     // Move cylinder
     gas.zone = targetCode;
     // Update position number from code
@@ -8594,6 +9021,23 @@ function invDropCylinder(gasId, sourceCode, targetCode) {
     invRender();
     if (typeof fbPushModule === 'function') fbPushModule('inventory');
     showToast(gas.formula + ' movido a ' + targetCode, 'success');
+}
+
+function invUndoLastMove() {
+    if (_invUndoStack.length === 0) { showToast('Sin movimientos para deshacer', 'info'); return; }
+    var last = _invUndoStack.pop();
+    var gas = invState.gases.find(function(g) { return g.id === last.gasId; });
+    if (!gas) { showToast('Gas no encontrado', 'error'); return; }
+    // Check if original slot is now occupied
+    var occupant = invState.gases.find(function(g) { return g.zone === last.fromZone && g.id !== last.gasId; });
+    if (occupant) { showToast('Posicion ' + last.fromZone + ' ya ocupada — no se puede deshacer', 'warning'); return; }
+    gas.zone = last.fromZone;
+    gas.position = parseInt(last.fromZone.substring(1), 10);
+    if (!gas.timeline) gas.timeline = [];
+    gas.timeline.push({ date: new Date().toISOString(), action: 'Deshecho: ' + last.toZone + ' → ' + last.fromZone });
+    invSave(); invRender();
+    if (typeof fbPushModule === 'function') fbPushModule('inventory');
+    showToast('Deshecho: ' + last.formula + ' regresado a ' + last.fromZone, 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -11008,6 +11452,7 @@ function tpRenderWeekly(el) {
                         ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
                         ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
                         ${tpConfigBadges(item,{fontSize:'8px'})}
+                    ${tpScoreBadge(item)}
                     </div>
                     <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
                         ${isEdit?`<button onclick="tpRemoveWeeklyItem(${idx},${ii})" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:13px;">×</button>`:''}
@@ -11035,6 +11480,15 @@ function tpRenderWeekly(el) {
             ${isEdit?`<div style="margin-top:6px;padding:6px;background:rgba(245,158,11,0.05);border:1px dashed var(--tp-amber);border-radius:5px;"><div style="display:flex;gap:5px;"><select id="tp-edit-add-${idx}" class="tp-select" style="flex:1;font-size:9px;"><option value="">Agregar...</option>${allConfigs.filter(c=>!w.items.some(i=>i.desc===c)).map(c=>`<option value="${c}">${c}</option>`).join('')}</select><button class="tp-btn tp-btn-primary" onclick="tpAddToWeek(${idx})" style="font-size:9px;">+</button></div></div>`:''}
         </div>`;
     }).join('')}`;
+}
+
+function tpScoreBadge(item) {
+    if (!item._scoreDetail) return '';
+    var d = item._scoreDetail;
+    var color = d.deficit >= 3 ? 'var(--tp-red)' : d.deficit >= 1 ? 'var(--tp-amber)' : 'var(--tp-green)';
+    var icon = d.deficit >= 3 ? '🔴' : d.deficit >= 1 ? '🟡' : '🟢';
+    var lastStr = d.lastTested ? ' | Ultimo: ' + d.lastTested : '';
+    return '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;flex-shrink:0;cursor:help;" title="Score: ' + (d.score||0).toFixed(1) + ' | Deficit: ' + d.deficit + lastStr + ' | ' + d.reason + '">' + icon + ' D:' + d.deficit + ' S:' + (d.score||0).toFixed(1) + '</span>';
 }
 
 function tpToggleWeeklyItem(weekIdx, itemIdx) {
@@ -11180,12 +11634,19 @@ function tpSmartGenerate() {
             continue;
         }
 
+        // Find last tested date for transparency
+        var _lastTested = '';
+        for (var _lt = tpState.testedList.length - 1; _lt >= 0; _lt--) {
+            if (tpState.testedList[_lt].configText === cfg.desc) { _lastTested = tpState.testedList[_lt].date || ''; break; }
+        }
         items.push({
             desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg,
             eng: cfg.eng, tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body,
             ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire,
             required: cfg.required, deficit: cfg.deficit, score: cfg.score,
-            completed: false, completedDate: null, manual: false, carriedOver: false
+            completed: false, completedDate: null, manual: false, carriedOver: false,
+            _scoreDetail: { deficit: cfg.deficit, score: cfg.score, lastTested: _lastTested,
+                reason: cfg.deficit >= 3 ? 'Alto deficit' : cfg.deficit >= 1 ? 'Deficit pendiente' : 'Mantenimiento' }
         });
         used.add(cfg.desc);
     }
@@ -12937,6 +13398,53 @@ function raGetProfile(test){
 // ║  [M24] RA — DASHBOARD                                              ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+function raGetOutlierBanner() {
+    if (raState.tests.length < 5) return '';
+    var metricKeys = ['BagCO','BagNOX','BagTHC','BagNMHC','BagCO2'];
+    var recentTests = raState.tests.slice(-10);
+    var outliers = [];
+
+    metricKeys.forEach(function(mk) {
+        // Get all values for this metric to compute mean/std
+        var allVals = raState.tests.filter(function(t) {
+            return t.cycleData && t.cycleData.length > 0;
+        }).map(function(t) {
+            return t.cycleData[t.cycleData.length - 1][mk];
+        }).filter(function(v) { return typeof v === 'number' && isFinite(v); });
+
+        if (allVals.length < 5) return;
+        var mean = allVals.reduce(function(a,b){return a+b;},0) / allVals.length;
+        var std = Math.sqrt(allVals.reduce(function(a,b){return a+Math.pow(b-mean,2);},0) / (allVals.length - 1));
+        if (std === 0) return;
+
+        recentTests.forEach(function(t) {
+            if (!t.cycleData || t.cycleData.length === 0) return;
+            var val = t.cycleData[t.cycleData.length - 1][mk];
+            if (typeof val !== 'number' || !isFinite(val)) return;
+            var sigma = Math.abs(val - mean) / std;
+            if (sigma > 2) {
+                outliers.push({ metric: mk, sigma: sigma.toFixed(1), vin: (t.vin||'').slice(-6), id: t.id });
+            }
+        });
+    });
+
+    if (outliers.length === 0) return '';
+
+    var items = outliers.slice(0, 4).map(function(o) {
+        return '<span style="font-weight:700;">' + o.metric.replace('Bag','') + '</span> (' + o.sigma + 'σ) en ...' + o.vin;
+    }).join(', ');
+
+    return '<div style="padding:10px 14px;border-radius:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);margin-bottom:14px;cursor:pointer;" onclick="raState.activeTab=\'ra-outliers\';raRender();">' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<span style="font-size:18px;">⚠️</span>' +
+        '<div style="flex:1;">' +
+        '<div style="font-size:12px;font-weight:700;color:var(--tp-red);">' + outliers.length + ' outlier' + (outliers.length>1?'s':'') + ' en pruebas recientes</div>' +
+        '<div style="font-size:10px;color:var(--tp-dim);margin-top:2px;">' + items + '</div>' +
+        '</div>' +
+        '<span style="font-size:10px;color:var(--tp-red);font-weight:600;">Ver Outliers →</span>' +
+        '</div></div>';
+}
+
 function raRenderDashboard(el){
     if(raState.tests.length===0){
         el.innerHTML=`<div class="tp-card" style="text-align:center;padding:50px;">
@@ -12955,8 +13463,11 @@ function raRenderDashboard(el){
     }).filter(d=>typeof d.fc==='number'&&isFinite(d.fc));
     const avg=(arr,k)=>arr.length>0?(arr.reduce((s,d)=>s+(d[k]||0),0)/arr.length).toFixed(3):'—';
 
+    // Outlier alert banner
+    var outlierBannerHTML = raGetOutlierBanner();
+
     try {
-    el.innerHTML=`
+    el.innerHTML=outlierBannerHTML + `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
         <div class="tp-metric"><div class="tp-metric-val" style="color:#06b6d4">${tests.length}</div><div class="tp-metric-label">Pruebas</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">${models.length}</div><div class="tp-metric-label">Modelos</div></div>
@@ -13418,7 +13929,14 @@ function raRenderTrends(el){
     else groupFn=t=>`${t.emissionReg||'?'} ${t.testType||'?'}`;
 
     const groups=[...new Set(raState.tests.map(groupFn))].sort();
-    const filtered=fGroup==='ALL'?raState.tests:raState.tests.filter(t=>groupFn(t)===fGroup);
+    var dateFrom = window._raTrendDateFrom || '';
+    var dateTo = window._raTrendDateTo || '';
+    var filtered=raState.tests.filter(function(t) {
+        if (fGroup !== 'ALL' && groupFn(t) !== fGroup) return false;
+        if (dateFrom && (t.dateStr || '') < dateFrom) return false;
+        if (dateTo && (t.dateStr || '') > dateTo) return false;
+        return true;
+    });
     const pts=filtered.filter(t=>t.cycleData&&t.cycleData.length>0).map(t=>{
         const l=t.cycleData[t.cycleData.length-1];
         return {val:l[fMetric],vin:t.vin,model:t.testDesc,id:t.id,date:t.dateStr,num:t.testNumber,group:groupFn(t)};
@@ -13478,6 +13996,14 @@ function raRenderTrends(el){
                 </div>
             </div>
         </details>
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
+            <span style="font-size:9px;color:var(--tp-dim);font-weight:600;">Rango:</span>
+            <button class="tp-btn tp-btn-ghost" onclick="raFilterTrendRange(7)" style="font-size:9px;padding:3px 8px;">7 dias</button>
+            <button class="tp-btn tp-btn-ghost" onclick="raFilterTrendRange(30)" style="font-size:9px;padding:3px 8px;">30 dias</button>
+            <button class="tp-btn tp-btn-ghost" onclick="raFilterTrendRange(90)" style="font-size:9px;padding:3px 8px;">90 dias</button>
+            <button class="tp-btn tp-btn-ghost" onclick="raFilterTrendRange(0)" style="font-size:9px;padding:3px 8px;">Todo</button>
+            <button class="tp-btn tp-btn-ghost" onclick="raResetTrendZoom()" style="font-size:9px;padding:3px 8px;margin-left:auto;">Reset Zoom</button>
+        </div>
         <div id="ra-trend-wrapper" style="position:relative;height:${window._raChartHeight||320}px;">
             ${pts.length===0?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--tp-dim);"><div style="font-size:28px;margin-bottom:8px;">📉</div><div style="font-size:12px;font-weight:700;">Sin datos para "${fMetric}"</div><div style="font-size:10px;margin-top:4px;">Verifica que las pruebas tengan cycleData con este campo.<br>Si hay pruebas importadas, asegurate de que no se haya compactado la data.</div></div>`:'<canvas id="ra-trend-canvas"></canvas>'}
         </div>
@@ -13536,6 +14062,11 @@ function raRenderTrends(el){
                     labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, padding: 8,
                         filter: function(item) { return item.text !== 'Warning -2\u03C3'; }
                     }
+                },
+                zoom: {
+                    pan: { enabled: true, mode: 'x', modifierKey: null },
+                    zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x',
+                        drag: { enabled: false } }
                 },
                 tooltip: {
                     backgroundColor: '#1e293b', titleColor: '#e2e8f0', bodyColor: '#94a3b8',
@@ -13620,6 +14151,25 @@ function raChartAutoFit() {
     window._raTrendChart.update();
     // Reset height
     raChartSetHeight(320);
+}
+
+function raFilterTrendRange(days) {
+    if (days === 0) {
+        window._raTrendDateFrom = '';
+        window._raTrendDateTo = '';
+    } else {
+        var now = new Date();
+        var from = new Date(now.getTime() - days * 86400000);
+        window._raTrendDateFrom = from.toISOString().slice(0, 10);
+        window._raTrendDateTo = now.toISOString().slice(0, 10);
+    }
+    raRender();
+}
+
+function raResetTrendZoom() {
+    if (window._raTrendChart && window._raTrendChart.resetZoom) {
+        window._raTrendChart.resetZoom();
+    }
 }
 
 function raRenderDetail(el){

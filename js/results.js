@@ -421,6 +421,53 @@ function raGetProfile(test){
 // ║  [M24] RA — DASHBOARD                                              ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+function raGetOutlierBanner() {
+    if (raState.tests.length < 5) return '';
+    var metricKeys = ['BagCO','BagNOX','BagTHC','BagNMHC','BagCO2'];
+    var recentTests = raState.tests.slice(-10);
+    var outliers = [];
+
+    metricKeys.forEach(function(mk) {
+        // Get all values for this metric to compute mean/std
+        var allVals = raState.tests.filter(function(t) {
+            return t.cycleData && t.cycleData.length > 0;
+        }).map(function(t) {
+            return t.cycleData[t.cycleData.length - 1][mk];
+        }).filter(function(v) { return typeof v === 'number' && isFinite(v); });
+
+        if (allVals.length < 5) return;
+        var mean = allVals.reduce(function(a,b){return a+b;},0) / allVals.length;
+        var std = Math.sqrt(allVals.reduce(function(a,b){return a+Math.pow(b-mean,2);},0) / (allVals.length - 1));
+        if (std === 0) return;
+
+        recentTests.forEach(function(t) {
+            if (!t.cycleData || t.cycleData.length === 0) return;
+            var val = t.cycleData[t.cycleData.length - 1][mk];
+            if (typeof val !== 'number' || !isFinite(val)) return;
+            var sigma = Math.abs(val - mean) / std;
+            if (sigma > 2) {
+                outliers.push({ metric: mk, sigma: sigma.toFixed(1), vin: (t.vin||'').slice(-6), id: t.id });
+            }
+        });
+    });
+
+    if (outliers.length === 0) return '';
+
+    var items = outliers.slice(0, 4).map(function(o) {
+        return '<span style="font-weight:700;">' + o.metric.replace('Bag','') + '</span> (' + o.sigma + 'σ) en ...' + o.vin;
+    }).join(', ');
+
+    return '<div style="padding:10px 14px;border-radius:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);margin-bottom:14px;cursor:pointer;" onclick="raState.activeTab=\'ra-outliers\';raRender();">' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<span style="font-size:18px;">⚠️</span>' +
+        '<div style="flex:1;">' +
+        '<div style="font-size:12px;font-weight:700;color:var(--tp-red);">' + outliers.length + ' outlier' + (outliers.length>1?'s':'') + ' en pruebas recientes</div>' +
+        '<div style="font-size:10px;color:var(--tp-dim);margin-top:2px;">' + items + '</div>' +
+        '</div>' +
+        '<span style="font-size:10px;color:var(--tp-red);font-weight:600;">Ver Outliers →</span>' +
+        '</div></div>';
+}
+
 function raRenderDashboard(el){
     if(raState.tests.length===0){
         el.innerHTML=`<div class="tp-card" style="text-align:center;padding:50px;">
@@ -439,8 +486,11 @@ function raRenderDashboard(el){
     }).filter(d=>typeof d.fc==='number'&&isFinite(d.fc));
     const avg=(arr,k)=>arr.length>0?(arr.reduce((s,d)=>s+(d[k]||0),0)/arr.length).toFixed(3):'—';
 
+    // Outlier alert banner
+    var outlierBannerHTML = raGetOutlierBanner();
+
     try {
-    el.innerHTML=`
+    el.innerHTML=outlierBannerHTML + `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
         <div class="tp-metric"><div class="tp-metric-val" style="color:#06b6d4">${tests.length}</div><div class="tp-metric-label">Pruebas</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">${models.length}</div><div class="tp-metric-label">Modelos</div></div>
@@ -902,7 +952,14 @@ function raRenderTrends(el){
     else groupFn=t=>`${t.emissionReg||'?'} ${t.testType||'?'}`;
 
     const groups=[...new Set(raState.tests.map(groupFn))].sort();
-    const filtered=fGroup==='ALL'?raState.tests:raState.tests.filter(t=>groupFn(t)===fGroup);
+    var dateFrom = window._raTrendDateFrom || '';
+    var dateTo = window._raTrendDateTo || '';
+    var filtered=raState.tests.filter(function(t) {
+        if (fGroup !== 'ALL' && groupFn(t) !== fGroup) return false;
+        if (dateFrom && (t.dateStr || '') < dateFrom) return false;
+        if (dateTo && (t.dateStr || '') > dateTo) return false;
+        return true;
+    });
     const pts=filtered.filter(t=>t.cycleData&&t.cycleData.length>0).map(t=>{
         const l=t.cycleData[t.cycleData.length-1];
         return {val:l[fMetric],vin:t.vin,model:t.testDesc,id:t.id,date:t.dateStr,num:t.testNumber,group:groupFn(t)};
@@ -962,6 +1019,14 @@ function raRenderTrends(el){
                 </div>
             </div>
         </details>
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
+            <span style="font-size:9px;color:var(--tp-dim);font-weight:600;">Rango:</span>
+            <button class="tp-btn tp-btn-ghost" onclick="raFilterTrendRange(7)" style="font-size:9px;padding:3px 8px;">7 dias</button>
+            <button class="tp-btn tp-btn-ghost" onclick="raFilterTrendRange(30)" style="font-size:9px;padding:3px 8px;">30 dias</button>
+            <button class="tp-btn tp-btn-ghost" onclick="raFilterTrendRange(90)" style="font-size:9px;padding:3px 8px;">90 dias</button>
+            <button class="tp-btn tp-btn-ghost" onclick="raFilterTrendRange(0)" style="font-size:9px;padding:3px 8px;">Todo</button>
+            <button class="tp-btn tp-btn-ghost" onclick="raResetTrendZoom()" style="font-size:9px;padding:3px 8px;margin-left:auto;">Reset Zoom</button>
+        </div>
         <div id="ra-trend-wrapper" style="position:relative;height:${window._raChartHeight||320}px;">
             ${pts.length===0?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--tp-dim);"><div style="font-size:28px;margin-bottom:8px;">📉</div><div style="font-size:12px;font-weight:700;">Sin datos para "${fMetric}"</div><div style="font-size:10px;margin-top:4px;">Verifica que las pruebas tengan cycleData con este campo.<br>Si hay pruebas importadas, asegurate de que no se haya compactado la data.</div></div>`:'<canvas id="ra-trend-canvas"></canvas>'}
         </div>
@@ -1020,6 +1085,11 @@ function raRenderTrends(el){
                     labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, padding: 8,
                         filter: function(item) { return item.text !== 'Warning -2\u03C3'; }
                     }
+                },
+                zoom: {
+                    pan: { enabled: true, mode: 'x', modifierKey: null },
+                    zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x',
+                        drag: { enabled: false } }
                 },
                 tooltip: {
                     backgroundColor: '#1e293b', titleColor: '#e2e8f0', bodyColor: '#94a3b8',
@@ -1104,6 +1174,25 @@ function raChartAutoFit() {
     window._raTrendChart.update();
     // Reset height
     raChartSetHeight(320);
+}
+
+function raFilterTrendRange(days) {
+    if (days === 0) {
+        window._raTrendDateFrom = '';
+        window._raTrendDateTo = '';
+    } else {
+        var now = new Date();
+        var from = new Date(now.getTime() - days * 86400000);
+        window._raTrendDateFrom = from.toISOString().slice(0, 10);
+        window._raTrendDateTo = now.toISOString().slice(0, 10);
+    }
+    raRender();
+}
+
+function raResetTrendZoom() {
+    if (window._raTrendChart && window._raTrendChart.resetZoom) {
+        window._raTrendChart.resetZoom();
+    }
 }
 
 function raRenderDetail(el){

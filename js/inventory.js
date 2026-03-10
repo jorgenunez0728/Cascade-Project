@@ -38,6 +38,8 @@ let invState = JSON.parse(localStorage.getItem(INV_LS_KEY)) || {
 
 // Drag-and-drop state for zone map
 var _invDrag = { active:false, gasId:null, sourceCode:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false };
+var _invUndoStack = [];
+var _invUndoMaxSize = 5;
 
 function invSave() {
     try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
@@ -2007,14 +2009,22 @@ function invExportReport() {
 // ══════════════════════════════════════════════════
 function invRenderZoneMap(el) {
     var gases = invState.gases;
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span></div>';
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span>';
+    if (_invUndoStack.length > 0) {
+        html += '<button onclick="invUndoLastMove()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;animation:soakBadgePulse 2s 1;">↶ Deshacer (' + _invUndoStack.length + ')</button>';
+    }
+    html += '</div>';
     html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Verde >50% | Amarillo 25-50% | Rojo <25% | Gris: vacio &mdash; Mantener presionado para arrastrar</div>';
 
     invState.zones.forEach(function(z) {
         var zGases = gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); });
+        var capPct = z.slots > 0 ? Math.round((zGases.length / z.slots) * 100) : 0;
+        var capColor = capPct > 80 ? '#ef4444' : capPct > 50 ? '#f59e0b' : '#10b981';
         html += '<div style="margin-bottom:10px;padding:8px;border:1px solid var(--tp-border);border-radius:8px;">';
-        html += '<div style="font-weight:800;font-size:12px;margin-bottom:6px;">' + z.id +
-            ' — ' + z.label + ' <span style="font-size:9px;color:var(--tp-dim);">(' + z.type + ') ' + zGases.length + '/' + z.slots + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:12px;margin-bottom:6px;">';
+        html += '<span>' + z.id + ' — ' + z.label + ' <span style="font-size:9px;color:var(--tp-dim);">(' + z.type + ')</span></span>';
+        html += '<span style="font-size:10px;font-weight:700;color:' + capColor + ';background:' + capColor + '15;padding:2px 8px;border-radius:6px;border:1px solid ' + capColor + '30;">' + zGases.length + '/' + z.slots + ' (' + capPct + '%)</span>';
+        html += '</div>';
 
         html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:4px;">';
         for (var s = 1; s <= z.slots; s++) {
@@ -2255,6 +2265,10 @@ function invDropCylinder(gasId, sourceCode, targetCode) {
         return;
     }
 
+    // Push to undo stack before moving
+    _invUndoStack.push({ gasId: gasId, fromZone: sourceCode, toZone: targetCode, formula: gas.formula });
+    if (_invUndoStack.length > _invUndoMaxSize) _invUndoStack.shift();
+
     // Move cylinder
     gas.zone = targetCode;
     // Update position number from code
@@ -2267,6 +2281,23 @@ function invDropCylinder(gasId, sourceCode, targetCode) {
     invRender();
     if (typeof fbPushModule === 'function') fbPushModule('inventory');
     showToast(gas.formula + ' movido a ' + targetCode, 'success');
+}
+
+function invUndoLastMove() {
+    if (_invUndoStack.length === 0) { showToast('Sin movimientos para deshacer', 'info'); return; }
+    var last = _invUndoStack.pop();
+    var gas = invState.gases.find(function(g) { return g.id === last.gasId; });
+    if (!gas) { showToast('Gas no encontrado', 'error'); return; }
+    // Check if original slot is now occupied
+    var occupant = invState.gases.find(function(g) { return g.zone === last.fromZone && g.id !== last.gasId; });
+    if (occupant) { showToast('Posicion ' + last.fromZone + ' ya ocupada — no se puede deshacer', 'warning'); return; }
+    gas.zone = last.fromZone;
+    gas.position = parseInt(last.fromZone.substring(1), 10);
+    if (!gas.timeline) gas.timeline = [];
+    gas.timeline.push({ date: new Date().toISOString(), action: 'Deshecho: ' + last.toZone + ' → ' + last.fromZone });
+    invSave(); invRender();
+    if (typeof fbPushModule === 'function') fbPushModule('inventory');
+    showToast('Deshecho: ' + last.formula + ' regresado a ' + last.fromZone, 'success');
 }
 
 // ══════════════════════════════════════════════════

@@ -148,15 +148,18 @@ setAltaDatetimeIfEmpty(true);
             const config = filtered[0];
             resultDiv.innerHTML = `
                 <strong>✅ CONFIGURACIÓN ÚNICA ENCONTRADA:</strong><br>
-                <div style="font-family: monospace; color: var(--kia-red); margin-top: 10px; font-weight: bold;">
-                    ${config.codigo_config_text}
+                <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                    <div style="font-family: monospace; color: var(--kia-red); font-weight: bold;flex:1;">
+                        ${config.codigo_config_text}
+                    </div>
+                    <button onclick="copyToClipboard('${config.codigo_config_text.replace(/'/g,"\\'")}', this)" style="background:var(--kia-dark);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">📋 Copiar</button>
                 </div>
                 <div style="margin-top: 10px; font-size: 0.9rem; color: #475569;">
-                    <strong>Modelo:</strong> ${config.Modelo} | 
-                    <strong>Año:</strong> ${config['MODEL YEAR (VIN)']} | 
+                    <strong>Modelo:</strong> ${config.Modelo} |
+                    <strong>Año:</strong> ${config['MODEL YEAR (VIN)']} |
                     <strong>Motor:</strong> ${config['ENGINE CAPACITY']}<br>
                     <strong>Transmisión:</strong> ${config.TRANSMISSION} |
- 			<strong>Env:</strong> ${config['ENVIRONMENT PACKAGE']} | 
+ 			<strong>Env:</strong> ${config['ENVIRONMENT PACKAGE']} |
                     <strong>Regulación:</strong> ${config['EMISSION REGULATION']}
                 </div>
             `;
@@ -2902,7 +2905,50 @@ function checkStalledVehicles() {
 // SOAK TIMER — Countdown de preacondicionamiento con notificaciones
 // ======================================================================
 
-var _soakTimer = { interval: null, endTime: null, totalMs: 0, running: false };
+var _soakTimer = { interval: null, endTime: null, totalMs: 0, running: false, chimeInterval: null };
+var _soakOrigTitle = document.title;
+
+function soakUpdateTabTitle() {
+    if (!_soakTimer.running) { document.title = _soakOrigTitle; soakUpdateBadge(false); return; }
+    var remaining = _soakTimer.endTime - Date.now();
+    if (remaining <= 0) { document.title = _soakOrigTitle; return; }
+    var h = Math.floor(remaining / 3600000);
+    var m = Math.floor((remaining % 3600000) / 60000);
+    document.title = 'SOAK: ' + h + 'h ' + m + 'm — KIA EmLab';
+    soakUpdateBadge(true, h + 'h ' + m + 'm');
+}
+
+function soakUpdateBadge(show, text) {
+    var badge = document.getElementById('soak-floating-badge');
+    if (!badge) return;
+    if (show) {
+        badge.style.display = 'flex';
+        badge.querySelector('.soak-badge-text').textContent = text || '';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function soakPlayChime() {
+    try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 880; osc.type = 'sine';
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.8);
+        // Second tone
+        var osc2 = ctx.createOscillator();
+        var gain2 = ctx.createGain();
+        osc2.connect(gain2); gain2.connect(ctx.destination);
+        osc2.frequency.value = 1320; osc2.type = 'sine';
+        gain2.gain.setValueAtTime(0.12, ctx.currentTime + 0.3);
+        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.1);
+        osc2.start(ctx.currentTime + 0.3); osc2.stop(ctx.currentTime + 1.1);
+    } catch(e) {}
+}
 
 function soakTimerStart() {
     if (_soakTimer.running) return;
@@ -2942,18 +2988,24 @@ function soakTimerStart() {
 function soakTimerStop() {
     _soakTimer.running = false;
     if (_soakTimer.interval) { clearInterval(_soakTimer.interval); _soakTimer.interval = null; }
+    if (_soakTimer.chimeInterval) { clearInterval(_soakTimer.chimeInterval); _soakTimer.chimeInterval = null; }
     document.getElementById('soak_timer_btn_start').style.display = '';
     document.getElementById('soak_timer_btn_stop').style.display = 'none';
     document.getElementById('soak_timer_status').textContent = 'Pausado';
     document.getElementById('soak_timer_status').style.color = '#f59e0b';
+    document.title = _soakOrigTitle;
+    soakUpdateBadge(false);
 }
 
 function soakTimerReset() {
     _soakTimer.running = false;
     if (_soakTimer.interval) { clearInterval(_soakTimer.interval); _soakTimer.interval = null; }
+    if (_soakTimer.chimeInterval) { clearInterval(_soakTimer.chimeInterval); _soakTimer.chimeInterval = null; }
     _soakTimer.endTime = null;
     _soakTimer.totalMs = 0;
     localStorage.removeItem('kia_soak_timer');
+    document.title = _soakOrigTitle;
+    soakUpdateBadge(false);
 
     document.getElementById('soak_timer_display').textContent = '00:00:00';
     document.getElementById('soak_timer_display').style.color = '#64748b';
@@ -2998,7 +3050,23 @@ function soakTimerTick() {
             });
         }
 
-        // Also alert in case notifications are blocked
+        // Audio chime + vibration
+        soakPlayChime();
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        // Repeat chime every 30s for 5 minutes
+        var chimeCount = 0;
+        _soakTimer.chimeInterval = setInterval(function() {
+            chimeCount++;
+            soakPlayChime();
+            if (navigator.vibrate) navigator.vibrate(200);
+            if (chimeCount >= 10) { clearInterval(_soakTimer.chimeInterval); _soakTimer.chimeInterval = null; }
+        }, 30000);
+
+        // Restore tab title + update badge
+        document.title = 'SOAK LISTO — KIA EmLab';
+        soakUpdateBadge(true, 'LISTO');
+        setTimeout(function(){ document.title = _soakOrigTitle; soakUpdateBadge(false); }, 300000);
+
         showToast('SOAK COMPLETADO - El vehiculo esta listo para prueba.', 'success');
         return;
     }
@@ -3023,6 +3091,10 @@ function soakTimerTick() {
 
     var eta = new Date(_soakTimer.endTime);
     document.getElementById('soak_timer_eta').textContent = 'Listo a las ' + eta.toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'}) + ' del ' + eta.toLocaleDateString('es-MX', {day:'numeric',month:'short'});
+
+    // Update tab title + floating badge (every tick for responsiveness)
+    if (s === 0) soakUpdateTabTitle(); // Once per minute at :00 seconds
+    if (!window._soakBadgeInit) { soakUpdateTabTitle(); window._soakBadgeInit = true; }
 }
 
 function soakTimerRestore() {
@@ -3051,6 +3123,39 @@ function soakTimerRestore() {
 // ║  [B1] KANBAN QUEUE — Visual vehicle pipeline                       ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+var _kanbanFilters = { search: '', sort: 'newest', operator: '' };
+
+function kanbanApplyFilters(vehicles) {
+    var f = _kanbanFilters;
+    var filtered = vehicles;
+    // Search filter
+    if (f.search) {
+        var q = f.search.toLowerCase();
+        filtered = filtered.filter(function(v) {
+            var vin = (v.vin || '').toLowerCase();
+            var modelo = ((v.config || {})['Modelo'] || '').toLowerCase();
+            var purpose = (v.purpose || '').toLowerCase();
+            var op = ((v.testData || {}).operator || '').toLowerCase();
+            return vin.includes(q) || modelo.includes(q) || purpose.includes(q) || op.includes(q);
+        });
+    }
+    // Operator filter
+    if (f.operator) {
+        filtered = filtered.filter(function(v) { return (v.testData || {}).operator === f.operator; });
+    }
+    // Sort
+    filtered.sort(function(a, b) {
+        var tsA = a.timeline && a.timeline.length > 0 ? new Date(a.timeline[a.timeline.length-1].timestamp).getTime() : 0;
+        var tsB = b.timeline && b.timeline.length > 0 ? new Date(b.timeline[b.timeline.length-1].timestamp).getTime() : 0;
+        if (f.sort === 'newest') return tsB - tsA;
+        if (f.sort === 'oldest') return tsA - tsB;
+        if (f.sort === 'model') return ((a.config||{})['Modelo']||'').localeCompare(((b.config||{})['Modelo']||''));
+        if (f.sort === 'operator') return ((a.testData||{}).operator||'').localeCompare(((b.testData||{}).operator||''));
+        return 0;
+    });
+    return filtered;
+}
+
 function renderKanban() {
     var el = document.getElementById('kanban-board');
     if (!el) return;
@@ -3070,6 +3175,11 @@ function renderKanban() {
         if (raw) soakData = JSON.parse(raw);
     } catch(e) {}
 
+    // Collect unique operators for filter
+    var allOps = {};
+    vehicles.forEach(function(v) { var op = (v.testData || {}).operator; if (op) allOps[op] = true; });
+    var opList = Object.keys(allOps).sort();
+
     var precondCount = vehicles.filter(function(v) { return v.status === 'registered' || v.status === 'in-progress'; }).length;
     var _kanbanCompact = getViewMode('kanban') === 'compact';
     var html = '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
@@ -3078,14 +3188,39 @@ function renderKanban() {
     html += '<span style="font-size:11px;color:#64748b;">' + totalActive + ' activos</span>';
     html += '<span style="margin-left:auto;">' + renderViewModeToggle('kanban', true) + '</span>';
     if (precondCount > 0) {
-        html += '<button onclick="renderPrecondBatchView()" style="margin-left:auto;background:#f59e0b;color:#000;border:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 Precond Lote (' + precondCount + ')</button>';
+        html += '<button onclick="renderPrecondBatchView()" style="background:#f59e0b;color:#000;border:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 Precond Lote (' + precondCount + ')</button>';
     }
     html += '</div>';
+
+    // Search + Sort + Filter bar
+    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">';
+    html += '<input type="text" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;renderKanban();" style="flex:1;min-width:140px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;">';
+    html += '<select onchange="_kanbanFilters.sort=this.value;renderKanban();" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;background:#fff;">';
+    html += '<option value="newest"' + (_kanbanFilters.sort==='newest'?' selected':'') + '>Mas reciente</option>';
+    html += '<option value="oldest"' + (_kanbanFilters.sort==='oldest'?' selected':'') + '>Mas antiguo</option>';
+    html += '<option value="model"' + (_kanbanFilters.sort==='model'?' selected':'') + '>Modelo</option>';
+    html += '<option value="operator"' + (_kanbanFilters.sort==='operator'?' selected':'') + '>Operador</option>';
+    html += '</select>';
+    if (opList.length > 0) {
+        html += '<select onchange="_kanbanFilters.operator=this.value;renderKanban();" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;background:#fff;">';
+        html += '<option value="">Todos ops</option>';
+        opList.forEach(function(op) {
+            html += '<option value="' + op + '"' + (_kanbanFilters.operator===op?' selected':'') + '>' + op + '</option>';
+        });
+        html += '</select>';
+    }
+    if (_kanbanFilters.search || _kanbanFilters.operator) {
+        html += '<button onclick="_kanbanFilters.search=\'\';_kanbanFilters.operator=\'\';renderKanban();" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:6px 10px;font-size:10px;cursor:pointer;">✕ Limpiar</button>';
+    }
+    html += '</div>';
+
+    // Apply filters to all non-archived vehicles
+    var filteredVehicles = kanbanApplyFilters(vehicles);
 
     html += '<div class="' + (_kanbanCompact ? 'list-compact' : '') + '" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;align-items:start;">';
 
     columns.forEach(function(col) {
-        var colVehicles = vehicles.filter(function(v) { return v.status === col.key; });
+        var colVehicles = filteredVehicles.filter(function(v) { return v.status === col.key; });
 
         html += '<div style="background:#f8fafc;border-radius:10px;padding:10px;border-top:3px solid ' + col.color + ';min-height:120px;">';
         // Header
@@ -3107,16 +3242,31 @@ function renderKanban() {
                 }
 
                 var shortVin = (v.vin || '?').slice(-8);
+                var fullVin = v.vin || '';
                 var cfg = v.config || {};
                 var modelo = cfg['Modelo'] || '';
                 var motor = cfg['ENGINE CAPACITY'] || '';
                 var regulacion = cfg['EMISSION REGULATION'] || '';
 
-                html += '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
-                // VIN + time
+                // Purpose color for left border
+                var purposeBorder = '#e2e8f0';
+                if (v.purpose) {
+                    if (v.purpose.includes('COP') && v.purpose.includes('Emision')) purposeBorder = '#3b82f6';
+                    else if (v.purpose.includes('COP') && v.purpose.includes('OBD')) purposeBorder = '#8b5cf6';
+                    else if (v.purpose.includes('EO')) purposeBorder = '#f59e0b';
+                    else if (v.purpose.includes('ND')) purposeBorder = '#10b981';
+                    else if (v.purpose.includes('Correlacion') || v.purpose.includes('Investigacion')) purposeBorder = '#64748b';
+                    else purposeBorder = '#0ea5e9';
+                }
+
+                html += '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;border-left:4px solid ' + purposeBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
+                // VIN + copy + time
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+                html += '<span style="display:flex;align-items:center;gap:4px;">';
                 html += '<span style="font-family:monospace;font-size:11px;font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
-                if (timeSince) html += '<span style="font-size:8px;color:#94a3b8;">' + timeSince + '</span>';
+                html += '<button onclick="event.stopPropagation();copyToClipboard(\'' + fullVin.replace(/'/g,"\\'") + '\', this)" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px;" title="Copiar VIN">📋</button>';
+                html += '</span>';
+                if (timeSince) html += '<span style="font-size:8px;color:#94a3b8;" title="Tiempo en este estado">' + timeSince + '</span>';
                 html += '</div>';
                 // Config labels
                 if (modelo) {

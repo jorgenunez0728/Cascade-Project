@@ -1588,6 +1588,7 @@ function tpRenderWeekly(el) {
                         ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
                         ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
                         ${tpConfigBadges(item,{fontSize:'8px'})}
+                    ${tpScoreBadge(item)}
                     </div>
                     <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
                         ${isEdit?`<button onclick="tpRemoveWeeklyItem(${idx},${ii})" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:13px;">×</button>`:''}
@@ -1615,6 +1616,15 @@ function tpRenderWeekly(el) {
             ${isEdit?`<div style="margin-top:6px;padding:6px;background:rgba(245,158,11,0.05);border:1px dashed var(--tp-amber);border-radius:5px;"><div style="display:flex;gap:5px;"><select id="tp-edit-add-${idx}" class="tp-select" style="flex:1;font-size:9px;"><option value="">Agregar...</option>${allConfigs.filter(c=>!w.items.some(i=>i.desc===c)).map(c=>`<option value="${c}">${c}</option>`).join('')}</select><button class="tp-btn tp-btn-primary" onclick="tpAddToWeek(${idx})" style="font-size:9px;">+</button></div></div>`:''}
         </div>`;
     }).join('')}`;
+}
+
+function tpScoreBadge(item) {
+    if (!item._scoreDetail) return '';
+    var d = item._scoreDetail;
+    var color = d.deficit >= 3 ? 'var(--tp-red)' : d.deficit >= 1 ? 'var(--tp-amber)' : 'var(--tp-green)';
+    var icon = d.deficit >= 3 ? '🔴' : d.deficit >= 1 ? '🟡' : '🟢';
+    var lastStr = d.lastTested ? ' | Ultimo: ' + d.lastTested : '';
+    return '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;flex-shrink:0;cursor:help;" title="Score: ' + (d.score||0).toFixed(1) + ' | Deficit: ' + d.deficit + lastStr + ' | ' + d.reason + '">' + icon + ' D:' + d.deficit + ' S:' + (d.score||0).toFixed(1) + '</span>';
 }
 
 function tpToggleWeeklyItem(weekIdx, itemIdx) {
@@ -1760,12 +1770,19 @@ function tpSmartGenerate() {
             continue;
         }
 
+        // Find last tested date for transparency
+        var _lastTested = '';
+        for (var _lt = tpState.testedList.length - 1; _lt >= 0; _lt--) {
+            if (tpState.testedList[_lt].configText === cfg.desc) { _lastTested = tpState.testedList[_lt].date || ''; break; }
+        }
         items.push({
             desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg,
             eng: cfg.eng, tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body,
             ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire,
             required: cfg.required, deficit: cfg.deficit, score: cfg.score,
-            completed: false, completedDate: null, manual: false, carriedOver: false
+            completed: false, completedDate: null, manual: false, carriedOver: false,
+            _scoreDetail: { deficit: cfg.deficit, score: cfg.score, lastTested: _lastTested,
+                reason: cfg.deficit >= 3 ? 'Alto deficit' : cfg.deficit >= 1 ? 'Deficit pendiente' : 'Mantenimiento' }
         });
         used.add(cfg.desc);
     }

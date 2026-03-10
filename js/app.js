@@ -412,6 +412,28 @@ function showAlert(message, opts) {
     });
 }
 
+// ── Copy to Clipboard Utility ──
+function copyToClipboard(text, btnEl) {
+    var fallback = function() {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } catch(e) {}
+        document.body.removeChild(ta);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(fallback);
+    } else { fallback(); }
+    // Visual feedback on button
+    if (btnEl) {
+        var orig = btnEl.textContent;
+        btnEl.textContent = '✅';
+        btnEl.style.pointerEvents = 'none';
+        setTimeout(function(){ btnEl.textContent = orig; btnEl.style.pointerEvents = ''; }, 1500);
+    }
+    showToast('Copiado al portapapeles', 'success');
+}
+
 // ── Toast Notification System ──
 function showToast(msg, type) {
     type = type || 'info';
@@ -937,3 +959,181 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         }
 
 window.addEventListener('DOMContentLoaded', initializeSystem);
+
+// ══════════════════════════════════════════════════════════════════════
+// [M20] NOTIFICATION CENTER
+// ══════════════════════════════════════════════════════════════════════
+
+var _notificationLog = [];
+var _notifMaxItems = 50;
+
+// Wrap showToast to also log notifications
+(function() {
+    var _origShowToast = showToast;
+    showToast = function(msg, type) {
+        _origShowToast(msg, type);
+        addNotification(msg, type);
+    };
+})();
+
+function addNotification(msg, type) {
+    _notificationLog.unshift({ message: msg, type: type || 'info', timestamp: Date.now(), read: false });
+    if (_notificationLog.length > _notifMaxItems) _notificationLog.pop();
+    updateNotifBadge();
+}
+
+function updateNotifBadge() {
+    var badge = document.getElementById('notif-badge');
+    if (!badge) return;
+    var unread = _notificationLog.filter(function(n) { return !n.read; }).length;
+    badge.style.display = unread > 0 ? 'inline-block' : 'none';
+    badge.textContent = unread > 9 ? '9+' : unread;
+}
+
+function toggleNotificationCenter() {
+    var el = document.getElementById('notification-center');
+    if (!el) return;
+    var vis = el.style.display !== 'none';
+    el.style.display = vis ? 'none' : 'block';
+    if (!vis) renderNotifications();
+}
+
+function renderNotifications() {
+    var list = document.getElementById('notification-list');
+    if (!list) return;
+    if (_notificationLog.length === 0) {
+        list.innerHTML = '<div style="text-align:center;padding:30px;color:#64748b;font-size:12px;">Sin notificaciones</div>';
+        return;
+    }
+    var icons = { success: '✅', error: '❌', warning: '⚡', info: 'ℹ️' };
+    list.innerHTML = _notificationLog.map(function(n, i) {
+        var ago = _timeAgo(n.timestamp);
+        return '<div class="notif-item' + (n.read ? '' : ' notif-unread') + '" onclick="_notificationLog[' + i + '].read=true;this.classList.remove(\'notif-unread\');updateNotifBadge();">' +
+            '<span class="notif-icon">' + (icons[n.type] || 'ℹ️') + '</span>' +
+            '<div class="notif-body"><div class="notif-msg">' + n.message + '</div><div class="notif-time">' + ago + '</div></div>' +
+            '<button class="notif-dismiss" onclick="event.stopPropagation();_notificationLog.splice(' + i + ',1);renderNotifications();updateNotifBadge();">×</button>' +
+            '</div>';
+    }).join('');
+}
+
+function clearAllNotifications() {
+    _notificationLog = [];
+    renderNotifications();
+    updateNotifBadge();
+}
+
+function _timeAgo(ts) {
+    var diff = Date.now() - ts;
+    if (diff < 60000) return 'ahora';
+    if (diff < 3600000) return Math.floor(diff / 60000) + ' min';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + 'h';
+    return Math.floor(diff / 86400000) + 'd';
+}
+
+// Close notification center when clicking elsewhere
+document.addEventListener('click', function(e) {
+    var nc = document.getElementById('notification-center');
+    if (nc && nc.style.display !== 'none') {
+        if (!nc.contains(e.target) && !e.target.closest('[onclick*="toggleNotificationCenter"]')) {
+            nc.style.display = 'none';
+        }
+    }
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// [M21] COMMAND PALETTE + KEYBOARD SHORTCUTS
+// ══════════════════════════════════════════════════════════════════════
+
+var _commandPaletteCommands = [
+    { label: 'COP15 Cascade', icon: '🔬', action: function(){ switchPlatform('cop15'); }, shortcut: 'Ctrl+1', cat: 'nav' },
+    { label: 'Test Plan Manager', icon: '📊', action: function(){ switchPlatform('testplan'); }, shortcut: 'Ctrl+2', cat: 'nav' },
+    { label: 'Results Analyzer', icon: '🧪', action: function(){ switchPlatform('results'); }, shortcut: 'Ctrl+3', cat: 'nav' },
+    { label: 'Lab Inventory', icon: '📦', action: function(){ switchPlatform('inventory'); }, shortcut: 'Ctrl+4', cat: 'nav' },
+    { label: 'Panel de Control', icon: '⚙️', action: function(){ switchPlatform('panel'); }, shortcut: 'Ctrl+5', cat: 'nav' },
+    { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'action' },
+    { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'action' },
+    { label: 'Exportar CSV Resultados', icon: '📊', action: function(){ if(typeof raExportCSV==='function') raExportCSV(); }, cat: 'action' },
+    { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'action' },
+    { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'action' },
+    { label: 'Generar Plan Smart', icon: '⚡', action: function(){ switchPlatform('testplan'); setTimeout(function(){ if(typeof tpSmartGenerate==='function') tpSmartGenerate(); }, 300); }, cat: 'action' },
+    { label: 'Ver Kanban', icon: '📋', action: function(){ switchPlatform('cop15'); setTimeout(function(){ var t=document.querySelector('.tab[data-tab="kanban"]'); if(t)t.click(); }, 200); }, cat: 'nav' },
+    { label: 'Ver Outliers', icon: '⚠️', action: function(){ switchPlatform('results'); setTimeout(function(){ raState.activeTab='ra-outliers'; raRender(); }, 200); }, cat: 'action' },
+    { label: 'Ver Tendencias', icon: '📈', action: function(){ switchPlatform('results'); setTimeout(function(){ raState.activeTab='ra-trends'; raRender(); }, 200); }, cat: 'action' }
+];
+var _cmdActiveIdx = 0;
+var _cmdFiltered = [];
+
+function openCommandPalette() {
+    var el = document.getElementById('command-palette-overlay');
+    if (!el) return;
+    el.style.display = 'block';
+    var input = document.getElementById('command-palette-input');
+    input.value = '';
+    _cmdActiveIdx = 0;
+    filterCommands('');
+    setTimeout(function(){ input.focus(); }, 50);
+}
+
+function closeCommandPalette() {
+    var el = document.getElementById('command-palette-overlay');
+    if (el) el.style.display = 'none';
+}
+
+function filterCommands(query) {
+    var q = query.toLowerCase().trim();
+    _cmdFiltered = q ? _commandPaletteCommands.filter(function(c) {
+        return c.label.toLowerCase().includes(q) || (c.cat && c.cat.includes(q));
+    }) : _commandPaletteCommands;
+    _cmdActiveIdx = 0;
+    renderCommandResults();
+}
+
+function renderCommandResults() {
+    var el = document.getElementById('command-palette-results');
+    if (!el) return;
+    el.innerHTML = _cmdFiltered.map(function(c, i) {
+        return '<div class="cmd-item' + (i === _cmdActiveIdx ? ' cmd-active' : '') + '" onclick="executeCommand(' + i + ')" onmouseenter="_cmdActiveIdx=' + i + ';renderCommandResults();">' +
+            '<span class="cmd-icon">' + c.icon + '</span>' +
+            '<span class="cmd-label">' + c.label + '</span>' +
+            (c.shortcut ? '<span class="cmd-shortcut">' + c.shortcut + '</span>' : '') +
+            '</div>';
+    }).join('');
+}
+
+function executeCommand(idx) {
+    var cmd = _cmdFiltered[idx];
+    if (cmd && cmd.action) { closeCommandPalette(); cmd.action(); }
+}
+
+function handleCommandKey(e) {
+    if (e.key === 'Escape') { closeCommandPalette(); e.preventDefault(); return; }
+    if (e.key === 'ArrowDown') { _cmdActiveIdx = Math.min(_cmdActiveIdx + 1, _cmdFiltered.length - 1); renderCommandResults(); e.preventDefault(); return; }
+    if (e.key === 'ArrowUp') { _cmdActiveIdx = Math.max(_cmdActiveIdx - 1, 0); renderCommandResults(); e.preventDefault(); return; }
+    if (e.key === 'Enter') { executeCommand(_cmdActiveIdx); e.preventDefault(); return; }
+}
+
+// Global keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl+K: Command palette
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault(); openCommandPalette(); return;
+    }
+    // Escape: Close modals/palette/notification center
+    if (e.key === 'Escape') {
+        var palette = document.getElementById('command-palette-overlay');
+        if (palette && palette.style.display !== 'none') { closeCommandPalette(); e.preventDefault(); return; }
+        var nc = document.getElementById('notification-center');
+        if (nc && nc.style.display !== 'none') { nc.style.display = 'none'; e.preventDefault(); return; }
+    }
+    // Ctrl+1-5: Switch platform
+    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '5') {
+        var platforms = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
+        e.preventDefault(); switchPlatform(platforms[parseInt(e.key) - 1]); return;
+    }
+    // Ctrl+S: Save
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (typeof saveVehicleProgress === 'function') saveVehicleProgress();
+        return;
+    }
+});
