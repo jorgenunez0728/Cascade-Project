@@ -788,6 +788,7 @@ function invRenderReadings(el) {
     var html = invRenderAnomalyBanner();
     html += '<div class="tp-card"><div class="tp-card-title"><span>Lecturas Diarias de Presion</span>';
     html += '<div style="display:flex;gap:6px;">';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="invStartReadingRound()" style="font-size:10px;border-color:#10b981;color:#10b981;">🔄 Ronda</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size:10px;border-color:#8b5cf6;color:#8b5cf6;">📷 Escanear</button>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invBulkReading()" style="font-size:10px;">Guardar Lecturas</button>';
     html += '</div></div>';
@@ -3125,3 +3126,297 @@ function invPredictDepletion(g) {
 
 // [R3-M3] Debounced version for scan filter input
 var _debouncedInvScanFilter = debounce(function() { invScanFilter(); }, 200);
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M8] Templates — Inventory Quick Actions
+// ══════════════════════════════════════════════════════════════════════
+
+/** Duplicate a gas cylinder with new auto-incremented control number. */
+function invDuplicateGas(gasId) {
+    var source = invState.gases.find(function(g) { return g.id === gasId; });
+    if (!source) { showToast('Gas no encontrado', 'error'); return; }
+
+    var maxCtrl = invState.gases.reduce(function(max, g) {
+        var num = parseInt((g.controlNo || '').replace(/\D/g, ''), 10);
+        return num > max ? num : max;
+    }, 0);
+
+    var newGas = JSON.parse(JSON.stringify(source));
+    newGas.id = 'gas_' + Date.now();
+    newGas.controlNo = 'C-' + String(maxCtrl + 1).padStart(4, '0');
+    newGas.readings = [];
+    newGas.timeline = [];
+    newGas.registeredAt = new Date().toISOString();
+
+    invState.gases.push(newGas);
+    invSave();
+    invRender();
+    showToast('Cilindro duplicado: ' + newGas.controlNo, 'success');
+}
+
+/** Batch add multiple gas cylinders of the same type. */
+function invBatchAddGas(gasType, concNominal, concReal, count, zone) {
+    if (!count || count < 1 || count > 20) { showToast('Cantidad inválida (1-20)', 'error'); return; }
+
+    var maxCtrl = invState.gases.reduce(function(max, g) {
+        var num = parseInt((g.controlNo || '').replace(/\D/g, ''), 10);
+        return num > max ? num : max;
+    }, 0);
+
+    for (var i = 0; i < count; i++) {
+        var newGas = {
+            id: 'gas_' + Date.now() + '_' + i,
+            controlNo: 'C-' + String(maxCtrl + 1 + i).padStart(4, '0'),
+            gasType: gasType || '',
+            concNominal: concNominal || '',
+            concReal: concReal || '',
+            zone: zone || _invFindLeastFullZone(),
+            position: null,
+            status: 'active',
+            readings: [],
+            timeline: [],
+            registeredAt: new Date().toISOString()
+        };
+        invState.gases.push(newGas);
+    }
+    invSave();
+    invRender();
+    showToast(count + ' cilindros agregados en lote', 'success');
+}
+
+function _invFindLeastFullZone() {
+    var zones = invState.zones || [];
+    if (zones.length === 0) return '';
+    var counts = {};
+    zones.forEach(function(z) { counts[z.name] = 0; });
+    invState.gases.forEach(function(g) {
+        if (g.zone && counts[g.zone] !== undefined) counts[g.zone]++;
+    });
+    var minZone = zones[0].name;
+    zones.forEach(function(z) {
+        if ((counts[z.name] || 0) < (counts[minZone] || 0)) minZone = z.name;
+    });
+    return minZone;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M5] Batch Reading Round — One-at-a-time gas reading experience
+// ══════════════════════════════════════════════════════════════════════
+
+var _readingRound = null;
+
+function invStartReadingRound() {
+    var gases = invState.gases.filter(function(g) { return g.status === 'active'; });
+    if (gases.length === 0) { showToast('No hay cilindros activos', 'warning'); return; }
+
+    _readingRound = {
+        gases: gases,
+        index: 0,
+        results: [],
+        startTime: Date.now()
+    };
+    _invRoundRenderCurrent();
+}
+
+function _invRoundRenderCurrent() {
+    if (!_readingRound) return;
+    var gas = _readingRound.gases[_readingRound.index];
+    var total = _readingRound.gases.length;
+    var idx = _readingRound.index;
+
+    // Get last reading
+    var lastReading = gas.readings && gas.readings.length > 0 ? gas.readings[gas.readings.length - 1] : null;
+    var lastVal = lastReading ? (lastReading.psi || lastReading.value || '') : '';
+
+    // Build sparkline data
+    var sparkData = (gas.readings || []).slice(-5).map(function(r) { return r.psi || r.value || 0; });
+    var sparkHtml = _invRoundSparkline(sparkData);
+
+    var pct = Math.round(((idx) / total) * 100);
+
+    var html = '<div class="reading-round-overlay">' +
+        '<div class="reading-round-card">' +
+        // Header
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+        '<span style="font-size:12px;font-weight:700;color:var(--tp-dim);">' + (idx + 1) + ' de ' + total + '</span>' +
+        '<button onclick="_invRoundCancel()" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:18px;font-weight:700;">✕</button>' +
+        '</div>' +
+        // Progress bar
+        '<div style="height:4px;background:rgba(255,255,255,0.1);border-radius:2px;margin-bottom:16px;overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:var(--tp-green);border-radius:2px;transition:width 0.3s;"></div>' +
+        '</div>' +
+        // Gas info
+        '<div style="text-align:center;margin-bottom:20px;">' +
+        '<div style="font-size:14px;font-weight:800;color:var(--tp-text);">' + escapeHtml(gas.gasType || 'Gas') + '</div>' +
+        '<div style="font-size:11px;color:var(--tp-dim);margin-top:2px;">' + escapeHtml(gas.controlNo || gas.id) + ' · Zona: ' + escapeHtml(gas.zone || '—') + '</div>' +
+        '<div style="font-size:10px;color:var(--tp-dim);margin-top:2px;">Conc: ' + escapeHtml(gas.concNominal || '—') + ' / ' + escapeHtml(gas.concReal || '—') + '</div>' +
+        '</div>' +
+        // Sparkline
+        (sparkHtml ? '<div style="text-align:center;margin-bottom:12px;">' + sparkHtml + '<div style="font-size:8px;color:var(--tp-dim);margin-top:2px;">Últimas 5 lecturas</div></div>' : '') +
+        // Last value
+        (lastVal ? '<div style="text-align:center;margin-bottom:8px;font-size:10px;color:var(--tp-dim);">Última lectura: <strong style="color:var(--tp-text);">' + lastVal + ' PSI</strong></div>' : '') +
+        // Input
+        '<div style="text-align:center;margin-bottom:16px;">' +
+        '<input type="number" id="round-reading-input" placeholder="PSI" value="' + (lastVal || '') + '" ' +
+        'style="width:120px;padding:12px 16px;font-size:24px;font-weight:800;text-align:center;border:2px solid var(--tp-border);border-radius:12px;background:var(--tp-card);color:var(--tp-text);" ' +
+        'onkeydown="if(event.key===\'Enter\')invRoundNext()">' +
+        '</div>' +
+        // Buttons
+        '<div style="display:flex;gap:8px;justify-content:center;">' +
+        (idx > 0 ? '<button onclick="invRoundPrev()" class="btn-secondary" style="padding:10px 20px;">← Anterior</button>' : '') +
+        (lastVal ? '<button onclick="_invRoundSameValue()" class="btn-secondary" style="padding:10px 20px;background:rgba(16,185,129,0.1);color:#10b981;border-color:#10b981;">= Igual</button>' : '') +
+        '<button onclick="invRoundNext()" class="btn-primary" style="padding:10px 24px;">' + (idx < total - 1 ? 'Siguiente →' : 'Finalizar ✓') + '</button>' +
+        '</div>' +
+        '</div></div>';
+
+    // Show as overlay
+    var overlay = document.getElementById('reading-round-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'reading-round-overlay';
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = html;
+    overlay.style.display = 'block';
+
+    // Focus input
+    setTimeout(function() {
+        var inp = document.getElementById('round-reading-input');
+        if (inp) { inp.focus(); inp.select(); }
+    }, 100);
+}
+
+function invRoundNext() {
+    if (!_readingRound) return;
+    _invRoundSaveCurrentReading();
+    _readingRound.index++;
+    if (_readingRound.index >= _readingRound.gases.length) {
+        invRoundFinish();
+    } else {
+        _invRoundRenderCurrent();
+    }
+}
+
+function invRoundPrev() {
+    if (!_readingRound || _readingRound.index <= 0) return;
+    _readingRound.index--;
+    _invRoundRenderCurrent();
+}
+
+function _invRoundSameValue() {
+    // Keep the pre-filled value (last reading) and advance
+    invRoundNext();
+}
+
+function _invRoundSaveCurrentReading() {
+    if (!_readingRound) return;
+    var gas = _readingRound.gases[_readingRound.index];
+    var inp = document.getElementById('round-reading-input');
+    var val = inp ? parseFloat(inp.value) : NaN;
+    if (isNaN(val)) return;
+
+    gas.readings = gas.readings || [];
+    var lastVal = gas.readings.length > 0 ? (gas.readings[gas.readings.length - 1].psi || gas.readings[gas.readings.length - 1].value || 0) : 0;
+
+    gas.readings.push({
+        psi: val,
+        value: val,
+        timestamp: new Date().toISOString(),
+        source: 'round'
+    });
+
+    // Track result
+    var dropPct = lastVal > 0 ? Math.round(((lastVal - val) / lastVal) * 100) : 0;
+    _readingRound.results.push({
+        gasId: gas.id,
+        controlNo: gas.controlNo,
+        gasType: gas.gasType,
+        value: val,
+        prev: lastVal,
+        alert: dropPct > 15
+    });
+}
+
+function invRoundFinish() {
+    if (!_readingRound) return;
+    invSave();
+
+    var elapsed = Math.round((Date.now() - _readingRound.startTime) / 1000);
+    var mins = Math.floor(elapsed / 60);
+    var secs = elapsed % 60;
+    var alerts = _readingRound.results.filter(function(r) { return r.alert; });
+
+    var html = '<div class="reading-round-overlay">' +
+        '<div class="reading-round-card">' +
+        '<div style="text-align:center;margin-bottom:16px;">' +
+        '<div style="font-size:36px;margin-bottom:8px;">✅</div>' +
+        '<div style="font-size:16px;font-weight:800;color:var(--tp-text);">Ronda Completada</div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">' +
+        '<div class="tp-card" style="text-align:center;padding:10px;">' +
+        '<div style="font-size:20px;font-weight:800;color:var(--tp-green);">' + _readingRound.results.length + '</div>' +
+        '<div style="font-size:9px;color:var(--tp-dim);">Lecturas</div></div>' +
+        '<div class="tp-card" style="text-align:center;padding:10px;">' +
+        '<div style="font-size:20px;font-weight:800;color:' + (alerts.length > 0 ? '#ef4444' : 'var(--tp-green)') + ';">' + alerts.length + '</div>' +
+        '<div style="font-size:9px;color:var(--tp-dim);">Alertas</div></div>' +
+        '<div class="tp-card" style="text-align:center;padding:10px;">' +
+        '<div style="font-size:20px;font-weight:800;color:var(--tp-blue);">' + mins + ':' + String(secs).padStart(2, '0') + '</div>' +
+        '<div style="font-size:9px;color:var(--tp-dim);">Tiempo</div></div>' +
+        '</div>';
+
+    if (alerts.length > 0) {
+        html += '<div style="margin-bottom:12px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:6px;">⚠ Alertas de presión:</div>';
+        alerts.forEach(function(a) {
+            html += '<div style="font-size:10px;color:var(--tp-dim);padding:2px 0;">' +
+                escapeHtml(a.controlNo) + ' (' + escapeHtml(a.gasType) + '): ' + a.prev + ' → ' + a.value + ' PSI</div>';
+        });
+        html += '</div>';
+    }
+
+    html += '<div style="display:flex;gap:8px;justify-content:center;">' +
+        '<button onclick="_invRoundCopyReport()" class="btn-secondary" style="padding:8px 16px;">📋 Copiar Resumen</button>' +
+        '<button onclick="_invRoundCancel()" class="btn-primary" style="padding:8px 20px;">Cerrar</button>' +
+        '</div></div></div>';
+
+    var overlay = document.getElementById('reading-round-overlay');
+    if (overlay) overlay.innerHTML = html;
+
+    invRender();
+    _readingRound = null;
+}
+
+function _invRoundCancel() {
+    var overlay = document.getElementById('reading-round-overlay');
+    if (overlay) overlay.style.display = 'none';
+    _readingRound = null;
+}
+
+function _invRoundCopyReport() {
+    if (!_readingRound && document.getElementById('reading-round-overlay')) {
+        // Use the last results stored
+    }
+    var text = 'Ronda de Lecturas — ' + new Date().toLocaleString('es-MX') + '\n';
+    var overlay = document.getElementById('reading-round-overlay');
+    // Simple copy of visible text
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(overlay ? overlay.textContent : text);
+        showToast('Resumen copiado', 'success');
+    }
+}
+
+function _invRoundSparkline(data) {
+    if (!data || data.length < 2) return '';
+    var max = Math.max.apply(null, data);
+    var min = Math.min.apply(null, data);
+    var range = max - min || 1;
+    var w = 100, h = 30;
+    var points = data.map(function(v, i) {
+        var x = (i / (data.length - 1)) * w;
+        var y = h - ((v - min) / range) * h;
+        return x + ',' + y;
+    }).join(' ');
+    return '<svg width="' + w + '" height="' + h + '" style="display:inline-block;">' +
+        '<polyline points="' + points + '" fill="none" stroke="var(--tp-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '</svg>';
+}

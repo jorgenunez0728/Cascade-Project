@@ -61,6 +61,7 @@
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
     <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión">🟢</span>
     <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
+    <button id="immersive-toggle-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)">⛶</button>
     <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)">🔍</button></div>
     <div style="padding:4px 4px;align-self:center;position:relative;"><button onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
     <div style="padding:4px 4px;align-self:center;"><button onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación">?</button></div>
@@ -298,6 +299,8 @@
   <button class="btn-secondary" onclick="scrollToTopOp()">⬆️ Inicio</button>
   <button class="btn-secondary" onclick="copyFromLastVehicle()" id="btn-copy-last" title="Copiar datos del último vehículo con misma configuración">📋 Copiar</button>
   <button class="btn-secondary" onclick="openQuickReview()" id="btn-quick-review" title="Vista rápida de todos los campos">🔍 Review</button>
+  <button class="btn-secondary" onclick="cop15TemplateSave()" title="Guardar configuración actual como plantilla reutilizable">📌 Plantilla</button>
+  <button class="btn-secondary" onclick="cop15TemplateManager()" title="Ver y aplicar plantillas guardadas">📂 Mis Plantillas</button>
   <button class="btn-primary" id="btn-save" onclick="saveProgress()">💾 Guardar</button>
 </div>
 	 	<!-- ✅ BLOQUE SOLO EMISIONES -->
@@ -979,6 +982,7 @@
         <button class="tp-tab" onclick="pnSwitchTab('pn-shift')">📝 Bitácora</button>
         <button class="tp-tab" onclick="pnSwitchTab('pn-alerts')">🔔 Alertas</button>
         <button class="tp-tab" onclick="pnSwitchTab('pn-intelligence')">🧠 Inteligencia</button>
+        <button class="tp-tab" onclick="pnSwitchTab('pn-calendar')">📅 Calendario</button>
         <button class="tp-tab" onclick="pnSwitchTab('pn-system')">💾 Sistema</button>
     </div>
 

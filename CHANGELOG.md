@@ -2,6 +2,86 @@
 
 All notable changes to this project, organized by development round.
 
+## Round 5 — (2026-03-11)
+
+**8 improvements focused on native app experience, smart UX, and operational efficiency.**
+
+### M1: Immersive Mode (App Nativa)
+- Fullscreen toggle button (`⛶`) in header — enters Fullscreen API
+- Auto-collapsing header on scroll down in immersive mode (scroll up reveals)
+- Splash screen with animated progress bar during `initializeSystem()`
+- Remembers immersive preference across sessions (`kia_immersive_prefs`)
+- Enhanced `manifest.json` with app shortcuts (Nuevo Vehículo, Plan Semanal, Lectura Rápida)
+- Syncs with ESC key / browser fullscreen exit
+
+### M2: Smart Auto-Save (On Blur)
+- Auto-saves COP15 operation form on field blur, tab switch, visibility change, and window blur
+- Replaces blocking "unsaved changes" confirmation modal with silent auto-save
+- Visual indicator: green "✓ Guardado HH:MM" badge with fade animation
+- `saveProgress({silent:true})` mode skips button animation and toast
+- Extensible engine: `autoSaveInit(module, saveFn, dirtyFn)` for any module
+- `beforeunload` flushes pending changes
+
+### M3: Contextual Smart Forms
+- Progressive disclosure: accordion sections lock/unlock based on vehicle status
+- Lock overlay shows "🔒 Se desbloquea en: [status]" for future sections
+- Completion badges on accordion headers: "3/6 ✓" with color coding (green/yellow/gray)
+- Smart defaults: "Ayer 6AM" and "Ahora" quick buttons for precond datetime
+- Auto-fill from CSV_CONFIGURATIONS (ETW, target coefficients)
+- Silent copy of safe fields from last same-config vehicle with inline banner notification
+- Badges update in real-time via debounced input/change listeners
+
+### M4: Micro-Animations & Visual Polish
+- Animated counters on Dashboard KPIs (count-up with easeOutCubic, bounce on change)
+- Staggered fade-in+slide-up for list items (kanban cards, KPI grid)
+- Card hover elevation (translateY + shadow) on kanban and dashboard cards
+- Confetti burst (6 CSS particles) on vehicle release
+- Skeleton loading CSS (shimmer animation for placeholder content)
+- Glassmorphism panel class (backdrop-filter blur)
+- Status badge enter animation (scale+fade)
+- Progress ring SVG builder (`buildProgressRing()`)
+- All animations respect `prefers-reduced-motion`
+
+### M5: Batch Reading Rounds (Inventory)
+- "🔄 Ronda" button in readings tab launches guided one-at-a-time experience
+- Fullscreen overlay: one cylinder visible with gas info, zone, concentration
+- SVG sparkline of last 5 readings for instant trend visibility
+- Pre-fills with last reading value; "= Igual" button for 1-tap confirmation
+- Warning detection: flags >15% pressure drop from last reading
+- Summary screen on completion: count, alerts, elapsed time
+- Clipboard copy of round summary report
+
+### M6: Structured Shift Report
+- "🔄 Cerrar Turno" button in Panel → Bitácora generates automatic report
+- Collects: vehicles in progress, pending tests, low gases, daily releases
+- Visual report card with color-coded KPIs and detailed vehicle list
+- Operator notes field for free-text observations
+- "📋 Copiar" exports as formatted plaintext to clipboard
+- `pnShowTurnoverOnLogin()` shows last report on next session (if <24h old)
+- Stored in `pnState.shiftReports[]` (last 30 reports)
+
+### M7: Unified Calendar
+- New "📅 Calendario" tab in Panel module
+- Monthly CSS Grid view with day cells and colored event dots
+- Aggregates from 4 sources: equipment calibrations, gas depletion predictions, test plan items, vehicle releases
+- Color legend: red (expired/depleted), orange (upcoming), blue (planned), green (release)
+- Click any day → modal with detailed event list
+- Week summary below calendar: "Esta semana: 3 calibraciones, 5 pruebas"
+- Month navigation (← → Hoy)
+
+### M8: Templates & Quick Presets
+- Unified template engine in app.js: `templateSave/Apply/Delete/GetAll(module, ...)`
+- COP15: "📌 Plantilla" button saves operation form as reusable template
+- COP15: "📂 Mis Plantillas" opens template manager with apply/delete
+- Results Analyzer: `raPresetSave/Apply()` for filter presets (groupBy, metric, dates)
+- Inventory: `invDuplicateGas(id)` clones cylinder with auto-incremented control number
+- Inventory: `invBatchAddGas(type, conc, real, count, zone)` creates multiple cylinders
+- Auto-assigns to least-full zone when zone not specified
+- Templates persisted in `kia_templates` localStorage (max 20 per module)
+- Quick-access buttons via `templateRenderQuickButtons()`
+
+---
+
 ## Round 4 — `adf638a` (2026-03-11)
 
 **8 improvements focused on native chart tooling, cross-module intelligence, and system observability.**

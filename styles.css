@@ -1250,3 +1250,352 @@ button:focus-visible { outline-offset: 1px; }
 .chart-config-panel input[type="range"] { width:100%; accent-color:var(--tp-amber); }
 .chart-config-panel > div { background:#0d1320; }
 
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M2] Auto-Save Indicator                                         */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.autosave-indicator {
+    position: fixed; bottom: 20px; left: 20px; z-index: 9000;
+    padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 700;
+    background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3);
+    opacity: 0; transform: translateY(10px); pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    backdrop-filter: blur(8px);
+}
+.autosave-indicator.autosave-show {
+    opacity: 1; transform: translateY(0);
+    animation: autosaveFade 2.5s ease forwards;
+}
+@keyframes autosaveFade {
+    0% { opacity: 0; transform: translateY(10px); }
+    15% { opacity: 1; transform: translateY(0); }
+    70% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-5px); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M4] Micro-Animations & Visual Polish                            */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Staggered list items (fade-in + slide-up) ── */
+.anim-stagger { opacity: 0; transform: translateY(12px); animation: animFadeInUp 0.35s ease forwards; }
+@keyframes animFadeInUp {
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── New item flash ── */
+.anim-flash-insert {
+    animation: animFlashGreen 1s ease;
+}
+@keyframes animFlashGreen {
+    0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+    30% { box-shadow: 0 0 12px 4px rgba(16,185,129,0.3); }
+    100% { box-shadow: none; }
+}
+
+/* ── Item removal ── */
+.anim-remove {
+    animation: animSlideOutRight 0.3s ease forwards;
+    overflow: hidden;
+}
+@keyframes animSlideOutRight {
+    to { opacity: 0; transform: translateX(40px); max-height: 0; padding: 0; margin: 0; border-width: 0; }
+}
+
+/* ── Card elevation on hover ── */
+.anim-card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.anim-card-hover:hover {
+    transform: translateY(-2px) scale(1.008);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+/* ── Status badge transition ── */
+.anim-status-badge {
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+.anim-status-enter {
+    animation: animStatusIn 0.4s ease;
+}
+@keyframes animStatusIn {
+    0% { opacity: 0; transform: scale(0.7) translateY(-8px); }
+    60% { transform: scale(1.1) translateY(0); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Counter bounce on change ── */
+.anim-counter-bounce {
+    animation: animBounce 0.5s ease;
+}
+@keyframes animBounce {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.15); }
+    60% { transform: scale(0.95); }
+    100% { transform: scale(1); }
+}
+
+/* ── Glassmorphism panel ── */
+.glass-panel {
+    background: rgba(17,24,39,0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* ── Skeleton loading ── */
+.skeleton {
+    background: linear-gradient(90deg, var(--tp-card) 25%, #1e293b 50%, var(--tp-card) 75%);
+    background-size: 200% 100%;
+    animation: animShimmerSkeleton 1.5s infinite;
+    border-radius: 6px;
+    min-height: 16px;
+}
+.skeleton-card { height: 80px; margin-bottom: 8px; border-radius: 8px; }
+.skeleton-text { height: 12px; margin-bottom: 6px; width: 70%; }
+.skeleton-text-short { height: 12px; margin-bottom: 6px; width: 40%; }
+.skeleton-kpi { height: 60px; border-radius: 8px; }
+@keyframes animShimmerSkeleton {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ── Animated tab underline (sliding indicator) ── */
+.anim-tab-indicator {
+    position: absolute; bottom: -3px; height: 3px;
+    background: var(--kia-red);
+    border-radius: 3px 3px 0 0;
+    transition: left 0.3s ease, width 0.3s ease;
+}
+
+/* ── Confetti burst (CSS-only, 6 particles) ── */
+.anim-confetti-container {
+    position: fixed; top: 50%; left: 50%; z-index: 9999; pointer-events: none;
+}
+.anim-confetti-particle {
+    position: absolute; width: 8px; height: 8px; border-radius: 2px;
+    animation: animConfettiFall 1.2s ease forwards;
+}
+@keyframes animConfettiFall {
+    0% { opacity: 1; transform: translate(0,0) rotate(0deg) scale(1); }
+    100% { opacity: 0; transform: translate(var(--cx), var(--cy)) rotate(var(--cr)) scale(0.3); }
+}
+
+/* ── Progress ring (SVG-based) ── */
+.progress-ring-circle {
+    transition: stroke-dashoffset 0.6s ease;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M1] Immersive Mode                                               */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Header collapse on scroll ── */
+.platform-bar {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.immersive-mode .platform-bar.header-hidden {
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ── In immersive mode, make bottom nav more prominent ── */
+.immersive-mode .bottom-nav {
+    height: 62px;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.immersive-mode .bottom-nav-item {
+    font-size: 10px;
+}
+.immersive-mode .bottom-nav-item .bnav-icon {
+    font-size: 22px;
+}
+
+/* ── Immersive toggle button ── */
+#immersive-toggle-btn {
+    transition: all 0.2s ease;
+}
+#immersive-toggle-btn:hover {
+    color: #fff;
+    border-color: rgba(255,255,255,0.4);
+}
+.immersive-mode #immersive-toggle-btn {
+    background: rgba(187,22,43,0.2);
+    color: var(--kia-red);
+    border-color: var(--kia-red);
+}
+
+/* ── Splash Screen ── */
+.splash-screen {
+    position: fixed; inset: 0; z-index: 99999;
+    background: linear-gradient(135deg, #05141f 0%, #0a1628 50%, #0f1d30 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    animation: splashFadeIn 0.3s ease;
+}
+.splash-content {
+    text-align: center;
+}
+.splash-logo {
+    font-size: 64px; font-weight: 900; color: var(--kia-red);
+    letter-spacing: 8px; margin-bottom: 4px;
+    animation: splashLogoPulse 2s ease infinite;
+}
+.splash-subtitle {
+    font-size: 14px; color: rgba(255,255,255,0.5); font-weight: 600;
+    letter-spacing: 3px; text-transform: uppercase; margin-bottom: 32px;
+}
+.splash-bar-track {
+    width: 200px; height: 3px; border-radius: 3px;
+    background: rgba(255,255,255,0.1); margin: 0 auto 12px;
+    overflow: hidden;
+}
+.splash-bar-fill {
+    height: 100%; width: 0; border-radius: 3px;
+    background: linear-gradient(90deg, var(--kia-red), #f87171);
+    transition: width 0.4s ease;
+}
+.splash-status {
+    font-size: 11px; color: rgba(255,255,255,0.35); font-weight: 600;
+}
+.splash-exit {
+    animation: splashFadeOut 0.5s ease forwards;
+}
+@keyframes splashFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes splashFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; pointer-events: none; }
+}
+@keyframes splashLogoPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M3] Smart Forms — Progressive Disclosure                        */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Locked section overlay ── */
+.smart-locked {
+    position: relative;
+    opacity: 0.5;
+    pointer-events: none;
+}
+.smart-lock-hint {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #94a3b8;
+    background: rgba(15,23,42,0.6); border-radius: 8px;
+    z-index: 5;
+}
+
+/* ── Completion badges on accordion headers ── */
+.smart-badge {
+    margin-left: 8px; font-size: 9px; font-weight: 700;
+    padding: 1px 6px; border-radius: 8px;
+    vertical-align: middle;
+}
+.smart-badge-complete { background: rgba(16,185,129,0.2); color: #10b981; }
+.smart-badge-partial { background: rgba(245,158,11,0.2); color: #f59e0b; }
+.smart-badge-empty { background: rgba(148,163,184,0.15); color: #94a3b8; }
+
+/* ── Quick date buttons ── */
+.smart-quick-btns {
+    display: flex; gap: 6px; margin-top: 4px;
+}
+.smart-quick-btn {
+    padding: 3px 10px; font-size: 10px; font-weight: 700;
+    background: rgba(59,130,246,0.1); color: #3b82f6;
+    border: 1px solid rgba(59,130,246,0.3); border-radius: 6px;
+    cursor: pointer; transition: all 0.15s;
+}
+.smart-quick-btn:hover {
+    background: rgba(59,130,246,0.2);
+}
+
+/* ── Copy banner ── */
+.smart-copy-banner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px; margin-bottom: 10px; border-radius: 8px;
+    background: rgba(59,130,246,0.08); color: #60a5fa;
+    border: 1px solid rgba(59,130,246,0.2);
+    font-size: 11px; font-weight: 600;
+    animation: animFadeInUp 0.3s ease;
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M8] Templates & Quick Presets                                   */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.tpl-quick-bar {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    padding: 6px 0; margin-bottom: 8px;
+}
+.tpl-quick-btn {
+    padding: 4px 12px; font-size: 10px; font-weight: 700;
+    background: rgba(139,92,246,0.1); color: #a78bfa;
+    border: 1px solid rgba(139,92,246,0.3); border-radius: 16px;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.tpl-quick-btn:hover {
+    background: rgba(139,92,246,0.2); transform: translateY(-1px);
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M5] Batch Reading Round                                          */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.reading-round-overlay {
+    position: fixed; inset: 0; z-index: 9500;
+    background: rgba(10,15,26,0.92);
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(8px);
+    animation: animFadeInUp 0.3s ease;
+}
+.reading-round-card {
+    background: var(--tp-card); border: 1px solid var(--tp-border);
+    border-radius: 16px; padding: 24px; width: 90%; max-width: 360px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M7] Unified Calendar                                            */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+}
+.cal-header {
+    text-align: center; font-size: 9px; font-weight: 700;
+    color: var(--tp-dim); padding: 6px 0;
+}
+.cal-cell {
+    min-height: 44px; padding: 4px; border-radius: 6px;
+    background: rgba(255,255,255,0.02); cursor: pointer;
+    transition: background 0.15s;
+    display: flex; flex-direction: column; align-items: center;
+}
+.cal-cell:hover { background: rgba(255,255,255,0.06); }
+.cal-empty { background: transparent; cursor: default; }
+.cal-today {
+    background: rgba(59,130,246,0.1) !important;
+    border: 1px solid rgba(59,130,246,0.3);
+}
+.cal-day-num {
+    font-size: 11px; font-weight: 700; color: var(--tp-text);
+    margin-bottom: 2px;
+}
+.cal-dots {
+    display: flex; gap: 2px; align-items: center;
+}
+.cal-dot {
+    width: 5px; height: 5px; border-radius: 50%; display: inline-block;
+}
+

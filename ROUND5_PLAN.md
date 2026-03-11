@@ -46,20 +46,16 @@
 
 **Solución**:
 
-1. **Auto-save silencioso** cada 3 segundos mientras el usuario edita el formulario de operación
-   - Indicador sutil: icono de nube/check que aparece brevemente ("Guardado ✓") con fade-out
+1. **Auto-save al perder foco** — guarda automáticamente cuando el usuario sale del campo, cambia de tab, o minimiza la app
+   - Indicador sutil: badge verde "✓ Guardado HH:MM" que aparece 2.5s con fade-in/out
    - Sin modal de confirmación al cambiar tabs — simplemente guarda y navega
-   - El punto rojo de "unsaved" desaparece, reemplazado por timestamp: "Último guardado: 14:32"
+   - beforeunload flushea cambios pendientes antes de cerrar
 
-2. **Protección contra pérdida** (beforeunload):
-   - Si hay cambios en los últimos 2 segundos (guardado en tránsito), mostrar warning del browser
-   - Si ya se auto-guardó, dejar salir sin warning
+2. **Indicador visual de guardado**:
+   - Badge animado con glassmorphism en esquina inferior izquierda
+   - Respeta prefers-reduced-motion
 
-3. **Indicador visual de guardado**:
-   - Animación tipo "pulse" sutil en el botón guardar cuando auto-save ejecuta
-   - Transición de color: gris → verde → gris (0.5s) para confirmar visualmente
-
-4. **Aplica a todos los módulos**: COP15 (operación), Test Plan (edición de items), Inventory (lecturas), Results (edición de tests)
+3. **Aplica a**: COP15 (operación) con extensibilidad a todos los módulos via `autoSaveInit()`
 
 **Archivos**: `js/cop15.js`, `js/app.js`, `styles.css`
 **Funciones nuevas**: `autoSaveInit(module, saveFn, interval)`, `autoSaveDestroy(module)`, `_autoSaveTick()`, `_autoSaveIndicator(state)`

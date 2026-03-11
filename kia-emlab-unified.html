@@ -1275,6 +1275,355 @@ button:focus-visible { outline-offset: 1px; }
 .chart-config-panel input[type="range"] { width:100%; accent-color:var(--tp-amber); }
 .chart-config-panel > div { background:#0d1320; }
 
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M2] Auto-Save Indicator                                         */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.autosave-indicator {
+    position: fixed; bottom: 20px; left: 20px; z-index: 9000;
+    padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 700;
+    background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3);
+    opacity: 0; transform: translateY(10px); pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    backdrop-filter: blur(8px);
+}
+.autosave-indicator.autosave-show {
+    opacity: 1; transform: translateY(0);
+    animation: autosaveFade 2.5s ease forwards;
+}
+@keyframes autosaveFade {
+    0% { opacity: 0; transform: translateY(10px); }
+    15% { opacity: 1; transform: translateY(0); }
+    70% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-5px); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M4] Micro-Animations & Visual Polish                            */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Staggered list items (fade-in + slide-up) ── */
+.anim-stagger { opacity: 0; transform: translateY(12px); animation: animFadeInUp 0.35s ease forwards; }
+@keyframes animFadeInUp {
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── New item flash ── */
+.anim-flash-insert {
+    animation: animFlashGreen 1s ease;
+}
+@keyframes animFlashGreen {
+    0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+    30% { box-shadow: 0 0 12px 4px rgba(16,185,129,0.3); }
+    100% { box-shadow: none; }
+}
+
+/* ── Item removal ── */
+.anim-remove {
+    animation: animSlideOutRight 0.3s ease forwards;
+    overflow: hidden;
+}
+@keyframes animSlideOutRight {
+    to { opacity: 0; transform: translateX(40px); max-height: 0; padding: 0; margin: 0; border-width: 0; }
+}
+
+/* ── Card elevation on hover ── */
+.anim-card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.anim-card-hover:hover {
+    transform: translateY(-2px) scale(1.008);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+/* ── Status badge transition ── */
+.anim-status-badge {
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+.anim-status-enter {
+    animation: animStatusIn 0.4s ease;
+}
+@keyframes animStatusIn {
+    0% { opacity: 0; transform: scale(0.7) translateY(-8px); }
+    60% { transform: scale(1.1) translateY(0); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Counter bounce on change ── */
+.anim-counter-bounce {
+    animation: animBounce 0.5s ease;
+}
+@keyframes animBounce {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.15); }
+    60% { transform: scale(0.95); }
+    100% { transform: scale(1); }
+}
+
+/* ── Glassmorphism panel ── */
+.glass-panel {
+    background: rgba(17,24,39,0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* ── Skeleton loading ── */
+.skeleton {
+    background: linear-gradient(90deg, var(--tp-card) 25%, #1e293b 50%, var(--tp-card) 75%);
+    background-size: 200% 100%;
+    animation: animShimmerSkeleton 1.5s infinite;
+    border-radius: 6px;
+    min-height: 16px;
+}
+.skeleton-card { height: 80px; margin-bottom: 8px; border-radius: 8px; }
+.skeleton-text { height: 12px; margin-bottom: 6px; width: 70%; }
+.skeleton-text-short { height: 12px; margin-bottom: 6px; width: 40%; }
+.skeleton-kpi { height: 60px; border-radius: 8px; }
+@keyframes animShimmerSkeleton {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ── Animated tab underline (sliding indicator) ── */
+.anim-tab-indicator {
+    position: absolute; bottom: -3px; height: 3px;
+    background: var(--kia-red);
+    border-radius: 3px 3px 0 0;
+    transition: left 0.3s ease, width 0.3s ease;
+}
+
+/* ── Confetti burst (CSS-only, 6 particles) ── */
+.anim-confetti-container {
+    position: fixed; top: 50%; left: 50%; z-index: 9999; pointer-events: none;
+}
+.anim-confetti-particle {
+    position: absolute; width: 8px; height: 8px; border-radius: 2px;
+    animation: animConfettiFall 1.2s ease forwards;
+}
+@keyframes animConfettiFall {
+    0% { opacity: 1; transform: translate(0,0) rotate(0deg) scale(1); }
+    100% { opacity: 0; transform: translate(var(--cx), var(--cy)) rotate(var(--cr)) scale(0.3); }
+}
+
+/* ── Progress ring (SVG-based) ── */
+.progress-ring-circle {
+    transition: stroke-dashoffset 0.6s ease;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M1] Immersive Mode                                               */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Header collapse on scroll ── */
+.platform-bar {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.immersive-mode .platform-bar.header-hidden {
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ── In immersive mode, make bottom nav more prominent ── */
+.immersive-mode .bottom-nav {
+    height: 62px;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.immersive-mode .bottom-nav-item {
+    font-size: 10px;
+}
+.immersive-mode .bottom-nav-item .bnav-icon {
+    font-size: 22px;
+}
+
+/* ── Immersive toggle button ── */
+#immersive-toggle-btn {
+    transition: all 0.2s ease;
+}
+#immersive-toggle-btn:hover {
+    color: #fff;
+    border-color: rgba(255,255,255,0.4);
+}
+.immersive-mode #immersive-toggle-btn {
+    background: rgba(187,22,43,0.2);
+    color: var(--kia-red);
+    border-color: var(--kia-red);
+}
+
+/* ── Splash Screen ── */
+.splash-screen {
+    position: fixed; inset: 0; z-index: 99999;
+    background: linear-gradient(135deg, #05141f 0%, #0a1628 50%, #0f1d30 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    animation: splashFadeIn 0.3s ease;
+}
+.splash-content {
+    text-align: center;
+}
+.splash-logo {
+    font-size: 64px; font-weight: 900; color: var(--kia-red);
+    letter-spacing: 8px; margin-bottom: 4px;
+    animation: splashLogoPulse 2s ease infinite;
+}
+.splash-subtitle {
+    font-size: 14px; color: rgba(255,255,255,0.5); font-weight: 600;
+    letter-spacing: 3px; text-transform: uppercase; margin-bottom: 32px;
+}
+.splash-bar-track {
+    width: 200px; height: 3px; border-radius: 3px;
+    background: rgba(255,255,255,0.1); margin: 0 auto 12px;
+    overflow: hidden;
+}
+.splash-bar-fill {
+    height: 100%; width: 0; border-radius: 3px;
+    background: linear-gradient(90deg, var(--kia-red), #f87171);
+    transition: width 0.4s ease;
+}
+.splash-status {
+    font-size: 11px; color: rgba(255,255,255,0.35); font-weight: 600;
+}
+.splash-exit {
+    animation: splashFadeOut 0.5s ease forwards;
+}
+@keyframes splashFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes splashFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; pointer-events: none; }
+}
+@keyframes splashLogoPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M3] Smart Forms — Progressive Disclosure                        */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Locked section overlay ── */
+.smart-locked {
+    position: relative;
+    opacity: 0.5;
+    pointer-events: none;
+}
+.smart-lock-hint {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #94a3b8;
+    background: rgba(15,23,42,0.6); border-radius: 8px;
+    z-index: 5;
+}
+
+/* ── Completion badges on accordion headers ── */
+.smart-badge {
+    margin-left: 8px; font-size: 9px; font-weight: 700;
+    padding: 1px 6px; border-radius: 8px;
+    vertical-align: middle;
+}
+.smart-badge-complete { background: rgba(16,185,129,0.2); color: #10b981; }
+.smart-badge-partial { background: rgba(245,158,11,0.2); color: #f59e0b; }
+.smart-badge-empty { background: rgba(148,163,184,0.15); color: #94a3b8; }
+
+/* ── Quick date buttons ── */
+.smart-quick-btns {
+    display: flex; gap: 6px; margin-top: 4px;
+}
+.smart-quick-btn {
+    padding: 3px 10px; font-size: 10px; font-weight: 700;
+    background: rgba(59,130,246,0.1); color: #3b82f6;
+    border: 1px solid rgba(59,130,246,0.3); border-radius: 6px;
+    cursor: pointer; transition: all 0.15s;
+}
+.smart-quick-btn:hover {
+    background: rgba(59,130,246,0.2);
+}
+
+/* ── Copy banner ── */
+.smart-copy-banner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px; margin-bottom: 10px; border-radius: 8px;
+    background: rgba(59,130,246,0.08); color: #60a5fa;
+    border: 1px solid rgba(59,130,246,0.2);
+    font-size: 11px; font-weight: 600;
+    animation: animFadeInUp 0.3s ease;
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M8] Templates & Quick Presets                                   */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.tpl-quick-bar {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    padding: 6px 0; margin-bottom: 8px;
+}
+.tpl-quick-btn {
+    padding: 4px 12px; font-size: 10px; font-weight: 700;
+    background: rgba(139,92,246,0.1); color: #a78bfa;
+    border: 1px solid rgba(139,92,246,0.3); border-radius: 16px;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.tpl-quick-btn:hover {
+    background: rgba(139,92,246,0.2); transform: translateY(-1px);
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M5] Batch Reading Round                                          */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.reading-round-overlay {
+    position: fixed; inset: 0; z-index: 9500;
+    background: rgba(10,15,26,0.92);
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(8px);
+    animation: animFadeInUp 0.3s ease;
+}
+.reading-round-card {
+    background: var(--tp-card); border: 1px solid var(--tp-border);
+    border-radius: 16px; padding: 24px; width: 90%; max-width: 360px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R5-M7] Unified Calendar                                            */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+}
+.cal-header {
+    text-align: center; font-size: 9px; font-weight: 700;
+    color: var(--tp-dim); padding: 6px 0;
+}
+.cal-cell {
+    min-height: 44px; padding: 4px; border-radius: 6px;
+    background: rgba(255,255,255,0.02); cursor: pointer;
+    transition: background 0.15s;
+    display: flex; flex-direction: column; align-items: center;
+}
+.cal-cell:hover { background: rgba(255,255,255,0.06); }
+.cal-empty { background: transparent; cursor: default; }
+.cal-today {
+    background: rgba(59,130,246,0.1) !important;
+    border: 1px solid rgba(59,130,246,0.3);
+}
+.cal-day-num {
+    font-size: 11px; font-weight: 700; color: var(--tp-text);
+    margin-bottom: 2px;
+}
+.cal-dots {
+    display: flex; gap: 2px; align-items: center;
+}
+.cal-dot {
+    width: 5px; height: 5px; border-radius: 50%; display: inline-block;
+}
+
     </style>
 </head>
 
@@ -1313,6 +1662,7 @@ button:focus-visible { outline-offset: 1px; }
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
     <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión">🟢</span>
     <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
+    <button id="immersive-toggle-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)">⛶</button>
     <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)">🔍</button></div>
     <div style="padding:4px 4px;align-self:center;position:relative;"><button onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
     <div style="padding:4px 4px;align-self:center;"><button onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación">?</button></div>
@@ -1550,6 +1900,8 @@ button:focus-visible { outline-offset: 1px; }
   <button class="btn-secondary" onclick="scrollToTopOp()">⬆️ Inicio</button>
   <button class="btn-secondary" onclick="copyFromLastVehicle()" id="btn-copy-last" title="Copiar datos del último vehículo con misma configuración">📋 Copiar</button>
   <button class="btn-secondary" onclick="openQuickReview()" id="btn-quick-review" title="Vista rápida de todos los campos">🔍 Review</button>
+  <button class="btn-secondary" onclick="cop15TemplateSave()" title="Guardar configuración actual como plantilla reutilizable">📌 Plantilla</button>
+  <button class="btn-secondary" onclick="cop15TemplateManager()" title="Ver y aplicar plantillas guardadas">📂 Mis Plantillas</button>
   <button class="btn-primary" id="btn-save" onclick="saveProgress()">💾 Guardar</button>
 </div>
 	 	<!-- ✅ BLOQUE SOLO EMISIONES -->
@@ -2231,6 +2583,7 @@ button:focus-visible { outline-offset: 1px; }
         <button class="tp-tab" onclick="pnSwitchTab('pn-shift')">📝 Bitácora</button>
         <button class="tp-tab" onclick="pnSwitchTab('pn-alerts')">🔔 Alertas</button>
         <button class="tp-tab" onclick="pnSwitchTab('pn-intelligence')">🧠 Inteligencia</button>
+        <button class="tp-tab" onclick="pnSwitchTab('pn-calendar')">📅 Calendario</button>
         <button class="tp-tab" onclick="pnSwitchTab('pn-system')">💾 Sistema</button>
     </div>
 
@@ -3686,15 +4039,19 @@ function generateWeeklyStatusPDF() {
 })();
 
     function initializeSystem() {
+        // [R5-M1] Splash screen
+        if (typeof splashShow === 'function') splashShow();
+
         // Auth gate — must be authenticated before initializing
         if (typeof authInit === 'function' && typeof authState !== 'undefined') {
             if (!authState.sessionActive) {
                 if (typeof pnInit === 'function' && (!pnState || pnState.operators.length === 0)) pnInit();
                 authInit();
-                if (!authState.sessionActive) return; // Wait for login
+                if (!authState.sessionActive) { if (typeof splashHide === 'function') splashHide(); return; }
             }
         }
 
+        if (typeof splashUpdate === 'function') splashUpdate('Cargando configuraciones...', 20);
         parseCSV();
         populateOperators();
         
@@ -3736,6 +4093,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
 	initStatusPrevValue();
 
         // ═══ Init Test Plan Manager ═══
+        if (typeof splashUpdate === 'function') splashUpdate('Iniciando módulos...', 50);
         tpInit();
         tpUpdateBadges();
         tpHookCascadeResult();
@@ -3745,6 +4103,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         if (typeof pnInit === 'function') { pnInit(); pnUpdateBadges(); }
 
         // ═══ Restore Soak Timer if running ═══
+        if (typeof splashUpdate === 'function') splashUpdate('Restaurando estado...', 80);
         if (typeof soakTimerRestore === 'function') soakTimerRestore();
 
         // ═══ Firebase Cloud Sync (optional) ═══
@@ -3795,6 +4154,15 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ [R3-M9] Onboarding tour — first visit ═══
         if (!localStorage.getItem('kia_tour_done')) {
             setTimeout(function() { if (typeof startTour === 'function') startTour(); }, 1500);
+        }
+
+        // [R5-M1] Finalize splash
+        if (typeof splashUpdate === 'function') splashUpdate('Listo', 100);
+        setTimeout(function() { if (typeof splashHide === 'function') splashHide(); }, 400);
+
+        // [R5-M1] Restore immersive mode if previously active
+        if (localStorage.getItem('kia_immersive_prefs') === '1') {
+            setTimeout(function() { immersiveEnter(); }, 600);
         }
         }
 
@@ -4585,18 +4953,425 @@ function _cleanTourHighlight() {
     });
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M2] Auto-Save Engine (on blur / visibility change)
+// ══════════════════════════════════════════════════════════════════════
+
+var _autoSaveRegistry = {};
+
+/**
+ * Register a module for auto-save on blur.
+ * @param {string} module - Module id (e.g. 'cop15')
+ * @param {Function} saveFn - The save function to call
+ * @param {Function} dirtyFn - Returns true if there are unsaved changes
+ */
+function autoSaveInit(module, saveFn, dirtyFn) {
+    _autoSaveRegistry[module] = { saveFn: saveFn, dirtyFn: dirtyFn, lastSaveTs: 0 };
+}
+
+function autoSaveDestroy(module) {
+    delete _autoSaveRegistry[module];
+}
+
+function _autoSaveFlush(source) {
+    Object.keys(_autoSaveRegistry).forEach(function(mod) {
+        var reg = _autoSaveRegistry[mod];
+        if (reg.dirtyFn && reg.dirtyFn()) {
+            reg.saveFn();
+            reg.lastSaveTs = Date.now();
+            _autoSaveIndicator(mod);
+        }
+    });
+}
+
+function _autoSaveIndicator(module) {
+    var ind = document.getElementById('autosave-indicator');
+    if (!ind) {
+        ind = document.createElement('div');
+        ind.id = 'autosave-indicator';
+        ind.className = 'autosave-indicator';
+        document.body.appendChild(ind);
+    }
+    var now = new Date();
+    var timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    ind.textContent = '✓ Guardado ' + timeStr;
+    ind.classList.remove('autosave-show');
+    void ind.offsetWidth;
+    ind.classList.add('autosave-show');
+}
+
+// Listen for visibility change and window blur
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') _autoSaveFlush('visibilitychange');
+});
+window.addEventListener('blur', function() { _autoSaveFlush('windowblur'); });
+window.addEventListener('beforeunload', function(e) {
+    var dirty = Object.keys(_autoSaveRegistry).some(function(mod) {
+        return _autoSaveRegistry[mod].dirtyFn && _autoSaveRegistry[mod].dirtyFn();
+    });
+    if (dirty) {
+        _autoSaveFlush('beforeunload');
+    }
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M8] Templates & Quick Presets — Unified Template Engine
+// ══════════════════════════════════════════════════════════════════════
+
+var _templates = safeParse('kia_templates', { cop15: [], results: [], inventory: [] });
+
+function templateSave(module, name, data) {
+    if (!_templates[module]) _templates[module] = [];
+    // Check limit
+    if (_templates[module].length >= 20) {
+        // Remove least used
+        _templates[module].sort(function(a, b) { return (a.usageCount || 0) - (b.usageCount || 0); });
+        _templates[module].shift();
+    }
+    _templates[module].push({
+        id: 'tpl_' + Date.now(),
+        name: name,
+        data: data,
+        usageCount: 0,
+        createdAt: new Date().toISOString()
+    });
+    _templatesPersist();
+    showToast('Plantilla "' + name + '" guardada', 'success');
+}
+
+function templateApply(module, templateId) {
+    var tpl = (_templates[module] || []).find(function(t) { return t.id === templateId; });
+    if (!tpl) { showToast('Plantilla no encontrada', 'error'); return null; }
+    tpl.usageCount = (tpl.usageCount || 0) + 1;
+    _templatesPersist();
+    return tpl.data;
+}
+
+function templateDelete(module, templateId) {
+    if (!_templates[module]) return;
+    _templates[module] = _templates[module].filter(function(t) { return t.id !== templateId; });
+    _templatesPersist();
+    showToast('Plantilla eliminada', 'info');
+}
+
+function templateGetAll(module) {
+    return (_templates[module] || []).sort(function(a, b) { return (b.usageCount || 0) - (a.usageCount || 0); });
+}
+
+function _templatesPersist() {
+    localStorage.setItem('kia_templates', JSON.stringify(_templates));
+}
+
+/**
+ * Render a template manager modal for a given module.
+ */
+function templateRenderManager(module, applyCallback) {
+    var list = templateGetAll(module);
+    var html = '<div style="max-height:50vh;overflow-y:auto;">';
+    if (list.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;">No hay plantillas guardadas</div>';
+    } else {
+        list.forEach(function(tpl) {
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #1e293b;">';
+            html += '<div>';
+            html += '<div style="font-size:12px;font-weight:700;color:#e2e8f0;">' + escapeHtml(tpl.name) + '</div>';
+            html += '<div style="font-size:9px;color:#64748b;">Usado ' + (tpl.usageCount || 0) + 'x · ' + new Date(tpl.createdAt).toLocaleDateString('es-MX') + '</div>';
+            html += '</div>';
+            html += '<div style="display:flex;gap:6px;">';
+            html += '<button onclick="var d=templateApply(\'' + module + '\',\'' + tpl.id + '\');if(d && typeof ' + (applyCallback || 'null') + '===\'function\') ' + (applyCallback || 'null') + '(d);closeModal();" class="btn-primary" style="padding:4px 12px;font-size:10px;">Aplicar</button>';
+            html += '<button onclick="templateDelete(\'' + module + '\',\'' + tpl.id + '\');templateRenderManager(\'' + module + '\',\'' + (applyCallback || '') + '\');" style="padding:4px 8px;font-size:10px;background:none;border:1px solid #ef4444;color:#ef4444;border-radius:4px;cursor:pointer;">✕</button>';
+            html += '</div></div>';
+        });
+    }
+    html += '</div>';
+    showModal(html, 'Plantillas — ' + module.toUpperCase());
+}
+
+/**
+ * Render quick-access preset buttons for a module.
+ * @param {string} module - Module name
+ * @param {string} containerId - Element to insert buttons into
+ * @param {string} applyCallback - Function name to call with template data
+ */
+function templateRenderQuickButtons(module, containerId, applyCallback) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var list = templateGetAll(module).slice(0, 5); // Top 5 by usage
+    if (list.length === 0) return;
+
+    var existing = container.querySelector('.tpl-quick-bar');
+    if (existing) existing.remove();
+
+    var bar = document.createElement('div');
+    bar.className = 'tpl-quick-bar';
+    list.forEach(function(tpl) {
+        var btn = document.createElement('button');
+        btn.className = 'tpl-quick-btn';
+        btn.textContent = tpl.name;
+        btn.title = 'Aplicar plantilla: ' + tpl.name;
+        btn.onclick = function() {
+            var data = templateApply(module, tpl.id);
+            if (data && typeof window[applyCallback] === 'function') window[applyCallback](data);
+        };
+        bar.appendChild(btn);
+    });
+    container.insertBefore(bar, container.firstChild);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M1] Immersive Mode — App-like fullscreen experience
+// ══════════════════════════════════════════════════════════════════════
+
+var _immersiveActive = false;
+
+function immersiveToggle() {
+    _immersiveActive ? immersiveExit() : immersiveEnter();
+}
+
+function immersiveEnter() {
+    _immersiveActive = true;
+    document.body.classList.add('immersive-mode');
+    // Request fullscreen
+    var docEl = document.documentElement;
+    if (docEl.requestFullscreen) docEl.requestFullscreen().catch(function(){});
+    else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+    // Update button
+    var btn = document.getElementById('immersive-toggle-btn');
+    if (btn) btn.innerHTML = '⛶';
+    localStorage.setItem('kia_immersive_prefs', '1');
+    showToast('Modo App activado', 'success');
+}
+
+function immersiveExit() {
+    _immersiveActive = false;
+    document.body.classList.remove('immersive-mode');
+    if (document.exitFullscreen) document.exitFullscreen().catch(function(){});
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    var btn = document.getElementById('immersive-toggle-btn');
+    if (btn) btn.innerHTML = '⛶';
+    localStorage.removeItem('kia_immersive_prefs');
+}
+
+// Auto-collapse header on scroll down, reveal on scroll up
+(function() {
+    var lastScrollY = 0;
+    var ticking = false;
+    window.addEventListener('scroll', function() {
+        if (!_immersiveActive) return;
+        if (!ticking) {
+            requestAnimationFrame(function() {
+                var bar = document.querySelector('.platform-bar');
+                if (!bar) return;
+                var currentY = window.scrollY;
+                if (currentY > lastScrollY && currentY > 80) {
+                    bar.classList.add('header-hidden');
+                } else {
+                    bar.classList.remove('header-hidden');
+                }
+                lastScrollY = currentY;
+                ticking = false;
+            });
+            ticking = true;
+        }
+    });
+})();
+
+// Listen for fullscreen exit (ESC key) to sync state
+document.addEventListener('fullscreenchange', function() {
+    if (!document.fullscreenElement && _immersiveActive) {
+        immersiveExit();
+    }
+});
+
+// ── Splash Screen ──
+function splashShow() {
+    var splash = document.getElementById('splash-screen');
+    if (!splash) {
+        splash = document.createElement('div');
+        splash.id = 'splash-screen';
+        splash.className = 'splash-screen';
+        splash.innerHTML =
+            '<div class="splash-content">' +
+            '<div class="splash-logo">KIA</div>' +
+            '<div class="splash-subtitle">Laboratorio de Emisiones</div>' +
+            '<div class="splash-bar-track"><div class="splash-bar-fill" id="splash-progress"></div></div>' +
+            '<div class="splash-status" id="splash-status">Iniciando...</div>' +
+            '</div>';
+        document.body.appendChild(splash);
+    }
+    splash.style.display = 'flex';
+}
+
+function splashUpdate(msg, pct) {
+    var statusEl = document.getElementById('splash-status');
+    var progressEl = document.getElementById('splash-progress');
+    if (statusEl) statusEl.textContent = msg;
+    if (progressEl) progressEl.style.width = pct + '%';
+}
+
+function splashHide() {
+    var splash = document.getElementById('splash-screen');
+    if (!splash) return;
+    splash.classList.add('splash-exit');
+    setTimeout(function() { splash.style.display = 'none'; }, 500);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M4] Micro-Animations & Visual Polish — JS Helpers
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Animate a number counting from `from` to `to` inside an element.
+ * @param {HTMLElement} el - The element to animate
+ * @param {number} to - Target value
+ * @param {object} [opts] - Options: duration (ms), suffix (e.g. '%'), decimals
+ */
+function animateCounter(el, to, opts) {
+    if (!el) return;
+    opts = opts || {};
+    var duration = opts.duration || 800;
+    var suffix = opts.suffix || '';
+    var decimals = opts.decimals || 0;
+    var from = parseFloat(el.dataset.animValue) || 0;
+    el.dataset.animValue = to;
+
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        el.textContent = (decimals > 0 ? to.toFixed(decimals) : Math.round(to)) + suffix;
+        return;
+    }
+
+    var startTime = null;
+    function step(ts) {
+        if (!startTime) startTime = ts;
+        var progress = Math.min((ts - startTime) / duration, 1);
+        var eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+        var current = from + (to - from) * eased;
+        el.textContent = (decimals > 0 ? current.toFixed(decimals) : Math.round(current)) + suffix;
+        if (progress < 1) {
+            requestAnimationFrame(step);
+        } else {
+            if (from !== to) el.classList.add('anim-counter-bounce');
+            setTimeout(function(){ el.classList.remove('anim-counter-bounce'); }, 500);
+        }
+    }
+    requestAnimationFrame(step);
+}
+
+/**
+ * Apply staggered fade-in animation to child elements of a container.
+ * @param {HTMLElement} container - Parent element
+ * @param {string} [selector] - Child selector (default: direct children)
+ * @param {number} [delayMs] - Delay between items in ms (default: 40)
+ */
+function animateStaggerChildren(container, selector, delayMs) {
+    if (!container || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    delayMs = delayMs || 40;
+    var children = selector ? container.querySelectorAll(selector) : container.children;
+    for (var i = 0; i < children.length; i++) {
+        children[i].classList.add('anim-stagger');
+        children[i].style.animationDelay = (i * delayMs) + 'ms';
+    }
+}
+
+/**
+ * Flash-highlight an element as newly inserted.
+ */
+function animateInsert(el) {
+    if (!el || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    el.classList.add('anim-flash-insert');
+    setTimeout(function(){ el.classList.remove('anim-flash-insert'); }, 1000);
+}
+
+/**
+ * Animate removal of an element (slide-out then remove from DOM).
+ */
+function animateRemove(el, callback) {
+    if (!el) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        if (el.parentNode) el.parentNode.removeChild(el);
+        if (callback) callback();
+        return;
+    }
+    el.classList.add('anim-remove');
+    el.addEventListener('animationend', function() {
+        if (el.parentNode) el.parentNode.removeChild(el);
+        if (callback) callback();
+    }, { once: true });
+}
+
+/**
+ * Show confetti burst at a position (CSS-only, lightweight).
+ * @param {number} [x] - Center X (default: viewport center)
+ * @param {number} [y] - Center Y (default: viewport center)
+ */
+function animateConfetti(x, y) {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var container = document.createElement('div');
+    container.className = 'anim-confetti-container';
+    if (x !== undefined && y !== undefined) {
+        container.style.left = x + 'px';
+        container.style.top = y + 'px';
+    }
+    var colors = ['#ef4444','#3b82f6','#10b981','#f59e0b','#8b5cf6','#06b6d4'];
+    for (var i = 0; i < 6; i++) {
+        var p = document.createElement('div');
+        p.className = 'anim-confetti-particle';
+        p.style.backgroundColor = colors[i];
+        p.style.setProperty('--cx', (Math.random() * 120 - 60) + 'px');
+        p.style.setProperty('--cy', (Math.random() * -100 - 30) + 'px');
+        p.style.setProperty('--cr', (Math.random() * 720 - 360) + 'deg');
+        p.style.animationDelay = (i * 50) + 'ms';
+        container.appendChild(p);
+    }
+    document.body.appendChild(container);
+    setTimeout(function(){ if (container.parentNode) container.parentNode.removeChild(container); }, 1800);
+}
+
+/**
+ * Show skeleton loading placeholders in a container.
+ * @param {HTMLElement} container - Where to show skeletons
+ * @param {number} [count] - Number of skeleton items (default: 3)
+ */
+function skeletonShow(container, count) {
+    if (!container) return;
+    count = count || 3;
+    var html = '';
+    for (var i = 0; i < count; i++) {
+        html += '<div class="skeleton skeleton-card" style="animation-delay:' + (i * 100) + 'ms;"></div>';
+    }
+    container.innerHTML = html;
+}
+
+/**
+ * Build a progress ring SVG string.
+ * @param {number} pct - Percentage 0-100
+ * @param {number} size - SVG size in px
+ * @param {string} color - Stroke color
+ * @returns {string} SVG HTML
+ */
+function buildProgressRing(pct, size, color) {
+    var r = (size - 6) / 2;
+    var c = Math.PI * 2 * r;
+    var offset = c - (pct / 100) * c;
+    return '<svg width="' + size + '" height="' + size + '" style="display:block;">' +
+        '<circle cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="4"/>' +
+        '<circle class="progress-ring-circle" cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + offset + '"/>' +
+        '<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" fill="' + color + '" font-size="' + Math.round(size/3.5) + '" font-weight="800">' + Math.round(pct) + '%</text>' +
+        '</svg>';
+}
+
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — COP15 Cascade Module                                 ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-// ── Unsaved Changes Tracking ──
+// ── Unsaved Changes Tracking + Auto-Save [R5-M2] ──
 var _unsavedChanges = false;
 
 function markUnsaved() {
     _unsavedChanges = true;
     var dot = document.getElementById('unsaved-dot');
-    if (dot) dot.style.display = 'inline';
+    if (dot) { dot.style.display = 'inline'; dot.textContent = '●'; }
     var btn = document.getElementById('btn-save');
     if (btn && !btn.classList.contains('btn-unsaved')) {
         btn.classList.add('btn-unsaved');
@@ -4615,11 +5390,30 @@ function clearUnsaved() {
     }
 }
 
+/** [R5-M2] Silent auto-save: calls saveProgress without UI fanfare */
+function _autoSaveSilent() {
+    if (!activeVehicleId || !_unsavedChanges) return;
+    var vehicle = db.vehicles.find(function(v){ return v.id == activeVehicleId; });
+    if (!vehicle) return;
+    // Save without button animation or toast
+    saveProgress({ silent: true });
+}
+
 function setupUnsavedTracking() {
     var container = document.getElementById('op-content');
     if (!container) return;
     container.addEventListener('input', markUnsaved);
     container.addEventListener('change', markUnsaved);
+    // [R5-M2] Register auto-save on blur/visibility change
+    autoSaveInit('cop15', _autoSaveSilent, function(){ return _unsavedChanges; });
+
+    // [R5-M2] Auto-save when individual fields lose focus (after editing)
+    container.addEventListener('focusout', function(e) {
+        if (_unsavedChanges && e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) {
+            // Small delay to avoid saving mid-tab-navigation between fields
+            setTimeout(function(){ if (_unsavedChanges) _autoSaveSilent(); }, 300);
+        }
+    });
 }
 
 // [M02] FILTRO CASCADA]
@@ -5035,14 +5829,9 @@ function initCascadeTree() {
 
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
-            // Warn about unsaved changes when leaving Operation tab
+            // [R5-M2] Auto-save silently instead of blocking modal
             if (_unsavedChanges && tab.dataset.tab !== 'seguimiento') {
-                e.stopPropagation();
-                showConfirm('Tienes cambios sin guardar. ¿Salir sin guardar?', function(){
-                    clearUnsaved();
-                    _switchToCop15Tab(tab);
-                }, {title:'Cambios sin guardar', type:'warning', confirmText:'Salir sin guardar'});
-                return;
+                _autoSaveSilent();
             }
             _switchToCop15Tab(tab);
         });
@@ -5963,15 +6752,16 @@ function showMissingPopup(missing) {
 
 
 
-function saveProgress() {
+function saveProgress(opts) {
+  var silent = opts && opts.silent;
   if (!activeVehicleId) {
-    showToast('No hay vehículo seleccionado', 'error');
+    if (!silent) showToast('No hay vehículo seleccionado', 'error');
     return;
   }
 
-  // Save button feedback
+  // Save button feedback (skip in silent/auto-save mode)
   var saveBtn = document.getElementById('btn-save');
-  if (saveBtn) { setBtnLoading(saveBtn, true, 'Guardando...'); }
+  if (saveBtn && !silent) { setBtnLoading(saveBtn, true, 'Guardando...'); }
 
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
   if (!vehicle) return;
@@ -6012,8 +6802,8 @@ function saveProgress() {
     saveDB();
     if ((newStatus === 'testing' || newStatus === 'in-progress') && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
     clearUnsaved();
-    if (saveBtn) { setBtnLoading(saveBtn, false); }
-    showToast('Progreso guardado (formato simple)', 'success');
+    if (saveBtn && !silent) { setBtnLoading(saveBtn, false); }
+    if (!silent) showToast('Progreso guardado (formato simple)', 'success');
     refreshAllLists();
     updateProgressBar();
     return;
@@ -6130,8 +6920,8 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   saveDB();
   if (newStatus === 'testing' && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
   clearUnsaved();
-  if (saveBtn) { setBtnLoading(saveBtn, false); }
-  showToast('Progreso guardado exitosamente', 'success');
+  if (saveBtn && !silent) { setBtnLoading(saveBtn, false); }
+  if (!silent) showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
   updateProgressBar();
 
@@ -6537,6 +7327,8 @@ if (vehicle.status !== 'ready-release') {
                 if (typeof fbPostTestCompleted === 'function') { var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : (vehicle.testData && vehicle.testData.simple && vehicle.testData.simple.resultado ? vehicle.testData.simple.resultado : ''); fbPostTestCompleted(vehicle.vin, _res); }
                 if (typeof fbPostVehicleReleased === 'function') fbPostVehicleReleased(vehicle.vin);
                 showToast('Vehículo liberado. JSON descargado.', 'success');
+                // [R5-M4] Confetti burst on vehicle release
+                if (typeof animateConfetti === 'function') animateConfetti();
             } catch(e) {
                 // Rollback on cross-module error
                 vehicle.status = prevStatus;
@@ -8769,7 +9561,7 @@ function renderKanban() {
                     else purposeBorder = '#0ea5e9';
                 }
 
-                html += '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;border-left:4px solid ' + purposeBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
+                html += '<div class="anim-card-hover" style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;border-left:4px solid ' + purposeBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
                 // VIN + copy + time
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
                 html += '<span style="display:flex;align-items:center;gap:4px;">';
@@ -8823,6 +9615,13 @@ function renderKanban() {
     html += '</div>';
 
     el.innerHTML = html;
+
+    // [R5-M4] Stagger kanban cards
+    if (typeof animateStaggerChildren === 'function') {
+        el.querySelectorAll('[style*="min-width:160px"]').forEach(function(col) {
+            animateStaggerChildren(col, '.anim-card-hover', 40);
+        });
+    }
 }
 
 // ======================================================================
@@ -9034,6 +9833,287 @@ function kanbanGoVehicle(vehicleId, status) {
         var sel = document.getElementById('activeVehSelect');
         if (sel) { sel.value = vehicleId; sel.dispatchEvent(new Event('change')); }
     }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M3] Smart Forms — Progressive Disclosure & Contextual Intelligence
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Show/hide accordion sections based on current vehicle status.
+ * Locked sections show a visual indicator of when they'll unlock.
+ */
+function smartFormApplyByStatus(status) {
+    var sections = [
+        { id: 'acc-recepcion', unlockAt: null, label: 'Siempre visible' },
+        { id: 'acc-precond', unlockAt: 'in-progress', label: 'En Progreso' },
+        { id: 'acc-dyno', unlockAt: 'in-progress', label: 'En Progreso' },
+        { id: 'test-verify-card', unlockAt: 'testing', label: 'En Prueba' }
+    ];
+    var statusOrder = ['registered', 'in-progress', 'testing', 'ready-release'];
+    var currentIdx = statusOrder.indexOf(status);
+
+    sections.forEach(function(sec) {
+        var el = document.getElementById(sec.id);
+        if (!el) return;
+
+        if (!sec.unlockAt) { el.style.display = ''; el.classList.remove('smart-locked'); return; }
+
+        var unlockIdx = statusOrder.indexOf(sec.unlockAt);
+        if (currentIdx >= unlockIdx) {
+            el.style.display = '';
+            el.classList.remove('smart-locked');
+        } else {
+            el.style.display = '';
+            el.classList.add('smart-locked');
+            // Add lock overlay if not already present
+            if (!el.querySelector('.smart-lock-hint')) {
+                var hint = document.createElement('div');
+                hint.className = 'smart-lock-hint';
+                hint.innerHTML = '🔒 Se desbloquea en: ' + sec.label;
+                el.appendChild(hint);
+            }
+        }
+    });
+}
+
+/**
+ * Update completion badges on accordion section headers.
+ */
+function smartFormUpdateBadges() {
+    if (!_reviewSections) return;
+    _reviewSections.forEach(function(sec) {
+        var total = 0, filled = 0;
+        sec.fields.forEach(function(f) {
+            var el = document.getElementById(f.id);
+            if (!el) return;
+            total++;
+            if (el.value && el.value !== '') filled++;
+        });
+        // Find the section's accordion summary
+        var accIds = { 'Recepción': 'acc-recepcion', 'Preacondicionamiento': 'acc-precond', 'Dinamómetro': 'acc-dyno', 'Verificación': 'test-verify-card' };
+        var accId = accIds[sec.title];
+        if (!accId) return;
+        var accEl = document.getElementById(accId);
+        if (!accEl) return;
+        var summary = accEl.querySelector('summary');
+        if (!summary) return;
+
+        var badge = summary.querySelector('.smart-badge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'smart-badge';
+            summary.appendChild(badge);
+        }
+
+        badge.textContent = filled + '/' + total;
+        badge.classList.toggle('smart-badge-complete', filled === total && total > 0);
+        badge.classList.toggle('smart-badge-partial', filled > 0 && filled < total);
+        badge.classList.toggle('smart-badge-empty', filled === 0);
+    });
+}
+
+/**
+ * Suggest smart defaults for common fields based on context.
+ */
+function smartFormSuggestDefaults(vehicle) {
+    if (!vehicle) return;
+    var isEm = isEmissionsPurpose(vehicle.purpose);
+    if (!isEm) return;
+
+    // Precond datetime quick buttons
+    var precondEl = document.getElementById('precond_datetime');
+    if (precondEl && !precondEl.value) {
+        var container = precondEl.parentElement;
+        if (container && !container.querySelector('.smart-quick-btns')) {
+            var wrapper = document.createElement('div');
+            wrapper.className = 'smart-quick-btns';
+
+            var btnYesterday = document.createElement('button');
+            btnYesterday.type = 'button';
+            btnYesterday.className = 'smart-quick-btn';
+            btnYesterday.textContent = 'Ayer 6AM';
+            btnYesterday.onclick = function() {
+                var d = new Date(); d.setDate(d.getDate() - 1); d.setHours(6, 0, 0, 0);
+                precondEl.value = d.toISOString().slice(0, 16);
+                markUnsaved();
+                wrapper.remove();
+            };
+
+            var btnNow = document.createElement('button');
+            btnNow.type = 'button';
+            btnNow.className = 'smart-quick-btn';
+            btnNow.textContent = 'Ahora';
+            btnNow.onclick = function() {
+                precondEl.value = new Date().toISOString().slice(0, 16);
+                markUnsaved();
+                wrapper.remove();
+            };
+
+            wrapper.appendChild(btnYesterday);
+            wrapper.appendChild(btnNow);
+            container.appendChild(wrapper);
+        }
+    }
+
+    // Auto-fill from CSV_CONFIGURATIONS if unique values exist
+    if (vehicle.config) {
+        var etw = vehicle.config['ETW'] || vehicle.config['etw'];
+        var tA = vehicle.config['Target A'] || vehicle.config['targetA'];
+        var tB = vehicle.config['Target B'] || vehicle.config['targetB'];
+        var tC = vehicle.config['Target C'] || vehicle.config['targetC'];
+        var dynoFields = [
+            { id: 'etw', val: etw },
+            { id: 'tA', val: tA },
+            { id: 'tB', val: tB },
+            { id: 'tC', val: tC }
+        ];
+        dynoFields.forEach(function(df) {
+            if (!df.val) return;
+            var el = document.getElementById(df.id);
+            if (el && !el.value) {
+                el.value = df.val;
+                el.style.color = '#94a3b8';
+                el.title = 'Auto-llenado desde configuración';
+                el.addEventListener('focus', function handler() {
+                    el.style.color = '';
+                    el.removeEventListener('focus', handler);
+                }, { once: true });
+            }
+        });
+    }
+
+    // Pre-fill from last vehicle with same config (safe fields only)
+    var candidates = db.vehicles.filter(function(v) {
+        return v.id !== vehicle.id && v.configCode === vehicle.configCode &&
+               (v.status === 'archived' || v.status === 'ready-release') && v.testData;
+    }).sort(function(a, b) {
+        return new Date(b.lastModified || b.registeredAt) - new Date(a.lastModified || a.registeredAt);
+    });
+
+    if (candidates.length > 0) {
+        var source = candidates[0];
+        var td = source.testData || {};
+        var p = td.preconditioning || {};
+        var tv = td.testVerification || {};
+
+        // Safe fields that rarely change between same-config vehicles
+        var safeFields = [
+            { id: 'test_fan_mode', val: tv.fanMode },
+            { id: 'test_chains', val: tv.chains },
+            { id: 'test_slings', val: tv.slings },
+            { id: 'test_hood', val: tv.hood },
+            { id: 'test_rear_rollers', val: tv.rearRollers },
+            { id: 'test_screen', val: tv.screen }
+        ];
+
+        var applied = 0;
+        safeFields.forEach(function(sf) {
+            if (!sf.val) return;
+            var el = document.getElementById(sf.id);
+            if (el && !el.value) {
+                el.value = sf.val;
+                applied++;
+            }
+        });
+
+        if (applied > 0) {
+            // Show inline banner instead of modal
+            var opContent = document.getElementById('op-content');
+            if (opContent && !opContent.querySelector('.smart-copy-banner')) {
+                var banner = document.createElement('div');
+                banner.className = 'smart-copy-banner';
+                var shortVin = '...' + source.vin.slice(-6);
+                banner.innerHTML = '<span>Se aplicaron ' + applied + ' campos del último ' +
+                    escapeHtml(source.config && source.config.Modelo || 'vehículo') +
+                    ' (VIN ' + shortVin + ')</span>' +
+                    '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:14px;padding:0 4px;">✕</button>';
+                opContent.insertBefore(banner, opContent.firstChild);
+                setTimeout(function() { if (banner.parentNode) banner.remove(); }, 8000);
+            }
+        }
+    }
+}
+
+// Hook into loadVehicle to apply smart form features
+(function() {
+    var _origLoadVehicle = typeof loadVehicle === 'function' ? loadVehicle : null;
+    if (!_origLoadVehicle) return;
+    loadVehicle = function() {
+        _origLoadVehicle.apply(this, arguments);
+        // Apply smart features after vehicle loads
+        if (activeVehicleId) {
+            var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+            if (vehicle) {
+                var status = document.getElementById('op_status');
+                if (status) smartFormApplyByStatus(status.value);
+                smartFormSuggestDefaults(vehicle);
+                smartFormUpdateBadges();
+            }
+        }
+    };
+})();
+
+// Update badges when fields change
+(function() {
+    var container = document.getElementById('op-content');
+    if (container) {
+        container.addEventListener('input', debounce(smartFormUpdateBadges, 500));
+        container.addEventListener('change', smartFormUpdateBadges);
+    }
+})();
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M8] Templates — COP15 Operation Templates
+// ══════════════════════════════════════════════════════════════════════
+
+/** Collect current operation form data as a template-ready object. */
+function cop15TemplateCollect() {
+    var data = {};
+    var fields = ['tire_pressure', 'fuel_typein', 'fuel_typepre', 'precond_cycle',
+        'soak_time', 'tank_capacity', 'test_tunnel', 'test_dyno_on', 'test_fan_mode',
+        'test_fan_speed', 'test_fan_flow', 'test_chains', 'test_slings', 'test_hood',
+        'test_rear_rollers', 'test_screen', 'etw', 'tA', 'dA', 'tB', 'dB', 'tC', 'dC'];
+    fields.forEach(function(fid) {
+        var el = document.getElementById(fid);
+        if (el && el.value) data[fid] = el.value;
+    });
+    return data;
+}
+
+/** Apply template data to the current operation form. */
+function cop15TemplateApplyData(data) {
+    if (!data) return;
+    Object.keys(data).forEach(function(fid) {
+        var el = document.getElementById(fid);
+        if (el) {
+            el.value = data[fid];
+            el.style.outline = '2px dashed #8b5cf6';
+            el.style.outlineOffset = '2px';
+            setTimeout(function() { el.style.outline = ''; el.style.outlineOffset = ''; }, 3000);
+        }
+    });
+    markUnsaved();
+    showToast('Plantilla aplicada', 'success');
+}
+
+/** Save current operation as a named template. */
+function cop15TemplateSave() {
+    var data = cop15TemplateCollect();
+    if (Object.keys(data).length < 3) {
+        showToast('Muy pocos campos para guardar como plantilla', 'warning');
+        return;
+    }
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    var defaultName = vehicle && vehicle.config ? (vehicle.config.Modelo || '') + ' ' + (vehicle.config['EMISSION REGULATION'] || '') : 'Plantilla';
+    var name = prompt('Nombre de la plantilla:', defaultName.trim());
+    if (!name) return;
+    templateSave('cop15', name, data);
+}
+
+/** Show COP15 template manager. */
+function cop15TemplateManager() {
+    templateRenderManager('cop15', 'cop15TemplateApplyData');
 }
 
 
@@ -9827,6 +10907,7 @@ function invRenderReadings(el) {
     var html = invRenderAnomalyBanner();
     html += '<div class="tp-card"><div class="tp-card-title"><span>Lecturas Diarias de Presion</span>';
     html += '<div style="display:flex;gap:6px;">';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="invStartReadingRound()" style="font-size:10px;border-color:#10b981;color:#10b981;">🔄 Ronda</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size:10px;border-color:#8b5cf6;color:#8b5cf6;">📷 Escanear</button>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invBulkReading()" style="font-size:10px;">Guardar Lecturas</button>';
     html += '</div></div>';
@@ -12164,6 +13245,300 @@ function invPredictDepletion(g) {
 
 // [R3-M3] Debounced version for scan filter input
 var _debouncedInvScanFilter = debounce(function() { invScanFilter(); }, 200);
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M8] Templates — Inventory Quick Actions
+// ══════════════════════════════════════════════════════════════════════
+
+/** Duplicate a gas cylinder with new auto-incremented control number. */
+function invDuplicateGas(gasId) {
+    var source = invState.gases.find(function(g) { return g.id === gasId; });
+    if (!source) { showToast('Gas no encontrado', 'error'); return; }
+
+    var maxCtrl = invState.gases.reduce(function(max, g) {
+        var num = parseInt((g.controlNo || '').replace(/\D/g, ''), 10);
+        return num > max ? num : max;
+    }, 0);
+
+    var newGas = JSON.parse(JSON.stringify(source));
+    newGas.id = 'gas_' + Date.now();
+    newGas.controlNo = 'C-' + String(maxCtrl + 1).padStart(4, '0');
+    newGas.readings = [];
+    newGas.timeline = [];
+    newGas.registeredAt = new Date().toISOString();
+
+    invState.gases.push(newGas);
+    invSave();
+    invRender();
+    showToast('Cilindro duplicado: ' + newGas.controlNo, 'success');
+}
+
+/** Batch add multiple gas cylinders of the same type. */
+function invBatchAddGas(gasType, concNominal, concReal, count, zone) {
+    if (!count || count < 1 || count > 20) { showToast('Cantidad inválida (1-20)', 'error'); return; }
+
+    var maxCtrl = invState.gases.reduce(function(max, g) {
+        var num = parseInt((g.controlNo || '').replace(/\D/g, ''), 10);
+        return num > max ? num : max;
+    }, 0);
+
+    for (var i = 0; i < count; i++) {
+        var newGas = {
+            id: 'gas_' + Date.now() + '_' + i,
+            controlNo: 'C-' + String(maxCtrl + 1 + i).padStart(4, '0'),
+            gasType: gasType || '',
+            concNominal: concNominal || '',
+            concReal: concReal || '',
+            zone: zone || _invFindLeastFullZone(),
+            position: null,
+            status: 'active',
+            readings: [],
+            timeline: [],
+            registeredAt: new Date().toISOString()
+        };
+        invState.gases.push(newGas);
+    }
+    invSave();
+    invRender();
+    showToast(count + ' cilindros agregados en lote', 'success');
+}
+
+function _invFindLeastFullZone() {
+    var zones = invState.zones || [];
+    if (zones.length === 0) return '';
+    var counts = {};
+    zones.forEach(function(z) { counts[z.name] = 0; });
+    invState.gases.forEach(function(g) {
+        if (g.zone && counts[g.zone] !== undefined) counts[g.zone]++;
+    });
+    var minZone = zones[0].name;
+    zones.forEach(function(z) {
+        if ((counts[z.name] || 0) < (counts[minZone] || 0)) minZone = z.name;
+    });
+    return minZone;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M5] Batch Reading Round — One-at-a-time gas reading experience
+// ══════════════════════════════════════════════════════════════════════
+
+var _readingRound = null;
+
+function invStartReadingRound() {
+    var gases = invState.gases.filter(function(g) { return g.status === 'active'; });
+    if (gases.length === 0) { showToast('No hay cilindros activos', 'warning'); return; }
+
+    _readingRound = {
+        gases: gases,
+        index: 0,
+        results: [],
+        startTime: Date.now()
+    };
+    _invRoundRenderCurrent();
+}
+
+function _invRoundRenderCurrent() {
+    if (!_readingRound) return;
+    var gas = _readingRound.gases[_readingRound.index];
+    var total = _readingRound.gases.length;
+    var idx = _readingRound.index;
+
+    // Get last reading
+    var lastReading = gas.readings && gas.readings.length > 0 ? gas.readings[gas.readings.length - 1] : null;
+    var lastVal = lastReading ? (lastReading.psi || lastReading.value || '') : '';
+
+    // Build sparkline data
+    var sparkData = (gas.readings || []).slice(-5).map(function(r) { return r.psi || r.value || 0; });
+    var sparkHtml = _invRoundSparkline(sparkData);
+
+    var pct = Math.round(((idx) / total) * 100);
+
+    var html = '<div class="reading-round-overlay">' +
+        '<div class="reading-round-card">' +
+        // Header
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+        '<span style="font-size:12px;font-weight:700;color:var(--tp-dim);">' + (idx + 1) + ' de ' + total + '</span>' +
+        '<button onclick="_invRoundCancel()" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:18px;font-weight:700;">✕</button>' +
+        '</div>' +
+        // Progress bar
+        '<div style="height:4px;background:rgba(255,255,255,0.1);border-radius:2px;margin-bottom:16px;overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:var(--tp-green);border-radius:2px;transition:width 0.3s;"></div>' +
+        '</div>' +
+        // Gas info
+        '<div style="text-align:center;margin-bottom:20px;">' +
+        '<div style="font-size:14px;font-weight:800;color:var(--tp-text);">' + escapeHtml(gas.gasType || 'Gas') + '</div>' +
+        '<div style="font-size:11px;color:var(--tp-dim);margin-top:2px;">' + escapeHtml(gas.controlNo || gas.id) + ' · Zona: ' + escapeHtml(gas.zone || '—') + '</div>' +
+        '<div style="font-size:10px;color:var(--tp-dim);margin-top:2px;">Conc: ' + escapeHtml(gas.concNominal || '—') + ' / ' + escapeHtml(gas.concReal || '—') + '</div>' +
+        '</div>' +
+        // Sparkline
+        (sparkHtml ? '<div style="text-align:center;margin-bottom:12px;">' + sparkHtml + '<div style="font-size:8px;color:var(--tp-dim);margin-top:2px;">Últimas 5 lecturas</div></div>' : '') +
+        // Last value
+        (lastVal ? '<div style="text-align:center;margin-bottom:8px;font-size:10px;color:var(--tp-dim);">Última lectura: <strong style="color:var(--tp-text);">' + lastVal + ' PSI</strong></div>' : '') +
+        // Input
+        '<div style="text-align:center;margin-bottom:16px;">' +
+        '<input type="number" id="round-reading-input" placeholder="PSI" value="' + (lastVal || '') + '" ' +
+        'style="width:120px;padding:12px 16px;font-size:24px;font-weight:800;text-align:center;border:2px solid var(--tp-border);border-radius:12px;background:var(--tp-card);color:var(--tp-text);" ' +
+        'onkeydown="if(event.key===\'Enter\')invRoundNext()">' +
+        '</div>' +
+        // Buttons
+        '<div style="display:flex;gap:8px;justify-content:center;">' +
+        (idx > 0 ? '<button onclick="invRoundPrev()" class="btn-secondary" style="padding:10px 20px;">← Anterior</button>' : '') +
+        (lastVal ? '<button onclick="_invRoundSameValue()" class="btn-secondary" style="padding:10px 20px;background:rgba(16,185,129,0.1);color:#10b981;border-color:#10b981;">= Igual</button>' : '') +
+        '<button onclick="invRoundNext()" class="btn-primary" style="padding:10px 24px;">' + (idx < total - 1 ? 'Siguiente →' : 'Finalizar ✓') + '</button>' +
+        '</div>' +
+        '</div></div>';
+
+    // Show as overlay
+    var overlay = document.getElementById('reading-round-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'reading-round-overlay';
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = html;
+    overlay.style.display = 'block';
+
+    // Focus input
+    setTimeout(function() {
+        var inp = document.getElementById('round-reading-input');
+        if (inp) { inp.focus(); inp.select(); }
+    }, 100);
+}
+
+function invRoundNext() {
+    if (!_readingRound) return;
+    _invRoundSaveCurrentReading();
+    _readingRound.index++;
+    if (_readingRound.index >= _readingRound.gases.length) {
+        invRoundFinish();
+    } else {
+        _invRoundRenderCurrent();
+    }
+}
+
+function invRoundPrev() {
+    if (!_readingRound || _readingRound.index <= 0) return;
+    _readingRound.index--;
+    _invRoundRenderCurrent();
+}
+
+function _invRoundSameValue() {
+    // Keep the pre-filled value (last reading) and advance
+    invRoundNext();
+}
+
+function _invRoundSaveCurrentReading() {
+    if (!_readingRound) return;
+    var gas = _readingRound.gases[_readingRound.index];
+    var inp = document.getElementById('round-reading-input');
+    var val = inp ? parseFloat(inp.value) : NaN;
+    if (isNaN(val)) return;
+
+    gas.readings = gas.readings || [];
+    var lastVal = gas.readings.length > 0 ? (gas.readings[gas.readings.length - 1].psi || gas.readings[gas.readings.length - 1].value || 0) : 0;
+
+    gas.readings.push({
+        psi: val,
+        value: val,
+        timestamp: new Date().toISOString(),
+        source: 'round'
+    });
+
+    // Track result
+    var dropPct = lastVal > 0 ? Math.round(((lastVal - val) / lastVal) * 100) : 0;
+    _readingRound.results.push({
+        gasId: gas.id,
+        controlNo: gas.controlNo,
+        gasType: gas.gasType,
+        value: val,
+        prev: lastVal,
+        alert: dropPct > 15
+    });
+}
+
+function invRoundFinish() {
+    if (!_readingRound) return;
+    invSave();
+
+    var elapsed = Math.round((Date.now() - _readingRound.startTime) / 1000);
+    var mins = Math.floor(elapsed / 60);
+    var secs = elapsed % 60;
+    var alerts = _readingRound.results.filter(function(r) { return r.alert; });
+
+    var html = '<div class="reading-round-overlay">' +
+        '<div class="reading-round-card">' +
+        '<div style="text-align:center;margin-bottom:16px;">' +
+        '<div style="font-size:36px;margin-bottom:8px;">✅</div>' +
+        '<div style="font-size:16px;font-weight:800;color:var(--tp-text);">Ronda Completada</div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">' +
+        '<div class="tp-card" style="text-align:center;padding:10px;">' +
+        '<div style="font-size:20px;font-weight:800;color:var(--tp-green);">' + _readingRound.results.length + '</div>' +
+        '<div style="font-size:9px;color:var(--tp-dim);">Lecturas</div></div>' +
+        '<div class="tp-card" style="text-align:center;padding:10px;">' +
+        '<div style="font-size:20px;font-weight:800;color:' + (alerts.length > 0 ? '#ef4444' : 'var(--tp-green)') + ';">' + alerts.length + '</div>' +
+        '<div style="font-size:9px;color:var(--tp-dim);">Alertas</div></div>' +
+        '<div class="tp-card" style="text-align:center;padding:10px;">' +
+        '<div style="font-size:20px;font-weight:800;color:var(--tp-blue);">' + mins + ':' + String(secs).padStart(2, '0') + '</div>' +
+        '<div style="font-size:9px;color:var(--tp-dim);">Tiempo</div></div>' +
+        '</div>';
+
+    if (alerts.length > 0) {
+        html += '<div style="margin-bottom:12px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:6px;">⚠ Alertas de presión:</div>';
+        alerts.forEach(function(a) {
+            html += '<div style="font-size:10px;color:var(--tp-dim);padding:2px 0;">' +
+                escapeHtml(a.controlNo) + ' (' + escapeHtml(a.gasType) + '): ' + a.prev + ' → ' + a.value + ' PSI</div>';
+        });
+        html += '</div>';
+    }
+
+    html += '<div style="display:flex;gap:8px;justify-content:center;">' +
+        '<button onclick="_invRoundCopyReport()" class="btn-secondary" style="padding:8px 16px;">📋 Copiar Resumen</button>' +
+        '<button onclick="_invRoundCancel()" class="btn-primary" style="padding:8px 20px;">Cerrar</button>' +
+        '</div></div></div>';
+
+    var overlay = document.getElementById('reading-round-overlay');
+    if (overlay) overlay.innerHTML = html;
+
+    invRender();
+    _readingRound = null;
+}
+
+function _invRoundCancel() {
+    var overlay = document.getElementById('reading-round-overlay');
+    if (overlay) overlay.style.display = 'none';
+    _readingRound = null;
+}
+
+function _invRoundCopyReport() {
+    if (!_readingRound && document.getElementById('reading-round-overlay')) {
+        // Use the last results stored
+    }
+    var text = 'Ronda de Lecturas — ' + new Date().toLocaleString('es-MX') + '\n';
+    var overlay = document.getElementById('reading-round-overlay');
+    // Simple copy of visible text
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(overlay ? overlay.textContent : text);
+        showToast('Resumen copiado', 'success');
+    }
+}
+
+function _invRoundSparkline(data) {
+    if (!data || data.length < 2) return '';
+    var max = Math.max.apply(null, data);
+    var min = Math.min.apply(null, data);
+    var range = max - min || 1;
+    var w = 100, h = 30;
+    var points = data.map(function(v, i) {
+        var x = (i / (data.length - 1)) * w;
+        var y = h - ((v - min) / range) * h;
+        return x + ',' + y;
+    }).join(' ');
+    return '<svg width="' + w + '" height="' + h + '" style="display:inline-block;">' +
+        '<polyline points="' + points + '" fill="none" stroke="var(--tp-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '</svg>';
+}
 
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -17773,6 +19148,34 @@ function raRenderSPC(el) {
 
 function raInit(){ raUpdateBadges(); }
 
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M8] Templates — RA Filter Presets
+// ══════════════════════════════════════════════════════════════════════
+
+function raPresetSave(name) {
+    if (!name) name = prompt('Nombre del preset de filtros:', (window._raTrendGroup || 'ALL') + ' ' + (window._raTrendMetric || ''));
+    if (!name) return;
+    var data = {
+        groupBy: window._raTrendGroupBy || 'regTestMode',
+        group: window._raTrendGroup || 'ALL',
+        metric: window._raTrendMetric || 'FuelConsumptionBag',
+        dateFrom: window._raTrendDateFrom || '',
+        dateTo: window._raTrendDateTo || ''
+    };
+    templateSave('results', name, data);
+}
+
+function raPresetApply(data) {
+    if (!data) return;
+    window._raTrendGroupBy = data.groupBy || 'regTestMode';
+    window._raTrendGroup = data.group || 'ALL';
+    window._raTrendMetric = data.metric || 'FuelConsumptionBag';
+    window._raTrendDateFrom = data.dateFrom || '';
+    window._raTrendDateTo = data.dateTo || '';
+    raRender();
+    showToast('Preset aplicado', 'success');
+}
+
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Panel Module (Dashboard, Users, Shift Log, Alerts)    ║
@@ -17827,6 +19230,7 @@ function pnRender() {
     else if (tab === 'pn-alerts') pnRenderAlerts(el);
     else if (tab === 'pn-intelligence') pnRenderIntelligence(el);
     else if (tab === 'pn-system') pnRenderSystemHealth(el);
+    else if (tab === 'pn-calendar') pnRenderCalendar(el);
 }
 
 function pnUpdateBadges() {
@@ -17911,38 +19315,22 @@ function pnRenderDashboard(el) {
     }
     html += '</div></div>';
 
-    // KPI grid
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px;">';
-
-    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
-    html += '<div style="font-size:24px;font-weight:800;color:#3b82f6;">' + activeVehicles.length + '</div>';
-    html += '<div style="font-size:9px;color:var(--tp-dim);">Vehiculos Activos</div>';
-    html += '</div>';
-
-    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
-    html += '<div style="font-size:24px;font-weight:800;color:#10b981;">' + archivedToday.length + '</div>';
-    html += '<div style="font-size:9px;color:var(--tp-dim);">Liberados Hoy</div>';
-    html += '</div>';
-
-    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
-    html += '<div style="font-size:24px;font-weight:800;color:#f59e0b;">' + tpPct + '%</div>';
-    html += '<div style="font-size:9px;color:var(--tp-dim);">Plan Semanal</div>';
-    html += '</div>';
-
-    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
-    html += '<div style="font-size:24px;font-weight:800;color:#8b5cf6;">' + raTests.length + '</div>';
-    html += '<div style="font-size:9px;color:var(--tp-dim);">Pruebas Results</div>';
-    html += '</div>';
-
-    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
-    html += '<div style="font-size:24px;font-weight:800;color:' + (lowGases.length > 0 ? '#ef4444' : '#10b981') + ';">' + lowGases.length + '</div>';
-    html += '<div style="font-size:9px;color:var(--tp-dim);">Gases Bajos</div>';
-    html += '</div>';
-
-    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
-    html += '<div style="font-size:24px;font-weight:800;color:#06b6d4;">' + pnState.operators.filter(function(o) { return o.active; }).length + '</div>';
-    html += '<div style="font-size:9px;color:var(--tp-dim);">Operadores</div>';
-    html += '</div>';
+    // KPI grid [R5-M4] with animated counters
+    var _kpiData = [
+        { value: activeVehicles.length, label: 'Vehiculos Activos', color: '#3b82f6' },
+        { value: archivedToday.length, label: 'Liberados Hoy', color: '#10b981' },
+        { value: tpPct, label: 'Plan Semanal', color: '#f59e0b', suffix: '%' },
+        { value: raTests.length, label: 'Pruebas Results', color: '#8b5cf6' },
+        { value: lowGases.length, label: 'Gases Bajos', color: lowGases.length > 0 ? '#ef4444' : '#10b981' },
+        { value: pnState.operators.filter(function(o) { return o.active; }).length, label: 'Operadores', color: '#06b6d4' }
+    ];
+    html += '<div id="pn-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px;">';
+    _kpiData.forEach(function(kpi, idx) {
+        html += '<div class="tp-card anim-card-hover" style="text-align:center;padding:12px;">';
+        html += '<div class="pn-kpi-num" data-kpi-idx="' + idx + '" data-kpi-target="' + kpi.value + '" data-kpi-suffix="' + (kpi.suffix || '') + '" style="font-size:24px;font-weight:800;color:' + kpi.color + ';">0</div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);">' + kpi.label + '</div>';
+        html += '</div>';
+    });
     html += '</div>';
 
     // Vehicle pipeline
@@ -18127,6 +19515,17 @@ function pnRenderDashboard(el) {
     html += '<div id="backupHealthContainer"></div>';
 
     el.innerHTML = html;
+
+    // [R5-M4] Animate KPI counters
+    document.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
+        var target = parseFloat(numEl.dataset.kpiTarget) || 0;
+        var suffix = numEl.dataset.kpiSuffix || '';
+        animateCounter(numEl, target, { suffix: suffix });
+    });
+
+    // [R5-M4] Stagger KPI cards
+    var kpiGrid = document.getElementById('pn-kpi-grid');
+    if (kpiGrid) animateStaggerChildren(kpiGrid, '.tp-card', 60);
 
     // Render lab dashboard
     var labEl = document.getElementById('labDashContainer');
@@ -18355,6 +19754,14 @@ function pnRenderShiftLog(el) {
     var categories = ['Inicio de turno', 'Prueba completada', 'Incidencia', 'Mantenimiento', 'Calibración', 'Observación', 'Fin de turno'];
 
     var html = '';
+
+    // [R5-M6] Shift report button
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
+    html += '<button class="tp-btn tp-btn-primary" onclick="pnGenerateShiftReport()" style="font-size:11px;">🔄 Cerrar Turno</button>';
+    if (pnState.shiftReports && pnState.shiftReports.length > 0) {
+        html += '<button class="tp-btn tp-btn-ghost" onclick="pnShowTurnoverOnLogin()" style="font-size:11px;">📋 Último Reporte</button>';
+    }
+    html += '</div>';
 
     // New entry form
     html += '<div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">';
@@ -19141,6 +20548,398 @@ function pnPurgeOldData(module, maxDays) {
         showToast('Eliminados ' + count + ' registros de ' + module, count > 0 ? 'success' : 'info');
         pnRenderSystemHealth(document.getElementById('pn-content'));
     });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M7] Unified Calendar — Cross-module event aggregation
+// ══════════════════════════════════════════════════════════════════════
+
+var _calYear, _calMonth;
+
+function pnRenderCalendar(el) {
+    if (!_calYear) { var d = new Date(); _calYear = d.getFullYear(); _calMonth = d.getMonth(); }
+
+    var events = _pnCollectCalendarEvents(_calYear, _calMonth);
+    var html = '<div class="tp-card" style="padding:16px;">';
+
+    // Header with nav
+    var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+    html += '<button onclick="_pnCalendarNav(-1)" class="btn-secondary" style="padding:4px 12px;">←</button>';
+    html += '<span style="font-size:14px;font-weight:800;color:var(--tp-text);">' + monthNames[_calMonth] + ' ' + _calYear + '</span>';
+    html += '<div style="display:flex;gap:6px;">';
+    html += '<button onclick="_pnCalendarToday()" class="btn-secondary" style="padding:4px 10px;font-size:10px;">Hoy</button>';
+    html += '<button onclick="_pnCalendarNav(1)" class="btn-secondary" style="padding:4px 12px;">→</button>';
+    html += '</div></div>';
+
+    // Day headers
+    var dayNames = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+    html += '<div class="cal-grid">';
+    dayNames.forEach(function(d) {
+        html += '<div class="cal-header">' + d + '</div>';
+    });
+
+    // Build calendar grid
+    var firstDay = new Date(_calYear, _calMonth, 1);
+    var lastDay = new Date(_calYear, _calMonth + 1, 0);
+    var startWeekday = (firstDay.getDay() + 6) % 7; // Monday = 0
+    var today = new Date();
+    var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+
+    // Empty cells before first day
+    for (var e = 0; e < startWeekday; e++) {
+        html += '<div class="cal-cell cal-empty"></div>';
+    }
+
+    // Day cells
+    for (var day = 1; day <= lastDay.getDate(); day++) {
+        var dateStr = _calYear + '-' + String(_calMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+        var dayEvents = events.filter(function(ev) { return ev.date === dateStr; });
+        var isToday = dateStr === todayStr;
+
+        html += '<div class="cal-cell' + (isToday ? ' cal-today' : '') + '" onclick="_pnCalendarDayClick(\'' + dateStr + '\')">';
+        html += '<div class="cal-day-num">' + day + '</div>';
+
+        if (dayEvents.length > 0) {
+            html += '<div class="cal-dots">';
+            // Show up to 3 dots
+            var shown = {};
+            dayEvents.slice(0, 3).forEach(function(ev) {
+                if (!shown[ev.color]) {
+                    html += '<span class="cal-dot" style="background:' + ev.color + ';"></span>';
+                    shown[ev.color] = true;
+                }
+            });
+            if (dayEvents.length > 3) html += '<span style="font-size:7px;color:var(--tp-dim);">+' + (dayEvents.length - 3) + '</span>';
+            html += '</div>';
+        }
+        html += '</div>';
+    }
+
+    html += '</div>';
+
+    // Week summary
+    var thisWeekEvents = _pnCalendarWeekSummary(events);
+    if (thisWeekEvents) {
+        html += '<div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;font-size:10px;color:var(--tp-dim);">';
+        html += '<strong style="color:var(--tp-text);">Esta semana:</strong> ' + thisWeekEvents;
+        html += '</div>';
+    }
+
+    // Legend
+    html += '<div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap;">';
+    [{ color: '#ef4444', label: 'Vencido/Agotado' }, { color: '#f59e0b', label: 'Próximo' }, { color: '#3b82f6', label: 'Planificado' }, { color: '#10b981', label: 'Release/Completado' }].forEach(function(l) {
+        html += '<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:' + l.color + ';display:inline-block;"></span> ' + l.label + '</div>';
+    });
+    html += '</div></div>';
+
+    el.innerHTML = html;
+}
+
+function _pnCollectCalendarEvents(year, month) {
+    var events = [];
+    var monthStart = new Date(year, month, 1);
+    var monthEnd = new Date(year, month + 1, 0);
+
+    // Equipment calibrations
+    if (typeof invState !== 'undefined' && invState.equipment) {
+        invState.equipment.forEach(function(eq) {
+            if (!eq.nextCalDate) return;
+            var d = new Date(eq.nextCalDate);
+            if (d >= monthStart && d <= monthEnd) {
+                var dateStr = eq.nextCalDate.slice(0, 10);
+                var isPast = d < new Date();
+                events.push({
+                    date: dateStr,
+                    type: 'calibration',
+                    color: isPast ? '#ef4444' : '#f59e0b',
+                    label: (isPast ? '⚠ Cal vencida: ' : '🔧 Cal: ') + (eq.name || eq.id),
+                    module: 'Inventario'
+                });
+            }
+        });
+    }
+
+    // Gas depletion predictions (approximate)
+    if (typeof invState !== 'undefined' && invState.gases) {
+        invState.gases.forEach(function(g) {
+            if (g.status !== 'active' || !g.readings || g.readings.length < 2) return;
+            var last2 = g.readings.slice(-2);
+            var rate = (last2[0].psi || last2[0].value || 0) - (last2[1].psi || last2[1].value || 0);
+            if (rate <= 0) return;
+            var current = last2[1].psi || last2[1].value || 0;
+            var daysLeft = current / rate;
+            if (daysLeft > 60) return;
+            var depDate = new Date();
+            depDate.setDate(depDate.getDate() + Math.round(daysLeft));
+            if (depDate >= monthStart && depDate <= monthEnd) {
+                var dateStr = depDate.toISOString().slice(0, 10);
+                events.push({
+                    date: dateStr,
+                    type: 'gas_depletion',
+                    color: daysLeft < 7 ? '#ef4444' : '#f59e0b',
+                    label: '⛽ Gas agota: ' + (g.controlNo || g.gasType || g.id),
+                    module: 'Inventario'
+                });
+            }
+        });
+    }
+
+    // Test plan items
+    if (typeof tpState !== 'undefined' && tpState.weeklyPlans) {
+        tpState.weeklyPlans.forEach(function(plan) {
+            if (!plan.weekStart) return;
+            var ws = new Date(plan.weekStart);
+            // Show each day of the week
+            for (var i = 0; i < 5; i++) {
+                var d = new Date(ws);
+                d.setDate(d.getDate() + i);
+                if (d >= monthStart && d <= monthEnd) {
+                    var dateStr = d.toISOString().slice(0, 10);
+                    var pending = (plan.items || []).filter(function(it) { return !it.completed; }).length;
+                    if (pending > 0) {
+                        events.push({
+                            date: dateStr,
+                            type: 'test_plan',
+                            color: '#3b82f6',
+                            label: '🧪 ' + pending + ' pruebas plan semanal',
+                            module: 'Test Plan'
+                        });
+                    }
+                }
+            }
+        });
+    }
+
+    // Vehicle release estimates
+    if (typeof db !== 'undefined' && db.vehicles) {
+        db.vehicles.forEach(function(v) {
+            if (v.status === 'archived') return;
+            if (v.status === 'ready-release') {
+                // Expected release today or soon
+                var d = new Date();
+                if (d >= monthStart && d <= monthEnd) {
+                    events.push({
+                        date: d.toISOString().slice(0, 10),
+                        type: 'release',
+                        color: '#10b981',
+                        label: '🏁 Listo: VIN ...' + (v.vin || '').slice(-6),
+                        module: 'COP15'
+                    });
+                }
+            }
+        });
+    }
+
+    return events;
+}
+
+function _pnCalendarDayClick(dateStr) {
+    var events = _pnCollectCalendarEvents(_calYear, _calMonth);
+    var dayEvents = events.filter(function(ev) { return ev.date === dateStr; });
+    if (dayEvents.length === 0) {
+        showToast('Sin eventos para ' + dateStr, 'info');
+        return;
+    }
+    var html = '<div style="max-height:40vh;overflow-y:auto;">';
+    dayEvents.forEach(function(ev) {
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #1e293b;">';
+        html += '<span style="width:8px;height:8px;border-radius:50%;background:' + ev.color + ';flex-shrink:0;"></span>';
+        html += '<div>';
+        html += '<div style="font-size:12px;font-weight:600;color:var(--tp-text);">' + ev.label + '</div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);">' + ev.module + '</div>';
+        html += '</div></div>';
+    });
+    html += '</div>';
+    showModal(html, 'Eventos — ' + dateStr);
+}
+
+function _pnCalendarNav(dir) {
+    _calMonth += dir;
+    if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+    if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+    pnRender();
+}
+
+function _pnCalendarToday() {
+    var d = new Date();
+    _calYear = d.getFullYear();
+    _calMonth = d.getMonth();
+    pnRender();
+}
+
+function _pnCalendarWeekSummary(events) {
+    var now = new Date();
+    var dayOfWeek = (now.getDay() + 6) % 7;
+    var weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - dayOfWeek);
+    var weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    var weekStartStr = weekStart.toISOString().slice(0, 10);
+    var weekEndStr = weekEnd.toISOString().slice(0, 10);
+
+    var weekEvents = events.filter(function(ev) { return ev.date >= weekStartStr && ev.date <= weekEndStr; });
+    if (weekEvents.length === 0) return '';
+
+    var counts = {};
+    weekEvents.forEach(function(ev) { counts[ev.type] = (counts[ev.type] || 0) + 1; });
+    var parts = [];
+    if (counts.calibration) parts.push(counts.calibration + ' calibraciones');
+    if (counts.test_plan) parts.push(counts.test_plan + ' pruebas');
+    if (counts.gas_depletion) parts.push(counts.gas_depletion + ' gases');
+    if (counts.release) parts.push(counts.release + ' releases');
+    return parts.join(', ');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M6] Structured Shift Report
+// ══════════════════════════════════════════════════════════════════════
+
+function pnGenerateShiftReport() {
+    var report = _pnCollectTurnoverData();
+    report.id = 'sr_' + Date.now();
+    report.timestamp = new Date().toISOString();
+    report.operator = pnState.currentOperator || 'Sistema';
+
+    // Prompt for notes
+    var notes = prompt('Notas del turno (opcional):');
+    report.notes = notes || '';
+
+    // Save
+    if (!pnState.shiftReports) pnState.shiftReports = [];
+    pnState.shiftReports.unshift(report);
+    if (pnState.shiftReports.length > 30) pnState.shiftReports = pnState.shiftReports.slice(0, 30);
+    pnSave();
+
+    // Show report
+    pnRenderShiftReport(report);
+    showToast('Reporte de turno generado', 'success');
+}
+
+function _pnCollectTurnoverData() {
+    var data = {
+        vehiclesInProgress: [],
+        pendingTests: 0,
+        activeAlerts: [],
+        gasesLow: [],
+        turnoStats: { completed: 0, released: 0 }
+    };
+
+    // Vehicles in progress
+    if (typeof db !== 'undefined' && db.vehicles) {
+        data.vehiclesInProgress = db.vehicles.filter(function(v) {
+            return v.status !== 'archived';
+        }).map(function(v) {
+            return {
+                vin: (v.vin || '').slice(-8),
+                status: v.status,
+                model: v.config ? v.config.Modelo : '',
+                purpose: v.purpose || ''
+            };
+        });
+        data.turnoStats.released = db.vehicles.filter(function(v) {
+            return v.status === 'archived' && v.archivedAt &&
+                   new Date(v.archivedAt).toDateString() === new Date().toDateString();
+        }).length;
+    }
+
+    // Pending tests
+    if (typeof tpState !== 'undefined' && tpState.weeklyPlans && tpState.weeklyPlans.length > 0) {
+        var latest = tpState.weeklyPlans[tpState.weeklyPlans.length - 1];
+        data.pendingTests = (latest.items || []).filter(function(it) { return !it.completed; }).length;
+    }
+
+    // Low gases
+    if (typeof invState !== 'undefined' && invState.gases) {
+        data.gasesLow = invState.gases.filter(function(g) {
+            if (g.status !== 'active' || !g.readings || g.readings.length === 0) return false;
+            var last = g.readings[g.readings.length - 1];
+            return (last.psi || last.value || 999) < 200;
+        }).map(function(g) {
+            return { controlNo: g.controlNo, gasType: g.gasType, psi: g.readings[g.readings.length - 1].psi || g.readings[g.readings.length - 1].value };
+        });
+    }
+
+    return data;
+}
+
+function pnRenderShiftReport(report) {
+    var html = '<div style="max-height:60vh;overflow-y:auto;">';
+
+    // Header
+    html += '<div style="text-align:center;margin-bottom:16px;">';
+    html += '<div style="font-size:12px;color:var(--tp-dim);">' + new Date(report.timestamp).toLocaleString('es-MX') + '</div>';
+    html += '<div style="font-size:11px;color:var(--tp-dim);margin-top:2px;">Operador: ' + escapeHtml(report.operator) + '</div>';
+    html += '</div>';
+
+    // KPIs
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">';
+    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:#3b82f6;">' + report.vehiclesInProgress.length + '</div><div style="font-size:8px;color:var(--tp-dim);">En progreso</div></div>';
+    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:#f59e0b;">' + report.pendingTests + '</div><div style="font-size:8px;color:var(--tp-dim);">Pruebas pend.</div></div>';
+    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:' + (report.gasesLow.length > 0 ? '#ef4444' : '#10b981') + ';">' + report.gasesLow.length + '</div><div style="font-size:8px;color:var(--tp-dim);">Gases bajos</div></div>';
+    html += '</div>';
+
+    // Vehicles in progress
+    if (report.vehiclesInProgress.length > 0) {
+        html += '<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;color:var(--tp-text);margin-bottom:6px;">Vehículos activos:</div>';
+        report.vehiclesInProgress.forEach(function(v) {
+            var statusColor = v.status === 'testing' ? '#8b5cf6' : v.status === 'ready-release' ? '#10b981' : '#f59e0b';
+            html += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:10px;border-bottom:1px solid #1e293b;">';
+            html += '<span style="color:var(--tp-text);">...' + v.vin + ' ' + (v.model || '') + '</span>';
+            html += '<span style="color:' + statusColor + ';font-weight:700;">' + v.status + '</span>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // Gases low
+    if (report.gasesLow.length > 0) {
+        html += '<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:6px;">⚠ Gases con presión baja:</div>';
+        report.gasesLow.forEach(function(g) {
+            html += '<div style="font-size:10px;color:var(--tp-dim);padding:2px 0;">' + escapeHtml(g.controlNo) + ' (' + escapeHtml(g.gasType) + '): ' + g.psi + ' PSI</div>';
+        });
+        html += '</div>';
+    }
+
+    // Notes
+    if (report.notes) {
+        html += '<div style="margin-bottom:12px;padding:8px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid var(--tp-border);font-size:10px;color:var(--tp-dim);"><strong style="color:var(--tp-text);">Notas:</strong> ' + escapeHtml(report.notes) + '</div>';
+    }
+
+    html += '<div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">';
+    html += '<button onclick="_pnShiftReportCopy(' + report.id.replace('sr_', '') + ')" class="btn-secondary" style="padding:6px 14px;font-size:10px;">📋 Copiar</button>';
+    html += '<button onclick="closeModal()" class="btn-primary" style="padding:6px 14px;font-size:10px;">Cerrar</button>';
+    html += '</div></div>';
+
+    showModal(html, 'Reporte de Turno');
+}
+
+function _pnShiftReportCopy(tsId) {
+    var report = (pnState.shiftReports || []).find(function(r) { return r.id === 'sr_' + tsId; });
+    if (!report) return;
+    var text = 'REPORTE DE TURNO\n';
+    text += 'Fecha: ' + new Date(report.timestamp).toLocaleString('es-MX') + '\n';
+    text += 'Operador: ' + report.operator + '\n\n';
+    text += 'Vehículos en progreso: ' + report.vehiclesInProgress.length + '\n';
+    text += 'Pruebas pendientes: ' + report.pendingTests + '\n';
+    text += 'Gases bajos: ' + report.gasesLow.length + '\n';
+    if (report.notes) text += '\nNotas: ' + report.notes + '\n';
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text);
+        showToast('Reporte copiado al portapapeles', 'success');
+    }
+}
+
+/** Show last shift report on login */
+function pnShowTurnoverOnLogin() {
+    if (!pnState.shiftReports || pnState.shiftReports.length === 0) return;
+    var lastReport = pnState.shiftReports[0];
+    // Only show if report is from today or yesterday
+    var reportDate = new Date(lastReport.timestamp);
+    var hoursDiff = (Date.now() - reportDate.getTime()) / (1000 * 60 * 60);
+    if (hoursDiff > 24) return;
+    pnRenderShiftReport(lastReport);
 }
 
 

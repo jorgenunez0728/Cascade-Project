@@ -1372,15 +1372,19 @@ function generateWeeklyStatusPDF() {
 })();
 
     function initializeSystem() {
+        // [R5-M1] Splash screen
+        if (typeof splashShow === 'function') splashShow();
+
         // Auth gate — must be authenticated before initializing
         if (typeof authInit === 'function' && typeof authState !== 'undefined') {
             if (!authState.sessionActive) {
                 if (typeof pnInit === 'function' && (!pnState || pnState.operators.length === 0)) pnInit();
                 authInit();
-                if (!authState.sessionActive) return; // Wait for login
+                if (!authState.sessionActive) { if (typeof splashHide === 'function') splashHide(); return; }
             }
         }
 
+        if (typeof splashUpdate === 'function') splashUpdate('Cargando configuraciones...', 20);
         parseCSV();
         populateOperators();
         
@@ -1422,6 +1426,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
 	initStatusPrevValue();
 
         // ═══ Init Test Plan Manager ═══
+        if (typeof splashUpdate === 'function') splashUpdate('Iniciando módulos...', 50);
         tpInit();
         tpUpdateBadges();
         tpHookCascadeResult();
@@ -1431,6 +1436,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         if (typeof pnInit === 'function') { pnInit(); pnUpdateBadges(); }
 
         // ═══ Restore Soak Timer if running ═══
+        if (typeof splashUpdate === 'function') splashUpdate('Restaurando estado...', 80);
         if (typeof soakTimerRestore === 'function') soakTimerRestore();
 
         // ═══ Firebase Cloud Sync (optional) ═══
@@ -1481,6 +1487,15 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ [R3-M9] Onboarding tour — first visit ═══
         if (!localStorage.getItem('kia_tour_done')) {
             setTimeout(function() { if (typeof startTour === 'function') startTour(); }, 1500);
+        }
+
+        // [R5-M1] Finalize splash
+        if (typeof splashUpdate === 'function') splashUpdate('Listo', 100);
+        setTimeout(function() { if (typeof splashHide === 'function') splashHide(); }, 400);
+
+        // [R5-M1] Restore immersive mode if previously active
+        if (localStorage.getItem('kia_immersive_prefs') === '1') {
+            setTimeout(function() { immersiveEnter(); }, 600);
         }
         }
 
@@ -2269,4 +2284,411 @@ function _cleanTourHighlight() {
         el.classList.remove('tour-highlight');
         el.style.zIndex = '';
     });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M2] Auto-Save Engine (on blur / visibility change)
+// ══════════════════════════════════════════════════════════════════════
+
+var _autoSaveRegistry = {};
+
+/**
+ * Register a module for auto-save on blur.
+ * @param {string} module - Module id (e.g. 'cop15')
+ * @param {Function} saveFn - The save function to call
+ * @param {Function} dirtyFn - Returns true if there are unsaved changes
+ */
+function autoSaveInit(module, saveFn, dirtyFn) {
+    _autoSaveRegistry[module] = { saveFn: saveFn, dirtyFn: dirtyFn, lastSaveTs: 0 };
+}
+
+function autoSaveDestroy(module) {
+    delete _autoSaveRegistry[module];
+}
+
+function _autoSaveFlush(source) {
+    Object.keys(_autoSaveRegistry).forEach(function(mod) {
+        var reg = _autoSaveRegistry[mod];
+        if (reg.dirtyFn && reg.dirtyFn()) {
+            reg.saveFn();
+            reg.lastSaveTs = Date.now();
+            _autoSaveIndicator(mod);
+        }
+    });
+}
+
+function _autoSaveIndicator(module) {
+    var ind = document.getElementById('autosave-indicator');
+    if (!ind) {
+        ind = document.createElement('div');
+        ind.id = 'autosave-indicator';
+        ind.className = 'autosave-indicator';
+        document.body.appendChild(ind);
+    }
+    var now = new Date();
+    var timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    ind.textContent = '✓ Guardado ' + timeStr;
+    ind.classList.remove('autosave-show');
+    void ind.offsetWidth;
+    ind.classList.add('autosave-show');
+}
+
+// Listen for visibility change and window blur
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') _autoSaveFlush('visibilitychange');
+});
+window.addEventListener('blur', function() { _autoSaveFlush('windowblur'); });
+window.addEventListener('beforeunload', function(e) {
+    var dirty = Object.keys(_autoSaveRegistry).some(function(mod) {
+        return _autoSaveRegistry[mod].dirtyFn && _autoSaveRegistry[mod].dirtyFn();
+    });
+    if (dirty) {
+        _autoSaveFlush('beforeunload');
+    }
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M8] Templates & Quick Presets — Unified Template Engine
+// ══════════════════════════════════════════════════════════════════════
+
+var _templates = safeParse('kia_templates', { cop15: [], results: [], inventory: [] });
+
+function templateSave(module, name, data) {
+    if (!_templates[module]) _templates[module] = [];
+    // Check limit
+    if (_templates[module].length >= 20) {
+        // Remove least used
+        _templates[module].sort(function(a, b) { return (a.usageCount || 0) - (b.usageCount || 0); });
+        _templates[module].shift();
+    }
+    _templates[module].push({
+        id: 'tpl_' + Date.now(),
+        name: name,
+        data: data,
+        usageCount: 0,
+        createdAt: new Date().toISOString()
+    });
+    _templatesPersist();
+    showToast('Plantilla "' + name + '" guardada', 'success');
+}
+
+function templateApply(module, templateId) {
+    var tpl = (_templates[module] || []).find(function(t) { return t.id === templateId; });
+    if (!tpl) { showToast('Plantilla no encontrada', 'error'); return null; }
+    tpl.usageCount = (tpl.usageCount || 0) + 1;
+    _templatesPersist();
+    return tpl.data;
+}
+
+function templateDelete(module, templateId) {
+    if (!_templates[module]) return;
+    _templates[module] = _templates[module].filter(function(t) { return t.id !== templateId; });
+    _templatesPersist();
+    showToast('Plantilla eliminada', 'info');
+}
+
+function templateGetAll(module) {
+    return (_templates[module] || []).sort(function(a, b) { return (b.usageCount || 0) - (a.usageCount || 0); });
+}
+
+function _templatesPersist() {
+    localStorage.setItem('kia_templates', JSON.stringify(_templates));
+}
+
+/**
+ * Render a template manager modal for a given module.
+ */
+function templateRenderManager(module, applyCallback) {
+    var list = templateGetAll(module);
+    var html = '<div style="max-height:50vh;overflow-y:auto;">';
+    if (list.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;">No hay plantillas guardadas</div>';
+    } else {
+        list.forEach(function(tpl) {
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #1e293b;">';
+            html += '<div>';
+            html += '<div style="font-size:12px;font-weight:700;color:#e2e8f0;">' + escapeHtml(tpl.name) + '</div>';
+            html += '<div style="font-size:9px;color:#64748b;">Usado ' + (tpl.usageCount || 0) + 'x · ' + new Date(tpl.createdAt).toLocaleDateString('es-MX') + '</div>';
+            html += '</div>';
+            html += '<div style="display:flex;gap:6px;">';
+            html += '<button onclick="var d=templateApply(\'' + module + '\',\'' + tpl.id + '\');if(d && typeof ' + (applyCallback || 'null') + '===\'function\') ' + (applyCallback || 'null') + '(d);closeModal();" class="btn-primary" style="padding:4px 12px;font-size:10px;">Aplicar</button>';
+            html += '<button onclick="templateDelete(\'' + module + '\',\'' + tpl.id + '\');templateRenderManager(\'' + module + '\',\'' + (applyCallback || '') + '\');" style="padding:4px 8px;font-size:10px;background:none;border:1px solid #ef4444;color:#ef4444;border-radius:4px;cursor:pointer;">✕</button>';
+            html += '</div></div>';
+        });
+    }
+    html += '</div>';
+    showModal(html, 'Plantillas — ' + module.toUpperCase());
+}
+
+/**
+ * Render quick-access preset buttons for a module.
+ * @param {string} module - Module name
+ * @param {string} containerId - Element to insert buttons into
+ * @param {string} applyCallback - Function name to call with template data
+ */
+function templateRenderQuickButtons(module, containerId, applyCallback) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var list = templateGetAll(module).slice(0, 5); // Top 5 by usage
+    if (list.length === 0) return;
+
+    var existing = container.querySelector('.tpl-quick-bar');
+    if (existing) existing.remove();
+
+    var bar = document.createElement('div');
+    bar.className = 'tpl-quick-bar';
+    list.forEach(function(tpl) {
+        var btn = document.createElement('button');
+        btn.className = 'tpl-quick-btn';
+        btn.textContent = tpl.name;
+        btn.title = 'Aplicar plantilla: ' + tpl.name;
+        btn.onclick = function() {
+            var data = templateApply(module, tpl.id);
+            if (data && typeof window[applyCallback] === 'function') window[applyCallback](data);
+        };
+        bar.appendChild(btn);
+    });
+    container.insertBefore(bar, container.firstChild);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M1] Immersive Mode — App-like fullscreen experience
+// ══════════════════════════════════════════════════════════════════════
+
+var _immersiveActive = false;
+
+function immersiveToggle() {
+    _immersiveActive ? immersiveExit() : immersiveEnter();
+}
+
+function immersiveEnter() {
+    _immersiveActive = true;
+    document.body.classList.add('immersive-mode');
+    // Request fullscreen
+    var docEl = document.documentElement;
+    if (docEl.requestFullscreen) docEl.requestFullscreen().catch(function(){});
+    else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+    // Update button
+    var btn = document.getElementById('immersive-toggle-btn');
+    if (btn) btn.innerHTML = '⛶';
+    localStorage.setItem('kia_immersive_prefs', '1');
+    showToast('Modo App activado', 'success');
+}
+
+function immersiveExit() {
+    _immersiveActive = false;
+    document.body.classList.remove('immersive-mode');
+    if (document.exitFullscreen) document.exitFullscreen().catch(function(){});
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    var btn = document.getElementById('immersive-toggle-btn');
+    if (btn) btn.innerHTML = '⛶';
+    localStorage.removeItem('kia_immersive_prefs');
+}
+
+// Auto-collapse header on scroll down, reveal on scroll up
+(function() {
+    var lastScrollY = 0;
+    var ticking = false;
+    window.addEventListener('scroll', function() {
+        if (!_immersiveActive) return;
+        if (!ticking) {
+            requestAnimationFrame(function() {
+                var bar = document.querySelector('.platform-bar');
+                if (!bar) return;
+                var currentY = window.scrollY;
+                if (currentY > lastScrollY && currentY > 80) {
+                    bar.classList.add('header-hidden');
+                } else {
+                    bar.classList.remove('header-hidden');
+                }
+                lastScrollY = currentY;
+                ticking = false;
+            });
+            ticking = true;
+        }
+    });
+})();
+
+// Listen for fullscreen exit (ESC key) to sync state
+document.addEventListener('fullscreenchange', function() {
+    if (!document.fullscreenElement && _immersiveActive) {
+        immersiveExit();
+    }
+});
+
+// ── Splash Screen ──
+function splashShow() {
+    var splash = document.getElementById('splash-screen');
+    if (!splash) {
+        splash = document.createElement('div');
+        splash.id = 'splash-screen';
+        splash.className = 'splash-screen';
+        splash.innerHTML =
+            '<div class="splash-content">' +
+            '<div class="splash-logo">KIA</div>' +
+            '<div class="splash-subtitle">Laboratorio de Emisiones</div>' +
+            '<div class="splash-bar-track"><div class="splash-bar-fill" id="splash-progress"></div></div>' +
+            '<div class="splash-status" id="splash-status">Iniciando...</div>' +
+            '</div>';
+        document.body.appendChild(splash);
+    }
+    splash.style.display = 'flex';
+}
+
+function splashUpdate(msg, pct) {
+    var statusEl = document.getElementById('splash-status');
+    var progressEl = document.getElementById('splash-progress');
+    if (statusEl) statusEl.textContent = msg;
+    if (progressEl) progressEl.style.width = pct + '%';
+}
+
+function splashHide() {
+    var splash = document.getElementById('splash-screen');
+    if (!splash) return;
+    splash.classList.add('splash-exit');
+    setTimeout(function() { splash.style.display = 'none'; }, 500);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M4] Micro-Animations & Visual Polish — JS Helpers
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Animate a number counting from `from` to `to` inside an element.
+ * @param {HTMLElement} el - The element to animate
+ * @param {number} to - Target value
+ * @param {object} [opts] - Options: duration (ms), suffix (e.g. '%'), decimals
+ */
+function animateCounter(el, to, opts) {
+    if (!el) return;
+    opts = opts || {};
+    var duration = opts.duration || 800;
+    var suffix = opts.suffix || '';
+    var decimals = opts.decimals || 0;
+    var from = parseFloat(el.dataset.animValue) || 0;
+    el.dataset.animValue = to;
+
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        el.textContent = (decimals > 0 ? to.toFixed(decimals) : Math.round(to)) + suffix;
+        return;
+    }
+
+    var startTime = null;
+    function step(ts) {
+        if (!startTime) startTime = ts;
+        var progress = Math.min((ts - startTime) / duration, 1);
+        var eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+        var current = from + (to - from) * eased;
+        el.textContent = (decimals > 0 ? current.toFixed(decimals) : Math.round(current)) + suffix;
+        if (progress < 1) {
+            requestAnimationFrame(step);
+        } else {
+            if (from !== to) el.classList.add('anim-counter-bounce');
+            setTimeout(function(){ el.classList.remove('anim-counter-bounce'); }, 500);
+        }
+    }
+    requestAnimationFrame(step);
+}
+
+/**
+ * Apply staggered fade-in animation to child elements of a container.
+ * @param {HTMLElement} container - Parent element
+ * @param {string} [selector] - Child selector (default: direct children)
+ * @param {number} [delayMs] - Delay between items in ms (default: 40)
+ */
+function animateStaggerChildren(container, selector, delayMs) {
+    if (!container || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    delayMs = delayMs || 40;
+    var children = selector ? container.querySelectorAll(selector) : container.children;
+    for (var i = 0; i < children.length; i++) {
+        children[i].classList.add('anim-stagger');
+        children[i].style.animationDelay = (i * delayMs) + 'ms';
+    }
+}
+
+/**
+ * Flash-highlight an element as newly inserted.
+ */
+function animateInsert(el) {
+    if (!el || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    el.classList.add('anim-flash-insert');
+    setTimeout(function(){ el.classList.remove('anim-flash-insert'); }, 1000);
+}
+
+/**
+ * Animate removal of an element (slide-out then remove from DOM).
+ */
+function animateRemove(el, callback) {
+    if (!el) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        if (el.parentNode) el.parentNode.removeChild(el);
+        if (callback) callback();
+        return;
+    }
+    el.classList.add('anim-remove');
+    el.addEventListener('animationend', function() {
+        if (el.parentNode) el.parentNode.removeChild(el);
+        if (callback) callback();
+    }, { once: true });
+}
+
+/**
+ * Show confetti burst at a position (CSS-only, lightweight).
+ * @param {number} [x] - Center X (default: viewport center)
+ * @param {number} [y] - Center Y (default: viewport center)
+ */
+function animateConfetti(x, y) {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var container = document.createElement('div');
+    container.className = 'anim-confetti-container';
+    if (x !== undefined && y !== undefined) {
+        container.style.left = x + 'px';
+        container.style.top = y + 'px';
+    }
+    var colors = ['#ef4444','#3b82f6','#10b981','#f59e0b','#8b5cf6','#06b6d4'];
+    for (var i = 0; i < 6; i++) {
+        var p = document.createElement('div');
+        p.className = 'anim-confetti-particle';
+        p.style.backgroundColor = colors[i];
+        p.style.setProperty('--cx', (Math.random() * 120 - 60) + 'px');
+        p.style.setProperty('--cy', (Math.random() * -100 - 30) + 'px');
+        p.style.setProperty('--cr', (Math.random() * 720 - 360) + 'deg');
+        p.style.animationDelay = (i * 50) + 'ms';
+        container.appendChild(p);
+    }
+    document.body.appendChild(container);
+    setTimeout(function(){ if (container.parentNode) container.parentNode.removeChild(container); }, 1800);
+}
+
+/**
+ * Show skeleton loading placeholders in a container.
+ * @param {HTMLElement} container - Where to show skeletons
+ * @param {number} [count] - Number of skeleton items (default: 3)
+ */
+function skeletonShow(container, count) {
+    if (!container) return;
+    count = count || 3;
+    var html = '';
+    for (var i = 0; i < count; i++) {
+        html += '<div class="skeleton skeleton-card" style="animation-delay:' + (i * 100) + 'ms;"></div>';
+    }
+    container.innerHTML = html;
+}
+
+/**
+ * Build a progress ring SVG string.
+ * @param {number} pct - Percentage 0-100
+ * @param {number} size - SVG size in px
+ * @param {string} color - Stroke color
+ * @returns {string} SVG HTML
+ */
+function buildProgressRing(pct, size, color) {
+    var r = (size - 6) / 2;
+    var c = Math.PI * 2 * r;
+    var offset = c - (pct / 100) * c;
+    return '<svg width="' + size + '" height="' + size + '" style="display:block;">' +
+        '<circle cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="4"/>' +
+        '<circle class="progress-ring-circle" cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + offset + '"/>' +
+        '<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" fill="' + color + '" font-size="' + Math.round(size/3.5) + '" font-weight="800">' + Math.round(pct) + '%</text>' +
+        '</svg>';
 }

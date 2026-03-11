@@ -51,6 +51,7 @@ function pnRender() {
     else if (tab === 'pn-alerts') pnRenderAlerts(el);
     else if (tab === 'pn-intelligence') pnRenderIntelligence(el);
     else if (tab === 'pn-system') pnRenderSystemHealth(el);
+    else if (tab === 'pn-calendar') pnRenderCalendar(el);
 }
 
 function pnUpdateBadges() {
@@ -135,38 +136,22 @@ function pnRenderDashboard(el) {
     }
     html += '</div></div>';
 
-    // KPI grid
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px;">';
-
-    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
-    html += '<div style="font-size:24px;font-weight:800;color:#3b82f6;">' + activeVehicles.length + '</div>';
-    html += '<div style="font-size:9px;color:var(--tp-dim);">Vehiculos Activos</div>';
-    html += '</div>';
-
-    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
-    html += '<div style="font-size:24px;font-weight:800;color:#10b981;">' + archivedToday.length + '</div>';
-    html += '<div style="font-size:9px;color:var(--tp-dim);">Liberados Hoy</div>';
-    html += '</div>';
-
-    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
-    html += '<div style="font-size:24px;font-weight:800;color:#f59e0b;">' + tpPct + '%</div>';
-    html += '<div style="font-size:9px;color:var(--tp-dim);">Plan Semanal</div>';
-    html += '</div>';
-
-    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
-    html += '<div style="font-size:24px;font-weight:800;color:#8b5cf6;">' + raTests.length + '</div>';
-    html += '<div style="font-size:9px;color:var(--tp-dim);">Pruebas Results</div>';
-    html += '</div>';
-
-    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
-    html += '<div style="font-size:24px;font-weight:800;color:' + (lowGases.length > 0 ? '#ef4444' : '#10b981') + ';">' + lowGases.length + '</div>';
-    html += '<div style="font-size:9px;color:var(--tp-dim);">Gases Bajos</div>';
-    html += '</div>';
-
-    html += '<div class="tp-card" style="text-align:center;padding:12px;">';
-    html += '<div style="font-size:24px;font-weight:800;color:#06b6d4;">' + pnState.operators.filter(function(o) { return o.active; }).length + '</div>';
-    html += '<div style="font-size:9px;color:var(--tp-dim);">Operadores</div>';
-    html += '</div>';
+    // KPI grid [R5-M4] with animated counters
+    var _kpiData = [
+        { value: activeVehicles.length, label: 'Vehiculos Activos', color: '#3b82f6' },
+        { value: archivedToday.length, label: 'Liberados Hoy', color: '#10b981' },
+        { value: tpPct, label: 'Plan Semanal', color: '#f59e0b', suffix: '%' },
+        { value: raTests.length, label: 'Pruebas Results', color: '#8b5cf6' },
+        { value: lowGases.length, label: 'Gases Bajos', color: lowGases.length > 0 ? '#ef4444' : '#10b981' },
+        { value: pnState.operators.filter(function(o) { return o.active; }).length, label: 'Operadores', color: '#06b6d4' }
+    ];
+    html += '<div id="pn-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px;">';
+    _kpiData.forEach(function(kpi, idx) {
+        html += '<div class="tp-card anim-card-hover" style="text-align:center;padding:12px;">';
+        html += '<div class="pn-kpi-num" data-kpi-idx="' + idx + '" data-kpi-target="' + kpi.value + '" data-kpi-suffix="' + (kpi.suffix || '') + '" style="font-size:24px;font-weight:800;color:' + kpi.color + ';">0</div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);">' + kpi.label + '</div>';
+        html += '</div>';
+    });
     html += '</div>';
 
     // Vehicle pipeline
@@ -351,6 +336,17 @@ function pnRenderDashboard(el) {
     html += '<div id="backupHealthContainer"></div>';
 
     el.innerHTML = html;
+
+    // [R5-M4] Animate KPI counters
+    document.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
+        var target = parseFloat(numEl.dataset.kpiTarget) || 0;
+        var suffix = numEl.dataset.kpiSuffix || '';
+        animateCounter(numEl, target, { suffix: suffix });
+    });
+
+    // [R5-M4] Stagger KPI cards
+    var kpiGrid = document.getElementById('pn-kpi-grid');
+    if (kpiGrid) animateStaggerChildren(kpiGrid, '.tp-card', 60);
 
     // Render lab dashboard
     var labEl = document.getElementById('labDashContainer');
@@ -579,6 +575,14 @@ function pnRenderShiftLog(el) {
     var categories = ['Inicio de turno', 'Prueba completada', 'Incidencia', 'Mantenimiento', 'Calibración', 'Observación', 'Fin de turno'];
 
     var html = '';
+
+    // [R5-M6] Shift report button
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
+    html += '<button class="tp-btn tp-btn-primary" onclick="pnGenerateShiftReport()" style="font-size:11px;">🔄 Cerrar Turno</button>';
+    if (pnState.shiftReports && pnState.shiftReports.length > 0) {
+        html += '<button class="tp-btn tp-btn-ghost" onclick="pnShowTurnoverOnLogin()" style="font-size:11px;">📋 Último Reporte</button>';
+    }
+    html += '</div>';
 
     // New entry form
     html += '<div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">';
@@ -1365,4 +1369,396 @@ function pnPurgeOldData(module, maxDays) {
         showToast('Eliminados ' + count + ' registros de ' + module, count > 0 ? 'success' : 'info');
         pnRenderSystemHealth(document.getElementById('pn-content'));
     });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M7] Unified Calendar — Cross-module event aggregation
+// ══════════════════════════════════════════════════════════════════════
+
+var _calYear, _calMonth;
+
+function pnRenderCalendar(el) {
+    if (!_calYear) { var d = new Date(); _calYear = d.getFullYear(); _calMonth = d.getMonth(); }
+
+    var events = _pnCollectCalendarEvents(_calYear, _calMonth);
+    var html = '<div class="tp-card" style="padding:16px;">';
+
+    // Header with nav
+    var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+    html += '<button onclick="_pnCalendarNav(-1)" class="btn-secondary" style="padding:4px 12px;">←</button>';
+    html += '<span style="font-size:14px;font-weight:800;color:var(--tp-text);">' + monthNames[_calMonth] + ' ' + _calYear + '</span>';
+    html += '<div style="display:flex;gap:6px;">';
+    html += '<button onclick="_pnCalendarToday()" class="btn-secondary" style="padding:4px 10px;font-size:10px;">Hoy</button>';
+    html += '<button onclick="_pnCalendarNav(1)" class="btn-secondary" style="padding:4px 12px;">→</button>';
+    html += '</div></div>';
+
+    // Day headers
+    var dayNames = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+    html += '<div class="cal-grid">';
+    dayNames.forEach(function(d) {
+        html += '<div class="cal-header">' + d + '</div>';
+    });
+
+    // Build calendar grid
+    var firstDay = new Date(_calYear, _calMonth, 1);
+    var lastDay = new Date(_calYear, _calMonth + 1, 0);
+    var startWeekday = (firstDay.getDay() + 6) % 7; // Monday = 0
+    var today = new Date();
+    var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+
+    // Empty cells before first day
+    for (var e = 0; e < startWeekday; e++) {
+        html += '<div class="cal-cell cal-empty"></div>';
+    }
+
+    // Day cells
+    for (var day = 1; day <= lastDay.getDate(); day++) {
+        var dateStr = _calYear + '-' + String(_calMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+        var dayEvents = events.filter(function(ev) { return ev.date === dateStr; });
+        var isToday = dateStr === todayStr;
+
+        html += '<div class="cal-cell' + (isToday ? ' cal-today' : '') + '" onclick="_pnCalendarDayClick(\'' + dateStr + '\')">';
+        html += '<div class="cal-day-num">' + day + '</div>';
+
+        if (dayEvents.length > 0) {
+            html += '<div class="cal-dots">';
+            // Show up to 3 dots
+            var shown = {};
+            dayEvents.slice(0, 3).forEach(function(ev) {
+                if (!shown[ev.color]) {
+                    html += '<span class="cal-dot" style="background:' + ev.color + ';"></span>';
+                    shown[ev.color] = true;
+                }
+            });
+            if (dayEvents.length > 3) html += '<span style="font-size:7px;color:var(--tp-dim);">+' + (dayEvents.length - 3) + '</span>';
+            html += '</div>';
+        }
+        html += '</div>';
+    }
+
+    html += '</div>';
+
+    // Week summary
+    var thisWeekEvents = _pnCalendarWeekSummary(events);
+    if (thisWeekEvents) {
+        html += '<div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;font-size:10px;color:var(--tp-dim);">';
+        html += '<strong style="color:var(--tp-text);">Esta semana:</strong> ' + thisWeekEvents;
+        html += '</div>';
+    }
+
+    // Legend
+    html += '<div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap;">';
+    [{ color: '#ef4444', label: 'Vencido/Agotado' }, { color: '#f59e0b', label: 'Próximo' }, { color: '#3b82f6', label: 'Planificado' }, { color: '#10b981', label: 'Release/Completado' }].forEach(function(l) {
+        html += '<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--tp-dim);"><span style="width:8px;height:8px;border-radius:50%;background:' + l.color + ';display:inline-block;"></span> ' + l.label + '</div>';
+    });
+    html += '</div></div>';
+
+    el.innerHTML = html;
+}
+
+function _pnCollectCalendarEvents(year, month) {
+    var events = [];
+    var monthStart = new Date(year, month, 1);
+    var monthEnd = new Date(year, month + 1, 0);
+
+    // Equipment calibrations
+    if (typeof invState !== 'undefined' && invState.equipment) {
+        invState.equipment.forEach(function(eq) {
+            if (!eq.nextCalDate) return;
+            var d = new Date(eq.nextCalDate);
+            if (d >= monthStart && d <= monthEnd) {
+                var dateStr = eq.nextCalDate.slice(0, 10);
+                var isPast = d < new Date();
+                events.push({
+                    date: dateStr,
+                    type: 'calibration',
+                    color: isPast ? '#ef4444' : '#f59e0b',
+                    label: (isPast ? '⚠ Cal vencida: ' : '🔧 Cal: ') + (eq.name || eq.id),
+                    module: 'Inventario'
+                });
+            }
+        });
+    }
+
+    // Gas depletion predictions (approximate)
+    if (typeof invState !== 'undefined' && invState.gases) {
+        invState.gases.forEach(function(g) {
+            if (g.status !== 'active' || !g.readings || g.readings.length < 2) return;
+            var last2 = g.readings.slice(-2);
+            var rate = (last2[0].psi || last2[0].value || 0) - (last2[1].psi || last2[1].value || 0);
+            if (rate <= 0) return;
+            var current = last2[1].psi || last2[1].value || 0;
+            var daysLeft = current / rate;
+            if (daysLeft > 60) return;
+            var depDate = new Date();
+            depDate.setDate(depDate.getDate() + Math.round(daysLeft));
+            if (depDate >= monthStart && depDate <= monthEnd) {
+                var dateStr = depDate.toISOString().slice(0, 10);
+                events.push({
+                    date: dateStr,
+                    type: 'gas_depletion',
+                    color: daysLeft < 7 ? '#ef4444' : '#f59e0b',
+                    label: '⛽ Gas agota: ' + (g.controlNo || g.gasType || g.id),
+                    module: 'Inventario'
+                });
+            }
+        });
+    }
+
+    // Test plan items
+    if (typeof tpState !== 'undefined' && tpState.weeklyPlans) {
+        tpState.weeklyPlans.forEach(function(plan) {
+            if (!plan.weekStart) return;
+            var ws = new Date(plan.weekStart);
+            // Show each day of the week
+            for (var i = 0; i < 5; i++) {
+                var d = new Date(ws);
+                d.setDate(d.getDate() + i);
+                if (d >= monthStart && d <= monthEnd) {
+                    var dateStr = d.toISOString().slice(0, 10);
+                    var pending = (plan.items || []).filter(function(it) { return !it.completed; }).length;
+                    if (pending > 0) {
+                        events.push({
+                            date: dateStr,
+                            type: 'test_plan',
+                            color: '#3b82f6',
+                            label: '🧪 ' + pending + ' pruebas plan semanal',
+                            module: 'Test Plan'
+                        });
+                    }
+                }
+            }
+        });
+    }
+
+    // Vehicle release estimates
+    if (typeof db !== 'undefined' && db.vehicles) {
+        db.vehicles.forEach(function(v) {
+            if (v.status === 'archived') return;
+            if (v.status === 'ready-release') {
+                // Expected release today or soon
+                var d = new Date();
+                if (d >= monthStart && d <= monthEnd) {
+                    events.push({
+                        date: d.toISOString().slice(0, 10),
+                        type: 'release',
+                        color: '#10b981',
+                        label: '🏁 Listo: VIN ...' + (v.vin || '').slice(-6),
+                        module: 'COP15'
+                    });
+                }
+            }
+        });
+    }
+
+    return events;
+}
+
+function _pnCalendarDayClick(dateStr) {
+    var events = _pnCollectCalendarEvents(_calYear, _calMonth);
+    var dayEvents = events.filter(function(ev) { return ev.date === dateStr; });
+    if (dayEvents.length === 0) {
+        showToast('Sin eventos para ' + dateStr, 'info');
+        return;
+    }
+    var html = '<div style="max-height:40vh;overflow-y:auto;">';
+    dayEvents.forEach(function(ev) {
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #1e293b;">';
+        html += '<span style="width:8px;height:8px;border-radius:50%;background:' + ev.color + ';flex-shrink:0;"></span>';
+        html += '<div>';
+        html += '<div style="font-size:12px;font-weight:600;color:var(--tp-text);">' + ev.label + '</div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);">' + ev.module + '</div>';
+        html += '</div></div>';
+    });
+    html += '</div>';
+    showModal(html, 'Eventos — ' + dateStr);
+}
+
+function _pnCalendarNav(dir) {
+    _calMonth += dir;
+    if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+    if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+    pnRender();
+}
+
+function _pnCalendarToday() {
+    var d = new Date();
+    _calYear = d.getFullYear();
+    _calMonth = d.getMonth();
+    pnRender();
+}
+
+function _pnCalendarWeekSummary(events) {
+    var now = new Date();
+    var dayOfWeek = (now.getDay() + 6) % 7;
+    var weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - dayOfWeek);
+    var weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    var weekStartStr = weekStart.toISOString().slice(0, 10);
+    var weekEndStr = weekEnd.toISOString().slice(0, 10);
+
+    var weekEvents = events.filter(function(ev) { return ev.date >= weekStartStr && ev.date <= weekEndStr; });
+    if (weekEvents.length === 0) return '';
+
+    var counts = {};
+    weekEvents.forEach(function(ev) { counts[ev.type] = (counts[ev.type] || 0) + 1; });
+    var parts = [];
+    if (counts.calibration) parts.push(counts.calibration + ' calibraciones');
+    if (counts.test_plan) parts.push(counts.test_plan + ' pruebas');
+    if (counts.gas_depletion) parts.push(counts.gas_depletion + ' gases');
+    if (counts.release) parts.push(counts.release + ' releases');
+    return parts.join(', ');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M6] Structured Shift Report
+// ══════════════════════════════════════════════════════════════════════
+
+function pnGenerateShiftReport() {
+    var report = _pnCollectTurnoverData();
+    report.id = 'sr_' + Date.now();
+    report.timestamp = new Date().toISOString();
+    report.operator = pnState.currentOperator || 'Sistema';
+
+    // Prompt for notes
+    var notes = prompt('Notas del turno (opcional):');
+    report.notes = notes || '';
+
+    // Save
+    if (!pnState.shiftReports) pnState.shiftReports = [];
+    pnState.shiftReports.unshift(report);
+    if (pnState.shiftReports.length > 30) pnState.shiftReports = pnState.shiftReports.slice(0, 30);
+    pnSave();
+
+    // Show report
+    pnRenderShiftReport(report);
+    showToast('Reporte de turno generado', 'success');
+}
+
+function _pnCollectTurnoverData() {
+    var data = {
+        vehiclesInProgress: [],
+        pendingTests: 0,
+        activeAlerts: [],
+        gasesLow: [],
+        turnoStats: { completed: 0, released: 0 }
+    };
+
+    // Vehicles in progress
+    if (typeof db !== 'undefined' && db.vehicles) {
+        data.vehiclesInProgress = db.vehicles.filter(function(v) {
+            return v.status !== 'archived';
+        }).map(function(v) {
+            return {
+                vin: (v.vin || '').slice(-8),
+                status: v.status,
+                model: v.config ? v.config.Modelo : '',
+                purpose: v.purpose || ''
+            };
+        });
+        data.turnoStats.released = db.vehicles.filter(function(v) {
+            return v.status === 'archived' && v.archivedAt &&
+                   new Date(v.archivedAt).toDateString() === new Date().toDateString();
+        }).length;
+    }
+
+    // Pending tests
+    if (typeof tpState !== 'undefined' && tpState.weeklyPlans && tpState.weeklyPlans.length > 0) {
+        var latest = tpState.weeklyPlans[tpState.weeklyPlans.length - 1];
+        data.pendingTests = (latest.items || []).filter(function(it) { return !it.completed; }).length;
+    }
+
+    // Low gases
+    if (typeof invState !== 'undefined' && invState.gases) {
+        data.gasesLow = invState.gases.filter(function(g) {
+            if (g.status !== 'active' || !g.readings || g.readings.length === 0) return false;
+            var last = g.readings[g.readings.length - 1];
+            return (last.psi || last.value || 999) < 200;
+        }).map(function(g) {
+            return { controlNo: g.controlNo, gasType: g.gasType, psi: g.readings[g.readings.length - 1].psi || g.readings[g.readings.length - 1].value };
+        });
+    }
+
+    return data;
+}
+
+function pnRenderShiftReport(report) {
+    var html = '<div style="max-height:60vh;overflow-y:auto;">';
+
+    // Header
+    html += '<div style="text-align:center;margin-bottom:16px;">';
+    html += '<div style="font-size:12px;color:var(--tp-dim);">' + new Date(report.timestamp).toLocaleString('es-MX') + '</div>';
+    html += '<div style="font-size:11px;color:var(--tp-dim);margin-top:2px;">Operador: ' + escapeHtml(report.operator) + '</div>';
+    html += '</div>';
+
+    // KPIs
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">';
+    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:#3b82f6;">' + report.vehiclesInProgress.length + '</div><div style="font-size:8px;color:var(--tp-dim);">En progreso</div></div>';
+    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:#f59e0b;">' + report.pendingTests + '</div><div style="font-size:8px;color:var(--tp-dim);">Pruebas pend.</div></div>';
+    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:' + (report.gasesLow.length > 0 ? '#ef4444' : '#10b981') + ';">' + report.gasesLow.length + '</div><div style="font-size:8px;color:var(--tp-dim);">Gases bajos</div></div>';
+    html += '</div>';
+
+    // Vehicles in progress
+    if (report.vehiclesInProgress.length > 0) {
+        html += '<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;color:var(--tp-text);margin-bottom:6px;">Vehículos activos:</div>';
+        report.vehiclesInProgress.forEach(function(v) {
+            var statusColor = v.status === 'testing' ? '#8b5cf6' : v.status === 'ready-release' ? '#10b981' : '#f59e0b';
+            html += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:10px;border-bottom:1px solid #1e293b;">';
+            html += '<span style="color:var(--tp-text);">...' + v.vin + ' ' + (v.model || '') + '</span>';
+            html += '<span style="color:' + statusColor + ';font-weight:700;">' + v.status + '</span>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // Gases low
+    if (report.gasesLow.length > 0) {
+        html += '<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:6px;">⚠ Gases con presión baja:</div>';
+        report.gasesLow.forEach(function(g) {
+            html += '<div style="font-size:10px;color:var(--tp-dim);padding:2px 0;">' + escapeHtml(g.controlNo) + ' (' + escapeHtml(g.gasType) + '): ' + g.psi + ' PSI</div>';
+        });
+        html += '</div>';
+    }
+
+    // Notes
+    if (report.notes) {
+        html += '<div style="margin-bottom:12px;padding:8px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid var(--tp-border);font-size:10px;color:var(--tp-dim);"><strong style="color:var(--tp-text);">Notas:</strong> ' + escapeHtml(report.notes) + '</div>';
+    }
+
+    html += '<div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">';
+    html += '<button onclick="_pnShiftReportCopy(' + report.id.replace('sr_', '') + ')" class="btn-secondary" style="padding:6px 14px;font-size:10px;">📋 Copiar</button>';
+    html += '<button onclick="closeModal()" class="btn-primary" style="padding:6px 14px;font-size:10px;">Cerrar</button>';
+    html += '</div></div>';
+
+    showModal(html, 'Reporte de Turno');
+}
+
+function _pnShiftReportCopy(tsId) {
+    var report = (pnState.shiftReports || []).find(function(r) { return r.id === 'sr_' + tsId; });
+    if (!report) return;
+    var text = 'REPORTE DE TURNO\n';
+    text += 'Fecha: ' + new Date(report.timestamp).toLocaleString('es-MX') + '\n';
+    text += 'Operador: ' + report.operator + '\n\n';
+    text += 'Vehículos en progreso: ' + report.vehiclesInProgress.length + '\n';
+    text += 'Pruebas pendientes: ' + report.pendingTests + '\n';
+    text += 'Gases bajos: ' + report.gasesLow.length + '\n';
+    if (report.notes) text += '\nNotas: ' + report.notes + '\n';
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text);
+        showToast('Reporte copiado al portapapeles', 'success');
+    }
+}
+
+/** Show last shift report on login */
+function pnShowTurnoverOnLogin() {
+    if (!pnState.shiftReports || pnState.shiftReports.length === 0) return;
+    var lastReport = pnState.shiftReports[0];
+    // Only show if report is from today or yesterday
+    var reportDate = new Date(lastReport.timestamp);
+    var hoursDiff = (Date.now() - reportDate.getTime()) / (1000 * 60 * 60);
+    if (hoursDiff > 24) return;
+    pnRenderShiftReport(lastReport);
 }

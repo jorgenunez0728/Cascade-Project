@@ -2,13 +2,13 @@
 // ║  KIA EmLab — COP15 Cascade Module                                 ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-// ── Unsaved Changes Tracking ──
+// ── Unsaved Changes Tracking + Auto-Save [R5-M2] ──
 var _unsavedChanges = false;
 
 function markUnsaved() {
     _unsavedChanges = true;
     var dot = document.getElementById('unsaved-dot');
-    if (dot) dot.style.display = 'inline';
+    if (dot) { dot.style.display = 'inline'; dot.textContent = '●'; }
     var btn = document.getElementById('btn-save');
     if (btn && !btn.classList.contains('btn-unsaved')) {
         btn.classList.add('btn-unsaved');
@@ -27,11 +27,30 @@ function clearUnsaved() {
     }
 }
 
+/** [R5-M2] Silent auto-save: calls saveProgress without UI fanfare */
+function _autoSaveSilent() {
+    if (!activeVehicleId || !_unsavedChanges) return;
+    var vehicle = db.vehicles.find(function(v){ return v.id == activeVehicleId; });
+    if (!vehicle) return;
+    // Save without button animation or toast
+    saveProgress({ silent: true });
+}
+
 function setupUnsavedTracking() {
     var container = document.getElementById('op-content');
     if (!container) return;
     container.addEventListener('input', markUnsaved);
     container.addEventListener('change', markUnsaved);
+    // [R5-M2] Register auto-save on blur/visibility change
+    autoSaveInit('cop15', _autoSaveSilent, function(){ return _unsavedChanges; });
+
+    // [R5-M2] Auto-save when individual fields lose focus (after editing)
+    container.addEventListener('focusout', function(e) {
+        if (_unsavedChanges && e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) {
+            // Small delay to avoid saving mid-tab-navigation between fields
+            setTimeout(function(){ if (_unsavedChanges) _autoSaveSilent(); }, 300);
+        }
+    });
 }
 
 // [M02] FILTRO CASCADA]
@@ -447,14 +466,9 @@ function initCascadeTree() {
 
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
-            // Warn about unsaved changes when leaving Operation tab
+            // [R5-M2] Auto-save silently instead of blocking modal
             if (_unsavedChanges && tab.dataset.tab !== 'seguimiento') {
-                e.stopPropagation();
-                showConfirm('Tienes cambios sin guardar. ¿Salir sin guardar?', function(){
-                    clearUnsaved();
-                    _switchToCop15Tab(tab);
-                }, {title:'Cambios sin guardar', type:'warning', confirmText:'Salir sin guardar'});
-                return;
+                _autoSaveSilent();
             }
             _switchToCop15Tab(tab);
         });
@@ -1375,15 +1389,16 @@ function showMissingPopup(missing) {
 
 
 
-function saveProgress() {
+function saveProgress(opts) {
+  var silent = opts && opts.silent;
   if (!activeVehicleId) {
-    showToast('No hay vehículo seleccionado', 'error');
+    if (!silent) showToast('No hay vehículo seleccionado', 'error');
     return;
   }
 
-  // Save button feedback
+  // Save button feedback (skip in silent/auto-save mode)
   var saveBtn = document.getElementById('btn-save');
-  if (saveBtn) { setBtnLoading(saveBtn, true, 'Guardando...'); }
+  if (saveBtn && !silent) { setBtnLoading(saveBtn, true, 'Guardando...'); }
 
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
   if (!vehicle) return;
@@ -1424,8 +1439,8 @@ function saveProgress() {
     saveDB();
     if ((newStatus === 'testing' || newStatus === 'in-progress') && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
     clearUnsaved();
-    if (saveBtn) { setBtnLoading(saveBtn, false); }
-    showToast('Progreso guardado (formato simple)', 'success');
+    if (saveBtn && !silent) { setBtnLoading(saveBtn, false); }
+    if (!silent) showToast('Progreso guardado (formato simple)', 'success');
     refreshAllLists();
     updateProgressBar();
     return;
@@ -1542,8 +1557,8 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   saveDB();
   if (newStatus === 'testing' && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
   clearUnsaved();
-  if (saveBtn) { setBtnLoading(saveBtn, false); }
-  showToast('Progreso guardado exitosamente', 'success');
+  if (saveBtn && !silent) { setBtnLoading(saveBtn, false); }
+  if (!silent) showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
   updateProgressBar();
 
@@ -1949,6 +1964,8 @@ if (vehicle.status !== 'ready-release') {
                 if (typeof fbPostTestCompleted === 'function') { var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : (vehicle.testData && vehicle.testData.simple && vehicle.testData.simple.resultado ? vehicle.testData.simple.resultado : ''); fbPostTestCompleted(vehicle.vin, _res); }
                 if (typeof fbPostVehicleReleased === 'function') fbPostVehicleReleased(vehicle.vin);
                 showToast('Vehículo liberado. JSON descargado.', 'success');
+                // [R5-M4] Confetti burst on vehicle release
+                if (typeof animateConfetti === 'function') animateConfetti();
             } catch(e) {
                 // Rollback on cross-module error
                 vehicle.status = prevStatus;
@@ -4181,7 +4198,7 @@ function renderKanban() {
                     else purposeBorder = '#0ea5e9';
                 }
 
-                html += '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;border-left:4px solid ' + purposeBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
+                html += '<div class="anim-card-hover" style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;border-left:4px solid ' + purposeBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
                 // VIN + copy + time
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
                 html += '<span style="display:flex;align-items:center;gap:4px;">';
@@ -4235,6 +4252,13 @@ function renderKanban() {
     html += '</div>';
 
     el.innerHTML = html;
+
+    // [R5-M4] Stagger kanban cards
+    if (typeof animateStaggerChildren === 'function') {
+        el.querySelectorAll('[style*="min-width:160px"]').forEach(function(col) {
+            animateStaggerChildren(col, '.anim-card-hover', 40);
+        });
+    }
 }
 
 // ======================================================================
@@ -4446,4 +4470,285 @@ function kanbanGoVehicle(vehicleId, status) {
         var sel = document.getElementById('activeVehSelect');
         if (sel) { sel.value = vehicleId; sel.dispatchEvent(new Event('change')); }
     }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M3] Smart Forms — Progressive Disclosure & Contextual Intelligence
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Show/hide accordion sections based on current vehicle status.
+ * Locked sections show a visual indicator of when they'll unlock.
+ */
+function smartFormApplyByStatus(status) {
+    var sections = [
+        { id: 'acc-recepcion', unlockAt: null, label: 'Siempre visible' },
+        { id: 'acc-precond', unlockAt: 'in-progress', label: 'En Progreso' },
+        { id: 'acc-dyno', unlockAt: 'in-progress', label: 'En Progreso' },
+        { id: 'test-verify-card', unlockAt: 'testing', label: 'En Prueba' }
+    ];
+    var statusOrder = ['registered', 'in-progress', 'testing', 'ready-release'];
+    var currentIdx = statusOrder.indexOf(status);
+
+    sections.forEach(function(sec) {
+        var el = document.getElementById(sec.id);
+        if (!el) return;
+
+        if (!sec.unlockAt) { el.style.display = ''; el.classList.remove('smart-locked'); return; }
+
+        var unlockIdx = statusOrder.indexOf(sec.unlockAt);
+        if (currentIdx >= unlockIdx) {
+            el.style.display = '';
+            el.classList.remove('smart-locked');
+        } else {
+            el.style.display = '';
+            el.classList.add('smart-locked');
+            // Add lock overlay if not already present
+            if (!el.querySelector('.smart-lock-hint')) {
+                var hint = document.createElement('div');
+                hint.className = 'smart-lock-hint';
+                hint.innerHTML = '🔒 Se desbloquea en: ' + sec.label;
+                el.appendChild(hint);
+            }
+        }
+    });
+}
+
+/**
+ * Update completion badges on accordion section headers.
+ */
+function smartFormUpdateBadges() {
+    if (!_reviewSections) return;
+    _reviewSections.forEach(function(sec) {
+        var total = 0, filled = 0;
+        sec.fields.forEach(function(f) {
+            var el = document.getElementById(f.id);
+            if (!el) return;
+            total++;
+            if (el.value && el.value !== '') filled++;
+        });
+        // Find the section's accordion summary
+        var accIds = { 'Recepción': 'acc-recepcion', 'Preacondicionamiento': 'acc-precond', 'Dinamómetro': 'acc-dyno', 'Verificación': 'test-verify-card' };
+        var accId = accIds[sec.title];
+        if (!accId) return;
+        var accEl = document.getElementById(accId);
+        if (!accEl) return;
+        var summary = accEl.querySelector('summary');
+        if (!summary) return;
+
+        var badge = summary.querySelector('.smart-badge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'smart-badge';
+            summary.appendChild(badge);
+        }
+
+        badge.textContent = filled + '/' + total;
+        badge.classList.toggle('smart-badge-complete', filled === total && total > 0);
+        badge.classList.toggle('smart-badge-partial', filled > 0 && filled < total);
+        badge.classList.toggle('smart-badge-empty', filled === 0);
+    });
+}
+
+/**
+ * Suggest smart defaults for common fields based on context.
+ */
+function smartFormSuggestDefaults(vehicle) {
+    if (!vehicle) return;
+    var isEm = isEmissionsPurpose(vehicle.purpose);
+    if (!isEm) return;
+
+    // Precond datetime quick buttons
+    var precondEl = document.getElementById('precond_datetime');
+    if (precondEl && !precondEl.value) {
+        var container = precondEl.parentElement;
+        if (container && !container.querySelector('.smart-quick-btns')) {
+            var wrapper = document.createElement('div');
+            wrapper.className = 'smart-quick-btns';
+
+            var btnYesterday = document.createElement('button');
+            btnYesterday.type = 'button';
+            btnYesterday.className = 'smart-quick-btn';
+            btnYesterday.textContent = 'Ayer 6AM';
+            btnYesterday.onclick = function() {
+                var d = new Date(); d.setDate(d.getDate() - 1); d.setHours(6, 0, 0, 0);
+                precondEl.value = d.toISOString().slice(0, 16);
+                markUnsaved();
+                wrapper.remove();
+            };
+
+            var btnNow = document.createElement('button');
+            btnNow.type = 'button';
+            btnNow.className = 'smart-quick-btn';
+            btnNow.textContent = 'Ahora';
+            btnNow.onclick = function() {
+                precondEl.value = new Date().toISOString().slice(0, 16);
+                markUnsaved();
+                wrapper.remove();
+            };
+
+            wrapper.appendChild(btnYesterday);
+            wrapper.appendChild(btnNow);
+            container.appendChild(wrapper);
+        }
+    }
+
+    // Auto-fill from CSV_CONFIGURATIONS if unique values exist
+    if (vehicle.config) {
+        var etw = vehicle.config['ETW'] || vehicle.config['etw'];
+        var tA = vehicle.config['Target A'] || vehicle.config['targetA'];
+        var tB = vehicle.config['Target B'] || vehicle.config['targetB'];
+        var tC = vehicle.config['Target C'] || vehicle.config['targetC'];
+        var dynoFields = [
+            { id: 'etw', val: etw },
+            { id: 'tA', val: tA },
+            { id: 'tB', val: tB },
+            { id: 'tC', val: tC }
+        ];
+        dynoFields.forEach(function(df) {
+            if (!df.val) return;
+            var el = document.getElementById(df.id);
+            if (el && !el.value) {
+                el.value = df.val;
+                el.style.color = '#94a3b8';
+                el.title = 'Auto-llenado desde configuración';
+                el.addEventListener('focus', function handler() {
+                    el.style.color = '';
+                    el.removeEventListener('focus', handler);
+                }, { once: true });
+            }
+        });
+    }
+
+    // Pre-fill from last vehicle with same config (safe fields only)
+    var candidates = db.vehicles.filter(function(v) {
+        return v.id !== vehicle.id && v.configCode === vehicle.configCode &&
+               (v.status === 'archived' || v.status === 'ready-release') && v.testData;
+    }).sort(function(a, b) {
+        return new Date(b.lastModified || b.registeredAt) - new Date(a.lastModified || a.registeredAt);
+    });
+
+    if (candidates.length > 0) {
+        var source = candidates[0];
+        var td = source.testData || {};
+        var p = td.preconditioning || {};
+        var tv = td.testVerification || {};
+
+        // Safe fields that rarely change between same-config vehicles
+        var safeFields = [
+            { id: 'test_fan_mode', val: tv.fanMode },
+            { id: 'test_chains', val: tv.chains },
+            { id: 'test_slings', val: tv.slings },
+            { id: 'test_hood', val: tv.hood },
+            { id: 'test_rear_rollers', val: tv.rearRollers },
+            { id: 'test_screen', val: tv.screen }
+        ];
+
+        var applied = 0;
+        safeFields.forEach(function(sf) {
+            if (!sf.val) return;
+            var el = document.getElementById(sf.id);
+            if (el && !el.value) {
+                el.value = sf.val;
+                applied++;
+            }
+        });
+
+        if (applied > 0) {
+            // Show inline banner instead of modal
+            var opContent = document.getElementById('op-content');
+            if (opContent && !opContent.querySelector('.smart-copy-banner')) {
+                var banner = document.createElement('div');
+                banner.className = 'smart-copy-banner';
+                var shortVin = '...' + source.vin.slice(-6);
+                banner.innerHTML = '<span>Se aplicaron ' + applied + ' campos del último ' +
+                    escapeHtml(source.config && source.config.Modelo || 'vehículo') +
+                    ' (VIN ' + shortVin + ')</span>' +
+                    '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:14px;padding:0 4px;">✕</button>';
+                opContent.insertBefore(banner, opContent.firstChild);
+                setTimeout(function() { if (banner.parentNode) banner.remove(); }, 8000);
+            }
+        }
+    }
+}
+
+// Hook into loadVehicle to apply smart form features
+(function() {
+    var _origLoadVehicle = typeof loadVehicle === 'function' ? loadVehicle : null;
+    if (!_origLoadVehicle) return;
+    loadVehicle = function() {
+        _origLoadVehicle.apply(this, arguments);
+        // Apply smart features after vehicle loads
+        if (activeVehicleId) {
+            var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+            if (vehicle) {
+                var status = document.getElementById('op_status');
+                if (status) smartFormApplyByStatus(status.value);
+                smartFormSuggestDefaults(vehicle);
+                smartFormUpdateBadges();
+            }
+        }
+    };
+})();
+
+// Update badges when fields change
+(function() {
+    var container = document.getElementById('op-content');
+    if (container) {
+        container.addEventListener('input', debounce(smartFormUpdateBadges, 500));
+        container.addEventListener('change', smartFormUpdateBadges);
+    }
+})();
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M8] Templates — COP15 Operation Templates
+// ══════════════════════════════════════════════════════════════════════
+
+/** Collect current operation form data as a template-ready object. */
+function cop15TemplateCollect() {
+    var data = {};
+    var fields = ['tire_pressure', 'fuel_typein', 'fuel_typepre', 'precond_cycle',
+        'soak_time', 'tank_capacity', 'test_tunnel', 'test_dyno_on', 'test_fan_mode',
+        'test_fan_speed', 'test_fan_flow', 'test_chains', 'test_slings', 'test_hood',
+        'test_rear_rollers', 'test_screen', 'etw', 'tA', 'dA', 'tB', 'dB', 'tC', 'dC'];
+    fields.forEach(function(fid) {
+        var el = document.getElementById(fid);
+        if (el && el.value) data[fid] = el.value;
+    });
+    return data;
+}
+
+/** Apply template data to the current operation form. */
+function cop15TemplateApplyData(data) {
+    if (!data) return;
+    Object.keys(data).forEach(function(fid) {
+        var el = document.getElementById(fid);
+        if (el) {
+            el.value = data[fid];
+            el.style.outline = '2px dashed #8b5cf6';
+            el.style.outlineOffset = '2px';
+            setTimeout(function() { el.style.outline = ''; el.style.outlineOffset = ''; }, 3000);
+        }
+    });
+    markUnsaved();
+    showToast('Plantilla aplicada', 'success');
+}
+
+/** Save current operation as a named template. */
+function cop15TemplateSave() {
+    var data = cop15TemplateCollect();
+    if (Object.keys(data).length < 3) {
+        showToast('Muy pocos campos para guardar como plantilla', 'warning');
+        return;
+    }
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    var defaultName = vehicle && vehicle.config ? (vehicle.config.Modelo || '') + ' ' + (vehicle.config['EMISSION REGULATION'] || '') : 'Plantilla';
+    var name = prompt('Nombre de la plantilla:', defaultName.trim());
+    if (!name) return;
+    templateSave('cop15', name, data);
+}
+
+/** Show COP15 template manager. */
+function cop15TemplateManager() {
+    templateRenderManager('cop15', 'cop15TemplateApplyData');
 }

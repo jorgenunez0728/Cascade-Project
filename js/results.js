@@ -2388,3 +2388,31 @@ function raRenderSPC(el) {
 }
 
 function raInit(){ raUpdateBadges(); }
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M8] Templates — RA Filter Presets
+// ══════════════════════════════════════════════════════════════════════
+
+function raPresetSave(name) {
+    if (!name) name = prompt('Nombre del preset de filtros:', (window._raTrendGroup || 'ALL') + ' ' + (window._raTrendMetric || ''));
+    if (!name) return;
+    var data = {
+        groupBy: window._raTrendGroupBy || 'regTestMode',
+        group: window._raTrendGroup || 'ALL',
+        metric: window._raTrendMetric || 'FuelConsumptionBag',
+        dateFrom: window._raTrendDateFrom || '',
+        dateTo: window._raTrendDateTo || ''
+    };
+    templateSave('results', name, data);
+}
+
+function raPresetApply(data) {
+    if (!data) return;
+    window._raTrendGroupBy = data.groupBy || 'regTestMode';
+    window._raTrendGroup = data.group || 'ALL';
+    window._raTrendMetric = data.metric || 'FuelConsumptionBag';
+    window._raTrendDateFrom = data.dateFrom || '';
+    window._raTrendDateTo = data.dateTo || '';
+    raRender();
+    showToast('Preset aplicado', 'success');
+}
