@@ -54,9 +54,13 @@
         <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
         <span id="inv-alert-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:16px;padding:0 4px;">0</span>
     </div>
+    <div class="platform-tab" onclick="switchPlatform('sop')" id="ptab-sop" title="SOP: Procedimientos operativos estándar y guías paso a paso">
+        📋 SOP LIBRARY
+        <span class="pt-badge" style="background:rgba(217,119,6,0.2);color:#f59e0b;" id="sop-count-badge">0</span>
+    </div>
     <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel" title="Panel: Dashboard, operadores, backups y configuración">
         ⚙️ PANEL
-        <span class="pt-badge" style="background:rgba(139,92,246,0.2);color:#c4b5fd;" id="pn-alerts-badge">ok</span>
+        <span class="pt-badge" style="background:rgba(71,85,105,0.15);color:#64748b;" id="pn-alerts-badge">ok</span>
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
     <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión">🟢</span>
@@ -72,9 +76,9 @@
 </div>
 
 <!-- Global VIN Search Bar -->
-<div id="globalSearchBar" style="display:none;padding:8px 16px;background:#0f172a;border-bottom:1px solid #1e293b;">
+<div id="globalSearchBar" style="display:none;padding:8px 16px;background:#fff;border-bottom:1px solid #e2e8f0;">
     <div style="position:relative;max-width:600px;margin:0 auto;">
-        <input type="text" id="globalVinInput" oninput="_debouncedGlobalVinSearch(this.value)" placeholder="Buscar VIN en todos los módulos..." style="width:100%;padding:10px 14px;border:1px solid #334155;border-radius:8px;background:#1e293b;color:#f1f5f9;font-size:0.9rem;box-sizing:border-box;">
+        <input type="text" id="globalVinInput" oninput="_debouncedGlobalVinSearch(this.value)" placeholder="Buscar VIN en todos los módulos..." style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#0f172a;font-size:0.9rem;box-sizing:border-box;">
         <div id="globalSearchResults" style="position:absolute;left:0;right:0;top:100%;z-index:999;max-height:300px;overflow-y:auto;"></div>
     </div>
 </div>
@@ -964,14 +968,43 @@
 </div><!-- END platform-inventory -->
 
 <!-- ═══════════════════════════════════════════════════════════════
-     PLATFORM 5: PANEL (Dashboard, Users, Shift Log, Alerts)
+     PLATFORM 5: SOP LIBRARY (Standard Operating Procedures)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="platform-section" id="platform-sop" role="main" aria-label="SOP Library">
+    <div class="tp-header">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;width:100%;">
+            <div>
+                <h2 style="margin:0;font-size:16px;font-weight:800;">Biblioteca de Procedimientos</h2>
+                <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Guías paso a paso, checklists operativos y seguimiento de cumplimiento</p>
+            </div>
+            <div style="display:flex;gap:6px;">
+                <button class="tp-btn tp-btn-ghost" onclick="sopExportHistory()" style="font-size:11px;">Exportar</button>
+                <button class="tp-btn tp-btn-primary" onclick="sopShowCreateModal()" style="font-size:11px;background:var(--accent-sop);">+ Nuevo SOP</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tp-tabs" id="sop-tabs-bar">
+        <button class="tp-tab active" onclick="sopSwitchTab('sop-procedures')">📋 Procedimientos</button>
+        <button class="tp-tab" onclick="sopSwitchTab('sop-active')">▶ En Progreso</button>
+        <button class="tp-tab" onclick="sopSwitchTab('sop-history')">📜 Historial</button>
+        <button class="tp-tab" onclick="sopSwitchTab('sop-templates')">📁 Plantillas</button>
+    </div>
+
+    <div class="tp-main">
+        <div id="sop-content"></div>
+    </div>
+</div><!-- END platform-sop -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PLATFORM 6: PANEL (Dashboard, Users, Shift Log, Alerts)
      ═══════════════════════════════════════════════════════════════ -->
 <div class="platform-section" id="platform-panel">
-    <div class="tp-header" style="background:linear-gradient(135deg,#1e1b4b,#312e81);">
+    <div class="tp-header">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
             <div>
-                <h2 style="margin:0;font-size:18px;color:#c4b5fd;">⚙️ Panel de Control</h2>
-                <p style="margin:4px 0 0;font-size:11px;color:#a78bfa;">Dashboard, operadores, bitácora y alertas del laboratorio</p>
+                <h2 style="margin:0;font-size:16px;font-weight:800;">Panel de Control</h2>
+                <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Dashboard, operadores, bitácora y alertas del laboratorio</p>
             </div>
         </div>
     </div>
@@ -1018,21 +1051,21 @@
 </div>
 
 <!-- ═══ NOTIFICATION CENTER ═══ -->
-<div id="notification-center" style="display:none;position:fixed;top:50px;right:10px;z-index:9998;width:340px;max-height:420px;background:#1e293b;border:1px solid #334155;border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,0.5);overflow:hidden;">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #334155;">
-        <span style="font-size:13px;font-weight:700;color:#e2e8f0;">Notificaciones</span>
+<div id="notification-center" style="display:none;position:fixed;top:50px;right:10px;z-index:9998;width:340px;max-height:420px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.12);overflow:hidden;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #f1f5f9;">
+        <span style="font-size:13px;font-weight:700;color:#0f172a;">Notificaciones</span>
         <button onclick="clearAllNotifications()" style="background:none;border:none;color:#94a3b8;font-size:10px;cursor:pointer;">Limpiar</button>
     </div>
     <div id="notification-list" style="max-height:360px;overflow-y:auto;padding:6px;"></div>
 </div>
 
 <!-- ═══ COMMAND PALETTE ═══ -->
-<div id="command-palette-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);backdrop-filter:blur(2px);animation:modalFadeIn 0.2s ease;" onclick="if(event.target===this)closeCommandPalette()">
-    <div style="max-width:520px;margin:80px auto;background:#1e293b;border:1px solid #334155;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.5);overflow:hidden;">
-        <div style="padding:12px 16px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:8px;">
+<div id="command-palette-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.3);backdrop-filter:blur(8px);animation:modalFadeIn 0.2s ease;" onclick="if(event.target===this)closeCommandPalette()">
+    <div style="max-width:520px;margin:80px auto;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+        <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;">
             <span style="color:#94a3b8;font-size:16px;">></span>
-            <input id="command-palette-input" type="text" placeholder="Escribe un comando..." style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;" oninput="filterCommands(this.value)" onkeydown="handleCommandKey(event)">
-            <kbd style="background:#334155;color:#94a3b8;padding:2px 6px;border-radius:4px;font-size:10px;">ESC</kbd>
+            <input id="command-palette-input" type="text" placeholder="Escribe un comando..." style="flex:1;background:transparent;border:none;color:#0f172a;font-size:14px;outline:none;" oninput="filterCommands(this.value)" onkeydown="handleCommandKey(event)">
+            <kbd style="background:#f1f5f9;color:#64748b;padding:2px 6px;border-radius:4px;font-size:10px;">ESC</kbd>
         </div>
         <div id="command-palette-results" style="max-height:320px;overflow-y:auto;padding:6px;"></div>
     </div>
@@ -1056,6 +1089,10 @@
         <span class="bnav-icon">📦</span>
         <span>Inventory</span>
     </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('sop')" id="bnav-sop">
+        <span class="bnav-icon">📋</span>
+        <span>SOP</span>
+    </div>
     <div class="bottom-nav-item" onclick="switchPlatform('panel')" id="bnav-panel">
         <span class="bnav-icon">⚙️</span>
         <span>Panel</span>
@@ -1069,6 +1106,7 @@
 <script src="js/testplan.js"></script>
 <script src="js/results.js"></script>
 <script src="js/panel.js"></script>
+<script src="js/sop.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/firebase-sync.js"></script>
 

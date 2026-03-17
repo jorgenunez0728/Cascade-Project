@@ -24,11 +24,25 @@
 
     <style>
         :root {
-            --kia-dark: #05141f; --kia-red: #bb162b; --bg: #f0f2f5;
-            --surface: #fff; --text: #1a1a2e; --border: #e2e5ea;
+            --kia-dark: #05141f; --kia-red: #bb162b; --bg: #f4f6f9;
+            --surface: #fff; --text: #0f172a; --border: #e2e5ea;
             --tp-amber: #f59e0b; --tp-green: #10b981; --tp-red: #ef4444;
-            --tp-blue: #3b82f6; --tp-dark: #0a0f1a; --tp-card: #111827;
-            --tp-border: #1e293b; --tp-text: #e2e8f0; --tp-dim: #94a3b8;
+            --tp-blue: #3b82f6;
+            /* Unified light theme (replaces dark) */
+            --tp-dark: #f4f6f9; --tp-card: #ffffff;
+            --tp-border: #e2e8f0; --tp-text: #0f172a; --tp-dim: #64748b;
+            /* Module accent colors */
+            --accent-cascade: #bb162b;
+            --accent-testplan: #4f46e5;
+            --accent-results: #0d9488;
+            --accent-inventory: #059669;
+            --accent-panel: #475569;
+            --accent-sop: #d97706;
+            /* Elevated shadows */
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.04);
+            --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.04);
+            --shadow-xl: 0 20px 50px rgba(0,0,0,0.12);
         }
         * { margin:0; padding:0; box-sizing:border-box; font-family: sans-serif; }
         body { background: var(--bg); color: var(--text); padding-bottom: 70px; }
@@ -635,46 +649,78 @@ body{ overflow-x: hidden; }
 /* ═══════════════════════════════════════════════════════
    TEST PLAN MANAGER STYLES
    ═══════════════════════════════════════════════════════ */
-#platform-testplan { background: var(--tp-dark); color: var(--tp-text); min-height: 100vh; }
-#platform-testplan * { font-family: 'Segoe UI', -apple-system, sans-serif; }
-.tp-header { padding:12px 24px; border-bottom:1px solid var(--tp-border); display:flex; align-items:center; justify-content:space-between; background:var(--tp-card); }
-.tp-header h2 { font-size:15px; font-weight:800; color:var(--tp-amber); letter-spacing:0.04em; }
+/* All platform sections use light theme */
+#platform-testplan, #platform-results, #platform-inventory, #platform-panel { background: var(--bg); color: var(--tp-text); min-height: 100vh; }
+#platform-testplan *, #platform-results *, #platform-inventory *, #platform-panel * { font-family: 'Segoe UI', -apple-system, sans-serif; }
+
+/* TP Header — per-module accent gradient (light) */
+.tp-header { padding:14px 24px; border-bottom:1px solid var(--tp-border); display:flex; align-items:center; justify-content:space-between; background:var(--surface); box-shadow: var(--shadow-sm); }
+.tp-header h2 { font-size:16px; font-weight:800; color:var(--tp-text); letter-spacing:0.02em; }
 .tp-header small { font-size:10px; color:var(--tp-dim); }
 .tp-badge { display:inline-flex; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700; }
-.tp-tabs { display:flex; gap:2px; padding:8px 24px; background:var(--tp-card); border-bottom:1px solid var(--tp-border); }
-.tp-tab { padding:10px 16px; border:none; border-radius:6px; cursor:pointer; font-size:12px; font-weight:700; background:transparent; color:var(--tp-dim); transition:all .15s; min-height:44px; display:inline-flex; align-items:center; }
-.tp-tab.active { background:var(--tp-amber); color:#000; }
+
+/* Tabs — pill/capsule style unified */
+.tp-tabs { display:flex; gap:4px; padding:10px 24px; background:var(--surface); border-bottom:1px solid var(--tp-border); overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.tp-tab { padding:10px 16px; border:none; border-radius:10px; cursor:pointer; font-size:12px; font-weight:700; background:transparent; color:var(--tp-dim); transition:all .2s; min-height:44px; display:inline-flex; align-items:center; white-space:nowrap; }
+.tp-tab:hover { background: #f1f5f9; color: var(--tp-text); }
+.tp-tab.active { background:var(--kia-dark); color:#fff; box-shadow: var(--shadow-sm); }
 .tp-main { padding:20px 24px; max-width:1400px; margin:0 auto; }
-.tp-card { background:var(--tp-card); border-radius:10px; border:1px solid var(--tp-border); padding:18px; margin-bottom:14px; }
+
+/* Cards — white with elevation */
+.tp-card { background:var(--surface); border-radius:14px; border:1px solid var(--tp-border); padding:18px; margin-bottom:14px; box-shadow: var(--shadow-sm); transition: box-shadow 0.2s, transform 0.2s; }
+.tp-card:hover { box-shadow: var(--shadow-md); }
 .tp-card-title { font-size:13px; font-weight:700; color:var(--tp-text); margin-bottom:12px; display:flex; align-items:center; gap:8px; justify-content:space-between; }
-.tp-metric { text-align:center; padding:14px 10px; background:var(--tp-card); border-radius:10px; border:1px solid var(--tp-border); }
-.tp-metric-val { font-size:24px; font-weight:800; font-family:'Courier New',monospace; }
+
+/* Metrics */
+.tp-metric { text-align:center; padding:14px 10px; background:var(--surface); border-radius:12px; border:1px solid var(--tp-border); box-shadow: var(--shadow-sm); }
+.tp-metric-val { font-size:24px; font-weight:800; font-family:'Courier New',monospace; color: var(--tp-text); }
 .tp-metric-label { font-size:9px; color:var(--tp-dim); margin-top:3px; text-transform:uppercase; letter-spacing:0.08em; }
-.tp-input { background:#161f2e; border:1px solid var(--tp-border); border-radius:6px; padding:8px 10px; color:var(--tp-text); font-size:13px; outline:none; width:100%; min-height:44px; }
-.tp-select { background:#161f2e; border:1px solid var(--tp-border); border-radius:6px; padding:8px 10px; color:var(--tp-text); font-size:13px; outline:none; cursor:pointer; min-height:44px; }
-.tp-btn { padding:10px 16px; border-radius:6px; border:none; cursor:pointer; font-size:12px; font-weight:700; transition:all .15s; min-height:44px; }
-.tp-btn-primary { background:var(--tp-amber); color:#000; }
-.tp-btn-danger { background:var(--tp-red); color:#fff; }
-.tp-btn-ghost { background:transparent; color:var(--tp-dim); border:1px solid var(--tp-border); }
+
+/* Inputs — light with subtle border, gradient focus */
+.tp-input { background:#fff; border:1.5px solid var(--tp-border); border-radius:10px; padding:10px 12px; color:var(--tp-text); font-size:13px; outline:none; width:100%; min-height:44px; transition: border-color 0.2s, box-shadow 0.2s; }
+.tp-input:focus { border-color: var(--tp-blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+.tp-select { background:#fff; border:1.5px solid var(--tp-border); border-radius:10px; padding:10px 12px; color:var(--tp-text); font-size:13px; outline:none; cursor:pointer; min-height:44px; transition: border-color 0.2s; }
+.tp-select:focus { border-color: var(--tp-blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+
+/* Buttons — refined with better hierarchy */
+.tp-btn { padding:10px 16px; border-radius:10px; border:none; cursor:pointer; font-size:12px; font-weight:700; transition:all .2s; min-height:44px; }
+.tp-btn:active { transform: scale(0.97); }
+.tp-btn-primary { background:var(--kia-red); color:#fff; box-shadow: 0 2px 8px rgba(187,22,43,0.25); }
+.tp-btn-primary:hover { background:#9a1323; }
+.tp-btn-danger { background:var(--tp-red); color:#fff; box-shadow: 0 2px 8px rgba(239,68,68,0.25); }
+.tp-btn-ghost { background:transparent; color:var(--tp-dim); border:1.5px solid var(--tp-border); }
+.tp-btn-ghost:hover { background:#f1f5f9; color:var(--tp-text); border-color:#cbd5e1; }
+
+/* Tables — light, clean, striped */
 .tp-table { width:100%; border-collapse:separate; border-spacing:0; font-size:11px; }
-.tp-table th { padding:6px 8px; text-align:left; font-weight:700; color:var(--tp-dim); border-bottom:1px solid var(--tp-border); font-size:9px; text-transform:uppercase; letter-spacing:0.05em; position:sticky; top:0; background:var(--tp-card); z-index:1; }
-.tp-table td { padding:5px 8px; border-bottom:1px solid rgba(30,41,59,0.15); }
-.tp-table tr:nth-child(even) { background:rgba(22,31,46,0.3); }
+.tp-table th { padding:8px 10px; text-align:left; font-weight:700; color:var(--tp-dim); border-bottom:2px solid var(--tp-border); font-size:9px; text-transform:uppercase; letter-spacing:0.05em; position:sticky; top:0; background:var(--surface); z-index:1; }
+.tp-table td { padding:6px 10px; border-bottom:1px solid #f1f5f9; }
+.tp-table tr:nth-child(even) { background:#f8fafc; }
+.tp-table tr:hover { background:#f1f5f9; }
 .tp-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
-.tp-bar { background:#161f2e; border-radius:4px; height:14px; overflow:hidden; position:relative; }
-.tp-bar-fill { height:100%; border-radius:4px; transition:width .3s; }
+
+/* Bars */
+.tp-bar { background:#e2e8f0; border-radius:6px; height:14px; overflow:hidden; position:relative; }
+.tp-bar-fill { height:100%; border-radius:6px; transition:width .3s; }
 .tp-bar-text { position:absolute; top:0; left:4px; font-size:8px; font-weight:700; color:#fff; line-height:14px; }
-.tp-suggestions { position:absolute; top:100%; left:0; right:0; background:#161f2e; border:1px solid var(--tp-border); border-radius:6px; z-index:10; max-height:150px; overflow-y:auto; }
-.tp-suggestion { padding:6px 10px; cursor:pointer; font-size:10px; border-bottom:1px solid rgba(30,41,59,0.2); }
-.tp-suggestion:hover { background:rgba(245,158,11,0.12); }
+
+/* Suggestions dropdown */
+.tp-suggestions { position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--tp-border); border-radius:10px; z-index:10; max-height:150px; overflow-y:auto; box-shadow: var(--shadow-lg); }
+.tp-suggestion { padding:8px 12px; cursor:pointer; font-size:11px; border-bottom:1px solid #f1f5f9; color:var(--tp-text); }
+.tp-suggestion:hover { background:#f1f5f9; }
+
 .tp-status-bar { display:flex; gap:8px; margin-bottom:14px; }
-.tp-status-segment { border-radius:8px; padding:8px 12px; cursor:pointer; text-align:center; transition:all .2s; }
-.tp-plan-fixed { background:var(--tp-green); color:#000; padding:8px 16px; border-radius:8px; font-weight:700; font-size:12px; text-align:center; margin-bottom:14px; }
+.tp-status-segment { border-radius:10px; padding:8px 12px; cursor:pointer; text-align:center; transition:all .2s; }
+.tp-plan-fixed { background:var(--tp-green); color:#fff; padding:8px 16px; border-radius:10px; font-weight:700; font-size:12px; text-align:center; margin-bottom:14px; box-shadow: 0 2px 8px rgba(16,185,129,0.25); }
+
+/* Chart bars */
 .tp-chart-bar { display:flex; align-items:flex-end; gap:6px; height:200px; padding:10px 0; }
 .tp-chart-col { display:flex; flex-direction:column; align-items:center; gap:2px; flex:1; min-width:0; }
-.tp-chart-fill { width:100%; border-radius:3px 3px 0 0; transition:height .3s; min-height:2px; }
+.tp-chart-fill { width:100%; border-radius:4px 4px 0 0; transition:height .3s; min-height:2px; }
 .tp-chart-label { font-size:9px; color:var(--tp-dim); text-align:center; word-break:break-word; }
 .tp-chart-value { font-size:10px; font-weight:700; color:var(--tp-text); }
+.tp-chart-group { display:flex; align-items:flex-end; gap:2px; width:100%; height:100%; }
+.tp-chart-group .tp-chart-fill { flex:1; }
 .tp-chart-group { display:flex; align-items:flex-end; gap:2px; width:100%; height:100%; }
 .tp-chart-group .tp-chart-fill { flex:1; }
 
@@ -690,10 +736,10 @@ body{ overflow-x: hidden; }
     animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
     display: flex; align-items: center; gap: 8px; max-width: 420px;
 }
-.toast-success { background: #065f46; color: #d1fae5; border: 1px solid #10b981; }
-.toast-error { background: #7f1d1d; color: #fecaca; border: 1px solid #ef4444; }
-.toast-warning { background: #78350f; color: #fef3c7; border: 1px solid #f59e0b; }
-.toast-info { background: #1e3a5f; color: #bfdbfe; border: 1px solid #3b82f6; }
+.toast-success { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+.toast-error { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+.toast-warning { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
+.toast-info { background: #eff6ff; color: #1e40af; border: 1px solid #93c5fd; }
 @keyframes toastIn { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
 @keyframes toastOut { from { opacity:1; } to { opacity:0; transform:translateY(-10px); } }
 
@@ -704,39 +750,39 @@ body{ overflow-x: hidden; }
     animation: modalFadeIn 0.2s ease; backdrop-filter: blur(2px);
 }
 .custom-modal-box {
-    background: #1e293b; border: 1px solid #334155; border-radius: 14px;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
     padding: 24px; min-width: 300px; max-width: 90vw; max-height: 80vh;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5); animation: modalSlideIn 0.25s ease;
+    box-shadow: var(--shadow-xl); animation: modalSlideIn 0.25s ease;
 }
 .custom-modal-box.modal-light {
     background: #fff; border-color: #e2e5ea; color: #1a1a2e;
 }
 .custom-modal-title {
     font-size: 16px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
-    color: #f1f5f9;
+    color: #0f172a;
 }
-.modal-light .custom-modal-title { color: #1a1a2e; }
+.modal-light .custom-modal-title { color: #0f172a; }
 .custom-modal-message {
-    font-size: 14px; color: #94a3b8; line-height: 1.5; margin-bottom: 20px;
+    font-size: 14px; color: #64748b; line-height: 1.5; margin-bottom: 20px;
 }
 .modal-light .custom-modal-message { color: #64748b; }
 .custom-modal-actions {
     display: flex; gap: 10px; justify-content: flex-end;
 }
 .custom-modal-actions button {
-    padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600;
+    padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
     border: none; cursor: pointer; min-width: 80px; transition: all 0.15s;
 }
 .modal-btn-cancel {
-    background: #334155; color: #e2e8f0;
+    background: #f1f5f9; color: #475569;
 }
-.modal-light .modal-btn-cancel { background: #e2e5ea; color: #374151; }
-.modal-btn-cancel:hover { background: #475569; }
+.modal-light .modal-btn-cancel { background: #f1f5f9; color: #475569; }
+.modal-btn-cancel:hover { background: #e2e8f0; }
 .modal-btn-confirm { background: var(--tp-blue); color: #fff; }
 .modal-btn-confirm:hover { opacity: 0.9; }
 .modal-btn-confirm.modal-type-danger { background: var(--tp-red); }
 .modal-btn-confirm.modal-type-warning { background: var(--tp-amber); color: #1a1a2e; }
-.modal-btn-confirm.modal-type-success { background: var(--tp-green); }
+.modal-btn-confirm.modal-type-success { background: var(--tp-green); color: #fff; }
 @keyframes modalFadeIn { from { opacity:0; } to { opacity:1; } }
 @keyframes modalSlideIn { from { opacity:0; transform:scale(0.95) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
 
@@ -745,22 +791,22 @@ body{ overflow-x: hidden; }
     padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 600;
     display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
 }
-.inv-alert-critical { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; }
-.inv-alert-warning { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #f59e0b; }
+.inv-alert-critical { background: #fef2f2; border: 1px solid #fca5a5; color: #dc2626; }
+.inv-alert-warning { background: #fffbeb; border: 1px solid #fcd34d; color: #d97706; }
 
 /* ═══ Compact/Detailed View Mode ═══ */
 .view-mode-toggle {
     display: inline-flex; align-items: center; gap: 4px;
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 6px; padding: 2px; font-size: 10px;
+    background: #f1f5f9; border: 1px solid #e2e8f0;
+    border-radius: 8px; padding: 2px; font-size: 10px;
 }
 .view-mode-toggle button {
-    padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer;
-    background: transparent; color: inherit; font-size: 10px; transition: all 0.15s;
+    padding: 4px 8px; border: none; border-radius: 6px; cursor: pointer;
+    background: transparent; color: #64748b; font-size: 10px; transition: all 0.15s;
 }
-.view-mode-toggle button.active { background: rgba(255,255,255,0.15); font-weight: 700; }
-.view-mode-toggle.light { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); }
-.view-mode-toggle.light button.active { background: rgba(0,0,0,0.08); }
+.view-mode-toggle button.active { background: #fff; font-weight: 700; color: #0f172a; box-shadow: var(--shadow-sm); }
+.view-mode-toggle.light { background: #f1f5f9; border-color: #e2e8f0; }
+.view-mode-toggle.light button.active { background: #fff; }
 
 .list-compact .card-detail-row,
 .list-compact .compact-hide { display: none !important; }
@@ -978,30 +1024,35 @@ button:focus-visible { outline-offset: 1px; }
     transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
-/* ═══ Bottom Navigation Bar ═══ */
+/* ═══ Bottom Navigation Bar — Modern Light ═══ */
 .bottom-nav {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 2000;
-    background: linear-gradient(135deg, #05141f 0%, #0a1628 100%);
-    border-top: 2px solid var(--kia-red);
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid #e2e8f0;
     display: flex; align-items: stretch; justify-content: space-around;
-    padding: 0; height: 58px;
-    box-shadow: 0 -2px 12px rgba(0,0,0,0.4);
+    padding: 0 8px; height: 62px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
 }
 .bottom-nav-item {
     flex: 1; display: flex; flex-direction: column; align-items: center;
-    justify-content: center; gap: 2px; cursor: pointer;
-    color: rgba(255,255,255,0.4); font-size: 9px; font-weight: 700;
-    letter-spacing: 0.02em; transition: all 0.2s; user-select: none;
+    justify-content: center; gap: 3px; cursor: pointer;
+    color: #94a3b8; font-size: 9px; font-weight: 700;
+    letter-spacing: 0.02em; transition: all 0.25s; user-select: none;
     padding: 4px 2px; position: relative; text-align: center;
     -webkit-tap-highlight-color: transparent;
 }
-.bottom-nav-item .bnav-icon { font-size: 20px; line-height: 1; }
-.bottom-nav-item:hover { color: rgba(255,255,255,0.7); }
-.bottom-nav-item.active { color: #fff; }
-.bottom-nav-item.active::after {
-    content: ''; position: absolute; top: 0; left: 20%; right: 20%;
-    height: 2px; background: var(--kia-red); border-radius: 0 0 2px 2px;
+.bottom-nav-item .bnav-icon { font-size: 20px; line-height: 1; transition: transform 0.2s; }
+.bottom-nav-item:hover { color: #475569; }
+.bottom-nav-item:hover .bnav-icon { transform: translateY(-1px); }
+.bottom-nav-item.active { color: var(--kia-red); }
+.bottom-nav-item.active .bnav-icon { transform: translateY(-2px) scale(1.1); }
+.bottom-nav-item.active::before {
+    content: ''; position: absolute; top: -1px; left: 25%; right: 25%;
+    height: 3px; background: var(--kia-red); border-radius: 0 0 3px 3px;
+    animation: pillSlideIn 0.3s ease;
 }
+@keyframes pillSlideIn { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .bottom-nav-item .bnav-badge {
     font-size: 7px; padding: 1px 5px; border-radius: 8px;
     font-weight: 700; position: absolute; top: 4px; right: 12%;
@@ -1031,13 +1082,13 @@ button:focus-visible { outline-offset: 1px; }
     border-radius: 8px; margin-bottom: 2px; transition: background 0.15s;
     cursor: default;
 }
-.notif-item:hover { background: rgba(255,255,255,0.03); }
-.notif-item.notif-unread { background: rgba(59,130,246,0.06); }
+.notif-item:hover { background: #f1f5f9; }
+.notif-item.notif-unread { background: #eff6ff; }
 .notif-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
 .notif-body { flex: 1; min-width: 0; }
-.notif-msg { font-size: 11px; color: #e2e8f0; line-height: 1.3; word-break: break-word; }
-.notif-time { font-size: 9px; color: #64748b; margin-top: 2px; }
-.notif-dismiss { background: none; border: none; color: #64748b; cursor: pointer; font-size: 12px; padding: 0 2px; flex-shrink: 0; }
+.notif-msg { font-size: 11px; color: #334155; line-height: 1.3; word-break: break-word; }
+.notif-time { font-size: 9px; color: #94a3b8; margin-top: 2px; }
+.notif-dismiss { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 12px; padding: 0 2px; flex-shrink: 0; }
 .notif-dismiss:hover { color: #ef4444; }
 
 /* ═══ Command Palette ═══ */
@@ -1045,40 +1096,40 @@ button:focus-visible { outline-offset: 1px; }
     display: flex; align-items: center; gap: 10px; padding: 10px 14px;
     border-radius: 8px; cursor: pointer; transition: background 0.1s;
 }
-.cmd-item:hover, .cmd-item.cmd-active { background: rgba(245,158,11,0.1); }
+.cmd-item:hover, .cmd-item.cmd-active { background: #f1f5f9; }
 .cmd-icon { font-size: 16px; flex-shrink: 0; }
-.cmd-label { font-size: 13px; color: #e2e8f0; font-weight: 600; flex: 1; }
-.cmd-shortcut { font-size: 10px; color: #64748b; background: #334155; padding: 2px 8px; border-radius: 4px; }
-.cmd-desc { font-size: 10px; color: #94a3b8; }
+.cmd-label { font-size: 13px; color: #0f172a; font-weight: 600; flex: 1; }
+.cmd-shortcut { font-size: 10px; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; }
+.cmd-desc { font-size: 10px; color: #64748b; }
 
 /* ═══ Kanban Search Highlight ═══ */
 .kanban-search-match { background: rgba(245,158,11,0.3); border-radius: 2px; }
 
 /* ═══ [R2] Lab Status Dashboard ═══ */
-.lab-dash { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; margin-top: 8px; }
+.lab-dash { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-top: 8px; box-shadow: var(--shadow-sm); }
 .lab-dash-alerts { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
-.lab-dash-alert { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #1e293b; border-radius: 6px; }
-.lab-dash-alert:hover { background: #334155; }
-.lab-dash-alert-badge { font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 3px; white-space: nowrap; }
-.lab-dash-alert-mod { font-size: 9px; font-weight: 700; color: #94a3b8; min-width: 65px; }
+.lab-dash-alert { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9; }
+.lab-dash-alert:hover { background: #f1f5f9; }
+.lab-dash-alert-badge { font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+.lab-dash-alert-mod { font-size: 9px; font-weight: 700; color: #64748b; min-width: 65px; }
 .lab-dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
-.lab-dash-card { background: #1e293b; border-radius: 10px; padding: 14px; text-align: center; cursor: pointer; border: 1px solid transparent; transition: border-color 0.2s; }
-.lab-dash-card:hover { border-color: #475569; }
-.lab-dash-card-header { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-.lab-dash-card-metric { font-size: 28px; font-weight: 800; color: #e2e8f0; }
-.lab-dash-card-sub { font-size: 9px; color: #64748b; margin-bottom: 4px; }
-.lab-dash-card-detail { font-size: 9px; color: #94a3b8; }
+.lab-dash-card { background: #fff; border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; transition: all 0.2s; box-shadow: var(--shadow-sm); }
+.lab-dash-card:hover { border-color: #cbd5e1; box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.lab-dash-card-header { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: #64748b; }
+.lab-dash-card-metric { font-size: 28px; font-weight: 800; color: #0f172a; }
+.lab-dash-card-sub { font-size: 9px; color: #94a3b8; margin-bottom: 4px; }
+.lab-dash-card-detail { font-size: 9px; color: #64748b; }
 
 /* ═══ [R2] Drag-Drop Import Zone ═══ */
-.ra-drop-zone { border: 2px dashed #334155; border-radius: 12px; padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: rgba(59,130,246,0.03); }
-.ra-drop-zone:hover { border-color: #3b82f6; background: rgba(59,130,246,0.06); }
-.ra-drop-zone.dragover { border-color: #3b82f6; background: rgba(59,130,246,0.12); transform: scale(1.01); }
+.ra-drop-zone { border: 2px dashed #cbd5e1; border-radius: 14px; padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8fafc; }
+.ra-drop-zone:hover { border-color: #3b82f6; background: #eff6ff; }
+.ra-drop-zone.dragover { border-color: #3b82f6; background: #dbeafe; transform: scale(1.01); }
 .ra-drop-icon { font-size: 36px; margin-bottom: 6px; }
-.ra-drop-text { font-size: 13px; font-weight: 700; color: #94a3b8; }
+.ra-drop-text { font-size: 13px; font-weight: 700; color: #64748b; }
 
 /* ═══ [R2] Backup Dashboard ═══ */
-.backup-dashboard { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; margin-top: 8px; }
-.backup-card { background: #1e293b; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; color: #e2e8f0; }
+.backup-dashboard { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-top: 8px; box-shadow: var(--shadow-sm); }
+.backup-card { background: #f8fafc; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; color: #0f172a; border: 1px solid #f1f5f9; }
 
 /* ═══ [R2] Manual Config Form ═══ */
 .mcf-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -1129,10 +1180,10 @@ button:focus-visible { outline-offset: 1px; }
 .date-sug-apply:active { background: #15803d; }
 
 /* ═══ [R2] Batch PDF Progress ═══ */
-.batch-pdf-progress { background: #1e293b; padding: 30px 40px; border-radius: 14px; text-align: center; min-width: 280px; }
-.batch-pdf-title { font-size: 14px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px; }
-.batch-pdf-bar { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
-.batch-pdf-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius: 4px; transition: width 0.2s; width: 0%; }
+.batch-pdf-progress { background: #fff; padding: 30px 40px; border-radius: 16px; text-align: center; min-width: 280px; box-shadow: var(--shadow-xl); }
+.batch-pdf-title { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
+.batch-pdf-bar { height: 8px; background: #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 8px; }
+.batch-pdf-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius: 6px; transition: width 0.2s; width: 0%; }
 .batch-pdf-btn { background: #1e40af !important; color: #fff !important; border: none !important; }
 .hist-chk { width: 16px; height: 16px; cursor: pointer; accent-color: var(--kia-red); }
 
@@ -1181,7 +1232,7 @@ button:focus-visible { outline-offset: 1px; }
 
 /* Skeleton loader */
 .skeleton {
-    background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
     background-size: 400px 100%;
     animation: shimmer 1.2s infinite;
     border-radius: 8px; height: 20px; margin-bottom: 8px;
@@ -1267,13 +1318,13 @@ button:focus-visible { outline-offset: 1px; }
 /* [R4-M1] Chart Configuration Panel                                    */
 /* ══════════════════════════════════════════════════════════════════════ */
 
-.chart-config-panel { margin-bottom:10px; border:1px solid var(--tp-border); border-radius:8px; overflow:hidden; }
-.chart-config-panel summary { padding:8px 12px; cursor:pointer; font-size:10px; font-weight:700; color:var(--tp-dim); background:var(--tp-card); user-select:none; }
-.chart-config-panel summary:hover { color:var(--tp-amber); }
+.chart-config-panel { margin-bottom:10px; border:1px solid var(--tp-border); border-radius:10px; overflow:hidden; }
+.chart-config-panel summary { padding:8px 12px; cursor:pointer; font-size:10px; font-weight:700; color:var(--tp-dim); background:#f8fafc; user-select:none; }
+.chart-config-panel summary:hover { color:var(--kia-red); }
 .chart-config-panel .cfg-label { font-size:10px; color:var(--tp-dim); display:flex; align-items:center; gap:4px; margin-bottom:2px; }
-.chart-config-panel .cfg-value { font-size:10px; font-weight:700; color:var(--tp-amber); }
-.chart-config-panel input[type="range"] { width:100%; accent-color:var(--tp-amber); }
-.chart-config-panel > div { background:#0d1320; }
+.chart-config-panel .cfg-value { font-size:10px; font-weight:700; color:var(--kia-red); }
+.chart-config-panel input[type="range"] { width:100%; accent-color:var(--kia-red); }
+.chart-config-panel > div { background:#f8fafc; }
 
 /* ══════════════════════════════════════════════════════════════════════ */
 /* [R5-M2] Auto-Save Indicator                                         */
@@ -1361,26 +1412,27 @@ button:focus-visible { outline-offset: 1px; }
     100% { transform: scale(1); }
 }
 
-/* ── Glassmorphism panel ── */
+/* ── Glassmorphism panel (light) ── */
 .glass-panel {
-    background: rgba(17,24,39,0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.6);
+    box-shadow: var(--shadow-md);
 }
 
-/* ── Skeleton loading ── */
+/* ── Skeleton loading (light) ── */
 .skeleton {
-    background: linear-gradient(90deg, var(--tp-card) 25%, #1e293b 50%, var(--tp-card) 75%);
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
     background-size: 200% 100%;
     animation: animShimmerSkeleton 1.5s infinite;
-    border-radius: 6px;
+    border-radius: 8px;
     min-height: 16px;
 }
-.skeleton-card { height: 80px; margin-bottom: 8px; border-radius: 8px; }
+.skeleton-card { height: 80px; margin-bottom: 8px; border-radius: 12px; }
 .skeleton-text { height: 12px; margin-bottom: 6px; width: 70%; }
 .skeleton-text-short { height: 12px; margin-bottom: 6px; width: 40%; }
-.skeleton-kpi { height: 60px; border-radius: 8px; }
+.skeleton-kpi { height: 60px; border-radius: 10px; }
 @keyframes animShimmerSkeleton {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
@@ -1517,7 +1569,8 @@ button:focus-visible { outline-offset: 1px; }
     position: absolute; top: 0; left: 0; right: 0; bottom: 0;
     display: flex; align-items: center; justify-content: center;
     font-size: 11px; font-weight: 700; color: #94a3b8;
-    background: rgba(15,23,42,0.6); border-radius: 8px;
+    background: rgba(255,255,255,0.7); border-radius: 8px;
+    backdrop-filter: blur(4px);
     z-index: 5;
 }
 
@@ -1548,9 +1601,9 @@ button:focus-visible { outline-offset: 1px; }
 /* ── Copy banner ── */
 .smart-copy-banner {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 14px; margin-bottom: 10px; border-radius: 8px;
-    background: rgba(59,130,246,0.08); color: #60a5fa;
-    border: 1px solid rgba(59,130,246,0.2);
+    padding: 8px 14px; margin-bottom: 10px; border-radius: 10px;
+    background: #eff6ff; color: #2563eb;
+    border: 1px solid #bfdbfe;
     font-size: 11px; font-weight: 600;
     animation: animFadeInUp 0.3s ease;
 }
@@ -1564,13 +1617,13 @@ button:focus-visible { outline-offset: 1px; }
     padding: 6px 0; margin-bottom: 8px;
 }
 .tpl-quick-btn {
-    padding: 4px 12px; font-size: 10px; font-weight: 700;
-    background: rgba(139,92,246,0.1); color: #a78bfa;
-    border: 1px solid rgba(139,92,246,0.3); border-radius: 16px;
+    padding: 5px 14px; font-size: 10px; font-weight: 700;
+    background: #f5f3ff; color: #7c3aed;
+    border: 1px solid #ddd6fe; border-radius: 16px;
     cursor: pointer; transition: all 0.15s; white-space: nowrap;
 }
 .tpl-quick-btn:hover {
-    background: rgba(139,92,246,0.2); transform: translateY(-1px);
+    background: #ede9fe; transform: translateY(-1px);
 }
 
 /* ══════════════════════════════════════════════════════════════════════ */
@@ -1579,15 +1632,15 @@ button:focus-visible { outline-offset: 1px; }
 
 .reading-round-overlay {
     position: fixed; inset: 0; z-index: 9500;
-    background: rgba(10,15,26,0.92);
+    background: rgba(15,23,42,0.5);
     display: flex; align-items: center; justify-content: center;
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(12px);
     animation: animFadeInUp 0.3s ease;
 }
 .reading-round-card {
-    background: var(--tp-card); border: 1px solid var(--tp-border);
-    border-radius: 16px; padding: 24px; width: 90%; max-width: 360px;
-    box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+    background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 18px; padding: 24px; width: 90%; max-width: 360px;
+    box-shadow: var(--shadow-xl);
 }
 
 /* ══════════════════════════════════════════════════════════════════════ */
@@ -1599,22 +1652,22 @@ button:focus-visible { outline-offset: 1px; }
 }
 .cal-header {
     text-align: center; font-size: 9px; font-weight: 700;
-    color: var(--tp-dim); padding: 6px 0;
+    color: #64748b; padding: 6px 0;
 }
 .cal-cell {
-    min-height: 44px; padding: 4px; border-radius: 6px;
-    background: rgba(255,255,255,0.02); cursor: pointer;
+    min-height: 44px; padding: 4px; border-radius: 8px;
+    background: #fff; cursor: pointer;
     transition: background 0.15s;
     display: flex; flex-direction: column; align-items: center;
 }
-.cal-cell:hover { background: rgba(255,255,255,0.06); }
+.cal-cell:hover { background: #f1f5f9; }
 .cal-empty { background: transparent; cursor: default; }
 .cal-today {
     background: rgba(59,130,246,0.1) !important;
     border: 1px solid rgba(59,130,246,0.3);
 }
 .cal-day-num {
-    font-size: 11px; font-weight: 700; color: var(--tp-text);
+    font-size: 11px; font-weight: 700; color: #0f172a;
     margin-bottom: 2px;
 }
 .cal-dots {
@@ -1623,6 +1676,239 @@ button:focus-visible { outline-offset: 1px; }
 .cal-dot {
     width: 5px; height: 5px; border-radius: 50%; display: inline-block;
 }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* PER-MODULE ACCENT HEADERS                                            */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* Test Plan accent */
+#platform-testplan > .tp-header { border-left: 4px solid var(--accent-testplan); }
+#platform-testplan .tp-tab.active { background: var(--accent-testplan); }
+#platform-testplan .tp-card-title::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--accent-testplan); border-radius: 2px; margin-right: 6px; flex-shrink: 0; }
+
+/* Results accent */
+#platform-results > .tp-header { border-left: 4px solid var(--accent-results); }
+#platform-results .tp-tab.active { background: var(--accent-results); }
+#platform-results .tp-card-title::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--accent-results); border-radius: 2px; margin-right: 6px; flex-shrink: 0; }
+
+/* Inventory accent */
+#platform-inventory > .tp-header { border-left: 4px solid var(--accent-inventory); }
+#platform-inventory .tp-tab.active { background: var(--accent-inventory); }
+#platform-inventory .tp-card-title::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--accent-inventory); border-radius: 2px; margin-right: 6px; flex-shrink: 0; }
+
+/* Panel accent */
+#platform-panel > .tp-header { border-left: 4px solid var(--accent-panel); }
+#platform-panel .tp-tab.active { background: var(--accent-panel); }
+
+/* SOP accent */
+#platform-sop > .tp-header { border-left: 4px solid var(--accent-sop); }
+#platform-sop .tp-tab.active { background: var(--accent-sop); color: #fff; }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* MODULE ACCENT BADGE COLORS (light theme)                             */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+#platform-testplan .tp-badge { background: #eef2ff; color: var(--accent-testplan); }
+#platform-results .tp-badge { background: #f0fdfa; color: var(--accent-results); }
+#platform-inventory .tp-badge { background: #ecfdf5; color: var(--accent-inventory); }
+#platform-panel .tp-badge { background: #f8fafc; color: var(--accent-panel); }
+#platform-sop .tp-badge { background: #fffbeb; color: var(--accent-sop); }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* SOP LIBRARY MODULE STYLES                                            */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* SOP Procedure Card */
+.sop-procedure-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+    padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow-sm);
+    transition: all 0.2s; cursor: pointer;
+}
+.sop-procedure-card:hover {
+    box-shadow: var(--shadow-md); transform: translateY(-1px);
+    border-color: var(--accent-sop);
+}
+.sop-procedure-card.sop-active {
+    border-color: var(--accent-sop); border-width: 2px;
+    box-shadow: 0 0 0 3px rgba(217,119,6,0.1);
+}
+
+/* SOP Step */
+.sop-step {
+    display: flex; gap: 14px; padding: 16px;
+    background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 12px; margin-bottom: 8px;
+    transition: all 0.3s;
+}
+.sop-step.sop-step-active {
+    border-color: var(--accent-sop);
+    background: #fffbeb;
+    box-shadow: 0 0 0 3px rgba(217,119,6,0.08);
+}
+.sop-step.sop-step-completed {
+    background: #f0fdf4;
+    border-color: #86efac;
+}
+.sop-step.sop-step-locked {
+    opacity: 0.5;
+}
+
+/* Step number circle */
+.sop-step-number {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: #f1f5f9; color: #64748b;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; flex-shrink: 0;
+    transition: all 0.3s;
+}
+.sop-step-active .sop-step-number {
+    background: var(--accent-sop); color: #fff;
+    box-shadow: 0 2px 8px rgba(217,119,6,0.3);
+}
+.sop-step-completed .sop-step-number {
+    background: var(--tp-green); color: #fff;
+}
+
+/* Step content */
+.sop-step-content { flex: 1; min-width: 0; }
+.sop-step-title {
+    font-size: 13px; font-weight: 700; color: #0f172a;
+    margin-bottom: 4px;
+}
+.sop-step-desc {
+    font-size: 11px; color: #64748b; line-height: 1.4;
+    margin-bottom: 8px;
+}
+
+/* SOP Checklist */
+.sop-checklist { display: flex; flex-direction: column; gap: 6px; }
+.sop-check-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; background: #f8fafc;
+    border: 1px solid #f1f5f9; border-radius: 8px;
+    font-size: 12px; color: #334155; cursor: pointer;
+    transition: all 0.15s;
+}
+.sop-check-item:hover { background: #f1f5f9; }
+.sop-check-item.checked {
+    background: #f0fdf4; border-color: #bbf7d0;
+    color: #166534; text-decoration: line-through;
+}
+.sop-check-box {
+    width: 18px; height: 18px; border-radius: 4px;
+    border: 2px solid #cbd5e1; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+}
+.sop-check-item.checked .sop-check-box {
+    background: var(--tp-green); border-color: var(--tp-green);
+    color: #fff;
+}
+
+/* SOP Progress Bar */
+.sop-progress {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: #f8fafc;
+    border-radius: 10px; margin-bottom: 14px;
+}
+.sop-progress-bar {
+    flex: 1; height: 8px; background: #e2e8f0;
+    border-radius: 6px; overflow: hidden;
+}
+.sop-progress-fill {
+    height: 100%; border-radius: 6px;
+    background: linear-gradient(90deg, var(--accent-sop), #f59e0b);
+    transition: width 0.4s ease;
+}
+.sop-progress-text {
+    font-size: 11px; font-weight: 700; color: #64748b;
+    white-space: nowrap;
+}
+
+/* SOP Category Tabs */
+.sop-categories {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.sop-category-chip {
+    padding: 6px 14px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+    background: #f1f5f9; color: #64748b;
+    border: 1px solid #e2e8f0;
+    cursor: pointer; transition: all 0.15s;
+}
+.sop-category-chip:hover { background: #e2e8f0; }
+.sop-category-chip.active {
+    background: var(--accent-sop); color: #fff;
+    border-color: var(--accent-sop);
+}
+
+/* SOP Contextual Banner (shows in Cascade) */
+.sop-context-banner {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; margin-bottom: 14px;
+    background: #fffbeb; border: 1px solid #fcd34d;
+    border-radius: 10px; cursor: pointer;
+    transition: all 0.2s;
+}
+.sop-context-banner:hover {
+    background: #fef3c7; box-shadow: var(--shadow-sm);
+}
+.sop-context-icon {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: var(--accent-sop); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+}
+.sop-context-text {
+    flex: 1; font-size: 11px; color: #92400e;
+    font-weight: 600; line-height: 1.3;
+}
+.sop-context-action {
+    font-size: 10px; font-weight: 700; color: var(--accent-sop);
+    white-space: nowrap;
+}
+
+/* SOP Data Input (within guided flow) */
+.sop-data-input {
+    padding: 10px 12px; border: 1.5px solid #e2e8f0;
+    border-radius: 10px; font-size: 13px; width: 100%;
+    background: #fff; color: #0f172a;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.sop-data-input:focus {
+    border-color: var(--accent-sop);
+    box-shadow: 0 0 0 3px rgba(217,119,6,0.1);
+    outline: none;
+}
+
+/* SOP Completion Summary */
+.sop-summary {
+    background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+    border: 1px solid #86efac;
+    border-radius: 14px; padding: 20px;
+    text-align: center;
+}
+.sop-summary-icon { font-size: 36px; margin-bottom: 8px; }
+.sop-summary-title { font-size: 15px; font-weight: 800; color: #166534; margin-bottom: 4px; }
+.sop-summary-detail { font-size: 11px; color: #15803d; }
+
+/* SOP History */
+.sop-history-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: #fff;
+    border: 1px solid #f1f5f9; border-radius: 10px;
+    margin-bottom: 6px;
+}
+.sop-history-item:hover { background: #f8fafc; }
+.sop-history-status {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0;
+}
+.sop-history-info { flex: 1; min-width: 0; }
+.sop-history-name { font-size: 12px; font-weight: 600; color: #0f172a; }
+.sop-history-meta { font-size: 10px; color: #94a3b8; }
+.sop-history-date { font-size: 10px; color: #64748b; white-space: nowrap; }
 
     </style>
 </head>
@@ -1655,9 +1941,13 @@ button:focus-visible { outline-offset: 1px; }
         <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
         <span id="inv-alert-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:16px;padding:0 4px;">0</span>
     </div>
+    <div class="platform-tab" onclick="switchPlatform('sop')" id="ptab-sop" title="SOP: Procedimientos operativos estándar y guías paso a paso">
+        📋 SOP LIBRARY
+        <span class="pt-badge" style="background:rgba(217,119,6,0.2);color:#f59e0b;" id="sop-count-badge">0</span>
+    </div>
     <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel" title="Panel: Dashboard, operadores, backups y configuración">
         ⚙️ PANEL
-        <span class="pt-badge" style="background:rgba(139,92,246,0.2);color:#c4b5fd;" id="pn-alerts-badge">ok</span>
+        <span class="pt-badge" style="background:rgba(71,85,105,0.15);color:#64748b;" id="pn-alerts-badge">ok</span>
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
     <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión">🟢</span>
@@ -1673,9 +1963,9 @@ button:focus-visible { outline-offset: 1px; }
 </div>
 
 <!-- Global VIN Search Bar -->
-<div id="globalSearchBar" style="display:none;padding:8px 16px;background:#0f172a;border-bottom:1px solid #1e293b;">
+<div id="globalSearchBar" style="display:none;padding:8px 16px;background:#fff;border-bottom:1px solid #e2e8f0;">
     <div style="position:relative;max-width:600px;margin:0 auto;">
-        <input type="text" id="globalVinInput" oninput="_debouncedGlobalVinSearch(this.value)" placeholder="Buscar VIN en todos los módulos..." style="width:100%;padding:10px 14px;border:1px solid #334155;border-radius:8px;background:#1e293b;color:#f1f5f9;font-size:0.9rem;box-sizing:border-box;">
+        <input type="text" id="globalVinInput" oninput="_debouncedGlobalVinSearch(this.value)" placeholder="Buscar VIN en todos los módulos..." style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#0f172a;font-size:0.9rem;box-sizing:border-box;">
         <div id="globalSearchResults" style="position:absolute;left:0;right:0;top:100%;z-index:999;max-height:300px;overflow-y:auto;"></div>
     </div>
 </div>
@@ -2565,14 +2855,43 @@ button:focus-visible { outline-offset: 1px; }
 </div><!-- END platform-inventory -->
 
 <!-- ═══════════════════════════════════════════════════════════════
-     PLATFORM 5: PANEL (Dashboard, Users, Shift Log, Alerts)
+     PLATFORM 5: SOP LIBRARY (Standard Operating Procedures)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="platform-section" id="platform-sop" role="main" aria-label="SOP Library">
+    <div class="tp-header">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;width:100%;">
+            <div>
+                <h2 style="margin:0;font-size:16px;font-weight:800;">Biblioteca de Procedimientos</h2>
+                <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Guías paso a paso, checklists operativos y seguimiento de cumplimiento</p>
+            </div>
+            <div style="display:flex;gap:6px;">
+                <button class="tp-btn tp-btn-ghost" onclick="sopExportHistory()" style="font-size:11px;">Exportar</button>
+                <button class="tp-btn tp-btn-primary" onclick="sopShowCreateModal()" style="font-size:11px;background:var(--accent-sop);">+ Nuevo SOP</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tp-tabs" id="sop-tabs-bar">
+        <button class="tp-tab active" onclick="sopSwitchTab('sop-procedures')">📋 Procedimientos</button>
+        <button class="tp-tab" onclick="sopSwitchTab('sop-active')">▶ En Progreso</button>
+        <button class="tp-tab" onclick="sopSwitchTab('sop-history')">📜 Historial</button>
+        <button class="tp-tab" onclick="sopSwitchTab('sop-templates')">📁 Plantillas</button>
+    </div>
+
+    <div class="tp-main">
+        <div id="sop-content"></div>
+    </div>
+</div><!-- END platform-sop -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PLATFORM 6: PANEL (Dashboard, Users, Shift Log, Alerts)
      ═══════════════════════════════════════════════════════════════ -->
 <div class="platform-section" id="platform-panel">
-    <div class="tp-header" style="background:linear-gradient(135deg,#1e1b4b,#312e81);">
+    <div class="tp-header">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
             <div>
-                <h2 style="margin:0;font-size:18px;color:#c4b5fd;">⚙️ Panel de Control</h2>
-                <p style="margin:4px 0 0;font-size:11px;color:#a78bfa;">Dashboard, operadores, bitácora y alertas del laboratorio</p>
+                <h2 style="margin:0;font-size:16px;font-weight:800;">Panel de Control</h2>
+                <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Dashboard, operadores, bitácora y alertas del laboratorio</p>
             </div>
         </div>
     </div>
@@ -2619,21 +2938,21 @@ button:focus-visible { outline-offset: 1px; }
 </div>
 
 <!-- ═══ NOTIFICATION CENTER ═══ -->
-<div id="notification-center" style="display:none;position:fixed;top:50px;right:10px;z-index:9998;width:340px;max-height:420px;background:#1e293b;border:1px solid #334155;border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,0.5);overflow:hidden;">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #334155;">
-        <span style="font-size:13px;font-weight:700;color:#e2e8f0;">Notificaciones</span>
+<div id="notification-center" style="display:none;position:fixed;top:50px;right:10px;z-index:9998;width:340px;max-height:420px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.12);overflow:hidden;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #f1f5f9;">
+        <span style="font-size:13px;font-weight:700;color:#0f172a;">Notificaciones</span>
         <button onclick="clearAllNotifications()" style="background:none;border:none;color:#94a3b8;font-size:10px;cursor:pointer;">Limpiar</button>
     </div>
     <div id="notification-list" style="max-height:360px;overflow-y:auto;padding:6px;"></div>
 </div>
 
 <!-- ═══ COMMAND PALETTE ═══ -->
-<div id="command-palette-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);backdrop-filter:blur(2px);animation:modalFadeIn 0.2s ease;" onclick="if(event.target===this)closeCommandPalette()">
-    <div style="max-width:520px;margin:80px auto;background:#1e293b;border:1px solid #334155;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.5);overflow:hidden;">
-        <div style="padding:12px 16px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:8px;">
+<div id="command-palette-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.3);backdrop-filter:blur(8px);animation:modalFadeIn 0.2s ease;" onclick="if(event.target===this)closeCommandPalette()">
+    <div style="max-width:520px;margin:80px auto;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+        <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;">
             <span style="color:#94a3b8;font-size:16px;">></span>
-            <input id="command-palette-input" type="text" placeholder="Escribe un comando..." style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;" oninput="filterCommands(this.value)" onkeydown="handleCommandKey(event)">
-            <kbd style="background:#334155;color:#94a3b8;padding:2px 6px;border-radius:4px;font-size:10px;">ESC</kbd>
+            <input id="command-palette-input" type="text" placeholder="Escribe un comando..." style="flex:1;background:transparent;border:none;color:#0f172a;font-size:14px;outline:none;" oninput="filterCommands(this.value)" onkeydown="handleCommandKey(event)">
+            <kbd style="background:#f1f5f9;color:#64748b;padding:2px 6px;border-radius:4px;font-size:10px;">ESC</kbd>
         </div>
         <div id="command-palette-results" style="max-height:320px;overflow-y:auto;padding:6px;"></div>
     </div>
@@ -2656,6 +2975,10 @@ button:focus-visible { outline-offset: 1px; }
     <div class="bottom-nav-item" onclick="switchPlatform('inventory')" id="bnav-inventory">
         <span class="bnav-icon">📦</span>
         <span>Inventory</span>
+    </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('sop')" id="bnav-sop">
+        <span class="bnav-icon">📋</span>
+        <span>SOP</span>
     </div>
     <div class="bottom-nav-item" onclick="switchPlatform('panel')" id="bnav-panel">
         <span class="bnav-icon">⚙️</span>
@@ -3602,10 +3925,9 @@ function switchPlatform(platform, swipeDir) {
     // Hide floating action bar when leaving COP15
     if (platform !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
 
-    // Theme
-    const isDark = platform === 'testplan' || platform === 'results' || platform === 'inventory' || platform === 'panel';
-    document.body.style.background = isDark ? 'var(--tp-dark)' : 'var(--bg)';
-    document.body.style.color = isDark ? 'var(--tp-text)' : 'var(--text)';
+    // Theme — unified light theme for all modules
+    document.body.style.background = 'var(--bg)';
+    document.body.style.color = 'var(--text)';
 
     _currentPlatform = platform;
 
@@ -3613,6 +3935,7 @@ function switchPlatform(platform, swipeDir) {
     if (platform === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
     if (platform === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
     if (platform === 'panel') { pnRender(); pnUpdateBadges(); }
+    if (platform === 'sop') { if(typeof sopRender==='function') sopRender(); if(typeof sopUpdateBadge==='function') sopUpdateBadge(); }
     if (platform === 'cop15') {
         const active = db.vehicles.filter(v => v.status !== 'archived').length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
@@ -5847,6 +6170,24 @@ function initCascadeTree() {
         toggleActionBar(isOp && !!activeVehicleId);
         refreshAllLists();
         updateProgressBar();
+        // SOP contextual banner integration
+        _injectSopBanner(tab.dataset.tab);
+    }
+
+    function _injectSopBanner(tabName) {
+        if (typeof sopGetCascadeBanner !== 'function') return;
+        var phaseMap = { 'alta': 'alta', 'seguimiento': 'operacion', 'liberacion': 'liberacion' };
+        var phase = phaseMap[tabName];
+        if (!phase) return;
+        var panel = document.getElementById('panel-' + tabName);
+        if (!panel) return;
+        // Remove existing banner
+        var existing = panel.querySelector('.sop-context-banner');
+        if (existing) existing.remove();
+        var bannerHtml = sopGetCascadeBanner(phase);
+        if (bannerHtml) {
+            panel.insertAdjacentHTML('afterbegin', bannerHtml);
+        }
     }
 
     // Setup real-time field validation for Alta form
@@ -20940,6 +21281,1043 @@ function pnShowTurnoverOnLogin() {
     var hoursDiff = (Date.now() - reportDate.getTime()) / (1000 * 60 * 60);
     if (hoursDiff > 24) return;
     pnRenderShiftReport(lastReport);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   SOP LIBRARY MODULE — Standard Operating Procedures
+   Guided workflows, checklists, and compliance tracking
+   Prefix: sop*
+   localStorage key: kia_sop_v1
+   ══════════════════════════════════════════════════════════════════════ */
+
+var sopState = {
+    procedures: [],     // SOP definitions (templates)
+    activeSessions: [], // Currently in-progress SOP executions
+    history: [],        // Completed SOP executions
+    currentTab: 'sop-procedures'
+};
+
+var SOP_STORAGE_KEY = 'kia_sop_v1';
+
+/* ─── Built-in SOP Templates ─── */
+var SOP_BUILTIN_TEMPLATES = [
+    {
+        id: 'sop-cop15-alta',
+        name: 'Alta de Vehiculo COP15',
+        category: 'cascade',
+        cascadePhase: 'alta',
+        description: 'Procedimiento completo para registrar un vehiculo nuevo en el sistema COP15.',
+        icon: '🚗',
+        steps: [
+            {
+                title: 'Seleccionar Proposito de Prueba',
+                description: 'Elegir el tipo de prueba: COP-Emisiones, COP-OBD2, Nuevos Desarrollos, etc.',
+                type: 'checklist',
+                items: [
+                    'Verificar que el proposito corresponde con la orden de trabajo',
+                    'Confirmar tipo de prueba con supervisor si es necesario'
+                ]
+            },
+            {
+                title: 'Configurar Vehiculo',
+                description: 'Usar el catalogo de configuraciones o ingreso manual para definir modelo, motor, transmision.',
+                type: 'checklist',
+                items: [
+                    'Seleccionar modelo del vehiculo',
+                    'Verificar año modelo y motor',
+                    'Confirmar transmision y traccion',
+                    'Revisar regulacion de emisiones aplicable'
+                ]
+            },
+            {
+                title: 'Registrar VIN',
+                description: 'Ingresar el numero de identificacion vehicular de 17 digitos.',
+                type: 'checklist',
+                items: [
+                    'Ingresar VIN completo (17 caracteres)',
+                    'Verificar que el VIN no este duplicado en el sistema',
+                    'Confirmar que el VIN coincide con el vehiculo fisico'
+                ]
+            },
+            {
+                title: 'Datos del Operador',
+                description: 'Registrar quien realiza el alta y datos adicionales.',
+                type: 'checklist',
+                items: [
+                    'Seleccionar operador responsable',
+                    'Registrar odometro inicial',
+                    'Agregar notas si aplica'
+                ]
+            },
+            {
+                title: 'Confirmar Alta',
+                description: 'Revisar todos los datos y confirmar el registro.',
+                type: 'checklist',
+                items: [
+                    'Revisar resumen de configuracion',
+                    'Confirmar que todos los campos estan completos',
+                    'Dar clic en Registrar Vehiculo'
+                ]
+            }
+        ]
+    },
+    {
+        id: 'sop-cop15-operacion',
+        name: 'Operacion de Vehiculo COP15',
+        category: 'cascade',
+        cascadePhase: 'operacion',
+        description: 'Procedimiento para la fase de operacion: preacondicionamiento, carga de datos y soak.',
+        icon: '🔧',
+        steps: [
+            {
+                title: 'Seleccionar Vehiculo Activo',
+                description: 'Elegir el vehiculo en estado "Registrado" o "En Progreso" del selector.',
+                type: 'checklist',
+                items: [
+                    'Verificar que el vehiculo tiene status correcto',
+                    'Confirmar que es el vehiculo correcto (VIN visible)'
+                ]
+            },
+            {
+                title: 'Preacondicionamiento',
+                description: 'Completar los ciclos de preacondicionamiento requeridos.',
+                type: 'checklist',
+                items: [
+                    'Verificar combustible adecuado (nivel y tipo)',
+                    'Realizar ciclos de preacondicionamiento segun norma',
+                    'Registrar temperaturas iniciales',
+                    'Verificar condiciones ambientales del laboratorio'
+                ]
+            },
+            {
+                title: 'Configurar Dynamometro',
+                description: 'Ajustar parametros del dinamometro para la prueba.',
+                type: 'checklist',
+                items: [
+                    'Ingresar ETW (Equivalent Test Weight)',
+                    'Configurar coeficientes de resistencia (Target A, B, C)',
+                    'Verificar coeficientes de dinamometro (Dyno A, B, C)',
+                    'Confirmar unidades (lbs/N)'
+                ]
+            },
+            {
+                title: 'Periodo de Soak',
+                description: 'Iniciar el periodo de reposo del vehiculo.',
+                type: 'checklist',
+                items: [
+                    'Activar temporizador de soak',
+                    'Registrar hora de inicio del soak',
+                    'Verificar temperatura del laboratorio esta en rango',
+                    'No mover el vehiculo durante el periodo de soak'
+                ]
+            },
+            {
+                title: 'Guardar Datos de Operacion',
+                description: 'Asegurar que toda la informacion esta capturada.',
+                type: 'checklist',
+                items: [
+                    'Guardar progreso del vehiculo',
+                    'Verificar que la barra de progreso refleja los datos capturados'
+                ]
+            }
+        ]
+    },
+    {
+        id: 'sop-cop15-liberacion',
+        name: 'Liberacion de Vehiculo COP15',
+        category: 'cascade',
+        cascadePhase: 'liberacion',
+        description: 'Procedimiento para completar la prueba y liberar el vehiculo.',
+        icon: '✅',
+        steps: [
+            {
+                title: 'Verificar Datos Completos',
+                description: 'Revisar que todos los campos obligatorios esten llenos.',
+                type: 'checklist',
+                items: [
+                    'Revisar panel de Quick Review',
+                    'Verificar que no hay campos marcados en rojo',
+                    'Confirmar datos de dinamometro estan completos'
+                ]
+            },
+            {
+                title: 'Ingresar Resultados de Prueba',
+                description: 'Cargar los resultados de emisiones obtenidos.',
+                type: 'checklist',
+                items: [
+                    'Registrar fecha de prueba',
+                    'Ingresar odometro final',
+                    'Capturar resultados de emisiones si aplica'
+                ]
+            },
+            {
+                title: 'Firmas y Aprobacion',
+                description: 'Obtener las firmas necesarias para la liberacion.',
+                type: 'checklist',
+                items: [
+                    'Obtener firma del operador',
+                    'Obtener firma del supervisor/lider',
+                    'Agregar observaciones finales si aplica'
+                ]
+            },
+            {
+                title: 'Generar Documentacion',
+                description: 'Crear el PDF del reporte y archivar.',
+                type: 'checklist',
+                items: [
+                    'Generar PDF del reporte de prueba',
+                    'Verificar que el PDF contiene toda la informacion',
+                    'Marcar vehiculo como "Ready Release"',
+                    'Archivar vehiculo cuando sea apropiado'
+                ]
+            }
+        ]
+    },
+    {
+        id: 'sop-inicio-turno',
+        name: 'Inicio de Turno',
+        category: 'operacion',
+        description: 'Checklist de actividades al iniciar un turno en el laboratorio.',
+        icon: '🌅',
+        steps: [
+            {
+                title: 'Verificacion de Instalaciones',
+                description: 'Revision inicial del estado del laboratorio.',
+                type: 'checklist',
+                items: [
+                    'Verificar que el laboratorio esta limpio y ordenado',
+                    'Revisar que la temperatura esta dentro de rango (20-30 C)',
+                    'Confirmar ventilacion y extractores funcionando',
+                    'Verificar iluminacion adecuada'
+                ]
+            },
+            {
+                title: 'Revision de Equipos',
+                description: 'Verificar que los equipos estan listos para operar.',
+                type: 'checklist',
+                items: [
+                    'Encender analizadores de gases',
+                    'Verificar que el dinamometro esta operativo',
+                    'Revisar niveles de gases de referencia (PSI)',
+                    'Confirmar calibracion vigente de equipos criticos'
+                ]
+            },
+            {
+                title: 'Revision de Pendientes',
+                description: 'Revisar el estado de vehiculos y pruebas en curso.',
+                type: 'checklist',
+                items: [
+                    'Revisar vehiculos en soak (temporizadores activos)',
+                    'Verificar plan de pruebas de la semana',
+                    'Revisar alertas del sistema (inventario, calibraciones)',
+                    'Registrar inicio de turno en la bitacora'
+                ]
+            }
+        ]
+    },
+    {
+        id: 'sop-fin-turno',
+        name: 'Fin de Turno',
+        category: 'operacion',
+        description: 'Checklist de cierre al finalizar un turno en el laboratorio.',
+        icon: '🌙',
+        steps: [
+            {
+                title: 'Guardar Progreso',
+                description: 'Asegurar que todos los datos del turno estan guardados.',
+                type: 'checklist',
+                items: [
+                    'Guardar todos los vehiculos en progreso',
+                    'Verificar que los resultados de pruebas estan registrados',
+                    'Actualizar bitacora con actividades del turno'
+                ]
+            },
+            {
+                title: 'Apagar Equipos',
+                description: 'Seguir el procedimiento de apagado de equipos.',
+                type: 'checklist',
+                items: [
+                    'Apagar analizadores de gases (segun procedimiento)',
+                    'Dejar dinamometro en modo standby o apagar',
+                    'Cerrar valvulas de gases que no se necesiten',
+                    'Verificar que no hay fugas de gas'
+                ]
+            },
+            {
+                title: 'Limpieza y Orden',
+                description: 'Dejar el laboratorio listo para el siguiente turno.',
+                type: 'checklist',
+                items: [
+                    'Limpiar area de trabajo',
+                    'Organizar herramientas y materiales',
+                    'Reportar cualquier anomalia o pendiente',
+                    'Registrar fin de turno en la bitacora'
+                ]
+            }
+        ]
+    },
+    {
+        id: 'sop-cambio-gas',
+        name: 'Cambio de Cilindro de Gas',
+        category: 'inventario',
+        description: 'Procedimiento seguro para cambiar un cilindro de gas en el laboratorio.',
+        icon: '🔴',
+        steps: [
+            {
+                title: 'Preparacion',
+                description: 'Verificar el cilindro nuevo y preparar el area.',
+                type: 'checklist',
+                items: [
+                    'Identificar el gas y concentracion del cilindro nuevo',
+                    'Verificar fecha de expiracion del cilindro nuevo',
+                    'Verificar trazabilidad (EPA, NIST) del cilindro nuevo',
+                    'Tener llave de cilindro a la mano'
+                ]
+            },
+            {
+                title: 'Desconexion del Cilindro Viejo',
+                description: 'Retirar el cilindro agotado de forma segura.',
+                type: 'checklist',
+                items: [
+                    'Cerrar la valvula del cilindro viejo',
+                    'Purgar la linea de gas',
+                    'Desconectar el regulador',
+                    'Asegurar el cilindro viejo con cadena/correa'
+                ]
+            },
+            {
+                title: 'Conexion del Cilindro Nuevo',
+                description: 'Instalar y verificar el nuevo cilindro.',
+                type: 'checklist',
+                items: [
+                    'Posicionar y asegurar el cilindro nuevo',
+                    'Conectar el regulador (verificar rosca correcta)',
+                    'Abrir la valvula lentamente',
+                    'Verificar que no hay fugas (solucion jabonosa)',
+                    'Registrar PSI inicial'
+                ]
+            },
+            {
+                title: 'Registro en Sistema',
+                description: 'Actualizar el inventario con el cambio.',
+                type: 'checklist',
+                items: [
+                    'Actualizar inventario: dar de baja cilindro viejo',
+                    'Registrar cilindro nuevo con serial y datos',
+                    'Actualizar zona de almacenamiento',
+                    'Verificar lectura de PSI en inventario'
+                ]
+            }
+        ]
+    }
+];
+
+/* ─── Initialization ─── */
+function sopInit() {
+    var stored = localStorage.getItem(SOP_STORAGE_KEY);
+    if (stored) {
+        try {
+            var parsed = JSON.parse(stored);
+            sopState.procedures = parsed.procedures || [];
+            sopState.activeSessions = parsed.activeSessions || [];
+            sopState.history = parsed.history || [];
+        } catch(e) {
+            console.warn('SOP: Error loading state', e);
+        }
+    }
+    // Ensure builtin templates are present
+    SOP_BUILTIN_TEMPLATES.forEach(function(tpl) {
+        if (!sopState.procedures.find(function(p) { return p.id === tpl.id; })) {
+            sopState.procedures.push(JSON.parse(JSON.stringify(tpl)));
+        }
+    });
+    sopSave();
+    sopUpdateBadge();
+}
+
+function sopSave() {
+    try {
+        localStorage.setItem(SOP_STORAGE_KEY, JSON.stringify({
+            procedures: sopState.procedures,
+            activeSessions: sopState.activeSessions,
+            history: sopState.history
+        }));
+    } catch(e) {
+        console.warn('SOP: Error saving state', e);
+    }
+}
+
+function sopUpdateBadge() {
+    var badge = document.getElementById('sop-count-badge');
+    if (badge) {
+        var active = sopState.activeSessions.length;
+        badge.textContent = active > 0 ? active + ' activos' : sopState.procedures.length + ' SOPs';
+    }
+}
+
+/* ─── Tab Switching ─── */
+function sopSwitchTab(tabId) {
+    sopState.currentTab = tabId;
+    var tabs = document.querySelectorAll('#sop-tabs-bar .tp-tab');
+    tabs.forEach(function(t) { t.classList.remove('active'); });
+    // Find the clicked tab
+    tabs.forEach(function(t) {
+        if (t.getAttribute('onclick') && t.getAttribute('onclick').indexOf(tabId) > -1) {
+            t.classList.add('active');
+        }
+    });
+    sopRender();
+}
+
+/* ─── Main Render ─── */
+function sopRender() {
+    var container = document.getElementById('sop-content');
+    if (!container) return;
+
+    switch(sopState.currentTab) {
+        case 'sop-procedures': container.innerHTML = sopRenderProcedures(); break;
+        case 'sop-active': container.innerHTML = sopRenderActive(); break;
+        case 'sop-history': container.innerHTML = sopRenderHistory(); break;
+        case 'sop-templates': container.innerHTML = sopRenderTemplates(); break;
+        default: container.innerHTML = sopRenderProcedures();
+    }
+}
+
+/* ─── Render: Procedures List ─── */
+function sopRenderProcedures() {
+    var categories = {
+        'cascade': { label: 'Flujo Cascade (COP15)', icon: '🔬' },
+        'operacion': { label: 'Operacion del Laboratorio', icon: '🏭' },
+        'inventario': { label: 'Inventario y Equipos', icon: '📦' },
+        'custom': { label: 'Personalizados', icon: '📝' }
+    };
+
+    var html = '';
+
+    // Category filter chips
+    html += '<div class="sop-categories">';
+    html += '<div class="sop-category-chip active" onclick="sopFilterCategory(\'all\')">Todos</div>';
+    Object.keys(categories).forEach(function(cat) {
+        html += '<div class="sop-category-chip" onclick="sopFilterCategory(\'' + cat + '\')">' +
+                categories[cat].icon + ' ' + categories[cat].label + '</div>';
+    });
+    html += '</div>';
+
+    // Group procedures by category
+    Object.keys(categories).forEach(function(cat) {
+        var procs = sopState.procedures.filter(function(p) { return p.category === cat; });
+        if (procs.length === 0) return;
+
+        html += '<div class="tp-card" style="margin-bottom:14px;">';
+        html += '<div class="tp-card-title">' + categories[cat].icon + ' ' + categories[cat].label +
+                '<span class="tp-badge" style="background:#f1f5f9;color:#64748b;">' + procs.length + '</span></div>';
+
+        procs.forEach(function(proc) {
+            var activeSession = sopState.activeSessions.find(function(s) { return s.procedureId === proc.id; });
+            var totalSteps = proc.steps.length;
+            var totalItems = 0;
+            proc.steps.forEach(function(s) { if (s.items) totalItems += s.items.length; });
+
+            html += '<div class="sop-procedure-card' + (activeSession ? ' sop-active' : '') + '" onclick="sopStartProcedure(\'' + proc.id + '\')">';
+            html += '<div style="display:flex;align-items:flex-start;gap:12px;">';
+            html += '<div style="font-size:24px;flex-shrink:0;">' + (proc.icon || '📋') + '</div>';
+            html += '<div style="flex:1;min-width:0;">';
+            html += '<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:2px;">' + proc.name + '</div>';
+            html += '<div style="font-size:11px;color:#64748b;line-height:1.3;margin-bottom:6px;">' + proc.description + '</div>';
+            html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+            html += '<span style="font-size:10px;color:#94a3b8;">' + totalSteps + ' pasos</span>';
+            html += '<span style="font-size:10px;color:#94a3b8;">' + totalItems + ' items</span>';
+            if (activeSession) {
+                var progress = sopCalcProgress(activeSession);
+                html += '<span style="font-size:10px;font-weight:700;color:var(--accent-sop);">En progreso: ' + progress + '%</span>';
+            }
+            html += '</div>';
+            html += '</div>';
+            html += '<div style="font-size:18px;color:#cbd5e1;flex-shrink:0;">›</div>';
+            html += '</div>';
+            html += '</div>';
+        });
+
+        html += '</div>';
+    });
+
+    return html;
+}
+
+/* ─── Render: Active Sessions ─── */
+function sopRenderActive() {
+    if (sopState.activeSessions.length === 0) {
+        return '<div class="tp-card" style="text-align:center;padding:40px 20px;">' +
+               '<div style="font-size:36px;margin-bottom:10px;">📋</div>' +
+               '<div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:4px;">Sin procedimientos activos</div>' +
+               '<div style="font-size:12px;color:#64748b;">Inicia un procedimiento desde la pestaña "Procedimientos" o desde el flujo Cascade.</div>' +
+               '</div>';
+    }
+
+    var html = '';
+    sopState.activeSessions.forEach(function(session, idx) {
+        var proc = sopState.procedures.find(function(p) { return p.id === session.procedureId; });
+        if (!proc) return;
+
+        var progress = sopCalcProgress(session);
+        html += '<div class="tp-card">';
+        html += '<div class="tp-card-title">' + (proc.icon || '📋') + ' ' + proc.name;
+        html += '<div style="display:flex;gap:6px;">';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopAbandonSession(' + idx + ')" style="font-size:10px;padding:4px 10px;min-height:30px;">Abandonar</button>';
+        html += '</div></div>';
+
+        // Progress bar
+        html += '<div class="sop-progress">';
+        html += '<div class="sop-progress-bar"><div class="sop-progress-fill" style="width:' + progress + '%;"></div></div>';
+        html += '<div class="sop-progress-text">' + progress + '%</div>';
+        html += '</div>';
+
+        // Started info
+        html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:12px;">Iniciado: ' + new Date(session.startedAt).toLocaleString('es-MX') + '</div>';
+
+        // Steps
+        html += sopRenderSteps(proc, session, idx);
+
+        html += '</div>';
+    });
+
+    return html;
+}
+
+/* ─── Render Steps for a Session ─── */
+function sopRenderSteps(proc, session, sessionIdx) {
+    var html = '';
+
+    proc.steps.forEach(function(step, stepIdx) {
+        var stepState = (session.stepsState && session.stepsState[stepIdx]) || {};
+        var checkedItems = stepState.checked || [];
+        var totalItems = step.items ? step.items.length : 0;
+        var checkedCount = checkedItems.filter(Boolean).length;
+        var isComplete = totalItems > 0 && checkedCount === totalItems;
+        var isActive = !isComplete && (stepIdx === 0 || sopIsStepComplete(proc, session, stepIdx - 1));
+        var isLocked = !isComplete && !isActive;
+
+        var stepClass = 'sop-step';
+        if (isComplete) stepClass += ' sop-step-completed';
+        else if (isActive) stepClass += ' sop-step-active';
+        else stepClass += ' sop-step-locked';
+
+        html += '<div class="' + stepClass + '">';
+
+        // Step number
+        html += '<div class="sop-step-number">';
+        if (isComplete) html += '✓';
+        else html += (stepIdx + 1);
+        html += '</div>';
+
+        // Step content
+        html += '<div class="sop-step-content">';
+        html += '<div class="sop-step-title">' + step.title + '</div>';
+        html += '<div class="sop-step-desc">' + step.description + '</div>';
+
+        // Checklist items
+        if (step.items && !isLocked) {
+            html += '<div class="sop-checklist">';
+            step.items.forEach(function(item, itemIdx) {
+                var isChecked = checkedItems[itemIdx] === true;
+                html += '<div class="sop-check-item' + (isChecked ? ' checked' : '') + '" onclick="sopToggleItem(' + sessionIdx + ',' + stepIdx + ',' + itemIdx + ')">';
+                html += '<div class="sop-check-box">' + (isChecked ? '✓' : '') + '</div>';
+                html += '<span>' + item + '</span>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+
+        // Notes input for active step
+        if (isActive && step.items) {
+            html += '<div style="margin-top:8px;">';
+            html += '<input class="sop-data-input" type="text" placeholder="Notas opcionales para este paso..." ' +
+                    'value="' + (stepState.notes || '').replace(/"/g, '&quot;') + '" ' +
+                    'onchange="sopSaveStepNote(' + sessionIdx + ',' + stepIdx + ',this.value)">';
+            html += '</div>';
+        }
+
+        html += '</div>'; // step-content
+        html += '</div>'; // step
+    });
+
+    // Check if all steps complete
+    var allComplete = proc.steps.every(function(step, idx) {
+        return sopIsStepComplete(proc, session, idx);
+    });
+
+    if (allComplete) {
+        html += '<div class="sop-summary">';
+        html += '<div class="sop-summary-icon">🎉</div>';
+        html += '<div class="sop-summary-title">Procedimiento Completado</div>';
+        html += '<div class="sop-summary-detail">Todos los pasos han sido completados exitosamente.</div>';
+        html += '<button class="tp-btn tp-btn-primary" style="margin-top:12px;background:var(--tp-green);" onclick="sopCompleteSession(' + sessionIdx + ')">Finalizar y Guardar en Historial</button>';
+        html += '</div>';
+    }
+
+    return html;
+}
+
+/* ─── Render: History ─── */
+function sopRenderHistory() {
+    if (sopState.history.length === 0) {
+        return '<div class="tp-card" style="text-align:center;padding:40px 20px;">' +
+               '<div style="font-size:36px;margin-bottom:10px;">📜</div>' +
+               '<div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:4px;">Sin historial</div>' +
+               '<div style="font-size:12px;color:#64748b;">Aqui aparecera el registro de procedimientos completados.</div>' +
+               '</div>';
+    }
+
+    var html = '<div class="tp-card">';
+    html += '<div class="tp-card-title">Procedimientos Completados <span class="tp-badge" style="background:#f0fdf4;color:#16a34a;">' + sopState.history.length + '</span></div>';
+
+    // Sort by completion date desc
+    var sorted = sopState.history.slice().sort(function(a,b) {
+        return new Date(b.completedAt) - new Date(a.completedAt);
+    });
+
+    sorted.forEach(function(record) {
+        var proc = sopState.procedures.find(function(p) { return p.id === record.procedureId; });
+        var name = proc ? proc.name : record.procedureId;
+        var icon = proc ? (proc.icon || '📋') : '📋';
+
+        html += '<div class="sop-history-item">';
+        html += '<div class="sop-history-status" style="background:var(--tp-green);"></div>';
+        html += '<div class="sop-history-info">';
+        html += '<div class="sop-history-name">' + icon + ' ' + name + '</div>';
+        html += '<div class="sop-history-meta">' +
+                'Duracion: ' + sopFormatDuration(record.startedAt, record.completedAt) +
+                (record.operator ? ' | Operador: ' + record.operator : '') +
+                '</div>';
+        html += '</div>';
+        html += '<div class="sop-history-date">' + new Date(record.completedAt).toLocaleDateString('es-MX', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + '</div>';
+        html += '</div>';
+    });
+
+    html += '</div>';
+
+    // Clear history button
+    if (sopState.history.length > 0) {
+        html += '<div style="text-align:center;margin-top:10px;">';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopClearHistory()" style="font-size:11px;">Limpiar Historial</button>';
+        html += '</div>';
+    }
+
+    return html;
+}
+
+/* ─── Render: Templates ─── */
+function sopRenderTemplates() {
+    var html = '<div class="tp-card">';
+    html += '<div class="tp-card-title">Plantillas Disponibles</div>';
+    html += '<div style="font-size:12px;color:#64748b;margin-bottom:14px;">Las plantillas predefinidas no se pueden eliminar. Puedes crear tus propios procedimientos personalizados.</div>';
+
+    sopState.procedures.forEach(function(proc) {
+        var isBuiltin = SOP_BUILTIN_TEMPLATES.some(function(t) { return t.id === proc.id; });
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8fafc;border:1px solid #f1f5f9;border-radius:10px;margin-bottom:6px;">';
+        html += '<span style="font-size:18px;">' + (proc.icon || '📋') + '</span>';
+        html += '<div style="flex:1;min-width:0;">';
+        html += '<div style="font-size:12px;font-weight:700;color:#0f172a;">' + proc.name + '</div>';
+        html += '<div style="font-size:10px;color:#64748b;">' + proc.steps.length + ' pasos | Categoria: ' + proc.category + '</div>';
+        html += '</div>';
+        if (isBuiltin) {
+            html += '<span style="font-size:9px;padding:2px 8px;background:#f1f5f9;color:#64748b;border-radius:6px;font-weight:700;">Predefinido</span>';
+        } else {
+            html += '<button class="tp-btn tp-btn-ghost" onclick="sopDeleteProcedure(\'' + proc.id + '\')" style="font-size:10px;padding:4px 8px;min-height:28px;color:var(--tp-red);">Eliminar</button>';
+        }
+        html += '</div>';
+    });
+
+    html += '</div>';
+    return html;
+}
+
+/* ─── Actions ─── */
+
+function sopStartProcedure(procId) {
+    // Check if already active
+    var existing = sopState.activeSessions.find(function(s) { return s.procedureId === procId; });
+    if (existing) {
+        // Switch to active tab and show it
+        sopSwitchTab('sop-active');
+        return;
+    }
+
+    var proc = sopState.procedures.find(function(p) { return p.id === procId; });
+    if (!proc) return;
+
+    var session = {
+        procedureId: procId,
+        startedAt: new Date().toISOString(),
+        operator: typeof getCurrentOperator === 'function' ? getCurrentOperator() : '',
+        stepsState: {}
+    };
+
+    // Initialize steps state
+    proc.steps.forEach(function(step, idx) {
+        session.stepsState[idx] = {
+            checked: step.items ? new Array(step.items.length).fill(false) : [],
+            notes: ''
+        };
+    });
+
+    sopState.activeSessions.push(session);
+    sopSave();
+    sopUpdateBadge();
+
+    if (typeof showToast === 'function') {
+        showToast('Procedimiento iniciado: ' + proc.name, 'success');
+    }
+
+    sopSwitchTab('sop-active');
+}
+
+function sopToggleItem(sessionIdx, stepIdx, itemIdx) {
+    var session = sopState.activeSessions[sessionIdx];
+    if (!session) return;
+
+    if (!session.stepsState[stepIdx]) {
+        session.stepsState[stepIdx] = { checked: [], notes: '' };
+    }
+
+    var checked = session.stepsState[stepIdx].checked;
+    checked[itemIdx] = !checked[itemIdx];
+
+    sopSave();
+    sopRender();
+
+    // Log to panel shift log if available
+    if (checked[itemIdx] && typeof pnAddShiftEntry === 'function') {
+        var proc = sopState.procedures.find(function(p) { return p.id === session.procedureId; });
+        if (proc && proc.steps[stepIdx]) {
+            var itemText = proc.steps[stepIdx].items[itemIdx];
+            pnAddShiftEntry('SOP: ' + proc.name + ' - ' + itemText);
+        }
+    }
+}
+
+function sopSaveStepNote(sessionIdx, stepIdx, value) {
+    var session = sopState.activeSessions[sessionIdx];
+    if (!session) return;
+    if (!session.stepsState[stepIdx]) {
+        session.stepsState[stepIdx] = { checked: [], notes: '' };
+    }
+    session.stepsState[stepIdx].notes = value;
+    sopSave();
+}
+
+function sopCompleteSession(sessionIdx) {
+    var session = sopState.activeSessions[sessionIdx];
+    if (!session) return;
+
+    var record = {
+        procedureId: session.procedureId,
+        startedAt: session.startedAt,
+        completedAt: new Date().toISOString(),
+        operator: session.operator,
+        stepsState: session.stepsState
+    };
+
+    sopState.history.push(record);
+    sopState.activeSessions.splice(sessionIdx, 1);
+    sopSave();
+    sopUpdateBadge();
+
+    if (typeof showToast === 'function') {
+        showToast('Procedimiento completado y archivado', 'success');
+    }
+
+    // Log to panel
+    if (typeof pnAddShiftEntry === 'function') {
+        var proc = sopState.procedures.find(function(p) { return p.id === record.procedureId; });
+        if (proc) {
+            pnAddShiftEntry('SOP Completado: ' + proc.name);
+        }
+    }
+
+    sopRender();
+}
+
+function sopAbandonSession(sessionIdx) {
+    if (typeof showCustomConfirm === 'function') {
+        showCustomConfirm(
+            'Abandonar Procedimiento',
+            'Se perdera el progreso de este procedimiento. ¿Continuar?',
+            function() {
+                sopState.activeSessions.splice(sessionIdx, 1);
+                sopSave();
+                sopUpdateBadge();
+                sopRender();
+                if (typeof showToast === 'function') showToast('Procedimiento abandonado', 'warning');
+            },
+            'danger'
+        );
+    } else {
+        if (confirm('¿Abandonar este procedimiento? Se perdera el progreso.')) {
+            sopState.activeSessions.splice(sessionIdx, 1);
+            sopSave();
+            sopUpdateBadge();
+            sopRender();
+        }
+    }
+}
+
+function sopDeleteProcedure(procId) {
+    var isBuiltin = SOP_BUILTIN_TEMPLATES.some(function(t) { return t.id === procId; });
+    if (isBuiltin) {
+        if (typeof showToast === 'function') showToast('No se pueden eliminar procedimientos predefinidos', 'warning');
+        return;
+    }
+
+    if (typeof showCustomConfirm === 'function') {
+        showCustomConfirm('Eliminar Procedimiento', '¿Eliminar este procedimiento personalizado?', function() {
+            sopState.procedures = sopState.procedures.filter(function(p) { return p.id !== procId; });
+            sopState.activeSessions = sopState.activeSessions.filter(function(s) { return s.procedureId !== procId; });
+            sopSave();
+            sopUpdateBadge();
+            sopRender();
+        }, 'danger');
+    }
+}
+
+function sopClearHistory() {
+    if (typeof showCustomConfirm === 'function') {
+        showCustomConfirm('Limpiar Historial', '¿Eliminar todo el historial de procedimientos completados?', function() {
+            sopState.history = [];
+            sopSave();
+            sopRender();
+            if (typeof showToast === 'function') showToast('Historial limpiado', 'info');
+        }, 'danger');
+    }
+}
+
+function sopFilterCategory(cat) {
+    // Toggle visual active state on chips
+    document.querySelectorAll('.sop-category-chip').forEach(function(chip) {
+        chip.classList.remove('active');
+        if (cat === 'all' && chip.textContent.trim() === 'Todos') chip.classList.add('active');
+        else if (chip.getAttribute('onclick') && chip.getAttribute('onclick').indexOf("'" + cat + "'") > -1) chip.classList.add('active');
+    });
+
+    // Filter cards visibility
+    // For simplicity, re-render with filter
+    sopRender();
+}
+
+/* ─── Create Custom SOP Modal ─── */
+function sopShowCreateModal() {
+    var html = '<div style="max-width:500px;margin:40px auto;background:#fff;border-radius:16px;padding:24px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.15);">';
+    html += '<button onclick="this.closest(\'[id$=sopCreateModal]\').style.display=\'none\'" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">✕</button>';
+    html += '<h3 style="margin:0 0 16px;font-size:16px;font-weight:800;color:#0f172a;">Crear Nuevo Procedimiento</h3>';
+
+    html += '<div style="display:flex;flex-direction:column;gap:12px;">';
+    html += '<div><label style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;display:block;">Nombre del Procedimiento</label>';
+    html += '<input id="sop-new-name" class="sop-data-input" type="text" placeholder="Ej: Verificacion de Fugas"></div>';
+
+    html += '<div><label style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;display:block;">Descripcion</label>';
+    html += '<textarea id="sop-new-desc" class="sop-data-input" rows="2" placeholder="Describe brevemente el procedimiento..." style="min-height:60px;resize:vertical;"></textarea></div>';
+
+    html += '<div><label style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;display:block;">Categoria</label>';
+    html += '<select id="sop-new-cat" class="sop-data-input" style="cursor:pointer;"><option value="operacion">Operacion del Laboratorio</option><option value="inventario">Inventario y Equipos</option><option value="custom">Personalizado</option></select></div>';
+
+    html += '<div><label style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;display:block;">Pasos (un paso por linea, usa ; para separar items del checklist)</label>';
+    html += '<textarea id="sop-new-steps" class="sop-data-input" rows="5" placeholder="Paso 1: Titulo; item1; item2; item3&#10;Paso 2: Titulo; item1; item2" style="min-height:100px;resize:vertical;font-family:monospace;font-size:12px;"></textarea></div>';
+
+    html += '<button class="tp-btn tp-btn-primary" onclick="sopCreateCustom()" style="background:var(--accent-sop);margin-top:4px;">Crear Procedimiento</button>';
+    html += '</div>';
+    html += '</div>';
+
+    // Create modal overlay
+    var modal = document.createElement('div');
+    modal.id = 'sopCreateModal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.3);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;animation:modalFadeIn 0.2s ease;';
+    modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = html;
+    document.body.appendChild(modal);
+}
+
+function sopCreateCustom() {
+    var name = document.getElementById('sop-new-name').value.trim();
+    var desc = document.getElementById('sop-new-desc').value.trim();
+    var cat = document.getElementById('sop-new-cat').value;
+    var stepsRaw = document.getElementById('sop-new-steps').value.trim();
+
+    if (!name) {
+        if (typeof showToast === 'function') showToast('Ingresa un nombre para el procedimiento', 'warning');
+        return;
+    }
+
+    // Parse steps
+    var steps = [];
+    var lines = stepsRaw.split('\n').filter(function(l) { return l.trim(); });
+    lines.forEach(function(line) {
+        var parts = line.split(';').map(function(s) { return s.trim(); }).filter(Boolean);
+        if (parts.length > 0) {
+            var title = parts[0].replace(/^Paso\s*\d+\s*:\s*/i, '');
+            var items = parts.slice(1);
+            steps.push({
+                title: title,
+                description: '',
+                type: 'checklist',
+                items: items.length > 0 ? items : ['Completar este paso']
+            });
+        }
+    });
+
+    if (steps.length === 0) {
+        steps.push({ title: 'Paso 1', description: '', type: 'checklist', items: ['Completar'] });
+    }
+
+    var newProc = {
+        id: 'sop-custom-' + Date.now(),
+        name: name,
+        category: cat,
+        description: desc || 'Procedimiento personalizado',
+        icon: '📝',
+        steps: steps
+    };
+
+    sopState.procedures.push(newProc);
+    sopSave();
+    sopUpdateBadge();
+
+    // Close modal
+    var modal = document.getElementById('sopCreateModal');
+    if (modal) modal.remove();
+
+    if (typeof showToast === 'function') showToast('Procedimiento creado: ' + name, 'success');
+    sopRender();
+}
+
+/* ─── Cascade Integration ─── */
+
+// Called by COP15 when switching tabs to show contextual SOP banner
+function sopGetCascadeBanner(phase) {
+    var phaseMap = {
+        'alta': 'sop-cop15-alta',
+        'seguimiento': 'sop-cop15-operacion',
+        'liberacion': 'sop-cop15-liberacion'
+    };
+
+    var procId = phaseMap[phase];
+    if (!procId) return '';
+
+    var proc = sopState.procedures.find(function(p) { return p.id === procId; });
+    if (!proc) return '';
+
+    var activeSession = sopState.activeSessions.find(function(s) { return s.procedureId === procId; });
+    var progress = activeSession ? sopCalcProgress(activeSession) : 0;
+
+    var html = '<div class="sop-context-banner" onclick="sopStartAndShow(\'' + procId + '\')">';
+    html += '<div class="sop-context-icon">📋</div>';
+    html += '<div class="sop-context-text">';
+    if (activeSession) {
+        html += '<strong>SOP: ' + proc.name + '</strong><br>Progreso: ' + progress + '% completado';
+    } else {
+        html += '<strong>Guia disponible: ' + proc.name + '</strong><br>Toca para iniciar el procedimiento paso a paso';
+    }
+    html += '</div>';
+    html += '<div class="sop-context-action">' + (activeSession ? 'Continuar ›' : 'Iniciar ›') + '</div>';
+    html += '</div>';
+
+    return html;
+}
+
+function sopStartAndShow(procId) {
+    // Start if not active
+    var existing = sopState.activeSessions.find(function(s) { return s.procedureId === procId; });
+    if (!existing) {
+        sopStartProcedure(procId);
+    }
+
+    // Switch to SOP module, active tab
+    if (typeof switchPlatform === 'function') {
+        switchPlatform('sop');
+    }
+    sopSwitchTab('sop-active');
+}
+
+/* ─── Export History ─── */
+function sopExportHistory() {
+    if (sopState.history.length === 0) {
+        if (typeof showToast === 'function') showToast('No hay historial para exportar', 'info');
+        return;
+    }
+
+    var text = 'HISTORIAL DE PROCEDIMIENTOS SOP\n';
+    text += 'Exportado: ' + new Date().toLocaleString('es-MX') + '\n';
+    text += '═══════════════════════════════════════\n\n';
+
+    sopState.history.forEach(function(record, idx) {
+        var proc = sopState.procedures.find(function(p) { return p.id === record.procedureId; });
+        text += (idx + 1) + '. ' + (proc ? proc.name : record.procedureId) + '\n';
+        text += '   Iniciado: ' + new Date(record.startedAt).toLocaleString('es-MX') + '\n';
+        text += '   Completado: ' + new Date(record.completedAt).toLocaleString('es-MX') + '\n';
+        text += '   Duracion: ' + sopFormatDuration(record.startedAt, record.completedAt) + '\n';
+        if (record.operator) text += '   Operador: ' + record.operator + '\n';
+        text += '\n';
+    });
+
+    var blob = new Blob([text], { type: 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'sop-historial-' + new Date().toISOString().split('T')[0] + '.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    if (typeof showToast === 'function') showToast('Historial exportado', 'success');
+}
+
+/* ─── Helpers ─── */
+
+function sopCalcProgress(session) {
+    var proc = sopState.procedures.find(function(p) { return p.id === session.procedureId; });
+    if (!proc) return 0;
+
+    var totalItems = 0;
+    var checkedItems = 0;
+
+    proc.steps.forEach(function(step, idx) {
+        if (step.items) {
+            totalItems += step.items.length;
+            var stepState = session.stepsState[idx];
+            if (stepState && stepState.checked) {
+                checkedItems += stepState.checked.filter(Boolean).length;
+            }
+        }
+    });
+
+    return totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0;
+}
+
+function sopIsStepComplete(proc, session, stepIdx) {
+    var step = proc.steps[stepIdx];
+    if (!step || !step.items || step.items.length === 0) return true;
+
+    var stepState = session.stepsState[stepIdx];
+    if (!stepState || !stepState.checked) return false;
+
+    return stepState.checked.filter(Boolean).length === step.items.length;
+}
+
+function sopFormatDuration(start, end) {
+    var ms = new Date(end) - new Date(start);
+    var mins = Math.floor(ms / 60000);
+    if (mins < 60) return mins + ' min';
+    var hrs = Math.floor(mins / 60);
+    var remainMins = mins % 60;
+    return hrs + 'h ' + remainMins + 'min';
+}
+
+// Initialize on load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(sopInit, 100);
+    });
+} else {
+    setTimeout(sopInit, 100);
 }
 
 

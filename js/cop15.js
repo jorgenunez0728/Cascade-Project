@@ -484,6 +484,24 @@ function initCascadeTree() {
         toggleActionBar(isOp && !!activeVehicleId);
         refreshAllLists();
         updateProgressBar();
+        // SOP contextual banner integration
+        _injectSopBanner(tab.dataset.tab);
+    }
+
+    function _injectSopBanner(tabName) {
+        if (typeof sopGetCascadeBanner !== 'function') return;
+        var phaseMap = { 'alta': 'alta', 'seguimiento': 'operacion', 'liberacion': 'liberacion' };
+        var phase = phaseMap[tabName];
+        if (!phase) return;
+        var panel = document.getElementById('panel-' + tabName);
+        if (!panel) return;
+        // Remove existing banner
+        var existing = panel.querySelector('.sop-context-banner');
+        if (existing) existing.remove();
+        var bannerHtml = sopGetCascadeBanner(phase);
+        if (bannerHtml) {
+            panel.insertAdjacentHTML('afterbegin', bannerHtml);
+        }
     }
 
     // Setup real-time field validation for Alta form

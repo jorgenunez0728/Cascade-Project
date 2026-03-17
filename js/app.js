@@ -935,10 +935,9 @@ function switchPlatform(platform, swipeDir) {
     // Hide floating action bar when leaving COP15
     if (platform !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
 
-    // Theme
-    const isDark = platform === 'testplan' || platform === 'results' || platform === 'inventory' || platform === 'panel';
-    document.body.style.background = isDark ? 'var(--tp-dark)' : 'var(--bg)';
-    document.body.style.color = isDark ? 'var(--tp-text)' : 'var(--text)';
+    // Theme — unified light theme for all modules
+    document.body.style.background = 'var(--bg)';
+    document.body.style.color = 'var(--text)';
 
     _currentPlatform = platform;
 
@@ -946,6 +945,7 @@ function switchPlatform(platform, swipeDir) {
     if (platform === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
     if (platform === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
     if (platform === 'panel') { pnRender(); pnUpdateBadges(); }
+    if (platform === 'sop') { if(typeof sopRender==='function') sopRender(); if(typeof sopUpdateBadge==='function') sopUpdateBadge(); }
     if (platform === 'cop15') {
         const active = db.vehicles.filter(v => v.status !== 'archived').length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
