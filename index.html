@@ -970,23 +970,21 @@
 <!-- ═══════════════════════════════════════════════════════════════
      PLATFORM 5: SOP LIBRARY (Standard Operating Procedures)
      ═══════════════════════════════════════════════════════════════ -->
-<div class="platform-section" id="platform-sop" role="main" aria-label="SOP Library">
+<div class="platform-section" id="platform-sop" role="main" aria-label="SOP Guided Tour">
     <div class="tp-header">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;width:100%;">
             <div>
-                <h2 style="margin:0;font-size:16px;font-weight:800;">Biblioteca de Procedimientos</h2>
-                <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Guías paso a paso, checklists operativos y seguimiento de cumplimiento</p>
+                <h2 style="margin:0;font-size:16px;font-weight:800;">Procedimientos Guiados (SOP)</h2>
+                <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Guía paso a paso para llenar datos del vehículo — sincronizado con Cascade</p>
             </div>
             <div style="display:flex;gap:6px;">
                 <button class="tp-btn tp-btn-ghost" onclick="sopExportHistory()" style="font-size:11px;">Exportar</button>
-                <button class="tp-btn tp-btn-primary" onclick="sopShowCreateModal()" style="font-size:11px;background:var(--accent-sop);">+ Nuevo SOP</button>
             </div>
         </div>
     </div>
 
     <div class="tp-tabs" id="sop-tabs-bar">
-        <button class="tp-tab active" onclick="sopSwitchTab('sop-procedures')">📋 Procedimientos</button>
-        <button class="tp-tab" onclick="sopSwitchTab('sop-active')">▶ En Progreso</button>
+        <button class="tp-tab active" onclick="sopSwitchTab('sop-guia')">📋 Guía</button>
         <button class="tp-tab" onclick="sopSwitchTab('sop-history')">📜 Historial</button>
         <button class="tp-tab" onclick="sopSwitchTab('sop-templates')">📁 Plantillas</button>
     </div>

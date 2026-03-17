@@ -1,361 +1,867 @@
 /* ══════════════════════════════════════════════════════════════════════
-   SOP LIBRARY MODULE — Standard Operating Procedures
-   Guided workflows, checklists, and compliance tracking
+   SOP GUIDED TOUR MODULE — Standard Operating Procedures
+   Guided workflows that read/write to db.vehicles (shared with Cascade)
    Prefix: sop*
    localStorage key: kia_sop_v1
+   Images: IndexedDB (sopImageDB)
    ══════════════════════════════════════════════════════════════════════ */
 
+// ======================================================================
+// [S00] STATE & CONSTANTS
+// ======================================================================
+
 var sopState = {
-    procedures: [],     // SOP definitions (templates)
-    activeSessions: [], // Currently in-progress SOP executions
-    history: [],        // Completed SOP executions
-    currentTab: 'sop-procedures'
+    currentTab: 'sop-guia',
+    selectedVehicleId: null,
+    editMode: false,
+    expandedSections: {},
+    expandedStep: null,
+    customizations: {},  // { vehicleId: { steps: [...modifications] } }
+    history: [],
+    imageDBReady: false
 };
 
 var SOP_STORAGE_KEY = 'kia_sop_v1';
+var _sopImageDB = null;
 
-/* ─── Built-in SOP Templates ─── */
-var SOP_BUILTIN_TEMPLATES = [
+// ======================================================================
+// [S01] STEP DEFINITIONS — EMISSIONS PROCEDURE
+// ======================================================================
+
+var SOP_EMISSIONS_STEPS = [
+    // ── Recepción ──
     {
-        id: 'sop-cop15-alta',
-        name: 'Alta de Vehiculo COP15',
-        category: 'cascade',
-        cascadePhase: 'alta',
-        description: 'Procedimiento completo para registrar un vehiculo nuevo en el sistema COP15.',
-        icon: '🚗',
-        steps: [
-            {
-                title: 'Seleccionar Proposito de Prueba',
-                description: 'Elegir el tipo de prueba: COP-Emisiones, COP-OBD2, Nuevos Desarrollos, etc.',
-                type: 'checklist',
-                items: [
-                    'Verificar que el proposito corresponde con la orden de trabajo',
-                    'Confirmar tipo de prueba con supervisor si es necesario'
-                ]
-            },
-            {
-                title: 'Configurar Vehiculo',
-                description: 'Usar el catalogo de configuraciones o ingreso manual para definir modelo, motor, transmision.',
-                type: 'checklist',
-                items: [
-                    'Seleccionar modelo del vehiculo',
-                    'Verificar año modelo y motor',
-                    'Confirmar transmision y traccion',
-                    'Revisar regulacion de emisiones aplicable'
-                ]
-            },
-            {
-                title: 'Registrar VIN',
-                description: 'Ingresar el numero de identificacion vehicular de 17 digitos.',
-                type: 'checklist',
-                items: [
-                    'Ingresar VIN completo (17 caracteres)',
-                    'Verificar que el VIN no este duplicado en el sistema',
-                    'Confirmar que el VIN coincide con el vehiculo fisico'
-                ]
-            },
-            {
-                title: 'Datos del Operador',
-                description: 'Registrar quien realiza el alta y datos adicionales.',
-                type: 'checklist',
-                items: [
-                    'Seleccionar operador responsable',
-                    'Registrar odometro inicial',
-                    'Agregar notas si aplica'
-                ]
-            },
-            {
-                title: 'Confirmar Alta',
-                description: 'Revisar todos los datos y confirmar el registro.',
-                type: 'checklist',
-                items: [
-                    'Revisar resumen de configuracion',
-                    'Confirmar que todos los campos estan completos',
-                    'Dar clic en Registrar Vehiculo'
-                ]
-            }
-        ]
+        title: '¿Quién recibe el vehículo?',
+        description: 'Selecciona al operador responsable de recibir el vehículo en el laboratorio.',
+        fieldType: 'select',
+        cascadeFieldId: 'op_recep',
+        dataPath: 'testData.operator',
+        options: '__operators__',
+        section: 'recepcion',
+        sectionLabel: 'Recepción del Vehículo',
+        sectionIcon: '📥'
     },
     {
-        id: 'sop-cop15-operacion',
-        name: 'Operacion de Vehiculo COP15',
-        category: 'cascade',
-        cascadePhase: 'operacion',
-        description: 'Procedimiento para la fase de operacion: preacondicionamiento, carga de datos y soak.',
-        icon: '🔧',
-        steps: [
-            {
-                title: 'Seleccionar Vehiculo Activo',
-                description: 'Elegir el vehiculo en estado "Registrado" o "En Progreso" del selector.',
-                type: 'checklist',
-                items: [
-                    'Verificar que el vehiculo tiene status correcto',
-                    'Confirmar que es el vehiculo correcto (VIN visible)'
-                ]
-            },
-            {
-                title: 'Preacondicionamiento',
-                description: 'Completar los ciclos de preacondicionamiento requeridos.',
-                type: 'checklist',
-                items: [
-                    'Verificar combustible adecuado (nivel y tipo)',
-                    'Realizar ciclos de preacondicionamiento segun norma',
-                    'Registrar temperaturas iniciales',
-                    'Verificar condiciones ambientales del laboratorio'
-                ]
-            },
-            {
-                title: 'Configurar Dynamometro',
-                description: 'Ajustar parametros del dinamometro para la prueba.',
-                type: 'checklist',
-                items: [
-                    'Ingresar ETW (Equivalent Test Weight)',
-                    'Configurar coeficientes de resistencia (Target A, B, C)',
-                    'Verificar coeficientes de dinamometro (Dyno A, B, C)',
-                    'Confirmar unidades (lbs/N)'
-                ]
-            },
-            {
-                title: 'Periodo de Soak',
-                description: 'Iniciar el periodo de reposo del vehiculo.',
-                type: 'checklist',
-                items: [
-                    'Activar temporizador de soak',
-                    'Registrar hora de inicio del soak',
-                    'Verificar temperatura del laboratorio esta en rango',
-                    'No mover el vehiculo durante el periodo de soak'
-                ]
-            },
-            {
-                title: 'Guardar Datos de Operacion',
-                description: 'Asegurar que toda la informacion esta capturada.',
-                type: 'checklist',
-                items: [
-                    'Guardar progreso del vehiculo',
-                    'Verificar que la barra de progreso refleja los datos capturados'
-                ]
-            }
-        ]
+        title: '¿Cuál es el odómetro actual del vehículo?',
+        description: 'Registra la lectura del odómetro en kilómetros al momento de la recepción.',
+        fieldType: 'number',
+        cascadeFieldId: 'op_odo',
+        dataPath: 'testData.odometer',
+        placeholder: 'Ej: 15000',
+        unit: 'km',
+        section: 'recepcion'
     },
     {
-        id: 'sop-cop15-liberacion',
-        name: 'Liberacion de Vehiculo COP15',
-        category: 'cascade',
-        cascadePhase: 'liberacion',
-        description: 'Procedimiento para completar la prueba y liberar el vehiculo.',
-        icon: '✅',
-        steps: [
-            {
-                title: 'Verificar Datos Completos',
-                description: 'Revisar que todos los campos obligatorios esten llenos.',
-                type: 'checklist',
-                items: [
-                    'Revisar panel de Quick Review',
-                    'Verificar que no hay campos marcados en rojo',
-                    'Confirmar datos de dinamometro estan completos'
-                ]
-            },
-            {
-                title: 'Ingresar Resultados de Prueba',
-                description: 'Cargar los resultados de emisiones obtenidos.',
-                type: 'checklist',
-                items: [
-                    'Registrar fecha de prueba',
-                    'Ingresar odometro final',
-                    'Capturar resultados de emisiones si aplica'
-                ]
-            },
-            {
-                title: 'Firmas y Aprobacion',
-                description: 'Obtener las firmas necesarias para la liberacion.',
-                type: 'checklist',
-                items: [
-                    'Obtener firma del operador',
-                    'Obtener firma del supervisor/lider',
-                    'Agregar observaciones finales si aplica'
-                ]
-            },
-            {
-                title: 'Generar Documentacion',
-                description: 'Crear el PDF del reporte y archivar.',
-                type: 'checklist',
-                items: [
-                    'Generar PDF del reporte de prueba',
-                    'Verificar que el PDF contiene toda la informacion',
-                    'Marcar vehiculo como "Ready Release"',
-                    'Archivar vehiculo cuando sea apropiado'
-                ]
-            }
-        ]
+        title: '¿Qué tipo de combustible tiene el vehículo?',
+        description: 'Selecciona el tipo de combustible con el que ingresa el vehículo.',
+        fieldType: 'select',
+        cascadeFieldId: 'fuel_typein',
+        dataPath: 'testData.preconditioning.fuelTypeIn',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'PemexPremium', label: 'Pemex Premium' },
+            { value: 'Regular', label: 'Regular' },
+            { value: 'RON95', label: 'RON 95' },
+            { value: 'Magna', label: 'Magna' }
+        ],
+        section: 'recepcion'
     },
     {
-        id: 'sop-inicio-turno',
-        name: 'Inicio de Turno',
-        category: 'operacion',
-        description: 'Checklist de actividades al iniciar un turno en el laboratorio.',
-        icon: '🌅',
-        steps: [
-            {
-                title: 'Verificacion de Instalaciones',
-                description: 'Revision inicial del estado del laboratorio.',
-                type: 'checklist',
-                items: [
-                    'Verificar que el laboratorio esta limpio y ordenado',
-                    'Revisar que la temperatura esta dentro de rango (20-30 C)',
-                    'Confirmar ventilacion y extractores funcionando',
-                    'Verificar iluminacion adecuada'
-                ]
-            },
-            {
-                title: 'Revision de Equipos',
-                description: 'Verificar que los equipos estan listos para operar.',
-                type: 'checklist',
-                items: [
-                    'Encender analizadores de gases',
-                    'Verificar que el dinamometro esta operativo',
-                    'Revisar niveles de gases de referencia (PSI)',
-                    'Confirmar calibracion vigente de equipos criticos'
-                ]
-            },
-            {
-                title: 'Revision de Pendientes',
-                description: 'Revisar el estado de vehiculos y pruebas en curso.',
-                type: 'checklist',
-                items: [
-                    'Revisar vehiculos en soak (temporizadores activos)',
-                    'Verificar plan de pruebas de la semana',
-                    'Revisar alertas del sistema (inventario, calibraciones)',
-                    'Registrar inicio de turno en la bitacora'
-                ]
-            }
-        ]
+        title: '¿Cuál es el nivel de combustible de entrada?',
+        description: 'Selecciona la fracción del tanque que está llena.',
+        fieldType: 'select',
+        cascadeFieldId: 'fuel_levelin',
+        dataPath: 'testData.preconditioning.fuelLevelFractionIn',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: '0', label: 'Vacío (0)' },
+            { value: '0.125', label: '1/8' },
+            { value: '0.25', label: '1/4' },
+            { value: '0.5', label: '1/2' },
+            { value: '0.75', label: '3/4' },
+            { value: '1', label: 'Lleno (1)' }
+        ],
+        section: 'recepcion'
     },
     {
-        id: 'sop-fin-turno',
-        name: 'Fin de Turno',
-        category: 'operacion',
-        description: 'Checklist de cierre al finalizar un turno en el laboratorio.',
-        icon: '🌙',
-        steps: [
-            {
-                title: 'Guardar Progreso',
-                description: 'Asegurar que todos los datos del turno estan guardados.',
-                type: 'checklist',
-                items: [
-                    'Guardar todos los vehiculos en progreso',
-                    'Verificar que los resultados de pruebas estan registrados',
-                    'Actualizar bitacora con actividades del turno'
-                ]
-            },
-            {
-                title: 'Apagar Equipos',
-                description: 'Seguir el procedimiento de apagado de equipos.',
-                type: 'checklist',
-                items: [
-                    'Apagar analizadores de gases (segun procedimiento)',
-                    'Dejar dinamometro en modo standby o apagar',
-                    'Cerrar valvulas de gases que no se necesiten',
-                    'Verificar que no hay fugas de gas'
-                ]
-            },
-            {
-                title: 'Limpieza y Orden',
-                description: 'Dejar el laboratorio listo para el siguiente turno.',
-                type: 'checklist',
-                items: [
-                    'Limpiar area de trabajo',
-                    'Organizar herramientas y materiales',
-                    'Reportar cualquier anomalia o pendiente',
-                    'Registrar fin de turno en la bitacora'
-                ]
-            }
-        ]
+        title: '¿Cuál es la capacidad del tanque?',
+        description: 'Ingresa la capacidad total del tanque de combustible en litros.',
+        fieldType: 'number',
+        cascadeFieldId: 'tank_capacity',
+        dataPath: 'testData.preconditioning.tankCapacityL',
+        placeholder: 'Ej: 50',
+        unit: 'L',
+        section: 'recepcion'
     },
     {
-        id: 'sop-cambio-gas',
-        name: 'Cambio de Cilindro de Gas',
-        category: 'inventario',
-        description: 'Procedimiento seguro para cambiar un cilindro de gas en el laboratorio.',
-        icon: '🔴',
-        steps: [
-            {
-                title: 'Preparacion',
-                description: 'Verificar el cilindro nuevo y preparar el area.',
-                type: 'checklist',
-                items: [
-                    'Identificar el gas y concentracion del cilindro nuevo',
-                    'Verificar fecha de expiracion del cilindro nuevo',
-                    'Verificar trazabilidad (EPA, NIST) del cilindro nuevo',
-                    'Tener llave de cilindro a la mano'
-                ]
-            },
-            {
-                title: 'Desconexion del Cilindro Viejo',
-                description: 'Retirar el cilindro agotado de forma segura.',
-                type: 'checklist',
-                items: [
-                    'Cerrar la valvula del cilindro viejo',
-                    'Purgar la linea de gas',
-                    'Desconectar el regulador',
-                    'Asegurar el cilindro viejo con cadena/correa'
-                ]
-            },
-            {
-                title: 'Conexion del Cilindro Nuevo',
-                description: 'Instalar y verificar el nuevo cilindro.',
-                type: 'checklist',
-                items: [
-                    'Posicionar y asegurar el cilindro nuevo',
-                    'Conectar el regulador (verificar rosca correcta)',
-                    'Abrir la valvula lentamente',
-                    'Verificar que no hay fugas (solucion jabonosa)',
-                    'Registrar PSI inicial'
-                ]
-            },
-            {
-                title: 'Registro en Sistema',
-                description: 'Actualizar el inventario con el cambio.',
-                type: 'checklist',
-                items: [
-                    'Actualizar inventario: dar de baja cilindro viejo',
-                    'Registrar cilindro nuevo con serial y datos',
-                    'Actualizar zona de almacenamiento',
-                    'Verificar lectura de PSI en inventario'
-                ]
-            }
-        ]
+        title: '¿Cuál es la presión de llantas de entrada?',
+        description: 'Registra la presión de llantas al momento de recepción en PSI.',
+        fieldType: 'number',
+        cascadeFieldId: 'tire_pressure_in',
+        dataPath: 'testData.preconditioning.tirePressureInPsi',
+        placeholder: 'Ej: 35',
+        unit: 'PSI',
+        section: 'recepcion'
+    },
+    {
+        title: '¿Cuál es el estado de carga de la batería (SOC)?',
+        description: 'Si aplica, registra el porcentaje de carga de la batería de alto voltaje.',
+        fieldType: 'number',
+        cascadeFieldId: 'battery_soc',
+        dataPath: 'testData.preconditioning.batterySocPct',
+        placeholder: 'Ej: 80',
+        unit: '%',
+        section: 'recepcion'
+    },
+    {
+        title: '¿Notas adicionales de recepción?',
+        description: 'Agrega cualquier observación relevante sobre el estado del vehículo.',
+        fieldType: 'textarea',
+        cascadeFieldId: 'op_notes',
+        dataPath: 'testData.notes',
+        placeholder: 'Observaciones...',
+        section: 'recepcion'
+    },
+
+    // ── Preacondicionamiento ──
+    {
+        title: '¿Quién es responsable del preacondicionamiento?',
+        description: 'Selecciona al operador que realizará los ciclos de preacondicionamiento.',
+        fieldType: 'select',
+        cascadeFieldId: 'precond_responsible',
+        dataPath: 'testData.preconditioning.responsible',
+        options: '__operators__',
+        section: 'preacondicionamiento',
+        sectionLabel: 'Preacondicionamiento',
+        sectionIcon: '🔄'
+    },
+    {
+        title: '¿Cuál es la presión de llantas para la prueba?',
+        description: 'Ajusta la presión de llantas según la especificación de prueba.',
+        fieldType: 'number',
+        cascadeFieldId: 'tire_pressure',
+        dataPath: 'testData.preconditioning.tirePressurePsi',
+        placeholder: 'Ej: 35',
+        unit: 'PSI',
+        section: 'preacondicionamiento'
+    },
+    {
+        title: '¿Cuántos litros de combustible tiene antes del preacondicionamiento?',
+        description: 'Registra el nivel de combustible en litros antes de iniciar.',
+        fieldType: 'number',
+        cascadeFieldId: 'fuel_levelpre',
+        dataPath: 'testData.preconditioning.fuelLevelLitersPre',
+        placeholder: 'Ej: 25',
+        unit: 'L',
+        section: 'preacondicionamiento'
+    },
+    {
+        title: '¿Qué combustible se usará para la prueba?',
+        description: 'Selecciona el tipo de combustible certificado para la prueba.',
+        fieldType: 'select',
+        cascadeFieldId: 'fuel_typepre',
+        dataPath: 'testData.preconditioning.fuelTypePre',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'PemexPremium', label: 'Pemex Premium' },
+            { value: 'Euro6', label: 'Euro 6' },
+            { value: 'CARBReg', label: 'CARB Regular' },
+            { value: 'CARBPre', label: 'CARB Premium' },
+            { value: 'CARBRVP', label: 'CARB RVP' },
+            { value: 'indolene', label: 'Indolene' },
+            { value: 'EPACert', label: 'EPA Cert Fuel' }
+        ],
+        section: 'preacondicionamiento'
+    },
+    {
+        title: '¿Qué ciclo de preacondicionamiento se realizará?',
+        description: 'Selecciona el ciclo de manejo para preacondicionamiento.',
+        fieldType: 'select',
+        cascadeFieldId: 'precond_cycle',
+        dataPath: 'testData.preconditioning.cycle',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'WLTP', label: 'WLTP' },
+            { value: 'UDDS', label: 'UDDS' },
+            { value: 'NEDC', label: 'NEDC' }
+        ],
+        section: 'preacondicionamiento'
+    },
+
+    // ── Soak ──
+    {
+        title: '¿Deseas iniciar el contador de reposo?',
+        description: 'El vehículo debe permanecer en reposo 12-36 horas antes de la prueba de emisiones.',
+        fieldType: 'action',
+        actionFn: 'soakTimerStart',
+        actionLabel: 'Iniciar Temporizador de Soak',
+        section: 'soak',
+        sectionLabel: 'Periodo de Soak (Reposo)',
+        sectionIcon: '⏱️'
+    },
+    {
+        title: '¿Cuántas horas de soak se requieren?',
+        description: 'Registra el tiempo de reposo efectivo en horas.',
+        fieldType: 'number',
+        cascadeFieldId: 'soak_time',
+        dataPath: 'testData.preconditioning.soakTimeH',
+        placeholder: 'Ej: 12',
+        unit: 'h',
+        section: 'soak'
+    },
+    {
+        title: '¿Cuál es el odómetro pre-prueba?',
+        description: 'Registra la lectura del odómetro antes de iniciar la prueba de emisiones.',
+        fieldType: 'number',
+        cascadeFieldId: 'odo_pretest',
+        dataPath: 'testData.preconditioning.odoPretestKm',
+        placeholder: 'Ej: 15050',
+        unit: 'km',
+        section: 'soak'
+    },
+    {
+        title: '¿El preacondicionamiento fue exitoso?',
+        description: 'Confirma si el vehículo cumple las condiciones para iniciar la prueba.',
+        fieldType: 'select',
+        cascadeFieldId: 'precond_ok',
+        dataPath: 'testData.preconditioning.ok',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'yes', label: 'Sí — Aprobado' },
+            { value: 'no', label: 'No — Requiere revisión' }
+        ],
+        section: 'soak'
+    },
+
+    // ── DTC ──
+    {
+        title: '¿Hay DTCs pendientes antes de la prueba?',
+        description: 'Verifica si existen códigos de diagnóstico pendientes (Pending DTC).',
+        fieldType: 'select',
+        cascadeFieldId: 'dtc_pending_before',
+        dataPath: 'testData.preconditioning.dtc.pendingBefore',
+        options: [
+            { value: 'no', label: 'No — Sin DTCs pendientes' },
+            { value: 'yes', label: 'Sí — Hay DTCs pendientes' }
+        ],
+        section: 'dtc',
+        sectionLabel: 'Verificación DTC',
+        sectionIcon: '🔍'
+    },
+    {
+        title: '¿Hay DTCs confirmados antes de la prueba?',
+        description: 'Verifica si existen códigos de diagnóstico confirmados (Confirmed DTC).',
+        fieldType: 'select',
+        cascadeFieldId: 'dtc_confirmed_before',
+        dataPath: 'testData.preconditioning.dtc.confirmedBefore',
+        options: [
+            { value: 'no', label: 'No — Sin DTCs confirmados' },
+            { value: 'yes', label: 'Sí — Hay DTCs confirmados' }
+        ],
+        section: 'dtc'
+    },
+    {
+        title: '¿Hay DTCs permanentes antes de la prueba?',
+        description: 'Verifica si existen códigos de diagnóstico permanentes (Permanent DTC).',
+        fieldType: 'select',
+        cascadeFieldId: 'dtc_permanent_before',
+        dataPath: 'testData.preconditioning.dtc.permanentBefore',
+        options: [
+            { value: 'no', label: 'No — Sin DTCs permanentes' },
+            { value: 'yes', label: 'Sí — Hay DTCs permanentes' }
+        ],
+        section: 'dtc'
+    },
+
+    // ── Dinamómetro ──
+    {
+        title: '¿Cuál es el ETW (Equivalent Test Weight)?',
+        description: 'Ingresa el peso equivalente de prueba en kg.',
+        fieldType: 'number',
+        cascadeFieldId: 'etw',
+        dataPath: 'testData.etw',
+        placeholder: 'Ej: 1360',
+        unit: 'kg',
+        section: 'dinamometro',
+        sectionLabel: 'Dinamómetro',
+        sectionIcon: '⚙️'
+    },
+    {
+        title: '¿Cuál es el coeficiente Target A?',
+        description: 'Coeficiente de resistencia A objetivo.',
+        fieldType: 'number',
+        cascadeFieldId: 'tA',
+        dataPath: 'testData.targetA',
+        placeholder: 'Ej: 6.1234',
+        step: '0.0001',
+        section: 'dinamometro'
+    },
+    {
+        title: '¿Cuál es el coeficiente Dyno A?',
+        description: 'Coeficiente de resistencia A del dinamómetro.',
+        fieldType: 'number',
+        cascadeFieldId: 'dA',
+        dataPath: 'testData.dynoA',
+        placeholder: 'Ej: 6.1234',
+        step: '0.0001',
+        section: 'dinamometro'
+    },
+    {
+        title: '¿Cuál es el coeficiente Target B?',
+        description: 'Coeficiente de resistencia B objetivo.',
+        fieldType: 'number',
+        cascadeFieldId: 'tB',
+        dataPath: 'testData.targetB',
+        placeholder: 'Ej: 0.123456',
+        step: '0.000001',
+        section: 'dinamometro'
+    },
+    {
+        title: '¿Cuál es el coeficiente Dyno B?',
+        description: 'Coeficiente de resistencia B del dinamómetro.',
+        fieldType: 'number',
+        cascadeFieldId: 'dB',
+        dataPath: 'testData.dynoB',
+        placeholder: 'Ej: 0.123456',
+        step: '0.000001',
+        section: 'dinamometro'
+    },
+    {
+        title: '¿Cuál es el coeficiente Target C?',
+        description: 'Coeficiente de resistencia C objetivo.',
+        fieldType: 'number',
+        cascadeFieldId: 'tC',
+        dataPath: 'testData.targetC',
+        placeholder: 'Ej: 0.01234567',
+        step: '0.00000001',
+        section: 'dinamometro'
+    },
+    {
+        title: '¿Cuál es el coeficiente Dyno C?',
+        description: 'Coeficiente de resistencia C del dinamómetro.',
+        fieldType: 'number',
+        cascadeFieldId: 'dC',
+        dataPath: 'testData.dynoC',
+        placeholder: 'Ej: 0.01234567',
+        step: '0.00000001',
+        section: 'dinamometro'
+    },
+
+    // ── Verificación en Prueba ──
+    {
+        title: '¿Quién es responsable de la prueba?',
+        description: 'Selecciona al operador que realizará la prueba de emisiones.',
+        fieldType: 'select',
+        cascadeFieldId: 'test_responsible',
+        dataPath: 'testData.testResponsible',
+        options: '__operators__',
+        section: 'verificacion',
+        sectionLabel: 'Verificación en Prueba',
+        sectionIcon: '🧪'
+    },
+    {
+        title: '¿Qué túnel de emisiones se utilizará?',
+        description: 'Selecciona el túnel de medición de emisiones.',
+        fieldType: 'select',
+        cascadeFieldId: 'test_tunnel',
+        dataPath: 'testData.testVerification.tunnel',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'RMT1', label: 'RMT1' },
+            { value: 'RMT2', label: 'RMT2' }
+        ],
+        section: 'verificacion'
+    },
+    {
+        title: '¿El dinamómetro está encendido?',
+        description: 'Confirma que el dinamómetro está operativo.',
+        fieldType: 'select',
+        cascadeFieldId: 'test_dyno_on',
+        dataPath: 'testData.testVerification.dyno',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'on', label: 'Encendido' },
+            { value: 'off', label: 'Apagado' }
+        ],
+        section: 'verificacion'
+    },
+    {
+        title: '¿Qué modo de ventilador se usará?',
+        description: 'Selecciona el modo de operación del ventilador.',
+        fieldType: 'select',
+        cascadeFieldId: 'test_fan_mode',
+        dataPath: 'testData.testVerification.fanMode',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'speed', label: 'Velocidad fija' },
+            { value: 'speed_follow', label: 'Seguimiento de velocidad' }
+        ],
+        section: 'verificacion'
+    },
+    {
+        title: '¿Velocidad del ventilador?',
+        description: 'Velocidad del ventilador en km/h (si aplica).',
+        fieldType: 'text',
+        cascadeFieldId: 'test_fan_speed',
+        dataPath: 'testData.testVerification.fanSpeedKmh',
+        placeholder: 'km/h',
+        section: 'verificacion'
+    },
+    {
+        title: '¿Flujo del ventilador?',
+        description: 'Flujo del ventilador en m³/min (si aplica).',
+        fieldType: 'text',
+        cascadeFieldId: 'test_fan_flow',
+        dataPath: 'testData.testVerification.fanFlowM3Min',
+        placeholder: 'm³/min',
+        section: 'verificacion'
+    },
+    {
+        title: '¿La inercia está correcta?',
+        description: 'Verifica que la inercia del dinamómetro es correcta.',
+        fieldType: 'select',
+        cascadeFieldId: 'test_inertia_ok',
+        dataPath: 'testData.testVerification.inertiaOk',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'ok', label: 'OK — Correcto' },
+            { value: 'not_ok', label: 'No OK — Requiere ajuste' }
+        ],
+        section: 'verificacion'
+    },
+    {
+        title: '¿Estado de las cadenas?',
+        description: 'Verifica la tensión de las cadenas de sujeción.',
+        fieldType: 'select',
+        cascadeFieldId: 'test_chains',
+        dataPath: 'testData.testVerification.chains',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'tight', label: 'Tensas — Correcto' },
+            { value: 'loose', label: 'Flojas — Requiere ajuste' }
+        ],
+        section: 'verificacion'
+    },
+    {
+        title: '¿Estado de las eslingas?',
+        description: 'Verifica que las eslingas de seguridad estén aseguradas.',
+        fieldType: 'select',
+        cascadeFieldId: 'test_slings',
+        dataPath: 'testData.testVerification.slings',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'secured', label: 'Aseguradas' },
+            { value: 'not_secured', label: 'No aseguradas' }
+        ],
+        section: 'verificacion'
+    },
+    {
+        title: '¿Estado del cofre?',
+        description: 'Confirma si el cofre del vehículo está cerrado o abierto.',
+        fieldType: 'select',
+        cascadeFieldId: 'test_hood',
+        dataPath: 'testData.testVerification.hood',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'closed', label: 'Cerrado' },
+            { value: 'open', label: 'Abierto' }
+        ],
+        section: 'verificacion'
+    },
+    {
+        title: '¿Rodillos traseros asegurados?',
+        description: 'Verifica que los rodillos traseros estén correctamente asegurados.',
+        fieldType: 'select',
+        cascadeFieldId: 'test_rear_rollers',
+        dataPath: 'testData.testVerification.rearRollers',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'secured', label: 'Asegurados' },
+            { value: 'not_secured', label: 'No asegurados' }
+        ],
+        section: 'verificacion'
+    },
+    {
+        title: '¿Pantalla de protección asegurada?',
+        description: 'Verifica que la pantalla de protección esté en su lugar.',
+        fieldType: 'select',
+        cascadeFieldId: 'test_screen',
+        dataPath: 'testData.testVerification.screen',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'secured', label: 'Asegurada' },
+            { value: 'not_secured', label: 'No asegurada' }
+        ],
+        section: 'verificacion'
+    },
+    {
+        title: '¿Verificación MEX Wait Check?',
+        description: 'Confirma el estado del MEX Wait Check (ventilador apagado / OK).',
+        fieldType: 'select',
+        cascadeFieldId: 'test_mex_waitcheck',
+        dataPath: 'testData.testVerification.mexWaitCheck',
+        options: [
+            { value: '', label: '— Seleccionar —' },
+            { value: 'fan_off', label: 'Ventilador apagado' },
+            { value: 'ok', label: 'OK' }
+        ],
+        section: 'verificacion'
+    },
+    {
+        title: '¿Notas de verificación en prueba?',
+        description: 'Agrega observaciones sobre la verificación previa a la prueba.',
+        fieldType: 'textarea',
+        cascadeFieldId: 'test_verify_notes',
+        dataPath: 'testData.testVerification.notes',
+        placeholder: 'Observaciones de verificación...',
+        section: 'verificacion'
     }
 ];
 
-/* ─── Initialization ─── */
+// ======================================================================
+// [S02] STEP DEFINITIONS — SIMPLE (NON-EMISSIONS) PROCEDURE
+// ======================================================================
+
+var SOP_SIMPLE_STEPS = [
+    {
+        title: '¿Quién es el operador responsable?',
+        description: 'Selecciona al operador que realizará la prueba.',
+        fieldType: 'select',
+        cascadeFieldId: 'simple_operator',
+        dataPath: 'testData.simple.operator',
+        options: '__operators__',
+        section: 'simple',
+        sectionLabel: 'Operación Simple',
+        sectionIcon: '📋'
+    },
+    {
+        title: '¿Fecha y hora de la prueba?',
+        description: 'Registra cuándo se realiza la prueba.',
+        fieldType: 'datetime',
+        cascadeFieldId: 'simple_datetime',
+        dataPath: 'testData.simple.datetime',
+        section: 'simple'
+    },
+    {
+        title: '¿Notas de la prueba?',
+        description: 'Agrega cualquier observación relevante.',
+        fieldType: 'textarea',
+        cascadeFieldId: 'simple_notes',
+        dataPath: 'testData.simple.notes',
+        placeholder: 'Observaciones...',
+        section: 'simple'
+    }
+];
+
+// ======================================================================
+// [S03] STEP DEFINITIONS — ALTA (READ-ONLY INFO)
+// ======================================================================
+
+var SOP_ALTA_STEPS = [
+    {
+        title: 'Propósito de la prueba',
+        description: 'Tipo de prueba asignado al vehículo.',
+        fieldType: 'readonly',
+        dataPath: 'purpose',
+        section: 'alta',
+        sectionLabel: 'Información de Alta',
+        sectionIcon: '🚗'
+    },
+    {
+        title: 'VIN del vehículo',
+        description: 'Número de Identificación Vehicular.',
+        fieldType: 'readonly',
+        dataPath: 'vin',
+        section: 'alta'
+    },
+    {
+        title: 'Configuración del vehículo',
+        description: 'Código de configuración asignado.',
+        fieldType: 'readonly',
+        dataPath: 'configCode',
+        section: 'alta'
+    },
+    {
+        title: 'Registrado por',
+        description: 'Operador que registró el vehículo.',
+        fieldType: 'readonly',
+        dataPath: 'registeredBy',
+        section: 'alta'
+    },
+    {
+        title: 'Fecha de registro',
+        description: 'Fecha y hora del registro.',
+        fieldType: 'readonly',
+        dataPath: 'registeredAt',
+        section: 'alta'
+    }
+];
+
+
+// ======================================================================
+// [S04] INDEXEDDB IMAGE ENGINE
+// ======================================================================
+
+function sopImageDBOpen(callback) {
+    if (_sopImageDB) { if (callback) callback(_sopImageDB); return; }
+    var request = window.indexedDB.open('sopImageDB', 1);
+    request.onupgradeneeded = function(e) {
+        var idb = e.target.result;
+        if (!idb.objectStoreNames.contains('images')) {
+            idb.createObjectStore('images', { keyPath: 'id' });
+        }
+    };
+    request.onsuccess = function(e) {
+        _sopImageDB = e.target.result;
+        sopState.imageDBReady = true;
+        if (callback) callback(_sopImageDB);
+    };
+    request.onerror = function(e) {
+        console.warn('SOP: IndexedDB error', e);
+        sopState.imageDBReady = false;
+    };
+}
+
+function sopImageSave(stepKey, blob, callback) {
+    sopImageDBOpen(function(idb) {
+        // Create thumbnail
+        var reader = new FileReader();
+        reader.onload = function() {
+            var img = new Image();
+            img.onload = function() {
+                var canvas = document.createElement('canvas');
+                var maxThumb = 120;
+                var w = img.width, h = img.height;
+                if (w > h) { canvas.width = maxThumb; canvas.height = Math.round(h * maxThumb / w); }
+                else { canvas.height = maxThumb; canvas.width = Math.round(w * maxThumb / h); }
+                var ctx2d = canvas.getContext('2d');
+                ctx2d.drawImage(img, 0, 0, canvas.width, canvas.height);
+                var thumbnail = canvas.toDataURL('image/jpeg', 0.6);
+
+                var record = {
+                    id: stepKey + '-' + Date.now(),
+                    stepKey: stepKey,
+                    blob: blob,
+                    thumbnail: thumbnail,
+                    createdAt: new Date().toISOString()
+                };
+
+                var tx = idb.transaction('images', 'readwrite');
+                tx.objectStore('images').put(record);
+                tx.oncomplete = function() {
+                    if (callback) callback(record);
+                };
+            };
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(blob);
+    });
+}
+
+function sopImageGetAll(stepKeyPrefix, callback) {
+    sopImageDBOpen(function(idb) {
+        var tx = idb.transaction('images', 'readonly');
+        var store = tx.objectStore('images');
+        var results = [];
+        var cursor = store.openCursor();
+        cursor.onsuccess = function(e) {
+            var c = e.target.result;
+            if (c) {
+                if (c.value.stepKey === stepKeyPrefix || c.value.stepKey.indexOf(stepKeyPrefix) === 0) {
+                    results.push(c.value);
+                }
+                c.continue();
+            } else {
+                callback(results);
+            }
+        };
+        cursor.onerror = function() { callback([]); };
+    });
+}
+
+function sopImageDelete(imageId, callback) {
+    sopImageDBOpen(function(idb) {
+        var tx = idb.transaction('images', 'readwrite');
+        tx.objectStore('images').delete(imageId);
+        tx.oncomplete = function() { if (callback) callback(); };
+    });
+}
+
+function sopCaptureImage(vehicleId, stepIdx) {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    input.onchange = function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var stepKey = 'step-' + vehicleId + '-' + stepIdx;
+        sopImageSave(stepKey, file, function() {
+            sopRender();
+            if (typeof showToast === 'function') showToast('Imagen guardada', 'success');
+        });
+    };
+    input.click();
+}
+
+function sopShowImageOverlay(imageId) {
+    sopImageDBOpen(function(idb) {
+        var tx = idb.transaction('images', 'readonly');
+        var req = tx.objectStore('images').get(imageId);
+        req.onsuccess = function(e) {
+            var record = e.target.result;
+            if (!record) return;
+            var reader = new FileReader();
+            reader.onload = function() {
+                var overlay = document.createElement('div');
+                overlay.className = 'sop-image-overlay';
+                overlay.onclick = function(ev) { if (ev.target === overlay) overlay.remove(); };
+                overlay.innerHTML = '<div class="sop-image-overlay-inner">' +
+                    '<img src="' + reader.result + '" style="max-width:100%;max-height:80vh;border-radius:12px;">' +
+                    '<div style="display:flex;gap:8px;margin-top:12px;">' +
+                    '<button class="tp-btn tp-btn-ghost" onclick="this.closest(\'.sop-image-overlay\').remove()" style="flex:1;">Cerrar</button>' +
+                    '<button class="tp-btn tp-btn-ghost" onclick="sopConfirmDeleteImage(\'' + imageId + '\')" style="flex:1;color:var(--tp-red);">Eliminar</button>' +
+                    '</div></div>';
+                document.body.appendChild(overlay);
+            };
+            reader.readAsDataURL(record.blob);
+        };
+    });
+}
+
+function sopConfirmDeleteImage(imageId) {
+    if (typeof showCustomConfirm === 'function') {
+        showCustomConfirm('Eliminar Imagen', '¿Eliminar esta imagen?', function() {
+            var overlay = document.querySelector('.sop-image-overlay');
+            if (overlay) overlay.remove();
+            sopImageDelete(imageId, function() {
+                sopRender();
+                if (typeof showToast === 'function') showToast('Imagen eliminada', 'info');
+            });
+        }, 'danger');
+    }
+}
+
+// ======================================================================
+// [S05] DATA BRIDGE — SOP ↔ Cascade
+// ======================================================================
+
+function sopGetFieldValue(obj, path) {
+    if (!obj || !path) return undefined;
+    var parts = path.split('.');
+    var current = obj;
+    for (var i = 0; i < parts.length; i++) {
+        if (current == null) return undefined;
+        current = current[parts[i]];
+    }
+    return current;
+}
+
+function sopSetFieldValue(obj, path, value) {
+    if (!obj || !path) return;
+    var parts = path.split('.');
+    var current = obj;
+    for (var i = 0; i < parts.length - 1; i++) {
+        if (current[parts[i]] == null) current[parts[i]] = {};
+        current = current[parts[i]];
+    }
+    current[parts[parts.length - 1]] = value;
+}
+
+function sopSaveField(vehicleId, dataPath, value) {
+    var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
+    if (!vehicle) return;
+
+    vehicle.testData = vehicle.testData || {};
+    sopSetFieldValue(vehicle, dataPath, value);
+    vehicle.lastModified = new Date().toISOString();
+    saveDB();
+
+    // Log to shift log
+    if (typeof pnAddShiftEntry === 'function') {
+        pnAddShiftEntry('SOP: Dato actualizado para VIN ' + (vehicle.vin || '?').substring(0, 8) + '...');
+    }
+}
+
+function sopResolveOptions(step) {
+    if (step.options === '__operators__') {
+        var ops = (typeof CONFIG !== 'undefined' && CONFIG.operators) ? CONFIG.operators : [];
+        var result = [{ value: '', label: '— Seleccionar —' }];
+        ops.forEach(function(op) { result.push({ value: op, label: op }); });
+        return result;
+    }
+    return step.options || [];
+}
+
+// ======================================================================
+// [S06] PROCEDURE GENERATION
+// ======================================================================
+
+function sopGetProcedureForVehicle(vehicle) {
+    if (!vehicle) return [];
+    var isEm = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose);
+    var altaSteps = SOP_ALTA_STEPS.slice();
+    var opSteps = isEm ? SOP_EMISSIONS_STEPS.slice() : SOP_SIMPLE_STEPS.slice();
+    return altaSteps.concat(opSteps);
+}
+
+function sopGetSections(steps) {
+    var sections = [];
+    var seen = {};
+    steps.forEach(function(step, idx) {
+        if (!seen[step.section]) {
+            seen[step.section] = true;
+            sections.push({
+                id: step.section,
+                label: step.sectionLabel || step.section,
+                icon: step.sectionIcon || '📋',
+                startIdx: idx
+            });
+        }
+    });
+    return sections;
+}
+
+function sopGetSectionSteps(steps, sectionId) {
+    return steps.filter(function(s) { return s.section === sectionId; });
+}
+
+function sopOnVehicleRegistered(vehicle) {
+    if (!vehicle) return;
+    sopUpdateBadge();
+    // Auto-open SOP if user is on SOP tab
+    if (typeof _currentPlatform !== 'undefined' && _currentPlatform === 'sop') {
+        sopRender();
+    }
+}
+
+
+// ======================================================================
+// [S07] INITIALIZATION & STATE PERSISTENCE
+// ======================================================================
+
 function sopInit() {
     var stored = localStorage.getItem(SOP_STORAGE_KEY);
     if (stored) {
         try {
             var parsed = JSON.parse(stored);
-            sopState.procedures = parsed.procedures || [];
-            sopState.activeSessions = parsed.activeSessions || [];
+            sopState.customizations = parsed.customizations || {};
             sopState.history = parsed.history || [];
+            sopState.selectedVehicleId = parsed.selectedVehicleId || null;
         } catch(e) {
             console.warn('SOP: Error loading state', e);
         }
     }
-    // Ensure builtin templates are present
-    SOP_BUILTIN_TEMPLATES.forEach(function(tpl) {
-        if (!sopState.procedures.find(function(p) { return p.id === tpl.id; })) {
-            sopState.procedures.push(JSON.parse(JSON.stringify(tpl)));
-        }
-    });
-    sopSave();
+    sopImageDBOpen();
     sopUpdateBadge();
 }
 
 function sopSave() {
     try {
         localStorage.setItem(SOP_STORAGE_KEY, JSON.stringify({
-            procedures: sopState.procedures,
-            activeSessions: sopState.activeSessions,
-            history: sopState.history
+            customizations: sopState.customizations,
+            history: sopState.history,
+            selectedVehicleId: sopState.selectedVehicleId
         }));
     } catch(e) {
         console.warn('SOP: Error saving state', e);
@@ -364,18 +870,22 @@ function sopSave() {
 
 function sopUpdateBadge() {
     var badge = document.getElementById('sop-count-badge');
-    if (badge) {
-        var active = sopState.activeSessions.length;
-        badge.textContent = active > 0 ? active + ' activos' : sopState.procedures.length + ' SOPs';
-    }
+    if (!badge) return;
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var active = vehicles.filter(function(v) {
+        return v.status !== 'archived' && v.status !== 'ready-release';
+    });
+    badge.textContent = active.length > 0 ? active.length + ' vehículos' : 'SOP';
 }
 
-/* ─── Tab Switching ─── */
+// ======================================================================
+// [S08] TAB SWITCHING & MAIN RENDER
+// ======================================================================
+
 function sopSwitchTab(tabId) {
     sopState.currentTab = tabId;
     var tabs = document.querySelectorAll('#sop-tabs-bar .tp-tab');
     tabs.forEach(function(t) { t.classList.remove('active'); });
-    // Find the clicked tab
     tabs.forEach(function(t) {
         if (t.getAttribute('onclick') && t.getAttribute('onclick').indexOf(tabId) > -1) {
             t.classList.add('active');
@@ -384,226 +894,571 @@ function sopSwitchTab(tabId) {
     sopRender();
 }
 
-/* ─── Main Render ─── */
 function sopRender() {
     var container = document.getElementById('sop-content');
     if (!container) return;
 
     switch(sopState.currentTab) {
-        case 'sop-procedures': container.innerHTML = sopRenderProcedures(); break;
-        case 'sop-active': container.innerHTML = sopRenderActive(); break;
+        case 'sop-guia': container.innerHTML = sopRenderGuide(); break;
         case 'sop-history': container.innerHTML = sopRenderHistory(); break;
         case 'sop-templates': container.innerHTML = sopRenderTemplates(); break;
-        default: container.innerHTML = sopRenderProcedures();
+        default: container.innerHTML = sopRenderGuide();
+    }
+
+    // Load images for visible steps asynchronously
+    if (sopState.currentTab === 'sop-guia' && sopState.selectedVehicleId) {
+        sopLoadVisibleImages();
     }
 }
 
-/* ─── Render: Procedures List ─── */
-function sopRenderProcedures() {
-    var categories = {
-        'cascade': { label: 'Flujo Cascade (COP15)', icon: '🔬' },
-        'operacion': { label: 'Operacion del Laboratorio', icon: '🏭' },
-        'inventario': { label: 'Inventario y Equipos', icon: '📦' },
-        'custom': { label: 'Personalizados', icon: '📝' }
-    };
+// ======================================================================
+// [S09] VEHICLE SELECTOR
+// ======================================================================
 
+function sopRenderVehicleSelector() {
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var nonArchived = vehicles.filter(function(v) { return v.status !== 'archived'; });
+
+    var html = '<div class="sop-vehicle-selector">';
+    html += '<label style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;display:block;">Seleccionar Vehículo</label>';
+    html += '<select id="sop-vehicle-select" class="sop-data-input" onchange="sopSelectVehicle(this.value)" style="cursor:pointer;">';
+    html += '<option value="">— Seleccionar vehículo —</option>';
+
+    nonArchived.forEach(function(v) {
+        var label = (v.vin || 'Sin VIN') + ' — ' + (v.purpose || '') + ' [' + (typeof CONFIG !== 'undefined' && CONFIG.statusLabels ? (CONFIG.statusLabels[v.status] || v.status) : v.status) + ']';
+        var sel = (sopState.selectedVehicleId && sopState.selectedVehicleId == v.id) ? ' selected' : '';
+        html += '<option value="' + v.id + '"' + sel + '>' + escapeHtml(label) + '</option>';
+    });
+
+    html += '</select>';
+    html += '</div>';
+    return html;
+}
+
+function sopSelectVehicle(id) {
+    sopState.selectedVehicleId = id ? parseInt(id) || id : null;
+    sopState.expandedSections = {};
+    sopState.expandedStep = null;
+    sopSave();
+    sopRender();
+}
+
+// ======================================================================
+// [S10] MAIN GUIDE RENDERER
+// ======================================================================
+
+function sopRenderGuide() {
     var html = '';
 
-    // Category filter chips
-    html += '<div class="sop-categories">';
-    html += '<div class="sop-category-chip active" onclick="sopFilterCategory(\'all\')">Todos</div>';
-    Object.keys(categories).forEach(function(cat) {
-        html += '<div class="sop-category-chip" onclick="sopFilterCategory(\'' + cat + '\')">' +
-                categories[cat].icon + ' ' + categories[cat].label + '</div>';
-    });
+    // Vehicle selector
+    html += sopRenderVehicleSelector();
+
+    if (!sopState.selectedVehicleId) {
+        html += '<div class="tp-card" style="text-align:center;padding:40px 20px;">';
+        html += '<div style="font-size:36px;margin-bottom:10px;">📋</div>';
+        html += '<div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:4px;">Selecciona un vehículo</div>';
+        html += '<div style="font-size:12px;color:#64748b;">Elige un vehículo del selector para ver su procedimiento guiado paso a paso.</div>';
+        html += '</div>';
+        return html;
+    }
+
+    var vehicle = db.vehicles.find(function(v) { return v.id == sopState.selectedVehicleId; });
+    if (!vehicle) {
+        html += '<div class="tp-card" style="text-align:center;padding:20px;color:#ef4444;">Vehículo no encontrado.</div>';
+        return html;
+    }
+
+    // Vehicle info banner
+    html += sopRenderVehicleBanner(vehicle);
+
+    // Overall progress
+    var steps = sopGetProcedureForVehicle(vehicle);
+    var progress = sopCalcProgress(vehicle, steps);
+    html += '<div class="sop-progress">';
+    html += '<div class="sop-progress-bar"><div class="sop-progress-fill" style="width:' + progress + '%;"></div></div>';
+    html += '<div class="sop-progress-text">' + progress + '% completado</div>';
     html += '</div>';
 
-    // Group procedures by category
-    Object.keys(categories).forEach(function(cat) {
-        var procs = sopState.procedures.filter(function(p) { return p.category === cat; });
-        if (procs.length === 0) return;
+    // Edit mode toggle
+    html += '<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">';
+    html += '<button class="tp-btn tp-btn-ghost sop-edit-toggle' + (sopState.editMode ? ' active' : '') + '" onclick="sopToggleEditMode()" style="font-size:10px;padding:4px 12px;min-height:28px;">';
+    html += sopState.editMode ? '✓ Modo Edición' : '✎ Editar Pasos';
+    html += '</button>';
 
-        html += '<div class="tp-card" style="margin-bottom:14px;">';
-        html += '<div class="tp-card-title">' + categories[cat].icon + ' ' + categories[cat].label +
-                '<span class="tp-badge" style="background:#f1f5f9;color:#64748b;">' + procs.length + '</span></div>';
+    // Go to Cascade button
+    html += '<button class="tp-btn tp-btn-ghost" onclick="sopGoToCascade(' + vehicle.id + ')" style="font-size:10px;padding:4px 12px;min-height:28px;margin-left:6px;">↗ Ir a Cascade</button>';
+    html += '</div>';
 
-        procs.forEach(function(proc) {
-            var activeSession = sopState.activeSessions.find(function(s) { return s.procedureId === proc.id; });
-            var totalSteps = proc.steps.length;
-            var totalItems = 0;
-            proc.steps.forEach(function(s) { if (s.items) totalItems += s.items.length; });
+    // Render sections
+    var sections = sopGetSections(steps);
+    sections.forEach(function(section) {
+        var sectionSteps = sopGetSectionSteps(steps, section.id);
+        var sectionProgress = sopCalcSectionProgress(vehicle, sectionSteps);
+        var isExpanded = sopState.expandedSections[section.id] !== false; // default expanded
 
-            html += '<div class="sop-procedure-card' + (activeSession ? ' sop-active' : '') + '" onclick="sopStartProcedure(\'' + proc.id + '\')">';
-            html += '<div style="display:flex;align-items:flex-start;gap:12px;">';
-            html += '<div style="font-size:24px;flex-shrink:0;">' + (proc.icon || '📋') + '</div>';
-            html += '<div style="flex:1;min-width:0;">';
-            html += '<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:2px;">' + proc.name + '</div>';
-            html += '<div style="font-size:11px;color:#64748b;line-height:1.3;margin-bottom:6px;">' + proc.description + '</div>';
-            html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
-            html += '<span style="font-size:10px;color:#94a3b8;">' + totalSteps + ' pasos</span>';
-            html += '<span style="font-size:10px;color:#94a3b8;">' + totalItems + ' items</span>';
-            if (activeSession) {
-                var progress = sopCalcProgress(activeSession);
-                html += '<span style="font-size:10px;font-weight:700;color:var(--accent-sop);">En progreso: ' + progress + '%</span>';
-            }
-            html += '</div>';
-            html += '</div>';
-            html += '<div style="font-size:18px;color:#cbd5e1;flex-shrink:0;">›</div>';
-            html += '</div>';
-            html += '</div>';
-        });
+        html += '<div class="tp-card" style="margin-bottom:10px;overflow:hidden;">';
 
+        // Section header
+        html += '<div class="sop-section-header" onclick="sopToggleSection(\'' + section.id + '\')" style="cursor:pointer;">';
+        html += '<div style="display:flex;align-items:center;gap:8px;flex:1;">';
+        html += '<span style="font-size:16px;">' + section.icon + '</span>';
+        html += '<div style="flex:1;">';
+        html += '<div style="font-size:13px;font-weight:700;color:#0f172a;">' + section.label + '</div>';
+        html += '<div class="sop-section-progress-mini">';
+        html += '<div class="sop-section-progress-bar"><div class="sop-section-progress-fill" style="width:' + sectionProgress + '%;"></div></div>';
+        html += '<span style="font-size:10px;color:#64748b;">' + sectionProgress + '%</span>';
         html += '</div>';
-    });
-
-    return html;
-}
-
-/* ─── Render: Active Sessions ─── */
-function sopRenderActive() {
-    if (sopState.activeSessions.length === 0) {
-        return '<div class="tp-card" style="text-align:center;padding:40px 20px;">' +
-               '<div style="font-size:36px;margin-bottom:10px;">📋</div>' +
-               '<div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:4px;">Sin procedimientos activos</div>' +
-               '<div style="font-size:12px;color:#64748b;">Inicia un procedimiento desde la pestaña "Procedimientos" o desde el flujo Cascade.</div>' +
-               '</div>';
-    }
-
-    var html = '';
-    sopState.activeSessions.forEach(function(session, idx) {
-        var proc = sopState.procedures.find(function(p) { return p.id === session.procedureId; });
-        if (!proc) return;
-
-        var progress = sopCalcProgress(session);
-        html += '<div class="tp-card">';
-        html += '<div class="tp-card-title">' + (proc.icon || '📋') + ' ' + proc.name;
-        html += '<div style="display:flex;gap:6px;">';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="sopAbandonSession(' + idx + ')" style="font-size:10px;padding:4px 10px;min-height:30px;">Abandonar</button>';
-        html += '</div></div>';
-
-        // Progress bar
-        html += '<div class="sop-progress">';
-        html += '<div class="sop-progress-bar"><div class="sop-progress-fill" style="width:' + progress + '%;"></div></div>';
-        html += '<div class="sop-progress-text">' + progress + '%</div>';
+        html += '</div>';
+        html += '</div>';
+        html += '<span style="font-size:14px;color:#94a3b8;transition:transform 0.2s;' + (isExpanded ? 'transform:rotate(180deg);' : '') + '">▼</span>';
         html += '</div>';
 
-        // Started info
-        html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:12px;">Iniciado: ' + new Date(session.startedAt).toLocaleString('es-MX') + '</div>';
-
-        // Steps
-        html += sopRenderSteps(proc, session, idx);
-
-        html += '</div>';
-    });
-
-    return html;
-}
-
-/* ─── Render Steps for a Session ─── */
-function sopRenderSteps(proc, session, sessionIdx) {
-    var html = '';
-
-    proc.steps.forEach(function(step, stepIdx) {
-        var stepState = (session.stepsState && session.stepsState[stepIdx]) || {};
-        var checkedItems = stepState.checked || [];
-        var totalItems = step.items ? step.items.length : 0;
-        var checkedCount = checkedItems.filter(Boolean).length;
-        var isComplete = totalItems > 0 && checkedCount === totalItems;
-        var isActive = !isComplete && (stepIdx === 0 || sopIsStepComplete(proc, session, stepIdx - 1));
-        var isLocked = !isComplete && !isActive;
-
-        var stepClass = 'sop-step';
-        if (isComplete) stepClass += ' sop-step-completed';
-        else if (isActive) stepClass += ' sop-step-active';
-        else stepClass += ' sop-step-locked';
-
-        html += '<div class="' + stepClass + '">';
-
-        // Step number
-        html += '<div class="sop-step-number">';
-        if (isComplete) html += '✓';
-        else html += (stepIdx + 1);
-        html += '</div>';
-
-        // Step content
-        html += '<div class="sop-step-content">';
-        html += '<div class="sop-step-title">' + step.title + '</div>';
-        html += '<div class="sop-step-desc">' + step.description + '</div>';
-
-        // Checklist items
-        if (step.items && !isLocked) {
-            html += '<div class="sop-checklist">';
-            step.items.forEach(function(item, itemIdx) {
-                var isChecked = checkedItems[itemIdx] === true;
-                html += '<div class="sop-check-item' + (isChecked ? ' checked' : '') + '" onclick="sopToggleItem(' + sessionIdx + ',' + stepIdx + ',' + itemIdx + ')">';
-                html += '<div class="sop-check-box">' + (isChecked ? '✓' : '') + '</div>';
-                html += '<span>' + item + '</span>';
-                html += '</div>';
+        // Section steps
+        if (isExpanded) {
+            html += '<div class="sop-section-body">';
+            sectionSteps.forEach(function(step) {
+                var globalIdx = steps.indexOf(step);
+                html += sopRenderStep(step, globalIdx, vehicle);
             });
             html += '</div>';
         }
 
-        // Notes input for active step
-        if (isActive && step.items) {
-            html += '<div style="margin-top:8px;">';
-            html += '<input class="sop-data-input" type="text" placeholder="Notas opcionales para este paso..." ' +
-                    'value="' + (stepState.notes || '').replace(/"/g, '&quot;') + '" ' +
-                    'onchange="sopSaveStepNote(' + sessionIdx + ',' + stepIdx + ',this.value)">';
-            html += '</div>';
-        }
-
-        html += '</div>'; // step-content
-        html += '</div>'; // step
+        html += '</div>';
     });
 
-    // Check if all steps complete
-    var allComplete = proc.steps.every(function(step, idx) {
-        return sopIsStepComplete(proc, session, idx);
-    });
-
-    if (allComplete) {
+    // Completion check
+    if (progress === 100) {
         html += '<div class="sop-summary">';
         html += '<div class="sop-summary-icon">🎉</div>';
         html += '<div class="sop-summary-title">Procedimiento Completado</div>';
-        html += '<div class="sop-summary-detail">Todos los pasos han sido completados exitosamente.</div>';
-        html += '<button class="tp-btn tp-btn-primary" style="margin-top:12px;background:var(--tp-green);" onclick="sopCompleteSession(' + sessionIdx + ')">Finalizar y Guardar en Historial</button>';
+        html += '<div class="sop-summary-detail">Todos los campos han sido llenados exitosamente.</div>';
+        html += '<button class="tp-btn tp-btn-primary" style="margin-top:12px;background:var(--tp-green);" onclick="sopCompleteVehicle(' + vehicle.id + ')">Guardar en Historial</button>';
         html += '</div>';
     }
 
     return html;
 }
 
-/* ─── Render: History ─── */
+function sopRenderVehicleBanner(vehicle) {
+    var isEm = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose);
+    var statusLabel = (typeof CONFIG !== 'undefined' && CONFIG.statusLabels) ? (CONFIG.statusLabels[vehicle.status] || vehicle.status) : vehicle.status;
+
+    var html = '<div class="sop-vehicle-banner">';
+    html += '<div style="display:flex;align-items:center;gap:10px;">';
+    html += '<div style="font-size:24px;">🚗</div>';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<div style="font-size:13px;font-weight:700;color:#0f172a;">' + escapeHtml(vehicle.vin || 'Sin VIN') + '</div>';
+    html += '<div style="font-size:11px;color:#64748b;">';
+    html += escapeHtml(vehicle.purpose || '') + ' | ' + escapeHtml(vehicle.configCode || 'Manual');
+    html += ' | <span class="status-badge status-' + vehicle.status + '">' + escapeHtml(statusLabel) + '</span>';
+    html += '</div>';
+    html += '<div style="font-size:10px;color:#94a3b8;margin-top:2px;">';
+    html += 'Tipo: ' + (isEm ? 'Emisiones (procedimiento completo)' : 'No-emisiones (procedimiento simple)');
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+    return html;
+}
+
+function sopToggleSection(sectionId) {
+    if (sopState.expandedSections[sectionId] === undefined) {
+        sopState.expandedSections[sectionId] = false;
+    } else {
+        sopState.expandedSections[sectionId] = !sopState.expandedSections[sectionId];
+    }
+    sopRender();
+}
+
+
+// ======================================================================
+// [S11] STEP RENDERER
+// ======================================================================
+
+function sopRenderStep(step, stepIdx, vehicle) {
+    var value = sopGetFieldValue(vehicle, step.dataPath);
+    var hasValue = (value !== undefined && value !== null && value !== '');
+    var isActive = sopState.expandedStep === stepIdx;
+
+    // Apply customizations
+    var customStep = sopGetCustomStep(vehicle.id, stepIdx, step);
+
+    var stepClass = 'sop-step';
+    if (hasValue) stepClass += ' sop-step-completed';
+    else if (isActive) stepClass += ' sop-step-active';
+
+    var html = '<div class="' + stepClass + '" id="sop-step-' + stepIdx + '">';
+
+    // Step number
+    html += '<div class="sop-step-number" onclick="sopExpandStep(' + stepIdx + ')" style="cursor:pointer;">';
+    if (hasValue && step.fieldType !== 'action') html += '✓';
+    else html += (stepIdx + 1);
+    html += '</div>';
+
+    // Step content
+    html += '<div class="sop-step-content">';
+    html += '<div class="sop-step-title" onclick="sopExpandStep(' + stepIdx + ')" style="cursor:pointer;">' + escapeHtml(customStep.title) + '</div>';
+    html += '<div class="sop-step-desc">' + escapeHtml(customStep.description) + '</div>';
+
+    // Field input (always visible, not locked)
+    html += sopRenderField(step, stepIdx, value, vehicle);
+
+    // Checklist sub-items (customizable)
+    if (customStep.checklistItems && customStep.checklistItems.length > 0) {
+        html += sopRenderChecklist(customStep.checklistItems, vehicle.id, stepIdx);
+    }
+
+    // Image gallery
+    html += '<div id="sop-images-' + stepIdx + '" class="sop-image-gallery"></div>';
+    html += '<button class="tp-btn tp-btn-ghost sop-camera-btn" onclick="sopCaptureImage(' + vehicle.id + ',' + stepIdx + ')" style="font-size:10px;padding:4px 10px;min-height:26px;margin-top:6px;">📷 Foto</button>';
+
+    // Edit mode controls
+    if (sopState.editMode) {
+        html += '<div class="sop-edit-controls" style="margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0;">';
+        html += '<div style="display:flex;gap:4px;flex-wrap:wrap;">';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopEditStepTitle(' + stepIdx + ')" style="font-size:9px;padding:2px 8px;min-height:24px;">✎ Título</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopEditStepDesc(' + stepIdx + ')" style="font-size:9px;padding:2px 8px;min-height:24px;">✎ Desc</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopAddChecklistItem(' + stepIdx + ')" style="font-size:9px;padding:2px 8px;min-height:24px;">+ Item</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopReorderStep(' + stepIdx + ',-1)" style="font-size:9px;padding:2px 8px;min-height:24px;">↑</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopReorderStep(' + stepIdx + ',1)" style="font-size:9px;padding:2px 8px;min-height:24px;">↓</button>';
+        html += '</div>';
+        html += '</div>';
+    }
+
+    html += '</div>'; // step-content
+    html += '</div>'; // step
+
+    return html;
+}
+
+function sopRenderField(step, stepIdx, value, vehicle) {
+    var html = '<div class="sop-field-group">';
+
+    switch (step.fieldType) {
+        case 'readonly':
+            var displayVal = value;
+            if (step.dataPath === 'registeredAt' && value) {
+                displayVal = new Date(value).toLocaleString('es-MX');
+            }
+            html += '<div class="sop-field-readonly">' + escapeHtml(displayVal || '—') + '</div>';
+            break;
+
+        case 'select':
+            var opts = sopResolveOptions(step);
+            html += '<select class="sop-data-input" onchange="sopOnFieldChange(' + vehicle.id + ',' + stepIdx + ',this.value)" style="cursor:pointer;">';
+            opts.forEach(function(opt) {
+                var sel = (String(value) === String(opt.value)) ? ' selected' : '';
+                html += '<option value="' + escapeHtml(opt.value) + '"' + sel + '>' + escapeHtml(opt.label) + '</option>';
+            });
+            html += '</select>';
+            break;
+
+        case 'number':
+            html += '<div style="display:flex;align-items:center;gap:6px;">';
+            html += '<input type="number" class="sop-data-input" value="' + (value != null ? value : '') + '"';
+            html += ' placeholder="' + escapeHtml(step.placeholder || '') + '"';
+            if (step.step) html += ' step="' + step.step + '"';
+            html += ' onchange="sopOnFieldChange(' + vehicle.id + ',' + stepIdx + ',this.value)"';
+            html += ' style="flex:1;">';
+            if (step.unit) {
+                html += '<span style="font-size:11px;color:#64748b;font-weight:700;white-space:nowrap;">' + escapeHtml(step.unit) + '</span>';
+            }
+            html += '</div>';
+            break;
+
+        case 'text':
+            html += '<input type="text" class="sop-data-input" value="' + escapeHtml(value || '') + '"';
+            html += ' placeholder="' + escapeHtml(step.placeholder || '') + '"';
+            html += ' onchange="sopOnFieldChange(' + vehicle.id + ',' + stepIdx + ',this.value)">';
+            break;
+
+        case 'textarea':
+            html += '<textarea class="sop-data-input" rows="2" placeholder="' + escapeHtml(step.placeholder || '') + '"';
+            html += ' onchange="sopOnFieldChange(' + vehicle.id + ',' + stepIdx + ',this.value)"';
+            html += ' style="min-height:50px;resize:vertical;">' + escapeHtml(value || '') + '</textarea>';
+            break;
+
+        case 'datetime':
+            html += '<input type="datetime-local" class="sop-data-input" value="' + escapeHtml(value || '') + '"';
+            html += ' onchange="sopOnFieldChange(' + vehicle.id + ',' + stepIdx + ',this.value)">';
+            break;
+
+        case 'action':
+            html += '<button class="tp-btn tp-btn-primary sop-action-btn" onclick="sopOnActionStep(\'' + escapeHtml(step.actionFn) + '\')" style="background:var(--accent-sop);font-size:12px;">';
+            html += escapeHtml(step.actionLabel || 'Ejecutar');
+            html += '</button>';
+            break;
+    }
+
+    html += '</div>';
+    return html;
+}
+
+function sopRenderChecklist(items, vehicleId, stepIdx) {
+    var checkState = sopGetChecklistState(vehicleId, stepIdx);
+    var html = '<div class="sop-checklist" style="margin-top:8px;">';
+    items.forEach(function(item, itemIdx) {
+        var isChecked = checkState[itemIdx] === true;
+        html += '<div class="sop-check-item' + (isChecked ? ' checked' : '') + '" onclick="sopToggleChecklistItem(' + vehicleId + ',' + stepIdx + ',' + itemIdx + ')">';
+        html += '<div class="sop-check-box">' + (isChecked ? '✓' : '') + '</div>';
+        html += '<span style="flex:1;">' + escapeHtml(item) + '</span>';
+        if (sopState.editMode) {
+            html += '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();sopRemoveChecklistItem(' + stepIdx + ',' + itemIdx + ')" style="font-size:9px;padding:2px 6px;min-height:20px;color:var(--tp-red);">✕</button>';
+        }
+        html += '</div>';
+    });
+    html += '</div>';
+    return html;
+}
+
+function sopExpandStep(stepIdx) {
+    sopState.expandedStep = (sopState.expandedStep === stepIdx) ? null : stepIdx;
+    // Don't re-render, just visual toggle for now
+}
+
+// ======================================================================
+// [S12] FIELD CHANGE HANDLERS
+// ======================================================================
+
+function sopOnFieldChange(vehicleId, stepIdx, rawValue) {
+    var steps = sopGetProcedureForVehicle(db.vehicles.find(function(v) { return v.id == vehicleId; }));
+    var step = steps[stepIdx];
+    if (!step || !step.dataPath) return;
+
+    var value = rawValue;
+
+    // Type conversions
+    if (step.fieldType === 'number' && rawValue !== '') {
+        value = parseFloat(rawValue);
+        if (isNaN(value)) value = null;
+    } else if (step.fieldType === 'select' && step.dataPath.indexOf('fuelLevelFraction') > -1 && rawValue !== '') {
+        value = parseFloat(rawValue);
+    }
+
+    sopSaveField(vehicleId, step.dataPath, value);
+    sopRender();
+}
+
+function sopOnActionStep(actionFnName) {
+    if (typeof window[actionFnName] === 'function') {
+        window[actionFnName]();
+        if (typeof showToast === 'function') showToast('Acción ejecutada: ' + actionFnName, 'success');
+    } else {
+        if (typeof showToast === 'function') showToast('Función no disponible: ' + actionFnName, 'error');
+    }
+}
+
+// ======================================================================
+// [S13] CHECKLIST STATE
+// ======================================================================
+
+function sopGetChecklistState(vehicleId, stepIdx) {
+    var key = vehicleId + '-' + stepIdx;
+    if (!sopState.customizations[key]) sopState.customizations[key] = {};
+    return sopState.customizations[key].checkState || {};
+}
+
+function sopToggleChecklistItem(vehicleId, stepIdx, itemIdx) {
+    var key = vehicleId + '-' + stepIdx;
+    if (!sopState.customizations[key]) sopState.customizations[key] = {};
+    if (!sopState.customizations[key].checkState) sopState.customizations[key].checkState = {};
+    sopState.customizations[key].checkState[itemIdx] = !sopState.customizations[key].checkState[itemIdx];
+    sopSave();
+    sopRender();
+}
+
+// ======================================================================
+// [S14] STEP EDITING
+// ======================================================================
+
+function sopToggleEditMode() {
+    sopState.editMode = !sopState.editMode;
+    sopRender();
+}
+
+function sopGetCustomStep(vehicleId, stepIdx, originalStep) {
+    var key = vehicleId + '-' + stepIdx;
+    var custom = sopState.customizations[key] || {};
+    return {
+        title: custom.title || originalStep.title,
+        description: custom.description || originalStep.description,
+        checklistItems: custom.checklistItems || originalStep.checklistItems || []
+    };
+}
+
+function sopEditStepTitle(stepIdx) {
+    var vehicle = db.vehicles.find(function(v) { return v.id == sopState.selectedVehicleId; });
+    if (!vehicle) return;
+    var steps = sopGetProcedureForVehicle(vehicle);
+    var step = steps[stepIdx];
+    if (!step) return;
+
+    var key = sopState.selectedVehicleId + '-' + stepIdx;
+    var custom = sopState.customizations[key] || {};
+    var currentTitle = custom.title || step.title;
+    var newTitle = prompt('Nuevo título del paso:', currentTitle);
+    if (newTitle && newTitle.trim()) {
+        if (!sopState.customizations[key]) sopState.customizations[key] = {};
+        sopState.customizations[key].title = newTitle.trim();
+        sopSave();
+        sopRender();
+    }
+}
+
+function sopEditStepDesc(stepIdx) {
+    var vehicle = db.vehicles.find(function(v) { return v.id == sopState.selectedVehicleId; });
+    if (!vehicle) return;
+    var steps = sopGetProcedureForVehicle(vehicle);
+    var step = steps[stepIdx];
+    if (!step) return;
+
+    var key = sopState.selectedVehicleId + '-' + stepIdx;
+    var custom = sopState.customizations[key] || {};
+    var currentDesc = custom.description || step.description;
+    var newDesc = prompt('Nueva descripción:', currentDesc);
+    if (newDesc && newDesc.trim()) {
+        if (!sopState.customizations[key]) sopState.customizations[key] = {};
+        sopState.customizations[key].description = newDesc.trim();
+        sopSave();
+        sopRender();
+    }
+}
+
+function sopAddChecklistItem(stepIdx) {
+    var key = sopState.selectedVehicleId + '-' + stepIdx;
+    var newItem = prompt('Nuevo item del checklist:');
+    if (newItem && newItem.trim()) {
+        if (!sopState.customizations[key]) sopState.customizations[key] = {};
+        if (!sopState.customizations[key].checklistItems) sopState.customizations[key].checklistItems = [];
+        sopState.customizations[key].checklistItems.push(newItem.trim());
+        sopSave();
+        sopRender();
+    }
+}
+
+function sopRemoveChecklistItem(stepIdx, itemIdx) {
+    var key = sopState.selectedVehicleId + '-' + stepIdx;
+    if (!sopState.customizations[key] || !sopState.customizations[key].checklistItems) return;
+    sopState.customizations[key].checklistItems.splice(itemIdx, 1);
+    sopSave();
+    sopRender();
+}
+
+function sopReorderStep(stepIdx, direction) {
+    // Reordering modifies the display order via customization
+    // Store custom order in sopState.customizations for the vehicle
+    var vehId = sopState.selectedVehicleId;
+    if (!vehId) return;
+    var orderKey = 'order-' + vehId;
+    if (!sopState.customizations[orderKey]) {
+        // Initialize with natural order
+        var vehicle = db.vehicles.find(function(v) { return v.id == vehId; });
+        var steps = sopGetProcedureForVehicle(vehicle);
+        var arr = [];
+        for (var i = 0; i < steps.length; i++) arr.push(i);
+        sopState.customizations[orderKey] = arr;
+    }
+    var order = sopState.customizations[orderKey];
+    var currentPos = order.indexOf(stepIdx);
+    var targetPos = currentPos + direction;
+    if (targetPos < 0 || targetPos >= order.length) return;
+
+    // Swap
+    var tmp = order[currentPos];
+    order[currentPos] = order[targetPos];
+    order[targetPos] = tmp;
+    sopSave();
+    sopRender();
+}
+
+
+// ======================================================================
+// [S15] PROGRESS TRACKING
+// ======================================================================
+
+function sopCalcProgress(vehicle, steps) {
+    if (!steps || steps.length === 0) return 0;
+    var total = 0;
+    var filled = 0;
+    steps.forEach(function(step) {
+        if (step.fieldType === 'action' || step.fieldType === 'readonly') return;
+        total++;
+        var val = sopGetFieldValue(vehicle, step.dataPath);
+        if (val !== undefined && val !== null && val !== '') filled++;
+    });
+    return total > 0 ? Math.round((filled / total) * 100) : 100;
+}
+
+function sopCalcSectionProgress(vehicle, sectionSteps) {
+    return sopCalcProgress(vehicle, sectionSteps);
+}
+
+function sopIsStepComplete(step, vehicle) {
+    if (step.fieldType === 'action' || step.fieldType === 'readonly') return true;
+    var val = sopGetFieldValue(vehicle, step.dataPath);
+    return (val !== undefined && val !== null && val !== '');
+}
+
+// ======================================================================
+// [S16] IMAGE LOADING (ASYNC)
+// ======================================================================
+
+function sopLoadVisibleImages() {
+    var vehicleId = sopState.selectedVehicleId;
+    if (!vehicleId) return;
+
+    var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
+    if (!vehicle) return;
+
+    var steps = sopGetProcedureForVehicle(vehicle);
+    steps.forEach(function(step, stepIdx) {
+        var stepKey = 'step-' + vehicleId + '-' + stepIdx;
+        var container = document.getElementById('sop-images-' + stepIdx);
+        if (!container) return;
+
+        sopImageGetAll(stepKey, function(images) {
+            if (images.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            var html = '';
+            images.forEach(function(img) {
+                html += '<div class="sop-image-thumb" onclick="sopShowImageOverlay(\'' + img.id + '\')">';
+                html += '<img src="' + img.thumbnail + '" alt="Foto">';
+                html += '</div>';
+            });
+            container.innerHTML = html;
+        });
+    });
+}
+
+// ======================================================================
+// [S17] HISTORY & EXPORT
+// ======================================================================
+
 function sopRenderHistory() {
     if (sopState.history.length === 0) {
         return '<div class="tp-card" style="text-align:center;padding:40px 20px;">' +
                '<div style="font-size:36px;margin-bottom:10px;">📜</div>' +
                '<div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:4px;">Sin historial</div>' +
-               '<div style="font-size:12px;color:#64748b;">Aqui aparecera el registro de procedimientos completados.</div>' +
+               '<div style="font-size:12px;color:#64748b;">Aquí aparecerá el registro de procedimientos completados.</div>' +
                '</div>';
     }
 
     var html = '<div class="tp-card">';
     html += '<div class="tp-card-title">Procedimientos Completados <span class="tp-badge" style="background:#f0fdf4;color:#16a34a;">' + sopState.history.length + '</span></div>';
 
-    // Sort by completion date desc
-    var sorted = sopState.history.slice().sort(function(a,b) {
+    var sorted = sopState.history.slice().sort(function(a, b) {
         return new Date(b.completedAt) - new Date(a.completedAt);
     });
 
     sorted.forEach(function(record) {
-        var proc = sopState.procedures.find(function(p) { return p.id === record.procedureId; });
-        var name = proc ? proc.name : record.procedureId;
-        var icon = proc ? (proc.icon || '📋') : '📋';
-
         html += '<div class="sop-history-item">';
         html += '<div class="sop-history-status" style="background:var(--tp-green);"></div>';
         html += '<div class="sop-history-info">';
-        html += '<div class="sop-history-name">' + icon + ' ' + name + '</div>';
-        html += '<div class="sop-history-meta">' +
-                'Duracion: ' + sopFormatDuration(record.startedAt, record.completedAt) +
-                (record.operator ? ' | Operador: ' + record.operator : '') +
-                '</div>';
+        html += '<div class="sop-history-name">🚗 ' + escapeHtml(record.vin || '?') + '</div>';
+        html += '<div class="sop-history-meta">' + escapeHtml(record.purpose || '') + ' | ' + escapeHtml(record.configCode || '') +
+                (record.operator ? ' | ' + escapeHtml(record.operator) : '') + '</div>';
         html += '</div>';
         html += '<div class="sop-history-date">' + new Date(record.completedAt).toLocaleDateString('es-MX', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + '</div>';
         html += '</div>';
@@ -611,348 +1466,38 @@ function sopRenderHistory() {
 
     html += '</div>';
 
-    // Clear history button
     if (sopState.history.length > 0) {
-        html += '<div style="text-align:center;margin-top:10px;">';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="sopClearHistory()" style="font-size:11px;">Limpiar Historial</button>';
+        html += '<div style="display:flex;gap:6px;justify-content:center;margin-top:10px;">';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopExportHistory()" style="font-size:11px;">Exportar</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopClearHistory()" style="font-size:11px;color:var(--tp-red);">Limpiar</button>';
         html += '</div>';
     }
 
     return html;
 }
 
-/* ─── Render: Templates ─── */
-function sopRenderTemplates() {
-    var html = '<div class="tp-card">';
-    html += '<div class="tp-card-title">Plantillas Disponibles</div>';
-    html += '<div style="font-size:12px;color:#64748b;margin-bottom:14px;">Las plantillas predefinidas no se pueden eliminar. Puedes crear tus propios procedimientos personalizados.</div>';
-
-    sopState.procedures.forEach(function(proc) {
-        var isBuiltin = SOP_BUILTIN_TEMPLATES.some(function(t) { return t.id === proc.id; });
-        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8fafc;border:1px solid #f1f5f9;border-radius:10px;margin-bottom:6px;">';
-        html += '<span style="font-size:18px;">' + (proc.icon || '📋') + '</span>';
-        html += '<div style="flex:1;min-width:0;">';
-        html += '<div style="font-size:12px;font-weight:700;color:#0f172a;">' + proc.name + '</div>';
-        html += '<div style="font-size:10px;color:#64748b;">' + proc.steps.length + ' pasos | Categoria: ' + proc.category + '</div>';
-        html += '</div>';
-        if (isBuiltin) {
-            html += '<span style="font-size:9px;padding:2px 8px;background:#f1f5f9;color:#64748b;border-radius:6px;font-weight:700;">Predefinido</span>';
-        } else {
-            html += '<button class="tp-btn tp-btn-ghost" onclick="sopDeleteProcedure(\'' + proc.id + '\')" style="font-size:10px;padding:4px 8px;min-height:28px;color:var(--tp-red);">Eliminar</button>';
-        }
-        html += '</div>';
-    });
-
-    html += '</div>';
-    return html;
-}
-
-/* ─── Actions ─── */
-
-function sopStartProcedure(procId) {
-    // Check if already active
-    var existing = sopState.activeSessions.find(function(s) { return s.procedureId === procId; });
-    if (existing) {
-        // Switch to active tab and show it
-        sopSwitchTab('sop-active');
-        return;
-    }
-
-    var proc = sopState.procedures.find(function(p) { return p.id === procId; });
-    if (!proc) return;
-
-    var session = {
-        procedureId: procId,
-        startedAt: new Date().toISOString(),
-        operator: typeof getCurrentOperator === 'function' ? getCurrentOperator() : '',
-        stepsState: {}
-    };
-
-    // Initialize steps state
-    proc.steps.forEach(function(step, idx) {
-        session.stepsState[idx] = {
-            checked: step.items ? new Array(step.items.length).fill(false) : [],
-            notes: ''
-        };
-    });
-
-    sopState.activeSessions.push(session);
-    sopSave();
-    sopUpdateBadge();
-
-    if (typeof showToast === 'function') {
-        showToast('Procedimiento iniciado: ' + proc.name, 'success');
-    }
-
-    sopSwitchTab('sop-active');
-}
-
-function sopToggleItem(sessionIdx, stepIdx, itemIdx) {
-    var session = sopState.activeSessions[sessionIdx];
-    if (!session) return;
-
-    if (!session.stepsState[stepIdx]) {
-        session.stepsState[stepIdx] = { checked: [], notes: '' };
-    }
-
-    var checked = session.stepsState[stepIdx].checked;
-    checked[itemIdx] = !checked[itemIdx];
-
-    sopSave();
-    sopRender();
-
-    // Log to panel shift log if available
-    if (checked[itemIdx] && typeof pnAddShiftEntry === 'function') {
-        var proc = sopState.procedures.find(function(p) { return p.id === session.procedureId; });
-        if (proc && proc.steps[stepIdx]) {
-            var itemText = proc.steps[stepIdx].items[itemIdx];
-            pnAddShiftEntry('SOP: ' + proc.name + ' - ' + itemText);
-        }
-    }
-}
-
-function sopSaveStepNote(sessionIdx, stepIdx, value) {
-    var session = sopState.activeSessions[sessionIdx];
-    if (!session) return;
-    if (!session.stepsState[stepIdx]) {
-        session.stepsState[stepIdx] = { checked: [], notes: '' };
-    }
-    session.stepsState[stepIdx].notes = value;
-    sopSave();
-}
-
-function sopCompleteSession(sessionIdx) {
-    var session = sopState.activeSessions[sessionIdx];
-    if (!session) return;
+function sopCompleteVehicle(vehicleId) {
+    var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
+    if (!vehicle) return;
 
     var record = {
-        procedureId: session.procedureId,
-        startedAt: session.startedAt,
-        completedAt: new Date().toISOString(),
-        operator: session.operator,
-        stepsState: session.stepsState
+        vehicleId: vehicleId,
+        vin: vehicle.vin,
+        purpose: vehicle.purpose,
+        configCode: vehicle.configCode,
+        operator: typeof getCurrentOperator === 'function' ? getCurrentOperator() : '',
+        completedAt: new Date().toISOString()
     };
 
     sopState.history.push(record);
-    sopState.activeSessions.splice(sessionIdx, 1);
     sopSave();
-    sopUpdateBadge();
 
-    if (typeof showToast === 'function') {
-        showToast('Procedimiento completado y archivado', 'success');
-    }
-
-    // Log to panel
-    if (typeof pnAddShiftEntry === 'function') {
-        var proc = sopState.procedures.find(function(p) { return p.id === record.procedureId; });
-        if (proc) {
-            pnAddShiftEntry('SOP Completado: ' + proc.name);
-        }
-    }
+    if (typeof showToast === 'function') showToast('Procedimiento completado para ' + (vehicle.vin || 'vehículo'), 'success');
+    if (typeof pnAddShiftEntry === 'function') pnAddShiftEntry('SOP Completado: ' + (vehicle.vin || '?'));
 
     sopRender();
 }
 
-function sopAbandonSession(sessionIdx) {
-    if (typeof showCustomConfirm === 'function') {
-        showCustomConfirm(
-            'Abandonar Procedimiento',
-            'Se perdera el progreso de este procedimiento. ¿Continuar?',
-            function() {
-                sopState.activeSessions.splice(sessionIdx, 1);
-                sopSave();
-                sopUpdateBadge();
-                sopRender();
-                if (typeof showToast === 'function') showToast('Procedimiento abandonado', 'warning');
-            },
-            'danger'
-        );
-    } else {
-        if (confirm('¿Abandonar este procedimiento? Se perdera el progreso.')) {
-            sopState.activeSessions.splice(sessionIdx, 1);
-            sopSave();
-            sopUpdateBadge();
-            sopRender();
-        }
-    }
-}
-
-function sopDeleteProcedure(procId) {
-    var isBuiltin = SOP_BUILTIN_TEMPLATES.some(function(t) { return t.id === procId; });
-    if (isBuiltin) {
-        if (typeof showToast === 'function') showToast('No se pueden eliminar procedimientos predefinidos', 'warning');
-        return;
-    }
-
-    if (typeof showCustomConfirm === 'function') {
-        showCustomConfirm('Eliminar Procedimiento', '¿Eliminar este procedimiento personalizado?', function() {
-            sopState.procedures = sopState.procedures.filter(function(p) { return p.id !== procId; });
-            sopState.activeSessions = sopState.activeSessions.filter(function(s) { return s.procedureId !== procId; });
-            sopSave();
-            sopUpdateBadge();
-            sopRender();
-        }, 'danger');
-    }
-}
-
-function sopClearHistory() {
-    if (typeof showCustomConfirm === 'function') {
-        showCustomConfirm('Limpiar Historial', '¿Eliminar todo el historial de procedimientos completados?', function() {
-            sopState.history = [];
-            sopSave();
-            sopRender();
-            if (typeof showToast === 'function') showToast('Historial limpiado', 'info');
-        }, 'danger');
-    }
-}
-
-function sopFilterCategory(cat) {
-    // Toggle visual active state on chips
-    document.querySelectorAll('.sop-category-chip').forEach(function(chip) {
-        chip.classList.remove('active');
-        if (cat === 'all' && chip.textContent.trim() === 'Todos') chip.classList.add('active');
-        else if (chip.getAttribute('onclick') && chip.getAttribute('onclick').indexOf("'" + cat + "'") > -1) chip.classList.add('active');
-    });
-
-    // Filter cards visibility
-    // For simplicity, re-render with filter
-    sopRender();
-}
-
-/* ─── Create Custom SOP Modal ─── */
-function sopShowCreateModal() {
-    var html = '<div style="max-width:500px;margin:40px auto;background:#fff;border-radius:16px;padding:24px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.15);">';
-    html += '<button onclick="this.closest(\'[id$=sopCreateModal]\').style.display=\'none\'" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">✕</button>';
-    html += '<h3 style="margin:0 0 16px;font-size:16px;font-weight:800;color:#0f172a;">Crear Nuevo Procedimiento</h3>';
-
-    html += '<div style="display:flex;flex-direction:column;gap:12px;">';
-    html += '<div><label style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;display:block;">Nombre del Procedimiento</label>';
-    html += '<input id="sop-new-name" class="sop-data-input" type="text" placeholder="Ej: Verificacion de Fugas"></div>';
-
-    html += '<div><label style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;display:block;">Descripcion</label>';
-    html += '<textarea id="sop-new-desc" class="sop-data-input" rows="2" placeholder="Describe brevemente el procedimiento..." style="min-height:60px;resize:vertical;"></textarea></div>';
-
-    html += '<div><label style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;display:block;">Categoria</label>';
-    html += '<select id="sop-new-cat" class="sop-data-input" style="cursor:pointer;"><option value="operacion">Operacion del Laboratorio</option><option value="inventario">Inventario y Equipos</option><option value="custom">Personalizado</option></select></div>';
-
-    html += '<div><label style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;display:block;">Pasos (un paso por linea, usa ; para separar items del checklist)</label>';
-    html += '<textarea id="sop-new-steps" class="sop-data-input" rows="5" placeholder="Paso 1: Titulo; item1; item2; item3&#10;Paso 2: Titulo; item1; item2" style="min-height:100px;resize:vertical;font-family:monospace;font-size:12px;"></textarea></div>';
-
-    html += '<button class="tp-btn tp-btn-primary" onclick="sopCreateCustom()" style="background:var(--accent-sop);margin-top:4px;">Crear Procedimiento</button>';
-    html += '</div>';
-    html += '</div>';
-
-    // Create modal overlay
-    var modal = document.createElement('div');
-    modal.id = 'sopCreateModal';
-    modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.3);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;animation:modalFadeIn 0.2s ease;';
-    modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
-    modal.innerHTML = html;
-    document.body.appendChild(modal);
-}
-
-function sopCreateCustom() {
-    var name = document.getElementById('sop-new-name').value.trim();
-    var desc = document.getElementById('sop-new-desc').value.trim();
-    var cat = document.getElementById('sop-new-cat').value;
-    var stepsRaw = document.getElementById('sop-new-steps').value.trim();
-
-    if (!name) {
-        if (typeof showToast === 'function') showToast('Ingresa un nombre para el procedimiento', 'warning');
-        return;
-    }
-
-    // Parse steps
-    var steps = [];
-    var lines = stepsRaw.split('\n').filter(function(l) { return l.trim(); });
-    lines.forEach(function(line) {
-        var parts = line.split(';').map(function(s) { return s.trim(); }).filter(Boolean);
-        if (parts.length > 0) {
-            var title = parts[0].replace(/^Paso\s*\d+\s*:\s*/i, '');
-            var items = parts.slice(1);
-            steps.push({
-                title: title,
-                description: '',
-                type: 'checklist',
-                items: items.length > 0 ? items : ['Completar este paso']
-            });
-        }
-    });
-
-    if (steps.length === 0) {
-        steps.push({ title: 'Paso 1', description: '', type: 'checklist', items: ['Completar'] });
-    }
-
-    var newProc = {
-        id: 'sop-custom-' + Date.now(),
-        name: name,
-        category: cat,
-        description: desc || 'Procedimiento personalizado',
-        icon: '📝',
-        steps: steps
-    };
-
-    sopState.procedures.push(newProc);
-    sopSave();
-    sopUpdateBadge();
-
-    // Close modal
-    var modal = document.getElementById('sopCreateModal');
-    if (modal) modal.remove();
-
-    if (typeof showToast === 'function') showToast('Procedimiento creado: ' + name, 'success');
-    sopRender();
-}
-
-/* ─── Cascade Integration ─── */
-
-// Called by COP15 when switching tabs to show contextual SOP banner
-function sopGetCascadeBanner(phase) {
-    var phaseMap = {
-        'alta': 'sop-cop15-alta',
-        'seguimiento': 'sop-cop15-operacion',
-        'liberacion': 'sop-cop15-liberacion'
-    };
-
-    var procId = phaseMap[phase];
-    if (!procId) return '';
-
-    var proc = sopState.procedures.find(function(p) { return p.id === procId; });
-    if (!proc) return '';
-
-    var activeSession = sopState.activeSessions.find(function(s) { return s.procedureId === procId; });
-    var progress = activeSession ? sopCalcProgress(activeSession) : 0;
-
-    var html = '<div class="sop-context-banner" onclick="sopStartAndShow(\'' + procId + '\')">';
-    html += '<div class="sop-context-icon">📋</div>';
-    html += '<div class="sop-context-text">';
-    if (activeSession) {
-        html += '<strong>SOP: ' + proc.name + '</strong><br>Progreso: ' + progress + '% completado';
-    } else {
-        html += '<strong>Guia disponible: ' + proc.name + '</strong><br>Toca para iniciar el procedimiento paso a paso';
-    }
-    html += '</div>';
-    html += '<div class="sop-context-action">' + (activeSession ? 'Continuar ›' : 'Iniciar ›') + '</div>';
-    html += '</div>';
-
-    return html;
-}
-
-function sopStartAndShow(procId) {
-    // Start if not active
-    var existing = sopState.activeSessions.find(function(s) { return s.procedureId === procId; });
-    if (!existing) {
-        sopStartProcedure(procId);
-    }
-
-    // Switch to SOP module, active tab
-    if (typeof switchPlatform === 'function') {
-        switchPlatform('sop');
-    }
-    sopSwitchTab('sop-active');
-}
-
-/* ─── Export History ─── */
 function sopExportHistory() {
     if (sopState.history.length === 0) {
         if (typeof showToast === 'function') showToast('No hay historial para exportar', 'info');
@@ -964,11 +1509,10 @@ function sopExportHistory() {
     text += '═══════════════════════════════════════\n\n';
 
     sopState.history.forEach(function(record, idx) {
-        var proc = sopState.procedures.find(function(p) { return p.id === record.procedureId; });
-        text += (idx + 1) + '. ' + (proc ? proc.name : record.procedureId) + '\n';
-        text += '   Iniciado: ' + new Date(record.startedAt).toLocaleString('es-MX') + '\n';
+        text += (idx + 1) + '. VIN: ' + (record.vin || '?') + '\n';
+        text += '   Propósito: ' + (record.purpose || '') + '\n';
+        text += '   Config: ' + (record.configCode || '') + '\n';
         text += '   Completado: ' + new Date(record.completedAt).toLocaleString('es-MX') + '\n';
-        text += '   Duracion: ' + sopFormatDuration(record.startedAt, record.completedAt) + '\n';
         if (record.operator) text += '   Operador: ' + record.operator + '\n';
         text += '\n';
     });
@@ -984,37 +1528,130 @@ function sopExportHistory() {
     if (typeof showToast === 'function') showToast('Historial exportado', 'success');
 }
 
-/* ─── Helpers ─── */
+function sopClearHistory() {
+    if (typeof showCustomConfirm === 'function') {
+        showCustomConfirm('Limpiar Historial', '¿Eliminar todo el historial de procedimientos completados?', function() {
+            sopState.history = [];
+            sopSave();
+            sopRender();
+            if (typeof showToast === 'function') showToast('Historial limpiado', 'info');
+        }, 'danger');
+    }
+}
 
-function sopCalcProgress(session) {
-    var proc = sopState.procedures.find(function(p) { return p.id === session.procedureId; });
-    if (!proc) return 0;
+// ======================================================================
+// [S18] TEMPLATES VIEW
+// ======================================================================
 
-    var totalItems = 0;
-    var checkedItems = 0;
+function sopRenderTemplates() {
+    var html = '<div class="tp-card">';
+    html += '<div class="tp-card-title">Plantillas de Procedimiento</div>';
+    html += '<div style="font-size:12px;color:#64748b;margin-bottom:14px;">Los procedimientos se generan automáticamente según el tipo de vehículo. Aquí puedes ver las plantillas disponibles.</div>';
 
-    proc.steps.forEach(function(step, idx) {
-        if (step.items) {
-            totalItems += step.items.length;
-            var stepState = session.stepsState[idx];
-            if (stepState && stepState.checked) {
-                checkedItems += stepState.checked.filter(Boolean).length;
-            }
-        }
+    // Emissions template
+    html += '<div class="sop-procedure-card">';
+    html += '<div style="display:flex;align-items:center;gap:12px;">';
+    html += '<div style="font-size:24px;">🔬</div>';
+    html += '<div style="flex:1;">';
+    html += '<div style="font-size:13px;font-weight:700;color:#0f172a;">Procedimiento de Emisiones</div>';
+    html += '<div style="font-size:11px;color:#64748b;">Para vehículos COP-Emisiones, EO-Emisiones, ND-Emisiones</div>';
+    html += '<div style="font-size:10px;color:#94a3b8;margin-top:4px;">' + (SOP_ALTA_STEPS.length + SOP_EMISSIONS_STEPS.length) + ' pasos | 7 secciones</div>';
+    html += '</div>';
+    html += '<span style="font-size:9px;padding:2px 8px;background:#f1f5f9;color:#64748b;border-radius:6px;font-weight:700;">Predefinido</span>';
+    html += '</div></div>';
+
+    // Simple template
+    html += '<div class="sop-procedure-card">';
+    html += '<div style="display:flex;align-items:center;gap:12px;">';
+    html += '<div style="font-size:24px;">📋</div>';
+    html += '<div style="flex:1;">';
+    html += '<div style="font-size:13px;font-weight:700;color:#0f172a;">Procedimiento Simple</div>';
+    html += '<div style="font-size:11px;color:#64748b;">Para vehículos no-emisiones (OBD2, Nuevos Desarrollos, etc.)</div>';
+    html += '<div style="font-size:10px;color:#94a3b8;margin-top:4px;">' + (SOP_ALTA_STEPS.length + SOP_SIMPLE_STEPS.length) + ' pasos | 2 secciones</div>';
+    html += '</div>';
+    html += '<span style="font-size:9px;padding:2px 8px;background:#f1f5f9;color:#64748b;border-radius:6px;font-weight:700;">Predefinido</span>';
+    html += '</div></div>';
+
+    // Section breakdown for emissions
+    html += '<div style="margin-top:14px;">';
+    html += '<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:8px;">Secciones del Procedimiento de Emisiones</div>';
+    var sections = sopGetSections(SOP_ALTA_STEPS.concat(SOP_EMISSIONS_STEPS));
+    sections.forEach(function(s) {
+        var count = sopGetSectionSteps(SOP_ALTA_STEPS.concat(SOP_EMISSIONS_STEPS), s.id).length;
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f8fafc;border-radius:8px;margin-bottom:4px;">';
+        html += '<span style="font-size:14px;">' + s.icon + '</span>';
+        html += '<span style="font-size:12px;color:#334155;flex:1;">' + escapeHtml(s.label) + '</span>';
+        html += '<span style="font-size:10px;color:#94a3b8;">' + count + ' pasos</span>';
+        html += '</div>';
     });
+    html += '</div>';
 
-    return totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0;
+    html += '</div>';
+    return html;
 }
 
-function sopIsStepComplete(proc, session, stepIdx) {
-    var step = proc.steps[stepIdx];
-    if (!step || !step.items || step.items.length === 0) return true;
+// ======================================================================
+// [S19] CASCADE INTEGRATION
+// ======================================================================
 
-    var stepState = session.stepsState[stepIdx];
-    if (!stepState || !stepState.checked) return false;
+function sopGetCascadeBanner(phase) {
+    // Show SOP banner in Cascade to guide users
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var activeVeh = null;
+    if (typeof activeVehicleId !== 'undefined' && activeVehicleId) {
+        activeVeh = vehicles.find(function(v) { return v.id == activeVehicleId; });
+    }
 
-    return stepState.checked.filter(Boolean).length === step.items.length;
+    if (!activeVeh) return '';
+
+    var steps = sopGetProcedureForVehicle(activeVeh);
+    var progress = sopCalcProgress(activeVeh, steps);
+
+    var html = '<div class="sop-context-banner" onclick="sopStartAndShow(' + activeVeh.id + ')">';
+    html += '<div class="sop-context-icon">📋</div>';
+    html += '<div class="sop-context-text">';
+    if (progress > 0 && progress < 100) {
+        html += '<strong>SOP Guiado: ' + progress + '% completado</strong><br>Toca para continuar el procedimiento paso a paso';
+    } else if (progress === 100) {
+        html += '<strong>SOP Guiado: Completado</strong><br>Todos los campos han sido llenados';
+    } else {
+        html += '<strong>Guía SOP disponible</strong><br>Toca para llenar los datos con ayuda paso a paso';
+    }
+    html += '</div>';
+    html += '<div class="sop-context-action">' + (progress > 0 ? 'Continuar ›' : 'Iniciar ›') + '</div>';
+    html += '</div>';
+
+    return html;
 }
+
+function sopStartAndShow(vehicleId) {
+    sopState.selectedVehicleId = vehicleId;
+    sopState.currentTab = 'sop-guia';
+    sopSave();
+
+    if (typeof switchPlatform === 'function') {
+        switchPlatform('sop');
+    }
+    setTimeout(function() { sopRender(); }, 100);
+}
+
+function sopGoToCascade(vehicleId) {
+    if (typeof switchPlatform === 'function') {
+        switchPlatform('cop15');
+    }
+    // Try to select the vehicle in Cascade
+    setTimeout(function() {
+        var select = document.getElementById('activeVehSelect');
+        if (select) {
+            select.value = vehicleId;
+            if (typeof loadVehicle === 'function') loadVehicle();
+        }
+    }, 200);
+}
+
+// ======================================================================
+// [S20] HELPERS
+// ======================================================================
 
 function sopFormatDuration(start, end) {
     var ms = new Date(end) - new Date(start);
@@ -1025,7 +1662,10 @@ function sopFormatDuration(start, end) {
     return hrs + 'h ' + remainMins + 'min';
 }
 
-// Initialize on load
+// ======================================================================
+// [S21] INITIALIZE
+// ======================================================================
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
         setTimeout(sopInit, 100);

@@ -888,6 +888,7 @@ setAltaDatetimeIfEmpty(true);
         validateVIN(document.getElementById('vin'));
         
         refreshAllLists();
+        if (typeof sopOnVehicleRegistered === 'function') sopOnVehicleRegistered(newVehicle);
         updateProgressBar();
     }
 
