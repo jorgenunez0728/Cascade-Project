@@ -2,7 +2,8 @@
 // ║  KIA EmLab — Service Worker (PWA offline support)                  ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-var CACHE_NAME = 'kia-emlab-v1';
+// [Fase 4.3] Cache version — updated by build.sh or manually on each release
+var CACHE_NAME = 'kia-emlab-v202603172339';
 
 var CDN_ASSETS = [
     'https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js',
@@ -29,17 +30,28 @@ self.addEventListener('install', function(event) {
     self.skipWaiting();
 });
 
-// Activate: clean old caches
+// [Fase 4.3] Activate: delete all old caches that don't match current version
 self.addEventListener('activate', function(event) {
     event.waitUntil(
-        caches.keys().then(function(names) {
+        caches.keys().then(function(cacheNames) {
             return Promise.all(
-                names.filter(function(n) { return n !== CACHE_NAME; })
-                     .map(function(n) { return caches.delete(n); })
+                cacheNames
+                    .filter(function(name) { return name !== CACHE_NAME; })
+                    .map(function(name) {
+                        console.log('[SW] Deleting old cache:', name);
+                        return caches.delete(name);
+                    })
             );
         })
     );
     self.clients.claim();
+});
+
+// [Fase 4.3] Message listener: allow app to trigger skipWaiting for update notifications
+self.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
 });
 
 // Fetch: Cache-First for CDN, Network-First for app files

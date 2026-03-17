@@ -282,12 +282,67 @@ let currentUnitSystem = 'SI';
 
 
 // ======================================================================
+// [M00b] THEME / DARK MODE
+// ======================================================================
+
+var _themePref = localStorage.getItem('kia_theme_pref') || 'auto';
+var _themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+function _themeApply(mode) {
+    var resolved = mode;
+    if (mode === 'auto') {
+        resolved = _themeMediaQuery.matches ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', resolved);
+    // Update meta theme-color
+    var metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+        metaTheme.setAttribute('content', resolved === 'dark' ? '#0f1419' : '#05141f');
+    }
+    // Update toggle button icon
+    var btn = document.getElementById('theme-toggle-btn');
+    if (btn) {
+        var icons = { auto: '\u{1F504}', light: '\u2600\uFE0F', dark: '\u{1F319}' };
+        btn.textContent = icons[_themePref] || '\u{1F504}';
+        var labels = { auto: 'Tema: automático', light: 'Tema: claro', dark: 'Tema: oscuro' };
+        btn.title = labels[_themePref] || 'Cambiar tema';
+    }
+}
+
+function themeInit() {
+    _themePref = localStorage.getItem('kia_theme_pref') || 'auto';
+    _themeApply(_themePref);
+    // Listen for system preference changes when in auto mode
+    _themeMediaQuery.addEventListener('change', function() {
+        if (_themePref === 'auto') {
+            _themeApply('auto');
+        }
+    });
+}
+
+function themeToggle() {
+    // Cycle: auto → light → dark → auto
+    var cycle = { auto: 'light', light: 'dark', dark: 'auto' };
+    _themePref = cycle[_themePref] || 'auto';
+    localStorage.setItem('kia_theme_pref', _themePref);
+    _themeApply(_themePref);
+    var labels = { auto: 'Tema: automático (sistema)', light: 'Tema: claro', dark: 'Tema: oscuro' };
+    if (typeof showToast === 'function') {
+        showToast(labels[_themePref] || 'Tema actualizado', 'info');
+    }
+}
+
+// ======================================================================
 // [M01] UTILIDADES GENERALES]
 // ======================================================================
 
     function saveDB() {
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
     }
+
+// ── [Fase 2.2] Debounced save wrapper for focusout/auto-save scenarios ──
+var _debouncedSaveDB = debounce(function() { saveDB(); }, 500);
+function saveDBSoft() { _debouncedSaveDB(); }
 
 // ── View Mode (Compact/Detailed) ──
 var _viewModes = {};
@@ -504,18 +559,67 @@ function showToast(msg, type) {
     }
     var toast = document.createElement('div');
     toast.className = 'toast toast-' + type;
+    toast.style.position = 'relative';
+    toast.style.overflow = 'hidden';
     toast.textContent = msg;
-    if (arguments.length >= 4 && typeof arguments[3] === 'function') {
+
+    var hasUndo = arguments.length >= 4 && typeof arguments[3] === 'function';
+    if (hasUndo) {
         var undoBtn = document.createElement('button');
         undoBtn.textContent = ' Deshacer';
         undoBtn.style.cssText = 'margin-left:8px;padding:2px 8px;border:1px solid currentColor;border-radius:4px;background:transparent;color:inherit;cursor:pointer;font-size:11px;font-weight:700;';
         var undoFn = arguments[3];
-        undoBtn.onclick = function() { undoFn(); if (toast.parentNode) toast.parentNode.removeChild(toast); };
+        undoBtn.onclick = function() { undoFn(); dismiss(); };
         toast.appendChild(undoBtn);
     }
+
+    // Progress bar
+    var dur = hasUndo ? 8000 : 4000;
+    var progressBar = document.createElement('div');
+    progressBar.style.cssText = 'position:absolute;bottom:0;left:0;height:3px;width:100%;background:currentColor;opacity:0.35;transform-origin:left;transition:none;';
+    toast.appendChild(progressBar);
+
     container.appendChild(toast);
-    var dur = (arguments.length >= 4 && typeof arguments[3] === 'function') ? 6000 : 3200;
-    setTimeout(function(){ if (toast.parentNode) toast.parentNode.removeChild(toast); }, dur);
+
+    // Animate progress bar
+    requestAnimationFrame(function() {
+        progressBar.style.transition = 'transform ' + dur + 'ms linear';
+        progressBar.style.transform = 'scaleX(0)';
+    });
+
+    // Timer with pause on hover/touch
+    var remaining = dur;
+    var startTime = Date.now();
+    var timer = setTimeout(dismiss, dur);
+
+    function pause() {
+        clearTimeout(timer);
+        remaining -= (Date.now() - startTime);
+        if (remaining < 0) remaining = 0;
+        var elapsed = dur - remaining;
+        var fraction = remaining / dur;
+        progressBar.style.transition = 'none';
+        progressBar.style.transform = 'scaleX(' + fraction + ')';
+    }
+
+    function resume() {
+        startTime = Date.now();
+        requestAnimationFrame(function() {
+            progressBar.style.transition = 'transform ' + remaining + 'ms linear';
+            progressBar.style.transform = 'scaleX(0)';
+        });
+        timer = setTimeout(dismiss, remaining);
+    }
+
+    function dismiss() {
+        clearTimeout(timer);
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }
+
+    toast.addEventListener('mouseenter', pause);
+    toast.addEventListener('mouseleave', resume);
+    toast.addEventListener('touchstart', pause, { passive: true });
+    toast.addEventListener('touchend', resume);
 }
 
 
@@ -813,7 +917,7 @@ function noteCount(entityType, entityId) { return noteGet(entityType, entityId).
 function noteBuildButton(entityType, entityId) {
     var c = noteCount(entityType, entityId);
     return '<button onclick="noteShowModal(\'' + entityType + '\',\'' + entityId + '\')" class="tp-btn tp-btn-ghost" style="font-size:9px;position:relative;padding:3px 8px;">' +
-        '📝 Notas' + (c > 0 ? ' <span style="background:var(--tp-amber);color:#000;font-size:8px;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-left:2px;">' + c + '</span>' : '') +
+        '📝 Notas' + (c > 0 ? ' <span style="background:var(--tp-amber);color:#000;font-size:9px;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-left:2px;">' + c + '</span>' : '') +
         '</button>';
 }
 
@@ -826,7 +930,7 @@ function noteShowModal(entityType, entityId) {
         notes.slice().reverse().forEach(function(n) {
             html += '<div style="padding:8px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-bg);">';
             html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
-            html += '<span style="font-size:8px;color:var(--tp-dim);">' + new Date(n.timestamp).toLocaleString('es-MX') + '</span>';
+            html += '<span style="font-size:9px;color:var(--tp-dim);">' + new Date(n.timestamp).toLocaleString('es-MX') + '</span>';
             html += '<button onclick="noteDelete(\'' + entityType + '\',\'' + entityId + '\',' + n.id + ');noteShowModal(\'' + entityType + '\',\'' + entityId + '\');" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:0 4px;">×</button>';
             html += '</div>';
             html += '<div style="font-size:11px;color:var(--tp-text);white-space:pre-wrap;">' + escapeHtml(n.text) + '</div>';
@@ -963,7 +1067,7 @@ function switchPlatform(platform, swipeDir) {
         }
     }
 
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ── Global VIN Search ──
@@ -1372,6 +1476,9 @@ function generateWeeklyStatusPDF() {
 })();
 
     function initializeSystem() {
+        // Theme init — apply before any UI renders
+        themeInit();
+
         // [R5-M1] Splash screen
         if (typeof splashShow === 'function') splashShow();
 
@@ -1447,12 +1554,14 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ [R4-M1] Load chart configurations ═══
         chartConfigLoad();
 
-        // ═══ [R3-M6] Health check at boot ═══
+        // ═══ [R3-M6] Health check at boot — enhanced [Fase 5.3] ═══
         try {
             var lsUsage = _getLocalStorageUsage();
             var lsPercent = Math.round((lsUsage / (5 * 1024 * 1024)) * 100);
             if (lsPercent > 90) {
                 showToast('Almacenamiento al ' + lsPercent + '%. Considere purgar datos antiguos.', 'warning');
+            } else if (lsPercent > 80) {
+                showToast('Almacenamiento al ' + lsPercent + '%. Considere exportar datos y ejecutar compactación desde Panel > Salud del Sistema.', 'warning');
             }
             console.log('Storage: ' + _formatBytes(lsUsage) + ' (' + lsPercent + '%)');
         } catch(e) { console.error('Health check error:', e); }
@@ -1977,6 +2086,31 @@ function _getLocalStorageUsage() {
         }
     }
     return total;
+}
+
+// ── [Fase 5.3] Run all module compaction functions ──
+function storageCompactAll() {
+    var actions = [];
+    // COP15 timeline compaction
+    if (typeof compactTimelineEntries === 'function') {
+        if (compactTimelineEntries()) { saveDB(); actions.push('timeline'); }
+    }
+    // Test Plan old plans compaction
+    if (typeof tpCompactOldPlans === 'function') {
+        tpCompactOldPlans();
+        actions.push('testplan');
+    }
+    // Results Analyzer compaction (if exists)
+    if (typeof raCompact === 'function') {
+        raCompact();
+        actions.push('results');
+    }
+    if (actions.length > 0) {
+        showToast('Compactación completada: ' + actions.join(', '), 'success');
+    } else {
+        showToast('No se requiere compactación.', 'info');
+    }
+    return actions;
 }
 
 function renderBackupStatus(container) {

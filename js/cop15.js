@@ -36,6 +36,9 @@ function _autoSaveSilent() {
     saveProgress({ silent: true });
 }
 
+// ── [Fase 2.2] Debounced auto-save for focusout scenarios ──
+var _debouncedAutoSaveSilent = debounce(function() { if (_unsavedChanges) _autoSaveSilent(); }, 500);
+
 function setupUnsavedTracking() {
     var container = document.getElementById('op-content');
     if (!container) return;
@@ -44,11 +47,10 @@ function setupUnsavedTracking() {
     // [R5-M2] Register auto-save on blur/visibility change
     autoSaveInit('cop15', _autoSaveSilent, function(){ return _unsavedChanges; });
 
-    // [R5-M2] Auto-save when individual fields lose focus (after editing)
+    // [R5-M2][Fase 2.2] Auto-save when individual fields lose focus (debounced)
     container.addEventListener('focusout', function(e) {
         if (_unsavedChanges && e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) {
-            // Small delay to avoid saving mid-tab-navigation between fields
-            setTimeout(function(){ if (_unsavedChanges) _autoSaveSilent(); }, 300);
+            _debouncedAutoSaveSilent();
         }
     });
 }
@@ -873,6 +875,7 @@ setAltaDatetimeIfEmpty(true);
         };
         
         db.vehicles.push(newVehicle);
+        compactTimelineEntries();
         saveDB();
         if (typeof fbPostVehicleRegistered === 'function') fbPostVehicleRegistered(newVehicle.vin, newVehicle.configCode);
 
@@ -2636,6 +2639,17 @@ function purgeSingleVehicle(vehicleId) {
   saveDB(); refreshAllLists(); updateProgressBar(); renderHistory();
 }
 
+// ── [Fase 5.3] Timeline compaction — keeps last 50 entries per vehicle ──
+function compactTimelineEntries() {
+    var changed = false;
+    (db.vehicles || []).forEach(function(v) {
+        if (v.timeline && v.timeline.length > 50) {
+            v.timeline = v.timeline.slice(-50);
+            changed = true;
+        }
+    });
+    return changed;
+}
 
 function buildF05Data(vehicle) {
   const td = vehicle.testData || {};
@@ -3152,6 +3166,8 @@ function handleConfigCSVImport(event) {
     reader.onload = function(e) {
         const oldCount = allConfigurations.length;
         const st = document.getElementById('configCSVStatus');
+        // [Fase 5.4] Save state for rollback before import
+        if (typeof undoPush === 'function') undoPush('cop15', 'Pre-importación CSV');
         try {
             localStorage.setItem('kia_config_csv_raw', e.target.result);
             parseCSV();
@@ -3168,7 +3184,11 @@ function handleConfigCSVImport(event) {
             if (srcEl) srcEl.innerHTML = '<span style="color:#f59e0b;">CSV importado</span>';
             var ms = document.getElementById('configSourceModal'); if (ms) ms.innerHTML = '<span style="color:#f59e0b;">CSV importado</span>';
             st.innerHTML = '<span style="color:#16a34a;">OK: '+allConfigurations.length+' configs (antes: '+oldCount+'). Los vehiculos ya registrados no se afectan.</span>';
-        } catch(err) { st.innerHTML = '<span style="color:#dc2626;">Error: '+err.message+'</span>'; }
+        } catch(err) {
+            // [Fase 5.4] Rollback on failure
+            if (typeof undoPop === 'function') undoPop();
+            st.innerHTML = '<span style="color:#dc2626;">Error: '+err.message+'. Se restauró el estado anterior.</span>';
+        }
     };
     reader.readAsText(file);
     event.target.value = '';
@@ -4224,25 +4244,25 @@ function renderKanban() {
                 html += '<span style="font-family:monospace;font-size:11px;font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
                 html += '<button onclick="event.stopPropagation();copyToClipboard(\'' + fullVin.replace(/'/g,"\\'") + '\', this)" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px;" title="Copiar VIN">📋</button>';
                 html += '</span>';
-                if (timeSince) html += '<span style="font-size:8px;color:#94a3b8;" title="Tiempo en este estado">' + timeSince + '</span>';
+                if (timeSince) html += '<span style="font-size:9px;color:#94a3b8;" title="Tiempo en este estado">' + timeSince + '</span>';
                 html += '</div>';
                 // Config labels
                 if (modelo) {
                     html += '<div style="font-size:10px;font-weight:600;color:#0f172a;margin-top:3px;">' + modelo + '</div>';
                 }
                 html += '<div class="compact-hide" style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap;">';
-                if (motor) html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;">' + motor + '</span>';
-                if (regulacion) html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">' + regulacion + '</span>';
+                if (motor) html += '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;">' + motor + '</span>';
+                if (regulacion) html += '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">' + regulacion + '</span>';
                 html += '</div>';
                 // Purpose badge
                 html += '<div class="compact-hide" style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">';
                 if (v.purpose) {
                     var pColor = v.purpose.includes('COP') ? '#0ea5e9' : v.purpose.includes('EO') ? '#f97316' : '#8b5cf6';
-                    html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:' + pColor + '15;color:' + pColor + ';border:1px solid ' + pColor + '30;">' + v.purpose + '</span>';
+                    html += '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:' + pColor + '15;color:' + pColor + ';border:1px solid ' + pColor + '30;">' + v.purpose + '</span>';
                 }
                 // Operator
                 if (td.operator) {
-                    html += '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:#f1f5f9;color:#475569;">' + td.operator + '</span>';
+                    html += '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#f1f5f9;color:#475569;">' + td.operator + '</span>';
                 }
                 html += '</div>';
 
@@ -4252,7 +4272,7 @@ function renderKanban() {
                     if (remaining > 0) {
                         var hrs = Math.floor(remaining / (1000 * 60 * 60));
                         var mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-                        html += '<div class="compact-hide" style="margin-top:4px;font-size:8px;padding:2px 6px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Soak: ' + hrs + 'h ' + mins + 'm restantes</div>';
+                        html += '<div class="compact-hide" style="margin-top:4px;font-size:9px;padding:2px 6px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Soak: ' + hrs + 'h ' + mins + 'm restantes</div>';
                     }
                 }
                 html += '</div>';

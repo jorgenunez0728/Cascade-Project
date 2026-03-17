@@ -2,6 +2,10 @@
 // ║  KIA EmLab — Test Plan Manager Module                              ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// ── [Fase 2.1] Debounced render wrappers for search inputs ──
+var _tpDebouncedDashRender = debounce(tpRenderDashTable, 250);
+var _tpDebouncedRender = debounce(tpRender, 250);
+
 // ======================================================================
 // WEEKLY PLAN HELPERS
 // ======================================================================
@@ -82,18 +86,18 @@ function tpRenderPlanActual(el) {
     <div class="tp-card" style="border-left:3px solid var(--tp-red);">
         <div class="tp-card-title"><span style="color:var(--tp-red);font-size:11px;">🔄 Carry-over (${carry.length} pendientes)</span>
         <button class="tp-btn tp-btn-primary" onclick="tpCarryOver()" style="font-size:9px;">Agregar al próximo</button></div>
-        ${carry.map(c=>`<div style="padding:2px 6px;font-size:8px;color:var(--tp-amber);border:1px solid var(--tp-border);border-radius:3px;margin-bottom:2px;">${c.desc}</div>`).join('')}
+        ${carry.map(c=>`<div style="padding:2px 6px;font-size:9px;color:var(--tp-amber);border:1px solid var(--tp-border);border-radius:3px;margin-bottom:2px;">${c.desc}</div>`).join('')}
     </div>`:''}
     <div class="tp-card">
         <div class="tp-card-title"><span>Cumplimiento</span></div>
         <div style="display:flex;align-items:flex-end;gap:3px;height:100px;padding:8px 0;">
             ${wData.map(w=>`
             <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;">
-                <span style="font-size:7px;font-weight:700;color:${w.pct===100?'var(--tp-green)':w.pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${w.pct}%</span>
+                <span style="font-size:9px;font-weight:700;color:${w.pct===100?'var(--tp-green)':w.pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${w.pct}%</span>
                 <div style="width:100%;max-width:35px;background:var(--tp-border);border-radius:3px;height:65px;position:relative;overflow:hidden;">
                     <div style="position:absolute;bottom:0;width:100%;height:${w.pct}%;background:${w.pct===100?'var(--tp-green)':w.pct>=50?'var(--tp-amber)':'var(--tp-red)'};border-radius:3px;"></div>
                 </div>
-                <span style="font-size:7px;color:var(--tp-dim);">S${w.week}</span>
+                <span style="font-size:9px;color:var(--tp-dim);">S${w.week}</span>
             </div>`).join('')}
         </div>
     </div>
@@ -107,8 +111,8 @@ function tpRenderPlanActual(el) {
                 <td style="font-size:9px;">${new Date(w.created).toLocaleDateString('es-MX',{day:'numeric',month:'short'})}</td>
                 <td>${w.total}</td>
                 <td style="font-weight:700;color:${w.done===w.total?'var(--tp-green)':'var(--tp-red)'};">${w.done}</td>
-                <td><div class="tp-bar" style="width:40px;"><div class="tp-bar-fill" style="width:${w.pct}%;background:${w.pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size:7px;">${w.pct}%</span></div></td>
-                <td><button class="tp-btn tp-btn-ghost" onclick="tpExportWeeklyPlan(${w.week-1})" style="font-size:8px;">📤</button></td>
+                <td><div class="tp-bar" style="width:40px;"><div class="tp-bar-fill" style="width:${w.pct}%;background:${w.pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size:9px;">${w.pct}%</span></div></td>
+                <td><button class="tp-btn tp-btn-ghost" onclick="tpExportWeeklyPlan(${w.week-1})" style="font-size:9px;">📤</button></td>
             </tr>`).join('')}</tbody>
         </table></div>
     </div>`;
@@ -180,16 +184,16 @@ function tpRenderPlanHistory(el) {
         if (diff.added.length > 0) {
             html += '<div style="margin-bottom:6px;"><div style="font-size:10px;font-weight:700;color:var(--tp-green);margin-bottom:3px;">\u{1F195} Nuevas</div>';
             diff.added.slice(0,15).forEach(function(c) {
-                html += '<div style="padding:2px 6px;font-size:8px;color:var(--tp-green);border:1px solid rgba(16,185,129,0.2);border-radius:3px;margin-bottom:2px;">' + c.desc + ' \u2014 ' + c.total.toLocaleString() + ' uds</div>';
+                html += '<div style="padding:2px 6px;font-size:9px;color:var(--tp-green);border:1px solid rgba(16,185,129,0.2);border-radius:3px;margin-bottom:2px;">' + c.desc + ' \u2014 ' + c.total.toLocaleString() + ' uds</div>';
             });
-            if (diff.added.length > 15) html += '<div style="font-size:8px;color:var(--tp-dim);">... y ' + (diff.added.length-15) + ' mas</div>';
+            if (diff.added.length > 15) html += '<div style="font-size:9px;color:var(--tp-dim);">... y ' + (diff.added.length-15) + ' mas</div>';
             html += '</div>';
         }
 
         if (diff.removed.length > 0) {
             html += '<div><div style="font-size:10px;font-weight:700;color:var(--tp-red);margin-bottom:3px;">\u{1F5D1} Retiradas (conservadas vol=0)</div>';
             diff.removed.slice(0,15).forEach(function(c) {
-                html += '<div style="padding:2px 6px;font-size:8px;color:var(--tp-red);opacity:0.7;border:1px solid rgba(239,68,68,0.2);border-radius:3px;margin-bottom:2px;">' + c.desc + '</div>';
+                html += '<div style="padding:2px 6px;font-size:9px;color:var(--tp-red);opacity:0.7;border:1px solid rgba(239,68,68,0.2);border-radius:3px;margin-bottom:2px;">' + c.desc + '</div>';
             });
             html += '</div>';
         }
@@ -250,6 +254,21 @@ let tpState = safeParse(TP_LS_KEY, null) || {
 if (!tpState.weekHistory) tpState.weekHistory = [];
 
 function tpSave() { localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); }
+
+// ── [Fase 5.3] Compact old completed plans (older than 6 months) ──
+function tpCompactOldPlans() {
+    if (!tpState || !tpState.planData) return;
+    var now = Date.now();
+    var sixMonths = 180 * 24 * 60 * 60 * 1000;
+    var before = tpState.planData.length;
+    tpState.planData = tpState.planData.filter(function(p) {
+        if (p.status === 'completed' && p.completedDate) {
+            return (now - new Date(p.completedDate).getTime()) < sixMonths;
+        }
+        return true;
+    });
+    if (tpState.planData.length < before) tpSave();
+}
 
 // ── Data helpers ──
 function tpGetRule(cfg) {
@@ -657,7 +676,7 @@ function tpRenderDashboard(el) {
             <span style="font-size:10px;color:var(--tp-dim);" id="tp-dash-count"></span>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-            <input class="tp-input" placeholder="Buscar config..." style="max-width:220px;" id="tp-dash-search" oninput="tpRenderDashTable()">
+            <input class="tp-input" placeholder="Buscar config..." style="max-width:220px;" id="tp-dash-search" oninput="_tpDebouncedDashRender()">
             <select class="tp-select" id="tp-dash-fmodel" onchange="tpRenderDashTable()">
                 <option value="ALL">Todos los modelos</option>
                 ${[...new Set(tpState.planData.map(c=>c.mod))].sort().map(m=>`<option>${m}</option>`).join('')}
@@ -963,7 +982,7 @@ function tpRenderDashChart(analysis) {
                 const defH = Math.min(100 - testedH, (Math.max(0, r.req - r.tested) / maxVal) * 100);
                 const pct = r.req > 0 ? Math.round(r.tested / r.req * 100) : 0;
                 return `<div class="tp-chart-col">
-                    <div class="tp-chart-value" style="font-size:8px;">${r.tested}/${r.req}</div>
+                    <div class="tp-chart-value" style="font-size:9px;">${r.tested}/${r.req}</div>
                     <div class="tp-chart-group" style="position:relative;">
                         <div style="position:absolute;bottom:0;width:100%;height:${testedH + defH}%;display:flex;flex-direction:column;justify-content:flex-end;">
                             <div style="height:${defH > 0 ? (defH/(testedH+defH)*100) : 0}%;background:var(--tp-red);opacity:0.3;border-radius:3px 3px 0 0;"></div>
@@ -971,7 +990,7 @@ function tpRenderDashChart(analysis) {
                         </div>
                     </div>
                     <div class="tp-chart-label">${r.name.length > 8 ? r.name.slice(0,7) + '..' : r.name}</div>
-                    <div style="font-size:8px;font-weight:700;color:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${pct}%</div>
+                    <div style="font-size:9px;font-weight:700;color:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${pct}%</div>
                 </div>`;
             }).join('')}
         </div>
@@ -1011,7 +1030,7 @@ function tpRenderDashChart(analysis) {
                     <div class="tp-chart-fill" style="height:${Math.min(100,(r.tested/maxVal)*100)}%;background:var(--tp-green);"></div>
                 </div>
                 <div class="tp-chart-label">${r.name.length > 8 ? r.name.slice(0,7) + '..' : r.name}</div>
-                <div style="font-size:8px;font-weight:700;color:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${pct}%</div>
+                <div style="font-size:9px;font-weight:700;color:${pct>=100?'var(--tp-green)':pct>=50?'var(--tp-amber)':'var(--tp-red)'};">${pct}%</div>
             </div>`;
         }).join('')}
     </div>
@@ -1385,7 +1404,7 @@ function tpRenderRules(el) {
                             <span style="font-size:11px;">${label}</span>
                             <span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tp-amber)">${w[k]}%</span>
                         </div>
-                        <input type="range" min="0" max="100" step="5" value="${w[k]}" style="width:100%;accent-color:var(--tp-amber);" oninput="tpState.weights.${k}=+this.value;tpSave();tpRender();">
+                        <input type="range" min="0" max="100" step="5" value="${w[k]}" style="width:100%;accent-color:var(--tp-amber);" oninput="tpState.weights.${k}=+this.value;tpSave();_tpDebouncedRender();">
                     </div>
                 `).join('')}
                 <div style="margin-top:8px;padding:8px;background:#161f2e;border-radius:6px;text-align:center;">
@@ -1599,9 +1618,9 @@ function tpRenderWeekly(el) {
             ${carryoverItems.map(c => {
                 const isAlreadyPicked = manualPicks.includes(c.desc);
                 return `<div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.2);border-radius:5px;flex-wrap:wrap;opacity:${isAlreadyPicked?0.5:1};">
-                    <span style="font-size:8px;color:#8b5cf6;flex-shrink:0;">🔄</span>
+                    <span style="font-size:9px;color:#8b5cf6;flex-shrink:0;">🔄</span>
                     ${tpConfigBadges(c,{fontSize:'8px'})}
-                    ${isAlreadyPicked ? '<span style="font-size:7px;color:var(--tp-green);margin-left:auto;">incluido</span>' : `<button onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${c.desc.replace(/'/g,"\\'")}'))window._tpWeeklyManualPicks.push('${c.desc.replace(/'/g,"\\'")}');tpRender();" style="background:none;border:none;color:#8b5cf6;cursor:pointer;font-size:10px;margin-left:auto;">+</button>`}
+                    ${isAlreadyPicked ? '<span style="font-size:9px;color:var(--tp-green);margin-left:auto;">incluido</span>' : `<button onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${c.desc.replace(/'/g,"\\'")}'))window._tpWeeklyManualPicks.push('${c.desc.replace(/'/g,"\\'")}');tpRender();" style="background:none;border:none;color:#8b5cf6;cursor:pointer;font-size:10px;margin-left:auto;">+</button>`}
                 </div>`;
             }).join('')}
             </div>
@@ -1615,7 +1634,7 @@ function tpRenderWeekly(el) {
                 <div onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${s.desc.replace(/'/g,"\\'")}'))window._tpWeeklyManualPicks.push('${s.desc.replace(/'/g,"\\'")}');tpRender();" style="display:flex;align-items:center;gap:4px;padding:5px 8px;background:rgba(245,158,11,0.04);border:1px dashed rgba(245,158,11,0.3);border-radius:6px;cursor:pointer;flex-wrap:wrap;transition:background 0.15s;" onmouseover="this.style.background='rgba(245,158,11,0.12)'" onmouseout="this.style.background='rgba(245,158,11,0.04)'">
                     <span style="font-size:10px;flex-shrink:0;">⚡</span>
                     ${tpConfigBadges(s,{fontSize:'8px'})}
-                    <span style="font-size:8px;color:var(--tp-red);margin-left:auto;flex-shrink:0;white-space:nowrap;">deficit ${s.deficit}</span>
+                    <span style="font-size:9px;color:var(--tp-red);margin-left:auto;flex-shrink:0;white-space:nowrap;">deficit ${s.deficit}</span>
                     <span style="font-size:10px;color:var(--tp-amber);flex-shrink:0;">+</span>
                 </div>`).join('')}
             </div>` : ''}
@@ -1630,8 +1649,8 @@ function tpRenderWeekly(el) {
             ${manualPicks.length > 0 ? `<div style="display:flex;flex-direction:column;gap:4px;">${manualPicks.map((p,i) => {
                 const _pc = tpState.planData.find(c => c.desc === p);
                 return `<div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;flex-wrap:wrap;">
-                    <span style="font-size:8px;color:var(--tp-amber);flex-shrink:0;">📌</span>
-                    ${_pc ? tpConfigBadges(_pc,{fontSize:'8px'}) : '<span style="font-size:8px;color:var(--tp-dim);">' + (p.length>40?p.slice(0,40)+'...':p) + '</span>'}
+                    <span style="font-size:9px;color:var(--tp-amber);flex-shrink:0;">📌</span>
+                    ${_pc ? tpConfigBadges(_pc,{fontSize:'8px'}) : '<span style="font-size:9px;color:var(--tp-dim);">' + (p.length>40?p.slice(0,40)+'...':p) + '</span>'}
                     <button onclick="window._tpWeeklyManualPicks.splice(${i},1);tpRender();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:0 2px;margin-left:auto;">×</button>
                 </div>`;
             }).join('')}</div>` : '<div style="font-size:9px;color:var(--tp-dim);">Ninguna — el algoritmo decidirá.</div>'}
@@ -1664,14 +1683,14 @@ function tpRenderWeekly(el) {
                 <div>
                     <span style="font-size:13px;font-weight:700;">Semana ${idx+1}</span>
                     <span style="font-size:10px;color:var(--tp-dim);">${dt}</span>
-                    ${wdStr ? `<span style="font-size:8px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:3px;">${wdStr}</span>` : ''}
-                    ${w.accepted?'<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size:8px;">Aceptado</span>':''}
-                    ${carryoverCount>0&&w.accepted?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:8px;">${carryoverCount} carryover</span>`:''}
-                    ${w.carriedFrom?`<span class="tp-badge" style="background:rgba(139,92,246,0.1);color:#8b5cf6;font-size:8px;">desde Sem ${w.carriedFrom}</span>`:''}
+                    ${wdStr ? `<span style="font-size:9px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:3px;">${wdStr}</span>` : ''}
+                    ${w.accepted?'<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size:9px;">Aceptado</span>':''}
+                    ${carryoverCount>0&&w.accepted?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:9px;">${carryoverCount} carryover</span>`:''}
+                    ${w.carriedFrom?`<span class="tp-badge" style="background:rgba(139,92,246,0.1);color:#8b5cf6;font-size:9px;">desde Sem ${w.carriedFrom}</span>`:''}
                 </div>
                 <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
                     <span style="font-size:11px;font-weight:700;color:${pct===100?'var(--tp-green)':'var(--tp-amber)'};">${done}/${tot}</span>
-                    <div class="tp-bar" style="width:50px;"><div class="tp-bar-fill" style="width:${pct}%;background:${pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size:7px;">${pct}%</span></div>
+                    <div class="tp-bar" style="width:50px;"><div class="tp-bar-fill" style="width:${pct}%;background:${pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size:9px;">${pct}%</span></div>
                     ${!w.accepted?`<button class="tp-btn tp-btn-primary" onclick="tpAcceptWeeklyPlan(${idx})" style="font-size:10px;">✅ Aceptar</button>`:''}
                     <button class="tp-btn tp-btn-ghost" onclick="tpCarryOverWeekly(${idx})" style="font-size:10px;" title="Copiar items pendientes a nueva semana">➡️ Copiar pendientes</button>
                     <button class="tp-btn tp-btn-ghost" onclick="tpExportWeeklyPlan(${idx})" style="font-size:10px;">📤</button>
@@ -1688,8 +1707,8 @@ function tpRenderWeekly(el) {
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
                     <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
                         <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                        ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
-                        ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
+                        ${item.carriedOver?'<span style="font-size:9px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:9px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
+                        ${item.manual&&!item.carriedOver?'<span style="font-size:9px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
                         ${tpConfigBadges(item,{fontSize:'8px'})}
                     ${tpScoreBadge(item)}
                     </div>
@@ -1708,8 +1727,8 @@ function tpRenderWeekly(el) {
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
                 <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
                     <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:7px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
-                    ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
+                    ${item.carriedOver?'<span style="font-size:9px;color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size:9px;color:#f59e0b;flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
+                    ${item.manual&&!item.carriedOver?'<span style="font-size:9px;color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
                     ${tpConfigBadges(item,{fontSize:'8px'})}
                 </div>
                 <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
@@ -1727,7 +1746,7 @@ function tpScoreBadge(item) {
     var color = d.deficit >= 3 ? 'var(--tp-red)' : d.deficit >= 1 ? 'var(--tp-amber)' : 'var(--tp-green)';
     var icon = d.deficit >= 3 ? '🔴' : d.deficit >= 1 ? '🟡' : '🟢';
     var lastStr = d.lastTested ? ' | Ultimo: ' + d.lastTested : '';
-    return '<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;flex-shrink:0;cursor:help;" title="Score: ' + (d.score||0).toFixed(1) + ' | Deficit: ' + d.deficit + lastStr + ' | ' + d.reason + '">' + icon + ' D:' + d.deficit + ' S:' + (d.score||0).toFixed(1) + '</span>';
+    return '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;flex-shrink:0;cursor:help;" title="Score: ' + (d.score||0).toFixed(1) + ' | Deficit: ' + d.deficit + lastStr + ' | ' + d.reason + '">' + icon + ' D:' + d.deficit + ' S:' + (d.score||0).toFixed(1) + '</span>';
 }
 
 function tpToggleWeeklyItem(weekIdx, itemIdx) {
@@ -2021,13 +2040,13 @@ function tpRenderWeekHistory(el) {
                 <div>
                     <span style="font-size:12px;font-weight:700;">Sem ${h.weekNum}</span>
                     <span style="font-size:10px;color:var(--tp-dim);">${dt}</span>
-                    ${wdStr ? `<span style="font-size:8px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;">${wdStr}</span>` : ''}
-                    <span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size:8px;">Aceptado ${acceptDt}</span>
-                    ${h.carryover>0?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:8px;">${h.carryover} carryover</span>`:''}
+                    ${wdStr ? `<span style="font-size:9px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;">${wdStr}</span>` : ''}
+                    <span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size:9px;">Aceptado ${acceptDt}</span>
+                    ${h.carryover>0?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:9px;">${h.carryover} carryover</span>`:''}
                 </div>
                 <div style="display:flex;align-items:center;gap:5px;">
                     <span style="font-size:11px;font-weight:700;color:${pct===100?'var(--tp-green)':'var(--tp-amber)'};">${h.completed}/${h.total}</span>
-                    <div class="tp-bar" style="width:50px;"><div class="tp-bar-fill" style="width:${pct}%;background:${pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size:7px;">${pct}%</span></div>
+                    <div class="tp-bar" style="width:50px;"><div class="tp-bar-fill" style="width:${pct}%;background:${pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size:9px;">${pct}%</span></div>
                     <span style="font-size:12px;color:var(--tp-dim);">${isExpanded?'▲':'▼'}</span>
                 </div>
             </div>
@@ -2036,11 +2055,11 @@ function tpRenderWeekHistory(el) {
                 ${h.items.map(item => `
                 <div style="display:flex;align-items:center;gap:5px;padding:4px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};flex-wrap:wrap;">
                     <span style="font-size:13px;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                    ${item.carriedOver?'<span style="font-size:7px;color:#8b5cf6;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}
-                    ${item.substituted?'<span style="font-size:7px;color:#f59e0b;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
-                    ${item.manual&&!item.carriedOver?'<span style="font-size:7px;color:var(--tp-amber);">📌</span>':''}
+                    ${item.carriedOver?'<span style="font-size:9px;color:#8b5cf6;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}
+                    ${item.substituted?'<span style="font-size:9px;color:#f59e0b;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}
+                    ${item.manual&&!item.carriedOver?'<span style="font-size:9px;color:var(--tp-amber);">📌</span>':''}
                     ${tpConfigBadges(item,{fontSize:'8px'})}
-                    ${item.testLabel?`<span style="font-size:7px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:auto;">Preacon ${item.preconLabel} → Prueba ${item.testLabel}</span>`:''}
+                    ${item.testLabel?`<span style="font-size:9px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:auto;">Preacon ${item.preconLabel} → Prueba ${item.testLabel}</span>`:''}
                 </div>`).join('')}
             </div>` : ''}
         </div>`;
@@ -2301,7 +2320,7 @@ function tpRenderProduction(el) {
                 <tbody>
                     ${plan.sort((a,b)=>b.total-a.total).slice(0,100).map(c => `
                         <tr>
-                            <td style="font-size:8px;color:var(--tp-amber);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${c.desc}">${c.desc}</td>
+                            <td style="font-size:9px;color:var(--tp-amber);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${c.desc}">${c.desc}</td>
                             <td>${c.mod}</td><td style="color:var(--tp-dim)">${c.my}</td>
                             <td style="font-size:9px">${c.reg}</td><td>${c.rgn}</td>
                             <td style="font-size:9px">${c.eng}</td><td>${c.tx}</td><td>${c.body}</td>
@@ -2514,8 +2533,8 @@ function tpRenderFamilies(el) {
         </div>
         ${sorted.map((f, fi) => {
             const diffs = getDiffFields(f.configs);
-            const epTag = f.ep&&f.ep!=='0' ? `<span class="tp-badge" style="background:rgba(251,146,60,0.15);color:#fb923c;font-size:7px;">${epLabel(f.ep)}</span>` : '';
-            const engTag = f.engpkg&&f.engpkg!=='0' ? `<span class="tp-badge" style="background:rgba(168,85,247,0.15);color:#a855f7;font-size:7px;">${f.engpkg}</span>` : '';
+            const epTag = f.ep&&f.ep!=='0' ? `<span class="tp-badge" style="background:rgba(251,146,60,0.15);color:#fb923c;font-size:9px;">${epLabel(f.ep)}</span>` : '';
+            const engTag = f.engpkg&&f.engpkg!=='0' ? `<span class="tp-badge" style="background:rgba(168,85,247,0.15);color:#a855f7;font-size:9px;">${f.engpkg}</span>` : '';
             return `
             <details style="margin-bottom:4px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;border-left:3px solid ${rc[f.riskLevel]};">
                 <summary style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;cursor:pointer;list-style:none;background:var(--tp-card);gap:4px;flex-wrap:wrap;">
@@ -2523,19 +2542,19 @@ function tpRenderFamilies(el) {
                         <span style="font-weight:800;font-size:11px;">${f.mod}</span>
                         ${f.body?`<span style="font-size:9px;color:var(--tp-dim);">${f.body}</span>`:''}
                         <span style="font-size:9px;color:var(--tp-dim);">${f.eng} ${f.tx}</span>
-                        <span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;font-size:7px;">${f.my}</span>
-                        <span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:7px;">${f.reg}</span>
-                        <span class="tp-badge" style="background:${tpRegionColor(f.rgn)}20;color:${tpRegionColor(f.rgn)};font-size:7px;">${f.rgn}</span>
-                        ${f.drv?`<span class="tp-badge" style="background:rgba(236,72,153,0.15);color:#ec4899;font-size:7px;">${f.drv}</span>`:''}
+                        <span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;font-size:9px;">${f.my}</span>
+                        <span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:9px;">${f.reg}</span>
+                        <span class="tp-badge" style="background:${tpRegionColor(f.rgn)}20;color:${tpRegionColor(f.rgn)};font-size:9px;">${f.rgn}</span>
+                        ${f.drv?`<span class="tp-badge" style="background:rgba(236,72,153,0.15);color:#ec4899;font-size:9px;">${f.drv}</span>`:''}
                         ${epTag}${engTag}
                     </div>
                     <div style="display:flex;align-items:center;gap:4px;">
                         <span style="font-size:10px;font-weight:700;color:${f.totalTested>0?'var(--tp-green)':'var(--tp-red)'};">${f.totalTested}/${f.totalRequired}</span>
-                        <div class="tp-bar" style="width:40px;"><div class="tp-bar-fill" style="width:${Math.round(f.coverage*100)}%;background:${rc[f.riskLevel]};"></div><span class="tp-bar-text" style="font-size:7px;">${Math.round(f.coverage*100)}%</span></div>
+                        <div class="tp-bar" style="width:40px;"><div class="tp-bar-fill" style="width:${Math.round(f.coverage*100)}%;background:${rc[f.riskLevel]};"></div><span class="tp-bar-text" style="font-size:9px;">${Math.round(f.coverage*100)}%</span></div>
                     </div>
                 </summary>
                 <div style="padding:6px 8px;background:#0d1422;border-top:1px solid var(--tp-border);">
-                    ${diffs.length > 0 ? `<div style="font-size:8px;color:var(--tp-dim);margin-bottom:3px;">Variantes: ${diffs.map(d=>d.label).join(', ')}</div>` : ''}
+                    ${diffs.length > 0 ? `<div style="font-size:9px;color:var(--tp-dim);margin-bottom:3px;">Variantes: ${diffs.map(d=>d.label).join(', ')}</div>` : ''}
                     ${f.configs.sort((a,b)=>b.total-a.total).map((c, _ci) => {
                         let badges = '';
                         if (diffs.length > 0) {
@@ -2544,12 +2563,12 @@ function tpRenderFamilies(el) {
                                 if (d.field==='ep') v = epLabel(v);
                                 if (!v||v==='0') v = '-';
                                 const colors = {tire:'#38bdf8',ep:'#fb923c',engpkg:'#a855f7',drv:'#ec4899',body:'#94a3b8'};
-                                return `<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:${colors[d.field]||'#888'}15;color:${colors[d.field]||'#888'};border:1px solid ${colors[d.field]||'#888'}30;">${v}</span>`;
+                                return `<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:${colors[d.field]||'#888'}15;color:${colors[d.field]||'#888'};border:1px solid ${colors[d.field]||'#888'}30;">${v}</span>`;
                             }).join(' ');
                         } else {
                             // Single config - show tire as identifier
                             const tire = c.tire || c.desc.match(/\d{3}\/\d{2}\s*R\d+/)?.[0] || '';
-                            if (tire) badges = `<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:#38bdf815;color:#38bdf8;border:1px solid #38bdf830;">${tire}</span>`;
+                            if (tire) badges = `<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:#38bdf815;color:#38bdf8;border:1px solid #38bdf830;">${tire}</span>`;
                         }
                         // Build VIN sublist for tested configs
                         let vinHtml = '';
@@ -2566,11 +2585,11 @@ function tpRenderFamilies(el) {
                                     if (raMatch) raTestId = raMatch.id;
                                 }
                                 const vinClickable = raTestId ? `onclick="event.stopPropagation();tpGoToRADetail('${raTestId}');" style="cursor:pointer;font-family:monospace;color:var(--tp-amber);text-decoration:underline;" title="Ver detalle en Results Analyzer"` : `style="font-family:monospace;color:var(--tp-text);"`;
-                                vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 4px;font-size:8px;border-bottom:1px solid var(--tp-border);">
+                                vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 4px;font-size:9px;border-bottom:1px solid var(--tp-border);">
                                     <span ${vinClickable}>${vin}</span>
                                     <div style="display:flex;gap:6px;align-items:center;">
                                         <span style="color:var(--tp-dim);">${v.date || '?'}</span>
-                                        ${raTestId ? '<span style="font-size:7px;color:var(--tp-blue);">📊</span>' : ''}
+                                        ${raTestId ? '<span style="font-size:9px;color:var(--tp-blue);">📊</span>' : ''}
                                     </div>
                                 </div>`;
                             });
@@ -2583,11 +2602,11 @@ function tpRenderFamilies(el) {
                                 <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap;">
                                     <span class="tp-dot" style="background:${c.testedN>=c.required?'var(--tp-green)':c.testedN>0?'var(--tp-amber)':'var(--tp-red)'}"></span>
                                     ${badges}
-                                    ${c.testedN > 0 ? '<span style="font-size:7px;color:var(--tp-dim);">▼</span>' : ''}
+                                    ${c.testedN > 0 ? '<span style="font-size:9px;color:var(--tp-dim);">▼</span>' : ''}
                                 </div>
                                 <div style="display:flex;gap:4px;align-items:center;">
                                     <span style="font-size:9px;font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
-                                    <span style="font-size:8px;color:var(--tp-dim);">${c.total.toLocaleString()}</span>
+                                    <span style="font-size:9px;color:var(--tp-dim);">${c.total.toLocaleString()}</span>
                                 </div>
                             </div>
                             ${vinHtml}
@@ -2650,7 +2669,7 @@ function tpRenderSimulator(el) {
             ${sim.curve.map((pt, i) => `
                 <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
                     <div style="width:100%;background:${pt.pct>=100?'var(--tp-green)':pt.pct>=50?'var(--tp-amber)':'var(--tp-red)'};border-radius:2px 2px 0 0;height:${pt.pct}%;min-height:2px;transition:height .3s;opacity:0.8;"></div>
-                    ${i % Math.max(1, Math.floor(sim.curve.length/12)) === 0 ? `<div style="font-size:7px;color:var(--tp-dim);margin-top:2px;">S${pt.week}</div>` : ''}
+                    ${i % Math.max(1, Math.floor(sim.curve.length/12)) === 0 ? `<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">S${pt.week}</div>` : ''}
                 </div>
             `).join('')}
         </div>
@@ -2881,13 +2900,13 @@ function tpRenderCalendar(el) {
         var shown = dayEvents.filter(function(ev) { return ev.type !== 'week'; });
         var weekEv = dayEvents.find(function(ev) { return ev.type === 'week'; });
         if (weekEv) {
-            html += '<div style="font-size:7px;padding:1px 3px;background:rgba(59,130,246,0.2);color:#3b82f6;border-radius:2px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + weekEv.label + '</div>';
+            html += '<div style="font-size:9px;padding:1px 3px;background:rgba(59,130,246,0.2);color:#3b82f6;border-radius:2px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + weekEv.label + '</div>';
         }
         shown.slice(0, 2).forEach(function(ev) {
-            html += '<div style="font-size:7px;padding:1px 3px;background:' + ev.color + '20;color:' + ev.color + ';border-radius:2px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + ev.label + '</div>';
+            html += '<div style="font-size:9px;padding:1px 3px;background:' + ev.color + '20;color:' + ev.color + ';border-radius:2px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + ev.label + '</div>';
         });
         if (shown.length > 2) {
-            html += '<div style="font-size:7px;color:var(--tp-dim);text-align:center;">+' + (shown.length - 2) + '</div>';
+            html += '<div style="font-size:9px;color:var(--tp-dim);text-align:center;">+' + (shown.length - 2) + '</div>';
         }
         html += '</div>';
     }
@@ -3187,7 +3206,7 @@ function tpGetSubstitutionBadge(item, itemIdx, predictions) {
 
     var color = pred.probability >= 70 ? '#f59e0b' : '#8b5cf6';
     var diffsText = pred.diffs.map(function(d) { return d.field + ': ' + d.planned + ' → ' + d.predicted; }).join(', ');
-    return '<span style="font-size:7px;padding:1px 4px;border-radius:2px;background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;cursor:help;" title="Sustitucion probable (' + pred.probability + '%) → ' + diffsText + '">🔮 ' + pred.probability + '%</span>';
+    return '<span style="font-size:9px;padding:1px 4px;border-radius:2px;background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;cursor:help;" title="Sustitucion probable (' + pred.probability + '%) → ' + diffsText + '">🔮 ' + pred.probability + '%</span>';
 }
 
 // Override/extend the cascade filter result to also show TP suggestion

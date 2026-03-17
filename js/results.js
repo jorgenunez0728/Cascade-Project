@@ -2,6 +2,9 @@
 // ║  KIA EmLab — Results Analyzer Module                               ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// ── [Fase 2.1] Debounced render wrapper for search/filter inputs ──
+var _raDebouncedRender = debounce(raRender, 250);
+
 function raSearchReset() {
     window._raSearchVin = '';
     window._raSearchOp = '';
@@ -70,10 +73,10 @@ function raRenderOutliers(el) {
 
     var html = '<div class="tp-card"><div class="tp-card-title"><span>\u26A0\uFE0F Deteccion de Outliers</span></div>';
     html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">';
-    html += '<select class="tp-select" onchange="window._raOutlierMetric=this.value;raRender();" style="font-size:10px;">';
+    html += '<select class="tp-select" onchange="window._raOutlierMetric=this.value;_raDebouncedRender();" style="font-size:10px;">';
     metricKeys.forEach(function(m) { html += '<option value="'+m+'" '+(m===selMetric?'selected':'')+'>'+m+'</option>'; });
     html += '</select>';
-    html += '<select class="tp-select" onchange="window._raOutlierSigma=parseFloat(this.value);raRender();" style="font-size:10px;">';
+    html += '<select class="tp-select" onchange="window._raOutlierSigma=parseFloat(this.value);_raDebouncedRender();" style="font-size:10px;">';
     [1.5, 2, 2.5, 3].forEach(function(s) { html += '<option value="'+s+'" '+(s===selSigma?'selected':'')+'>'+s+'\u03C3</option>'; });
     html += '</select></div>';
 
@@ -104,7 +107,7 @@ function raRenderOutliers(el) {
             var absS = Math.abs(o.sigma).toFixed(1);
             html += '<tr style="background:rgba(239,68,68,' + Math.min(0.15, Math.abs(o.sigma)*0.03) + ');">';
             html += '<td style="font-family:monospace;font-size:9px;color:var(--tp-amber);">' + (o.vin||'?') + '</td>';
-            html += '<td style="font-size:8px;">' + o.group + '</td>';
+            html += '<td style="font-size:9px;">' + o.group + '</td>';
             html += '<td style="font-family:monospace;font-weight:700;color:var(--tp-red);">' + o.val.toFixed(4) + '</td>';
             html += '<td style="font-family:monospace;font-size:9px;color:var(--tp-dim);">' + o.avg.toFixed(4) + '</td>';
             html += '<td style="font-weight:700;color:' + (Math.abs(o.sigma)>3?'var(--tp-red)':'#f59e0b') + ';">' + (o.sigma>0?'+':'') + o.sigma.toFixed(1) + '\u03C3</td>';
@@ -140,11 +143,11 @@ function raRenderSearch(el) {
 
     var html = '<div class="tp-card"><div class="tp-card-title"><span>\uD83D\uDD0E Busqueda Avanzada</span></div>';
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px;">';
-    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">VIN</label><input type="text" value="' + (window._raSearchVin||'') + '" onchange="window._raSearchVin=this.value;raRender();" class="tp-select" style="width:100%;font-size:10px;" placeholder="Buscar VIN..."></div>';
-    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Operador</label><input type="text" value="' + (window._raSearchOp||'') + '" onchange="window._raSearchOp=this.value;raRender();" class="tp-select" style="width:100%;font-size:10px;" placeholder="Nombre..."></div>';
-    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Desde</label><input type="date" value="' + dateFrom + '" onchange="window._raSearchFrom=this.value;raRender();" class="tp-select" style="width:100%;font-size:10px;"></div>';
-    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Hasta</label><input type="date" value="' + dateTo + '" onchange="window._raSearchTo=this.value;raRender();" class="tp-select" style="width:100%;font-size:10px;"></div>';
-    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Regulacion</label><select onchange="window._raSearchReg=this.value;raRender();" class="tp-select" style="width:100%;font-size:10px;">';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">VIN</label><input type="text" value="' + (window._raSearchVin||'') + '" oninput="window._raSearchVin=this.value;_raDebouncedRender();" class="tp-select" style="width:100%;font-size:10px;" placeholder="Buscar VIN..."></div>';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Operador</label><input type="text" value="' + (window._raSearchOp||'') + '" oninput="window._raSearchOp=this.value;_raDebouncedRender();" class="tp-select" style="width:100%;font-size:10px;" placeholder="Nombre..."></div>';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Desde</label><input type="date" value="' + dateFrom + '" onchange="window._raSearchFrom=this.value;_raDebouncedRender();" class="tp-select" style="width:100%;font-size:10px;"></div>';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Hasta</label><input type="date" value="' + dateTo + '" onchange="window._raSearchTo=this.value;_raDebouncedRender();" class="tp-select" style="width:100%;font-size:10px;"></div>';
+    html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Regulacion</label><select onchange="window._raSearchReg=this.value;_raDebouncedRender();" class="tp-select" style="width:100%;font-size:10px;">';
     allRegs.forEach(function(r) { html += '<option value="'+r+'" '+(r===regQ?'selected':'')+'>'+r+'</option>'; });
     html += '</select></div>';
     html += '<div style="display:flex;align-items:flex-end;gap:4px;"><button class="tp-btn tp-btn-ghost" onclick="raSearchReset()" style="font-size:10px;">Limpiar</button></div>';
@@ -161,11 +164,11 @@ function raRenderSearch(el) {
             html += '<tr>';
             html += '<td style="font-family:monospace;font-size:9px;color:var(--tp-amber);">' + (t.vin||'?') + '</td>';
             html += '<td style="font-size:9px;">' + (t.modelName||t.testDesc||'?') + '</td>';
-            html += '<td style="font-size:8px;">' + (t.emissionReg||t.regSpec||'?') + '</td>';
+            html += '<td style="font-size:9px;">' + (t.emissionReg||t.regSpec||'?') + '</td>';
             html += '<td style="font-size:9px;">' + (t.operator||'') + '</td>';
             html += '<td style="font-size:9px;">' + (t.dateStr||'') + '</td>';
             html += '<td style="font-size:9px;">' + (t.testNumber||t.yearlyTestNumber||'') + '</td>';
-            html += '<td><button class="tp-btn tp-btn-ghost" onclick="raGoDetail(\x27' + t.id + '\x27)" style="font-size:8px;">\uD83D\uDD0D</button></td>';
+            html += '<td><button class="tp-btn tp-btn-ghost" onclick="raGoDetail(\x27' + t.id + '\x27)" style="font-size:9px;">\uD83D\uDD0D</button></td>';
             html += '</tr>';
         });
         html += '</tbody></table></div>';
@@ -519,13 +522,13 @@ function raRenderDashboard(el){
                             <td style="font-family:monospace;font-size:9px;color:var(--tp-amber);">${t.vin||'—'}</td>
                             <td style="font-size:10px">${t.testDesc||t.modelName||'—'}</td>
                             <td style="font-size:9px">${t.emissionReg||t.regSpec||'—'}</td>
-                            <td>${(function(){var v=raTestVerdict(t);return v==='PASS'?'<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);border:1px solid currentColor;font-size:8px;font-weight:700;">PASS</span>':v==='FAIL'?'<span class="tp-badge" style="background:rgba(239,68,68,0.15);color:var(--tp-red);border:1px solid currentColor;font-size:8px;font-weight:700;">FAIL</span>':'<span style="font-size:8px;color:var(--tp-dim);">—</span>';})()}</td>
+                            <td>${(function(){var v=raTestVerdict(t);return v==='PASS'?'<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);border:1px solid currentColor;font-size:9px;font-weight:700;">PASS</span>':v==='FAIL'?'<span class="tp-badge" style="background:rgba(239,68,68,0.15);color:var(--tp-red);border:1px solid currentColor;font-size:9px;font-weight:700;">FAIL</span>':'<span style="font-size:9px;color:var(--tp-dim);">—</span>';})()}</td>
                             <td style="text-align:right;font-family:monospace;font-size:10px;">${sf(c.FuelConsumptionBag,2)}</td>
                             <td style="text-align:right;font-family:monospace;font-size:10px;">${sf(c.BagCO2,1)}</td>
                             <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagCO',c.BagCO)}">${sf(c.BagCO,3)}</td>
                             <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagNOX',c.BagNOX)}">${sf(c.BagNOX,4)}</td>
                             <td style="text-align:right;font-family:monospace;font-size:10px;${chk('BagTHC',c.BagTHC)}">${sf(c.BagTHC,4)}</td>
-                            <td><button class="tp-btn tp-btn-ghost" onclick="raGoDetail('${t.id}')" style="font-size:8px;">🔍</button></td>
+                            <td><button class="tp-btn tp-btn-ghost" onclick="raGoDetail('${t.id}')" style="font-size:9px;">🔍</button></td>
                         </tr>`;
                     }).join('')}
                 </tbody>
@@ -925,8 +928,8 @@ function raRenderProfiles(el){
                 <div><span style="font-weight:700;font-size:12px;color:#06b6d4;">${p.name}</span>
                 <span style="font-size:10px;color:var(--tp-dim);margin-left:8px;">${p.regulation}</span></div>
                 <div style="display:flex;gap:4px;align-items:center;">
-                    <span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;border:1px solid rgba(6,182,212,0.3);font-size:8px;">${p.cycleColumns.length} cols</span>
-                    <span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);border:1px solid rgba(245,158,11,0.3);font-size:8px;">${Object.keys(p.limits).length} lím</span>
+                    <span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;border:1px solid rgba(6,182,212,0.3);font-size:9px;">${p.cycleColumns.length} cols</span>
+                    <span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);border:1px solid rgba(245,158,11,0.3);font-size:9px;">${Object.keys(p.limits).length} lím</span>
                     <span style="font-size:12px;color:var(--tp-dim);">${isOpen?'▲':'▼'}</span>
                 </div>
             </div>
@@ -942,7 +945,7 @@ function raRenderProfiles(el){
                         <label style="font-size:10px;color:var(--tp-dim);">Columnas de CycleResults</label>
                     </div>
                     <div style="display:flex;flex-wrap:wrap;gap:3px;max-height:160px;overflow-y:auto;margin-top:4px;">
-                        ${allCols.map(c=>`<label style="font-size:8px;color:var(--tp-text);display:flex;align-items:center;gap:2px;padding:2px 5px;background:${p.cycleColumns.includes(c)?'rgba(6,182,212,0.15)':'var(--tp-card)'};border-radius:3px;border:1px solid ${p.cycleColumns.includes(c)?'rgba(6,182,212,0.3)':'var(--tp-border)'};cursor:pointer;"><input type="checkbox" ${p.cycleColumns.includes(c)?'checked':''} onchange="raToggleCol(${pi},'${c}',this.checked)" style="width:12px;height:12px;"> ${c}</label>`).join('')}
+                        ${allCols.map(c=>`<label style="font-size:9px;color:var(--tp-text);display:flex;align-items:center;gap:2px;padding:2px 5px;background:${p.cycleColumns.includes(c)?'rgba(6,182,212,0.15)':'var(--tp-card)'};border-radius:3px;border:1px solid ${p.cycleColumns.includes(c)?'rgba(6,182,212,0.3)':'var(--tp-border)'};cursor:pointer;"><input type="checkbox" ${p.cycleColumns.includes(c)?'checked':''} onchange="raToggleCol(${pi},'${c}',this.checked)" style="width:12px;height:12px;"> ${c}</label>`).join('')}
                     </div>
                 </div>
 
@@ -954,7 +957,7 @@ function raRenderProfiles(el){
                         <input class="tp-input" id="ra-custom-col-${pi}" placeholder="NombreDeColumna" style="flex:1;font-size:10px;">
                         <button class="tp-btn tp-btn-primary" onclick="raAddCustomCol(${pi})" style="font-size:10px;">+</button>
                     </div>
-                    <p style="font-size:8px;color:var(--tp-dim);margin-top:3px;">Escribe el nombre exacto de la columna del CSV. Se agregara a la lista de columnas disponibles.</p>
+                    <p style="font-size:9px;color:var(--tp-dim);margin-top:3px;">Escribe el nombre exacto de la columna del CSV. Se agregara a la lista de columnas disponibles.</p>
                 </div>
 
                 <div style="margin-bottom:10px;">
@@ -974,7 +977,7 @@ function raRenderProfiles(el){
                             Mostrar Fuel en fases individuales (F1-F4)
                         </label>
                     </div>
-                    <p style="font-size:8px;color:var(--tp-dim);margin-top:2px;">Aplica para WLTP/Combo con 3-4 fases. Muestra FuelConsumption y FuelEconomy en cada fase.</p>
+                    <p style="font-size:9px;color:var(--tp-dim);margin-top:2px;">Aplica para WLTP/Combo con 3-4 fases. Muestra FuelConsumption y FuelEconomy en cada fase.</p>
                 </div>
 
                 <div style="margin-bottom:10px;">
@@ -982,7 +985,7 @@ function raRenderProfiles(el){
                     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
                         ${p.cycleColumns.filter(c=>c.startsWith('Bag')||c.startsWith('Fuel')||c==='DilutePN'||c.startsWith('BagNMOG')).map(c=>`
                             <div style="display:flex;align-items:center;gap:3px;">
-                                <span style="font-size:8px;color:var(--tp-dim);width:60px;">${p.labels&&p.labels[c]||c}:</span>
+                                <span style="font-size:9px;color:var(--tp-dim);width:60px;">${p.labels&&p.labels[c]||c}:</span>
                                 <input class="tp-input" type="number" step="any" value="${p.limits[c]!=null?p.limits[c]:''}" style="width:75px;font-size:10px;" onchange="if(this.value){raState.profiles[${pi}].limits['${c}']=parseFloat(this.value);}else{delete raState.profiles[${pi}].limits['${c}'];}raSave();">
                             </div>`).join('')}
                     </div>
@@ -1087,14 +1090,14 @@ function raRenderTrends(el){
     <div class="tp-card">
         <div class="tp-card-title"><span>Tendencias & Control</span></div>
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-            <select class="tp-select" onchange="window._raTrendGroupBy=this.value;window._raTrendGroup='ALL';raRender();" style="font-size:10px;">
+            <select class="tp-select" onchange="window._raTrendGroupBy=this.value;window._raTrendGroup='ALL';_raDebouncedRender();" style="font-size:10px;">
                 ${groupByOpts.map(o=>`<option value="${o.v}" ${o.v===fGroupBy?'selected':''}>Agrupar: ${o.l}</option>`).join('')}
             </select>
-            <select class="tp-select" onchange="window._raTrendGroup=this.value;raRender();" style="font-size:10px;">
+            <select class="tp-select" onchange="window._raTrendGroup=this.value;_raDebouncedRender();" style="font-size:10px;">
                 <option value="ALL">Todos</option>
                 ${groups.map(g=>`<option value="${g}" ${g===fGroup?'selected':''}>${g}</option>`).join('')}
             </select>
-            <select class="tp-select" onchange="window._raTrendMetric=this.value;raRender();" style="font-size:10px;">
+            <select class="tp-select" onchange="window._raTrendMetric=this.value;_raDebouncedRender();" style="font-size:10px;">
                 ${metricOpts.map(m=>`<option value="${m}" ${m===fMetric?'selected':''}>${m}</option>`).join('')}
             </select>
         </div>
@@ -1301,13 +1304,13 @@ function raRenderDetail(el){
                         return `<div class="tp-metric" style="border-color:rgba(6,182,212,0.3);">
                             <div class="tp-metric-val" style="color:#06b6d4;font-size:14px;">${dispVal}</div>
                             <div class="tp-metric-label">Fase ${i+1} (${fuelLabel})</div>
-                            ${fe!=null?`<div style="font-size:8px;color:var(--tp-dim);">FE: ${fe.toFixed(2)}</div>`:''}
+                            ${fe!=null?`<div style="font-size:9px;color:var(--tp-dim);">FE: ${fe.toFixed(2)}</div>`:''}
                         </div>`;
                     }).join('')}
                     <div class="tp-metric" style="border-color:rgba(245,158,11,0.3);">
                         <div class="tp-metric-val" style="color:var(--tp-amber);font-size:14px;">${comp['FuelConsumptionBag']!=null?fmtVal('FuelConsumptionBag',comp['FuelConsumptionBag']):'—'}</div>
                         <div class="tp-metric-label">Composite (${fuelLabel})</div>
-                        ${comp['FuelEconomyBag']!=null?`<div style="font-size:8px;color:var(--tp-dim);">FE: ${comp['FuelEconomyBag'].toFixed(2)}</div>`:''}
+                        ${comp['FuelEconomyBag']!=null?`<div style="font-size:9px;color:var(--tp-dim);">FE: ${comp['FuelEconomyBag'].toFixed(2)}</div>`:''}
                     </div>
                 </div>
             </div>`;
@@ -1325,7 +1328,7 @@ function raRenderDetail(el){
             <div style="text-align:right;">
                 <span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);border:1px solid rgba(16,185,129,0.3);">${test.testStatus||'?'}</span>
                 ${profile?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);margin-left:4px;">Perfil: ${profile.name}</span>`:''}
-                <span style="font-size:8px;color:var(--tp-dim);display:block;margin-top:2px;">Consumo: ${fuelLabel}</span>
+                <span style="font-size:9px;color:var(--tp-dim);display:block;margin-top:2px;">Consumo: ${fuelLabel}</span>
                 ${typeof noteBuildButton === 'function' ? noteBuildButton('test', String(test.id)) : ''}
             </div>
         </div>
@@ -1370,7 +1373,7 @@ function raRenderDetail(el){
         <div class="tp-card-title"><span>📊 Por Fase</span></div>
         <div style="overflow-x:auto;">
             <table class="tp-table">
-                <thead><tr><th>Fase</th>${cols.map(c=>`<th style="text-align:right;font-size:8px;">${colLabel(c)}</th>`).join('')}</tr></thead>
+                <thead><tr><th>Fase</th>${cols.map(c=>`<th style="text-align:right;font-size:9px;">${colLabel(c)}</th>`).join('')}</tr></thead>
                 <tbody>
                     ${phases.map((ph,i)=>`<tr>
                         <td style="font-weight:700;color:#06b6d4;">F${i+1}</td>
@@ -1390,16 +1393,16 @@ function raRenderDetail(el){
         <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
             <input class="tp-input" id="ra-detail-search" placeholder="Buscar VIN, modelo, regulacion..." oninput="raFilterDetailDropdown()" value="${window._raDetailSearch||''}" style="flex:1;min-width:150px;font-size:11px;">
             <div>
-                <label style="font-size:8px;color:var(--tp-dim);">Desde</label>
+                <label style="font-size:9px;color:var(--tp-dim);">Desde</label>
                 <input type="date" class="tp-input" id="ra-detail-from" value="${window._raDetailFrom||''}" onchange="window._raDetailFrom=this.value;raFilterDetailDropdown();" style="font-size:10px;">
             </div>
             <div>
-                <label style="font-size:8px;color:var(--tp-dim);">Hasta</label>
+                <label style="font-size:9px;color:var(--tp-dim);">Hasta</label>
                 <input type="date" class="tp-input" id="ra-detail-to" value="${window._raDetailTo||''}" onchange="window._raDetailTo=this.value;raFilterDetailDropdown();" style="font-size:10px;">
             </div>
             <button class="tp-btn tp-btn-ghost" onclick="window._raDetailSearch='';window._raDetailFrom='';window._raDetailTo='';raFilterDetailDropdown();document.getElementById('ra-detail-search').value='';" style="font-size:9px;">Limpiar</button>
         </div>
-        <select class="tp-select" id="ra-detail-select" onchange="window._raDetailId=this.value;raRender();" style="width:100%;font-size:11px;">
+        <select class="tp-select" id="ra-detail-select" onchange="window._raDetailId=this.value;_raDebouncedRender();" style="width:100%;font-size:11px;">
             ${raState.tests.slice().sort((a,b)=>{
                 const da=a.dateStr||a.importedAt||'';
                 const db2=b.dateStr||b.importedAt||'';
@@ -1546,10 +1549,10 @@ function raRenderCapability(el) {
     var html = '<div class="tp-card">';
     html += '<div class="tp-card-title"><span>Process Capability - Cpk / Ppk</span></div>';
     html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
-    html += '<select class="tp-select" onchange="window._raCpkGroupBy=this.value;window._raCpkGroup=\'ALL\';raRender();" style="font-size:10px;">';
+    html += '<select class="tp-select" onchange="window._raCpkGroupBy=this.value;window._raCpkGroup=\'ALL\';_raDebouncedRender();" style="font-size:10px;">';
     groupByOpts.forEach(function(o) { html += '<option value="'+o.v+'" '+(o.v===selGroupBy?'selected':'')+'>Agrupar: '+o.l+'</option>'; });
     html += '</select>';
-    html += '<select class="tp-select" onchange="window._raCpkGroup=this.value;raRender();" style="font-size:10px;">';
+    html += '<select class="tp-select" onchange="window._raCpkGroup=this.value;_raDebouncedRender();" style="font-size:10px;">';
     html += '<option value="ALL">Todos</option>';
     groups.forEach(function(g) { html += '<option value="'+g+'" '+(g===selGroup?'selected':'')+'>'+g+'</option>'; });
     html += '</select></div>';
@@ -1594,7 +1597,7 @@ function raRenderCapability(el) {
             html += '<td style="text-align:right;font-family:monospace;font-size:10px;color:var(--tp-dim);">' + r.min.toFixed(4) + '</td>';
             html += '<td style="text-align:right;font-family:monospace;font-size:10px;color:var(--tp-dim);">' + r.max.toFixed(4) + '</td>';
             html += '<td style="text-align:right;font-family:monospace;font-size:10px;color:var(--tp-red);">' + r.USL + '</td>';
-            html += '<td style="text-align:right;"><div class="tp-bar" style="width:60px;display:inline-flex;"><div class="tp-bar-fill" style="width:' + Math.min(r.pctSpec, 100) + '%;background:' + (r.pctSpec > 80 ? '#ef4444' : r.pctSpec > 60 ? '#f59e0b' : '#10b981') + ';"></div><span class="tp-bar-text" style="font-size:7px;">' + r.pctSpec.toFixed(0) + '%</span></div></td>';
+            html += '<td style="text-align:right;"><div class="tp-bar" style="width:60px;display:inline-flex;"><div class="tp-bar-fill" style="width:' + Math.min(r.pctSpec, 100) + '%;background:' + (r.pctSpec > 80 ? '#ef4444' : r.pctSpec > 60 ? '#f59e0b' : '#10b981') + ';"></div><span class="tp-bar-text" style="font-size:9px;">' + r.pctSpec.toFixed(0) + '%</span></div></td>';
             html += '<td style="text-align:right;font-weight:800;font-size:13px;color:' + r.ratingColor + ';">' + r.Cpk.toFixed(2) + '</td>';
             html += '<td style="text-align:right;font-family:monospace;font-size:10px;">' + r.Ppk.toFixed(2) + '</td>';
             html += '<td style="text-align:right;font-family:monospace;font-size:9px;color:' + (r.ppm > 1000 ? 'var(--tp-red)' : r.ppm > 100 ? '#f59e0b' : 'var(--tp-green)') + ';">' + (r.ppm > 999999 ? '>999K' : r.ppm.toLocaleString()) + '</td>';
@@ -1806,7 +1809,7 @@ function raRenderFilter(el) {
         html += '<span style="font-size:10px;font-weight:700;color:var(--tp-amber);width:14px;">' + (i + 1) + '</span>';
 
         // Field selector
-        html += '<select class="tp-select" style="flex:2;min-width:130px;font-size:10px;" onchange="window._raFilters[' + i + '].field=this.value;window._raFilters[' + i + '].op=\'\';window._raFilters[' + i + '].value=\'\';raRender();">';
+        html += '<select class="tp-select" style="flex:2;min-width:130px;font-size:10px;" onchange="window._raFilters[' + i + '].field=this.value;window._raFilters[' + i + '].op=\'\';window._raFilters[' + i + '].value=\'\';_raDebouncedRender();">';
         html += '<option value="">— Variable —</option>';
         html += '<optgroup label="Metadata">';
         RA_FILTER_FIELDS.forEach(function(fd) {
@@ -1819,14 +1822,14 @@ function raRenderFilter(el) {
         html += '</optgroup></select>';
 
         // Operator selector
-        html += '<select class="tp-select" style="flex:1.5;min-width:110px;font-size:10px;" onchange="window._raFilters[' + i + '].op=this.value;raRender();">';
+        html += '<select class="tp-select" style="flex:1.5;min-width:110px;font-size:10px;" onchange="window._raFilters[' + i + '].op=this.value;_raDebouncedRender();">';
         html += '<option value="">— Condicion —</option>';
         ops.forEach(function(o) { html += '<option value="' + o.key + '"' + (f.op === o.key ? ' selected' : '') + '>' + o.label + '</option>'; });
         html += '</select>';
 
         // Value input (hide for empty/not_empty)
         if (needsValue) {
-            html += '<input class="tp-input" style="flex:1.5;min-width:100px;font-size:10px;padding:6px 8px;" placeholder="Valor..." value="' + (f.value || '').replace(/"/g, '&quot;') + '" onchange="window._raFilters[' + i + '].value=this.value;raRender();">';
+            html += '<input class="tp-input" style="flex:1.5;min-width:100px;font-size:10px;padding:6px 8px;" placeholder="Valor..." value="' + (f.value || '').replace(/"/g, '&quot;') + '" oninput="window._raFilters[' + i + '].value=this.value;_raDebouncedRender();">';
         }
 
         // Remove button
@@ -1998,9 +2001,9 @@ function raRenderCompare(el) {
     var html = '<div class="tp-card"><div class="tp-card-title"><span>Comparar 2 Pruebas</span></div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">';
     html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Prueba A</label>';
-    html += '<select class="tp-select" style="width:100%;font-size:10px;" onchange="window._raCmpA=this.value;raRender();"><option value="">Seleccionar...</option>' + opts.replace('value="' + idA + '"', 'value="' + idA + '" selected') + '</select></div>';
+    html += '<select class="tp-select" style="width:100%;font-size:10px;" onchange="window._raCmpA=this.value;_raDebouncedRender();"><option value="">Seleccionar...</option>' + opts.replace('value="' + idA + '"', 'value="' + idA + '" selected') + '</select></div>';
     html += '<div><label style="font-size:9px;color:var(--tp-dim);display:block;">Prueba B</label>';
-    html += '<select class="tp-select" style="width:100%;font-size:10px;" onchange="window._raCmpB=this.value;raRender();"><option value="">Seleccionar...</option>' + opts.replace('value="' + idB + '"', 'value="' + idB + '" selected') + '</select></div>';
+    html += '<select class="tp-select" style="width:100%;font-size:10px;" onchange="window._raCmpB=this.value;_raDebouncedRender();"><option value="">Seleccionar...</option>' + opts.replace('value="' + idB + '"', 'value="' + idB + '" selected') + '</select></div>';
     html += '</div></div>';
 
     if (!testA || !testB) {
@@ -2080,7 +2083,7 @@ function raRenderCompare(el) {
         var deltaClr = delta === null ? 'var(--tp-dim)' : delta > 0 ? '#ef4444' : delta < 0 ? '#10b981' : 'var(--tp-dim)';
 
         html += '<tr>';
-        html += '<td style="font-size:10px;font-weight:600;">' + ek.l + ' <span style="font-size:8px;color:var(--tp-dim);">' + ek.u + '</span></td>';
+        html += '<td style="font-size:10px;font-weight:600;">' + ek.l + ' <span style="font-size:9px;color:var(--tp-dim);">' + ek.u + '</span></td>';
         html += '<td style="text-align:right;font-family:monospace;font-size:10px;' + (failA ? 'color:var(--tp-red);font-weight:700;' : '') + '">' + (hasA ? sf(vA, ek.d) : '—') + '</td>';
         html += '<td style="text-align:right;font-family:monospace;font-size:10px;' + (failB ? 'color:var(--tp-red);font-weight:700;' : '') + '">' + (hasB ? sf(vB, ek.d) : '—') + '</td>';
         html += '<td style="text-align:right;font-family:monospace;font-size:10px;color:' + deltaClr + ';">' + (delta !== null ? (delta > 0 ? '+' : '') + sf(delta, ek.d) : '—') + '</td>';
@@ -2090,7 +2093,7 @@ function raRenderCompare(el) {
     });
 
     html += '</tbody></table>';
-    html += '<div style="font-size:8px;color:var(--tp-dim);margin-top:6px;">Delta = B - A. Verde = B menor que A (mejora). Rojo = B mayor que A (peor). Valores en rojo exceden el limite regulatorio.</div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:6px;">Delta = B - A. Verde = B menor que A (mejora). Rojo = B mayor que A (peor). Valores en rojo exceden el limite regulatorio.</div>';
     html += '</div>';
 
     // [R4-M6] Radar chart comparison normalized to regulatory limits
@@ -2297,14 +2300,14 @@ function raRenderSPC(el) {
         '<div class="tp-card-title"><span>Cartas de Control SPC (I-mR)</span></div>' +
         '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Carta Individual y Rango Movil para monitoreo de proceso. Constantes SPC: E2=2.660, D4=3.267, d2=1.128</div>' +
         '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">' +
-            '<select class="tp-select" onchange="window._raSpcGroupBy=this.value;window._raSpcGroup=\'ALL\';raRender();" style="font-size:10px;">' +
+            '<select class="tp-select" onchange="window._raSpcGroupBy=this.value;window._raSpcGroup=\'ALL\';_raDebouncedRender();" style="font-size:10px;">' +
                 groupByOpts.map(function(o) { return '<option value="' + o.v + '"' + (o.v === fGroupBy ? ' selected' : '') + '>Agrupar: ' + o.l + '</option>'; }).join('') +
             '</select>' +
-            '<select class="tp-select" onchange="window._raSpcGroup=this.value;raRender();" style="font-size:10px;">' +
+            '<select class="tp-select" onchange="window._raSpcGroup=this.value;_raDebouncedRender();" style="font-size:10px;">' +
                 '<option value="ALL">Todos</option>' +
                 groups.map(function(g) { return '<option value="' + g + '"' + (g === fGroup ? ' selected' : '') + '>' + g + '</option>'; }).join('') +
             '</select>' +
-            '<select class="tp-select" onchange="window._raSpcMetric=this.value;raRender();" style="font-size:10px;">' +
+            '<select class="tp-select" onchange="window._raSpcMetric=this.value;_raDebouncedRender();" style="font-size:10px;">' +
                 metricOpts.map(function(m) { return '<option value="' + m + '"' + (m === fMetric ? ' selected' : '') + '>' + m + '</option>'; }).join('') +
             '</select>' +
         '</div>' +

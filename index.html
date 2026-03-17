@@ -11,12 +11,18 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
+    <!-- [Fase 4.2] CDN Preconnect hints for faster resource loading -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
 
     <!-- Firebase (optional cloud sync — app works 100% offline without it) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -63,12 +69,13 @@
         <span class="pt-badge" style="background:rgba(71,85,105,0.15);color:#64748b;" id="pn-alerts-badge">ok</span>
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
-    <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión">🟢</span>
+    <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
     <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
-    <button id="immersive-toggle-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)">⛶</button>
-    <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)">🔍</button></div>
-    <div style="padding:4px 4px;align-self:center;position:relative;"><button onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
-    <div style="padding:4px 4px;align-self:center;"><button onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación">?</button></div>
+    <button id="theme-toggle-btn" onclick="themeToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Cambiar tema" aria-label="Cambiar tema">🔄</button>
+    <button id="immersive-toggle-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">⛶</button>
+    <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">🔍</button></div>
+    <div style="padding:4px 4px;align-self:center;position:relative;"><button onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones" aria-label="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
+    <div style="padding:4px 4px;align-self:center;"><button onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación" aria-label="Tour guiado de la aplicación">?</button></div>
     <div style="flex:1"></div>
     <div style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.3); align-self:center;">
         KIA Laboratorio de Emisiones — Plataforma Integrada v14.0
@@ -78,7 +85,7 @@
 <!-- Global VIN Search Bar -->
 <div id="globalSearchBar" style="display:none;padding:8px 16px;background:#fff;border-bottom:1px solid #e2e8f0;">
     <div style="position:relative;max-width:600px;margin:0 auto;">
-        <input type="text" id="globalVinInput" oninput="_debouncedGlobalVinSearch(this.value)" placeholder="Buscar VIN en todos los módulos..." style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#0f172a;font-size:0.9rem;box-sizing:border-box;">
+        <input type="text" id="globalVinInput" autocomplete="off" oninput="_debouncedGlobalVinSearch(this.value)" placeholder="Buscar VIN en todos los módulos..." style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#0f172a;font-size:0.9rem;box-sizing:border-box;">
         <div id="globalSearchResults" style="position:absolute;left:0;right:0;top:100%;z-index:999;max-height:300px;overflow-y:auto;"></div>
     </div>
 </div>
@@ -98,15 +105,15 @@
 
 <div class="container">
     <div class="tabs" role="tablist" aria-label="Secciones COP15">
-        <div class="tab active" data-tab="alta" role="tab">1. Alta</div>
-        <div class="tab" data-tab="seguimiento">2. Operación <span id="unsaved-dot" style="display:none;color:#ef4444;font-size:14px;">●</span></div>
-        <div class="tab" data-tab="liberacion">3. Liberación</div>
-        <div class="tab" data-tab="kanban">Cola</div>
-        <div class="tab" data-tab="dashboard">Historial</div>
+        <div class="tab active" data-tab="alta" role="tab" aria-selected="true">1. Alta</div>
+        <div class="tab" data-tab="seguimiento" role="tab" aria-selected="false">2. Operación <span id="unsaved-dot" style="display:none;color:#ef4444;font-size:14px;">●</span></div>
+        <div class="tab" data-tab="liberacion" role="tab" aria-selected="false">3. Liberación</div>
+        <div class="tab" data-tab="kanban" role="tab" aria-selected="false">Cola</div>
+        <div class="tab" data-tab="dashboard" role="tab" aria-selected="false">Historial</div>
     </div>
 
     <!-- ==================== TAB 1: ALTA ==================== -->
-    <div class="tab-panel active" id="panel-alta">
+    <div class="tab-panel active" id="panel-alta" role="tabpanel">
         <div class="card">
             <div class="card-title">🎯 Propósito y Tipo</div>
             <div class="form-group">
@@ -231,15 +238,15 @@
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Modelo Manual</label>
-                        <input type="text" id="man_model" placeholder="Ej: Sportage 2025">
+                        <input type="text" id="man_model" placeholder="Ej: Sportage 2025" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label>Motor Manual</label>
-                        <input type="text" id="man_engine" placeholder="Ej: 1.6T-GDI">
+                        <input type="text" id="man_engine" placeholder="Ej: 1.6T-GDI" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label>Regulación Manual</label>
-                        <input type="text" id="man_regulation" placeholder="Ej: TIER3 BIN70">
+                        <input type="text" id="man_regulation" placeholder="Ej: TIER3 BIN70" autocomplete="off">
                     </div>
                 </div>
             </div>
@@ -252,8 +259,9 @@
                 <input
                     type="text"
                     id="vin"
+                    autocomplete="off"
                     aria-required="true"
-                    placeholder="Ejemplo: KNDJP3A59K7123456" 
+                    placeholder="Ejemplo: KNDJP3A59K7123456"
                     maxlength="17"
                     pattern="[A-HJ-NPR-Z0-9]{17}"
                     style="text-align:center; font-size:1.2rem; letter-spacing:2px; text-transform: uppercase;"
@@ -288,7 +296,7 @@
 </div><!-- ✅ cierre panel-alta (ESTE cierre debe ir después del botón) -->
 
     <!-- ==================== TAB 2: OPERACIÓN ==================== -->
-    <div class="tab-panel" id="panel-seguimiento">
+    <div class="tab-panel" id="panel-seguimiento" role="tabpanel">
         <div class="form-group">
             <label>Seleccionar Vehículo Activo</label>
             <select id="activeVehSelect" onchange="loadVehicle()" style="background:#fff5f5; border:2px solid var(--kia-red); font-weight: bold;">
@@ -781,7 +789,7 @@
     </div>
 
     <!-- ==================== TAB 3: LIBERACIÓN ==================== -->
-    <div class="tab-panel" id="panel-liberacion">
+    <div class="tab-panel" id="panel-liberacion" role="tabpanel">
         <div class="form-group">
             <label>Seleccionar Vehículo para Liberar</label>
             <select id="releaseVehSelect" onchange="loadRelease()">
@@ -821,12 +829,12 @@
     </div>
 
     <!-- ==================== KANBAN: COLA VISUAL ==================== -->
-    <div class="tab-panel" id="panel-kanban">
+    <div class="tab-panel" id="panel-kanban" role="tabpanel">
         <div id="kanban-board"></div>
     </div>
 
     <!-- ==================== TAB 4: HISTORIAL ==================== -->
-    <div class="tab-panel" id="panel-dashboard">
+    <div class="tab-panel" id="panel-dashboard" role="tabpanel">
         <div class="card">
             <div class="card-title">📚 Historial Completo de Pruebas</div>
             <div id="historyFilterBar"></div>
@@ -861,7 +869,7 @@
 </div>
 
 <!-- ==================== MODAL CONFIRMACIÓN ==================== -->
-<div id="modalConfirm" class="modal-overlay">
+<div id="modalConfirm" class="modal-overlay" role="dialog" aria-modal="true">
     <div class="modal-content">
         <h3 style="margin-bottom: 15px; color: var(--kia-dark);">✅ Confirmar Registro de Vehículo</h3>
         <div id="summaryBody" style="margin:15px 0; font-size:0.9rem; line-height: 1.6;"></div>
@@ -871,7 +879,7 @@
 </div>
 
 <!-- ==================== MODAL SUSTITUCIÓN FLEXIBLE ==================== -->
-<div id="substitutionModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;justify-content:center;align-items:center;padding:16px;">
+<div id="substitutionModal" role="dialog" aria-modal="true" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;justify-content:center;align-items:center;padding:16px;">
     <div style="background:white;border-radius:16px;padding:24px;max-width:520px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
         <h3 style="margin:0 0 12px;color:#1e293b;font-size:1.05rem;">🔄 Unidad similar encontrada en el plan</h3>
         <div id="substitutionContent"></div>
@@ -897,16 +905,16 @@
         </div>
     </div>
 
-    <div class="tp-tabs" id="tp-tabs-bar">
-        <button class="tp-tab active" onclick="tpSwitchTab('tp-dashboard')">📊 Dashboard</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-tested')">✏️ Probados</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-families')">🧬 Familias</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-rules')">⚙️ Reglas</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-weekly')">📅 Plan Semanal</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-weekhistory')">📋 Historial Sem</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-calendar')">🗓️ Calendario</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-simulator')">🔮 Simulador</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-production')">🏭 Producción</button>
+    <div class="tp-tabs" id="tp-tabs-bar" role="tablist" aria-label="Secciones Test Plan">
+        <button class="tp-tab active" role="tab" aria-selected="true" onclick="tpSwitchTab('tp-dashboard')">📊 Dashboard</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-tested')">✏️ Probados</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-families')">🧬 Familias</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-rules')">⚙️ Reglas</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-weekly')">📅 Plan Semanal</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-weekhistory')">📋 Historial Sem</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-calendar')">🗓️ Calendario</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-simulator')">🔮 Simulador</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-production')">🏭 Producción</button>
     </div>
 
     <div class="tp-main">
@@ -930,18 +938,18 @@
             <span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);" id="ra-profiles-badge">0 perfiles</span>
         </div>
     </div>
-    <div class="tp-tabs" id="ra-tabs-bar">
-        <button class="tp-tab active" onclick="raSwitchTab('ra-dashboard')">📊 Dashboard</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-import')">📥 Importar</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-profiles')">⚙️ Perfiles</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-trends')">📈 Tendencias</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-detail')">🔍 Detalle</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-outliers')">⚠️ Outliers</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-capability')">📐 Cpk/Ppk</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-search')">🔎 Buscar</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-filter')">🧹 Filtro</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-compare')">🔀 Comparar</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-spc')">📉 SPC</button>
+    <div class="tp-tabs" id="ra-tabs-bar" role="tablist" aria-label="Secciones Results Analyzer">
+        <button class="tp-tab active" role="tab" aria-selected="true" onclick="raSwitchTab('ra-dashboard')">📊 Dashboard</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-import')">📥 Importar</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-profiles')">⚙️ Perfiles</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-trends')">📈 Tendencias</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-detail')">🔍 Detalle</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-outliers')">⚠️ Outliers</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-capability')">📐 Cpk/Ppk</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-search')">🔎 Buscar</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-filter')">🧹 Filtro</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-compare')">🔀 Comparar</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-spc')">📉 SPC</button>
     </div>
     <div class="tp-main">
         <div id="ra-content"></div>
@@ -951,17 +959,17 @@
 <div class="platform-section" id="platform-inventory" role="main" aria-label="Lab Inventory">
     <div class="tp-main">
         <div class="tp-header" style="margin-bottom:12px;"><h2 style="margin:0;font-size:16px;color:var(--tp-text);">📦 Lab Inventory</h2></div>
-        <div class="tp-tabs" id="inv-tabs-bar" style="margin-bottom:12px;">
-            <button class="tp-tab active" onclick="invSwitchTab('inv-dashboard')">📊 Dashboard</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-gases')">🔴 Gases</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-equipment')">🔧 Equipos</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-readings')">📏 Lecturas</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-predict')">🔮 Predicción</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-fuel')">⛽ Combustible</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-zonemap')">🗺️ Mapa</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-charts')">📈 Graficas</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-config')">⚙️ Config</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-report')">📧 Reporte</button>
+        <div class="tp-tabs" id="inv-tabs-bar" role="tablist" aria-label="Secciones Inventory" style="margin-bottom:12px;">
+            <button class="tp-tab active" role="tab" aria-selected="true" onclick="invSwitchTab('inv-dashboard')">📊 Dashboard</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-gases')">🔴 Gases</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-equipment')">🔧 Equipos</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-readings')">📏 Lecturas</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-predict')">🔮 Predicción</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-fuel')">⛽ Combustible</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-zonemap')">🗺️ Mapa</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-charts')">📈 Graficas</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-config')">⚙️ Config</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-report')">📧 Reporte</button>
         </div>
         <div id="inv-content" style="padding:0;"></div>
     </div>
@@ -983,10 +991,10 @@
         </div>
     </div>
 
-    <div class="tp-tabs" id="sop-tabs-bar">
-        <button class="tp-tab active" onclick="sopSwitchTab('sop-guia')">📋 Guía</button>
-        <button class="tp-tab" onclick="sopSwitchTab('sop-history')">📜 Historial</button>
-        <button class="tp-tab" onclick="sopSwitchTab('sop-templates')">📁 Plantillas</button>
+    <div class="tp-tabs" id="sop-tabs-bar" role="tablist" aria-label="Secciones SOP">
+        <button class="tp-tab active" role="tab" aria-selected="true" onclick="sopSwitchTab('sop-guia')">📋 Guía</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="sopSwitchTab('sop-history')">📜 Historial</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="sopSwitchTab('sop-templates')">📁 Plantillas</button>
     </div>
 
     <div class="tp-main">
@@ -997,7 +1005,7 @@
 <!-- ═══════════════════════════════════════════════════════════════
      PLATFORM 6: PANEL (Dashboard, Users, Shift Log, Alerts)
      ═══════════════════════════════════════════════════════════════ -->
-<div class="platform-section" id="platform-panel">
+<div class="platform-section" id="platform-panel" role="main" aria-label="Panel de Control">
     <div class="tp-header">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
             <div>
@@ -1007,14 +1015,14 @@
         </div>
     </div>
 
-    <div class="tp-tabs" id="pn-tabs-bar">
-        <button class="tp-tab active" onclick="pnSwitchTab('pn-dashboard')">📊 Dashboard</button>
-        <button class="tp-tab" onclick="pnSwitchTab('pn-users')">👥 Usuarios</button>
-        <button class="tp-tab" onclick="pnSwitchTab('pn-shift')">📝 Bitácora</button>
-        <button class="tp-tab" onclick="pnSwitchTab('pn-alerts')">🔔 Alertas</button>
-        <button class="tp-tab" onclick="pnSwitchTab('pn-intelligence')">🧠 Inteligencia</button>
-        <button class="tp-tab" onclick="pnSwitchTab('pn-calendar')">📅 Calendario</button>
-        <button class="tp-tab" onclick="pnSwitchTab('pn-system')">💾 Sistema</button>
+    <div class="tp-tabs" id="pn-tabs-bar" role="tablist" aria-label="Secciones Panel">
+        <button class="tp-tab active" role="tab" aria-selected="true" onclick="pnSwitchTab('pn-dashboard')">📊 Dashboard</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-users')">👥 Usuarios</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-shift')">📝 Bitácora</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-alerts')">🔔 Alertas</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-intelligence')">🧠 Inteligencia</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-calendar')">📅 Calendario</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-system')">💾 Sistema</button>
     </div>
 
     <div class="tp-main">
@@ -1022,7 +1030,7 @@
     </div>
 </div><!-- END platform-panel -->
 
-<div id="configModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;">
+<div id="configModal" role="dialog" aria-modal="true" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;">
 <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">
 <button onclick="document.getElementById('configModal').style.display='none'" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;">x</button>
 <h3 style="margin:0 0 14px;">Configuracion del Sistema</h3>
@@ -1058,11 +1066,11 @@
 </div>
 
 <!-- ═══ COMMAND PALETTE ═══ -->
-<div id="command-palette-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.3);backdrop-filter:blur(8px);animation:modalFadeIn 0.2s ease;" onclick="if(event.target===this)closeCommandPalette()">
+<div id="command-palette-overlay" role="dialog" aria-modal="true" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.3);backdrop-filter:blur(8px);animation:modalFadeIn 0.2s ease;" onclick="if(event.target===this)closeCommandPalette()">
     <div style="max-width:520px;margin:80px auto;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
         <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;">
             <span style="color:#94a3b8;font-size:16px;">></span>
-            <input id="command-palette-input" type="text" placeholder="Escribe un comando..." style="flex:1;background:transparent;border:none;color:#0f172a;font-size:14px;outline:none;" oninput="filterCommands(this.value)" onkeydown="handleCommandKey(event)">
+            <input id="command-palette-input" type="text" autocomplete="off" placeholder="Escribe un comando..." style="flex:1;background:transparent;border:none;color:#0f172a;font-size:14px;outline:none;" oninput="filterCommands(this.value)" onkeydown="handleCommandKey(event)">
             <kbd style="background:#f1f5f9;color:#64748b;padding:2px 6px;border-radius:4px;font-size:10px;">ESC</kbd>
         </div>
         <div id="command-palette-results" style="max-height:320px;overflow-y:auto;padding:6px;"></div>

@@ -11,7 +11,10 @@ set -e
 OUTPUT="kia-emlab-unified.html"
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
-echo "Building $OUTPUT..."
+# [Fase 4.3] Build timestamp for cache versioning (YYYYMMDDHHmm)
+BUILD_TS=$(date +"%Y%m%d%H%M")
+
+echo "Building $OUTPUT (build $BUILD_TS)..."
 
 cat > "$DIR/$OUTPUT" <<'HEADER'
 <!DOCTYPE html>
@@ -27,12 +30,18 @@ cat > "$DIR/$OUTPUT" <<'HEADER'
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
+    <!-- [Fase 4.2] CDN Preconnect hints for faster resource loading -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
 
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -65,6 +74,35 @@ echo "</script>" >> "$DIR/$OUTPUT"
 echo "" >> "$DIR/$OUTPUT"
 echo "</body>" >> "$DIR/$OUTPUT"
 echo "</html>" >> "$DIR/$OUTPUT"
+
+# ═══════════════════════════════════════════════════════════════
+# [Fase 4.4] Strip console.log and console.warn from production build
+# NOTE: Only strips from unified file, source files are untouched
+# ═══════════════════════════════════════════════════════════════
+echo "Stripping console.log/warn from production build..."
+sed -i '/^\s*console\.log(/d; /^\s*console\.warn(/d' "$DIR/$OUTPUT"
+
+# ═══════════════════════════════════════════════════════════════
+# [Fase 4.1] Optional minification with terser
+# Install: npm install -g terser
+# This step is skipped if terser is not available
+# ═══════════════════════════════════════════════════════════════
+if command -v terser &> /dev/null; then
+    echo "Terser found — minifying JS in unified build..."
+    # Extract JS between <script> and </script>, minify, replace
+    # For now, this is a placeholder — full implementation would extract,
+    # minify, and re-inject the JS block. The console stripping above
+    # provides the primary size reduction.
+    echo "  (terser minification not yet wired — console stripping applied)"
+else
+    echo "Terser not found — skipping JS minification (install: npm install -g terser)"
+fi
+
+# ═══════════════════════════════════════════════════════════════
+# [Fase 4.3] Inject build timestamp into sw.js cache version
+# ═══════════════════════════════════════════════════════════════
+echo "Updating sw.js cache version to kia-emlab-v${BUILD_TS}..."
+sed -i "s/var CACHE_NAME = 'kia-emlab-v[^']*'/var CACHE_NAME = 'kia-emlab-v${BUILD_TS}'/" "$DIR/sw.js"
 
 LINES=$(wc -l < "$DIR/$OUTPUT")
 SIZE=$(du -h "$DIR/$OUTPUT" | cut -f1)

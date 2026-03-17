@@ -170,7 +170,7 @@ function pnRenderDashboard(el) {
         html += '<div style="flex:1;text-align:center;padding:10px 4px;background:' + st.color + '10;border:1px solid ' + st.color + '30;border-radius:8px;">';
         html += '<div style="font-size:18px;">' + st.icon + '</div>';
         html += '<div style="font-size:20px;font-weight:800;color:' + st.color + ';">' + count + '</div>';
-        html += '<div style="font-size:8px;color:var(--tp-dim);">' + st.label + '</div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);">' + st.label + '</div>';
         html += '</div>';
     });
     html += '</div></div>';
@@ -215,7 +215,7 @@ function pnRenderDashboard(el) {
         html += '<div class="tp-card-title"><span style="color:var(--tp-red);">⚠️ Alertas Activas (' + alerts.length + ')</span></div>';
         alerts.slice(0, 5).forEach(function(a) {
             html += '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);">';
-            html += '<span style="font-size:8px;padding:2px 6px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:700;">' + a.level + '</span>';
+            html += '<span style="font-size:9px;padding:2px 6px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:700;">' + a.level + '</span>';
             html += '<span style="font-size:10px;color:var(--tp-text);flex:1;">' + a.message + '</span>';
             html += '</div>';
         });
@@ -241,7 +241,7 @@ function pnRenderDashboard(el) {
             html += '<div style="padding:10px;border:1px solid ' + clr + '30;border-radius:8px;background:' + clr + '08;text-align:center;">';
             html += '<div style="font-size:9px;color:var(--tp-dim);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + reg + '">' + reg + '</div>';
             html += '<div style="font-size:20px;font-weight:800;color:' + clr + ';">' + passRate + '%</div>';
-            html += '<div style="font-size:8px;color:var(--tp-dim);">' + passCount + '/' + tests.length + ' PASS</div>';
+            html += '<div style="font-size:9px;color:var(--tp-dim);">' + passCount + '/' + tests.length + ' PASS</div>';
             html += '</div>';
         });
         html += '</div></div>';
@@ -282,7 +282,7 @@ function pnRenderDashboard(el) {
                 var urgClr = p.pred.daysLeft < 14 ? '#ef4444' : p.pred.daysLeft < 30 ? '#f59e0b' : '#3b82f6';
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);font-size:10px;">';
                 html += '<span style="color:var(--tp-text);">' + p.gas.formula + ' ' + (p.gas.concNominal || '') + ' <span style="color:var(--tp-dim);">#' + p.gas.controlNo + '</span></span>';
-                html += '<span style="font-weight:700;color:' + urgClr + ';">~' + p.pred.daysLeft + 'd <span style="font-size:8px;font-weight:400;">(' + p.pred.confidence + ')</span></span>';
+                html += '<span style="font-weight:700;color:' + urgClr + ';">~' + p.pred.daysLeft + 'd <span style="font-size:9px;font-weight:400;">(' + p.pred.confidence + ')</span></span>';
                 html += '</div>';
             });
             html += '</div>';
@@ -418,9 +418,9 @@ function pnRenderUsers(el) {
             html += '<div style="flex:1;min-width:0;">';
             html += '<div style="display:flex;align-items:center;gap:6px;">';
             html += '<span style="font-size:12px;font-weight:700;color:var(--tp-text);">' + op.name + '</span>';
-            html += '<span style="font-size:8px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;">' + (op.role || 'Técnico') + '</span>';
-            if (!op.active) html += '<span style="font-size:8px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span>';
-            html += op.pinHash ? '<span style="font-size:8px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span>' : '<span style="font-size:8px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span>';
+            html += '<span style="font-size:9px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;">' + (op.role || 'Técnico') + '</span>';
+            if (!op.active) html += '<span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span>';
+            html += op.pinHash ? '<span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span>' : '<span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span>';
             html += '</div>';
             html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">' + stats.registered + ' registrados | ' + stats.released + ' liberados | ' + stats.active + ' activos</div>';
             html += '</div>';
@@ -635,7 +635,7 @@ function pnRenderShiftLog(el) {
             html += '<div style="flex:1;">';
             html += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:2px;">';
             html += '<span style="font-size:10px;font-weight:700;color:var(--tp-text);">' + (entry.operator || '?') + '</span>';
-            html += '<span style="font-size:8px;padding:1px 6px;background:' + catColor + '20;color:' + catColor + ';border-radius:4px;">' + entry.category + '</span>';
+            html += '<span style="font-size:9px;padding:1px 6px;background:' + catColor + '20;color:' + catColor + ';border-radius:4px;">' + entry.category + '</span>';
             html += '</div>';
             html += '<div style="font-size:10px;color:var(--tp-dim);">' + (entry.notes || '') + '</div>';
             html += '</div>';
@@ -847,7 +847,7 @@ function pnRenderAlerts(el) {
 
             sourceAlerts.forEach(function(a) {
                 html += '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">';
-                html += '<span style="font-size:8px;padding:3px 8px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:800;white-space:nowrap;flex-shrink:0;">' + a.level + '</span>';
+                html += '<span style="font-size:9px;padding:3px 8px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:800;white-space:nowrap;flex-shrink:0;">' + a.level + '</span>';
                 html += '<span style="font-size:11px;color:var(--tp-text);">' + a.message + '</span>';
                 html += '</div>';
             });
@@ -1431,7 +1431,7 @@ function pnRenderCalendar(el) {
                     shown[ev.color] = true;
                 }
             });
-            if (dayEvents.length > 3) html += '<span style="font-size:7px;color:var(--tp-dim);">+' + (dayEvents.length - 3) + '</span>';
+            if (dayEvents.length > 3) html += '<span style="font-size:9px;color:var(--tp-dim);">+' + (dayEvents.length - 3) + '</span>';
             html += '</div>';
         }
         html += '</div>';
@@ -1696,9 +1696,9 @@ function pnRenderShiftReport(report) {
 
     // KPIs
     html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">';
-    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:#3b82f6;">' + report.vehiclesInProgress.length + '</div><div style="font-size:8px;color:var(--tp-dim);">En progreso</div></div>';
-    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:#f59e0b;">' + report.pendingTests + '</div><div style="font-size:8px;color:var(--tp-dim);">Pruebas pend.</div></div>';
-    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:' + (report.gasesLow.length > 0 ? '#ef4444' : '#10b981') + ';">' + report.gasesLow.length + '</div><div style="font-size:8px;color:var(--tp-dim);">Gases bajos</div></div>';
+    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:#3b82f6;">' + report.vehiclesInProgress.length + '</div><div style="font-size:9px;color:var(--tp-dim);">En progreso</div></div>';
+    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:#f59e0b;">' + report.pendingTests + '</div><div style="font-size:9px;color:var(--tp-dim);">Pruebas pend.</div></div>';
+    html += '<div class="tp-card" style="text-align:center;padding:10px;"><div style="font-size:20px;font-weight:800;color:' + (report.gasesLow.length > 0 ? '#ef4444' : '#10b981') + ';">' + report.gasesLow.length + '</div><div style="font-size:9px;color:var(--tp-dim);">Gases bajos</div></div>';
     html += '</div>';
 
     // Vehicles in progress

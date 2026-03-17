@@ -6,6 +6,9 @@
 // ║  [M30] LAB INVENTORY — Gas Cylinders, Equipment, Readings         ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// ── [Fase 2.1] Debounced render wrapper for search/filter inputs ──
+var _invDebouncedRender = debounce(invRender, 250);
+
 const INV_LS_KEY = 'kia_lab_inventory';
 let invState = safeParse(INV_LS_KEY, null) || {
     gases: [],       // {id, controlNo, cylinderNo, formula, gasType, concNominal, concReal, traceability, validUntil, zone, position, status, regDate, gasCategory, readings:[], barcode}
@@ -288,7 +291,7 @@ function invRenderGases(el) {
 
     // Filters
     html += '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">';
-    html += '<select class="tp-select" onchange="window._invGasFilterZone=this.value;invRender();" style="font-size:10px;"><option value="ALL">Todas zonas</option>';
+    html += '<select class="tp-select" onchange="window._invGasFilterZone=this.value;_invDebouncedRender();" style="font-size:10px;"><option value="ALL">Todas zonas</option>';
     allZones.forEach(function(z){ html += '<option value="' + z + '" ' + (z===filterZone?'selected':'') + '>' + z + '</option>'; });
     html += '</select></div>';
 
@@ -302,15 +305,15 @@ function invRenderGases(el) {
             html += '<div style="position:relative;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;border-left:3px solid ' + exp.color + ';background:var(--tp-card);flex-wrap:wrap;gap:4px;">';
             if (exp.status === 'expired') {
                 html += '<div style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(239,68,68,0.08);pointer-events:none;border-radius:6px;"></div>';
-                html += '<div style="position:absolute;top:2px;right:8px;font-size:8px;font-weight:900;color:#ef4444;transform:rotate(-12deg);opacity:0.6;">VENCIDO</div>';
+                html += '<div style="position:absolute;top:2px;right:8px;font-size:9px;font-weight:900;color:#ef4444;transform:rotate(-12deg);opacity:0.6;">VENCIDO</div>';
             }
             html += '<div style="flex:1;min-width:180px;">';
             html += '<div style="font-weight:700;font-size:11px;">' + g.formula + ' <span style="color:var(--tp-dim);font-weight:400;">' + (g.concNominal||'') + '</span></div>';
             html += '<div class="compact-hide" style="font-size:9px;color:var(--tp-dim);">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo||'?') + ' | ' + (g.zone||'?') + '</div>';
             html += '</div>';
             html += '<div style="display:flex;gap:6px;align-items:center;">';
-            html += '<span style="font-size:8px;padding:2px 6px;border-radius:4px;background:' + exp.color + '20;color:' + exp.color + ';border:1px solid ' + exp.color + '30;">' + exp.text + '</span>';
-            html += '<span style="font-size:8px;padding:2px 6px;border-radius:4px;background:' + lvl.color + '20;color:' + lvl.color + ';">' + lvl.text + '</span>';
+            html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + exp.color + '20;color:' + exp.color + ';border:1px solid ' + exp.color + '30;">' + exp.text + '</span>';
+            html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + lvl.color + '20;color:' + lvl.color + ';">' + lvl.text + '</span>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGas(\'' + g.id + '\')" style="font-size:9px;">\u270F</button>';
             if (g.readings && g.readings.length >= 2) html += '<button class="tp-btn tp-btn-ghost" onclick="invShowTrendChart(\'' + g.id + '\')" style="font-size:9px;" title="Tendencia">&#x1F4C8;</button>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invShowBarcode(\'' + g.id + '\')" style="font-size:9px;">\u{1F4CB}</button>';
@@ -350,7 +353,7 @@ function invShowAddGas(editId) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;">' + title + '</h3>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div><label style="font-size:10px;color:#64748b;">No. Control * <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size:8px;background:#0f766e;color:#fff;border:none;border-radius:4px;padding:1px 6px;cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:10px;color:#64748b;">No. Control * <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size:9px;background:#0f766e;color:#fff;border:none;border-radius:4px;padding:1px 6px;cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:10px;color:#64748b;">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div style="grid-column:1/-1;"><label style="font-size:10px;color:#64748b;">Tipo de Gas *</label><select id="inv-g-type" onchange="invUpdateConcOpts()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + gasTypeOpts + '</select></div>' +
         '<div><label style="font-size:10px;color:#64748b;">Conc. Nominal</label><select id="inv-g-conc" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></select></div>' +
@@ -476,7 +479,7 @@ function invShowBarcode(id) {
     html += '<tr><td style="color:#64748b;padding-right:8px;">Vence:</td><td style="font-weight:700;color:' + (exp.days < 30 ? '#dc2626' : '#0f172a') + ';">' + (g.validUntil || '—') + '</td></tr>';
     html += '</table>';
     html += '</div></div>';
-    html += '<div style="text-align:center;margin-top:4px;font-size:8px;color:#94a3b8;letter-spacing:1px;">✂ RECORTAR POR LINEA PUNTEADA ✂</div>';
+    html += '<div style="text-align:center;margin-top:4px;font-size:9px;color:#94a3b8;letter-spacing:1px;">✂ RECORTAR POR LINEA PUNTEADA ✂</div>';
     html += '</div>';
 
     // === FICHA DE RECEPCION DE CILINDRO ===
@@ -802,12 +805,12 @@ function invRenderReadings(el) {
             var lastR = g.readings.length > 0 ? g.readings[g.readings.length-1] : null;
             var lvl = invGasLevel(g);
             html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);flex-wrap:wrap;">';
-            html += '<div style="min-width:100px;"><div style="font-weight:700;font-size:10px;">' + g.formula + ' ' + (g.concNominal||'') + '</div><div style="font-size:8px;color:var(--tp-dim);">#' + g.controlNo + ' | ' + (g.zone||'?') + '</div></div>';
+            html += '<div style="min-width:100px;"><div style="font-weight:700;font-size:10px;">' + g.formula + ' ' + (g.concNominal||'') + '</div><div style="font-size:9px;color:var(--tp-dim);">#' + g.controlNo + ' | ' + (g.zone||'?') + '</div></div>';
             html += '<div style="flex:1;min-width:180px;display:flex;gap:3px;flex-wrap:wrap;">';
             var last5 = (g.readings||[]).slice(-5);
             if (last5.length > 0) {
-                last5.forEach(function(r){ html += '<span style="font-size:7px;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.05);border:1px solid var(--tp-border);color:var(--tp-dim);">' + r.date.slice(5) + ': <strong style="color:#fff;">' + r.psi + '</strong></span>'; });
-            } else { html += '<span style="font-size:8px;color:var(--tp-dim);">Sin lecturas</span>'; }
+                last5.forEach(function(r){ html += '<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.05);border:1px solid var(--tp-border);color:var(--tp-dim);">' + r.date.slice(5) + ': <strong style="color:#fff;">' + r.psi + '</strong></span>'; });
+            } else { html += '<span style="font-size:9px;color:var(--tp-dim);">Sin lecturas</span>'; }
             html += '</div>';
             html += '<input type="number" id="inv-rd-' + g.id + '" placeholder="psi" style="width:70px;padding:5px;border:1px solid var(--tp-border);border-radius:5px;background:#1e293b;color:#fff;font-size:11px;text-align:center;">';
             html += '</div>';
@@ -990,7 +993,7 @@ function invScanFilter() {
         html += '<div style="text-align:right;">';
         if (lastR) {
             html += '<div style="font-size:14px;font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' psi</div>';
-            html += '<div style="font-size:8px;color:#64748b;">' + lastR.date + '</div>';
+            html += '<div style="font-size:9px;color:#64748b;">' + lastR.date + '</div>';
         } else {
             html += '<div style="font-size:10px;color:#64748b;">Sin lecturas</div>';
         }
@@ -1121,7 +1124,7 @@ function invRenderEquipment(el) {
             html += '<div style="flex:1;min-width:140px;"><div style="font-weight:700;font-size:11px;">' + e.name + '</div>';
             html += '<div style="font-size:9px;color:var(--tp-dim);">S/N: ' + (e.serialNo||'?') + ' | ' + (e.type||'') + ' | ' + (e.location||'') + '</div></div>';
             html += '<div style="display:flex;gap:6px;align-items:center;">';
-            html += '<span style="font-size:8px;padding:2px 6px;border-radius:4px;background:' + clr + '20;color:' + clr + ';">' + statusTxt + '</span>';
+            html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + clr + '20;color:' + clr + ';">' + statusTxt + '</span>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invEditEquipment(\'' + e.id + '\')" style="font-size:9px;">\u270F</button>';
             html += '</div></div>';
         });
@@ -1285,7 +1288,7 @@ function invRenderPredict(el) {
                     var conf = r.n >= 10 ? '#10b981' : r.n >= 3 ? '#f59e0b' : '#94a3b8';
                     html += '<div style="font-size:9px;padding:3px 6px;border-radius:4px;background:var(--tp-card);border:1px solid var(--tp-border);">';
                     html += '<span style="color:var(--tp-dim);">' + f + ':</span> <strong style="color:var(--tp-amber);">' + r.ewma.toFixed(1) + '</strong> psi';
-                    html += ' <span style="font-size:7px;color:' + conf + ';">(' + r.n + ' obs)</span>';
+                    html += ' <span style="font-size:9px;color:' + conf + ';">(' + r.n + ' obs)</span>';
                     html += '</div>';
                 });
                 html += '</div>';
@@ -1296,7 +1299,7 @@ function invRenderPredict(el) {
                 html += '<div style="font-size:9px;font-weight:700;color:var(--tp-dim);margin-top:4px;margin-bottom:2px;">Combustible (' + (rates.fuel[reg].unit || 'L') + '/prueba):</div>';
                 html += '<div style="font-size:10px;padding:3px 6px;border-radius:4px;background:var(--tp-card);border:1px solid var(--tp-border);display:inline-block;">';
                 html += '<span style="color:var(--tp-dim);">' + (rates.fuel[reg].tankName || reg) + ':</span> <strong style="color:#f97316;">' + rates.fuel[reg].ewma.toFixed(1) + '</strong> ' + (rates.fuel[reg].unit || 'L');
-                html += ' <span style="font-size:7px;color:' + (rates.fuel[reg].n >= 5 ? '#10b981' : '#f59e0b') + ';">(' + rates.fuel[reg].n + ' obs)</span>';
+                html += ' <span style="font-size:9px;color:' + (rates.fuel[reg].n >= 5 ? '#10b981' : '#f59e0b') + ';">(' + rates.fuel[reg].n + ' obs)</span>';
                 html += '</div>';
             }
 
@@ -1484,7 +1487,7 @@ function invRenderPredict(el) {
             html += '</div>';
             // Per-regulation breakdown
             if (p.adaptiveRateLabel) {
-                html += '<div style="font-size:8px;color:#a78bfa;margin-top:3px;">Tasa adaptativa: ' + p.adaptiveRateLabel + ' psi/prueba</div>';
+                html += '<div style="font-size:9px;color:#a78bfa;margin-top:3px;">Tasa adaptativa: ' + p.adaptiveRateLabel + ' psi/prueba</div>';
             }
             html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:6px;"><div class="tp-bar-fill" style="width:' + p.pctLeft + '%;background:' + (p.pctLeft < 15 ? '#ef4444' : p.pctLeft < 30 ? '#f59e0b' : '#10b981') + ';"></div></div>';
             html += '</div>';
@@ -1774,7 +1777,7 @@ function invRenderFuel(el) {
             html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:8px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + clr + ';"></div></div>';
             // Readings mini history
             if (t.readings && t.readings.length > 0) {
-                html += '<div style="font-size:8px;color:var(--tp-dim);margin-top:4px;">Ultimas: ' + t.readings.slice(-5).map(function(r){return r.date + ': ' + r.level + (t.unit||'L');}).join(' | ') + '</div>';
+                html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:4px;">Ultimas: ' + t.readings.slice(-5).map(function(r){return r.date + ': ' + r.level + (t.unit||'L');}).join(' | ') + '</div>';
             }
             html += '</div>';
         });
@@ -1955,7 +1958,7 @@ function invRenderReport(el) {
         var isOk = lastPsi > limit || limit === 0;
         var catColor = g.gasCategory === 'Trabajo' ? '#fef9c3' : '#e0f2fe';
         html += '<tr style="background:' + catColor + '20;border-bottom:1px solid rgba(255,255,255,0.05);">';
-        html += '<td style="padding:3px 6px;font-size:8px;color:var(--tp-dim);">' + (g.gasCategory||'Ref') + '</td>';
+        html += '<td style="padding:3px 6px;font-size:9px;color:var(--tp-dim);">' + (g.gasCategory||'Ref') + '</td>';
         html += '<td style="padding:3px 6px;">' + g.gasType.toUpperCase().slice(0,20) + ' ' + g.concNominal + '</td>';
         html += '<td style="padding:3px 6px;text-align:center;font-weight:700;">' + lastPsi + '</td>';
         html += '<td style="padding:3px 6px;text-align:center;">' + weekly.toFixed(1) + '</td>';
@@ -2049,10 +2052,10 @@ function invRenderZoneMap(el) {
                 'background:' + bgColor + ';border:1px solid var(--tp-border);cursor:pointer;' +
                 'min-height:44px;display:flex;flex-direction:column;justify-content:center;' +
                 'user-select:none;-webkit-user-select:none;touch-action:none;">';
-            html += '<div style="font-size:8px;color:var(--tp-dim);">' + code + '</div>';
+            html += '<div style="font-size:9px;color:var(--tp-dim);">' + code + '</div>';
             if (slotGas) {
                 html += '<div style="font-size:10px;font-weight:700;color:#fff;">' + label + '</div>';
-                html += '<div style="font-size:8px;color:#fff;">' + detail + '</div>';
+                html += '<div style="font-size:9px;color:#fff;">' + detail + '</div>';
             } else {
                 html += '<div style="font-size:9px;color:#475569;">---</div>';
             }
@@ -2447,9 +2450,9 @@ function invRenderConfig(el) {
     invState.gasTypes.forEach(function(gt, idx) {
         html += '<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;margin-bottom:2px;border:1px solid var(--tp-border);border-radius:5px;background:var(--tp-card);">';
         html += '<div style="flex:1;font-size:10px;"><strong>' + gt.formula + '</strong> — ' + gt.name + '</div>';
-        html += '<div style="font-size:8px;color:var(--tp-dim);">' + gt.concs.join(', ') + '</div>';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGasType(' + idx + ')" style="font-size:8px;">\u270F</button>';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="invDeleteGasType(' + idx + ')" style="font-size:8px;color:var(--tp-red);">\u2715</button>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);">' + gt.concs.join(', ') + '</div>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGasType(' + idx + ')" style="font-size:9px;">\u270F</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invDeleteGasType(' + idx + ')" style="font-size:9px;color:var(--tp-red);">\u2715</button>';
         html += '</div>';
     });
     html += '</div>';
@@ -2729,11 +2732,11 @@ function invDrawTrendChart(g) {
     var statsEl = document.getElementById('inv-trend-stats');
     if (statsEl) {
         statsEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;">' +
-            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#06b6d4;">' + lastPsi + '</div><div style="font-size:8px;color:#64748b;">PSI actual</div></div>' +
-            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#f59e0b;">' + dailyDrop.toFixed(1) + '</div><div style="font-size:8px;color:#64748b;">PSI/dia</div></div>' +
-            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#f59e0b;">' + weeklyDrop.toFixed(0) + '</div><div style="font-size:8px;color:#64748b;">PSI/semana</div></div>' +
-            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1a' : daysToEmpty + 'd') + '</div><div style="font-size:8px;color:#64748b;">dias restantes</div></div>' +
-            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1 ano' : emptyDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })) + '</div><div style="font-size:8px;color:#64748b;">fecha vacio</div></div>' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#06b6d4;">' + lastPsi + '</div><div style="font-size:9px;color:#64748b;">PSI actual</div></div>' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#f59e0b;">' + dailyDrop.toFixed(1) + '</div><div style="font-size:9px;color:#64748b;">PSI/dia</div></div>' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#f59e0b;">' + weeklyDrop.toFixed(0) + '</div><div style="font-size:9px;color:#64748b;">PSI/semana</div></div>' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1a' : daysToEmpty + 'd') + '</div><div style="font-size:9px;color:#64748b;">dias restantes</div></div>' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1 ano' : emptyDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })) + '</div><div style="font-size:9px;color:#64748b;">fecha vacio</div></div>' +
             '</div>';
     }
 }
@@ -3252,7 +3255,7 @@ function _invRoundRenderCurrent() {
         '<div style="font-size:10px;color:var(--tp-dim);margin-top:2px;">Conc: ' + escapeHtml(gas.concNominal || '—') + ' / ' + escapeHtml(gas.concReal || '—') + '</div>' +
         '</div>' +
         // Sparkline
-        (sparkHtml ? '<div style="text-align:center;margin-bottom:12px;">' + sparkHtml + '<div style="font-size:8px;color:var(--tp-dim);margin-top:2px;">Últimas 5 lecturas</div></div>' : '') +
+        (sparkHtml ? '<div style="text-align:center;margin-bottom:12px;">' + sparkHtml + '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">Últimas 5 lecturas</div></div>' : '') +
         // Last value
         (lastVal ? '<div style="text-align:center;margin-bottom:8px;font-size:10px;color:var(--tp-dim);">Última lectura: <strong style="color:var(--tp-text);">' + lastVal + ' PSI</strong></div>' : '') +
         // Input
