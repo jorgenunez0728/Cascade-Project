@@ -1749,6 +1749,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         tpHookCascadeResult();
         raInit();
 
+        // ═══ SOP Guided Tour ═══
+        if (typeof sopInit === 'function') { sopInit(); sopUpdateBadge(); }
+
         // ═══ Panel Module ═══
         if (typeof pnInit === 'function') { pnInit(); pnUpdateBadges(); }
 
