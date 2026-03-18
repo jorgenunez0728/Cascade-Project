@@ -96,7 +96,7 @@ function invPreloadData() {
     invSave();
 }
 
-var _invTabs = ['inv-dashboard','inv-gases','inv-equipment','inv-readings','inv-predict','inv-fuel','inv-zonemap','inv-charts','inv-config','inv-report'];
+var _invTabs = ['inv-dashboard','inv-gases','inv-equipment','inv-readings','inv-predict','inv-fuel','inv-zonemap','inv-charts','inv-config','inv-report','inv-trace'];
 
 function invSwitchTab(tabId) {
     invState.activeTab = tabId;
@@ -143,6 +143,7 @@ function _invGetRenderer(tabId) {
     if (tabId === 'inv-charts') return invRenderCharts;
     if (tabId === 'inv-config') return invRenderConfig;
     if (tabId === 'inv-report') return invRenderReport;
+    if (tabId === 'inv-trace') return invRenderTrace;
     return null;
 }
 
@@ -401,6 +402,8 @@ function invShowAddGas(editId) {
         '<div><label style="font-size:10px;color:#64748b;">Zona + Posicion *</label><select id="inv-g-zone" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + zoneOpts + '</select></div>' +
         '<div><label style="font-size:10px;color:#64748b;">Estatus</label><select id="inv-g-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.status==='Stock'?'selected':'') + '>Stock</option><option ' + (g&&g.status==='In use'?'selected':'') + '>In use</option><option ' + (g&&g.status==='Empty'?'selected':'') + '>Empty</option><option ' + (g&&g.status==='Spare'?'selected':'') + '>Spare</option></select></div>' +
         '<div><label style="font-size:10px;color:#64748b;">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:10px;color:#64748b;">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:10px;color:#64748b;">Proveedor</label><input id="inv-g-supplier" value="' + (g?g.supplier||'':'') + '" placeholder="Nombre del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveGas(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
@@ -444,7 +447,9 @@ function invSaveGas(editId) {
         position: zone ? parseInt(zone.slice(1)) : 0,
         status: document.getElementById('inv-g-status').value,
         regDate: document.getElementById('inv-g-regdate').value,
-        barcode: invGenerateSerial(controlNo)
+        barcode: invGenerateSerial(controlNo),
+        lotNumber: document.getElementById('inv-g-lot').value.trim(),
+        supplier: document.getElementById('inv-g-supplier').value.trim()
     };
 
     if (editId) {
@@ -463,12 +468,14 @@ function invSaveGas(editId) {
             }
             obj.timeline.push({date:new Date().toISOString(),action:'Modificado'});
             invState.gases[idx] = obj;
+            auditLog('inv', 'gas_modified', {type:'gas', id:obj.id, label:obj.controlNo}, 'Formula: ' + obj.formula);
         }
     } else {
         obj.id = invGenId();
         obj.readings = [];
         obj.timeline = [{date:new Date().toISOString(),action:'Alta — Recibido'}];
         invState.gases.push(obj);
+        auditLog('inv', 'gas_created', {type:'gas', id:obj.id, label:obj.controlNo}, 'Formula: ' + obj.formula);
     }
 
     invSave(); invPreloadData(); invRender(); invUpdateBadges();
@@ -476,6 +483,8 @@ function invSaveGas(editId) {
 }
 
 function invDeleteGas(id) {
+    var _delGas = invState.gases.find(function(g){ return g.id === id; });
+    if (_delGas) auditLog('inv', 'gas_deleted', {type:'gas', id:id, label:_delGas.controlNo}, 'Formula: ' + _delGas.formula);
     invState.gases = invState.gases.filter(function(g){ return g.id !== id; });
     invSave(); invPreloadData(); invRender(); invUpdateBadges();
     document.getElementById('invModal').style.display = 'none';
@@ -1226,11 +1235,13 @@ function invSaveEquipment(editId) {
             var oldCalDate = e.lastCalDate;
             Object.assign(e, obj);
             if (obj.lastCalDate && obj.lastCalDate !== oldCalDate && typeof fbPostCalibration === 'function') fbPostCalibration(obj.name);
+            auditLog('inv', 'equipment_modified', {type:'equipment', id:editId, label:obj.name}, 'S/N: ' + (obj.serialNo || ''));
         }
     } else {
         obj.id = invGenId();
         obj.status = 'active';
         invState.equipment.push(obj);
+        auditLog('inv', 'equipment_created', {type:'equipment', id:obj.id, label:obj.name}, 'S/N: ' + (obj.serialNo || ''));
     }
     invSave(); invRender(); invUpdateBadges();
     document.getElementById('invModal').style.display = 'none';
@@ -1619,10 +1630,26 @@ function invLogTestUsage(vehicle) {
     var date = new Date().toISOString().slice(0,10);
     var regulation = vehicle.configCode ? vehicle.configCode.split(' ')[0] : '';
 
-    // Snapshot current PSI levels for correlation with next reading
+    // Capture specific cylinders "In use" with full traceability
+    var inUseCylinders = invState.gases.filter(function(g) { return g.status === 'In use'; });
+    var cylinderSnapshot = inUseCylinders.map(function(g) {
+        var lastPsi = (g.readings && g.readings.length > 0) ? g.readings[g.readings.length - 1].psi : null;
+        return {
+            id: g.id,
+            controlNo: g.controlNo,
+            formula: g.formula,
+            lotNumber: g.lotNumber || '',
+            supplier: g.supplier || '',
+            concNominal: g.concNominal || '',
+            psi: lastPsi,
+            validUntil: g.validUntil || ''
+        };
+    });
+
+    // PSI snapshot (maintain backward compatibility for consumption rate calc)
     var psiSnapshot = {};
-    invState.gases.forEach(function(g) {
-        if (g.status === 'In use' && g.readings && g.readings.length > 0) {
+    inUseCylinders.forEach(function(g) {
+        if (g.readings && g.readings.length > 0) {
             psiSnapshot[g.formula] = g.readings[g.readings.length - 1].psi;
         }
     });
@@ -1641,24 +1668,152 @@ function invLogTestUsage(vehicle) {
         configCode: vehicle.configCode || '',
         purpose: vehicle.purpose || '',
         regulation: regulation,
-        gasFormula: '',
         timestamp: new Date().toISOString(),
+        cylinders: cylinderSnapshot,
         psiSnap: psiSnapshot,
         fuelSnap: fuelSnapshot
     };
 
-    // Log one entry per gas formula in use
-    var inUse = invState.gases.filter(function(g) { return g.status === 'In use'; });
-    var formulas = {};
-    inUse.forEach(function(g) { formulas[g.formula] = true; });
-    Object.keys(formulas).forEach(function(f) {
-        var logEntry = JSON.parse(JSON.stringify(entry));
-        logEntry.gasFormula = f;
-        invState.usageLog.push(logEntry);
-    });
+    invState.usageLog.push(entry);
+
     // Keep log manageable
     if (invState.usageLog.length > 3000) invState.usageLog = invState.usageLog.slice(-2000);
     invSave();
+}
+
+// ══════════════════════════════════════════════════
+// GAS LOT → TEST TRACEABILITY
+// ══════════════════════════════════════════════════
+
+// Find all tests where a specific cylinder was used
+function invTraceByGas(gasId) {
+    return (invState.usageLog || []).filter(function(entry) {
+        if (!entry.cylinders) return false;
+        return entry.cylinders.some(function(c) { return c.id === gasId; });
+    });
+}
+
+// Find all tests linked to a specific lot number
+function invTraceByLot(lotNumber) {
+    if (!lotNumber) return [];
+    var lot = lotNumber.trim().toLowerCase();
+    return (invState.usageLog || []).filter(function(entry) {
+        if (!entry.cylinders) return false;
+        return entry.cylinders.some(function(c) { return (c.lotNumber || '').toLowerCase() === lot; });
+    });
+}
+
+// Find which cylinders were used for a specific VIN
+function invTraceByVin(vin) {
+    if (!vin) return [];
+    var vinUp = vin.trim().toUpperCase();
+    return (invState.usageLog || []).filter(function(entry) {
+        return (entry.vin || '').toUpperCase().indexOf(vinUp) !== -1 && entry.cylinders;
+    });
+}
+
+// Traceability tab renderer
+function invRenderTrace(el) {
+    var html = '<div class="tp-card" style="margin-bottom:10px;">' +
+        '<div class="tp-card-title"><span>🔗 Trazabilidad Gas ↔ Prueba</span></div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">' +
+        '<div style="flex:1;min-width:140px;">' +
+        '<label style="font-size:10px;color:#64748b;display:block;margin-bottom:3px;">Buscar por</label>' +
+        '<select id="inv-trace-mode" onchange="invTraceSearch()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+        '<option value="gas">Cilindro</option><option value="lot">No. Lote</option><option value="vin">VIN</option></select></div>' +
+        '<div style="flex:2;min-width:200px;" id="inv-trace-input-wrap">' +
+        '<label style="font-size:10px;color:#64748b;display:block;margin-bottom:3px;">Valor</label>' +
+        '<input id="inv-trace-q" placeholder="Escribe para buscar..." onkeyup="invTraceSearch()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+        '</div>' +
+        '<button onclick="invTraceSearch()" class="tp-btn tp-btn-primary" style="padding:8px 14px;">Buscar</button>' +
+        '</div></div>' +
+        '<div id="inv-trace-results" style="font-size:12px;"></div>';
+
+    // Also show gas dropdown for "gas" mode
+    html += '<div id="inv-trace-gas-select" style="display:none;margin-bottom:8px;">' +
+        '<select id="inv-trace-gas-id" onchange="invTraceSearch()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+        '<option value="">— Seleccionar cilindro —</option>';
+    invState.gases.forEach(function(g) {
+        html += '<option value="' + g.id + '">' + g.controlNo + ' — ' + g.formula + (g.lotNumber ? ' (Lote: ' + g.lotNumber + ')' : '') + '</option>';
+    });
+    html += '</select></div>';
+
+    el.innerHTML = html;
+
+    // Wire up mode switching to show/hide gas dropdown
+    var modeEl = document.getElementById('inv-trace-mode');
+    if (modeEl) {
+        modeEl.addEventListener('change', function() {
+            var gasSelect = document.getElementById('inv-trace-gas-select');
+            var inputWrap = document.getElementById('inv-trace-input-wrap');
+            if (this.value === 'gas') {
+                gasSelect.style.display = 'block';
+                inputWrap.style.display = 'none';
+            } else {
+                gasSelect.style.display = 'none';
+                inputWrap.style.display = 'block';
+                document.getElementById('inv-trace-q').placeholder = this.value === 'lot' ? 'Número de lote...' : 'VIN completo o parcial...';
+            }
+        });
+        // Trigger initial state
+        modeEl.dispatchEvent(new Event('change'));
+    }
+}
+
+function invTraceSearch() {
+    var mode = document.getElementById('inv-trace-mode').value;
+    var results = [];
+
+    if (mode === 'gas') {
+        var gasId = document.getElementById('inv-trace-gas-id').value;
+        if (gasId) results = invTraceByGas(gasId);
+    } else if (mode === 'lot') {
+        var lot = document.getElementById('inv-trace-q').value;
+        if (lot.trim()) results = invTraceByLot(lot);
+    } else {
+        var vin = document.getElementById('inv-trace-q').value;
+        if (vin.trim()) results = invTraceByVin(vin);
+    }
+
+    var el = document.getElementById('inv-trace-results');
+    if (!el) return;
+
+    if (results.length === 0) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:20px;color:#94a3b8;">Sin resultados' + (mode === 'gas' && !document.getElementById('inv-trace-gas-id').value ? ' — selecciona un cilindro' : '') + '</div>';
+        return;
+    }
+
+    var html = '<div style="margin-bottom:6px;font-weight:600;color:#0f766e;">' + results.length + ' prueba' + (results.length !== 1 ? 's' : '') + ' encontrada' + (results.length !== 1 ? 's' : '') + '</div>';
+
+    results.sort(function(a, b) { return (b.timestamp || b.date || '').localeCompare(a.timestamp || a.date || ''); });
+
+    results.forEach(function(entry) {
+        html += '<div class="tp-card" style="padding:10px 12px;margin-bottom:6px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+            '<span style="font-weight:600;">VIN: ' + (entry.vin || '?') + '</span>' +
+            '<span style="font-size:10px;color:#94a3b8;">' + (entry.date || (entry.timestamp || '').slice(0,10)) + '</span></div>' +
+            '<div style="font-size:11px;color:#64748b;margin-top:3px;">Config: ' + (entry.configCode || '?') + ' · ' + (entry.purpose || '') + '</div>';
+
+        // Show cylinders
+        if (entry.cylinders && entry.cylinders.length > 0) {
+            html += '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">';
+            entry.cylinders.forEach(function(c) {
+                var highlight = '';
+                if (mode === 'gas' && c.id === document.getElementById('inv-trace-gas-id').value) highlight = 'border:2px solid #0f766e;';
+                if (mode === 'lot' && (c.lotNumber || '').toLowerCase() === (document.getElementById('inv-trace-q').value || '').trim().toLowerCase()) highlight = 'border:2px solid #0f766e;';
+                html += '<div style="background:#f0fdf4;border-radius:6px;padding:4px 8px;font-size:10px;' + highlight + '">' +
+                    '<strong>' + c.controlNo + '</strong> ' + c.formula +
+                    (c.lotNumber ? ' <span style="color:#0f766e;">Lote: ' + c.lotNumber + '</span>' : '') +
+                    (c.psi !== null ? ' · ' + c.psi + ' PSI' : '') +
+                    '</div>';
+            });
+            html += '</div>';
+        }
+
+        html += '</div>';
+    });
+
+    el.innerHTML = html;
 }
 
 // ══════════════════════════════════════════════════
@@ -1680,7 +1835,12 @@ function invCalcConsumptionRates() {
     });
 
     Object.keys(gasFormulas).forEach(function(formula) {
-        var formulaLog = log.filter(function(l) { return l.gasFormula === formula; });
+        var formulaLog = log.filter(function(l) {
+            // Backward compat: old entries have gasFormula, new entries have cylinders[]
+            if (l.gasFormula) return l.gasFormula === formula;
+            if (l.cylinders) return l.cylinders.some(function(c) { return c.formula === formula; });
+            return false;
+        });
         if (formulaLog.length === 0) return;
 
         // Use primary cylinder for rate calc
@@ -1877,6 +2037,7 @@ function invSaveFuelTank(editId) {
             t.timeline.push({date:new Date().toISOString(),action:'Modificado'});
             Object.assign(t, obj);
             t.readings = t.readings || [];
+            auditLog('inv', 'fuel_modified', {type:'fuel', id:editId, label:obj.name}, obj.fuelType + ' ' + obj.octane);
         }
     } else {
         if (!invState.fuelTanks) invState.fuelTanks = [];
@@ -1884,6 +2045,7 @@ function invSaveFuelTank(editId) {
         obj.readings = [];
         obj.timeline = [{date:new Date().toISOString(),action:'Recepcion'}];
         invState.fuelTanks.push(obj);
+        auditLog('inv', 'fuel_created', {type:'fuel', id:obj.id, label:obj.name}, obj.fuelType + ' ' + obj.octane);
     }
     invSave(); invRender();
     document.getElementById('invModal').style.display = 'none';

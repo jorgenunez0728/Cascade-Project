@@ -973,6 +973,7 @@
             <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-charts')">📈 Graficas</button>
             <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-config')">⚙️ Config</button>
             <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-report')">📧 Reporte</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-trace')">🔗 Trazabilidad</button>
         </div>
         <div id="inv-content" style="padding:0;"></div>
     </div>
@@ -1026,6 +1027,7 @@
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-intelligence')">🧠 Inteligencia</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-calendar')">📅 Calendario</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-system')">💾 Sistema</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-audit')">🔍 Auditoría</button>
     </div>
 
     <div class="tp-main">
@@ -1385,6 +1387,73 @@
                         </div>
                     </template>
                 </div>
+            </div>
+        </div>
+
+        <!-- ───── AUDIT TRAIL TAB ───── -->
+        <div x-show="activeTab === 'pn-audit'" style="padding:12px 0;">
+            <!-- Filters -->
+            <div class="tp-card" style="margin-bottom:8px;">
+                <div class="tp-card-title"><span>🔍 Filtros de Auditoría</span></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+                    <div style="flex:1;min-width:110px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Módulo</label>
+                        <select x-model="auditFilterMod" class="tp-input" style="width:100%;">
+                            <option value="">Todos</option>
+                            <option value="cop15">COP15 Cascade</option>
+                            <option value="tp">Test Plan</option>
+                            <option value="ra">Resultados</option>
+                            <option value="inv">Inventario</option>
+                            <option value="pn">Panel</option>
+                            <option value="sop">SOP</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;min-width:110px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Usuario</label>
+                        <select x-model="auditFilterUser" class="tp-input" style="width:100%;">
+                            <option value="">Todos</option>
+                            <template x-for="u in auditUsers" :key="u"><option :value="u" x-text="u"></option></template>
+                        </select>
+                    </div>
+                    <div style="min-width:110px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Desde</label>
+                        <input type="date" x-model="auditFilterFrom" class="tp-input" style="width:100%;">
+                    </div>
+                    <div style="min-width:110px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Hasta</label>
+                        <input type="date" x-model="auditFilterTo" class="tp-input" style="width:100%;">
+                    </div>
+                    <button @click="auditExport()" class="tp-btn tp-btn-primary" style="white-space:nowrap;padding:6px 12px;">📥 CSV</button>
+                </div>
+            </div>
+            <!-- Counter -->
+            <div style="padding:4px 8px;font-size:11px;color:var(--tp-dim);" x-text="filteredAudit.length + ' registros'"></div>
+            <!-- Entries -->
+            <template x-for="entry in filteredAuditPage" :key="entry.id">
+                <div class="tp-card" style="padding:8px 12px;margin-bottom:4px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:600;font-size:12px;" x-text="entry.action"></span>
+                        <span style="font-size:10px;color:var(--tp-dim);" x-text="new Date(entry.ts).toLocaleString()"></span>
+                    </div>
+                    <div style="font-size:11px;color:var(--tp-dim);margin-top:2px;">
+                        <span x-text="entry.user.name"></span> &middot;
+                        <span x-text="entry.mod.toUpperCase()"></span>
+                        <template x-if="entry.entity && entry.entity.label">
+                            <span x-text="' · ' + entry.entity.type + ': ' + entry.entity.label"></span>
+                        </template>
+                    </div>
+                    <div x-show="entry.details" style="font-size:10px;color:var(--tp-dim);margin-top:2px;" x-text="entry.details"></div>
+                </div>
+            </template>
+            <!-- Empty state -->
+            <div x-show="filteredAudit.length === 0" class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">
+                Sin registros de auditoría con los filtros seleccionados.
+            </div>
+            <!-- Pagination -->
+            <div x-show="filteredAudit.length > 50" style="text-align:center;padding:8px;">
+                <button @click="auditPage = Math.max(0, auditPage - 1)" :disabled="auditPage === 0" class="tp-btn">&larr; Ant</button>
+                <span style="font-size:11px;margin:0 8px;" x-text="(auditPage + 1) + '/' + Math.ceil(filteredAudit.length / 50)"></span>
+                <button @click="auditPage++" :disabled="(auditPage + 1) * 50 >= filteredAudit.length" class="tp-btn">Sig &rarr;</button>
             </div>
         </div>
 

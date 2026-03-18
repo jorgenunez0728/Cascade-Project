@@ -346,6 +346,56 @@ function themeToggle() {
 var _debouncedSaveDB = debounce(function() { saveDB(); }, 500);
 function saveDBSoft() { _debouncedSaveDB(); }
 
+// ══════════════════════════════════════════════════
+// AUDIT TRAIL — Centralized mutation logging
+// ══════════════════════════════════════════════════
+var AUDIT_LS_KEY = 'kia_audit_trail';
+var AUDIT_MAX = 5000;
+var AUDIT_PURGE_DAYS = 90;
+
+function auditLog(module, action, entity, details) {
+    var user = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
+    var trail = [];
+    try { trail = JSON.parse(localStorage.getItem(AUDIT_LS_KEY) || '[]'); } catch(e) {}
+
+    trail.push({
+        id: 'aud_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+        ts: new Date().toISOString(),
+        user: user ? { name: user.name, role: user.role } : { name: 'Sistema', role: '' },
+        mod: module,
+        action: action,
+        entity: entity || null,
+        details: details || ''
+    });
+
+    // FIFO cap
+    if (trail.length > AUDIT_MAX) trail = trail.slice(-AUDIT_MAX);
+    // Purge >90 days
+    var cutoff = new Date(Date.now() - AUDIT_PURGE_DAYS * 86400000).toISOString();
+    trail = trail.filter(function(e) { return e.ts >= cutoff; });
+
+    try { localStorage.setItem(AUDIT_LS_KEY, JSON.stringify(trail)); } catch(e) {}
+}
+
+function auditGetTrail() {
+    try { return JSON.parse(localStorage.getItem(AUDIT_LS_KEY) || '[]'); } catch(e) { return []; }
+}
+
+function auditExportCSV() {
+    var trail = auditGetTrail();
+    var csv = 'Fecha,Usuario,Rol,Modulo,Accion,Entidad,Detalle\n';
+    trail.forEach(function(e) {
+        csv += [e.ts, e.user.name, e.user.role, e.mod, e.action,
+                (e.entity ? e.entity.type + ':' + (e.entity.label || e.entity.id) : ''),
+                '"' + (e.details || '').replace(/"/g,'""') + '"'].join(',') + '\n';
+    });
+    var blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'audit_trail_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+}
+
 // ── View Mode (Compact/Detailed) ──
 var _viewModes = {};
 (function loadViewModes(){

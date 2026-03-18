@@ -877,6 +877,7 @@ setAltaDatetimeIfEmpty(true);
         db.vehicles.push(newVehicle);
         compactTimelineEntries();
         saveDB();
+        auditLog('cop15', 'vehicle_registered', {type:'vehicle', id:newVehicle.id, label:newVehicle.vin}, 'Config: ' + configCode);
         if (typeof fbPostVehicleRegistered === 'function') fbPostVehicleRegistered(newVehicle.vin, newVehicle.configCode);
 
         closeModal('modalConfirm');
@@ -1459,6 +1460,7 @@ function saveProgress(opts) {
     });
 
     saveDB();
+    if (!silent) auditLog('cop15', 'operation_saved', {type:'vehicle', id:vehicle.id, label:vehicle.vin}, 'Simple — status: ' + (CONFIG.statusLabels[vehicle.status] || vehicle.status));
     if ((newStatus === 'testing' || newStatus === 'in-progress') && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
     clearUnsaved();
     if (saveBtn && !silent) { setBtnLoading(saveBtn, false); }
@@ -1820,6 +1822,7 @@ if (vehicle.status !== 'ready-release') {
         <strong>Notas:</strong> ${s.notes ? s.notes : '<em>Sin notas</em>'}
       </div>
     `;
+    _renderUsedCylinders(vehicle);
     renderTimeline(vehicle);
     return;
   }
@@ -1836,9 +1839,50 @@ if (vehicle.status !== 'ready-release') {
     </div>
   `;
 
+  // Show gas cylinders used (from traceability log)
+  _renderUsedCylinders(vehicle);
+
   renderTimeline(vehicle);
 }
 
+function _renderUsedCylinders(vehicle) {
+    var container = document.getElementById('testSummary');
+    if (!container || !vehicle.vin) return;
+    if (typeof invTraceByVin !== 'function') return;
+
+    var traces = invTraceByVin(vehicle.vin);
+    if (traces.length === 0) return;
+
+    // Collect all unique cylinders across all usage entries for this VIN
+    var seen = {};
+    var cylinders = [];
+    traces.forEach(function(entry) {
+        if (!entry.cylinders) return;
+        entry.cylinders.forEach(function(c) {
+            if (!seen[c.id]) {
+                seen[c.id] = true;
+                cylinders.push(c);
+            }
+        });
+    });
+
+    if (cylinders.length === 0) return;
+
+    var html = '<div style="margin-top:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;">' +
+        '<div style="font-weight:700;font-size:12px;margin-bottom:6px;">🔗 Gases utilizados (' + cylinders.length + ' cilindros)</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+
+    cylinders.forEach(function(c) {
+        html += '<div style="background:#fff;border:1px solid #d1fae5;border-radius:6px;padding:4px 8px;font-size:10px;">' +
+            '<strong>' + c.controlNo + '</strong> ' + c.formula +
+            (c.lotNumber ? ' · Lote: <span style="color:#0f766e;font-weight:600;">' + c.lotNumber + '</span>' : '') +
+            (c.psi !== null && c.psi !== undefined ? ' · ' + c.psi + ' PSI' : '') +
+            '</div>';
+    });
+
+    html += '</div></div>';
+    container.insertAdjacentHTML('beforeend', html);
+}
 
    var _tlFilter = 'all';
 
@@ -1983,6 +2027,7 @@ if (vehicle.status !== 'ready-release') {
                     }
                 }
 
+                auditLog('cop15', 'vehicle_released', {type:'vehicle', id:vehicle.id, label:vehicle.vin}, 'Liberado y archivado');
                 if (typeof fbPostTestCompleted === 'function') { var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : (vehicle.testData && vehicle.testData.simple && vehicle.testData.simple.resultado ? vehicle.testData.simple.resultado : ''); fbPostTestCompleted(vehicle.vin, _res); }
                 if (typeof fbPostVehicleReleased === 'function') fbPostVehicleReleased(vehicle.vin);
                 showToast('Vehículo liberado. JSON descargado.', 'success');
@@ -2005,6 +2050,7 @@ if (vehicle.status !== 'ready-release') {
                 action: 'Retest solicitado - Vehículo regresado a estado inicial',
                 data: { status: 'registered', retest: true }
             });
+            auditLog('cop15', 'vehicle_retest', {type:'vehicle', id:vehicle.id, label:vehicle.vin}, 'Retest solicitado');
             showToast('Vehículo marcado para nueva prueba', 'info');
         }
 
@@ -2526,6 +2572,7 @@ function exportAndPurgeArchived() {
     if (!ok) return;
 
     // Elimina del db principal
+    auditLog('cop15', 'archive_purged', {type:'batch'}, archived.length + ' vehículos archivados purgados');
     db.vehicles = db.vehicles.filter(v => v.status !== 'archived');
 
     saveDB();
@@ -2613,6 +2660,7 @@ function executeArchiveImport(targetStatus) {
   });
 
   saveDB();
+  if (imported > 0) auditLog('cop15', 'vehicles_imported', {type:'batch'}, imported + ' vehículos importados desde archivo');
   refreshAllLists();
   updateProgressBar();
   window._importArchiveData = null;
@@ -2639,6 +2687,7 @@ function purgeSingleVehicle(vehicleId) {
   if (!v) return;
   showConfirmDialog({ title: '⚠️ Purgar vehículo', message: 'Purgar VIN ' + (v.vin||'?') + ' del sistema?', type: 'danger', confirmText: 'Purgar', cancelText: 'Cancelar' }).then(function(ok) {
     if (!ok) return;
+    auditLog('cop15', 'vehicle_purged', {type:'vehicle', id:vehicleId, label:v.vin}, 'Purgado del sistema');
     db.vehicles = db.vehicles.filter(x => x.id != vehicleId);
     saveDB(); refreshAllLists(); updateProgressBar(); renderHistory();
   });

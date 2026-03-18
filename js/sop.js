@@ -782,6 +782,7 @@ function sopSaveField(vehicleId, dataPath, value) {
     sopSetFieldValue(vehicle, dataPath, value);
     vehicle.lastModified = new Date().toISOString();
     saveDB();
+    auditLog('sop', 'field_updated', {type:'vehicle', id:vehicle.id, label:vehicle.vin}, dataPath + ' = ' + (typeof value === 'string' ? value.substring(0, 50) : value));
 
     // Log to shift log
     if (typeof pnAddShiftEntry === 'function') {

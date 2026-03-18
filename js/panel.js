@@ -34,10 +34,10 @@ function pnSave() {
     tabCacheInvalidate('pn'); // Mark all tabs dirty on data change
 }
 
-var _pnTabs = ['pn-dashboard','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar'];
+var _pnTabs = ['pn-dashboard','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit'];
 
 // Tabs managed by Alpine reactive templates (no innerHTML needed)
-var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true };
+var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true, 'pn-audit': true };
 
 function pnSwitchTab(tabId) {
     pnState.activeTab = tabId;
@@ -1824,6 +1824,13 @@ function panelAlpineComponent() {
         monthNames: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
         dayNames: ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],
 
+        // Audit Trail state
+        auditFilterMod: '',
+        auditFilterUser: '',
+        auditFilterFrom: '',
+        auditFilterTo: '',
+        auditPage: 0,
+
         // ── Init ──
         init: function() {
             var self = this;
@@ -1883,8 +1890,10 @@ function panelAlpineComponent() {
                 active: true,
                 createdAt: new Date().toISOString()
             });
+            var _addedName = this.newOpName.trim();
             this.newOpName = '';
             this._syncAndSave();
+            auditLog('pn', 'operator_added', {type:'operator', label:_addedName}, 'Rol: ' + this.newOpRole);
             showToast('Operador agregado', 'success');
         },
         editOperator: function(idx) {
@@ -1911,6 +1920,7 @@ function panelAlpineComponent() {
             if (!op) return;
             showConfirmDialog({ title: '⚠️ Eliminar operador', message: '¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
                 if (!ok) return;
+                auditLog('pn', 'operator_removed', {type:'operator', label:op.name});
                 self.operators.splice(idx, 1);
                 self._syncAndSave();
                 showToast('Operador eliminado', 'info');
@@ -2126,6 +2136,32 @@ function panelAlpineComponent() {
             { color: '#f59e0b', label: 'Próximo' },
             { color: '#3b82f6', label: 'Planificado' },
             { color: '#10b981', label: 'Release/Completado' }
-        ]
+        ],
+
+        // ── Audit Trail computed & methods ──
+        get auditTrail() {
+            return (typeof auditGetTrail === 'function') ? auditGetTrail().reverse() : [];
+        },
+        get auditUsers() {
+            var users = {};
+            this.auditTrail.forEach(function(e) { if (e.user && e.user.name) users[e.user.name] = true; });
+            return Object.keys(users).sort();
+        },
+        get filteredAudit() {
+            var self = this;
+            return this.auditTrail.filter(function(e) {
+                if (self.auditFilterMod && e.mod !== self.auditFilterMod) return false;
+                if (self.auditFilterUser && (!e.user || e.user.name !== self.auditFilterUser)) return false;
+                if (self.auditFilterFrom && e.ts.slice(0, 10) < self.auditFilterFrom) return false;
+                if (self.auditFilterTo && e.ts.slice(0, 10) > self.auditFilterTo) return false;
+                return true;
+            });
+        },
+        get filteredAuditPage() {
+            return this.filteredAudit.slice(this.auditPage * 50, (this.auditPage + 1) * 50);
+        },
+        auditExport: function() {
+            if (typeof auditExportCSV === 'function') auditExportCSV();
+        }
     };
 }

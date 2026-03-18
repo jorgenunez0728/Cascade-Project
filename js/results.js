@@ -790,7 +790,8 @@ async function raBatchImport(){
     await new Promise(r=>setTimeout(r,50));
     raSave();
     raUpdateBadges();
-    
+    if (imported > 0) auditLog('ra', 'tests_batch_imported', {type:'batch'}, imported + ' pruebas importadas (batch)');
+
     // DON'T call raRender() — it would destroy this progress message
     // Instead, just update the storage info text if visible
     var finalMsg = '<span style="color:var(--tp-green)">Listo: ' + imported + ' nuevas, ' + skipped + ' duplicadas, ' + errors + ' errores de ' + dirs.length + ' carpetas.</span>';
@@ -866,6 +867,7 @@ async function raHandleDrop(event) {
 
     raSave();
     raUpdateBadges();
+    if (imported > 0) auditLog('ra', 'tests_batch_imported', {type:'batch'}, imported + ' pruebas importadas (JSON)');
 
     var reportHtml = '<div class="tp-card" style="margin-top:8px;">' +
         '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;font-weight:700;">' +
@@ -903,6 +905,7 @@ async function raSingleImport(){
         raState.tests.push(test);
         raSave();
         raUpdateBadges();
+        auditLog('ra', 'test_imported', {type:'test', label:test.testNumber||test.vin||'?'}, 'VIN: ' + (test.vin||'?'));
         msg.innerHTML='<span style="color:var(--tp-green)">Importada: ' + (test.vin||'?') + ' — ' + (test.testDesc||test.modelName||'?') + ' (Total: ' + raState.tests.length + ' pruebas)</span>';
     }catch(e){msg.innerHTML='<span style="color:var(--tp-red)">Error: ' + e.message + '</span>';}
 }

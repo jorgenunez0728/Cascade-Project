@@ -362,7 +362,7 @@ function tpAutoFeedFromRelease(vehicle) {
     tpState.testedList.push(entry);
     tpSave();
     tpUpdateBadges();
-    console.log('TP: Auto-feed from COP15 release:', vehicle.configCode);
+    auditLog('tp', 'vehicle_tested', {type:'plan', label:vehicle.configCode}, 'VIN: ' + (vehicle.vin || ''));
 }
 
 // ── CSV Import ──
@@ -1469,6 +1469,7 @@ function tpSaveRulePreset() {
         created: new Date().toISOString()
     });
     tpSave(); tpRender();
+    auditLog('tp', 'rule_saved', {type:'rule', label:name}, 'Plantilla de reglas guardada');
     showToast('Plantilla "' + name + '" guardada', 'success');
 }
 
