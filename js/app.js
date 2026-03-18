@@ -559,8 +559,6 @@ function showToast(msg, type) {
     }
     var toast = document.createElement('div');
     toast.className = 'toast toast-' + type;
-    toast.style.position = 'relative';
-    toast.style.overflow = 'hidden';
     toast.textContent = msg;
 
     var hasUndo = arguments.length >= 4 && typeof arguments[3] === 'function';
@@ -573,19 +571,16 @@ function showToast(msg, type) {
         toast.appendChild(undoBtn);
     }
 
-    // Progress bar
+    // Progress bar with CSS animation
     var dur = hasUndo ? 8000 : 4000;
+    var durSec = (dur / 1000) + 's';
+    toast.style.setProperty('--toast-duration', durSec);
+
     var progressBar = document.createElement('div');
-    progressBar.style.cssText = 'position:absolute;bottom:0;left:0;height:3px;width:100%;background:currentColor;opacity:0.35;transform-origin:left;transition:none;';
+    progressBar.className = 'toast-progress';
     toast.appendChild(progressBar);
 
     container.appendChild(toast);
-
-    // Animate progress bar
-    requestAnimationFrame(function() {
-        progressBar.style.transition = 'transform ' + dur + 'ms linear';
-        progressBar.style.transform = 'scaleX(0)';
-    });
 
     // Timer with pause on hover/touch
     var remaining = dur;
@@ -596,18 +591,12 @@ function showToast(msg, type) {
         clearTimeout(timer);
         remaining -= (Date.now() - startTime);
         if (remaining < 0) remaining = 0;
-        var elapsed = dur - remaining;
-        var fraction = remaining / dur;
-        progressBar.style.transition = 'none';
-        progressBar.style.transform = 'scaleX(' + fraction + ')';
+        toast.classList.add('toast-paused');
     }
 
     function resume() {
+        toast.classList.remove('toast-paused');
         startTime = Date.now();
-        requestAnimationFrame(function() {
-            progressBar.style.transition = 'transform ' + remaining + 'ms linear';
-            progressBar.style.transform = 'scaleX(0)';
-        });
         timer = setTimeout(dismiss, remaining);
     }
 
@@ -620,6 +609,53 @@ function showToast(msg, type) {
     toast.addEventListener('mouseleave', resume);
     toast.addEventListener('touchstart', pause, { passive: true });
     toast.addEventListener('touchend', resume);
+}
+
+// ── Custom Confirm Dialog (replaces native confirm()) ──
+function showConfirmDialog(opts) {
+    opts = opts || {};
+    var title = opts.title || 'Confirmar';
+    var message = opts.message || '¿Estás seguro?';
+    var type = opts.type || 'warning';
+    var confirmText = opts.confirmText || 'Sí';
+    var cancelText = opts.cancelText || 'Cancelar';
+
+    return new Promise(function(resolve) {
+        var overlay = document.createElement('div');
+        overlay.className = 'custom-modal-overlay';
+
+        var typeColor = type === 'danger' ? 'modal-type-danger' : type === 'warning' ? 'modal-type-warning' : 'modal-type-info';
+
+        overlay.innerHTML =
+            '<div class="custom-modal-box modal-light" role="dialog" aria-modal="true">' +
+                '<div class="custom-modal-title">' + title + '</div>' +
+                '<div class="custom-modal-message">' + message.replace(/\n/g, '<br>') + '</div>' +
+                '<div class="custom-modal-actions">' +
+                    '<button class="modal-btn modal-btn-cancel" data-action="cancel">' + cancelText + '</button>' +
+                    '<button class="modal-btn modal-btn-confirm ' + typeColor + '" data-action="confirm">' + confirmText + '</button>' +
+                '</div>' +
+            '</div>';
+
+        function close(result) {
+            if (overlay.parentNode) {
+                overlay.style.opacity = '0';
+                overlay.style.transition = 'opacity 0.15s ease';
+                setTimeout(function() {
+                    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                }, 150);
+            }
+            resolve(result);
+            if (result && typeof opts.onConfirm === 'function') opts.onConfirm();
+            if (!result && typeof opts.onCancel === 'function') opts.onCancel();
+        }
+
+        overlay.querySelector('[data-action="confirm"]').addEventListener('click', function() { close(true); });
+        overlay.querySelector('[data-action="cancel"]').addEventListener('click', function() { close(false); });
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) close(false); });
+
+        document.body.appendChild(overlay);
+        overlay.querySelector('[data-action="cancel"]').focus();
+    });
 }
 
 
@@ -1244,6 +1280,7 @@ function generateWeeklyStatusPDF() {
         showToast('jsPDF no está disponible. Verifica la conexión CDN.', 'error');
         return;
     }
+    showOverlayLoading('Generando PDF semanal...');
     var jsPDF = window.jspdf.jsPDF;
     var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
     var W = doc.internal.pageSize.getWidth();
@@ -1422,6 +1459,7 @@ function generateWeeklyStatusPDF() {
     doc.text('Generado automáticamente por KIA EmLab Plataforma Integrada — ' + today.toISOString(), ML, y);
 
     doc.save('KIA-EmLab-Semanal-' + today.toISOString().slice(0, 10) + '.pdf');
+    hideOverlayLoading();
     showToast('Reporte PDF semanal generado', 'success');
 }
 
@@ -1571,6 +1609,13 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
             navigator.serviceWorker.register('sw.js').then(function(reg) {
                 console.log('SW registered:', reg.scope);
             }).catch(function(err) { console.log('SW registration skipped:', err.message); });
+
+            // [Fase 4.3] Listen for SW update notifications
+            navigator.serviceWorker.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'SW_UPDATED') {
+                    showToast('Nueva versión disponible. Recarga para actualizar.', 'info');
+                }
+            });
         }
 
         // ═══ [R3-M1] Online/Offline indicator ═══

@@ -46,7 +46,34 @@ var _invUndoMaxSize = 5;
 
 function invSave() {
     try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
-    catch(e) { console.warn('INV: localStorage full'); }
+    catch(e) {
+        console.warn('INV: localStorage full, trying compact save');
+        invCompactReadings();
+        try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
+        catch(e2) { showToast('Almacenamiento lleno. Elimina datos antiguos.', 'error'); }
+    }
+}
+
+// ── [Fase 5.3] Compact old fuel readings (keep last 30 per tank) ──
+function invCompactReadings() {
+    if (!invState || !invState.fuelTanks) return;
+    var compacted = 0;
+    invState.fuelTanks.forEach(function(t) {
+        if (t.readings && t.readings.length > 30) {
+            compacted += t.readings.length - 30;
+            t.readings = t.readings.slice(-30);
+        }
+    });
+    // Also compact equipment calibration history
+    if (invState.equipment) {
+        invState.equipment.forEach(function(eq) {
+            if (eq.calibrationHistory && eq.calibrationHistory.length > 20) {
+                compacted += eq.calibrationHistory.length - 20;
+                eq.calibrationHistory = eq.calibrationHistory.slice(-20);
+            }
+        });
+    }
+    if (compacted > 0) console.log('INV: Compacted ' + compacted + ' old readings');
 }
 
 
@@ -761,19 +788,20 @@ function invMapQuickReadSave(gasId) {
 
     // Check for duplicate reading on same date
     var existing = gas.readings.find(function(r) { return r.date === date; });
-    if (existing) {
-        if (!confirm('Ya existe lectura del ' + date + ' (' + existing.psi + ' psi). Reemplazar?')) return;
-        existing.psi = psi;
-    } else {
-        gas.readings.push({ date: date, psi: psi });
+
+    function _doSaveMapRead() {
+        if (existing) { existing.psi = psi; } else { gas.readings.push({ date: date, psi: psi }); }
+        invSave();
+        if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
+        showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi', 'success');
+        invShowTimeline(gasId);
     }
 
-    invSave();
-    if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
-    showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi', 'success');
-
-    // Refresh modal to show updated readings
-    invShowTimeline(gasId);
+    if (existing) {
+        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe lectura del ' + date + ' (' + existing.psi + ' psi). Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveMapRead(); });
+    } else {
+        _doSaveMapRead();
+    }
 }
 
 function invShowZone(zoneId) {
@@ -1088,19 +1116,21 @@ function invQuickReadSave(gasId) {
 
     // Check for duplicate reading on same date
     var existingToday = gas.readings.find(function(r) { return r.date === date; });
-    if (existingToday) {
-        if (!confirm('Ya existe una lectura del ' + date + ' (' + existingToday.psi + ' psi). ¿Reemplazar?')) return;
-        existingToday.psi = psi;
-    } else {
-        gas.readings.push({ date: date, psi: psi });
+
+    function _doSaveQuickRead() {
+        if (existingToday) { existingToday.psi = psi; } else { gas.readings.push({ date: date, psi: psi }); }
+        invSave();
+        invRender();
+        if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
+        showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi guardado', 'success');
+        document.getElementById('invModal').style.display = 'none';
     }
 
-    invSave();
-    invRender();
-    if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
-    showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi guardado', 'success');
-
-    document.getElementById('invModal').style.display = 'none';
+    if (existingToday) {
+        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe una lectura del ' + date + ' (' + existingToday.psi + ' psi). ¿Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveQuickRead(); });
+    } else {
+        _doSaveQuickRead();
+    }
 }
 
 // ══════════════════════════════════════════════════
@@ -2542,9 +2572,11 @@ function invDeleteZone(idx) {
     var z = invState.zones[idx]; if (!z) return;
     var occupied = invState.gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); }).length;
     if (occupied > 0) { showToast('Zona ' + z.id + ' tiene ' + occupied + ' cilindros. Reubícalos primero.', 'warning'); return; }
-    if (!confirm('Eliminar zona ' + z.id + '?')) return;
-    invState.zones.splice(idx, 1);
-    invSave(); invRender();
+    showConfirmDialog({ title: '⚠️ Eliminar zona', message: 'Eliminar zona ' + z.id + '?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        invState.zones.splice(idx, 1);
+        invSave(); invRender();
+    });
 }
 
 function invAddGasType() {
@@ -2601,9 +2633,11 @@ function invSaveGasTypeModal(idx) {
 }
 
 function invDeleteGasType(idx) {
-    if (!confirm('Eliminar tipo ' + invState.gasTypes[idx].name + '?')) return;
-    invState.gasTypes.splice(idx, 1);
-    invSave(); invRender();
+    showConfirmDialog({ title: '⚠️ Eliminar tipo', message: 'Eliminar tipo ' + invState.gasTypes[idx].name + '?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        invState.gasTypes.splice(idx, 1);
+        invSave(); invRender();
+    });
 }
 
 

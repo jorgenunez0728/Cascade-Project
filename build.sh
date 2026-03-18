@@ -76,11 +76,14 @@ echo "</body>" >> "$DIR/$OUTPUT"
 echo "</html>" >> "$DIR/$OUTPUT"
 
 # ═══════════════════════════════════════════════════════════════
-# [Fase 4.4] Strip console.log and console.warn from production build
-# NOTE: Only strips from unified file, source files are untouched
+# [Fase 4.4] Strip console.log, console.warn, and console.error
+# from production build.
+# Uses perl for robust handling of multi-line console statements
+# (e.g., console.log('foo',\n  bar); spanning multiple lines).
+# NOTE: Only strips from unified file, source files are untouched.
 # ═══════════════════════════════════════════════════════════════
-echo "Stripping console.log/warn from production build..."
-sed -i '/^\s*console\.log(/d; /^\s*console\.warn(/d' "$DIR/$OUTPUT"
+echo "Stripping console.log/warn/error from production build..."
+perl -0777 -i -pe 's/console\.(log|warn|error)\s*\((?:[^()]*|\((?:[^()]*|\([^()]*\))*\))*\)\s*;?//gs' "$DIR/$OUTPUT"
 
 # ═══════════════════════════════════════════════════════════════
 # [Fase 4.1] Optional minification with terser
@@ -99,10 +102,10 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════
-# [Fase 4.3] Inject build timestamp into sw.js cache version
+# [Fase 4.3] Inject build timestamp into sw.js __BUILD_VERSION__
 # ═══════════════════════════════════════════════════════════════
-echo "Updating sw.js cache version to kia-emlab-v${BUILD_TS}..."
-sed -i "s/var CACHE_NAME = 'kia-emlab-v[^']*'/var CACHE_NAME = 'kia-emlab-v${BUILD_TS}'/" "$DIR/sw.js"
+echo "Updating sw.js build version to ${BUILD_TS}..."
+sed -i "s/__BUILD_VERSION__/${BUILD_TS}/g" "$DIR/sw.js"
 
 LINES=$(wc -l < "$DIR/$OUTPUT")
 SIZE=$(du -h "$DIR/$OUTPUT" | cut -f1)
@@ -113,3 +116,9 @@ cp "$DIR/manifest.json" "$(dirname "$DIR/$OUTPUT")/" 2>/dev/null || true
 cp "$DIR/sw.js" "$(dirname "$DIR/$OUTPUT")/" 2>/dev/null || true
 
 echo "PWA files (manifest.json, sw.js) copied."
+
+# ═══════════════════════════════════════════════════════════════
+# Restore sw.js placeholder so source stays build-ready
+# ═══════════════════════════════════════════════════════════════
+sed -i "s/${BUILD_TS}/__BUILD_VERSION__/g" "$DIR/sw.js"
+echo "sw.js placeholder restored for next build."

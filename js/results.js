@@ -5,6 +5,24 @@
 // ── [Fase 2.1] Debounced render wrapper for search/filter inputs ──
 var _raDebouncedRender = debounce(raRender, 250);
 
+// ── [Fase 2.4] Memoization cache for expensive statistical calculations ──
+var _raStatsCache = { hash: null, outliers: null, cpk: null, groups: null };
+function _raInvalidateCache() { _raStatsCache.hash = null; }
+function _raGetCacheHash() {
+    if (!raState || !raState.tests) return '';
+    return raState.tests.length + '_' + (raState.tests.length > 0 ? (raState.tests[raState.tests.length-1].id || '') : '') + '_' + (raState._lastSave || 0);
+}
+function _raCachedStats(key, computeFn) {
+    var h = _raGetCacheHash();
+    if (_raStatsCache.hash !== h) {
+        _raStatsCache = { hash: h, outliers: null, cpk: null, groups: null };
+    }
+    if (_raStatsCache[key] === null) {
+        _raStatsCache[key] = computeFn();
+    }
+    return _raStatsCache[key];
+}
+
 function raSearchReset() {
     window._raSearchVin = '';
     window._raSearchOp = '';
@@ -245,6 +263,8 @@ if (raState.profiles.length === 0) {
 }
 
 function raSave(){
+    _raInvalidateCache();
+    raState._lastSave = Date.now();
     try {
         localStorage.setItem(RA_LS_KEY, JSON.stringify(raState));
     } catch(e) {
@@ -425,6 +445,9 @@ function raGetProfile(test){
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function raGetOutlierBanner() {
+    return _raCachedStats('outlierBanner', _raComputeOutlierBanner);
+}
+function _raComputeOutlierBanner() {
     if (raState.tests.length < 5) return '';
     var metricKeys = ['BagCO','BagNOX','BagTHC','BagNMHC','BagCO2'];
     var recentTests = raState.tests.slice(-10);
@@ -1767,15 +1790,16 @@ function raFilterBulkDelete() {
         return;
     }
     var msg = 'Se eliminaran ' + matched.length + ' pruebas de ' + raState.tests.length + ' totales.\n\nEsta accion NO se puede deshacer.\n\n¿Continuar?';
-    if (!confirm(msg)) return;
-
-    var idsToDelete = {};
-    matched.forEach(function(t) { idsToDelete[t.id] = true; });
-    raState.tests = raState.tests.filter(function(t) { return !idsToDelete[t.id]; });
-    raSave();
-    raUpdateBadges();
-    showToast(matched.length + ' pruebas eliminadas', 'success');
-    raRender();
+    showConfirmDialog({ title: '⚠️ Eliminar pruebas', message: msg, type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        var idsToDelete = {};
+        matched.forEach(function(t) { idsToDelete[t.id] = true; });
+        raState.tests = raState.tests.filter(function(t) { return !idsToDelete[t.id]; });
+        raSave();
+        raUpdateBadges();
+        showToast(matched.length + ' pruebas eliminadas', 'success');
+        raRender();
+    });
 }
 
 function raRenderFilter(el) {

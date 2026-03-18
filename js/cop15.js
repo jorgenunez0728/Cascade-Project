@@ -2516,21 +2516,24 @@ function exportAndPurgeArchived() {
 
   // 3) Purgar del DB (reduce localStorage)
   // Seguridad: confirmación antes de borrar del sistema
-  const ok = confirm(
-    `✅ Archivo descargado.\n\n¿Deseas PURGAR (borrar del sistema) ${archived.length} vehículos archivados?\n` +
-    `Esto reduce el tamaño del localStorage.\n\n⚠️ Asegúrate de guardar el archivo descargado.`
-  );
+  showConfirmDialog({
+    title: '⚠️ Purgar vehículos archivados',
+    message: '✅ Archivo descargado.\n\n¿Deseas PURGAR (borrar del sistema) ' + archived.length + ' vehículos archivados?\nEsto reduce el tamaño del localStorage.\n\n⚠️ Asegúrate de guardar el archivo descargado.',
+    type: 'danger',
+    confirmText: 'Purgar',
+    cancelText: 'Cancelar'
+  }).then(function(ok) {
+    if (!ok) return;
 
-  if (!ok) return;
+    // Elimina del db principal
+    db.vehicles = db.vehicles.filter(v => v.status !== 'archived');
 
-  // Elimina del db principal
-  db.vehicles = db.vehicles.filter(v => v.status !== 'archived');
+    saveDB();
+    refreshAllLists();
+    updateProgressBar();
 
-  saveDB();
-  refreshAllLists();
-  updateProgressBar();
-
-  showToast('Purga completada. Se removieron ' + archived.length + ' vehículos archivados.', 'success');
+    showToast('Purga completada. Se removieron ' + archived.length + ' vehículos archivados.', 'success');
+  });
 }
 
 
@@ -2634,9 +2637,11 @@ function exportSingleArchivedVehicle(vehicleId) {
 function purgeSingleVehicle(vehicleId) {
   const v = db.vehicles.find(x => x.id == vehicleId);
   if (!v) return;
-  if (!confirm('Purgar VIN ' + (v.vin||'?') + ' del sistema?')) return;
-  db.vehicles = db.vehicles.filter(x => x.id != vehicleId);
-  saveDB(); refreshAllLists(); updateProgressBar(); renderHistory();
+  showConfirmDialog({ title: '⚠️ Purgar vehículo', message: 'Purgar VIN ' + (v.vin||'?') + ' del sistema?', type: 'danger', confirmText: 'Purgar', cancelText: 'Cancelar' }).then(function(ok) {
+    if (!ok) return;
+    db.vehicles = db.vehicles.filter(x => x.id != vehicleId);
+    saveDB(); refreshAllLists(); updateProgressBar(); renderHistory();
+  });
 }
 
 // ── [Fase 5.3] Timeline compaction — keeps last 50 entries per vehicle ──

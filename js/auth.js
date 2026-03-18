@@ -256,13 +256,15 @@ function authCreateSession(op) {
 }
 
 function authSignOut() {
-    if (!confirm('¿Cerrar sesion?')) return;
-    localStorage.removeItem(AUTH_LS_KEY);
-    authState.currentUser = null;
-    authState.sessionActive = false;
-    authState.sessionExpiry = null;
-    authShowLogin();
-    showToast('Sesion cerrada', 'info');
+    showConfirmDialog({ title: '🔒 Cerrar sesión', message: '¿Cerrar sesion?', type: 'warning', confirmText: 'Cerrar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        localStorage.removeItem(AUTH_LS_KEY);
+        authState.currentUser = null;
+        authState.sessionActive = false;
+        authState.sessionExpiry = null;
+        authShowLogin();
+        showToast('Sesion cerrada', 'info');
+    });
 }
 
 function authGetCurrentUser() {
@@ -331,9 +333,10 @@ function authOfferBiometricRegistration(operatorId) {
     if (!user) return;
 
     // Ask user if they want to register biometric
-    if (!confirm('¿Quieres registrar tu huella digital / Face ID para acceso rapido?\n\n(Puedes usar la huella en vez del PIN la proxima vez)')) return;
-
-    authRegisterBiometric(operatorId);
+    showConfirmDialog({ title: '🔐 Registro biométrico', message: '¿Quieres registrar tu huella digital / Face ID para acceso rapido?\n\n(Puedes usar la huella en vez del PIN la proxima vez)', type: 'info', confirmText: 'Registrar', cancelText: 'No, gracias' }).then(function(ok) {
+        if (!ok) return;
+        authRegisterBiometric(operatorId);
+    });
 }
 
 function authRegisterBiometric(operatorId) {

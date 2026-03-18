@@ -39,9 +39,13 @@ function fbToggleSyncModule(key, enabled) {
         if (dep && dep.requires) {
             var missing = dep.requires.filter(function(r) { return !fbSyncModules[r]; });
             if (missing.length > 0) {
-                if (confirm(dep.warn + '\n\n¿Activar tambien ' + missing.join(', ') + '?')) {
-                    missing.forEach(function(m) { fbSyncModules[m] = true; });
-                }
+                showConfirmDialog({ title: '🔗 Dependencias', message: dep.warn + '\n\n¿Activar tambien ' + missing.join(', ') + '?', type: 'info', confirmText: 'Activar', cancelText: 'No' }).then(function(ok) {
+                    if (ok) { missing.forEach(function(m) { fbSyncModules[m] = true; }); }
+                    fbSyncModules[key] = true;
+                    fbSaveSyncModules();
+                    fbShowSettings();
+                });
+                return;
             }
         }
         fbSyncModules[key] = true;
@@ -52,9 +56,13 @@ function fbToggleSyncModule(key, enabled) {
             return d.requires && d.requires.indexOf(key) !== -1 && fbSyncModules[k];
         });
         if (dependents.length > 0) {
-            if (!confirm('Los modulos ' + dependents.join(', ') + ' dependen de ' + key + '.\n\n¿Desactivar de todos modos?')) {
-                return; // Don't toggle
-            }
+            showConfirmDialog({ title: '⚠️ Dependencias', message: 'Los modulos ' + dependents.join(', ') + ' dependen de ' + key + '.\n\n¿Desactivar de todos modos?', type: 'warning', confirmText: 'Desactivar', cancelText: 'Cancelar' }).then(function(ok) {
+                if (!ok) return;
+                fbSyncModules[key] = false;
+                fbSaveSyncModules();
+                fbShowSettings();
+            });
+            return;
         }
         fbSyncModules[key] = false;
     }
@@ -1102,13 +1110,13 @@ function fbShowSettings() {
         '<div style="font-size:10px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Cola Offline: ' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</div>' +
         '<div style="font-size:9px;color:#64748b;margin-bottom:6px;">Operaciones que fallaron se reintentaran automaticamente.</div>' +
         '<button onclick="fbQueueRetry();setTimeout(fbShowSettings,1000);" style="padding:6px 12px;background:#f59e0b;color:#000;border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;">Reintentar ahora</button>' +
-        '<button onclick="if(confirm(\x27Vaciar cola offline?\x27)){fbOfflineQueue=[];fbQueueSave();fbUpdateIndicator();fbShowSettings();}" style="padding:6px 12px;background:#334155;color:#e2e8f0;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:6px;">Vaciar cola</button>' +
+        '<button onclick="showConfirmDialog({title:\x27⚠️ Vaciar cola\x27,message:\x27Vaciar cola offline?\x27,type:\x27warning\x27,confirmText:\x27Vaciar\x27,cancelText:\x27Cancelar\x27}).then(function(ok){if(ok){fbOfflineQueue=[];fbQueueSave();fbUpdateIndicator();fbShowSettings();}});" style="padding:6px 12px;background:#334155;color:#e2e8f0;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:6px;">Vaciar cola</button>' +
         '</div>' : '') +
 
         // Sync actions
         (fbSync.enabled && fbSync.status !== 'error' ? '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
         '<button onclick="fbPushAll(true)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Subir todo a nube</button>' +
-        '<button onclick="if(confirm(\x27Esto reemplazara datos locales con los de la nube. Continuar?\x27)){fbPullAll(true);}" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Descargar de nube</button>' +
+        '<button onclick="showConfirmDialog({title:\x27⚠️ Descargar de nube\x27,message:\x27Esto reemplazara datos locales con los de la nube. Continuar?\x27,type:\x27danger\x27,confirmText:\x27Descargar\x27,cancelText:\x27Cancelar\x27}).then(function(ok){if(ok){fbPullAll(true);}});" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Descargar de nube</button>' +
         '</div>' : '') +
 
         // ═══ BACKUP SECTION ═══
@@ -1639,39 +1647,41 @@ function fbMergeUndo() {
     if (hist.length === 0) { showToast('No hay fusiones para deshacer', 'info'); return; }
 
     var last = hist[hist.length - 1];
-    if (!confirm('Deshacer fusion del ' + new Date(last.timestamp).toLocaleString('es-MX') + '?\n\nAcciones: ' + last.actions.join(', ') + '\n\nSe restauraran los datos previos a la fusion.')) return;
+    showConfirmDialog({ title: '⚠️ Deshacer fusión', message: 'Deshacer fusion del ' + new Date(last.timestamp).toLocaleString('es-MX') + '?\n\nAcciones: ' + last.actions.join(', ') + '\n\nSe restauraran los datos previos a la fusion.', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
 
-    // Restore snapshot
-    if (last.snapshot) {
-        if (last.snapshot.cop15) {
-            db = last.snapshot.cop15;
-            localStorage.setItem('kia_db_v11', JSON.stringify(db));
-            refreshAllLists();
+        // Restore snapshot
+        if (last.snapshot) {
+            if (last.snapshot.cop15) {
+                db = last.snapshot.cop15;
+                localStorage.setItem('kia_db_v11', JSON.stringify(db));
+                refreshAllLists();
+            }
+            if (last.snapshot.testplan) {
+                tpState = last.snapshot.testplan;
+                localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
+                if (typeof tpRender === 'function') tpRender();
+            }
+            if (last.snapshot.results) {
+                raState = last.snapshot.results;
+                localStorage.setItem('kia_results_v1', JSON.stringify(raState));
+                if (typeof raRender === 'function') raRender();
+            }
+            if (last.snapshot.inventory) {
+                invState = last.snapshot.inventory;
+                localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
+                if (typeof invRender === 'function') invRender();
+            }
         }
-        if (last.snapshot.testplan) {
-            tpState = last.snapshot.testplan;
-            localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
-            if (typeof tpRender === 'function') tpRender();
-        }
-        if (last.snapshot.results) {
-            raState = last.snapshot.results;
-            localStorage.setItem('kia_results_v1', JSON.stringify(raState));
-            if (typeof raRender === 'function') raRender();
-        }
-        if (last.snapshot.inventory) {
-            invState = last.snapshot.inventory;
-            localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
-            if (typeof invRender === 'function') invRender();
-        }
-    }
 
-    // Remove from history
-    hist.pop();
-    localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist));
+        // Remove from history
+        hist.pop();
+        localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist));
 
-    showToast('Fusion deshecha. Datos restaurados.', 'success');
-    fbPushAll();
-    fbShowSettings();
+        showToast('Fusion deshecha. Datos restaurados.', 'success');
+        fbPushAll();
+        fbShowSettings();
+    });
 }
 
 // ── Show merge history ──
@@ -1962,26 +1972,28 @@ function fbMergeConfirmAndExecute() {
     if (choices.results) actions.push('Results: ' + choices.results);
     if (choices.inventory) actions.push('Inventory: ' + choices.inventory);
 
-    if (!confirm('Ejecutar merge desde ' + (window._fbMergeRemoteId || '?') + '?\n\n' + actions.join('\n') + '\n\nSe guardara un snapshot para poder deshacer.')) return;
+    showConfirmDialog({ title: '🔀 Ejecutar merge', message: 'Ejecutar merge desde ' + (window._fbMergeRemoteId || '?') + '?\n\n' + actions.join('\n') + '\n\nSe guardara un snapshot para poder deshacer.', type: 'warning', confirmText: 'Ejecutar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
 
-    var merged = fbMergeExecute(window._fbMergeRemoteData, window._fbMergeAnalysis, choices);
+        var merged = fbMergeExecute(window._fbMergeRemoteData, window._fbMergeAnalysis, choices);
 
-    // Show result
-    var modal = document.getElementById('fbModal');
-    if (modal) {
-        var html = '<div style="max-width:480px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;color:#e2e8f0;text-align:center;">';
-        html += '<div style="font-size:36px;margin-bottom:12px;">&#10003;</div>';
-        html += '<h3 style="color:#10b981;margin-bottom:12px;">Merge Completado</h3>';
-        merged.forEach(function(m) {
-            html += '<div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">' + m + '</div>';
-        });
-        html += '<div style="font-size:9px;color:#64748b;margin-top:12px;">Puedes deshacer esta fusion desde el panel de Firebase.</div>';
-        html += '<div style="display:flex;gap:8px;margin-top:16px;">';
-        html += '<button onclick="fbShowSettings()" style="flex:1;padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Volver a Settings</button>';
-        html += '<button onclick="fbMergeUndo()" style="flex:1;padding:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Deshacer</button>';
-        html += '</div></div>';
-        modal.innerHTML = html;
-    }
+        // Show result
+        var modal = document.getElementById('fbModal');
+        if (modal) {
+            var html = '<div style="max-width:480px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;color:#e2e8f0;text-align:center;">';
+            html += '<div style="font-size:36px;margin-bottom:12px;">&#10003;</div>';
+            html += '<h3 style="color:#10b981;margin-bottom:12px;">Merge Completado</h3>';
+            merged.forEach(function(m) {
+                html += '<div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">' + m + '</div>';
+            });
+            html += '<div style="font-size:9px;color:#64748b;margin-top:12px;">Puedes deshacer esta fusion desde el panel de Firebase.</div>';
+            html += '<div style="display:flex;gap:8px;margin-top:16px;">';
+            html += '<button onclick="fbShowSettings()" style="flex:1;padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Volver a Settings</button>';
+            html += '<button onclick="fbMergeUndo()" style="flex:1;padding:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Deshacer</button>';
+            html += '</div></div>';
+            modal.innerHTML = html;
+        }
+    });
 }
 
 

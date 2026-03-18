@@ -6,6 +6,14 @@
 var _tpDebouncedDashRender = debounce(tpRenderDashTable, 250);
 var _tpDebouncedRender = debounce(tpRender, 250);
 
+// ── [Fase 2.4] Memoization cache for expensive TP calculations ──
+var _tpCache = { planHash: null, families: null, analysis: null };
+function _tpInvalidateCache() { _tpCache.planHash = null; }
+function _tpGetPlanHash() {
+    if (!tpState || !tpState.planData) return '';
+    return tpState.planData.length + '_' + tpState.testedList.length + '_' + (tpState._lastSave || 0);
+}
+
 // ======================================================================
 // WEEKLY PLAN HELPERS
 // ======================================================================
@@ -18,9 +26,11 @@ function tpAddManualPick() {
     tpRender();
 }
 function tpRemoveWeeklyItem(wk, idx) {
-    if (!confirm('¿Quitar del plan?')) return;
-    tpState.weeklyPlans[wk].items.splice(idx, 1);
-    tpSave(); tpRender();
+    showConfirmDialog({ title: '⚠️ Quitar del plan', message: '¿Quitar del plan?', type: 'warning', confirmText: 'Sí', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        tpState.weeklyPlans[wk].items.splice(idx, 1);
+        tpSave(); tpRender();
+    });
 }
 function tpAddToWeek(wk) {
     const sel = document.getElementById('tp-edit-add-' + wk);
@@ -253,7 +263,7 @@ let tpState = safeParse(TP_LS_KEY, null) || {
 // Ensure weekHistory exists for existing localStorage data
 if (!tpState.weekHistory) tpState.weekHistory = [];
 
-function tpSave() { localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); }
+function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); }
 
 // ── [Fase 5.3] Compact old completed plans (older than 6 months) ──
 function tpCompactOldPlans() {
@@ -1461,20 +1471,24 @@ function tpSaveRulePreset() {
 
 function tpLoadRulePreset(idx) {
     if (!tpState.rulePresets || !tpState.rulePresets[idx]) return;
-    if (!confirm('¿Cargar plantilla "' + tpState.rulePresets[idx].name + '"? Esto reemplazara las reglas actuales.')) return;
-    var preset = tpState.rulePresets[idx];
-    tpState.rules = JSON.parse(JSON.stringify(preset.rules));
-    tpState.weights = JSON.parse(JSON.stringify(preset.weights));
-    tpSave(); tpRender(); tpInvalidateCache();
-    showToast('Plantilla "' + preset.name + '" cargada', 'success');
+    showConfirmDialog({ title: '⚠️ Cargar plantilla', message: '¿Cargar plantilla "' + tpState.rulePresets[idx].name + '"? Esto reemplazara las reglas actuales.', type: 'warning', confirmText: 'Cargar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        var preset = tpState.rulePresets[idx];
+        tpState.rules = JSON.parse(JSON.stringify(preset.rules));
+        tpState.weights = JSON.parse(JSON.stringify(preset.weights));
+        tpSave(); tpRender(); tpInvalidateCache();
+        showToast('Plantilla "' + preset.name + '" cargada', 'success');
+    });
 }
 
 function tpDeleteRulePreset(idx) {
     if (!tpState.rulePresets || !tpState.rulePresets[idx]) return;
-    if (!confirm('¿Eliminar plantilla "' + tpState.rulePresets[idx].name + '"?')) return;
-    tpState.rulePresets.splice(idx, 1);
-    tpSave(); tpRender();
-    showToast('Plantilla eliminada', 'success');
+    showConfirmDialog({ title: '⚠️ Eliminar plantilla', message: '¿Eliminar plantilla "' + tpState.rulePresets[idx].name + '"?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        tpState.rulePresets.splice(idx, 1);
+        tpSave(); tpRender();
+        showToast('Plantilla eliminada', 'success');
+    });
 }
 
 
@@ -2437,6 +2451,9 @@ function tpRenderAlertsBanner() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function tpBuildFamilies() {
+    var h = _tpGetPlanHash();
+    if (_tpCache.planHash === h && _tpCache.families !== null) return _tpCache.families;
+    _tpCache.planHash = h;
     const families = {};
     tpState.planData.forEach(cfg => {
         const key = `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${cfg.rgn}|${cfg.drv}|${cfg.body}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}`;
@@ -2480,7 +2497,8 @@ function tpBuildFamilies() {
         f.riskLevel = f.riskScore > 60 ? 'high' : f.riskScore > 30 ? 'medium' : 'low';
     });
 
-    return Object.values(families);
+    _tpCache.families = Object.values(families);
+    return _tpCache.families;
 }
 
 function tpRenderFamilies(el) {
@@ -3061,29 +3079,31 @@ function tpRenderAltaSuggestionPanel(configText) {
 // ═══ CROSS-MODULE NAVIGATION ═══
 // Navigate from Test Plan to Results Analyzer Detail tab
 function tpGoToRADetail(testId) {
-    if (!confirm('¿Deseas ver el detalle de esta prueba en Results Analyzer?')) return;
-    // Store return context so RA can offer a back button
-    window._tpReturnContext = {
-        tab: tpState.activeTab,
-        scroll: window.scrollY
-    };
-    // Set up RA to show this test
-    window._raDetailId = testId;
-    if (typeof raState !== 'undefined') {
-        raState.activeTab = 'ra-detail';
-    }
-    // Switch to Results Analyzer module
-    switchPlatform('results');
-    // Render RA with the detail tab
-    setTimeout(function() {
-        if (typeof raRender === 'function') raRender();
-        // Activate the detail tab button
-        document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
-        var tabs = document.querySelectorAll('#ra-tabs-bar .tp-tab');
-        for (var i = 0; i < tabs.length; i++) {
-            if (tabs[i].textContent.includes('Detalle')) { tabs[i].classList.add('active'); break; }
+    showConfirmDialog({ title: '📊 Navegar a Results Analyzer', message: '¿Deseas ver el detalle de esta prueba en Results Analyzer?', type: 'info', confirmText: 'Ir', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        // Store return context so RA can offer a back button
+        window._tpReturnContext = {
+            tab: tpState.activeTab,
+            scroll: window.scrollY
+        };
+        // Set up RA to show this test
+        window._raDetailId = testId;
+        if (typeof raState !== 'undefined') {
+            raState.activeTab = 'ra-detail';
         }
-    }, 100);
+        // Switch to Results Analyzer module
+        switchPlatform('results');
+        // Render RA with the detail tab
+        setTimeout(function() {
+            if (typeof raRender === 'function') raRender();
+            // Activate the detail tab button
+            document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
+            var tabs = document.querySelectorAll('#ra-tabs-bar .tp-tab');
+            for (var i = 0; i < tabs.length; i++) {
+                if (tabs[i].textContent.includes('Detalle')) { tabs[i].classList.add('active'); break; }
+            }
+        }, 100);
+    });
 }
 
 // Return from RA back to Test Plan at previous position

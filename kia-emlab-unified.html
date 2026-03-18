@@ -63,14 +63,14 @@
         .platform-tab {
             padding: 14px 28px; cursor: pointer; font-weight: 800; font-size: 0.85rem;
             color: rgba(255,255,255,0.5); letter-spacing: 0.04em;
-            transition: all 0.2s; border-bottom: 3px solid transparent;
+            transition: color 0.2s, background-color 0.2s, border-color 0.2s; border-bottom: 3px solid transparent;
             display: flex; align-items: center; gap: 8px; margin-bottom: -3px;
             user-select: none;
         }
         .platform-tab:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.03); }
         .platform-tab.active { color: #fff; border-bottom-color: var(--kia-red); background: rgba(187,22,43,0.08); }
         .platform-tab .pt-badge {
-            font-size: 0.65rem; padding: 2px 7px; border-radius: 10px;
+            font-size: 0.75rem; padding: 2px 7px; border-radius: 10px;
             font-weight: 700; letter-spacing: 0;
         }
         .platform-section { display: none; }
@@ -667,7 +667,7 @@ body{ overflow-x: hidden; }
 
 /* Tabs — pill/capsule style unified */
 .tp-tabs { display:flex; gap:4px; padding:10px 24px; background:var(--surface); border-bottom:1px solid var(--tp-border); overflow-x:auto; -webkit-overflow-scrolling:touch; }
-.tp-tab { padding:10px 16px; border:none; border-radius:10px; cursor:pointer; font-size:12px; font-weight:700; background:transparent; color:var(--tp-dim); transition:all .2s; min-height:44px; display:inline-flex; align-items:center; white-space:nowrap; }
+.tp-tab { padding:10px 16px; border:none; border-radius:10px; cursor:pointer; font-size:12px; font-weight:700; background:transparent; color:var(--tp-dim); transition:background-color .2s, color .2s, box-shadow .2s; min-height:44px; display:inline-flex; align-items:center; white-space:nowrap; }
 .tp-tab:hover { background: #f1f5f9; color: var(--tp-text); }
 .tp-tab.active { background:var(--kia-dark); color:#fff; box-shadow: var(--shadow-sm); }
 .tp-main { padding:20px 24px; max-width:1400px; margin:0 auto; }
@@ -689,7 +689,7 @@ body{ overflow-x: hidden; }
 .tp-select:focus { border-color: var(--tp-blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
 
 /* Buttons — refined with better hierarchy */
-.tp-btn { padding:10px 16px; border-radius:10px; border:none; cursor:pointer; font-size:12px; font-weight:700; transition:all .2s; min-height:44px; }
+.tp-btn { padding:10px 16px; border-radius:10px; border:none; cursor:pointer; font-size:12px; font-weight:700; transition:background-color .2s, transform .15s, box-shadow .2s; min-height:44px; }
 .tp-btn:active { transform: scale(0.97); }
 .tp-btn-primary { background:var(--kia-red); color:#fff; box-shadow: 0 2px 8px rgba(187,22,43,0.25); }
 .tp-btn-primary:hover { background:#9a1323; }
@@ -708,7 +708,7 @@ body{ overflow-x: hidden; }
 /* Bars */
 .tp-bar { background:#e2e8f0; border-radius:6px; height:14px; overflow:hidden; position:relative; }
 .tp-bar-fill { height:100%; border-radius:6px; transition:width .3s; }
-.tp-bar-text { position:absolute; top:0; left:4px; font-size:9px; font-weight:700; color:#fff; line-height:14px; }
+.tp-bar-text { position:absolute; top:0; left:4px; font-size:10px; font-weight:700; color:#fff; line-height:14px; }
 
 /* Suggestions dropdown */
 .tp-suggestions { position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--tp-border); border-radius:10px; z-index:10; max-height:150px; overflow-y:auto; box-shadow: var(--shadow-lg); }
@@ -716,7 +716,7 @@ body{ overflow-x: hidden; }
 .tp-suggestion:hover { background:#f1f5f9; }
 
 .tp-status-bar { display:flex; gap:8px; margin-bottom:14px; }
-.tp-status-segment { border-radius:10px; padding:8px 12px; cursor:pointer; text-align:center; transition:all .2s; }
+.tp-status-segment { border-radius:10px; padding:8px 12px; cursor:pointer; text-align:center; transition:background-color .2s, color .2s, box-shadow .2s; }
 .tp-plan-fixed { background:var(--tp-green); color:#fff; padding:8px 16px; border-radius:10px; font-weight:700; font-size:12px; text-align:center; margin-bottom:14px; box-shadow: 0 2px 8px rgba(16,185,129,0.25); }
 
 /* Chart bars */
@@ -739,9 +739,19 @@ body{ overflow-x: hidden; }
 .toast {
     padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 600;
     box-shadow: 0 4px 20px rgba(0,0,0,0.25); pointer-events: auto;
-    animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+    animation: toastIn 0.3s ease;
     display: flex; align-items: center; gap: 8px; max-width: 420px;
+    position: relative; overflow: hidden;
 }
+.toast-progress {
+    position: absolute; bottom: 0; left: 0; height: 3px;
+    background: currentColor; opacity: 0.3; border-radius: 0 0 10px 10px;
+    animation: toastProgress var(--toast-duration, 4s) linear forwards;
+}
+.toast:hover .toast-progress, .toast.toast-paused .toast-progress {
+    animation-play-state: paused;
+}
+@keyframes toastProgress { from { width: 100%; } to { width: 0%; } }
 .toast-success { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
 .toast-error { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
 .toast-warning { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
@@ -777,7 +787,7 @@ body{ overflow-x: hidden; }
 }
 .custom-modal-actions button {
     padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
-    border: none; cursor: pointer; min-width: 80px; transition: all 0.15s;
+    border: none; cursor: pointer; min-width: 80px; transition: background-color 0.15s, opacity 0.15s;
 }
 .modal-btn-cancel {
     background: #f1f5f9; color: #475569;
@@ -808,7 +818,7 @@ body{ overflow-x: hidden; }
 }
 .view-mode-toggle button {
     padding: 4px 8px; border: none; border-radius: 6px; cursor: pointer;
-    background: transparent; color: #64748b; font-size: 10px; transition: all 0.15s;
+    background: transparent; color: #64748b; font-size: 10px; transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
 .view-mode-toggle button.active { background: #fff; font-weight: 700; color: #0f172a; box-shadow: var(--shadow-sm); }
 .view-mode-toggle.light { background: #f1f5f9; border-color: #e2e8f0; }
@@ -835,7 +845,7 @@ button:focus-visible { outline-offset: 1px; }
 .field-valid { border-color: var(--tp-green) !important; box-shadow: 0 0 0 1px rgba(16,185,129,0.3) !important; }
 .field-error { border-color: var(--tp-red) !important; box-shadow: 0 0 0 1px rgba(239,68,68,0.3) !important; }
 .field-hint {
-    font-size: 10px; margin-top: 2px; min-height: 14px; transition: all 0.2s;
+    font-size: 10px; margin-top: 2px; min-height: 14px; transition: color 0.2s, opacity 0.2s;
 }
 .field-hint-error { color: var(--tp-red); }
 .field-hint-success { color: var(--tp-green); }
@@ -984,7 +994,7 @@ button:focus-visible { outline-offset: 1px; }
     font-weight: 600;
     color: var(--text);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
     min-height: 44px;
     -webkit-tap-highlight-color: transparent;
 }
@@ -1044,7 +1054,7 @@ button:focus-visible { outline-offset: 1px; }
     flex: 1; display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 3px; cursor: pointer;
     color: #94a3b8; font-size: 10px; font-weight: 700;
-    letter-spacing: 0.02em; transition: all 0.25s; user-select: none;
+    letter-spacing: 0.02em; transition: color 0.25s, transform 0.2s; user-select: none;
     padding: 4px 2px; position: relative; text-align: center;
     -webkit-tap-highlight-color: transparent;
 }
@@ -1119,7 +1129,7 @@ button:focus-visible { outline-offset: 1px; }
 .lab-dash-alert-badge { font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
 .lab-dash-alert-mod { font-size: 10px; font-weight: 700; color: #64748b; min-width: 65px; }
 .lab-dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
-.lab-dash-card { background: #fff; border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; transition: all 0.2s; box-shadow: var(--shadow-sm); }
+.lab-dash-card { background: #fff; border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; box-shadow: var(--shadow-sm); }
 .lab-dash-card:hover { border-color: #cbd5e1; box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .lab-dash-card-header { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: #64748b; }
 .lab-dash-card-metric { font-size: 28px; font-weight: 800; color: #0f172a; }
@@ -1127,7 +1137,7 @@ button:focus-visible { outline-offset: 1px; }
 .lab-dash-card-detail { font-size: 10px; color: #64748b; }
 
 /* ═══ [R2] Drag-Drop Import Zone ═══ */
-.ra-drop-zone { border: 2px dashed #cbd5e1; border-radius: 14px; padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8fafc; }
+.ra-drop-zone { border: 2px dashed #cbd5e1; border-radius: 14px; padding: 30px 20px; text-align: center; cursor: pointer; transition: border-color 0.2s, background-color 0.2s, transform 0.2s; background: #f8fafc; }
 .ra-drop-zone:hover { border-color: #3b82f6; background: #eff6ff; }
 .ra-drop-zone.dragover { border-color: #3b82f6; background: #dbeafe; transform: scale(1.01); }
 .ra-drop-icon { font-size: 36px; margin-bottom: 6px; }
@@ -1396,7 +1406,7 @@ button:focus-visible { outline-offset: 1px; }
 /* ── Status badge transition ── */
 .anim-status-badge {
     display: inline-block;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
 }
 .anim-status-enter {
     animation: animStatusIn 0.4s ease;
@@ -1500,7 +1510,7 @@ button:focus-visible { outline-offset: 1px; }
 
 /* ── Immersive toggle button ── */
 #immersive-toggle-btn {
-    transition: all 0.2s ease;
+    transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 #immersive-toggle-btn:hover {
     color: #fff;
@@ -1598,7 +1608,7 @@ button:focus-visible { outline-offset: 1px; }
     padding: 3px 10px; font-size: 10px; font-weight: 700;
     background: rgba(59,130,246,0.1); color: #3b82f6;
     border: 1px solid rgba(59,130,246,0.3); border-radius: 6px;
-    cursor: pointer; transition: all 0.15s;
+    cursor: pointer; transition: background-color 0.15s, transform 0.15s;
 }
 .smart-quick-btn:hover {
     background: rgba(59,130,246,0.2);
@@ -1626,7 +1636,7 @@ button:focus-visible { outline-offset: 1px; }
     padding: 5px 14px; font-size: 10px; font-weight: 700;
     background: #f5f3ff; color: #7c3aed;
     border: 1px solid #ddd6fe; border-radius: 16px;
-    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    cursor: pointer; transition: background-color 0.15s, transform 0.15s; white-space: nowrap;
 }
 .tpl-quick-btn:hover {
     background: #ede9fe; transform: translateY(-1px);
@@ -1728,7 +1738,7 @@ button:focus-visible { outline-offset: 1px; }
 .sop-procedure-card {
     background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
     padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow-sm);
-    transition: all 0.2s; cursor: pointer;
+    transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s; cursor: pointer;
 }
 .sop-procedure-card:hover {
     box-shadow: var(--shadow-md); transform: translateY(-1px);
@@ -1744,7 +1754,7 @@ button:focus-visible { outline-offset: 1px; }
     display: flex; gap: 14px; padding: 16px;
     background: #fff; border: 1px solid #e2e8f0;
     border-radius: 12px; margin-bottom: 8px;
-    transition: all 0.3s;
+    transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 .sop-step.sop-step-active {
     border-color: var(--accent-sop);
@@ -1765,7 +1775,7 @@ button:focus-visible { outline-offset: 1px; }
     background: #f1f5f9; color: #64748b;
     display: flex; align-items: center; justify-content: center;
     font-size: 13px; font-weight: 800; flex-shrink: 0;
-    transition: all 0.3s;
+    transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
 }
 .sop-step-active .sop-step-number {
     background: var(--accent-sop); color: #fff;
@@ -1793,7 +1803,7 @@ button:focus-visible { outline-offset: 1px; }
     padding: 8px 12px; background: #f8fafc;
     border: 1px solid #f1f5f9; border-radius: 8px;
     font-size: 12px; color: #334155; cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color 0.15s, border-color 0.15s;
 }
 .sop-check-item:hover { background: #f1f5f9; }
 .sop-check-item.checked {
@@ -1804,7 +1814,7 @@ button:focus-visible { outline-offset: 1px; }
     width: 18px; height: 18px; border-radius: 4px;
     border: 2px solid #cbd5e1; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
+    transition: background-color 0.2s, border-color 0.2s;
 }
 .sop-check-item.checked .sop-check-box {
     background: var(--tp-green); border-color: var(--tp-green);
@@ -1841,7 +1851,7 @@ button:focus-visible { outline-offset: 1px; }
     font-size: 11px; font-weight: 700;
     background: #f1f5f9; color: #64748b;
     border: 1px solid #e2e8f0;
-    cursor: pointer; transition: all 0.15s;
+    cursor: pointer; transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
 .sop-category-chip:hover { background: #e2e8f0; }
 .sop-category-chip.active {
@@ -1855,7 +1865,7 @@ button:focus-visible { outline-offset: 1px; }
     padding: 10px 14px; margin-bottom: 14px;
     background: #fffbeb; border: 1px solid #fcd34d;
     border-radius: 10px; cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, box-shadow 0.2s;
 }
 .sop-context-banner:hover {
     background: #fef3c7; box-shadow: var(--shadow-sm);
@@ -1998,7 +2008,7 @@ button:focus-visible { outline-offset: 1px; }
     width: 56px; height: 56px; border-radius: 8px;
     overflow: hidden; cursor: pointer;
     border: 1px solid #e2e8f0;
-    transition: all 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 .sop-image-thumb:hover {
     border-color: var(--accent-sop);
@@ -2089,6 +2099,9 @@ html { scroll-behavior: smooth; }
 .sop-step { transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s; }
 .sop-check-item { transition: background-color 0.15s, border-color 0.15s; }
 .lab-dash-card { transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
+
+/* ── Smooth navigation for tab switches ── */
+.tabs, .tp-tabs, .sop-categories { scroll-behavior: smooth; }
 
 /* ══════════════════════════════════════════════════════════════════════ */
 /* DARK MODE                                                             */
@@ -3884,7 +3897,7 @@ html { scroll-behavior: smooth; }
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 window.addEventListener('error', (e) => {
-  console.error('🔥 Error JS:', e.message, 'en', e.filename, 'línea', e.lineno);
+  
 });
 
 // ======================================================================
@@ -4129,7 +4142,7 @@ function safeParse(key, fallback) {
         var parsed = JSON.parse(raw);
         return (typeof parsed === 'object' && parsed !== null) ? parsed : fallback;
     } catch(e) {
-        console.error('Corrupted localStorage key: ' + key, e);
+        
         try { showToast('Datos corruptos en ' + key + '. Usando valores por defecto.', 'error'); } catch(e2) {}
         return fallback;
     }
@@ -4440,8 +4453,6 @@ function showToast(msg, type) {
     }
     var toast = document.createElement('div');
     toast.className = 'toast toast-' + type;
-    toast.style.position = 'relative';
-    toast.style.overflow = 'hidden';
     toast.textContent = msg;
 
     var hasUndo = arguments.length >= 4 && typeof arguments[3] === 'function';
@@ -4454,19 +4465,16 @@ function showToast(msg, type) {
         toast.appendChild(undoBtn);
     }
 
-    // Progress bar
+    // Progress bar with CSS animation
     var dur = hasUndo ? 8000 : 4000;
+    var durSec = (dur / 1000) + 's';
+    toast.style.setProperty('--toast-duration', durSec);
+
     var progressBar = document.createElement('div');
-    progressBar.style.cssText = 'position:absolute;bottom:0;left:0;height:3px;width:100%;background:currentColor;opacity:0.35;transform-origin:left;transition:none;';
+    progressBar.className = 'toast-progress';
     toast.appendChild(progressBar);
 
     container.appendChild(toast);
-
-    // Animate progress bar
-    requestAnimationFrame(function() {
-        progressBar.style.transition = 'transform ' + dur + 'ms linear';
-        progressBar.style.transform = 'scaleX(0)';
-    });
 
     // Timer with pause on hover/touch
     var remaining = dur;
@@ -4477,18 +4485,12 @@ function showToast(msg, type) {
         clearTimeout(timer);
         remaining -= (Date.now() - startTime);
         if (remaining < 0) remaining = 0;
-        var elapsed = dur - remaining;
-        var fraction = remaining / dur;
-        progressBar.style.transition = 'none';
-        progressBar.style.transform = 'scaleX(' + fraction + ')';
+        toast.classList.add('toast-paused');
     }
 
     function resume() {
+        toast.classList.remove('toast-paused');
         startTime = Date.now();
-        requestAnimationFrame(function() {
-            progressBar.style.transition = 'transform ' + remaining + 'ms linear';
-            progressBar.style.transform = 'scaleX(0)';
-        });
         timer = setTimeout(dismiss, remaining);
     }
 
@@ -4501,6 +4503,53 @@ function showToast(msg, type) {
     toast.addEventListener('mouseleave', resume);
     toast.addEventListener('touchstart', pause, { passive: true });
     toast.addEventListener('touchend', resume);
+}
+
+// ── Custom Confirm Dialog (replaces native confirm()) ──
+function showConfirmDialog(opts) {
+    opts = opts || {};
+    var title = opts.title || 'Confirmar';
+    var message = opts.message || '¿Estás seguro?';
+    var type = opts.type || 'warning';
+    var confirmText = opts.confirmText || 'Sí';
+    var cancelText = opts.cancelText || 'Cancelar';
+
+    return new Promise(function(resolve) {
+        var overlay = document.createElement('div');
+        overlay.className = 'custom-modal-overlay';
+
+        var typeColor = type === 'danger' ? 'modal-type-danger' : type === 'warning' ? 'modal-type-warning' : 'modal-type-info';
+
+        overlay.innerHTML =
+            '<div class="custom-modal-box modal-light" role="dialog" aria-modal="true">' +
+                '<div class="custom-modal-title">' + title + '</div>' +
+                '<div class="custom-modal-message">' + message.replace(/\n/g, '<br>') + '</div>' +
+                '<div class="custom-modal-actions">' +
+                    '<button class="modal-btn modal-btn-cancel" data-action="cancel">' + cancelText + '</button>' +
+                    '<button class="modal-btn modal-btn-confirm ' + typeColor + '" data-action="confirm">' + confirmText + '</button>' +
+                '</div>' +
+            '</div>';
+
+        function close(result) {
+            if (overlay.parentNode) {
+                overlay.style.opacity = '0';
+                overlay.style.transition = 'opacity 0.15s ease';
+                setTimeout(function() {
+                    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                }, 150);
+            }
+            resolve(result);
+            if (result && typeof opts.onConfirm === 'function') opts.onConfirm();
+            if (!result && typeof opts.onCancel === 'function') opts.onCancel();
+        }
+
+        overlay.querySelector('[data-action="confirm"]').addEventListener('click', function() { close(true); });
+        overlay.querySelector('[data-action="cancel"]').addEventListener('click', function() { close(false); });
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) close(false); });
+
+        document.body.appendChild(overlay);
+        overlay.querySelector('[data-action="cancel"]').focus();
+    });
 }
 
 
@@ -4747,7 +4796,7 @@ function undoPush(module, actionLabel) {
         if (module === 'testplan' || module === 'all') snapshot.testplan = typeof tpState !== 'undefined' ? JSON.stringify(tpState) : null;
         if (module === 'results' || module === 'all') snapshot.results = typeof raState !== 'undefined' ? JSON.stringify(raState) : null;
         if (module === 'inventory' || module === 'all') snapshot.inventory = typeof invState !== 'undefined' ? JSON.stringify(invState) : null;
-    } catch(e) { console.error('Undo snapshot failed:', e); return; }
+    } catch(e) {  return; }
     _undoStack.push({ module: module, label: actionLabel, timestamp: new Date().toISOString(), data: snapshot });
     if (_undoStack.length > UNDO_MAX) _undoStack.shift();
 }
@@ -4760,7 +4809,7 @@ function undoPop() {
         if (entry.data.testplan && typeof tpState !== 'undefined') { var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; }); if (typeof tpSave === 'function') tpSave(); }
         if (entry.data.results && typeof raState !== 'undefined') { var restored = JSON.parse(entry.data.results); Object.keys(restored).forEach(function(k) { raState[k] = restored[k]; }); if (typeof raSave === 'function') raSave(); }
         if (entry.data.inventory && typeof invState !== 'undefined') { var restored = JSON.parse(entry.data.inventory); Object.keys(restored).forEach(function(k) { invState[k] = restored[k]; }); if (typeof invSave === 'function') invSave(); }
-    } catch(e) { console.error('Undo restore failed:', e); showToast('Error al deshacer', 'error'); return; }
+    } catch(e) {  showToast('Error al deshacer', 'error'); return; }
     // Re-render affected modules
     if (entry.data.cop15 && typeof refreshAllLists === 'function') refreshAllLists();
     if (entry.data.testplan && typeof tpRender === 'function') tpRender();
@@ -5125,6 +5174,7 @@ function generateWeeklyStatusPDF() {
         showToast('jsPDF no está disponible. Verifica la conexión CDN.', 'error');
         return;
     }
+    showOverlayLoading('Generando PDF semanal...');
     var jsPDF = window.jspdf.jsPDF;
     var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
     var W = doc.internal.pageSize.getWidth();
@@ -5303,6 +5353,7 @@ function generateWeeklyStatusPDF() {
     doc.text('Generado automáticamente por KIA EmLab Plataforma Integrada — ' + today.toISOString(), ML, y);
 
     doc.save('KIA-EmLab-Semanal-' + today.toISOString().slice(0, 10) + '.pdf');
+    hideOverlayLoading();
     showToast('Reporte PDF semanal generado', 'success');
 }
 
@@ -5401,6 +5452,7 @@ function generateWeeklyStatusPDF() {
 	}
 
         
+        
 
 // --- Eventos Ventilador ---
 const modeEl  = document.getElementById('test_fan_mode');
@@ -5429,7 +5481,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ Firebase Cloud Sync (optional) ═══
         try {
             if (typeof fbInit === 'function') { fbInit(); fbHookSaves(); fbUpdateIndicator(); }
-        } catch(fbErr) { console.error('Firebase init failed (non-blocking):', fbErr); }
+        } catch(fbErr) {  }
 
         // ═══ [R4-M1] Load chart configurations ═══
         chartConfigLoad();
@@ -5443,12 +5495,21 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
             } else if (lsPercent > 80) {
                 showToast('Almacenamiento al ' + lsPercent + '%. Considere exportar datos y ejecutar compactación desde Panel > Salud del Sistema.', 'warning');
             }
-        } catch(e) { console.error('Health check error:', e); }
+            
+        } catch(e) {  }
 
         // ═══ [R3-M1] PWA — Register Service Worker ═══
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(function(reg) {
-            }).catch(function(err) { console.log('SW registration skipped:', err.message); });
+                
+            }).catch(function(err) {  });
+
+            // [Fase 4.3] Listen for SW update notifications
+            navigator.serviceWorker.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'SW_UPDATED') {
+                    showToast('Nueva versión disponible. Recarga para actualizar.', 'info');
+                }
+            });
         }
 
         // ═══ [R3-M1] Online/Offline indicator ═══
@@ -5895,7 +5956,7 @@ function _openBackupDB(callback) {
         }
     };
     req.onsuccess = function(e) { callback(e.target.result); };
-    req.onerror = function() { console.warn('IndexedDB backup error'); };
+    req.onerror = function() {  };
 }
 
 function autoBackup() {
@@ -6784,6 +6845,7 @@ function setupUnsavedTracking() {
         }
 
 setAltaDatetimeIfEmpty(true);
+        
         
     }
 
@@ -8701,7 +8763,7 @@ if (vehicle.status !== 'ready-release') {
                 vehicle.timeline = prevTimeline;
                 delete vehicle.archivedAt;
                 showToast('Error en liberación: ' + e.message + '. Cambios revertidos.', 'error');
-                console.error('finishRelease rollback:', e);
+                
                 return;
             }
         } else {
@@ -9223,21 +9285,24 @@ function exportAndPurgeArchived() {
 
   // 3) Purgar del DB (reduce localStorage)
   // Seguridad: confirmación antes de borrar del sistema
-  const ok = confirm(
-    `✅ Archivo descargado.\n\n¿Deseas PURGAR (borrar del sistema) ${archived.length} vehículos archivados?\n` +
-    `Esto reduce el tamaño del localStorage.\n\n⚠️ Asegúrate de guardar el archivo descargado.`
-  );
+  showConfirmDialog({
+    title: '⚠️ Purgar vehículos archivados',
+    message: '✅ Archivo descargado.\n\n¿Deseas PURGAR (borrar del sistema) ' + archived.length + ' vehículos archivados?\nEsto reduce el tamaño del localStorage.\n\n⚠️ Asegúrate de guardar el archivo descargado.',
+    type: 'danger',
+    confirmText: 'Purgar',
+    cancelText: 'Cancelar'
+  }).then(function(ok) {
+    if (!ok) return;
 
-  if (!ok) return;
+    // Elimina del db principal
+    db.vehicles = db.vehicles.filter(v => v.status !== 'archived');
 
-  // Elimina del db principal
-  db.vehicles = db.vehicles.filter(v => v.status !== 'archived');
+    saveDB();
+    refreshAllLists();
+    updateProgressBar();
 
-  saveDB();
-  refreshAllLists();
-  updateProgressBar();
-
-  showToast('Purga completada. Se removieron ' + archived.length + ' vehículos archivados.', 'success');
+    showToast('Purga completada. Se removieron ' + archived.length + ' vehículos archivados.', 'success');
+  });
 }
 
 
@@ -9280,7 +9345,7 @@ function handleImportArchive(event) {
       document.body.appendChild(modal);
 
     } catch (e) {
-      console.error(e);
+      
       showToast('Error leyendo el archivo. Asegúrate de que sea un JSON válido.', 'error');
     } finally {
       event.target.value = '';
@@ -9341,9 +9406,11 @@ function exportSingleArchivedVehicle(vehicleId) {
 function purgeSingleVehicle(vehicleId) {
   const v = db.vehicles.find(x => x.id == vehicleId);
   if (!v) return;
-  if (!confirm('Purgar VIN ' + (v.vin||'?') + ' del sistema?')) return;
-  db.vehicles = db.vehicles.filter(x => x.id != vehicleId);
-  saveDB(); refreshAllLists(); updateProgressBar(); renderHistory();
+  showConfirmDialog({ title: '⚠️ Purgar vehículo', message: 'Purgar VIN ' + (v.vin||'?') + ' del sistema?', type: 'danger', confirmText: 'Purgar', cancelText: 'Cancelar' }).then(function(ok) {
+    if (!ok) return;
+    db.vehicles = db.vehicles.filter(x => x.id != vehicleId);
+    saveDB(); refreshAllLists(); updateProgressBar(); renderHistory();
+  });
 }
 
 // ── [Fase 5.3] Timeline compaction — keeps last 50 entries per vehicle ──
@@ -11548,19 +11615,49 @@ var _invUndoMaxSize = 5;
 
 function invSave() {
     try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
-    catch(e) { console.warn('INV: localStorage full'); }
+    catch(e) {
+        
+        invCompactReadings();
+        try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
+        catch(e2) { showToast('Almacenamiento lleno. Elimina datos antiguos.', 'error'); }
+    }
+}
+
+// ── [Fase 5.3] Compact old fuel readings (keep last 30 per tank) ──
+function invCompactReadings() {
+    if (!invState || !invState.fuelTanks) return;
+    var compacted = 0;
+    invState.fuelTanks.forEach(function(t) {
+        if (t.readings && t.readings.length > 30) {
+            compacted += t.readings.length - 30;
+            t.readings = t.readings.slice(-30);
+        }
+    });
+    // Also compact equipment calibration history
+    if (invState.equipment) {
+        invState.equipment.forEach(function(eq) {
+            if (eq.calibrationHistory && eq.calibrationHistory.length > 20) {
+                compacted += eq.calibrationHistory.length - 20;
+                eq.calibrationHistory = eq.calibrationHistory.slice(-20);
+            }
+        });
+    }
+    if (compacted > 0) 
 }
 
 
 function invPreloadData() {
     if (invState.gases.length === 0) {
         invState.gases = [{"id": "g_ch420", "controlNo": "CH4-20", "cylinderNo": "", "formula": "CH4/Air", "gasType": "Metano/Aire", "concNominal": "20 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "A01", "position": 1, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CH4-20*", "readings": [{"date": "2026-02-01", "psi": 1266}, {"date": "2026-02-06", "psi": 1250}, {"date": "2026-02-13", "psi": 1233}, {"date": "2026-02-20", "psi": 1216}, {"date": "2026-02-27", "psi": 1200}], "weeklyPsi": 16.7, "dailyPsi": 3.3, "reposDays": 44, "limitPsi": 190.67}, {"id": "g_ch410", "controlNo": "CH4-10", "cylinderNo": "", "formula": "CH4/Air", "gasType": "Metano/Aire", "concNominal": "10 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "A02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CH4-10*", "readings": [{"date": "2026-02-01", "psi": 2505}, {"date": "2026-02-06", "psi": 2492}, {"date": "2026-02-13", "psi": 2478}, {"date": "2026-02-20", "psi": 2464}, {"date": "2026-02-27", "psi": 2450}], "weeklyPsi": 13.8, "dailyPsi": 2.8, "reposDays": 44, "limitPsi": 158.21}, {"id": "g_ch405", "controlNo": "CH4-05", "cylinderNo": "", "formula": "CH4/Air", "gasType": "Metano/Aire", "concNominal": "5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "A03", "position": 3, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CH4-05*", "readings": [{"date": "2026-02-01", "psi": 1479}, {"date": "2026-02-06", "psi": 1472}, {"date": "2026-02-13", "psi": 1465}, {"date": "2026-02-20", "psi": 1457}, {"date": "2026-02-27", "psi": 1450}], "weeklyPsi": 7.4, "dailyPsi": 1.5, "reposDays": 44, "limitPsi": 85.19}, {"id": "g_ch402", "controlNo": "CH4-02", "cylinderNo": "", "formula": "CH4/Air", "gasType": "Metano/Aire", "concNominal": "2 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "A04", "position": 4, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CH4-02*", "readings": [{"date": "2026-02-01", "psi": 1400}, {"date": "2026-02-06", "psi": 1400}, {"date": "2026-02-13", "psi": 1400}, {"date": "2026-02-20", "psi": 1400}, {"date": "2026-02-27", "psi": 1400}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_c3h81666", "controlNo": "C3H8-1666", "cylinderNo": "", "formula": "C3H8/Air", "gasType": "Propano/Aire", "concNominal": "16.66 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "B01", "position": 1, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*C3H8-1666*", "readings": [{"date": "2026-02-01", "psi": 2929}, {"date": "2026-02-06", "psi": 2922}, {"date": "2026-02-13", "psi": 2915}, {"date": "2026-02-20", "psi": 2907}, {"date": "2026-02-27", "psi": 2900}], "weeklyPsi": 7.4, "dailyPsi": 1.5, "reposDays": 44, "limitPsi": 85.19}, {"id": "g_c3h8333", "controlNo": "C3H8-333", "cylinderNo": "", "formula": "C3H8/Air", "gasType": "Propano/Aire", "concNominal": "3.33 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "B02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*C3H8-333*", "readings": [{"date": "2026-02-01", "psi": 2429}, {"date": "2026-02-06", "psi": 2422}, {"date": "2026-02-13", "psi": 2415}, {"date": "2026-02-20", "psi": 2407}, {"date": "2026-02-27", "psi": 2400}], "weeklyPsi": 7.4, "dailyPsi": 1.5, "reposDays": 44, "limitPsi": 85.19}, {"id": "g_c3h8166", "controlNo": "C3H8-166", "cylinderNo": "", "formula": "C3H8/Air", "gasType": "Propano/Aire", "concNominal": "1.66 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "B03", "position": 3, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*C3H8-166*", "readings": [{"date": "2026-02-01", "psi": 1234}, {"date": "2026-02-06", "psi": 1226}, {"date": "2026-02-13", "psi": 1217}, {"date": "2026-02-20", "psi": 1209}, {"date": "2026-02-27", "psi": 1200}], "weeklyPsi": 8.5, "dailyPsi": 1.7, "reposDays": 44, "limitPsi": 97.36}, {"id": "g_c3h8066", "controlNo": "C3H8-066", "cylinderNo": "", "formula": "C3H8/Air", "gasType": "Propano/Aire", "concNominal": "0.66 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "B04", "position": 4, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*C3H8-066*", "readings": [{"date": "2026-02-01", "psi": 1462}, {"date": "2026-02-06", "psi": 1459}, {"date": "2026-02-13", "psi": 1456}, {"date": "2026-02-20", "psi": 1453}, {"date": "2026-02-27", "psi": 1450}], "weeklyPsi": 3.2, "dailyPsi": 0.6, "reposDays": 44, "limitPsi": 36.51}, {"id": "g_co100", "controlNo": "CO-100", "cylinderNo": "", "formula": "CO/N2", "gasType": "Monoxido de Carbono/Nitrogeno", "concNominal": "100 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C01", "position": 1, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO-100*", "readings": [{"date": "2026-02-01", "psi": 3321}, {"date": "2026-02-06", "psi": 3316}, {"date": "2026-02-13", "psi": 3311}, {"date": "2026-02-20", "psi": 3306}, {"date": "2026-02-27", "psi": 3300}], "weeklyPsi": 5.3, "dailyPsi": 1.1, "reposDays": 44, "limitPsi": 60.85}, {"id": "g_co50", "controlNo": "CO-50", "cylinderNo": "", "formula": "CO/N2", "gasType": "Monoxido de Carbono/Nitrogeno", "concNominal": "50 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO-50*", "readings": [{"date": "2026-02-01", "psi": 3146}, {"date": "2026-02-06", "psi": 3135}, {"date": "2026-02-13", "psi": 3123}, {"date": "2026-02-20", "psi": 3111}, {"date": "2026-02-27", "psi": 3100}], "weeklyPsi": 11.7, "dailyPsi": 2.3, "reposDays": 44, "limitPsi": 133.87}, {"id": "g_co20", "controlNo": "CO-20", "cylinderNo": "", "formula": "CO/N2", "gasType": "Monoxido de Carbono/Nitrogeno", "concNominal": "20 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C03", "position": 3, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO-20*", "readings": [{"date": "2026-02-01", "psi": 1105}, {"date": "2026-02-06", "psi": 1092}, {"date": "2026-02-13", "psi": 1078}, {"date": "2026-02-20", "psi": 1064}, {"date": "2026-02-27", "psi": 1050}], "weeklyPsi": 13.8, "dailyPsi": 2.8, "reposDays": 44, "limitPsi": 158.21}, {"id": "g_co10", "controlNo": "CO-10", "cylinderNo": "", "formula": "CO/N2", "gasType": "Monoxido de Carbono/Nitrogeno", "concNominal": "10 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C04", "position": 4, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO-10*", "readings": [{"date": "2026-02-01", "psi": 3500}, {"date": "2026-02-06", "psi": 3500}, {"date": "2026-02-13", "psi": 3500}, {"date": "2026-02-20", "psi": 3500}, {"date": "2026-02-27", "psi": 3500}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_no02", "controlNo": "NO-02", "cylinderNo": "", "formula": "NO/N2", "gasType": "Oxido Nitrico/Nitrogeno", "concNominal": "2 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C05", "position": 5, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*NO-02*", "readings": [{"date": "2026-02-01", "psi": 2000}, {"date": "2026-02-06", "psi": 2000}, {"date": "2026-02-13", "psi": 2000}, {"date": "2026-02-20", "psi": 2000}, {"date": "2026-02-27", "psi": 2000}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_no05", "controlNo": "NO-05", "cylinderNo": "", "formula": "NO/N2", "gasType": "Oxido Nitrico/Nitrogeno", "concNominal": "5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C06", "position": 6, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*NO-05*", "readings": [{"date": "2026-02-01", "psi": 1388}, {"date": "2026-02-06", "psi": 1379}, {"date": "2026-02-13", "psi": 1369}, {"date": "2026-02-20", "psi": 1360}, {"date": "2026-02-27", "psi": 1350}], "weeklyPsi": 9.6, "dailyPsi": 1.9, "reposDays": 44, "limitPsi": 109.53}, {"id": "g_no10", "controlNo": "NO-10", "cylinderNo": "", "formula": "NO/N2", "gasType": "Oxido Nitrico/Nitrogeno", "concNominal": "10 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C07", "position": 7, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*NO-10*", "readings": [{"date": "2026-02-01", "psi": 2588}, {"date": "2026-02-06", "psi": 2579}, {"date": "2026-02-13", "psi": 2569}, {"date": "2026-02-20", "psi": 2560}, {"date": "2026-02-27", "psi": 2550}], "weeklyPsi": 9.6, "dailyPsi": 1.9, "reposDays": 44, "limitPsi": 109.53}, {"id": "g_no50", "controlNo": "NO-50", "cylinderNo": "", "formula": "NO/N2", "gasType": "Oxido Nitrico/Nitrogeno", "concNominal": "50 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C08", "position": 8, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*NO-50*", "readings": [{"date": "2026-02-01", "psi": 1612}, {"date": "2026-02-06", "psi": 1609}, {"date": "2026-02-13", "psi": 1606}, {"date": "2026-02-20", "psi": 1603}, {"date": "2026-02-27", "psi": 1600}], "weeklyPsi": 3.2, "dailyPsi": 0.6, "reposDays": 44, "limitPsi": 36.51}, {"id": "g_co205p", "controlNo": "CO2-05p", "cylinderNo": "", "formula": "CO2/N2", "gasType": "Bioxido de Carbono/Nitrogeno", "concNominal": "0.5 %v", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C09", "position": 9, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO2-05p*", "readings": [{"date": "2026-02-01", "psi": 1600}, {"date": "2026-02-06", "psi": 1600}, {"date": "2026-02-13", "psi": 1600}, {"date": "2026-02-20", "psi": 1600}, {"date": "2026-02-27", "psi": 1600}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_co21p", "controlNo": "CO2-1p", "cylinderNo": "", "formula": "CO2/N2", "gasType": "Bioxido de Carbono/Nitrogeno", "concNominal": "1 %v", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C10", "position": 10, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO2-1p*", "readings": [{"date": "2026-02-01", "psi": 684}, {"date": "2026-02-06", "psi": 676}, {"date": "2026-02-13", "psi": 667}, {"date": "2026-02-20", "psi": 659}, {"date": "2026-02-27", "psi": 650}], "weeklyPsi": 8.5, "dailyPsi": 1.7, "reposDays": 44, "limitPsi": 97.36}, {"id": "g_co22p", "controlNo": "CO2-2p", "cylinderNo": "", "formula": "CO2/N2", "gasType": "Bioxido de Carbono/Nitrogeno", "concNominal": "2 %v", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C11", "position": 11, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO2-2p*", "readings": [{"date": "2026-02-01", "psi": 2888}, {"date": "2026-02-06", "psi": 2879}, {"date": "2026-02-13", "psi": 2869}, {"date": "2026-02-20", "psi": 2860}, {"date": "2026-02-27", "psi": 2850}], "weeklyPsi": 9.6, "dailyPsi": 1.9, "reposDays": 44, "limitPsi": 109.53}, {"id": "g_n2o05", "controlNo": "N2O-05", "cylinderNo": "", "formula": "N2O/N2", "gasType": "Oxido Nitroso/Nitrogeno", "concNominal": "0.5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C12", "position": 12, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*N2O-05*", "readings": [{"date": "2026-02-01", "psi": 1554}, {"date": "2026-02-06", "psi": 1553}, {"date": "2026-02-13", "psi": 1552}, {"date": "2026-02-20", "psi": 1551}, {"date": "2026-02-27", "psi": 1550}], "weeklyPsi": 1.1, "dailyPsi": 0.2, "reposDays": 44, "limitPsi": 12.17}, {"id": "g_n2o25", "controlNo": "N2O-25", "cylinderNo": "", "formula": "N2O/N2", "gasType": "Oxido Nitroso/Nitrogeno", "concNominal": "2.5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "D01", "position": 1, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*N2O-25*", "readings": [{"date": "2026-02-01", "psi": 1750}, {"date": "2026-02-06", "psi": 1750}, {"date": "2026-02-13", "psi": 1750}, {"date": "2026-02-20", "psi": 1750}, {"date": "2026-02-27", "psi": 1750}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_n2o5", "controlNo": "N2O-5", "cylinderNo": "", "formula": "N2O/N2", "gasType": "Oxido Nitroso/Nitrogeno", "concNominal": "5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "D02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*N2O-5*", "readings": [{"date": "2026-02-01", "psi": 1554}, {"date": "2026-02-06", "psi": 1553}, {"date": "2026-02-13", "psi": 1552}, {"date": "2026-02-20", "psi": 1551}, {"date": "2026-02-27", "psi": 1550}], "weeklyPsi": 1.1, "dailyPsi": 0.2, "reposDays": 21, "limitPsi": 5.81}, {"id": "g_n255", "controlNo": "N2-55", "cylinderNo": "", "formula": "N2", "gasType": "Nitrogeno 5.5", "concNominal": "99.9995%", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E01", "position": 1, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*N2-55*", "readings": [{"date": "2026-02-01", "psi": 3987}, {"date": "2026-02-06", "psi": 3941}, {"date": "2026-02-13", "psi": 3894}, {"date": "2026-02-20", "psi": 3847}, {"date": "2026-02-27", "psi": 3800}], "weeklyPsi": 46.8, "dailyPsi": 9.4, "reposDays": 21, "limitPsi": 255.57}, {"id": "g_n248", "controlNo": "N2-48", "cylinderNo": "", "formula": "N2", "gasType": "Nitrogeno 4.8", "concNominal": "99.998%", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*N2-48*", "readings": [{"date": "2026-02-01", "psi": 3825}, {"date": "2026-02-06", "psi": 3819}, {"date": "2026-02-13", "psi": 3813}, {"date": "2026-02-20", "psi": 3806}, {"date": "2026-02-27", "psi": 3800}], "weeklyPsi": 6.4, "dailyPsi": 1.3, "reposDays": 21, "limitPsi": 34.85}, {"id": "g_zeroair", "controlNo": "ZERO-AIR", "cylinderNo": "", "formula": "ZERO", "gasType": "Aire Cero Emision Vehicular", "concNominal": "AIR O2 rojo", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E03", "position": 3, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*ZERO-AIR*", "readings": [{"date": "2026-02-01", "psi": 4219}, {"date": "2026-02-06", "psi": 4190}, {"date": "2026-02-13", "psi": 4160}, {"date": "2026-02-20", "psi": 4130}, {"date": "2026-02-27", "psi": 4100}], "weeklyPsi": 29.8, "dailyPsi": 6.0, "reposDays": 21, "limitPsi": 162.64}, {"id": "g_zeron219", "controlNo": "ZERO-N2-19", "cylinderNo": "", "formula": "ZERO", "gasType": "Balance Nitrogeno con Impurezas", "concNominal": "O 19-12%", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E04", "position": 4, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*ZERO-N2-19*", "readings": [{"date": "2026-02-01", "psi": 3998}, {"date": "2026-02-06", "psi": 3974}, {"date": "2026-02-13", "psi": 3949}, {"date": "2026-02-20", "psi": 3925}, {"date": "2026-02-27", "psi": 3900}], "weeklyPsi": 24.5, "dailyPsi": 4.9, "reposDays": 44, "limitPsi": 279.91}, {"id": "g_o243", "controlNo": "O2-43", "cylinderNo": "", "formula": "O2/N2", "gasType": "Oxigeno Ultra Alta Pureza", "concNominal": "4.3", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E05", "position": 5, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*O2-43*", "readings": [{"date": "2026-02-01", "psi": 2468}, {"date": "2026-02-06", "psi": 2451}, {"date": "2026-02-13", "psi": 2434}, {"date": "2026-02-20", "psi": 2417}, {"date": "2026-02-27", "psi": 2400}], "weeklyPsi": 17.0, "dailyPsi": 3.4, "reposDays": 21, "limitPsi": 92.94}, {"id": "g_h2he", "controlNo": "H2-He", "cylinderNo": "", "formula": "H2/He", "gasType": "Mezcla FID Hidrogeno/Helio", "concNominal": "40%v", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E06", "position": 6, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*H2-He*", "readings": [{"date": "2026-02-01", "psi": 3944}, {"date": "2026-02-06", "psi": 3908}, {"date": "2026-02-13", "psi": 3872}, {"date": "2026-02-20", "psi": 3836}, {"date": "2026-02-27", "psi": 3800}], "weeklyPsi": 36.2, "dailyPsi": 7.2, "reposDays": 21, "limitPsi": 197.49}];
+        
     }
     if (!invState.fuelTanks || invState.fuelTanks.length === 0) {
         invState.fuelTanks = [{"id": "fuel_carblev3", "name": "CARB LEV III Regular", "fuelType": "Gasolina Referencia", "octane": "87 AKI", "supplier": "Haltermann Carless", "capacity": 400, "currentLevel": 315, "unit": "L", "regulation": "CARB LEV III", "readings": [{"date": "2026-02-20", "level": 315}], "regDate": "2026-01-01"}, {"id": "fuel_eurovi_prev", "name": "EURO VI (Orden Anterior)", "fuelType": "Gasolina Referencia", "octane": "95 RON", "supplier": "Haltermann Carless", "capacity": 400, "currentLevel": 379.5, "unit": "L", "regulation": "EURO VI", "readings": [{"date": "2026-02-20", "level": 379.5}], "regDate": "2025-10-01"}, {"id": "fuel_eurovi_act", "name": "EURO VI (Orden Actual)", "fuelType": "Gasolina Referencia", "octane": "95 RON", "supplier": "Haltermann Carless", "capacity": 400, "currentLevel": 400, "unit": "L", "regulation": "EURO VI", "readings": [{"date": "2026-02-20", "level": 400}], "regDate": "2026-02-01"}];
+        
     }
     if (invState.equipment.length === 0) {
         invState.equipment = [{"id": "eq_th0033", "name": "Termohigrometro HVAC", "type": "Thermometer/Humidity", "serialNo": "N/A", "kmmId": "TH-0033", "brand": "Kimo", "model": "TH210B0SP", "traceability": "EMA", "calLab": "METROLAB", "location": "HVAC Room", "magnitude": "Temperature/Humidity", "lastCalDate": "2025-02-21", "nextCalDate": "2026-02-21", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004301", "name": "Sensor Hum/Temp VETS 1", "type": "Humidity sensor", "serialNo": "W4754750", "kmmId": "TH-0043-01", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Hum y Temp", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004302", "name": "Barometro VETS 1", "type": "Barometer", "serialNo": "W3850023", "kmmId": "TH-0043-02", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Presion", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004303", "name": "Transmisor VETS 1", "type": "Barometer", "serialNo": "W4831243", "kmmId": "TH-0043-03", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Transmisor corriente", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004401", "name": "Sensor Hum/Temp VETS 2", "type": "Humidity sensor", "serialNo": "W4917201", "kmmId": "TH-0044-01", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Hum y Temp", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004402", "name": "Barometro VETS 2", "type": "Thermometer", "serialNo": "W3850033", "kmmId": "TH-0044-02", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Presion", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr018", "name": "Propane Injection CFO", "type": "Propane injection", "serialNo": "7005035500", "kmmId": "PR-018", "brand": "Horiba", "model": "5102514973", "traceability": "ANAB", "calLab": "Horiba USA", "location": "CFO", "magnitude": "Flux", "lastCalDate": "2024-05-31", "nextCalDate": "2025-05-31", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_ot0038", "name": "Gas Divider", "type": "Gas Divider", "serialNo": "S2001362117000020", "kmmId": "OT-0038", "brand": "Horiba", "model": "ONE", "traceability": "ANAB", "calLab": "Horiba USA", "location": "GDC", "magnitude": "Flux", "lastCalDate": "2024-11-19", "nextCalDate": "2025-11-19", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_bubbler", "name": "Heater Bubbler", "type": "Heater bubbler", "serialNo": "8001005048", "kmmId": "", "brand": "Horiba", "model": "Heated Bubler", "traceability": "NIST", "calLab": "Horiba USA", "location": "Emission Room", "magnitude": "", "lastCalDate": "2024-06-19", "nextCalDate": "2025-06-19", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th0036", "name": "Termopar RMT1", "type": "Thermocouple", "serialNo": "N/A", "kmmId": "TH-0036", "brand": "N/A", "model": "S1-8", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room RMT1", "magnitude": "Temperature", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr0017", "name": "Manometro RMT1", "type": "Pressure gauge", "serialNo": "N/A", "kmmId": "PR-0017", "brand": "ManoStar", "model": "WO801", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room RMT1", "magnitude": "Abs Pressure", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr0016", "name": "Manometro CVS Out", "type": "Pressure gauge", "serialNo": "N/A", "kmmId": "PR-0016", "brand": "ManoStar", "model": "WO81", "traceability": "EMA", "calLab": "CIDESI", "location": "CVS", "magnitude": "Abs Pressure", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_dw", "name": "Dinamometro Dead Weight", "type": "Dead Weight", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE4200-002", "traceability": "T-EMA", "calLab": "Emissions Lab", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-03-01", "nextCalDate": "2026-03-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_roller_f", "name": "Dyno Roller Diameter Front", "type": "Roller diameter", "serialNo": "-", "kmmId": "OT-0032", "brand": "A&G", "model": "CDE 4200-002 Front", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room Dyno", "magnitude": "Dimensional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_roller_r", "name": "Dyno Roller Diameter Rear", "type": "Roller diameter", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE 4200-002 Rear", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room Dyno", "magnitude": "Dimensional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_arm", "name": "Dyno Arm", "type": "Arm", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE4200-002", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Dimensional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_speed_f", "name": "Dyno Angular Speed Front", "type": "Angular speed", "serialNo": "-", "kmmId": "OT-0037", "brand": "A&G", "model": "CDE 4200-002 Front", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Tachometer", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_torque_f", "name": "Dyno Torque Front", "type": "Torque", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE 4200-002 Front", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Torque", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_torque_r", "name": "Dyno Torque Rear", "type": "Torque", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE 4200-002 Rear", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Torque", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th0020", "name": "Termometro FLUKE Lab", "type": "Thermometer", "serialNo": "30850092WS", "kmmId": "TH-0020", "brand": "FLUKE", "model": "52 II", "traceability": "EMA", "calLab": "CIDESI", "location": "Control Room", "magnitude": "Electrical", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr0002", "name": "Manometro Inspeccion", "type": "Pressure gauge", "serialNo": "PS 055 497", "kmmId": "PR-0002", "brand": "GRIPPER", "model": "SA-1U1A1E1J2", "traceability": "EMA", "calLab": "CIDESI", "location": "Inspection Room", "magnitude": "Pressure", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_01", "name": "Dyno Mass 1", "type": "Mass", "serialNo": "1", "kmmId": "WE-0016-01", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_02", "name": "Dyno Mass 2", "type": "Mass", "serialNo": "2", "kmmId": "WE-0016-02", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_03", "name": "Dyno Mass 3", "type": "Mass", "serialNo": "3", "kmmId": "WE-0016-03", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_04", "name": "Dyno Mass 4", "type": "Mass", "serialNo": "4", "kmmId": "WE-0016-04", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_05", "name": "Dyno Mass 5", "type": "Mass", "serialNo": "5", "kmmId": "WE-0016-05", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_06", "name": "Dyno Mass 6", "type": "Mass", "serialNo": "6", "kmmId": "WE-0016-06", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_07", "name": "Dyno Mass 7", "type": "Mass", "serialNo": "7", "kmmId": "WE-0016-07", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_08", "name": "Dyno Mass 8", "type": "Mass", "serialNo": "8", "kmmId": "WE-0016-08", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_09", "name": "Dyno Mass 9", "type": "Mass", "serialNo": "9", "kmmId": "WE-0016-09", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_10", "name": "Dyno Mass 10", "type": "Mass", "serialNo": "10", "kmmId": "WE-0016-10", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}];
+        
     }
     invSave();
 }
@@ -12260,19 +12357,20 @@ function invMapQuickReadSave(gasId) {
 
     // Check for duplicate reading on same date
     var existing = gas.readings.find(function(r) { return r.date === date; });
-    if (existing) {
-        if (!confirm('Ya existe lectura del ' + date + ' (' + existing.psi + ' psi). Reemplazar?')) return;
-        existing.psi = psi;
-    } else {
-        gas.readings.push({ date: date, psi: psi });
+
+    function _doSaveMapRead() {
+        if (existing) { existing.psi = psi; } else { gas.readings.push({ date: date, psi: psi }); }
+        invSave();
+        if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
+        showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi', 'success');
+        invShowTimeline(gasId);
     }
 
-    invSave();
-    if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
-    showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi', 'success');
-
-    // Refresh modal to show updated readings
-    invShowTimeline(gasId);
+    if (existing) {
+        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe lectura del ' + date + ' (' + existing.psi + ' psi). Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveMapRead(); });
+    } else {
+        _doSaveMapRead();
+    }
 }
 
 function invShowZone(zoneId) {
@@ -12440,6 +12538,7 @@ function invScanStart() {
             // Silence continuous scan misses
         }
     ).catch(function(err) {
+        
         var statusEl = document.getElementById('inv-scan-status');
         if (statusEl) statusEl.textContent = 'Error de camara: ' + (err.message || err);
         var area = document.getElementById('inv-scan-area');
@@ -12586,19 +12685,21 @@ function invQuickReadSave(gasId) {
 
     // Check for duplicate reading on same date
     var existingToday = gas.readings.find(function(r) { return r.date === date; });
-    if (existingToday) {
-        if (!confirm('Ya existe una lectura del ' + date + ' (' + existingToday.psi + ' psi). ¿Reemplazar?')) return;
-        existingToday.psi = psi;
-    } else {
-        gas.readings.push({ date: date, psi: psi });
+
+    function _doSaveQuickRead() {
+        if (existingToday) { existingToday.psi = psi; } else { gas.readings.push({ date: date, psi: psi }); }
+        invSave();
+        invRender();
+        if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
+        showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi guardado', 'success');
+        document.getElementById('invModal').style.display = 'none';
     }
 
-    invSave();
-    invRender();
-    if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
-    showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi guardado', 'success');
-
-    document.getElementById('invModal').style.display = 'none';
+    if (existingToday) {
+        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe una lectura del ' + date + ' (' + existingToday.psi + ' psi). ¿Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveQuickRead(); });
+    } else {
+        _doSaveQuickRead();
+    }
 }
 
 // ══════════════════════════════════════════════════
@@ -14040,9 +14141,11 @@ function invDeleteZone(idx) {
     var z = invState.zones[idx]; if (!z) return;
     var occupied = invState.gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); }).length;
     if (occupied > 0) { showToast('Zona ' + z.id + ' tiene ' + occupied + ' cilindros. Reubícalos primero.', 'warning'); return; }
-    if (!confirm('Eliminar zona ' + z.id + '?')) return;
-    invState.zones.splice(idx, 1);
-    invSave(); invRender();
+    showConfirmDialog({ title: '⚠️ Eliminar zona', message: 'Eliminar zona ' + z.id + '?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        invState.zones.splice(idx, 1);
+        invSave(); invRender();
+    });
 }
 
 function invAddGasType() {
@@ -14099,9 +14202,11 @@ function invSaveGasTypeModal(idx) {
 }
 
 function invDeleteGasType(idx) {
-    if (!confirm('Eliminar tipo ' + invState.gasTypes[idx].name + '?')) return;
-    invState.gasTypes.splice(idx, 1);
-    invSave(); invRender();
+    showConfirmDialog({ title: '⚠️ Eliminar tipo', message: 'Eliminar tipo ' + invState.gasTypes[idx].name + '?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        invState.gasTypes.splice(idx, 1);
+        invSave(); invRender();
+    });
 }
 
 
@@ -14931,6 +15036,14 @@ function _invRoundSparkline(data) {
 var _tpDebouncedDashRender = debounce(tpRenderDashTable, 250);
 var _tpDebouncedRender = debounce(tpRender, 250);
 
+// ── [Fase 2.4] Memoization cache for expensive TP calculations ──
+var _tpCache = { planHash: null, families: null, analysis: null };
+function _tpInvalidateCache() { _tpCache.planHash = null; }
+function _tpGetPlanHash() {
+    if (!tpState || !tpState.planData) return '';
+    return tpState.planData.length + '_' + tpState.testedList.length + '_' + (tpState._lastSave || 0);
+}
+
 // ======================================================================
 // WEEKLY PLAN HELPERS
 // ======================================================================
@@ -14943,9 +15056,11 @@ function tpAddManualPick() {
     tpRender();
 }
 function tpRemoveWeeklyItem(wk, idx) {
-    if (!confirm('¿Quitar del plan?')) return;
-    tpState.weeklyPlans[wk].items.splice(idx, 1);
-    tpSave(); tpRender();
+    showConfirmDialog({ title: '⚠️ Quitar del plan', message: '¿Quitar del plan?', type: 'warning', confirmText: 'Sí', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        tpState.weeklyPlans[wk].items.splice(idx, 1);
+        tpSave(); tpRender();
+    });
 }
 function tpAddToWeek(wk) {
     const sel = document.getElementById('tp-edit-add-' + wk);
@@ -15178,7 +15293,7 @@ let tpState = safeParse(TP_LS_KEY, null) || {
 // Ensure weekHistory exists for existing localStorage data
 if (!tpState.weekHistory) tpState.weekHistory = [];
 
-function tpSave() { localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); }
+function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); }
 
 // ── [Fase 5.3] Compact old completed plans (older than 6 months) ──
 function tpCompactOldPlans() {
@@ -15259,6 +15374,7 @@ function tpLoadPlanFromCSV_CONFIGURATIONS() {
     // The real plan gets loaded via CSV import
     // We check if there's already saved plan data
     if (tpState.planData.length > 0) return;
+    
 }
 
 // ── Auto-feed from COP15 releases ──
@@ -15276,6 +15392,7 @@ function tpAutoFeedFromRelease(vehicle) {
     tpState.testedList.push(entry);
     tpSave();
     tpUpdateBadges();
+    
 }
 
 // ── CSV Import ──
@@ -16384,20 +16501,24 @@ function tpSaveRulePreset() {
 
 function tpLoadRulePreset(idx) {
     if (!tpState.rulePresets || !tpState.rulePresets[idx]) return;
-    if (!confirm('¿Cargar plantilla "' + tpState.rulePresets[idx].name + '"? Esto reemplazara las reglas actuales.')) return;
-    var preset = tpState.rulePresets[idx];
-    tpState.rules = JSON.parse(JSON.stringify(preset.rules));
-    tpState.weights = JSON.parse(JSON.stringify(preset.weights));
-    tpSave(); tpRender(); tpInvalidateCache();
-    showToast('Plantilla "' + preset.name + '" cargada', 'success');
+    showConfirmDialog({ title: '⚠️ Cargar plantilla', message: '¿Cargar plantilla "' + tpState.rulePresets[idx].name + '"? Esto reemplazara las reglas actuales.', type: 'warning', confirmText: 'Cargar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        var preset = tpState.rulePresets[idx];
+        tpState.rules = JSON.parse(JSON.stringify(preset.rules));
+        tpState.weights = JSON.parse(JSON.stringify(preset.weights));
+        tpSave(); tpRender(); tpInvalidateCache();
+        showToast('Plantilla "' + preset.name + '" cargada', 'success');
+    });
 }
 
 function tpDeleteRulePreset(idx) {
     if (!tpState.rulePresets || !tpState.rulePresets[idx]) return;
-    if (!confirm('¿Eliminar plantilla "' + tpState.rulePresets[idx].name + '"?')) return;
-    tpState.rulePresets.splice(idx, 1);
-    tpSave(); tpRender();
-    showToast('Plantilla eliminada', 'success');
+    showConfirmDialog({ title: '⚠️ Eliminar plantilla', message: '¿Eliminar plantilla "' + tpState.rulePresets[idx].name + '"?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        tpState.rulePresets.splice(idx, 1);
+        tpSave(); tpRender();
+        showToast('Plantilla eliminada', 'success');
+    });
 }
 
 
@@ -17005,6 +17126,7 @@ function tpAutoMarkWeeklyCompletion(configText) {
                 item.completed = true;
                 item.completedDate = new Date().toISOString().slice(0,10);
                 tpSave();
+                
                 return true;
             }
         }
@@ -17110,6 +17232,7 @@ function tpSubstituteItem(planIdx, itemIdx, testedConfigCode, testedVin, diffs) 
     };
 
     tpSave();
+    
     return true;
 }
 
@@ -17358,6 +17481,9 @@ function tpRenderAlertsBanner() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function tpBuildFamilies() {
+    var h = _tpGetPlanHash();
+    if (_tpCache.planHash === h && _tpCache.families !== null) return _tpCache.families;
+    _tpCache.planHash = h;
     const families = {};
     tpState.planData.forEach(cfg => {
         const key = `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${cfg.rgn}|${cfg.drv}|${cfg.body}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}`;
@@ -17401,7 +17527,8 @@ function tpBuildFamilies() {
         f.riskLevel = f.riskScore > 60 ? 'high' : f.riskScore > 30 ? 'medium' : 'low';
     });
 
-    return Object.values(families);
+    _tpCache.families = Object.values(families);
+    return _tpCache.families;
 }
 
 function tpRenderFamilies(el) {
@@ -17982,29 +18109,31 @@ function tpRenderAltaSuggestionPanel(configText) {
 // ═══ CROSS-MODULE NAVIGATION ═══
 // Navigate from Test Plan to Results Analyzer Detail tab
 function tpGoToRADetail(testId) {
-    if (!confirm('¿Deseas ver el detalle de esta prueba en Results Analyzer?')) return;
-    // Store return context so RA can offer a back button
-    window._tpReturnContext = {
-        tab: tpState.activeTab,
-        scroll: window.scrollY
-    };
-    // Set up RA to show this test
-    window._raDetailId = testId;
-    if (typeof raState !== 'undefined') {
-        raState.activeTab = 'ra-detail';
-    }
-    // Switch to Results Analyzer module
-    switchPlatform('results');
-    // Render RA with the detail tab
-    setTimeout(function() {
-        if (typeof raRender === 'function') raRender();
-        // Activate the detail tab button
-        document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
-        var tabs = document.querySelectorAll('#ra-tabs-bar .tp-tab');
-        for (var i = 0; i < tabs.length; i++) {
-            if (tabs[i].textContent.includes('Detalle')) { tabs[i].classList.add('active'); break; }
+    showConfirmDialog({ title: '📊 Navegar a Results Analyzer', message: '¿Deseas ver el detalle de esta prueba en Results Analyzer?', type: 'info', confirmText: 'Ir', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        // Store return context so RA can offer a back button
+        window._tpReturnContext = {
+            tab: tpState.activeTab,
+            scroll: window.scrollY
+        };
+        // Set up RA to show this test
+        window._raDetailId = testId;
+        if (typeof raState !== 'undefined') {
+            raState.activeTab = 'ra-detail';
         }
-    }, 100);
+        // Switch to Results Analyzer module
+        switchPlatform('results');
+        // Render RA with the detail tab
+        setTimeout(function() {
+            if (typeof raRender === 'function') raRender();
+            // Activate the detail tab button
+            document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
+            var tabs = document.querySelectorAll('#ra-tabs-bar .tp-tab');
+            for (var i = 0; i < tabs.length; i++) {
+                if (tabs[i].textContent.includes('Detalle')) { tabs[i].classList.add('active'); break; }
+            }
+        }, 100);
+    });
 }
 
 // Return from RA back to Test Plan at previous position
@@ -18160,6 +18289,24 @@ function tpHookCascadeResult() {
 
 // ── [Fase 2.1] Debounced render wrapper for search/filter inputs ──
 var _raDebouncedRender = debounce(raRender, 250);
+
+// ── [Fase 2.4] Memoization cache for expensive statistical calculations ──
+var _raStatsCache = { hash: null, outliers: null, cpk: null, groups: null };
+function _raInvalidateCache() { _raStatsCache.hash = null; }
+function _raGetCacheHash() {
+    if (!raState || !raState.tests) return '';
+    return raState.tests.length + '_' + (raState.tests.length > 0 ? (raState.tests[raState.tests.length-1].id || '') : '') + '_' + (raState._lastSave || 0);
+}
+function _raCachedStats(key, computeFn) {
+    var h = _raGetCacheHash();
+    if (_raStatsCache.hash !== h) {
+        _raStatsCache = { hash: h, outliers: null, cpk: null, groups: null };
+    }
+    if (_raStatsCache[key] === null) {
+        _raStatsCache[key] = computeFn();
+    }
+    return _raStatsCache[key];
+}
 
 function raSearchReset() {
     window._raSearchVin = '';
@@ -18401,11 +18548,14 @@ if (raState.profiles.length === 0) {
 }
 
 function raSave(){
+    _raInvalidateCache();
+    raState._lastSave = Date.now();
     try {
         localStorage.setItem(RA_LS_KEY, JSON.stringify(raState));
     } catch(e) {
         if (e.name === 'QuotaExceededError' || e.code === 22) {
             // localStorage full — try saving without cycleData/sampleData to reduce size
+            
             try {
                 const compact = JSON.parse(JSON.stringify(raState));
                 compact.tests = compact.tests.map(function(t) {
@@ -18417,6 +18567,7 @@ function raSave(){
                     return c;
                 });
                 localStorage.setItem(RA_LS_KEY, JSON.stringify(compact));
+                
             } catch(e2) {
                 showToast('localStorage lleno. Exporta datos y borra para liberar espacio.', 'error');
             }
@@ -18579,6 +18730,9 @@ function raGetProfile(test){
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function raGetOutlierBanner() {
+    return _raCachedStats('outlierBanner', _raComputeOutlierBanner);
+}
+function _raComputeOutlierBanner() {
     if (raState.tests.length < 5) return '';
     var metricKeys = ['BagCO','BagNOX','BagTHC','BagNMHC','BagCO2'];
     var recentTests = raState.tests.slice(-10);
@@ -18695,7 +18849,7 @@ function raRenderDashboard(el){
         <div class="tp-card-title"><span>📈 Tendencia de Cumplimiento por Regulacion</span></div>
         ${raBuildComplianceTrendHTML()}
     </div>`;
-    } catch(e) { el.innerHTML='<div class="tp-card" style="padding:20px;color:var(--tp-red);">Error renderizando dashboard: '+e.message+'</div>'; console.error('RA Dashboard error:',e); }
+    } catch(e) { el.innerHTML='<div class="tp-card" style="padding:20px;color:var(--tp-red);">Error renderizando dashboard: '+e.message+'</div>';  }
 }
 
 function raBuildComplianceTrendHTML() {
@@ -18909,7 +19063,7 @@ async function raBatchImport(){
         }catch(e){
             errors++;
             if(errMsgs.length<5) errMsgs.push(dir.slice(0,40) + ': ' + e.message);
-            console.error('RA err:',dir,e);
+            
         }
     }
     
@@ -19921,15 +20075,16 @@ function raFilterBulkDelete() {
         return;
     }
     var msg = 'Se eliminaran ' + matched.length + ' pruebas de ' + raState.tests.length + ' totales.\n\nEsta accion NO se puede deshacer.\n\n¿Continuar?';
-    if (!confirm(msg)) return;
-
-    var idsToDelete = {};
-    matched.forEach(function(t) { idsToDelete[t.id] = true; });
-    raState.tests = raState.tests.filter(function(t) { return !idsToDelete[t.id]; });
-    raSave();
-    raUpdateBadges();
-    showToast(matched.length + ' pruebas eliminadas', 'success');
-    raRender();
+    showConfirmDialog({ title: '⚠️ Eliminar pruebas', message: msg, type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        var idsToDelete = {};
+        matched.forEach(function(t) { idsToDelete[t.id] = true; });
+        raState.tests = raState.tests.filter(function(t) { return !idsToDelete[t.id]; });
+        raSave();
+        raUpdateBadges();
+        showToast(matched.length + ' pruebas eliminadas', 'success');
+        raRender();
+    });
 }
 
 function raRenderFilter(el) {
@@ -21072,12 +21227,14 @@ function pnToggleOperator(idx) {
 function pnRemoveOperator(idx) {
     var op = pnState.operators[idx];
     if (!op) return;
-    if (!confirm('¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.')) return;
-    pnState.operators.splice(idx, 1);
-    pnSave();
-    pnSyncOperators();
-    pnRender();
-    showToast('Operador eliminado', 'info');
+    showConfirmDialog({ title: '⚠️ Eliminar operador', message: '¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        pnState.operators.splice(idx, 1);
+        pnSave();
+        pnSyncOperators();
+        pnRender();
+        showToast('Operador eliminado', 'info');
+    });
 }
 
 function pnHashPin(pin) {
@@ -21282,10 +21439,12 @@ function pnAddShiftEntry() {
 }
 
 function pnDeleteShiftEntry(id) {
-    if (!confirm('¿Eliminar esta entrada?')) return;
-    pnState.shiftLog = pnState.shiftLog.filter(function(s) { return s.id !== id; });
-    pnSave();
-    pnRender();
+    showConfirmDialog({ title: '⚠️ Eliminar entrada', message: '¿Eliminar esta entrada?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        pnState.shiftLog = pnState.shiftLog.filter(function(s) { return s.id !== id; });
+        pnSave();
+        pnRender();
+    });
 }
 
 function pnExportShiftLog() {
@@ -22966,6 +23125,7 @@ function sopImageDBOpen(callback) {
         if (callback) callback(_sopImageDB);
     };
     request.onerror = function(e) {
+        
         sopState.imageDBReady = false;
     };
 }
@@ -23209,6 +23369,7 @@ function sopInit() {
             sopState.activeTemplateEmissions = parsed.activeTemplateEmissions || null;
             sopState.activeTemplateSimple = parsed.activeTemplateSimple || null;
         } catch(e) {
+            
         }
     }
     sopImageDBOpen();
@@ -23226,6 +23387,7 @@ function sopSave() {
             activeTemplateSimple: sopState.activeTemplateSimple
         }));
     } catch(e) {
+        
     }
 }
 
@@ -24898,13 +25060,15 @@ function authCreateSession(op) {
 }
 
 function authSignOut() {
-    if (!confirm('¿Cerrar sesion?')) return;
-    localStorage.removeItem(AUTH_LS_KEY);
-    authState.currentUser = null;
-    authState.sessionActive = false;
-    authState.sessionExpiry = null;
-    authShowLogin();
-    showToast('Sesion cerrada', 'info');
+    showConfirmDialog({ title: '🔒 Cerrar sesión', message: '¿Cerrar sesion?', type: 'warning', confirmText: 'Cerrar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        localStorage.removeItem(AUTH_LS_KEY);
+        authState.currentUser = null;
+        authState.sessionActive = false;
+        authState.sessionExpiry = null;
+        authShowLogin();
+        showToast('Sesion cerrada', 'info');
+    });
 }
 
 function authGetCurrentUser() {
@@ -24973,9 +25137,10 @@ function authOfferBiometricRegistration(operatorId) {
     if (!user) return;
 
     // Ask user if they want to register biometric
-    if (!confirm('¿Quieres registrar tu huella digital / Face ID para acceso rapido?\n\n(Puedes usar la huella en vez del PIN la proxima vez)')) return;
-
-    authRegisterBiometric(operatorId);
+    showConfirmDialog({ title: '🔐 Registro biométrico', message: '¿Quieres registrar tu huella digital / Face ID para acceso rapido?\n\n(Puedes usar la huella en vez del PIN la proxima vez)', type: 'info', confirmText: 'Registrar', cancelText: 'No, gracias' }).then(function(ok) {
+        if (!ok) return;
+        authRegisterBiometric(operatorId);
+    });
 }
 
 function authRegisterBiometric(operatorId) {
@@ -25023,6 +25188,7 @@ function authRegisterBiometric(operatorId) {
         localStorage.setItem(AUTH_WEBAUTHN_LS, JSON.stringify(creds));
         showToast('Huella digital registrada exitosamente', 'success');
     }).catch(function(err) {
+        
         showToast('No se pudo registrar la huella: ' + err.message, 'error');
     });
 }
@@ -25061,6 +25227,7 @@ function authVerifyBiometric() {
         // Biometric verified — create session
         authCreateSession(op);
     }).catch(function(err) {
+        
         var errEl = document.getElementById('auth-pin-error');
         if (errEl) errEl.textContent = 'Verificacion biometrica fallida. Usa tu PIN.';
     });
@@ -25080,6 +25247,7 @@ function authFirebaseSignIn() {
     // and poison the Firebase SDK internal state, causing Firestore operations to hang too
     var proto = location.protocol;
     if (proto !== 'http:' && proto !== 'https:') {
+        
         return;
     }
 
@@ -25088,9 +25256,12 @@ function authFirebaseSignIn() {
         if (auth.currentUser) return; // Already signed in
 
         auth.signInAnonymously().then(function() {
+            
         }).catch(function(err) {
+            
         });
     } catch(e) {
+        
     }
 }
 
@@ -25136,9 +25307,13 @@ function fbToggleSyncModule(key, enabled) {
         if (dep && dep.requires) {
             var missing = dep.requires.filter(function(r) { return !fbSyncModules[r]; });
             if (missing.length > 0) {
-                if (confirm(dep.warn + '\n\n¿Activar tambien ' + missing.join(', ') + '?')) {
-                    missing.forEach(function(m) { fbSyncModules[m] = true; });
-                }
+                showConfirmDialog({ title: '🔗 Dependencias', message: dep.warn + '\n\n¿Activar tambien ' + missing.join(', ') + '?', type: 'info', confirmText: 'Activar', cancelText: 'No' }).then(function(ok) {
+                    if (ok) { missing.forEach(function(m) { fbSyncModules[m] = true; }); }
+                    fbSyncModules[key] = true;
+                    fbSaveSyncModules();
+                    fbShowSettings();
+                });
+                return;
             }
         }
         fbSyncModules[key] = true;
@@ -25149,9 +25324,13 @@ function fbToggleSyncModule(key, enabled) {
             return d.requires && d.requires.indexOf(key) !== -1 && fbSyncModules[k];
         });
         if (dependents.length > 0) {
-            if (!confirm('Los modulos ' + dependents.join(', ') + ' dependen de ' + key + '.\n\n¿Desactivar de todos modos?')) {
-                return; // Don't toggle
-            }
+            showConfirmDialog({ title: '⚠️ Dependencias', message: 'Los modulos ' + dependents.join(', ') + ' dependen de ' + key + '.\n\n¿Desactivar de todos modos?', type: 'warning', confirmText: 'Desactivar', cancelText: 'Cancelar' }).then(function(ok) {
+                if (!ok) return;
+                fbSyncModules[key] = false;
+                fbSaveSyncModules();
+                fbShowSettings();
+            });
+            return;
         }
         fbSyncModules[key] = false;
     }
@@ -25168,7 +25347,7 @@ function fbQueueLoad() {
 }
 function fbQueueSave() {
     try { localStorage.setItem(FB_QUEUE_LS_KEY, JSON.stringify(fbOfflineQueue)); }
-    catch(e) { console.warn('FB Queue: localStorage full'); }
+    catch(e) {  }
 }
 // Priority levels: 1=critical, 2=normal, 3=low
 var FB_PRIORITY_MAP = {
@@ -25437,6 +25616,7 @@ function fbInit() {
                 // On content:// or file:// origins, WebSocket/WebChannel hangs.
                 // Force HTTP long polling — skips WebSocket entirely.
                 fsSettings.experimentalForceLongPolling = true;
+                
             } else {
                 // On http/https, auto-detect WebSocket vs long polling
                 fsSettings.experimentalAutoDetectLongPolling = true;
@@ -25444,6 +25624,7 @@ function fbInit() {
             fbSync.db.settings(fsSettings);
         } catch(settingsErr) {
             // Settings may fail if already applied — safe to ignore
+            
         }
 
         fbSync.stationId = localStorage.getItem('kia_fb_station') || '';
@@ -25452,6 +25633,7 @@ function fbInit() {
         fbSync.lastError = '';
         fbUpdateIndicator();
 
+        
 
         // Chain: persistence → anonymous auth → connection test
         // Skip persistence on non-http origins (content://, file://) where IndexedDB may not work
@@ -25460,8 +25642,11 @@ function fbInit() {
             fbSync._persistenceAttempted = true;
             persistencePromise = fbSync.db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
                 if (err.code === 'failed-precondition') {
+                    
                 } else if (err.code === 'unimplemented') {
+                    
                 } else {
+                    
                 }
             });
         } else {
@@ -25476,6 +25661,7 @@ function fbInit() {
             if (FB_IS_HTTP_ORIGIN) {
                 return fbAnonymousAuth();
             }
+            
             return Promise.resolve();
         }).then(function() {
             fbSync._initialized = true;
@@ -25493,7 +25679,7 @@ function fbInit() {
                 }
             });
         }).catch(function(chainErr) {
-            console.error('Firebase init chain error:', chainErr);
+            
             fbSync._initialized = true;
             fbSync.status = 'error';
             fbSync.lastError = 'Error en inicializacion: ' + (chainErr.message || chainErr);
@@ -25501,7 +25687,7 @@ function fbInit() {
         });
 
     } catch (err) {
-        console.error('Firebase Sync: Init error', err);
+        
         fbSync.status = 'error';
         fbSync.lastError = 'Error al inicializar: ' + err.message;
         fbUpdateIndicator();
@@ -25513,6 +25699,7 @@ function fbAnonymousAuth() {
     // Skip auth on non-HTTP origins — signInAnonymously() uses HTTP requests
     // that may hang on content:// or file:// protocols, poisoning SDK state
     if (!FB_IS_HTTP_ORIGIN) {
+        
         return Promise.resolve();
     }
 
@@ -25523,16 +25710,20 @@ function fbAnonymousAuth() {
         }
         // Race against a timeout — auth should not block initialization
         var authPromise = auth.signInAnonymously().then(function() {
+            
         }).catch(function(err) {
             // Auth might not be enabled — that's OK if rules use "if true"
+            
         });
         var timeoutPromise = new Promise(function(resolve) {
             setTimeout(function() {
+                
                 resolve();
             }, 10000);
         });
         return Promise.race([authPromise, timeoutPromise]);
     } catch(e) {
+        
         return Promise.resolve(); // Continue without auth
     }
 }
@@ -25543,6 +25734,7 @@ function fbTestConnectionWithRetry(retriesLeft, callback) {
         if (ok) {
             if (callback) callback(true);
         } else if (retriesLeft > 0) {
+            
             setTimeout(function() {
                 fbTestConnectionWithRetry(retriesLeft - 1, callback);
             }, 3000);
@@ -25569,12 +25761,14 @@ function fbTestConnection(callback) {
     var timeout = setTimeout(function() {
         if (done) return;
         sdkTimedOut = true;
+        
         fbTestConnectionREST(function(restOk) {
             if (done) return;
             done = true;
             if (restOk) {
                 // REST works but SDK doesn't — SDK transport is broken
                 fbSync._useREST = true;
+                
                 if (callback) callback(true);
             } else {
                 fbSync.status = 'error';
@@ -25595,7 +25789,7 @@ function fbTestConnection(callback) {
         if (done || sdkTimedOut) return;
         done = true;
         clearTimeout(timeout);
-        console.error('Firebase connection test failed:', err);
+        
         fbSync.status = 'error';
 
         if (err.code === 'permission-denied') {
@@ -25629,10 +25823,11 @@ function fbTestConnectionREST(callback) {
         clearTimeout(restTimeout);
         // 200 = found, 404 = not found (but server responded), 403 = rules block
         // All mean the server IS reachable
+        
         callback(true);
     }).catch(function(err) {
         clearTimeout(restTimeout);
-        console.error('Firebase REST API test failed:', err);
+        
         callback(false);
     });
 }
@@ -25710,7 +25905,7 @@ function fbPullREST(collection, onDone) {
             if (onDone) onDone(null);
         }
     }).catch(function(err) {
-        console.error('REST pull error (' + collection + '):', err);
+        
         if (onDone) onDone(null);
     });
 }
@@ -25835,10 +26030,10 @@ function fbUpdateStationMeta() {
                     lastPush: { stringValue: meta.lastPush },
                     userAgent: { stringValue: meta.userAgent }
                 }})
-            }).catch(function(e) { console.warn('Station meta REST error:', e); });
+            }).catch(function(e) {  });
         } else if (fbSync.db) {
             fbSync.db.collection('stations').doc(fbSync.stationId).set(meta, { merge: true })
-                .catch(function(e) { console.warn('Station meta write error:', e); });
+                .catch(function(e) {  });
         }
     }, 3000);
 }
@@ -25851,6 +26046,7 @@ function fbPush(collection, data, onDone) {
     // Rate limit check
     var quota = fbQuotaCheck('write');
     if (!quota.allowed) {
+        
         fbQueueAdd(collection, data);
         if (onDone) onDone(false, quota.reason);
         return;
@@ -25859,6 +26055,7 @@ function fbPush(collection, data, onDone) {
     // Payload size check
     var sizeCheck = fbQuotaCheckSize(data);
     if (!sizeCheck.allowed) {
+        
         showToast(sizeCheck.reason, 'error');
         if (onDone) onDone(false, sizeCheck.reason);
         return;
@@ -25901,7 +26098,7 @@ function fbPush(collection, data, onDone) {
             fbUpdateStationMeta();
             if (onDone) onDone(true);
         }).catch(function(err) {
-            console.error('Firebase push error (' + collection + '):', err);
+            
             fbSync.status = 'error';
             fbSync.lastError = 'Error al subir ' + collection + ': ' + (err.code === 'permission-denied' ? 'Acceso denegado (Security Rules)' : err.message);
             fbUpdateIndicator();
@@ -25981,7 +26178,7 @@ function fbPullAll(showFeedback) {
         });
         fbPullApply(collections, results, showFeedback);
     }).catch(function(err) {
-        console.error('Firebase pull error:', err);
+        
         fbSync.status = 'error';
         fbSync.lastError = err.code === 'permission-denied' ? 'Acceso denegado. Revisa las Security Rules.' : 'Error al descargar: ' + (err.message || err.code);
         fbUpdateIndicator();
@@ -26181,13 +26378,13 @@ function fbShowSettings() {
         '<div style="font-size:10px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Cola Offline: ' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</div>' +
         '<div style="font-size:9px;color:#64748b;margin-bottom:6px;">Operaciones que fallaron se reintentaran automaticamente.</div>' +
         '<button onclick="fbQueueRetry();setTimeout(fbShowSettings,1000);" style="padding:6px 12px;background:#f59e0b;color:#000;border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;">Reintentar ahora</button>' +
-        '<button onclick="if(confirm(\x27Vaciar cola offline?\x27)){fbOfflineQueue=[];fbQueueSave();fbUpdateIndicator();fbShowSettings();}" style="padding:6px 12px;background:#334155;color:#e2e8f0;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:6px;">Vaciar cola</button>' +
+        '<button onclick="showConfirmDialog({title:\x27⚠️ Vaciar cola\x27,message:\x27Vaciar cola offline?\x27,type:\x27warning\x27,confirmText:\x27Vaciar\x27,cancelText:\x27Cancelar\x27}).then(function(ok){if(ok){fbOfflineQueue=[];fbQueueSave();fbUpdateIndicator();fbShowSettings();}});" style="padding:6px 12px;background:#334155;color:#e2e8f0;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:6px;">Vaciar cola</button>' +
         '</div>' : '') +
 
         // Sync actions
         (fbSync.enabled && fbSync.status !== 'error' ? '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
         '<button onclick="fbPushAll(true)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Subir todo a nube</button>' +
-        '<button onclick="if(confirm(\x27Esto reemplazara datos locales con los de la nube. Continuar?\x27)){fbPullAll(true);}" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Descargar de nube</button>' +
+        '<button onclick="showConfirmDialog({title:\x27⚠️ Descargar de nube\x27,message:\x27Esto reemplazara datos locales con los de la nube. Continuar?\x27,type:\x27danger\x27,confirmText:\x27Descargar\x27,cancelText:\x27Cancelar\x27}).then(function(ok){if(ok){fbPullAll(true);}});" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Descargar de nube</button>' +
         '</div>' : '') +
 
         // ═══ BACKUP SECTION ═══
@@ -26264,7 +26461,7 @@ function fbMergeListStations(callback) {
             });
             callback(stations);
         }).catch(function(err) {
-            console.error('REST list stations error:', err);
+            
             showToast('Error listando estaciones: ' + err.message, 'error');
             callback([]);
         });
@@ -26285,7 +26482,7 @@ function fbMergeListStations(callback) {
         });
         callback(stations);
     }).catch(function(err) {
-        console.error('Error listing stations:', err);
+        
         showToast('Error listando estaciones: ' + err.message, 'error');
         callback([]);
     });
@@ -26320,6 +26517,7 @@ function fbMergeLoadStation(stationId, callback) {
                     data[col] = null;
                 }
             }).catch(function(err) {
+                
                 data[col] = null;
             }).then(function() {
                 restPending--;
@@ -26345,7 +26543,7 @@ function fbMergeLoadStation(stationId, callback) {
         });
         callback(data);
     }).catch(function(err) {
-        console.error('Error loading station ' + stationId + ':', err);
+        
         showToast('Error cargando estacion: ' + err.message, 'error');
         callback(null);
     });
@@ -26717,39 +26915,41 @@ function fbMergeUndo() {
     if (hist.length === 0) { showToast('No hay fusiones para deshacer', 'info'); return; }
 
     var last = hist[hist.length - 1];
-    if (!confirm('Deshacer fusion del ' + new Date(last.timestamp).toLocaleString('es-MX') + '?\n\nAcciones: ' + last.actions.join(', ') + '\n\nSe restauraran los datos previos a la fusion.')) return;
+    showConfirmDialog({ title: '⚠️ Deshacer fusión', message: 'Deshacer fusion del ' + new Date(last.timestamp).toLocaleString('es-MX') + '?\n\nAcciones: ' + last.actions.join(', ') + '\n\nSe restauraran los datos previos a la fusion.', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
 
-    // Restore snapshot
-    if (last.snapshot) {
-        if (last.snapshot.cop15) {
-            db = last.snapshot.cop15;
-            localStorage.setItem('kia_db_v11', JSON.stringify(db));
-            refreshAllLists();
+        // Restore snapshot
+        if (last.snapshot) {
+            if (last.snapshot.cop15) {
+                db = last.snapshot.cop15;
+                localStorage.setItem('kia_db_v11', JSON.stringify(db));
+                refreshAllLists();
+            }
+            if (last.snapshot.testplan) {
+                tpState = last.snapshot.testplan;
+                localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
+                if (typeof tpRender === 'function') tpRender();
+            }
+            if (last.snapshot.results) {
+                raState = last.snapshot.results;
+                localStorage.setItem('kia_results_v1', JSON.stringify(raState));
+                if (typeof raRender === 'function') raRender();
+            }
+            if (last.snapshot.inventory) {
+                invState = last.snapshot.inventory;
+                localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
+                if (typeof invRender === 'function') invRender();
+            }
         }
-        if (last.snapshot.testplan) {
-            tpState = last.snapshot.testplan;
-            localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
-            if (typeof tpRender === 'function') tpRender();
-        }
-        if (last.snapshot.results) {
-            raState = last.snapshot.results;
-            localStorage.setItem('kia_results_v1', JSON.stringify(raState));
-            if (typeof raRender === 'function') raRender();
-        }
-        if (last.snapshot.inventory) {
-            invState = last.snapshot.inventory;
-            localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
-            if (typeof invRender === 'function') invRender();
-        }
-    }
 
-    // Remove from history
-    hist.pop();
-    localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist));
+        // Remove from history
+        hist.pop();
+        localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist));
 
-    showToast('Fusion deshecha. Datos restaurados.', 'success');
-    fbPushAll();
-    fbShowSettings();
+        showToast('Fusion deshecha. Datos restaurados.', 'success');
+        fbPushAll();
+        fbShowSettings();
+    });
 }
 
 // ── Show merge history ──
@@ -27081,6 +27281,7 @@ function fbBackupCheck() {
     fbBackupNow(function(ok) {
         if (ok) {
             localStorage.setItem(FB_BACKUP_LS_KEY, today);
+            
         }
     });
 }
@@ -27091,7 +27292,7 @@ function fbBackupNow(callback) {
         return;
     }
     var quota = fbQuotaCheck('write');
-    if (!quota.allowed) { console.warn('Backup skipped (quota): ' + quota.reason); if (callback) callback(false); return; }
+    if (!quota.allowed) {  if (callback) callback(false); return; }
 
     var today = new Date().toISOString().slice(0, 10);
     var snapshot = {
@@ -27117,7 +27318,7 @@ function fbBackupNow(callback) {
         // Cleanup: delete backups older than 30 days
         fbBackupCleanup();
     }).catch(function(err) {
-        console.error('Firebase Backup: Error saving backup', err);
+        
         if (callback) callback(false);
     });
 }
@@ -27140,10 +27341,12 @@ function fbBackupCleanup() {
             });
             if (count > 0) {
                 batch.commit().then(function() {
+                    
                 });
             }
         })
         .catch(function(err) {
+            
         });
 }
 
@@ -27187,7 +27390,7 @@ function fbBackupList(callback) {
             callback(list);
         })
         .catch(function(err) {
-            console.error('Firebase Backup: List error', err);
+            
             callback([]);
         });
 }
@@ -27363,7 +27566,7 @@ function fbActivityPost(action, details) {
 
     // Rate limit activity posts too
     var quota = fbQuotaCheck('write');
-    if (!quota.allowed) { console.warn('Activity post skipped (quota): ' + quota.reason); return; }
+    if (!quota.allowed) {  return; }
 
     try {
         var fdb = firebase.firestore();
@@ -27385,8 +27588,9 @@ function fbActivityPost(action, details) {
                 fbActivityCleanup();
             }
         }).catch(function(e) {
+            
         });
-    } catch(e) { console.warn('Activity post error:', e); }
+    } catch(e) {  }
 }
 
 function fbActivityCleanup() {
@@ -27426,6 +27630,7 @@ function fbActivityLoad(callback) {
             });
             callback(events);
         }).catch(function(e) {
+            
             callback([]);
         });
     } catch(e) { callback([]); }

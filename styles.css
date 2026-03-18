@@ -32,14 +32,14 @@
         .platform-tab {
             padding: 14px 28px; cursor: pointer; font-weight: 800; font-size: 0.85rem;
             color: rgba(255,255,255,0.5); letter-spacing: 0.04em;
-            transition: all 0.2s; border-bottom: 3px solid transparent;
+            transition: color 0.2s, background-color 0.2s, border-color 0.2s; border-bottom: 3px solid transparent;
             display: flex; align-items: center; gap: 8px; margin-bottom: -3px;
             user-select: none;
         }
         .platform-tab:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.03); }
         .platform-tab.active { color: #fff; border-bottom-color: var(--kia-red); background: rgba(187,22,43,0.08); }
         .platform-tab .pt-badge {
-            font-size: 0.65rem; padding: 2px 7px; border-radius: 10px;
+            font-size: 0.75rem; padding: 2px 7px; border-radius: 10px;
             font-weight: 700; letter-spacing: 0;
         }
         .platform-section { display: none; }
@@ -636,7 +636,7 @@ body{ overflow-x: hidden; }
 
 /* Tabs — pill/capsule style unified */
 .tp-tabs { display:flex; gap:4px; padding:10px 24px; background:var(--surface); border-bottom:1px solid var(--tp-border); overflow-x:auto; -webkit-overflow-scrolling:touch; }
-.tp-tab { padding:10px 16px; border:none; border-radius:10px; cursor:pointer; font-size:12px; font-weight:700; background:transparent; color:var(--tp-dim); transition:all .2s; min-height:44px; display:inline-flex; align-items:center; white-space:nowrap; }
+.tp-tab { padding:10px 16px; border:none; border-radius:10px; cursor:pointer; font-size:12px; font-weight:700; background:transparent; color:var(--tp-dim); transition:background-color .2s, color .2s, box-shadow .2s; min-height:44px; display:inline-flex; align-items:center; white-space:nowrap; }
 .tp-tab:hover { background: #f1f5f9; color: var(--tp-text); }
 .tp-tab.active { background:var(--kia-dark); color:#fff; box-shadow: var(--shadow-sm); }
 .tp-main { padding:20px 24px; max-width:1400px; margin:0 auto; }
@@ -658,7 +658,7 @@ body{ overflow-x: hidden; }
 .tp-select:focus { border-color: var(--tp-blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
 
 /* Buttons — refined with better hierarchy */
-.tp-btn { padding:10px 16px; border-radius:10px; border:none; cursor:pointer; font-size:12px; font-weight:700; transition:all .2s; min-height:44px; }
+.tp-btn { padding:10px 16px; border-radius:10px; border:none; cursor:pointer; font-size:12px; font-weight:700; transition:background-color .2s, transform .15s, box-shadow .2s; min-height:44px; }
 .tp-btn:active { transform: scale(0.97); }
 .tp-btn-primary { background:var(--kia-red); color:#fff; box-shadow: 0 2px 8px rgba(187,22,43,0.25); }
 .tp-btn-primary:hover { background:#9a1323; }
@@ -677,7 +677,7 @@ body{ overflow-x: hidden; }
 /* Bars */
 .tp-bar { background:#e2e8f0; border-radius:6px; height:14px; overflow:hidden; position:relative; }
 .tp-bar-fill { height:100%; border-radius:6px; transition:width .3s; }
-.tp-bar-text { position:absolute; top:0; left:4px; font-size:9px; font-weight:700; color:#fff; line-height:14px; }
+.tp-bar-text { position:absolute; top:0; left:4px; font-size:10px; font-weight:700; color:#fff; line-height:14px; }
 
 /* Suggestions dropdown */
 .tp-suggestions { position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--tp-border); border-radius:10px; z-index:10; max-height:150px; overflow-y:auto; box-shadow: var(--shadow-lg); }
@@ -685,7 +685,7 @@ body{ overflow-x: hidden; }
 .tp-suggestion:hover { background:#f1f5f9; }
 
 .tp-status-bar { display:flex; gap:8px; margin-bottom:14px; }
-.tp-status-segment { border-radius:10px; padding:8px 12px; cursor:pointer; text-align:center; transition:all .2s; }
+.tp-status-segment { border-radius:10px; padding:8px 12px; cursor:pointer; text-align:center; transition:background-color .2s, color .2s, box-shadow .2s; }
 .tp-plan-fixed { background:var(--tp-green); color:#fff; padding:8px 16px; border-radius:10px; font-weight:700; font-size:12px; text-align:center; margin-bottom:14px; box-shadow: 0 2px 8px rgba(16,185,129,0.25); }
 
 /* Chart bars */
@@ -708,9 +708,19 @@ body{ overflow-x: hidden; }
 .toast {
     padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 600;
     box-shadow: 0 4px 20px rgba(0,0,0,0.25); pointer-events: auto;
-    animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+    animation: toastIn 0.3s ease;
     display: flex; align-items: center; gap: 8px; max-width: 420px;
+    position: relative; overflow: hidden;
 }
+.toast-progress {
+    position: absolute; bottom: 0; left: 0; height: 3px;
+    background: currentColor; opacity: 0.3; border-radius: 0 0 10px 10px;
+    animation: toastProgress var(--toast-duration, 4s) linear forwards;
+}
+.toast:hover .toast-progress, .toast.toast-paused .toast-progress {
+    animation-play-state: paused;
+}
+@keyframes toastProgress { from { width: 100%; } to { width: 0%; } }
 .toast-success { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
 .toast-error { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
 .toast-warning { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
@@ -746,7 +756,7 @@ body{ overflow-x: hidden; }
 }
 .custom-modal-actions button {
     padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
-    border: none; cursor: pointer; min-width: 80px; transition: all 0.15s;
+    border: none; cursor: pointer; min-width: 80px; transition: background-color 0.15s, opacity 0.15s;
 }
 .modal-btn-cancel {
     background: #f1f5f9; color: #475569;
@@ -777,7 +787,7 @@ body{ overflow-x: hidden; }
 }
 .view-mode-toggle button {
     padding: 4px 8px; border: none; border-radius: 6px; cursor: pointer;
-    background: transparent; color: #64748b; font-size: 10px; transition: all 0.15s;
+    background: transparent; color: #64748b; font-size: 10px; transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
 .view-mode-toggle button.active { background: #fff; font-weight: 700; color: #0f172a; box-shadow: var(--shadow-sm); }
 .view-mode-toggle.light { background: #f1f5f9; border-color: #e2e8f0; }
@@ -804,7 +814,7 @@ button:focus-visible { outline-offset: 1px; }
 .field-valid { border-color: var(--tp-green) !important; box-shadow: 0 0 0 1px rgba(16,185,129,0.3) !important; }
 .field-error { border-color: var(--tp-red) !important; box-shadow: 0 0 0 1px rgba(239,68,68,0.3) !important; }
 .field-hint {
-    font-size: 10px; margin-top: 2px; min-height: 14px; transition: all 0.2s;
+    font-size: 10px; margin-top: 2px; min-height: 14px; transition: color 0.2s, opacity 0.2s;
 }
 .field-hint-error { color: var(--tp-red); }
 .field-hint-success { color: var(--tp-green); }
@@ -953,7 +963,7 @@ button:focus-visible { outline-offset: 1px; }
     font-weight: 600;
     color: var(--text);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
     min-height: 44px;
     -webkit-tap-highlight-color: transparent;
 }
@@ -1013,7 +1023,7 @@ button:focus-visible { outline-offset: 1px; }
     flex: 1; display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 3px; cursor: pointer;
     color: #94a3b8; font-size: 10px; font-weight: 700;
-    letter-spacing: 0.02em; transition: all 0.25s; user-select: none;
+    letter-spacing: 0.02em; transition: color 0.25s, transform 0.2s; user-select: none;
     padding: 4px 2px; position: relative; text-align: center;
     -webkit-tap-highlight-color: transparent;
 }
@@ -1088,7 +1098,7 @@ button:focus-visible { outline-offset: 1px; }
 .lab-dash-alert-badge { font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
 .lab-dash-alert-mod { font-size: 10px; font-weight: 700; color: #64748b; min-width: 65px; }
 .lab-dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
-.lab-dash-card { background: #fff; border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; transition: all 0.2s; box-shadow: var(--shadow-sm); }
+.lab-dash-card { background: #fff; border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; box-shadow: var(--shadow-sm); }
 .lab-dash-card:hover { border-color: #cbd5e1; box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .lab-dash-card-header { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: #64748b; }
 .lab-dash-card-metric { font-size: 28px; font-weight: 800; color: #0f172a; }
@@ -1096,7 +1106,7 @@ button:focus-visible { outline-offset: 1px; }
 .lab-dash-card-detail { font-size: 10px; color: #64748b; }
 
 /* ═══ [R2] Drag-Drop Import Zone ═══ */
-.ra-drop-zone { border: 2px dashed #cbd5e1; border-radius: 14px; padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8fafc; }
+.ra-drop-zone { border: 2px dashed #cbd5e1; border-radius: 14px; padding: 30px 20px; text-align: center; cursor: pointer; transition: border-color 0.2s, background-color 0.2s, transform 0.2s; background: #f8fafc; }
 .ra-drop-zone:hover { border-color: #3b82f6; background: #eff6ff; }
 .ra-drop-zone.dragover { border-color: #3b82f6; background: #dbeafe; transform: scale(1.01); }
 .ra-drop-icon { font-size: 36px; margin-bottom: 6px; }
@@ -1365,7 +1375,7 @@ button:focus-visible { outline-offset: 1px; }
 /* ── Status badge transition ── */
 .anim-status-badge {
     display: inline-block;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
 }
 .anim-status-enter {
     animation: animStatusIn 0.4s ease;
@@ -1469,7 +1479,7 @@ button:focus-visible { outline-offset: 1px; }
 
 /* ── Immersive toggle button ── */
 #immersive-toggle-btn {
-    transition: all 0.2s ease;
+    transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 #immersive-toggle-btn:hover {
     color: #fff;
@@ -1567,7 +1577,7 @@ button:focus-visible { outline-offset: 1px; }
     padding: 3px 10px; font-size: 10px; font-weight: 700;
     background: rgba(59,130,246,0.1); color: #3b82f6;
     border: 1px solid rgba(59,130,246,0.3); border-radius: 6px;
-    cursor: pointer; transition: all 0.15s;
+    cursor: pointer; transition: background-color 0.15s, transform 0.15s;
 }
 .smart-quick-btn:hover {
     background: rgba(59,130,246,0.2);
@@ -1595,7 +1605,7 @@ button:focus-visible { outline-offset: 1px; }
     padding: 5px 14px; font-size: 10px; font-weight: 700;
     background: #f5f3ff; color: #7c3aed;
     border: 1px solid #ddd6fe; border-radius: 16px;
-    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    cursor: pointer; transition: background-color 0.15s, transform 0.15s; white-space: nowrap;
 }
 .tpl-quick-btn:hover {
     background: #ede9fe; transform: translateY(-1px);
@@ -1697,7 +1707,7 @@ button:focus-visible { outline-offset: 1px; }
 .sop-procedure-card {
     background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
     padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow-sm);
-    transition: all 0.2s; cursor: pointer;
+    transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s; cursor: pointer;
 }
 .sop-procedure-card:hover {
     box-shadow: var(--shadow-md); transform: translateY(-1px);
@@ -1713,7 +1723,7 @@ button:focus-visible { outline-offset: 1px; }
     display: flex; gap: 14px; padding: 16px;
     background: #fff; border: 1px solid #e2e8f0;
     border-radius: 12px; margin-bottom: 8px;
-    transition: all 0.3s;
+    transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 .sop-step.sop-step-active {
     border-color: var(--accent-sop);
@@ -1734,7 +1744,7 @@ button:focus-visible { outline-offset: 1px; }
     background: #f1f5f9; color: #64748b;
     display: flex; align-items: center; justify-content: center;
     font-size: 13px; font-weight: 800; flex-shrink: 0;
-    transition: all 0.3s;
+    transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
 }
 .sop-step-active .sop-step-number {
     background: var(--accent-sop); color: #fff;
@@ -1762,7 +1772,7 @@ button:focus-visible { outline-offset: 1px; }
     padding: 8px 12px; background: #f8fafc;
     border: 1px solid #f1f5f9; border-radius: 8px;
     font-size: 12px; color: #334155; cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color 0.15s, border-color 0.15s;
 }
 .sop-check-item:hover { background: #f1f5f9; }
 .sop-check-item.checked {
@@ -1773,7 +1783,7 @@ button:focus-visible { outline-offset: 1px; }
     width: 18px; height: 18px; border-radius: 4px;
     border: 2px solid #cbd5e1; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
+    transition: background-color 0.2s, border-color 0.2s;
 }
 .sop-check-item.checked .sop-check-box {
     background: var(--tp-green); border-color: var(--tp-green);
@@ -1810,7 +1820,7 @@ button:focus-visible { outline-offset: 1px; }
     font-size: 11px; font-weight: 700;
     background: #f1f5f9; color: #64748b;
     border: 1px solid #e2e8f0;
-    cursor: pointer; transition: all 0.15s;
+    cursor: pointer; transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
 .sop-category-chip:hover { background: #e2e8f0; }
 .sop-category-chip.active {
@@ -1824,7 +1834,7 @@ button:focus-visible { outline-offset: 1px; }
     padding: 10px 14px; margin-bottom: 14px;
     background: #fffbeb; border: 1px solid #fcd34d;
     border-radius: 10px; cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, box-shadow 0.2s;
 }
 .sop-context-banner:hover {
     background: #fef3c7; box-shadow: var(--shadow-sm);
@@ -1967,7 +1977,7 @@ button:focus-visible { outline-offset: 1px; }
     width: 56px; height: 56px; border-radius: 8px;
     overflow: hidden; cursor: pointer;
     border: 1px solid #e2e8f0;
-    transition: all 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 .sop-image-thumb:hover {
     border-color: var(--accent-sop);
@@ -2058,6 +2068,9 @@ html { scroll-behavior: smooth; }
 .sop-step { transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s; }
 .sop-check-item { transition: background-color 0.15s, border-color 0.15s; }
 .lab-dash-card { transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
+
+/* ── Smooth navigation for tab switches ── */
+.tabs, .tp-tabs, .sop-categories { scroll-behavior: smooth; }
 
 /* ══════════════════════════════════════════════════════════════════════ */
 /* DARK MODE                                                             */

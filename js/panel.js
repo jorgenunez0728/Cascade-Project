@@ -495,12 +495,14 @@ function pnToggleOperator(idx) {
 function pnRemoveOperator(idx) {
     var op = pnState.operators[idx];
     if (!op) return;
-    if (!confirm('¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.')) return;
-    pnState.operators.splice(idx, 1);
-    pnSave();
-    pnSyncOperators();
-    pnRender();
-    showToast('Operador eliminado', 'info');
+    showConfirmDialog({ title: '⚠️ Eliminar operador', message: '¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        pnState.operators.splice(idx, 1);
+        pnSave();
+        pnSyncOperators();
+        pnRender();
+        showToast('Operador eliminado', 'info');
+    });
 }
 
 function pnHashPin(pin) {
@@ -705,10 +707,12 @@ function pnAddShiftEntry() {
 }
 
 function pnDeleteShiftEntry(id) {
-    if (!confirm('¿Eliminar esta entrada?')) return;
-    pnState.shiftLog = pnState.shiftLog.filter(function(s) { return s.id !== id; });
-    pnSave();
-    pnRender();
+    showConfirmDialog({ title: '⚠️ Eliminar entrada', message: '¿Eliminar esta entrada?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        pnState.shiftLog = pnState.shiftLog.filter(function(s) { return s.id !== id; });
+        pnSave();
+        pnRender();
+    });
 }
 
 function pnExportShiftLog() {

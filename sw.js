@@ -2,8 +2,9 @@
 // ║  KIA EmLab — Service Worker (PWA offline support)                  ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-// [Fase 4.3] Cache version — updated by build.sh or manually on each release
-var CACHE_NAME = 'kia-emlab-v202603180156';
+// [Fase 4.3] Cache version — __BUILD_VERSION__ is replaced by build.sh
+var CACHE_VERSION = '__BUILD_VERSION__';
+var CACHE_NAME = 'kia-emlab-v' + CACHE_VERSION;
 
 var CDN_ASSETS = [
     'https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js',
@@ -30,7 +31,7 @@ self.addEventListener('install', function(event) {
     self.skipWaiting();
 });
 
-// [Fase 4.3] Activate: delete all old caches that don't match current version
+// [Fase 4.3] Activate: delete all old caches that don't match current version, then notify clients
 self.addEventListener('activate', function(event) {
     event.waitUntil(
         caches.keys().then(function(cacheNames) {
@@ -42,9 +43,17 @@ self.addEventListener('activate', function(event) {
                         return caches.delete(name);
                     })
             );
+        }).then(function() {
+            return self.clients.claim();
+        }).then(function() {
+            // Notify all clients that a new SW version is active
+            return self.clients.matchAll().then(function(clients) {
+                clients.forEach(function(client) {
+                    client.postMessage({ type: 'SW_UPDATED', version: CACHE_VERSION });
+                });
+            });
         })
     );
-    self.clients.claim();
 });
 
 // [Fase 4.3] Message listener: allow app to trigger skipWaiting for update notifications
