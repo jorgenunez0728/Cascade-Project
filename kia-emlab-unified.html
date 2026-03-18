@@ -3513,7 +3513,7 @@ html { scroll-behavior: smooth; }
 
     <div class="form-group">
       <label>Ventilador (modo)</label>
-      <select id="test_fan_mode">
+      <select id="test_fan_mode" onchange="updateFanFieldsByMode()">
         <option value="">Seleccionar…</option>
         <option value="speed">Velocidad (km/h)</option>
         <option value="speed_follow">Speed Follow</option>
@@ -3522,7 +3522,7 @@ html { scroll-behavior: smooth; }
 
 <div class="form-group">
   <label>Velocidad del ventilador (km/h)</label>
-  <input type="text" id="test_fan_speed" inputmode="decimal" placeholder="Ej: 40">
+  <input type="text" id="test_fan_speed" inputmode="decimal" placeholder="Ej: 40" oninput="calculateFanFlowFromSpeed()">
 </div>
 
 <div class="form-group">
