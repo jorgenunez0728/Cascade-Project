@@ -86,7 +86,8 @@ echo "</html>" >> "$DIR/$OUTPUT"
 # NOTE: Only strips from unified file, source files are untouched.
 # ═══════════════════════════════════════════════════════════════
 echo "Stripping console.log/warn/error from production build..."
-perl -0777 -i -pe 's/console\.(log|warn|error)\s*\((?:[^()]*|\((?:[^()]*|\([^()]*\))*\))*\)\s*;?//gs' "$DIR/$OUTPUT"
+# Replace with void 0 instead of deleting to avoid breaking if-without-braces patterns
+perl -0777 -i -pe 's/console\.(log|warn|error)\s*\((?:[^()]*|\((?:[^()]*|\([^()]*\))*\))*\)\s*;?/void 0;/gs' "$DIR/$OUTPUT"
 
 # ═══════════════════════════════════════════════════════════════
 # [Fase 4.1] Optional minification with terser

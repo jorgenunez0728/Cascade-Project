@@ -76,7 +76,7 @@ function invCompactReadings() {
             }
         });
     }
-    if (compacted > 0) console.log('INV: Compacted ' + compacted + ' old readings');
+    if (compacted > 0) { console.log('INV: Compacted ' + compacted + ' old readings'); }
 }
 
 

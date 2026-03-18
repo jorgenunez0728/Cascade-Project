@@ -4404,7 +4404,7 @@ html { scroll-behavior: smooth; }
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 window.addEventListener('error', (e) => {
-  
+  void 0;
 });
 
 // ======================================================================
@@ -4649,7 +4649,7 @@ function safeParse(key, fallback) {
         var parsed = JSON.parse(raw);
         return (typeof parsed === 'object' && parsed !== null) ? parsed : fallback;
     } catch(e) {
-        
+        void 0;
         try { showToast('Datos corruptos en ' + key + '. Usando valores por defecto.', 'error'); } catch(e2) {}
         return fallback;
     }
@@ -5355,7 +5355,7 @@ function undoPush(module, actionLabel) {
         if (module === 'testplan' || module === 'all') snapshot.testplan = typeof tpState !== 'undefined' ? JSON.stringify(tpState) : null;
         if (module === 'results' || module === 'all') snapshot.results = typeof raState !== 'undefined' ? JSON.stringify(raState) : null;
         if (module === 'inventory' || module === 'all') snapshot.inventory = typeof invState !== 'undefined' ? JSON.stringify(invState) : null;
-    } catch(e) {  return; }
+    } catch(e) { void 0; return; }
     _undoStack.push({ module: module, label: actionLabel, timestamp: new Date().toISOString(), data: snapshot });
     if (_undoStack.length > UNDO_MAX) _undoStack.shift();
 }
@@ -5368,7 +5368,7 @@ function undoPop() {
         if (entry.data.testplan && typeof tpState !== 'undefined') { var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; }); if (typeof tpSave === 'function') tpSave(); }
         if (entry.data.results && typeof raState !== 'undefined') { var restored = JSON.parse(entry.data.results); Object.keys(restored).forEach(function(k) { raState[k] = restored[k]; }); if (typeof raSave === 'function') raSave(); }
         if (entry.data.inventory && typeof invState !== 'undefined') { var restored = JSON.parse(entry.data.inventory); Object.keys(restored).forEach(function(k) { invState[k] = restored[k]; }); if (typeof invSave === 'function') invSave(); }
-    } catch(e) {  showToast('Error al deshacer', 'error'); return; }
+    } catch(e) { void 0; showToast('Error al deshacer', 'error'); return; }
     // Re-render affected modules
     if (entry.data.cop15 && typeof refreshAllLists === 'function') refreshAllLists();
     if (entry.data.testplan && typeof tpRender === 'function') tpRender();
@@ -6131,7 +6131,7 @@ function generateWeeklyStatusPDF() {
 	}
 
         
-        
+        void 0;
 
 // --- Eventos Ventilador ---
 const modeEl  = document.getElementById('test_fan_mode');
@@ -6163,7 +6163,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ Firebase Cloud Sync (optional) ═══
         try {
             if (typeof fbInit === 'function') { fbInit(); fbHookSaves(); fbUpdateIndicator(); }
-        } catch(fbErr) {  }
+        } catch(fbErr) { void 0; }
 
         // ═══ [R4-M1] Load chart configurations ═══
         chartConfigLoad();
@@ -6177,14 +6177,14 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
             } else if (lsPercent > 80) {
                 showToast('Almacenamiento al ' + lsPercent + '%. Considere exportar datos y ejecutar compactación desde Panel > Salud del Sistema.', 'warning');
             }
-            
-        } catch(e) {  }
+            void 0;
+        } catch(e) { void 0; }
 
         // ═══ [R3-M1] PWA — Register Service Worker ═══
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(function(reg) {
-                
-            }).catch(function(err) {  });
+                void 0;
+            }).catch(function(err) { void 0; });
 
             // [Fase 4.3] Listen for SW update notifications
             navigator.serviceWorker.addEventListener('message', function(event) {
@@ -6638,7 +6638,7 @@ function _openBackupDB(callback) {
         }
     };
     req.onsuccess = function(e) { callback(e.target.result); };
-    req.onerror = function() {  };
+    req.onerror = function() { void 0; };
 }
 
 function autoBackup() {
@@ -7547,7 +7547,7 @@ function setupUnsavedTracking() {
 
 setAltaDatetimeIfEmpty(true);
         
-        
+        void 0;
     }
 
     function cascadeFilter(changedField) {
@@ -9509,7 +9509,7 @@ function _renderUsedCylinders(vehicle) {
                 vehicle.timeline = prevTimeline;
                 delete vehicle.archivedAt;
                 showToast('Error en liberación: ' + e.message + '. Cambios revertidos.', 'error');
-                
+                void 0;
                 return;
             }
         } else {
@@ -10093,7 +10093,7 @@ function handleImportArchive(event) {
       document.body.appendChild(modal);
 
     } catch (e) {
-      
+      void 0;
       showToast('Error leyendo el archivo. Asegúrate de que sea un JSON válido.', 'error');
     } finally {
       event.target.value = '';
@@ -12366,7 +12366,7 @@ var _invUndoMaxSize = 5;
 function invSave() {
     try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
     catch(e) {
-        
+        void 0;
         invCompactReadings();
         try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
         catch(e2) { showToast('Almacenamiento lleno. Elimina datos antiguos.', 'error'); }
@@ -12395,22 +12395,22 @@ function invCompactReadings() {
             }
         });
     }
-    if (compacted > 0) 
+    if (compacted > 0) { void 0; }
 }
 
 
 function invPreloadData() {
     if (invState.gases.length === 0) {
         invState.gases = [{"id": "g_ch420", "controlNo": "CH4-20", "cylinderNo": "", "formula": "CH4/Air", "gasType": "Metano/Aire", "concNominal": "20 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "A01", "position": 1, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CH4-20*", "readings": [{"date": "2026-02-01", "psi": 1266}, {"date": "2026-02-06", "psi": 1250}, {"date": "2026-02-13", "psi": 1233}, {"date": "2026-02-20", "psi": 1216}, {"date": "2026-02-27", "psi": 1200}], "weeklyPsi": 16.7, "dailyPsi": 3.3, "reposDays": 44, "limitPsi": 190.67}, {"id": "g_ch410", "controlNo": "CH4-10", "cylinderNo": "", "formula": "CH4/Air", "gasType": "Metano/Aire", "concNominal": "10 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "A02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CH4-10*", "readings": [{"date": "2026-02-01", "psi": 2505}, {"date": "2026-02-06", "psi": 2492}, {"date": "2026-02-13", "psi": 2478}, {"date": "2026-02-20", "psi": 2464}, {"date": "2026-02-27", "psi": 2450}], "weeklyPsi": 13.8, "dailyPsi": 2.8, "reposDays": 44, "limitPsi": 158.21}, {"id": "g_ch405", "controlNo": "CH4-05", "cylinderNo": "", "formula": "CH4/Air", "gasType": "Metano/Aire", "concNominal": "5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "A03", "position": 3, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CH4-05*", "readings": [{"date": "2026-02-01", "psi": 1479}, {"date": "2026-02-06", "psi": 1472}, {"date": "2026-02-13", "psi": 1465}, {"date": "2026-02-20", "psi": 1457}, {"date": "2026-02-27", "psi": 1450}], "weeklyPsi": 7.4, "dailyPsi": 1.5, "reposDays": 44, "limitPsi": 85.19}, {"id": "g_ch402", "controlNo": "CH4-02", "cylinderNo": "", "formula": "CH4/Air", "gasType": "Metano/Aire", "concNominal": "2 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "A04", "position": 4, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CH4-02*", "readings": [{"date": "2026-02-01", "psi": 1400}, {"date": "2026-02-06", "psi": 1400}, {"date": "2026-02-13", "psi": 1400}, {"date": "2026-02-20", "psi": 1400}, {"date": "2026-02-27", "psi": 1400}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_c3h81666", "controlNo": "C3H8-1666", "cylinderNo": "", "formula": "C3H8/Air", "gasType": "Propano/Aire", "concNominal": "16.66 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "B01", "position": 1, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*C3H8-1666*", "readings": [{"date": "2026-02-01", "psi": 2929}, {"date": "2026-02-06", "psi": 2922}, {"date": "2026-02-13", "psi": 2915}, {"date": "2026-02-20", "psi": 2907}, {"date": "2026-02-27", "psi": 2900}], "weeklyPsi": 7.4, "dailyPsi": 1.5, "reposDays": 44, "limitPsi": 85.19}, {"id": "g_c3h8333", "controlNo": "C3H8-333", "cylinderNo": "", "formula": "C3H8/Air", "gasType": "Propano/Aire", "concNominal": "3.33 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "B02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*C3H8-333*", "readings": [{"date": "2026-02-01", "psi": 2429}, {"date": "2026-02-06", "psi": 2422}, {"date": "2026-02-13", "psi": 2415}, {"date": "2026-02-20", "psi": 2407}, {"date": "2026-02-27", "psi": 2400}], "weeklyPsi": 7.4, "dailyPsi": 1.5, "reposDays": 44, "limitPsi": 85.19}, {"id": "g_c3h8166", "controlNo": "C3H8-166", "cylinderNo": "", "formula": "C3H8/Air", "gasType": "Propano/Aire", "concNominal": "1.66 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "B03", "position": 3, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*C3H8-166*", "readings": [{"date": "2026-02-01", "psi": 1234}, {"date": "2026-02-06", "psi": 1226}, {"date": "2026-02-13", "psi": 1217}, {"date": "2026-02-20", "psi": 1209}, {"date": "2026-02-27", "psi": 1200}], "weeklyPsi": 8.5, "dailyPsi": 1.7, "reposDays": 44, "limitPsi": 97.36}, {"id": "g_c3h8066", "controlNo": "C3H8-066", "cylinderNo": "", "formula": "C3H8/Air", "gasType": "Propano/Aire", "concNominal": "0.66 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "B04", "position": 4, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*C3H8-066*", "readings": [{"date": "2026-02-01", "psi": 1462}, {"date": "2026-02-06", "psi": 1459}, {"date": "2026-02-13", "psi": 1456}, {"date": "2026-02-20", "psi": 1453}, {"date": "2026-02-27", "psi": 1450}], "weeklyPsi": 3.2, "dailyPsi": 0.6, "reposDays": 44, "limitPsi": 36.51}, {"id": "g_co100", "controlNo": "CO-100", "cylinderNo": "", "formula": "CO/N2", "gasType": "Monoxido de Carbono/Nitrogeno", "concNominal": "100 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C01", "position": 1, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO-100*", "readings": [{"date": "2026-02-01", "psi": 3321}, {"date": "2026-02-06", "psi": 3316}, {"date": "2026-02-13", "psi": 3311}, {"date": "2026-02-20", "psi": 3306}, {"date": "2026-02-27", "psi": 3300}], "weeklyPsi": 5.3, "dailyPsi": 1.1, "reposDays": 44, "limitPsi": 60.85}, {"id": "g_co50", "controlNo": "CO-50", "cylinderNo": "", "formula": "CO/N2", "gasType": "Monoxido de Carbono/Nitrogeno", "concNominal": "50 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO-50*", "readings": [{"date": "2026-02-01", "psi": 3146}, {"date": "2026-02-06", "psi": 3135}, {"date": "2026-02-13", "psi": 3123}, {"date": "2026-02-20", "psi": 3111}, {"date": "2026-02-27", "psi": 3100}], "weeklyPsi": 11.7, "dailyPsi": 2.3, "reposDays": 44, "limitPsi": 133.87}, {"id": "g_co20", "controlNo": "CO-20", "cylinderNo": "", "formula": "CO/N2", "gasType": "Monoxido de Carbono/Nitrogeno", "concNominal": "20 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C03", "position": 3, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO-20*", "readings": [{"date": "2026-02-01", "psi": 1105}, {"date": "2026-02-06", "psi": 1092}, {"date": "2026-02-13", "psi": 1078}, {"date": "2026-02-20", "psi": 1064}, {"date": "2026-02-27", "psi": 1050}], "weeklyPsi": 13.8, "dailyPsi": 2.8, "reposDays": 44, "limitPsi": 158.21}, {"id": "g_co10", "controlNo": "CO-10", "cylinderNo": "", "formula": "CO/N2", "gasType": "Monoxido de Carbono/Nitrogeno", "concNominal": "10 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C04", "position": 4, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO-10*", "readings": [{"date": "2026-02-01", "psi": 3500}, {"date": "2026-02-06", "psi": 3500}, {"date": "2026-02-13", "psi": 3500}, {"date": "2026-02-20", "psi": 3500}, {"date": "2026-02-27", "psi": 3500}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_no02", "controlNo": "NO-02", "cylinderNo": "", "formula": "NO/N2", "gasType": "Oxido Nitrico/Nitrogeno", "concNominal": "2 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C05", "position": 5, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*NO-02*", "readings": [{"date": "2026-02-01", "psi": 2000}, {"date": "2026-02-06", "psi": 2000}, {"date": "2026-02-13", "psi": 2000}, {"date": "2026-02-20", "psi": 2000}, {"date": "2026-02-27", "psi": 2000}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_no05", "controlNo": "NO-05", "cylinderNo": "", "formula": "NO/N2", "gasType": "Oxido Nitrico/Nitrogeno", "concNominal": "5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C06", "position": 6, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*NO-05*", "readings": [{"date": "2026-02-01", "psi": 1388}, {"date": "2026-02-06", "psi": 1379}, {"date": "2026-02-13", "psi": 1369}, {"date": "2026-02-20", "psi": 1360}, {"date": "2026-02-27", "psi": 1350}], "weeklyPsi": 9.6, "dailyPsi": 1.9, "reposDays": 44, "limitPsi": 109.53}, {"id": "g_no10", "controlNo": "NO-10", "cylinderNo": "", "formula": "NO/N2", "gasType": "Oxido Nitrico/Nitrogeno", "concNominal": "10 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C07", "position": 7, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*NO-10*", "readings": [{"date": "2026-02-01", "psi": 2588}, {"date": "2026-02-06", "psi": 2579}, {"date": "2026-02-13", "psi": 2569}, {"date": "2026-02-20", "psi": 2560}, {"date": "2026-02-27", "psi": 2550}], "weeklyPsi": 9.6, "dailyPsi": 1.9, "reposDays": 44, "limitPsi": 109.53}, {"id": "g_no50", "controlNo": "NO-50", "cylinderNo": "", "formula": "NO/N2", "gasType": "Oxido Nitrico/Nitrogeno", "concNominal": "50 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C08", "position": 8, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*NO-50*", "readings": [{"date": "2026-02-01", "psi": 1612}, {"date": "2026-02-06", "psi": 1609}, {"date": "2026-02-13", "psi": 1606}, {"date": "2026-02-20", "psi": 1603}, {"date": "2026-02-27", "psi": 1600}], "weeklyPsi": 3.2, "dailyPsi": 0.6, "reposDays": 44, "limitPsi": 36.51}, {"id": "g_co205p", "controlNo": "CO2-05p", "cylinderNo": "", "formula": "CO2/N2", "gasType": "Bioxido de Carbono/Nitrogeno", "concNominal": "0.5 %v", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C09", "position": 9, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO2-05p*", "readings": [{"date": "2026-02-01", "psi": 1600}, {"date": "2026-02-06", "psi": 1600}, {"date": "2026-02-13", "psi": 1600}, {"date": "2026-02-20", "psi": 1600}, {"date": "2026-02-27", "psi": 1600}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_co21p", "controlNo": "CO2-1p", "cylinderNo": "", "formula": "CO2/N2", "gasType": "Bioxido de Carbono/Nitrogeno", "concNominal": "1 %v", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C10", "position": 10, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO2-1p*", "readings": [{"date": "2026-02-01", "psi": 684}, {"date": "2026-02-06", "psi": 676}, {"date": "2026-02-13", "psi": 667}, {"date": "2026-02-20", "psi": 659}, {"date": "2026-02-27", "psi": 650}], "weeklyPsi": 8.5, "dailyPsi": 1.7, "reposDays": 44, "limitPsi": 97.36}, {"id": "g_co22p", "controlNo": "CO2-2p", "cylinderNo": "", "formula": "CO2/N2", "gasType": "Bioxido de Carbono/Nitrogeno", "concNominal": "2 %v", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C11", "position": 11, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*CO2-2p*", "readings": [{"date": "2026-02-01", "psi": 2888}, {"date": "2026-02-06", "psi": 2879}, {"date": "2026-02-13", "psi": 2869}, {"date": "2026-02-20", "psi": 2860}, {"date": "2026-02-27", "psi": 2850}], "weeklyPsi": 9.6, "dailyPsi": 1.9, "reposDays": 44, "limitPsi": 109.53}, {"id": "g_n2o05", "controlNo": "N2O-05", "cylinderNo": "", "formula": "N2O/N2", "gasType": "Oxido Nitroso/Nitrogeno", "concNominal": "0.5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "C12", "position": 12, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*N2O-05*", "readings": [{"date": "2026-02-01", "psi": 1554}, {"date": "2026-02-06", "psi": 1553}, {"date": "2026-02-13", "psi": 1552}, {"date": "2026-02-20", "psi": 1551}, {"date": "2026-02-27", "psi": 1550}], "weeklyPsi": 1.1, "dailyPsi": 0.2, "reposDays": 44, "limitPsi": 12.17}, {"id": "g_n2o25", "controlNo": "N2O-25", "cylinderNo": "", "formula": "N2O/N2", "gasType": "Oxido Nitroso/Nitrogeno", "concNominal": "2.5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "D01", "position": 1, "status": "Spare", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*N2O-25*", "readings": [{"date": "2026-02-01", "psi": 1750}, {"date": "2026-02-06", "psi": 1750}, {"date": "2026-02-13", "psi": 1750}, {"date": "2026-02-20", "psi": 1750}, {"date": "2026-02-27", "psi": 1750}], "weeklyPsi": 0, "dailyPsi": 0, "reposDays": 44, "limitPsi": 0}, {"id": "g_n2o5", "controlNo": "N2O-5", "cylinderNo": "", "formula": "N2O/N2", "gasType": "Oxido Nitroso/Nitrogeno", "concNominal": "5 ppm", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "D02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Referencia", "barcode": "*N2O-5*", "readings": [{"date": "2026-02-01", "psi": 1554}, {"date": "2026-02-06", "psi": 1553}, {"date": "2026-02-13", "psi": 1552}, {"date": "2026-02-20", "psi": 1551}, {"date": "2026-02-27", "psi": 1550}], "weeklyPsi": 1.1, "dailyPsi": 0.2, "reposDays": 21, "limitPsi": 5.81}, {"id": "g_n255", "controlNo": "N2-55", "cylinderNo": "", "formula": "N2", "gasType": "Nitrogeno 5.5", "concNominal": "99.9995%", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E01", "position": 1, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*N2-55*", "readings": [{"date": "2026-02-01", "psi": 3987}, {"date": "2026-02-06", "psi": 3941}, {"date": "2026-02-13", "psi": 3894}, {"date": "2026-02-20", "psi": 3847}, {"date": "2026-02-27", "psi": 3800}], "weeklyPsi": 46.8, "dailyPsi": 9.4, "reposDays": 21, "limitPsi": 255.57}, {"id": "g_n248", "controlNo": "N2-48", "cylinderNo": "", "formula": "N2", "gasType": "Nitrogeno 4.8", "concNominal": "99.998%", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E02", "position": 2, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*N2-48*", "readings": [{"date": "2026-02-01", "psi": 3825}, {"date": "2026-02-06", "psi": 3819}, {"date": "2026-02-13", "psi": 3813}, {"date": "2026-02-20", "psi": 3806}, {"date": "2026-02-27", "psi": 3800}], "weeklyPsi": 6.4, "dailyPsi": 1.3, "reposDays": 21, "limitPsi": 34.85}, {"id": "g_zeroair", "controlNo": "ZERO-AIR", "cylinderNo": "", "formula": "ZERO", "gasType": "Aire Cero Emision Vehicular", "concNominal": "AIR O2 rojo", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E03", "position": 3, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*ZERO-AIR*", "readings": [{"date": "2026-02-01", "psi": 4219}, {"date": "2026-02-06", "psi": 4190}, {"date": "2026-02-13", "psi": 4160}, {"date": "2026-02-20", "psi": 4130}, {"date": "2026-02-27", "psi": 4100}], "weeklyPsi": 29.8, "dailyPsi": 6.0, "reposDays": 21, "limitPsi": 162.64}, {"id": "g_zeron219", "controlNo": "ZERO-N2-19", "cylinderNo": "", "formula": "ZERO", "gasType": "Balance Nitrogeno con Impurezas", "concNominal": "O 19-12%", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E04", "position": 4, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*ZERO-N2-19*", "readings": [{"date": "2026-02-01", "psi": 3998}, {"date": "2026-02-06", "psi": 3974}, {"date": "2026-02-13", "psi": 3949}, {"date": "2026-02-20", "psi": 3925}, {"date": "2026-02-27", "psi": 3900}], "weeklyPsi": 24.5, "dailyPsi": 4.9, "reposDays": 44, "limitPsi": 279.91}, {"id": "g_o243", "controlNo": "O2-43", "cylinderNo": "", "formula": "O2/N2", "gasType": "Oxigeno Ultra Alta Pureza", "concNominal": "4.3", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E05", "position": 5, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*O2-43*", "readings": [{"date": "2026-02-01", "psi": 2468}, {"date": "2026-02-06", "psi": 2451}, {"date": "2026-02-13", "psi": 2434}, {"date": "2026-02-20", "psi": 2417}, {"date": "2026-02-27", "psi": 2400}], "weeklyPsi": 17.0, "dailyPsi": 3.4, "reposDays": 21, "limitPsi": 92.94}, {"id": "g_h2he", "controlNo": "H2-He", "cylinderNo": "", "formula": "H2/He", "gasType": "Mezcla FID Hidrogeno/Helio", "concNominal": "40%v", "concReal": "", "traceability": "EPA", "validUntil": "2026-12-31", "zone": "E06", "position": 6, "status": "In use", "regDate": "2026-01-01", "gasCategory": "Trabajo", "barcode": "*H2-He*", "readings": [{"date": "2026-02-01", "psi": 3944}, {"date": "2026-02-06", "psi": 3908}, {"date": "2026-02-13", "psi": 3872}, {"date": "2026-02-20", "psi": 3836}, {"date": "2026-02-27", "psi": 3800}], "weeklyPsi": 36.2, "dailyPsi": 7.2, "reposDays": 21, "limitPsi": 197.49}];
-        
+        void 0;
     }
     if (!invState.fuelTanks || invState.fuelTanks.length === 0) {
         invState.fuelTanks = [{"id": "fuel_carblev3", "name": "CARB LEV III Regular", "fuelType": "Gasolina Referencia", "octane": "87 AKI", "supplier": "Haltermann Carless", "capacity": 400, "currentLevel": 315, "unit": "L", "regulation": "CARB LEV III", "readings": [{"date": "2026-02-20", "level": 315}], "regDate": "2026-01-01"}, {"id": "fuel_eurovi_prev", "name": "EURO VI (Orden Anterior)", "fuelType": "Gasolina Referencia", "octane": "95 RON", "supplier": "Haltermann Carless", "capacity": 400, "currentLevel": 379.5, "unit": "L", "regulation": "EURO VI", "readings": [{"date": "2026-02-20", "level": 379.5}], "regDate": "2025-10-01"}, {"id": "fuel_eurovi_act", "name": "EURO VI (Orden Actual)", "fuelType": "Gasolina Referencia", "octane": "95 RON", "supplier": "Haltermann Carless", "capacity": 400, "currentLevel": 400, "unit": "L", "regulation": "EURO VI", "readings": [{"date": "2026-02-20", "level": 400}], "regDate": "2026-02-01"}];
-        
+        void 0;
     }
     if (invState.equipment.length === 0) {
         invState.equipment = [{"id": "eq_th0033", "name": "Termohigrometro HVAC", "type": "Thermometer/Humidity", "serialNo": "N/A", "kmmId": "TH-0033", "brand": "Kimo", "model": "TH210B0SP", "traceability": "EMA", "calLab": "METROLAB", "location": "HVAC Room", "magnitude": "Temperature/Humidity", "lastCalDate": "2025-02-21", "nextCalDate": "2026-02-21", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004301", "name": "Sensor Hum/Temp VETS 1", "type": "Humidity sensor", "serialNo": "W4754750", "kmmId": "TH-0043-01", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Hum y Temp", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004302", "name": "Barometro VETS 1", "type": "Barometer", "serialNo": "W3850023", "kmmId": "TH-0043-02", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Presion", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004303", "name": "Transmisor VETS 1", "type": "Barometer", "serialNo": "W4831243", "kmmId": "TH-0043-03", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Transmisor corriente", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004401", "name": "Sensor Hum/Temp VETS 2", "type": "Humidity sensor", "serialNo": "W4917201", "kmmId": "TH-0044-01", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Hum y Temp", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004402", "name": "Barometro VETS 2", "type": "Thermometer", "serialNo": "W3850033", "kmmId": "TH-0044-02", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Presion", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr018", "name": "Propane Injection CFO", "type": "Propane injection", "serialNo": "7005035500", "kmmId": "PR-018", "brand": "Horiba", "model": "5102514973", "traceability": "ANAB", "calLab": "Horiba USA", "location": "CFO", "magnitude": "Flux", "lastCalDate": "2024-05-31", "nextCalDate": "2025-05-31", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_ot0038", "name": "Gas Divider", "type": "Gas Divider", "serialNo": "S2001362117000020", "kmmId": "OT-0038", "brand": "Horiba", "model": "ONE", "traceability": "ANAB", "calLab": "Horiba USA", "location": "GDC", "magnitude": "Flux", "lastCalDate": "2024-11-19", "nextCalDate": "2025-11-19", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_bubbler", "name": "Heater Bubbler", "type": "Heater bubbler", "serialNo": "8001005048", "kmmId": "", "brand": "Horiba", "model": "Heated Bubler", "traceability": "NIST", "calLab": "Horiba USA", "location": "Emission Room", "magnitude": "", "lastCalDate": "2024-06-19", "nextCalDate": "2025-06-19", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th0036", "name": "Termopar RMT1", "type": "Thermocouple", "serialNo": "N/A", "kmmId": "TH-0036", "brand": "N/A", "model": "S1-8", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room RMT1", "magnitude": "Temperature", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr0017", "name": "Manometro RMT1", "type": "Pressure gauge", "serialNo": "N/A", "kmmId": "PR-0017", "brand": "ManoStar", "model": "WO801", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room RMT1", "magnitude": "Abs Pressure", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr0016", "name": "Manometro CVS Out", "type": "Pressure gauge", "serialNo": "N/A", "kmmId": "PR-0016", "brand": "ManoStar", "model": "WO81", "traceability": "EMA", "calLab": "CIDESI", "location": "CVS", "magnitude": "Abs Pressure", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_dw", "name": "Dinamometro Dead Weight", "type": "Dead Weight", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE4200-002", "traceability": "T-EMA", "calLab": "Emissions Lab", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-03-01", "nextCalDate": "2026-03-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_roller_f", "name": "Dyno Roller Diameter Front", "type": "Roller diameter", "serialNo": "-", "kmmId": "OT-0032", "brand": "A&G", "model": "CDE 4200-002 Front", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room Dyno", "magnitude": "Dimensional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_roller_r", "name": "Dyno Roller Diameter Rear", "type": "Roller diameter", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE 4200-002 Rear", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room Dyno", "magnitude": "Dimensional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_arm", "name": "Dyno Arm", "type": "Arm", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE4200-002", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Dimensional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_speed_f", "name": "Dyno Angular Speed Front", "type": "Angular speed", "serialNo": "-", "kmmId": "OT-0037", "brand": "A&G", "model": "CDE 4200-002 Front", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Tachometer", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_torque_f", "name": "Dyno Torque Front", "type": "Torque", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE 4200-002 Front", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Torque", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_torque_r", "name": "Dyno Torque Rear", "type": "Torque", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE 4200-002 Rear", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Torque", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th0020", "name": "Termometro FLUKE Lab", "type": "Thermometer", "serialNo": "30850092WS", "kmmId": "TH-0020", "brand": "FLUKE", "model": "52 II", "traceability": "EMA", "calLab": "CIDESI", "location": "Control Room", "magnitude": "Electrical", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr0002", "name": "Manometro Inspeccion", "type": "Pressure gauge", "serialNo": "PS 055 497", "kmmId": "PR-0002", "brand": "GRIPPER", "model": "SA-1U1A1E1J2", "traceability": "EMA", "calLab": "CIDESI", "location": "Inspection Room", "magnitude": "Pressure", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_01", "name": "Dyno Mass 1", "type": "Mass", "serialNo": "1", "kmmId": "WE-0016-01", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_02", "name": "Dyno Mass 2", "type": "Mass", "serialNo": "2", "kmmId": "WE-0016-02", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_03", "name": "Dyno Mass 3", "type": "Mass", "serialNo": "3", "kmmId": "WE-0016-03", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_04", "name": "Dyno Mass 4", "type": "Mass", "serialNo": "4", "kmmId": "WE-0016-04", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_05", "name": "Dyno Mass 5", "type": "Mass", "serialNo": "5", "kmmId": "WE-0016-05", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_06", "name": "Dyno Mass 6", "type": "Mass", "serialNo": "6", "kmmId": "WE-0016-06", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_07", "name": "Dyno Mass 7", "type": "Mass", "serialNo": "7", "kmmId": "WE-0016-07", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_08", "name": "Dyno Mass 8", "type": "Mass", "serialNo": "8", "kmmId": "WE-0016-08", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_09", "name": "Dyno Mass 9", "type": "Mass", "serialNo": "9", "kmmId": "WE-0016-09", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_10", "name": "Dyno Mass 10", "type": "Mass", "serialNo": "10", "kmmId": "WE-0016-10", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}];
-        
+        void 0;
     }
     invSave();
 }
@@ -13308,7 +13308,7 @@ function invScanStart() {
             // Silence continuous scan misses
         }
     ).catch(function(err) {
-        
+        void 0;
         var statusEl = document.getElementById('inv-scan-status');
         if (statusEl) statusEl.textContent = 'Error de camara: ' + (err.message || err);
         var area = document.getElementById('inv-scan-area');
@@ -16297,7 +16297,7 @@ function tpLoadPlanFromCSV_CONFIGURATIONS() {
     // The real plan gets loaded via CSV import
     // We check if there's already saved plan data
     if (tpState.planData.length > 0) return;
-    
+    void 0;
 }
 
 // ── Auto-feed from COP15 releases ──
@@ -18053,7 +18053,7 @@ function tpAutoMarkWeeklyCompletion(configText) {
                 item.completed = true;
                 item.completedDate = new Date().toISOString().slice(0,10);
                 tpSave();
-                
+                void 0;
                 return true;
             }
         }
@@ -18159,7 +18159,7 @@ function tpSubstituteItem(planIdx, itemIdx, testedConfigCode, testedVin, diffs) 
     };
 
     tpSave();
-    
+    void 0;
     return true;
 }
 
@@ -19481,7 +19481,7 @@ function raSave(){
         localStorage.setItem(RA_LS_KEY, JSON.stringify(raState));
     } catch(e) {
         if (e.name === 'QuotaExceededError' || e.code === 22) {
-            
+            void 0;
             try {
                 const compact = JSON.parse(JSON.stringify(raState));
                 compact.tests = compact.tests.map(function(t) {
@@ -19491,7 +19491,7 @@ function raSave(){
                     return c;
                 });
                 localStorage.setItem(RA_LS_KEY, JSON.stringify(compact));
-                
+                void 0;
             } catch(e2) {
                 showToast('localStorage lleno. Exporta datos y borra para liberar espacio.', 'error');
             }
@@ -19779,7 +19779,7 @@ function raRenderDashboard(el){
         <div class="tp-card-title"><span>📈 Tendencia de Cumplimiento por Regulacion</span></div>
         ${raBuildComplianceTrendHTML()}
     </div>`;
-    } catch(e) { el.innerHTML='<div class="tp-card" style="padding:20px;color:var(--tp-red);">Error renderizando dashboard: '+e.message+'</div>';  }
+    } catch(e) { el.innerHTML='<div class="tp-card" style="padding:20px;color:var(--tp-red);">Error renderizando dashboard: '+e.message+'</div>'; void 0; }
 }
 
 function raBuildComplianceTrendHTML() {
@@ -19993,7 +19993,7 @@ async function raBatchImport(){
         }catch(e){
             errors++;
             if(errMsgs.length<5) errMsgs.push(dir.slice(0,40) + ': ' + e.message);
-            
+            void 0;
         }
     }
     
@@ -22288,7 +22288,7 @@ function sopImageDBOpen(callback) {
         if (callback) callback(_sopImageDB);
     };
     request.onerror = function(e) {
-        
+        void 0;
         sopState.imageDBReady = false;
     };
 }
@@ -22533,7 +22533,7 @@ function sopInit() {
             sopState.activeTemplateEmissions = parsed.activeTemplateEmissions || null;
             sopState.activeTemplateSimple = parsed.activeTemplateSimple || null;
         } catch(e) {
-            
+            void 0;
         }
     }
     sopImageDBOpen();
@@ -22551,7 +22551,7 @@ function sopSave() {
             activeTemplateSimple: sopState.activeTemplateSimple
         }));
     } catch(e) {
-        
+        void 0;
     }
     tabCacheInvalidate('sop');
 }
@@ -26554,7 +26554,7 @@ function authRegisterBiometric(operatorId) {
         localStorage.setItem(AUTH_WEBAUTHN_LS, JSON.stringify(creds));
         showToast('Huella digital registrada exitosamente', 'success');
     }).catch(function(err) {
-        
+        void 0;
         showToast('No se pudo registrar la huella: ' + err.message, 'error');
     });
 }
@@ -26593,7 +26593,7 @@ function authVerifyBiometric() {
         // Biometric verified — create session
         authCreateSession(op);
     }).catch(function(err) {
-        
+        void 0;
         var errEl = document.getElementById('auth-pin-error');
         if (errEl) errEl.textContent = 'Verificacion biometrica fallida. Usa tu PIN.';
     });
@@ -26613,7 +26613,7 @@ function authFirebaseSignIn() {
     // and poison the Firebase SDK internal state, causing Firestore operations to hang too
     var proto = location.protocol;
     if (proto !== 'http:' && proto !== 'https:') {
-        
+        void 0;
         return;
     }
 
@@ -26622,12 +26622,12 @@ function authFirebaseSignIn() {
         if (auth.currentUser) return; // Already signed in
 
         auth.signInAnonymously().then(function() {
-            
+            void 0;
         }).catch(function(err) {
-            
+            void 0;
         });
     } catch(e) {
-        
+        void 0;
     }
 }
 
@@ -26713,7 +26713,7 @@ function fbQueueLoad() {
 }
 function fbQueueSave() {
     try { localStorage.setItem(FB_QUEUE_LS_KEY, JSON.stringify(fbOfflineQueue)); }
-    catch(e) {  }
+    catch(e) { void 0; }
 }
 // Priority levels: 1=critical, 2=normal, 3=low
 var FB_PRIORITY_MAP = {
@@ -26982,7 +26982,7 @@ function fbInit() {
                 // On content:// or file:// origins, WebSocket/WebChannel hangs.
                 // Force HTTP long polling — skips WebSocket entirely.
                 fsSettings.experimentalForceLongPolling = true;
-                
+                void 0;
             } else {
                 // On http/https, auto-detect WebSocket vs long polling
                 fsSettings.experimentalAutoDetectLongPolling = true;
@@ -26990,7 +26990,7 @@ function fbInit() {
             fbSync.db.settings(fsSettings);
         } catch(settingsErr) {
             // Settings may fail if already applied — safe to ignore
-            
+            void 0;
         }
 
         fbSync.stationId = localStorage.getItem('kia_fb_station') || '';
@@ -26999,7 +26999,7 @@ function fbInit() {
         fbSync.lastError = '';
         fbUpdateIndicator();
 
-        
+        void 0;
 
         // Chain: persistence → anonymous auth → connection test
         // Skip persistence on non-http origins (content://, file://) where IndexedDB may not work
@@ -27008,11 +27008,11 @@ function fbInit() {
             fbSync._persistenceAttempted = true;
             persistencePromise = fbSync.db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
                 if (err.code === 'failed-precondition') {
-                    
+                    void 0;
                 } else if (err.code === 'unimplemented') {
-                    
+                    void 0;
                 } else {
-                    
+                    void 0;
                 }
             });
         } else {
@@ -27027,7 +27027,7 @@ function fbInit() {
             if (FB_IS_HTTP_ORIGIN) {
                 return fbAnonymousAuth();
             }
-            
+            void 0;
             return Promise.resolve();
         }).then(function() {
             fbSync._initialized = true;
@@ -27045,7 +27045,7 @@ function fbInit() {
                 }
             });
         }).catch(function(chainErr) {
-            
+            void 0;
             fbSync._initialized = true;
             fbSync.status = 'error';
             fbSync.lastError = 'Error en inicializacion: ' + (chainErr.message || chainErr);
@@ -27053,7 +27053,7 @@ function fbInit() {
         });
 
     } catch (err) {
-        
+        void 0;
         fbSync.status = 'error';
         fbSync.lastError = 'Error al inicializar: ' + err.message;
         fbUpdateIndicator();
@@ -27065,7 +27065,7 @@ function fbAnonymousAuth() {
     // Skip auth on non-HTTP origins — signInAnonymously() uses HTTP requests
     // that may hang on content:// or file:// protocols, poisoning SDK state
     if (!FB_IS_HTTP_ORIGIN) {
-        
+        void 0;
         return Promise.resolve();
     }
 
@@ -27076,20 +27076,20 @@ function fbAnonymousAuth() {
         }
         // Race against a timeout — auth should not block initialization
         var authPromise = auth.signInAnonymously().then(function() {
-            
+            void 0;
         }).catch(function(err) {
             // Auth might not be enabled — that's OK if rules use "if true"
-            
+            void 0;
         });
         var timeoutPromise = new Promise(function(resolve) {
             setTimeout(function() {
-                
+                void 0;
                 resolve();
             }, 10000);
         });
         return Promise.race([authPromise, timeoutPromise]);
     } catch(e) {
-        
+        void 0;
         return Promise.resolve(); // Continue without auth
     }
 }
@@ -27100,7 +27100,7 @@ function fbTestConnectionWithRetry(retriesLeft, callback) {
         if (ok) {
             if (callback) callback(true);
         } else if (retriesLeft > 0) {
-            
+            void 0;
             setTimeout(function() {
                 fbTestConnectionWithRetry(retriesLeft - 1, callback);
             }, 3000);
@@ -27127,14 +27127,14 @@ function fbTestConnection(callback) {
     var timeout = setTimeout(function() {
         if (done) return;
         sdkTimedOut = true;
-        
+        void 0;
         fbTestConnectionREST(function(restOk) {
             if (done) return;
             done = true;
             if (restOk) {
                 // REST works but SDK doesn't — SDK transport is broken
                 fbSync._useREST = true;
-                
+                void 0;
                 if (callback) callback(true);
             } else {
                 fbSync.status = 'error';
@@ -27155,7 +27155,7 @@ function fbTestConnection(callback) {
         if (done || sdkTimedOut) return;
         done = true;
         clearTimeout(timeout);
-        
+        void 0;
         fbSync.status = 'error';
 
         if (err.code === 'permission-denied') {
@@ -27189,11 +27189,11 @@ function fbTestConnectionREST(callback) {
         clearTimeout(restTimeout);
         // 200 = found, 404 = not found (but server responded), 403 = rules block
         // All mean the server IS reachable
-        
+        void 0;
         callback(true);
     }).catch(function(err) {
         clearTimeout(restTimeout);
-        
+        void 0;
         callback(false);
     });
 }
@@ -27271,7 +27271,7 @@ function fbPullREST(collection, onDone) {
             if (onDone) onDone(null);
         }
     }).catch(function(err) {
-        
+        void 0;
         if (onDone) onDone(null);
     });
 }
@@ -27396,10 +27396,10 @@ function fbUpdateStationMeta() {
                     lastPush: { stringValue: meta.lastPush },
                     userAgent: { stringValue: meta.userAgent }
                 }})
-            }).catch(function(e) {  });
+            }).catch(function(e) { void 0; });
         } else if (fbSync.db) {
             fbSync.db.collection('stations').doc(fbSync.stationId).set(meta, { merge: true })
-                .catch(function(e) {  });
+                .catch(function(e) { void 0; });
         }
     }, 3000);
 }
@@ -27412,7 +27412,7 @@ function fbPush(collection, data, onDone) {
     // Rate limit check
     var quota = fbQuotaCheck('write');
     if (!quota.allowed) {
-        
+        void 0;
         fbQueueAdd(collection, data);
         if (onDone) onDone(false, quota.reason);
         return;
@@ -27421,7 +27421,7 @@ function fbPush(collection, data, onDone) {
     // Payload size check
     var sizeCheck = fbQuotaCheckSize(data);
     if (!sizeCheck.allowed) {
-        
+        void 0;
         showToast(sizeCheck.reason, 'error');
         if (onDone) onDone(false, sizeCheck.reason);
         return;
@@ -27464,7 +27464,7 @@ function fbPush(collection, data, onDone) {
             fbUpdateStationMeta();
             if (onDone) onDone(true);
         }).catch(function(err) {
-            
+            void 0;
             fbSync.status = 'error';
             fbSync.lastError = 'Error al subir ' + collection + ': ' + (err.code === 'permission-denied' ? 'Acceso denegado (Security Rules)' : err.message);
             fbUpdateIndicator();
@@ -27544,7 +27544,7 @@ function fbPullAll(showFeedback) {
         });
         fbPullApply(collections, results, showFeedback);
     }).catch(function(err) {
-        
+        void 0;
         fbSync.status = 'error';
         fbSync.lastError = err.code === 'permission-denied' ? 'Acceso denegado. Revisa las Security Rules.' : 'Error al descargar: ' + (err.message || err.code);
         fbUpdateIndicator();
@@ -27827,7 +27827,7 @@ function fbMergeListStations(callback) {
             });
             callback(stations);
         }).catch(function(err) {
-            
+            void 0;
             showToast('Error listando estaciones: ' + err.message, 'error');
             callback([]);
         });
@@ -27848,7 +27848,7 @@ function fbMergeListStations(callback) {
         });
         callback(stations);
     }).catch(function(err) {
-        
+        void 0;
         showToast('Error listando estaciones: ' + err.message, 'error');
         callback([]);
     });
@@ -27883,7 +27883,7 @@ function fbMergeLoadStation(stationId, callback) {
                     data[col] = null;
                 }
             }).catch(function(err) {
-                
+                void 0;
                 data[col] = null;
             }).then(function() {
                 restPending--;
@@ -27909,7 +27909,7 @@ function fbMergeLoadStation(stationId, callback) {
         });
         callback(data);
     }).catch(function(err) {
-        
+        void 0;
         showToast('Error cargando estacion: ' + err.message, 'error');
         callback(null);
     });
@@ -28649,7 +28649,7 @@ function fbBackupCheck() {
     fbBackupNow(function(ok) {
         if (ok) {
             localStorage.setItem(FB_BACKUP_LS_KEY, today);
-            
+            void 0;
         }
     });
 }
@@ -28660,7 +28660,7 @@ function fbBackupNow(callback) {
         return;
     }
     var quota = fbQuotaCheck('write');
-    if (!quota.allowed) {  if (callback) callback(false); return; }
+    if (!quota.allowed) { void 0; if (callback) callback(false); return; }
 
     var today = new Date().toISOString().slice(0, 10);
     var snapshot = {
@@ -28686,7 +28686,7 @@ function fbBackupNow(callback) {
         // Cleanup: delete backups older than 30 days
         fbBackupCleanup();
     }).catch(function(err) {
-        
+        void 0;
         if (callback) callback(false);
     });
 }
@@ -28709,12 +28709,12 @@ function fbBackupCleanup() {
             });
             if (count > 0) {
                 batch.commit().then(function() {
-                    
+                    void 0;
                 });
             }
         })
         .catch(function(err) {
-            
+            void 0;
         });
 }
 
@@ -28758,7 +28758,7 @@ function fbBackupList(callback) {
             callback(list);
         })
         .catch(function(err) {
-            
+            void 0;
             callback([]);
         });
 }
@@ -28936,7 +28936,7 @@ function fbActivityPost(action, details) {
 
     // Rate limit activity posts too
     var quota = fbQuotaCheck('write');
-    if (!quota.allowed) {  return; }
+    if (!quota.allowed) { void 0; return; }
 
     try {
         var fdb = firebase.firestore();
@@ -28958,9 +28958,9 @@ function fbActivityPost(action, details) {
                 fbActivityCleanup();
             }
         }).catch(function(e) {
-            
+            void 0;
         });
-    } catch(e) {  }
+    } catch(e) { void 0; }
 }
 
 function fbActivityCleanup() {
@@ -29000,7 +29000,7 @@ function fbActivityLoad(callback) {
             });
             callback(events);
         }).catch(function(e) {
-            
+            void 0;
             callback([]);
         });
     } catch(e) { callback([]); }
