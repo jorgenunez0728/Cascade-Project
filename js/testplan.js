@@ -263,7 +263,7 @@ let tpState = safeParse(TP_LS_KEY, null) || {
 // Ensure weekHistory exists for existing localStorage data
 if (!tpState.weekHistory) tpState.weekHistory = [];
 
-function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); }
+function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); tabCacheInvalidate('tp'); }
 
 // ── [Fase 5.3] Compact old completed plans (older than 6 months) ──
 function tpCompactOldPlans() {
@@ -494,6 +494,8 @@ function tpUpdateBadges() {
 // ║  [M17] TEST PLAN MANAGER — RENDERER                                ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+var _tpTabs = ['tp-dashboard','tp-tested','tp-families','tp-planactual','tp-planhistory','tp-rules','tp-weekly','tp-simulator','tp-production','tp-calendar','tp-weekhistory'];
+
 function tpSwitchTab(tabId) {
     tpState.activeTab = tabId;
     window._tpLastTab = tabId;
@@ -502,30 +504,31 @@ function tpSwitchTab(tabId) {
     tpRender();
 }
 
+function _tpGetRenderer(tabId) {
+    var map = {
+        'tp-dashboard': tpRenderDashboard, 'tp-tested': tpRenderTested,
+        'tp-families': tpRenderFamilies, 'tp-planactual': tpRenderPlanActual,
+        'tp-planhistory': tpRenderPlanHistory, 'tp-rules': tpRenderRules,
+        'tp-weekly': tpRenderWeekly, 'tp-simulator': tpRenderSimulator,
+        'tp-production': tpRenderProduction, 'tp-calendar': tpRenderCalendar,
+        'tp-weekhistory': tpRenderWeekHistory
+    };
+    return map[tabId] || null;
+}
+
 function tpRender() {
-    const el = document.getElementById('tp-content');
-    if (!el) return;
+    if (!document.getElementById('tp-content')) return;
+    if (!_tabCache['tp']) tabCacheInit('tp', _tpTabs);
     // Restore last active tab if available
     if (window._tpLastTab && tpState.activeTab === 'tp-dashboard' && window._tpLastTab !== 'tp-dashboard') {
         tpState.activeTab = window._tpLastTab;
-        // Update tab bar highlight
         var allTabs = document.querySelectorAll('#tp-tabs-bar .tp-tab');
-        var tabMap = ['tp-dashboard','tp-tested','tp-families','tp-planactual','tp-planhistory','tp-rules','tp-weekly','tp-simulator','tp-production','tp-calendar','tp-weekhistory'];
-        var idx = tabMap.indexOf(window._tpLastTab);
+        var idx = _tpTabs.indexOf(window._tpLastTab);
         if (idx >= 0 && allTabs[idx]) { allTabs.forEach(function(b){b.classList.remove('active');}); allTabs[idx].classList.add('active'); }
     }
-    const tab = tpState.activeTab;
-    if (tab === 'tp-dashboard') tpRenderDashboard(el);
-    else if (tab === 'tp-tested') tpRenderTested(el);
-    else if (tab === 'tp-families') tpRenderFamilies(el);
-    else if (tab === 'tp-planactual') tpRenderPlanActual(el);
-    else if (tab === 'tp-planhistory') tpRenderPlanHistory(el);
-    else if (tab === 'tp-rules') tpRenderRules(el);
-    else if (tab === 'tp-weekly') tpRenderWeekly(el);
-    else if (tab === 'tp-simulator') tpRenderSimulator(el);
-    else if (tab === 'tp-production') tpRenderProduction(el);
-    else if (tab === 'tp-calendar') tpRenderCalendar(el);
-    else if (tab === 'tp-weekhistory') tpRenderWeekHistory(el);
+    var tab = tpState.activeTab;
+    var renderer = _tpGetRenderer(tab);
+    if (renderer) tabCacheSwitch('tp', tab, renderer);
 }
 
 // ── Color helpers ──

@@ -52,6 +52,7 @@ function invSave() {
         try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
         catch(e2) { showToast('Almacenamiento lleno. Elimina datos antiguos.', 'error'); }
     }
+    tabCacheInvalidate('inv');
 }
 
 // ── [Fase 5.3] Compact old fuel readings (keep last 30 per tank) ──
@@ -93,6 +94,8 @@ function invPreloadData() {
     invSave();
 }
 
+var _invTabs = ['inv-dashboard','inv-gases','inv-equipment','inv-readings','inv-predict','inv-fuel','inv-zonemap','inv-charts','inv-config','inv-report'];
+
 function invSwitchTab(tabId) {
     invState.activeTab = tabId;
     localStorage.setItem('kia_inv_activeTab', tabId);
@@ -127,21 +130,27 @@ function invCheckProactiveAlerts() {
     }
 }
 
+function _invGetRenderer(tabId) {
+    if (tabId === 'inv-dashboard') return invRenderDashboard;
+    if (tabId === 'inv-gases') return invRenderGases;
+    if (tabId === 'inv-equipment') return invRenderEquipment;
+    if (tabId === 'inv-readings') return invRenderReadings;
+    if (tabId === 'inv-predict') return invRenderPredict;
+    if (tabId === 'inv-fuel') return invRenderFuel;
+    if (tabId === 'inv-zonemap') return invRenderZoneMap;
+    if (tabId === 'inv-charts') return invRenderCharts;
+    if (tabId === 'inv-config') return invRenderConfig;
+    if (tabId === 'inv-report') return invRenderReport;
+    return null;
+}
+
 function invRender() {
-    var el = document.getElementById('inv-content');
-    if (!el) return;
+    if (!document.getElementById('inv-content')) return;
+    if (!_tabCache['inv']) tabCacheInit('inv', _invTabs);
     invCheckProactiveAlerts();
-    var t = invState.activeTab;
-    if (t === 'inv-dashboard') invRenderDashboard(el);
-    else if (t === 'inv-gases') invRenderGases(el);
-    else if (t === 'inv-equipment') invRenderEquipment(el);
-    else if (t === 'inv-readings') invRenderReadings(el);
-    else if (t === 'inv-predict') invRenderPredict(el);
-    else if (t === 'inv-fuel') invRenderFuel(el);
-    else if (t === 'inv-zonemap') invRenderZoneMap(el);
-    else if (t === 'inv-charts') invRenderCharts(el);
-    else if (t === 'inv-config') invRenderConfig(el);
-    else if (t === 'inv-report') invRenderReport(el);
+    var tab = invState.activeTab;
+    var renderer = _invGetRenderer(tab);
+    if (renderer) tabCacheSwitch('inv', tab, renderer);
 }
 
 function invUpdateBadges() {

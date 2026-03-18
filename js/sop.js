@@ -887,6 +887,7 @@ function sopSave() {
     } catch(e) {
         console.warn('SOP: Error saving state', e);
     }
+    tabCacheInvalidate('sop');
 }
 
 function sopUpdateBadge() {
@@ -903,6 +904,8 @@ function sopUpdateBadge() {
 // [S08] TAB SWITCHING & MAIN RENDER
 // ======================================================================
 
+var _sopTabs = ['sop-guia','sop-history','sop-templates'];
+
 function sopSwitchTab(tabId) {
     sopState.currentTab = tabId;
     var tabs = document.querySelectorAll('#sop-tabs-bar .tp-tab');
@@ -915,25 +918,28 @@ function sopSwitchTab(tabId) {
     sopRender();
 }
 
-function sopRender() {
-    var container = document.getElementById('sop-content');
-    if (!container) return;
+function _sopRenderTab(el) {
+    var tab = sopState.currentTab;
+    if (tab === 'sop-guia') el.innerHTML = sopRenderGuide();
+    else if (tab === 'sop-history') el.innerHTML = sopRenderHistory();
+    else if (tab === 'sop-templates') el.innerHTML = sopRenderTemplates();
+    else el.innerHTML = sopRenderGuide();
+}
 
-    switch(sopState.currentTab) {
-        case 'sop-guia': container.innerHTML = sopRenderGuide(); break;
-        case 'sop-history': container.innerHTML = sopRenderHistory(); break;
-        case 'sop-templates': container.innerHTML = sopRenderTemplates(); break;
-        default: container.innerHTML = sopRenderGuide();
-    }
+function sopRender() {
+    if (!document.getElementById('sop-content')) return;
+    if (!_tabCache['sop']) tabCacheInit('sop', _sopTabs);
+
+    // SOP always re-renders guide tab (has live vehicle data)
+    tabCacheInvalidate('sop', sopState.currentTab);
+    tabCacheSwitch('sop', sopState.currentTab, _sopRenderTab);
 
     // Load images for visible steps asynchronously
     if (sopState.currentTab === 'sop-guia' && sopState.selectedVehicleId) {
         sopLoadVisibleImages();
-        // Load reference images from active template
         var selVeh = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles.find(function(v) { return v.id == sopState.selectedVehicleId; }) : null;
         if (selVeh) sopLoadRefImagesForGuide(selVeh);
     }
-    // Load template reference images in editor
     if (sopState.currentTab === 'sop-templates' && sopState.tmplEditId) {
         sopTmplLoadRefImages();
     }

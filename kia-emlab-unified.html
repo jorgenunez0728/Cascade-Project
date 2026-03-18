@@ -2814,6 +2814,79 @@ html { scroll-behavior: smooth; }
     background: #1e2633 !important;
 }
 
+/* ═══ Skeleton Loading Screens ═══ */
+@keyframes skeleton-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+}
+.skeleton {
+    background: linear-gradient(90deg, var(--border) 25%, transparent 50%, var(--border) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 8px;
+}
+.skeleton-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--border);
+}
+.skeleton-line {
+    height: 14px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+.skeleton-line.short { width: 40%; }
+.skeleton-line.medium { width: 65%; }
+.skeleton-line.long { width: 90%; }
+.skeleton-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+}
+.skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.skeleton-kpi {
+    height: 80px;
+    border-radius: 12px;
+}
+
+/* ═══ View Transitions ═══ */
+@view-transition { navigation: auto; }
+::view-transition-old(module-content) {
+    animation: 150ms ease-out fade-out;
+}
+::view-transition-new(module-content) {
+    animation: 150ms ease-in fade-in;
+}
+@keyframes fade-out {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.98); }
+}
+@keyframes fade-in {
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
+}
+.tp-main > div { view-transition-name: module-content; }
+
+/* ═══ Alpine.js Tab Cache ═══ */
+[x-cloak] { display: none !important; }
+.alpine-tab-panel { content-visibility: auto; }
+.alpine-tab-panel[style*="display: none"] { content-visibility: hidden; contain-intrinsic-size: auto 500px; }
+
+[data-theme="dark"] .skeleton {
+    background: linear-gradient(90deg, #2d3748 25%, transparent 50%, #2d3748 75%);
+    background-size: 200% 100%;
+}
+[data-theme="dark"] .skeleton-card {
+    background: #1a202c;
+    border-color: #2d3748;
+}
+
     </style>
 </head>
 
@@ -2884,7 +2957,7 @@ html { scroll-behavior: smooth; }
 <div class="topbar">
     <div><strong>KIA Laboratorio de Emisiones</strong> <span style="font-size:0.8rem; opacity:0.7;">v1.0615 EmLab CASCADE System</span>
 
-    <span style="display:none;"</span></div>
+    <span style="display:none;"></span></div>
     <div id="progressText">Sistema Inicializado</div>
 </div>
 
@@ -3532,7 +3605,7 @@ html { scroll-behavior: smooth; }
 
 
  <!-- ✅ BLOQUE SIMPLE para otros propósitos -->
-<details class="acc"id="op-simple-block" style="display:none;">
+<details class="acc" id="op-simple-block" style="display:none;">
 <summary>📝 Operación (Formato Simple)</summary>
   <div class="acc-body">
       <div class="form-grid">
@@ -4929,6 +5002,121 @@ function setPrecondDatetimeIfEmpty(force = false) {
 
 
 // ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [M14b] TAB CACHE SYSTEM — Persistent tab panels with lazy render  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _tabCache = {};
+
+/**
+ * Initialize tab caching for a module.
+ * Creates persistent sub-divs inside the content container so tabs don't re-render on switch.
+ * @param {string} moduleId - Module prefix (e.g., 'pn', 'inv', 'ra', 'tp', 'sop')
+ * @param {string[]} tabIds - Array of tab IDs
+ */
+function tabCacheInit(moduleId, tabIds) {
+    var container = document.getElementById(moduleId + '-content');
+    if (!container) return;
+    _tabCache[moduleId] = { tabs: tabIds, dirty: {}, rendered: {} };
+    tabIds.forEach(function(tabId) {
+        var div = document.createElement('div');
+        div.id = tabId + '-cached';
+        div.className = 'alpine-tab-panel';
+        div.style.display = 'none';
+        container.appendChild(div);
+    });
+}
+
+/**
+ * Switch to a tab with caching. Only re-renders if tab is dirty or never rendered.
+ * @param {string} moduleId - Module prefix
+ * @param {string} tabId - Target tab ID
+ * @param {function} renderFn - Function(el) that renders content into the tab div
+ */
+function tabCacheSwitch(moduleId, tabId, renderFn) {
+    var cache = _tabCache[moduleId];
+    if (!cache) { renderFn(document.getElementById(moduleId + '-content')); return; }
+
+    // Use View Transitions API if available for smooth tab switch
+    var doSwitch = function() {
+        cache.tabs.forEach(function(id) {
+            var el = document.getElementById(id + '-cached');
+            if (el) el.style.display = (id === tabId) ? '' : 'none';
+        });
+        var target = document.getElementById(tabId + '-cached');
+        if (target && (!cache.rendered[tabId] || cache.dirty[tabId])) {
+            if (!cache.rendered[tabId]) {
+                target.innerHTML = _skeletonHTML();
+            }
+            // Use rAF to show skeleton briefly, then render
+            requestAnimationFrame(function() {
+                renderFn(target);
+                cache.rendered[tabId] = true;
+                cache.dirty[tabId] = false;
+            });
+        }
+    };
+
+    if (document.startViewTransition) {
+        document.startViewTransition(doSwitch);
+    } else {
+        doSwitch();
+    }
+}
+
+/**
+ * Mark a tab (or all tabs) as needing re-render on next switch.
+ */
+function tabCacheInvalidate(moduleId, tabId) {
+    var cache = _tabCache[moduleId];
+    if (!cache) return;
+    if (tabId) {
+        cache.dirty[tabId] = true;
+        // If currently visible, re-render immediately
+        var el = document.getElementById(tabId + '-cached');
+        if (el && el.style.display !== 'none') {
+            cache.rendered[tabId] = false;
+        }
+    } else {
+        cache.tabs.forEach(function(id) { cache.dirty[id] = true; });
+    }
+}
+
+/**
+ * Force re-render of the currently visible tab in a module.
+ */
+function tabCacheRefreshActive(moduleId, renderFn) {
+    var cache = _tabCache[moduleId];
+    if (!cache) return;
+    cache.tabs.forEach(function(id) {
+        var el = document.getElementById(id + '-cached');
+        if (el && el.style.display !== 'none') {
+            renderFn(el);
+            cache.rendered[id] = true;
+            cache.dirty[id] = false;
+        }
+    });
+}
+
+/**
+ * Generate skeleton placeholder HTML for loading state.
+ */
+function _skeletonHTML() {
+    return '<div style="padding:12px;">' +
+        '<div class="skeleton-grid">' +
+        '<div class="skeleton skeleton-kpi"></div>' +
+        '<div class="skeleton skeleton-kpi"></div>' +
+        '<div class="skeleton skeleton-kpi"></div>' +
+        '</div>' +
+        '<div class="skeleton-card">' +
+        '<div class="skeleton skeleton-line long"></div>' +
+        '<div class="skeleton skeleton-line medium"></div>' +
+        '<div class="skeleton skeleton-line short"></div>' +
+        '</div>' +
+        '</div>';
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [M15] PLATFORM SWITCHER                                           ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
@@ -4952,6 +5140,11 @@ function switchPlatform(platform, swipeDir) {
             newSection.classList.add('active', enterClass);
             setTimeout(function() { newSection.classList.remove(enterClass); }, 260);
         }, 240);
+    } else if (document.startViewTransition) {
+        document.startViewTransition(function() {
+            document.querySelectorAll('.platform-section').forEach(s => s.classList.remove('active'));
+            newSection.classList.add('active');
+        });
     } else {
         document.querySelectorAll('.platform-section').forEach(s => s.classList.remove('active'));
         newSection.classList.add('active');
@@ -11621,6 +11814,7 @@ function invSave() {
         try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
         catch(e2) { showToast('Almacenamiento lleno. Elimina datos antiguos.', 'error'); }
     }
+    tabCacheInvalidate('inv');
 }
 
 // ── [Fase 5.3] Compact old fuel readings (keep last 30 per tank) ──
@@ -11662,6 +11856,8 @@ function invPreloadData() {
     invSave();
 }
 
+var _invTabs = ['inv-dashboard','inv-gases','inv-equipment','inv-readings','inv-predict','inv-fuel','inv-zonemap','inv-charts','inv-config','inv-report'];
+
 function invSwitchTab(tabId) {
     invState.activeTab = tabId;
     localStorage.setItem('kia_inv_activeTab', tabId);
@@ -11696,21 +11892,27 @@ function invCheckProactiveAlerts() {
     }
 }
 
+function _invGetRenderer(tabId) {
+    if (tabId === 'inv-dashboard') return invRenderDashboard;
+    if (tabId === 'inv-gases') return invRenderGases;
+    if (tabId === 'inv-equipment') return invRenderEquipment;
+    if (tabId === 'inv-readings') return invRenderReadings;
+    if (tabId === 'inv-predict') return invRenderPredict;
+    if (tabId === 'inv-fuel') return invRenderFuel;
+    if (tabId === 'inv-zonemap') return invRenderZoneMap;
+    if (tabId === 'inv-charts') return invRenderCharts;
+    if (tabId === 'inv-config') return invRenderConfig;
+    if (tabId === 'inv-report') return invRenderReport;
+    return null;
+}
+
 function invRender() {
-    var el = document.getElementById('inv-content');
-    if (!el) return;
+    if (!document.getElementById('inv-content')) return;
+    if (!_tabCache['inv']) tabCacheInit('inv', _invTabs);
     invCheckProactiveAlerts();
-    var t = invState.activeTab;
-    if (t === 'inv-dashboard') invRenderDashboard(el);
-    else if (t === 'inv-gases') invRenderGases(el);
-    else if (t === 'inv-equipment') invRenderEquipment(el);
-    else if (t === 'inv-readings') invRenderReadings(el);
-    else if (t === 'inv-predict') invRenderPredict(el);
-    else if (t === 'inv-fuel') invRenderFuel(el);
-    else if (t === 'inv-zonemap') invRenderZoneMap(el);
-    else if (t === 'inv-charts') invRenderCharts(el);
-    else if (t === 'inv-config') invRenderConfig(el);
-    else if (t === 'inv-report') invRenderReport(el);
+    var tab = invState.activeTab;
+    var renderer = _invGetRenderer(tab);
+    if (renderer) tabCacheSwitch('inv', tab, renderer);
 }
 
 function invUpdateBadges() {
@@ -15293,7 +15495,7 @@ let tpState = safeParse(TP_LS_KEY, null) || {
 // Ensure weekHistory exists for existing localStorage data
 if (!tpState.weekHistory) tpState.weekHistory = [];
 
-function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); }
+function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); tabCacheInvalidate('tp'); }
 
 // ── [Fase 5.3] Compact old completed plans (older than 6 months) ──
 function tpCompactOldPlans() {
@@ -15524,6 +15726,8 @@ function tpUpdateBadges() {
 // ║  [M17] TEST PLAN MANAGER — RENDERER                                ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+var _tpTabs = ['tp-dashboard','tp-tested','tp-families','tp-planactual','tp-planhistory','tp-rules','tp-weekly','tp-simulator','tp-production','tp-calendar','tp-weekhistory'];
+
 function tpSwitchTab(tabId) {
     tpState.activeTab = tabId;
     window._tpLastTab = tabId;
@@ -15532,30 +15736,31 @@ function tpSwitchTab(tabId) {
     tpRender();
 }
 
+function _tpGetRenderer(tabId) {
+    var map = {
+        'tp-dashboard': tpRenderDashboard, 'tp-tested': tpRenderTested,
+        'tp-families': tpRenderFamilies, 'tp-planactual': tpRenderPlanActual,
+        'tp-planhistory': tpRenderPlanHistory, 'tp-rules': tpRenderRules,
+        'tp-weekly': tpRenderWeekly, 'tp-simulator': tpRenderSimulator,
+        'tp-production': tpRenderProduction, 'tp-calendar': tpRenderCalendar,
+        'tp-weekhistory': tpRenderWeekHistory
+    };
+    return map[tabId] || null;
+}
+
 function tpRender() {
-    const el = document.getElementById('tp-content');
-    if (!el) return;
+    if (!document.getElementById('tp-content')) return;
+    if (!_tabCache['tp']) tabCacheInit('tp', _tpTabs);
     // Restore last active tab if available
     if (window._tpLastTab && tpState.activeTab === 'tp-dashboard' && window._tpLastTab !== 'tp-dashboard') {
         tpState.activeTab = window._tpLastTab;
-        // Update tab bar highlight
         var allTabs = document.querySelectorAll('#tp-tabs-bar .tp-tab');
-        var tabMap = ['tp-dashboard','tp-tested','tp-families','tp-planactual','tp-planhistory','tp-rules','tp-weekly','tp-simulator','tp-production','tp-calendar','tp-weekhistory'];
-        var idx = tabMap.indexOf(window._tpLastTab);
+        var idx = _tpTabs.indexOf(window._tpLastTab);
         if (idx >= 0 && allTabs[idx]) { allTabs.forEach(function(b){b.classList.remove('active');}); allTabs[idx].classList.add('active'); }
     }
-    const tab = tpState.activeTab;
-    if (tab === 'tp-dashboard') tpRenderDashboard(el);
-    else if (tab === 'tp-tested') tpRenderTested(el);
-    else if (tab === 'tp-families') tpRenderFamilies(el);
-    else if (tab === 'tp-planactual') tpRenderPlanActual(el);
-    else if (tab === 'tp-planhistory') tpRenderPlanHistory(el);
-    else if (tab === 'tp-rules') tpRenderRules(el);
-    else if (tab === 'tp-weekly') tpRenderWeekly(el);
-    else if (tab === 'tp-simulator') tpRenderSimulator(el);
-    else if (tab === 'tp-production') tpRenderProduction(el);
-    else if (tab === 'tp-calendar') tpRenderCalendar(el);
-    else if (tab === 'tp-weekhistory') tpRenderWeekHistory(el);
+    var tab = tpState.activeTab;
+    var renderer = _tpGetRenderer(tab);
+    if (renderer) tabCacheSwitch('tp', tab, renderer);
 }
 
 // ── Color helpers ──
@@ -18554,15 +18759,12 @@ function raSave(){
         localStorage.setItem(RA_LS_KEY, JSON.stringify(raState));
     } catch(e) {
         if (e.name === 'QuotaExceededError' || e.code === 22) {
-            // localStorage full — try saving without cycleData/sampleData to reduce size
             
             try {
                 const compact = JSON.parse(JSON.stringify(raState));
                 compact.tests = compact.tests.map(function(t) {
                     var c = Object.assign({}, t);
-                    // Keep only last row of cycleData (the totals)
                     if (c.cycleData && c.cycleData.length > 1) c.cycleData = [c.cycleData[c.cycleData.length-1]];
-                    // Remove sampleData entirely (least critical)
                     delete c.sampleData;
                     return c;
                 });
@@ -18573,6 +18775,7 @@ function raSave(){
             }
         }
     }
+    tabCacheInvalidate('ra');
 }
 function raUpdateBadges(){
     const el1 = document.getElementById('ra-count-badge');
@@ -18582,6 +18785,8 @@ function raUpdateBadges(){
     if(el2) el2.textContent = raState.tests.length+' pruebas';
     if(el3) el3.textContent = raState.profiles.length+' perfiles';
 }
+
+var _raTabs = ['ra-dashboard','ra-import','ra-profiles','ra-trends','ra-detail','ra-outliers','ra-capability','ra-search','ra-filter','ra-compare','ra-spc'];
 
 function raSwitchTab(tabId){
     raState.activeTab = tabId;
@@ -18597,21 +18802,24 @@ function raRestoreTab(){
     if(saved){ raSwitchTab(saved); }
 }
 
+function _raGetRenderer(tabId){
+    var map = {
+        'ra-dashboard': raRenderDashboard, 'ra-import': raRenderImport,
+        'ra-profiles': raRenderProfiles, 'ra-trends': raRenderTrends,
+        'ra-detail': raRenderDetail, 'ra-outliers': raRenderOutliers,
+        'ra-capability': raRenderCapability, 'ra-search': raRenderSearch,
+        'ra-filter': raRenderFilter, 'ra-compare': raRenderCompare,
+        'ra-spc': raRenderSPC
+    };
+    return map[tabId] || null;
+}
+
 function raRender(){
-    const el = document.getElementById('ra-content');
-    if(!el) return;
-    const t = raState.activeTab;
-    if(t==='ra-dashboard') raRenderDashboard(el);
-    else if(t==='ra-import') raRenderImport(el);
-    else if(t==='ra-profiles') raRenderProfiles(el);
-    else if(t==='ra-trends') raRenderTrends(el);
-    else if(t==='ra-detail') raRenderDetail(el);
-    else if(t==='ra-outliers') raRenderOutliers(el);
-    else if(t==='ra-capability') raRenderCapability(el);
-    else if(t==='ra-search') raRenderSearch(el);
-    else if(t==='ra-filter') raRenderFilter(el);
-    else if(t==='ra-compare') raRenderCompare(el);
-    else if(t==='ra-spc') raRenderSPC(el);
+    if(!document.getElementById('ra-content')) return;
+    if(!_tabCache['ra']) tabCacheInit('ra', _raTabs);
+    var tab = raState.activeTab;
+    var renderer = _raGetRenderer(tab);
+    if(renderer) tabCacheSwitch('ra', tab, renderer);
 }
 
 
@@ -20763,7 +20971,10 @@ function pnInit() {
 
 function pnSave() {
     try { localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState)); } catch(e) {}
+    tabCacheInvalidate('pn'); // Mark all tabs dirty on data change
 }
+
+var _pnTabs = ['pn-dashboard','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar'];
 
 function pnSwitchTab(tabId) {
     pnState.activeTab = tabId;
@@ -20773,17 +20984,24 @@ function pnSwitchTab(tabId) {
     pnRender();
 }
 
+function _pnGetRenderer(tabId) {
+    if (tabId === 'pn-dashboard') return pnRenderDashboard;
+    if (tabId === 'pn-users') return pnRenderUsers;
+    if (tabId === 'pn-shift') return pnRenderShiftLog;
+    if (tabId === 'pn-alerts') return pnRenderAlerts;
+    if (tabId === 'pn-intelligence') return pnRenderIntelligence;
+    if (tabId === 'pn-system') return pnRenderSystemHealth;
+    if (tabId === 'pn-calendar') return pnRenderCalendar;
+    return null;
+}
+
 function pnRender() {
-    var el = document.getElementById('pn-content');
-    if (!el) return;
+    if (!document.getElementById('pn-content')) return;
+    // Initialize tab cache on first render
+    if (!_tabCache['pn']) tabCacheInit('pn', _pnTabs);
     var tab = pnState.activeTab;
-    if (tab === 'pn-dashboard') pnRenderDashboard(el);
-    else if (tab === 'pn-users') pnRenderUsers(el);
-    else if (tab === 'pn-shift') pnRenderShiftLog(el);
-    else if (tab === 'pn-alerts') pnRenderAlerts(el);
-    else if (tab === 'pn-intelligence') pnRenderIntelligence(el);
-    else if (tab === 'pn-system') pnRenderSystemHealth(el);
-    else if (tab === 'pn-calendar') pnRenderCalendar(el);
+    var renderer = _pnGetRenderer(tab);
+    if (renderer) tabCacheSwitch('pn', tab, renderer);
 }
 
 function pnUpdateBadges() {
@@ -23389,6 +23607,7 @@ function sopSave() {
     } catch(e) {
         
     }
+    tabCacheInvalidate('sop');
 }
 
 function sopUpdateBadge() {
@@ -23405,6 +23624,8 @@ function sopUpdateBadge() {
 // [S08] TAB SWITCHING & MAIN RENDER
 // ======================================================================
 
+var _sopTabs = ['sop-guia','sop-history','sop-templates'];
+
 function sopSwitchTab(tabId) {
     sopState.currentTab = tabId;
     var tabs = document.querySelectorAll('#sop-tabs-bar .tp-tab');
@@ -23417,25 +23638,28 @@ function sopSwitchTab(tabId) {
     sopRender();
 }
 
-function sopRender() {
-    var container = document.getElementById('sop-content');
-    if (!container) return;
+function _sopRenderTab(el) {
+    var tab = sopState.currentTab;
+    if (tab === 'sop-guia') el.innerHTML = sopRenderGuide();
+    else if (tab === 'sop-history') el.innerHTML = sopRenderHistory();
+    else if (tab === 'sop-templates') el.innerHTML = sopRenderTemplates();
+    else el.innerHTML = sopRenderGuide();
+}
 
-    switch(sopState.currentTab) {
-        case 'sop-guia': container.innerHTML = sopRenderGuide(); break;
-        case 'sop-history': container.innerHTML = sopRenderHistory(); break;
-        case 'sop-templates': container.innerHTML = sopRenderTemplates(); break;
-        default: container.innerHTML = sopRenderGuide();
-    }
+function sopRender() {
+    if (!document.getElementById('sop-content')) return;
+    if (!_tabCache['sop']) tabCacheInit('sop', _sopTabs);
+
+    // SOP always re-renders guide tab (has live vehicle data)
+    tabCacheInvalidate('sop', sopState.currentTab);
+    tabCacheSwitch('sop', sopState.currentTab, _sopRenderTab);
 
     // Load images for visible steps asynchronously
     if (sopState.currentTab === 'sop-guia' && sopState.selectedVehicleId) {
         sopLoadVisibleImages();
-        // Load reference images from active template
         var selVeh = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles.find(function(v) { return v.id == sopState.selectedVehicleId; }) : null;
         if (selVeh) sopLoadRefImagesForGuide(selVeh);
     }
-    // Load template reference images in editor
     if (sopState.currentTab === 'sop-templates' && sopState.tmplEditId) {
         sopTmplLoadRefImages();
     }

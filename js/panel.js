@@ -31,7 +31,10 @@ function pnInit() {
 
 function pnSave() {
     try { localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState)); } catch(e) {}
+    tabCacheInvalidate('pn'); // Mark all tabs dirty on data change
 }
+
+var _pnTabs = ['pn-dashboard','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar'];
 
 function pnSwitchTab(tabId) {
     pnState.activeTab = tabId;
@@ -41,17 +44,24 @@ function pnSwitchTab(tabId) {
     pnRender();
 }
 
+function _pnGetRenderer(tabId) {
+    if (tabId === 'pn-dashboard') return pnRenderDashboard;
+    if (tabId === 'pn-users') return pnRenderUsers;
+    if (tabId === 'pn-shift') return pnRenderShiftLog;
+    if (tabId === 'pn-alerts') return pnRenderAlerts;
+    if (tabId === 'pn-intelligence') return pnRenderIntelligence;
+    if (tabId === 'pn-system') return pnRenderSystemHealth;
+    if (tabId === 'pn-calendar') return pnRenderCalendar;
+    return null;
+}
+
 function pnRender() {
-    var el = document.getElementById('pn-content');
-    if (!el) return;
+    if (!document.getElementById('pn-content')) return;
+    // Initialize tab cache on first render
+    if (!_tabCache['pn']) tabCacheInit('pn', _pnTabs);
     var tab = pnState.activeTab;
-    if (tab === 'pn-dashboard') pnRenderDashboard(el);
-    else if (tab === 'pn-users') pnRenderUsers(el);
-    else if (tab === 'pn-shift') pnRenderShiftLog(el);
-    else if (tab === 'pn-alerts') pnRenderAlerts(el);
-    else if (tab === 'pn-intelligence') pnRenderIntelligence(el);
-    else if (tab === 'pn-system') pnRenderSystemHealth(el);
-    else if (tab === 'pn-calendar') pnRenderCalendar(el);
+    var renderer = _pnGetRenderer(tab);
+    if (renderer) tabCacheSwitch('pn', tab, renderer);
 }
 
 function pnUpdateBadges() {

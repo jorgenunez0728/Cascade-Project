@@ -269,15 +269,12 @@ function raSave(){
         localStorage.setItem(RA_LS_KEY, JSON.stringify(raState));
     } catch(e) {
         if (e.name === 'QuotaExceededError' || e.code === 22) {
-            // localStorage full — try saving without cycleData/sampleData to reduce size
             console.warn('RA: localStorage full, saving compact version');
             try {
                 const compact = JSON.parse(JSON.stringify(raState));
                 compact.tests = compact.tests.map(function(t) {
                     var c = Object.assign({}, t);
-                    // Keep only last row of cycleData (the totals)
                     if (c.cycleData && c.cycleData.length > 1) c.cycleData = [c.cycleData[c.cycleData.length-1]];
-                    // Remove sampleData entirely (least critical)
                     delete c.sampleData;
                     return c;
                 });
@@ -288,6 +285,7 @@ function raSave(){
             }
         }
     }
+    tabCacheInvalidate('ra');
 }
 function raUpdateBadges(){
     const el1 = document.getElementById('ra-count-badge');
@@ -297,6 +295,8 @@ function raUpdateBadges(){
     if(el2) el2.textContent = raState.tests.length+' pruebas';
     if(el3) el3.textContent = raState.profiles.length+' perfiles';
 }
+
+var _raTabs = ['ra-dashboard','ra-import','ra-profiles','ra-trends','ra-detail','ra-outliers','ra-capability','ra-search','ra-filter','ra-compare','ra-spc'];
 
 function raSwitchTab(tabId){
     raState.activeTab = tabId;
@@ -312,21 +312,24 @@ function raRestoreTab(){
     if(saved){ raSwitchTab(saved); }
 }
 
+function _raGetRenderer(tabId){
+    var map = {
+        'ra-dashboard': raRenderDashboard, 'ra-import': raRenderImport,
+        'ra-profiles': raRenderProfiles, 'ra-trends': raRenderTrends,
+        'ra-detail': raRenderDetail, 'ra-outliers': raRenderOutliers,
+        'ra-capability': raRenderCapability, 'ra-search': raRenderSearch,
+        'ra-filter': raRenderFilter, 'ra-compare': raRenderCompare,
+        'ra-spc': raRenderSPC
+    };
+    return map[tabId] || null;
+}
+
 function raRender(){
-    const el = document.getElementById('ra-content');
-    if(!el) return;
-    const t = raState.activeTab;
-    if(t==='ra-dashboard') raRenderDashboard(el);
-    else if(t==='ra-import') raRenderImport(el);
-    else if(t==='ra-profiles') raRenderProfiles(el);
-    else if(t==='ra-trends') raRenderTrends(el);
-    else if(t==='ra-detail') raRenderDetail(el);
-    else if(t==='ra-outliers') raRenderOutliers(el);
-    else if(t==='ra-capability') raRenderCapability(el);
-    else if(t==='ra-search') raRenderSearch(el);
-    else if(t==='ra-filter') raRenderFilter(el);
-    else if(t==='ra-compare') raRenderCompare(el);
-    else if(t==='ra-spc') raRenderSPC(el);
+    if(!document.getElementById('ra-content')) return;
+    if(!_tabCache['ra']) tabCacheInit('ra', _raTabs);
+    var tab = raState.activeTab;
+    var renderer = _raGetRenderer(tab);
+    if(renderer) tabCacheSwitch('ra', tab, renderer);
 }
 
 

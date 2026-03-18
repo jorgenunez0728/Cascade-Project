@@ -2783,3 +2783,76 @@ html { scroll-behavior: smooth; }
     background: #1e2633 !important;
 }
 
+/* ═══ Skeleton Loading Screens ═══ */
+@keyframes skeleton-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+}
+.skeleton {
+    background: linear-gradient(90deg, var(--border) 25%, transparent 50%, var(--border) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 8px;
+}
+.skeleton-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--border);
+}
+.skeleton-line {
+    height: 14px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+.skeleton-line.short { width: 40%; }
+.skeleton-line.medium { width: 65%; }
+.skeleton-line.long { width: 90%; }
+.skeleton-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+}
+.skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.skeleton-kpi {
+    height: 80px;
+    border-radius: 12px;
+}
+
+/* ═══ View Transitions ═══ */
+@view-transition { navigation: auto; }
+::view-transition-old(module-content) {
+    animation: 150ms ease-out fade-out;
+}
+::view-transition-new(module-content) {
+    animation: 150ms ease-in fade-in;
+}
+@keyframes fade-out {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.98); }
+}
+@keyframes fade-in {
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
+}
+.tp-main > div { view-transition-name: module-content; }
+
+/* ═══ Alpine.js Tab Cache ═══ */
+[x-cloak] { display: none !important; }
+.alpine-tab-panel { content-visibility: auto; }
+.alpine-tab-panel[style*="display: none"] { content-visibility: hidden; contain-intrinsic-size: auto 500px; }
+
+[data-theme="dark"] .skeleton {
+    background: linear-gradient(90deg, #2d3748 25%, transparent 50%, #2d3748 75%);
+    background-size: 200% 100%;
+}
+[data-theme="dark"] .skeleton-card {
+    background: #1a202c;
+    border-color: #2d3748;
+}
+

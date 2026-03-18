@@ -1035,6 +1035,121 @@ function setPrecondDatetimeIfEmpty(force = false) {
 
 
 // ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [M14b] TAB CACHE SYSTEM — Persistent tab panels with lazy render  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _tabCache = {};
+
+/**
+ * Initialize tab caching for a module.
+ * Creates persistent sub-divs inside the content container so tabs don't re-render on switch.
+ * @param {string} moduleId - Module prefix (e.g., 'pn', 'inv', 'ra', 'tp', 'sop')
+ * @param {string[]} tabIds - Array of tab IDs
+ */
+function tabCacheInit(moduleId, tabIds) {
+    var container = document.getElementById(moduleId + '-content');
+    if (!container) return;
+    _tabCache[moduleId] = { tabs: tabIds, dirty: {}, rendered: {} };
+    tabIds.forEach(function(tabId) {
+        var div = document.createElement('div');
+        div.id = tabId + '-cached';
+        div.className = 'alpine-tab-panel';
+        div.style.display = 'none';
+        container.appendChild(div);
+    });
+}
+
+/**
+ * Switch to a tab with caching. Only re-renders if tab is dirty or never rendered.
+ * @param {string} moduleId - Module prefix
+ * @param {string} tabId - Target tab ID
+ * @param {function} renderFn - Function(el) that renders content into the tab div
+ */
+function tabCacheSwitch(moduleId, tabId, renderFn) {
+    var cache = _tabCache[moduleId];
+    if (!cache) { renderFn(document.getElementById(moduleId + '-content')); return; }
+
+    // Use View Transitions API if available for smooth tab switch
+    var doSwitch = function() {
+        cache.tabs.forEach(function(id) {
+            var el = document.getElementById(id + '-cached');
+            if (el) el.style.display = (id === tabId) ? '' : 'none';
+        });
+        var target = document.getElementById(tabId + '-cached');
+        if (target && (!cache.rendered[tabId] || cache.dirty[tabId])) {
+            if (!cache.rendered[tabId]) {
+                target.innerHTML = _skeletonHTML();
+            }
+            // Use rAF to show skeleton briefly, then render
+            requestAnimationFrame(function() {
+                renderFn(target);
+                cache.rendered[tabId] = true;
+                cache.dirty[tabId] = false;
+            });
+        }
+    };
+
+    if (document.startViewTransition) {
+        document.startViewTransition(doSwitch);
+    } else {
+        doSwitch();
+    }
+}
+
+/**
+ * Mark a tab (or all tabs) as needing re-render on next switch.
+ */
+function tabCacheInvalidate(moduleId, tabId) {
+    var cache = _tabCache[moduleId];
+    if (!cache) return;
+    if (tabId) {
+        cache.dirty[tabId] = true;
+        // If currently visible, re-render immediately
+        var el = document.getElementById(tabId + '-cached');
+        if (el && el.style.display !== 'none') {
+            cache.rendered[tabId] = false;
+        }
+    } else {
+        cache.tabs.forEach(function(id) { cache.dirty[id] = true; });
+    }
+}
+
+/**
+ * Force re-render of the currently visible tab in a module.
+ */
+function tabCacheRefreshActive(moduleId, renderFn) {
+    var cache = _tabCache[moduleId];
+    if (!cache) return;
+    cache.tabs.forEach(function(id) {
+        var el = document.getElementById(id + '-cached');
+        if (el && el.style.display !== 'none') {
+            renderFn(el);
+            cache.rendered[id] = true;
+            cache.dirty[id] = false;
+        }
+    });
+}
+
+/**
+ * Generate skeleton placeholder HTML for loading state.
+ */
+function _skeletonHTML() {
+    return '<div style="padding:12px;">' +
+        '<div class="skeleton-grid">' +
+        '<div class="skeleton skeleton-kpi"></div>' +
+        '<div class="skeleton skeleton-kpi"></div>' +
+        '<div class="skeleton skeleton-kpi"></div>' +
+        '</div>' +
+        '<div class="skeleton-card">' +
+        '<div class="skeleton skeleton-line long"></div>' +
+        '<div class="skeleton skeleton-line medium"></div>' +
+        '<div class="skeleton skeleton-line short"></div>' +
+        '</div>' +
+        '</div>';
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [M15] PLATFORM SWITCHER                                           ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
@@ -1058,6 +1173,11 @@ function switchPlatform(platform, swipeDir) {
             newSection.classList.add('active', enterClass);
             setTimeout(function() { newSection.classList.remove(enterClass); }, 260);
         }, 240);
+    } else if (document.startViewTransition) {
+        document.startViewTransition(function() {
+            document.querySelectorAll('.platform-section').forEach(s => s.classList.remove('active'));
+            newSection.classList.add('active');
+        });
     } else {
         document.querySelectorAll('.platform-section').forEach(s => s.classList.remove('active'));
         newSection.classList.add('active');
