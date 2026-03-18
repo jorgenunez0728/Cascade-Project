@@ -2238,15 +2238,17 @@ function fbBackupUndoRestore() {
     var snapshot = null;
     try { snapshot = JSON.parse(localStorage.getItem('kia_fb_prerestore_snapshot')); } catch(e) {}
     if (!snapshot) { showToast('No hay snapshot de pre-restauracion', 'error'); return; }
-    if (!confirm('Deshacer la ultima restauracion y volver al estado anterior?')) return;
+    showConfirmDialog({ title: '⚠️ Deshacer restauración', message: 'Deshacer la ultima restauracion y volver al estado anterior?', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
 
-    if (snapshot.cop15) { db = snapshot.cop15; localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
-    if (snapshot.testplan) { tpState = snapshot.testplan; localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState)); if (typeof tpRender === 'function') tpRender(); }
-    if (snapshot.results) { raState = snapshot.results; localStorage.setItem('kia_results_v1', JSON.stringify(raState)); if (typeof raRender === 'function') raRender(); }
-    if (snapshot.inventory) { invState = snapshot.inventory; localStorage.setItem('kia_lab_inventory', JSON.stringify(invState)); if (typeof invRender === 'function') invRender(); }
+        if (snapshot.cop15) { db = snapshot.cop15; localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
+        if (snapshot.testplan) { tpState = snapshot.testplan; localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState)); if (typeof tpRender === 'function') tpRender(); }
+        if (snapshot.results) { raState = snapshot.results; localStorage.setItem('kia_results_v1', JSON.stringify(raState)); if (typeof raRender === 'function') raRender(); }
+        if (snapshot.inventory) { invState = snapshot.inventory; localStorage.setItem('kia_lab_inventory', JSON.stringify(invState)); if (typeof invRender === 'function') invRender(); }
 
-    localStorage.removeItem('kia_fb_prerestore_snapshot');
-    showToast('Restauracion deshecha — datos anteriores restaurados', 'success');
+        localStorage.removeItem('kia_fb_prerestore_snapshot');
+        showToast('Restauracion deshecha — datos anteriores restaurados', 'success');
+    });
 }
 
 function fbBackupShowList() {
