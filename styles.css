@@ -1,3 +1,6 @@
+        /* [R6] Alpine.js — hide elements until Alpine initializes */
+        [x-cloak] { display: none !important; }
+
         :root {
             --kia-dark: #05141f; --kia-red: #bb162b; --bg: #f4f6f9;
             --surface: #fff; --text: #0f172a; --border: #e2e5ea;

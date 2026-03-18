@@ -29,6 +29,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
     <style>
+        /* [R6] Alpine.js — hide elements until Alpine initializes */
+        [x-cloak] { display: none !important; }
+
         :root {
             --kia-dark: #05141f; --kia-red: #bb162b; --bg: #f4f6f9;
             --surface: #fff; --text: #0f172a; --border: #e2e5ea;
@@ -3885,6 +3888,365 @@ html { scroll-behavior: smooth; }
 
     <div class="tp-main">
         <div id="pn-content"></div>
+
+        <!-- ═══ [R6] Alpine.js Reactive Templates for Panel ═══ -->
+        <div x-data="panelModule()" x-cloak>
+
+        <!-- ───── USERS TAB ───── -->
+        <div x-show="activeTab === 'pn-users'" style="padding:12px 0;">
+            <!-- Add Operator Form -->
+            <div class="tp-card" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.05),transparent);">
+                <div class="tp-card-title"><span>👥 Agregar Operador</span></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+                    <div style="flex:1;min-width:150px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Nombre completo</label>
+                        <input type="text" x-model.trim="newOpName" placeholder="Nombre Apellido" class="tp-input" style="width:100%;" @keydown.enter="addOperator()">
+                    </div>
+                    <div style="min-width:120px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Rol</label>
+                        <select x-model="newOpRole" class="tp-select" style="width:100%;">
+                            <template x-for="role in roles" :key="role"><option :value="role" x-text="role"></option></template>
+                        </select>
+                    </div>
+                    <button class="tp-btn tp-btn-primary" @click="addOperator()" style="padding:8px 16px;">+ Agregar</button>
+                </div>
+            </div>
+
+            <!-- Operators List -->
+            <div class="tp-card">
+                <div class="tp-card-title"><span>👤 Operadores (<span x-text="operators.length"></span>)</span></div>
+                <template x-if="operators.length === 0">
+                    <div style="text-align:center;padding:20px;color:var(--tp-dim);">No hay operadores registrados.</div>
+                </template>
+                <template x-for="(op, idx) in operators" :key="op.id">
+                    <div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:8px;"
+                         :style="{ background: op.active ? 'var(--tp-card)' : 'rgba(100,116,139,0.05)', opacity: op.active ? '1' : '0.5' }">
+                        <!-- Avatar -->
+                        <div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;"
+                             :style="{ background: avatarColor(idx) + '20', color: avatarColor(idx) }"
+                             x-text="avatarInitials(op.name)"></div>
+                        <!-- Info -->
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                <span style="font-size:12px;font-weight:700;color:var(--tp-text);" x-text="op.name"></span>
+                                <span style="font-size:9px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;" x-text="op.role || 'Técnico'"></span>
+                                <template x-if="!op.active"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span></template>
+                                <template x-if="op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span></template>
+                                <template x-if="!op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span></template>
+                            </div>
+                            <div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">
+                                <span x-text="operatorStats(op.name).registered"></span> registrados |
+                                <span x-text="operatorStats(op.name).released"></span> liberados |
+                                <span x-text="operatorStats(op.name).active"></span> activos
+                            </div>
+                        </div>
+                        <!-- Actions -->
+                        <div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+                            <button @click="setOperatorPin(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN" x-text="op.pinHash ? '🔑' : '🔒'"></button>
+                            <button @click="editOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">✏️</button>
+                            <button @click="toggleOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" x-text="op.active ? '🚫' : '✅'"></button>
+                            <button @click="removeOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--tp-red);">🗑</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Sync Info -->
+            <div class="tp-card" style="padding:10px;text-align:center;">
+                <div style="font-size:9px;color:var(--tp-dim);">Los operadores se sincronizan automaticamente con los dropdowns de COP15.</div>
+                <button class="tp-btn tp-btn-ghost" @click="syncOperators()" style="font-size:10px;margin-top:6px;">🔄 Sincronizar Dropdowns Ahora</button>
+            </div>
+        </div>
+
+        <!-- ───── SHIFT LOG TAB ───── -->
+        <div x-show="activeTab === 'pn-shift'" style="padding:12px 0;">
+            <!-- Shift report buttons -->
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <button class="tp-btn tp-btn-primary" @click="generateShiftReport()" style="font-size:11px;">🔄 Cerrar Turno</button>
+                <template x-if="shiftReports.length > 0">
+                    <button class="tp-btn tp-btn-ghost" @click="showTurnoverOnLogin()" style="font-size:11px;">📋 Último Reporte</button>
+                </template>
+            </div>
+
+            <!-- New entry form -->
+            <div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">
+                <div class="tp-card-title"><span>📝 Nueva Entrada de Bitácora</span></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                    <div>
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Operador</label>
+                        <select x-model="shiftOperator" class="tp-select" style="width:100%;">
+                            <option value="">Seleccionar...</option>
+                            <template x-for="op in activeOperators()" :key="op.id"><option :value="op.name" x-text="op.name"></option></template>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Categoría</label>
+                        <select x-model="shiftCategory" class="tp-select" style="width:100%;">
+                            <template x-for="cat in categories" :key="cat"><option :value="cat" x-text="cat"></option></template>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-bottom:8px;">
+                    <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Notas / Descripción</label>
+                    <textarea x-model="shiftNotes" class="tp-input" rows="3" placeholder="Describe la actividad, incidencia u observación..." style="width:100%;resize:vertical;font-family:inherit;"></textarea>
+                </div>
+                <button class="tp-btn tp-btn-primary" @click="addShiftEntry()" style="width:100%;padding:10px;font-size:12px;">+ Registrar en Bitácora</button>
+            </div>
+
+            <!-- Today's entries -->
+            <div class="tp-card">
+                <div class="tp-card-title">
+                    <span>📋 Hoy (<span x-text="todayEntries().length"></span> entradas)</span>
+                    <button class="tp-btn tp-btn-ghost" @click="exportShiftLog()" style="font-size:10px;">📤 Exportar</button>
+                </div>
+                <template x-if="todayEntries().length === 0">
+                    <div style="text-align:center;padding:30px;color:var(--tp-dim);font-size:11px;">Sin entradas hoy. Registra el inicio de turno.</div>
+                </template>
+                <template x-for="entry in todayEntries()" :key="entry.id">
+                    <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--tp-border);">
+                        <div style="min-width:45px;font-size:9px;color:var(--tp-dim);padding-top:2px;" x-text="entry.time || ''"></div>
+                        <div style="font-size:16px;line-height:1;" x-text="catIcons[entry.category] || '📌'"></div>
+                        <div style="flex:1;">
+                            <div style="display:flex;gap:6px;align-items:center;margin-bottom:2px;">
+                                <span style="font-size:10px;font-weight:700;color:var(--tp-text);" x-text="entry.operator || '?'"></span>
+                                <span style="font-size:9px;padding:1px 6px;border-radius:4px;"
+                                      :style="{ background: (catColors[entry.category] || '#64748b') + '20', color: catColors[entry.category] || '#64748b' }"
+                                      x-text="entry.category"></span>
+                            </div>
+                            <div style="font-size:10px;color:var(--tp-dim);" x-text="entry.notes || ''"></div>
+                        </div>
+                        <button @click="deleteShiftEntry(entry.id)" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:4px;flex-shrink:0;">×</button>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Previous days -->
+            <template x-if="previousDays().length > 0">
+                <div class="tp-card">
+                    <div class="tp-card-title"><span>📅 Días Anteriores</span></div>
+                    <template x-for="group in previousDays()" :key="group.date">
+                        <details style="margin-bottom:6px;border:1px solid var(--tp-border);border-radius:6px;overflow:hidden;">
+                            <summary style="padding:8px 12px;cursor:pointer;font-size:11px;font-weight:700;color:var(--tp-text);background:var(--tp-card);display:flex;justify-content:space-between;">
+                                <span x-text="group.label"></span>
+                                <span style="color:var(--tp-dim);" x-text="group.entries.length + ' entradas'"></span>
+                            </summary>
+                            <template x-for="entry in group.entries" :key="entry.id">
+                                <div style="display:flex;gap:8px;padding:5px 12px;border-top:1px solid var(--tp-border);font-size:10px;">
+                                    <span style="color:var(--tp-dim);min-width:40px;" x-text="entry.time || ''"></span>
+                                    <span style="font-weight:700;color:var(--tp-blue);min-width:70px;" x-text="entry.operator || '?'"></span>
+                                    <span style="color:var(--tp-dim);flex:1;" x-text="'[' + (entry.category || '') + '] ' + (entry.notes || '')"></span>
+                                </div>
+                            </template>
+                        </details>
+                    </template>
+                </div>
+            </template>
+        </div>
+
+        <!-- ───── ALERTS TAB ───── -->
+        <div x-show="activeTab === 'pn-alerts'" style="padding:12px 0;">
+            <!-- Summary -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+                <div class="tp-card" style="text-align:center;padding:14px;" :style="alertCount('CRITICA') > 0 ? 'border:2px solid #ef4444;' : ''">
+                    <div style="font-size:28px;font-weight:800;color:#ef4444;" x-text="alertCount('CRITICA')"></div>
+                    <div style="font-size:9px;color:var(--tp-dim);">Críticas</div>
+                </div>
+                <div class="tp-card" style="text-align:center;padding:14px;" :style="alertCount('ALTA') > 0 ? 'border:2px solid #f59e0b;' : ''">
+                    <div style="font-size:28px;font-weight:800;color:#f59e0b;" x-text="alertCount('ALTA')"></div>
+                    <div style="font-size:9px;color:var(--tp-dim);">Altas</div>
+                </div>
+                <div class="tp-card" style="text-align:center;padding:14px;">
+                    <div style="font-size:28px;font-weight:800;color:#06b6d4;" x-text="alertCount('MEDIA')"></div>
+                    <div style="font-size:9px;color:var(--tp-dim);">Medias</div>
+                </div>
+            </div>
+
+            <!-- No alerts -->
+            <template x-if="activeAlerts().length === 0">
+                <div class="tp-card" style="text-align:center;padding:40px;">
+                    <div style="font-size:40px;margin-bottom:10px;">✅</div>
+                    <div style="font-size:14px;font-weight:700;color:var(--tp-green);">Sin Alertas</div>
+                    <div style="font-size:11px;color:var(--tp-dim);margin-top:4px;">Todo el laboratorio opera con normalidad.</div>
+                </div>
+            </template>
+
+            <!-- Alerts by source -->
+            <template x-if="activeAlerts().length > 0">
+                <div>
+                    <template x-for="group in alertsBySource()" :key="group.source">
+                        <div class="tp-card">
+                            <div class="tp-card-title"><span x-text="group.icon + ' ' + group.source + ' (' + group.alerts.length + ')'"></span></div>
+                            <template x-for="a in group.alerts" :key="a.message">
+                                <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">
+                                    <span style="font-size:9px;padding:3px 8px;border-radius:4px;font-weight:800;white-space:nowrap;flex-shrink:0;"
+                                          :style="{ background: a.color + '20', color: a.color }"
+                                          x-text="a.level"></span>
+                                    <span style="font-size:11px;color:var(--tp-text);" x-text="a.message"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Alert actions -->
+            <div class="tp-card">
+                <div class="tp-card-title"><span>🔔 Configuración de Alertas</span></div>
+                <div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Las alertas se generan automáticamente al abrir este panel.</div>
+                <div style="display:flex;gap:8px;">
+                    <button class="tp-btn tp-btn-primary" @click="refreshAlerts()" style="flex:1;font-size:11px;">🔄 Actualizar Alertas</button>
+                    <button class="tp-btn tp-btn-ghost" @click="exportAlerts()" style="flex:1;font-size:11px;">📤 Exportar Reporte</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ───── SYSTEM HEALTH TAB ───── -->
+        <div x-show="activeTab === 'pn-system'" style="padding:12px 0;">
+            <h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">💾 Monitor de Salud del Sistema</h3>
+
+            <!-- Storage Breakdown -->
+            <div class="tp-card" style="margin-bottom:12px;padding:12px;">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:11px;color:var(--tp-dim);" x-text="formatBytes(storageData().totalBytes) + ' / 5 MB'"></span>
+                    <span style="font-size:11px;font-weight:700;" :style="{ color: storageData().barColor }" x-text="storageData().usedPct + '%'"></span>
+                </div>
+                <div style="width:100%;height:8px;background:rgba(30,41,59,0.8);border-radius:4px;overflow:hidden;">
+                    <div style="height:100%;border-radius:4px;transition:width 0.3s;"
+                         :style="{ width: Math.min(parseFloat(storageData().usedPct), 100) + '%', background: storageData().barColor }"></div>
+                </div>
+                <div style="margin-top:10px;">
+                    <template x-for="item in storageData().breakdown" :key="item.label">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(30,41,59,0.3);">
+                            <span style="font-size:10px;color:var(--tp-text);" x-text="item.label"></span>
+                            <span style="font-size:10px;color:var(--tp-dim);" x-text="formatBytes(item.bytes) + ' (' + (storageData().totalBytes > 0 ? ((item.bytes / storageData().totalBytes) * 100).toFixed(1) : '0.0') + '%)'"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Data Aging -->
+            <div class="tp-card" style="margin-bottom:12px;padding:12px;">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">📅 Antigüedad de Datos</h4>
+                <template x-if="agingData().length > 0">
+                    <table style="width:100%;font-size:10px;border-collapse:collapse;">
+                        <tr style="color:var(--tp-dim);border-bottom:1px solid rgba(30,41,59,0.5);">
+                            <th style="text-align:left;padding:4px;">Módulo</th>
+                            <th style="text-align:center;padding:4px;">Total</th>
+                            <th style="text-align:center;padding:4px;">30-60d</th>
+                            <th style="text-align:center;padding:4px;">60-90d</th>
+                            <th style="text-align:center;padding:4px;">&gt;90d</th>
+                        </tr>
+                        <template x-for="a in agingData()" :key="a.label">
+                            <tr style="color:var(--tp-text);border-bottom:1px solid rgba(30,41,59,0.2);">
+                                <td style="padding:4px;" x-text="a.label"></td>
+                                <td style="text-align:center;padding:4px;" x-text="a.total"></td>
+                                <td style="text-align:center;padding:4px;color:#f59e0b;" x-text="a.d30"></td>
+                                <td style="text-align:center;padding:4px;color:#ef4444;" x-text="a.d60"></td>
+                                <td style="text-align:center;padding:4px;color:#dc2626;font-weight:700;" x-text="a.d90"></td>
+                            </tr>
+                        </template>
+                    </table>
+                </template>
+                <template x-if="agingData().length === 0">
+                    <p style="color:var(--tp-dim);font-size:10px;">Sin datos para analizar antigüedad.</p>
+                </template>
+            </div>
+
+            <!-- Purge Tools -->
+            <div class="tp-card" style="margin-bottom:12px;padding:12px;">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">🗑️ Herramientas de Limpieza</h4>
+                <p style="color:var(--tp-dim);font-size:10px;margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                    <button class="tp-btn" @click="purgeOldData('cop15', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>
+                    <button class="tp-btn" @click="purgeOldData('results', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Resultados >90 días</button>
+                    <button class="tp-btn" @click="purgeOldData('testplan', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>
+                    <button class="tp-btn" @click="purgeOldData('notes', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>
+                </div>
+            </div>
+
+            <!-- Performance -->
+            <div class="tp-card" style="padding:12px;">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">⚡ Rendimiento</h4>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    <div style="text-align:center;padding:6px;background:rgba(59,130,246,0.1);border-radius:6px;">
+                        <div style="font-size:16px;font-weight:700;color:#3b82f6;" x-text="perfData().lsKeys"></div>
+                        <div style="font-size:9px;color:var(--tp-dim);">Keys localStorage</div>
+                    </div>
+                    <div style="text-align:center;padding:6px;background:rgba(16,185,129,0.1);border-radius:6px;">
+                        <div style="font-size:16px;font-weight:700;color:#10b981;" x-text="perfData().domNodes"></div>
+                        <div style="font-size:9px;color:var(--tp-dim);">DOM Nodes</div>
+                    </div>
+                    <div style="text-align:center;padding:6px;background:rgba(245,158,11,0.1);border-radius:6px;">
+                        <div style="font-size:16px;font-weight:700;color:#f59e0b;" x-text="perfData().memoryMB"></div>
+                        <div style="font-size:9px;color:var(--tp-dim);">Memoria (MB)</div>
+                    </div>
+                    <div style="text-align:center;padding:6px;background:rgba(139,92,246,0.1);border-radius:6px;">
+                        <div style="font-size:16px;font-weight:700;color:#8b5cf6;" x-text="perfData().charts"></div>
+                        <div style="font-size:9px;color:var(--tp-dim);">Charts Activos</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ───── CALENDAR TAB ───── -->
+        <div x-show="activeTab === 'pn-calendar'" style="padding:12px 0;">
+            <div class="tp-card" style="padding:16px;">
+                <!-- Header with nav -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <button @click="navCalendar(-1)" class="btn-secondary" style="padding:4px 12px;">←</button>
+                    <span style="font-size:14px;font-weight:800;color:var(--tp-text);" x-text="calendarMonthLabel()"></span>
+                    <div style="display:flex;gap:6px;">
+                        <button @click="calendarToday()" class="btn-secondary" style="padding:4px 10px;font-size:10px;">Hoy</button>
+                        <button @click="navCalendar(1)" class="btn-secondary" style="padding:4px 12px;">→</button>
+                    </div>
+                </div>
+
+                <!-- Day headers -->
+                <div class="cal-grid">
+                    <template x-for="d in dayNames" :key="d"><div class="cal-header" x-text="d"></div></template>
+
+                    <!-- Calendar cells -->
+                    <template x-for="(cell, ci) in calendarGrid()" :key="ci">
+                        <div :class="{ 'cal-cell': true, 'cal-empty': cell.empty, 'cal-today': cell.isToday }"
+                             @click="!cell.empty && calendarDayClick(cell.dateStr)">
+                            <template x-if="!cell.empty">
+                                <div>
+                                    <div class="cal-day-num" x-text="cell.day"></div>
+                                    <template x-if="cell.dots.length > 0">
+                                        <div class="cal-dots">
+                                            <template x-for="(dotColor, di) in cell.dots" :key="di">
+                                                <span class="cal-dot" :style="{ background: dotColor }"></span>
+                                            </template>
+                                            <template x-if="cell.extra > 0"><span style="font-size:9px;color:var(--tp-dim);" x-text="'+' + cell.extra"></span></template>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Week summary -->
+                <template x-if="calendarWeekSummary()">
+                    <div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;font-size:10px;color:var(--tp-dim);">
+                        <strong style="color:var(--tp-text);">Esta semana:</strong> <span x-text="calendarWeekSummary()"></span>
+                    </div>
+                </template>
+
+                <!-- Legend -->
+                <div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap;">
+                    <template x-for="l in calendarLegend" :key="l.label">
+                        <div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--tp-dim);">
+                            <span style="width:8px;height:8px;border-radius:50%;display:inline-block;" :style="{ background: l.color }"></span>
+                            <span x-text="l.label"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        </div><!-- END Alpine panelModule -->
     </div>
 </div><!-- END platform-panel -->
 
@@ -4305,6 +4667,8 @@ function themeToggle() {
 
     function saveDB() {
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        // [R6] Notify Alpine components of data change
+        window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'cop15' } }));
     }
 
 // ── [Fase 2.2] Debounced save wrapper for focusout/auto-save scenarios ──
@@ -6948,6 +7312,25 @@ function skeletonShow(container, count) {
  * @param {string} color - Stroke color
  * @returns {string} SVG HTML
  */
+// ══════════════════════════════════════════════════════════════════════
+// [R6] Alpine.js Reactive Infrastructure
+// ══════════════════════════════════════════════════════════════════════
+
+document.addEventListener('alpine:init', function() {
+    // Global shared store
+    Alpine.store('app', {
+        currentUser: null,
+        init: function() {
+            this.currentUser = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
+        }
+    });
+
+    // Register Panel module as Alpine component
+    if (typeof panelAlpineComponent === 'function') {
+        Alpine.data('panelModule', panelAlpineComponent);
+    }
+});
+
 function buildProgressRing(pct, size, color) {
     var r = (size - 6) / 2;
     var c = Math.PI * 2 * r;
@@ -11815,6 +12198,8 @@ function invSave() {
         catch(e2) { showToast('Almacenamiento lleno. Elimina datos antiguos.', 'error'); }
     }
     tabCacheInvalidate('inv');
+    // [R6] Notify Alpine components of data change
+    window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'inventory' } }));
 }
 
 // ── [Fase 5.3] Compact old fuel readings (keep last 30 per tank) ──
@@ -20976,23 +21361,30 @@ function pnSave() {
 
 var _pnTabs = ['pn-dashboard','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar'];
 
+// Tabs managed by Alpine reactive templates (no innerHTML needed)
+var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true };
+
 function pnSwitchTab(tabId) {
     pnState.activeTab = tabId;
     document.querySelectorAll('#pn-tabs-bar .tp-tab').forEach(function(b) {
         b.classList.toggle('active', b.getAttribute('onclick').indexOf(tabId) !== -1);
     });
     pnRender();
+    // Notify Alpine components of tab switch
+    window.dispatchEvent(new CustomEvent('pn:tab-switch', { detail: { tab: tabId } }));
 }
 
 function _pnGetRenderer(tabId) {
+    // Alpine-managed tabs use a no-op renderer (Alpine handles the HTML)
+    if (_pnAlpineTabs[tabId]) return _pnAlpineTabRenderer;
     if (tabId === 'pn-dashboard') return pnRenderDashboard;
-    if (tabId === 'pn-users') return pnRenderUsers;
-    if (tabId === 'pn-shift') return pnRenderShiftLog;
-    if (tabId === 'pn-alerts') return pnRenderAlerts;
     if (tabId === 'pn-intelligence') return pnRenderIntelligence;
-    if (tabId === 'pn-system') return pnRenderSystemHealth;
-    if (tabId === 'pn-calendar') return pnRenderCalendar;
     return null;
+}
+
+/** Clear renderer for Alpine-managed tabs — Alpine x-data handles rendering in sibling div */
+function _pnAlpineTabRenderer(el) {
+    el.innerHTML = ''; // Clear any skeleton/placeholder — Alpine template is in sibling container
 }
 
 function pnRender() {
@@ -21002,6 +21394,8 @@ function pnRender() {
     var tab = pnState.activeTab;
     var renderer = _pnGetRenderer(tab);
     if (renderer) tabCacheSwitch('pn', tab, renderer);
+    // Notify Alpine to refresh reactive data
+    window.dispatchEvent(new CustomEvent('pn:refresh'));
 }
 
 function pnUpdateBadges() {
@@ -22715,6 +23109,350 @@ function pnShowTurnoverOnLogin() {
     var hoursDiff = (Date.now() - reportDate.getTime()) / (1000 * 60 * 60);
     if (hoursDiff > 24) return;
     pnRenderShiftReport(lastReport);
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [R6] Alpine.js Reactive Component — Panel Module                   ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function panelAlpineComponent() {
+    return {
+        // ── State ──
+        activeTab: pnState.activeTab,
+        operators: pnState.operators,
+        shiftLog: pnState.shiftLog,
+        shiftReports: pnState.shiftReports || [],
+
+        // Form state — Users
+        newOpName: '',
+        newOpRole: 'Técnico',
+        roles: ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practicante'],
+
+        // Form state — Shift Log
+        shiftOperator: '',
+        shiftCategory: 'Observación',
+        shiftNotes: '',
+        categories: ['Inicio de turno', 'Prueba completada', 'Incidencia', 'Mantenimiento', 'Calibración', 'Observación', 'Fin de turno'],
+        catColors: {
+            'Inicio de turno': '#10b981', 'Prueba completada': '#3b82f6', 'Incidencia': '#ef4444',
+            'Mantenimiento': '#f59e0b', 'Calibración': '#8b5cf6', 'Observación': '#64748b', 'Fin de turno': '#06b6d4'
+        },
+        catIcons: {
+            'Inicio de turno': '🟢', 'Prueba completada': '✅', 'Incidencia': '🔴',
+            'Mantenimiento': '🔧', 'Calibración': '📏', 'Observación': '📌', 'Fin de turno': '🔵'
+        },
+
+        // Calendar state
+        calYear: new Date().getFullYear(),
+        calMonth: new Date().getMonth(),
+        monthNames: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
+        dayNames: ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],
+
+        // ── Init ──
+        init: function() {
+            var self = this;
+            // Auto-select current user for shift log
+            var authUser = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
+            if (authUser) this.shiftOperator = authUser.name;
+
+            // Listen for tab switches and refreshes from legacy code
+            window.addEventListener('pn:tab-switch', function(e) {
+                self.activeTab = e.detail.tab;
+            });
+            window.addEventListener('pn:refresh', function() {
+                // Re-sync from pnState (in case legacy code modified it)
+                self.operators = pnState.operators;
+                self.shiftLog = pnState.shiftLog;
+                self.shiftReports = pnState.shiftReports || [];
+            });
+            // [R6] Listen for cross-module data changes (COP15, Inventory, etc.)
+            window.addEventListener('data:saved', function() {
+                // Force Alpine to re-evaluate computed properties (alerts, calendar, etc.)
+                self.operators = self.operators;
+            });
+        },
+
+        // ── Computed — Users ──
+        activeOperators: function() {
+            return this.operators.filter(function(o) { return o.active; });
+        },
+        operatorStats: function(opName) {
+            var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+            var stats = { registered: 0, released: 0, active: 0 };
+            vehicles.forEach(function(v) {
+                if ((v.registeredBy || '') === opName) {
+                    if (v.status === 'archived') stats.released++;
+                    else stats.active++;
+                    stats.registered++;
+                }
+            });
+            return stats;
+        },
+        avatarInitials: function(name) {
+            return name.split(' ').map(function(w) { return w[0]; }).join('').substring(0, 2).toUpperCase();
+        },
+        avatarColor: function(idx) {
+            var colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
+            return colors[idx % colors.length];
+        },
+
+        // ── Methods — Users ──
+        addOperator: function() {
+            if (!this.newOpName || !this.newOpName.trim()) { showToast('Ingresa un nombre', 'error'); return; }
+            var maxId = this.operators.reduce(function(m, o) { return Math.max(m, o.id || 0); }, 0);
+            this.operators.push({
+                id: maxId + 1,
+                name: this.newOpName.trim(),
+                role: this.newOpRole,
+                active: true,
+                createdAt: new Date().toISOString()
+            });
+            this.newOpName = '';
+            this._syncAndSave();
+            showToast('Operador agregado', 'success');
+        },
+        editOperator: function(idx) {
+            var op = this.operators[idx];
+            if (!op) return;
+            var newName = prompt('Nombre:', op.name);
+            if (!newName || !newName.trim()) return;
+            var newRole = prompt('Rol (' + this.roles.join(', ') + '):', op.role || 'Técnico');
+            op.name = newName.trim();
+            if (newRole && this.roles.indexOf(newRole) !== -1) op.role = newRole;
+            this._syncAndSave();
+            showToast('Operador actualizado', 'success');
+        },
+        toggleOperator: function(idx) {
+            var op = this.operators[idx];
+            if (!op) return;
+            op.active = !op.active;
+            this._syncAndSave();
+            showToast(op.name + (op.active ? ' activado' : ' desactivado'), 'info');
+        },
+        removeOperator: function(idx) {
+            var self = this;
+            var op = this.operators[idx];
+            if (!op) return;
+            showConfirmDialog({ title: '⚠️ Eliminar operador', message: '¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+                if (!ok) return;
+                self.operators.splice(idx, 1);
+                self._syncAndSave();
+                showToast('Operador eliminado', 'info');
+            });
+        },
+        setOperatorPin: function(idx) {
+            var op = this.operators[idx];
+            if (!op) return;
+            var pin = prompt('PIN de 4 dígitos para ' + op.name + ':');
+            if (!pin) return;
+            pin = pin.trim();
+            if (!/^\d{4}$/.test(pin)) { showToast('El PIN debe ser exactamente 4 dígitos numéricos', 'error'); return; }
+            op.pinHash = pnHashPin(pin);
+            this._syncAndSave();
+            showToast('PIN configurado para ' + op.name, 'success');
+        },
+
+        // ── Computed — Shift Log ──
+        todayStr: function() { return new Date().toISOString().substring(0, 10); },
+        todayEntries: function() {
+            var today = this.todayStr();
+            return this.shiftLog.filter(function(s) { return s.date === today; }).slice().reverse();
+        },
+        previousDays: function() {
+            var today = this.todayStr();
+            var prev = this.shiftLog.filter(function(s) { return s.date !== today; });
+            var grouped = {};
+            prev.forEach(function(e) { if (!grouped[e.date]) grouped[e.date] = []; grouped[e.date].push(e); });
+            return Object.keys(grouped).sort().reverse().slice(0, 7).map(function(date) {
+                return {
+                    date: date,
+                    label: new Date(date + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' }),
+                    entries: grouped[date].slice().reverse()
+                };
+            });
+        },
+
+        // ── Methods — Shift Log ──
+        addShiftEntry: function() {
+            if (!this.shiftOperator) { showToast('Selecciona un operador', 'error'); return; }
+            if (!this.shiftNotes || !this.shiftNotes.trim()) { showToast('Escribe una nota', 'error'); return; }
+            var now = new Date();
+            this.shiftLog.push({
+                id: 'sl_' + Date.now(),
+                date: now.toISOString().substring(0, 10),
+                time: now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                operator: this.shiftOperator,
+                category: this.shiftCategory,
+                notes: this.shiftNotes.trim(),
+                timestamp: now.toISOString()
+            });
+            if (this.shiftLog.length > 500) this.shiftLog = this.shiftLog.slice(-500);
+            this.shiftNotes = '';
+            this._syncAndSave();
+            showToast('Entrada registrada', 'success');
+        },
+        deleteShiftEntry: function(id) {
+            var self = this;
+            showConfirmDialog({ title: '⚠️ Eliminar entrada', message: '¿Eliminar esta entrada?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+                if (!ok) return;
+                self.shiftLog = self.shiftLog.filter(function(s) { return s.id !== id; });
+                pnState.shiftLog = self.shiftLog;
+                pnSave();
+            });
+        },
+
+        // ── Computed — Alerts ──
+        activeAlerts: function() { return pnGetActiveAlerts(); },
+        alertsBySource: function() {
+            var alerts = this.activeAlerts();
+            var grouped = {};
+            alerts.forEach(function(a) {
+                if (!grouped[a.source]) grouped[a.source] = [];
+                grouped[a.source].push(a);
+            });
+            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊' };
+            return Object.keys(grouped).map(function(source) {
+                return { source: source, icon: sourceIcons[source] || '📌', alerts: grouped[source] };
+            });
+        },
+        alertCount: function(level) {
+            return this.activeAlerts().filter(function(a) { return a.level === level; }).length;
+        },
+
+        // ── Computed — System Health ──
+        storageData: function() {
+            var storageKeys = [
+                { key: 'kia_db_v11', label: 'COP15 (Base de Datos)' },
+                { key: 'kia_testplan_v1', label: 'Test Plan Manager' },
+                { key: 'kia_results_v1', label: 'Results Analyzer' },
+                { key: 'kia_lab_inventory', label: 'Lab Inventory' },
+                { key: 'kia_panel_v1', label: 'Panel' },
+                { key: 'kia_chart_configs', label: 'Chart Configs' },
+                { key: 'kia_entity_notes', label: 'Notas' },
+                { key: 'kia_soak_timer', label: 'Soak Timer' },
+                { key: 'kia_firebase_queue', label: 'Firebase Queue' }
+            ];
+            var totalBytes = 0;
+            var breakdown = [];
+            var knownKeys = storageKeys.map(function(s) { return s.key; });
+            storageKeys.forEach(function(sk) {
+                try {
+                    var val = localStorage.getItem(sk.key);
+                    var bytes = val ? new Blob([val]).size : 0;
+                    totalBytes += bytes;
+                    if (bytes > 0) breakdown.push({ label: sk.label, bytes: bytes });
+                } catch(e) {}
+            });
+            var otherBytes = 0;
+            for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                if (knownKeys.indexOf(k) === -1) {
+                    try { var v = localStorage.getItem(k); otherBytes += v ? new Blob([v]).size : 0; } catch(e) {}
+                }
+            }
+            if (otherBytes > 0) { totalBytes += otherBytes; breakdown.push({ label: 'Otros', bytes: otherBytes }); }
+            breakdown.sort(function(a, b) { return b.bytes - a.bytes; });
+            var maxStorage = 5 * 1024 * 1024;
+            var usedPct = ((totalBytes / maxStorage) * 100).toFixed(1);
+            return { totalBytes: totalBytes, breakdown: breakdown, usedPct: usedPct,
+                barColor: totalBytes > maxStorage * 0.8 ? '#ef4444' : totalBytes > maxStorage * 0.5 ? '#f59e0b' : '#10b981' };
+        },
+        agingData: function() {
+            var now = Date.now();
+            var data = [];
+            if (typeof db !== 'undefined' && db.vehicles) {
+                var c30 = 0, c60 = 0, c90 = 0;
+                db.vehicles.forEach(function(v) {
+                    var ts = v.timestamp || v.createdAt; if (!ts) return;
+                    var age = (now - new Date(ts).getTime()) / 86400000;
+                    if (age > 90) c90++; else if (age > 60) c60++; else if (age > 30) c30++;
+                });
+                data.push({ label: 'COP15 Vehículos', total: db.vehicles.length, d30: c30, d60: c60, d90: c90 });
+            }
+            if (typeof raState !== 'undefined' && raState.tests) {
+                var r30 = 0, r60 = 0, r90 = 0;
+                raState.tests.forEach(function(t) {
+                    if (!t.date) return;
+                    var age = (now - new Date(t.date).getTime()) / 86400000;
+                    if (age > 90) r90++; else if (age > 60) r60++; else if (age > 30) r30++;
+                });
+                data.push({ label: 'Resultados (Pruebas)', total: raState.tests.length, d30: r30, d60: r60, d90: r90 });
+            }
+            if (typeof tpState !== 'undefined' && tpState.plans) {
+                var t30 = 0, t60 = 0, t90 = 0, tTotal = 0;
+                tpState.plans.forEach(function(p) {
+                    if (!p.records) return;
+                    p.records.forEach(function(r) {
+                        tTotal++;
+                        var ts = r.completedAt || r.createdAt; if (!ts) return;
+                        var age = (now - new Date(ts).getTime()) / 86400000;
+                        if (age > 90) t90++; else if (age > 60) t60++; else if (age > 30) t30++;
+                    });
+                });
+                data.push({ label: 'Test Plan (Registros)', total: tTotal, d30: t30, d60: t60, d90: t90 });
+            }
+            return data;
+        },
+        perfData: function() { return _pnMeasurePerformance(); },
+        formatBytes: function(b) { return _pnFormatBytes(b); },
+        purgeOldData: function(module, maxDays) { pnPurgeOldData(module, maxDays); },
+
+        // ── Computed — Calendar ──
+        calendarMonthLabel: function() { return this.monthNames[this.calMonth] + ' ' + this.calYear; },
+        calendarEvents: function() { return _pnCollectCalendarEvents(this.calYear, this.calMonth); },
+        calendarGrid: function() {
+            var firstDay = new Date(this.calYear, this.calMonth, 1);
+            var lastDay = new Date(this.calYear, this.calMonth + 1, 0);
+            var startWeekday = (firstDay.getDay() + 6) % 7;
+            var today = new Date();
+            var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+            var events = this.calendarEvents();
+            var cells = [];
+            for (var e = 0; e < startWeekday; e++) cells.push({ empty: true });
+            for (var day = 1; day <= lastDay.getDate(); day++) {
+                var dateStr = this.calYear + '-' + String(this.calMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+                var dayEvents = events.filter(function(ev) { return ev.date === dateStr; });
+                var dots = [];
+                var shown = {};
+                dayEvents.slice(0, 3).forEach(function(ev) {
+                    if (!shown[ev.color]) { dots.push(ev.color); shown[ev.color] = true; }
+                });
+                cells.push({ day: day, dateStr: dateStr, isToday: dateStr === todayStr, events: dayEvents, dots: dots, extra: dayEvents.length > 3 ? dayEvents.length - 3 : 0 });
+            }
+            return cells;
+        },
+        calendarWeekSummary: function() { return _pnCalendarWeekSummary(this.calendarEvents()); },
+        navCalendar: function(dir) {
+            this.calMonth += dir;
+            if (this.calMonth > 11) { this.calMonth = 0; this.calYear++; }
+            if (this.calMonth < 0) { this.calMonth = 11; this.calYear--; }
+        },
+        calendarToday: function() { var d = new Date(); this.calYear = d.getFullYear(); this.calMonth = d.getMonth(); },
+        calendarDayClick: function(dateStr) { _pnCalendarDayClick(dateStr); },
+
+        // ── Helpers ──
+        _syncAndSave: function() {
+            pnState.operators = this.operators;
+            pnState.shiftLog = this.shiftLog;
+            pnState.shiftReports = this.shiftReports;
+            pnSave();
+            pnSyncOperators();
+        },
+        refreshAlerts: function() { pnRender(); },
+        exportAlerts: function() { pnExportAlerts(); },
+        exportShiftLog: function() { pnExportShiftLog(); },
+        generateShiftReport: function() { pnGenerateShiftReport(); },
+        showTurnoverOnLogin: function() { pnShowTurnoverOnLogin(); },
+        syncOperators: function() { pnSyncOperators(); showToast('Dropdowns sincronizados', 'success'); },
+
+        calendarLegend: [
+            { color: '#ef4444', label: 'Vencido/Agotado' },
+            { color: '#f59e0b', label: 'Próximo' },
+            { color: '#3b82f6', label: 'Planificado' },
+            { color: '#10b981', label: 'Release/Completado' }
+        ]
+    };
 }
 
 

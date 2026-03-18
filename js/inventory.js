@@ -53,6 +53,8 @@ function invSave() {
         catch(e2) { showToast('Almacenamiento lleno. Elimina datos antiguos.', 'error'); }
     }
     tabCacheInvalidate('inv');
+    // [R6] Notify Alpine components of data change
+    window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'inventory' } }));
 }
 
 // ── [Fase 5.3] Compact old fuel readings (keep last 30 per tank) ──

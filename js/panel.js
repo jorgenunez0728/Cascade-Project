@@ -36,23 +36,30 @@ function pnSave() {
 
 var _pnTabs = ['pn-dashboard','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar'];
 
+// Tabs managed by Alpine reactive templates (no innerHTML needed)
+var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true };
+
 function pnSwitchTab(tabId) {
     pnState.activeTab = tabId;
     document.querySelectorAll('#pn-tabs-bar .tp-tab').forEach(function(b) {
         b.classList.toggle('active', b.getAttribute('onclick').indexOf(tabId) !== -1);
     });
     pnRender();
+    // Notify Alpine components of tab switch
+    window.dispatchEvent(new CustomEvent('pn:tab-switch', { detail: { tab: tabId } }));
 }
 
 function _pnGetRenderer(tabId) {
+    // Alpine-managed tabs use a no-op renderer (Alpine handles the HTML)
+    if (_pnAlpineTabs[tabId]) return _pnAlpineTabRenderer;
     if (tabId === 'pn-dashboard') return pnRenderDashboard;
-    if (tabId === 'pn-users') return pnRenderUsers;
-    if (tabId === 'pn-shift') return pnRenderShiftLog;
-    if (tabId === 'pn-alerts') return pnRenderAlerts;
     if (tabId === 'pn-intelligence') return pnRenderIntelligence;
-    if (tabId === 'pn-system') return pnRenderSystemHealth;
-    if (tabId === 'pn-calendar') return pnRenderCalendar;
     return null;
+}
+
+/** Clear renderer for Alpine-managed tabs — Alpine x-data handles rendering in sibling div */
+function _pnAlpineTabRenderer(el) {
+    el.innerHTML = ''; // Clear any skeleton/placeholder — Alpine template is in sibling container
 }
 
 function pnRender() {
@@ -62,6 +69,8 @@ function pnRender() {
     var tab = pnState.activeTab;
     var renderer = _pnGetRenderer(tab);
     if (renderer) tabCacheSwitch('pn', tab, renderer);
+    // Notify Alpine to refresh reactive data
+    window.dispatchEvent(new CustomEvent('pn:refresh'));
 }
 
 function pnUpdateBadges() {
@@ -1775,4 +1784,348 @@ function pnShowTurnoverOnLogin() {
     var hoursDiff = (Date.now() - reportDate.getTime()) / (1000 * 60 * 60);
     if (hoursDiff > 24) return;
     pnRenderShiftReport(lastReport);
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [R6] Alpine.js Reactive Component — Panel Module                   ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function panelAlpineComponent() {
+    return {
+        // ── State ──
+        activeTab: pnState.activeTab,
+        operators: pnState.operators,
+        shiftLog: pnState.shiftLog,
+        shiftReports: pnState.shiftReports || [],
+
+        // Form state — Users
+        newOpName: '',
+        newOpRole: 'Técnico',
+        roles: ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practicante'],
+
+        // Form state — Shift Log
+        shiftOperator: '',
+        shiftCategory: 'Observación',
+        shiftNotes: '',
+        categories: ['Inicio de turno', 'Prueba completada', 'Incidencia', 'Mantenimiento', 'Calibración', 'Observación', 'Fin de turno'],
+        catColors: {
+            'Inicio de turno': '#10b981', 'Prueba completada': '#3b82f6', 'Incidencia': '#ef4444',
+            'Mantenimiento': '#f59e0b', 'Calibración': '#8b5cf6', 'Observación': '#64748b', 'Fin de turno': '#06b6d4'
+        },
+        catIcons: {
+            'Inicio de turno': '🟢', 'Prueba completada': '✅', 'Incidencia': '🔴',
+            'Mantenimiento': '🔧', 'Calibración': '📏', 'Observación': '📌', 'Fin de turno': '🔵'
+        },
+
+        // Calendar state
+        calYear: new Date().getFullYear(),
+        calMonth: new Date().getMonth(),
+        monthNames: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
+        dayNames: ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],
+
+        // ── Init ──
+        init: function() {
+            var self = this;
+            // Auto-select current user for shift log
+            var authUser = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
+            if (authUser) this.shiftOperator = authUser.name;
+
+            // Listen for tab switches and refreshes from legacy code
+            window.addEventListener('pn:tab-switch', function(e) {
+                self.activeTab = e.detail.tab;
+            });
+            window.addEventListener('pn:refresh', function() {
+                // Re-sync from pnState (in case legacy code modified it)
+                self.operators = pnState.operators;
+                self.shiftLog = pnState.shiftLog;
+                self.shiftReports = pnState.shiftReports || [];
+            });
+            // [R6] Listen for cross-module data changes (COP15, Inventory, etc.)
+            window.addEventListener('data:saved', function() {
+                // Force Alpine to re-evaluate computed properties (alerts, calendar, etc.)
+                self.operators = self.operators;
+            });
+        },
+
+        // ── Computed — Users ──
+        activeOperators: function() {
+            return this.operators.filter(function(o) { return o.active; });
+        },
+        operatorStats: function(opName) {
+            var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+            var stats = { registered: 0, released: 0, active: 0 };
+            vehicles.forEach(function(v) {
+                if ((v.registeredBy || '') === opName) {
+                    if (v.status === 'archived') stats.released++;
+                    else stats.active++;
+                    stats.registered++;
+                }
+            });
+            return stats;
+        },
+        avatarInitials: function(name) {
+            return name.split(' ').map(function(w) { return w[0]; }).join('').substring(0, 2).toUpperCase();
+        },
+        avatarColor: function(idx) {
+            var colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
+            return colors[idx % colors.length];
+        },
+
+        // ── Methods — Users ──
+        addOperator: function() {
+            if (!this.newOpName || !this.newOpName.trim()) { showToast('Ingresa un nombre', 'error'); return; }
+            var maxId = this.operators.reduce(function(m, o) { return Math.max(m, o.id || 0); }, 0);
+            this.operators.push({
+                id: maxId + 1,
+                name: this.newOpName.trim(),
+                role: this.newOpRole,
+                active: true,
+                createdAt: new Date().toISOString()
+            });
+            this.newOpName = '';
+            this._syncAndSave();
+            showToast('Operador agregado', 'success');
+        },
+        editOperator: function(idx) {
+            var op = this.operators[idx];
+            if (!op) return;
+            var newName = prompt('Nombre:', op.name);
+            if (!newName || !newName.trim()) return;
+            var newRole = prompt('Rol (' + this.roles.join(', ') + '):', op.role || 'Técnico');
+            op.name = newName.trim();
+            if (newRole && this.roles.indexOf(newRole) !== -1) op.role = newRole;
+            this._syncAndSave();
+            showToast('Operador actualizado', 'success');
+        },
+        toggleOperator: function(idx) {
+            var op = this.operators[idx];
+            if (!op) return;
+            op.active = !op.active;
+            this._syncAndSave();
+            showToast(op.name + (op.active ? ' activado' : ' desactivado'), 'info');
+        },
+        removeOperator: function(idx) {
+            var self = this;
+            var op = this.operators[idx];
+            if (!op) return;
+            showConfirmDialog({ title: '⚠️ Eliminar operador', message: '¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+                if (!ok) return;
+                self.operators.splice(idx, 1);
+                self._syncAndSave();
+                showToast('Operador eliminado', 'info');
+            });
+        },
+        setOperatorPin: function(idx) {
+            var op = this.operators[idx];
+            if (!op) return;
+            var pin = prompt('PIN de 4 dígitos para ' + op.name + ':');
+            if (!pin) return;
+            pin = pin.trim();
+            if (!/^\d{4}$/.test(pin)) { showToast('El PIN debe ser exactamente 4 dígitos numéricos', 'error'); return; }
+            op.pinHash = pnHashPin(pin);
+            this._syncAndSave();
+            showToast('PIN configurado para ' + op.name, 'success');
+        },
+
+        // ── Computed — Shift Log ──
+        todayStr: function() { return new Date().toISOString().substring(0, 10); },
+        todayEntries: function() {
+            var today = this.todayStr();
+            return this.shiftLog.filter(function(s) { return s.date === today; }).slice().reverse();
+        },
+        previousDays: function() {
+            var today = this.todayStr();
+            var prev = this.shiftLog.filter(function(s) { return s.date !== today; });
+            var grouped = {};
+            prev.forEach(function(e) { if (!grouped[e.date]) grouped[e.date] = []; grouped[e.date].push(e); });
+            return Object.keys(grouped).sort().reverse().slice(0, 7).map(function(date) {
+                return {
+                    date: date,
+                    label: new Date(date + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' }),
+                    entries: grouped[date].slice().reverse()
+                };
+            });
+        },
+
+        // ── Methods — Shift Log ──
+        addShiftEntry: function() {
+            if (!this.shiftOperator) { showToast('Selecciona un operador', 'error'); return; }
+            if (!this.shiftNotes || !this.shiftNotes.trim()) { showToast('Escribe una nota', 'error'); return; }
+            var now = new Date();
+            this.shiftLog.push({
+                id: 'sl_' + Date.now(),
+                date: now.toISOString().substring(0, 10),
+                time: now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+                operator: this.shiftOperator,
+                category: this.shiftCategory,
+                notes: this.shiftNotes.trim(),
+                timestamp: now.toISOString()
+            });
+            if (this.shiftLog.length > 500) this.shiftLog = this.shiftLog.slice(-500);
+            this.shiftNotes = '';
+            this._syncAndSave();
+            showToast('Entrada registrada', 'success');
+        },
+        deleteShiftEntry: function(id) {
+            var self = this;
+            showConfirmDialog({ title: '⚠️ Eliminar entrada', message: '¿Eliminar esta entrada?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+                if (!ok) return;
+                self.shiftLog = self.shiftLog.filter(function(s) { return s.id !== id; });
+                pnState.shiftLog = self.shiftLog;
+                pnSave();
+            });
+        },
+
+        // ── Computed — Alerts ──
+        activeAlerts: function() { return pnGetActiveAlerts(); },
+        alertsBySource: function() {
+            var alerts = this.activeAlerts();
+            var grouped = {};
+            alerts.forEach(function(a) {
+                if (!grouped[a.source]) grouped[a.source] = [];
+                grouped[a.source].push(a);
+            });
+            var sourceIcons = { 'COP15': '🔬', 'Inventario': '📦', 'Test Plan': '📊' };
+            return Object.keys(grouped).map(function(source) {
+                return { source: source, icon: sourceIcons[source] || '📌', alerts: grouped[source] };
+            });
+        },
+        alertCount: function(level) {
+            return this.activeAlerts().filter(function(a) { return a.level === level; }).length;
+        },
+
+        // ── Computed — System Health ──
+        storageData: function() {
+            var storageKeys = [
+                { key: 'kia_db_v11', label: 'COP15 (Base de Datos)' },
+                { key: 'kia_testplan_v1', label: 'Test Plan Manager' },
+                { key: 'kia_results_v1', label: 'Results Analyzer' },
+                { key: 'kia_lab_inventory', label: 'Lab Inventory' },
+                { key: 'kia_panel_v1', label: 'Panel' },
+                { key: 'kia_chart_configs', label: 'Chart Configs' },
+                { key: 'kia_entity_notes', label: 'Notas' },
+                { key: 'kia_soak_timer', label: 'Soak Timer' },
+                { key: 'kia_firebase_queue', label: 'Firebase Queue' }
+            ];
+            var totalBytes = 0;
+            var breakdown = [];
+            var knownKeys = storageKeys.map(function(s) { return s.key; });
+            storageKeys.forEach(function(sk) {
+                try {
+                    var val = localStorage.getItem(sk.key);
+                    var bytes = val ? new Blob([val]).size : 0;
+                    totalBytes += bytes;
+                    if (bytes > 0) breakdown.push({ label: sk.label, bytes: bytes });
+                } catch(e) {}
+            });
+            var otherBytes = 0;
+            for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                if (knownKeys.indexOf(k) === -1) {
+                    try { var v = localStorage.getItem(k); otherBytes += v ? new Blob([v]).size : 0; } catch(e) {}
+                }
+            }
+            if (otherBytes > 0) { totalBytes += otherBytes; breakdown.push({ label: 'Otros', bytes: otherBytes }); }
+            breakdown.sort(function(a, b) { return b.bytes - a.bytes; });
+            var maxStorage = 5 * 1024 * 1024;
+            var usedPct = ((totalBytes / maxStorage) * 100).toFixed(1);
+            return { totalBytes: totalBytes, breakdown: breakdown, usedPct: usedPct,
+                barColor: totalBytes > maxStorage * 0.8 ? '#ef4444' : totalBytes > maxStorage * 0.5 ? '#f59e0b' : '#10b981' };
+        },
+        agingData: function() {
+            var now = Date.now();
+            var data = [];
+            if (typeof db !== 'undefined' && db.vehicles) {
+                var c30 = 0, c60 = 0, c90 = 0;
+                db.vehicles.forEach(function(v) {
+                    var ts = v.timestamp || v.createdAt; if (!ts) return;
+                    var age = (now - new Date(ts).getTime()) / 86400000;
+                    if (age > 90) c90++; else if (age > 60) c60++; else if (age > 30) c30++;
+                });
+                data.push({ label: 'COP15 Vehículos', total: db.vehicles.length, d30: c30, d60: c60, d90: c90 });
+            }
+            if (typeof raState !== 'undefined' && raState.tests) {
+                var r30 = 0, r60 = 0, r90 = 0;
+                raState.tests.forEach(function(t) {
+                    if (!t.date) return;
+                    var age = (now - new Date(t.date).getTime()) / 86400000;
+                    if (age > 90) r90++; else if (age > 60) r60++; else if (age > 30) r30++;
+                });
+                data.push({ label: 'Resultados (Pruebas)', total: raState.tests.length, d30: r30, d60: r60, d90: r90 });
+            }
+            if (typeof tpState !== 'undefined' && tpState.plans) {
+                var t30 = 0, t60 = 0, t90 = 0, tTotal = 0;
+                tpState.plans.forEach(function(p) {
+                    if (!p.records) return;
+                    p.records.forEach(function(r) {
+                        tTotal++;
+                        var ts = r.completedAt || r.createdAt; if (!ts) return;
+                        var age = (now - new Date(ts).getTime()) / 86400000;
+                        if (age > 90) t90++; else if (age > 60) t60++; else if (age > 30) t30++;
+                    });
+                });
+                data.push({ label: 'Test Plan (Registros)', total: tTotal, d30: t30, d60: t60, d90: t90 });
+            }
+            return data;
+        },
+        perfData: function() { return _pnMeasurePerformance(); },
+        formatBytes: function(b) { return _pnFormatBytes(b); },
+        purgeOldData: function(module, maxDays) { pnPurgeOldData(module, maxDays); },
+
+        // ── Computed — Calendar ──
+        calendarMonthLabel: function() { return this.monthNames[this.calMonth] + ' ' + this.calYear; },
+        calendarEvents: function() { return _pnCollectCalendarEvents(this.calYear, this.calMonth); },
+        calendarGrid: function() {
+            var firstDay = new Date(this.calYear, this.calMonth, 1);
+            var lastDay = new Date(this.calYear, this.calMonth + 1, 0);
+            var startWeekday = (firstDay.getDay() + 6) % 7;
+            var today = new Date();
+            var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+            var events = this.calendarEvents();
+            var cells = [];
+            for (var e = 0; e < startWeekday; e++) cells.push({ empty: true });
+            for (var day = 1; day <= lastDay.getDate(); day++) {
+                var dateStr = this.calYear + '-' + String(this.calMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+                var dayEvents = events.filter(function(ev) { return ev.date === dateStr; });
+                var dots = [];
+                var shown = {};
+                dayEvents.slice(0, 3).forEach(function(ev) {
+                    if (!shown[ev.color]) { dots.push(ev.color); shown[ev.color] = true; }
+                });
+                cells.push({ day: day, dateStr: dateStr, isToday: dateStr === todayStr, events: dayEvents, dots: dots, extra: dayEvents.length > 3 ? dayEvents.length - 3 : 0 });
+            }
+            return cells;
+        },
+        calendarWeekSummary: function() { return _pnCalendarWeekSummary(this.calendarEvents()); },
+        navCalendar: function(dir) {
+            this.calMonth += dir;
+            if (this.calMonth > 11) { this.calMonth = 0; this.calYear++; }
+            if (this.calMonth < 0) { this.calMonth = 11; this.calYear--; }
+        },
+        calendarToday: function() { var d = new Date(); this.calYear = d.getFullYear(); this.calMonth = d.getMonth(); },
+        calendarDayClick: function(dateStr) { _pnCalendarDayClick(dateStr); },
+
+        // ── Helpers ──
+        _syncAndSave: function() {
+            pnState.operators = this.operators;
+            pnState.shiftLog = this.shiftLog;
+            pnState.shiftReports = this.shiftReports;
+            pnSave();
+            pnSyncOperators();
+        },
+        refreshAlerts: function() { pnRender(); },
+        exportAlerts: function() { pnExportAlerts(); },
+        exportShiftLog: function() { pnExportShiftLog(); },
+        generateShiftReport: function() { pnGenerateShiftReport(); },
+        showTurnoverOnLogin: function() { pnShowTurnoverOnLogin(); },
+        syncOperators: function() { pnSyncOperators(); showToast('Dropdowns sincronizados', 'success'); },
+
+        calendarLegend: [
+            { color: '#ef4444', label: 'Vencido/Agotado' },
+            { color: '#f59e0b', label: 'Próximo' },
+            { color: '#3b82f6', label: 'Planificado' },
+            { color: '#10b981', label: 'Release/Completado' }
+        ]
+    };
 }

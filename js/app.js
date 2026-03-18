@@ -338,6 +338,8 @@ function themeToggle() {
 
     function saveDB() {
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        // [R6] Notify Alpine components of data change
+        window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'cop15' } }));
     }
 
 // ── [Fase 2.2] Debounced save wrapper for focusout/auto-save scenarios ──
@@ -2981,6 +2983,25 @@ function skeletonShow(container, count) {
  * @param {string} color - Stroke color
  * @returns {string} SVG HTML
  */
+// ══════════════════════════════════════════════════════════════════════
+// [R6] Alpine.js Reactive Infrastructure
+// ══════════════════════════════════════════════════════════════════════
+
+document.addEventListener('alpine:init', function() {
+    // Global shared store
+    Alpine.store('app', {
+        currentUser: null,
+        init: function() {
+            this.currentUser = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
+        }
+    });
+
+    // Register Panel module as Alpine component
+    if (typeof panelAlpineComponent === 'function') {
+        Alpine.data('panelModule', panelAlpineComponent);
+    }
+});
+
 function buildProgressRing(pct, size, color) {
     var r = (size - 6) / 2;
     var c = Math.PI * 2 * r;

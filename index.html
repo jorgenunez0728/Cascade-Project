@@ -1030,6 +1030,365 @@
 
     <div class="tp-main">
         <div id="pn-content"></div>
+
+        <!-- ═══ [R6] Alpine.js Reactive Templates for Panel ═══ -->
+        <div x-data="panelModule()" x-cloak>
+
+        <!-- ───── USERS TAB ───── -->
+        <div x-show="activeTab === 'pn-users'" style="padding:12px 0;">
+            <!-- Add Operator Form -->
+            <div class="tp-card" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.05),transparent);">
+                <div class="tp-card-title"><span>👥 Agregar Operador</span></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+                    <div style="flex:1;min-width:150px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Nombre completo</label>
+                        <input type="text" x-model.trim="newOpName" placeholder="Nombre Apellido" class="tp-input" style="width:100%;" @keydown.enter="addOperator()">
+                    </div>
+                    <div style="min-width:120px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Rol</label>
+                        <select x-model="newOpRole" class="tp-select" style="width:100%;">
+                            <template x-for="role in roles" :key="role"><option :value="role" x-text="role"></option></template>
+                        </select>
+                    </div>
+                    <button class="tp-btn tp-btn-primary" @click="addOperator()" style="padding:8px 16px;">+ Agregar</button>
+                </div>
+            </div>
+
+            <!-- Operators List -->
+            <div class="tp-card">
+                <div class="tp-card-title"><span>👤 Operadores (<span x-text="operators.length"></span>)</span></div>
+                <template x-if="operators.length === 0">
+                    <div style="text-align:center;padding:20px;color:var(--tp-dim);">No hay operadores registrados.</div>
+                </template>
+                <template x-for="(op, idx) in operators" :key="op.id">
+                    <div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:8px;"
+                         :style="{ background: op.active ? 'var(--tp-card)' : 'rgba(100,116,139,0.05)', opacity: op.active ? '1' : '0.5' }">
+                        <!-- Avatar -->
+                        <div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;"
+                             :style="{ background: avatarColor(idx) + '20', color: avatarColor(idx) }"
+                             x-text="avatarInitials(op.name)"></div>
+                        <!-- Info -->
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                <span style="font-size:12px;font-weight:700;color:var(--tp-text);" x-text="op.name"></span>
+                                <span style="font-size:9px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;" x-text="op.role || 'Técnico'"></span>
+                                <template x-if="!op.active"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span></template>
+                                <template x-if="op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span></template>
+                                <template x-if="!op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span></template>
+                            </div>
+                            <div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">
+                                <span x-text="operatorStats(op.name).registered"></span> registrados |
+                                <span x-text="operatorStats(op.name).released"></span> liberados |
+                                <span x-text="operatorStats(op.name).active"></span> activos
+                            </div>
+                        </div>
+                        <!-- Actions -->
+                        <div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+                            <button @click="setOperatorPin(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN" x-text="op.pinHash ? '🔑' : '🔒'"></button>
+                            <button @click="editOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">✏️</button>
+                            <button @click="toggleOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" x-text="op.active ? '🚫' : '✅'"></button>
+                            <button @click="removeOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--tp-red);">🗑</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Sync Info -->
+            <div class="tp-card" style="padding:10px;text-align:center;">
+                <div style="font-size:9px;color:var(--tp-dim);">Los operadores se sincronizan automaticamente con los dropdowns de COP15.</div>
+                <button class="tp-btn tp-btn-ghost" @click="syncOperators()" style="font-size:10px;margin-top:6px;">🔄 Sincronizar Dropdowns Ahora</button>
+            </div>
+        </div>
+
+        <!-- ───── SHIFT LOG TAB ───── -->
+        <div x-show="activeTab === 'pn-shift'" style="padding:12px 0;">
+            <!-- Shift report buttons -->
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <button class="tp-btn tp-btn-primary" @click="generateShiftReport()" style="font-size:11px;">🔄 Cerrar Turno</button>
+                <template x-if="shiftReports.length > 0">
+                    <button class="tp-btn tp-btn-ghost" @click="showTurnoverOnLogin()" style="font-size:11px;">📋 Último Reporte</button>
+                </template>
+            </div>
+
+            <!-- New entry form -->
+            <div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">
+                <div class="tp-card-title"><span>📝 Nueva Entrada de Bitácora</span></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                    <div>
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Operador</label>
+                        <select x-model="shiftOperator" class="tp-select" style="width:100%;">
+                            <option value="">Seleccionar...</option>
+                            <template x-for="op in activeOperators()" :key="op.id"><option :value="op.name" x-text="op.name"></option></template>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Categoría</label>
+                        <select x-model="shiftCategory" class="tp-select" style="width:100%;">
+                            <template x-for="cat in categories" :key="cat"><option :value="cat" x-text="cat"></option></template>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-bottom:8px;">
+                    <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Notas / Descripción</label>
+                    <textarea x-model="shiftNotes" class="tp-input" rows="3" placeholder="Describe la actividad, incidencia u observación..." style="width:100%;resize:vertical;font-family:inherit;"></textarea>
+                </div>
+                <button class="tp-btn tp-btn-primary" @click="addShiftEntry()" style="width:100%;padding:10px;font-size:12px;">+ Registrar en Bitácora</button>
+            </div>
+
+            <!-- Today's entries -->
+            <div class="tp-card">
+                <div class="tp-card-title">
+                    <span>📋 Hoy (<span x-text="todayEntries().length"></span> entradas)</span>
+                    <button class="tp-btn tp-btn-ghost" @click="exportShiftLog()" style="font-size:10px;">📤 Exportar</button>
+                </div>
+                <template x-if="todayEntries().length === 0">
+                    <div style="text-align:center;padding:30px;color:var(--tp-dim);font-size:11px;">Sin entradas hoy. Registra el inicio de turno.</div>
+                </template>
+                <template x-for="entry in todayEntries()" :key="entry.id">
+                    <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--tp-border);">
+                        <div style="min-width:45px;font-size:9px;color:var(--tp-dim);padding-top:2px;" x-text="entry.time || ''"></div>
+                        <div style="font-size:16px;line-height:1;" x-text="catIcons[entry.category] || '📌'"></div>
+                        <div style="flex:1;">
+                            <div style="display:flex;gap:6px;align-items:center;margin-bottom:2px;">
+                                <span style="font-size:10px;font-weight:700;color:var(--tp-text);" x-text="entry.operator || '?'"></span>
+                                <span style="font-size:9px;padding:1px 6px;border-radius:4px;"
+                                      :style="{ background: (catColors[entry.category] || '#64748b') + '20', color: catColors[entry.category] || '#64748b' }"
+                                      x-text="entry.category"></span>
+                            </div>
+                            <div style="font-size:10px;color:var(--tp-dim);" x-text="entry.notes || ''"></div>
+                        </div>
+                        <button @click="deleteShiftEntry(entry.id)" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:4px;flex-shrink:0;">×</button>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Previous days -->
+            <template x-if="previousDays().length > 0">
+                <div class="tp-card">
+                    <div class="tp-card-title"><span>📅 Días Anteriores</span></div>
+                    <template x-for="group in previousDays()" :key="group.date">
+                        <details style="margin-bottom:6px;border:1px solid var(--tp-border);border-radius:6px;overflow:hidden;">
+                            <summary style="padding:8px 12px;cursor:pointer;font-size:11px;font-weight:700;color:var(--tp-text);background:var(--tp-card);display:flex;justify-content:space-between;">
+                                <span x-text="group.label"></span>
+                                <span style="color:var(--tp-dim);" x-text="group.entries.length + ' entradas'"></span>
+                            </summary>
+                            <template x-for="entry in group.entries" :key="entry.id">
+                                <div style="display:flex;gap:8px;padding:5px 12px;border-top:1px solid var(--tp-border);font-size:10px;">
+                                    <span style="color:var(--tp-dim);min-width:40px;" x-text="entry.time || ''"></span>
+                                    <span style="font-weight:700;color:var(--tp-blue);min-width:70px;" x-text="entry.operator || '?'"></span>
+                                    <span style="color:var(--tp-dim);flex:1;" x-text="'[' + (entry.category || '') + '] ' + (entry.notes || '')"></span>
+                                </div>
+                            </template>
+                        </details>
+                    </template>
+                </div>
+            </template>
+        </div>
+
+        <!-- ───── ALERTS TAB ───── -->
+        <div x-show="activeTab === 'pn-alerts'" style="padding:12px 0;">
+            <!-- Summary -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+                <div class="tp-card" style="text-align:center;padding:14px;" :style="alertCount('CRITICA') > 0 ? 'border:2px solid #ef4444;' : ''">
+                    <div style="font-size:28px;font-weight:800;color:#ef4444;" x-text="alertCount('CRITICA')"></div>
+                    <div style="font-size:9px;color:var(--tp-dim);">Críticas</div>
+                </div>
+                <div class="tp-card" style="text-align:center;padding:14px;" :style="alertCount('ALTA') > 0 ? 'border:2px solid #f59e0b;' : ''">
+                    <div style="font-size:28px;font-weight:800;color:#f59e0b;" x-text="alertCount('ALTA')"></div>
+                    <div style="font-size:9px;color:var(--tp-dim);">Altas</div>
+                </div>
+                <div class="tp-card" style="text-align:center;padding:14px;">
+                    <div style="font-size:28px;font-weight:800;color:#06b6d4;" x-text="alertCount('MEDIA')"></div>
+                    <div style="font-size:9px;color:var(--tp-dim);">Medias</div>
+                </div>
+            </div>
+
+            <!-- No alerts -->
+            <template x-if="activeAlerts().length === 0">
+                <div class="tp-card" style="text-align:center;padding:40px;">
+                    <div style="font-size:40px;margin-bottom:10px;">✅</div>
+                    <div style="font-size:14px;font-weight:700;color:var(--tp-green);">Sin Alertas</div>
+                    <div style="font-size:11px;color:var(--tp-dim);margin-top:4px;">Todo el laboratorio opera con normalidad.</div>
+                </div>
+            </template>
+
+            <!-- Alerts by source -->
+            <template x-if="activeAlerts().length > 0">
+                <div>
+                    <template x-for="group in alertsBySource()" :key="group.source">
+                        <div class="tp-card">
+                            <div class="tp-card-title"><span x-text="group.icon + ' ' + group.source + ' (' + group.alerts.length + ')'"></span></div>
+                            <template x-for="a in group.alerts" :key="a.message">
+                                <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">
+                                    <span style="font-size:9px;padding:3px 8px;border-radius:4px;font-weight:800;white-space:nowrap;flex-shrink:0;"
+                                          :style="{ background: a.color + '20', color: a.color }"
+                                          x-text="a.level"></span>
+                                    <span style="font-size:11px;color:var(--tp-text);" x-text="a.message"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Alert actions -->
+            <div class="tp-card">
+                <div class="tp-card-title"><span>🔔 Configuración de Alertas</span></div>
+                <div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Las alertas se generan automáticamente al abrir este panel.</div>
+                <div style="display:flex;gap:8px;">
+                    <button class="tp-btn tp-btn-primary" @click="refreshAlerts()" style="flex:1;font-size:11px;">🔄 Actualizar Alertas</button>
+                    <button class="tp-btn tp-btn-ghost" @click="exportAlerts()" style="flex:1;font-size:11px;">📤 Exportar Reporte</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ───── SYSTEM HEALTH TAB ───── -->
+        <div x-show="activeTab === 'pn-system'" style="padding:12px 0;">
+            <h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">💾 Monitor de Salud del Sistema</h3>
+
+            <!-- Storage Breakdown -->
+            <div class="tp-card" style="margin-bottom:12px;padding:12px;">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:11px;color:var(--tp-dim);" x-text="formatBytes(storageData().totalBytes) + ' / 5 MB'"></span>
+                    <span style="font-size:11px;font-weight:700;" :style="{ color: storageData().barColor }" x-text="storageData().usedPct + '%'"></span>
+                </div>
+                <div style="width:100%;height:8px;background:rgba(30,41,59,0.8);border-radius:4px;overflow:hidden;">
+                    <div style="height:100%;border-radius:4px;transition:width 0.3s;"
+                         :style="{ width: Math.min(parseFloat(storageData().usedPct), 100) + '%', background: storageData().barColor }"></div>
+                </div>
+                <div style="margin-top:10px;">
+                    <template x-for="item in storageData().breakdown" :key="item.label">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(30,41,59,0.3);">
+                            <span style="font-size:10px;color:var(--tp-text);" x-text="item.label"></span>
+                            <span style="font-size:10px;color:var(--tp-dim);" x-text="formatBytes(item.bytes) + ' (' + (storageData().totalBytes > 0 ? ((item.bytes / storageData().totalBytes) * 100).toFixed(1) : '0.0') + '%)'"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Data Aging -->
+            <div class="tp-card" style="margin-bottom:12px;padding:12px;">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">📅 Antigüedad de Datos</h4>
+                <template x-if="agingData().length > 0">
+                    <table style="width:100%;font-size:10px;border-collapse:collapse;">
+                        <tr style="color:var(--tp-dim);border-bottom:1px solid rgba(30,41,59,0.5);">
+                            <th style="text-align:left;padding:4px;">Módulo</th>
+                            <th style="text-align:center;padding:4px;">Total</th>
+                            <th style="text-align:center;padding:4px;">30-60d</th>
+                            <th style="text-align:center;padding:4px;">60-90d</th>
+                            <th style="text-align:center;padding:4px;">&gt;90d</th>
+                        </tr>
+                        <template x-for="a in agingData()" :key="a.label">
+                            <tr style="color:var(--tp-text);border-bottom:1px solid rgba(30,41,59,0.2);">
+                                <td style="padding:4px;" x-text="a.label"></td>
+                                <td style="text-align:center;padding:4px;" x-text="a.total"></td>
+                                <td style="text-align:center;padding:4px;color:#f59e0b;" x-text="a.d30"></td>
+                                <td style="text-align:center;padding:4px;color:#ef4444;" x-text="a.d60"></td>
+                                <td style="text-align:center;padding:4px;color:#dc2626;font-weight:700;" x-text="a.d90"></td>
+                            </tr>
+                        </template>
+                    </table>
+                </template>
+                <template x-if="agingData().length === 0">
+                    <p style="color:var(--tp-dim);font-size:10px;">Sin datos para analizar antigüedad.</p>
+                </template>
+            </div>
+
+            <!-- Purge Tools -->
+            <div class="tp-card" style="margin-bottom:12px;padding:12px;">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">🗑️ Herramientas de Limpieza</h4>
+                <p style="color:var(--tp-dim);font-size:10px;margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                    <button class="tp-btn" @click="purgeOldData('cop15', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>
+                    <button class="tp-btn" @click="purgeOldData('results', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Resultados >90 días</button>
+                    <button class="tp-btn" @click="purgeOldData('testplan', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>
+                    <button class="tp-btn" @click="purgeOldData('notes', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>
+                </div>
+            </div>
+
+            <!-- Performance -->
+            <div class="tp-card" style="padding:12px;">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">⚡ Rendimiento</h4>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    <div style="text-align:center;padding:6px;background:rgba(59,130,246,0.1);border-radius:6px;">
+                        <div style="font-size:16px;font-weight:700;color:#3b82f6;" x-text="perfData().lsKeys"></div>
+                        <div style="font-size:9px;color:var(--tp-dim);">Keys localStorage</div>
+                    </div>
+                    <div style="text-align:center;padding:6px;background:rgba(16,185,129,0.1);border-radius:6px;">
+                        <div style="font-size:16px;font-weight:700;color:#10b981;" x-text="perfData().domNodes"></div>
+                        <div style="font-size:9px;color:var(--tp-dim);">DOM Nodes</div>
+                    </div>
+                    <div style="text-align:center;padding:6px;background:rgba(245,158,11,0.1);border-radius:6px;">
+                        <div style="font-size:16px;font-weight:700;color:#f59e0b;" x-text="perfData().memoryMB"></div>
+                        <div style="font-size:9px;color:var(--tp-dim);">Memoria (MB)</div>
+                    </div>
+                    <div style="text-align:center;padding:6px;background:rgba(139,92,246,0.1);border-radius:6px;">
+                        <div style="font-size:16px;font-weight:700;color:#8b5cf6;" x-text="perfData().charts"></div>
+                        <div style="font-size:9px;color:var(--tp-dim);">Charts Activos</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ───── CALENDAR TAB ───── -->
+        <div x-show="activeTab === 'pn-calendar'" style="padding:12px 0;">
+            <div class="tp-card" style="padding:16px;">
+                <!-- Header with nav -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <button @click="navCalendar(-1)" class="btn-secondary" style="padding:4px 12px;">←</button>
+                    <span style="font-size:14px;font-weight:800;color:var(--tp-text);" x-text="calendarMonthLabel()"></span>
+                    <div style="display:flex;gap:6px;">
+                        <button @click="calendarToday()" class="btn-secondary" style="padding:4px 10px;font-size:10px;">Hoy</button>
+                        <button @click="navCalendar(1)" class="btn-secondary" style="padding:4px 12px;">→</button>
+                    </div>
+                </div>
+
+                <!-- Day headers -->
+                <div class="cal-grid">
+                    <template x-for="d in dayNames" :key="d"><div class="cal-header" x-text="d"></div></template>
+
+                    <!-- Calendar cells -->
+                    <template x-for="(cell, ci) in calendarGrid()" :key="ci">
+                        <div :class="{ 'cal-cell': true, 'cal-empty': cell.empty, 'cal-today': cell.isToday }"
+                             @click="!cell.empty && calendarDayClick(cell.dateStr)">
+                            <template x-if="!cell.empty">
+                                <div>
+                                    <div class="cal-day-num" x-text="cell.day"></div>
+                                    <template x-if="cell.dots.length > 0">
+                                        <div class="cal-dots">
+                                            <template x-for="(dotColor, di) in cell.dots" :key="di">
+                                                <span class="cal-dot" :style="{ background: dotColor }"></span>
+                                            </template>
+                                            <template x-if="cell.extra > 0"><span style="font-size:9px;color:var(--tp-dim);" x-text="'+' + cell.extra"></span></template>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Week summary -->
+                <template x-if="calendarWeekSummary()">
+                    <div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;font-size:10px;color:var(--tp-dim);">
+                        <strong style="color:var(--tp-text);">Esta semana:</strong> <span x-text="calendarWeekSummary()"></span>
+                    </div>
+                </template>
+
+                <!-- Legend -->
+                <div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap;">
+                    <template x-for="l in calendarLegend" :key="l.label">
+                        <div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--tp-dim);">
+                            <span style="width:8px;height:8px;border-radius:50%;display:inline-block;" :style="{ background: l.color }"></span>
+                            <span x-text="l.label"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        </div><!-- END Alpine panelModule -->
     </div>
 </div><!-- END platform-panel -->
 
