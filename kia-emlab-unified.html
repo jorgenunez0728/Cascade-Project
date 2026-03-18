@@ -12044,10 +12044,9 @@ function kanbanGoVehicle(vehicleId, status) {
  */
 function smartFormApplyByStatus(status) {
     var sections = [
-        { id: 'acc-recepcion', unlockAt: null, label: 'Siempre visible' },
-        { id: 'acc-precond', unlockAt: 'in-progress', label: 'En Progreso' },
-        { id: 'acc-dyno', unlockAt: 'in-progress', label: 'En Progreso' },
-        { id: 'test-verify-card', unlockAt: 'testing', label: 'En Prueba' }
+        { id: 'acc-recepcion', unlockAt: null },
+        { id: 'acc-precond', unlockAt: 'in-progress' },
+        { id: 'acc-dyno', unlockAt: 'in-progress' }
     ];
     var statusOrder = ['registered', 'in-progress', 'testing', 'ready-release'];
     var currentIdx = statusOrder.indexOf(status);
@@ -12056,24 +12055,26 @@ function smartFormApplyByStatus(status) {
         var el = document.getElementById(sec.id);
         if (!el) return;
 
-        if (!sec.unlockAt) { el.style.display = ''; el.classList.remove('smart-locked'); return; }
+        // Remove any previous lock state
+        el.classList.remove('smart-locked');
+        var oldHint = el.querySelector('.smart-lock-hint');
+        if (oldHint) oldHint.remove();
+
+        if (!sec.unlockAt) return;
 
         var unlockIdx = statusOrder.indexOf(sec.unlockAt);
-        if (currentIdx >= unlockIdx) {
-            el.style.display = '';
-            el.classList.remove('smart-locked');
-        } else {
-            el.style.display = '';
-            el.classList.add('smart-locked');
-            // Add lock overlay if not already present
-            if (!el.querySelector('.smart-lock-hint')) {
-                var hint = document.createElement('div');
-                hint.className = 'smart-lock-hint';
-                hint.innerHTML = '🔒 Se desbloquea en: ' + sec.label;
-                el.appendChild(hint);
-            }
-        }
+        if (currentIdx >= unlockIdx) return; // unlocked — nothing to do
+
+        // Lock this section
+        el.classList.add('smart-locked');
+        var hint = document.createElement('div');
+        hint.className = 'smart-lock-hint';
+        hint.innerHTML = '🔒 Se desbloquea en: ' + sec.unlockAt;
+        el.appendChild(hint);
     });
+
+    // test-verify-card visibility is managed by updateTestVerificationVisibility()
+    updateTestVerificationVisibility();
 }
 
 /**
