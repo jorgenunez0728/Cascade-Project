@@ -1750,6 +1750,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         raInit();
 
         // ═══ Lab Inventory badges ═══
+        if (typeof invPreloadData === 'function') invPreloadData();
         if (typeof invUpdateBadges === 'function') invUpdateBadges();
 
         // ═══ SOP Guided Tour ═══

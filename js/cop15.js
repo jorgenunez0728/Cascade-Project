@@ -1095,6 +1095,8 @@ function handleStatusChange(selectEl) {
   // ✅ aceptar cambio
   selectEl.dataset.prev = next;
   updateTestVerificationVisibility();
+  if (typeof smartFormApplyByStatus === 'function') smartFormApplyByStatus(next);
+  if (typeof smartFormUpdateBadges === 'function') smartFormUpdateBadges();
 }
 
 
