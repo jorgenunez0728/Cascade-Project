@@ -1994,6 +1994,29 @@ button:focus-visible { outline-offset: 1px; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════ */
+/* SOP TEMPLATE EDITOR                                                   */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.sop-tmpl-card {
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.sop-tmpl-card.sop-tmpl-active {
+    border: 2px solid var(--success, #10b981);
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.1);
+}
+.sop-tmpl-step {
+    transition: background 0.15s;
+}
+.sop-tmpl-step:hover {
+    background: rgba(99,102,241,0.04);
+}
+.sop-tmpl-step-editor input,
+.sop-tmpl-step-editor textarea,
+.sop-tmpl-step-editor select {
+    font-size: 12px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
 /* [UX-1] SMOOTH SCROLLING & NAVIGATION                                 */
 /* ══════════════════════════════════════════════════════════════════════ */
 
@@ -2069,8 +2092,14 @@ html { scroll-behavior: smooth; }
 /* --- Body & Background --- */
 [data-theme="dark"] body { background: #0f1419; color: #e2e8f0; }
 
-/* --- Platform Bar (already dark, subtle tweak) --- */
+/* --- Topbar & Platform Bar --- */
 [data-theme="dark"] .platform-bar { background: linear-gradient(135deg, #0a0f18 0%, #0d1320 100%); }
+[data-theme="dark"] .topbar { background: #0a1628; }
+
+/* --- Elements using --kia-dark as background (fix: variable is flipped for text in dark mode) --- */
+[data-theme="dark"] .cascade-visual-tabs { background: #151b27; }
+[data-theme="dark"] .cascade-level-header .level-step { background: #475569; }
+[data-theme="dark"] .tl-filter-btn.active { background: #475569; color: #fff; border-color: #475569; }
 
 /* --- Tabs --- */
 [data-theme="dark"] .tab { background: #1e2633; color: #94a3b8; }
@@ -2345,7 +2374,8 @@ html { scroll-behavior: smooth; }
 [data-theme="dark"] .glass-panel { background: rgba(26,32,44,0.85); border-color: rgba(255,255,255,0.08); }
 
 /* --- Global Search --- */
-[data-theme="dark"] #globalSearchBar { background: #1a202c; border-bottom-color: rgba(255,255,255,0.08); }
+[data-theme="dark"] #globalSearchBar { background: #1a202c !important; border-bottom-color: rgba(255,255,255,0.08); }
+[data-theme="dark"] #globalSearchBar input { background: #151b27 !important; color: #e2e8f0 !important; border-color: rgba(255,255,255,0.12) !important; }
 
 /* --- Auto-detect system dark mode preference --- */
 @media (prefers-color-scheme: dark) {
@@ -2374,8 +2404,12 @@ html { scroll-behavior: smooth; }
     }
     html:not([data-theme="light"]) body { background: #0f1419; color: #e2e8f0; }
 
-    /* Platform Bar */
+    /* Platform Bar & Topbar */
     html:not([data-theme="light"]) .platform-bar { background: linear-gradient(135deg, #0a0f18 0%, #0d1320 100%); }
+    html:not([data-theme="light"]) .topbar { background: #0a1628; }
+    html:not([data-theme="light"]) .cascade-visual-tabs { background: #151b27; }
+    html:not([data-theme="light"]) .cascade-level-header .level-step { background: #475569; }
+    html:not([data-theme="light"]) .tl-filter-btn.active { background: #475569; color: #fff; border-color: #475569; }
 
     /* Tabs */
     html:not([data-theme="light"]) .tab { background: #1e2633; color: #94a3b8; }
@@ -2646,7 +2680,8 @@ html { scroll-behavior: smooth; }
     html:not([data-theme="light"]) .glass-panel { background: rgba(26,32,44,0.85); border-color: rgba(255,255,255,0.08); }
 
     /* Global Search */
-    html:not([data-theme="light"]) #globalSearchBar { background: #1a202c; border-bottom-color: rgba(255,255,255,0.08); }
+    html:not([data-theme="light"]) #globalSearchBar { background: #1a202c !important; border-bottom-color: rgba(255,255,255,0.08); }
+    html:not([data-theme="light"]) #globalSearchBar input { background: #151b27 !important; color: #e2e8f0 !important; border-color: rgba(255,255,255,0.12) !important; }
 
     /* TP Suggestions */
     html:not([data-theme="light"]) .tp-suggestions { background: #1e2633; border-color: rgba(255,255,255,0.12); }

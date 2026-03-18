@@ -3,7 +3,7 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 // [Fase 4.3] Cache version — updated by build.sh or manually on each release
-var CACHE_NAME = 'kia-emlab-v202603172345';
+var CACHE_NAME = 'kia-emlab-v202603180156';
 
 var CDN_ASSETS = [
     'https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js',

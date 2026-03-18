@@ -2025,6 +2025,29 @@ button:focus-visible { outline-offset: 1px; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════ */
+/* SOP TEMPLATE EDITOR                                                   */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.sop-tmpl-card {
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.sop-tmpl-card.sop-tmpl-active {
+    border: 2px solid var(--success, #10b981);
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.1);
+}
+.sop-tmpl-step {
+    transition: background 0.15s;
+}
+.sop-tmpl-step:hover {
+    background: rgba(99,102,241,0.04);
+}
+.sop-tmpl-step-editor input,
+.sop-tmpl-step-editor textarea,
+.sop-tmpl-step-editor select {
+    font-size: 12px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
 /* [UX-1] SMOOTH SCROLLING & NAVIGATION                                 */
 /* ══════════════════════════════════════════════════════════════════════ */
 
@@ -2100,8 +2123,14 @@ html { scroll-behavior: smooth; }
 /* --- Body & Background --- */
 [data-theme="dark"] body { background: #0f1419; color: #e2e8f0; }
 
-/* --- Platform Bar (already dark, subtle tweak) --- */
+/* --- Topbar & Platform Bar --- */
 [data-theme="dark"] .platform-bar { background: linear-gradient(135deg, #0a0f18 0%, #0d1320 100%); }
+[data-theme="dark"] .topbar { background: #0a1628; }
+
+/* --- Elements using --kia-dark as background (fix: variable is flipped for text in dark mode) --- */
+[data-theme="dark"] .cascade-visual-tabs { background: #151b27; }
+[data-theme="dark"] .cascade-level-header .level-step { background: #475569; }
+[data-theme="dark"] .tl-filter-btn.active { background: #475569; color: #fff; border-color: #475569; }
 
 /* --- Tabs --- */
 [data-theme="dark"] .tab { background: #1e2633; color: #94a3b8; }
@@ -2376,7 +2405,8 @@ html { scroll-behavior: smooth; }
 [data-theme="dark"] .glass-panel { background: rgba(26,32,44,0.85); border-color: rgba(255,255,255,0.08); }
 
 /* --- Global Search --- */
-[data-theme="dark"] #globalSearchBar { background: #1a202c; border-bottom-color: rgba(255,255,255,0.08); }
+[data-theme="dark"] #globalSearchBar { background: #1a202c !important; border-bottom-color: rgba(255,255,255,0.08); }
+[data-theme="dark"] #globalSearchBar input { background: #151b27 !important; color: #e2e8f0 !important; border-color: rgba(255,255,255,0.12) !important; }
 
 /* --- Auto-detect system dark mode preference --- */
 @media (prefers-color-scheme: dark) {
@@ -2405,8 +2435,12 @@ html { scroll-behavior: smooth; }
     }
     html:not([data-theme="light"]) body { background: #0f1419; color: #e2e8f0; }
 
-    /* Platform Bar */
+    /* Platform Bar & Topbar */
     html:not([data-theme="light"]) .platform-bar { background: linear-gradient(135deg, #0a0f18 0%, #0d1320 100%); }
+    html:not([data-theme="light"]) .topbar { background: #0a1628; }
+    html:not([data-theme="light"]) .cascade-visual-tabs { background: #151b27; }
+    html:not([data-theme="light"]) .cascade-level-header .level-step { background: #475569; }
+    html:not([data-theme="light"]) .tl-filter-btn.active { background: #475569; color: #fff; border-color: #475569; }
 
     /* Tabs */
     html:not([data-theme="light"]) .tab { background: #1e2633; color: #94a3b8; }
@@ -2677,7 +2711,8 @@ html { scroll-behavior: smooth; }
     html:not([data-theme="light"]) .glass-panel { background: rgba(26,32,44,0.85); border-color: rgba(255,255,255,0.08); }
 
     /* Global Search */
-    html:not([data-theme="light"]) #globalSearchBar { background: #1a202c; border-bottom-color: rgba(255,255,255,0.08); }
+    html:not([data-theme="light"]) #globalSearchBar { background: #1a202c !important; border-bottom-color: rgba(255,255,255,0.08); }
+    html:not([data-theme="light"]) #globalSearchBar input { background: #151b27 !important; color: #e2e8f0 !important; border-color: rgba(255,255,255,0.12) !important; }
 
     /* TP Suggestions */
     html:not([data-theme="light"]) .tp-suggestions { background: #1e2633; border-color: rgba(255,255,255,0.12); }
@@ -22326,7 +22361,13 @@ var sopState = {
     expandedStep: null,
     customizations: {},  // { vehicleId: { steps: [...modifications] } }
     history: [],
-    imageDBReady: false
+    imageDBReady: false,
+    templates: {},       // { id: { id, name, baseType, steps[], createdBy, createdAt, updatedAt, activeTemplate } }
+    activeTemplateEmissions: null,  // template id to use for emissions vehicles (null = default)
+    activeTemplateSimple: null,     // template id to use for simple vehicles (null = default)
+    tmplEditId: null,               // template currently being edited
+    tmplEditStep: null,             // step index within template editor being expanded
+    tmplExpandedSections: {}        // expanded sections in template editor
 };
 
 var SOP_STORAGE_KEY = 'kia_sop_v1';
@@ -23107,6 +23148,15 @@ function sopResolveOptions(step) {
 function sopGetProcedureForVehicle(vehicle) {
     if (!vehicle) return [];
     var isEm = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose);
+
+    // Check if a custom template is active for this type
+    var tmplId = isEm ? sopState.activeTemplateEmissions : sopState.activeTemplateSimple;
+    if (tmplId && sopState.templates[tmplId]) {
+        var tmpl = sopState.templates[tmplId];
+        var altaSteps = SOP_ALTA_STEPS.slice();
+        return altaSteps.concat(tmpl.steps);
+    }
+
     var altaSteps = SOP_ALTA_STEPS.slice();
     var opSteps = isEm ? SOP_EMISSIONS_STEPS.slice() : SOP_SIMPLE_STEPS.slice();
     return altaSteps.concat(opSteps);
@@ -23155,6 +23205,9 @@ function sopInit() {
             sopState.customizations = parsed.customizations || {};
             sopState.history = parsed.history || [];
             sopState.selectedVehicleId = parsed.selectedVehicleId || null;
+            sopState.templates = parsed.templates || {};
+            sopState.activeTemplateEmissions = parsed.activeTemplateEmissions || null;
+            sopState.activeTemplateSimple = parsed.activeTemplateSimple || null;
         } catch(e) {
         }
     }
@@ -23167,7 +23220,10 @@ function sopSave() {
         localStorage.setItem(SOP_STORAGE_KEY, JSON.stringify({
             customizations: sopState.customizations,
             history: sopState.history,
-            selectedVehicleId: sopState.selectedVehicleId
+            selectedVehicleId: sopState.selectedVehicleId,
+            templates: sopState.templates,
+            activeTemplateEmissions: sopState.activeTemplateEmissions,
+            activeTemplateSimple: sopState.activeTemplateSimple
         }));
     } catch(e) {
     }
@@ -23213,6 +23269,13 @@ function sopRender() {
     // Load images for visible steps asynchronously
     if (sopState.currentTab === 'sop-guia' && sopState.selectedVehicleId) {
         sopLoadVisibleImages();
+        // Load reference images from active template
+        var selVeh = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles.find(function(v) { return v.id == sopState.selectedVehicleId; }) : null;
+        if (selVeh) sopLoadRefImagesForGuide(selVeh);
+    }
+    // Load template reference images in editor
+    if (sopState.currentTab === 'sop-templates' && sopState.tmplEditId) {
+        sopTmplLoadRefImages();
     }
 }
 
@@ -23404,6 +23467,9 @@ function sopRenderStep(step, stepIdx, vehicle) {
     html += '<div class="sop-step-content">';
     html += '<div class="sop-step-title" onclick="sopExpandStep(' + stepIdx + ')" style="cursor:pointer;">' + escapeHtml(customStep.title) + '</div>';
     html += '<div class="sop-step-desc">' + escapeHtml(customStep.description) + '</div>';
+
+    // Reference images from template (visual guide)
+    html += '<div id="sop-ref-imgs-' + stepIdx + '" class="sop-image-gallery" style="margin-top:4px;"></div>';
 
     // Field input (always visible, not locked)
     html += sopRenderField(step, stepIdx, value, vehicle);
@@ -23845,54 +23911,648 @@ function sopClearHistory() {
 }
 
 // ======================================================================
-// [S18] TEMPLATES VIEW
+// [S18] TEMPLATES VIEW — Admin Procedure Editor
 // ======================================================================
 
 function sopRenderTemplates() {
+    // If editing a template, show the editor
+    if (sopState.tmplEditId) {
+        return sopRenderTemplateEditor(sopState.tmplEditId);
+    }
+
     var html = '<div class="tp-card">';
-    html += '<div class="tp-card-title">Plantillas de Procedimiento</div>';
-    html += '<div style="font-size:12px;color:#64748b;margin-bottom:14px;">Los procedimientos se generan automáticamente según el tipo de vehículo. Aquí puedes ver las plantillas disponibles.</div>';
-
-    // Emissions template
-    html += '<div class="sop-procedure-card">';
-    html += '<div style="display:flex;align-items:center;gap:12px;">';
-    html += '<div style="font-size:24px;">🔬</div>';
-    html += '<div style="flex:1;">';
-    html += '<div style="font-size:13px;font-weight:700;color:#0f172a;">Procedimiento de Emisiones</div>';
-    html += '<div style="font-size:11px;color:#64748b;">Para vehículos COP-Emisiones, EO-Emisiones, ND-Emisiones</div>';
-    html += '<div style="font-size:10px;color:#94a3b8;margin-top:4px;">' + (SOP_ALTA_STEPS.length + SOP_EMISSIONS_STEPS.length) + ' pasos | 7 secciones</div>';
+    html += '<div class="tp-card-title" style="display:flex;justify-content:space-between;align-items:center;">';
+    html += '<span>Plantillas de Procedimiento</span>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="sopCreateTemplate()" style="font-size:11px;padding:6px 14px;min-height:30px;">+ Nueva Plantilla</button>';
     html += '</div>';
-    html += '<span style="font-size:9px;padding:2px 8px;background:#f1f5f9;color:#64748b;border-radius:6px;font-weight:700;">Predefinido</span>';
-    html += '</div></div>';
+    html += '<div style="font-size:12px;color:var(--muted,#64748b);margin-bottom:14px;">Crea y edita plantillas de procedimiento con ayuda visual. Los técnicos seguirán la plantilla activa al guiar vehículos.</div>';
 
-    // Simple template
-    html += '<div class="sop-procedure-card">';
-    html += '<div style="display:flex;align-items:center;gap:12px;">';
-    html += '<div style="font-size:24px;">📋</div>';
-    html += '<div style="flex:1;">';
-    html += '<div style="font-size:13px;font-weight:700;color:#0f172a;">Procedimiento Simple</div>';
-    html += '<div style="font-size:11px;color:#64748b;">Para vehículos no-emisiones (OBD2, Nuevos Desarrollos, etc.)</div>';
-    html += '<div style="font-size:10px;color:#94a3b8;margin-top:4px;">' + (SOP_ALTA_STEPS.length + SOP_SIMPLE_STEPS.length) + ' pasos | 2 secciones</div>';
-    html += '</div>';
-    html += '<span style="font-size:9px;padding:2px 8px;background:#f1f5f9;color:#64748b;border-radius:6px;font-weight:700;">Predefinido</span>';
-    html += '</div></div>';
-
-    // Section breakdown for emissions
-    html += '<div style="margin-top:14px;">';
-    html += '<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:8px;">Secciones del Procedimiento de Emisiones</div>';
-    var sections = sopGetSections(SOP_ALTA_STEPS.concat(SOP_EMISSIONS_STEPS));
-    sections.forEach(function(s) {
-        var count = sopGetSectionSteps(SOP_ALTA_STEPS.concat(SOP_EMISSIONS_STEPS), s.id).length;
-        html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f8fafc;border-radius:8px;margin-bottom:4px;">';
-        html += '<span style="font-size:14px;">' + s.icon + '</span>';
-        html += '<span style="font-size:12px;color:#334155;flex:1;">' + escapeHtml(s.label) + '</span>';
-        html += '<span style="font-size:10px;color:#94a3b8;">' + count + ' pasos</span>';
-        html += '</div>';
+    // Default Emissions template card
+    var isActiveEm = !sopState.activeTemplateEmissions;
+    html += sopRenderTemplateCard({
+        name: 'Procedimiento de Emisiones (Predefinido)',
+        icon: '🔬',
+        desc: 'COP-Emisiones, EO-Emisiones, ND-Emisiones',
+        stepCount: SOP_ALTA_STEPS.length + SOP_EMISSIONS_STEPS.length,
+        sectionCount: sopGetSections(SOP_ALTA_STEPS.concat(SOP_EMISSIONS_STEPS)).length,
+        isDefault: true,
+        isActive: isActiveEm,
+        baseType: 'emissions'
     });
+
+    // Default Simple template card
+    var isActiveSi = !sopState.activeTemplateSimple;
+    html += sopRenderTemplateCard({
+        name: 'Procedimiento Simple (Predefinido)',
+        icon: '📋',
+        desc: 'OBD2, Nuevos Desarrollos, no-emisiones',
+        stepCount: SOP_ALTA_STEPS.length + SOP_SIMPLE_STEPS.length,
+        sectionCount: sopGetSections(SOP_ALTA_STEPS.concat(SOP_SIMPLE_STEPS)).length,
+        isDefault: true,
+        isActive: isActiveSi,
+        baseType: 'simple'
+    });
+
+    // Custom templates
+    var tmplKeys = Object.keys(sopState.templates);
+    if (tmplKeys.length > 0) {
+        html += '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border,#e2e8f0);">';
+        html += '<div style="font-size:12px;font-weight:700;color:var(--text,#0f172a);margin-bottom:10px;">Plantillas Personalizadas</div>';
+        tmplKeys.forEach(function(tid) {
+            var t = sopState.templates[tid];
+            var sections = sopGetSections(t.steps || []);
+            var isActive = (t.baseType === 'emissions' && sopState.activeTemplateEmissions === tid) ||
+                           (t.baseType === 'simple' && sopState.activeTemplateSimple === tid);
+            html += sopRenderTemplateCard({
+                id: tid,
+                name: t.name,
+                icon: t.baseType === 'emissions' ? '🔬' : '📋',
+                desc: (t.baseType === 'emissions' ? 'Emisiones' : 'Simple') + ' | Creado: ' + new Date(t.createdAt).toLocaleDateString('es-MX'),
+                stepCount: (t.steps || []).length,
+                sectionCount: sections.length,
+                isDefault: false,
+                isActive: isActive,
+                baseType: t.baseType,
+                createdBy: t.createdBy
+            });
+        });
+        html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+function sopRenderTemplateCard(opts) {
+    var html = '<div class="sop-procedure-card sop-tmpl-card' + (opts.isActive ? ' sop-tmpl-active' : '') + '">';
+    html += '<div style="display:flex;align-items:center;gap:12px;">';
+    html += '<div style="font-size:24px;">' + opts.icon + '</div>';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--text,#0f172a);">' + escapeHtml(opts.name) + '</div>';
+    html += '<div style="font-size:11px;color:var(--muted,#64748b);">' + escapeHtml(opts.desc) + '</div>';
+    html += '<div style="font-size:10px;color:#94a3b8;margin-top:4px;">' + opts.stepCount + ' pasos | ' + opts.sectionCount + ' secciones';
+    if (opts.createdBy) html += ' | Por: ' + escapeHtml(opts.createdBy);
+    html += '</div>';
+    html += '</div>';
+    html += '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">';
+    if (opts.isActive) {
+        html += '<span style="font-size:9px;padding:2px 8px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:6px;font-weight:700;">Activa</span>';
+    }
+    if (opts.isDefault) {
+        html += '<span style="font-size:9px;padding:2px 8px;background:var(--surface,#f1f5f9);color:var(--muted,#64748b);border-radius:6px;font-weight:700;">Predefinido</span>';
+    }
+    html += '</div>';
+    html += '</div>';
+
+    // Action buttons
+    html += '<div style="display:flex;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border,#e2e8f0);flex-wrap:wrap;">';
+    if (!opts.isDefault && opts.id) {
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopEditTemplate(\'' + opts.id + '\')" style="font-size:10px;padding:4px 10px;min-height:26px;">Editar</button>';
+        if (!opts.isActive) {
+            html += '<button class="tp-btn tp-btn-ghost" onclick="sopActivateTemplate(\'' + opts.id + '\',\'' + opts.baseType + '\')" style="font-size:10px;padding:4px 10px;min-height:26px;color:var(--success,#10b981);">Activar</button>';
+        }
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopDuplicateTemplate(\'' + opts.id + '\')" style="font-size:10px;padding:4px 10px;min-height:26px;">Duplicar</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopDeleteTemplate(\'' + opts.id + '\')" style="font-size:10px;padding:4px 10px;min-height:26px;color:var(--danger,#ef4444);">Eliminar</button>';
+    } else {
+        // Default templates: clone only
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopCloneDefaultTemplate(\'' + opts.baseType + '\')" style="font-size:10px;padding:4px 10px;min-height:26px;">Clonar como nueva</button>';
+        if (!opts.isActive) {
+            html += '<button class="tp-btn tp-btn-ghost" onclick="sopActivateTemplate(null,\'' + opts.baseType + '\')" style="font-size:10px;padding:4px 10px;min-height:26px;color:var(--success,#10b981);">Activar</button>';
+        }
+    }
+    html += '</div>';
+    html += '</div>';
+    return html;
+}
+
+// ── Template CRUD ──
+
+function sopGenerateId() {
+    return 'tmpl-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+}
+
+function sopCreateTemplate() {
+    if (typeof showCustomConfirm !== 'function') return;
+    var name = prompt('Nombre de la nueva plantilla:', 'Mi Procedimiento');
+    if (!name) return;
+
+    // Ask base type
+    var baseType = 'emissions';
+    var choice = prompt('Tipo base:\n1 = Emisiones\n2 = Simple', '1');
+    if (choice === '2') baseType = 'simple';
+
+    var id = sopGenerateId();
+    sopState.templates[id] = {
+        id: id,
+        name: name,
+        baseType: baseType,
+        steps: [],
+        createdBy: (typeof authState !== 'undefined' && authState.currentUser) ? authState.currentUser.name : 'Admin',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+    sopState.tmplEditId = id;
+    sopSave();
+    sopRender();
+    if (typeof showToast === 'function') showToast('Plantilla creada — agrega pasos', 'success');
+}
+
+function sopCloneDefaultTemplate(baseType) {
+    var name = prompt('Nombre para la copia:', 'Copia ' + (baseType === 'emissions' ? 'Emisiones' : 'Simple'));
+    if (!name) return;
+
+    var srcSteps = baseType === 'emissions' ? SOP_EMISSIONS_STEPS : SOP_SIMPLE_STEPS;
+    var id = sopGenerateId();
+    sopState.templates[id] = {
+        id: id,
+        name: name,
+        baseType: baseType,
+        steps: JSON.parse(JSON.stringify(srcSteps)),
+        createdBy: (typeof authState !== 'undefined' && authState.currentUser) ? authState.currentUser.name : 'Admin',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+    sopState.tmplEditId = id;
+    sopSave();
+    sopRender();
+    if (typeof showToast === 'function') showToast('Plantilla clonada — ahora puedes editarla', 'success');
+}
+
+function sopDuplicateTemplate(tid) {
+    var src = sopState.templates[tid];
+    if (!src) return;
+    var id = sopGenerateId();
+    sopState.templates[id] = {
+        id: id,
+        name: src.name + ' (copia)',
+        baseType: src.baseType,
+        steps: JSON.parse(JSON.stringify(src.steps)),
+        createdBy: (typeof authState !== 'undefined' && authState.currentUser) ? authState.currentUser.name : 'Admin',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+    sopSave();
+    sopRender();
+    if (typeof showToast === 'function') showToast('Plantilla duplicada', 'success');
+}
+
+function sopDeleteTemplate(tid) {
+    if (typeof showCustomConfirm === 'function') {
+        showCustomConfirm('Eliminar Plantilla', '¿Eliminar esta plantilla permanentemente?', function() {
+            // Deactivate if active
+            if (sopState.activeTemplateEmissions === tid) sopState.activeTemplateEmissions = null;
+            if (sopState.activeTemplateSimple === tid) sopState.activeTemplateSimple = null;
+            delete sopState.templates[tid];
+            sopSave();
+            sopRender();
+            if (typeof showToast === 'function') showToast('Plantilla eliminada', 'info');
+        }, 'danger');
+    }
+}
+
+function sopActivateTemplate(tid, baseType) {
+    if (baseType === 'emissions') {
+        sopState.activeTemplateEmissions = tid;
+    } else {
+        sopState.activeTemplateSimple = tid;
+    }
+    sopSave();
+    sopRender();
+    if (typeof showToast === 'function') showToast(tid ? 'Plantilla activada' : 'Plantilla predefinida restaurada', 'success');
+}
+
+function sopEditTemplate(tid) {
+    sopState.tmplEditId = tid;
+    sopState.tmplEditStep = null;
+    sopState.tmplExpandedSections = {};
+    sopRender();
+}
+
+// ── Template Editor ──
+
+function sopRenderTemplateEditor(tid) {
+    var tmpl = sopState.templates[tid];
+    if (!tmpl) { sopState.tmplEditId = null; return sopRenderTemplates(); }
+
+    var html = '<div class="tp-card">';
+
+    // Editor header
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">';
+    html += '<div style="display:flex;align-items:center;gap:8px;">';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="sopState.tmplEditId=null;sopRender();" style="font-size:12px;padding:4px 8px;min-height:28px;">← Volver</button>';
+    html += '<div>';
+    html += '<div style="font-size:15px;font-weight:800;color:var(--text,#0f172a);">' + escapeHtml(tmpl.name) + '</div>';
+    html += '<div style="font-size:10px;color:var(--muted,#64748b);">Tipo: ' + (tmpl.baseType === 'emissions' ? 'Emisiones' : 'Simple') + ' | ' + tmpl.steps.length + ' pasos</div>';
+    html += '</div>';
+    html += '</div>';
+    html += '<div style="display:flex;gap:6px;">';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="sopTmplRename(\'' + tid + '\')" style="font-size:10px;padding:4px 10px;min-height:26px;">Renombrar</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="sopTmplAddStep(\'' + tid + '\')" style="font-size:11px;padding:6px 14px;min-height:30px;">+ Agregar Paso</button>';
+    html += '</div>';
+    html += '</div>';
+
+    // Steps list
+    if (tmpl.steps.length === 0) {
+        html += '<div style="text-align:center;padding:40px 20px;color:var(--muted,#94a3b8);">';
+        html += '<div style="font-size:36px;margin-bottom:12px;">📝</div>';
+        html += '<div style="font-size:13px;font-weight:600;">Sin pasos todavía</div>';
+        html += '<div style="font-size:11px;margin-top:6px;">Agrega pasos manualmente o clona una plantilla predefinida.</div>';
+        html += '</div>';
+    } else {
+        // Group by sections
+        var sections = sopGetSections(tmpl.steps);
+        sections.forEach(function(section) {
+            var sectionSteps = sopGetSectionSteps(tmpl.steps, section.id);
+            var isExpanded = sopState.tmplExpandedSections[section.id] !== false;
+
+            html += '<div style="margin-bottom:8px;">';
+            // Section header
+            html += '<div class="sop-section-header" onclick="sopTmplToggleSection(\'' + section.id + '\')" style="cursor:pointer;">';
+            html += '<div style="display:flex;align-items:center;gap:8px;flex:1;">';
+            html += '<span style="font-size:16px;">' + section.icon + '</span>';
+            html += '<div style="flex:1;">';
+            html += '<div style="font-size:13px;font-weight:700;color:var(--text,#0f172a);">' + escapeHtml(section.label) + '</div>';
+            html += '<div style="font-size:10px;color:var(--muted,#64748b);">' + sectionSteps.length + ' pasos</div>';
+            html += '</div>';
+            html += '</div>';
+            html += '<span style="font-size:14px;color:#94a3b8;transition:transform 0.2s;' + (isExpanded ? 'transform:rotate(180deg);' : '') + '">▼</span>';
+            html += '</div>';
+
+            if (isExpanded) {
+                html += '<div class="sop-section-body">';
+                sectionSteps.forEach(function(step) {
+                    var globalIdx = tmpl.steps.indexOf(step);
+                    html += sopRenderTmplStep(tid, step, globalIdx);
+                });
+                html += '</div>';
+            }
+            html += '</div>';
+        });
+    }
+
+    // Preview button
+    html += '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border,#e2e8f0);display:flex;gap:8px;">';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="sopTmplPreview(\'' + tid + '\')" style="font-size:11px;padding:6px 14px;min-height:30px;flex:1;">Vista Previa</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="sopActivateTemplate(\'' + tid + '\',\'' + tmpl.baseType + '\');sopState.tmplEditId=null;sopRender();" style="font-size:11px;padding:6px 14px;min-height:30px;flex:1;background:var(--success,#10b981);">Activar Plantilla</button>';
     html += '</div>';
 
     html += '</div>';
     return html;
+}
+
+function sopRenderTmplStep(tid, step, stepIdx) {
+    var isExpanded = sopState.tmplEditStep === stepIdx;
+    var fieldLabel = step.fieldType || 'text';
+
+    var html = '<div class="sop-step sop-tmpl-step' + (isExpanded ? ' sop-step-active' : '') + '" style="position:relative;">';
+
+    // Step number
+    html += '<div class="sop-step-number" style="cursor:pointer;font-size:11px;" onclick="sopTmplExpandStep(' + stepIdx + ')">' + (stepIdx + 1) + '</div>';
+
+    // Step content
+    html += '<div class="sop-step-content">';
+    html += '<div class="sop-step-title" onclick="sopTmplExpandStep(' + stepIdx + ')" style="cursor:pointer;">' + escapeHtml(step.title) + '</div>';
+    html += '<div class="sop-step-desc">' + escapeHtml(step.description || '') + '</div>';
+    html += '<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center;">';
+    html += '<span style="font-size:9px;padding:2px 6px;background:rgba(99,102,241,0.1);color:#6366f1;border-radius:4px;font-weight:600;">' + fieldLabel + '</span>';
+    if (step.section) html += '<span style="font-size:9px;color:var(--muted,#94a3b8);">' + escapeHtml(step.section) + '</span>';
+    if (step.dataPath) html += '<span style="font-size:9px;color:#94a3b8;font-family:monospace;">' + escapeHtml(step.dataPath) + '</span>';
+    html += '</div>';
+
+    // Reference image thumbnails (from IndexedDB)
+    html += '<div id="sop-tmpl-imgs-' + tid + '-' + stepIdx + '" class="sop-image-gallery" style="margin-top:6px;"></div>';
+
+    // Expanded editor
+    if (isExpanded) {
+        html += '<div class="sop-tmpl-step-editor" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border,#e2e8f0);">';
+
+        // Title
+        html += '<div class="sop-field-group" style="margin-bottom:8px;">';
+        html += '<label style="font-size:10px;font-weight:700;color:var(--muted,#64748b);display:block;margin-bottom:3px;">Título del paso</label>';
+        html += '<input type="text" class="sop-data-input" value="' + escapeHtml(step.title) + '" onchange="sopTmplUpdateField(\'' + tid + '\',' + stepIdx + ',\'title\',this.value)">';
+        html += '</div>';
+
+        // Description
+        html += '<div class="sop-field-group" style="margin-bottom:8px;">';
+        html += '<label style="font-size:10px;font-weight:700;color:var(--muted,#64748b);display:block;margin-bottom:3px;">Descripción / instrucción</label>';
+        html += '<textarea class="sop-data-input" rows="2" onchange="sopTmplUpdateField(\'' + tid + '\',' + stepIdx + ',\'description\',this.value)" style="min-height:44px;resize:vertical;">' + escapeHtml(step.description || '') + '</textarea>';
+        html += '</div>';
+
+        // Field type
+        html += '<div class="sop-field-group" style="margin-bottom:8px;">';
+        html += '<label style="font-size:10px;font-weight:700;color:var(--muted,#64748b);display:block;margin-bottom:3px;">Tipo de campo</label>';
+        html += '<select class="sop-data-input" onchange="sopTmplUpdateField(\'' + tid + '\',' + stepIdx + ',\'fieldType\',this.value)" style="cursor:pointer;">';
+        ['select','number','text','textarea','datetime','action','readonly'].forEach(function(ft) {
+            html += '<option value="' + ft + '"' + (step.fieldType === ft ? ' selected' : '') + '>' + ft + '</option>';
+        });
+        html += '</select>';
+        html += '</div>';
+
+        // Section
+        html += '<div style="display:flex;gap:8px;margin-bottom:8px;">';
+        html += '<div class="sop-field-group" style="flex:1;">';
+        html += '<label style="font-size:10px;font-weight:700;color:var(--muted,#64748b);display:block;margin-bottom:3px;">Sección</label>';
+        html += '<input type="text" class="sop-data-input" value="' + escapeHtml(step.section || '') + '" onchange="sopTmplUpdateField(\'' + tid + '\',' + stepIdx + ',\'section\',this.value)" placeholder="ej: recepcion">';
+        html += '</div>';
+        html += '<div class="sop-field-group" style="flex:1;">';
+        html += '<label style="font-size:10px;font-weight:700;color:var(--muted,#64748b);display:block;margin-bottom:3px;">Nombre de sección</label>';
+        html += '<input type="text" class="sop-data-input" value="' + escapeHtml(step.sectionLabel || '') + '" onchange="sopTmplUpdateField(\'' + tid + '\',' + stepIdx + ',\'sectionLabel\',this.value)" placeholder="ej: Recepción">';
+        html += '</div>';
+        html += '</div>';
+
+        // Data path
+        html += '<div class="sop-field-group" style="margin-bottom:8px;">';
+        html += '<label style="font-size:10px;font-weight:700;color:var(--muted,#64748b);display:block;margin-bottom:3px;">Ruta de datos (dataPath)</label>';
+        html += '<input type="text" class="sop-data-input" value="' + escapeHtml(step.dataPath || '') + '" onchange="sopTmplUpdateField(\'' + tid + '\',' + stepIdx + ',\'dataPath\',this.value)" placeholder="ej: testData.campo" style="font-family:monospace;font-size:11px;">';
+        html += '</div>';
+
+        // Options (for select type)
+        if (step.fieldType === 'select') {
+            html += '<div class="sop-field-group" style="margin-bottom:8px;">';
+            html += '<label style="font-size:10px;font-weight:700;color:var(--muted,#64748b);display:block;margin-bottom:3px;">Opciones (una por línea, formato: valor|etiqueta)</label>';
+            var optsText = '';
+            if (step.options === '__operators__') {
+                optsText = '__operators__';
+            } else if (Array.isArray(step.options)) {
+                optsText = step.options.map(function(o) { return o.value + '|' + o.label; }).join('\n');
+            }
+            html += '<textarea class="sop-data-input" rows="3" onchange="sopTmplUpdateOptions(\'' + tid + '\',' + stepIdx + ',this.value)" style="min-height:50px;resize:vertical;font-family:monospace;font-size:10px;">' + escapeHtml(optsText) + '</textarea>';
+            html += '<div style="font-size:9px;color:#94a3b8;margin-top:2px;">Usa "__operators__" para lista dinámica de operadores</div>';
+            html += '</div>';
+        }
+
+        // Reference images
+        html += '<div class="sop-field-group" style="margin-bottom:8px;">';
+        html += '<label style="font-size:10px;font-weight:700;color:var(--muted,#64748b);display:block;margin-bottom:3px;">Fotos de referencia (guía visual)</label>';
+        html += '<button class="tp-btn tp-btn-ghost sop-camera-btn" onclick="sopTmplCaptureRefImage(\'' + tid + '\',' + stepIdx + ')" style="font-size:10px;padding:4px 10px;min-height:26px;">📷 Subir foto de referencia</button>';
+        html += '</div>';
+
+        // Checklist items
+        html += '<div class="sop-field-group" style="margin-bottom:8px;">';
+        html += '<label style="font-size:10px;font-weight:700;color:var(--muted,#64748b);display:block;margin-bottom:3px;">Checklist (sub-items opcionales)</label>';
+        var items = step.checklistItems || [];
+        items.forEach(function(item, ii) {
+            html += '<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px;">';
+            html += '<span style="font-size:10px;color:#94a3b8;">•</span>';
+            html += '<input type="text" class="sop-data-input" value="' + escapeHtml(item) + '" onchange="sopTmplUpdateChecklist(\'' + tid + '\',' + stepIdx + ',' + ii + ',this.value)" style="flex:1;font-size:11px;">';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="sopTmplRemoveChecklist(\'' + tid + '\',' + stepIdx + ',' + ii + ')" style="font-size:9px;padding:2px 6px;min-height:20px;color:var(--danger,#ef4444);">✕</button>';
+            html += '</div>';
+        });
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopTmplAddChecklist(\'' + tid + '\',' + stepIdx + ')" style="font-size:9px;padding:2px 8px;min-height:22px;">+ Item</button>';
+        html += '</div>';
+
+        // Step actions
+        html += '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopTmplMoveStep(\'' + tid + '\',' + stepIdx + ',-1)" style="font-size:10px;padding:4px 8px;min-height:24px;">↑ Subir</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopTmplMoveStep(\'' + tid + '\',' + stepIdx + ',1)" style="font-size:10px;padding:4px 8px;min-height:24px;">↓ Bajar</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopTmplDuplicateStep(\'' + tid + '\',' + stepIdx + ')" style="font-size:10px;padding:4px 8px;min-height:24px;">Duplicar</button>';
+        html += '<div style="flex:1;"></div>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="sopTmplDeleteStep(\'' + tid + '\',' + stepIdx + ')" style="font-size:10px;padding:4px 8px;min-height:24px;color:var(--danger,#ef4444);">Eliminar Paso</button>';
+        html += '</div>';
+
+        html += '</div>'; // editor
+    }
+
+    html += '</div>'; // step-content
+    html += '</div>'; // step
+
+    return html;
+}
+
+// ── Template Editor Actions ──
+
+function sopTmplToggleSection(sectionId) {
+    if (sopState.tmplExpandedSections[sectionId] === undefined) {
+        sopState.tmplExpandedSections[sectionId] = false;
+    } else {
+        sopState.tmplExpandedSections[sectionId] = !sopState.tmplExpandedSections[sectionId];
+    }
+    sopRender();
+}
+
+function sopTmplExpandStep(stepIdx) {
+    sopState.tmplEditStep = (sopState.tmplEditStep === stepIdx) ? null : stepIdx;
+    sopRender();
+}
+
+function sopTmplUpdateField(tid, stepIdx, field, value) {
+    var tmpl = sopState.templates[tid];
+    if (!tmpl || !tmpl.steps[stepIdx]) return;
+    tmpl.steps[stepIdx][field] = value;
+    tmpl.updatedAt = new Date().toISOString();
+    sopSave();
+}
+
+function sopTmplUpdateOptions(tid, stepIdx, text) {
+    var tmpl = sopState.templates[tid];
+    if (!tmpl || !tmpl.steps[stepIdx]) return;
+    if (text.trim() === '__operators__') {
+        tmpl.steps[stepIdx].options = '__operators__';
+    } else {
+        tmpl.steps[stepIdx].options = text.trim().split('\n').filter(function(l) { return l.trim(); }).map(function(line) {
+            var parts = line.split('|');
+            return { value: parts[0].trim(), label: (parts[1] || parts[0]).trim() };
+        });
+    }
+    tmpl.updatedAt = new Date().toISOString();
+    sopSave();
+}
+
+function sopTmplUpdateChecklist(tid, stepIdx, itemIdx, value) {
+    var tmpl = sopState.templates[tid];
+    if (!tmpl || !tmpl.steps[stepIdx]) return;
+    if (!tmpl.steps[stepIdx].checklistItems) tmpl.steps[stepIdx].checklistItems = [];
+    tmpl.steps[stepIdx].checklistItems[itemIdx] = value;
+    tmpl.updatedAt = new Date().toISOString();
+    sopSave();
+}
+
+function sopTmplAddChecklist(tid, stepIdx) {
+    var tmpl = sopState.templates[tid];
+    if (!tmpl || !tmpl.steps[stepIdx]) return;
+    if (!tmpl.steps[stepIdx].checklistItems) tmpl.steps[stepIdx].checklistItems = [];
+    tmpl.steps[stepIdx].checklistItems.push('Nuevo item');
+    tmpl.updatedAt = new Date().toISOString();
+    sopSave();
+    sopRender();
+}
+
+function sopTmplRemoveChecklist(tid, stepIdx, itemIdx) {
+    var tmpl = sopState.templates[tid];
+    if (!tmpl || !tmpl.steps[stepIdx]) return;
+    tmpl.steps[stepIdx].checklistItems.splice(itemIdx, 1);
+    tmpl.updatedAt = new Date().toISOString();
+    sopSave();
+    sopRender();
+}
+
+function sopTmplMoveStep(tid, stepIdx, direction) {
+    var tmpl = sopState.templates[tid];
+    if (!tmpl) return;
+    var newIdx = stepIdx + direction;
+    if (newIdx < 0 || newIdx >= tmpl.steps.length) return;
+    var temp = tmpl.steps[stepIdx];
+    tmpl.steps[stepIdx] = tmpl.steps[newIdx];
+    tmpl.steps[newIdx] = temp;
+    tmpl.updatedAt = new Date().toISOString();
+    sopState.tmplEditStep = newIdx;
+    sopSave();
+    sopRender();
+}
+
+function sopTmplDuplicateStep(tid, stepIdx) {
+    var tmpl = sopState.templates[tid];
+    if (!tmpl || !tmpl.steps[stepIdx]) return;
+    var clone = JSON.parse(JSON.stringify(tmpl.steps[stepIdx]));
+    clone.title = clone.title + ' (copia)';
+    tmpl.steps.splice(stepIdx + 1, 0, clone);
+    tmpl.updatedAt = new Date().toISOString();
+    sopSave();
+    sopRender();
+}
+
+function sopTmplDeleteStep(tid, stepIdx) {
+    if (typeof showCustomConfirm === 'function') {
+        showCustomConfirm('Eliminar Paso', '¿Eliminar este paso de la plantilla?', function() {
+            var tmpl = sopState.templates[tid];
+            if (!tmpl) return;
+            tmpl.steps.splice(stepIdx, 1);
+            tmpl.updatedAt = new Date().toISOString();
+            sopState.tmplEditStep = null;
+            sopSave();
+            sopRender();
+            if (typeof showToast === 'function') showToast('Paso eliminado', 'info');
+        }, 'danger');
+    }
+}
+
+function sopTmplAddStep(tid) {
+    var tmpl = sopState.templates[tid];
+    if (!tmpl) return;
+
+    // Determine section from last step or default
+    var lastSection = tmpl.steps.length > 0 ? tmpl.steps[tmpl.steps.length - 1].section : 'general';
+    var lastSectionLabel = tmpl.steps.length > 0 ? (tmpl.steps[tmpl.steps.length - 1].sectionLabel || '') : 'General';
+
+    tmpl.steps.push({
+        title: 'Nuevo paso',
+        description: '',
+        fieldType: 'text',
+        cascadeFieldId: '',
+        dataPath: '',
+        section: lastSection,
+        sectionLabel: lastSectionLabel
+    });
+    tmpl.updatedAt = new Date().toISOString();
+    sopState.tmplEditStep = tmpl.steps.length - 1;
+    sopSave();
+    sopRender();
+}
+
+function sopTmplRename(tid) {
+    var tmpl = sopState.templates[tid];
+    if (!tmpl) return;
+    var name = prompt('Nuevo nombre:', tmpl.name);
+    if (name && name.trim()) {
+        tmpl.name = name.trim();
+        tmpl.updatedAt = new Date().toISOString();
+        sopSave();
+        sopRender();
+    }
+}
+
+// ── Reference Image Management ──
+
+function sopTmplCaptureRefImage(tid, stepIdx) {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.onchange = function(e) {
+        var files = Array.from(e.target.files);
+        if (!files.length) return;
+        var count = 0;
+        files.forEach(function(file) {
+            var stepKey = 'tmpl-' + tid + '-' + stepIdx;
+            sopImageSave(stepKey, file, function() {
+                count++;
+                if (count === files.length) {
+                    sopRender();
+                    sopTmplLoadRefImages();
+                    if (typeof showToast === 'function') showToast(count + ' imagen(es) de referencia guardada(s)', 'success');
+                }
+            });
+        });
+    };
+    input.click();
+}
+
+function sopTmplLoadRefImages() {
+    // Load reference images for all visible template steps
+    var tid = sopState.tmplEditId;
+    if (!tid || !sopState.templates[tid]) return;
+    var tmpl = sopState.templates[tid];
+    tmpl.steps.forEach(function(step, stepIdx) {
+        var container = document.getElementById('sop-tmpl-imgs-' + tid + '-' + stepIdx);
+        if (!container) return;
+        var stepKey = 'tmpl-' + tid + '-' + stepIdx;
+        sopImageGetAll(stepKey, function(images) {
+            if (images.length === 0) { container.innerHTML = ''; return; }
+            var imgHtml = '';
+            images.forEach(function(img) {
+                imgHtml += '<div class="sop-image-thumb" onclick="sopShowImageOverlay(\'' + img.id + '\')" style="cursor:pointer;">';
+                imgHtml += '<img src="' + img.thumbnail + '" style="width:48px;height:48px;object-fit:cover;border-radius:6px;">';
+                imgHtml += '</div>';
+            });
+            container.innerHTML = imgHtml;
+        });
+    });
+}
+
+function sopTmplPreview(tid) {
+    var tmpl = sopState.templates[tid];
+    if (!tmpl) return;
+    // Show a simple preview of the procedure
+    var steps = tmpl.steps;
+    var sections = sopGetSections(steps);
+    var msg = tmpl.name + '\n\n';
+    sections.forEach(function(s) {
+        msg += s.icon + ' ' + s.label + '\n';
+        sopGetSectionSteps(steps, s.id).forEach(function(step, i) {
+            msg += '  ' + (i + 1) + '. ' + step.title + ' [' + step.fieldType + ']\n';
+        });
+        msg += '\n';
+    });
+    alert(msg);
+}
+
+// Load ref images for guide view (when technician sees reference photos)
+function sopLoadRefImagesForGuide(vehicle) {
+    if (!vehicle) return;
+    var isEm = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose);
+    var tmplId = isEm ? sopState.activeTemplateEmissions : sopState.activeTemplateSimple;
+    if (!tmplId) return; // Default templates have no ref images
+
+    var steps = sopGetProcedureForVehicle(vehicle);
+    // Offset by SOP_ALTA_STEPS length since ref images are per-template step
+    var altaLen = SOP_ALTA_STEPS.length;
+    steps.forEach(function(step, globalIdx) {
+        if (globalIdx < altaLen) return; // Alta steps don't have ref images
+        var tmplStepIdx = globalIdx - altaLen;
+        var container = document.getElementById('sop-ref-imgs-' + globalIdx);
+        if (!container) return;
+        var stepKey = 'tmpl-' + tmplId + '-' + tmplStepIdx;
+        sopImageGetAll(stepKey, function(images) {
+            if (images.length === 0) { container.innerHTML = ''; return; }
+            var imgHtml = '<div style="font-size:9px;font-weight:700;color:var(--muted,#64748b);margin-bottom:4px;">Referencia visual:</div>';
+            images.forEach(function(img) {
+                imgHtml += '<div class="sop-image-thumb" onclick="sopShowImageOverlay(\'' + img.id + '\')" style="cursor:pointer;display:inline-block;margin-right:4px;">';
+                imgHtml += '<img src="' + img.thumbnail + '" style="width:60px;height:60px;object-fit:cover;border-radius:8px;border:2px solid rgba(99,102,241,0.3);">';
+                imgHtml += '</div>';
+            });
+            container.innerHTML = imgHtml;
+        });
+    });
 }
 
 // ======================================================================
