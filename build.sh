@@ -43,6 +43,9 @@ cat > "$DIR/$OUTPUT" <<'HEADER'
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
 
+    <!-- Alpine.js — lightweight reactivity for UI -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -64,7 +67,7 @@ sed -n '/<body>/,/<!-- JS Modules/{ /<!-- JS Modules/d; p; }' "$DIR/index.html" 
 # Inline all JS modules into a single <script> block
 echo "<script>" >> "$DIR/$OUTPUT"
 
-for jsfile in app.js cop15.js inventory.js testplan.js results.js panel.js sop.js auth.js firebase-sync.js; do
+for jsfile in app.js cop15.js inventory.js testplan.js results.js sop.js panel.js auth.js firebase-sync.js; do
     echo "" >> "$DIR/$OUTPUT"
     cat "$DIR/js/$jsfile" >> "$DIR/$OUTPUT"
     echo "" >> "$DIR/$OUTPUT"

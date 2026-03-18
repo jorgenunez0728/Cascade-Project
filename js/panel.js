@@ -50,16 +50,43 @@ function pnSwitchTab(tabId) {
 }
 
 function _pnGetRenderer(tabId) {
-    // Alpine-managed tabs use a no-op renderer (Alpine handles the HTML)
-    if (_pnAlpineTabs[tabId]) return _pnAlpineTabRenderer;
+    // If Alpine.js is loaded, Alpine-managed tabs use a no-op renderer (Alpine handles the HTML in sibling div)
+    if (_pnAlpineTabs[tabId] && typeof Alpine !== 'undefined') return _pnAlpineTabRenderer;
+    // Fallback to legacy renderers when Alpine is not available
     if (tabId === 'pn-dashboard') return pnRenderDashboard;
+    if (tabId === 'pn-users') return pnRenderUsers;
+    if (tabId === 'pn-shift') return pnRenderShiftLog;
+    if (tabId === 'pn-alerts') return pnRenderAlerts;
     if (tabId === 'pn-intelligence') return pnRenderIntelligence;
+    if (tabId === 'pn-system') return pnRenderSystemHealth;
+    if (tabId === 'pn-calendar') return pnRenderCalendar;
+    if (tabId === 'pn-audit') return pnRenderAuditTrail;
     return null;
 }
 
 /** Clear renderer for Alpine-managed tabs — Alpine x-data handles rendering in sibling div */
 function _pnAlpineTabRenderer(el) {
     el.innerHTML = ''; // Clear any skeleton/placeholder — Alpine template is in sibling container
+}
+
+/** Fallback renderer for Audit Trail tab (when Alpine is unavailable) */
+function pnRenderAuditTrail(el) {
+    var trail = (typeof auditGetTrail === 'function') ? auditGetTrail().reverse() : [];
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>🔍 Auditoría (' + trail.length + ' registros)</span>' +
+        '<button onclick="if(typeof auditExportCSV===\'function\')auditExportCSV()" class="tp-btn tp-btn-ghost" style="font-size:10px;">📤 Exportar CSV</button></div>';
+    if (trail.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:#64748b;">Sin registros de auditoría.</div>';
+    } else {
+        trail.slice(0, 100).forEach(function(e) {
+            html += '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:10px;">' +
+                '<span style="color:#64748b;min-width:55px;">' + (e.ts ? e.ts.slice(11,16) : '') + '</span>' +
+                '<span style="min-width:40px;font-weight:700;">' + (e.mod || '') + '</span>' +
+                '<span style="color:#3b82f6;min-width:60px;">' + (e.user ? e.user.name : '') + '</span>' +
+                '<span style="flex:1;">' + (e.action || '') + (e.details ? ' — ' + e.details : '') + '</span></div>';
+        });
+    }
+    html += '</div>';
+    el.innerHTML = html;
 }
 
 function pnRender() {
