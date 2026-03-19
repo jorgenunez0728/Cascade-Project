@@ -15,7 +15,7 @@
             --accent-results: #0d9488;
             --accent-inventory: #059669;
             --accent-panel: #475569;
-            --accent-sop: #d97706;
+            /* --accent-sop removed (module eliminated) */
             /* Elevated shadows */
             --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
             --shadow-md: 0 4px 12px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.04);
@@ -1688,9 +1688,53 @@ button:focus-visible { outline-offset: 1px; }
 #platform-panel > .tp-header { border-left: 4px solid var(--accent-panel); }
 #platform-panel .tp-tab.active { background: var(--accent-panel); }
 
-/* SOP accent */
-#platform-sop > .tp-header { border-left: 4px solid var(--accent-sop); }
-#platform-sop .tp-tab.active { background: var(--accent-sop); color: #fff; }
+/* ══════════════════════════════════════════════════════════════════════ */
+/* CASCADE FIELD TOOLTIPS                                                */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.cascade-help-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #e2e8f0; color: #64748b;
+    font-size: 11px; font-weight: 800; line-height: 1;
+    border: none; cursor: pointer; margin-left: 4px;
+    vertical-align: middle; flex-shrink: 0;
+    transition: background-color 0.15s, color 0.15s, transform 0.15s;
+    font-family: sans-serif;
+}
+.cascade-help-btn:hover {
+    background: var(--accent-cascade, #bb162b); color: #fff;
+    transform: scale(1.15);
+}
+.cascade-tooltip-overlay {
+    position: fixed; inset: 0; z-index: 9998;
+    background: rgba(15,23,42,0.4);
+    backdrop-filter: blur(2px);
+    animation: modalFadeIn 0.15s ease;
+}
+.cascade-tooltip-popup {
+    position: fixed; z-index: 9999;
+    left: 50%; top: 50%; transform: translate(-50%, -50%);
+    max-width: 340px; width: calc(100% - 32px);
+    background: #fff; border-radius: 14px;
+    box-shadow: var(--shadow-xl);
+    padding: 20px; animation: modalFadeIn 0.2s ease;
+}
+.cascade-tooltip-title {
+    font-size: 13px; font-weight: 800; color: #0f172a;
+    margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+}
+.cascade-tooltip-text {
+    font-size: 12px; color: #475569; line-height: 1.5;
+}
+.cascade-tooltip-close {
+    display: block; margin-top: 14px; width: 100%;
+    padding: 8px; border: none; border-radius: 8px;
+    background: #f1f5f9; color: #334155;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    transition: background-color 0.15s;
+}
+.cascade-tooltip-close:hover { background: #e2e8f0; }
 
 /* ══════════════════════════════════════════════════════════════════════ */
 /* MODULE ACCENT BADGE COLORS (light theme)                             */
@@ -1700,334 +1744,7 @@ button:focus-visible { outline-offset: 1px; }
 #platform-results .tp-badge { background: #f0fdfa; color: var(--accent-results); }
 #platform-inventory .tp-badge { background: #ecfdf5; color: var(--accent-inventory); }
 #platform-panel .tp-badge { background: #f8fafc; color: var(--accent-panel); }
-#platform-sop .tp-badge { background: #fffbeb; color: var(--accent-sop); }
-
-/* ══════════════════════════════════════════════════════════════════════ */
-/* SOP LIBRARY MODULE STYLES                                            */
-/* ══════════════════════════════════════════════════════════════════════ */
-
-/* SOP Procedure Card */
-.sop-procedure-card {
-    background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
-    padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow-sm);
-    transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s; cursor: pointer;
-}
-.sop-procedure-card:hover {
-    box-shadow: var(--shadow-md); transform: translateY(-1px);
-    border-color: var(--accent-sop);
-}
-.sop-procedure-card.sop-active {
-    border-color: var(--accent-sop); border-width: 2px;
-    box-shadow: 0 0 0 3px rgba(217,119,6,0.1);
-}
-
-/* SOP Step */
-.sop-step {
-    display: flex; gap: 14px; padding: 16px;
-    background: #fff; border: 1px solid #e2e8f0;
-    border-radius: 12px; margin-bottom: 8px;
-    transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
-}
-.sop-step.sop-step-active {
-    border-color: var(--accent-sop);
-    background: #fffbeb;
-    box-shadow: 0 0 0 3px rgba(217,119,6,0.08);
-}
-.sop-step.sop-step-completed {
-    background: #f0fdf4;
-    border-color: #86efac;
-}
-.sop-step.sop-step-locked {
-    opacity: 0.5;
-}
-
-/* Step number circle */
-.sop-step-number {
-    width: 32px; height: 32px; border-radius: 50%;
-    background: #f1f5f9; color: #64748b;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 800; flex-shrink: 0;
-    transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
-}
-.sop-step-active .sop-step-number {
-    background: var(--accent-sop); color: #fff;
-    box-shadow: 0 2px 8px rgba(217,119,6,0.3);
-}
-.sop-step-completed .sop-step-number {
-    background: var(--tp-green); color: #fff;
-}
-
-/* Step content */
-.sop-step-content { flex: 1; min-width: 0; }
-.sop-step-title {
-    font-size: 13px; font-weight: 700; color: #0f172a;
-    margin-bottom: 4px;
-}
-.sop-step-desc {
-    font-size: 11px; color: #64748b; line-height: 1.4;
-    margin-bottom: 8px;
-}
-
-/* SOP Checklist */
-.sop-checklist { display: flex; flex-direction: column; gap: 6px; }
-.sop-check-item {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 12px; background: #f8fafc;
-    border: 1px solid #f1f5f9; border-radius: 8px;
-    font-size: 12px; color: #334155; cursor: pointer;
-    transition: background-color 0.15s, border-color 0.15s;
-}
-.sop-check-item:hover { background: #f1f5f9; }
-.sop-check-item.checked {
-    background: #f0fdf4; border-color: #bbf7d0;
-    color: #166534; text-decoration: line-through;
-}
-.sop-check-box {
-    width: 18px; height: 18px; border-radius: 4px;
-    border: 2px solid #cbd5e1; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    transition: background-color 0.2s, border-color 0.2s;
-}
-.sop-check-item.checked .sop-check-box {
-    background: var(--tp-green); border-color: var(--tp-green);
-    color: #fff;
-}
-
-/* SOP Progress Bar */
-.sop-progress {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; background: #f8fafc;
-    border-radius: 10px; margin-bottom: 14px;
-}
-.sop-progress-bar {
-    flex: 1; height: 8px; background: #e2e8f0;
-    border-radius: 6px; overflow: hidden;
-}
-.sop-progress-fill {
-    height: 100%; border-radius: 6px;
-    background: linear-gradient(90deg, var(--accent-sop), #f59e0b);
-    transition: width 0.4s ease;
-}
-.sop-progress-text {
-    font-size: 11px; font-weight: 700; color: #64748b;
-    white-space: nowrap;
-}
-
-/* SOP Category Tabs */
-.sop-categories {
-    display: flex; gap: 6px; flex-wrap: wrap;
-    margin-bottom: 14px;
-}
-.sop-category-chip {
-    padding: 6px 14px; border-radius: 20px;
-    font-size: 11px; font-weight: 700;
-    background: #f1f5f9; color: #64748b;
-    border: 1px solid #e2e8f0;
-    cursor: pointer; transition: background-color 0.15s, color 0.15s, border-color 0.15s;
-}
-.sop-category-chip:hover { background: #e2e8f0; }
-.sop-category-chip.active {
-    background: var(--accent-sop); color: #fff;
-    border-color: var(--accent-sop);
-}
-
-/* SOP Contextual Banner (shows in Cascade) */
-.sop-context-banner {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; margin-bottom: 14px;
-    background: #fffbeb; border: 1px solid #fcd34d;
-    border-radius: 10px; cursor: pointer;
-    transition: background-color 0.2s, box-shadow 0.2s;
-}
-.sop-context-banner:hover {
-    background: #fef3c7; box-shadow: var(--shadow-sm);
-}
-.sop-context-icon {
-    width: 28px; height: 28px; border-radius: 8px;
-    background: var(--accent-sop); color: #fff;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px; flex-shrink: 0;
-}
-.sop-context-text {
-    flex: 1; font-size: 11px; color: #92400e;
-    font-weight: 600; line-height: 1.3;
-}
-.sop-context-action {
-    font-size: 10px; font-weight: 700; color: var(--accent-sop);
-    white-space: nowrap;
-}
-
-/* SOP Data Input (within guided flow) */
-.sop-data-input {
-    padding: 10px 12px; border: 1.5px solid #e2e8f0;
-    border-radius: 10px; font-size: 13px; width: 100%;
-    background: #fff; color: #0f172a;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-.sop-data-input:focus {
-    border-color: var(--accent-sop);
-    box-shadow: 0 0 0 3px rgba(217,119,6,0.1);
-    outline: none;
-}
-
-/* SOP Completion Summary */
-.sop-summary {
-    background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
-    border: 1px solid #86efac;
-    border-radius: 14px; padding: 20px;
-    text-align: center;
-}
-.sop-summary-icon { font-size: 36px; margin-bottom: 8px; }
-.sop-summary-title { font-size: 15px; font-weight: 800; color: #166534; margin-bottom: 4px; }
-.sop-summary-detail { font-size: 11px; color: #15803d; }
-
-/* SOP History */
-.sop-history-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; background: #fff;
-    border: 1px solid #f1f5f9; border-radius: 10px;
-    margin-bottom: 6px;
-}
-.sop-history-item:hover { background: #f8fafc; }
-.sop-history-status {
-    width: 8px; height: 8px; border-radius: 50%;
-    flex-shrink: 0;
-}
-.sop-history-info { flex: 1; min-width: 0; }
-.sop-history-name { font-size: 12px; font-weight: 600; color: #0f172a; }
-.sop-history-meta { font-size: 10px; color: #94a3b8; }
-.sop-history-date { font-size: 10px; color: #64748b; white-space: nowrap; }
-
-/* SOP Guided Tour — Vehicle Banner */
-.sop-vehicle-banner {
-    background: linear-gradient(135deg, #fffbeb, #fef3c7);
-    border: 1px solid #fcd34d;
-    border-radius: 14px; padding: 14px;
-    margin-bottom: 12px;
-}
-
-/* SOP Vehicle Selector */
-.sop-vehicle-selector {
-    margin-bottom: 14px;
-}
-
-/* SOP Section Header */
-.sop-section-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 14px; gap: 8px;
-}
-
-/* SOP Section Progress Mini */
-.sop-section-progress-mini {
-    display: flex; align-items: center; gap: 6px; margin-top: 2px;
-}
-.sop-section-progress-bar {
-    width: 60px; height: 4px; background: #e2e8f0;
-    border-radius: 3px; overflow: hidden;
-}
-.sop-section-progress-fill {
-    height: 100%; border-radius: 3px;
-    background: linear-gradient(90deg, var(--accent-sop), #f59e0b);
-    transition: width 0.3s ease;
-}
-
-/* SOP Section Body */
-.sop-section-body {
-    padding: 0 14px 14px;
-}
-
-/* SOP Field Group */
-.sop-field-group {
-    margin-top: 8px;
-}
-
-/* SOP Field Readonly */
-.sop-field-readonly {
-    padding: 8px 12px; background: #f8fafc;
-    border: 1px solid #f1f5f9; border-radius: 8px;
-    font-size: 13px; color: #334155; font-weight: 600;
-}
-
-/* SOP Action Button */
-.sop-action-btn {
-    width: 100%; margin-top: 4px;
-    padding: 10px 16px; font-weight: 700;
-}
-
-/* SOP Edit Toggle */
-.sop-edit-toggle.active {
-    background: var(--accent-sop) !important;
-    color: #fff !important;
-    border-color: var(--accent-sop) !important;
-}
-
-/* SOP Edit Controls */
-.sop-edit-controls {
-    animation: fadeIn 0.2s ease;
-}
-
-/* SOP Camera Button */
-.sop-camera-btn {
-    border-style: dashed !important;
-}
-
-/* SOP Image Gallery */
-.sop-image-gallery {
-    display: flex; flex-wrap: wrap; gap: 6px;
-    margin-top: 6px;
-}
-.sop-image-thumb {
-    width: 56px; height: 56px; border-radius: 8px;
-    overflow: hidden; cursor: pointer;
-    border: 1px solid #e2e8f0;
-    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
-}
-.sop-image-thumb:hover {
-    border-color: var(--accent-sop);
-    box-shadow: 0 2px 8px rgba(217,119,6,0.2);
-    transform: scale(1.05);
-}
-.sop-image-thumb img {
-    width: 100%; height: 100%; object-fit: cover;
-}
-
-/* SOP Image Overlay */
-.sop-image-overlay {
-    position: fixed; inset: 0; z-index: 9999;
-    background: rgba(15,23,42,0.7);
-    backdrop-filter: blur(8px);
-    display: flex; align-items: center; justify-content: center;
-    animation: modalFadeIn 0.2s ease;
-    padding: 20px;
-}
-.sop-image-overlay-inner {
-    max-width: 600px; width: 100%;
-    background: #fff; border-radius: 16px;
-    padding: 16px; text-align: center;
-}
-
-/* ══════════════════════════════════════════════════════════════════════ */
-/* SOP TEMPLATE EDITOR                                                   */
-/* ══════════════════════════════════════════════════════════════════════ */
-
-.sop-tmpl-card {
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-.sop-tmpl-card.sop-tmpl-active {
-    border: 2px solid var(--success, #10b981);
-    box-shadow: 0 0 0 3px rgba(16,185,129,0.1);
-}
-.sop-tmpl-step {
-    transition: background 0.15s;
-}
-.sop-tmpl-step:hover {
-    background: rgba(99,102,241,0.04);
-}
-.sop-tmpl-step-editor input,
-.sop-tmpl-step-editor textarea,
-.sop-tmpl-step-editor select {
-    font-size: 12px;
-}
+/* (SOP module styles removed) */
 
 /* ══════════════════════════════════════════════════════════════════════ */
 /* [UX-1] SMOOTH SCROLLING & NAVIGATION                                 */
@@ -2068,12 +1785,10 @@ html { scroll-behavior: smooth; }
 .tp-card { transition: box-shadow 0.2s, transform 0.2s; }
 .tp-btn { transition: background-color 0.2s, transform 0.15s, box-shadow 0.2s; }
 .cascade-chip { transition: background-color 0.15s, color 0.15s, border-color 0.15s, transform 0.15s; }
-.sop-step { transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s; }
-.sop-check-item { transition: background-color 0.15s, border-color 0.15s; }
 .lab-dash-card { transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
 
 /* ── Smooth navigation for tab switches ── */
-.tabs, .tp-tabs, .sop-categories { scroll-behavior: smooth; }
+.tabs, .tp-tabs { scroll-behavior: smooth; }
 
 /* ══════════════════════════════════════════════════════════════════════ */
 /* DARK MODE                                                             */
@@ -2151,8 +1866,6 @@ html { scroll-behavior: smooth; }
 [data-theme="dark"] .tp-input { background: #151b27; color: #e2e8f0; border-color: rgba(255,255,255,0.12); }
 [data-theme="dark"] .tp-input:focus { border-color: var(--tp-blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
 [data-theme="dark"] .tp-select { background: #151b27; color: #e2e8f0; border-color: rgba(255,255,255,0.12); }
-[data-theme="dark"] .sop-data-input { background: #151b27; color: #e2e8f0; border-color: rgba(255,255,255,0.12); }
-
 /* --- Buttons --- */
 [data-theme="dark"] .btn-secondary { background: #2d3748; color: #e2e8f0; }
 [data-theme="dark"] .tp-btn-ghost { background: transparent; color: #94a3b8; border-color: rgba(255,255,255,0.15); }
@@ -2240,8 +1953,6 @@ html { scroll-behavior: smooth; }
 
 /* --- Bars & Progress --- */
 [data-theme="dark"] .tp-bar { background: #2d3748; }
-[data-theme="dark"] .sop-progress { background: #1e2633; }
-[data-theme="dark"] .sop-progress-bar { background: #2d3748; }
 
 /* --- Results Drop Zone --- */
 [data-theme="dark"] .ra-drop-zone { background: #1e2633; border-color: #475569; }
@@ -2321,32 +2032,13 @@ html { scroll-behavior: smooth; }
 [data-theme="dark"] .tour-btn { background: #2d3748; color: #cbd5e1; border-color: rgba(255,255,255,0.1); }
 [data-theme="dark"] .tour-btn:hover { background: #374151; }
 
-/* --- SOP Dark Overrides --- */
-[data-theme="dark"] .sop-procedure-card { background: #1a202c; border-color: rgba(255,255,255,0.08); }
-[data-theme="dark"] .sop-procedure-card:hover { border-color: var(--accent-sop); }
-[data-theme="dark"] .sop-step { background: #1a202c; border-color: rgba(255,255,255,0.08); }
-[data-theme="dark"] .sop-step.sop-step-active { background: rgba(217,119,6,0.08); border-color: var(--accent-sop); }
-[data-theme="dark"] .sop-step.sop-step-completed { background: rgba(16,185,129,0.08); border-color: #065f46; }
-[data-theme="dark"] .sop-step-number { background: #2d3748; color: #94a3b8; }
-[data-theme="dark"] .sop-step-title { color: #e2e8f0; }
-[data-theme="dark"] .sop-step-desc { color: #94a3b8; }
-[data-theme="dark"] .sop-check-item { background: #1e2633; border-color: rgba(255,255,255,0.05); color: #cbd5e1; }
-[data-theme="dark"] .sop-check-item:hover { background: rgba(255,255,255,0.06); }
-[data-theme="dark"] .sop-check-item.checked { background: rgba(16,185,129,0.08); border-color: #065f46; color: #6ee7b7; }
-[data-theme="dark"] .sop-check-box { border-color: #475569; }
-[data-theme="dark"] .sop-vehicle-banner { background: linear-gradient(135deg, rgba(217,119,6,0.1), rgba(217,119,6,0.05)); border-color: rgba(217,119,6,0.3); }
-[data-theme="dark"] .sop-context-banner { background: rgba(217,119,6,0.08); border-color: rgba(217,119,6,0.3); }
-[data-theme="dark"] .sop-context-text { color: #fbbf24; }
-[data-theme="dark"] .sop-category-chip { background: #1e2633; color: #94a3b8; border-color: rgba(255,255,255,0.1); }
-[data-theme="dark"] .sop-category-chip:hover { background: #2d3748; }
-[data-theme="dark"] .sop-field-readonly { background: #1e2633; border-color: rgba(255,255,255,0.05); color: #cbd5e1; }
-[data-theme="dark"] .sop-summary { background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.05)); border-color: #065f46; }
-[data-theme="dark"] .sop-summary-title { color: #6ee7b7; }
-[data-theme="dark"] .sop-summary-detail { color: #34d399; }
-[data-theme="dark"] .sop-history-item { background: #1a202c; border-color: rgba(255,255,255,0.05); }
-[data-theme="dark"] .sop-history-item:hover { background: #1e2633; }
-[data-theme="dark"] .sop-history-name { color: #e2e8f0; }
-[data-theme="dark"] .sop-image-overlay-inner { background: #1e2633; }
+/* --- Cascade Tooltip Dark --- */
+[data-theme="dark"] .cascade-help-btn { background: #2d3748; color: #94a3b8; }
+[data-theme="dark"] .cascade-tooltip-popup { background: #1e2633; }
+[data-theme="dark"] .cascade-tooltip-title { color: #e2e8f0; }
+[data-theme="dark"] .cascade-tooltip-text { color: #94a3b8; }
+[data-theme="dark"] .cascade-tooltip-close { background: #2d3748; color: #cbd5e1; }
+[data-theme="dark"] .cascade-tooltip-close:hover { background: #374151; }
 
 /* --- Calendar --- */
 [data-theme="dark"] .cal-cell { background: #1a202c; }
@@ -2459,8 +2151,6 @@ html { scroll-behavior: smooth; }
     html:not([data-theme="light"]) .tp-input { background: #151b27; color: #e2e8f0; border-color: rgba(255,255,255,0.12); }
     html:not([data-theme="light"]) .tp-input:focus { border-color: var(--tp-blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
     html:not([data-theme="light"]) .tp-select { background: #151b27; color: #e2e8f0; border-color: rgba(255,255,255,0.12); }
-    html:not([data-theme="light"]) .sop-data-input { background: #151b27; color: #e2e8f0; border-color: rgba(255,255,255,0.12); }
-
     /* Buttons */
     html:not([data-theme="light"]) .btn-secondary { background: #2d3748; color: #e2e8f0; }
     html:not([data-theme="light"]) .tp-btn-ghost { background: transparent; color: #94a3b8; border-color: rgba(255,255,255,0.15); }
@@ -2548,8 +2238,6 @@ html { scroll-behavior: smooth; }
 
     /* Bars & Progress */
     html:not([data-theme="light"]) .tp-bar { background: #2d3748; }
-    html:not([data-theme="light"]) .sop-progress { background: #1e2633; }
-    html:not([data-theme="light"]) .sop-progress-bar { background: #2d3748; }
 
     /* Results Drop Zone */
     html:not([data-theme="light"]) .ra-drop-zone { background: #1e2633; border-color: #475569; }
@@ -2629,32 +2317,13 @@ html { scroll-behavior: smooth; }
     html:not([data-theme="light"]) .tour-btn { background: #2d3748; color: #cbd5e1; border-color: rgba(255,255,255,0.1); }
     html:not([data-theme="light"]) .tour-btn:hover { background: #374151; }
 
-    /* SOP Overrides */
-    html:not([data-theme="light"]) .sop-procedure-card { background: #1a202c; border-color: rgba(255,255,255,0.08); }
-    html:not([data-theme="light"]) .sop-procedure-card:hover { border-color: var(--accent-sop); }
-    html:not([data-theme="light"]) .sop-step { background: #1a202c; border-color: rgba(255,255,255,0.08); }
-    html:not([data-theme="light"]) .sop-step.sop-step-active { background: rgba(217,119,6,0.08); border-color: var(--accent-sop); }
-    html:not([data-theme="light"]) .sop-step.sop-step-completed { background: rgba(16,185,129,0.08); border-color: #065f46; }
-    html:not([data-theme="light"]) .sop-step-number { background: #2d3748; color: #94a3b8; }
-    html:not([data-theme="light"]) .sop-step-title { color: #e2e8f0; }
-    html:not([data-theme="light"]) .sop-step-desc { color: #94a3b8; }
-    html:not([data-theme="light"]) .sop-check-item { background: #1e2633; border-color: rgba(255,255,255,0.05); color: #cbd5e1; }
-    html:not([data-theme="light"]) .sop-check-item:hover { background: rgba(255,255,255,0.06); }
-    html:not([data-theme="light"]) .sop-check-item.checked { background: rgba(16,185,129,0.08); border-color: #065f46; color: #6ee7b7; }
-    html:not([data-theme="light"]) .sop-check-box { border-color: #475569; }
-    html:not([data-theme="light"]) .sop-vehicle-banner { background: linear-gradient(135deg, rgba(217,119,6,0.1), rgba(217,119,6,0.05)); border-color: rgba(217,119,6,0.3); }
-    html:not([data-theme="light"]) .sop-context-banner { background: rgba(217,119,6,0.08); border-color: rgba(217,119,6,0.3); }
-    html:not([data-theme="light"]) .sop-context-text { color: #fbbf24; }
-    html:not([data-theme="light"]) .sop-category-chip { background: #1e2633; color: #94a3b8; border-color: rgba(255,255,255,0.1); }
-    html:not([data-theme="light"]) .sop-category-chip:hover { background: #2d3748; }
-    html:not([data-theme="light"]) .sop-field-readonly { background: #1e2633; border-color: rgba(255,255,255,0.05); color: #cbd5e1; }
-    html:not([data-theme="light"]) .sop-summary { background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.05)); border-color: #065f46; }
-    html:not([data-theme="light"]) .sop-summary-title { color: #6ee7b7; }
-    html:not([data-theme="light"]) .sop-summary-detail { color: #34d399; }
-    html:not([data-theme="light"]) .sop-history-item { background: #1a202c; border-color: rgba(255,255,255,0.05); }
-    html:not([data-theme="light"]) .sop-history-item:hover { background: #1e2633; }
-    html:not([data-theme="light"]) .sop-history-name { color: #e2e8f0; }
-    html:not([data-theme="light"]) .sop-image-overlay-inner { background: #1e2633; }
+    /* Cascade Tooltip */
+    html:not([data-theme="light"]) .cascade-help-btn { background: #2d3748; color: #94a3b8; }
+    html:not([data-theme="light"]) .cascade-tooltip-popup { background: #1e2633; }
+    html:not([data-theme="light"]) .cascade-tooltip-title { color: #e2e8f0; }
+    html:not([data-theme="light"]) .cascade-tooltip-text { color: #94a3b8; }
+    html:not([data-theme="light"]) .cascade-tooltip-close { background: #2d3748; color: #cbd5e1; }
+    html:not([data-theme="light"]) .cascade-tooltip-close:hover { background: #374151; }
 
     /* Calendar */
     html:not([data-theme="light"]) .cal-cell { background: #1a202c; }
@@ -2713,16 +2382,11 @@ html { scroll-behavior: smooth; }
     /* Slider */
     html:not([data-theme="light"]) .slider { background: #4b5563; }
 
-    /* SOP Progress Text */
-    html:not([data-theme="light"]) .sop-progress-text { color: #94a3b8; }
-    html:not([data-theme="light"]) .sop-section-progress-bar { background: #2d3748; }
-
     /* Module Accent Badges */
     html:not([data-theme="light"]) #platform-testplan .tp-badge { background: rgba(99,102,241,0.15); }
     html:not([data-theme="light"]) #platform-results .tp-badge { background: rgba(20,184,166,0.15); }
     html:not([data-theme="light"]) #platform-inventory .tp-badge { background: rgba(16,185,129,0.15); }
     html:not([data-theme="light"]) #platform-panel .tp-badge { background: rgba(71,85,105,0.2); }
-    html:not([data-theme="light"]) #platform-sop .tp-badge { background: rgba(245,158,11,0.15); }
 }
 
 /* ── Scrollbar (dark, outside media query for manual toggle) ── */
@@ -2739,16 +2403,11 @@ html { scroll-behavior: smooth; }
 [data-theme="dark"] .tp-suggestion { color: #e2e8f0; border-bottom-color: rgba(255,255,255,0.05); }
 [data-theme="dark"] .tp-suggestion:hover { background: #2d3748; }
 
-/* ── SOP Progress & Section (dark, manual toggle) ── */
-[data-theme="dark"] .sop-progress-text { color: #94a3b8; }
-[data-theme="dark"] .sop-section-progress-bar { background: #2d3748; }
-
 /* ── Module Accent Badges (dark, manual toggle) ── */
 [data-theme="dark"] #platform-testplan .tp-badge { background: rgba(99,102,241,0.15); }
 [data-theme="dark"] #platform-results .tp-badge { background: rgba(20,184,166,0.15); }
 [data-theme="dark"] #platform-inventory .tp-badge { background: rgba(16,185,129,0.15); }
 [data-theme="dark"] #platform-panel .tp-badge { background: rgba(71,85,105,0.2); }
-[data-theme="dark"] #platform-sop .tp-badge { background: rgba(245,158,11,0.15); }
 
 /* ── Catch-all: inline white backgrounds ── */
 [data-theme="dark"] [style*="background: #fff"],

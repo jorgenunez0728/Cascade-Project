@@ -1095,7 +1095,7 @@ var _tabCache = {};
 /**
  * Initialize tab caching for a module.
  * Creates persistent sub-divs inside the content container so tabs don't re-render on switch.
- * @param {string} moduleId - Module prefix (e.g., 'pn', 'inv', 'ra', 'tp', 'sop')
+ * @param {string} moduleId - Module prefix (e.g., 'pn', 'inv', 'ra', 'tp')
  * @param {string[]} tabIds - Array of tab IDs
  */
 function tabCacheInit(moduleId, tabIds) {
@@ -1257,7 +1257,6 @@ function switchPlatform(platform, swipeDir) {
     if (platform === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
     if (platform === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
     if (platform === 'panel') { pnRender(); pnUpdateBadges(); }
-    if (platform === 'sop') { if(typeof sopRender==='function') sopRender(); if(typeof sopUpdateBadge==='function') sopUpdateBadge(); }
     if (platform === 'cop15') {
         const active = db.vehicles.filter(v => v.status !== 'archived').length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
@@ -1752,9 +1751,6 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         // ═══ Lab Inventory badges ═══
         if (typeof invPreloadData === 'function') invPreloadData();
         if (typeof invUpdateBadges === 'function') invUpdateBadges();
-
-        // ═══ SOP Guided Tour ═══
-        if (typeof sopInit === 'function') { sopInit(); sopUpdateBadge(); }
 
         // ═══ Panel Module ═══
         if (typeof pnInit === 'function') { pnInit(); pnUpdateBadges(); }

@@ -486,24 +486,8 @@ function initCascadeTree() {
         toggleActionBar(isOp && !!activeVehicleId);
         refreshAllLists();
         updateProgressBar();
-        // SOP contextual banner integration
-        _injectSopBanner(tab.dataset.tab);
-    }
-
-    function _injectSopBanner(tabName) {
-        if (typeof sopGetCascadeBanner !== 'function') return;
-        var phaseMap = { 'alta': 'alta', 'seguimiento': 'operacion', 'liberacion': 'liberacion' };
-        var phase = phaseMap[tabName];
-        if (!phase) return;
-        var panel = document.getElementById('panel-' + tabName);
-        if (!panel) return;
-        // Remove existing banner
-        var existing = panel.querySelector('.sop-context-banner');
-        if (existing) existing.remove();
-        var bannerHtml = sopGetCascadeBanner(phase);
-        if (bannerHtml) {
-            panel.insertAdjacentHTML('afterbegin', bannerHtml);
-        }
+        // Re-inject tooltips for the new tab
+        cascadeInjectTooltips();
     }
 
     // Setup real-time field validation for Alta form
@@ -544,6 +528,9 @@ function initCascadeTree() {
 
     // Setup unsaved changes tracking
     setupUnsavedTracking();
+
+    // Inject field help tooltips
+    cascadeInjectTooltips();
 
     function toggleMode() {
         const isExternal = document.getElementById('modeToggle').checked;
@@ -892,7 +879,6 @@ setAltaDatetimeIfEmpty(true);
         validateVIN(document.getElementById('vin'));
         
         refreshAllLists();
-        if (typeof sopOnVehicleRegistered === 'function') sopOnVehicleRegistered(newVehicle);
         updateProgressBar();
     }
 
@@ -4847,4 +4833,206 @@ function cop15TemplateSave() {
 /** Show COP15 template manager. */
 function cop15TemplateManager() {
     templateRenderManager('cop15', 'cop15TemplateApplyData');
+}
+
+// ======================================================================
+// [TOOLTIPS] CASCADE FIELD HELP TOOLTIPS
+// ======================================================================
+
+/** Tooltip definitions: { domFieldId: { title, text } } */
+var CASCADE_TOOLTIPS = {
+    vehiclePurpose: {
+        title: 'Prop\u00f3sito de la Prueba',
+        text: 'Emisiones = protocolo completo COP15 con preacondicionamiento, dinam\u00f3metro y verificaci\u00f3n. Simple = registro operativo b\u00e1sico sin prueba de emisiones. Determina qu\u00e9 formularios se muestran.'
+    },
+    vin: {
+        title: 'VIN (N\u00famero de Identificaci\u00f3n Vehicular)',
+        text: '17 caracteres alfanum\u00e9ricos \u00fanicos. No se permiten las letras I, O ni Q porque se confunden con 1 y 0. Ejemplo: KNDJP3A59K7123456.'
+    },
+    fuel_levelin: {
+        title: 'Nivel de Combustible (Recepci\u00f3n)',
+        text: 'Nivel como fracci\u00f3n de la capacidad del tanque: 0 = vac\u00edo, 1/8, 1/4, 1/2, 3/4, 1 = lleno. Se mide visualmente al recibir el veh\u00edculo.'
+    },
+    fuel_levelpre: {
+        title: 'Nivel de Combustible (Preacondicionamiento)',
+        text: 'Nivel de combustible en LITROS (no fracci\u00f3n). Diferente a la medici\u00f3n de recepci\u00f3n que usa fracciones del tanque.'
+    },
+    fuel_typepre: {
+        title: 'Tipo de Combustible de Prueba',
+        text: 'El combustible debe coincidir con el est\u00e1ndar regulatorio del veh\u00edculo. Cada norma (Euro 6, CARB LEV III, EPA Tier) requiere una composici\u00f3n espec\u00edfica de combustible certificado.'
+    },
+    battery_soc: {
+        title: 'SOC — Estado de Carga de Bater\u00eda',
+        text: 'SOC = State of Charge. Porcentaje de carga de la bater\u00eda (0-100%). Aplica para veh\u00edculos h\u00edbridos y el\u00e9ctricos. Se mide con esc\u00e1ner OBD antes de la prueba.'
+    },
+    tire_pressure_in: {
+        title: 'Presi\u00f3n de Llantas (PSI)',
+        text: 'Presi\u00f3n en PSI (libras por pulgada cuadrada). Conversi\u00f3n: 1 bar \u2248 14.5 psi, 1 kPa \u2248 0.145 psi. Verificar contra la etiqueta del veh\u00edculo.'
+    },
+    precond_cycle: {
+        title: 'Ciclo de Preacondicionamiento',
+        text: 'WLTP = Procedimiento Armonizado Mundial para Veh\u00edculos Ligeros. FTP = Procedimiento Federal de Prueba (fases 1 y 2). NEDC = Nuevo Ciclo Europeo de Conducci\u00f3n. Cada uno define un patr\u00f3n de conducci\u00f3n espec\u00edfico.'
+    },
+    soak_time: {
+        title: 'Tiempo de Reposo (Soak)',
+        text: 'Tiempo que el veh\u00edculo permanece en reposo t\u00e9rmico en la c\u00e1mara climatizada antes de la prueba. M\u00ednimo 12 horas est\u00e1ndar.'
+    },
+    precond_ok: {
+        title: 'Cumple Preacondicionamiento',
+        text: 'Confirmar que el veh\u00edculo cumple TODOS los requisitos: temperatura estabilizada (20-30\u00b0C), tiempo de reposo completado, sin DTCs activos, nivel de combustible correcto.'
+    },
+    dtc_pending_before: {
+        title: 'DTC Pendiente',
+        text: 'DTC = C\u00f3digo de Falla Diagn\u00f3stica (Diagnostic Trouble Code). Pendiente = falla almacenada en la ECU del veh\u00edculo pero a\u00fan no confirmada. Se verifica con esc\u00e1ner OBD.'
+    },
+    dtc_confirmed_before: {
+        title: 'DTC Confirmado',
+        text: 'DTC Confirmado = falla que ha ocurrido m\u00faltiples veces y cumple los criterios para encender la luz MIL (Check Engine). El veh\u00edculo NO debe tener DTCs confirmados para iniciar prueba.'
+    },
+    dtc_permanent_before: {
+        title: 'DTC Permanente',
+        text: 'DTC Permanente = falla que persiste despu\u00e9s de 40+ ciclos de calentamiento sin poder borrarse. Si existe, el veh\u00edculo no es apto para prueba de emisiones.'
+    },
+    etw: {
+        title: 'ETW — Peso Estimado de Prueba',
+        text: 'ETW = Estimated Test Weight. Es la masa del veh\u00edculo que el dinam\u00f3metro usa para simular la inercia y resistencia al rodamiento durante la prueba de emisiones. Se obtiene de la hoja de datos del veh\u00edculo.'
+    },
+    tA: {
+        title: 'Target A / Dyno Set A',
+        text: 'Coeficientes de resistencia al avance del veh\u00edculo. Target = valores te\u00f3ricos calculados. Dyno Set = valores configurados en el dinam\u00f3metro. A = fuerza constante (N), B = resistencia proporcional a velocidad, C = resistencia aerodin\u00e1mica (proporcional a v\u00b2). Deben coincidir para una prueba v\u00e1lida.'
+    },
+    dA: {
+        title: 'Target A / Dyno Set A',
+        text: 'Coeficientes de resistencia al avance del veh\u00edculo. Target = valores te\u00f3ricos calculados. Dyno Set = valores configurados en el dinam\u00f3metro. A = fuerza constante (N), B = resistencia proporcional a velocidad, C = resistencia aerodin\u00e1mica (proporcional a v\u00b2). Deben coincidir para una prueba v\u00e1lida.'
+    },
+    tB: {
+        title: 'Target B / Dyno Set B',
+        text: 'Coeficiente B de resistencia al avance. Proporcional a la velocidad (N/(km/h)). Target = valor te\u00f3rico, Dyno Set = valor configurado en el dinam\u00f3metro.'
+    },
+    dB: {
+        title: 'Target B / Dyno Set B',
+        text: 'Coeficiente B de resistencia al avance. Proporcional a la velocidad (N/(km/h)). Target = valor te\u00f3rico, Dyno Set = valor configurado en el dinam\u00f3metro.'
+    },
+    tC: {
+        title: 'Target C / Dyno Set C',
+        text: 'Coeficiente C de resistencia aerodin\u00e1mica. Proporcional al cuadrado de la velocidad (N/(km/h)\u00b2). Target = valor te\u00f3rico, Dyno Set = valor configurado en el dinam\u00f3metro.'
+    },
+    dC: {
+        title: 'Target C / Dyno Set C',
+        text: 'Coeficiente C de resistencia aerodin\u00e1mica. Proporcional al cuadrado de la velocidad (N/(km/h)\u00b2). Target = valor te\u00f3rico, Dyno Set = valor configurado en el dinam\u00f3metro.'
+    },
+    test_tunnel: {
+        title: 'T\u00fanel de Prueba',
+        text: 'C\u00e1mara f\u00edsica de pruebas de emisiones. RMT1 y RMT2 son las dos bah\u00edas (t\u00faneles) de prueba disponibles en el laboratorio. Cada t\u00fanel tiene su propio dinam\u00f3metro y sistema de muestreo de gases.'
+    },
+    test_chains: {
+        title: 'Cadenas de Amarre',
+        text: 'Cadenas de sujeci\u00f3n (1 y 2) que amarran el veh\u00edculo a la plataforma del dinam\u00f3metro para evitar deslizamiento durante la prueba. Deben estar TENSADAS antes de iniciar.'
+    },
+    test_slings: {
+        title: 'Eslingas de Sujeci\u00f3n',
+        text: 'Eslingas (1 y 2): cintas de soporte que estabilizan el veh\u00edculo verticalmente sobre los rodillos del dinam\u00f3metro. Deben estar ASEGURADAS antes de la prueba.'
+    },
+    test_hood: {
+        title: 'Cap\u00f3 del Veh\u00edculo',
+        text: 'En M\u00e9xico es OBLIGATORIO mantener el cap\u00f3 abierto durante la prueba de emisiones para permitir ventilaci\u00f3n adecuada del motor.'
+    },
+    test_rear_rollers: {
+        title: 'Rodillos Traseros',
+        text: 'Rodillos traseros del dinam\u00f3metro que hacen contacto con las ruedas traseras del veh\u00edculo. Deben estar asegurados para evitar movimiento lateral.'
+    },
+    test_screen: {
+        title: 'Pantalla Protectora',
+        text: 'Pantalla/barrera de protecci\u00f3n que se coloca frente al veh\u00edculo durante la prueba en el dinam\u00f3metro. Debe estar asegurada por seguridad del personal.'
+    },
+    test_fan_speed: {
+        title: 'Velocidad del Ventilador',
+        text: 'Velocidad del ventilador de enfriamiento en km/h equivalentes (velocidad del aire). Se calcula autom\u00e1ticamente el flujo en m\u00b3/min.'
+    },
+    test_fan_flow: {
+        title: 'Flujo del Ventilador',
+        text: 'Flujo de aire del ventilador de enfriamiento en m\u00b3/min (metros c\u00fabicos por minuto). En M\u00e9xico el l\u00edmite m\u00e1ximo permitido es 150 m\u00b3/min.'
+    },
+    test_mex_waitcheck: {
+        title: 'Verificaci\u00f3n FTP75-HWY (M\u00e9xico)',
+        text: 'Verificaci\u00f3n espec\u00edfica para M\u00e9xico del ciclo combinado FTP75 (ciclo ciudad) + HWY (ciclo carretera). El ventilador debe estar APAGADO al inicio. Confirma cumplimiento regulatorio mexicano.'
+    },
+    test_inertia_ok: {
+        title: 'Par\u00e1metros de Inercia',
+        text: 'Confirmar que los par\u00e1metros de inercia (masa simulada) est\u00e1n correctamente configurados en el dinam\u00f3metro y coinciden con el peso objetivo (ETW) del veh\u00edculo.'
+    },
+    soak_timer_hours: {
+        title: 'Duraci\u00f3n del Temporizador de Reposo',
+        text: 'Tiempo de reposo t\u00e9rmico (soak). 12h = est\u00e1ndar m\u00ednimo, 16h = recomendado para climas fr\u00edos, 24-36h = pruebas especiales o normativas estrictas.'
+    }
+};
+
+/** Inject ? help buttons next to labels of fields that have tooltips */
+function cascadeInjectTooltips() {
+    // Remove existing tooltip buttons first
+    document.querySelectorAll('.cascade-help-btn').forEach(function(btn) { btn.remove(); });
+
+    Object.keys(CASCADE_TOOLTIPS).forEach(function(fieldId) {
+        var field = document.getElementById(fieldId);
+        if (!field) return;
+
+        // Find the label: either a <label> pointing to this field, or the nearest preceding label
+        var label = document.querySelector('label[for="' + fieldId + '"]');
+        if (!label) {
+            // Walk up to find form-group then find label inside
+            var parent = field.closest('.form-group') || field.parentElement;
+            if (parent) label = parent.querySelector('label');
+        }
+        if (!label) return;
+
+        // Don't double-inject
+        if (label.querySelector('.cascade-help-btn')) return;
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'cascade-help-btn';
+        btn.textContent = '?';
+        btn.setAttribute('aria-label', 'Ayuda: ' + CASCADE_TOOLTIPS[fieldId].title);
+        btn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            cascadeShowTooltip(fieldId);
+        };
+        label.appendChild(btn);
+    });
+}
+
+/** Show a tooltip popup for the given field */
+function cascadeShowTooltip(fieldId) {
+    var tip = CASCADE_TOOLTIPS[fieldId];
+    if (!tip) return;
+
+    // Remove existing
+    cascadeCloseTooltip();
+
+    // Overlay
+    var overlay = document.createElement('div');
+    overlay.className = 'cascade-tooltip-overlay';
+    overlay.id = 'cascade-tooltip-overlay';
+    overlay.onclick = cascadeCloseTooltip;
+
+    // Popup
+    var popup = document.createElement('div');
+    popup.className = 'cascade-tooltip-popup';
+    popup.id = 'cascade-tooltip-popup';
+    popup.innerHTML =
+        '<div class="cascade-tooltip-title">\u2753 ' + tip.title + '</div>' +
+        '<div class="cascade-tooltip-text">' + tip.text + '</div>' +
+        '<button class="cascade-tooltip-close" onclick="cascadeCloseTooltip()">Entendido</button>';
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(popup);
+}
+
+/** Close the tooltip popup */
+function cascadeCloseTooltip() {
+    var overlay = document.getElementById('cascade-tooltip-overlay');
+    var popup = document.getElementById('cascade-tooltip-popup');
+    if (overlay) overlay.remove();
+    if (popup) popup.remove();
 }

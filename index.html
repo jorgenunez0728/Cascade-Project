@@ -63,10 +63,6 @@
         <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
         <span id="inv-alert-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:16px;padding:0 4px;">0</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('sop')" id="ptab-sop" title="SOP: Procedimientos operativos estándar y guías paso a paso">
-        📋 SOP LIBRARY
-        <span class="pt-badge" style="background:rgba(217,119,6,0.2);color:#f59e0b;" id="sop-count-badge">0</span>
-    </div>
     <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel" title="Panel: Dashboard, operadores, backups y configuración">
         ⚙️ PANEL
         <span class="pt-badge" style="background:rgba(71,85,105,0.15);color:#64748b;" id="pn-alerts-badge">ok</span>
@@ -973,33 +969,6 @@
 </div><!-- END platform-inventory -->
 
 <!-- ═══════════════════════════════════════════════════════════════
-     PLATFORM 5: SOP LIBRARY (Standard Operating Procedures)
-     ═══════════════════════════════════════════════════════════════ -->
-<div class="platform-section" id="platform-sop" role="main" aria-label="SOP Guided Tour">
-    <div class="tp-header">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;width:100%;">
-            <div>
-                <h2 style="margin:0;font-size:16px;font-weight:800;">Procedimientos Guiados (SOP)</h2>
-                <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Guía paso a paso para llenar datos del vehículo — sincronizado con Cascade</p>
-            </div>
-            <div style="display:flex;gap:6px;">
-                <button class="tp-btn tp-btn-ghost" onclick="sopExportHistory()" style="font-size:11px;">Exportar</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="tp-tabs" id="sop-tabs-bar" role="tablist" aria-label="Secciones SOP">
-        <button class="tp-tab active" role="tab" aria-selected="true" onclick="sopSwitchTab('sop-guia')">📋 Guía</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="sopSwitchTab('sop-history')">📜 Historial</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="sopSwitchTab('sop-templates')">📁 Plantillas</button>
-    </div>
-
-    <div class="tp-main">
-        <div id="sop-content"></div>
-    </div>
-</div><!-- END platform-sop -->
-
-<!-- ═══════════════════════════════════════════════════════════════
      PLATFORM 6: PANEL (Dashboard, Users, Shift Log, Alerts)
      ═══════════════════════════════════════════════════════════════ -->
 <div class="platform-section" id="platform-panel" role="main" aria-label="Panel de Control">
@@ -1398,7 +1367,6 @@
                             <option value="ra">Resultados</option>
                             <option value="inv">Inventario</option>
                             <option value="pn">Panel</option>
-                            <option value="sop">SOP</option>
                         </select>
                     </div>
                     <div style="flex:1;min-width:110px;">
@@ -1519,10 +1487,6 @@
         <span class="bnav-icon">📦</span>
         <span>Inventory</span>
     </div>
-    <div class="bottom-nav-item" onclick="switchPlatform('sop')" id="bnav-sop">
-        <span class="bnav-icon">📋</span>
-        <span>SOP</span>
-    </div>
     <div class="bottom-nav-item" onclick="switchPlatform('panel')" id="bnav-panel">
         <span class="bnav-icon">⚙️</span>
         <span>Panel</span>
@@ -1535,7 +1499,6 @@
 <script src="js/inventory.js"></script>
 <script src="js/testplan.js"></script>
 <script src="js/results.js"></script>
-<script src="js/sop.js"></script>
 <script src="js/panel.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/firebase-sync.js"></script>
