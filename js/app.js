@@ -1205,8 +1205,8 @@ function _skeletonHTML() {
 // ║  [M15] PLATFORM SWITCHER                                           ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-var PLATFORM_ORDER = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
-var _currentPlatform = 'cop15';
+var PLATFORM_ORDER = ['today', 'cop15', 'testplan', 'results', 'inventory', 'panel'];
+var _currentPlatform = 'today';
 
 function switchPlatform(platform, swipeDir) {
     if (platform === _currentPlatform) return;
@@ -1253,6 +1253,7 @@ function switchPlatform(platform, swipeDir) {
 
     _currentPlatform = platform;
 
+    if (platform === 'today') { dailyDashRender(); }
     if (platform === 'testplan') { tpRender(); tpUpdateBadges(); }
     if (platform === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
     if (platform === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
@@ -1274,7 +1275,353 @@ function switchPlatform(platform, swipeDir) {
         }
     }
 
+    // Update vehicle checklist visibility
+    if (typeof vclUpdate === 'function') vclUpdate();
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [M16] DAILY DASHBOARD — Vista Hoy                                  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function dailyDashRender() {
+    var el = document.getElementById('daily-dash-content');
+    if (!el) return;
+
+    var now = new Date();
+    var days = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    var months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    var hour = now.getHours();
+    var greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
+
+    var html = '';
+
+    // ── Header ──
+    html += '<div class="daily-dash-header">';
+    html += '<div class="daily-dash-greeting">' + greeting + '</div>';
+    html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
+    html += '</div>';
+
+    // ── Soak Timers Active ──
+    var soakData = null;
+    try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
+    var soakActive = soakData && soakData.endTime && soakData.endTime > Date.now();
+
+    if (soakActive) {
+        var remaining = soakData.endTime - Date.now();
+        var hrs = Math.floor(remaining / 3600000);
+        var mins = Math.floor((remaining % 3600000) / 60000);
+        var secs = Math.floor((remaining % 60000) / 1000);
+
+        html += '<div class="daily-dash-section">';
+        html += '<div class="daily-dash-section-title">⏱ Soak Activo</div>';
+        html += '<div class="daily-dash-card soak-active" onclick="switchPlatform(\'cop15\')">';
+        html += '<div class="daily-dash-card-icon" style="background:#fef3c7;color:#d97706;">⏱</div>';
+        html += '<div class="daily-dash-card-body">';
+        html += '<div class="daily-dash-card-title">Temporizador de Reposo</div>';
+        html += '<div class="daily-dash-card-meta">Restante: ' + hrs + 'h ' + mins + 'm ' + secs + 's</div>';
+        html += '</div>';
+        html += '<div class="daily-dash-card-badge" style="background:#fef3c7;color:#d97706;">' + hrs + ':' + String(mins).padStart(2,'0') + '</div>';
+        html += '</div></div>';
+    }
+
+    // ── Vehicles in progress ──
+    var activeVehicles = (db.vehicles || []).filter(function(v) { return v.status !== 'archived'; });
+    if (activeVehicles.length > 0) {
+        html += '<div class="daily-dash-section">';
+        html += '<div class="daily-dash-section-title">🚗 Vehículos Activos (' + activeVehicles.length + ')</div>';
+
+        activeVehicles.slice(0, 5).forEach(function(v) {
+            var statusColors = {
+                'registered': { bg: '#eff6ff', color: '#3b82f6', label: 'Registrado' },
+                'in-progress': { bg: '#fef3c7', color: '#d97706', label: 'En Progreso' },
+                'testing': { bg: '#fce7f3', color: '#db2777', label: 'En Prueba' },
+                'ready-release': { bg: '#dcfce7', color: '#16a34a', label: 'Listo' }
+            };
+            var sc = statusColors[v.status] || { bg: '#f1f5f9', color: '#64748b', label: v.status };
+            var model = v.config ? (v.config.Modelo || '') : '';
+            var vinShort = v.vin ? '...' + v.vin.slice(-4) : '';
+
+            html += '<div class="daily-dash-card" onclick="switchPlatform(\'cop15\');setTimeout(function(){var s=document.getElementById(\'activeVehSelect\');if(s){s.value=\'' + v.id + '\';loadVehicle();}},200);">';
+            html += '<div class="daily-dash-card-icon" style="background:' + sc.bg + ';color:' + sc.color + ';">🚗</div>';
+            html += '<div class="daily-dash-card-body">';
+            html += '<div class="daily-dash-card-title">' + model + ' ' + vinShort + '</div>';
+            html += '<div class="daily-dash-card-meta">' + (v.purpose || '') + '</div>';
+            html += '</div>';
+            html += '<div class="daily-dash-card-badge" style="background:' + sc.bg + ';color:' + sc.color + ';">' + sc.label + '</div>';
+            html += '</div>';
+        });
+        if (activeVehicles.length > 5) {
+            html += '<div class="daily-dash-card-meta" style="text-align:center;padding:4px;">+ ' + (activeVehicles.length - 5) + ' más</div>';
+        }
+        html += '</div>';
+    }
+
+    // ── Inventory Alerts ──
+    var invAlerts = [];
+    if (typeof invState !== 'undefined' && invState.gases) {
+        invState.gases.forEach(function(g) {
+            if (typeof invGasExpiry === 'function') {
+                var exp = invGasExpiry(g);
+                if (exp.status === 'expired') invAlerts.push({ icon: '⚠️', text: g.formula + ' #' + g.controlNo + ' VENCIDO', type: 'critical' });
+            }
+            if (typeof invGasLevel === 'function') {
+                var lvl = invGasLevel(g);
+                if (lvl.pct < 15 && lvl.pct >= 0) invAlerts.push({ icon: '📉', text: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', type: 'warning' });
+            }
+        });
+        if (invState.equipment) {
+            invState.equipment.forEach(function(e) {
+                if (!e.nextCalDate) return;
+                var diff = Math.round((new Date(e.nextCalDate) - now) / (1000*60*60*24));
+                if (diff < 0) invAlerts.push({ icon: '🔧', text: e.name + ' calibración vencida', type: 'critical' });
+                else if (diff <= 7) invAlerts.push({ icon: '🔧', text: e.name + ' calibra en ' + diff + ' días', type: 'warning' });
+            });
+        }
+    }
+    if (invAlerts.length > 0) {
+        html += '<div class="daily-dash-section">';
+        html += '<div class="daily-dash-section-title">⚠️ Alertas de Inventario (' + invAlerts.length + ')</div>';
+        invAlerts.slice(0, 4).forEach(function(a) {
+            html += '<div class="daily-dash-card ' + (a.type === 'critical' ? 'alert-critical' : '') + '" onclick="switchPlatform(\'inventory\')">';
+            html += '<div class="daily-dash-card-icon" style="background:' + (a.type === 'critical' ? '#fef2f2' : '#fef3c7') + ';">' + a.icon + '</div>';
+            html += '<div class="daily-dash-card-body"><div class="daily-dash-card-title">' + a.text + '</div></div>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // ── Week Progress (Test Plan) ──
+    if (typeof tpState !== 'undefined' && tpState.tests && tpState.tests.length > 0) {
+        var weekTests = tpState.tests;
+        var completed = weekTests.filter(function(t) { return t.status === 'completed'; }).length;
+        var total = weekTests.length;
+        var pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        html += '<div class="daily-dash-section">';
+        html += '<div class="daily-dash-section-title">📋 Plan Semanal</div>';
+        html += '<div class="daily-dash-card" onclick="switchPlatform(\'testplan\')">';
+        html += '<div class="daily-dash-card-icon" style="background:#eef2ff;color:#4f46e5;">📋</div>';
+        html += '<div class="daily-dash-card-body">';
+        html += '<div class="daily-dash-card-title">' + completed + '/' + total + ' pruebas completadas</div>';
+        html += '<div class="daily-dash-week-bar"><div class="daily-dash-week-fill" style="width:' + pct + '%"></div></div>';
+        html += '</div>';
+        html += '<div class="daily-dash-card-badge" style="background:#eef2ff;color:#4f46e5;">' + pct + '%</div>';
+        html += '</div></div>';
+    }
+
+    // ── Quick Actions ──
+    html += '<div class="daily-dash-section">';
+    html += '<div class="daily-dash-section-title">⚡ Acceso Rápido</div>';
+    html += '<div class="daily-dash-quick-actions">';
+    html += '<div class="daily-dash-action" onclick="switchPlatform(\'cop15\');setTimeout(function(){var t=document.querySelector(\'.tab[data-tab=alta]\');if(t)t.click();},150);"><span class="daily-dash-action-icon">➕</span>Alta Vehículo</div>';
+
+    // Last edited vehicle shortcut
+    var lastVehicle = (db.vehicles || []).filter(function(v){ return v.status !== 'archived'; }).sort(function(a,b) {
+        var tA = a.timeline && a.timeline.length ? a.timeline[a.timeline.length-1].timestamp : a.registeredAt || '';
+        var tB = b.timeline && b.timeline.length ? b.timeline[b.timeline.length-1].timestamp : b.registeredAt || '';
+        return tB > tA ? 1 : -1;
+    })[0];
+    if (lastVehicle) {
+        var lModel = lastVehicle.config ? (lastVehicle.config.Modelo || '') : '';
+        html += '<div class="daily-dash-action" onclick="switchPlatform(\'cop15\');setTimeout(function(){var s=document.getElementById(\'activeVehSelect\');if(s){s.value=\'' + lastVehicle.id + '\';loadVehicle();var t=document.querySelector(\'.tab[data-tab=seguimiento]\');if(t)t.click();}},200);"><span class="daily-dash-action-icon">📝</span>Último: ' + lModel + '</div>';
+    } else {
+        html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
+    }
+
+    html += '<div class="daily-dash-action" onclick="switchPlatform(\'results\')"><span class="daily-dash-action-icon">🧪</span>Resultados</div>';
+    html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
+    html += '</div></div>';
+
+    // ── No data state ──
+    if (activeVehicles.length === 0 && !soakActive && invAlerts.length === 0) {
+        html += '<div class="daily-dash-empty">Sin actividad pendiente. ¡Todo en orden! 👍</div>';
+    }
+
+    el.innerHTML = html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [M17] VEHICLE INLINE CHECKLIST                                     ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _vclOpen = false;
+
+/** Field definitions for the checklist — grouped by section */
+var VCL_FIELDS = [
+    { section: 'Recepción', items: [
+        { label: 'Operador', path: 'testData.operator', fieldId: 'op_recep' },
+        { label: 'Odómetro', path: 'testData.odometer', fieldId: 'op_odo' },
+        { label: 'Fecha Recepción', path: 'testData.datetime', fieldId: 'op_datetime' },
+        { label: 'Tipo Combustible', path: 'testData.preconditioning.fuelTypeIn', fieldId: 'fuel_typein' },
+        { label: 'Nivel Combustible', path: 'testData.preconditioning.fuelLevelIn', fieldId: 'fuel_levelin' },
+        { label: 'Presión Llantas', path: 'testData.preconditioning.tirePressurePsi', fieldId: 'tire_pressure_in' }
+    ]},
+    { section: 'Preacondicionamiento', items: [
+        { label: 'Responsable', path: 'testData.preconditioning.responsible', fieldId: 'precond_responsible' },
+        { label: 'Fecha Preacond.', path: 'testData.preconditioning.datetime', fieldId: 'precond_datetime' },
+        { label: 'Combustible Prueba', path: 'testData.preconditioning.fuelTypeTest', fieldId: 'fuel_typepre' },
+        { label: 'Nivel (L)', path: 'testData.preconditioning.fuelLevelPre', fieldId: 'fuel_levelpre' },
+        { label: 'Ciclo', path: 'testData.preconditioning.cycle', fieldId: 'precond_cycle' },
+        { label: 'Cumple Preacond.', path: 'testData.preconditioning.ok', fieldId: 'precond_ok' }
+    ]},
+    { section: 'Dinamómetro', items: [
+        { label: 'ETW', path: 'testData.etw', fieldId: 'etw' },
+        { label: 'Target A', path: 'testData.tA', fieldId: 'tA' },
+        { label: 'Target B', path: 'testData.tB', fieldId: 'tB' },
+        { label: 'Target C', path: 'testData.tC', fieldId: 'tC' },
+        { label: 'Dyno A', path: 'testData.dA', fieldId: 'dA' },
+        { label: 'Dyno B', path: 'testData.dB', fieldId: 'dB' },
+        { label: 'Dyno C', path: 'testData.dC', fieldId: 'dC' }
+    ]},
+    { section: 'Verificación Prueba', items: [
+        { label: 'Túnel', path: 'testData.testVerification.tunnel', fieldId: 'test_tunnel' },
+        { label: 'Dinamómetro On', path: 'testData.testVerification.dyno', fieldId: 'test_dyno_on' },
+        { label: 'Ventilador', path: 'testData.testVerification.fanMode', fieldId: 'test_fan_mode' },
+        { label: 'Inercia OK', path: 'testData.testVerification.inertiaOk', fieldId: 'test_inertia_ok' },
+        { label: 'Cadenas', path: 'testData.testVerification.chains', fieldId: 'test_chains' },
+        { label: 'Eslingas', path: 'testData.testVerification.slings', fieldId: 'test_slings' }
+    ]}
+];
+
+/** Get nested value from object by dot-separated path */
+function _vclGetPath(obj, path) {
+    var parts = path.split('.');
+    var cur = obj;
+    for (var i = 0; i < parts.length; i++) {
+        if (cur === undefined || cur === null) return undefined;
+        cur = cur[parts[i]];
+    }
+    return cur;
+}
+
+/** Toggle checklist panel visibility */
+function vclTogglePanel() {
+    _vclOpen = !_vclOpen;
+    var panel = document.getElementById('vcl-panel');
+    if (panel) panel.style.display = _vclOpen ? 'block' : 'none';
+    if (_vclOpen) vclRender();
+}
+
+/** Update checklist visibility (show only when vehicle loaded in COP15) */
+function vclUpdate() {
+    var toggle = document.getElementById('vcl-toggle');
+    if (!toggle) return;
+
+    var show = _currentPlatform === 'cop15' && typeof activeVehicleId !== 'undefined' && activeVehicleId;
+    if (show) {
+        var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+        if (!vehicle || !isEmissionsPurpose(vehicle.purpose)) show = false;
+    }
+
+    toggle.style.display = show ? 'flex' : 'none';
+    if (!show && _vclOpen) {
+        _vclOpen = false;
+        var panel = document.getElementById('vcl-panel');
+        if (panel) panel.style.display = 'none';
+    }
+
+    if (show) vclUpdateBadge();
+}
+
+/** Update the badge count (missing fields) */
+function vclUpdateBadge() {
+    var badge = document.getElementById('vcl-badge-count');
+    if (!badge) return;
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) return;
+
+    var missing = 0;
+    VCL_FIELDS.forEach(function(section) {
+        section.items.forEach(function(item) {
+            var val = _vclGetPath(vehicle, item.path);
+            if (val === undefined || val === null || val === '') missing++;
+        });
+    });
+    badge.textContent = missing;
+    badge.style.display = missing > 0 ? 'block' : 'none';
+}
+
+/** Render checklist panel content */
+function vclRender() {
+    var panel = document.getElementById('vcl-panel');
+    if (!panel || !activeVehicleId) return;
+
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) { panel.innerHTML = ''; return; }
+
+    var totalFields = 0, filledFields = 0;
+    VCL_FIELDS.forEach(function(s) {
+        s.items.forEach(function(item) {
+            totalFields++;
+            var val = _vclGetPath(vehicle, item.path);
+            if (val !== undefined && val !== null && val !== '') filledFields++;
+        });
+    });
+
+    var pct = totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0;
+    var model = vehicle.config ? (vehicle.config.Modelo || '') : '';
+    var vinShort = vehicle.vin ? '...' + vehicle.vin.slice(-4) : '';
+
+    var html = '';
+    html += '<div class="vcl-panel-header">';
+    html += '<div class="vcl-panel-title">' + model + ' ' + vinShort + '</div>';
+    html += '<div class="vcl-panel-pct">' + filledFields + '/' + totalFields + ' (' + pct + '%)</div>';
+    html += '</div>';
+    html += '<div class="vcl-progress"><div class="vcl-progress-fill" style="width:' + pct + '%"></div></div>';
+    html += '<div class="vcl-list">';
+
+    VCL_FIELDS.forEach(function(section) {
+        html += '<div class="vcl-section-title">' + section.section + '</div>';
+        section.items.forEach(function(item) {
+            var val = _vclGetPath(vehicle, item.path);
+            var filled = val !== undefined && val !== null && val !== '';
+            var cls = filled ? 'vcl-item vcl-item-done' : 'vcl-item vcl-item-missing';
+            var icon = filled ? '✓' : '✗';
+
+            html += '<div class="' + cls + '" onclick="vclGoToField(\'' + item.fieldId + '\')">';
+            html += '<div class="vcl-item-icon">' + icon + '</div>';
+            html += '<span>' + item.label + '</span>';
+            if (filled) html += '<span style="margin-left:auto;font-size:10px;color:#94a3b8;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + val + '</span>';
+            html += '</div>';
+        });
+    });
+
+    html += '</div>';
+    panel.innerHTML = html;
+}
+
+/** Navigate to a field from the checklist */
+function vclGoToField(fieldId) {
+    // Ensure we're on the operation tab
+    var tab = document.querySelector('.tab[data-tab="seguimiento"]');
+    if (tab && !tab.classList.contains('active')) tab.click();
+
+    setTimeout(function() {
+        var field = document.getElementById(fieldId);
+        if (!field) return;
+
+        // Open parent accordion if closed
+        var acc = field.closest('details.acc');
+        if (acc && !acc.open) acc.open = true;
+
+        setTimeout(function() {
+            field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Flash highlight
+            field.style.transition = 'box-shadow 0.3s';
+            field.style.boxShadow = '0 0 0 3px rgba(187,22,43,0.3)';
+            setTimeout(function() { field.style.boxShadow = ''; }, 1500);
+            field.focus();
+        }, 100);
+    }, 50);
+
+    // Close panel on mobile
+    if (window.innerWidth < 768) {
+        _vclOpen = false;
+        var panel = document.getElementById('vcl-panel');
+        if (panel) panel.style.display = 'none';
+    }
 }
 
 // ── Global VIN Search ──
@@ -1817,6 +2164,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         if (!localStorage.getItem('kia_tour_done')) {
             setTimeout(function() { if (typeof startTour === 'function') startTour(); }, 1500);
         }
+
+        // ═══ Daily Dashboard (initial render) ═══
+        if (typeof dailyDashRender === 'function') dailyDashRender();
 
         // [R5-M1] Finalize splash
         if (typeof splashUpdate === 'function') splashUpdate('Listo', 100);

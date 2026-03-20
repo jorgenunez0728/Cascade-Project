@@ -46,7 +46,10 @@
 
 <!-- ═══ PLATFORM SWITCHER ═══ -->
 <div class="platform-bar" role="navigation" aria-label="Navegación principal entre módulos">
-    <div class="platform-tab active" onclick="switchPlatform('cop15')" id="ptab-cop15" title="COP15: Registro y operación de vehículos de emisiones">
+    <div class="platform-tab active" onclick="switchPlatform('today')" id="ptab-today" title="Vista Hoy: Resumen diario del laboratorio">
+        🏠 HOY
+    </div>
+    <div class="platform-tab" onclick="switchPlatform('cop15')" id="ptab-cop15" title="COP15: Registro y operación de vehículos de emisiones">
         🔬 COP15 CASCADE
         <span class="pt-badge" style="background:rgba(187,22,43,0.2);color:#f87171;" id="cop15-count-badge">0 activos</span>
     </div>
@@ -92,8 +95,15 @@
 <!-- [R3-M8] Print-only header -->
 <div class="print-only">KIA EmLab — Reporte generado el <script>document.write(new Date().toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'}))</script></div>
 
+<!-- ═══ DAILY DASHBOARD (Vista Hoy) ═══ -->
+<div class="platform-section active" id="platform-today" role="main" aria-label="Vista del Día">
+    <div class="daily-dash" id="daily-dash-content">
+        <!-- Rendered dynamically by dailyDashRender() -->
+    </div>
+</div>
+
 <!-- ═══ PLATFORM 1: COP15 CASCADE ═══ -->
-<div class="platform-section active" id="platform-cop15" role="main" aria-label="COP15 Cascade">
+<div class="platform-section" id="platform-cop15" role="main" aria-label="COP15 Cascade">
 
 <div class="topbar">
     <div><strong>KIA Laboratorio de Emisiones</strong> <span style="font-size:0.8rem; opacity:0.7;">v1.0615 EmLab CASCADE System</span>
@@ -1469,9 +1479,20 @@
     </div>
 </div>
 
+<!-- ═══ VEHICLE INLINE CHECKLIST (floating) ═══ -->
+<button class="vcl-toggle" id="vcl-toggle" style="display:none;" onclick="vclTogglePanel()" aria-label="Checklist del vehículo">
+    <span>✓</span>
+    <span class="vcl-badge" id="vcl-badge-count">0</span>
+</button>
+<div class="vcl-panel" id="vcl-panel" style="display:none;"></div>
+
 <!-- ═══ BOTTOM NAVIGATION BAR ═══ -->
 <nav class="bottom-nav" id="bottomNav" role="navigation" aria-label="Barra de navegación inferior">
-    <div class="bottom-nav-item active" onclick="switchPlatform('cop15')" id="bnav-cop15">
+    <div class="bottom-nav-item active" onclick="switchPlatform('today')" id="bnav-today">
+        <span class="bnav-icon">🏠</span>
+        <span>Hoy</span>
+    </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('cop15')" id="bnav-cop15">
         <span class="bnav-icon">🔬</span>
         <span>COP15</span>
     </div>

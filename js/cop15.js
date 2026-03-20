@@ -1031,6 +1031,9 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
 
   // Auto-suggest dates based on cascade logic
   autoSuggestDates();
+
+  // Update vehicle inline checklist
+  if (typeof vclUpdate === 'function') vclUpdate();
 }
 
 
@@ -1576,6 +1579,9 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
 
   // Update readiness checklist after save
   updateReadinessChecklist();
+
+  // Update vehicle inline checklist
+  if (typeof vclUpdate === 'function') { vclUpdate(); if (_vclOpen) vclRender(); }
 
   // Mejora A: Auto-advance suggestion
   if (isEm) checkAutoAdvance(vehicle);

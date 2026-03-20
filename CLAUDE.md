@@ -2,7 +2,7 @@
 
 ## What is this project?
 
-Single-page web application for KIA Mexico's Emissions Laboratory. 6 modules + panel + auth, ~560 functions, ~19,700 lines of JS. 100% offline using localStorage. Used daily on smartphones/tablets by lab technicians. 5 rounds of improvements completed + UI/UX overhaul + Cascade field tooltips.
+Single-page web application for KIA Mexico's Emissions Laboratory. 6 modules + panel + auth + daily dashboard, ~580 functions, ~20,000 lines of JS. 100% offline using localStorage. Used daily on smartphones/tablets by lab technicians. 5 rounds of improvements completed + UI/UX overhaul + Cascade field tooltips + Daily Dashboard + Vehicle Inline Checklist.
 
 ## Project Structure
 

@@ -1723,6 +1723,161 @@ button:focus-visible { outline-offset: 1px; }
 #platform-panel .tp-tab.active { background: var(--accent-panel); }
 
 /* ══════════════════════════════════════════════════════════════════════ */
+/* DAILY DASHBOARD (Vista Hoy)                                          */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.daily-dash { padding: 16px; }
+.daily-dash-header {
+    margin-bottom: 16px;
+}
+.daily-dash-greeting {
+    font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 2px;
+}
+.daily-dash-date {
+    font-size: 12px; color: #64748b; font-weight: 600;
+}
+.daily-dash-section {
+    margin-bottom: 14px;
+}
+.daily-dash-section-title {
+    font-size: 11px; font-weight: 800; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+}
+.daily-dash-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 8px; box-shadow: var(--shadow-sm);
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer; transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+}
+.daily-dash-card:hover {
+    box-shadow: var(--shadow-md); transform: translateY(-1px);
+}
+.daily-dash-card-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+}
+.daily-dash-card-body { flex: 1; min-width: 0; }
+.daily-dash-card-title {
+    font-size: 13px; font-weight: 700; color: #0f172a;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.daily-dash-card-meta {
+    font-size: 11px; color: #64748b; margin-top: 1px;
+}
+.daily-dash-card-badge {
+    font-size: 11px; font-weight: 800; padding: 2px 8px;
+    border-radius: 6px; white-space: nowrap; flex-shrink: 0;
+}
+.daily-dash-card.soak-active {
+    border-color: #fcd34d; background: linear-gradient(135deg, #fffbeb, #fff);
+}
+.daily-dash-card.alert-critical {
+    border-color: #fca5a5; background: linear-gradient(135deg, #fef2f2, #fff);
+}
+.daily-dash-empty {
+    text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;
+}
+.daily-dash-quick-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.daily-dash-action {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px; background: #f8fafc;
+    border: 1px solid #e2e8f0; border-radius: 10px;
+    cursor: pointer; transition: background-color 0.15s, border-color 0.15s;
+    font-size: 12px; font-weight: 700; color: #334155;
+}
+.daily-dash-action:hover { background: #f1f5f9; border-color: #cbd5e1; }
+.daily-dash-action-icon { font-size: 18px; }
+
+/* Week progress mini-bar */
+.daily-dash-week-bar {
+    height: 6px; background: #e2e8f0; border-radius: 4px;
+    overflow: hidden; margin-top: 6px;
+}
+.daily-dash-week-fill {
+    height: 100%; border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent-cascade), var(--tp-amber));
+    transition: width 0.4s ease;
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* VEHICLE INLINE CHECKLIST (floating panel)                            */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.vcl-toggle {
+    position: fixed; right: 12px; bottom: 72px; z-index: 900;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--accent-cascade); color: #fff;
+    border: none; cursor: pointer;
+    box-shadow: var(--shadow-lg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 800;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.vcl-toggle:hover { transform: scale(1.1); }
+.vcl-toggle .vcl-badge {
+    position: absolute; top: -4px; right: -4px;
+    min-width: 18px; height: 18px; border-radius: 9px;
+    background: #ef4444; color: #fff;
+    font-size: 9px; font-weight: 800; text-align: center; line-height: 18px;
+    padding: 0 4px;
+}
+
+.vcl-panel {
+    position: fixed; right: 12px; bottom: 124px; z-index: 899;
+    width: 280px; max-height: 400px;
+    background: #fff; border-radius: 14px;
+    box-shadow: var(--shadow-xl);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    animation: modalFadeIn 0.2s ease;
+}
+.vcl-panel-header {
+    padding: 12px 14px; display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.vcl-panel-title {
+    flex: 1; font-size: 12px; font-weight: 800; color: #0f172a;
+}
+.vcl-panel-pct {
+    font-size: 11px; font-weight: 800; color: var(--accent-cascade);
+}
+.vcl-progress {
+    height: 4px; background: #e2e8f0;
+}
+.vcl-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-cascade), #10b981);
+    transition: width 0.3s ease;
+}
+.vcl-list {
+    max-height: 320px; overflow-y: auto; padding: 6px 0;
+}
+.vcl-section-title {
+    font-size: 10px; font-weight: 800; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 6px 14px 2px;
+}
+.vcl-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px; font-size: 12px; color: #334155;
+    cursor: pointer; transition: background-color 0.1s;
+}
+.vcl-item:hover { background: #f8fafc; }
+.vcl-item-icon {
+    width: 18px; height: 18px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; flex-shrink: 0;
+}
+.vcl-item-done .vcl-item-icon { background: #dcfce7; color: #16a34a; }
+.vcl-item-missing .vcl-item-icon { background: #fef2f2; color: #ef4444; }
+.vcl-item-missing { color: #0f172a; font-weight: 600; }
+.vcl-item-done { color: #94a3b8; }
+
+/* ══════════════════════════════════════════════════════════════════════ */
 /* CASCADE FIELD TOOLTIPS                                                */
 /* ══════════════════════════════════════════════════════════════════════ */
 
@@ -2074,6 +2229,26 @@ html { scroll-behavior: smooth; }
 [data-theme="dark"] .cascade-tooltip-close { background: #2d3748; color: #cbd5e1; }
 [data-theme="dark"] .cascade-tooltip-close:hover { background: #374151; }
 
+/* --- Daily Dashboard Dark --- */
+[data-theme="dark"] .daily-dash-greeting { color: #e2e8f0; }
+[data-theme="dark"] .daily-dash-card { background: #1a202c; border-color: rgba(255,255,255,0.08); }
+[data-theme="dark"] .daily-dash-card:hover { border-color: rgba(255,255,255,0.15); }
+[data-theme="dark"] .daily-dash-card-title { color: #e2e8f0; }
+[data-theme="dark"] .daily-dash-card.soak-active { background: rgba(217,119,6,0.08); border-color: rgba(217,119,6,0.3); }
+[data-theme="dark"] .daily-dash-card.alert-critical { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.3); }
+[data-theme="dark"] .daily-dash-action { background: #1e2633; border-color: rgba(255,255,255,0.08); color: #cbd5e1; }
+[data-theme="dark"] .daily-dash-action:hover { background: #2d3748; }
+[data-theme="dark"] .daily-dash-week-bar { background: #2d3748; }
+
+/* --- Vehicle Checklist Dark --- */
+[data-theme="dark"] .vcl-panel { background: #1a202c; border-color: rgba(255,255,255,0.1); }
+[data-theme="dark"] .vcl-panel-header { border-bottom-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] .vcl-panel-title { color: #e2e8f0; }
+[data-theme="dark"] .vcl-item:hover { background: rgba(255,255,255,0.04); }
+[data-theme="dark"] .vcl-item-missing { color: #e2e8f0; }
+[data-theme="dark"] .vcl-progress { background: #2d3748; }
+[data-theme="dark"] .vcl-toggle { box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+
 /* --- Calendar --- */
 [data-theme="dark"] .cal-cell { background: #1a202c; }
 [data-theme="dark"] .cal-cell:hover { background: #1e2633; }
@@ -2359,6 +2534,21 @@ html { scroll-behavior: smooth; }
     html:not([data-theme="light"]) .cascade-tooltip-close { background: #2d3748; color: #cbd5e1; }
     html:not([data-theme="light"]) .cascade-tooltip-close:hover { background: #374151; }
 
+    /* Daily Dashboard */
+    html:not([data-theme="light"]) .daily-dash-greeting { color: #e2e8f0; }
+    html:not([data-theme="light"]) .daily-dash-card { background: #1a202c; border-color: rgba(255,255,255,0.08); }
+    html:not([data-theme="light"]) .daily-dash-card-title { color: #e2e8f0; }
+    html:not([data-theme="light"]) .daily-dash-card.soak-active { background: rgba(217,119,6,0.08); border-color: rgba(217,119,6,0.3); }
+    html:not([data-theme="light"]) .daily-dash-card.alert-critical { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.3); }
+    html:not([data-theme="light"]) .daily-dash-action { background: #1e2633; border-color: rgba(255,255,255,0.08); color: #cbd5e1; }
+    html:not([data-theme="light"]) .daily-dash-week-bar { background: #2d3748; }
+
+    /* Vehicle Checklist */
+    html:not([data-theme="light"]) .vcl-panel { background: #1a202c; border-color: rgba(255,255,255,0.1); }
+    html:not([data-theme="light"]) .vcl-panel-title { color: #e2e8f0; }
+    html:not([data-theme="light"]) .vcl-item-missing { color: #e2e8f0; }
+    html:not([data-theme="light"]) .vcl-progress { background: #2d3748; }
+
     /* Calendar */
     html:not([data-theme="light"]) .cal-cell { background: #1a202c; }
     html:not([data-theme="light"]) .cal-cell:hover { background: #1e2633; }
@@ -2566,7 +2756,10 @@ html { scroll-behavior: smooth; }
 
 <!-- ═══ PLATFORM SWITCHER ═══ -->
 <div class="platform-bar" role="navigation" aria-label="Navegación principal entre módulos">
-    <div class="platform-tab active" onclick="switchPlatform('cop15')" id="ptab-cop15" title="COP15: Registro y operación de vehículos de emisiones">
+    <div class="platform-tab active" onclick="switchPlatform('today')" id="ptab-today" title="Vista Hoy: Resumen diario del laboratorio">
+        🏠 HOY
+    </div>
+    <div class="platform-tab" onclick="switchPlatform('cop15')" id="ptab-cop15" title="COP15: Registro y operación de vehículos de emisiones">
         🔬 COP15 CASCADE
         <span class="pt-badge" style="background:rgba(187,22,43,0.2);color:#f87171;" id="cop15-count-badge">0 activos</span>
     </div>
@@ -2612,8 +2805,15 @@ html { scroll-behavior: smooth; }
 <!-- [R3-M8] Print-only header -->
 <div class="print-only">KIA EmLab — Reporte generado el <script>document.write(new Date().toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'}))</script></div>
 
+<!-- ═══ DAILY DASHBOARD (Vista Hoy) ═══ -->
+<div class="platform-section active" id="platform-today" role="main" aria-label="Vista del Día">
+    <div class="daily-dash" id="daily-dash-content">
+        <!-- Rendered dynamically by dailyDashRender() -->
+    </div>
+</div>
+
 <!-- ═══ PLATFORM 1: COP15 CASCADE ═══ -->
-<div class="platform-section active" id="platform-cop15" role="main" aria-label="COP15 Cascade">
+<div class="platform-section" id="platform-cop15" role="main" aria-label="COP15 Cascade">
 
 <div class="topbar">
     <div><strong>KIA Laboratorio de Emisiones</strong> <span style="font-size:0.8rem; opacity:0.7;">v1.0615 EmLab CASCADE System</span>
@@ -3989,9 +4189,20 @@ html { scroll-behavior: smooth; }
     </div>
 </div>
 
+<!-- ═══ VEHICLE INLINE CHECKLIST (floating) ═══ -->
+<button class="vcl-toggle" id="vcl-toggle" style="display:none;" onclick="vclTogglePanel()" aria-label="Checklist del vehículo">
+    <span>✓</span>
+    <span class="vcl-badge" id="vcl-badge-count">0</span>
+</button>
+<div class="vcl-panel" id="vcl-panel" style="display:none;"></div>
+
 <!-- ═══ BOTTOM NAVIGATION BAR ═══ -->
 <nav class="bottom-nav" id="bottomNav" role="navigation" aria-label="Barra de navegación inferior">
-    <div class="bottom-nav-item active" onclick="switchPlatform('cop15')" id="bnav-cop15">
+    <div class="bottom-nav-item active" onclick="switchPlatform('today')" id="bnav-today">
+        <span class="bnav-icon">🏠</span>
+        <span>Hoy</span>
+    </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('cop15')" id="bnav-cop15">
         <span class="bnav-icon">🔬</span>
         <span>COP15</span>
     </div>
@@ -5222,8 +5433,8 @@ function _skeletonHTML() {
 // ║  [M15] PLATFORM SWITCHER                                           ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-var PLATFORM_ORDER = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
-var _currentPlatform = 'cop15';
+var PLATFORM_ORDER = ['today', 'cop15', 'testplan', 'results', 'inventory', 'panel'];
+var _currentPlatform = 'today';
 
 function switchPlatform(platform, swipeDir) {
     if (platform === _currentPlatform) return;
@@ -5270,6 +5481,7 @@ function switchPlatform(platform, swipeDir) {
 
     _currentPlatform = platform;
 
+    if (platform === 'today') { dailyDashRender(); }
     if (platform === 'testplan') { tpRender(); tpUpdateBadges(); }
     if (platform === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
     if (platform === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
@@ -5291,7 +5503,353 @@ function switchPlatform(platform, swipeDir) {
         }
     }
 
+    // Update vehicle checklist visibility
+    if (typeof vclUpdate === 'function') vclUpdate();
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [M16] DAILY DASHBOARD — Vista Hoy                                  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function dailyDashRender() {
+    var el = document.getElementById('daily-dash-content');
+    if (!el) return;
+
+    var now = new Date();
+    var days = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    var months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    var hour = now.getHours();
+    var greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
+
+    var html = '';
+
+    // ── Header ──
+    html += '<div class="daily-dash-header">';
+    html += '<div class="daily-dash-greeting">' + greeting + '</div>';
+    html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
+    html += '</div>';
+
+    // ── Soak Timers Active ──
+    var soakData = null;
+    try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
+    var soakActive = soakData && soakData.endTime && soakData.endTime > Date.now();
+
+    if (soakActive) {
+        var remaining = soakData.endTime - Date.now();
+        var hrs = Math.floor(remaining / 3600000);
+        var mins = Math.floor((remaining % 3600000) / 60000);
+        var secs = Math.floor((remaining % 60000) / 1000);
+
+        html += '<div class="daily-dash-section">';
+        html += '<div class="daily-dash-section-title">⏱ Soak Activo</div>';
+        html += '<div class="daily-dash-card soak-active" onclick="switchPlatform(\'cop15\')">';
+        html += '<div class="daily-dash-card-icon" style="background:#fef3c7;color:#d97706;">⏱</div>';
+        html += '<div class="daily-dash-card-body">';
+        html += '<div class="daily-dash-card-title">Temporizador de Reposo</div>';
+        html += '<div class="daily-dash-card-meta">Restante: ' + hrs + 'h ' + mins + 'm ' + secs + 's</div>';
+        html += '</div>';
+        html += '<div class="daily-dash-card-badge" style="background:#fef3c7;color:#d97706;">' + hrs + ':' + String(mins).padStart(2,'0') + '</div>';
+        html += '</div></div>';
+    }
+
+    // ── Vehicles in progress ──
+    var activeVehicles = (db.vehicles || []).filter(function(v) { return v.status !== 'archived'; });
+    if (activeVehicles.length > 0) {
+        html += '<div class="daily-dash-section">';
+        html += '<div class="daily-dash-section-title">🚗 Vehículos Activos (' + activeVehicles.length + ')</div>';
+
+        activeVehicles.slice(0, 5).forEach(function(v) {
+            var statusColors = {
+                'registered': { bg: '#eff6ff', color: '#3b82f6', label: 'Registrado' },
+                'in-progress': { bg: '#fef3c7', color: '#d97706', label: 'En Progreso' },
+                'testing': { bg: '#fce7f3', color: '#db2777', label: 'En Prueba' },
+                'ready-release': { bg: '#dcfce7', color: '#16a34a', label: 'Listo' }
+            };
+            var sc = statusColors[v.status] || { bg: '#f1f5f9', color: '#64748b', label: v.status };
+            var model = v.config ? (v.config.Modelo || '') : '';
+            var vinShort = v.vin ? '...' + v.vin.slice(-4) : '';
+
+            html += '<div class="daily-dash-card" onclick="switchPlatform(\'cop15\');setTimeout(function(){var s=document.getElementById(\'activeVehSelect\');if(s){s.value=\'' + v.id + '\';loadVehicle();}},200);">';
+            html += '<div class="daily-dash-card-icon" style="background:' + sc.bg + ';color:' + sc.color + ';">🚗</div>';
+            html += '<div class="daily-dash-card-body">';
+            html += '<div class="daily-dash-card-title">' + model + ' ' + vinShort + '</div>';
+            html += '<div class="daily-dash-card-meta">' + (v.purpose || '') + '</div>';
+            html += '</div>';
+            html += '<div class="daily-dash-card-badge" style="background:' + sc.bg + ';color:' + sc.color + ';">' + sc.label + '</div>';
+            html += '</div>';
+        });
+        if (activeVehicles.length > 5) {
+            html += '<div class="daily-dash-card-meta" style="text-align:center;padding:4px;">+ ' + (activeVehicles.length - 5) + ' más</div>';
+        }
+        html += '</div>';
+    }
+
+    // ── Inventory Alerts ──
+    var invAlerts = [];
+    if (typeof invState !== 'undefined' && invState.gases) {
+        invState.gases.forEach(function(g) {
+            if (typeof invGasExpiry === 'function') {
+                var exp = invGasExpiry(g);
+                if (exp.status === 'expired') invAlerts.push({ icon: '⚠️', text: g.formula + ' #' + g.controlNo + ' VENCIDO', type: 'critical' });
+            }
+            if (typeof invGasLevel === 'function') {
+                var lvl = invGasLevel(g);
+                if (lvl.pct < 15 && lvl.pct >= 0) invAlerts.push({ icon: '📉', text: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', type: 'warning' });
+            }
+        });
+        if (invState.equipment) {
+            invState.equipment.forEach(function(e) {
+                if (!e.nextCalDate) return;
+                var diff = Math.round((new Date(e.nextCalDate) - now) / (1000*60*60*24));
+                if (diff < 0) invAlerts.push({ icon: '🔧', text: e.name + ' calibración vencida', type: 'critical' });
+                else if (diff <= 7) invAlerts.push({ icon: '🔧', text: e.name + ' calibra en ' + diff + ' días', type: 'warning' });
+            });
+        }
+    }
+    if (invAlerts.length > 0) {
+        html += '<div class="daily-dash-section">';
+        html += '<div class="daily-dash-section-title">⚠️ Alertas de Inventario (' + invAlerts.length + ')</div>';
+        invAlerts.slice(0, 4).forEach(function(a) {
+            html += '<div class="daily-dash-card ' + (a.type === 'critical' ? 'alert-critical' : '') + '" onclick="switchPlatform(\'inventory\')">';
+            html += '<div class="daily-dash-card-icon" style="background:' + (a.type === 'critical' ? '#fef2f2' : '#fef3c7') + ';">' + a.icon + '</div>';
+            html += '<div class="daily-dash-card-body"><div class="daily-dash-card-title">' + a.text + '</div></div>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // ── Week Progress (Test Plan) ──
+    if (typeof tpState !== 'undefined' && tpState.tests && tpState.tests.length > 0) {
+        var weekTests = tpState.tests;
+        var completed = weekTests.filter(function(t) { return t.status === 'completed'; }).length;
+        var total = weekTests.length;
+        var pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        html += '<div class="daily-dash-section">';
+        html += '<div class="daily-dash-section-title">📋 Plan Semanal</div>';
+        html += '<div class="daily-dash-card" onclick="switchPlatform(\'testplan\')">';
+        html += '<div class="daily-dash-card-icon" style="background:#eef2ff;color:#4f46e5;">📋</div>';
+        html += '<div class="daily-dash-card-body">';
+        html += '<div class="daily-dash-card-title">' + completed + '/' + total + ' pruebas completadas</div>';
+        html += '<div class="daily-dash-week-bar"><div class="daily-dash-week-fill" style="width:' + pct + '%"></div></div>';
+        html += '</div>';
+        html += '<div class="daily-dash-card-badge" style="background:#eef2ff;color:#4f46e5;">' + pct + '%</div>';
+        html += '</div></div>';
+    }
+
+    // ── Quick Actions ──
+    html += '<div class="daily-dash-section">';
+    html += '<div class="daily-dash-section-title">⚡ Acceso Rápido</div>';
+    html += '<div class="daily-dash-quick-actions">';
+    html += '<div class="daily-dash-action" onclick="switchPlatform(\'cop15\');setTimeout(function(){var t=document.querySelector(\'.tab[data-tab=alta]\');if(t)t.click();},150);"><span class="daily-dash-action-icon">➕</span>Alta Vehículo</div>';
+
+    // Last edited vehicle shortcut
+    var lastVehicle = (db.vehicles || []).filter(function(v){ return v.status !== 'archived'; }).sort(function(a,b) {
+        var tA = a.timeline && a.timeline.length ? a.timeline[a.timeline.length-1].timestamp : a.registeredAt || '';
+        var tB = b.timeline && b.timeline.length ? b.timeline[b.timeline.length-1].timestamp : b.registeredAt || '';
+        return tB > tA ? 1 : -1;
+    })[0];
+    if (lastVehicle) {
+        var lModel = lastVehicle.config ? (lastVehicle.config.Modelo || '') : '';
+        html += '<div class="daily-dash-action" onclick="switchPlatform(\'cop15\');setTimeout(function(){var s=document.getElementById(\'activeVehSelect\');if(s){s.value=\'' + lastVehicle.id + '\';loadVehicle();var t=document.querySelector(\'.tab[data-tab=seguimiento]\');if(t)t.click();}},200);"><span class="daily-dash-action-icon">📝</span>Último: ' + lModel + '</div>';
+    } else {
+        html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
+    }
+
+    html += '<div class="daily-dash-action" onclick="switchPlatform(\'results\')"><span class="daily-dash-action-icon">🧪</span>Resultados</div>';
+    html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
+    html += '</div></div>';
+
+    // ── No data state ──
+    if (activeVehicles.length === 0 && !soakActive && invAlerts.length === 0) {
+        html += '<div class="daily-dash-empty">Sin actividad pendiente. ¡Todo en orden! 👍</div>';
+    }
+
+    el.innerHTML = html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [M17] VEHICLE INLINE CHECKLIST                                     ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _vclOpen = false;
+
+/** Field definitions for the checklist — grouped by section */
+var VCL_FIELDS = [
+    { section: 'Recepción', items: [
+        { label: 'Operador', path: 'testData.operator', fieldId: 'op_recep' },
+        { label: 'Odómetro', path: 'testData.odometer', fieldId: 'op_odo' },
+        { label: 'Fecha Recepción', path: 'testData.datetime', fieldId: 'op_datetime' },
+        { label: 'Tipo Combustible', path: 'testData.preconditioning.fuelTypeIn', fieldId: 'fuel_typein' },
+        { label: 'Nivel Combustible', path: 'testData.preconditioning.fuelLevelIn', fieldId: 'fuel_levelin' },
+        { label: 'Presión Llantas', path: 'testData.preconditioning.tirePressurePsi', fieldId: 'tire_pressure_in' }
+    ]},
+    { section: 'Preacondicionamiento', items: [
+        { label: 'Responsable', path: 'testData.preconditioning.responsible', fieldId: 'precond_responsible' },
+        { label: 'Fecha Preacond.', path: 'testData.preconditioning.datetime', fieldId: 'precond_datetime' },
+        { label: 'Combustible Prueba', path: 'testData.preconditioning.fuelTypeTest', fieldId: 'fuel_typepre' },
+        { label: 'Nivel (L)', path: 'testData.preconditioning.fuelLevelPre', fieldId: 'fuel_levelpre' },
+        { label: 'Ciclo', path: 'testData.preconditioning.cycle', fieldId: 'precond_cycle' },
+        { label: 'Cumple Preacond.', path: 'testData.preconditioning.ok', fieldId: 'precond_ok' }
+    ]},
+    { section: 'Dinamómetro', items: [
+        { label: 'ETW', path: 'testData.etw', fieldId: 'etw' },
+        { label: 'Target A', path: 'testData.tA', fieldId: 'tA' },
+        { label: 'Target B', path: 'testData.tB', fieldId: 'tB' },
+        { label: 'Target C', path: 'testData.tC', fieldId: 'tC' },
+        { label: 'Dyno A', path: 'testData.dA', fieldId: 'dA' },
+        { label: 'Dyno B', path: 'testData.dB', fieldId: 'dB' },
+        { label: 'Dyno C', path: 'testData.dC', fieldId: 'dC' }
+    ]},
+    { section: 'Verificación Prueba', items: [
+        { label: 'Túnel', path: 'testData.testVerification.tunnel', fieldId: 'test_tunnel' },
+        { label: 'Dinamómetro On', path: 'testData.testVerification.dyno', fieldId: 'test_dyno_on' },
+        { label: 'Ventilador', path: 'testData.testVerification.fanMode', fieldId: 'test_fan_mode' },
+        { label: 'Inercia OK', path: 'testData.testVerification.inertiaOk', fieldId: 'test_inertia_ok' },
+        { label: 'Cadenas', path: 'testData.testVerification.chains', fieldId: 'test_chains' },
+        { label: 'Eslingas', path: 'testData.testVerification.slings', fieldId: 'test_slings' }
+    ]}
+];
+
+/** Get nested value from object by dot-separated path */
+function _vclGetPath(obj, path) {
+    var parts = path.split('.');
+    var cur = obj;
+    for (var i = 0; i < parts.length; i++) {
+        if (cur === undefined || cur === null) return undefined;
+        cur = cur[parts[i]];
+    }
+    return cur;
+}
+
+/** Toggle checklist panel visibility */
+function vclTogglePanel() {
+    _vclOpen = !_vclOpen;
+    var panel = document.getElementById('vcl-panel');
+    if (panel) panel.style.display = _vclOpen ? 'block' : 'none';
+    if (_vclOpen) vclRender();
+}
+
+/** Update checklist visibility (show only when vehicle loaded in COP15) */
+function vclUpdate() {
+    var toggle = document.getElementById('vcl-toggle');
+    if (!toggle) return;
+
+    var show = _currentPlatform === 'cop15' && typeof activeVehicleId !== 'undefined' && activeVehicleId;
+    if (show) {
+        var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+        if (!vehicle || !isEmissionsPurpose(vehicle.purpose)) show = false;
+    }
+
+    toggle.style.display = show ? 'flex' : 'none';
+    if (!show && _vclOpen) {
+        _vclOpen = false;
+        var panel = document.getElementById('vcl-panel');
+        if (panel) panel.style.display = 'none';
+    }
+
+    if (show) vclUpdateBadge();
+}
+
+/** Update the badge count (missing fields) */
+function vclUpdateBadge() {
+    var badge = document.getElementById('vcl-badge-count');
+    if (!badge) return;
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) return;
+
+    var missing = 0;
+    VCL_FIELDS.forEach(function(section) {
+        section.items.forEach(function(item) {
+            var val = _vclGetPath(vehicle, item.path);
+            if (val === undefined || val === null || val === '') missing++;
+        });
+    });
+    badge.textContent = missing;
+    badge.style.display = missing > 0 ? 'block' : 'none';
+}
+
+/** Render checklist panel content */
+function vclRender() {
+    var panel = document.getElementById('vcl-panel');
+    if (!panel || !activeVehicleId) return;
+
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) { panel.innerHTML = ''; return; }
+
+    var totalFields = 0, filledFields = 0;
+    VCL_FIELDS.forEach(function(s) {
+        s.items.forEach(function(item) {
+            totalFields++;
+            var val = _vclGetPath(vehicle, item.path);
+            if (val !== undefined && val !== null && val !== '') filledFields++;
+        });
+    });
+
+    var pct = totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0;
+    var model = vehicle.config ? (vehicle.config.Modelo || '') : '';
+    var vinShort = vehicle.vin ? '...' + vehicle.vin.slice(-4) : '';
+
+    var html = '';
+    html += '<div class="vcl-panel-header">';
+    html += '<div class="vcl-panel-title">' + model + ' ' + vinShort + '</div>';
+    html += '<div class="vcl-panel-pct">' + filledFields + '/' + totalFields + ' (' + pct + '%)</div>';
+    html += '</div>';
+    html += '<div class="vcl-progress"><div class="vcl-progress-fill" style="width:' + pct + '%"></div></div>';
+    html += '<div class="vcl-list">';
+
+    VCL_FIELDS.forEach(function(section) {
+        html += '<div class="vcl-section-title">' + section.section + '</div>';
+        section.items.forEach(function(item) {
+            var val = _vclGetPath(vehicle, item.path);
+            var filled = val !== undefined && val !== null && val !== '';
+            var cls = filled ? 'vcl-item vcl-item-done' : 'vcl-item vcl-item-missing';
+            var icon = filled ? '✓' : '✗';
+
+            html += '<div class="' + cls + '" onclick="vclGoToField(\'' + item.fieldId + '\')">';
+            html += '<div class="vcl-item-icon">' + icon + '</div>';
+            html += '<span>' + item.label + '</span>';
+            if (filled) html += '<span style="margin-left:auto;font-size:10px;color:#94a3b8;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + val + '</span>';
+            html += '</div>';
+        });
+    });
+
+    html += '</div>';
+    panel.innerHTML = html;
+}
+
+/** Navigate to a field from the checklist */
+function vclGoToField(fieldId) {
+    // Ensure we're on the operation tab
+    var tab = document.querySelector('.tab[data-tab="seguimiento"]');
+    if (tab && !tab.classList.contains('active')) tab.click();
+
+    setTimeout(function() {
+        var field = document.getElementById(fieldId);
+        if (!field) return;
+
+        // Open parent accordion if closed
+        var acc = field.closest('details.acc');
+        if (acc && !acc.open) acc.open = true;
+
+        setTimeout(function() {
+            field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Flash highlight
+            field.style.transition = 'box-shadow 0.3s';
+            field.style.boxShadow = '0 0 0 3px rgba(187,22,43,0.3)';
+            setTimeout(function() { field.style.boxShadow = ''; }, 1500);
+            field.focus();
+        }, 100);
+    }, 50);
+
+    // Close panel on mobile
+    if (window.innerWidth < 768) {
+        _vclOpen = false;
+        var panel = document.getElementById('vcl-panel');
+        if (panel) panel.style.display = 'none';
+    }
 }
 
 // ── Global VIN Search ──
@@ -5834,6 +6392,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         if (!localStorage.getItem('kia_tour_done')) {
             setTimeout(function() { if (typeof startTour === 'function') startTour(); }, 1500);
         }
+
+        // ═══ Daily Dashboard (initial render) ═══
+        if (typeof dailyDashRender === 'function') dailyDashRender();
 
         // [R5-M1] Finalize splash
         if (typeof splashUpdate === 'function') splashUpdate('Listo', 100);
@@ -8117,6 +8678,9 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
 
   // Auto-suggest dates based on cascade logic
   autoSuggestDates();
+
+  // Update vehicle inline checklist
+  if (typeof vclUpdate === 'function') vclUpdate();
 }
 
 
@@ -8662,6 +9226,9 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
 
   // Update readiness checklist after save
   updateReadinessChecklist();
+
+  // Update vehicle inline checklist
+  if (typeof vclUpdate === 'function') { vclUpdate(); if (_vclOpen) vclRender(); }
 
   // Mejora A: Auto-advance suggestion
   if (isEm) checkAutoAdvance(vehicle);

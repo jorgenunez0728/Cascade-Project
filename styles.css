@@ -1689,6 +1689,161 @@ button:focus-visible { outline-offset: 1px; }
 #platform-panel .tp-tab.active { background: var(--accent-panel); }
 
 /* ══════════════════════════════════════════════════════════════════════ */
+/* DAILY DASHBOARD (Vista Hoy)                                          */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.daily-dash { padding: 16px; }
+.daily-dash-header {
+    margin-bottom: 16px;
+}
+.daily-dash-greeting {
+    font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 2px;
+}
+.daily-dash-date {
+    font-size: 12px; color: #64748b; font-weight: 600;
+}
+.daily-dash-section {
+    margin-bottom: 14px;
+}
+.daily-dash-section-title {
+    font-size: 11px; font-weight: 800; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+}
+.daily-dash-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 8px; box-shadow: var(--shadow-sm);
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer; transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+}
+.daily-dash-card:hover {
+    box-shadow: var(--shadow-md); transform: translateY(-1px);
+}
+.daily-dash-card-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+}
+.daily-dash-card-body { flex: 1; min-width: 0; }
+.daily-dash-card-title {
+    font-size: 13px; font-weight: 700; color: #0f172a;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.daily-dash-card-meta {
+    font-size: 11px; color: #64748b; margin-top: 1px;
+}
+.daily-dash-card-badge {
+    font-size: 11px; font-weight: 800; padding: 2px 8px;
+    border-radius: 6px; white-space: nowrap; flex-shrink: 0;
+}
+.daily-dash-card.soak-active {
+    border-color: #fcd34d; background: linear-gradient(135deg, #fffbeb, #fff);
+}
+.daily-dash-card.alert-critical {
+    border-color: #fca5a5; background: linear-gradient(135deg, #fef2f2, #fff);
+}
+.daily-dash-empty {
+    text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;
+}
+.daily-dash-quick-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.daily-dash-action {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px; background: #f8fafc;
+    border: 1px solid #e2e8f0; border-radius: 10px;
+    cursor: pointer; transition: background-color 0.15s, border-color 0.15s;
+    font-size: 12px; font-weight: 700; color: #334155;
+}
+.daily-dash-action:hover { background: #f1f5f9; border-color: #cbd5e1; }
+.daily-dash-action-icon { font-size: 18px; }
+
+/* Week progress mini-bar */
+.daily-dash-week-bar {
+    height: 6px; background: #e2e8f0; border-radius: 4px;
+    overflow: hidden; margin-top: 6px;
+}
+.daily-dash-week-fill {
+    height: 100%; border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent-cascade), var(--tp-amber));
+    transition: width 0.4s ease;
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* VEHICLE INLINE CHECKLIST (floating panel)                            */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.vcl-toggle {
+    position: fixed; right: 12px; bottom: 72px; z-index: 900;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--accent-cascade); color: #fff;
+    border: none; cursor: pointer;
+    box-shadow: var(--shadow-lg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 800;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.vcl-toggle:hover { transform: scale(1.1); }
+.vcl-toggle .vcl-badge {
+    position: absolute; top: -4px; right: -4px;
+    min-width: 18px; height: 18px; border-radius: 9px;
+    background: #ef4444; color: #fff;
+    font-size: 9px; font-weight: 800; text-align: center; line-height: 18px;
+    padding: 0 4px;
+}
+
+.vcl-panel {
+    position: fixed; right: 12px; bottom: 124px; z-index: 899;
+    width: 280px; max-height: 400px;
+    background: #fff; border-radius: 14px;
+    box-shadow: var(--shadow-xl);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    animation: modalFadeIn 0.2s ease;
+}
+.vcl-panel-header {
+    padding: 12px 14px; display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.vcl-panel-title {
+    flex: 1; font-size: 12px; font-weight: 800; color: #0f172a;
+}
+.vcl-panel-pct {
+    font-size: 11px; font-weight: 800; color: var(--accent-cascade);
+}
+.vcl-progress {
+    height: 4px; background: #e2e8f0;
+}
+.vcl-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-cascade), #10b981);
+    transition: width 0.3s ease;
+}
+.vcl-list {
+    max-height: 320px; overflow-y: auto; padding: 6px 0;
+}
+.vcl-section-title {
+    font-size: 10px; font-weight: 800; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 6px 14px 2px;
+}
+.vcl-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px; font-size: 12px; color: #334155;
+    cursor: pointer; transition: background-color 0.1s;
+}
+.vcl-item:hover { background: #f8fafc; }
+.vcl-item-icon {
+    width: 18px; height: 18px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; flex-shrink: 0;
+}
+.vcl-item-done .vcl-item-icon { background: #dcfce7; color: #16a34a; }
+.vcl-item-missing .vcl-item-icon { background: #fef2f2; color: #ef4444; }
+.vcl-item-missing { color: #0f172a; font-weight: 600; }
+.vcl-item-done { color: #94a3b8; }
+
+/* ══════════════════════════════════════════════════════════════════════ */
 /* CASCADE FIELD TOOLTIPS                                                */
 /* ══════════════════════════════════════════════════════════════════════ */
 
@@ -2040,6 +2195,26 @@ html { scroll-behavior: smooth; }
 [data-theme="dark"] .cascade-tooltip-close { background: #2d3748; color: #cbd5e1; }
 [data-theme="dark"] .cascade-tooltip-close:hover { background: #374151; }
 
+/* --- Daily Dashboard Dark --- */
+[data-theme="dark"] .daily-dash-greeting { color: #e2e8f0; }
+[data-theme="dark"] .daily-dash-card { background: #1a202c; border-color: rgba(255,255,255,0.08); }
+[data-theme="dark"] .daily-dash-card:hover { border-color: rgba(255,255,255,0.15); }
+[data-theme="dark"] .daily-dash-card-title { color: #e2e8f0; }
+[data-theme="dark"] .daily-dash-card.soak-active { background: rgba(217,119,6,0.08); border-color: rgba(217,119,6,0.3); }
+[data-theme="dark"] .daily-dash-card.alert-critical { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.3); }
+[data-theme="dark"] .daily-dash-action { background: #1e2633; border-color: rgba(255,255,255,0.08); color: #cbd5e1; }
+[data-theme="dark"] .daily-dash-action:hover { background: #2d3748; }
+[data-theme="dark"] .daily-dash-week-bar { background: #2d3748; }
+
+/* --- Vehicle Checklist Dark --- */
+[data-theme="dark"] .vcl-panel { background: #1a202c; border-color: rgba(255,255,255,0.1); }
+[data-theme="dark"] .vcl-panel-header { border-bottom-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] .vcl-panel-title { color: #e2e8f0; }
+[data-theme="dark"] .vcl-item:hover { background: rgba(255,255,255,0.04); }
+[data-theme="dark"] .vcl-item-missing { color: #e2e8f0; }
+[data-theme="dark"] .vcl-progress { background: #2d3748; }
+[data-theme="dark"] .vcl-toggle { box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+
 /* --- Calendar --- */
 [data-theme="dark"] .cal-cell { background: #1a202c; }
 [data-theme="dark"] .cal-cell:hover { background: #1e2633; }
@@ -2324,6 +2499,21 @@ html { scroll-behavior: smooth; }
     html:not([data-theme="light"]) .cascade-tooltip-text { color: #94a3b8; }
     html:not([data-theme="light"]) .cascade-tooltip-close { background: #2d3748; color: #cbd5e1; }
     html:not([data-theme="light"]) .cascade-tooltip-close:hover { background: #374151; }
+
+    /* Daily Dashboard */
+    html:not([data-theme="light"]) .daily-dash-greeting { color: #e2e8f0; }
+    html:not([data-theme="light"]) .daily-dash-card { background: #1a202c; border-color: rgba(255,255,255,0.08); }
+    html:not([data-theme="light"]) .daily-dash-card-title { color: #e2e8f0; }
+    html:not([data-theme="light"]) .daily-dash-card.soak-active { background: rgba(217,119,6,0.08); border-color: rgba(217,119,6,0.3); }
+    html:not([data-theme="light"]) .daily-dash-card.alert-critical { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.3); }
+    html:not([data-theme="light"]) .daily-dash-action { background: #1e2633; border-color: rgba(255,255,255,0.08); color: #cbd5e1; }
+    html:not([data-theme="light"]) .daily-dash-week-bar { background: #2d3748; }
+
+    /* Vehicle Checklist */
+    html:not([data-theme="light"]) .vcl-panel { background: #1a202c; border-color: rgba(255,255,255,0.1); }
+    html:not([data-theme="light"]) .vcl-panel-title { color: #e2e8f0; }
+    html:not([data-theme="light"]) .vcl-item-missing { color: #e2e8f0; }
+    html:not([data-theme="light"]) .vcl-progress { background: #2d3748; }
 
     /* Calendar */
     html:not([data-theme="light"]) .cal-cell { background: #1a202c; }
