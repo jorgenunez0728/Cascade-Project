@@ -5,71 +5,129 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kia EmLab — Plataforma Integrada v14.0</title>
 
+    <!-- [R3-M1] PWA Meta -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#05141f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- [Fase 4.2] CDN Preconnect hints for faster resource loading -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+
+    <!-- Alpine.js — lightweight reactivity for UI -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 
     <!-- Firebase (optional cloud sync — app works 100% offline without it) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
     <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
 
+<!-- ═══ AUTH OVERLAY (login screen) ═══ -->
+<div id="auth-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:#0a0f1a;align-items:center;justify-content:center;overflow-y:auto;">
+    <div id="auth-content"></div>
+</div>
+
 <div class="progress-container"><div class="progress-bar" id="mainProgress"></div></div>
 
 <!-- ═══ PLATFORM SWITCHER ═══ -->
-<div class="platform-bar">
-    <div class="platform-tab active" onclick="switchPlatform('cop15')" id="ptab-cop15">
+<div class="platform-bar" role="navigation" aria-label="Navegación principal entre módulos">
+    <div class="platform-tab active" onclick="switchPlatform('today')" id="ptab-today" title="Vista Hoy: Resumen diario del laboratorio">
+        🏠 HOY
+    </div>
+    <div class="platform-tab" onclick="switchPlatform('cop15')" id="ptab-cop15" title="COP15: Registro y operación de vehículos de emisiones">
         🔬 COP15 CASCADE
         <span class="pt-badge" style="background:rgba(187,22,43,0.2);color:#f87171;" id="cop15-count-badge">0 activos</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('testplan')" id="ptab-testplan">
+    <div class="platform-tab" onclick="switchPlatform('testplan')" id="ptab-testplan" title="Test Plan: Planificación y priorización de pruebas semanales">
         📊 TEST PLAN MANAGER
         <span class="pt-badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;" id="tp-coverage-badge">—</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('results')" id="ptab-results">
+    <div class="platform-tab" onclick="switchPlatform('results')" id="ptab-results" title="Results: Análisis de resultados, tendencias Cpk/Ppk">
         🧪 RESULTS ANALYZER
         <span class="pt-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" id="ra-count-badge">0 pruebas</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('inventory')" id="ptab-inventory">
+    <div class="platform-tab" onclick="switchPlatform('inventory')" id="ptab-inventory" style="position:relative;" title="Inventory: Cilindros de gas, equipos y mapa de zonas">
         📦 LAB INVENTORY
         <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
+        <span id="inv-alert-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:16px;padding:0 4px;">0</span>
+    </div>
+    <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel" title="Panel: Dashboard, operadores, backups y configuración">
+        ⚙️ PANEL
+        <span class="pt-badge" style="background:rgba(71,85,105,0.15);color:#64748b;" id="pn-alerts-badge">ok</span>
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
+    <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
+    <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
+    <button id="theme-toggle-btn" onclick="themeToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Cambiar tema" aria-label="Cambiar tema">🔄</button>
+    <button id="immersive-toggle-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">⛶</button>
+    <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">🔍</button></div>
+    <div style="padding:4px 4px;align-self:center;position:relative;"><button onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones" aria-label="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
+    <div style="padding:4px 4px;align-self:center;"><button onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación" aria-label="Tour guiado de la aplicación">?</button></div>
     <div style="flex:1"></div>
     <div style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.3); align-self:center;">
         KIA Laboratorio de Emisiones — Plataforma Integrada v14.0
     </div>
 </div>
 
+<!-- Global VIN Search Bar -->
+<div id="globalSearchBar" style="display:none;padding:8px 16px;background:#fff;border-bottom:1px solid #e2e8f0;">
+    <div style="position:relative;max-width:600px;margin:0 auto;">
+        <input type="text" id="globalVinInput" autocomplete="off" oninput="_debouncedGlobalVinSearch(this.value)" placeholder="Buscar VIN en todos los módulos..." style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#0f172a;font-size:0.9rem;box-sizing:border-box;">
+        <div id="globalSearchResults" style="position:absolute;left:0;right:0;top:100%;z-index:999;max-height:300px;overflow-y:auto;"></div>
+    </div>
+</div>
+
+<!-- [R3-M8] Print-only header -->
+<div class="print-only">KIA EmLab — Reporte generado el <script>document.write(new Date().toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'}))</script></div>
+
+<!-- ═══ DAILY DASHBOARD (Vista Hoy) ═══ -->
+<div class="platform-section active" id="platform-today" role="main" aria-label="Vista del Día">
+    <div class="daily-dash" id="daily-dash-content">
+        <!-- Rendered dynamically by dailyDashRender() -->
+    </div>
+</div>
+
 <!-- ═══ PLATFORM 1: COP15 CASCADE ═══ -->
-<div class="platform-section active" id="platform-cop15">
+<div class="platform-section" id="platform-cop15" role="main" aria-label="COP15 Cascade">
 
 <div class="topbar">
     <div><strong>KIA Laboratorio de Emisiones</strong> <span style="font-size:0.8rem; opacity:0.7;">v1.0615 EmLab CASCADE System</span>
 
-    <span style="display:none;"</span></div>
+    <span style="display:none;"></span></div>
     <div id="progressText">Sistema Inicializado</div>
 </div>
 
 <div class="container">
-    <div class="tabs">
-        <div class="tab active" data-tab="alta">1. Alta</div>
-        <div class="tab" data-tab="seguimiento">2. Operación</div>
-        <div class="tab" data-tab="liberacion">3. Liberación</div>
-        <div class="tab" data-tab="dashboard">4. Historial</div>
+    <div class="tabs" role="tablist" aria-label="Secciones COP15">
+        <div class="tab active" data-tab="alta" role="tab" aria-selected="true">1. Alta</div>
+        <div class="tab" data-tab="seguimiento" role="tab" aria-selected="false">2. Operación <span id="unsaved-dot" style="display:none;color:#ef4444;font-size:14px;">●</span></div>
+        <div class="tab" data-tab="liberacion" role="tab" aria-selected="false">3. Liberación</div>
+        <div class="tab" data-tab="kanban" role="tab" aria-selected="false">Cola</div>
+        <div class="tab" data-tab="dashboard" role="tab" aria-selected="false">Historial</div>
     </div>
 
     <!-- ==================== TAB 1: ALTA ==================== -->
-    <div class="tab-panel active" id="panel-alta">
+    <div class="tab-panel active" id="panel-alta" role="tabpanel">
         <div class="card">
             <div class="card-title">🎯 Propósito y Tipo</div>
             <div class="form-group">
-                <label>Propósito de la Prueba</label>
-                <select id="vehiclePurpose" required>
+                <label for="vehiclePurpose">Propósito de la Prueba</label>
+                <select id="vehiclePurpose" required aria-required="true">
                     <option value="">Seleccione...</option>
                     <option value="COP-Emisiones">Conformidad de Producción: Emisiones</option>
                     <option value="COP-OBD2">Conformidad de Producción: OBD-II</option>
@@ -93,92 +151,87 @@
 
             <!-- MODO INTERNO: Configuración con filtros en cascada -->
             <div id="container-internal">
-                <div class="alert alert-info">
-                    ℹ️ Seleccione los campos en orden para filtrar las configuraciones válidas
+                <!-- Visual Cascade Tree -->
+                <div id="cascade-tree-container">
+                    <div id="cascade-breadcrumb" class="cascade-breadcrumb"></div>
+                    <div id="cascade-levels"></div>
                 </div>
-                
-                <div class="form-group">
-                    <label>MODELO</label>
-                    <select id="cfg_model" onchange="cascadeFilter('Modelo')">
-                        <option value="">Seleccionar...</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>AÑO MODELO</label>
-                    <select id="cfg_year" onchange="cascadeFilter('MODEL YEAR (VIN)')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>MOTOR</label>
-                    <select id="cfg_engine" onchange="cascadeFilter('ENGINE CAPACITY')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>TRANSMISIÓN</label>
-                    <select id="cfg_transmission" onchange="cascadeFilter('TRANSMISSION')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>REGULACIÓN</label>
-                    <select id="cfg_regulation" onchange="cascadeFilter('EMISSION REGULATION')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-	<div class="form-group">
- 	 <label>ENV PACKAGE</label>
-	  <select id="cfg_envpkg" onchange="cascadeFilter('ENVIRONMENT PACKAGE')">
-  	  <option value="">Todos</option>
- 	 </select>
-	</div>
 
-                <div class="form-group">
-                    <label>REGIÓN</label>
-                    <select id="cfg_region" onchange="cascadeFilter('REGION')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>LLANTAS</label>
-                    <select id="cfg_tires" onchange="cascadeFilter('TIRE ASSY')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>CARROCERÍA</label>
-                    <select id="cfg_body" onchange="cascadeFilter('BODY TYPE')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>DRIVE TYPE</label>
-                    <select id="cfg_drive" onchange="cascadeFilter('DRIVE TYPE')">
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>ENGINE PACKAGE</label>
-                    <select id="cfg_enginepkg" onchange="cascadeFilter('ENGINE PACKAGE')">
-                        <option value="">Todos</option>
-                    </select>
+                <!-- Hidden original selects (kept for backward compatibility) -->
+                <div id="cascade-legacy-selects" style="display:none;">
+                    <div class="form-group">
+                        <label>MODELO</label>
+                        <select id="cfg_model" onchange="cascadeFilter('Modelo')">
+                            <option value="">Seleccionar...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>AÑO MODELO</label>
+                        <select id="cfg_year" onchange="cascadeFilter('MODEL YEAR (VIN)')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>MOTOR</label>
+                        <select id="cfg_engine" onchange="cascadeFilter('ENGINE CAPACITY')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>TRANSMISIÓN</label>
+                        <select id="cfg_transmission" onchange="cascadeFilter('TRANSMISSION')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>REGULACIÓN</label>
+                        <select id="cfg_regulation" onchange="cascadeFilter('EMISSION REGULATION')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>ENV PACKAGE</label>
+                        <select id="cfg_envpkg" onchange="cascadeFilter('ENVIRONMENT PACKAGE')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>REGIÓN</label>
+                        <select id="cfg_region" onchange="cascadeFilter('REGION')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>LLANTAS</label>
+                        <select id="cfg_tires" onchange="cascadeFilter('TIRE ASSY')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>CARROCERÍA</label>
+                        <select id="cfg_body" onchange="cascadeFilter('BODY TYPE')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>DRIVE TYPE</label>
+                        <select id="cfg_drive" onchange="cascadeFilter('DRIVE TYPE')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>ENGINE PACKAGE</label>
+                        <select id="cfg_enginepkg" onchange="cascadeFilter('ENGINE PACKAGE')">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div id="cfg_counter" class="config-counter">
                     Configuraciones disponibles: <span id="configCount">0</span>
                 </div>
 
-                <button class="btn-reset" onclick="resetFilters()">🔄 REINICIAR FILTROS</button>
+                <button class="btn-reset" onclick="resetCascadeTree()">🔄 REINICIAR FILTROS</button>
 
                 <div id="cfg_result" class="config-result empty">
                     <strong>Código de Configuración:</strong> Seleccione al menos el MODELO para ver configuraciones disponibles
@@ -194,15 +247,15 @@
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Modelo Manual</label>
-                        <input type="text" id="man_model" placeholder="Ej: Sportage 2025">
+                        <input type="text" id="man_model" placeholder="Ej: Sportage 2025" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label>Motor Manual</label>
-                        <input type="text" id="man_engine" placeholder="Ej: 1.6T-GDI">
+                        <input type="text" id="man_engine" placeholder="Ej: 1.6T-GDI" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label>Regulación Manual</label>
-                        <input type="text" id="man_regulation" placeholder="Ej: TIER3 BIN70">
+                        <input type="text" id="man_regulation" placeholder="Ej: TIER3 BIN70" autocomplete="off">
                     </div>
                 </div>
             </div>
@@ -211,15 +264,18 @@
         <div class="card">
             <div class="card-title">🔢 VIN (Número de Identificación)</div>
             <div class="form-group">
-                <label>VIN debe ser exactamente 17 caracteres alfanuméricos</label>
-                <input 
-                    type="text" 
-                    id="vin" 
-                    placeholder="Ejemplo: KNDJP3A59K7123456" 
+                <label for="vin">VIN debe ser exactamente 17 caracteres alfanuméricos</label>
+                <input
+                    type="text"
+                    id="vin"
+                    autocomplete="off"
+                    aria-required="true"
+                    placeholder="Ejemplo: KNDJP3A59K7123456"
                     maxlength="17"
                     pattern="[A-HJ-NPR-Z0-9]{17}"
                     style="text-align:center; font-size:1.2rem; letter-spacing:2px; text-transform: uppercase;"
-                    oninput="validateVIN(this)">
+                    oninput="validateVIN(this)"
+                    onkeypress="if(event.key==='Enter') confirmAlta()">
                 <small id="vinCounter" style="color: #64748b; text-align: center; display: block; margin-top: 5px;">0/17 caracteres</small>
             </div>
         </div>
@@ -236,7 +292,7 @@
     </div>
 
     <div class="form-group">
-      <label>Fecha/Hora de Alta</label>
+      <label for="reg_datetime">Fecha/Hora de Alta</label>
       <input type="datetime-local" id="reg_datetime" readonly>
     </div>
   </div><!-- ✅ cierre form-grid -->
@@ -249,7 +305,7 @@
 </div><!-- ✅ cierre panel-alta (ESTE cierre debe ir después del botón) -->
 
     <!-- ==================== TAB 2: OPERACIÓN ==================== -->
-    <div class="tab-panel" id="panel-seguimiento">
+    <div class="tab-panel" id="panel-seguimiento" role="tabpanel">
         <div class="form-group">
             <label>Seleccionar Vehículo Activo</label>
             <select id="activeVehSelect" onchange="loadVehicle()" style="background:#fff5f5; border:2px solid var(--kia-red); font-weight: bold;">
@@ -259,10 +315,8 @@
         
         <div id="op-content" style="display:none;">
             <div class="alert alert-info" id="vehicleInfo"></div>
-<div class="action-bar">
-  <button class="btn-secondary" onclick="scrollToTopOp()">⬆️ Inicio</button>
-  <button class="btn-primary" onclick="saveProgress()">💾 Guardar</button>
-</div>
+            <div id="readiness-checklist" style="display:none;padding:8px 12px;margin-bottom:10px;border-radius:10px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #e2e8f0;font-size:12px;"></div>
+<!-- floating action bar removed per user request -->
 	 	<!-- ✅ BLOQUE SOLO EMISIONES -->
   		<div id="op-emissions-block">
 
@@ -283,7 +337,7 @@
 
     <div class="form-group">
       <label>Odómetro (km)</label>
-      <input type="number" id="op_odo" min="0" step="1" placeholder="Ej: 15234">
+      <input type="number" id="op_odo" min="0" step="1" placeholder="Ej: 15234" inputmode="numeric">
     </div>
 
     <div class="form-group">
@@ -318,18 +372,18 @@
 
     <div class="form-group">
       <label>Capacidad del tanque (L)</label>
-      <input type="number" id="tank_capacity" min="0" max="120" step="1" placeholder="Ej: 50">
+      <input type="number" id="tank_capacity" min="0" max="120" step="1" placeholder="Ej: 50" inputmode="numeric">
     </div>
 
     <!-- Fila 3 -->
     <div class="form-group">
       <label>Presión de llantas inicial (psi)</label>
-      <input type="number" id="tire_pressure_in" step="1" placeholder="Ej: 33">
+      <input type="number" id="tire_pressure_in" step="1" placeholder="Ej: 33" inputmode="numeric">
     </div>
 
     <div class="form-group">
       <label>Estado de la batería (SOC %)</label>
-      <input type="number" id="battery_soc" min="0" max="100" step="1" placeholder="Ej: 80">
+      <input type="number" id="battery_soc" min="0" max="100" step="1" placeholder="Ej: 80" inputmode="numeric">
     </div>
 
   </div><!-- ✅ cierre correcto de form-grid -->
@@ -363,18 +417,19 @@
 </div>
 <div class="form-group">
  <label>Presión de llantas (psi)</label>
-      <input type="number" id="tire_pressure" step="1">
+      <input type="number" id="tire_pressure" step="1" inputmode="numeric">
     </div>
 
 	<div class="form-group">
   	<label>Nivel de combustible (L)</label>
-  	<input 
+  	<input
     	type="number"
     	id="fuel_levelpre"
     	min="0"
     	step="1"
 	max="50"
     	placeholder="Litros"
+	inputmode="numeric"
   	>
 	</div>
 
@@ -438,12 +493,12 @@
   <div class="form-grid">
     <div class="form-group">
       <label>Tiempo de reposo (h)</label>
-      <input type="number" id="soak_time" step="0.1">
+      <input type="number" id="soak_time" step="0.1" inputmode="decimal">
     </div>
 
     <div class="form-group">
       <label>Odómetro para prueba (km)</label>
-      <input type="number" id="odo_pretest" step="1">
+      <input type="number" id="odo_pretest" step="1" inputmode="numeric">
     </div>
 
     <div class="form-group">
@@ -501,7 +556,7 @@
       <label>
         ETW (<span class="unit-text" data-unit="etw">kg</span>)
       </label>
-      <input type="number" id="etw" step="0.01" placeholder="ETW">
+      <input type="number" id="etw" step="0.01" placeholder="ETW" inputmode="decimal">
 
       <div class="unit-toggle">
         <span id="unitSI" class="unit active">SI</span>
@@ -520,36 +575,36 @@
         <label>
           Target A (<span class="unit-text" data-unit="force">N</span>)
         </label>
-        <input type="number" id="tA" step="any" min="-999999999">
+        <input type="number" id="tA" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set A (<span class="unit-text" data-unit="force">N</span>)
         </span>
-        <input type="number" id="dA" step="any" min="-999999999">
+        <input type="number" id="dA" step="any" min="-999999999" inputmode="decimal">
       </div>
 
       <div class="target-row">
         <label>
           Target B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
         </label>
-        <input type="number" id="tB" step="any" min="-999999999">
+        <input type="number" id="tB" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set B (<span class="unit-text" data-unit="force-speed">N/(km/h)</span>)
         </span>
-        <input type="number" id="dB" step="any" min="-999999999">
+        <input type="number" id="dB" step="any" min="-999999999" inputmode="decimal">
       </div>
 
       <div class="target-row">
         <label>
           Target C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
         </label>
-        <input type="number" id="tC" step="any" min="-999999999">
+        <input type="number" id="tC" step="any" min="-999999999" inputmode="decimal">
 
         <span class="dyno-label">
           Dyno Set C (<span class="unit-text" data-unit="force-speed2">N/(km/h)<sup>2</sup></span>)
         </span>
-        <input type="number" id="dC" step="any" min="-999999999">
+        <input type="number" id="dC" step="any" min="-999999999" inputmode="decimal">
       </div>
 
     </div><!-- /targets-box -->
@@ -603,7 +658,7 @@
 
     <div class="form-group">
       <label>Ventilador (modo)</label>
-      <select id="test_fan_mode">
+      <select id="test_fan_mode" onchange="updateFanFieldsByMode()">
         <option value="">Seleccionar…</option>
         <option value="speed">Velocidad (km/h)</option>
         <option value="speed_follow">Speed Follow</option>
@@ -612,7 +667,7 @@
 
 <div class="form-group">
   <label>Velocidad del ventilador (km/h)</label>
-  <input type="text" id="test_fan_speed" inputmode="decimal" placeholder="Ej: 40">
+  <input type="text" id="test_fan_speed" inputmode="decimal" placeholder="Ej: 40" oninput="calculateFanFlowFromSpeed()">
 </div>
 
 <div class="form-group">
@@ -694,7 +749,7 @@
 
 
  <!-- ✅ BLOQUE SIMPLE para otros propósitos -->
-<details class="acc"id="op-simple-block" style="display:none;">
+<details class="acc" id="op-simple-block" style="display:none;">
 <summary>📝 Operación (Formato Simple)</summary>
   <div class="acc-body">
       <div class="form-grid">
@@ -736,7 +791,7 @@
     </div>
 
     <!-- ==================== TAB 3: LIBERACIÓN ==================== -->
-    <div class="tab-panel" id="panel-liberacion">
+    <div class="tab-panel" id="panel-liberacion" role="tabpanel">
         <div class="form-group">
             <label>Seleccionar Vehículo para Liberar</label>
             <select id="releaseVehSelect" onchange="loadRelease()">
@@ -775,15 +830,16 @@
         </div>
     </div>
 
+    <!-- ==================== KANBAN: COLA VISUAL ==================== -->
+    <div class="tab-panel" id="panel-kanban" role="tabpanel">
+        <div id="kanban-board"></div>
+    </div>
+
     <!-- ==================== TAB 4: HISTORIAL ==================== -->
-    <div class="tab-panel" id="panel-dashboard">
+    <div class="tab-panel" id="panel-dashboard" role="tabpanel">
         <div class="card">
             <div class="card-title">📚 Historial Completo de Pruebas</div>
-            <div style="margin-bottom: 15px; display: flex; gap: 10px;">
-                <button class="btn-secondary" onclick="filterHistory('all')">Todos</button>
-                <button class="btn-secondary" onclick="filterHistory('archived')">Archivados</button>
-                <button class="btn-secondary" onclick="filterHistory('active')">Activos</button>
-            </div>
+            <div id="historyFilterBar"></div>
             <div id="historyList"></div>
         </div>
 
@@ -815,7 +871,7 @@
 </div>
 
 <!-- ==================== MODAL CONFIRMACIÓN ==================== -->
-<div id="modalConfirm" class="modal-overlay">
+<div id="modalConfirm" class="modal-overlay" role="dialog" aria-modal="true">
     <div class="modal-content">
         <h3 style="margin-bottom: 15px; color: var(--kia-dark);">✅ Confirmar Registro de Vehículo</h3>
         <div id="summaryBody" style="margin:15px 0; font-size:0.9rem; line-height: 1.6;"></div>
@@ -824,12 +880,20 @@
     </div>
 </div>
 
+<!-- ==================== MODAL SUSTITUCIÓN FLEXIBLE ==================== -->
+<div id="substitutionModal" role="dialog" aria-modal="true" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;justify-content:center;align-items:center;padding:16px;">
+    <div style="background:white;border-radius:16px;padding:24px;max-width:520px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <h3 style="margin:0 0 12px;color:#1e293b;font-size:1.05rem;">🔄 Unidad similar encontrada en el plan</h3>
+        <div id="substitutionContent"></div>
+    </div>
+</div>
+
 </div><!-- END platform-cop15 -->
 
 <!-- ═══════════════════════════════════════════════════════════════
      PLATFORM 2: TEST PLAN MANAGER
      ═══════════════════════════════════════════════════════════════ -->
-<div class="platform-section" id="platform-testplan">
+<div class="platform-section" id="platform-testplan" role="main" aria-label="Test Plan Manager">
 
     <div class="tp-header">
         <div>
@@ -843,14 +907,16 @@
         </div>
     </div>
 
-    <div class="tp-tabs" id="tp-tabs-bar">
-        <button class="tp-tab active" onclick="tpSwitchTab('tp-dashboard')">📊 Dashboard</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-tested')">✏️ Probados</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-families')">🧬 Familias</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-rules')">⚙️ Reglas</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-weekly')">📅 Plan Semanal</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-simulator')">🔮 Simulador</button>
-        <button class="tp-tab" onclick="tpSwitchTab('tp-production')">🏭 Producción</button>
+    <div class="tp-tabs" id="tp-tabs-bar" role="tablist" aria-label="Secciones Test Plan">
+        <button class="tp-tab active" role="tab" aria-selected="true" onclick="tpSwitchTab('tp-dashboard')">📊 Dashboard</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-tested')">✏️ Probados</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-families')">🧬 Familias</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-rules')">⚙️ Reglas</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-weekly')">📅 Plan Semanal</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-weekhistory')">📋 Historial Sem</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-calendar')">🗓️ Calendario</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-simulator')">🔮 Simulador</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-production')">🏭 Producción</button>
     </div>
 
     <div class="tp-main">
@@ -863,7 +929,7 @@
 <!-- ═══════════════════════════════════════════════════════════════
      PLATFORM 3: RESULTS ANALYZER
      ═══════════════════════════════════════════════════════════════ -->
-<div class="platform-section" id="platform-results">
+<div class="platform-section" id="platform-results" role="main" aria-label="Results Analyzer">
     <div class="tp-header">
         <div>
             <h2>🧪 RESULTS ANALYZER</h2>
@@ -874,39 +940,499 @@
             <span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);" id="ra-profiles-badge">0 perfiles</span>
         </div>
     </div>
-    <div class="tp-tabs" id="ra-tabs-bar">
-        <button class="tp-tab active" onclick="raSwitchTab('ra-dashboard')">📊 Dashboard</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-import')">📥 Importar</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-profiles')">⚙️ Perfiles</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-trends')">📈 Tendencias</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-detail')">🔍 Detalle</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-outliers')">⚠️ Outliers</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-capability')">📐 Cpk/Ppk</button>
-        <button class="tp-tab" onclick="raSwitchTab('ra-search')">🔎 Buscar</button>
+    <div class="tp-tabs" id="ra-tabs-bar" role="tablist" aria-label="Secciones Results Analyzer">
+        <button class="tp-tab active" role="tab" aria-selected="true" onclick="raSwitchTab('ra-dashboard')">📊 Dashboard</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-import')">📥 Importar</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-profiles')">⚙️ Perfiles</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-trends')">📈 Tendencias</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-detail')">🔍 Detalle</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-outliers')">⚠️ Outliers</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-capability')">📐 Cpk/Ppk</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-search')">🔎 Buscar</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-filter')">🧹 Filtro</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-compare')">🔀 Comparar</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-spc')">📉 SPC</button>
     </div>
     <div class="tp-main">
         <div id="ra-content"></div>
     </div>
 </div><!-- END platform-results -->
 
-<div class="platform-section" id="platform-inventory">
+<div class="platform-section" id="platform-inventory" role="main" aria-label="Lab Inventory">
     <div class="tp-main">
         <div class="tp-header" style="margin-bottom:12px;"><h2 style="margin:0;font-size:16px;color:var(--tp-text);">📦 Lab Inventory</h2></div>
-        <div class="tp-tabs" id="inv-tabs-bar" style="margin-bottom:12px;">
-            <button class="tp-tab active" onclick="invSwitchTab('inv-dashboard')">📊 Dashboard</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-gases')">🔴 Gases</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-equipment')">🔧 Equipos</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-readings')">📏 Lecturas</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-predict')">🔮 Predicción</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-fuel')">⛽ Combustible</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-config')">⚙️ Config</button>
-            <button class="tp-tab" onclick="invSwitchTab('inv-report')">📧 Reporte</button>
+        <div class="tp-tabs" id="inv-tabs-bar" role="tablist" aria-label="Secciones Inventory" style="margin-bottom:12px;">
+            <button class="tp-tab active" role="tab" aria-selected="true" onclick="invSwitchTab('inv-dashboard')">📊 Dashboard</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-gases')">🔴 Gases</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-equipment')">🔧 Equipos</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-readings')">📏 Lecturas</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-predict')">🔮 Predicción</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-fuel')">⛽ Combustible</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-zonemap')">🗺️ Mapa</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-charts')">📈 Graficas</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-config')">⚙️ Config</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-report')">📧 Reporte</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-trace')">🔗 Trazabilidad</button>
         </div>
         <div id="inv-content" style="padding:0;"></div>
     </div>
 </div><!-- END platform-inventory -->
 
-<div id="configModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;">
+<!-- ═══════════════════════════════════════════════════════════════
+     PLATFORM 6: PANEL (Dashboard, Users, Shift Log, Alerts)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="platform-section" id="platform-panel" role="main" aria-label="Panel de Control">
+    <div class="tp-header">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+            <div>
+                <h2 style="margin:0;font-size:16px;font-weight:800;">Panel de Control</h2>
+                <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Dashboard, operadores, bitácora y alertas del laboratorio</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="tp-tabs" id="pn-tabs-bar" role="tablist" aria-label="Secciones Panel">
+        <button class="tp-tab active" role="tab" aria-selected="true" onclick="pnSwitchTab('pn-dashboard')">📊 Dashboard</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-users')">👥 Usuarios</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-shift')">📝 Bitácora</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-alerts')">🔔 Alertas</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-intelligence')">🧠 Inteligencia</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-calendar')">📅 Calendario</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-system')">💾 Sistema</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-audit')">🔍 Auditoría</button>
+    </div>
+
+    <div class="tp-main">
+        <div id="pn-content"></div>
+
+        <!-- ═══ [R6] Alpine.js Reactive Templates for Panel ═══ -->
+        <div x-data="panelModule()" x-cloak>
+
+        <!-- ───── USERS TAB ───── -->
+        <div x-show="activeTab === 'pn-users'" style="padding:12px 0;">
+            <!-- Add Operator Form -->
+            <div class="tp-card" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.05),transparent);">
+                <div class="tp-card-title"><span>👥 Agregar Operador</span></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+                    <div style="flex:1;min-width:150px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Nombre completo</label>
+                        <input type="text" x-model.trim="newOpName" placeholder="Nombre Apellido" class="tp-input" style="width:100%;" @keydown.enter="addOperator()">
+                    </div>
+                    <div style="min-width:120px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Rol</label>
+                        <select x-model="newOpRole" class="tp-select" style="width:100%;">
+                            <template x-for="role in roles" :key="role"><option :value="role" x-text="role"></option></template>
+                        </select>
+                    </div>
+                    <button class="tp-btn tp-btn-primary" @click="addOperator()" style="padding:8px 16px;">+ Agregar</button>
+                </div>
+            </div>
+
+            <!-- Operators List -->
+            <div class="tp-card">
+                <div class="tp-card-title"><span>👤 Operadores (<span x-text="operators.length"></span>)</span></div>
+                <template x-if="operators.length === 0">
+                    <div style="text-align:center;padding:20px;color:var(--tp-dim);">No hay operadores registrados.</div>
+                </template>
+                <template x-for="(op, idx) in operators" :key="op.id">
+                    <div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:8px;"
+                         :style="{ background: op.active ? 'var(--tp-card)' : 'rgba(100,116,139,0.05)', opacity: op.active ? '1' : '0.5' }">
+                        <!-- Avatar -->
+                        <div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;"
+                             :style="{ background: avatarColor(idx) + '20', color: avatarColor(idx) }"
+                             x-text="avatarInitials(op.name)"></div>
+                        <!-- Info -->
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                <span style="font-size:12px;font-weight:700;color:var(--tp-text);" x-text="op.name"></span>
+                                <span style="font-size:9px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;" x-text="op.role || 'Técnico'"></span>
+                                <template x-if="!op.active"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span></template>
+                                <template x-if="op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span></template>
+                                <template x-if="!op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span></template>
+                            </div>
+                            <div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">
+                                <span x-text="operatorStats(op.name).registered"></span> registrados |
+                                <span x-text="operatorStats(op.name).released"></span> liberados |
+                                <span x-text="operatorStats(op.name).active"></span> activos
+                            </div>
+                        </div>
+                        <!-- Actions -->
+                        <div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+                            <button @click="setOperatorPin(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN" x-text="op.pinHash ? '🔑' : '🔒'"></button>
+                            <button @click="editOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">✏️</button>
+                            <button @click="toggleOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" x-text="op.active ? '🚫' : '✅'"></button>
+                            <button @click="removeOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--tp-red);">🗑</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Sync Info -->
+            <div class="tp-card" style="padding:10px;text-align:center;">
+                <div style="font-size:9px;color:var(--tp-dim);">Los operadores se sincronizan automaticamente con los dropdowns de COP15.</div>
+                <button class="tp-btn tp-btn-ghost" @click="syncOperators()" style="font-size:10px;margin-top:6px;">🔄 Sincronizar Dropdowns Ahora</button>
+            </div>
+        </div>
+
+        <!-- ───── SHIFT LOG TAB ───── -->
+        <div x-show="activeTab === 'pn-shift'" style="padding:12px 0;">
+            <!-- Shift report buttons -->
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <button class="tp-btn tp-btn-primary" @click="generateShiftReport()" style="font-size:11px;">🔄 Cerrar Turno</button>
+                <template x-if="shiftReports.length > 0">
+                    <button class="tp-btn tp-btn-ghost" @click="showTurnoverOnLogin()" style="font-size:11px;">📋 Último Reporte</button>
+                </template>
+            </div>
+
+            <!-- New entry form -->
+            <div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">
+                <div class="tp-card-title"><span>📝 Nueva Entrada de Bitácora</span></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                    <div>
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Operador</label>
+                        <select x-model="shiftOperator" class="tp-select" style="width:100%;">
+                            <option value="">Seleccionar...</option>
+                            <template x-for="op in activeOperators()" :key="op.id"><option :value="op.name" x-text="op.name"></option></template>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Categoría</label>
+                        <select x-model="shiftCategory" class="tp-select" style="width:100%;">
+                            <template x-for="cat in categories" :key="cat"><option :value="cat" x-text="cat"></option></template>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-bottom:8px;">
+                    <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Notas / Descripción</label>
+                    <textarea x-model="shiftNotes" class="tp-input" rows="3" placeholder="Describe la actividad, incidencia u observación..." style="width:100%;resize:vertical;font-family:inherit;"></textarea>
+                </div>
+                <button class="tp-btn tp-btn-primary" @click="addShiftEntry()" style="width:100%;padding:10px;font-size:12px;">+ Registrar en Bitácora</button>
+            </div>
+
+            <!-- Today's entries -->
+            <div class="tp-card">
+                <div class="tp-card-title">
+                    <span>📋 Hoy (<span x-text="todayEntries().length"></span> entradas)</span>
+                    <button class="tp-btn tp-btn-ghost" @click="exportShiftLog()" style="font-size:10px;">📤 Exportar</button>
+                </div>
+                <template x-if="todayEntries().length === 0">
+                    <div style="text-align:center;padding:30px;color:var(--tp-dim);font-size:11px;">Sin entradas hoy. Registra el inicio de turno.</div>
+                </template>
+                <template x-for="entry in todayEntries()" :key="entry.id">
+                    <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--tp-border);">
+                        <div style="min-width:45px;font-size:9px;color:var(--tp-dim);padding-top:2px;" x-text="entry.time || ''"></div>
+                        <div style="font-size:16px;line-height:1;" x-text="catIcons[entry.category] || '📌'"></div>
+                        <div style="flex:1;">
+                            <div style="display:flex;gap:6px;align-items:center;margin-bottom:2px;">
+                                <span style="font-size:10px;font-weight:700;color:var(--tp-text);" x-text="entry.operator || '?'"></span>
+                                <span style="font-size:9px;padding:1px 6px;border-radius:4px;"
+                                      :style="{ background: (catColors[entry.category] || '#64748b') + '20', color: catColors[entry.category] || '#64748b' }"
+                                      x-text="entry.category"></span>
+                            </div>
+                            <div style="font-size:10px;color:var(--tp-dim);" x-text="entry.notes || ''"></div>
+                        </div>
+                        <button @click="deleteShiftEntry(entry.id)" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:12px;padding:4px;flex-shrink:0;">×</button>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Previous days -->
+            <template x-if="previousDays().length > 0">
+                <div class="tp-card">
+                    <div class="tp-card-title"><span>📅 Días Anteriores</span></div>
+                    <template x-for="group in previousDays()" :key="group.date">
+                        <details style="margin-bottom:6px;border:1px solid var(--tp-border);border-radius:6px;overflow:hidden;">
+                            <summary style="padding:8px 12px;cursor:pointer;font-size:11px;font-weight:700;color:var(--tp-text);background:var(--tp-card);display:flex;justify-content:space-between;">
+                                <span x-text="group.label"></span>
+                                <span style="color:var(--tp-dim);" x-text="group.entries.length + ' entradas'"></span>
+                            </summary>
+                            <template x-for="entry in group.entries" :key="entry.id">
+                                <div style="display:flex;gap:8px;padding:5px 12px;border-top:1px solid var(--tp-border);font-size:10px;">
+                                    <span style="color:var(--tp-dim);min-width:40px;" x-text="entry.time || ''"></span>
+                                    <span style="font-weight:700;color:var(--tp-blue);min-width:70px;" x-text="entry.operator || '?'"></span>
+                                    <span style="color:var(--tp-dim);flex:1;" x-text="'[' + (entry.category || '') + '] ' + (entry.notes || '')"></span>
+                                </div>
+                            </template>
+                        </details>
+                    </template>
+                </div>
+            </template>
+        </div>
+
+        <!-- ───── ALERTS TAB ───── -->
+        <div x-show="activeTab === 'pn-alerts'" style="padding:12px 0;">
+            <!-- Summary -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+                <div class="tp-card" style="text-align:center;padding:14px;" :style="alertCount('CRITICA') > 0 ? 'border:2px solid #ef4444;' : ''">
+                    <div style="font-size:28px;font-weight:800;color:#ef4444;" x-text="alertCount('CRITICA')"></div>
+                    <div style="font-size:9px;color:var(--tp-dim);">Críticas</div>
+                </div>
+                <div class="tp-card" style="text-align:center;padding:14px;" :style="alertCount('ALTA') > 0 ? 'border:2px solid #f59e0b;' : ''">
+                    <div style="font-size:28px;font-weight:800;color:#f59e0b;" x-text="alertCount('ALTA')"></div>
+                    <div style="font-size:9px;color:var(--tp-dim);">Altas</div>
+                </div>
+                <div class="tp-card" style="text-align:center;padding:14px;">
+                    <div style="font-size:28px;font-weight:800;color:#06b6d4;" x-text="alertCount('MEDIA')"></div>
+                    <div style="font-size:9px;color:var(--tp-dim);">Medias</div>
+                </div>
+            </div>
+
+            <!-- No alerts -->
+            <template x-if="activeAlerts().length === 0">
+                <div class="tp-card" style="text-align:center;padding:40px;">
+                    <div style="font-size:40px;margin-bottom:10px;">✅</div>
+                    <div style="font-size:14px;font-weight:700;color:var(--tp-green);">Sin Alertas</div>
+                    <div style="font-size:11px;color:var(--tp-dim);margin-top:4px;">Todo el laboratorio opera con normalidad.</div>
+                </div>
+            </template>
+
+            <!-- Alerts by source -->
+            <template x-if="activeAlerts().length > 0">
+                <div>
+                    <template x-for="group in alertsBySource()" :key="group.source">
+                        <div class="tp-card">
+                            <div class="tp-card-title"><span x-text="group.icon + ' ' + group.source + ' (' + group.alerts.length + ')'"></span></div>
+                            <template x-for="a in group.alerts" :key="a.message">
+                                <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">
+                                    <span style="font-size:9px;padding:3px 8px;border-radius:4px;font-weight:800;white-space:nowrap;flex-shrink:0;"
+                                          :style="{ background: a.color + '20', color: a.color }"
+                                          x-text="a.level"></span>
+                                    <span style="font-size:11px;color:var(--tp-text);" x-text="a.message"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Alert actions -->
+            <div class="tp-card">
+                <div class="tp-card-title"><span>🔔 Configuración de Alertas</span></div>
+                <div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Las alertas se generan automáticamente al abrir este panel.</div>
+                <div style="display:flex;gap:8px;">
+                    <button class="tp-btn tp-btn-primary" @click="refreshAlerts()" style="flex:1;font-size:11px;">🔄 Actualizar Alertas</button>
+                    <button class="tp-btn tp-btn-ghost" @click="exportAlerts()" style="flex:1;font-size:11px;">📤 Exportar Reporte</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ───── SYSTEM HEALTH TAB ───── -->
+        <div x-show="activeTab === 'pn-system'" style="padding:12px 0;">
+            <h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">💾 Monitor de Salud del Sistema</h3>
+
+            <!-- Storage Breakdown -->
+            <div class="tp-card" style="margin-bottom:12px;padding:12px;">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:11px;color:var(--tp-dim);" x-text="formatBytes(storageData().totalBytes) + ' / 5 MB'"></span>
+                    <span style="font-size:11px;font-weight:700;" :style="{ color: storageData().barColor }" x-text="storageData().usedPct + '%'"></span>
+                </div>
+                <div style="width:100%;height:8px;background:rgba(30,41,59,0.8);border-radius:4px;overflow:hidden;">
+                    <div style="height:100%;border-radius:4px;transition:width 0.3s;"
+                         :style="{ width: Math.min(parseFloat(storageData().usedPct), 100) + '%', background: storageData().barColor }"></div>
+                </div>
+                <div style="margin-top:10px;">
+                    <template x-for="item in storageData().breakdown" :key="item.label">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(30,41,59,0.3);">
+                            <span style="font-size:10px;color:var(--tp-text);" x-text="item.label"></span>
+                            <span style="font-size:10px;color:var(--tp-dim);" x-text="formatBytes(item.bytes) + ' (' + (storageData().totalBytes > 0 ? ((item.bytes / storageData().totalBytes) * 100).toFixed(1) : '0.0') + '%)'"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Data Aging -->
+            <div class="tp-card" style="margin-bottom:12px;padding:12px;">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">📅 Antigüedad de Datos</h4>
+                <template x-if="agingData().length > 0">
+                    <table style="width:100%;font-size:10px;border-collapse:collapse;">
+                        <tr style="color:var(--tp-dim);border-bottom:1px solid rgba(30,41,59,0.5);">
+                            <th style="text-align:left;padding:4px;">Módulo</th>
+                            <th style="text-align:center;padding:4px;">Total</th>
+                            <th style="text-align:center;padding:4px;">30-60d</th>
+                            <th style="text-align:center;padding:4px;">60-90d</th>
+                            <th style="text-align:center;padding:4px;">&gt;90d</th>
+                        </tr>
+                        <template x-for="a in agingData()" :key="a.label">
+                            <tr style="color:var(--tp-text);border-bottom:1px solid rgba(30,41,59,0.2);">
+                                <td style="padding:4px;" x-text="a.label"></td>
+                                <td style="text-align:center;padding:4px;" x-text="a.total"></td>
+                                <td style="text-align:center;padding:4px;color:#f59e0b;" x-text="a.d30"></td>
+                                <td style="text-align:center;padding:4px;color:#ef4444;" x-text="a.d60"></td>
+                                <td style="text-align:center;padding:4px;color:#dc2626;font-weight:700;" x-text="a.d90"></td>
+                            </tr>
+                        </template>
+                    </table>
+                </template>
+                <template x-if="agingData().length === 0">
+                    <p style="color:var(--tp-dim);font-size:10px;">Sin datos para analizar antigüedad.</p>
+                </template>
+            </div>
+
+            <!-- Purge Tools -->
+            <div class="tp-card" style="margin-bottom:12px;padding:12px;">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">🗑️ Herramientas de Limpieza</h4>
+                <p style="color:var(--tp-dim);font-size:10px;margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                    <button class="tp-btn" @click="purgeOldData('cop15', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>
+                    <button class="tp-btn" @click="purgeOldData('results', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Resultados >90 días</button>
+                    <button class="tp-btn" @click="purgeOldData('testplan', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>
+                    <button class="tp-btn" @click="purgeOldData('notes', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>
+                </div>
+            </div>
+
+            <!-- Performance -->
+            <div class="tp-card" style="padding:12px;">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">⚡ Rendimiento</h4>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    <div style="text-align:center;padding:6px;background:rgba(59,130,246,0.1);border-radius:6px;">
+                        <div style="font-size:16px;font-weight:700;color:#3b82f6;" x-text="perfData().lsKeys"></div>
+                        <div style="font-size:9px;color:var(--tp-dim);">Keys localStorage</div>
+                    </div>
+                    <div style="text-align:center;padding:6px;background:rgba(16,185,129,0.1);border-radius:6px;">
+                        <div style="font-size:16px;font-weight:700;color:#10b981;" x-text="perfData().domNodes"></div>
+                        <div style="font-size:9px;color:var(--tp-dim);">DOM Nodes</div>
+                    </div>
+                    <div style="text-align:center;padding:6px;background:rgba(245,158,11,0.1);border-radius:6px;">
+                        <div style="font-size:16px;font-weight:700;color:#f59e0b;" x-text="perfData().memoryMB"></div>
+                        <div style="font-size:9px;color:var(--tp-dim);">Memoria (MB)</div>
+                    </div>
+                    <div style="text-align:center;padding:6px;background:rgba(139,92,246,0.1);border-radius:6px;">
+                        <div style="font-size:16px;font-weight:700;color:#8b5cf6;" x-text="perfData().charts"></div>
+                        <div style="font-size:9px;color:var(--tp-dim);">Charts Activos</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ───── CALENDAR TAB ───── -->
+        <div x-show="activeTab === 'pn-calendar'" style="padding:12px 0;">
+            <div class="tp-card" style="padding:16px;">
+                <!-- Header with nav -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <button @click="navCalendar(-1)" class="btn-secondary" style="padding:4px 12px;">←</button>
+                    <span style="font-size:14px;font-weight:800;color:var(--tp-text);" x-text="calendarMonthLabel()"></span>
+                    <div style="display:flex;gap:6px;">
+                        <button @click="calendarToday()" class="btn-secondary" style="padding:4px 10px;font-size:10px;">Hoy</button>
+                        <button @click="navCalendar(1)" class="btn-secondary" style="padding:4px 12px;">→</button>
+                    </div>
+                </div>
+
+                <!-- Day headers -->
+                <div class="cal-grid">
+                    <template x-for="d in dayNames" :key="d"><div class="cal-header" x-text="d"></div></template>
+
+                    <!-- Calendar cells -->
+                    <template x-for="(cell, ci) in calendarGrid()" :key="ci">
+                        <div :class="{ 'cal-cell': true, 'cal-empty': cell.empty, 'cal-today': cell.isToday }"
+                             @click="!cell.empty && calendarDayClick(cell.dateStr)">
+                            <template x-if="!cell.empty">
+                                <div>
+                                    <div class="cal-day-num" x-text="cell.day"></div>
+                                    <template x-if="cell.dots.length > 0">
+                                        <div class="cal-dots">
+                                            <template x-for="(dotColor, di) in cell.dots" :key="di">
+                                                <span class="cal-dot" :style="{ background: dotColor }"></span>
+                                            </template>
+                                            <template x-if="cell.extra > 0"><span style="font-size:9px;color:var(--tp-dim);" x-text="'+' + cell.extra"></span></template>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Week summary -->
+                <template x-if="calendarWeekSummary()">
+                    <div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;font-size:10px;color:var(--tp-dim);">
+                        <strong style="color:var(--tp-text);">Esta semana:</strong> <span x-text="calendarWeekSummary()"></span>
+                    </div>
+                </template>
+
+                <!-- Legend -->
+                <div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap;">
+                    <template x-for="l in calendarLegend" :key="l.label">
+                        <div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--tp-dim);">
+                            <span style="width:8px;height:8px;border-radius:50%;display:inline-block;" :style="{ background: l.color }"></span>
+                            <span x-text="l.label"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- ───── AUDIT TRAIL TAB ───── -->
+        <div x-show="activeTab === 'pn-audit'" style="padding:12px 0;">
+            <!-- Filters -->
+            <div class="tp-card" style="margin-bottom:8px;">
+                <div class="tp-card-title"><span>🔍 Filtros de Auditoría</span></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+                    <div style="flex:1;min-width:110px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Módulo</label>
+                        <select x-model="auditFilterMod" class="tp-input" style="width:100%;">
+                            <option value="">Todos</option>
+                            <option value="cop15">COP15 Cascade</option>
+                            <option value="tp">Test Plan</option>
+                            <option value="ra">Resultados</option>
+                            <option value="inv">Inventario</option>
+                            <option value="pn">Panel</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;min-width:110px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Usuario</label>
+                        <select x-model="auditFilterUser" class="tp-input" style="width:100%;">
+                            <option value="">Todos</option>
+                            <template x-for="u in auditUsers" :key="u"><option :value="u" x-text="u"></option></template>
+                        </select>
+                    </div>
+                    <div style="min-width:110px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Desde</label>
+                        <input type="date" x-model="auditFilterFrom" class="tp-input" style="width:100%;">
+                    </div>
+                    <div style="min-width:110px;">
+                        <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Hasta</label>
+                        <input type="date" x-model="auditFilterTo" class="tp-input" style="width:100%;">
+                    </div>
+                    <button @click="auditExport()" class="tp-btn tp-btn-primary" style="white-space:nowrap;padding:6px 12px;">📥 CSV</button>
+                </div>
+            </div>
+            <!-- Counter -->
+            <div style="padding:4px 8px;font-size:11px;color:var(--tp-dim);" x-text="filteredAudit.length + ' registros'"></div>
+            <!-- Entries -->
+            <template x-for="entry in filteredAuditPage" :key="entry.id">
+                <div class="tp-card" style="padding:8px 12px;margin-bottom:4px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:600;font-size:12px;" x-text="entry.action"></span>
+                        <span style="font-size:10px;color:var(--tp-dim);" x-text="new Date(entry.ts).toLocaleString()"></span>
+                    </div>
+                    <div style="font-size:11px;color:var(--tp-dim);margin-top:2px;">
+                        <span x-text="entry.user.name"></span> &middot;
+                        <span x-text="entry.mod.toUpperCase()"></span>
+                        <template x-if="entry.entity && entry.entity.label">
+                            <span x-text="' · ' + entry.entity.type + ': ' + entry.entity.label"></span>
+                        </template>
+                    </div>
+                    <div x-show="entry.details" style="font-size:10px;color:var(--tp-dim);margin-top:2px;" x-text="entry.details"></div>
+                </div>
+            </template>
+            <!-- Empty state -->
+            <div x-show="filteredAudit.length === 0" class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">
+                Sin registros de auditoría con los filtros seleccionados.
+            </div>
+            <!-- Pagination -->
+            <div x-show="filteredAudit.length > 50" style="text-align:center;padding:8px;">
+                <button @click="auditPage = Math.max(0, auditPage - 1)" :disabled="auditPage === 0" class="tp-btn">&larr; Ant</button>
+                <span style="font-size:11px;margin:0 8px;" x-text="(auditPage + 1) + '/' + Math.ceil(filteredAudit.length / 50)"></span>
+                <button @click="auditPage++" :disabled="(auditPage + 1) * 50 >= filteredAudit.length" class="tp-btn">Sig &rarr;</button>
+            </div>
+        </div>
+
+        </div><!-- END Alpine panelModule -->
+    </div>
+</div><!-- END platform-panel -->
+
+<div id="configModal" role="dialog" aria-modal="true" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;">
 <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">
 <button onclick="document.getElementById('configModal').style.display='none'" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;">x</button>
 <h3 style="margin:0 0 14px;">Configuracion del Sistema</h3>
@@ -914,12 +1440,79 @@
 <h4 style="margin:0 0 6px;">Configuraciones Vehiculares (CSV)</h4>
 <p style="font-size:11px;color:#64748b;margin:0 0 10px;">Vehiculos ya registrados NO se afectan.</p>
 <input type="file" id="configCSVUpload" accept=".csv" style="display:none;" onchange="handleConfigCSVImport(event)">
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
 <button onclick="document.getElementById('configCSVUpload').click()" style="padding:7px 14px;background:#0f766e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:12px;">Importar CSV</button>
+<button onclick="openManualConfigForm()" style="padding:7px 14px;background:#1d4ed8;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:12px;">+ Agregar Manual</button>
+</div>
 <div id="configCSVStatus" style="margin-top:8px;font-size:11px;"></div>
-<div style="margin-top:6px;font-size:10px;color:#94a3b8;">Actual: <strong id="configCount">0</strong> configuraciones — <span id="configSource"></span></div>
+<div style="margin-top:6px;font-size:10px;color:#94a3b8;">Actual: <strong id="configCountModal">0</strong> configuraciones — <span id="configSourceModal"></span></div>
+<div id="manualConfigsList" style="margin-top:10px;"></div>
 </div></div></div>
 
 <div id="invModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
+<div id="fbModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
+
+<!-- ═══ SOAK FLOATING BADGE ═══ -->
+<div id="soak-floating-badge" style="display:none;position:fixed;bottom:68px;right:12px;z-index:1999;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:800;box-shadow:0 4px 16px rgba(245,158,11,0.4);cursor:pointer;align-items:center;gap:6px;animation:soakBadgePulse 2s infinite;" onclick="switchPlatform('cop15');document.querySelector('.tab[data-tab=\\'seguimiento\\']').click();">
+    <span>SOAK</span>
+    <span class="soak-badge-text"></span>
+</div>
+
+<!-- ═══ NOTIFICATION CENTER ═══ -->
+<div id="notification-center" style="display:none;position:fixed;top:50px;right:10px;z-index:9998;width:340px;max-height:420px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.12);overflow:hidden;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #f1f5f9;">
+        <span style="font-size:13px;font-weight:700;color:#0f172a;">Notificaciones</span>
+        <button onclick="clearAllNotifications()" style="background:none;border:none;color:#94a3b8;font-size:10px;cursor:pointer;">Limpiar</button>
+    </div>
+    <div id="notification-list" style="max-height:360px;overflow-y:auto;padding:6px;"></div>
+</div>
+
+<!-- ═══ COMMAND PALETTE ═══ -->
+<div id="command-palette-overlay" role="dialog" aria-modal="true" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.3);backdrop-filter:blur(8px);animation:modalFadeIn 0.2s ease;" onclick="if(event.target===this)closeCommandPalette()">
+    <div style="max-width:520px;margin:80px auto;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+        <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;">
+            <span style="color:#94a3b8;font-size:16px;">></span>
+            <input id="command-palette-input" type="text" autocomplete="off" placeholder="Escribe un comando..." style="flex:1;background:transparent;border:none;color:#0f172a;font-size:14px;outline:none;" oninput="filterCommands(this.value)" onkeydown="handleCommandKey(event)">
+            <kbd style="background:#f1f5f9;color:#64748b;padding:2px 6px;border-radius:4px;font-size:10px;">ESC</kbd>
+        </div>
+        <div id="command-palette-results" style="max-height:320px;overflow-y:auto;padding:6px;"></div>
+    </div>
+</div>
+
+<!-- ═══ VEHICLE INLINE CHECKLIST (floating) ═══ -->
+<button class="vcl-toggle" id="vcl-toggle" style="display:none;" onclick="vclTogglePanel()" aria-label="Checklist del vehículo">
+    <span>✓</span>
+    <span class="vcl-badge" id="vcl-badge-count">0</span>
+</button>
+<div class="vcl-panel" id="vcl-panel" style="display:none;"></div>
+
+<!-- ═══ BOTTOM NAVIGATION BAR ═══ -->
+<nav class="bottom-nav" id="bottomNav" role="navigation" aria-label="Barra de navegación inferior">
+    <div class="bottom-nav-item active" onclick="switchPlatform('today')" id="bnav-today">
+        <span class="bnav-icon">🏠</span>
+        <span>Hoy</span>
+    </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('cop15')" id="bnav-cop15">
+        <span class="bnav-icon">🔬</span>
+        <span>COP15</span>
+    </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('testplan')" id="bnav-testplan">
+        <span class="bnav-icon">📊</span>
+        <span>Test Plan</span>
+    </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('results')" id="bnav-results">
+        <span class="bnav-icon">🧪</span>
+        <span>Results</span>
+    </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('inventory')" id="bnav-inventory">
+        <span class="bnav-icon">📦</span>
+        <span>Inventory</span>
+    </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('panel')" id="bnav-panel">
+        <span class="bnav-icon">⚙️</span>
+        <span>Panel</span>
+    </div>
+</nav>
 
 <!-- JS Modules (load order: app core → COP15 → inventory → testplan → results → firebase) -->
 <script src="js/app.js"></script>
@@ -927,6 +1520,8 @@
 <script src="js/inventory.js"></script>
 <script src="js/testplan.js"></script>
 <script src="js/results.js"></script>
+<script src="js/panel.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/firebase-sync.js"></script>
 
 </body>

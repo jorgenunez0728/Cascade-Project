@@ -2,6 +2,59 @@
 // ║  KIA EmLab — COP15 Cascade Module                                 ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// ── Unsaved Changes Tracking + Auto-Save [R5-M2] ──
+var _unsavedChanges = false;
+
+function markUnsaved() {
+    _unsavedChanges = true;
+    var dot = document.getElementById('unsaved-dot');
+    if (dot) { dot.style.display = 'inline'; dot.textContent = '●'; }
+    var btn = document.getElementById('btn-save');
+    if (btn && !btn.classList.contains('btn-unsaved')) {
+        btn.classList.add('btn-unsaved');
+        btn.textContent = '💾 Guardar *';
+    }
+}
+
+function clearUnsaved() {
+    _unsavedChanges = false;
+    var dot = document.getElementById('unsaved-dot');
+    if (dot) dot.style.display = 'none';
+    var btn = document.getElementById('btn-save');
+    if (btn) {
+        btn.classList.remove('btn-unsaved');
+        btn.textContent = '💾 Guardar';
+    }
+}
+
+/** [R5-M2] Silent auto-save: calls saveProgress without UI fanfare */
+function _autoSaveSilent() {
+    if (!activeVehicleId || !_unsavedChanges) return;
+    var vehicle = db.vehicles.find(function(v){ return v.id == activeVehicleId; });
+    if (!vehicle) return;
+    // Save without button animation or toast
+    saveProgress({ silent: true });
+}
+
+// ── [Fase 2.2] Debounced auto-save for focusout scenarios ──
+var _debouncedAutoSaveSilent = debounce(function() { if (_unsavedChanges) _autoSaveSilent(); }, 500);
+
+function setupUnsavedTracking() {
+    var container = document.getElementById('op-content');
+    if (!container) return;
+    container.addEventListener('input', markUnsaved);
+    container.addEventListener('change', markUnsaved);
+    // [R5-M2] Register auto-save on blur/visibility change
+    autoSaveInit('cop15', _autoSaveSilent, function(){ return _unsavedChanges; });
+
+    // [R5-M2][Fase 2.2] Auto-save when individual fields lose focus (debounced)
+    container.addEventListener('focusout', function(e) {
+        if (_unsavedChanges && e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) {
+            _debouncedAutoSaveSilent();
+        }
+    });
+}
+
 // [M02] FILTRO CASCADA]
 // ======================================================================
 
@@ -116,15 +169,18 @@ setAltaDatetimeIfEmpty(true);
             const config = filtered[0];
             resultDiv.innerHTML = `
                 <strong>✅ CONFIGURACIÓN ÚNICA ENCONTRADA:</strong><br>
-                <div style="font-family: monospace; color: var(--kia-red); margin-top: 10px; font-weight: bold;">
-                    ${config.codigo_config_text}
+                <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                    <div style="font-family: monospace; color: var(--kia-red); font-weight: bold;flex:1;">
+                        ${config.codigo_config_text}
+                    </div>
+                    <button onclick="copyToClipboard('${config.codigo_config_text.replace(/'/g,"\\'")}', this)" style="background:var(--kia-dark);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">📋 Copiar</button>
                 </div>
                 <div style="margin-top: 10px; font-size: 0.9rem; color: #475569;">
-                    <strong>Modelo:</strong> ${config.Modelo} | 
-                    <strong>Año:</strong> ${config['MODEL YEAR (VIN)']} | 
+                    <strong>Modelo:</strong> ${config.Modelo} |
+                    <strong>Año:</strong> ${config['MODEL YEAR (VIN)']} |
                     <strong>Motor:</strong> ${config['ENGINE CAPACITY']}<br>
                     <strong>Transmisión:</strong> ${config.TRANSMISSION} |
- 			<strong>Env:</strong> ${config['ENVIRONMENT PACKAGE']} | 
+ 			<strong>Env:</strong> ${config['ENVIRONMENT PACKAGE']} |
                     <strong>Regulación:</strong> ${config['EMISSION REGULATION']}
                 </div>
             `;
@@ -162,18 +218,319 @@ setAltaDatetimeIfEmpty(true);
 
 
 
+// [M02b] VISUAL CASCADE TREE
+// ======================================================================
+
+var cascadeSelections = {};
+var cascadeAutoSelected = {};
+
+var cascadeFieldLabels = {
+    'Modelo': 'MODELO',
+    'MODEL YEAR (VIN)': 'AÑO',
+    'ENGINE CAPACITY': 'MOTOR',
+    'TRANSMISSION': 'TRANSMISIÓN',
+    'ENVIRONMENT PACKAGE': 'ENV PKG',
+    'EMISSION REGULATION': 'REGULACIÓN',
+    'REGION': 'REGIÓN',
+    'TIRE ASSY': 'LLANTAS',
+    'BODY TYPE': 'CARROCERÍA',
+    'DRIVE TYPE': 'DRIVE',
+    'ENGINE PACKAGE': 'ENG PKG'
+};
+
+function getCascadeOptionsForLevel(fieldName) {
+    var filtered = allConfigurations.filter(function(config) {
+        for (var f in cascadeSelections) {
+            if (config[f] !== cascadeSelections[f]) return false;
+        }
+        return true;
+    });
+    var counts = {};
+    filtered.forEach(function(config) {
+        var val = config[fieldName];
+        if (val) counts[val] = (counts[val] || 0) + 1;
+    });
+    var options = Object.keys(counts).sort().map(function(val) {
+        return { value: val, count: counts[val] };
+    });
+    return { options: options, totalFiltered: filtered.length };
+}
+
+function renderCascadeTree() {
+    var fields = Object.keys(fieldMapping);
+    var levelsEl = document.getElementById('cascade-levels');
+    var breadcrumbEl = document.getElementById('cascade-breadcrumb');
+    if (!levelsEl || !breadcrumbEl) return;
+
+    // Determine which levels are completed/active/pending
+    var firstUnselected = -1;
+    for (var i = 0; i < fields.length; i++) {
+        if (!cascadeSelections[fields[i]]) {
+            firstUnselected = i;
+            break;
+        }
+    }
+    if (firstUnselected === -1) firstUnselected = fields.length;
+
+    // Render breadcrumb
+    var crumbHtml = '';
+    if (firstUnselected === 0) {
+        crumbHtml = '<span class="cascade-breadcrumb-placeholder">Seleccione un modelo para comenzar</span>';
+    } else {
+        for (var b = 0; b < firstUnselected; b++) {
+            if (b > 0) crumbHtml += '<span class="cascade-breadcrumb-sep">›</span>';
+            var autoTag = cascadeAutoSelected[fields[b]] ? ' <span style="font-size:0.6rem;opacity:0.6;">auto</span>' : '';
+            crumbHtml += '<span class="cascade-breadcrumb-item" onclick="deselectCascadeLevel(\'' + fields[b] + '\')">' +
+                '<span class="crumb-label">' + cascadeFieldLabels[fields[b]] + ':</span> ' +
+                cascadeSelections[fields[b]] + autoTag + '</span>';
+        }
+    }
+    breadcrumbEl.innerHTML = crumbHtml;
+
+    // Render levels
+    var html = '';
+    for (var lvl = 0; lvl < fields.length; lvl++) {
+        var field = fields[lvl];
+        var label = cascadeFieldLabels[field];
+        var state = 'pending';
+        if (cascadeSelections[field]) {
+            state = 'completed';
+        } else if (lvl === firstUnselected) {
+            state = 'active';
+        }
+
+        html += '<div class="cascade-level ' + state + '">';
+        html += '<div class="cascade-level-header">';
+        html += '<span><span class="level-step">' + (lvl + 1) + '</span>' + label + '</span>';
+        if (state === 'completed') {
+            html += '<span class="level-change" onclick="deselectCascadeLevel(\'' + field + '\')">cambiar</span>';
+        }
+        html += '</div>';
+
+        if (state === 'active') {
+            var data = getCascadeOptionsForLevel(field);
+            html += '<div class="cascade-chips">';
+            if (data.options.length === 0) {
+                html += '<span style="color:#94a3b8;font-size:0.85rem;">Sin opciones disponibles</span>';
+            } else {
+                data.options.forEach(function(opt) {
+                    var escaped = opt.value.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;');
+                    var escapedAttr = opt.value.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+                    html += '<button class="cascade-chip" onclick="selectCascadeChip(\'' + field + '\',\'' + escapedAttr + '\')">' +
+                        escaped + ' <span class="chip-count">(' + opt.count + ')</span></button>';
+                });
+            }
+            html += '</div>';
+        } else if (state === 'completed') {
+            // Show selected value inline in header (already via breadcrumb)
+        } else {
+            // Pending — just the collapsed header
+        }
+
+        html += '</div>';
+    }
+    levelsEl.innerHTML = html;
+
+    // Update counter
+    var totalFiltered = allConfigurations.filter(function(config) {
+        for (var f in cascadeSelections) {
+            if (config[f] !== cascadeSelections[f]) return false;
+        }
+        return true;
+    });
+    document.getElementById('configCount').textContent = totalFiltered.length;
+    displayConfigResult(totalFiltered);
+}
+
+function selectCascadeChip(fieldName, value) {
+    var fields = Object.keys(fieldMapping);
+    var idx = fields.indexOf(fieldName);
+
+    // Set this selection
+    cascadeSelections[fieldName] = value;
+
+    // Clear all subsequent selections
+    for (var i = idx + 1; i < fields.length; i++) {
+        delete cascadeSelections[fields[i]];
+        delete cascadeAutoSelected[fields[i]];
+    }
+
+    // Sync hidden select and call existing cascadeFilter
+    var selectId = fieldMapping[fieldName];
+    var selectEl = document.getElementById(selectId);
+    if (selectEl) {
+        selectEl.value = value;
+        selectEl.classList.add('selected');
+    }
+    currentFilters[fieldName] = value;
+
+    // Clear downstream filters and selects
+    for (var j = idx + 1; j < fields.length; j++) {
+        delete currentFilters[fields[j]];
+        var sid = fieldMapping[fields[j]];
+        var sel = document.getElementById(sid);
+        if (sel) {
+            sel.value = '';
+            sel.classList.remove('selected');
+        }
+    }
+
+    // Update hidden selects via existing filter logic
+    var filtered = allConfigurations.filter(function(config) {
+        for (var f in currentFilters) {
+            if (config[f] !== currentFilters[f]) return false;
+        }
+        return true;
+    });
+    updateSelectOptions(filtered);
+
+    // Auto-advance: if next level has only 1 option, auto-select it
+    renderCascadeTree();
+    autoAdvanceCascade();
+}
+
+function autoAdvanceCascade() {
+    var fields = Object.keys(fieldMapping);
+    for (var i = 0; i < fields.length; i++) {
+        if (!cascadeSelections[fields[i]]) {
+            var data = getCascadeOptionsForLevel(fields[i]);
+            if (data.options.length === 1) {
+                // Auto-select the only option
+                cascadeSelections[fields[i]] = data.options[0].value;
+                cascadeAutoSelected[fields[i]] = true;
+                currentFilters[fields[i]] = data.options[0].value;
+                var selectId = fieldMapping[fields[i]];
+                var selectEl = document.getElementById(selectId);
+                if (selectEl) {
+                    selectEl.value = data.options[0].value;
+                    selectEl.classList.add('selected');
+                }
+                // Continue checking next levels
+                var filtered = allConfigurations.filter(function(config) {
+                    for (var f in currentFilters) {
+                        if (config[f] !== currentFilters[f]) return false;
+                    }
+                    return true;
+                });
+                updateSelectOptions(filtered);
+            } else {
+                break;
+            }
+        }
+    }
+    renderCascadeTree();
+}
+
+function deselectCascadeLevel(fieldName) {
+    var fields = Object.keys(fieldMapping);
+    var idx = fields.indexOf(fieldName);
+
+    // Clear this and all subsequent selections
+    for (var i = idx; i < fields.length; i++) {
+        delete cascadeSelections[fields[i]];
+        delete cascadeAutoSelected[fields[i]];
+        delete currentFilters[fields[i]];
+        var selectId = fieldMapping[fields[i]];
+        var selectEl = document.getElementById(selectId);
+        if (selectEl) {
+            selectEl.value = '';
+            selectEl.classList.remove('selected');
+        }
+    }
+
+    // Rebuild filtered options
+    var filtered = allConfigurations.filter(function(config) {
+        for (var f in currentFilters) {
+            if (config[f] !== currentFilters[f]) return false;
+        }
+        return true;
+    });
+    updateSelectOptions(filtered);
+    renderCascadeTree();
+}
+
+function resetCascadeTree() {
+    cascadeSelections = {};
+    cascadeAutoSelected = {};
+    resetFilters();
+    renderCascadeTree();
+}
+
+function initCascadeTree() {
+    if (!allConfigurations || allConfigurations.length === 0) return;
+    cascadeSelections = {};
+    cascadeAutoSelected = {};
+    renderCascadeTree();
+}
+
 // [M03] INTERFAZ Y NAVEGACIÓN]
 // ======================================================================
 
     document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.tab, .tab-panel').forEach(el => el.classList.remove('active'));
-            tab.classList.add('active');
-            document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
-            refreshAllLists();
-            updateProgressBar();
+        tab.addEventListener('click', (e) => {
+            // [R5-M2] Auto-save silently instead of blocking modal
+            if (_unsavedChanges && tab.dataset.tab !== 'seguimiento') {
+                _autoSaveSilent();
+            }
+            _switchToCop15Tab(tab);
         });
     });
+
+    function _switchToCop15Tab(tab) {
+        document.querySelectorAll('.tab, .tab-panel').forEach(function(el){ el.classList.remove('active'); });
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        localStorage.setItem('kia_cop15_activeTab', tab.dataset.tab);
+        if (tab.dataset.tab === 'kanban') renderKanban();
+        var isOp = tab.dataset.tab === 'seguimiento';
+        toggleActionBar(isOp && !!activeVehicleId);
+        refreshAllLists();
+        updateProgressBar();
+        // Re-inject tooltips for the new tab
+        cascadeInjectTooltips();
+    }
+
+    // Setup real-time field validation for Alta form
+    (function setupAltaValidation() {
+        var vinInput = document.getElementById('vin');
+        var purposeSelect = document.getElementById('vehiclePurpose');
+        var regOperator = document.getElementById('reg_operator');
+
+        if (vinInput) {
+            vinInput.addEventListener('input', function() {
+                validateField(vinInput, {
+                    required: true,
+                    exactLength: 17,
+                    pattern: /^[A-HJ-NPR-Z0-9]{17}$/,
+                    patternMsg: '17 caracteres alfanuméricos (sin I, O, Q)'
+                });
+            });
+            vinInput.addEventListener('blur', function() {
+                validateField(vinInput, {
+                    required: true,
+                    exactLength: 17,
+                    pattern: /^[A-HJ-NPR-Z0-9]{17}$/,
+                    patternMsg: '17 caracteres alfanuméricos (sin I, O, Q)'
+                });
+            });
+        }
+        if (purposeSelect) {
+            purposeSelect.addEventListener('change', function() {
+                validateField(purposeSelect, { required: true });
+            });
+        }
+        if (regOperator) {
+            regOperator.addEventListener('change', function() {
+                validateField(regOperator, { required: true });
+            });
+        }
+    })();
+
+    // Setup unsaved changes tracking
+    setupUnsavedTracking();
+
+    // Inject field help tooltips
+    cascadeInjectTooltips();
 
     function toggleMode() {
         const isExternal = document.getElementById('modeToggle').checked;
@@ -190,20 +547,33 @@ setAltaDatetimeIfEmpty(true);
     }
 
 
+    var _operatorSelectIds = ['reg_operator', 'op_recep', 'test_responsible', 'precond_responsible', 'simple_operator'];
+
     function populateOperators() {
-        const operators = [
-            document.getElementById('reg_operator'),
-            document.getElementById('op_recep'),
-    	document.getElementById('test_responsible'), // ✅ NUEVO
-    document.getElementById('precond_responsible'),
-	 document.getElementById('simple_operator') // ✅ NUEVO
-        ];
+        const operators = _operatorSelectIds.map(function(id) { return document.getElementById(id); });
         operators.forEach(select => {
             if(select) {
                 select.innerHTML = '<option value="">Seleccionar...</option>';
                 CONFIG.operators.forEach(op => {
                     select.innerHTML += `<option value="${op}">${op}</option>`;
                 });
+                // Listen for changes to remember last operator
+                select.addEventListener('change', function() {
+                    if (this.value) localStorage.setItem('kia_last_operator', this.value);
+                });
+            }
+        });
+    }
+
+    function autoFillOperators() {
+        var last = localStorage.getItem('kia_last_operator');
+        if (!last) return;
+        _operatorSelectIds.forEach(function(id) {
+            var sel = document.getElementById(id);
+            if (sel && !sel.value) {
+                // Check if the operator exists in options
+                var opts = Array.from(sel.options).map(function(o) { return o.value; });
+                if (opts.includes(last)) sel.value = last;
             }
         });
     }
@@ -261,19 +631,80 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
 // [M04] REGISTRO DE VEHÍCULOS]
 // ======================================================================
 
+    // [R3-M6] VIN ISO 3779 checksum validation
+    function _vinCheckDigit(vin) {
+        var translitMap = {A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9};
+        var weights = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
+        var sum = 0;
+        for (var i = 0; i < 17; i++) {
+            var c = vin[i];
+            var val = /\d/.test(c) ? parseInt(c) : (translitMap[c] || 0);
+            sum += val * weights[i];
+        }
+        var rem = sum % 11;
+        return rem === 10 ? 'X' : String(rem);
+    }
+
     function validateVIN(input) {
         input.value = input.value.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
         const counter = document.getElementById('vinCounter');
         const length = input.value.length;
         counter.textContent = `${length}/17 caracteres`;
-        
+
         if(length === 17) {
             counter.style.color = '#10b981';
             counter.textContent += ' ✓';
+
+            // [R3-M6] Checksum validation
+            var checkResult = _vinCheckDigit(input.value);
+            var checksumHint = document.getElementById('vin-checksum-hint');
+            if (!checksumHint) {
+                checksumHint = document.createElement('div');
+                checksumHint.id = 'vin-checksum-hint';
+                checksumHint.style.cssText = 'font-size:10px;padding:2px 0;margin-top:2px;';
+                counter.parentElement.appendChild(checksumHint);
+            }
+            if (input.value[8] === checkResult) {
+                checksumHint.style.color = '#10b981';
+                checksumHint.textContent = '✅ Check digit válido (ISO 3779)';
+            } else {
+                checksumHint.style.color = '#f59e0b';
+                checksumHint.textContent = '⚠️ Check digit no coincide (esperado: ' + checkResult + ')';
+            }
+            // Real-time duplicate check
+            var vin = input.value;
+            var dupActive = db.vehicles.find(function(v) { return v.vin === vin && v.status !== 'archived'; });
+            var dupArchived = db.vehicles.find(function(v) { return v.vin === vin && v.status === 'archived'; });
+            var warning = document.getElementById('vin-dup-warning');
+            if (!warning) {
+                warning = document.createElement('div');
+                warning.id = 'vin-dup-warning';
+                warning.style.cssText = 'font-size:12px;padding:6px 10px;border-radius:6px;margin-top:4px;';
+                counter.parentElement.appendChild(warning);
+            }
+            if (dupActive) {
+                warning.style.display = 'block';
+                warning.style.background = 'rgba(239,68,68,0.1)';
+                warning.style.color = '#ef4444';
+                warning.style.border = '1px solid rgba(239,68,68,0.3)';
+                warning.textContent = '⚠️ VIN ya existe como vehiculo activo (' + (CONFIG.statusLabels[dupActive.status] || dupActive.status) + ')';
+            } else if (dupArchived) {
+                warning.style.display = 'block';
+                warning.style.background = 'rgba(245,158,11,0.1)';
+                warning.style.color = '#f59e0b';
+                warning.style.border = '1px solid rgba(245,158,11,0.3)';
+                warning.textContent = '⚠️ VIN existe en archivados (se creará nuevo registro)';
+            } else {
+                warning.style.display = 'none';
+            }
         } else if(length > 0) {
             counter.style.color = '#f59e0b';
+            var warning = document.getElementById('vin-dup-warning');
+            if (warning) warning.style.display = 'none';
         } else {
             counter.style.color = '#64748b';
+            var warning = document.getElementById('vin-dup-warning');
+            if (warning) warning.style.display = 'none';
         }
     }
 
@@ -431,8 +862,11 @@ setAltaDatetimeIfEmpty(true);
         };
         
         db.vehicles.push(newVehicle);
+        compactTimelineEntries();
         saveDB();
-        
+        auditLog('cop15', 'vehicle_registered', {type:'vehicle', id:newVehicle.id, label:newVehicle.vin}, 'Config: ' + configCode);
+        if (typeof fbPostVehicleRegistered === 'function') fbPostVehicleRegistered(newVehicle.vin, newVehicle.configCode);
+
         closeModal('modalConfirm');
         showToast('Vehículo registrado exitosamente', 'success');
 
@@ -441,7 +875,7 @@ setAltaDatetimeIfEmpty(true);
         // Reset
         document.getElementById('vin').value = '';
         document.getElementById('vehiclePurpose').value = '';
-        resetFilters();
+        resetCascadeTree();
         validateVIN(document.getElementById('vin'));
         
         refreshAllLists();
@@ -472,6 +906,11 @@ function updateOperationBlocksByPurpose(purpose) {
 }
 
 
+function toggleActionBar(show) {
+  var bar = document.querySelector('.action-bar');
+  if (bar) bar.classList.toggle('hidden', !show);
+}
+
 function loadVehicle() {
   activeVehicleId = document.getElementById('activeVehSelect').value;
   const content = document.getElementById('op-content');
@@ -479,6 +918,7 @@ function loadVehicle() {
 
   if (!activeVehicleId) {
     content.style.display = 'none';
+    toggleActionBar(false);
     return;
   }
 
@@ -487,6 +927,7 @@ function loadVehicle() {
 
   updateOperationBlocksByPurpose(vehicle.purpose);
   content.style.display = 'block';
+  toggleActionBar(true);
 
   document.getElementById('vehicleInfo').innerHTML = `
     📋 <strong>VIN:</strong> ${vehicle.vin} |
@@ -507,6 +948,7 @@ function loadVehicle() {
     document.getElementById('simple_operator').value = s.operator || '';
     document.getElementById('simple_datetime').value = s.datetime || '';
     document.getElementById('simple_notes').value = s.notes || '';
+    autoFillOperators();
     return;
   }
 
@@ -580,6 +1022,18 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
   document.getElementById('dB').value  = show.dB  ? round(show.dB, 6) : '';
   document.getElementById('tC').value  = show.tC  ? round(show.tC, 8) : '';
   document.getElementById('dC').value  = show.dC  ? round(show.dC, 8) : '';
+
+  // Auto-fill empty operator fields with last used
+  autoFillOperators();
+
+  // Show readiness checklist
+  updateReadinessChecklist();
+
+  // Auto-suggest dates based on cascade logic
+  autoSuggestDates();
+
+  // Update vehicle inline checklist
+  if (typeof vclUpdate === 'function') vclUpdate();
 }
 
 
@@ -630,6 +1084,8 @@ function handleStatusChange(selectEl) {
   // ✅ aceptar cambio
   selectEl.dataset.prev = next;
   updateTestVerificationVisibility();
+  if (typeof smartFormApplyByStatus === 'function') smartFormApplyByStatus(next);
+  if (typeof smartFormUpdateBadges === 'function') smartFormUpdateBadges();
 }
 
 
@@ -947,11 +1403,16 @@ function showMissingPopup(missing) {
 
 
 
-function saveProgress() {
+function saveProgress(opts) {
+  var silent = opts && opts.silent;
   if (!activeVehicleId) {
-    showToast('No hay vehículo seleccionado', 'error');
+    if (!silent) showToast('No hay vehículo seleccionado', 'error');
     return;
   }
+
+  // Save button feedback (skip in silent/auto-save mode)
+  var saveBtn = document.getElementById('btn-save');
+  if (saveBtn && !silent) { setBtnLoading(saveBtn, true, 'Guardando...'); }
 
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
   if (!vehicle) return;
@@ -990,7 +1451,11 @@ function saveProgress() {
     });
 
     saveDB();
-    showToast('Progreso guardado (formato simple)', 'success');
+    if (!silent) auditLog('cop15', 'operation_saved', {type:'vehicle', id:vehicle.id, label:vehicle.vin}, 'Simple — status: ' + (CONFIG.statusLabels[vehicle.status] || vehicle.status));
+    if ((newStatus === 'testing' || newStatus === 'in-progress') && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
+    clearUnsaved();
+    if (saveBtn && !silent) { setBtnLoading(saveBtn, false); }
+    if (!silent) showToast('Progreso guardado (formato simple)', 'success');
     refreshAllLists();
     updateProgressBar();
     return;
@@ -1105,11 +1570,205 @@ const precondResponsible = document.getElementById('precond_responsible')?.value
   });
 
   saveDB();
-  showToast('Progreso guardado exitosamente', 'success');
+  if (newStatus === 'testing' && typeof fbPostTestStarted === 'function') fbPostTestStarted(vehicle.vin);
+  clearUnsaved();
+  if (saveBtn && !silent) { setBtnLoading(saveBtn, false); }
+  if (!silent) showToast('Progreso guardado exitosamente', 'success');
   refreshAllLists();
   updateProgressBar();
+
+  // Update readiness checklist after save
+  updateReadinessChecklist();
+
+  // Update vehicle inline checklist
+  if (typeof vclUpdate === 'function') { vclUpdate(); if (_vclOpen) vclRender(); }
+
+  // Mejora A: Auto-advance suggestion
+  if (isEm) checkAutoAdvance(vehicle);
 }
 
+
+// ======================================================================
+// [M09a] READINESS CHECKLIST
+// ======================================================================
+
+function updateReadinessChecklist() {
+    var el = document.getElementById('readiness-checklist');
+    if (!el || !activeVehicleId) { if (el) el.style.display = 'none'; return; }
+
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || !isEmissionsPurpose(vehicle.purpose)) { el.style.display = 'none'; return; }
+
+    var td = vehicle.testData || {};
+    var p = td.preconditioning || {};
+    var tv = td.testVerification || {};
+
+    // Section checks
+    var sections = [
+        {
+            name: 'Recepcion',
+            fields: [td.operator, td.odometer, td.datetime],
+            total: 3
+        },
+        {
+            name: 'Preacond',
+            fields: [p.datetime, p.responsible, p.tirePressurePsi, p.fuelTypeIn, p.cycle, p.ok],
+            total: 6
+        },
+        {
+            name: 'Test',
+            fields: [td.testResponsible, td.testDatetime, tv.tunnel, tv.dyno, tv.fanMode, tv.inertiaOk, tv.chains],
+            total: 7
+        }
+    ];
+
+    var html = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">';
+    html += '<span style="font-weight:700;color:#475569;font-size:11px;">Progreso:</span>';
+
+    sections.forEach(function(s) {
+        var filled = s.fields.filter(function(f) { return f !== undefined && f !== null && f !== ''; }).length;
+        var pct = Math.round((filled / s.total) * 100);
+        var icon = pct === 100 ? '✅' : pct >= 50 ? '⚠️' : '❌';
+        var color = pct === 100 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+        html += '<span style="font-size:11px;padding:3px 8px;border-radius:6px;background:' + color + '10;color:' + color + ';border:1px solid ' + color + '30;">' + icon + ' ' + s.name + ' ' + filled + '/' + s.total + '</span>';
+    });
+
+    html += '</div>';
+    el.style.display = 'block';
+    el.innerHTML = html;
+}
+
+// ======================================================================
+// [M09b] AUTO-AVANCE DE STATUS
+// ======================================================================
+
+function checkAutoAdvance(vehicle) {
+  if (!vehicle || !vehicle.testData) return;
+  var status = vehicle.status;
+  var td = vehicle.testData;
+  var p = td.preconditioning || {};
+  var statusEl = document.getElementById('op_status');
+  if (!statusEl) return;
+
+  var suggestion = null;
+  var nextStatus = null;
+  var missingCount = 0;
+
+  if (status === 'registered' || status === 'in-progress') {
+    // Check if preconditioning section is complete
+    var precondFields = [p.datetime, p.responsible, p.cycle, p.ok];
+    var filled = precondFields.filter(function(f) { return f && f !== ''; }).length;
+    missingCount = precondFields.length - filled;
+
+    if (filled === precondFields.length && p.ok === 'Si') {
+      // Check soak timer
+      var soakData = null;
+      try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
+      var soakDone = !soakData || !soakData.endTime || soakData.endTime <= Date.now();
+
+      if (soakDone) {
+        suggestion = 'Preacondicionamiento completo. ¿Avanzar a "En Prueba"?';
+        nextStatus = 'testing';
+      } else {
+        var remaining = soakData.endTime - Date.now();
+        var hrs = Math.floor(remaining / 3600000);
+        var mins = Math.floor((remaining % 3600000) / 60000);
+        suggestion = 'Precond OK. Soak restante: ' + hrs + 'h ' + mins + 'm';
+        nextStatus = null; // Don't suggest advance yet
+      }
+    } else if (status === 'registered' && filled >= 2) {
+      suggestion = 'Precond en progreso (' + filled + '/' + precondFields.length + '). ¿Avanzar a "En Progreso"?';
+      nextStatus = 'in-progress';
+    }
+  } else if (status === 'testing') {
+    // Check if test verification is complete
+    var tv = td.testVerification || {};
+    var testFields = [tv.tunnel, tv.dyno, tv.fanMode, tv.inertiaOk, tv.chains, tv.slings, tv.hood];
+    var filledTest = testFields.filter(function(f) { return f && f !== ''; }).length;
+    missingCount = testFields.length - filledTest;
+
+    if (filledTest === testFields.length && td.testResponsible && td.testDatetime) {
+      suggestion = 'Verificacion de prueba completa. ¿Avanzar a "Listo para Liberacion"?';
+      nextStatus = 'ready-release';
+    }
+  }
+
+  if (!suggestion) return;
+
+  // Remove any existing auto-advance toast
+  var existing = document.querySelector('.auto-advance-toast');
+  if (existing) existing.remove();
+
+  var toast = document.createElement('div');
+  toast.className = 'auto-advance-toast';
+  toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;background:#1e293b;color:#f8fafc;padding:12px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.3);display:flex;align-items:center;gap:10px;font-size:12px;max-width:90vw;animation:slideUp 0.3s ease;border:1px solid #334155;';
+
+  var icon = status === 'testing' ? '🏁' : '⚡';
+  var html = '<span>' + icon + ' ' + suggestion + '</span>';
+  if (nextStatus) {
+    html += '<button onclick="applyAutoAdvance(\'' + nextStatus + '\')" style="background:#10b981;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Si</button>';
+    html += '<button onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;">No</button>';
+  } else {
+    html += '<button onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;">OK</button>';
+  }
+  toast.innerHTML = html;
+  document.body.appendChild(toast);
+
+  // Auto-dismiss after 8 seconds
+  setTimeout(function() { if (toast.parentElement) toast.remove(); }, 8000);
+}
+
+function applyAutoAdvance(nextStatus) {
+  var statusEl = document.getElementById('op_status');
+  if (!statusEl) return;
+
+  // Remove toast
+  var toast = document.querySelector('.auto-advance-toast');
+  if (toast) toast.remove();
+
+  // If advancing to ready-release, validate first
+  if (nextStatus === 'ready-release') {
+    var missing = validateReadyForRelease();
+    if (missing.length > 0) {
+      showToast('Faltan campos para liberacion', 'warning');
+      showMissingPopup(missing);
+      return;
+    }
+  }
+
+  statusEl.value = nextStatus;
+  statusEl.dataset.prev = nextStatus;
+  updateTestVerificationVisibility();
+
+  // Update vehicle status
+  var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+  if (vehicle) {
+    vehicle.status = nextStatus;
+    vehicle.timeline = vehicle.timeline || [];
+    vehicle.timeline.push({
+      timestamp: new Date().toISOString(),
+      user: vehicle.testData?.operator || vehicle.testData?.testResponsible || 'Sistema',
+      action: 'Auto-avance a: ' + (CONFIG.statusLabels[nextStatus] || nextStatus),
+      data: { status: nextStatus, autoAdvance: true }
+    });
+    saveDB();
+    refreshAllLists();
+
+    // Auto-fill test datetime when advancing to testing
+    if (nextStatus === 'testing') {
+      var testDt = document.getElementById('test_datetime');
+      if (testDt && !testDt.value) {
+        var tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        if (tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
+        if (tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
+        testDt.value = tomorrow.toISOString().slice(0, 16).replace('T', 'T') || tomorrow.toISOString().slice(0, 10) + 'T08:00';
+      }
+    }
+  }
+
+  showToast('Estado avanzado a: ' + (CONFIG.statusLabels[nextStatus] || nextStatus), 'success');
+}
 
 // ======================================================================
 // [M10] LIBERACIÓN]
@@ -1157,6 +1816,7 @@ if (vehicle.status !== 'ready-release') {
         <strong>Notas:</strong> ${s.notes ? s.notes : '<em>Sin notas</em>'}
       </div>
     `;
+    _renderUsedCylinders(vehicle);
     renderTimeline(vehicle);
     return;
   }
@@ -1173,30 +1833,150 @@ if (vehicle.status !== 'ready-release') {
     </div>
   `;
 
+  // Show gas cylinders used (from traceability log)
+  _renderUsedCylinders(vehicle);
+
   renderTimeline(vehicle);
 }
 
+function _renderUsedCylinders(vehicle) {
+    var container = document.getElementById('testSummary');
+    if (!container || !vehicle.vin) return;
+    if (typeof invTraceByVin !== 'function') return;
+
+    var traces = invTraceByVin(vehicle.vin);
+    if (traces.length === 0) return;
+
+    // Collect all unique cylinders across all usage entries for this VIN
+    var seen = {};
+    var cylinders = [];
+    traces.forEach(function(entry) {
+        if (!entry.cylinders) return;
+        entry.cylinders.forEach(function(c) {
+            if (!seen[c.id]) {
+                seen[c.id] = true;
+                cylinders.push(c);
+            }
+        });
+    });
+
+    if (cylinders.length === 0) return;
+
+    var html = '<div style="margin-top:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;">' +
+        '<div style="font-weight:700;font-size:12px;margin-bottom:6px;">🔗 Gases utilizados (' + cylinders.length + ' cilindros)</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+
+    cylinders.forEach(function(c) {
+        html += '<div style="background:#fff;border:1px solid #d1fae5;border-radius:6px;padding:4px 8px;font-size:10px;">' +
+            '<strong>' + c.controlNo + '</strong> ' + c.formula +
+            (c.lotNumber ? ' · Lote: <span style="color:#0f766e;font-weight:600;">' + c.lotNumber + '</span>' : '') +
+            (c.psi !== null && c.psi !== undefined ? ' · ' + c.psi + ' PSI' : '') +
+            '</div>';
+    });
+
+    html += '</div></div>';
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+   var _tlFilter = 'all';
+
+   function _tlClassifyAction(action) {
+       var a = (action || '').toLowerCase();
+       if (a.includes('status') || a.includes('estado') || a.includes('moved to') || a.includes('cambió')) return 'status';
+       if (a.includes('error') || a.includes('rollback') || a.includes('revert')) return 'error';
+       if (a.includes('release') || a.includes('liberado') || a.includes('archivado') || a.includes('auto-')) return 'system';
+       return 'data';
+   }
+
+   function _tlClassifyPhase(action) {
+       var a = (action || '').toLowerCase();
+       if (a.includes('register') || a.includes('alta') || a.includes('recep')) return 'Recepción';
+       if (a.includes('precond') || a.includes('soak') || a.includes('preacond')) return 'Preacondicionamiento';
+       if (a.includes('test') || a.includes('prueba') || a.includes('emisi')) return 'Prueba';
+       if (a.includes('release') || a.includes('libera') || a.includes('archiv')) return 'Liberación';
+       return 'General';
+   }
+
+   var _tlTypeConfig = {
+       status: { color: '#3b82f6', icon: '🔵', label: 'Status' },
+       data:   { color: '#f59e0b', icon: '🟡', label: 'Datos' },
+       system: { color: '#10b981', icon: '🟢', label: 'Sistema' },
+       error:  { color: '#ef4444', icon: '🔴', label: 'Error' }
+   };
 
    function renderTimeline(vehicle) {
-  const container = document.getElementById('vehicleTimeline');
-  if (!container) return;
+       var container = document.getElementById('vehicleTimeline');
+       if (!container) return;
 
-  if (!vehicle.timeline || vehicle.timeline.length === 0) {
-    container.innerHTML = '<em>No hay actividades registradas</em>';
-    return;
-  }
+       if (!vehicle.timeline || vehicle.timeline.length === 0) {
+           container.innerHTML = '<em>No hay actividades registradas</em>';
+           return;
+       }
 
-  container.innerHTML = vehicle.timeline.map(item => {
-    const date = new Date(item.timestamp);
-    return `
-      <div class="timeline-item">
-        <div class="timeline-time">${date.toLocaleString('es-MX')}</div>
-        <div class="timeline-action">${item.action}</div>
-        <div style="font-size: 0.85rem; color: #64748b;">Por: ${item.user}</div>
-      </div>
-    `;
-  }).join('');
-}
+       // Filter toggle + Notes button
+       var filterHtml = '<div class="tl-filters" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
+           '<button class="tl-filter-btn' + (_tlFilter==='all'?' active':'') + '" onclick="_tlFilter=\'all\';renderTimeline(db.vehicles.find(function(v){return v.id==activeVehicleId}))">Todos</button>' +
+           '<button class="tl-filter-btn' + (_tlFilter==='status'?' active':'') + '" onclick="_tlFilter=\'status\';renderTimeline(db.vehicles.find(function(v){return v.id==activeVehicleId}))">Solo Status</button>' +
+           (typeof noteBuildButton === 'function' ? '<span style="margin-left:auto;">' + noteBuildButton('vehicle', String(vehicle.id)) + '</span>' : '') +
+           '</div>';
+
+       // Group by phase
+       var phases = {};
+       var phaseOrder = ['Recepción', 'Preacondicionamiento', 'Prueba', 'Liberación', 'General'];
+       var phaseFirstTs = {};
+       var phaseLastTs = {};
+
+       vehicle.timeline.forEach(function(item) {
+           var type = _tlClassifyAction(item.action);
+           if (_tlFilter !== 'all' && type !== _tlFilter) return;
+
+           var phase = _tlClassifyPhase(item.action);
+           if (!phases[phase]) phases[phase] = [];
+           phases[phase].push(item);
+
+           var ts = new Date(item.timestamp).getTime();
+           if (!phaseFirstTs[phase] || ts < phaseFirstTs[phase]) phaseFirstTs[phase] = ts;
+           if (!phaseLastTs[phase] || ts > phaseLastTs[phase]) phaseLastTs[phase] = ts;
+       });
+
+       var html = filterHtml + '<div class="tl-track">';
+
+       phaseOrder.forEach(function(phase) {
+           if (!phases[phase] || phases[phase].length === 0) return;
+           var durMs = (phaseLastTs[phase] || 0) - (phaseFirstTs[phase] || 0);
+           var durStr = '';
+           if (durMs > 0) {
+               var h = Math.floor(durMs / 3600000);
+               var m = Math.floor((durMs % 3600000) / 60000);
+               durStr = h > 24 ? Math.round(h/24) + 'd ' + (h%24) + 'h' : h + 'h ' + m + 'm';
+           }
+
+           html += '<div class="tl-phase">' +
+               '<div class="tl-phase-header"><span class="tl-phase-name">' + phase + '</span>' +
+               (durStr ? '<span class="tl-phase-dur">' + durStr + '</span>' : '') + '</div>';
+
+           phases[phase].forEach(function(item) {
+               var d = new Date(item.timestamp);
+               var type = _tlClassifyAction(item.action);
+               var cfg = _tlTypeConfig[type];
+               var timeStr = d.toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'});
+               var dateStr = d.toLocaleDateString('es-MX', {day:'numeric',month:'short'});
+
+               html += '<div class="tl-item">' +
+                   '<div class="tl-dot" style="background:' + cfg.color + ';"></div>' +
+                   '<div class="tl-content">' +
+                   '<div class="tl-time">' + dateStr + ' ' + timeStr + '</div>' +
+                   '<div class="tl-action">' + escapeHtml(item.action || '') + '</div>' +
+                   (item.user ? '<div class="tl-user">' + escapeHtml(item.user) + '</div>' : '') +
+                   '</div></div>';
+           });
+
+           html += '</div>';
+       });
+
+       html += '</div>';
+       container.innerHTML = html;
+   }
 
 
 
@@ -1226,8 +2006,27 @@ if (vehicle.status !== 'ready-release') {
                 exportSingleArchivedVehicle(vehicle.id);
                 tpAutoFeedFromRelease(vehicle);
                 invLogTestUsage(vehicle);
-                tpAutoMarkWeeklyCompletion(vehicle.configCode);
+
+                // Try exact match first, then offer flexible substitution
+                var exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                if (!exactMatch && typeof tpFindFlexibleMatches === 'function') {
+                    var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
+                    if (flexMatches.length > 0) {
+                        // Store pending substitution data and show modal AFTER release completes
+                        window._pendingSubstitution = {
+                            configCode: vehicle.configCode,
+                            vin: vehicle.vin,
+                            matches: flexMatches
+                        };
+                    }
+                }
+
+                auditLog('cop15', 'vehicle_released', {type:'vehicle', id:vehicle.id, label:vehicle.vin}, 'Liberado y archivado');
+                if (typeof fbPostTestCompleted === 'function') { var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : (vehicle.testData && vehicle.testData.simple && vehicle.testData.simple.resultado ? vehicle.testData.simple.resultado : ''); fbPostTestCompleted(vehicle.vin, _res); }
+                if (typeof fbPostVehicleReleased === 'function') fbPostVehicleReleased(vehicle.vin);
                 showToast('Vehículo liberado. JSON descargado.', 'success');
+                // [R5-M4] Confetti burst on vehicle release
+                if (typeof animateConfetti === 'function') animateConfetti();
             } catch(e) {
                 // Rollback on cross-module error
                 vehicle.status = prevStatus;
@@ -1245,6 +2044,7 @@ if (vehicle.status !== 'ready-release') {
                 action: 'Retest solicitado - Vehículo regresado a estado inicial',
                 data: { status: 'registered', retest: true }
             });
+            auditLog('cop15', 'vehicle_retest', {type:'vehicle', id:vehicle.id, label:vehicle.vin}, 'Retest solicitado');
             showToast('Vehículo marcado para nueva prueba', 'info');
         }
 
@@ -1252,35 +2052,209 @@ if (vehicle.status !== 'ready-release') {
         refreshAllLists();
         updateProgressBar();
 
+        // [R3-M7] Confetti celebration on successful release
+        if (!isRetest && typeof showConfetti === 'function') showConfetti();
+
         document.getElementById('releaseVehSelect').value = '';
         document.getElementById('lib-content').style.display = 'none';
+
+        // Show flexible substitution modal if pending
+        if (window._pendingSubstitution) {
+            showSubstitutionModal(window._pendingSubstitution);
+            window._pendingSubstitution = null;
+        }
     }
 
+
+// ======================================================================
+
+// [M10b] FLEXIBLE SUBSTITUTION MODAL
+// ======================================================================
+
+function showSubstitutionModal(data) {
+    var modal = document.getElementById('substitutionModal');
+    if (!modal) return;
+
+    var html = '<div style="font-size:0.85rem;color:#64748b;margin-bottom:16px;">' +
+        'El vehículo <strong style="color:#1e293b;">' + data.vin + '</strong> con configuración ' +
+        '<span style="font-family:monospace;font-size:0.75rem;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + (data.configCode.length > 50 ? data.configCode.substring(0, 48) + '..' : data.configCode) + '</span>' +
+        ' no coincide exactamente con ninguna configuración pendiente en el plan semanal.' +
+        '</div>' +
+        '<div style="font-size:0.85rem;font-weight:700;color:#1e293b;margin-bottom:10px;">Configuraciones similares encontradas:</div>';
+
+    data.matches.slice(0, 5).forEach(function(m, idx) {
+        var borderClr = m.diffs.length === 1 ? '#10b981' : m.diffs.length === 2 ? '#f59e0b' : '#ef4444';
+        html += '<div style="border:1px solid ' + borderClr + '30;border-left:3px solid ' + borderClr + ';border-radius:8px;padding:12px;margin-bottom:10px;background:' + borderClr + '05;">';
+        html += '<div style="font-size:0.8rem;font-weight:600;color:#1e293b;margin-bottom:6px;">' + (m.item.desc.length > 60 ? m.item.desc.substring(0, 58) + '..' : m.item.desc) + '</div>';
+
+        // Show differences
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">';
+        m.diffs.forEach(function(d) {
+            html += '<span style="font-size:0.7rem;padding:3px 8px;border-radius:4px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">' +
+                d.label + ': <s>' + d.planned + '</s> → <strong>' + d.actual + '</strong></span>';
+        });
+        html += '</div>';
+
+        html += '<div style="display:flex;gap:8px;align-items:center;">';
+        html += '<span style="font-size:0.7rem;color:#64748b;">' + m.diffs.length + ' diferencia' + (m.diffs.length > 1 ? 's' : '') + '</span>';
+        html += '<button class="btn-primary" onclick="applySubstitution(' + m.planIdx + ',' + m.itemIdx + ',\'' + data.configCode.replace(/'/g, "\\'") + '\',\'' + data.vin + '\',' + idx + ')" ' +
+            'style="margin-left:auto;padding:6px 16px;font-size:0.8rem;border-radius:6px;">Sustituir</button>';
+        html += '</div></div>';
+    });
+
+    html += '<div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;">' +
+        '<button class="btn-secondary" onclick="closeSubstitutionModal()" style="padding:8px 20px;font-size:0.85rem;">No sustituir, solo liberar</button>' +
+        '</div>';
+
+    document.getElementById('substitutionContent').innerHTML = html;
+    modal.style.display = 'flex';
+
+    // Store diffs for applying
+    window._substitutionData = data;
+}
+
+function applySubstitution(planIdx, itemIdx, configCode, vin, matchIdx) {
+    var data = window._substitutionData;
+    if (!data || !data.matches[matchIdx]) return;
+    var m = data.matches[matchIdx];
+
+    if (typeof tpSubstituteItem === 'function') {
+        tpSubstituteItem(planIdx, itemIdx, configCode, vin, m.diffs);
+        showToast('Sustitución aplicada: el vehículo ' + vin + ' toma el lugar de la configuración planeada.', 'success');
+    }
+
+    closeSubstitutionModal();
+}
+
+function closeSubstitutionModal() {
+    var modal = document.getElementById('substitutionModal');
+    if (modal) modal.style.display = 'none';
+    window._substitutionData = null;
+}
 
 // ======================================================================
 
 // [M11] HISTORIAL Y DASHBOARD]
 // ======================================================================
 
+    function renderHistoryFilters() {
+        var bar = document.getElementById('historyFilterBar');
+        if (!bar) return;
+
+        var statusF = window._histFilterStatus || 'all';
+        var vinQ = window._histFilterVin || '';
+        var yearF = window._histFilterYear || '';
+        var monthF = window._histFilterMonth || '';
+
+        // Build year options from data
+        var yearsSet = {};
+        (db.vehicles || []).forEach(function(v) {
+            if (v.registeredAt) yearsSet[new Date(v.registeredAt).getFullYear()] = true;
+        });
+        var years = Object.keys(yearsSet).sort(function(a, b) { return b - a; });
+        var yearOpts = '<option value="">Todos</option>' + years.map(function(y) {
+            return '<option value="' + y + '"' + (yearF === y ? ' selected' : '') + '>' + y + '</option>';
+        }).join('');
+
+        var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        var monthOpts = '<option value="">Todos</option>' + monthNames.map(function(m, i) {
+            var val = String(i + 1);
+            return '<option value="' + val + '"' + (monthF === val ? ' selected' : '') + '>' + m + '</option>';
+        }).join('');
+
+        var statusOpts = [
+            {v:'all', l:'Todos'},
+            {v:'active', l:'Activos'},
+            {v:'archived', l:'Archivados'},
+            {v:'registered', l: CONFIG.statusLabels['registered'] || 'Registrado'},
+            {v:'in-progress', l: CONFIG.statusLabels['in-progress'] || 'En Progreso'},
+            {v:'testing', l: CONFIG.statusLabels['testing'] || 'En Prueba'},
+            {v:'ready-release', l: CONFIG.statusLabels['ready-release'] || 'Listo para Liberar'}
+        ];
+        var statusHtml = statusOpts.map(function(o) {
+            return '<option value="' + o.v + '"' + (statusF === o.v ? ' selected' : '') + '>' + o.l + '</option>';
+        }).join('');
+
+        bar.innerHTML = '<div class="hist-filter-bar">' +
+            '<div><label>Estado</label><select onchange="window._histFilterStatus=this.value;renderHistory();">' + statusHtml + '</select></div>' +
+            '<div><label>VIN</label><input type="text" value="' + vinQ + '" oninput="window._histFilterVin=this.value;renderHistory();" placeholder="Buscar VIN..."></div>' +
+            '<div><label>Año</label><select onchange="window._histFilterYear=this.value;if(!this.value){window._histFilterMonth=\'\';} renderHistory();">' + yearOpts + '</select></div>' +
+            '<div><label>Mes</label><select onchange="window._histFilterMonth=this.value;renderHistory();"' + (!yearF ? ' disabled' : '') + '>' + monthOpts + '</select></div>' +
+            '<div class="hist-filter-actions"><button class="btn-secondary" onclick="histFilterReset()" style="min-height:40px;font-size:0.8rem;padding:8px 14px;">Limpiar</button></div>' +
+        '</div>';
+    }
+
+    function histFilterReset() {
+        window._histFilterStatus = 'all';
+        window._histFilterVin = '';
+        window._histFilterYear = '';
+        window._histFilterMonth = '';
+        window._histPageSize = 25;
+        renderHistory();
+    }
+
+    function histShowMore() {
+        window._histPageSize = (window._histPageSize || 25) + 25;
+        renderHistory();
+    }
+
     function renderHistory() {
+        renderHistoryFilters();
         const container = document.getElementById('historyList');
-        
+        const total = db.vehicles.length;
+
         let vehicles = db.vehicles;
-        if(currentFilter === 'archived') {
+
+        // Status filter
+        var statusF = window._histFilterStatus || 'all';
+        if (statusF === 'archived') {
             vehicles = vehicles.filter(v => v.status === 'archived');
-        } else if(currentFilter === 'active') {
+        } else if (statusF === 'active') {
             vehicles = vehicles.filter(v => v.status !== 'archived');
+        } else if (statusF !== 'all') {
+            vehicles = vehicles.filter(v => v.status === statusF);
         }
-        
+
+        // VIN search
+        var vinQ = (window._histFilterVin || '').toUpperCase();
+        if (vinQ) {
+            vehicles = vehicles.filter(v => (v.vin || '').toUpperCase().includes(vinQ));
+        }
+
+        // Year filter
+        var yearF = window._histFilterYear || '';
+        if (yearF) {
+            vehicles = vehicles.filter(v => new Date(v.registeredAt).getFullYear() === parseInt(yearF));
+        }
+
+        // Month filter (only if year is set)
+        var monthF = window._histFilterMonth || '';
+        if (monthF && yearF) {
+            vehicles = vehicles.filter(v => (new Date(v.registeredAt).getMonth() + 1) === parseInt(monthF));
+        }
+
         if(vehicles.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 20px;">No hay registros</p>';
+            container.innerHTML = '<div class="hist-filter-count">' + 0 + ' de ' + total + ' registros</div>' +
+                '<p style="text-align: center; color: #94a3b8; padding: 20px;">No hay registros con estos filtros</p>';
             return;
         }
-        
+
+        var filtered = vehicles.length;
+        var pageSize = window._histPageSize || 25;
+        var showing = Math.min(pageSize, filtered);
+        vehicles = vehicles.slice(0, pageSize);
+        var hasMore = filtered > pageSize;
+
         container.innerHTML = `
+            <div class="hist-filter-count" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span>Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</span>
+                <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;">PDF Seleccionados</button>
+                <button class="btn-secondary" onclick="window.print()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Imprimir tabla de historial">🖨️ Imprimir</button>
+            </div>
             <table class="history-table">
                 <thead>
                     <tr>
+                        <th style="width:30px;"><input type="checkbox" onchange="histToggleAll(this.checked)" title="Seleccionar todos"></th>
                         <th>VIN</th>
                         <th>Código Config</th>
                         <th>Propósito</th>
@@ -1290,36 +2264,198 @@ if (vehicle.status !== 'ready-release') {
                     </tr>
                 </thead>
                 <tbody>
-                    ${vehicles.map(v => `
+                    ${vehicles.map(v => {
+                        const cfg = v.config || {};
+                        const modelo = escapeHtml(cfg['Modelo'] || '');
+                        const motor = escapeHtml(cfg['ENGINE CAPACITY'] || '');
+                        const reg = escapeHtml(cfg['EMISSION REGULATION'] || '');
+                        const safeVin = escapeHtml(v.vin);
+                        const safePurpose = escapeHtml(v.purpose);
+                        const safeConfigCode = escapeHtml(truncateMiddle(v.configCode, 30));
+                        return `
                         <tr>
-                            <td><strong>${v.vin}</strong></td>
-                            <td style="font-family: monospace; font-size: 0.85rem;">${truncateMiddle(v.configCode, 30)}</td>
-                            <td>${v.purpose}</td>
-                            <td><span class="status-badge status-${v.status}">${CONFIG.statusLabels[v.status]}</span></td>
+                            <td><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
+                            <td><strong>${safeVin}</strong></td>
+                            <td>
+                                ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
+                                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
+                                    ${motor ? `<span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;">${motor}</span>` : ''}
+                                    ${reg ? `<span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;">${reg}</span>` : ''}
+                                </div>
+                                <div style="font-family:monospace;font-size:0.7rem;color:#94a3b8;margin-top:2px;">${safeConfigCode}</div>
+                            </td>
+                            <td>${safePurpose}</td>
+                            <td><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
                             <td>${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
                             <td>
-                                <button class="btn-secondary" onclick="generateCOP15PDF(${v.id})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
+                                <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
                                 </button>
-                                ${v.status === 'archived' ? `<button class="btn-secondary" onclick="purgeSingleVehicle(${v.id})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Purgar del sistema">
+                                ${v.status === 'archived' ? `<button class="btn-secondary" onclick="purgeSingleVehicle(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Purgar del sistema">
                                     Purgar
                                 </button>` : ''}
                             </td>
                         </tr>
-                    `).join('')}
+                    `}).join('')}
                 </tbody>
             </table>
+            ${hasMore ? `<div style="text-align:center;margin-top:12px;"><button class="btn-secondary" onclick="histShowMore()" style="padding:10px 24px;font-size:0.85rem;">Mostrar 25 más (${filtered - showing} restantes)</button></div>` : ''}
         `;
     }
 
-
     function filterHistory(filter) {
+        window._histFilterStatus = filter;
         currentFilter = filter;
         renderHistory();
     }
 
-   
+// ── [R2-M4] Batch PDF Export helpers ──
+function histToggleAll(checked) {
+    document.querySelectorAll('.hist-chk').forEach(function(cb) { cb.checked = checked; });
+    histUpdateBatchBtn();
+}
+
+function histUpdateBatchBtn() {
+    var checked = document.querySelectorAll('.hist-chk:checked');
+    var btn = document.getElementById('batchPdfBtn');
+    if (!btn) return;
+    if (checked.length > 0) {
+        btn.style.display = '';
+        btn.textContent = 'PDF ' + checked.length + ' seleccionados';
+    } else {
+        btn.style.display = 'none';
+    }
+}
+
+function batchPDFExport() {
+    var ids = [];
+    document.querySelectorAll('.hist-chk:checked').forEach(function(cb) {
+        ids.push(parseInt(cb.dataset.vid));
+    });
+    if (ids.length === 0) { showToast('Selecciona al menos un vehículo', 'warning'); return; }
+
+    showConfirm(
+        '<p>Generar PDF con <strong>' + ids.length + ' vehículos</strong> en un solo documento?</p>' +
+        '<p style="font-size:11px;color:#64748b;">Cada vehículo será una página del PDF.</p>',
+        function() { _doBatchPDF(ids); },
+        { title: 'Batch PDF Export', type: 'info', confirmText: 'Generar PDF' }
+    );
+}
+
+function _doBatchPDF(ids) {
+    if (typeof jspdf === 'undefined' && typeof window.jspdf === 'undefined') {
+        showToast('jsPDF no disponible', 'error');
+        return;
+    }
+    var jsPDF = (window.jspdf && window.jspdf.jsPDF) || jspdf.jsPDF;
+    var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+    var total = ids.length;
+    var overlay = document.createElement('div');
+    overlay.id = 'batch-pdf-overlay';
+    overlay.innerHTML = '<div class="batch-pdf-progress"><div class="batch-pdf-title">Generando PDF...</div>' +
+        '<div class="batch-pdf-bar"><div class="batch-pdf-fill" id="batchPdfFill"></div></div>' +
+        '<div id="batchPdfStatus" style="font-size:12px;color:#94a3b8;">0/' + total + '</div></div>';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    document.body.appendChild(overlay);
+
+    var idx = 0;
+    function next() {
+        if (idx >= total) {
+            overlay.remove();
+            var dateStr = new Date().toISOString().slice(0,10);
+            doc.save('COP15-F05_Batch_' + dateStr + '.pdf');
+            showToast(total + ' vehículos exportados a PDF', 'success');
+            return;
+        }
+        if (idx > 0) doc.addPage();
+        var vehicle = db.vehicles.find(function(v) { return v.id === ids[idx]; });
+        if (vehicle) {
+            _renderVehiclePDFPage(doc, vehicle);
+        }
+        idx++;
+        var fill = document.getElementById('batchPdfFill');
+        var st = document.getElementById('batchPdfStatus');
+        if (fill) fill.style.width = Math.round((idx/total)*100) + '%';
+        if (st) st.textContent = idx + '/' + total;
+        setTimeout(next, 50);
+    }
+    next();
+}
+
+function _renderVehiclePDFPage(doc, vehicle) {
+    var ML = 14, y = 14;
+    var W = doc.internal.pageSize.getWidth();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('KIA EmLab — COP15-F05', ML, y); y += 6;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('VIN: ' + (vehicle.vin || 'N/A') + '  |  Config: ' + (vehicle.configCode || 'N/A'), ML, y); y += 5;
+    doc.text('Propósito: ' + (vehicle.purpose || '') + '  |  Estado: ' + (vehicle.status || '') + '  |  Fecha: ' + new Date(vehicle.registeredAt).toLocaleDateString('es-MX'), ML, y); y += 7;
+
+    // Preconditioning data
+    var td = vehicle.testData || {};
+    var p = td.preconditioning || {};
+    var tv = td.testVerification || {};
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Preacondicionamiento', ML, y); y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    var preRows = [
+        ['Responsable: ' + (p.responsible || '-'), 'Fecha: ' + (p.datetime || '-'), 'Ciclo: ' + (p.cycle || '-')],
+        ['Presión llantas: ' + (p.tirePressurePsi || '-') + ' psi', 'Comb. entrada: ' + (p.fuelTypeIn || '-'), 'Nivel: ' + (p.fuelLevelFractionIn || '-')],
+        ['Soak (h): ' + (p.soakTimeH != null ? p.soakTimeH : '-'), 'Precond OK: ' + (p.ok || '-'), 'Odo pretest: ' + (p.odoPretestKm || '-') + ' km']
+    ];
+    preRows.forEach(function(row) {
+        var colW = (W - ML*2) / row.length;
+        row.forEach(function(cell, ci) { doc.text(cell, ML + ci*colW, y); });
+        y += 4;
+    });
+    y += 3;
+
+    // Test verification
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Verificación de Prueba', ML, y); y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    var tvRows = [
+        ['Responsable: ' + (td.testResponsible || '-'), 'Fecha: ' + (td.testDatetime || '-'), 'Túnel: ' + (tv.tunnel || '-')],
+        ['Dinamómetro: ' + (tv.dyno || '-'), 'Ventilador: ' + (tv.fanMode || '-') + ' ' + (tv.fanSpeedKmh || '-') + 'km/h', 'Inercia: ' + (tv.inertiaOk || '-')],
+        ['Cadenas: ' + (tv.chains || '-'), 'Eslingas: ' + (tv.slings || '-'), 'Cofre: ' + (tv.hood || '-')]
+    ];
+    tvRows.forEach(function(row) {
+        var colW = (W - ML*2) / row.length;
+        row.forEach(function(cell, ci) { doc.text(cell, ML + ci*colW, y); });
+        y += 4;
+    });
+    y += 3;
+
+    // Coefficients
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Coeficientes', ML, y); y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text('ETW: ' + (td.etw || '-') + '  A: ' + (td.targetA || '-') + '/' + (td.dynoA || '-') +
+             '  B: ' + (td.targetB || '-') + '/' + (td.dynoB || '-') +
+             '  C: ' + (td.targetC || '-') + '/' + (td.dynoC || '-'), ML, y);
+    y += 6;
+
+    // Footer
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text('Generado: ' + new Date().toLocaleString('es-MX') + '  |  KIA EmLab Batch Export', ML, doc.internal.pageSize.getHeight() - 8);
+    doc.setTextColor(0);
+}
+
+
 function refreshAllLists() {
+  // Render kanban if panel is visible
+  var kanbanPanel = document.getElementById('panel-kanban');
+  if (kanbanPanel && kanbanPanel.classList.contains('active')) renderKanban();
   const activeSelect = document.getElementById('activeVehSelect');
   const releaseSelect = document.getElementById('releaseVehSelect');
 
@@ -1383,12 +2519,12 @@ opt.dataset.fullConfig = v.configCode;
 
 
     function confirmReset() {
-        if(confirm('⚠️ ¿SEGURO que desea BORRAR TODOS los datos? Esta acción NO se puede deshacer.')) {
-            if(confirm('⚠️ ÚLTIMA CONFIRMACIÓN: Se borrarán TODOS los vehículos y pruebas.')) {
+        showConfirm('¿SEGURO que desea BORRAR TODOS los datos? Esta acción NO se puede deshacer.', function(){
+            showConfirm('ÚLTIMA CONFIRMACIÓN: Se borrarán TODOS los vehículos y pruebas.', function(){
                 localStorage.removeItem('kia_db_v11');
                 location.reload();
-            }
-        }
+            }, {title:'Última confirmación', type:'danger', confirmText:'Borrar todo'});
+        }, {title:'Resetear base de datos', type:'danger', confirmText:'Sí, borrar'});
     }
 
 
@@ -1420,21 +2556,25 @@ function exportAndPurgeArchived() {
 
   // 3) Purgar del DB (reduce localStorage)
   // Seguridad: confirmación antes de borrar del sistema
-  const ok = confirm(
-    `✅ Archivo descargado.\n\n¿Deseas PURGAR (borrar del sistema) ${archived.length} vehículos archivados?\n` +
-    `Esto reduce el tamaño del localStorage.\n\n⚠️ Asegúrate de guardar el archivo descargado.`
-  );
+  showConfirmDialog({
+    title: '⚠️ Purgar vehículos archivados',
+    message: '✅ Archivo descargado.\n\n¿Deseas PURGAR (borrar del sistema) ' + archived.length + ' vehículos archivados?\nEsto reduce el tamaño del localStorage.\n\n⚠️ Asegúrate de guardar el archivo descargado.',
+    type: 'danger',
+    confirmText: 'Purgar',
+    cancelText: 'Cancelar'
+  }).then(function(ok) {
+    if (!ok) return;
 
-  if (!ok) return;
+    // Elimina del db principal
+    auditLog('cop15', 'archive_purged', {type:'batch'}, archived.length + ' vehículos archivados purgados');
+    db.vehicles = db.vehicles.filter(v => v.status !== 'archived');
 
-  // Elimina del db principal
-  db.vehicles = db.vehicles.filter(v => v.status !== 'archived');
+    saveDB();
+    refreshAllLists();
+    updateProgressBar();
 
-  saveDB();
-  refreshAllLists();
-  updateProgressBar();
-
-  showToast('Purga completada. Se removieron ' + archived.length + ' vehículos archivados.', 'success');
+    showToast('Purga completada. Se removieron ' + archived.length + ' vehículos archivados.', 'success');
+  });
 }
 
 
@@ -1514,6 +2654,7 @@ function executeArchiveImport(targetStatus) {
   });
 
   saveDB();
+  if (imported > 0) auditLog('cop15', 'vehicles_imported', {type:'batch'}, imported + ' vehículos importados desde archivo');
   refreshAllLists();
   updateProgressBar();
   window._importArchiveData = null;
@@ -1538,11 +2679,25 @@ function exportSingleArchivedVehicle(vehicleId) {
 function purgeSingleVehicle(vehicleId) {
   const v = db.vehicles.find(x => x.id == vehicleId);
   if (!v) return;
-  if (!confirm('Purgar VIN ' + (v.vin||'?') + ' del sistema?')) return;
-  db.vehicles = db.vehicles.filter(x => x.id != vehicleId);
-  saveDB(); refreshAllLists(); updateProgressBar(); renderHistory();
+  showConfirmDialog({ title: '⚠️ Purgar vehículo', message: 'Purgar VIN ' + (v.vin||'?') + ' del sistema?', type: 'danger', confirmText: 'Purgar', cancelText: 'Cancelar' }).then(function(ok) {
+    if (!ok) return;
+    auditLog('cop15', 'vehicle_purged', {type:'vehicle', id:vehicleId, label:v.vin}, 'Purgado del sistema');
+    db.vehicles = db.vehicles.filter(x => x.id != vehicleId);
+    saveDB(); refreshAllLists(); updateProgressBar(); renderHistory();
+  });
 }
 
+// ── [Fase 5.3] Timeline compaction — keeps last 50 entries per vehicle ──
+function compactTimelineEntries() {
+    var changed = false;
+    (db.vehicles || []).forEach(function(v) {
+        if (v.timeline && v.timeline.length > 50) {
+            v.timeline = v.timeline.slice(-50);
+            changed = true;
+        }
+    });
+    return changed;
+}
 
 function buildF05Data(vehicle) {
   const td = vehicle.testData || {};
@@ -1603,6 +2758,7 @@ const KIA_LOGO_B64 = 'data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUND
 function generateCOP15PDF(vehicleId) {
   const vehicle = db.vehicles.find(v => v.id == vehicleId);
   if (!vehicle) { showToast('No hay vehículo seleccionado.', 'error'); return; }
+  showOverlayLoading('Generando PDF...');
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
     showToast('PDF COP15-F05 solo aplica para Emisiones. Este vehículo: ' + vehicle.purpose, 'warning');
@@ -2032,6 +3188,7 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // =====================================================
   const fname = 'COP15-F05_'+(vehicle.vin||'SIN-VIN')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
   doc.save(fname);
+  hideOverlayLoading();
   showToast('PDF generado: ' + fname, 'success');
 }
 
@@ -2041,11 +3198,15 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
 function openConfigPanel() {
     document.getElementById('configModal').style.display = 'block';
     document.getElementById('configCount').textContent = allConfigurations.length;
+    var modalCount = document.getElementById('configCountModal'); if (modalCount) modalCount.textContent = allConfigurations.length;
     const isCustom = !!localStorage.getItem('kia_config_csv_raw');
     const srcEl = document.getElementById('configSource');
-    if (srcEl) srcEl.innerHTML = isCustom 
-        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="if(confirm(\'Restaurar CSV original embebido?\')){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');}" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>' 
+    var modalSrc = document.getElementById('configSourceModal');
+    var srcHtml = isCustom
+        ? '<span style="color:#f59e0b;">CSV importado</span> <button onclick="showConfirm(\'Restaurar CSV original embebido?\',function(){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');},{title:\'Restaurar CSV\',type:\'warning\',confirmText:\'Restaurar\'})" style="font-size:10px;padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>'
         : '<span style="color:#94a3b8;">CSV embebido (original)</span>';
+    if (srcEl) srcEl.innerHTML = srcHtml;
+    if (modalSrc) modalSrc.innerHTML = srcHtml;
 }
 function handleConfigCSVImport(event) {
     const file = event.target.files[0]; if (!file) return;
@@ -2053,6 +3214,8 @@ function handleConfigCSVImport(event) {
     reader.onload = function(e) {
         const oldCount = allConfigurations.length;
         const st = document.getElementById('configCSVStatus');
+        // [Fase 5.4] Save state for rollback before import
+        if (typeof undoPush === 'function') undoPush('cop15', 'Pre-importación CSV');
         try {
             localStorage.setItem('kia_config_csv_raw', e.target.result);
             parseCSV();
@@ -2064,15 +3227,676 @@ function handleConfigCSVImport(event) {
                 uniqueModels.forEach(m => { modelSelect.innerHTML += '<option value="'+m+'">'+m+'</option>'; });
             }
             document.getElementById('configCount').textContent = allConfigurations.length;
+            var mc = document.getElementById('configCountModal'); if (mc) mc.textContent = allConfigurations.length;
             const srcEl = document.getElementById('configSource');
             if (srcEl) srcEl.innerHTML = '<span style="color:#f59e0b;">CSV importado</span>';
+            var ms = document.getElementById('configSourceModal'); if (ms) ms.innerHTML = '<span style="color:#f59e0b;">CSV importado</span>';
             st.innerHTML = '<span style="color:#16a34a;">OK: '+allConfigurations.length+' configs (antes: '+oldCount+'). Los vehiculos ya registrados no se afectan.</span>';
-        } catch(err) { st.innerHTML = '<span style="color:#dc2626;">Error: '+err.message+'</span>'; }
+        } catch(err) {
+            // [Fase 5.4] Rollback on failure
+            if (typeof undoPop === 'function') undoPop();
+            st.innerHTML = '<span style="color:#dc2626;">Error: '+err.message+'. Se restauró el estado anterior.</span>';
+        }
     };
     reader.readAsText(file);
     event.target.value = '';
 }
 
+
+// ======================================================================
+// [R2-M5] MANUAL CONFIGURATION MANAGER
+// ======================================================================
+
+var _manualConfigFields = [
+    { key: 'Modelo', label: 'Modelo' },
+    { key: 'MODEL YEAR (VIN)', label: 'Año Modelo (VIN)' },
+    { key: 'ENGINE CAPACITY', label: 'Motor' },
+    { key: 'TRANSMISSION', label: 'Transmisión' },
+    { key: 'ENVIRONMENT PACKAGE', label: 'Environment Package' },
+    { key: 'EMISSION REGULATION', label: 'Regulación Emisiones' },
+    { key: 'DRIVE TYPE', label: 'Tipo Drive' },
+    { key: 'TIRE ASSY', label: 'Llantas' },
+    { key: 'REGION', label: 'Región' },
+    { key: 'BODY TYPE', label: 'Carrocería' },
+    { key: 'ENGINE PACKAGE', label: 'Engine Package' }
+];
+
+function getManualConfigs() {
+    try { return JSON.parse(localStorage.getItem('kia_manual_configs')) || []; }
+    catch(e) { return []; }
+}
+
+function _saveManualConfigs(configs) {
+    localStorage.setItem('kia_manual_configs', JSON.stringify(configs));
+}
+
+function _buildConfigCode(cfg) {
+    return [cfg['Modelo'], cfg['MODEL YEAR (VIN)'], cfg['TRANSMISSION'],
+            cfg['ENVIRONMENT PACKAGE'], cfg['EMISSION REGULATION'], cfg['DRIVE TYPE'],
+            cfg['ENGINE CAPACITY'], cfg['TIRE ASSY'], cfg['REGION'],
+            cfg['BODY TYPE'], cfg['ENGINE PACKAGE']].filter(Boolean).join('-');
+}
+
+function _getExistingValues(key) {
+    var vals = new Set();
+    allConfigurations.forEach(function(c) { if (c[key]) vals.add(c[key]); });
+    return Array.from(vals).sort();
+}
+
+function openManualConfigForm(editIdx) {
+    var existing = (editIdx !== undefined) ? getManualConfigs()[editIdx] : null;
+    var html = '<div class="mcf-form">';
+
+    _manualConfigFields.forEach(function(f) {
+        var dlId = 'mcf_dl_' + f.key.replace(/[^a-zA-Z]/g, '');
+        var existingVals = _getExistingValues(f.key);
+        html += '<div class="mcf-field">' +
+            '<label class="mcf-label">' + f.label + ' <span style="color:#ef4444;">*</span></label>' +
+            '<input type="text" class="mcf-input" id="mcf_' + f.key.replace(/[^a-zA-Z]/g, '') + '" ' +
+            'data-key="' + f.key + '" list="' + dlId + '" value="' + (existing ? (existing[f.key] || '') : '') + '" ' +
+            'oninput="updateManualConfigPreview()" autocomplete="off" placeholder="Escribe o selecciona...">' +
+            '<datalist id="' + dlId + '">' +
+            existingVals.map(function(v) { return '<option value="' + v + '">'; }).join('') +
+            '</datalist></div>';
+    });
+
+    html += '<div class="mcf-preview" id="mcfPreview">' +
+        '<div style="font-size:10px;color:#64748b;margin-bottom:2px;">Código generado:</div>' +
+        '<div id="mcfPreviewCode" style="font-family:monospace;font-size:11px;color:var(--kia-red);font-weight:700;word-break:break-all;">-</div>' +
+        '</div></div>';
+
+    showModal(html, editIdx !== undefined ? 'Editar Configuración Manual' : 'Nueva Configuración Manual',
+        [{ text: 'Guardar', class: 'btn-primary', onclick: 'saveManualConfig(' + (editIdx !== undefined ? editIdx : -1) + ')' }]
+    );
+    setTimeout(updateManualConfigPreview, 50);
+}
+
+function updateManualConfigPreview() {
+    var code = [];
+    _manualConfigFields.forEach(function(f) {
+        var el = document.getElementById('mcf_' + f.key.replace(/[^a-zA-Z]/g, ''));
+        if (el && el.value.trim()) code.push(el.value.trim());
+    });
+    var preview = document.getElementById('mcfPreviewCode');
+    if (preview) preview.textContent = code.length > 0 ? code.join('-') : '(llena los campos)';
+}
+
+function saveManualConfig(editIdx) {
+    var newConfig = {};
+    var missing = [];
+
+    _manualConfigFields.forEach(function(f) {
+        var el = document.getElementById('mcf_' + f.key.replace(/[^a-zA-Z]/g, ''));
+        var val = el ? el.value.trim() : '';
+        if (!val) missing.push(f.label);
+        newConfig[f.key] = val;
+    });
+
+    if (missing.length > 0) {
+        showToast('Campos requeridos: ' + missing.slice(0, 3).join(', ') + (missing.length > 3 ? '...' : ''), 'error');
+        return;
+    }
+
+    newConfig.codigo_config_text = _buildConfigCode(newConfig);
+    newConfig._source = 'manual';
+
+    // Check for conflicts
+    var conflict = checkConfigConflicts(newConfig, editIdx);
+    if (conflict === 'duplicate') {
+        showToast('Ya existe esta configuración exacta en el catálogo', 'error');
+        return;
+    }
+
+    if (conflict === 'similar') {
+        showConfirm(
+            'Existe una configuración similar (mismo Modelo + Año + Motor + Transmisión). ¿Desea continuar?',
+            function() { _doSaveManualConfig(newConfig, editIdx); },
+            { title: 'Configuración Similar', type: 'warning', confirmText: 'Guardar de todas formas' }
+        );
+        return;
+    }
+
+    _doSaveManualConfig(newConfig, editIdx);
+}
+
+function _doSaveManualConfig(newConfig, editIdx) {
+    var manuals = getManualConfigs();
+    if (editIdx >= 0 && editIdx < manuals.length) {
+        manuals[editIdx] = newConfig;
+    } else {
+        manuals.push(newConfig);
+    }
+    _saveManualConfigs(manuals);
+
+    // Rebuild allConfigurations
+    _mergeManualConfigsIntoAll();
+
+    // Close modal & refresh
+    var overlay = document.querySelector('.modal-overlay');
+    if (overlay) overlay.remove();
+
+    openConfigPanel();
+    showToast('Configuración manual guardada (' + allConfigurations.length + ' total)', 'success');
+
+    // Refresh cascade if visible
+    var modelSelect = document.getElementById('cfg_model');
+    if (modelSelect) {
+        var uniqueModels = [].concat(Array.from(new Set(allConfigurations.map(function(c){return c.Modelo;}))).sort());
+        modelSelect.innerHTML = '<option value="">Seleccionar...</option>';
+        uniqueModels.forEach(function(m) { modelSelect.innerHTML += '<option value="'+m+'">'+m+'</option>'; });
+    }
+}
+
+function checkConfigConflicts(newConfig, editIdx) {
+    var manuals = getManualConfigs();
+    // Check all configs (CSV + manual) for exact duplicates
+    for (var i = 0; i < allConfigurations.length; i++) {
+        var c = allConfigurations[i];
+        // Skip the one being edited
+        if (c._source === 'manual') {
+            var manIdx = manuals.indexOf(c);
+            if (manIdx === editIdx) continue;
+        }
+        var allMatch = true;
+        _manualConfigFields.forEach(function(f) {
+            if (c[f.key] !== newConfig[f.key]) allMatch = false;
+        });
+        if (allMatch) return 'duplicate';
+    }
+
+    // Check for similar (same Model + Year + Engine + Trans)
+    var similarKeys = ['Modelo', 'MODEL YEAR (VIN)', 'ENGINE CAPACITY', 'TRANSMISSION'];
+    for (var j = 0; j < allConfigurations.length; j++) {
+        var c2 = allConfigurations[j];
+        if (c2._source === 'manual') {
+            var manIdx2 = manuals.indexOf(c2);
+            if (manIdx2 === editIdx) continue;
+        }
+        var keyMatch = true;
+        similarKeys.forEach(function(k) {
+            if (c2[k] !== newConfig[k]) keyMatch = false;
+        });
+        if (keyMatch) {
+            var allMatch2 = true;
+            _manualConfigFields.forEach(function(f) {
+                if (c2[f.key] !== newConfig[f.key]) allMatch2 = false;
+            });
+            if (!allMatch2) return 'similar';
+        }
+    }
+    return null;
+}
+
+function _mergeManualConfigsIntoAll() {
+    // Remove existing manual entries
+    allConfigurations = allConfigurations.filter(function(c) { return c._source !== 'manual'; });
+    // Add current manual configs
+    var manuals = getManualConfigs();
+    manuals.forEach(function(mc) {
+        mc._source = 'manual';
+        if (!mc.codigo_config_text) mc.codigo_config_text = _buildConfigCode(mc);
+        allConfigurations.push(mc);
+    });
+}
+
+function deleteManualConfig(idx) {
+    showConfirm('¿Eliminar esta configuración manual?', function() {
+        var manuals = getManualConfigs();
+        manuals.splice(idx, 1);
+        _saveManualConfigs(manuals);
+        _mergeManualConfigsIntoAll();
+        openConfigPanel();
+        showToast('Configuración eliminada', 'success');
+    }, { title: 'Eliminar Config', type: 'warning', confirmText: 'Eliminar' });
+}
+
+function renderManualConfigsList() {
+    var container = document.getElementById('manualConfigsList');
+    if (!container) return;
+    var manuals = getManualConfigs();
+    if (manuals.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    var csvCount = allConfigurations.filter(function(c) { return c._source !== 'manual'; }).length;
+    var html = '<div style="margin-top:10px;padding:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">' +
+        '<div style="font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:6px;">' +
+        manuals.length + ' manual(es) + ' + csvCount + ' CSV = ' + allConfigurations.length + ' total</div>';
+
+    manuals.forEach(function(mc, i) {
+        var code = mc.codigo_config_text || _buildConfigCode(mc);
+        html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #dbeafe;font-size:10px;">' +
+            '<span style="flex:1;font-family:monospace;color:#1e40af;word-break:break-all;">' + code + '</span>' +
+            '<button onclick="openManualConfigForm(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Editar">✏️</button>' +
+            '<button onclick="deleteManualConfig(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Eliminar">🗑️</button>' +
+            '</div>';
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// ── Modify parseCSV to include manual configs ──
+var _origParseCSV = parseCSV;
+parseCSV = function() {
+    _origParseCSV();
+    _mergeManualConfigsIntoAll();
+};
+
+// ── Modify openConfigPanel to show manual list ──
+var _origOpenConfigPanel = openConfigPanel;
+openConfigPanel = function() {
+    _origOpenConfigPanel();
+    renderManualConfigsList();
+};
+
+// ── Modify handleConfigCSVImport to check manual config conflicts ──
+var _origHandleConfigCSVImport = handleConfigCSVImport;
+handleConfigCSVImport = function(event) {
+    var manuals = getManualConfigs();
+    if (manuals.length === 0) {
+        _origHandleConfigCSVImport(event);
+        return;
+    }
+    // Store file for later processing
+    var file = event.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var csvText = e.target.result;
+        // Parse new CSV temporarily
+        var lines = csvText.trim().split('\n');
+        var headers = lines[0].split(',');
+        var newConfigs = [];
+        for (var i = 1; i < lines.length; i++) {
+            var values = lines[i].split(',');
+            var cfg = {};
+            headers.forEach(function(h, idx) { cfg[h] = values[idx] || ''; });
+            newConfigs.push(cfg);
+        }
+
+        // Check which manuals conflict with new CSV
+        var dupes = 0, unique = 0;
+        manuals.forEach(function(mc) {
+            var isDupe = newConfigs.some(function(nc) {
+                return _manualConfigFields.every(function(f) { return nc[f.key] === mc[f.key]; });
+            });
+            if (isDupe) dupes++; else unique++;
+        });
+
+        showConfirm(
+            '<div style="text-align:left;">' +
+            '<p>Nuevo CSV: <strong>' + newConfigs.length + '</strong> configs</p>' +
+            '<p>Configs manuales: <strong>' + manuals.length + '</strong> (' + dupes + ' ya existen en CSV, ' + unique + ' únicas)</p>' +
+            '<p style="margin-top:8px;font-size:12px;">¿Qué hacer con las configuraciones manuales?</p>' +
+            '</div>',
+            function() {
+                // Keep unique manuals
+                localStorage.setItem('kia_config_csv_raw', csvText);
+                var kept = manuals.filter(function(mc) {
+                    return !newConfigs.some(function(nc) {
+                        return _manualConfigFields.every(function(f) { return nc[f.key] === mc[f.key]; });
+                    });
+                });
+                _saveManualConfigs(kept);
+                parseCSV();
+                openConfigPanel();
+                showToast('CSV importado. ' + kept.length + ' configs manuales únicas mantenidas.', 'success');
+            },
+            {
+                title: 'Importar CSV — Configs Manuales',
+                type: 'warning',
+                confirmText: 'Mantener únicas (' + unique + ')',
+                cancelText: 'Eliminar todas las manuales',
+                onCancel: function() {
+                    _saveManualConfigs([]);
+                    localStorage.setItem('kia_config_csv_raw', csvText);
+                    parseCSV();
+                    openConfigPanel();
+                    showToast('CSV importado. Configs manuales eliminadas.', 'success');
+                }
+            }
+        );
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+};
+
+// Also update displayConfigResult to show manual badge
+var _origDisplayConfigResult = displayConfigResult;
+displayConfigResult = function(filtered) {
+    _origDisplayConfigResult(filtered);
+    if (filtered.length === 1 && filtered[0]._source === 'manual') {
+        var resultDiv = document.getElementById('cfg_result');
+        if (resultDiv) {
+            var badge = '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:4px;background:#dbeafe;color:#1d4ed8;font-size:9px;font-weight:700;">MANUAL</span>';
+            resultDiv.querySelector('div') && (resultDiv.querySelector('strong').innerHTML += badge);
+        }
+    }
+};
+
+
+// ======================================================================
+// [R2-M2] QUICK REVIEW PANEL
+// ======================================================================
+
+var _reviewSections = [
+    { title: 'Recepción', fields: [
+        {id:'precond_responsible',label:'Responsable'},
+        {id:'precond_datetime',label:'Fecha Precond'},
+        {id:'tire_pressure',label:'Presión llantas (psi)', warn:function(v){var n=parseFloat(v);return n>0&&(n<25||n>50);}},
+        {id:'tire_pressure_in',label:'Presión entrada (psi)'},
+        {id:'fuel_typein',label:'Combustible entrada'},
+        {id:'fuel_levelin',label:'Nivel combustible entrada'},
+        {id:'fuel_typepre',label:'Combustible precond'},
+        {id:'fuel_levelpre',label:'Nivel litros precond'},
+        {id:'tank_capacity',label:'Capacidad tanque (L)'},
+        {id:'battery_soc',label:'SOC Batería (%)'}
+    ]},
+    { title: 'Preacondicionamiento', fields: [
+        {id:'precond_cycle',label:'Ciclo'},
+        {id:'soak_time',label:'Tiempo reposo (h)'},
+        {id:'odo_pretest',label:'Odómetro pre-test (km)'},
+        {id:'precond_ok',label:'Precond OK'},
+        {id:'op_odo',label:'Odómetro (km)', warn:function(v){return v==='0'||v===0;}},
+        {id:'dtc_pending_before',label:'DTC Pendientes'},
+        {id:'dtc_confirmed_before',label:'DTC Confirmados'},
+        {id:'dtc_permanent_before',label:'DTC Permanentes'}
+    ]},
+    { title: 'Verificación de Prueba', fields: [
+        {id:'test_responsible',label:'Responsable prueba'},
+        {id:'test_datetime',label:'Fecha prueba'},
+        {id:'test_tunnel',label:'Túnel'},
+        {id:'test_dyno_on',label:'Dinamómetro'},
+        {id:'test_fan_mode',label:'Modo ventilador'},
+        {id:'test_fan_speed',label:'Vel. ventilador'},
+        {id:'test_chains',label:'Cadenas'},
+        {id:'test_slings',label:'Eslingas'},
+        {id:'test_hood',label:'Cofre'},
+        {id:'test_rear_rollers',label:'Rodillos traseros'},
+        {id:'test_screen',label:'Pantalla'},
+        {id:'test_inertia_ok',label:'Inercia OK'}
+    ]},
+    { title: 'Coeficientes Dinamo', fields: [
+        {id:'etw',label:'ETW'},
+        {id:'tA',label:'Target A'}, {id:'dA',label:'Dyno A'},
+        {id:'tB',label:'Target B'}, {id:'dB',label:'Dyno B'},
+        {id:'tC',label:'Target C'}, {id:'dC',label:'Dyno C'}
+    ]}
+];
+
+function openQuickReview() {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) { showToast('Selecciona un vehículo', 'warning'); return; }
+
+    var total = 0, filled = 0, empty = 0, warnings = 0;
+    var html = '<div style="max-height:60vh;overflow-y:auto;">';
+
+    _reviewSections.forEach(function(sec) {
+        var secHtml = '';
+        sec.fields.forEach(function(f) {
+            var el = document.getElementById(f.id);
+            if (!el) return;
+            total++;
+            var val = el.value;
+            var isEmpty = !val || val === '';
+            var isWarn = !isEmpty && f.warn && f.warn(val);
+            var icon, color;
+            if (isEmpty) { icon = '❌'; color = '#fef2f2'; empty++; }
+            else if (isWarn) { icon = '⚠️'; color = '#fffbeb'; warnings++; }
+            else { icon = '✅'; color = 'transparent'; filled++; }
+
+            var displayVal = isEmpty ? '<em style="color:#94a3b8;">vacío</em>' : (val.length > 25 ? val.substring(0,23)+'..' : val);
+
+            secHtml += '<div class="qr-field" style="background:' + color + ';" onclick="quickReviewGoTo(\'' + f.id + '\')">' +
+                '<span class="qr-icon">' + icon + '</span>' +
+                '<span class="qr-label">' + f.label + '</span>' +
+                '<span class="qr-val">' + displayVal + '</span></div>';
+        });
+        html += '<div class="qr-section"><div class="qr-section-title">' + sec.title + '</div>' + secHtml + '</div>';
+    });
+
+    html += '</div>';
+
+    var pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+    var barColor = pct === 100 ? '#10b981' : pct >= 70 ? '#f59e0b' : '#ef4444';
+
+    var header = '<div style="margin-bottom:14px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+        '<span style="font-size:13px;font-weight:700;">' + filled + '/' + total + ' campos completados</span>' +
+        '<span style="font-size:11px;color:#64748b;">' + empty + ' pendientes' + (warnings ? ' · ' + warnings + ' advertencias' : '') + '</span></div>' +
+        '<div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;transition:width 0.3s;"></div></div></div>';
+
+    showModal(header + html, 'Quick Review — ' + (vehicle.vin || '').slice(-8));
+}
+
+function quickReviewGoTo(fieldId) {
+    // Close the modal
+    var modal = document.querySelector('.modal-overlay');
+    if (modal) modal.remove();
+
+    var el = document.getElementById(fieldId);
+    if (!el) return;
+
+    // Open the parent accordion
+    var acc = el.closest('details.acc');
+    if (acc && !acc.open) acc.open = true;
+
+    // Scroll and focus
+    setTimeout(function() {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.focus();
+        el.style.outline = '3px solid #3b82f6';
+        el.style.outlineOffset = '2px';
+        setTimeout(function() { el.style.outline = ''; el.style.outlineOffset = ''; }, 3000);
+    }, 150);
+}
+
+// ======================================================================
+// [R2-M6] COPY FROM LAST VEHICLE
+// ======================================================================
+
+var _copyableFields = [
+    {id:'precond_responsible', label:'Responsable Precond'},
+    {id:'tire_pressure', label:'Presión llantas'},
+    {id:'fuel_typein', label:'Tipo combustible entrada'},
+    {id:'fuel_typepre', label:'Tipo combustible precond'},
+    {id:'precond_cycle', label:'Ciclo precond'},
+    {id:'soak_time', label:'Tiempo reposo (h)'},
+    {id:'tank_capacity', label:'Capacidad tanque'},
+    {id:'test_tunnel', label:'Túnel'},
+    {id:'test_dyno_on', label:'Dinamómetro'},
+    {id:'test_fan_mode', label:'Modo ventilador'},
+    {id:'test_fan_speed', label:'Vel. ventilador'},
+    {id:'test_fan_flow', label:'Flujo ventilador'},
+    {id:'test_chains', label:'Cadenas'},
+    {id:'test_slings', label:'Eslingas'},
+    {id:'test_hood', label:'Cofre'},
+    {id:'test_rear_rollers', label:'Rodillos traseros'},
+    {id:'test_screen', label:'Pantalla'},
+    {id:'test_inertia_ok', label:'Inercia'},
+    {id:'etw', label:'ETW'},
+    {id:'tA', label:'Target A'},
+    {id:'dA', label:'Dyno A'},
+    {id:'tB', label:'Target B'},
+    {id:'dB', label:'Dyno B'},
+    {id:'tC', label:'Target C'},
+    {id:'dC', label:'Dyno C'},
+    {id:'test_responsible', label:'Responsable prueba'}
+];
+
+function copyFromLastVehicle() {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) { showToast('No hay vehículo seleccionado', 'error'); return; }
+
+    // Find last archived vehicle with same configCode
+    var candidates = db.vehicles.filter(function(v) {
+        return v.id !== vehicle.id && v.configCode === vehicle.configCode &&
+               (v.status === 'archived' || v.status === 'released' || v.status === 'ready-release') &&
+               v.testData;
+    }).sort(function(a, b) {
+        return new Date(b.lastModified || b.registeredAt) - new Date(a.lastModified || a.registeredAt);
+    });
+
+    if (candidates.length === 0) {
+        showToast('No hay vehículo anterior con config ' + (vehicle.configCode || '').substring(0, 30) + '...', 'warning');
+        return;
+    }
+
+    var source = candidates[0];
+    var td = source.testData || {};
+    var p = td.preconditioning || {};
+    var tv = td.testVerification || {};
+
+    // Build values map from source
+    var sourceValues = {
+        'precond_responsible': p.responsible || '',
+        'tire_pressure': p.tirePressurePsi || '',
+        'fuel_typein': p.fuelTypeIn || '',
+        'fuel_typepre': p.fuelTypePre || '',
+        'precond_cycle': p.cycle || '',
+        'soak_time': p.soakTimeH != null ? String(p.soakTimeH) : '',
+        'tank_capacity': p.tankCapacityL || '',
+        'test_tunnel': tv.tunnel || '',
+        'test_dyno_on': tv.dyno || '',
+        'test_fan_mode': tv.fanMode || '',
+        'test_fan_speed': tv.fanSpeedKmh || '',
+        'test_fan_flow': tv.fanFlowM3Min || '',
+        'test_chains': tv.chains || '',
+        'test_slings': tv.slings || '',
+        'test_hood': tv.hood || '',
+        'test_rear_rollers': tv.rearRollers || '',
+        'test_screen': tv.screen || '',
+        'test_inertia_ok': tv.inertiaOk || '',
+        'test_responsible': td.testResponsible || '',
+        'etw': td.etw || '', 'tA': td.targetA || '', 'dA': td.dynoA || '',
+        'tB': td.targetB || '', 'dB': td.dynoB || '',
+        'tC': td.targetC || '', 'dC': td.dynoC || ''
+    };
+
+    // Count non-empty fields to copy
+    var fieldsToCopy = _copyableFields.filter(function(f) { return sourceValues[f.id]; });
+    if (fieldsToCopy.length === 0) {
+        showToast('El vehículo anterior no tiene datos para copiar', 'warning');
+        return;
+    }
+
+    var sourceDate = new Date(source.lastModified || source.registeredAt).toLocaleDateString('es-MX');
+    var vinShort = '...' + source.vin.slice(-6);
+
+    showConfirm(
+        '<div style="text-align:left;">' +
+        '<p><strong>Copiar datos de VIN ' + vinShort + '</strong> (archivado ' + sourceDate + ')</p>' +
+        '<p style="font-size:11px;color:#64748b;margin:8px 0 4px;">Campos a copiar (' + fieldsToCopy.length + '):</p>' +
+        '<div style="font-size:11px;color:#475569;max-height:150px;overflow-y:auto;columns:2;column-gap:12px;">' +
+        fieldsToCopy.map(function(f) { return '<div>• ' + f.label + '</div>'; }).join('') +
+        '</div></div>',
+        function() {
+            // Apply values
+            fieldsToCopy.forEach(function(f) {
+                var el = document.getElementById(f.id);
+                if (el) {
+                    el.value = sourceValues[f.id];
+                    // Visual feedback - pulsing blue border
+                    el.style.outline = '2px dashed #3b82f6';
+                    el.style.outlineOffset = '2px';
+                    setTimeout(function() {
+                        el.style.outline = '';
+                        el.style.outlineOffset = '';
+                    }, 4000);
+                }
+            });
+            updateFanFieldsByMode();
+            showToast(fieldsToCopy.length + ' campos copiados de VIN ' + vinShort, 'success');
+        },
+        { title: 'Copiar de Último Vehículo', type: 'info', confirmText: 'Copiar' }
+    );
+}
+
+// ======================================================================
+// [R2-M3] AUTO-SUGGEST INTELLIGENT DATES
+// ======================================================================
+
+function _nextBusinessDay(date) {
+    var d = new Date(date);
+    d.setDate(d.getDate() + 1);
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    d.setHours(8, 0, 0, 0);
+    return d;
+}
+
+function _toLocalDatetimeStr(d) {
+    var yr = d.getFullYear();
+    var mo = String(d.getMonth() + 1).padStart(2, '0');
+    var dy = String(d.getDate()).padStart(2, '0');
+    var hh = String(d.getHours()).padStart(2, '0');
+    var mm = String(d.getMinutes()).padStart(2, '0');
+    return yr + '-' + mo + '-' + dy + 'T' + hh + ':' + mm;
+}
+
+function _formatSuggestionLabel(d) {
+    var days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    return days[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth()+1) + '/' + d.getFullYear() +
+           ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+function autoSuggestDates() {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) return;
+    if (!isEmissionsPurpose(vehicle.purpose)) return;
+
+    var regDt = vehicle.registeredAt ? new Date(vehicle.registeredAt) : null;
+    var precondEl = document.getElementById('precond_datetime');
+    var testEl = document.getElementById('test_datetime');
+    var soakEl = document.getElementById('soak_time');
+    if (!precondEl || !testEl) return;
+
+    // Remove old suggestion hints
+    document.querySelectorAll('.date-suggestion').forEach(function(el) { el.remove(); });
+
+    // Suggest precond date if empty
+    if (!precondEl.value && regDt) {
+        var sugPrecond = _nextBusinessDay(regDt);
+        _renderDateSuggestion(precondEl, sugPrecond, 'Sugerido: ' + _formatSuggestionLabel(sugPrecond) + ' (sig. día hábil)');
+    }
+
+    // Suggest test date if precond is set but test is empty
+    if (precondEl.value && !testEl.value) {
+        var precondDate = new Date(precondEl.value);
+        var soakH = parseFloat(soakEl?.value) || 0;
+
+        // Check if soak timer is active and use its end time
+        var soakData = null;
+        try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
+        var sugTest;
+
+        if (soakData && soakData.endTime) {
+            sugTest = new Date(soakData.endTime);
+            sugTest.setHours(sugTest.getHours() + 2); // 2h margin after soak
+            _renderDateSuggestion(testEl, sugTest, 'Sugerido: ' + _formatSuggestionLabel(sugTest) + ' (soak + 2h margen)');
+        } else if (soakH > 0) {
+            sugTest = new Date(precondDate.getTime() + (soakH + 2) * 3600000);
+            // Skip weekends
+            while (sugTest.getDay() === 0 || sugTest.getDay() === 6) sugTest.setDate(sugTest.getDate() + 1);
+            _renderDateSuggestion(testEl, sugTest, 'Sugerido: ' + _formatSuggestionLabel(sugTest) + ' (soak ' + soakH + 'h + 2h)');
+        } else {
+            // Default: precond + 26h (typical 24h soak + 2h margin)
+            sugTest = new Date(precondDate.getTime() + 26 * 3600000);
+            while (sugTest.getDay() === 0 || sugTest.getDay() === 6) sugTest.setDate(sugTest.getDate() + 1);
+            _renderDateSuggestion(testEl, sugTest, 'Sugerido: ' + _formatSuggestionLabel(sugTest) + ' (24h soak + 2h)');
+        }
+    }
+}
+
+function _renderDateSuggestion(inputEl, suggestedDate, label) {
+    var hint = document.createElement('div');
+    hint.className = 'date-suggestion';
+    hint.innerHTML = '<span style="flex:1;">' + label + '</span>' +
+        '<button type="button" class="date-sug-apply" onclick="this.parentElement.previousElementSibling.value=\'' +
+        _toLocalDatetimeStr(suggestedDate) + '\';this.parentElement.remove();autoSuggestDates();">Aplicar</button>';
+    inputEl.parentElement.appendChild(hint);
+}
 
 // ======================================================================
 // STALLED VEHICLE ALERTS
@@ -2107,7 +3931,50 @@ function checkStalledVehicles() {
 // SOAK TIMER — Countdown de preacondicionamiento con notificaciones
 // ======================================================================
 
-var _soakTimer = { interval: null, endTime: null, totalMs: 0, running: false };
+var _soakTimer = { interval: null, endTime: null, totalMs: 0, running: false, chimeInterval: null };
+var _soakOrigTitle = document.title;
+
+function soakUpdateTabTitle() {
+    if (!_soakTimer.running) { document.title = _soakOrigTitle; soakUpdateBadge(false); return; }
+    var remaining = _soakTimer.endTime - Date.now();
+    if (remaining <= 0) { document.title = _soakOrigTitle; return; }
+    var h = Math.floor(remaining / 3600000);
+    var m = Math.floor((remaining % 3600000) / 60000);
+    document.title = 'SOAK: ' + h + 'h ' + m + 'm — KIA EmLab';
+    soakUpdateBadge(true, h + 'h ' + m + 'm');
+}
+
+function soakUpdateBadge(show, text) {
+    var badge = document.getElementById('soak-floating-badge');
+    if (!badge) return;
+    if (show) {
+        badge.style.display = 'flex';
+        badge.querySelector('.soak-badge-text').textContent = text || '';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function soakPlayChime() {
+    try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 880; osc.type = 'sine';
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.8);
+        // Second tone
+        var osc2 = ctx.createOscillator();
+        var gain2 = ctx.createGain();
+        osc2.connect(gain2); gain2.connect(ctx.destination);
+        osc2.frequency.value = 1320; osc2.type = 'sine';
+        gain2.gain.setValueAtTime(0.12, ctx.currentTime + 0.3);
+        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.1);
+        osc2.start(ctx.currentTime + 0.3); osc2.stop(ctx.currentTime + 1.1);
+    } catch(e) {}
+}
 
 function soakTimerStart() {
     if (_soakTimer.running) return;
@@ -2139,6 +4006,7 @@ function soakTimerStart() {
         totalMs: _soakTimer.totalMs
     }));
 
+    if (typeof fbPostSoakStarted === 'function') fbPostSoakStarted(typeof activeVehicleId !== 'undefined' ? activeVehicleId : '', hours);
     _soakTimer.interval = setInterval(soakTimerTick, 1000);
     soakTimerTick();
 }
@@ -2146,18 +4014,24 @@ function soakTimerStart() {
 function soakTimerStop() {
     _soakTimer.running = false;
     if (_soakTimer.interval) { clearInterval(_soakTimer.interval); _soakTimer.interval = null; }
+    if (_soakTimer.chimeInterval) { clearInterval(_soakTimer.chimeInterval); _soakTimer.chimeInterval = null; }
     document.getElementById('soak_timer_btn_start').style.display = '';
     document.getElementById('soak_timer_btn_stop').style.display = 'none';
     document.getElementById('soak_timer_status').textContent = 'Pausado';
     document.getElementById('soak_timer_status').style.color = '#f59e0b';
+    document.title = _soakOrigTitle;
+    soakUpdateBadge(false);
 }
 
 function soakTimerReset() {
     _soakTimer.running = false;
     if (_soakTimer.interval) { clearInterval(_soakTimer.interval); _soakTimer.interval = null; }
+    if (_soakTimer.chimeInterval) { clearInterval(_soakTimer.chimeInterval); _soakTimer.chimeInterval = null; }
     _soakTimer.endTime = null;
     _soakTimer.totalMs = 0;
     localStorage.removeItem('kia_soak_timer');
+    document.title = _soakOrigTitle;
+    soakUpdateBadge(false);
 
     document.getElementById('soak_timer_display').textContent = '00:00:00';
     document.getElementById('soak_timer_display').style.color = '#64748b';
@@ -2202,7 +4076,23 @@ function soakTimerTick() {
             });
         }
 
-        // Also alert in case notifications are blocked
+        // Audio chime + vibration
+        soakPlayChime();
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        // Repeat chime every 30s for 5 minutes
+        var chimeCount = 0;
+        _soakTimer.chimeInterval = setInterval(function() {
+            chimeCount++;
+            soakPlayChime();
+            if (navigator.vibrate) navigator.vibrate(200);
+            if (chimeCount >= 10) { clearInterval(_soakTimer.chimeInterval); _soakTimer.chimeInterval = null; }
+        }, 30000);
+
+        // Restore tab title + update badge
+        document.title = 'SOAK LISTO — KIA EmLab';
+        soakUpdateBadge(true, 'LISTO');
+        setTimeout(function(){ document.title = _soakOrigTitle; soakUpdateBadge(false); }, 300000);
+
         showToast('SOAK COMPLETADO - El vehiculo esta listo para prueba.', 'success');
         return;
     }
@@ -2227,6 +4117,10 @@ function soakTimerTick() {
 
     var eta = new Date(_soakTimer.endTime);
     document.getElementById('soak_timer_eta').textContent = 'Listo a las ' + eta.toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'}) + ' del ' + eta.toLocaleDateString('es-MX', {day:'numeric',month:'short'});
+
+    // Update tab title + floating badge (every tick for responsiveness)
+    if (s === 0) soakUpdateTabTitle(); // Once per minute at :00 seconds
+    if (!window._soakBadgeInit) { soakUpdateTabTitle(); window._soakBadgeInit = true; }
 }
 
 function soakTimerRestore() {
@@ -2248,4 +4142,903 @@ function soakTimerRestore() {
             document.getElementById('soak_timer_bar').style.width = '100%';
         }
     } catch(e) { localStorage.removeItem('kia_soak_timer'); }
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [B1] KANBAN QUEUE — Visual vehicle pipeline                       ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _kanbanFilters = { search: '', sort: 'newest', operator: '' };
+
+function kanbanApplyFilters(vehicles) {
+    var f = _kanbanFilters;
+    var filtered = vehicles;
+    // Search filter
+    if (f.search) {
+        var q = f.search.toLowerCase();
+        filtered = filtered.filter(function(v) {
+            var vin = (v.vin || '').toLowerCase();
+            var modelo = ((v.config || {})['Modelo'] || '').toLowerCase();
+            var purpose = (v.purpose || '').toLowerCase();
+            var op = ((v.testData || {}).operator || '').toLowerCase();
+            return vin.includes(q) || modelo.includes(q) || purpose.includes(q) || op.includes(q);
+        });
+    }
+    // Operator filter
+    if (f.operator) {
+        filtered = filtered.filter(function(v) { return (v.testData || {}).operator === f.operator; });
+    }
+    // Sort
+    filtered.sort(function(a, b) {
+        var tsA = a.timeline && a.timeline.length > 0 ? new Date(a.timeline[a.timeline.length-1].timestamp).getTime() : 0;
+        var tsB = b.timeline && b.timeline.length > 0 ? new Date(b.timeline[b.timeline.length-1].timestamp).getTime() : 0;
+        if (f.sort === 'newest') return tsB - tsA;
+        if (f.sort === 'oldest') return tsA - tsB;
+        if (f.sort === 'model') return ((a.config||{})['Modelo']||'').localeCompare(((b.config||{})['Modelo']||''));
+        if (f.sort === 'operator') return ((a.testData||{}).operator||'').localeCompare(((b.testData||{}).operator||''));
+        return 0;
+    });
+    return filtered;
+}
+
+function renderKanban() {
+    var el = document.getElementById('kanban-board');
+    if (!el) return;
+
+    var vehicles = db.vehicles || [];
+    var columns = [
+        { key: 'registered',    label: 'Registrado',       color: '#3b82f6', icon: '📝' },
+        { key: 'in-progress',   label: 'En Progreso',      color: '#f59e0b', icon: '🔧' },
+        { key: 'testing',       label: 'En Prueba',        color: '#8b5cf6', icon: '🧪' },
+        { key: 'ready-release', label: 'Listo p/ Liberar', color: '#10b981', icon: '✅' }
+    ];
+
+    // Soak timer info
+    var soakData = null;
+    try {
+        var raw = localStorage.getItem('kia_soak_timer');
+        if (raw) soakData = JSON.parse(raw);
+    } catch(e) {}
+
+    // Collect unique operators for filter
+    var allOps = {};
+    vehicles.forEach(function(v) { var op = (v.testData || {}).operator; if (op) allOps[op] = true; });
+    var opList = Object.keys(allOps).sort();
+
+    var precondCount = vehicles.filter(function(v) { return v.status === 'registered' || v.status === 'in-progress'; }).length;
+    var _kanbanCompact = getViewMode('kanban') === 'compact';
+    var html = '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
+    html += '<h3 style="margin:0;font-size:16px;">Cola de Vehiculos</h3>';
+    var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
+    html += '<span style="font-size:11px;color:#64748b;">' + totalActive + ' activos</span>';
+    html += '<span style="margin-left:auto;">' + renderViewModeToggle('kanban', true) + '</span>';
+    if (precondCount > 0) {
+        html += '<button onclick="renderPrecondBatchView()" style="background:#f59e0b;color:#000;border:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 Precond Lote (' + precondCount + ')</button>';
+    }
+    html += '</div>';
+
+    // Search + Sort + Filter bar
+    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">';
+    html += '<input type="text" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;renderKanban();" style="flex:1;min-width:140px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;">';
+    html += '<select onchange="_kanbanFilters.sort=this.value;renderKanban();" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;background:#fff;">';
+    html += '<option value="newest"' + (_kanbanFilters.sort==='newest'?' selected':'') + '>Mas reciente</option>';
+    html += '<option value="oldest"' + (_kanbanFilters.sort==='oldest'?' selected':'') + '>Mas antiguo</option>';
+    html += '<option value="model"' + (_kanbanFilters.sort==='model'?' selected':'') + '>Modelo</option>';
+    html += '<option value="operator"' + (_kanbanFilters.sort==='operator'?' selected':'') + '>Operador</option>';
+    html += '</select>';
+    if (opList.length > 0) {
+        html += '<select onchange="_kanbanFilters.operator=this.value;renderKanban();" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;background:#fff;">';
+        html += '<option value="">Todos ops</option>';
+        opList.forEach(function(op) {
+            html += '<option value="' + op + '"' + (_kanbanFilters.operator===op?' selected':'') + '>' + op + '</option>';
+        });
+        html += '</select>';
+    }
+    if (_kanbanFilters.search || _kanbanFilters.operator) {
+        html += '<button onclick="_kanbanFilters.search=\'\';_kanbanFilters.operator=\'\';renderKanban();" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:6px 10px;font-size:10px;cursor:pointer;">✕ Limpiar</button>';
+    }
+    html += '</div>';
+
+    // Apply filters to all non-archived vehicles
+    var filteredVehicles = kanbanApplyFilters(vehicles);
+
+    html += '<div class="' + (_kanbanCompact ? 'list-compact' : '') + '" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;align-items:start;">';
+
+    columns.forEach(function(col) {
+        var colVehicles = filteredVehicles.filter(function(v) { return v.status === col.key; });
+
+        html += '<div style="background:#f8fafc;border-radius:10px;padding:10px;border-top:3px solid ' + col.color + ';min-height:120px;">';
+        // Header
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+        html += '<span style="font-weight:700;font-size:12px;color:#0f172a;">' + col.icon + ' ' + col.label + '</span>';
+        html += '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:' + col.color + '20;color:' + col.color + ';font-weight:700;">' + colVehicles.length + '</span>';
+        html += '</div>';
+
+        if (colVehicles.length === 0) {
+            html += '<div style="text-align:center;padding:15px;color:#94a3b8;font-size:10px;">Sin vehiculos</div>';
+        } else {
+            colVehicles.forEach(function(v) {
+                var td = v.testData || {};
+                var timeSince = '';
+                if (v.timeline && v.timeline.length > 0) {
+                    var lastTs = v.timeline[v.timeline.length - 1].timestamp;
+                    var hrs = Math.round((Date.now() - new Date(lastTs).getTime()) / (1000 * 60 * 60));
+                    timeSince = hrs < 1 ? '<1h' : hrs < 24 ? hrs + 'h' : Math.floor(hrs / 24) + 'd';
+                }
+
+                var shortVin = escapeHtml((v.vin || '?').slice(-8));
+                var fullVin = v.vin || '';
+                var cfg = v.config || {};
+                var modelo = escapeHtml(cfg['Modelo'] || '');
+                var motor = escapeHtml(cfg['ENGINE CAPACITY'] || '');
+                var regulacion = escapeHtml(cfg['EMISSION REGULATION'] || '');
+
+                // Purpose color for left border
+                var purposeBorder = '#e2e8f0';
+                if (v.purpose) {
+                    if (v.purpose.includes('COP') && v.purpose.includes('Emision')) purposeBorder = '#3b82f6';
+                    else if (v.purpose.includes('COP') && v.purpose.includes('OBD')) purposeBorder = '#8b5cf6';
+                    else if (v.purpose.includes('EO')) purposeBorder = '#f59e0b';
+                    else if (v.purpose.includes('ND')) purposeBorder = '#10b981';
+                    else if (v.purpose.includes('Correlacion') || v.purpose.includes('Investigacion')) purposeBorder = '#64748b';
+                    else purposeBorder = '#0ea5e9';
+                }
+
+                html += '<div class="anim-card-hover" style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid #e2e8f0;border-left:4px solid ' + purposeBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.04);cursor:pointer;" onclick="kanbanGoVehicle(' + v.id + ',\'' + v.status + '\')">';
+                // VIN + copy + time
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+                html += '<span style="display:flex;align-items:center;gap:4px;">';
+                html += '<span style="font-family:monospace;font-size:11px;font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
+                html += '<button onclick="event.stopPropagation();copyToClipboard(\'' + fullVin.replace(/'/g,"\\'") + '\', this)" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px;" title="Copiar VIN">📋</button>';
+                html += '</span>';
+                if (timeSince) html += '<span style="font-size:9px;color:#94a3b8;" title="Tiempo en este estado">' + timeSince + '</span>';
+                html += '</div>';
+                // Config labels
+                if (modelo) {
+                    html += '<div style="font-size:10px;font-weight:600;color:#0f172a;margin-top:3px;">' + modelo + '</div>';
+                }
+                html += '<div class="compact-hide" style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap;">';
+                if (motor) html += '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;">' + motor + '</span>';
+                if (regulacion) html += '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">' + regulacion + '</span>';
+                html += '</div>';
+                // Purpose badge
+                html += '<div class="compact-hide" style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">';
+                if (v.purpose) {
+                    var pColor = v.purpose.includes('COP') ? '#0ea5e9' : v.purpose.includes('EO') ? '#f97316' : '#8b5cf6';
+                    html += '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:' + pColor + '15;color:' + pColor + ';border:1px solid ' + pColor + '30;">' + v.purpose + '</span>';
+                }
+                // Operator
+                if (td.operator) {
+                    html += '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#f1f5f9;color:#475569;">' + td.operator + '</span>';
+                }
+                html += '</div>';
+
+                // Soak indicator if applicable
+                if (col.key === 'in-progress' && soakData && soakData.endTime) {
+                    var remaining = soakData.endTime - Date.now();
+                    if (remaining > 0) {
+                        var hrs = Math.floor(remaining / (1000 * 60 * 60));
+                        var mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+                        html += '<div class="compact-hide" style="margin-top:4px;font-size:9px;padding:2px 6px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Soak: ' + hrs + 'h ' + mins + 'm restantes</div>';
+                    }
+                }
+                html += '</div>';
+            });
+        }
+        html += '</div>';
+    });
+
+    html += '</div>';
+
+    // Summary metrics below
+    var archived = vehicles.filter(function(v){ return v.status === 'archived'; }).length;
+    html += '<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">';
+    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + archived + '</strong> <span style="color:#64748b;">archivados</span></div>';
+    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + vehicles.length + '</strong> <span style="color:#64748b;">total historico</span></div>';
+    html += '</div>';
+
+    el.innerHTML = html;
+
+    // [R5-M4] Stagger kanban cards
+    if (typeof animateStaggerChildren === 'function') {
+        el.querySelectorAll('[style*="min-width:160px"]').forEach(function(col) {
+            animateStaggerChildren(col, '.anim-card-hover', 40);
+        });
+    }
+}
+
+// ======================================================================
+// [M11b] CHECKLIST PREACONDICIONAMIENTO EN LOTE
+// ======================================================================
+
+function renderPrecondBatchView() {
+    var el = document.getElementById('kanban-board');
+    if (!el) return;
+
+    var vehicles = (db.vehicles || []).filter(function(v) {
+        return v.status === 'registered' || v.status === 'in-progress';
+    });
+
+    if (vehicles.length === 0) {
+        showToast('No hay vehiculos en preacondicionamiento', 'info');
+        return;
+    }
+
+    // Soak timer data
+    var soakData = null;
+    try { var raw = localStorage.getItem('kia_soak_timer'); if (raw) soakData = JSON.parse(raw); } catch(e) {}
+
+    var html = '<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">';
+    html += '<button onclick="renderKanban()" style="background:#334155;color:#f8fafc;border:none;padding:6px 12px;border-radius:8px;font-size:11px;cursor:pointer;">← Kanban</button>';
+    html += '<h3 style="margin:0;font-size:16px;">📋 Preacondicionamiento en Lote</h3>';
+    html += '<span style="font-size:11px;color:#64748b;">' + vehicles.length + ' vehiculos</span>';
+    html += '</div>';
+
+    // Batch actions
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
+    html += '<button onclick="batchScheduleTests()" style="background:#10b981;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">🗓 Programar Tests (seleccionados)</button>';
+    html += '</div>';
+
+    // Table header
+    html += '<div style="overflow-x:auto;">';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:11px;">';
+    html += '<thead><tr style="background:#f1f5f9;text-align:left;">';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;width:30px;"><input type="checkbox" id="batch-select-all" onchange="batchToggleAll(this.checked)" style="accent-color:#f59e0b;"></th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">VIN</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Modelo</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Status</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Precond</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Soak</th>';
+    html += '<th style="padding:8px 6px;border-bottom:2px solid #e2e8f0;">Acciones</th>';
+    html += '</tr></thead><tbody>';
+
+    vehicles.forEach(function(v) {
+        var td = v.testData || {};
+        var p = td.preconditioning || {};
+        var isEm = typeof isEmissionsPurpose === 'function' ? isEmissionsPurpose(v.purpose) : true;
+
+        // Precond completeness
+        var precondFields = isEm ? [p.datetime, p.responsible, p.cycle, p.ok] : [td.simple?.operator, td.simple?.datetime];
+        var filled = precondFields.filter(function(f) { return f && f !== ''; }).length;
+        var total = precondFields.length;
+        var precondPct = Math.round((filled / total) * 100);
+        var precondOk = isEm ? (p.ok === 'Si') : (filled === total);
+
+        // Soak status
+        var soakStatus = '—';
+        var soakColor = '#94a3b8';
+        if (soakData && soakData.endTime) {
+            var remaining = soakData.endTime - Date.now();
+            if (remaining > 0) {
+                var hrs = Math.floor(remaining / 3600000);
+                var mins = Math.floor((remaining % 3600000) / 60000);
+                soakStatus = hrs + 'h ' + mins + 'm';
+                soakColor = '#f59e0b';
+            } else {
+                soakStatus = 'Listo';
+                soakColor = '#10b981';
+            }
+        } else if (p.soakTimeH) {
+            soakStatus = p.soakTimeH + 'h (manual)';
+            soakColor = '#8b5cf6';
+        }
+
+        var model = '';
+        if (v.config && v.config['Modelo']) model = v.config['Modelo'];
+        else if (v.configCode) model = v.configCode.split(' ').slice(0, 2).join(' ');
+
+        var statusLabel = CONFIG.statusLabels[v.status] || v.status;
+        var statusColor = v.status === 'registered' ? '#3b82f6' : '#f59e0b';
+
+        var barColor = precondPct === 100 ? '#10b981' : precondPct >= 50 ? '#f59e0b' : '#ef4444';
+
+        html += '<tr style="border-bottom:1px solid #e2e8f0;" data-vid="' + v.id + '">';
+        html += '<td style="padding:8px 6px;"><input type="checkbox" class="batch-check" value="' + v.id + '" style="accent-color:#f59e0b;"></td>';
+        html += '<td style="padding:8px 6px;font-weight:600;font-family:monospace;font-size:10px;">' + (v.vin || '').slice(-6) + '</td>';
+        html += '<td style="padding:8px 6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (v.configCode || '') + '">' + model + '</td>';
+        html += '<td style="padding:8px 6px;"><span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + statusColor + '15;color:' + statusColor + ';border:1px solid ' + statusColor + '30;">' + statusLabel + '</span></td>';
+        html += '<td style="padding:8px 6px;">';
+        html += '<div style="display:flex;align-items:center;gap:4px;">';
+        html += '<div style="width:50px;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;"><div style="width:' + precondPct + '%;height:100%;background:' + barColor + ';border-radius:3px;"></div></div>';
+        html += '<span style="font-size:9px;color:' + barColor + ';">' + filled + '/' + total + '</span>';
+        if (precondOk) html += ' <span style="font-size:9px;">✅</span>';
+        html += '</div></td>';
+        html += '<td style="padding:8px 6px;"><span style="font-size:10px;color:' + soakColor + ';">' + soakStatus + '</span></td>';
+        html += '<td style="padding:8px 6px;">';
+        if (precondOk) {
+            html += '<button onclick="batchAdvanceToTesting(\'' + v.id + '\')" style="background:#10b981;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;" title="Avanzar a Testing">→ Testing</button>';
+        } else {
+            html += '<button onclick="kanbanGoVehicle(\'' + v.id + '\',\'' + v.status + '\')" style="background:#3b82f6;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:10px;cursor:pointer;" title="Editar vehiculo">Editar</button>';
+        }
+        html += '</td></tr>';
+    });
+
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+}
+
+function batchToggleAll(checked) {
+    document.querySelectorAll('.batch-check').forEach(function(cb) { cb.checked = checked; });
+}
+
+function batchAdvanceToTesting(vehicleId) {
+    var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
+    if (!vehicle) return;
+
+    vehicle.status = 'testing';
+    vehicle.timeline = vehicle.timeline || [];
+    vehicle.timeline.push({
+        timestamp: new Date().toISOString(),
+        user: vehicle.testData?.operator || vehicle.testData?.testResponsible || 'Sistema',
+        action: 'Auto-avance lote a: En Prueba',
+        data: { status: 'testing', batchAdvance: true }
+    });
+
+    // Auto-fill test datetime
+    if (vehicle.testData && !vehicle.testData.testDatetime) {
+        var tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        if (tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
+        if (tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
+        vehicle.testData.testDatetime = tomorrow.toISOString().slice(0, 10) + 'T08:00';
+    }
+
+    saveDB();
+    renderPrecondBatchView();
+    showToast('VIN ...' + (vehicle.vin || '').slice(-6) + ' avanzado a Testing', 'success');
+}
+
+function batchScheduleTests() {
+    var checked = document.querySelectorAll('.batch-check:checked');
+    if (checked.length === 0) { showToast('Selecciona al menos un vehiculo', 'warning'); return; }
+
+    var ids = [];
+    checked.forEach(function(cb) { ids.push(cb.value); });
+
+    // Schedule sequentially: 8:00, 10:00, 12:00, 14:00...
+    var baseDate = new Date();
+    baseDate.setDate(baseDate.getDate() + 1);
+    if (baseDate.getDay() === 0) baseDate.setDate(baseDate.getDate() + 1);
+    if (baseDate.getDay() === 6) baseDate.setDate(baseDate.getDate() + 2);
+
+    var advancedCount = 0;
+    ids.forEach(function(id, idx) {
+        var vehicle = db.vehicles.find(function(v) { return v.id == id; });
+        if (!vehicle) return;
+
+        var p = vehicle.testData?.preconditioning || {};
+        var precondOk = p.ok === 'Si';
+        if (!precondOk) return; // Only advance precond-complete vehicles
+
+        var hour = 8 + (idx * 2); // 8, 10, 12, 14...
+        var dateStr = baseDate.toISOString().slice(0, 10) + 'T' + String(hour).padStart(2, '0') + ':00';
+
+        vehicle.status = 'testing';
+        vehicle.testData = vehicle.testData || {};
+        vehicle.testData.testDatetime = dateStr;
+        vehicle.timeline = vehicle.timeline || [];
+        vehicle.timeline.push({
+            timestamp: new Date().toISOString(),
+            user: 'Sistema',
+            action: 'Programado en lote: Testing ' + dateStr,
+            data: { status: 'testing', batchSchedule: true, scheduledTime: dateStr }
+        });
+        advancedCount++;
+    });
+
+    if (advancedCount > 0) {
+        saveDB();
+        renderPrecondBatchView();
+        showToast(advancedCount + ' vehiculos programados para testing', 'success');
+    } else {
+        showToast('Ningun vehiculo seleccionado tiene precond completo', 'warning');
+    }
+}
+
+function kanbanGoVehicle(vehicleId, status) {
+    var v = db.vehicles.find(function(x) { return x.id == vehicleId; });
+    if (!v) return;
+
+    if (status === 'ready-release') {
+        // Go to release tab
+        document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
+        document.querySelector('[data-tab="liberacion"]').classList.add('active');
+        document.getElementById('panel-liberacion').classList.add('active');
+        var sel = document.getElementById('releaseVehSelect');
+        if (sel) { sel.value = vehicleId; sel.dispatchEvent(new Event('change')); }
+    } else {
+        // Go to operation tab
+        document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
+        document.querySelector('[data-tab="seguimiento"]').classList.add('active');
+        document.getElementById('panel-seguimiento').classList.add('active');
+        var sel = document.getElementById('activeVehSelect');
+        if (sel) { sel.value = vehicleId; sel.dispatchEvent(new Event('change')); }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M3] Smart Forms — Progressive Disclosure & Contextual Intelligence
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Show/hide accordion sections based on current vehicle status.
+ * Locked sections show a visual indicator of when they'll unlock.
+ */
+function smartFormApplyByStatus(status) {
+    var sections = [
+        { id: 'acc-recepcion', unlockAt: null },
+        { id: 'acc-precond', unlockAt: 'in-progress' },
+        { id: 'acc-dyno', unlockAt: 'in-progress' }
+    ];
+    var statusOrder = ['registered', 'in-progress', 'testing', 'ready-release'];
+    var currentIdx = statusOrder.indexOf(status);
+
+    sections.forEach(function(sec) {
+        var el = document.getElementById(sec.id);
+        if (!el) return;
+
+        // Remove any previous lock state
+        el.classList.remove('smart-locked');
+        var oldHint = el.querySelector('.smart-lock-hint');
+        if (oldHint) oldHint.remove();
+
+        if (!sec.unlockAt) return;
+
+        var unlockIdx = statusOrder.indexOf(sec.unlockAt);
+        if (currentIdx >= unlockIdx) return; // unlocked — nothing to do
+
+        // Lock this section
+        el.classList.add('smart-locked');
+        var hint = document.createElement('div');
+        hint.className = 'smart-lock-hint';
+        hint.innerHTML = '🔒 Se desbloquea en: ' + sec.unlockAt;
+        el.appendChild(hint);
+    });
+
+    // test-verify-card visibility is managed by updateTestVerificationVisibility()
+    updateTestVerificationVisibility();
+}
+
+/**
+ * Update completion badges on accordion section headers.
+ */
+function smartFormUpdateBadges() {
+    if (!_reviewSections) return;
+    _reviewSections.forEach(function(sec) {
+        var total = 0, filled = 0;
+        sec.fields.forEach(function(f) {
+            var el = document.getElementById(f.id);
+            if (!el) return;
+            total++;
+            if (el.value && el.value !== '') filled++;
+        });
+        // Find the section's accordion summary
+        var accIds = { 'Recepción': 'acc-recepcion', 'Preacondicionamiento': 'acc-precond', 'Dinamómetro': 'acc-dyno', 'Verificación': 'test-verify-card' };
+        var accId = accIds[sec.title];
+        if (!accId) return;
+        var accEl = document.getElementById(accId);
+        if (!accEl) return;
+        var summary = accEl.querySelector('summary');
+        if (!summary) return;
+
+        var badge = summary.querySelector('.smart-badge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'smart-badge';
+            summary.appendChild(badge);
+        }
+
+        badge.textContent = filled + '/' + total;
+        badge.classList.toggle('smart-badge-complete', filled === total && total > 0);
+        badge.classList.toggle('smart-badge-partial', filled > 0 && filled < total);
+        badge.classList.toggle('smart-badge-empty', filled === 0);
+    });
+}
+
+/**
+ * Suggest smart defaults for common fields based on context.
+ */
+function smartFormSuggestDefaults(vehicle) {
+    if (!vehicle) return;
+    var isEm = isEmissionsPurpose(vehicle.purpose);
+    if (!isEm) return;
+
+    // Precond datetime quick buttons
+    var precondEl = document.getElementById('precond_datetime');
+    if (precondEl && !precondEl.value) {
+        var container = precondEl.parentElement;
+        if (container && !container.querySelector('.smart-quick-btns')) {
+            var wrapper = document.createElement('div');
+            wrapper.className = 'smart-quick-btns';
+
+            var btnYesterday = document.createElement('button');
+            btnYesterday.type = 'button';
+            btnYesterday.className = 'smart-quick-btn';
+            btnYesterday.textContent = 'Ayer 6AM';
+            btnYesterday.onclick = function() {
+                var d = new Date(); d.setDate(d.getDate() - 1); d.setHours(6, 0, 0, 0);
+                precondEl.value = d.toISOString().slice(0, 16);
+                markUnsaved();
+                wrapper.remove();
+            };
+
+            var btnNow = document.createElement('button');
+            btnNow.type = 'button';
+            btnNow.className = 'smart-quick-btn';
+            btnNow.textContent = 'Ahora';
+            btnNow.onclick = function() {
+                precondEl.value = new Date().toISOString().slice(0, 16);
+                markUnsaved();
+                wrapper.remove();
+            };
+
+            wrapper.appendChild(btnYesterday);
+            wrapper.appendChild(btnNow);
+            container.appendChild(wrapper);
+        }
+    }
+
+    // Auto-fill from CSV_CONFIGURATIONS if unique values exist
+    if (vehicle.config) {
+        var etw = vehicle.config['ETW'] || vehicle.config['etw'];
+        var tA = vehicle.config['Target A'] || vehicle.config['targetA'];
+        var tB = vehicle.config['Target B'] || vehicle.config['targetB'];
+        var tC = vehicle.config['Target C'] || vehicle.config['targetC'];
+        var dynoFields = [
+            { id: 'etw', val: etw },
+            { id: 'tA', val: tA },
+            { id: 'tB', val: tB },
+            { id: 'tC', val: tC }
+        ];
+        dynoFields.forEach(function(df) {
+            if (!df.val) return;
+            var el = document.getElementById(df.id);
+            if (el && !el.value) {
+                el.value = df.val;
+                el.style.color = '#94a3b8';
+                el.title = 'Auto-llenado desde configuración';
+                el.addEventListener('focus', function handler() {
+                    el.style.color = '';
+                    el.removeEventListener('focus', handler);
+                }, { once: true });
+            }
+        });
+    }
+
+    // Pre-fill from last vehicle with same config (safe fields only)
+    var candidates = db.vehicles.filter(function(v) {
+        return v.id !== vehicle.id && v.configCode === vehicle.configCode &&
+               (v.status === 'archived' || v.status === 'ready-release') && v.testData;
+    }).sort(function(a, b) {
+        return new Date(b.lastModified || b.registeredAt) - new Date(a.lastModified || a.registeredAt);
+    });
+
+    if (candidates.length > 0) {
+        var source = candidates[0];
+        var td = source.testData || {};
+        var p = td.preconditioning || {};
+        var tv = td.testVerification || {};
+
+        // Safe fields that rarely change between same-config vehicles
+        var safeFields = [
+            { id: 'test_fan_mode', val: tv.fanMode },
+            { id: 'test_chains', val: tv.chains },
+            { id: 'test_slings', val: tv.slings },
+            { id: 'test_hood', val: tv.hood },
+            { id: 'test_rear_rollers', val: tv.rearRollers },
+            { id: 'test_screen', val: tv.screen }
+        ];
+
+        var applied = 0;
+        safeFields.forEach(function(sf) {
+            if (!sf.val) return;
+            var el = document.getElementById(sf.id);
+            if (el && !el.value) {
+                el.value = sf.val;
+                applied++;
+            }
+        });
+
+        if (applied > 0) {
+            // Show inline banner instead of modal
+            var opContent = document.getElementById('op-content');
+            if (opContent && !opContent.querySelector('.smart-copy-banner')) {
+                var banner = document.createElement('div');
+                banner.className = 'smart-copy-banner';
+                var shortVin = '...' + source.vin.slice(-6);
+                banner.innerHTML = '<span>Se aplicaron ' + applied + ' campos del último ' +
+                    escapeHtml(source.config && source.config.Modelo || 'vehículo') +
+                    ' (VIN ' + shortVin + ')</span>' +
+                    '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:14px;padding:0 4px;">✕</button>';
+                opContent.insertBefore(banner, opContent.firstChild);
+                setTimeout(function() { if (banner.parentNode) banner.remove(); }, 8000);
+            }
+        }
+    }
+}
+
+// Hook into loadVehicle to apply smart form features
+(function() {
+    var _origLoadVehicle = typeof loadVehicle === 'function' ? loadVehicle : null;
+    if (!_origLoadVehicle) return;
+    loadVehicle = function() {
+        _origLoadVehicle.apply(this, arguments);
+        // Apply smart features after vehicle loads
+        if (activeVehicleId) {
+            var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+            if (vehicle) {
+                var status = document.getElementById('op_status');
+                if (status) smartFormApplyByStatus(status.value);
+                smartFormSuggestDefaults(vehicle);
+                smartFormUpdateBadges();
+            }
+        }
+    };
+})();
+
+// Update badges when fields change
+(function() {
+    var container = document.getElementById('op-content');
+    if (container) {
+        container.addEventListener('input', debounce(smartFormUpdateBadges, 500));
+        container.addEventListener('change', smartFormUpdateBadges);
+    }
+})();
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M8] Templates — COP15 Operation Templates
+// ══════════════════════════════════════════════════════════════════════
+
+/** Collect current operation form data as a template-ready object. */
+function cop15TemplateCollect() {
+    var data = {};
+    var fields = ['tire_pressure', 'fuel_typein', 'fuel_typepre', 'precond_cycle',
+        'soak_time', 'tank_capacity', 'test_tunnel', 'test_dyno_on', 'test_fan_mode',
+        'test_fan_speed', 'test_fan_flow', 'test_chains', 'test_slings', 'test_hood',
+        'test_rear_rollers', 'test_screen', 'etw', 'tA', 'dA', 'tB', 'dB', 'tC', 'dC'];
+    fields.forEach(function(fid) {
+        var el = document.getElementById(fid);
+        if (el && el.value) data[fid] = el.value;
+    });
+    return data;
+}
+
+/** Apply template data to the current operation form. */
+function cop15TemplateApplyData(data) {
+    if (!data) return;
+    Object.keys(data).forEach(function(fid) {
+        var el = document.getElementById(fid);
+        if (el) {
+            el.value = data[fid];
+            el.style.outline = '2px dashed #8b5cf6';
+            el.style.outlineOffset = '2px';
+            setTimeout(function() { el.style.outline = ''; el.style.outlineOffset = ''; }, 3000);
+        }
+    });
+    markUnsaved();
+    showToast('Plantilla aplicada', 'success');
+}
+
+/** Save current operation as a named template. */
+function cop15TemplateSave() {
+    var data = cop15TemplateCollect();
+    if (Object.keys(data).length < 3) {
+        showToast('Muy pocos campos para guardar como plantilla', 'warning');
+        return;
+    }
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    var defaultName = vehicle && vehicle.config ? (vehicle.config.Modelo || '') + ' ' + (vehicle.config['EMISSION REGULATION'] || '') : 'Plantilla';
+    var name = prompt('Nombre de la plantilla:', defaultName.trim());
+    if (!name) return;
+    templateSave('cop15', name, data);
+}
+
+/** Show COP15 template manager. */
+function cop15TemplateManager() {
+    templateRenderManager('cop15', 'cop15TemplateApplyData');
+}
+
+// ======================================================================
+// [TOOLTIPS] CASCADE FIELD HELP TOOLTIPS
+// ======================================================================
+
+/** Tooltip definitions: { domFieldId: { title, text } } */
+var CASCADE_TOOLTIPS = {
+    vehiclePurpose: {
+        title: 'Prop\u00f3sito de la Prueba',
+        text: 'Emisiones = protocolo completo COP15 con preacondicionamiento, dinam\u00f3metro y verificaci\u00f3n. Simple = registro operativo b\u00e1sico sin prueba de emisiones. Determina qu\u00e9 formularios se muestran.'
+    },
+    vin: {
+        title: 'VIN (N\u00famero de Identificaci\u00f3n Vehicular)',
+        text: '17 caracteres alfanum\u00e9ricos \u00fanicos. No se permiten las letras I, O ni Q porque se confunden con 1 y 0. Ejemplo: KNDJP3A59K7123456.'
+    },
+    fuel_levelin: {
+        title: 'Nivel de Combustible (Recepci\u00f3n)',
+        text: 'Nivel como fracci\u00f3n de la capacidad del tanque: 0 = vac\u00edo, 1/8, 1/4, 1/2, 3/4, 1 = lleno. Se mide visualmente al recibir el veh\u00edculo.'
+    },
+    fuel_levelpre: {
+        title: 'Nivel de Combustible (Preacondicionamiento)',
+        text: 'Nivel de combustible en LITROS (no fracci\u00f3n). Diferente a la medici\u00f3n de recepci\u00f3n que usa fracciones del tanque.'
+    },
+    fuel_typepre: {
+        title: 'Tipo de Combustible de Prueba',
+        text: 'El combustible debe coincidir con el est\u00e1ndar regulatorio del veh\u00edculo. Cada norma (Euro 6, CARB LEV III, EPA Tier) requiere una composici\u00f3n espec\u00edfica de combustible certificado.'
+    },
+    battery_soc: {
+        title: 'SOC — Estado de Carga de Bater\u00eda',
+        text: 'SOC = State of Charge. Porcentaje de carga de la bater\u00eda (0-100%). Aplica para veh\u00edculos h\u00edbridos y el\u00e9ctricos. Se mide con esc\u00e1ner OBD antes de la prueba.'
+    },
+    tire_pressure_in: {
+        title: 'Presi\u00f3n de Llantas (PSI)',
+        text: 'Presi\u00f3n en PSI (libras por pulgada cuadrada). Conversi\u00f3n: 1 bar \u2248 14.5 psi, 1 kPa \u2248 0.145 psi. Verificar contra la etiqueta del veh\u00edculo.'
+    },
+    precond_cycle: {
+        title: 'Ciclo de Preacondicionamiento',
+        text: 'WLTP = Procedimiento Armonizado Mundial para Veh\u00edculos Ligeros. FTP = Procedimiento Federal de Prueba (fases 1 y 2). NEDC = Nuevo Ciclo Europeo de Conducci\u00f3n. Cada uno define un patr\u00f3n de conducci\u00f3n espec\u00edfico.'
+    },
+    soak_time: {
+        title: 'Tiempo de Reposo (Soak)',
+        text: 'Tiempo que el veh\u00edculo permanece en reposo t\u00e9rmico en la c\u00e1mara climatizada antes de la prueba. M\u00ednimo 12 horas est\u00e1ndar.'
+    },
+    precond_ok: {
+        title: 'Cumple Preacondicionamiento',
+        text: 'Confirmar que el veh\u00edculo cumple TODOS los requisitos: temperatura estabilizada (20-30\u00b0C), tiempo de reposo completado, sin DTCs activos, nivel de combustible correcto.'
+    },
+    dtc_pending_before: {
+        title: 'DTC Pendiente',
+        text: 'DTC = C\u00f3digo de Falla Diagn\u00f3stica (Diagnostic Trouble Code). Pendiente = falla almacenada en la ECU del veh\u00edculo pero a\u00fan no confirmada. Se verifica con esc\u00e1ner OBD.'
+    },
+    dtc_confirmed_before: {
+        title: 'DTC Confirmado',
+        text: 'DTC Confirmado = falla que ha ocurrido m\u00faltiples veces y cumple los criterios para encender la luz MIL (Check Engine). El veh\u00edculo NO debe tener DTCs confirmados para iniciar prueba.'
+    },
+    dtc_permanent_before: {
+        title: 'DTC Permanente',
+        text: 'DTC Permanente = falla que persiste despu\u00e9s de 40+ ciclos de calentamiento sin poder borrarse. Si existe, el veh\u00edculo no es apto para prueba de emisiones.'
+    },
+    etw: {
+        title: 'ETW — Peso Estimado de Prueba',
+        text: 'ETW = Estimated Test Weight. Es la masa del veh\u00edculo que el dinam\u00f3metro usa para simular la inercia y resistencia al rodamiento durante la prueba de emisiones. Se obtiene de la hoja de datos del veh\u00edculo.'
+    },
+    tA: {
+        title: 'Target A / Dyno Set A',
+        text: 'Coeficientes de resistencia al avance del veh\u00edculo. Target = valores te\u00f3ricos calculados. Dyno Set = valores configurados en el dinam\u00f3metro. A = fuerza constante (N), B = resistencia proporcional a velocidad, C = resistencia aerodin\u00e1mica (proporcional a v\u00b2). Deben coincidir para una prueba v\u00e1lida.'
+    },
+    dA: {
+        title: 'Target A / Dyno Set A',
+        text: 'Coeficientes de resistencia al avance del veh\u00edculo. Target = valores te\u00f3ricos calculados. Dyno Set = valores configurados en el dinam\u00f3metro. A = fuerza constante (N), B = resistencia proporcional a velocidad, C = resistencia aerodin\u00e1mica (proporcional a v\u00b2). Deben coincidir para una prueba v\u00e1lida.'
+    },
+    tB: {
+        title: 'Target B / Dyno Set B',
+        text: 'Coeficiente B de resistencia al avance. Proporcional a la velocidad (N/(km/h)). Target = valor te\u00f3rico, Dyno Set = valor configurado en el dinam\u00f3metro.'
+    },
+    dB: {
+        title: 'Target B / Dyno Set B',
+        text: 'Coeficiente B de resistencia al avance. Proporcional a la velocidad (N/(km/h)). Target = valor te\u00f3rico, Dyno Set = valor configurado en el dinam\u00f3metro.'
+    },
+    tC: {
+        title: 'Target C / Dyno Set C',
+        text: 'Coeficiente C de resistencia aerodin\u00e1mica. Proporcional al cuadrado de la velocidad (N/(km/h)\u00b2). Target = valor te\u00f3rico, Dyno Set = valor configurado en el dinam\u00f3metro.'
+    },
+    dC: {
+        title: 'Target C / Dyno Set C',
+        text: 'Coeficiente C de resistencia aerodin\u00e1mica. Proporcional al cuadrado de la velocidad (N/(km/h)\u00b2). Target = valor te\u00f3rico, Dyno Set = valor configurado en el dinam\u00f3metro.'
+    },
+    test_tunnel: {
+        title: 'T\u00fanel de Prueba',
+        text: 'C\u00e1mara f\u00edsica de pruebas de emisiones. RMT1 y RMT2 son las dos bah\u00edas (t\u00faneles) de prueba disponibles en el laboratorio. Cada t\u00fanel tiene su propio dinam\u00f3metro y sistema de muestreo de gases.'
+    },
+    test_chains: {
+        title: 'Cadenas de Amarre',
+        text: 'Cadenas de sujeci\u00f3n (1 y 2) que amarran el veh\u00edculo a la plataforma del dinam\u00f3metro para evitar deslizamiento durante la prueba. Deben estar TENSADAS antes de iniciar.'
+    },
+    test_slings: {
+        title: 'Eslingas de Sujeci\u00f3n',
+        text: 'Eslingas (1 y 2): cintas de soporte que estabilizan el veh\u00edculo verticalmente sobre los rodillos del dinam\u00f3metro. Deben estar ASEGURADAS antes de la prueba.'
+    },
+    test_hood: {
+        title: 'Cap\u00f3 del Veh\u00edculo',
+        text: 'En M\u00e9xico es OBLIGATORIO mantener el cap\u00f3 abierto durante la prueba de emisiones para permitir ventilaci\u00f3n adecuada del motor.'
+    },
+    test_rear_rollers: {
+        title: 'Rodillos Traseros',
+        text: 'Rodillos traseros del dinam\u00f3metro que hacen contacto con las ruedas traseras del veh\u00edculo. Deben estar asegurados para evitar movimiento lateral.'
+    },
+    test_screen: {
+        title: 'Pantalla Protectora',
+        text: 'Pantalla/barrera de protecci\u00f3n que se coloca frente al veh\u00edculo durante la prueba en el dinam\u00f3metro. Debe estar asegurada por seguridad del personal.'
+    },
+    test_fan_speed: {
+        title: 'Velocidad del Ventilador',
+        text: 'Velocidad del ventilador de enfriamiento en km/h equivalentes (velocidad del aire). Se calcula autom\u00e1ticamente el flujo en m\u00b3/min.'
+    },
+    test_fan_flow: {
+        title: 'Flujo del Ventilador',
+        text: 'Flujo de aire del ventilador de enfriamiento en m\u00b3/min (metros c\u00fabicos por minuto). En M\u00e9xico el l\u00edmite m\u00e1ximo permitido es 150 m\u00b3/min.'
+    },
+    test_mex_waitcheck: {
+        title: 'Verificaci\u00f3n FTP75-HWY (M\u00e9xico)',
+        text: 'Verificaci\u00f3n espec\u00edfica para M\u00e9xico del ciclo combinado FTP75 (ciclo ciudad) + HWY (ciclo carretera). El ventilador debe estar APAGADO al inicio. Confirma cumplimiento regulatorio mexicano.'
+    },
+    test_inertia_ok: {
+        title: 'Par\u00e1metros de Inercia',
+        text: 'Confirmar que los par\u00e1metros de inercia (masa simulada) est\u00e1n correctamente configurados en el dinam\u00f3metro y coinciden con el peso objetivo (ETW) del veh\u00edculo.'
+    },
+    soak_timer_hours: {
+        title: 'Duraci\u00f3n del Temporizador de Reposo',
+        text: 'Tiempo de reposo t\u00e9rmico (soak). 12h = est\u00e1ndar m\u00ednimo, 16h = recomendado para climas fr\u00edos, 24-36h = pruebas especiales o normativas estrictas.'
+    }
+};
+
+/** Inject ? help buttons next to labels of fields that have tooltips */
+function cascadeInjectTooltips() {
+    // Remove existing tooltip buttons first
+    document.querySelectorAll('.cascade-help-btn').forEach(function(btn) { btn.remove(); });
+
+    Object.keys(CASCADE_TOOLTIPS).forEach(function(fieldId) {
+        var field = document.getElementById(fieldId);
+        if (!field) return;
+
+        // Find the label: either a <label> pointing to this field, or the nearest preceding label
+        var label = document.querySelector('label[for="' + fieldId + '"]');
+        if (!label) {
+            // Walk up to find form-group then find label inside
+            var parent = field.closest('.form-group') || field.parentElement;
+            if (parent) label = parent.querySelector('label');
+        }
+        if (!label) return;
+
+        // Don't double-inject
+        if (label.querySelector('.cascade-help-btn')) return;
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'cascade-help-btn';
+        btn.textContent = '?';
+        btn.setAttribute('aria-label', 'Ayuda: ' + CASCADE_TOOLTIPS[fieldId].title);
+        btn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            cascadeShowTooltip(fieldId);
+        };
+        label.appendChild(btn);
+    });
+}
+
+/** Show a tooltip popup for the given field */
+function cascadeShowTooltip(fieldId) {
+    var tip = CASCADE_TOOLTIPS[fieldId];
+    if (!tip) return;
+
+    // Remove existing
+    cascadeCloseTooltip();
+
+    // Overlay
+    var overlay = document.createElement('div');
+    overlay.className = 'cascade-tooltip-overlay';
+    overlay.id = 'cascade-tooltip-overlay';
+    overlay.onclick = cascadeCloseTooltip;
+
+    // Popup
+    var popup = document.createElement('div');
+    popup.className = 'cascade-tooltip-popup';
+    popup.id = 'cascade-tooltip-popup';
+    popup.innerHTML =
+        '<div class="cascade-tooltip-title">\u2753 ' + tip.title + '</div>' +
+        '<div class="cascade-tooltip-text">' + tip.text + '</div>' +
+        '<button class="cascade-tooltip-close" onclick="cascadeCloseTooltip()">Entendido</button>';
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(popup);
+}
+
+/** Close the tooltip popup */
+function cascadeCloseTooltip() {
+    var overlay = document.getElementById('cascade-tooltip-overlay');
+    var popup = document.getElementById('cascade-tooltip-popup');
+    if (overlay) overlay.remove();
+    if (popup) popup.remove();
 }
