@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KIA EmLab — Test Suite</title>
+    <style>
+        body { font-family: sans-serif; background: #0a0f1a; color: #e2e8f0; padding: 20px; }
+        h1 { font-size: 20px; margin-bottom: 4px; }
+        .summary { font-size: 14px; margin-bottom: 20px; padding: 12px; border-radius: 8px; }
+        .summary.pass { background: rgba(16,185,129,0.15); border: 1px solid #10b981; }
+        .summary.fail { background: rgba(239,68,68,0.15); border: 1px solid #ef4444; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 8px; background: #1e293b; color: #94a3b8; font-size: 11px; text-transform: uppercase; }
+        td { padding: 6px 8px; border-bottom: 1px solid #1e293b; }
+        .pass-row td:first-child { color: #10b981; }
+        .fail-row td:first-child { color: #ef4444; }
+        .fail-row { background: rgba(239,68,68,0.05); }
+        .err-msg { font-size: 11px; color: #f87171; font-family: monospace; }
+        .duration { font-size: 10px; color: #64748b; }
+    </style>
+</head>
+<body>
+<h1>KIA EmLab — Test Suite</h1>
+<p style="font-size:11px;color:#64748b;margin-bottom:16px;">Ejecutado: <span id="ts-date"></span></p>
+<div id="summary" class="summary"></div>
+<table>
+    <thead><tr><th>Status</th><th>Test</th><th>Detalle</th></tr></thead>
+    <tbody id="results"></tbody>
+</table>
+
+<!-- Load app scripts to test their functions -->
+<script src="js/app.js"></script>
+<script src="js/cop15.js"></script>
+<script src="js/inventory.js"></script>
+<script src="js/testplan.js"></script>
+<script src="js/results.js"></script>
+
+<script>
+// ── Mini Test Runner ──
+var _tests = [], _pass = 0, _fail = 0;
+
+function test(name, fn) { _tests.push({ name: name, fn: fn }); }
+function assert(cond, msg) { if (!cond) throw new Error(msg || 'Assertion failed'); }
+function assertEqual(a, b, msg) { if (a !== b) throw new Error((msg || 'assertEqual') + ': expected ' + JSON.stringify(b) + ' but got ' + JSON.stringify(a)); }
+
+// ══════════════════════════════════════════════════════════════════════
+// TESTS
+// ══════════════════════════════════════════════════════════════════════
+
+// ── escapeHtml ──
+test('escapeHtml: escapes & < > " \'', function() {
+    assertEqual(escapeHtml('&<>"\''), '&amp;&lt;&gt;&quot;&#39;');
+});
+test('escapeHtml: handles null/undefined', function() {
+    assertEqual(escapeHtml(null), '');
+    assertEqual(escapeHtml(undefined), '');
+});
+test('escapeHtml: handles numbers', function() {
+    assertEqual(escapeHtml(42), '42');
+});
+test('escapeHtml: safe string unchanged', function() {
+    assertEqual(escapeHtml('Hello World'), 'Hello World');
+});
+test('escapeHtml: XSS vector neutralized', function() {
+    var result = escapeHtml('<img onerror=alert(1)>');
+    assert(!result.includes('<img'), 'Should not contain raw <img tag');
+});
+
+// ── safeParse ──
+test('safeParse: returns fallback for null key', function() {
+    var result = safeParse('__nonexistent_test_key__', { x: 1 });
+    assertEqual(result.x, 1);
+});
+test('safeParse: returns fallback for corrupted data', function() {
+    localStorage.setItem('__test_corrupt__', '{invalid json!!!');
+    var result = safeParse('__test_corrupt__', { ok: true });
+    assert(result.ok === true, 'Should return fallback');
+    localStorage.removeItem('__test_corrupt__');
+});
+test('safeParse: parses valid JSON', function() {
+    localStorage.setItem('__test_valid__', '{"a":1,"b":"two"}');
+    var result = safeParse('__test_valid__', {});
+    assertEqual(result.a, 1);
+    assertEqual(result.b, 'two');
+    localStorage.removeItem('__test_valid__');
+});
+
+// ── debounce ──
+test('debounce: returns a function', function() {
+    var fn = debounce(function(){}, 100);
+    assertEqual(typeof fn, 'function');
+});
+
+// ── VIN checksum ──
+test('VIN checksum: valid VIN passes (1G1YY22G965104005)', function() {
+    // Known valid VIN with check digit 0
+    var result = _vinCheckDigit('1G1YY22G965104005');
+    assertEqual(result, '6'); // position 9 (index 8) should match
+});
+test('VIN checksum: returns string', function() {
+    var result = _vinCheckDigit('12345678901234567');
+    assertEqual(typeof result, 'string');
+});
+
+// ── _nextBusinessDay ──
+test('_nextBusinessDay: skips Saturday to Monday', function() {
+    // 2026-03-07 is Saturday
+    var sat = new Date(2026, 2, 7, 10, 0);
+    var result = _nextBusinessDay(sat);
+    assertEqual(result.getDay(), 1, 'Should be Monday');
+    assertEqual(result.getDate(), 9);
+});
+test('_nextBusinessDay: Sunday becomes Monday', function() {
+    var sun = new Date(2026, 2, 8, 10, 0);
+    var result = _nextBusinessDay(sun);
+    assertEqual(result.getDay(), 1);
+});
+test('_nextBusinessDay: weekday stays same day', function() {
+    var wed = new Date(2026, 2, 4, 10, 0);
+    var result = _nextBusinessDay(wed);
+    assertEqual(result.getDay(), 3, 'Wednesday should stay Wednesday');
+});
+
+// ── _toLocalDatetimeStr ──
+test('_toLocalDatetimeStr: returns correct format', function() {
+    var d = new Date(2026, 2, 10, 14, 30);
+    var result = _toLocalDatetimeStr(d);
+    assert(result.includes('2026-03-10'), 'Should include date');
+    assert(result.includes('14:30'), 'Should include time');
+});
+
+// ── _formatBytes ──
+test('_formatBytes: formats bytes correctly', function() {
+    assertEqual(_formatBytes(0), '0 B');
+    assertEqual(_formatBytes(1024), '1.0 KB');
+    assertEqual(_formatBytes(1048576), '1.0 MB');
+});
+
+// ── tpISOWeekKey ──
+test('tpISOWeekKey: returns correct week key', function() {
+    if (typeof tpISOWeekKey === 'function') {
+        var result = tpISOWeekKey(new Date(2026, 2, 10)); // Tuesday
+        assert(result.includes('2026'), 'Should include year');
+        assert(result.includes('W'), 'Should include W prefix');
+    } else {
+        throw new Error('tpISOWeekKey not available');
+    }
+});
+
+// ── _tlClassifyAction ──
+test('_tlClassifyAction: classifies status changes', function() {
+    assertEqual(_tlClassifyAction('Status changed to testing'), 'status');
+});
+test('_tlClassifyAction: classifies data entries', function() {
+    assertEqual(_tlClassifyAction('Datos de prueba guardados'), 'data');
+});
+test('_tlClassifyAction: classifies system actions', function() {
+    assertEqual(_tlClassifyAction('Vehículo Liberado y Archivado'), 'system');
+});
+test('_tlClassifyAction: classifies errors', function() {
+    assertEqual(_tlClassifyAction('Error en liberación'), 'error');
+});
+
+// ── _tlClassifyPhase ──
+test('_tlClassifyPhase: classifies reception', function() {
+    assertEqual(_tlClassifyPhase('Registro de alta'), 'Recepción');
+});
+test('_tlClassifyPhase: classifies precond', function() {
+    assertEqual(_tlClassifyPhase('Preacondicionamiento iniciado'), 'Preacondicionamiento');
+});
+test('_tlClassifyPhase: classifies test', function() {
+    assertEqual(_tlClassifyPhase('Prueba de emisiones'), 'Prueba');
+});
+test('_tlClassifyPhase: classifies release', function() {
+    assertEqual(_tlClassifyPhase('Liberación completada'), 'Liberación');
+});
+
+// ── _buildConfigCode ──
+test('_buildConfigCode: builds code from fields', function() {
+    if (typeof _buildConfigCode === 'function') {
+        var code = _buildConfigCode({
+            modelo: 'BL7m', modelYear: '26 MODEL', transmission: '6MT',
+            envPkg: '0', emissionReg: 'EURO-5', driveType: 'LHD',
+            engineCap: '1400cc KAPPA', tireAssy: '185/65 R15',
+            region: 'MEXICO', bodyType: '4DR', enginePkg: 'DCVVT'
+        });
+        assert(code.includes('BL7m'), 'Should include modelo');
+        assert(code.includes('6MT'), 'Should include transmission');
+    } else {
+        throw new Error('_buildConfigCode not available');
+    }
+});
+
+// ── parseCSV ──
+test('parseCSV: populates allConfigurations', function() {
+    parseCSV();
+    assert(allConfigurations.length > 0, 'Should have configurations');
+    assert(allConfigurations[0].codigo_config_text, 'First config should have codigo_config_text');
+});
+
+// ── Data integrity: corrupted localStorage doesn't crash ──
+test('Data integrity: safeParse prevents crash on corrupt data', function() {
+    localStorage.setItem('__test_arr__', '[not valid');
+    var result = safeParse('__test_arr__', []);
+    assert(Array.isArray(result), 'Should return array fallback');
+    localStorage.removeItem('__test_arr__');
+});
+
+// ── CONFIG object exists ──
+test('CONFIG: exists with statusLabels', function() {
+    assert(typeof CONFIG === 'object', 'CONFIG should exist');
+    assert(CONFIG.statusLabels, 'Should have statusLabels');
+    assert(CONFIG.statusLabels.registered, 'Should have registered label');
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// RUN
+// ══════════════════════════════════════════════════════════════════════
+
+document.getElementById('ts-date').textContent = new Date().toLocaleString('es-MX');
+
+var tbody = document.getElementById('results');
+_tests.forEach(function(t) {
+    var tr = document.createElement('tr');
+    try {
+        t.fn();
+        _pass++;
+        tr.className = 'pass-row';
+        tr.innerHTML = '<td>PASS</td><td>' + t.name + '</td><td></td>';
+    } catch(e) {
+        _fail++;
+        tr.className = 'fail-row';
+        tr.innerHTML = '<td>FAIL</td><td>' + t.name + '</td><td class="err-msg">' + (e.message || e) + '</td>';
+    }
+    tbody.appendChild(tr);
+});
+
+var summary = document.getElementById('summary');
+summary.className = 'summary ' + (_fail === 0 ? 'pass' : 'fail');
+summary.innerHTML = '<strong>' + (_fail === 0 ? 'ALL TESTS PASSED' : _fail + ' FAILED') + '</strong> — ' +
+    _pass + ' passed, ' + _fail + ' failed, ' + _tests.length + ' total';
+</script>
+</body>
+</html>

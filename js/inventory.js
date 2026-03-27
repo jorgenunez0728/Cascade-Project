@@ -6,8 +6,11 @@
 // ║  [M30] LAB INVENTORY — Gas Cylinders, Equipment, Readings         ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// ── [Fase 2.1] Debounced render wrapper for search/filter inputs ──
+var _invDebouncedRender = debounce(invRender, 250);
+
 const INV_LS_KEY = 'kia_lab_inventory';
-let invState = JSON.parse(localStorage.getItem(INV_LS_KEY)) || {
+let invState = safeParse(INV_LS_KEY, null) || {
     gases: [],       // {id, controlNo, cylinderNo, formula, gasType, concNominal, concReal, traceability, validUntil, zone, position, status, regDate, gasCategory, readings:[], barcode}
     equipment: [],   // {id, name, type, serialNo, location, lastCalDate, nextCalDate, calCertNo, status, notes}
     zones: [
@@ -36,9 +39,44 @@ let invState = JSON.parse(localStorage.getItem(INV_LS_KEY)) || {
     fuelTanks: [] // {id, name, fuelType, octane, supplier, capacity, currentLevel, unit, readings}
 };
 
+// Drag-and-drop state for zone map
+var _invDrag = { active:false, gasId:null, sourceCode:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false };
+var _invUndoStack = [];
+var _invUndoMaxSize = 5;
+
 function invSave() {
     try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
-    catch(e) { console.warn('INV: localStorage full'); }
+    catch(e) {
+        console.warn('INV: localStorage full, trying compact save');
+        invCompactReadings();
+        try { localStorage.setItem(INV_LS_KEY, JSON.stringify(invState)); }
+        catch(e2) { showToast('Almacenamiento lleno. Elimina datos antiguos.', 'error'); }
+    }
+    tabCacheInvalidate('inv');
+    // [R6] Notify Alpine components of data change
+    window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'inventory' } }));
+}
+
+// ── [Fase 5.3] Compact old fuel readings (keep last 30 per tank) ──
+function invCompactReadings() {
+    if (!invState || !invState.fuelTanks) return;
+    var compacted = 0;
+    invState.fuelTanks.forEach(function(t) {
+        if (t.readings && t.readings.length > 30) {
+            compacted += t.readings.length - 30;
+            t.readings = t.readings.slice(-30);
+        }
+    });
+    // Also compact equipment calibration history
+    if (invState.equipment) {
+        invState.equipment.forEach(function(eq) {
+            if (eq.calibrationHistory && eq.calibrationHistory.length > 20) {
+                compacted += eq.calibrationHistory.length - 20;
+                eq.calibrationHistory = eq.calibrationHistory.slice(-20);
+            }
+        });
+    }
+    if (compacted > 0) { console.log('INV: Compacted ' + compacted + ' old readings'); }
 }
 
 
@@ -58,11 +96,20 @@ function invPreloadData() {
     invSave();
 }
 
+var _invTabs = ['inv-dashboard','inv-gases','inv-equipment','inv-readings','inv-predict','inv-fuel','inv-zonemap','inv-charts','inv-config','inv-report','inv-trace'];
+
 function invSwitchTab(tabId) {
     invState.activeTab = tabId;
+    localStorage.setItem('kia_inv_activeTab', tabId);
     document.querySelectorAll('#inv-tabs-bar .tp-tab').forEach(function(b){b.classList.remove('active');});
-    event.target.classList.add('active');
+    var targetBtn = document.querySelector('#inv-tabs-bar .tp-tab[onclick*="' + tabId + '"]');
+    if (event && event.target) event.target.classList.add('active');
+    else if (targetBtn) targetBtn.classList.add('active');
     invRender();
+}
+function invRestoreTab() {
+    var saved = localStorage.getItem('kia_inv_activeTab');
+    if (saved) { invSwitchTab(saved); }
 }
 
 // Proactive alerts on module open (runs once per session)
@@ -85,27 +132,70 @@ function invCheckProactiveAlerts() {
     }
 }
 
+function _invGetRenderer(tabId) {
+    if (tabId === 'inv-dashboard') return invRenderDashboard;
+    if (tabId === 'inv-gases') return invRenderGases;
+    if (tabId === 'inv-equipment') return invRenderEquipment;
+    if (tabId === 'inv-readings') return invRenderReadings;
+    if (tabId === 'inv-predict') return invRenderPredict;
+    if (tabId === 'inv-fuel') return invRenderFuel;
+    if (tabId === 'inv-zonemap') return invRenderZoneMap;
+    if (tabId === 'inv-charts') return invRenderCharts;
+    if (tabId === 'inv-config') return invRenderConfig;
+    if (tabId === 'inv-report') return invRenderReport;
+    if (tabId === 'inv-trace') return invRenderTrace;
+    return null;
+}
+
 function invRender() {
-    var el = document.getElementById('inv-content');
-    if (!el) return;
+    if (!document.getElementById('inv-content')) return;
+    if (!_tabCache['inv']) tabCacheInit('inv', _invTabs);
     invCheckProactiveAlerts();
-    var t = invState.activeTab;
-    if (t === 'inv-dashboard') invRenderDashboard(el);
-    else if (t === 'inv-gases') invRenderGases(el);
-    else if (t === 'inv-equipment') invRenderEquipment(el);
-    else if (t === 'inv-readings') invRenderReadings(el);
-    else if (t === 'inv-predict') invRenderPredict(el);
-    else if (t === 'inv-fuel') invRenderFuel(el);
-    else if (t === 'inv-config') invRenderConfig(el);
-    else if (t === 'inv-report') invRenderReport(el);
+    var tab = invState.activeTab;
+    var renderer = _invGetRenderer(tab);
+    if (renderer) tabCacheSwitch('inv', tab, renderer);
 }
 
 function invUpdateBadges() {
     var b = document.getElementById('inv-count-badge');
     if (b) b.textContent = invState.gases.length + ' gases' + ((invState.fuelTanks||[]).length > 0 ? ', ' + invState.fuelTanks.length + ' tambos' : '');
+    // Expiration alert badge on platform tab
+    var expired = invState.gases.filter(function(g){ return invGasExpiry(g).status === 'expired'; }).length;
+    var warning = invState.gases.filter(function(g){ return invGasExpiry(g).status === 'warning'; }).length;
+    var alertCount = expired + warning;
+    var alertBadge = document.getElementById('inv-alert-badge');
+    if (alertBadge) {
+        if (alertCount > 0) {
+            alertBadge.textContent = alertCount;
+            alertBadge.style.display = 'inline-block';
+            alertBadge.style.background = expired > 0 ? '#ef4444' : '#f59e0b';
+        } else {
+            alertBadge.style.display = 'none';
+        }
+    }
 }
 
 function invGenId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// Generate unique barcode serial: KIA-YYYYMMDD-XXXX (deterministic from controlNo, or unique for new)
+function invGenerateSerial(controlNo) {
+    // Format: KIA-{date}-{seq} where seq is a 4-char alphanumeric from controlNo hash
+    var hash = 0;
+    var str = controlNo + 'kia-emlab';
+    for (var i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+    }
+    var hex = Math.abs(hash).toString(36).toUpperCase().slice(0, 4);
+    while (hex.length < 4) hex = '0' + hex;
+    // Check for collisions with existing serials
+    var serial = 'KIA-' + controlNo.replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase() + '-' + hex;
+    var existing = invState.gases.map(function(g) { return g.barcode; });
+    if (existing.indexOf(serial) >= 0) {
+        // Add random suffix to break collision
+        serial += Math.random().toString(36).slice(2, 4).toUpperCase();
+    }
+    return serial;
+}
 
 function invAutoControlNo() {
     var today = new Date().toISOString().slice(0,10).replace(/-/g,'');
@@ -181,8 +271,14 @@ function invRenderDashboard(el) {
         });
         html += '</div>';
     } else if (gases.length > 0) {
-        html += '<div class="tp-card" style="border-left:3px solid var(--tp-green);text-align:center;padding:20px;color:var(--tp-green);">Sin alertas. Todos los gases y equipos OK.</div>';
+        html += '<div class="tp-card" style="border-left:3px solid var(--tp-green);text-align:center;padding:20px;color:var(--tp-green);">Sin alertas de vigencia/nivel. Todos los gases y equipos OK.</div>';
     }
+
+    // Anomaly detection banner
+    html += invRenderAnomalyBanner();
+
+    // Reorder alerts (projected depletion)
+    html += invRenderReorderAlerts();
 
     // Zone map (simplified visual)
     html += '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span></div>';
@@ -209,7 +305,7 @@ function invRenderDashboard(el) {
     html += '</div></div>';
 
     if (gases.length === 0) {
-        html += '<div class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">Sin cilindros registrados. Ve a la pestana Gases para agregar.</div>';
+        html += '<div class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">Sin cilindros registrados.<br><button class="tp-btn tp-btn-primary" onclick="invState.activeTab=\'inv-gases\';invRender();document.querySelectorAll(\'#inv-tabs-bar .tp-tab\').forEach(b=>b.classList.remove(\'active\'));document.querySelectorAll(\'#inv-tabs-bar .tp-tab\')[1].classList.add(\'active\');" style="margin-top:12px;">➕ Agregar Gas</button></div>';
     }
 
     el.innerHTML = html;
@@ -224,34 +320,41 @@ function invRenderGases(el) {
     var allZones = invState.zones.map(function(z){return z.id;});
     var filtered = filterZone === 'ALL' ? gases : gases.filter(function(g){ return g.zone && g.zone.startsWith(filterZone); });
 
+    var _invGasCompact = getViewMode('inv-gases') === 'compact';
     var html = '<div class="tp-card"><div class="tp-card-title"><span>Gestion de Cilindros (' + gases.length + ')</span>';
-    html += '<div style="display:flex;gap:5px;"><button class="tp-btn tp-btn-primary" onclick="invShowAddGas()" style="font-size:10px;">+ Nuevo Cilindro</button>';
+    html += '<div style="display:flex;gap:5px;align-items:center;">' + renderViewModeToggle('inv-gases', false);
+    html += '<button class="tp-btn tp-btn-primary" onclick="invShowAddGas()" style="font-size:10px;">+ Nuevo Cilindro</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invExportGases()" style="font-size:10px;">Exportar</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invImportGases()" style="font-size:10px;">Importar</button></div></div>';
     html += '<input type="file" id="inv-import-file" accept=".json" style="display:none;" onchange="invHandleImport(event)">';
 
     // Filters
     html += '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">';
-    html += '<select class="tp-select" onchange="window._invGasFilterZone=this.value;invRender();" style="font-size:10px;"><option value="ALL">Todas zonas</option>';
+    html += '<select class="tp-select" onchange="window._invGasFilterZone=this.value;_invDebouncedRender();" style="font-size:10px;"><option value="ALL">Todas zonas</option>';
     allZones.forEach(function(z){ html += '<option value="' + z + '" ' + (z===filterZone?'selected':'') + '>' + z + '</option>'; });
     html += '</select></div>';
 
     if (filtered.length === 0) {
         html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin cilindros' + (filterZone !== 'ALL' ? ' en zona ' + filterZone : '') + '</div>';
     } else {
-        html += '<div style="max-height:500px;overflow-y:auto;">';
+        html += '<div class="' + (_invGasCompact ? 'list-compact' : '') + '" style="max-height:500px;overflow-y:auto;">';
         filtered.sort(function(a,b){ return (a.zone||'').localeCompare(b.zone||''); }).forEach(function(g) {
             var exp = invGasExpiry(g);
             var lvl = invGasLevel(g);
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;border-left:3px solid ' + exp.color + ';background:var(--tp-card);flex-wrap:wrap;gap:4px;">';
+            html += '<div style="position:relative;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;border-left:3px solid ' + exp.color + ';background:var(--tp-card);flex-wrap:wrap;gap:4px;">';
+            if (exp.status === 'expired') {
+                html += '<div style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(239,68,68,0.08);pointer-events:none;border-radius:6px;"></div>';
+                html += '<div style="position:absolute;top:2px;right:8px;font-size:9px;font-weight:900;color:#ef4444;transform:rotate(-12deg);opacity:0.6;">VENCIDO</div>';
+            }
             html += '<div style="flex:1;min-width:180px;">';
             html += '<div style="font-weight:700;font-size:11px;">' + g.formula + ' <span style="color:var(--tp-dim);font-weight:400;">' + (g.concNominal||'') + '</span></div>';
-            html += '<div style="font-size:9px;color:var(--tp-dim);">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo||'?') + ' | ' + (g.zone||'?') + '</div>';
+            html += '<div class="compact-hide" style="font-size:9px;color:var(--tp-dim);">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo||'?') + ' | ' + (g.zone||'?') + '</div>';
             html += '</div>';
             html += '<div style="display:flex;gap:6px;align-items:center;">';
-            html += '<span style="font-size:8px;padding:2px 6px;border-radius:4px;background:' + exp.color + '20;color:' + exp.color + ';border:1px solid ' + exp.color + '30;">' + exp.text + '</span>';
-            html += '<span style="font-size:8px;padding:2px 6px;border-radius:4px;background:' + lvl.color + '20;color:' + lvl.color + ';">' + lvl.text + '</span>';
+            html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + exp.color + '20;color:' + exp.color + ';border:1px solid ' + exp.color + '30;">' + exp.text + '</span>';
+            html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + lvl.color + '20;color:' + lvl.color + ';">' + lvl.text + '</span>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGas(\'' + g.id + '\')" style="font-size:9px;">\u270F</button>';
+            if (g.readings && g.readings.length >= 2) html += '<button class="tp-btn tp-btn-ghost" onclick="invShowTrendChart(\'' + g.id + '\')" style="font-size:9px;" title="Tendencia">&#x1F4C8;</button>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invShowBarcode(\'' + g.id + '\')" style="font-size:9px;">\u{1F4CB}</button>';
             html += '</div></div>';
         });
@@ -289,7 +392,7 @@ function invShowAddGas(editId) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;">' + title + '</h3>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div><label style="font-size:10px;color:#64748b;">No. Control * <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size:8px;background:#0f766e;color:#fff;border:none;border-radius:4px;padding:1px 6px;cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:10px;color:#64748b;">No. Control * <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size:9px;background:#0f766e;color:#fff;border:none;border-radius:4px;padding:1px 6px;cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:10px;color:#64748b;">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div style="grid-column:1/-1;"><label style="font-size:10px;color:#64748b;">Tipo de Gas *</label><select id="inv-g-type" onchange="invUpdateConcOpts()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + gasTypeOpts + '</select></div>' +
         '<div><label style="font-size:10px;color:#64748b;">Conc. Nominal</label><select id="inv-g-conc" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></select></div>' +
@@ -299,10 +402,12 @@ function invShowAddGas(editId) {
         '<div><label style="font-size:10px;color:#64748b;">Zona + Posicion *</label><select id="inv-g-zone" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + zoneOpts + '</select></div>' +
         '<div><label style="font-size:10px;color:#64748b;">Estatus</label><select id="inv-g-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.status==='Stock'?'selected':'') + '>Stock</option><option ' + (g&&g.status==='In use'?'selected':'') + '>In use</option><option ' + (g&&g.status==='Empty'?'selected':'') + '>Empty</option><option ' + (g&&g.status==='Spare'?'selected':'') + '>Spare</option></select></div>' +
         '<div><label style="font-size:10px;color:#64748b;">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:10px;color:#64748b;">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:10px;color:#64748b;">Proveedor</label><input id="inv-g-supplier" value="' + (g?g.supplier||'':'') + '" placeholder="Nombre del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveGas(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="if(confirm(\x27Eliminar cilindro?\x27)){invDeleteGas(\x27' + editId + '\x27);}" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar cilindro?\',function(){invDeleteGas(\x27' + editId + '\x27);},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 
@@ -342,7 +447,9 @@ function invSaveGas(editId) {
         position: zone ? parseInt(zone.slice(1)) : 0,
         status: document.getElementById('inv-g-status').value,
         regDate: document.getElementById('inv-g-regdate').value,
-        barcode: '*' + controlNo + '*'
+        barcode: invGenerateSerial(controlNo),
+        lotNumber: document.getElementById('inv-g-lot').value.trim(),
+        supplier: document.getElementById('inv-g-supplier').value.trim()
     };
 
     if (editId) {
@@ -361,12 +468,14 @@ function invSaveGas(editId) {
             }
             obj.timeline.push({date:new Date().toISOString(),action:'Modificado'});
             invState.gases[idx] = obj;
+            auditLog('inv', 'gas_modified', {type:'gas', id:obj.id, label:obj.controlNo}, 'Formula: ' + obj.formula);
         }
     } else {
         obj.id = invGenId();
         obj.readings = [];
         obj.timeline = [{date:new Date().toISOString(),action:'Alta — Recibido'}];
         invState.gases.push(obj);
+        auditLog('inv', 'gas_created', {type:'gas', id:obj.id, label:obj.controlNo}, 'Formula: ' + obj.formula);
     }
 
     invSave(); invPreloadData(); invRender(); invUpdateBadges();
@@ -374,6 +483,8 @@ function invSaveGas(editId) {
 }
 
 function invDeleteGas(id) {
+    var _delGas = invState.gases.find(function(g){ return g.id === id; });
+    if (_delGas) auditLog('inv', 'gas_deleted', {type:'gas', id:id, label:_delGas.controlNo}, 'Formula: ' + _delGas.formula);
     invState.gases = invState.gases.filter(function(g){ return g.id !== id; });
     invSave(); invPreloadData(); invRender(); invUpdateBadges();
     document.getElementById('invModal').style.display = 'none';
@@ -382,16 +493,231 @@ function invDeleteGas(id) {
 function invShowBarcode(id) {
     var g = invState.gases.find(function(x){return x.id===id;});
     if (!g) return;
+
+    // Ensure barcode serial exists (backfill for old cylinders)
+    if (!g.barcode || g.barcode.startsWith('*')) {
+        g.barcode = invGenerateSerial(g.controlNo);
+        invSave();
+    }
+
+    var exp = invGasExpiry(g);
+    var lvl = invGasLevel(g);
+    var lastR = g.readings && g.readings.length > 0 ? g.readings[g.readings.length - 1] : null;
+
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:350px;margin:40px auto;background:#fff;border-radius:14px;padding:30px;text-align:center;">' +
-        '<h3 style="margin:0 0 10px;">' + g.formula + ' ' + (g.concNominal||'') + '</h3>' +
-        '<div style="font-size:48px;font-family:monospace;letter-spacing:4px;margin:20px 0;">' + g.barcode + '</div>' +
-        '<div style="font-size:14px;color:#64748b;">Control: ' + g.controlNo + '</div>' +
-        '<div style="font-size:12px;color:#94a3b8;">Cilindro: ' + (g.cylinderNo||'?') + ' | Zona: ' + (g.zone||'?') + '</div>' +
-        '<button onclick="window.print()" style="margin-top:15px;padding:8px 20px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;">Imprimir</button>' +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="margin-top:15px;margin-left:8px;padding:8px 20px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cerrar</button>' +
-        '</div>';
+
+    // ── Print-optimized layout: barcode label strip + data sheet ──
+    var html = '<div id="inv-print-page" style="max-width:700px;margin:20px auto;background:#fff;border-radius:14px;padding:0;color:#0f172a;">';
+
+    // === BARCODE LABEL STRIP (designed to be cut out) ===
+    html += '<div id="inv-barcode-label" style="border:2px dashed #94a3b8;border-radius:10px;padding:12px 20px;margin:20px;page-break-after:auto;">';
+    html += '<div style="display:flex;align-items:center;gap:16px;">';
+    // Left: barcode
+    html += '<div id="inv-barcode-container" style="flex-shrink:0;"></div>';
+    // Right: key info for the label
+    html += '<div style="flex:1;border-left:1px solid #e2e8f0;padding-left:14px;">';
+    html += '<div style="font-size:16px;font-weight:800;">' + g.formula + ' <span style="font-weight:400;color:#64748b;">' + (g.concNominal || '') + '</span></div>';
+    html += '<div style="font-size:11px;color:#334155;margin-top:2px;">' + (g.gasType || '') + '</div>';
+    html += '<table style="font-size:10px;margin-top:6px;border-collapse:collapse;">';
+    html += '<tr><td style="color:#64748b;padding-right:8px;">Control:</td><td style="font-weight:700;">' + g.controlNo + '</td></tr>';
+    html += '<tr><td style="color:#64748b;padding-right:8px;">Cilindro:</td><td style="font-weight:700;">' + (g.cylinderNo || '—') + '</td></tr>';
+    html += '<tr><td style="color:#64748b;padding-right:8px;">Zona:</td><td style="font-weight:700;">' + (g.zone || '—') + '</td></tr>';
+    html += '<tr><td style="color:#64748b;padding-right:8px;">Vence:</td><td style="font-weight:700;color:' + (exp.days < 30 ? '#dc2626' : '#0f172a') + ';">' + (g.validUntil || '—') + '</td></tr>';
+    html += '</table>';
+    html += '</div></div>';
+    html += '<div style="text-align:center;margin-top:4px;font-size:9px;color:#94a3b8;letter-spacing:1px;">✂ RECORTAR POR LINEA PUNTEADA ✂</div>';
+    html += '</div>';
+
+    // === FICHA DE RECEPCION DE CILINDRO ===
+    html += '<div style="padding:0 24px 24px;">';
+
+    // Header
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;border-bottom:2px solid #0f172a;padding-bottom:8px;">';
+    html += '<div>';
+    html += '<div style="font-size:20px;font-weight:800;">KIA Emissions Lab</div>';
+    html += '<div style="font-size:11px;color:#64748b;">Ficha de Recepcion de Cilindro de Gas</div>';
+    html += '</div>';
+    html += '<div style="text-align:right;font-size:10px;color:#64748b;">';
+    html += '<div>Fecha recepcion: <strong style="color:#0f172a;font-size:12px;">' + (g.regDate || new Date().toISOString().slice(0,10)) + '</strong></div>';
+    html += '<div>Folio: ' + g.controlNo + '</div>';
+    html += '</div></div>';
+
+    // Identification table
+    html += '<div style="font-size:11px;font-weight:700;margin-bottom:4px;color:#334155;">1. Identificacion del Cilindro</div>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;border:1px solid #cbd5e1;">';
+    var idFields = [
+        ['Formula / Gas', g.formula],
+        ['Tipo de Gas', g.gasType || '—'],
+        ['No. Control Interno', g.controlNo],
+        ['No. Cilindro (proveedor)', g.cylinderNo || '—'],
+        ['Conc. Nominal', g.concNominal || '—'],
+        ['Conc. Real (certificado)', g.concReal || '—'],
+        ['Trazabilidad / Lote', g.traceability || '—'],
+        ['Serial Barcode', g.barcode],
+        ['Zona Asignada', g.zone || '—'],
+        ['Fecha de Vigencia', g.validUntil || '—']
+    ];
+    for (var i = 0; i < idFields.length; i += 2) {
+        html += '<tr>';
+        html += '<td style="padding:3px 8px;font-size:9px;color:#64748b;border:1px solid #e2e8f0;width:22%;background:#f8fafc;">' + idFields[i][0] + '</td>';
+        html += '<td style="padding:3px 8px;font-size:10px;font-weight:600;border:1px solid #e2e8f0;width:28%;">' + idFields[i][1] + '</td>';
+        if (i + 1 < idFields.length) {
+            html += '<td style="padding:3px 8px;font-size:9px;color:#64748b;border:1px solid #e2e8f0;width:22%;background:#f8fafc;">' + idFields[i+1][0] + '</td>';
+            html += '<td style="padding:3px 8px;font-size:10px;font-weight:600;border:1px solid #e2e8f0;width:28%;">' + idFields[i+1][1] + '</td>';
+        } else {
+            html += '<td colspan="2" style="border:1px solid #e2e8f0;"></td>';
+        }
+        html += '</tr>';
+    }
+    html += '</table>';
+
+    // Checklist de recepcion
+    html += '<div style="font-size:11px;font-weight:700;margin-bottom:4px;color:#334155;">2. Checklist de Recepcion</div>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;border:1px solid #cbd5e1;font-size:10px;">';
+    html += '<thead><tr style="background:#f8fafc;"><th style="padding:3px 8px;border:1px solid #e2e8f0;text-align:left;width:60%;">Verificacion</th><th style="padding:3px 8px;border:1px solid #e2e8f0;width:10%;">OK</th><th style="padding:3px 8px;border:1px solid #e2e8f0;width:10%;">N/A</th><th style="padding:3px 8px;border:1px solid #e2e8f0;text-align:left;">Observaciones</th></tr></thead><tbody>';
+    var checks = [
+        'Cilindro sin dano visible (golpes, corrosion, abolladuras)',
+        'Valvula en buenas condiciones y cierra correctamente',
+        'Etiqueta del proveedor legible y coincide con certificado',
+        'Certificado de analisis recibido y archivado',
+        'Concentracion real dentro de tolerancia vs nominal',
+        'Fecha de vigencia vigente al momento de recepcion',
+        'Presion inicial registrada (ver seccion 3)',
+        'Regulador/adaptador compatible verificado',
+        'Zona de almacenamiento asignada y etiquetada'
+    ];
+    checks.forEach(function(c) {
+        html += '<tr><td style="padding:3px 8px;border:1px solid #e2e8f0;">' + c + '</td>';
+        html += '<td style="padding:3px 8px;border:1px solid #e2e8f0;text-align:center;">&#9744;</td>';
+        html += '<td style="padding:3px 8px;border:1px solid #e2e8f0;text-align:center;">&#9744;</td>';
+        html += '<td style="padding:3px 8px;border:1px solid #e2e8f0;"></td></tr>';
+    });
+    html += '</tbody></table>';
+
+    // Presion inicial
+    html += '<div style="font-size:11px;font-weight:700;margin-bottom:4px;color:#334155;">3. Presion Inicial</div>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;border:1px solid #cbd5e1;font-size:10px;">';
+    html += '<tr>';
+    html += '<td style="padding:6px 8px;border:1px solid #e2e8f0;width:30%;background:#f8fafc;">Presion al recibir (psi):</td>';
+    html += '<td style="padding:6px 8px;border:1px solid #e2e8f0;width:20%;font-size:14px;font-weight:700;min-height:24px;">&nbsp;</td>';
+    html += '<td style="padding:6px 8px;border:1px solid #e2e8f0;width:25%;background:#f8fafc;">Fecha de lectura:</td>';
+    html += '<td style="padding:6px 8px;border:1px solid #e2e8f0;width:25%;">' + (g.regDate || '') + '</td>';
+    html += '</tr></table>';
+
+    // Bitacora de lecturas (blank rows to fill by hand)
+    html += '<div style="font-size:11px;font-weight:700;margin-bottom:4px;color:#334155;">4. Bitacora de Lecturas de Presion</div>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;border:1px solid #cbd5e1;font-size:10px;">';
+    html += '<thead><tr style="background:#f8fafc;">';
+    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;width:18%;">Fecha</th>';
+    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;width:14%;">PSI</th>';
+    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;width:14%;">Temp. (&deg;C)</th>';
+    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;">Operador</th>';
+    html += '<th style="padding:3px 6px;border:1px solid #e2e8f0;">Observaciones</th>';
+    html += '</tr></thead><tbody>';
+    for (var r = 0; r < 15; r++) {
+        html += '<tr>';
+        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;height:18px;">&nbsp;</td>';
+        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;">&nbsp;</td>';
+        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;">&nbsp;</td>';
+        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;">&nbsp;</td>';
+        html += '<td style="padding:5px 6px;border:1px solid #e2e8f0;">&nbsp;</td>';
+        html += '</tr>';
+    }
+    html += '</tbody></table>';
+
+    // Firmas
+    html += '<div style="font-size:11px;font-weight:700;margin-bottom:8px;color:#334155;">5. Firmas de Recepcion</div>';
+    html += '<div style="display:flex;gap:20px;margin-bottom:14px;">';
+    html += '<div style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:8px;text-align:center;">';
+    html += '<div style="height:50px;"></div>';
+    html += '<div style="border-top:1px solid #0f172a;padding-top:4px;font-size:9px;color:#64748b;">Recibio — Nombre y firma</div></div>';
+    html += '<div style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:8px;text-align:center;">';
+    html += '<div style="height:50px;"></div>';
+    html += '<div style="border-top:1px solid #0f172a;padding-top:4px;font-size:9px;color:#64748b;">Verifico — Nombre y firma</div></div>';
+    html += '</div>';
+
+    // Notas
+    html += '<div style="border:1px solid #e2e8f0;border-radius:6px;padding:8px;min-height:40px;">';
+    html += '<div style="font-size:9px;color:#94a3b8;">Notas / Observaciones:</div>';
+    html += '</div>';
+
+    html += '</div>'; // end data sheet
+
+    // === ACTION BUTTONS (hidden on print) ===
+    html += '<div class="inv-no-print" style="display:flex;gap:8px;justify-content:center;padding:0 24px 24px;">';
+    html += '<button onclick="invPrintBarcodePage()" style="padding:10px 24px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Imprimir</button>';
+    html += '<button onclick="invDownloadBarcode(\'' + g.id + '\')" style="padding:10px 24px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Descargar Barcode</button>';
+    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px 24px;background:#e2e8f0;color:#334155;border:none;border-radius:8px;cursor:pointer;">Cerrar</button>';
+    html += '</div>';
+
+    html += '</div>'; // end inv-print-page
+    modal.innerHTML = html;
+
+    // Render real barcode using JsBarcode
+    var container = document.getElementById('inv-barcode-container');
+    if (typeof JsBarcode !== 'undefined') {
+        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.id = 'inv-barcode-svg';
+        container.appendChild(svg);
+        try {
+            JsBarcode(svg, g.barcode, {
+                format: 'CODE128',
+                width: 2,
+                height: 50,
+                displayValue: true,
+                fontSize: 12,
+                font: 'monospace',
+                textMargin: 3,
+                margin: 5,
+                background: '#ffffff',
+                lineColor: '#000000'
+            });
+        } catch(e) {
+            container.innerHTML = '<div style="font-size:28px;font-family:monospace;letter-spacing:3px;">' + g.barcode + '</div>' +
+                '<div style="font-size:10px;color:#ef4444;">Error: ' + e.message + '</div>';
+        }
+    } else {
+        container.innerHTML = '<div style="font-size:28px;font-family:monospace;letter-spacing:3px;">' + g.barcode + '</div>' +
+            '<div style="font-size:10px;color:#f59e0b;">JsBarcode no cargado.</div>';
+    }
+}
+
+function invPrintBarcodePage() {
+    // Add print styles dynamically
+    var styleId = 'inv-print-styles';
+    if (!document.getElementById(styleId)) {
+        var style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = '@media print { body > *:not(#invModal) { display:none !important; } #invModal { position:static !important; background:#fff !important; overflow:visible !important; } .inv-no-print { display:none !important; } #inv-print-page { margin:0 !important; border-radius:0 !important; box-shadow:none !important; } #inv-barcode-label { border:2px dashed #999 !important; } }';
+        document.head.appendChild(style);
+    }
+    window.print();
+}
+
+function invDownloadBarcode(id) {
+    var g = invState.gases.find(function(x){return x.id===id;});
+    if (!g) return;
+    var svg = document.getElementById('inv-barcode-svg');
+    if (!svg) { showToast('No se pudo generar imagen', 'error'); return; }
+
+    // Convert SVG to canvas then download as PNG
+    var svgData = new XMLSerializer().serializeToString(svg);
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    var img = new Image();
+    img.onload = function() {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        var link = document.createElement('a');
+        link.download = 'barcode-' + g.controlNo + '.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
 }
 
 
@@ -442,8 +768,60 @@ function invShowTimeline(id) {
             html += '</div>';
         });
     }
+    // Quick reading inline form
+    html += '<div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:10px;">';
+    html += '<button onclick="invMapQuickRead(\'' + g.id + '\')" id="inv-map-read-btn" style="width:100%;padding:10px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">Registrar Lectura</button>';
+    html += '<div id="inv-map-read-area" style="display:none;margin-top:8px;">';
+    html += '<div style="display:flex;gap:6px;align-items:center;">';
+    html += '<input id="inv-map-psi" type="number" inputmode="numeric" placeholder="psi" style="flex:1;padding:10px;font-size:16px;font-weight:700;text-align:center;border:2px solid #8b5cf6;border-radius:8px;background:#f8fafc;color:#0f172a;">';
+    html += '<input id="inv-map-date" type="date" value="' + new Date().toISOString().slice(0,10) + '" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:10px;color:#334155;">';
+    html += '</div>';
+    html += '<div style="display:flex;gap:6px;margin-top:6px;">';
+    html += '<button onclick="document.getElementById(\'inv-map-read-area\').style.display=\'none\';document.getElementById(\'inv-map-read-btn\').style.display=\'block\';" style="flex:1;padding:8px;background:#e2e8f0;color:#334155;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Cancelar</button>';
+    html += '<button onclick="invMapQuickReadSave(\'' + g.id + '\')" style="flex:2;padding:8px;background:#8b5cf6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;">Guardar</button>';
+    html += '</div></div></div>';
     html += '</div>';
     modal.innerHTML = html;
+}
+
+function invMapQuickRead(gasId) {
+    var area = document.getElementById('inv-map-read-area');
+    var btn = document.getElementById('inv-map-read-btn');
+    if (area) area.style.display = 'block';
+    if (btn) btn.style.display = 'none';
+    setTimeout(function() { var inp = document.getElementById('inv-map-psi'); if (inp) inp.focus(); }, 100);
+}
+
+function invMapQuickReadSave(gasId) {
+    var inp = document.getElementById('inv-map-psi');
+    var dateInp = document.getElementById('inv-map-date');
+    if (!inp || !inp.value) { showToast('Ingresa la presion', 'error'); return; }
+
+    var psi = parseFloat(inp.value);
+    if (isNaN(psi) || psi < 0) { showToast('Presion invalida', 'error'); return; }
+
+    var date = dateInp ? dateInp.value : new Date().toISOString().slice(0, 10);
+    var gas = invState.gases.find(function(g) { return g.id === gasId; });
+    if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
+
+    if (!gas.readings) gas.readings = [];
+
+    // Check for duplicate reading on same date
+    var existing = gas.readings.find(function(r) { return r.date === date; });
+
+    function _doSaveMapRead() {
+        if (existing) { existing.psi = psi; } else { gas.readings.push({ date: date, psi: psi }); }
+        invSave();
+        if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
+        showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi', 'success');
+        invShowTimeline(gasId);
+    }
+
+    if (existing) {
+        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe lectura del ' + date + ' (' + existing.psi + ' psi). Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveMapRead(); });
+    } else {
+        _doSaveMapRead();
+    }
 }
 
 function invShowZone(zoneId) {
@@ -457,9 +835,14 @@ function invShowZone(zoneId) {
 // READINGS (Daily pressure readings)
 // ══════════════════════════════════════════════════
 function invRenderReadings(el) {
-    var gases = invState.gases.filter(function(g){ return g.status === 'In use'; });
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Lecturas Diarias de Presion</span>';
-    html += '<button class="tp-btn tp-btn-primary" onclick="invBulkReading()" style="font-size:10px;">Guardar Lecturas</button></div>';
+    var gases = invState.gases.filter(function(g){ return g.status !== 'Empty'; });
+    var html = invRenderAnomalyBanner();
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Lecturas Diarias de Presion</span>';
+    html += '<div style="display:flex;gap:6px;">';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="invStartReadingRound()" style="font-size:10px;border-color:#10b981;color:#10b981;">🔄 Ronda</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size:10px;border-color:#8b5cf6;color:#8b5cf6;">📷 Escanear</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="invBulkReading()" style="font-size:10px;">Guardar Lecturas</button>';
+    html += '</div></div>';
     html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Registra la presion (psi) de cada cilindro en uso.</div>';
 
     if (gases.length === 0) {
@@ -470,12 +853,12 @@ function invRenderReadings(el) {
             var lastR = g.readings.length > 0 ? g.readings[g.readings.length-1] : null;
             var lvl = invGasLevel(g);
             html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);flex-wrap:wrap;">';
-            html += '<div style="min-width:100px;"><div style="font-weight:700;font-size:10px;">' + g.formula + ' ' + (g.concNominal||'') + '</div><div style="font-size:8px;color:var(--tp-dim);">#' + g.controlNo + ' | ' + (g.zone||'?') + '</div></div>';
+            html += '<div style="min-width:100px;"><div style="font-weight:700;font-size:10px;">' + g.formula + ' ' + (g.concNominal||'') + '</div><div style="font-size:9px;color:var(--tp-dim);">#' + g.controlNo + ' | ' + (g.zone||'?') + '</div></div>';
             html += '<div style="flex:1;min-width:180px;display:flex;gap:3px;flex-wrap:wrap;">';
             var last5 = (g.readings||[]).slice(-5);
             if (last5.length > 0) {
-                last5.forEach(function(r){ html += '<span style="font-size:7px;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.05);border:1px solid var(--tp-border);color:var(--tp-dim);">' + r.date.slice(5) + ': <strong style="color:#fff;">' + r.psi + '</strong></span>'; });
-            } else { html += '<span style="font-size:8px;color:var(--tp-dim);">Sin lecturas</span>'; }
+                last5.forEach(function(r){ html += '<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.05);border:1px solid var(--tp-border);color:var(--tp-dim);">' + r.date.slice(5) + ': <strong style="color:#fff;">' + r.psi + '</strong></span>'; });
+            } else { html += '<span style="font-size:9px;color:var(--tp-dim);">Sin lecturas</span>'; }
             html += '</div>';
             html += '<input type="number" id="inv-rd-' + g.id + '" placeholder="psi" style="width:70px;padding:5px;border:1px solid var(--tp-border);border-radius:5px;background:#1e293b;color:#fff;font-size:11px;text-align:center;">';
             html += '</div>';
@@ -505,7 +888,7 @@ function invRenderReadings(el) {
 function invBulkReading() {
     var date = new Date().toISOString().slice(0,10);
     var count = 0;
-    invState.gases.filter(function(g){ return g.status === 'In use'; }).forEach(function(g) {
+    invState.gases.filter(function(g){ return g.status !== 'Empty'; }).forEach(function(g) {
         var inp = document.getElementById('inv-rd-' + g.id);
         if (inp && inp.value) {
             var psi = parseFloat(inp.value);
@@ -518,7 +901,256 @@ function invBulkReading() {
     });
     if (count === 0) { showToast('No se ingresaron lecturas', 'warning'); return; }
     invSave(); invRender();
+    if (typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
     showToast(count + ' lecturas guardadas para ' + date, 'success');
+}
+
+// ══════════════════════════════════════════════════
+// BARCODE SCANNER + QUICK READING
+// ══════════════════════════════════════════════════
+
+function invScanBarcode() {
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+
+    var hasCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    var hasLib = typeof Html5Qrcode !== 'undefined';
+
+    var html = '<div style="max-width:420px;margin:20px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
+    html += '<button onclick="invScanStop();document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
+    html += '<h3 style="margin:0 0 10px;color:#8b5cf6;">Lectura Rapida</h3>';
+
+    if (hasCamera && hasLib) {
+        html += '<div id="inv-scan-area" style="position:relative;margin-bottom:12px;">';
+        html += '<div id="inv-scan-reader" style="width:100%;border-radius:8px;overflow:hidden;"></div>';
+        html += '<div id="inv-scan-status" style="text-align:center;font-size:10px;color:#8b5cf6;margin-top:6px;">Apunta al codigo de barras...</div>';
+        html += '</div>';
+    } else if (!hasLib) {
+        html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size:10px;color:#f59e0b;">Libreria de escaneo no cargada. Usa la busqueda rapida abajo.</div>';
+    } else {
+        html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size:10px;color:#f59e0b;">Camara no disponible. Usa la busqueda rapida abajo.</div>';
+    }
+
+    // Quick search fallback (always shown)
+    html += '<div style="margin-bottom:12px;">';
+    html += '<label style="font-size:10px;color:#94a3b8;">Busqueda rapida (No. Control, cilindro o formula)</label>';
+    html += '<input id="inv-scan-search" placeholder="Escribe para buscar..." oninput="_debouncedInvScanFilter()" style="width:100%;padding:10px;margin-top:4px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;">';
+    html += '</div>';
+
+    // Search results
+    html += '<div id="inv-scan-results" style="max-height:250px;overflow-y:auto;"></div>';
+
+    html += '</div>';
+    modal.innerHTML = html;
+
+    // Show all in-use gases initially
+    invScanFilter();
+
+    // Start camera scanner if available
+    if (hasCamera && hasLib) {
+        invScanStart();
+    }
+}
+
+var _invHtml5Scanner = null;
+
+function invScanStart() {
+    var readerEl = document.getElementById('inv-scan-reader');
+    if (!readerEl) return;
+
+    _invHtml5Scanner = new Html5Qrcode('inv-scan-reader');
+
+    _invHtml5Scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 100 }, formatsToSupport: [
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.QR_CODE
+        ]},
+        function onSuccess(code) {
+            var statusEl = document.getElementById('inv-scan-status');
+            if (statusEl) statusEl.textContent = 'Detectado: ' + code;
+
+            // Find matching gas cylinder
+            var gas = invState.gases.find(function(g) {
+                return g.barcode === code || g.controlNo === code || g.cylinderNo === code;
+            });
+
+            if (gas) {
+                invScanStop();
+                invQuickReadPopup(gas);
+            } else {
+                if (statusEl) statusEl.textContent = 'Codigo ' + code + ' — no encontrado en inventario';
+            }
+        },
+        function onError() {
+            // Silence continuous scan misses
+        }
+    ).catch(function(err) {
+        console.warn('Camera scanner failed:', err);
+        var statusEl = document.getElementById('inv-scan-status');
+        if (statusEl) statusEl.textContent = 'Error de camara: ' + (err.message || err);
+        var area = document.getElementById('inv-scan-area');
+        if (area) area.style.display = 'none';
+    });
+}
+
+function invScanStop() {
+    if (_invHtml5Scanner) {
+        _invHtml5Scanner.stop().then(function() {
+            _invHtml5Scanner.clear();
+            _invHtml5Scanner = null;
+        }).catch(function() {
+            _invHtml5Scanner = null;
+        });
+    }
+}
+
+function invScanFilter() {
+    var input = document.getElementById('inv-scan-search');
+    var container = document.getElementById('inv-scan-results');
+    if (!container) return;
+    var q = input ? input.value.toLowerCase().trim() : '';
+
+    var gases = invState.gases.filter(function(g) { return g.status !== 'Empty'; });
+    if (q.length > 0) {
+        gases = gases.filter(function(g) {
+            return (g.controlNo || '').toLowerCase().includes(q) ||
+                   (g.cylinderNo || '').toLowerCase().includes(q) ||
+                   (g.formula || '').toLowerCase().includes(q) ||
+                   (g.gasType || '').toLowerCase().includes(q) ||
+                   (g.barcode || '').toLowerCase().includes(q);
+        });
+    }
+
+    if (gases.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:15px;color:#64748b;font-size:11px;">Sin resultados</div>';
+        return;
+    }
+
+    var html = '';
+    gases.forEach(function(g) {
+        var lastR = g.readings && g.readings.length > 0 ? g.readings[g.readings.length - 1] : null;
+        var lvl = invGasLevel(g);
+        html += '<button onclick="invScanStop();invQuickReadPopup(invState.gases.find(function(x){return x.id===\x27' + g.id + '\x27}))" style="display:block;width:100%;padding:10px;margin-bottom:4px;background:#1e293b;border:1px solid #334155;border-radius:8px;cursor:pointer;text-align:left;color:#e2e8f0;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        html += '<div><strong style="font-size:12px;">' + g.formula + '</strong> <span style="font-size:10px;color:#94a3b8;">' + (g.concNominal || '') + '</span>';
+        html += '<div style="font-size:9px;color:#64748b;">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo || '?') + ' | ' + (g.zone || '?') + '</div></div>';
+        html += '<div style="text-align:right;">';
+        if (lastR) {
+            html += '<div style="font-size:14px;font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' psi</div>';
+            html += '<div style="font-size:9px;color:#64748b;">' + lastR.date + '</div>';
+        } else {
+            html += '<div style="font-size:10px;color:#64748b;">Sin lecturas</div>';
+        }
+        html += '</div></div></button>';
+    });
+    container.innerHTML = html;
+}
+
+function invQuickReadPopup(g) {
+    if (!g) return;
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+
+    var lastR = g.readings && g.readings.length > 0 ? g.readings[g.readings.length - 1] : null;
+    var lvl = invGasLevel(g);
+    var today = new Date().toISOString().slice(0, 10);
+
+    var html = '<div style="max-width:400px;margin:30px auto;background:#0f172a;border-radius:14px;padding:24px;position:relative;color:#e2e8f0;">';
+    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
+
+    // Cylinder header
+    html += '<div style="text-align:center;margin-bottom:16px;">';
+    html += '<div style="font-size:20px;font-weight:700;">' + g.formula + ' <span style="color:#94a3b8;font-weight:400;">' + (g.concNominal || '') + '</span></div>';
+    html += '<div style="font-size:11px;color:#64748b;">' + (g.gasType || '') + '</div>';
+    html += '<div style="display:flex;justify-content:center;gap:12px;margin-top:6px;">';
+    html += '<span style="font-size:10px;padding:2px 8px;background:#1e293b;border-radius:10px;border:1px solid #334155;">Control: <strong>' + g.controlNo + '</strong></span>';
+    html += '<span style="font-size:10px;padding:2px 8px;background:#1e293b;border-radius:10px;border:1px solid #334155;">Cil: <strong>' + (g.cylinderNo || '?') + '</strong></span>';
+    html += '<span style="font-size:10px;padding:2px 8px;background:#1e293b;border-radius:10px;border:1px solid #334155;">Zona: <strong>' + (g.zone || '?') + '</strong></span>';
+    html += '</div></div>';
+
+    // Previous reading
+    html += '<div style="background:#1e293b;border-radius:10px;padding:14px;margin-bottom:16px;border:1px solid #334155;">';
+    html += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;">Lectura anterior</div>';
+    if (lastR) {
+        html += '<div style="display:flex;justify-content:space-between;align-items:baseline;">';
+        html += '<span style="font-size:28px;font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' <span style="font-size:14px;font-weight:400;">psi</span></span>';
+        html += '<span style="font-size:11px;color:#64748b;">' + lastR.date + '</span>';
+        html += '</div>';
+        html += '<div style="margin-top:6px;height:4px;background:#0f172a;border-radius:2px;overflow:hidden;">';
+        html += '<div style="width:' + Math.min(lvl.pct, 100) + '%;height:100%;background:' + lvl.color + ';border-radius:2px;"></div></div>';
+        html += '<div style="font-size:9px;color:#64748b;margin-top:3px;">' + lvl.text + '</div>';
+    } else {
+        html += '<div style="font-size:13px;color:#64748b;">Sin lecturas previas</div>';
+    }
+    html += '</div>';
+
+    // New reading input
+    html += '<div style="background:#0c1a2e;border:2px solid #8b5cf6;border-radius:10px;padding:16px;margin-bottom:16px;">';
+    html += '<div style="font-size:11px;color:#8b5cf6;font-weight:700;margin-bottom:8px;">Nueva lectura</div>';
+    html += '<div style="display:flex;gap:10px;align-items:center;">';
+    html += '<div style="flex:1;">';
+    html += '<input id="inv-quick-psi" type="number" inputmode="numeric" placeholder="0" autofocus style="width:100%;padding:14px;font-size:24px;font-weight:700;text-align:center;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#fff;">';
+    html += '<div style="text-align:center;font-size:10px;color:#64748b;margin-top:3px;">psi</div>';
+    html += '</div>';
+    html += '<div>';
+    html += '<input id="inv-quick-date" type="date" value="' + today + '" style="padding:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:11px;">';
+    html += '</div>';
+    html += '</div></div>';
+
+    // Action buttons
+    html += '<div style="display:flex;gap:8px;">';
+    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="flex:1;padding:12px;background:#334155;color:#e2e8f0;border:none;border-radius:8px;cursor:pointer;font-size:12px;">Cancelar</button>';
+    html += '<button onclick="invQuickReadSave(\x27' + g.id + '\x27)" style="flex:2;padding:12px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;">Guardar Lectura</button>';
+    html += '</div>';
+
+    // Quick: scan another
+    html += '<button onclick="invScanBarcode()" style="width:100%;margin-top:8px;padding:8px;background:transparent;color:#8b5cf6;border:1px solid #8b5cf6;border-radius:8px;cursor:pointer;font-size:11px;">📷 Escanear otro cilindro</button>';
+
+    html += '</div>';
+    modal.innerHTML = html;
+
+    // Auto-focus the input
+    setTimeout(function() {
+        var inp = document.getElementById('inv-quick-psi');
+        if (inp) inp.focus();
+    }, 100);
+}
+
+function invQuickReadSave(gasId) {
+    var inp = document.getElementById('inv-quick-psi');
+    var dateInp = document.getElementById('inv-quick-date');
+    if (!inp || !inp.value) { showToast('Ingresa la presion', 'error'); return; }
+
+    var psi = parseFloat(inp.value);
+    if (isNaN(psi) || psi < 0) { showToast('Presion invalida', 'error'); return; }
+
+    var date = dateInp ? dateInp.value : new Date().toISOString().slice(0, 10);
+    var gas = invState.gases.find(function(g) { return g.id === gasId; });
+    if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
+
+    if (!gas.readings) gas.readings = [];
+
+    // Check for duplicate reading on same date
+    var existingToday = gas.readings.find(function(r) { return r.date === date; });
+
+    function _doSaveQuickRead() {
+        if (existingToday) { existingToday.psi = psi; } else { gas.readings.push({ date: date, psi: psi }); }
+        invSave();
+        invRender();
+        if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
+        showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi guardado', 'success');
+        document.getElementById('invModal').style.display = 'none';
+    }
+
+    if (existingToday) {
+        showConfirmDialog({ title: '⚠️ Lectura duplicada', message: 'Ya existe una lectura del ' + date + ' (' + existingToday.psi + ' psi). ¿Reemplazar?', type: 'warning', confirmText: 'Reemplazar', cancelText: 'Cancelar' }).then(function(ok) { if (ok) _doSaveQuickRead(); });
+    } else {
+        _doSaveQuickRead();
+    }
 }
 
 // ══════════════════════════════════════════════════
@@ -542,7 +1174,7 @@ function invRenderEquipment(el) {
             html += '<div style="flex:1;min-width:140px;"><div style="font-weight:700;font-size:11px;">' + e.name + '</div>';
             html += '<div style="font-size:9px;color:var(--tp-dim);">S/N: ' + (e.serialNo||'?') + ' | ' + (e.type||'') + ' | ' + (e.location||'') + '</div></div>';
             html += '<div style="display:flex;gap:6px;align-items:center;">';
-            html += '<span style="font-size:8px;padding:2px 6px;border-radius:4px;background:' + clr + '20;color:' + clr + ';">' + statusTxt + '</span>';
+            html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + clr + '20;color:' + clr + ';">' + statusTxt + '</span>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invEditEquipment(\'' + e.id + '\')" style="font-size:9px;">\u270F</button>';
             html += '</div></div>';
         });
@@ -576,7 +1208,7 @@ function invAddEquipment(editId) {
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveEquipment(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="if(confirm(\x27Eliminar?\x27)){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;}" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar equipo?\',function(){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 }
@@ -599,11 +1231,17 @@ function invSaveEquipment(editId) {
     if (!obj.name) { showToast('Nombre requerido', 'error'); return; }
     if (editId) {
         var e = invState.equipment.find(function(x){return x.id===editId;});
-        if (e) Object.assign(e, obj);
+        if (e) {
+            var oldCalDate = e.lastCalDate;
+            Object.assign(e, obj);
+            if (obj.lastCalDate && obj.lastCalDate !== oldCalDate && typeof fbPostCalibration === 'function') fbPostCalibration(obj.name);
+            auditLog('inv', 'equipment_modified', {type:'equipment', id:editId, label:obj.name}, 'S/N: ' + (obj.serialNo || ''));
+        }
     } else {
         obj.id = invGenId();
         obj.status = 'active';
         invState.equipment.push(obj);
+        auditLog('inv', 'equipment_created', {type:'equipment', id:obj.id, label:obj.name}, 'S/N: ' + (obj.serialNo || ''));
     }
     invSave(); invRender(); invUpdateBadges();
     document.getElementById('invModal').style.display = 'none';
@@ -615,133 +1253,337 @@ function invEditEquipment(id) { invAddEquipment(id); }
 // PREDICTIONS
 // ══════════════════════════════════════════════════
 function invRenderPredict(el) {
-    var gases = invState.gases.filter(function(g){ return g.readings && g.readings.length >= 2 && g.status === 'In use'; });
+    var gases = invState.gases.filter(function(g) { return g.readings && g.readings.length >= 2 && g.status === 'In use'; });
     var log = invState.usageLog || [];
+    var rates = invCalcConsumptionRates();
 
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Prediccion de Consumo</span></div>';
-    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Basado en lecturas + pruebas de Cascade. Se perfecciona con cada lectura.</div>';
+    // ── Get test plan data for forward projection ──
+    var tpAnalysis = [];
+    var pendingByReg = {};
+    try {
+        if (typeof tpGetAnalysis === 'function') {
+            tpAnalysis = tpGetAnalysis();
+            tpAnalysis.forEach(function(a) {
+                if (a.deficit > 0) {
+                    var reg = (a.reg || a.desc.split(' ')[0] || 'General');
+                    pendingByReg[reg] = (pendingByReg[reg] || 0) + a.deficit;
+                }
+            });
+        }
+    } catch (e) { /* Test Plan not loaded */ }
+    var totalPending = Object.keys(pendingByReg).reduce(function(s, k) { return s + pendingByReg[k]; }, 0);
 
-    // Usage per regulation summary
-    var regUsage = {};
+    // ── Count unique tests by regulation ──
+    var regTestCounts = {};
+    var seenVins = {};
     log.forEach(function(l) {
-        var key = l.regulation || 'General';
-        if (!regUsage[key]) regUsage[key] = { tests: 0, entries: [] };
-        regUsage[key].tests++;
-        regUsage[key].entries.push(l);
+        var key = l.date + '|' + l.vin;
+        if (seenVins[key]) return;
+        seenVins[key] = true;
+        var reg = l.regulation || 'General';
+        regTestCounts[reg] = (regTestCounts[reg] || 0) + 1;
     });
 
-    if (Object.keys(regUsage).length > 0) {
-        html += '<div style="margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Pruebas registradas por regulacion</div>';
-        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
-        Object.keys(regUsage).forEach(function(r) {
-            html += '<span style="font-size:9px;padding:3px 8px;border-radius:4px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);color:var(--tp-amber);">' + r + ': ' + regUsage[r].tests + ' pruebas</span>';
+    var html = '';
+
+    // ═══════════════════════════════════════════════
+    // 1. LEARNING STATUS HEADER
+    // ═══════════════════════════════════════════════
+    var hasAdaptiveData = rates.dataPoints > 0;
+    var confidenceLabel = rates.dataPoints >= 20 ? 'Alta' : rates.dataPoints >= 5 ? 'Media' : rates.dataPoints > 0 ? 'Baja' : 'Sin datos';
+    var confidenceClr = rates.dataPoints >= 20 ? '#10b981' : rates.dataPoints >= 5 ? '#f59e0b' : '#ef4444';
+
+    html += '<div class="tp-card" style="border-left:3px solid ' + (hasAdaptiveData ? '#8b5cf6' : 'var(--tp-border)') + ';">';
+    html += '<div class="tp-card-title"><span>Prediccion Activa de Consumo</span>';
+    html += '<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:' + confidenceClr + '20;color:' + confidenceClr + ';border:1px solid ' + confidenceClr + '30;">Confianza: ' + confidenceLabel + ' (' + rates.dataPoints + ' pts)</span></div>';
+    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Modelo adaptativo: aprende del consumo real por regulacion. Se actualiza con cada lectura y liberacion de vehiculo.</div>';
+
+    // Regulation test count badges
+    var regKeys = Object.keys(regTestCounts);
+    if (regKeys.length > 0) {
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">';
+        regKeys.forEach(function(r) {
+            html += '<span style="font-size:9px;padding:3px 8px;border-radius:4px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);color:#a78bfa;">' + r + ': ' + regTestCounts[r] + ' veh.</span>';
         });
-        html += '</div></div>';
+        html += '</div>';
+    }
+    html += '</div>';
+
+    // ═══════════════════════════════════════════════
+    // 2. PER-REGULATION CONSUMPTION RATES
+    // ═══════════════════════════════════════════════
+    var allRegs = {};
+    Object.keys(rates.gas).forEach(function(f) {
+        Object.keys(rates.gas[f]).forEach(function(r) { allRegs[r] = true; });
+    });
+    Object.keys(rates.fuel).forEach(function(r) { allRegs[r] = true; });
+
+    if (Object.keys(allRegs).length > 0) {
+        html += '<div class="tp-card" style="border-left:3px solid #8b5cf6;">';
+        html += '<div class="tp-card-title"><span>Consumo por Regulacion (EWMA)</span></div>';
+
+        Object.keys(allRegs).sort().forEach(function(reg) {
+            var pending = pendingByReg[reg] || 0;
+            html += '<div style="margin-bottom:10px;padding:8px;border:1px solid var(--tp-border);border-radius:6px;background:rgba(139,92,246,0.03);">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+            html += '<span style="font-weight:800;font-size:12px;color:#a78bfa;">' + reg + '</span>';
+            if (pending > 0) html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(59,130,246,0.1);color:var(--tp-blue);border:1px solid rgba(59,130,246,0.2);">' + pending + ' pruebas pendientes</span>';
+            html += '</div>';
+
+            // Gas rates for this regulation
+            var gasFormulas = Object.keys(rates.gas).filter(function(f) { return rates.gas[f][reg]; });
+            if (gasFormulas.length > 0) {
+                html += '<div style="font-size:9px;font-weight:700;color:var(--tp-dim);margin-bottom:3px;">Gas (psi/prueba):</div>';
+                html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:3px;">';
+                gasFormulas.forEach(function(f) {
+                    var r = rates.gas[f][reg];
+                    var conf = r.n >= 10 ? '#10b981' : r.n >= 3 ? '#f59e0b' : '#94a3b8';
+                    html += '<div style="font-size:9px;padding:3px 6px;border-radius:4px;background:var(--tp-card);border:1px solid var(--tp-border);">';
+                    html += '<span style="color:var(--tp-dim);">' + f + ':</span> <strong style="color:var(--tp-amber);">' + r.ewma.toFixed(1) + '</strong> psi';
+                    html += ' <span style="font-size:9px;color:' + conf + ';">(' + r.n + ' obs)</span>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+
+            // Fuel rate for this regulation
+            if (rates.fuel[reg] && rates.fuel[reg].ewma > 0) {
+                html += '<div style="font-size:9px;font-weight:700;color:var(--tp-dim);margin-top:4px;margin-bottom:2px;">Combustible (' + (rates.fuel[reg].unit || 'L') + '/prueba):</div>';
+                html += '<div style="font-size:10px;padding:3px 6px;border-radius:4px;background:var(--tp-card);border:1px solid var(--tp-border);display:inline-block;">';
+                html += '<span style="color:var(--tp-dim);">' + (rates.fuel[reg].tankName || reg) + ':</span> <strong style="color:#f97316;">' + rates.fuel[reg].ewma.toFixed(1) + '</strong> ' + (rates.fuel[reg].unit || 'L');
+                html += ' <span style="font-size:9px;color:' + (rates.fuel[reg].n >= 5 ? '#10b981' : '#f59e0b') + ';">(' + rates.fuel[reg].n + ' obs)</span>';
+                html += '</div>';
+            }
+
+            html += '</div>';
+        });
+        html += '</div>';
     }
 
+    // ═══════════════════════════════════════════════
+    // 3. FORWARD PROJECTION (Test Plan Integration)
+    // ═══════════════════════════════════════════════
+    if (totalPending > 0 && hasAdaptiveData) {
+        html += '<div class="tp-card" style="border-left:3px solid var(--tp-blue);">';
+        html += '<div class="tp-card-title"><span>Proyeccion: Plan de Pruebas (' + totalPending + ' pendientes)</span></div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Consumo estimado para completar las pruebas pendientes del Test Plan.</div>';
+
+        // Gas projection
+        html += '<div style="font-size:10px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Gases</div>';
+        var gasAlerts = [];
+        invState.gases.filter(function(g) { return g.status === 'In use' && g.readings && g.readings.length > 0; }).forEach(function(g) {
+            var lastPsi = g.readings[g.readings.length - 1].psi;
+            var totalNeeded = 0;
+            Object.keys(pendingByReg).forEach(function(reg) {
+                if (rates.gas[g.formula] && rates.gas[g.formula][reg]) {
+                    totalNeeded += rates.gas[g.formula][reg].ewma * pendingByReg[reg];
+                }
+            });
+            if (totalNeeded > 0) {
+                var sufficient = lastPsi >= totalNeeded;
+                var pctUsed = Math.round((totalNeeded / lastPsi) * 100);
+                var clr = sufficient ? (pctUsed > 70 ? '#f59e0b' : '#10b981') : '#ef4444';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;">';
+                html += '<span style="font-size:10px;">' + g.formula + ' ' + (g.concNominal || '') + ' <span style="color:var(--tp-dim);">#' + g.controlNo + '</span></span>';
+                html += '<span style="font-size:10px;">necesita <strong>' + totalNeeded.toFixed(0) + '</strong> / tiene <strong>' + lastPsi + '</strong> psi';
+                html += ' <span style="font-weight:700;color:' + clr + ';">' + (sufficient ? 'OK' : 'INSUFICIENTE') + '</span></span>';
+                html += '</div>';
+                if (!sufficient) gasAlerts.push(g.formula + ' ' + (g.concNominal || ''));
+            }
+        });
+
+        // Fuel projection
+        var fuelRegs = Object.keys(rates.fuel).filter(function(r) { return rates.fuel[r].ewma > 0 && pendingByReg[r]; });
+        if (fuelRegs.length > 0) {
+            html += '<div style="font-size:10px;font-weight:700;color:#f97316;margin-top:8px;margin-bottom:4px;">Combustible</div>';
+            fuelRegs.forEach(function(reg) {
+                var needed = rates.fuel[reg].ewma * pendingByReg[reg];
+                (invState.fuelTanks || []).filter(function(t) { return t.regulation === reg; }).forEach(function(t) {
+                    var sufficient = t.currentLevel >= needed;
+                    var clr = sufficient ? '#10b981' : '#ef4444';
+                    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;">';
+                    html += '<span style="font-size:10px;">' + t.name + '</span>';
+                    html += '<span style="font-size:10px;">necesita <strong>' + needed.toFixed(1) + '</strong> / tiene <strong>' + t.currentLevel + '</strong> ' + (t.unit || 'L');
+                    html += ' <span style="font-weight:700;color:' + clr + ';">' + (sufficient ? 'OK' : 'INSUFICIENTE') + '</span></span>';
+                    html += '</div>';
+                });
+            });
+        }
+
+        if (gasAlerts.length > 0) {
+            html += '<div style="margin-top:6px;padding:6px 10px;border-radius:6px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);font-size:10px;color:#fca5a5;">Atencion: ' + gasAlerts.join(', ') + ' no alcanzan para completar el plan.</div>';
+        }
+        html += '</div>';
+    } else if (totalPending > 0 && !hasAdaptiveData) {
+        html += '<div class="tp-card" style="border-left:3px solid var(--tp-border);"><div class="tp-card-title"><span>Proyeccion Plan (' + totalPending + ' pendientes)</span></div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);padding:10px;">El modelo aun no tiene suficientes datos. Conforme se liberen vehiculos y se registren lecturas, las predicciones por regulacion apareceran aqui.</div></div>';
+    }
+
+    // ═══════════════════════════════════════════════
+    // 3.5 WEEKLY PLAN FORECAST (Mejora D)
+    // ═══════════════════════════════════════════════
+    var weeklyForecast = invForecastForWeeklyPlan(rates);
+    if (weeklyForecast && weeklyForecast.items.length > 0) {
+        var wf = weeklyForecast;
+        var criticalCount = wf.items.filter(function(i) { return i.needsReorder; }).length;
+        var borderColor = criticalCount > 0 ? '#ef4444' : '#10b981';
+        html += '<div class="tp-card" style="border-left:3px solid ' + borderColor + ';">';
+        html += '<div class="tp-card-title"><span>🗓 Forecast Semanal: ' + wf.planLabel + '</span>';
+        if (criticalCount > 0) html += '<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">⚠ ' + criticalCount + ' requieren reorden</span>';
+        html += '</div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Consumo estimado para el plan semanal aceptado (' + wf.testCount + ' pruebas). Basado en tasas EWMA aprendidas.</div>';
+
+        // Gas forecast table
+        var gasItems = wf.items.filter(function(i) { return i.type === 'gas'; });
+        if (gasItems.length > 0) {
+            html += '<div style="font-size:10px;font-weight:700;color:var(--tp-amber);margin-bottom:4px;">Gases</div>';
+            gasItems.forEach(function(item) {
+                var clr = item.needsReorder ? '#ef4444' : item.pctUsage > 50 ? '#f59e0b' : '#10b981';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;flex-wrap:wrap;gap:4px;">';
+                html += '<span style="font-size:10px;">' + item.name + '</span>';
+                html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+                html += '<span style="font-size:9px;color:var(--tp-dim);">Actual: <strong>' + item.currentLevel + '</strong> psi</span>';
+                html += '<span style="font-size:9px;color:var(--tp-amber);">Uso plan: <strong>' + item.estimatedUsage.toFixed(0) + '</strong> psi</span>';
+                html += '<span style="font-size:9px;color:' + clr + ';">Post-plan: <strong>' + item.postPlanLevel.toFixed(0) + '</strong> psi</span>';
+                html += '<span style="font-size:9px;font-weight:700;color:' + clr + ';">' + item.recommendation + '</span>';
+                html += '</div></div>';
+            });
+        }
+
+        // Fuel forecast table
+        var fuelItems = wf.items.filter(function(i) { return i.type === 'fuel'; });
+        if (fuelItems.length > 0) {
+            html += '<div style="font-size:10px;font-weight:700;color:#f97316;margin-top:8px;margin-bottom:4px;">Combustible</div>';
+            fuelItems.forEach(function(item) {
+                var clr = item.needsReorder ? '#ef4444' : item.pctUsage > 50 ? '#f59e0b' : '#10b981';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin-bottom:2px;border-radius:4px;border:1px solid ' + clr + '30;background:' + clr + '08;flex-wrap:wrap;gap:4px;">';
+                html += '<span style="font-size:10px;">' + item.name + '</span>';
+                html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+                html += '<span style="font-size:9px;color:var(--tp-dim);">Actual: <strong>' + item.currentLevel + '</strong> ' + (item.unit || 'L') + '</span>';
+                html += '<span style="font-size:9px;color:var(--tp-amber);">Uso plan: <strong>' + item.estimatedUsage.toFixed(1) + '</strong> ' + (item.unit || 'L') + '</span>';
+                html += '<span style="font-size:9px;color:' + clr + ';">Post-plan: <strong>' + item.postPlanLevel.toFixed(1) + '</strong> ' + (item.unit || 'L') + '</span>';
+                html += '<span style="font-size:9px;font-weight:700;color:' + clr + ';">' + item.recommendation + '</span>';
+                html += '</div></div>';
+            });
+        }
+
+        // Export button
+        html += '<div style="margin-top:8px;display:flex;gap:8px;">';
+        html += '<button onclick="invExportWeeklyForecast()" class="tp-btn tp-btn-ghost" style="font-size:10px;">📤 Exportar CSV</button>';
+        html += '</div>';
+        html += '</div>';
+    }
+
+    // ═══════════════════════════════════════════════
+    // 4. INDIVIDUAL GAS PREDICTIONS
+    // ═══════════════════════════════════════════════
     if (gases.length === 0) {
-        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Necesitas al menos 2 lecturas en cilindros activos.</div>';
+        html += '<div class="tp-card" style="text-align:center;padding:20px;color:var(--tp-dim);">Necesitas al menos 2 lecturas en cilindros activos para ver predicciones individuales.</div>';
     } else {
-        // Sort by days remaining
+        html += '<div class="tp-card"><div class="tp-card-title"><span>Estado Individual de Cilindros</span></div>';
         var predictions = gases.map(function(g) {
             var rdgs = g.readings;
-            var first = rdgs[0]; var last = rdgs[rdgs.length-1];
-            var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / (1000*60*60*24)));
+            var first = rdgs[0]; var last = rdgs[rdgs.length - 1];
+            var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / (1000 * 60 * 60 * 24)));
             var psiDrop = first.psi - last.psi;
             var dailyRate = psiDrop / daysDiff;
 
-            // Enhanced: calculate psi per test from usage log
-            var gasLog = log.filter(function(l) { return l.gasFormula === g.formula; });
-            var psiPerTest = 0;
-            if (gasLog.length >= 2 && rdgs.length >= 2) {
-                // Find readings that bracket test dates
-                var totalPsiUsed = first.psi - last.psi;
-                var totalTests = gasLog.filter(function(l) {
-                    return l.date >= first.date && l.date <= last.date;
-                }).length;
-                psiPerTest = totalTests > 0 ? (totalPsiUsed / totalTests) : 0;
+            // Use adaptive rate if available, otherwise fallback to linear
+            var adaptiveRateLabel = '';
+            var adaptivePsiPerTest = 0;
+            if (rates.gas[g.formula]) {
+                var regRates = rates.gas[g.formula];
+                var regs = Object.keys(regRates);
+                if (regs.length > 0) {
+                    // Weighted average across regulations based on pending tests
+                    var totalW = 0; var sumW = 0;
+                    regs.forEach(function(r) {
+                        var w = pendingByReg[r] || regTestCounts[r] || 1;
+                        sumW += regRates[r].ewma * w;
+                        totalW += w;
+                    });
+                    adaptivePsiPerTest = totalW > 0 ? sumW / totalW : 0;
+                    adaptiveRateLabel = regs.map(function(r) {
+                        return r + ': ' + regRates[r].ewma.toFixed(1);
+                    }).join(', ');
+                }
             }
 
+            // Estimate tests remaining
+            var testsRemaining = adaptivePsiPerTest > 0 ? Math.floor(last.psi / adaptivePsiPerTest) : 0;
             var weeklyRate = dailyRate * 7;
             var daysLeft = dailyRate > 0 ? Math.round(last.psi / dailyRate) : 999;
             var emptyDate = new Date(); emptyDate.setDate(emptyDate.getDate() + daysLeft);
             var pctLeft = first.psi > 0 ? Math.round((last.psi / first.psi) * 100) : 0;
 
-            return { g:g, dailyRate:dailyRate, weeklyRate:weeklyRate, daysLeft:daysLeft, emptyDate:emptyDate, pctLeft:pctLeft, psiPerTest:psiPerTest, lastPsi:last.psi, readings:rdgs.length };
-        }).sort(function(a,b) { return a.daysLeft - b.daysLeft; });
+            return { g: g, dailyRate: dailyRate, weeklyRate: weeklyRate, daysLeft: daysLeft, emptyDate: emptyDate, pctLeft: pctLeft, adaptivePsiPerTest: adaptivePsiPerTest, adaptiveRateLabel: adaptiveRateLabel, testsRemaining: testsRemaining, lastPsi: last.psi, readings: rdgs.length };
+        }).sort(function(a, b) { return a.daysLeft - b.daysLeft; });
 
         predictions.forEach(function(p) {
             var g = p.g;
-            html += '<div style="padding:10px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:8px;border-left:3px solid ' + (p.daysLeft < 14 ? '#ef4444' : p.daysLeft < 30 ? '#f59e0b' : '#10b981') + ';background:var(--tp-card);">';
+            var borderClr = p.daysLeft < 14 ? '#ef4444' : p.daysLeft < 30 ? '#f59e0b' : '#10b981';
+            html += '<div style="padding:10px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:8px;border-left:3px solid ' + borderClr + ';background:var(--tp-card);">';
             html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">';
-            html += '<div><span style="font-weight:700;font-size:11px;">' + g.formula + ' ' + (g.concNominal||'') + '</span> <span style="font-size:9px;color:var(--tp-dim);">#' + g.controlNo + ' (' + (g.zone||'?') + ')</span></div>';
-            html += '<span style="font-size:9px;font-weight:700;color:' + (p.daysLeft < 14 ? '#ef4444' : p.daysLeft < 30 ? '#f59e0b' : '#10b981') + ';">' + (p.daysLeft > 365 ? '>1 ano' : '~' + p.daysLeft + ' dias') + '</span>';
+            html += '<div><span style="font-weight:700;font-size:11px;">' + g.formula + ' ' + (g.concNominal || '') + '</span> <span style="font-size:9px;color:var(--tp-dim);">#' + g.controlNo + ' (' + (g.zone || '?') + ')</span></div>';
+            html += '<span style="font-size:9px;font-weight:700;color:' + borderClr + ';">' + (p.daysLeft > 365 ? '>1 ano' : '~' + p.daysLeft + ' dias') + '</span>';
             html += '</div>';
             html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap:4px;margin-top:6px;">';
             html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">Actual:</span> <strong>' + p.lastPsi + ' psi</strong></div>';
             html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">psi/dia:</span> <strong>' + p.dailyRate.toFixed(1) + '</strong></div>';
             html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">psi/sem:</span> <strong>' + p.weeklyRate.toFixed(0) + '</strong></div>';
-            if (p.psiPerTest > 0) html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">psi/prueba:</span> <strong style="color:var(--tp-amber);">' + p.psiPerTest.toFixed(1) + '</strong></div>';
-            html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">Vacio:</span> <strong>' + (p.daysLeft > 365 ? '>1 ano' : p.emptyDate.toLocaleDateString('es-MX',{day:'numeric',month:'short'})) + '</strong></div>';
-            html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">Lecturas:</span> <strong>' + p.readings + '</strong></div>';
+            if (p.adaptivePsiPerTest > 0) {
+                html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">psi/prueba:</span> <strong style="color:#a78bfa;">' + p.adaptivePsiPerTest.toFixed(1) + '</strong></div>';
+                html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">Pruebas rest.:</span> <strong style="color:var(--tp-amber);">' + p.testsRemaining + '</strong></div>';
+            }
+            html += '<div style="font-size:9px;"><span style="color:var(--tp-dim);">Vacio:</span> <strong>' + (p.daysLeft > 365 ? '>1 ano' : p.emptyDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })) + '</strong></div>';
             html += '</div>';
+            // Per-regulation breakdown
+            if (p.adaptiveRateLabel) {
+                html += '<div style="font-size:9px;color:#a78bfa;margin-top:3px;">Tasa adaptativa: ' + p.adaptiveRateLabel + ' psi/prueba</div>';
+            }
             html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:6px;"><div class="tp-bar-fill" style="width:' + p.pctLeft + '%;background:' + (p.pctLeft < 15 ? '#ef4444' : p.pctLeft < 30 ? '#f59e0b' : '#10b981') + ';"></div></div>';
             html += '</div>';
         });
-
-        // Weekly plan estimation
-        var wp = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
-        if (wp.length > 0) {
-            var lastWp = wp[wp.length - 1];
-            var pending = lastWp.items ? lastWp.items.filter(function(i){return !i.completed;}).length : 0;
-            if (pending > 0) {
-                html += '<div class="tp-card" style="border-left:3px solid var(--tp-blue);margin-top:8px;"><div class="tp-card-title"><span>Estimacion para plan semanal (' + pending + ' pruebas pendientes)</span></div>';
-                var hasData = predictions.some(function(p){ return p.psiPerTest > 0; });
-                if (hasData) {
-                    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:6px;">Basado en consumo promedio por prueba:</div>';
-                    predictions.filter(function(p){return p.psiPerTest > 0;}).forEach(function(p) {
-                        var needed = p.psiPerTest * pending;
-                        var sufficient = p.lastPsi >= needed;
-                        html += '<div style="font-size:10px;padding:3px 6px;margin-bottom:2px;color:' + (sufficient?'var(--tp-green)':'var(--tp-red)') + ';">' + p.g.formula + ': necesita ~' + needed.toFixed(0) + ' psi, tiene ' + p.lastPsi + ' psi ' + (sufficient ? 'OK' : 'INSUFICIENTE') + '</div>';
-                    });
-                } else {
-                    html += '<div style="font-size:10px;color:var(--tp-dim);">Aun no hay datos suficientes de psi/prueba. Se calcula conforme se liberen vehiculos y se registren lecturas.</div>';
-                }
-                html += '</div>';
-            }
-        }
+        html += '</div>';
     }
-    html += '</div>';
 
-    // Fuel prediction
+    // ═══════════════════════════════════════════════
+    // 5. FUEL PREDICTIONS
+    // ═══════════════════════════════════════════════
     var fuelTanks = invState.fuelTanks || [];
-    var fuelWithReadings = fuelTanks.filter(function(t){ return t.readings && t.readings.length >= 1; });
+    var fuelWithReadings = fuelTanks.filter(function(t) { return t.readings && t.readings.length >= 1; });
     if (fuelWithReadings.length > 0) {
-        html += '<div class="tp-card" style="margin-top:8px;"><div class="tp-card-title"><span>Prediccion Combustible</span></div>';
+        html += '<div class="tp-card"><div class="tp-card-title"><span>Prediccion Combustible</span></div>';
         fuelWithReadings.forEach(function(t) {
             var rdgs = t.readings;
-            var last = rdgs[rdgs.length-1];
+            var last = rdgs[rdgs.length - 1];
             var pct = t.capacity > 0 ? Math.round((last.level / t.capacity) * 100) : 0;
             var dailyRate = 0; var daysLeft = 999;
             if (rdgs.length >= 2) {
                 var first = rdgs[0];
-                var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date))/(1000*60*60*24)));
+                var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / (1000 * 60 * 60 * 24)));
                 var drop = first.level - last.level;
                 dailyRate = drop / daysDiff;
                 daysLeft = dailyRate > 0 ? Math.round(last.level / dailyRate) : 999;
             }
+            var adaptiveFuelPerTest = (t.regulation && rates.fuel[t.regulation]) ? rates.fuel[t.regulation].ewma : 0;
+            var testsRemaining = adaptiveFuelPerTest > 0 ? Math.floor(last.level / adaptiveFuelPerTest) : 0;
             var clr = daysLeft < 14 ? '#ef4444' : daysLeft < 30 ? '#f59e0b' : '#10b981';
             html += '<div style="padding:8px;margin-bottom:4px;border:1px solid var(--tp-border);border-radius:6px;border-left:3px solid ' + clr + ';background:var(--tp-card);">';
             html += '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;">';
-            html += '<div><strong>' + t.name + '</strong> <span style="font-size:9px;color:var(--tp-dim);">(' + (t.regulation||t.fuelType||'') + ')</span></div>';
+            html += '<div><strong>' + t.name + '</strong> <span style="font-size:9px;color:var(--tp-dim);">(' + (t.regulation || t.fuelType || '') + ')</span></div>';
             html += '<span style="font-size:10px;font-weight:700;color:' + clr + ';">' + (daysLeft > 365 ? '>1 ano' : '~' + daysLeft + ' dias') + '</span>';
             html += '</div>';
-            html += '<div style="display:flex;gap:12px;font-size:9px;margin-top:4px;">';
-            html += '<span>Nivel: <strong>' + last.level + '/' + t.capacity + ' ' + (t.unit||'L') + '</strong></span>';
-            if (dailyRate > 0) html += '<span>Consumo/dia: <strong>' + dailyRate.toFixed(1) + ' ' + (t.unit||'L') + '</strong></span>';
-            if (dailyRate > 0) html += '<span>Consumo/sem: <strong>' + (dailyRate*7).toFixed(1) + ' ' + (t.unit||'L') + '</strong></span>';
+            html += '<div style="display:flex;gap:12px;font-size:9px;margin-top:4px;flex-wrap:wrap;">';
+            html += '<span>Nivel: <strong>' + last.level + '/' + t.capacity + ' ' + (t.unit || 'L') + '</strong></span>';
+            if (dailyRate > 0) html += '<span>' + (t.unit || 'L') + '/dia: <strong>' + dailyRate.toFixed(1) + '</strong></span>';
+            if (dailyRate > 0) html += '<span>' + (t.unit || 'L') + '/sem: <strong>' + (dailyRate * 7).toFixed(1) + '</strong></span>';
+            if (adaptiveFuelPerTest > 0) {
+                html += '<span style="color:#f97316;">' + (t.unit || 'L') + '/prueba: <strong>' + adaptiveFuelPerTest.toFixed(1) + '</strong></span>';
+                html += '<span style="color:var(--tp-amber);">Pruebas rest.: <strong>' + testsRemaining + '</strong></span>';
+            }
             html += '</div>';
-            html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:6px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + (pct<15?'#ef4444':pct<30?'#f59e0b':'#10b981') + ';"></div></div>';
+            html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:6px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + (pct < 15 ? '#ef4444' : pct < 30 ? '#f59e0b' : '#10b981') + ';"></div></div>';
             html += '</div>';
         });
         html += '</div>';
@@ -785,27 +1627,326 @@ function invHandleImport(event) {
 // ══════════════════════════════════════════════════
 function invLogTestUsage(vehicle) {
     if (!vehicle) return;
+    var date = new Date().toISOString().slice(0,10);
+    var regulation = vehicle.configCode ? vehicle.configCode.split(' ')[0] : '';
+
+    // Capture specific cylinders "In use" with full traceability
+    var inUseCylinders = invState.gases.filter(function(g) { return g.status === 'In use'; });
+    var cylinderSnapshot = inUseCylinders.map(function(g) {
+        var lastPsi = (g.readings && g.readings.length > 0) ? g.readings[g.readings.length - 1].psi : null;
+        return {
+            id: g.id,
+            controlNo: g.controlNo,
+            formula: g.formula,
+            lotNumber: g.lotNumber || '',
+            supplier: g.supplier || '',
+            concNominal: g.concNominal || '',
+            psi: lastPsi,
+            validUntil: g.validUntil || ''
+        };
+    });
+
+    // PSI snapshot (maintain backward compatibility for consumption rate calc)
+    var psiSnapshot = {};
+    inUseCylinders.forEach(function(g) {
+        if (g.readings && g.readings.length > 0) {
+            psiSnapshot[g.formula] = g.readings[g.readings.length - 1].psi;
+        }
+    });
+
+    // Snapshot fuel levels for matching regulation
+    var fuelSnapshot = {};
+    (invState.fuelTanks || []).forEach(function(t) {
+        if (t.regulation === regulation || !t.regulation) {
+            fuelSnapshot[t.id] = t.currentLevel;
+        }
+    });
+
     var entry = {
-        date: new Date().toISOString().slice(0,10),
+        date: date,
         vin: vehicle.vin || '',
         configCode: vehicle.configCode || '',
         purpose: vehicle.purpose || '',
-        regulation: vehicle.configCode ? vehicle.configCode.split(' ')[0] : '',
-        gasFormula: '', // Will be populated per gas type used
-        timestamp: new Date().toISOString()
+        regulation: regulation,
+        timestamp: new Date().toISOString(),
+        cylinders: cylinderSnapshot,
+        psiSnap: psiSnapshot,
+        fuelSnap: fuelSnapshot
     };
-    // Log one entry per gas type in use (they all get consumed per test)
-    var inUse = invState.gases.filter(function(g){ return g.status === 'In use'; });
-    var formulas = {};
-    inUse.forEach(function(g) { formulas[g.formula] = true; });
-    Object.keys(formulas).forEach(function(f) {
-        var logEntry = JSON.parse(JSON.stringify(entry));
-        logEntry.gasFormula = f;
-        invState.usageLog.push(logEntry);
-    });
+
+    invState.usageLog.push(entry);
+
     // Keep log manageable
-    if (invState.usageLog.length > 2000) invState.usageLog = invState.usageLog.slice(-1500);
+    if (invState.usageLog.length > 3000) invState.usageLog = invState.usageLog.slice(-2000);
     invSave();
+}
+
+// ══════════════════════════════════════════════════
+// GAS LOT → TEST TRACEABILITY
+// ══════════════════════════════════════════════════
+
+// Find all tests where a specific cylinder was used
+function invTraceByGas(gasId) {
+    return (invState.usageLog || []).filter(function(entry) {
+        if (!entry.cylinders) return false;
+        return entry.cylinders.some(function(c) { return c.id === gasId; });
+    });
+}
+
+// Find all tests linked to a specific lot number
+function invTraceByLot(lotNumber) {
+    if (!lotNumber) return [];
+    var lot = lotNumber.trim().toLowerCase();
+    return (invState.usageLog || []).filter(function(entry) {
+        if (!entry.cylinders) return false;
+        return entry.cylinders.some(function(c) { return (c.lotNumber || '').toLowerCase() === lot; });
+    });
+}
+
+// Find which cylinders were used for a specific VIN
+function invTraceByVin(vin) {
+    if (!vin) return [];
+    var vinUp = vin.trim().toUpperCase();
+    return (invState.usageLog || []).filter(function(entry) {
+        return (entry.vin || '').toUpperCase().indexOf(vinUp) !== -1 && entry.cylinders;
+    });
+}
+
+// Traceability tab renderer
+function invRenderTrace(el) {
+    var html = '<div class="tp-card" style="margin-bottom:10px;">' +
+        '<div class="tp-card-title"><span>🔗 Trazabilidad Gas ↔ Prueba</span></div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">' +
+        '<div style="flex:1;min-width:140px;">' +
+        '<label style="font-size:10px;color:#64748b;display:block;margin-bottom:3px;">Buscar por</label>' +
+        '<select id="inv-trace-mode" onchange="invTraceSearch()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+        '<option value="gas">Cilindro</option><option value="lot">No. Lote</option><option value="vin">VIN</option></select></div>' +
+        '<div style="flex:2;min-width:200px;" id="inv-trace-input-wrap">' +
+        '<label style="font-size:10px;color:#64748b;display:block;margin-bottom:3px;">Valor</label>' +
+        '<input id="inv-trace-q" placeholder="Escribe para buscar..." onkeyup="invTraceSearch()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+        '</div>' +
+        '<button onclick="invTraceSearch()" class="tp-btn tp-btn-primary" style="padding:8px 14px;">Buscar</button>' +
+        '</div></div>' +
+        '<div id="inv-trace-results" style="font-size:12px;"></div>';
+
+    // Also show gas dropdown for "gas" mode
+    html += '<div id="inv-trace-gas-select" style="display:none;margin-bottom:8px;">' +
+        '<select id="inv-trace-gas-id" onchange="invTraceSearch()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+        '<option value="">— Seleccionar cilindro —</option>';
+    invState.gases.forEach(function(g) {
+        html += '<option value="' + g.id + '">' + g.controlNo + ' — ' + g.formula + (g.lotNumber ? ' (Lote: ' + g.lotNumber + ')' : '') + '</option>';
+    });
+    html += '</select></div>';
+
+    el.innerHTML = html;
+
+    // Wire up mode switching to show/hide gas dropdown
+    var modeEl = document.getElementById('inv-trace-mode');
+    if (modeEl) {
+        modeEl.addEventListener('change', function() {
+            var gasSelect = document.getElementById('inv-trace-gas-select');
+            var inputWrap = document.getElementById('inv-trace-input-wrap');
+            if (this.value === 'gas') {
+                gasSelect.style.display = 'block';
+                inputWrap.style.display = 'none';
+            } else {
+                gasSelect.style.display = 'none';
+                inputWrap.style.display = 'block';
+                document.getElementById('inv-trace-q').placeholder = this.value === 'lot' ? 'Número de lote...' : 'VIN completo o parcial...';
+            }
+        });
+        // Trigger initial state
+        modeEl.dispatchEvent(new Event('change'));
+    }
+}
+
+function invTraceSearch() {
+    var mode = document.getElementById('inv-trace-mode').value;
+    var results = [];
+
+    if (mode === 'gas') {
+        var gasId = document.getElementById('inv-trace-gas-id').value;
+        if (gasId) results = invTraceByGas(gasId);
+    } else if (mode === 'lot') {
+        var lot = document.getElementById('inv-trace-q').value;
+        if (lot.trim()) results = invTraceByLot(lot);
+    } else {
+        var vin = document.getElementById('inv-trace-q').value;
+        if (vin.trim()) results = invTraceByVin(vin);
+    }
+
+    var el = document.getElementById('inv-trace-results');
+    if (!el) return;
+
+    if (results.length === 0) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:20px;color:#94a3b8;">Sin resultados' + (mode === 'gas' && !document.getElementById('inv-trace-gas-id').value ? ' — selecciona un cilindro' : '') + '</div>';
+        return;
+    }
+
+    var html = '<div style="margin-bottom:6px;font-weight:600;color:#0f766e;">' + results.length + ' prueba' + (results.length !== 1 ? 's' : '') + ' encontrada' + (results.length !== 1 ? 's' : '') + '</div>';
+
+    results.sort(function(a, b) { return (b.timestamp || b.date || '').localeCompare(a.timestamp || a.date || ''); });
+
+    results.forEach(function(entry) {
+        html += '<div class="tp-card" style="padding:10px 12px;margin-bottom:6px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+            '<span style="font-weight:600;">VIN: ' + (entry.vin || '?') + '</span>' +
+            '<span style="font-size:10px;color:#94a3b8;">' + (entry.date || (entry.timestamp || '').slice(0,10)) + '</span></div>' +
+            '<div style="font-size:11px;color:#64748b;margin-top:3px;">Config: ' + (entry.configCode || '?') + ' · ' + (entry.purpose || '') + '</div>';
+
+        // Show cylinders
+        if (entry.cylinders && entry.cylinders.length > 0) {
+            html += '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">';
+            entry.cylinders.forEach(function(c) {
+                var highlight = '';
+                if (mode === 'gas' && c.id === document.getElementById('inv-trace-gas-id').value) highlight = 'border:2px solid #0f766e;';
+                if (mode === 'lot' && (c.lotNumber || '').toLowerCase() === (document.getElementById('inv-trace-q').value || '').trim().toLowerCase()) highlight = 'border:2px solid #0f766e;';
+                html += '<div style="background:#f0fdf4;border-radius:6px;padding:4px 8px;font-size:10px;' + highlight + '">' +
+                    '<strong>' + c.controlNo + '</strong> ' + c.formula +
+                    (c.lotNumber ? ' <span style="color:#0f766e;">Lote: ' + c.lotNumber + '</span>' : '') +
+                    (c.psi !== null ? ' · ' + c.psi + ' PSI' : '') +
+                    '</div>';
+            });
+            html += '</div>';
+        }
+
+        html += '</div>';
+    });
+
+    el.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════
+// ACTIVE PREDICTION ENGINE — Consumption Rate Calculator
+// ══════════════════════════════════════════════════
+function invCalcConsumptionRates() {
+    var rates = { gas: {}, fuel: {}, lastCalc: new Date().toISOString(), dataPoints: 0 };
+    var log = invState.usageLog || [];
+    if (log.length === 0) return rates;
+
+    var ALPHA = 0.3; // EWMA weight for newest observation
+
+    // ── GAS RATES: correlate readings with test events ──
+    var gasFormulas = {};
+    invState.gases.forEach(function(g) {
+        if (g.status !== 'In use' || !g.readings || g.readings.length < 2) return;
+        if (!gasFormulas[g.formula]) gasFormulas[g.formula] = [];
+        gasFormulas[g.formula].push(g);
+    });
+
+    Object.keys(gasFormulas).forEach(function(formula) {
+        var formulaLog = log.filter(function(l) {
+            // Backward compat: old entries have gasFormula, new entries have cylinders[]
+            if (l.gasFormula) return l.gasFormula === formula;
+            if (l.cylinders) return l.cylinders.some(function(c) { return c.formula === formula; });
+            return false;
+        });
+        if (formulaLog.length === 0) return;
+
+        // Use primary cylinder for rate calc
+        var g = gasFormulas[formula][0];
+        var readings = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+
+        // Between consecutive readings, count tests by regulation
+        for (var i = 0; i < readings.length - 1; i++) {
+            var d1 = readings[i].date;
+            var d2 = readings[i + 1].date;
+            var psiDrop = readings[i].psi - readings[i + 1].psi;
+            if (psiDrop <= 0) continue; // No consumption or refill
+
+            var testsBetween = formulaLog.filter(function(l) {
+                return l.date >= d1 && l.date <= d2;
+            });
+            if (testsBetween.length === 0) continue;
+
+            // Group by regulation
+            var regCounts = {};
+            testsBetween.forEach(function(l) {
+                var reg = l.regulation || 'General';
+                regCounts[reg] = (regCounts[reg] || 0) + 1;
+            });
+            var totalTests = testsBetween.length;
+            var regKeys = Object.keys(regCounts);
+
+            // Compute psi/test per regulation
+            if (regKeys.length === 1) {
+                // Single regulation — direct measurement
+                var reg = regKeys[0];
+                var psiPerTest = psiDrop / totalTests;
+                if (!rates.gas[formula]) rates.gas[formula] = {};
+                if (!rates.gas[formula][reg]) rates.gas[formula][reg] = { obs: [], ewma: 0, n: 0 };
+                rates.gas[formula][reg].obs.push({ ppt: psiPerTest, cnt: totalTests, d1: d1, d2: d2 });
+            } else {
+                // Mixed regulations — proportional distribution
+                var psiPerTest = psiDrop / totalTests;
+                regKeys.forEach(function(reg) {
+                    if (!rates.gas[formula]) rates.gas[formula] = {};
+                    if (!rates.gas[formula][reg]) rates.gas[formula][reg] = { obs: [], ewma: 0, n: 0 };
+                    rates.gas[formula][reg].obs.push({ ppt: psiPerTest, cnt: regCounts[reg], d1: d1, d2: d2 });
+                });
+            }
+        }
+    });
+
+    // EWMA for each gas/regulation
+    Object.keys(rates.gas).forEach(function(formula) {
+        Object.keys(rates.gas[formula]).forEach(function(reg) {
+            var r = rates.gas[formula][reg];
+            if (r.obs.length === 0) return;
+            r.obs.sort(function(a, b) { return a.d1.localeCompare(b.d1); });
+            var ewma = r.obs[0].ppt;
+            for (var j = 1; j < r.obs.length; j++) {
+                ewma = ALPHA * r.obs[j].ppt + (1 - ALPHA) * ewma;
+            }
+            r.ewma = ewma;
+            r.n = r.obs.reduce(function(s, v) { return s + v.cnt; }, 0);
+            rates.dataPoints += r.n;
+        });
+    });
+
+    // ── FUEL RATES: correlate fuel readings with test events ──
+    (invState.fuelTanks || []).forEach(function(t) {
+        if (!t.readings || t.readings.length < 2 || !t.regulation) return;
+        var readings = t.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+        var reg = t.regulation;
+
+        // Deduplicate tests by date+vin (one release = one fuel usage)
+        var regTests = log.filter(function(l) { return l.regulation === reg; });
+        var uniqueTests = [];
+        var seen = {};
+        regTests.forEach(function(l) {
+            var key = l.date + '|' + l.vin;
+            if (!seen[key]) { seen[key] = true; uniqueTests.push(l); }
+        });
+
+        if (!rates.fuel[reg]) rates.fuel[reg] = { obs: [], ewma: 0, n: 0, unit: t.unit || 'L', tankName: t.name };
+
+        for (var i = 0; i < readings.length - 1; i++) {
+            var d1 = readings[i].date;
+            var d2 = readings[i + 1].date;
+            var levelDrop = readings[i].level - readings[i + 1].level;
+            if (levelDrop <= 0) continue;
+
+            var testsBetween = uniqueTests.filter(function(l) { return l.date >= d1 && l.date <= d2; });
+            if (testsBetween.length === 0) continue;
+
+            rates.fuel[reg].obs.push({ fpt: levelDrop / testsBetween.length, cnt: testsBetween.length, d1: d1, d2: d2 });
+        }
+
+        // EWMA for fuel
+        if (rates.fuel[reg].obs.length > 0) {
+            rates.fuel[reg].obs.sort(function(a, b) { return a.d1.localeCompare(b.d1); });
+            var ewma = rates.fuel[reg].obs[0].fpt;
+            for (var j = 1; j < rates.fuel[reg].obs.length; j++) {
+                ewma = ALPHA * rates.fuel[reg].obs[j].fpt + (1 - ALPHA) * ewma;
+            }
+            rates.fuel[reg].ewma = ewma;
+            rates.fuel[reg].n = rates.fuel[reg].obs.reduce(function(s, v) { return s + v.cnt; }, 0);
+            rates.dataPoints += rates.fuel[reg].n;
+        }
+    });
+
+    return rates;
 }
 
 // ══════════════════════════════════════════════════
@@ -837,7 +1978,7 @@ function invRenderFuel(el) {
             html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:8px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + clr + ';"></div></div>';
             // Readings mini history
             if (t.readings && t.readings.length > 0) {
-                html += '<div style="font-size:8px;color:var(--tp-dim);margin-top:4px;">Ultimas: ' + t.readings.slice(-5).map(function(r){return r.date + ': ' + r.level + (t.unit||'L');}).join(' | ') + '</div>';
+                html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:4px;">Ultimas: ' + t.readings.slice(-5).map(function(r){return r.date + ': ' + r.level + (t.unit||'L');}).join(' | ') + '</div>';
             }
             html += '</div>';
         });
@@ -869,7 +2010,7 @@ function invAddFuelTank(editId) {
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveFuelTank(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="if(confirm(\x27Eliminar?\x27)){invState.fuelTanks=invState.fuelTanks.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;}" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar tanque?\',function(){invState.fuelTanks=invState.fuelTanks.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 }
@@ -896,6 +2037,7 @@ function invSaveFuelTank(editId) {
             t.timeline.push({date:new Date().toISOString(),action:'Modificado'});
             Object.assign(t, obj);
             t.readings = t.readings || [];
+            auditLog('inv', 'fuel_modified', {type:'fuel', id:editId, label:obj.name}, obj.fuelType + ' ' + obj.octane);
         }
     } else {
         if (!invState.fuelTanks) invState.fuelTanks = [];
@@ -903,6 +2045,7 @@ function invSaveFuelTank(editId) {
         obj.readings = [];
         obj.timeline = [{date:new Date().toISOString(),action:'Recepcion'}];
         invState.fuelTanks.push(obj);
+        auditLog('inv', 'fuel_created', {type:'fuel', id:obj.id, label:obj.name}, obj.fuelType + ' ' + obj.octane);
     }
     invSave(); invRender();
     document.getElementById('invModal').style.display = 'none';
@@ -1018,7 +2161,7 @@ function invRenderReport(el) {
         var isOk = lastPsi > limit || limit === 0;
         var catColor = g.gasCategory === 'Trabajo' ? '#fef9c3' : '#e0f2fe';
         html += '<tr style="background:' + catColor + '20;border-bottom:1px solid rgba(255,255,255,0.05);">';
-        html += '<td style="padding:3px 6px;font-size:8px;color:var(--tp-dim);">' + (g.gasCategory||'Ref') + '</td>';
+        html += '<td style="padding:3px 6px;font-size:9px;color:var(--tp-dim);">' + (g.gasCategory||'Ref') + '</td>';
         html += '<td style="padding:3px 6px;">' + g.gasType.toUpperCase().slice(0,20) + ' ' + g.concNominal + '</td>';
         html += '<td style="padding:3px 6px;text-align:center;font-weight:700;">' + lastPsi + '</td>';
         html += '<td style="padding:3px 6px;text-align:center;">' + weekly.toFixed(1) + '</td>';
@@ -1068,6 +2211,425 @@ function invExportReport() {
     showToast('Reporte HTML descargado', 'success');
 }
 
+// ══════════════════════════════════════════════════
+// ZONE VISUAL MAP
+// ══════════════════════════════════════════════════
+function invRenderZoneMap(el) {
+    var gases = invState.gases;
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span>';
+    if (_invUndoStack.length > 0) {
+        html += '<button onclick="invUndoLastMove()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;animation:soakBadgePulse 2s 1;">↶ Deshacer (' + _invUndoStack.length + ')</button>';
+    }
+    html += '</div>';
+    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Verde >50% | Amarillo 25-50% | Rojo <25% | Gris: vacio &mdash; Mantener presionado para arrastrar</div>';
+
+    invState.zones.forEach(function(z) {
+        var zGases = gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); });
+        var capPct = z.slots > 0 ? Math.round((zGases.length / z.slots) * 100) : 0;
+        var capColor = capPct > 80 ? '#ef4444' : capPct > 50 ? '#f59e0b' : '#10b981';
+        html += '<div style="margin-bottom:10px;padding:8px;border:1px solid var(--tp-border);border-radius:8px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:12px;margin-bottom:6px;">';
+        html += '<span>' + z.id + ' — ' + z.label + ' <span style="font-size:9px;color:var(--tp-dim);">(' + z.type + ')</span></span>';
+        html += '<span style="font-size:10px;font-weight:700;color:' + capColor + ';background:' + capColor + '15;padding:2px 8px;border-radius:6px;border:1px solid ' + capColor + '30;">' + zGases.length + '/' + z.slots + ' (' + capPct + '%)</span>';
+        html += '</div>';
+
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:4px;">';
+        for (var s = 1; s <= z.slots; s++) {
+            var code = z.id + (s < 10 ? '0' : '') + s;
+            var slotGas = zGases.find(function(g){ return g.zone === code; });
+            var bgColor = '#1e293b';
+            var label = '';
+            var detail = '';
+            var gasIdAttr = '';
+
+            if (slotGas) {
+                var lvl = invGasLevel(slotGas);
+                bgColor = lvl.pct > 50 ? '#065f46' : lvl.pct > 25 ? '#854d0e' : '#991b1b';
+                label = slotGas.formula.split('/')[0];
+                detail = lvl.pct + '%';
+                gasIdAttr = ' data-gas-id="' + slotGas.id + '"';
+            }
+
+            html += '<div class="inv-zone-slot" data-zone-code="' + code + '"' + gasIdAttr +
+                ' style="padding:6px 4px;text-align:center;border-radius:6px;' +
+                'background:' + bgColor + ';border:1px solid var(--tp-border);cursor:pointer;' +
+                'min-height:44px;display:flex;flex-direction:column;justify-content:center;' +
+                'user-select:none;-webkit-user-select:none;touch-action:none;">';
+            html += '<div style="font-size:9px;color:var(--tp-dim);">' + code + '</div>';
+            if (slotGas) {
+                html += '<div style="font-size:10px;font-weight:700;color:#fff;">' + label + '</div>';
+                html += '<div style="font-size:9px;color:#fff;">' + detail + '</div>';
+            } else {
+                html += '<div style="font-size:9px;color:#475569;">---</div>';
+            }
+            html += '</div>';
+        }
+        html += '</div></div>';
+    });
+
+    html += '</div>';
+    el.innerHTML = html;
+    invInitZoneDrag(el);
+}
+
+function invShowZoneSlotDetail(code) {
+    var gas = invState.gases.find(function(g){ return g.zone === code; });
+    if (gas) {
+        invShowTimeline(gas.id);
+    } else {
+        showToast('Posicion ' + code + ' libre', 'info');
+    }
+}
+
+// ── Zone Map: Drag-and-Drop ──
+function invInitZoneDrag(container) {
+    var slots = container.querySelectorAll('.inv-zone-slot');
+    var LONG_PRESS_MS = 380;
+    var DRAG_THRESHOLD = 15;
+
+    function getXY(e) {
+        if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        if (e.changedTouches && e.changedTouches.length > 0) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    function cancelDrag() {
+        if (_invDrag.timer) { clearTimeout(_invDrag.timer); _invDrag.timer = null; }
+        if (_invDrag.ghostEl) { _invDrag.ghostEl.remove(); _invDrag.ghostEl = null; }
+        // Remove visual highlights
+        container.querySelectorAll('.inv-zone-slot').forEach(function(s) {
+            s.style.outline = '';
+            s.style.opacity = '';
+            s.classList.remove('drag-ready');
+        });
+        container.style.touchAction = '';
+        _invDrag.active = false;
+        _invDrag.committed = false;
+        _invDrag.gasId = null;
+        _invDrag.sourceCode = null;
+    }
+
+    function startDragMode(slotEl, pt) {
+        var gasId = slotEl.getAttribute('data-gas-id');
+        if (!gasId) return; // Empty slot, nothing to drag
+        _invDrag.active = true;
+        _invDrag.gasId = gasId;
+        _invDrag.sourceCode = slotEl.getAttribute('data-zone-code');
+
+        // Vibrate if available
+        if (navigator.vibrate) navigator.vibrate(50);
+
+        // Create ghost element
+        var ghost = slotEl.cloneNode(true);
+        ghost.style.position = 'fixed';
+        ghost.style.left = (pt.x - 26) + 'px';
+        ghost.style.top = (pt.y - 26) + 'px';
+        ghost.style.width = '52px';
+        ghost.style.opacity = '0.85';
+        ghost.style.zIndex = '10000';
+        ghost.style.pointerEvents = 'none';
+        ghost.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)';
+        ghost.style.transform = 'scale(1.15)';
+        ghost.style.transition = 'none';
+        document.body.appendChild(ghost);
+        _invDrag.ghostEl = ghost;
+
+        // Highlight source slot
+        slotEl.style.opacity = '0.3';
+        slotEl.style.outline = '2px dashed #eab308';
+
+        // Highlight empty slots as drop targets
+        container.querySelectorAll('.inv-zone-slot').forEach(function(s) {
+            if (s === slotEl) return;
+            if (!s.getAttribute('data-gas-id')) {
+                s.style.outline = '2px dashed #22c55e';
+            }
+        });
+    }
+
+    function onPointerDown(e) {
+        // Only primary button for mouse
+        if (e.type === 'mousedown' && e.button !== 0) return;
+        cancelDrag();
+        var slotEl = e.currentTarget;
+        var pt = getXY(e);
+        _invDrag.startX = pt.x;
+        _invDrag.startY = pt.y;
+        _invDrag.committed = false;
+        _invDrag.sourceCode = slotEl.getAttribute('data-zone-code'); // Store for tap fallback
+        if (!slotEl.getAttribute('data-gas-id')) {
+            // Empty slot: no drag, but still handle tap on pointer-up via a dummy timer
+            _invDrag.timer = setTimeout(function() { _invDrag.timer = null; }, LONG_PRESS_MS);
+            return;
+        }
+        _invDrag.timer = setTimeout(function() {
+            _invDrag.timer = null;
+            slotEl.classList.add('drag-ready');
+            container.style.touchAction = 'none';
+            startDragMode(slotEl, pt);
+        }, LONG_PRESS_MS);
+    }
+
+    function onPointerMove(e) {
+        var pt = getXY(e);
+        // If timer still running, check if moved too far (cancel long-press)
+        if (_invDrag.timer) {
+            var dx = Math.abs(pt.x - _invDrag.startX);
+            var dy = Math.abs(pt.y - _invDrag.startY);
+            if (dx > 12 || dy > 12) {
+                clearTimeout(_invDrag.timer);
+                _invDrag.timer = null;
+            }
+            return;
+        }
+        if (!_invDrag.active) return;
+        e.preventDefault(); // Prevent scroll during drag
+
+        // Check drag threshold
+        var distX = pt.x - _invDrag.startX;
+        var distY = pt.y - _invDrag.startY;
+        if (!_invDrag.committed && Math.sqrt(distX*distX + distY*distY) > DRAG_THRESHOLD) {
+            _invDrag.committed = true;
+        }
+
+        // Move ghost
+        if (_invDrag.ghostEl) {
+            _invDrag.ghostEl.style.left = (pt.x - 26) + 'px';
+            _invDrag.ghostEl.style.top = (pt.y - 26) + 'px';
+        }
+    }
+
+    function onPointerUp(e) {
+        // If long-press timer still running → normal tap
+        if (_invDrag.timer) {
+            clearTimeout(_invDrag.timer);
+            _invDrag.timer = null;
+            var tapCode = _invDrag.sourceCode;
+            _invDrag.sourceCode = null;
+            if (tapCode) invShowZoneSlotDetail(tapCode);
+            return;
+        }
+        if (!_invDrag.active) return;
+
+        var pt = getXY(e);
+        var wasCommitted = _invDrag.committed;
+        var gasId = _invDrag.gasId;
+        var sourceCode = _invDrag.sourceCode;
+
+        cancelDrag();
+
+        if (!wasCommitted) {
+            // Drag was activated (long-press fired) but didn't move far enough → treat as detail view
+            if (sourceCode) invShowZoneSlotDetail(sourceCode);
+            return;
+        }
+
+        // Find drop target
+        var targetEl = document.elementFromPoint(pt.x, pt.y);
+        if (targetEl) targetEl = targetEl.closest('.inv-zone-slot');
+        if (!targetEl) { showToast('Soltar fuera del mapa — cancelado', 'warning'); return; }
+        var targetCode = targetEl.getAttribute('data-zone-code');
+        if (!targetCode || targetCode === sourceCode) return;
+
+        invDropCylinder(gasId, sourceCode, targetCode);
+    }
+
+    // Cleanup previous listeners before attaching new ones
+    if (window._invDragCleanup) window._invDragCleanup();
+
+    // Attach listeners to each slot
+    slots.forEach(function(slot) {
+        slot.addEventListener('touchstart', onPointerDown, { passive: true });
+        slot.addEventListener('mousedown', onPointerDown);
+    });
+
+    // Move/up on document (so drag continues outside slot boundaries)
+    var onCancel = function() { cancelDrag(); };
+    document.addEventListener('touchmove', onPointerMove, { passive: false });
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('touchend', onPointerUp, { passive: true });
+    document.addEventListener('mouseup', onPointerUp);
+    document.addEventListener('touchcancel', onCancel);
+
+    // Store cleanup ref for re-renders
+    window._invDragCleanup = function() {
+        document.removeEventListener('touchmove', onPointerMove);
+        document.removeEventListener('mousemove', onPointerMove);
+        document.removeEventListener('touchend', onPointerUp);
+        document.removeEventListener('mouseup', onPointerUp);
+        document.removeEventListener('touchcancel', onCancel);
+    };
+}
+
+function invDropCylinder(gasId, sourceCode, targetCode) {
+    var gas = invState.gases.find(function(g) { return g.id === gasId; });
+    if (!gas) return;
+
+    // Check if target is occupied
+    var occupant = invState.gases.find(function(g) { return g.zone === targetCode; });
+    if (occupant) {
+        showToast('Posicion ' + targetCode + ' ocupada', 'warning');
+        return;
+    }
+
+    // Push to undo stack before moving
+    _invUndoStack.push({ gasId: gasId, fromZone: sourceCode, toZone: targetCode, formula: gas.formula });
+    if (_invUndoStack.length > _invUndoMaxSize) _invUndoStack.shift();
+
+    // Move cylinder
+    gas.zone = targetCode;
+    // Update position number from code
+    gas.position = parseInt(targetCode.substring(1), 10);
+    // Timeline entry
+    if (!gas.timeline) gas.timeline = [];
+    gas.timeline.push({ date: new Date().toISOString(), action: 'Reubicado: ' + sourceCode + ' → ' + targetCode });
+
+    invSave();
+    invRender();
+    if (typeof fbPushModule === 'function') fbPushModule('inventory');
+    showToast(gas.formula + ' movido a ' + targetCode, 'success');
+}
+
+function invUndoLastMove() {
+    if (_invUndoStack.length === 0) { showToast('Sin movimientos para deshacer', 'info'); return; }
+    var last = _invUndoStack.pop();
+    var gas = invState.gases.find(function(g) { return g.id === last.gasId; });
+    if (!gas) { showToast('Gas no encontrado', 'error'); return; }
+    // Check if original slot is now occupied
+    var occupant = invState.gases.find(function(g) { return g.zone === last.fromZone && g.id !== last.gasId; });
+    if (occupant) { showToast('Posicion ' + last.fromZone + ' ya ocupada — no se puede deshacer', 'warning'); return; }
+    gas.zone = last.fromZone;
+    gas.position = parseInt(last.fromZone.substring(1), 10);
+    if (!gas.timeline) gas.timeline = [];
+    gas.timeline.push({ date: new Date().toISOString(), action: 'Deshecho: ' + last.toZone + ' → ' + last.fromZone });
+    invSave(); invRender();
+    if (typeof fbPushModule === 'function') fbPushModule('inventory');
+    showToast('Deshecho: ' + last.formula + ' regresado a ' + last.fromZone, 'success');
+}
+
+// ══════════════════════════════════════════════════
+// CONSUMPTION CHARTS (Chart.js)
+// ══════════════════════════════════════════════════
+function invRenderCharts(el) {
+    var chartType = window._invChartType || 'gas_psi';
+
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>Graficas de Consumo</span></div>';
+    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">';
+    html += '<button class="tp-btn ' + (chartType === 'gas_psi' ? 'tp-btn-primary' : 'tp-btn-ghost') +
+        '" onclick="window._invChartType=\'gas_psi\';invRender();" style="font-size:10px;">PSI por Cilindro</button>';
+    html += '<button class="tp-btn ' + (chartType === 'fuel_level' ? 'tp-btn-primary' : 'tp-btn-ghost') +
+        '" onclick="window._invChartType=\'fuel_level\';invRender();" style="font-size:10px;">Combustible</button>';
+    html += '<button class="tp-btn ' + (chartType === 'gas_compare' ? 'tp-btn-primary' : 'tp-btn-ghost') +
+        '" onclick="window._invChartType=\'gas_compare\';invRender();" style="font-size:10px;">Comparar Gases</button>';
+    html += '</div>';
+
+    var _invChartId = 'inv_' + chartType;
+    html += (typeof chartConfigBuildPanel === 'function' ? chartConfigBuildPanel(_invChartId, '_invChartInstance', {rerenderFn:'invRender();'}) : '');
+    var _invCH = typeof chartConfigGet === 'function' ? chartConfigGet(_invChartId).height : 300;
+    html += '<div id="' + _invChartId + '-wrapper" style="position:relative;height:' + _invCH + 'px;margin-bottom:12px;">';
+    html += '<canvas id="inv-chart-main"></canvas>';
+    html += '</div>';
+
+    if (chartType === 'gas_psi') {
+        var gasesWithReadings = invState.gases.filter(function(g){ return g.readings && g.readings.length >= 2; });
+        html += '<div style="margin-bottom:8px;"><select id="inv-chart-gas-sel" onchange="invDrawMainChart()" style="width:100%;padding:8px;background:#1e293b;border:1px solid var(--tp-border);border-radius:6px;color:#e2e8f0;font-size:11px;">';
+        gasesWithReadings.forEach(function(g) {
+            html += '<option value="' + g.id + '">' + g.formula + ' ' + (g.concNominal||'') + ' #' + g.controlNo + '</option>';
+        });
+        html += '</select></div>';
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
+    setTimeout(function(){ invDrawMainChart(); }, 50);
+}
+
+function invDrawMainChart() {
+    var canvas = document.getElementById('inv-chart-main');
+    if (!canvas || typeof Chart === 'undefined') return;
+    if (window._invChartInstance) window._invChartInstance.destroy();
+
+    var chartType = window._invChartType || 'gas_psi';
+    var colors = ['#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#3b82f6','#84cc16'];
+
+    if (chartType === 'gas_psi') {
+        var sel = document.getElementById('inv-chart-gas-sel');
+        var gasId = sel ? sel.value : null;
+        var g = invState.gases.find(function(x){ return x.id === gasId; });
+        if (!g || !g.readings || g.readings.length < 2) return;
+
+        var readings = g.readings;
+        var labels = readings.map(function(r){ return r.date.slice(5); });
+        var psiVals = readings.map(function(r){ return r.psi; });
+
+        // Projection (4 weeks)
+        var n = psiVals.length;
+        var dailyDrop = 0;
+        if (n >= 2) {
+            var d1 = new Date(readings[0].date), d2 = new Date(readings[n-1].date);
+            var daySpan = Math.max(1, (d2 - d1) / 86400000);
+            dailyDrop = (psiVals[0] - psiVals[n-1]) / daySpan;
+        }
+        var projLabels = [], projVals = [];
+        var lastDate = new Date(readings[n-1].date);
+        for (var w = 1; w <= 4; w++) {
+            var pd = new Date(lastDate); pd.setDate(pd.getDate() + 7*w);
+            projLabels.push(pd.toISOString().slice(5,10));
+            projVals.push(Math.max(0, Math.round(psiVals[n-1] - dailyDrop*7*w)));
+        }
+        var allLabels = labels.concat(projLabels);
+        var actualData = psiVals.concat(new Array(4).fill(null));
+        var projData = new Array(n).fill(null);
+        projData[n-1] = psiVals[n-1];
+        projData = projData.concat(projVals);
+
+        window._invChartInstance = new Chart(canvas, {
+            type:'line', data:{ labels:allLabels, datasets:[
+                { label:'PSI Actual', data:actualData, borderColor:'#06b6d4', backgroundColor:'rgba(6,182,212,0.1)', fill:true, tension:0.3, pointRadius:3 },
+                { label:'Proyeccion', data:projData, borderColor:'#f59e0b', borderDash:[5,3], pointRadius:2, fill:false, tension:0.3 }
+            ]},
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#94a3b8', font:{size:10} } } }, scales:{ x:{ ticks:{ color:'#64748b', font:{size:9} } }, y:{ ticks:{ color:'#64748b', font:{size:9} }, title:{ display:true, text:'PSI', color:'#94a3b8' } } } }
+        });
+    }
+    else if (chartType === 'fuel_level') {
+        var tanks = (invState.fuelTanks || []).filter(function(t){ return t.readings && t.readings.length >= 1; });
+        var allDates = {};
+        tanks.forEach(function(t){ t.readings.forEach(function(r){ allDates[r.date] = true; }); });
+        var labels = Object.keys(allDates).sort();
+        var datasets = tanks.map(function(t, i) {
+            var data = labels.map(function(d) {
+                var r = t.readings.find(function(rd){ return rd.date === d; });
+                return r ? r.level : null;
+            });
+            return { label:t.name, data:data, borderColor:colors[i % colors.length], fill:false, spanGaps:true, tension:0.3, pointRadius:3 };
+        });
+
+        window._invChartInstance = new Chart(canvas, {
+            type:'line', data:{ labels:labels.map(function(l){ return l.slice(5); }), datasets:datasets },
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#94a3b8', font:{size:9} } } }, scales:{ x:{ ticks:{ color:'#64748b', font:{size:9} } }, y:{ ticks:{ color:'#64748b', font:{size:9} }, title:{ display:true, text:'Litros', color:'#94a3b8' } } } }
+        });
+    }
+    else if (chartType === 'gas_compare') {
+        var gases = invState.gases.filter(function(g){ return g.status === 'In use' && g.readings && g.readings.length >= 2; });
+        var allDates = {};
+        gases.forEach(function(g){ g.readings.forEach(function(r){ allDates[r.date] = true; }); });
+        var labels = Object.keys(allDates).sort();
+        var datasets = gases.map(function(g, i) {
+            var firstPsi = g.readings[0].psi;
+            var data = labels.map(function(d) {
+                var r = g.readings.find(function(rd){ return rd.date === d; });
+                return r ? Math.round((r.psi / firstPsi) * 100) : null;
+            });
+            return { label:g.formula + ' ' + (g.concNominal||''), data:data, borderColor:colors[i % colors.length], fill:false, spanGaps:true, tension:0.3, pointRadius:2 };
+        });
+
+        window._invChartInstance = new Chart(canvas, {
+            type:'line', data:{ labels:labels.map(function(l){ return l.slice(5); }), datasets:datasets },
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#94a3b8', font:{size:8} } } }, scales:{ x:{ ticks:{ color:'#64748b', font:{size:9} } }, y:{ ticks:{ color:'#64748b', font:{size:9} }, title:{ display:true, text:'% Restante', color:'#94a3b8' } } } }
+        });
+    }
+}
+
 function invRenderConfig(el) {
     var html = '<div class="tp-card"><div class="tp-card-title"><span>Configuracion de Zonas</span>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invAddZone()" style="font-size:10px;">+ Agregar Zona</button></div>';
@@ -1091,9 +2653,9 @@ function invRenderConfig(el) {
     invState.gasTypes.forEach(function(gt, idx) {
         html += '<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;margin-bottom:2px;border:1px solid var(--tp-border);border-radius:5px;background:var(--tp-card);">';
         html += '<div style="flex:1;font-size:10px;"><strong>' + gt.formula + '</strong> — ' + gt.name + '</div>';
-        html += '<div style="font-size:8px;color:var(--tp-dim);">' + gt.concs.join(', ') + '</div>';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGasType(' + idx + ')" style="font-size:8px;">\u270F</button>';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="invDeleteGasType(' + idx + ')" style="font-size:8px;color:var(--tp-red);">\u2715</button>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);">' + gt.concs.join(', ') + '</div>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGasType(' + idx + ')" style="font-size:9px;">\u270F</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invDeleteGasType(' + idx + ')" style="font-size:9px;color:var(--tp-red);">\u2715</button>';
         html += '</div>';
     });
     html += '</div>';
@@ -1108,7 +2670,7 @@ function invRenderConfig(el) {
     html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invExportGases()" style="font-size:10px;">Exportar JSON</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invImportGases()" style="font-size:10px;">Importar JSON</button>';
-    html += '<button class="tp-btn tp-btn-danger" onclick="if(confirm(\x27Borrar TODOS los datos de inventario?\x27)){invState.gases=[];invState.equipment=[];invState.fuelTanks=[];invState.usageLog=[];invSave();invRender();invUpdateBadges();}" style="font-size:10px;">Resetear</button>';
+    html += '<button class="tp-btn tp-btn-danger" onclick="showConfirm(\'Borrar TODOS los datos de inventario?\',function(){if(typeof undoPush===\\x27function\\x27)undoPush(\\x27inventory\\x27,\\x27Resetear inventario\\x27);invState.gases=[];invState.equipment=[];invState.fuelTanks=[];invState.usageLog=[];invSave();invRender();invUpdateBadges();showToast(\\x27Inventario reseteado\\x27,\\x27success\\x27,null,undoPop);},{title:\'Resetear inventario\',type:\'danger\',confirmText:\'Borrar todo\'})" style="font-size:10px;">Resetear</button>';
     html += '</div>';
     html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:4px;">' + invState.gases.length + ' gases, ' + invState.equipment.length + ' equipos, ' + (invState.usageLog||[]).length + ' registros de uso</div>';
     html += '</div>';
@@ -1183,9 +2745,11 @@ function invDeleteZone(idx) {
     var z = invState.zones[idx]; if (!z) return;
     var occupied = invState.gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); }).length;
     if (occupied > 0) { showToast('Zona ' + z.id + ' tiene ' + occupied + ' cilindros. Reubícalos primero.', 'warning'); return; }
-    if (!confirm('Eliminar zona ' + z.id + '?')) return;
-    invState.zones.splice(idx, 1);
-    invSave(); invRender();
+    showConfirmDialog({ title: '⚠️ Eliminar zona', message: 'Eliminar zona ' + z.id + '?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        invState.zones.splice(idx, 1);
+        invSave(); invRender();
+    });
 }
 
 function invAddGasType() {
@@ -1213,7 +2777,7 @@ function invShowGasTypeModal(idx) {
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveGasTypeModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="if(confirm(\x27Eliminar tipo de gas?\x27)){invState.gasTypes.splice(' + idx + ',1);invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;}" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar tipo de gas?\',function(){invState.gasTypes.splice(' + idx + ',1);invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
 }
@@ -1242,7 +2806,827 @@ function invSaveGasTypeModal(idx) {
 }
 
 function invDeleteGasType(idx) {
-    if (!confirm('Eliminar tipo ' + invState.gasTypes[idx].name + '?')) return;
-    invState.gasTypes.splice(idx, 1);
-    invSave(); invRender();
+    showConfirmDialog({ title: '⚠️ Eliminar tipo', message: 'Eliminar tipo ' + invState.gasTypes[idx].name + '?', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
+        if (!ok) return;
+        invState.gasTypes.splice(idx, 1);
+        invSave(); invRender();
+    });
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [QW3] TREND CHART — Gas consumption over time (Chart.js)          ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function invShowTrendChart(gasId) {
+    var g = invState.gases.find(function(x) { return x.id === gasId; });
+    if (!g || !g.readings || g.readings.length < 2) {
+        showToast('Necesita al menos 2 lecturas para graficar', 'info');
+        return;
+    }
+
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+    modal.innerHTML = '<div style="max-width:520px;margin:20px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>' +
+        '<h3 style="margin:0 0 2px;color:#06b6d4;">' + g.formula + ' ' + (g.concNominal || '') + '</h3>' +
+        '<div style="font-size:10px;color:#64748b;margin-bottom:12px;">#' + g.controlNo + ' | Zona ' + (g.zone || '?') + ' | ' + g.readings.length + ' lecturas</div>' +
+        '<canvas id="inv-trend-canvas" style="width:100%;height:220px;"></canvas>' +
+        '<div id="inv-trend-stats" style="margin-top:10px;"></div>' +
+        '</div>';
+
+    // Slight delay to ensure DOM is ready
+    setTimeout(function() { invDrawTrendChart(g); }, 50);
+}
+
+function invDrawTrendChart(g) {
+    var canvas = document.getElementById('inv-trend-canvas');
+    if (!canvas || typeof Chart === 'undefined') {
+        showToast('Chart.js no disponible', 'error');
+        return;
+    }
+
+    var readings = g.readings;
+    var labels = readings.map(function(r) { return r.date; });
+    var psiVals = readings.map(function(r) { return r.psi; });
+
+    // Calculate linear regression for projection
+    var n = psiVals.length;
+    var sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for (var i = 0; i < n; i++) {
+        sumX += i; sumY += psiVals[i]; sumXY += i * psiVals[i]; sumXX += i * i;
+    }
+    var slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    var intercept = (sumY - slope * sumX) / n;
+    var dailyDrop = 0;
+    if (n >= 2) {
+        var firstDate = new Date(readings[0].date);
+        var lastDate = new Date(readings[n - 1].date);
+        var daySpan = Math.max(1, (lastDate - firstDate) / (1000 * 60 * 60 * 24));
+        dailyDrop = (psiVals[0] - psiVals[n - 1]) / daySpan;
+    }
+
+    // Project 4 more weeks
+    var projLabels = [];
+    var projVals = [];
+    var lastDate = new Date(readings[n - 1].date);
+    var lastPsi = psiVals[n - 1];
+    for (var w = 1; w <= 4; w++) {
+        var d = new Date(lastDate);
+        d.setDate(d.getDate() + 7 * w);
+        var projPsi = Math.max(0, lastPsi - dailyDrop * 7 * w);
+        projLabels.push(d.toISOString().slice(5, 10));
+        projVals.push(Math.round(projPsi));
+    }
+
+    var allLabels = labels.map(function(l) { return l.slice(5); }).concat(projLabels);
+    var actualData = psiVals.concat(new Array(4).fill(null));
+    var projData = new Array(n).fill(null);
+    projData[n - 1] = psiVals[n - 1]; // connect line
+    projData = projData.concat(projVals);
+
+    // Depletion line at threshold
+    var depletionPsi = g.limitPsi || 150;
+
+    new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: allLabels,
+            datasets: [
+                {
+                    label: 'PSI Actual',
+                    data: actualData,
+                    borderColor: '#06b6d4',
+                    backgroundColor: 'rgba(6,182,212,0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#06b6d4',
+                    borderWidth: 2
+                },
+                {
+                    label: 'Proyeccion',
+                    data: projData,
+                    borderColor: '#f59e0b',
+                    borderDash: [6, 3],
+                    fill: false,
+                    tension: 0,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#f59e0b',
+                    borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true, labels: { color: '#94a3b8', font: { size: 10 } } },
+                annotation: undefined
+            },
+            scales: {
+                x: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(71,85,105,0.2)' } },
+                y: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(71,85,105,0.2)' }, beginAtZero: false }
+            }
+        }
+    });
+
+    // Stats below chart
+    var daysToEmpty = dailyDrop > 0 ? Math.round(lastPsi / dailyDrop) : 999;
+    var emptyDate = new Date(lastDate);
+    emptyDate.setDate(emptyDate.getDate() + daysToEmpty);
+    var weeklyDrop = dailyDrop * 7;
+    var statsEl = document.getElementById('inv-trend-stats');
+    if (statsEl) {
+        statsEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;">' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#06b6d4;">' + lastPsi + '</div><div style="font-size:9px;color:#64748b;">PSI actual</div></div>' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#f59e0b;">' + dailyDrop.toFixed(1) + '</div><div style="font-size:9px;color:#64748b;">PSI/dia</div></div>' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#f59e0b;">' + weeklyDrop.toFixed(0) + '</div><div style="font-size:9px;color:#64748b;">PSI/semana</div></div>' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1a' : daysToEmpty + 'd') + '</div><div style="font-size:9px;color:#64748b;">dias restantes</div></div>' +
+            '<div style="padding:6px;border:1px solid #1e293b;border-radius:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:' + (daysToEmpty < 30 ? '#ef4444' : '#10b981') + ';">' + (daysToEmpty > 365 ? '>1 ano' : emptyDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })) + '</div><div style="font-size:9px;color:#64748b;">fecha vacio</div></div>' +
+            '</div>';
+    }
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [QW4] REORDER ALERTS — Smart alerts with reorder specs           ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function invCheckReorderAlerts() {
+    var alerts = [];
+    var WEEKS_THRESHOLD = 6; // Alert when gas projected to last < 6 weeks
+
+    invState.gases.forEach(function(g) {
+        if (g.status !== 'In use' || !g.readings || g.readings.length < 2) return;
+
+        var rdgs = g.readings;
+        var first = rdgs[0];
+        var last = rdgs[rdgs.length - 1];
+        var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / (1000 * 60 * 60 * 24)));
+        var dailyDrop = (first.psi - last.psi) / daysDiff;
+        if (dailyDrop <= 0) return;
+
+        var daysLeft = last.psi / dailyDrop;
+        var weeksLeft = daysLeft / 7;
+
+        if (weeksLeft < WEEKS_THRESHOLD) {
+            // Check if there's a spare of the same formula+concentration
+            var hasSpare = invState.gases.some(function(s) {
+                return s.id !== g.id && s.formula === g.formula && s.concNominal === g.concNominal && s.status === 'Spare';
+            });
+
+            alerts.push({
+                gasId: g.id,
+                controlNo: g.controlNo,
+                formula: g.formula,
+                concNominal: g.concNominal,
+                gasType: g.gasType,
+                traceability: g.traceability || 'EPA',
+                zone: g.zone,
+                currentPsi: last.psi,
+                dailyDrop: dailyDrop,
+                daysLeft: Math.round(daysLeft),
+                weeksLeft: Math.round(weeksLeft * 10) / 10,
+                hasSpare: hasSpare,
+                urgency: weeksLeft < 2 ? 'critica' : weeksLeft < 4 ? 'alta' : 'media'
+            });
+        }
+    });
+
+    alerts.sort(function(a, b) { return a.daysLeft - b.daysLeft; });
+    return alerts;
+}
+
+function invRenderReorderAlerts() {
+    var alerts = invCheckReorderAlerts();
+    if (alerts.length === 0) return '';
+
+    var html = '<div class="tp-card" style="border-left:3px solid #f97316;">';
+    html += '<div class="tp-card-title"><span style="color:#f97316;">Alertas de Reorden (' + alerts.length + ')</span></div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Cilindros que se proyectan a agotarse en menos de 6 semanas.</div>';
+
+    alerts.forEach(function(a) {
+        var urgClr = a.urgency === 'critica' ? '#ef4444' : a.urgency === 'alta' ? '#f59e0b' : '#3b82f6';
+        html += '<div style="padding:8px 10px;margin-bottom:4px;border:1px solid ' + urgClr + '30;border-radius:6px;background:' + urgClr + '08;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">';
+        html += '<div>';
+        html += '<span style="font-weight:700;font-size:11px;">' + a.formula + ' ' + (a.concNominal || '') + '</span>';
+        html += ' <span style="font-size:9px;color:var(--tp-dim);">#' + a.controlNo + ' (' + (a.zone || '?') + ')</span>';
+        html += '</div>';
+        html += '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:' + urgClr + '20;color:' + urgClr + ';border:1px solid ' + urgClr + '40;">' + a.urgency.toUpperCase() + ' ~' + a.weeksLeft + ' sem</span>';
+        html += '</div>';
+        html += '<div style="display:flex;gap:8px;margin-top:4px;font-size:9px;flex-wrap:wrap;">';
+        html += '<span style="color:var(--tp-dim);">Actual: <strong>' + a.currentPsi + ' psi</strong></span>';
+        html += '<span style="color:var(--tp-dim);">Consumo: <strong>' + a.dailyDrop.toFixed(1) + ' psi/dia</strong></span>';
+        html += '<span style="color:var(--tp-dim);">Vacio en: <strong style="color:' + urgClr + ';">' + a.daysLeft + ' dias</strong></span>';
+        if (a.hasSpare) {
+            html += '<span style="color:#10b981;font-weight:700;">Spare disponible</span>';
+        } else {
+            html += '<span style="color:#ef4444;font-weight:700;">SIN SPARE</span>';
+        }
+        html += '</div>';
+        // Reorder spec
+        html += '<div style="margin-top:6px;padding:4px 8px;border-radius:4px;background:rgba(249,115,22,0.06);border:1px dashed ' + urgClr + '30;font-size:9px;color:#f97316;">';
+        html += '<strong>Reorden:</strong> ' + a.gasType + ' | ' + (a.concNominal || '') + ' | Trazabilidad: ' + a.traceability;
+        html += '</div>';
+        html += '</div>';
+    });
+
+    html += '</div>';
+    return html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [INV-ANOMALY] Anomaly Detection — Leak & Unusual Consumption      ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function invDetectAnomalies() {
+    var anomalies = [];
+    invState.gases.forEach(function(g) {
+        if (g.status === 'Empty' || !g.readings || g.readings.length < 3) return;
+        var rdgs = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+
+        // Calculate average daily drop rate from all consecutive pairs
+        var drops = [];
+        for (var i = 1; i < rdgs.length; i++) {
+            var daysDiff = Math.max(1, Math.round((new Date(rdgs[i].date) - new Date(rdgs[i-1].date)) / 86400000));
+            var psiDrop = rdgs[i-1].psi - rdgs[i].psi;
+            if (psiDrop > 0) drops.push(psiDrop / daysDiff);
+        }
+        if (drops.length < 2) return;
+
+        // Mean and std deviation of daily drop rates
+        var mean = drops.reduce(function(s, v) { return s + v; }, 0) / drops.length;
+        var variance = drops.reduce(function(s, v) { return s + (v - mean) * (v - mean); }, 0) / drops.length;
+        var std = Math.sqrt(variance);
+        if (mean <= 0) return;
+
+        // Check latest drop against historical pattern
+        var lastDrop = rdgs[rdgs.length - 2].psi - rdgs[rdgs.length - 1].psi;
+        var lastDays = Math.max(1, Math.round((new Date(rdgs[rdgs.length - 1].date) - new Date(rdgs[rdgs.length - 2].date)) / 86400000));
+        var lastRate = lastDrop / lastDays;
+
+        if (lastDrop <= 0) return; // refill or no change
+
+        var zScore = std > 0 ? (lastRate - mean) / std : 0;
+        var ratio = lastRate / mean;
+
+        if (ratio >= 3 || zScore >= 3) {
+            anomalies.push({
+                gasId: g.id, controlNo: g.controlNo, formula: g.formula,
+                concNominal: g.concNominal, zone: g.zone,
+                type: 'leak', severity: 'critica',
+                message: 'Posible FUGA: caida de ' + lastDrop.toFixed(0) + ' psi en ' + lastDays + 'd (' + ratio.toFixed(1) + 'x promedio)',
+                lastPsi: rdgs[rdgs.length - 1].psi, drop: lastDrop, ratio: ratio,
+                date: rdgs[rdgs.length - 1].date
+            });
+        } else if (ratio >= 2 || zScore >= 2) {
+            anomalies.push({
+                gasId: g.id, controlNo: g.controlNo, formula: g.formula,
+                concNominal: g.concNominal, zone: g.zone,
+                type: 'unusual', severity: 'alta',
+                message: 'Consumo inusual: caida de ' + lastDrop.toFixed(0) + ' psi en ' + lastDays + 'd (' + ratio.toFixed(1) + 'x promedio)',
+                lastPsi: rdgs[rdgs.length - 1].psi, drop: lastDrop, ratio: ratio,
+                date: rdgs[rdgs.length - 1].date
+            });
+        }
+    });
+
+    anomalies.sort(function(a, b) { return a.severity === 'critica' ? -1 : 1; });
+    return anomalies;
+}
+
+function invRenderAnomalyBanner() {
+    var anomalies = invDetectAnomalies();
+    if (anomalies.length === 0) return '';
+
+    var html = '<div class="tp-card" style="border-left:3px solid #ef4444;background:rgba(239,68,68,0.04);">';
+    html += '<div class="tp-card-title"><span style="color:#ef4444;">Anomalias Detectadas (' + anomalies.length + ')</span></div>';
+    html += '<div style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Cilindros con consumo inusual vs. su patron historico.</div>';
+
+    anomalies.forEach(function(a) {
+        var clr = a.severity === 'critica' ? '#ef4444' : '#f59e0b';
+        var icon = a.type === 'leak' ? '🚨' : '⚠️';
+        html += '<div style="padding:8px 10px;margin-bottom:4px;border:1px solid ' + clr + '30;border-radius:6px;background:' + clr + '08;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">';
+        html += '<div>';
+        html += '<span style="font-size:13px;">' + icon + '</span> ';
+        html += '<span style="font-weight:700;font-size:11px;">' + a.formula + ' ' + (a.concNominal || '') + '</span>';
+        html += ' <span style="font-size:9px;color:var(--tp-dim);">#' + a.controlNo + ' (' + (a.zone || '?') + ')</span>';
+        html += '</div>';
+        html += '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:' + clr + '20;color:' + clr + ';border:1px solid ' + clr + '40;text-transform:uppercase;">' + a.severity + '</span>';
+        html += '</div>';
+        html += '<div style="font-size:10px;color:var(--tp-dim);margin-top:4px;">' + a.message + '</div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">Actual: <strong>' + a.lastPsi + ' psi</strong> | Fecha: ' + a.date + '</div>';
+        html += '</div>';
+    });
+
+    html += '</div>';
+    return html;
+}
+
+// ══════════════════════════════════════════════════
+// IMPROVED PREDICTION — Bayesian blend with reference rates
+// ══════════════════════════════════════════════════
+
+var INV_REFERENCE_RATES = {
+    'CO/N2': 3.5, 'NO/N2': 3.0, 'CO2/N2': 2.5, 'CH4/Air': 2.0,
+    'C3H8/Air': 2.8, 'N2O/N2': 2.0, 'ZERO': 1.5, 'H2/He': 1.0, 'O2/N2': 1.5
+};
+
+// ══════════════════════════════════════════════════
+// MEJORA D: WEEKLY PLAN FORECAST
+// ══════════════════════════════════════════════════
+
+function invForecastForWeeklyPlan(rates) {
+    // Get latest accepted weekly plan from Test Plan module
+    if (typeof tpState === 'undefined' || !tpState.weeklyPlans) return null;
+    var plan = tpState.weeklyPlans.slice().reverse().find(function(p) { return p.accepted && p.items; });
+    if (!plan) return null;
+
+    var pendingItems = plan.items.filter(function(i) { return !i.completed; });
+    if (pendingItems.length === 0) return null;
+
+    if (!rates) rates = invCalcConsumptionRates();
+
+    // Count tests by regulation
+    var regCounts = {};
+    pendingItems.forEach(function(item) {
+        var reg = item.reg || (item.desc ? item.desc.split(' ')[0] : 'General');
+        regCounts[reg] = (regCounts[reg] || 0) + 1;
+    });
+
+    var result = {
+        planLabel: 'Semana ' + (plan.weekDate || ''),
+        testCount: pendingItems.length,
+        items: []
+    };
+
+    // Gas forecast
+    invState.gases.filter(function(g) {
+        return g.status === 'In use' && g.readings && g.readings.length > 0;
+    }).forEach(function(g) {
+        var lastPsi = g.readings[g.readings.length - 1].psi;
+        var totalNeeded = 0;
+
+        Object.keys(regCounts).forEach(function(reg) {
+            if (rates.gas[g.formula] && rates.gas[g.formula][reg]) {
+                totalNeeded += rates.gas[g.formula][reg].ewma * regCounts[reg];
+            }
+        });
+
+        if (totalNeeded <= 0) return;
+
+        var postPlan = lastPsi - totalNeeded;
+        var pctUsage = lastPsi > 0 ? Math.round((totalNeeded / lastPsi) * 100) : 100;
+        var depletion = invPredictDepletion(g);
+        var daysAfterPlan = depletion ? depletion.daysLeft : 999;
+        var needsReorder = postPlan < 200 || pctUsage > 80;
+
+        var recommendation = 'OK';
+        if (postPlan <= 0) recommendation = 'AGOTADO';
+        else if (needsReorder) recommendation = 'REORDENAR';
+        else if (pctUsage > 50) recommendation = 'MONITOREAR';
+
+        result.items.push({
+            type: 'gas',
+            name: g.formula + ' ' + (g.concNominal || '') + ' #' + g.controlNo,
+            formula: g.formula,
+            currentLevel: lastPsi,
+            estimatedUsage: totalNeeded,
+            postPlanLevel: postPlan,
+            pctUsage: pctUsage,
+            daysAfterPlan: daysAfterPlan,
+            needsReorder: needsReorder,
+            recommendation: recommendation,
+            unit: 'psi'
+        });
+    });
+
+    // Fuel forecast
+    (invState.fuelTanks || []).filter(function(t) {
+        return t.readings && t.readings.length >= 1 && t.regulation;
+    }).forEach(function(t) {
+        var lastLevel = t.readings[t.readings.length - 1].level;
+        var reg = t.regulation;
+        if (!regCounts[reg]) return;
+        if (!rates.fuel[reg] || rates.fuel[reg].ewma <= 0) return;
+
+        var totalNeeded = rates.fuel[reg].ewma * regCounts[reg];
+        var postPlan = lastLevel - totalNeeded;
+        var pctUsage = lastLevel > 0 ? Math.round((totalNeeded / lastLevel) * 100) : 100;
+        var needsReorder = postPlan < (t.capacity * 0.15) || pctUsage > 80;
+
+        var recommendation = 'OK';
+        if (postPlan <= 0) recommendation = 'AGOTADO';
+        else if (needsReorder) recommendation = 'REORDENAR';
+        else if (pctUsage > 50) recommendation = 'MONITOREAR';
+
+        result.items.push({
+            type: 'fuel',
+            name: t.name,
+            currentLevel: lastLevel,
+            estimatedUsage: totalNeeded,
+            postPlanLevel: postPlan,
+            pctUsage: pctUsage,
+            needsReorder: needsReorder,
+            recommendation: recommendation,
+            unit: t.unit || 'L'
+        });
+    });
+
+    return result;
+}
+
+function invExportWeeklyForecast() {
+    var rates = invCalcConsumptionRates();
+    var forecast = invForecastForWeeklyPlan(rates);
+    if (!forecast || forecast.items.length === 0) {
+        showToast('No hay forecast disponible', 'warning');
+        return;
+    }
+
+    var csv = 'Consumible,Tipo,Nivel Actual,Uso Estimado Plan,Nivel Post-Plan,% Uso,Recomendacion\n';
+    forecast.items.forEach(function(item) {
+        csv += '"' + item.name + '",' + item.type + ',' + item.currentLevel + ',' +
+               item.estimatedUsage.toFixed(1) + ',' + item.postPlanLevel.toFixed(1) + ',' +
+               item.pctUsage + '%,' + item.recommendation + '\n';
+    });
+
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = 'forecast_semanal_' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    showToast('Forecast exportado', 'success');
+}
+
+// Also integrate forecast warning into tpSmartGenerate via global hook
+function invGetPlanImpactWarning(planItems) {
+    if (!planItems || planItems.length === 0) return '';
+    var rates = invCalcConsumptionRates();
+    if (rates.dataPoints === 0) return '';
+
+    var regCounts = {};
+    planItems.forEach(function(item) {
+        if (item.completed) return;
+        var reg = item.reg || (item.desc ? item.desc.split(' ')[0] : 'General');
+        regCounts[reg] = (regCounts[reg] || 0) + 1;
+    });
+
+    var criticalGases = [];
+    invState.gases.filter(function(g) {
+        return g.status === 'In use' && g.readings && g.readings.length > 0;
+    }).forEach(function(g) {
+        var lastPsi = g.readings[g.readings.length - 1].psi;
+        var totalNeeded = 0;
+        Object.keys(regCounts).forEach(function(reg) {
+            if (rates.gas[g.formula] && rates.gas[g.formula][reg]) {
+                totalNeeded += rates.gas[g.formula][reg].ewma * regCounts[reg];
+            }
+        });
+        if (totalNeeded > 0 && lastPsi < totalNeeded) {
+            criticalGases.push(g.formula + ' (' + lastPsi + '/' + totalNeeded.toFixed(0) + ' psi)');
+        }
+    });
+
+    if (criticalGases.length === 0) return '';
+    return 'Este plan agotaria: ' + criticalGases.join(', ');
+}
+
+function invPredictDepletion(g) {
+    if (!g.readings || g.readings.length < 2) {
+        // Use reference rate if available
+        var refRate = INV_REFERENCE_RATES[g.formula] || 0;
+        if (refRate > 0 && g.readings && g.readings.length === 1) {
+            var lastPsi = g.readings[0].psi;
+            var daysLeft = lastPsi / refRate;
+            return { daysLeft: Math.round(daysLeft), weeksLeft: Math.round(daysLeft / 7 * 10) / 10, confidence: 'baja', source: 'referencia', dailyRate: refRate };
+        }
+        return null;
+    }
+
+    var rdgs = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+    var first = rdgs[0], last = rdgs[rdgs.length - 1];
+    var daysDiff = Math.max(1, Math.round((new Date(last.date) - new Date(first.date)) / 86400000));
+    var totalDrop = first.psi - last.psi;
+    if (totalDrop <= 0) return null;
+
+    var observedRate = totalDrop / daysDiff;
+    var refRate = INV_REFERENCE_RATES[g.formula] || observedRate;
+    var n = rdgs.length;
+
+    // Bayesian blend: more data → trust observed more
+    var weight = Math.min(n / 10, 1); // full trust at 10+ readings
+    var blendedRate = observedRate * weight + refRate * (1 - weight);
+
+    var daysLeft = last.psi / blendedRate;
+    var confidence = n >= 10 ? 'alta' : n >= 5 ? 'media' : 'baja';
+
+    return {
+        daysLeft: Math.round(daysLeft),
+        weeksLeft: Math.round(daysLeft / 7 * 10) / 10,
+        confidence: confidence,
+        source: weight >= 1 ? 'historico' : 'mixto',
+        dailyRate: Math.round(blendedRate * 10) / 10,
+        observedRate: Math.round(observedRate * 10) / 10,
+        dataPoints: n
+    };
+}
+
+// [R3-M3] Debounced version for scan filter input
+var _debouncedInvScanFilter = debounce(function() { invScanFilter(); }, 200);
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M8] Templates — Inventory Quick Actions
+// ══════════════════════════════════════════════════════════════════════
+
+/** Duplicate a gas cylinder with new auto-incremented control number. */
+function invDuplicateGas(gasId) {
+    var source = invState.gases.find(function(g) { return g.id === gasId; });
+    if (!source) { showToast('Gas no encontrado', 'error'); return; }
+
+    var maxCtrl = invState.gases.reduce(function(max, g) {
+        var num = parseInt((g.controlNo || '').replace(/\D/g, ''), 10);
+        return num > max ? num : max;
+    }, 0);
+
+    var newGas = JSON.parse(JSON.stringify(source));
+    newGas.id = 'gas_' + Date.now();
+    newGas.controlNo = 'C-' + String(maxCtrl + 1).padStart(4, '0');
+    newGas.readings = [];
+    newGas.timeline = [];
+    newGas.registeredAt = new Date().toISOString();
+
+    invState.gases.push(newGas);
+    invSave();
+    invRender();
+    showToast('Cilindro duplicado: ' + newGas.controlNo, 'success');
+}
+
+/** Batch add multiple gas cylinders of the same type. */
+function invBatchAddGas(gasType, concNominal, concReal, count, zone) {
+    if (!count || count < 1 || count > 20) { showToast('Cantidad inválida (1-20)', 'error'); return; }
+
+    var maxCtrl = invState.gases.reduce(function(max, g) {
+        var num = parseInt((g.controlNo || '').replace(/\D/g, ''), 10);
+        return num > max ? num : max;
+    }, 0);
+
+    for (var i = 0; i < count; i++) {
+        var newGas = {
+            id: 'gas_' + Date.now() + '_' + i,
+            controlNo: 'C-' + String(maxCtrl + 1 + i).padStart(4, '0'),
+            gasType: gasType || '',
+            concNominal: concNominal || '',
+            concReal: concReal || '',
+            zone: zone || _invFindLeastFullZone(),
+            position: null,
+            status: 'active',
+            readings: [],
+            timeline: [],
+            registeredAt: new Date().toISOString()
+        };
+        invState.gases.push(newGas);
+    }
+    invSave();
+    invRender();
+    showToast(count + ' cilindros agregados en lote', 'success');
+}
+
+function _invFindLeastFullZone() {
+    var zones = invState.zones || [];
+    if (zones.length === 0) return '';
+    var counts = {};
+    zones.forEach(function(z) { counts[z.name] = 0; });
+    invState.gases.forEach(function(g) {
+        if (g.zone && counts[g.zone] !== undefined) counts[g.zone]++;
+    });
+    var minZone = zones[0].name;
+    zones.forEach(function(z) {
+        if ((counts[z.name] || 0) < (counts[minZone] || 0)) minZone = z.name;
+    });
+    return minZone;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [R5-M5] Batch Reading Round — One-at-a-time gas reading experience
+// ══════════════════════════════════════════════════════════════════════
+
+var _readingRound = null;
+
+function invStartReadingRound() {
+    var gases = invState.gases.filter(function(g) { return g.status === 'active'; });
+    if (gases.length === 0) { showToast('No hay cilindros activos', 'warning'); return; }
+
+    _readingRound = {
+        gases: gases,
+        index: 0,
+        results: [],
+        startTime: Date.now()
+    };
+    _invRoundRenderCurrent();
+}
+
+function _invRoundRenderCurrent() {
+    if (!_readingRound) return;
+    var gas = _readingRound.gases[_readingRound.index];
+    var total = _readingRound.gases.length;
+    var idx = _readingRound.index;
+
+    // Get last reading
+    var lastReading = gas.readings && gas.readings.length > 0 ? gas.readings[gas.readings.length - 1] : null;
+    var lastVal = lastReading ? (lastReading.psi || lastReading.value || '') : '';
+
+    // Build sparkline data
+    var sparkData = (gas.readings || []).slice(-5).map(function(r) { return r.psi || r.value || 0; });
+    var sparkHtml = _invRoundSparkline(sparkData);
+
+    var pct = Math.round(((idx) / total) * 100);
+
+    var html = '<div class="reading-round-overlay">' +
+        '<div class="reading-round-card">' +
+        // Header
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+        '<span style="font-size:12px;font-weight:700;color:var(--tp-dim);">' + (idx + 1) + ' de ' + total + '</span>' +
+        '<button onclick="_invRoundCancel()" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:18px;font-weight:700;">✕</button>' +
+        '</div>' +
+        // Progress bar
+        '<div style="height:4px;background:rgba(255,255,255,0.1);border-radius:2px;margin-bottom:16px;overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:var(--tp-green);border-radius:2px;transition:width 0.3s;"></div>' +
+        '</div>' +
+        // Gas info
+        '<div style="text-align:center;margin-bottom:20px;">' +
+        '<div style="font-size:14px;font-weight:800;color:var(--tp-text);">' + escapeHtml(gas.gasType || 'Gas') + '</div>' +
+        '<div style="font-size:11px;color:var(--tp-dim);margin-top:2px;">' + escapeHtml(gas.controlNo || gas.id) + ' · Zona: ' + escapeHtml(gas.zone || '—') + '</div>' +
+        '<div style="font-size:10px;color:var(--tp-dim);margin-top:2px;">Conc: ' + escapeHtml(gas.concNominal || '—') + ' / ' + escapeHtml(gas.concReal || '—') + '</div>' +
+        '</div>' +
+        // Sparkline
+        (sparkHtml ? '<div style="text-align:center;margin-bottom:12px;">' + sparkHtml + '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">Últimas 5 lecturas</div></div>' : '') +
+        // Last value
+        (lastVal ? '<div style="text-align:center;margin-bottom:8px;font-size:10px;color:var(--tp-dim);">Última lectura: <strong style="color:var(--tp-text);">' + lastVal + ' PSI</strong></div>' : '') +
+        // Input
+        '<div style="text-align:center;margin-bottom:16px;">' +
+        '<input type="number" id="round-reading-input" placeholder="PSI" value="' + (lastVal || '') + '" ' +
+        'style="width:120px;padding:12px 16px;font-size:24px;font-weight:800;text-align:center;border:2px solid var(--tp-border);border-radius:12px;background:var(--tp-card);color:var(--tp-text);" ' +
+        'onkeydown="if(event.key===\'Enter\')invRoundNext()">' +
+        '</div>' +
+        // Buttons
+        '<div style="display:flex;gap:8px;justify-content:center;">' +
+        (idx > 0 ? '<button onclick="invRoundPrev()" class="btn-secondary" style="padding:10px 20px;">← Anterior</button>' : '') +
+        (lastVal ? '<button onclick="_invRoundSameValue()" class="btn-secondary" style="padding:10px 20px;background:rgba(16,185,129,0.1);color:#10b981;border-color:#10b981;">= Igual</button>' : '') +
+        '<button onclick="invRoundNext()" class="btn-primary" style="padding:10px 24px;">' + (idx < total - 1 ? 'Siguiente →' : 'Finalizar ✓') + '</button>' +
+        '</div>' +
+        '</div></div>';
+
+    // Show as overlay
+    var overlay = document.getElementById('reading-round-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'reading-round-overlay';
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = html;
+    overlay.style.display = 'block';
+
+    // Focus input
+    setTimeout(function() {
+        var inp = document.getElementById('round-reading-input');
+        if (inp) { inp.focus(); inp.select(); }
+    }, 100);
+}
+
+function invRoundNext() {
+    if (!_readingRound) return;
+    _invRoundSaveCurrentReading();
+    _readingRound.index++;
+    if (_readingRound.index >= _readingRound.gases.length) {
+        invRoundFinish();
+    } else {
+        _invRoundRenderCurrent();
+    }
+}
+
+function invRoundPrev() {
+    if (!_readingRound || _readingRound.index <= 0) return;
+    _readingRound.index--;
+    _invRoundRenderCurrent();
+}
+
+function _invRoundSameValue() {
+    // Keep the pre-filled value (last reading) and advance
+    invRoundNext();
+}
+
+function _invRoundSaveCurrentReading() {
+    if (!_readingRound) return;
+    var gas = _readingRound.gases[_readingRound.index];
+    var inp = document.getElementById('round-reading-input');
+    var val = inp ? parseFloat(inp.value) : NaN;
+    if (isNaN(val)) return;
+
+    gas.readings = gas.readings || [];
+    var lastVal = gas.readings.length > 0 ? (gas.readings[gas.readings.length - 1].psi || gas.readings[gas.readings.length - 1].value || 0) : 0;
+
+    gas.readings.push({
+        psi: val,
+        value: val,
+        timestamp: new Date().toISOString(),
+        source: 'round'
+    });
+
+    // Track result
+    var dropPct = lastVal > 0 ? Math.round(((lastVal - val) / lastVal) * 100) : 0;
+    _readingRound.results.push({
+        gasId: gas.id,
+        controlNo: gas.controlNo,
+        gasType: gas.gasType,
+        value: val,
+        prev: lastVal,
+        alert: dropPct > 15
+    });
+}
+
+function invRoundFinish() {
+    if (!_readingRound) return;
+    invSave();
+
+    var elapsed = Math.round((Date.now() - _readingRound.startTime) / 1000);
+    var mins = Math.floor(elapsed / 60);
+    var secs = elapsed % 60;
+    var alerts = _readingRound.results.filter(function(r) { return r.alert; });
+
+    var html = '<div class="reading-round-overlay">' +
+        '<div class="reading-round-card">' +
+        '<div style="text-align:center;margin-bottom:16px;">' +
+        '<div style="font-size:36px;margin-bottom:8px;">✅</div>' +
+        '<div style="font-size:16px;font-weight:800;color:var(--tp-text);">Ronda Completada</div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">' +
+        '<div class="tp-card" style="text-align:center;padding:10px;">' +
+        '<div style="font-size:20px;font-weight:800;color:var(--tp-green);">' + _readingRound.results.length + '</div>' +
+        '<div style="font-size:9px;color:var(--tp-dim);">Lecturas</div></div>' +
+        '<div class="tp-card" style="text-align:center;padding:10px;">' +
+        '<div style="font-size:20px;font-weight:800;color:' + (alerts.length > 0 ? '#ef4444' : 'var(--tp-green)') + ';">' + alerts.length + '</div>' +
+        '<div style="font-size:9px;color:var(--tp-dim);">Alertas</div></div>' +
+        '<div class="tp-card" style="text-align:center;padding:10px;">' +
+        '<div style="font-size:20px;font-weight:800;color:var(--tp-blue);">' + mins + ':' + String(secs).padStart(2, '0') + '</div>' +
+        '<div style="font-size:9px;color:var(--tp-dim);">Tiempo</div></div>' +
+        '</div>';
+
+    if (alerts.length > 0) {
+        html += '<div style="margin-bottom:12px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:6px;">⚠ Alertas de presión:</div>';
+        alerts.forEach(function(a) {
+            html += '<div style="font-size:10px;color:var(--tp-dim);padding:2px 0;">' +
+                escapeHtml(a.controlNo) + ' (' + escapeHtml(a.gasType) + '): ' + a.prev + ' → ' + a.value + ' PSI</div>';
+        });
+        html += '</div>';
+    }
+
+    html += '<div style="display:flex;gap:8px;justify-content:center;">' +
+        '<button onclick="_invRoundCopyReport()" class="btn-secondary" style="padding:8px 16px;">📋 Copiar Resumen</button>' +
+        '<button onclick="_invRoundCancel()" class="btn-primary" style="padding:8px 20px;">Cerrar</button>' +
+        '</div></div></div>';
+
+    var overlay = document.getElementById('reading-round-overlay');
+    if (overlay) overlay.innerHTML = html;
+
+    invRender();
+    _readingRound = null;
+}
+
+function _invRoundCancel() {
+    var overlay = document.getElementById('reading-round-overlay');
+    if (overlay) overlay.style.display = 'none';
+    _readingRound = null;
+}
+
+function _invRoundCopyReport() {
+    if (!_readingRound && document.getElementById('reading-round-overlay')) {
+        // Use the last results stored
+    }
+    var text = 'Ronda de Lecturas — ' + new Date().toLocaleString('es-MX') + '\n';
+    var overlay = document.getElementById('reading-round-overlay');
+    // Simple copy of visible text
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(overlay ? overlay.textContent : text);
+        showToast('Resumen copiado', 'success');
+    }
+}
+
+function _invRoundSparkline(data) {
+    if (!data || data.length < 2) return '';
+    var max = Math.max.apply(null, data);
+    var min = Math.min.apply(null, data);
+    var range = max - min || 1;
+    var w = 100, h = 30;
+    var points = data.map(function(v, i) {
+        var x = (i / (data.length - 1)) * w;
+        var y = h - ((v - min) / range) * h;
+        return x + ',' + y;
+    }).join(' ');
+    return '<svg width="' + w + '" height="' + h + '" style="display:inline-block;">' +
+        '<polyline points="' + points + '" fill="none" stroke="var(--tp-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '</svg>';
 }

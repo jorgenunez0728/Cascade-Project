@@ -1,0 +1,20 @@
+{
+  "name": "cascade-project",
+  "version": "1.0.0",
+  "description": "KIA EmLab — Emissions Laboratory Management System",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "bash build.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:43155/git/jorgenunez0728/Cascade-Project"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "vite": "^8.0.0"
+  }
+}
