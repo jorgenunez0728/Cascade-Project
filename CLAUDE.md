@@ -2,27 +2,28 @@
 
 ## What is this project?
 
-Single-page web application for KIA Mexico's Emissions Laboratory. 6 modules + panel + auth + daily dashboard, ~580 functions, ~20,000 lines of JS. 100% offline using localStorage. Used daily on smartphones/tablets by lab technicians. 5 rounds of improvements completed + UI/UX overhaul + Cascade field tooltips + Daily Dashboard + Vehicle Inline Checklist.
+Single-page web application for KIA Mexico's Emissions Laboratory. 6 modules + panel + auth + daily dashboard, ~620 functions, ~23,500 lines of JS. 100% offline using localStorage. Used daily on smartphones/tablets by lab technicians. 6 rounds of improvements + UI/UX v6 overhaul (Glass+Neumorphism design system, SVG floor plan map, unified components, smooth transitions).
 
 ## Project Structure
 
 ```
 index.html              ← Development entry point (modular, uses <script src>)
-styles.css              ← All CSS (~1,252 lines)
+styles.css              ← All CSS (~3,000 lines) — Glass + Neumorphism design system
 js/
-  app.js                ← Config, constants, utilities, chart engine, undo, notes, PDF (~2,272 lines)
+  app.js                ← Config, utilities, chart engine, undo, notes, PDF, transitions (~2,340 lines)
   cop15.js              ← COP15 Cascade module + Soak Timer + Field Tooltips (~4,900 lines)
   testplan.js           ← Test Plan Manager module (~3,214 lines)
   results.js            ← Results Analyzer module + Cpk/Ppk + SPC (~2,390 lines)
-  inventory.js          ← Lab Inventory module (~3,127 lines)
+  inventory.js          ← Lab Inventory + SVG Floor Plan Map (~3,580 lines)
   panel.js              ← Dashboard, Users, Shift Log, Alerts, Intelligence, System Health (~1,368 lines)
   auth.js               ← PIN/WebAuthn authentication (~459 lines)
   firebase-sync.js      ← Optional Firebase cloud sync layer (~2,501 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
-kia-emlab-unified.html  ← GENERATED FILE — do not edit directly (~22,000 lines)
+kia-emlab-unified.html  ← GENERATED FILE — do not edit directly (~28,000 lines)
 manifest.json           ← PWA manifest
 sw.js                   ← Service worker for PWA
-CHANGELOG.md            ← Detailed changelog of all 4 development rounds
+CHANGELOG.md            ← Detailed changelog of all 6 development rounds
+V7_HANDOFF.md           ← Next version planning document (Smart Workflow upgrade)
 ```
 
 ## Module Responsibilities
@@ -45,6 +46,7 @@ CHANGELOG.md            ← Detailed changelog of all 4 development rounds
 | `kia_chart_configs` | Chart Config Engine settings for all Chart.js instances |
 | `kia_entity_notes` | Entity Notes system (per-vehicle, per-test annotations) |
 | `kia_soak_timer` | Soak timer persistence across page reloads |
+| `kia_lab_inventory.zoneLayout` | Floor plan zone positions for SVG map |
 
 ## Cross-Module Dependencies
 
@@ -79,6 +81,35 @@ The `initializeSystem()` function in app.js runs on `DOMContentLoaded` and boots
 - UI follows unified light theme with per-module accent colors (CSS variables `--accent-*`)
 - Charts use `chartConfigBuildPanel(chartId, instanceVar, opts)` for reusable config UI
 - Destructive actions should call `undoPush(module, label)` before executing, and show toast with undo callback
+
+## UI/UX Design System (v6)
+
+### CSS Architecture
+- **Design tokens** in `:root`: `--font-*`, `--space-*`, `--radius-*`, `--shadow-*`, `--glass-*`
+- **Neumorphic shadows**: `--shadow-sm` to `--shadow-xl` use dual light/dark offset shadows for depth
+- **Glass effect**: `--glass-bg`, `--glass-blur`, `--glass-border` for frosted glass headers/modals
+- **Pressed state**: `--shadow-pressed` and `--shadow-inset` for button press and input depth
+
+### Unified Components
+- **Buttons**: `.btn`, `.btn-primary`, `.btn-secondary`, `.btn-ghost`, `.btn-danger`, `.btn-sm`, `.btn-lg` — all with neumorphic shadow and `:active` press effect
+- **Cards**: `.card`, `.tp-card`, `.daily-dash-card` — shared neumorphic base with hover elevation
+- **Badges**: `.badge-success`, `.badge-warning`, `.badge-danger`, `.badge-info`, `.badge-neutral`
+- **Titles**: `.section-title` (large), `.card-title` (medium, red border-bottom), `.label-title` (small, uppercase)
+
+### Transitions & Micro-interactions
+- **Tab switching**: `.tab-content-enter` / `.tab-content-exit` animations (200ms fade + translate)
+- **Drill-down navigation**: `navigateToDetail(containerId, renderFn)` utility in app.js
+- **Accordion smoothing**: CSS animation on `details[open]` with `scroll-margin-top` to prevent page jumps
+- **Modal polish**: Glassmorphism backdrop blur (8px) + bounce entrance via `cubic-bezier(0.34, 1.56, 0.64, 1)`
+- **Detail panel**: `.detail-panel` slide-in from right (300ms) with backdrop
+
+### Inventory Floor Plan Map
+- **SVG-based interactive map**: `invRenderFloorPlan()` in inventory.js
+- **Zone layout**: Stored in `invState.zoneLayout`, persisted to localStorage
+- **Edit mode**: Drag zones to reposition, resize handles on corners, snap-to-grid
+- **Cylinders**: Color-coded circles (green >50%, orange 25-50%, red <25%, dashed=empty)
+- **Interactions**: Tooltip on hover, click for detail, drag-and-drop in edit mode
+- **Helpers**: `_invEnsureZoneLayout()`, `_invCalcViewBox()`, `_invFloorPlanBindCylinders()`, `_invFloorPlanBindEditDrag()`
 
 ## Working with this project
 
