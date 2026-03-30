@@ -2312,14 +2312,14 @@ function generateWeeklyStatusPDF() {
 })();
 
     function initializeSystem() {
-      try {
         // Theme init — apply before any UI renders
-        themeInit();
+        try { themeInit(); } catch(e) { console.error('themeInit error:', e); }
 
         // [R5-M1] Splash screen
         if (typeof splashShow === 'function') splashShow();
 
         // Auth gate — must be authenticated before initializing
+        try {
         if (typeof authInit === 'function' && typeof authState !== 'undefined') {
             if (!authState.sessionActive) {
                 if (typeof pnInit === 'function' && (!pnState || pnState.operators.length === 0)) pnInit();
@@ -2327,65 +2327,73 @@ function generateWeeklyStatusPDF() {
                 if (!authState.sessionActive) { if (typeof splashHide === 'function') splashHide(); return; }
             }
         }
+        } catch(e) { console.error('auth error:', e); }
 
         if (typeof splashUpdate === 'function') splashUpdate('Cargando configuraciones...', 20);
-        parseCSV();
-        populateOperators();
+        try { parseCSV(); } catch(e) { console.error('parseCSV error:', e); }
+        try { populateOperators(); } catch(e) { console.error('populateOperators error:', e); }
         
         // Poblar selector inicial de MODELO
-        const modelSelect = document.getElementById('cfg_model');
-        const uniqueModels = [...new Set(allConfigurations.map(c => c.Modelo))].sort();
-        modelSelect.innerHTML = '<option value="">Seleccionar...</option>';
-        uniqueModels.forEach(model => {
-            modelSelect.innerHTML += `<option value="${model}">${model}</option>`;
-        });
-        
+        try {
+        var modelSelect = document.getElementById('cfg_model');
+        var uniqueModels = [...new Set(allConfigurations.map(function(c){ return c.Modelo; }))].sort();
+        if (modelSelect) {
+            modelSelect.innerHTML = '<option value="">Seleccionar...</option>';
+            uniqueModels.forEach(function(model) {
+                modelSelect.innerHTML += '<option value="' + model + '">' + model + '</option>';
+            });
+        }
+
         // Inicializar otros selectores
         updateSelectOptions(allConfigurations);
-        document.getElementById('configCount').textContent = allConfigurations.length;
+        var configCountEl = document.getElementById('configCount');
+        if (configCountEl) configCountEl.textContent = allConfigurations.length;
+        } catch(e) { console.error('model select error:', e); }
 
         // Initialize visual cascade tree
-        if (typeof initCascadeTree === 'function') initCascadeTree();
+        try { if (typeof initCascadeTree === 'function') initCascadeTree(); } catch(e) { console.error('initCascadeTree error:', e); }
 
-        updateProgressBar();
-        refreshAllLists();
-        
-	const now = new Date();
-	const dt = now.toISOString().slice(0,16);
+        try { updateProgressBar(); } catch(e) { console.error('updateProgressBar error:', e); }
+        try { refreshAllLists(); } catch(e) { console.error('refreshAllLists error:', e); }
+
+        try {
+	var now = new Date();
+	var dt = now.toISOString().slice(0,16);
 	if (document.getElementById('test_datetime') && !document.getElementById('test_datetime').value) {
   	document.getElementById('test_datetime').value = dt;
 	}
+        } catch(e) {}
 
-        
+
         console.log('Sistema inicializado v11.0 CASCADE');
 
 // --- Eventos Ventilador ---
-const modeEl  = document.getElementById('test_fan_mode');
-const speedEl = document.getElementById('test_fan_speed');
+var modeEl  = document.getElementById('test_fan_mode');
+var speedEl = document.getElementById('test_fan_speed');
 
 if (modeEl)  modeEl.addEventListener('change', updateFanFieldsByMode);
 if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
 
 
-	initStatusPrevValue();
+	try { initStatusPrevValue(); } catch(e) {}
 
         // ═══ Init Test Plan Manager ═══
         if (typeof splashUpdate === 'function') splashUpdate('Iniciando módulos...', 50);
-        tpInit();
-        tpUpdateBadges();
-        tpHookCascadeResult();
-        raInit();
+        try { tpInit(); } catch(e) { console.error('tpInit error:', e); }
+        try { tpUpdateBadges(); } catch(e) {}
+        try { tpHookCascadeResult(); } catch(e) {}
+        try { raInit(); } catch(e) { console.error('raInit error:', e); }
 
         // ═══ Lab Inventory badges ═══
-        if (typeof invPreloadData === 'function') invPreloadData();
-        if (typeof invUpdateBadges === 'function') invUpdateBadges();
+        try { if (typeof invPreloadData === 'function') invPreloadData(); } catch(e) {}
+        try { if (typeof invUpdateBadges === 'function') invUpdateBadges(); } catch(e) {}
 
         // ═══ Panel Module ═══
-        if (typeof pnInit === 'function') { pnInit(); pnUpdateBadges(); }
+        try { if (typeof pnInit === 'function') { pnInit(); pnUpdateBadges(); } } catch(e) {}
 
         // ═══ Restore Soak Timer if running ═══
         if (typeof splashUpdate === 'function') splashUpdate('Restaurando estado...', 80);
-        if (typeof soakTimerRestore === 'function') soakTimerRestore();
+        try { if (typeof soakTimerRestore === 'function') soakTimerRestore(); } catch(e) {}
 
         // ═══ Firebase Cloud Sync (optional) ═══
         try {
@@ -2393,7 +2401,7 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         } catch(fbErr) { console.error('Firebase init failed (non-blocking):', fbErr); }
 
         // ═══ [R4-M1] Load chart configurations ═══
-        chartConfigLoad();
+        try { chartConfigLoad(); } catch(e) {}
 
         // ═══ [R3-M6] Health check at boot — enhanced [Fase 5.3] ═══
         try {
@@ -2486,11 +2494,6 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         if (localStorage.getItem('kia_immersive_prefs') === '1') {
             setTimeout(function() { immersiveEnter(); }, 600);
         }
-      } catch(initErr) {
-        // Ensure splash is always dismissed even on error
-        console.error('initializeSystem error:', initErr);
-        if (typeof splashHide === 'function') splashHide();
-      }
         }
 
 window.addEventListener('DOMContentLoaded', initializeSystem);
