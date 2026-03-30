@@ -3019,3 +3019,178 @@ details.acc > summary {
     border-color: #2d3748;
 }
 
+/* ╔══════════════════════════════════════════════════════════════════════╗ */
+/* ║  V7 — Smart Workflow Styles                                         ║ */
+/* ╚══════════════════════════════════════════════════════════════════════╝ */
+
+/* ── Resume Toast (C1) ── */
+.v7-resume-toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl); padding: 14px 20px; z-index: 10000;
+    display: flex; align-items: center; gap: 12px;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+    opacity: 0;
+}
+.v7-resume-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+.v7-resume-toast-text { font-weight: var(--weight-bold); font-size: var(--font-base); white-space: nowrap; }
+.v7-resume-toast-actions { display: flex; gap: 8px; }
+
+/* ── Draft Banner (C2) ── */
+.v7-draft-banner {
+    background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3);
+    border-radius: var(--radius-md); padding: 8px 14px; margin-bottom: 12px;
+    font-size: var(--font-sm); color: var(--info);
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    animation: v7SlideDown 0.3s ease;
+}
+
+/* ── Next Step Floating Banner (D2) ── */
+#v7-next-step-banner {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    border-top: 1px solid var(--glass-border);
+    padding: 10px 16px; z-index: 9000;
+    display: flex; align-items: center; gap: 10px;
+    transform: translateY(100%); transition: transform 0.3s ease;
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+}
+#v7-next-step-banner.show { transform: translateY(0); }
+.v7-next-step-icon { font-size: 20px; }
+.v7-next-step-text { flex: 1; font-size: var(--font-sm); font-weight: var(--weight-bold); color: var(--text); }
+.v7-next-step-go {
+    width: 40px; height: 40px; border-radius: 50%; border: none;
+    background: var(--kia-red); color: white; font-size: 18px; font-weight: 700;
+    cursor: pointer; box-shadow: var(--shadow-md);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.v7-next-step-go:active { transform: scale(0.92); box-shadow: var(--shadow-sm); }
+
+/* ── Soak Complete Modal (D3) ── */
+.v7-soak-modal {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.85);
+    background: var(--surface); border-radius: var(--radius-xl); padding: 32px;
+    z-index: 10001; box-shadow: var(--shadow-xl); text-align: center;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+    opacity: 0; max-width: 360px; width: 90%;
+}
+.v7-soak-modal.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+.v7-soak-modal-icon { font-size: 48px; margin-bottom: 8px; }
+.v7-soak-modal-title { font-size: var(--font-lg); font-weight: var(--weight-black); margin-bottom: 6px; }
+.v7-soak-modal-text { font-size: var(--font-sm); color: var(--muted); margin-bottom: 20px; }
+.v7-soak-modal-actions { display: flex; flex-direction: column; gap: 8px; }
+
+/* ── Post-Release Bar (D4) ── */
+.v7-post-release {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl); padding: 16px 20px; z-index: 10000;
+    text-align: center; max-width: 400px; width: 90%;
+    transition: transform 0.3s ease, opacity 0.3s; opacity: 0;
+}
+.v7-post-release.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+.v7-post-release-text { font-weight: var(--weight-bold); font-size: var(--font-base); margin-bottom: 12px; }
+.v7-post-release-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+/* ── Quick-Pick Chips (E1) ── */
+#v7-quick-picks { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.v7-quick-chip {
+    padding: 6px 14px; border-radius: var(--radius-full); border: 1.5px solid var(--kia-red);
+    background: rgba(187,22,43,0.06); color: var(--kia-red); font-size: var(--font-sm);
+    font-weight: var(--weight-bold); cursor: pointer;
+    transition: background 0.2s, transform 0.15s; min-height: 36px;
+}
+.v7-quick-chip:hover { background: rgba(187,22,43,0.12); }
+.v7-quick-chip:active { transform: scale(0.95); }
+
+/* ── Smart Config Cards (E2) ── */
+.v7-smart-configs-title, .v7-favorites-title {
+    font-size: var(--font-xs); font-weight: var(--weight-bold); color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+}
+.v7-smart-configs-list, .v7-favorites-list { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.v7-config-chip, .v7-fav-chip {
+    padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-size: var(--font-xs);
+    font-weight: var(--weight-semibold); cursor: pointer; box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s, transform 0.15s; max-width: 220px;
+    text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
+}
+.v7-config-chip:hover, .v7-fav-chip:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.v7-config-count { color: var(--muted); font-weight: 400; }
+
+/* ── VIN Hint (E4) ── */
+.v7-vin-hint {
+    font-size: var(--font-xs); padding: 4px 8px; border-radius: var(--radius-sm);
+    margin-top: 4px; display: flex; align-items: center; gap: 6px;
+}
+.v7-vin-hint.warning { background: rgba(245,158,11,0.1); color: #d97706; }
+.v7-vin-hint.info { background: rgba(59,130,246,0.1); color: #2563eb; }
+
+/* ── One-Tap Chips (E6) ── */
+.v7-onetap-chip {
+    display: inline-block; padding: 4px 10px; border-radius: var(--radius-full);
+    border: 1px solid var(--warning); background: rgba(245,158,11,0.08);
+    color: #d97706; font-size: var(--font-xs); font-weight: var(--weight-bold);
+    cursor: pointer; margin-left: 6px; vertical-align: middle;
+    transition: background 0.2s, transform 0.15s;
+}
+.v7-onetap-chip:hover { background: rgba(245,158,11,0.15); }
+.v7-onetap-chip:active { transform: scale(0.95); }
+
+/* ── Mi Turno Card (F1) ── */
+.v7-mi-turno-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: var(--space-lg); box-shadow: var(--shadow-sm);
+    border-left: 4px solid var(--kia-red);
+}
+.v7-mi-turno-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+}
+.v7-mi-turno-avatar {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--kia-red);
+    color: white; display: flex; align-items: center; justify-content: center;
+    font-size: var(--font-md); font-weight: var(--weight-black); flex-shrink: 0;
+}
+.v7-mi-turno-name { font-weight: var(--weight-bold); font-size: var(--font-base); }
+.v7-mi-turno-stats { font-size: var(--font-xs); color: var(--muted); }
+.v7-shift-ring { margin-left: auto; flex-shrink: 0; }
+.v7-mi-turno-vehicles { display: flex; flex-direction: column; gap: 6px; }
+.v7-mi-turno-veh {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; border-radius: var(--radius-md); background: var(--bg);
+    cursor: pointer; transition: background 0.2s;
+}
+.v7-mi-turno-veh:hover { background: rgba(0,0,0,0.04); }
+.v7-mi-turno-veh-name { font-size: var(--font-sm); font-weight: var(--weight-semibold); }
+.v7-mi-turno-action { font-size: 10px !important; padding: 3px 8px !important; min-height: auto !important; }
+
+/* ── Executive Dashboard (B1-B3) ── */
+.v7-exec-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px; margin-bottom: 16px;
+}
+.v7-exec-kpi {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 16px; text-align: center; box-shadow: var(--shadow-sm);
+}
+.v7-exec-kpi-value { font-size: var(--font-xl); font-weight: var(--weight-black); color: var(--kia-red); }
+.v7-exec-kpi-label { font-size: var(--font-xs); color: var(--muted); font-weight: var(--weight-semibold); margin-top: 4px; }
+.v7-exec-compliance { display: flex; flex-direction: column; gap: 10px; }
+.v7-exec-metric {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    font-size: var(--font-sm);
+}
+.v7-exec-bar {
+    flex: 1; max-width: 200px; height: 8px; background: var(--bg);
+    border-radius: var(--radius-full); overflow: hidden;
+}
+.v7-exec-bar-fill { height: 100%; border-radius: var(--radius-full); transition: width 0.4s ease; }
+.v7-exec-pct { font-weight: var(--weight-bold); min-width: 40px; text-align: right; }
+
+/* ── Animations ── */
+@keyframes v7SlideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+

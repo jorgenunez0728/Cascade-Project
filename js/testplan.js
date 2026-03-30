@@ -2499,6 +2499,28 @@ function tpBuildFamilies() {
         const maxVol = Math.max(...Object.values(families).map(x => x.totalVol + x.totalHist), 1);
         f.riskScore = ((1 - f.coverage) * 60) + (((f.totalVol + f.totalHist) / maxVol) * 30) + ((1 - f.configCoverage) * 10);
         f.riskLevel = f.riskScore > 60 ? 'high' : f.riskScore > 30 ? 'medium' : 'low';
+
+        // [V7-A3] Gas/fuel availability indicator
+        f.resourceStatus = 'green'; // 🟢 default
+        if (typeof invState !== 'undefined' && invState.gases) {
+            var inUse = invState.gases.filter(function(g) { return g.status === 'In use'; });
+            var lowGas = inUse.filter(function(g) {
+                if (!g.readings || g.readings.length === 0) return false;
+                var lastPsi = g.readings[g.readings.length - 1].psi;
+                var maxPsi = g.initialPsi || 2200;
+                return (lastPsi / maxPsi) < 0.25;
+            });
+            var emptyGas = inUse.filter(function(g) {
+                if (!g.readings || g.readings.length === 0) return true;
+                return g.readings[g.readings.length - 1].psi <= 0;
+            });
+            if (emptyGas.length > 0) f.resourceStatus = 'red';
+            else if (lowGas.length > 0) f.resourceStatus = 'yellow';
+            // Check if enough tests remain based on PSI
+            var testsRemaining = f.deficit;
+            if (testsRemaining > 0 && lowGas.length > 0) f.resourceStatus = 'yellow';
+            if (testsRemaining > 0 && emptyGas.length > 0) f.resourceStatus = 'red';
+        }
     });
 
     _tpCache.families = Object.values(families);

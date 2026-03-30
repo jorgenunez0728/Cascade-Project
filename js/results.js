@@ -2449,3 +2449,120 @@ function raPresetApply(data) {
     raRender();
     showToast('Preset aplicado', 'success');
 }
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-A4] FEEDBACK CALIDAD → TEST PLAN                               ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raFeedbackToTestPlan() {
+    if (!raState || !raState.tests || raState.tests.length < 3) return;
+    if (!raState.profiles || raState.profiles.length === 0) return;
+
+    var alerts = [];
+    raState.profiles.forEach(function(profile) {
+        if (!profile.limits) return;
+        var filtered = raState.tests.filter(function(t) {
+            return t.profileId === profile.id || (t.regTestMode && t.regTestMode === profile.name);
+        });
+        if (filtered.length < 3) return;
+
+        Object.keys(profile.limits).forEach(function(metric) {
+            var USL = profile.limits[metric];
+            var vals = [];
+            filtered.forEach(function(t) {
+                if (!t.cycleData || t.cycleData.length === 0) return;
+                var last = t.cycleData[t.cycleData.length - 1];
+                var v = last[metric];
+                if (v !== undefined && !isNaN(v) && isFinite(v)) vals.push(parseFloat(v));
+            });
+            if (vals.length < 3) return;
+
+            var n = vals.length;
+            var mean = vals.reduce(function(s,v){ return s+v; }, 0) / n;
+            var mRsum = 0;
+            for (var i = 1; i < vals.length; i++) mRsum += Math.abs(vals[i] - vals[i - 1]);
+            var mRbar = mRsum / (vals.length - 1);
+            var sigmaWithin = mRbar / 1.128;
+            var Cpu = sigmaWithin > 0 ? (USL - mean) / (3 * sigmaWithin) : 999;
+            var Cpl = sigmaWithin > 0 ? (mean - 0) / (3 * sigmaWithin) : 999;
+            var Cpk = Math.min(Cpu, Cpl);
+
+            if (Cpk < 1.33) {
+                alerts.push({
+                    profile: profile.name,
+                    metric: (profile.labels && profile.labels[metric]) || metric,
+                    cpk: Cpk,
+                    n: n
+                });
+            }
+        });
+    });
+
+    if (alerts.length > 0 && typeof tpState !== 'undefined') {
+        // Mark configs needing re-test in test plan
+        alerts.forEach(function(a) {
+            if (typeof emitEvent === 'function') {
+                emitEvent('quality:alert', {
+                    profile: a.profile,
+                    metric: a.metric,
+                    cpk: a.cpk,
+                    message: 'Cpk ' + a.cpk.toFixed(2) + ' < 1.33 para ' + a.metric + ' (' + a.profile + ')'
+                });
+            }
+        });
+        // Show consolidated alert
+        showToast('⚠️ ' + alerts.length + ' metrica(s) con Cpk < 1.33. Revisar re-test.', 'warning');
+    }
+    return alerts;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-B4] ROLLING Cpk ALERT                                          ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raCheckRollingCpk() {
+    // Check Cpk on last 10 tests per profile/metric
+    if (!raState || !raState.tests || raState.tests.length < 5) return [];
+    if (!raState.profiles || raState.profiles.length === 0) return [];
+
+    var alerts = [];
+    raState.profiles.forEach(function(profile) {
+        if (!profile.limits) return;
+        var filtered = raState.tests.filter(function(t) {
+            return t.profileId === profile.id || (t.regTestMode && t.regTestMode === profile.name);
+        }).slice(-10); // Last 10
+
+        if (filtered.length < 5) return;
+
+        Object.keys(profile.limits).forEach(function(metric) {
+            var USL = profile.limits[metric];
+            var vals = [];
+            filtered.forEach(function(t) {
+                if (!t.cycleData || t.cycleData.length === 0) return;
+                var last = t.cycleData[t.cycleData.length - 1];
+                var v = last[metric];
+                if (v !== undefined && !isNaN(v) && isFinite(v)) vals.push(parseFloat(v));
+            });
+            if (vals.length < 5) return;
+
+            var n = vals.length;
+            var mean = vals.reduce(function(s,v){ return s+v; }, 0) / n;
+            var variance = vals.reduce(function(s,v){ return s + Math.pow(v - mean, 2); }, 0) / (n - 1);
+            var stdDev = Math.sqrt(variance);
+            var Cpu = stdDev > 0 ? (USL - mean) / (3 * stdDev) : 999;
+            var Cpl = stdDev > 0 ? mean / (3 * stdDev) : 999;
+            var Cpk = Math.min(Cpu, Cpl);
+
+            if (Cpk < 1.33) {
+                alerts.push({
+                    profile: profile.name,
+                    metric: (profile.labels && profile.labels[metric]) || metric,
+                    cpk: Cpk,
+                    trend: vals,
+                    n: n
+                });
+            }
+        });
+    });
+    return alerts;
+}

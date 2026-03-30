@@ -3053,6 +3053,181 @@ details.acc > summary {
     border-color: #2d3748;
 }
 
+/* ╔══════════════════════════════════════════════════════════════════════╗ */
+/* ║  V7 — Smart Workflow Styles                                         ║ */
+/* ╚══════════════════════════════════════════════════════════════════════╝ */
+
+/* ── Resume Toast (C1) ── */
+.v7-resume-toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl); padding: 14px 20px; z-index: 10000;
+    display: flex; align-items: center; gap: 12px;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+    opacity: 0;
+}
+.v7-resume-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+.v7-resume-toast-text { font-weight: var(--weight-bold); font-size: var(--font-base); white-space: nowrap; }
+.v7-resume-toast-actions { display: flex; gap: 8px; }
+
+/* ── Draft Banner (C2) ── */
+.v7-draft-banner {
+    background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3);
+    border-radius: var(--radius-md); padding: 8px 14px; margin-bottom: 12px;
+    font-size: var(--font-sm); color: var(--info);
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    animation: v7SlideDown 0.3s ease;
+}
+
+/* ── Next Step Floating Banner (D2) ── */
+#v7-next-step-banner {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    border-top: 1px solid var(--glass-border);
+    padding: 10px 16px; z-index: 9000;
+    display: flex; align-items: center; gap: 10px;
+    transform: translateY(100%); transition: transform 0.3s ease;
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+}
+#v7-next-step-banner.show { transform: translateY(0); }
+.v7-next-step-icon { font-size: 20px; }
+.v7-next-step-text { flex: 1; font-size: var(--font-sm); font-weight: var(--weight-bold); color: var(--text); }
+.v7-next-step-go {
+    width: 40px; height: 40px; border-radius: 50%; border: none;
+    background: var(--kia-red); color: white; font-size: 18px; font-weight: 700;
+    cursor: pointer; box-shadow: var(--shadow-md);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.v7-next-step-go:active { transform: scale(0.92); box-shadow: var(--shadow-sm); }
+
+/* ── Soak Complete Modal (D3) ── */
+.v7-soak-modal {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.85);
+    background: var(--surface); border-radius: var(--radius-xl); padding: 32px;
+    z-index: 10001; box-shadow: var(--shadow-xl); text-align: center;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+    opacity: 0; max-width: 360px; width: 90%;
+}
+.v7-soak-modal.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+.v7-soak-modal-icon { font-size: 48px; margin-bottom: 8px; }
+.v7-soak-modal-title { font-size: var(--font-lg); font-weight: var(--weight-black); margin-bottom: 6px; }
+.v7-soak-modal-text { font-size: var(--font-sm); color: var(--muted); margin-bottom: 20px; }
+.v7-soak-modal-actions { display: flex; flex-direction: column; gap: 8px; }
+
+/* ── Post-Release Bar (D4) ── */
+.v7-post-release {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl); padding: 16px 20px; z-index: 10000;
+    text-align: center; max-width: 400px; width: 90%;
+    transition: transform 0.3s ease, opacity 0.3s; opacity: 0;
+}
+.v7-post-release.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+.v7-post-release-text { font-weight: var(--weight-bold); font-size: var(--font-base); margin-bottom: 12px; }
+.v7-post-release-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+/* ── Quick-Pick Chips (E1) ── */
+#v7-quick-picks { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.v7-quick-chip {
+    padding: 6px 14px; border-radius: var(--radius-full); border: 1.5px solid var(--kia-red);
+    background: rgba(187,22,43,0.06); color: var(--kia-red); font-size: var(--font-sm);
+    font-weight: var(--weight-bold); cursor: pointer;
+    transition: background 0.2s, transform 0.15s; min-height: 36px;
+}
+.v7-quick-chip:hover { background: rgba(187,22,43,0.12); }
+.v7-quick-chip:active { transform: scale(0.95); }
+
+/* ── Smart Config Cards (E2) ── */
+.v7-smart-configs-title, .v7-favorites-title {
+    font-size: var(--font-xs); font-weight: var(--weight-bold); color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+}
+.v7-smart-configs-list, .v7-favorites-list { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.v7-config-chip, .v7-fav-chip {
+    padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-size: var(--font-xs);
+    font-weight: var(--weight-semibold); cursor: pointer; box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s, transform 0.15s; max-width: 220px;
+    text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
+}
+.v7-config-chip:hover, .v7-fav-chip:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.v7-config-count { color: var(--muted); font-weight: 400; }
+
+/* ── VIN Hint (E4) ── */
+.v7-vin-hint {
+    font-size: var(--font-xs); padding: 4px 8px; border-radius: var(--radius-sm);
+    margin-top: 4px; display: flex; align-items: center; gap: 6px;
+}
+.v7-vin-hint.warning { background: rgba(245,158,11,0.1); color: #d97706; }
+.v7-vin-hint.info { background: rgba(59,130,246,0.1); color: #2563eb; }
+
+/* ── One-Tap Chips (E6) ── */
+.v7-onetap-chip {
+    display: inline-block; padding: 4px 10px; border-radius: var(--radius-full);
+    border: 1px solid var(--warning); background: rgba(245,158,11,0.08);
+    color: #d97706; font-size: var(--font-xs); font-weight: var(--weight-bold);
+    cursor: pointer; margin-left: 6px; vertical-align: middle;
+    transition: background 0.2s, transform 0.15s;
+}
+.v7-onetap-chip:hover { background: rgba(245,158,11,0.15); }
+.v7-onetap-chip:active { transform: scale(0.95); }
+
+/* ── Mi Turno Card (F1) ── */
+.v7-mi-turno-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: var(--space-lg); box-shadow: var(--shadow-sm);
+    border-left: 4px solid var(--kia-red);
+}
+.v7-mi-turno-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+}
+.v7-mi-turno-avatar {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--kia-red);
+    color: white; display: flex; align-items: center; justify-content: center;
+    font-size: var(--font-md); font-weight: var(--weight-black); flex-shrink: 0;
+}
+.v7-mi-turno-name { font-weight: var(--weight-bold); font-size: var(--font-base); }
+.v7-mi-turno-stats { font-size: var(--font-xs); color: var(--muted); }
+.v7-shift-ring { margin-left: auto; flex-shrink: 0; }
+.v7-mi-turno-vehicles { display: flex; flex-direction: column; gap: 6px; }
+.v7-mi-turno-veh {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; border-radius: var(--radius-md); background: var(--bg);
+    cursor: pointer; transition: background 0.2s;
+}
+.v7-mi-turno-veh:hover { background: rgba(0,0,0,0.04); }
+.v7-mi-turno-veh-name { font-size: var(--font-sm); font-weight: var(--weight-semibold); }
+.v7-mi-turno-action { font-size: 10px !important; padding: 3px 8px !important; min-height: auto !important; }
+
+/* ── Executive Dashboard (B1-B3) ── */
+.v7-exec-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px; margin-bottom: 16px;
+}
+.v7-exec-kpi {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 16px; text-align: center; box-shadow: var(--shadow-sm);
+}
+.v7-exec-kpi-value { font-size: var(--font-xl); font-weight: var(--weight-black); color: var(--kia-red); }
+.v7-exec-kpi-label { font-size: var(--font-xs); color: var(--muted); font-weight: var(--weight-semibold); margin-top: 4px; }
+.v7-exec-compliance { display: flex; flex-direction: column; gap: 10px; }
+.v7-exec-metric {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    font-size: var(--font-sm);
+}
+.v7-exec-bar {
+    flex: 1; max-width: 200px; height: 8px; background: var(--bg);
+    border-radius: var(--radius-full); overflow: hidden;
+}
+.v7-exec-bar-fill { height: 100%; border-radius: var(--radius-full); transition: width 0.4s ease; }
+.v7-exec-pct { font-weight: var(--weight-bold); min-width: 40px; text-align: right; }
+
+/* ── Animations ── */
+@keyframes v7SlideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
     </style>
 </head>
 
@@ -3146,6 +3321,8 @@ details.acc > summary {
     <div class="tab-panel active" id="panel-alta" role="tabpanel">
         <div class="card">
             <div class="card-title">🎯 Propósito y Tipo</div>
+            <!-- [V7-E1] Quick-Pick Purpose Buttons -->
+            <div id="v7-quick-picks" style="display:none;"></div>
             <div class="form-group">
                 <label for="vehiclePurpose">Propósito de la Prueba</label>
                 <select id="vehiclePurpose" required aria-required="true">
@@ -3169,6 +3346,11 @@ details.acc > summary {
                 </label>
                 <span id="lblExt" class="mode-label" onclick="setMode('external')">✏️ Ingreso Manual</span>
             </div>
+
+            <!-- [V7-E2] Smart Config Suggestion -->
+            <div id="v7-smart-configs" style="display:none;"></div>
+            <!-- [V7-E3] Favorites -->
+            <div id="v7-favorites" style="display:none;"></div>
 
             <!-- MODO INTERNO: Configuración con filtros en cascada -->
             <div id="container-internal">
@@ -3813,6 +3995,8 @@ details.acc > summary {
 
     <!-- ==================== TAB 3: LIBERACIÓN ==================== -->
     <div class="tab-panel" id="panel-liberacion" role="tabpanel">
+        <!-- [V7-E5] Batch Release -->
+        <div id="v7-batch-release" style="display:none;margin-bottom:12px;"></div>
         <div class="form-group">
             <label>Seleccionar Vehículo para Liberar</label>
             <select id="releaseVehSelect" onchange="loadRelease()">
@@ -4014,6 +4198,8 @@ details.acc > summary {
 
     <div class="tp-tabs" id="pn-tabs-bar" role="tablist" aria-label="Secciones Panel">
         <button class="tp-tab active" role="tab" aria-selected="true" onclick="pnSwitchTab('pn-dashboard')">📊 Dashboard</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-executive')">📈 Ejecutivo</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-turnaround')">⏱ Turnaround</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-users')">👥 Usuarios</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-shift')">📝 Bitácora</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-alerts')">🔔 Alertas</button>
@@ -4535,6 +4721,9 @@ details.acc > summary {
     </div>
 </nav>
 
+<!-- [V7-D2] Floating Next Step Banner -->
+<div id="v7-next-step-banner"></div>
+
 <script>
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -4869,6 +5058,164 @@ function themeToggle() {
     if (typeof showToast === 'function') {
         showToast(labels[_themePref] || 'Tema actualizado', 'info');
     }
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7] SMART INTEGRATION ENGINE — Event Bus                         ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _eventBus = {};
+
+function emitEvent(name, data) {
+    var handlers = _eventBus[name];
+    if (!handlers) return;
+    for (var i = 0; i < handlers.length; i++) {
+        try { handlers[i](data); } catch(e) { void 0; }
+    }
+}
+
+function onEvent(name, handler) {
+    if (!_eventBus[name]) _eventBus[name] = [];
+    _eventBus[name].push(handler);
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-A5] Resource Conflict Detection                                ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function checkResourceConflicts() {
+    var conflicts = [];
+    var activeVehicles = (db.vehicles || []).filter(function(v) { return v.status === 'testing'; });
+    // Check for two vehicles on same dyno at the same time
+    var dynoUsers = {};
+    activeVehicles.forEach(function(v) {
+        var dyno = v.testData && v.testData.dynoId ? v.testData.dynoId : 'default';
+        if (!dynoUsers[dyno]) dynoUsers[dyno] = [];
+        dynoUsers[dyno].push(v);
+    });
+    Object.keys(dynoUsers).forEach(function(dyno) {
+        if (dynoUsers[dyno].length > 1) {
+            conflicts.push({
+                type: 'dyno',
+                resource: dyno,
+                vehicles: dynoUsers[dyno].map(function(v) { return v.vin; }),
+                message: 'Conflicto: ' + dynoUsers[dyno].length + ' vehículos asignados al dyno ' + dyno
+            });
+        }
+    });
+    // Check for cylinder conflicts (same gas cylinder used by concurrent tests)
+    if (typeof invState !== 'undefined' && invState.gases) {
+        var inUse = invState.gases.filter(function(g) { return g.status === 'In use'; });
+        if (inUse.length > 0 && activeVehicles.length > 1) {
+            conflicts.push({
+                type: 'gas_concurrency',
+                message: activeVehicles.length + ' pruebas simultáneas comparten cilindros en uso'
+            });
+        }
+    }
+    return conflicts;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-C] Session Memory                                              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function resumeLastSession() {
+    // C1: Check for active vehicle < 24h
+    try {
+        var saved = localStorage.getItem('kia_active_vehicle');
+        if (saved) {
+            var ctx = JSON.parse(saved);
+            if (ctx && ctx.vehicleId && (Date.now() - ctx.timestamp) < 86400000) {
+                var vehicle = (db.vehicles || []).find(function(v) { return v.id == ctx.vehicleId && v.status !== 'archived'; });
+                if (vehicle) {
+                    var vinShort = vehicle.vin ? '...' + vehicle.vin.slice(-4) : '';
+                    _showResumeToast(vehicle, ctx, vinShort);
+                    return;
+                }
+            }
+        }
+    } catch(e) { void 0; }
+
+    // C3: Restore last module if no vehicle to resume
+    _restoreLastModule();
+}
+
+function _showResumeToast(vehicle, ctx, vinShort) {
+    var toast = document.createElement('div');
+    toast.className = 'v7-resume-toast';
+    toast.innerHTML = '<div class="v7-resume-toast-text">Retomar VIN ' + vinShort + '?</div>' +
+        '<div class="v7-resume-toast-actions">' +
+        '<button class="btn btn-primary btn-sm" id="v7-resume-yes">Si</button>' +
+        '<button class="btn btn-ghost btn-sm" id="v7-resume-no">No</button>' +
+        '</div>';
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.classList.add('show'); }, 50);
+
+    document.getElementById('v7-resume-yes').onclick = function() {
+        toast.classList.remove('show');
+        setTimeout(function() { toast.remove(); }, 300);
+        switchPlatform('cop15');
+        setTimeout(function() {
+            // Navigate to last tab
+            if (ctx.lastTab) {
+                var tabEl = document.querySelector('.tab[data-tab="' + ctx.lastTab + '"]');
+                if (tabEl) tabEl.click();
+            }
+            setTimeout(function() {
+                var sel = document.getElementById('activeVehSelect');
+                if (sel) { sel.value = ctx.vehicleId; loadVehicle(); }
+                // Restore scroll position
+                if (ctx.scrollPosition) {
+                    setTimeout(function() { window.scrollTo({ top: ctx.scrollPosition, behavior: 'smooth' }); }, 200);
+                }
+            }, 200);
+        }, 300);
+    };
+    document.getElementById('v7-resume-no').onclick = function() {
+        toast.classList.remove('show');
+        setTimeout(function() { toast.remove(); }, 300);
+        localStorage.removeItem('kia_active_vehicle');
+        _restoreLastModule();
+    };
+    // Auto-dismiss after 10s
+    setTimeout(function() {
+        if (toast.parentNode) { toast.classList.remove('show'); setTimeout(function() { toast.remove(); }, 300); }
+    }, 10000);
+}
+
+function _restoreLastModule() {
+    var lastMod = localStorage.getItem('kia_last_module');
+    if (lastMod) {
+        var parts = lastMod.split(':');
+        var platform = parts[0];
+        if (platform && platform !== 'today' && PLATFORM_ORDER.indexOf(platform) !== -1) {
+            switchPlatform(platform);
+            if (parts[1]) {
+                setTimeout(function() {
+                    if (platform === 'inventory' && typeof invSwitchTab === 'function') invSwitchTab(parts[1]);
+                    else if (platform === 'testplan' && typeof tpSwitchTab === 'function') tpSwitchTab(parts[1]);
+                    else if (platform === 'results' && typeof raSwitchTab === 'function') raSwitchTab(parts[1]);
+                    else if (platform === 'panel' && typeof pnSwitchTab === 'function') pnSwitchTab(parts[1]);
+                }, 200);
+            }
+        }
+    }
+}
+
+function saveActiveVehicleContext(vehicleId, extraCtx) {
+    if (!vehicleId) { localStorage.removeItem('kia_active_vehicle'); return; }
+    var vehicle = (db.vehicles || []).find(function(v) { return v.id == vehicleId; });
+    if (!vehicle || vehicle.status === 'archived') { localStorage.removeItem('kia_active_vehicle'); return; }
+    var ctx = {
+        vehicleId: vehicleId,
+        vin: vehicle.vin,
+        lastTab: localStorage.getItem('kia_cop15_activeTab') || 'seguimiento',
+        scrollPosition: window.scrollY,
+        timestamp: Date.now()
+    };
+    if (extraCtx) Object.assign(ctx, extraCtx);
+    localStorage.setItem('kia_active_vehicle', JSON.stringify(ctx));
 }
 
 // ======================================================================
@@ -5846,6 +6193,9 @@ function switchPlatform(platform, swipeDir) {
 
     _currentPlatform = platform;
 
+    // [V7-C3] Save last module visited
+    localStorage.setItem('kia_last_module', platform);
+
     if (platform === 'today') { dailyDashRender(); }
     if (platform === 'testplan') { tpRender(); tpUpdateBadges(); }
     if (platform === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
@@ -5895,6 +6245,71 @@ function dailyDashRender() {
     html += '<div class="daily-dash-greeting">' + greeting + '</div>';
     html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
     html += '</div>';
+
+    // ── [V7-F1] Mi Turno Card ──
+    var currentOp = '';
+    try {
+        if (typeof authGetCurrentUser === 'function') {
+            var u = authGetCurrentUser();
+            if (u && u.name) currentOp = u.name;
+        }
+        if (!currentOp) currentOp = localStorage.getItem('kia_last_operator') || '';
+    } catch(e) {}
+
+    if (currentOp) {
+        var myVehicles = (db.vehicles || []).filter(function(v) {
+            return v.status !== 'archived' && (
+                v.registeredBy === currentOp ||
+                (v.testData && v.testData.testResponsible === currentOp) ||
+                (v.testData && v.testData.preconditioning && v.testData.preconditioning.responsible === currentOp)
+            );
+        });
+        var releasedToday = (db.vehicles || []).filter(function(v) {
+            return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) === now.toISOString().slice(0,10) &&
+                (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
+        }).length;
+        var testingToday = (db.vehicles || []).filter(function(v) {
+            return v.status === 'testing' && (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
+        }).length;
+
+        html += '<div class="daily-dash-section">';
+        html += '<div class="daily-dash-section-title">Mi Turno</div>';
+        html += '<div class="v7-mi-turno-card">';
+        html += '<div class="v7-mi-turno-header">';
+        html += '<span class="v7-mi-turno-avatar">' + currentOp.charAt(0).toUpperCase() + '</span>';
+        html += '<div><div class="v7-mi-turno-name">' + currentOp + '</div>';
+        html += '<div class="v7-mi-turno-stats">Hoy: ' + releasedToday + ' liberados, ' + testingToday + ' en test</div></div>';
+
+        // [V7-F3] Shift progress ring
+        var shiftTarget = 8;
+        var shiftPct = Math.min(100, Math.round((releasedToday / shiftTarget) * 100));
+        html += '<div class="v7-shift-ring">' + buildProgressRing(shiftPct, 52, shiftPct >= 100 ? '#10b981' : '#3b82f6') + '</div>';
+        html += '</div>';
+
+        if (myVehicles.length > 0) {
+            html += '<div class="v7-mi-turno-vehicles">';
+            myVehicles.slice(0, 5).forEach(function(v) {
+                var vinShort = v.vin ? '...' + v.vin.slice(-4) : '';
+                var model = v.config ? (v.config.Modelo || '') : '';
+                var nextStep = typeof getNextStep === 'function' ? getNextStep(v) : null;
+                var stepLabel = nextStep ? nextStep.icon + ' ' + nextStep.action : CONFIG.statusLabels[v.status] || v.status;
+                var stepBtn = '';
+                if (nextStep) {
+                    stepBtn = '<button class="btn btn-sm btn-ghost v7-mi-turno-action" onclick="event.stopPropagation();v7GoToVehicle(' + v.id + ',\'' + (nextStep.goto || '') + '\')">' + stepLabel + '</button>';
+                } else {
+                    stepBtn = '<span class="badge-info" style="font-size:10px;">' + stepLabel + '</span>';
+                }
+                html += '<div class="v7-mi-turno-veh" onclick="v7GoToVehicle(' + v.id + ')">';
+                html += '<span class="v7-mi-turno-veh-name">' + model + ' ' + vinShort + '</span>';
+                html += stepBtn;
+                html += '</div>';
+            });
+            html += '</div>';
+        } else {
+            html += '<div style="color:var(--muted);font-size:var(--font-sm);padding:8px 0;">Sin vehiculos asignados</div>';
+        }
+        html += '</div></div>';
+    }
 
     // ── Soak Timers Active ──
     var soakData = null;
@@ -6757,6 +7172,27 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         if (!localStorage.getItem('kia_tour_done')) {
             setTimeout(function() { if (typeof startTour === 'function') startTour(); }, 1500);
         }
+
+        // ═══ [V7] Session Memory — Resume or Restore ═══
+        if (typeof resumeLastSession === 'function') resumeLastSession();
+
+        // ═══ [V7-D3] Check for expired soak timers from previous session ═══
+        if (typeof v7CheckExpiredSoak === 'function') v7CheckExpiredSoak();
+
+        // ═══ [V7-A1] Event Bus — wire cross-module events ═══
+        onEvent('vehicle:released', function(data) {
+            if (typeof raFeedbackToTestPlan === 'function') raFeedbackToTestPlan();
+        });
+        onEvent('vehicle:registered', function(data) {
+            if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
+        });
+        onEvent('vehicle:statusChanged', function(data) {
+            if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
+            var conflicts = checkResourceConflicts();
+            if (conflicts.length > 0) {
+                conflicts.forEach(function(c) { showToast(c.message, 'warning'); });
+            }
+        });
 
         // ═══ Daily Dashboard (initial render) ═══
         if (typeof dailyDashRender === 'function') dailyDashRender();
@@ -8009,6 +8445,83 @@ function buildProgressRing(pct, size, color) {
         '</svg>';
 }
 
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7] HELPER FUNCTIONS                                              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7GoToVehicle(vehicleId, gotoSection) {
+    switchPlatform('cop15');
+    setTimeout(function() {
+        if (gotoSection === 'release-tab' || gotoSection === 'release-action') {
+            var tabEl = document.querySelector('.tab[data-tab="liberacion"]');
+            if (tabEl) tabEl.click();
+            setTimeout(function() {
+                var sel = document.getElementById('releaseVehSelect');
+                if (sel) { sel.value = vehicleId; if (typeof loadReleaseVehicle === 'function') loadReleaseVehicle(); }
+            }, 200);
+        } else {
+            var tabEl = document.querySelector('.tab[data-tab="seguimiento"]');
+            if (tabEl) tabEl.click();
+            setTimeout(function() {
+                var sel = document.getElementById('activeVehSelect');
+                if (sel) { sel.value = vehicleId; loadVehicle(); }
+                // Open specific accordion if requested
+                if (gotoSection) {
+                    setTimeout(function() {
+                        var acc = document.getElementById(gotoSection);
+                        if (acc && acc.tagName === 'DETAILS') acc.open = true;
+                        else if (acc) acc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                }
+            }, 200);
+        }
+    }, 300);
+}
+
+// [V7-D2] Floating Next Step Banner
+function v7UpdateNextStepBanner() {
+    var banner = document.getElementById('v7-next-step-banner');
+    if (!banner) return;
+    if (!activeVehicleId) { banner.classList.remove('show'); return; }
+    var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || vehicle.status === 'archived') { banner.classList.remove('show'); return; }
+    var step = typeof getNextStep === 'function' ? getNextStep(vehicle) : null;
+    if (!step) { banner.classList.remove('show'); return; }
+    banner.innerHTML = '<span class="v7-next-step-icon">' + step.icon + '</span>' +
+        '<span class="v7-next-step-text">Siguiente: ' + step.action + '</span>' +
+        '<button class="v7-next-step-go" onclick="v7GoToVehicleStep(\'' + (step.goto || '') + '\')">&rarr;</button>';
+    banner.classList.add('show');
+}
+
+function v7GoToVehicleStep(gotoSection) {
+    if (!gotoSection) return;
+    if (gotoSection === 'release-tab' || gotoSection === 'release-action') {
+        var tabEl = document.querySelector('.tab[data-tab="liberacion"]');
+        if (tabEl) tabEl.click();
+        setTimeout(function() {
+            var sel = document.getElementById('releaseVehSelect');
+            if (sel && activeVehicleId) { sel.value = activeVehicleId; if (typeof loadReleaseVehicle === 'function') loadReleaseVehicle(); }
+        }, 200);
+    } else if (gotoSection === 'soak-section') {
+        var soakEl = document.getElementById('soak-section') || document.getElementById('acc-soak');
+        if (soakEl) {
+            if (soakEl.tagName === 'DETAILS') soakEl.open = true;
+            soakEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    } else {
+        var acc = document.getElementById(gotoSection);
+        if (acc) {
+            if (acc.tagName === 'DETAILS') acc.open = true;
+            acc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Focus first input
+            setTimeout(function() {
+                var firstInput = acc.querySelector('input:not([type=hidden]),select,textarea');
+                if (firstInput) firstInput.focus();
+            }, 400);
+        }
+    }
+}
+
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — COP15 Cascade Module                                 ║
@@ -8510,12 +9023,16 @@ function initCascadeTree() {
 
         if (vinInput) {
             vinInput.addEventListener('input', function() {
+                // [V7-E4] VIN Smart Input: auto-uppercase, strip spaces/dashes
+                vinInput.value = vinInput.value.toUpperCase().replace(/[\s\-]/g, '');
                 validateField(vinInput, {
                     required: true,
                     exactLength: 17,
                     pattern: /^[A-HJ-NPR-Z0-9]{17}$/,
                     patternMsg: '17 caracteres alfanuméricos (sin I, O, Q)'
                 });
+                // [V7-E4] Check duplicates
+                if (vinInput.value.length === 17) v7CheckVinDuplicate(vinInput.value);
             });
             vinInput.addEventListener('blur', function() {
                 validateField(vinInput, {
@@ -8882,6 +9399,13 @@ setAltaDatetimeIfEmpty(true);
         closeModal('modalConfirm');
         showToast('Vehículo registrado exitosamente', 'success');
 
+        // [V7-E1] Track purpose usage
+        v7TrackPurposeUsage(newVehicle.purpose);
+        // [V7-E2] Track config usage
+        v7TrackConfigUsage(newVehicle.configCode, newVehicle.config);
+        // [V7-A1] Emit event
+        if (typeof emitEvent === 'function') emitEvent('vehicle:registered', { vehicle: newVehicle });
+
 setAltaDatetimeIfEmpty(true);
         
         // Reset
@@ -8936,6 +9460,12 @@ function loadVehicle() {
 
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
   if (!vehicle) return;
+
+  // [V7-C1] Save active vehicle context
+  if (typeof saveActiveVehicleContext === 'function') saveActiveVehicleContext(activeVehicleId);
+
+  // [V7-C2] Restore draft if exists
+  v7RestoreDraft(activeVehicleId);
 
   updateOperationBlocksByPurpose(vehicle.purpose);
   content.style.display = 'block';
@@ -9098,6 +9628,10 @@ function handleStatusChange(selectEl) {
   updateTestVerificationVisibility();
   if (typeof smartFormApplyByStatus === 'function') smartFormApplyByStatus(next);
   if (typeof smartFormUpdateBadges === 'function') smartFormUpdateBadges();
+  // [V7-A1] Emit status change event
+  if (typeof emitEvent === 'function') emitEvent('vehicle:statusChanged', { vehicleId: activeVehicleId, from: prev, to: next });
+  // [V7-D2] Update floating next step banner
+  if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
 }
 
 
@@ -10067,8 +10601,17 @@ function _renderUsedCylinders(vehicle) {
         // [R3-M7] Confetti celebration on successful release
         if (!isRetest && typeof showConfetti === 'function') showConfetti();
 
+        // [V7-A1] Emit event
+        if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: isRetest });
+
         document.getElementById('releaseVehSelect').value = '';
         document.getElementById('lib-content').style.display = 'none';
+
+        // [V7-D4] Post-Release Quick Actions
+        if (!isRetest) {
+            var vinShort = vehicle.vin ? '...' + vehicle.vin.slice(-4) : '';
+            v7ShowPostReleaseActions(vinShort);
+        }
 
         // Show flexible substitution modal if pending
         if (window._pendingSubstitution) {
@@ -12106,6 +12649,9 @@ function soakTimerTick() {
         setTimeout(function(){ document.title = _soakOrigTitle; soakUpdateBadge(false); }, 300000);
 
         showToast('SOAK COMPLETADO - El vehiculo esta listo para prueba.', 'success');
+
+        // [V7-D3] Show soak complete modal with action
+        v7ShowSoakCompleteModal();
         return;
     }
 
@@ -13054,6 +13600,545 @@ function cascadeCloseTooltip() {
     if (overlay) overlay.remove();
     if (popup) popup.remove();
 }
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-D1] NEXT STEP ENGINE — Guided Workflow                        ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function getNextStep(vehicle) {
+    if (!vehicle || vehicle.status === 'archived') return null;
+    var td = vehicle.testData || {};
+    var p = td.preconditioning || {};
+    var status = vehicle.status;
+
+    // Check soak status
+    var soakDone = false;
+    try {
+        var soakData = JSON.parse(localStorage.getItem('kia_soak_timer'));
+        if (soakData && soakData.endTime && soakData.endTime <= Date.now()) soakDone = true;
+        if (td.soakCompleted) soakDone = true;
+    } catch(e) {}
+    var soakStarted = false;
+    try {
+        var sd = JSON.parse(localStorage.getItem('kia_soak_timer'));
+        if (sd && sd.endTime) soakStarted = true;
+    } catch(e) {}
+
+    var precondComplete = p.ok === 'Si' && p.datetime && p.responsible;
+    var testStarted = td.testResponsible || td.testDatetime;
+    var tv = td.testVerification || {};
+    var testComplete = tv.tunnel && tv.dyno && tv.fanMode && td.testResponsible && td.testDatetime;
+
+    if (status === 'registered') {
+        return { action: 'Iniciar Precondicionamiento', goto: 'acc-precond', icon: '🔧' };
+    }
+    if (status === 'in-progress' && precondComplete && !soakStarted) {
+        return { action: 'Iniciar Soak Timer', goto: 'soak-section', icon: '⏱️' };
+    }
+    if (status === 'in-progress' && precondComplete && soakStarted && !soakDone) {
+        return { action: 'Soak en curso...', goto: 'soak-section', icon: '⏱️' };
+    }
+    if (status === 'in-progress' && soakDone && !testStarted) {
+        return { action: 'Iniciar Prueba de Emisiones', goto: 'acc-dyno', icon: '🏭' };
+    }
+    if (status === 'testing' && !testComplete) {
+        return { action: 'Completar Verificacion de Prueba', goto: 'acc-testverify', icon: '🏭' };
+    }
+    if (status === 'testing' && testComplete) {
+        return { action: 'Verificar y Liberar', goto: 'release-tab', icon: '✅' };
+    }
+    if (status === 'ready-release') {
+        return { action: 'Liberar Vehiculo', goto: 'release-action', icon: '🚗' };
+    }
+    return null;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-D3] SOAK COMPLETE MODAL                                        ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7ShowSoakCompleteModal() {
+    var soakVin = '';
+    try {
+        var sd = JSON.parse(localStorage.getItem('kia_soak_timer'));
+        if (sd && sd.vin) soakVin = sd.vin;
+    } catch(e) {}
+    if (!soakVin) {
+        // Try to find from active vehicle
+        if (activeVehicleId) {
+            var v = (db.vehicles || []).find(function(vv) { return vv.id == activeVehicleId; });
+            if (v) soakVin = v.vin ? '...' + v.vin.slice(-4) : '';
+        }
+    }
+
+    var overlay = document.createElement('div');
+    overlay.className = 'cascade-tooltip-overlay';
+    overlay.id = 'v7-soak-modal-overlay';
+    overlay.onclick = function() { v7CloseSoakModal(); };
+
+    var modal = document.createElement('div');
+    modal.className = 'v7-soak-modal';
+    modal.id = 'v7-soak-modal';
+    modal.innerHTML =
+        '<div class="v7-soak-modal-icon">⏱️</div>' +
+        '<div class="v7-soak-modal-title">Soak Completado!</div>' +
+        '<div class="v7-soak-modal-text">VIN ' + soakVin + ' esta listo para prueba.</div>' +
+        '<div class="v7-soak-modal-actions">' +
+        '<button class="btn btn-primary" onclick="v7GoToTestForm()">Ir a Formulario de Prueba</button>' +
+        '<button class="btn btn-ghost" onclick="v7CloseSoakModal()">Despues</button>' +
+        '</div>';
+    document.body.appendChild(overlay);
+    document.body.appendChild(modal);
+    setTimeout(function() { modal.classList.add('show'); }, 50);
+}
+
+function v7CloseSoakModal() {
+    var overlay = document.getElementById('v7-soak-modal-overlay');
+    var modal = document.getElementById('v7-soak-modal');
+    if (modal) modal.classList.remove('show');
+    setTimeout(function() {
+        if (overlay) overlay.remove();
+        if (modal) modal.remove();
+    }, 300);
+}
+
+function v7GoToTestForm() {
+    v7CloseSoakModal();
+    if (activeVehicleId) {
+        var acc = document.getElementById('acc-dyno');
+        if (acc) {
+            if (acc.tagName === 'DETAILS') acc.open = true;
+            acc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(function() {
+                var firstInput = acc.querySelector('input,select');
+                if (firstInput) firstInput.focus();
+            }, 400);
+        }
+    }
+}
+
+function v7CheckExpiredSoak() {
+    try {
+        var sd = JSON.parse(localStorage.getItem('kia_soak_timer'));
+        if (sd && sd.endTime && sd.endTime <= Date.now() && !sd._v7notified) {
+            sd._v7notified = true;
+            localStorage.setItem('kia_soak_timer', JSON.stringify(sd));
+            setTimeout(function() { v7ShowSoakCompleteModal(); }, 1000);
+        }
+    } catch(e) {}
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-D4] POST-RELEASE QUICK ACTIONS                                 ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7ShowPostReleaseActions(vinShort) {
+    var existing = document.getElementById('v7-post-release');
+    if (existing) existing.remove();
+
+    var bar = document.createElement('div');
+    bar.className = 'v7-post-release show';
+    bar.id = 'v7-post-release';
+    bar.innerHTML =
+        '<div class="v7-post-release-text">✅ VIN ' + vinShort + ' liberado exitosamente.</div>' +
+        '<div class="v7-post-release-actions">' +
+        '<button class="btn btn-sm btn-primary" onclick="v7PostReleaseRegisterAnother()">Registrar Otro</button>' +
+        '<button class="btn btn-sm btn-ghost" onclick="switchPlatform(\'testplan\');v7ClosePostRelease();">Ver en Plan</button>' +
+        '<button class="btn btn-sm btn-ghost" onclick="switchPlatform(\'today\');v7ClosePostRelease();">Ir a Dashboard</button>' +
+        '</div>';
+    document.body.appendChild(bar);
+    setTimeout(function() { bar.classList.add('visible'); }, 50);
+    // Auto dismiss after 15s
+    setTimeout(function() { v7ClosePostRelease(); }, 15000);
+}
+
+function v7ClosePostRelease() {
+    var el = document.getElementById('v7-post-release');
+    if (el) { el.classList.remove('visible'); setTimeout(function() { el.remove(); }, 300); }
+}
+
+function v7PostReleaseRegisterAnother() {
+    v7ClosePostRelease();
+    var tabEl = document.querySelector('.tab[data-tab="alta"]');
+    if (tabEl) tabEl.click();
+    setTimeout(function() {
+        var purposeEl = document.getElementById('vehiclePurpose');
+        if (purposeEl) purposeEl.focus();
+    }, 300);
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-C2] PER-FIELD AUTO-SAVE DRAFT                                  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7SaveDraft(vehicleId) {
+    if (!vehicleId) return;
+    var fields = {};
+    var formFields = document.querySelectorAll('#op-content input, #op-content select, #op-content textarea');
+    formFields.forEach(function(f) {
+        if (f.id && f.value) fields[f.id] = f.value;
+    });
+    if (Object.keys(fields).length === 0) return;
+    try {
+        localStorage.setItem('kia_cop15_draft_' + vehicleId, JSON.stringify({ fields: fields, ts: Date.now() }));
+    } catch(e) {}
+}
+
+function v7RestoreDraft(vehicleId) {
+    if (!vehicleId) return;
+    try {
+        var raw = localStorage.getItem('kia_cop15_draft_' + vehicleId);
+        if (!raw) return;
+        var draft = JSON.parse(raw);
+        if (!draft || !draft.fields) return;
+        // Only restore if less than 24h old
+        if (Date.now() - draft.ts > 86400000) {
+            localStorage.removeItem('kia_cop15_draft_' + vehicleId);
+            return;
+        }
+        var restored = 0;
+        Object.keys(draft.fields).forEach(function(fid) {
+            var el = document.getElementById(fid);
+            if (el && !el.value && draft.fields[fid]) {
+                el.value = draft.fields[fid];
+                restored++;
+            }
+        });
+        if (restored > 0) {
+            var banner = document.createElement('div');
+            banner.className = 'v7-draft-banner';
+            banner.innerHTML = 'Se restauraron ' + restored + ' campos guardados ' +
+                '<button class="btn btn-sm btn-ghost" onclick="v7DiscardDraft(' + vehicleId + ');this.parentElement.remove();">Descartar</button>';
+            var opContent = document.getElementById('op-content');
+            if (opContent) opContent.insertBefore(banner, opContent.firstChild);
+            // Auto-dismiss after 8s
+            setTimeout(function() { if (banner.parentNode) banner.remove(); }, 8000);
+        }
+    } catch(e) { void 0; }
+}
+
+function v7DiscardDraft(vehicleId) {
+    localStorage.removeItem('kia_cop15_draft_' + vehicleId);
+    // Reload to clear restored fields
+    if (typeof loadVehicle === 'function') loadVehicle();
+}
+
+// Hook: auto-save draft on focusout (piggyback on existing unsaved tracking)
+(function() {
+    document.addEventListener('focusout', function(e) {
+        if (activeVehicleId && e.target.closest && e.target.closest('#op-content')) {
+            v7SaveDraft(activeVehicleId);
+        }
+    }, true);
+})();
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-E1] QUICK-PICK PURPOSE                                         ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7TrackPurposeUsage(purpose) {
+    if (!purpose) return;
+    try {
+        var history = JSON.parse(localStorage.getItem('kia_purpose_history') || '[]');
+        // Move to front
+        history = history.filter(function(p) { return p !== purpose; });
+        history.unshift(purpose);
+        if (history.length > 5) history = history.slice(0, 5);
+        localStorage.setItem('kia_purpose_history', JSON.stringify(history));
+    } catch(e) {}
+}
+
+function v7RenderQuickPicks() {
+    var container = document.getElementById('v7-quick-picks');
+    if (!container) return;
+    try {
+        var history = JSON.parse(localStorage.getItem('kia_purpose_history') || '[]');
+        if (history.length === 0) { container.style.display = 'none'; return; }
+        container.style.display = 'flex';
+        container.innerHTML = '';
+        history.slice(0, 3).forEach(function(p) {
+            var chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'v7-quick-chip';
+            chip.textContent = p;
+            chip.onclick = function() {
+                var sel = document.getElementById('vehiclePurpose');
+                if (sel) {
+                    sel.value = p;
+                    sel.dispatchEvent(new Event('change'));
+                }
+            };
+            container.appendChild(chip);
+        });
+    } catch(e) {}
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-E2] SMART CONFIG SUGGESTION + [V7-E3] FAVORITES                ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7TrackConfigUsage(configCode, config) {
+    if (!configCode || configCode === 'MANUAL') return;
+    try {
+        var ranking = JSON.parse(localStorage.getItem('kia_config_ranking') || '{}');
+        if (!ranking[configCode]) ranking[configCode] = { count: 0, config: config, label: configCode };
+        ranking[configCode].count++;
+        ranking[configCode].config = config;
+        localStorage.setItem('kia_config_ranking', JSON.stringify(ranking));
+    } catch(e) {}
+}
+
+function v7RenderSmartConfigs() {
+    var container = document.getElementById('v7-smart-configs');
+    if (!container) return;
+    try {
+        var ranking = JSON.parse(localStorage.getItem('kia_config_ranking') || '{}');
+        var sorted = Object.keys(ranking).map(function(k) { return ranking[k]; })
+            .sort(function(a, b) { return b.count - a.count; });
+        if (sorted.length === 0) { container.style.display = 'none'; return; }
+        container.style.display = 'block';
+        var html = '<div class="v7-smart-configs-title">Configuraciones frecuentes:</div><div class="v7-smart-configs-list">';
+        sorted.slice(0, 5).forEach(function(item) {
+            var label = item.label;
+            if (label.length > 35) label = label.substring(0, 35) + '...';
+            html += '<button type="button" class="v7-config-chip" onclick="v7ApplySmartConfig(\'' + _escapeHtml(item.label) + '\')">' +
+                label + ' <span class="v7-config-count">(' + item.count + ')</span></button>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    } catch(e) {}
+}
+
+function _escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function v7ApplySmartConfig(configCode) {
+    // Find matching configuration and auto-fill cascade
+    var match = allConfigurations.find(function(c) { return c.codigo_config_text === configCode; });
+    if (!match) { showToast('Configuracion no encontrada en catálogo', 'warning'); return; }
+    // Reset and apply all filters
+    currentFilters = {};
+    Object.keys(fieldMapping).forEach(function(csvField) {
+        if (match[csvField]) {
+            currentFilters[csvField] = match[csvField];
+            var sel = document.getElementById(fieldMapping[csvField]);
+            if (sel) { sel.value = match[csvField]; sel.classList.add('selected'); }
+        }
+    });
+    var filtered = allConfigurations.filter(function(c) {
+        for (var f in currentFilters) { if (c[f] !== currentFilters[f]) return false; }
+        return true;
+    });
+    updateSelectOptions(filtered);
+    document.getElementById('configCount').textContent = filtered.length;
+    displayConfigResult(filtered);
+    showToast('Configuracion aplicada: ' + configCode, 'success');
+}
+
+function v7RenderFavorites() {
+    var container = document.getElementById('v7-favorites');
+    if (!container) return;
+    try {
+        var favs = JSON.parse(localStorage.getItem('kia_config_favorites') || '[]');
+        var ranking = JSON.parse(localStorage.getItem('kia_config_ranking') || '{}');
+        // Auto-detect favorites from ranking (top 3 with 3+ uses)
+        if (favs.length === 0) {
+            var sorted = Object.keys(ranking).map(function(k) { return ranking[k]; })
+                .filter(function(item) { return item.count >= 3; })
+                .sort(function(a, b) { return b.count - a.count; });
+            favs = sorted.slice(0, 3).map(function(item) { return item.label; });
+        }
+        if (favs.length === 0) { container.style.display = 'none'; return; }
+        container.style.display = 'block';
+        var html = '<div class="v7-favorites-title">Favoritos</div><div class="v7-favorites-list">';
+        favs.forEach(function(code) {
+            var count = ranking[code] ? ranking[code].count : 0;
+            var label = code.length > 40 ? code.substring(0, 40) + '...' : code;
+            html += '<button type="button" class="v7-fav-chip" onclick="v7ApplySmartConfig(\'' + _escapeHtml(code) + '\')">' +
+                '⭐ ' + label + (count ? ' (' + count + ' usos)' : '') + '</button>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    } catch(e) {}
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-E4] VIN SMART INPUT                                            ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7CheckVinDuplicate(vin) {
+    if (!vin || vin.length < 17) return;
+    var hint = document.getElementById('v7-vin-hint');
+    // Check active vehicles
+    var active = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status !== 'archived'; });
+    if (active) {
+        if (!hint) hint = _v7CreateVinHint();
+        hint.innerHTML = '⚠️ VIN ya registrado <button class="btn btn-sm btn-ghost" onclick="v7GoToVehicle(' + active.id + ')">Ver vehiculo</button>';
+        hint.className = 'v7-vin-hint warning';
+        return;
+    }
+    // Check archived
+    var archived = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status === 'archived'; });
+    if (archived) {
+        if (!hint) hint = _v7CreateVinHint();
+        hint.innerHTML = 'Re-test de VIN anterior? <button class="btn btn-sm btn-ghost" onclick="v7CopyArchivedConfig(\'' + vin + '\')">Copiar config</button>';
+        hint.className = 'v7-vin-hint info';
+        return;
+    }
+    if (hint) hint.style.display = 'none';
+}
+
+function _v7CreateVinHint() {
+    var existing = document.getElementById('v7-vin-hint');
+    if (existing) { existing.style.display = ''; return existing; }
+    var hint = document.createElement('div');
+    hint.id = 'v7-vin-hint';
+    hint.className = 'v7-vin-hint';
+    var vinInput = document.getElementById('vin');
+    if (vinInput && vinInput.parentNode) vinInput.parentNode.appendChild(hint);
+    return hint;
+}
+
+function v7CopyArchivedConfig(vin) {
+    var archived = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status === 'archived'; });
+    if (!archived || !archived.configCode || archived.configCode === 'MANUAL') return;
+    v7ApplySmartConfig(archived.configCode);
+    showToast('Configuracion copiada del vehiculo anterior', 'success');
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-E5] BATCH RELEASE                                              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7RenderBatchRelease() {
+    var container = document.getElementById('v7-batch-release');
+    if (!container) return;
+    var ready = (db.vehicles || []).filter(function(v) { return v.status === 'ready-release'; });
+    if (ready.length < 2) { container.style.display = 'none'; return; }
+    container.style.display = 'block';
+    container.innerHTML = '<button class="btn btn-primary" onclick="v7BatchRelease()" style="width:100%;">' +
+        'Liberar Todos los Listos (' + ready.length + ' vehiculos)</button>';
+}
+
+function v7BatchRelease() {
+    var ready = (db.vehicles || []).filter(function(v) { return v.status === 'ready-release'; });
+    if (ready.length === 0) { showToast('No hay vehiculos listos', 'info'); return; }
+
+    if (typeof undoPush === 'function') undoPush('cop15', 'Batch Release de ' + ready.length + ' vehiculos');
+
+    var count = 0;
+    var errors = 0;
+    ready.forEach(function(vehicle) {
+        try {
+            vehicle.status = 'archived';
+            vehicle.archivedAt = new Date().toISOString();
+            vehicle.timeline.push({
+                timestamp: new Date().toISOString(),
+                user: 'Sistema',
+                action: 'Vehiculo Liberado (Batch Release)',
+                data: { status: 'archived' }
+            });
+            if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
+            if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle);
+            if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle);
+            if (typeof tpAutoMarkWeeklyCompletion === 'function') tpAutoMarkWeeklyCompletion(vehicle.configCode);
+            count++;
+        } catch(e) {
+            errors++;
+            void 0;
+        }
+    });
+
+    saveDB();
+    refreshAllLists();
+    updateProgressBar();
+    if (typeof emitEvent === 'function') emitEvent('vehicle:released', { batch: true, count: count });
+
+    showToast('✅ Liberados ' + count + ' vehiculos' + (errors > 0 ? ' (' + errors + ' errores)' : ''), count > 0 ? 'success' : 'error');
+    if (count > 0 && typeof animateConfetti === 'function') animateConfetti();
+    v7RenderBatchRelease();
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-E6] ONE-TAP PRECOND FIELDS                                     ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7RenderOneTapPrecond() {
+    if (!activeVehicleId) return;
+    var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || !vehicle.configCode) return;
+
+    // Calculate most frequent values from archived vehicles with same configCode
+    var archived = (db.vehicles || []).filter(function(v) {
+        return v.status === 'archived' && v.configCode === vehicle.configCode && v.testData && v.testData.preconditioning;
+    });
+    if (archived.length < 2) return;
+
+    var freqMap = {};
+    var fieldsToCheck = ['tire_pressure_front', 'tire_pressure_rear', 'fuel_type', 'precond_cycle'];
+    fieldsToCheck.forEach(function(fid) {
+        freqMap[fid] = {};
+        archived.forEach(function(v) {
+            var val = v.testData.preconditioning[fid];
+            if (val) {
+                freqMap[fid][val] = (freqMap[fid][val] || 0) + 1;
+            }
+        });
+    });
+
+    fieldsToCheck.forEach(function(fid) {
+        var el = document.getElementById(fid);
+        if (!el || el.value) return; // Don't override existing values
+        var freqs = freqMap[fid];
+        var topVal = null;
+        var topCount = 0;
+        Object.keys(freqs).forEach(function(val) {
+            if (freqs[val] > topCount) { topCount = freqs[val]; topVal = val; }
+        });
+        if (!topVal || topCount < 2) return;
+
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'v7-onetap-chip';
+        chip.textContent = topVal + ' ⭐';
+        chip.onclick = function() {
+            el.value = topVal;
+            el.dispatchEvent(new Event('change'));
+            chip.remove();
+        };
+        if (el.parentNode) el.parentNode.insertBefore(chip, el.nextSibling);
+    });
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7] INITIALIZATION HOOKS                                           ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+// Render V7 widgets when COP15 Alta tab loads
+(function() {
+    var origSwitch = window._switchToCop15Tab;
+    // Hook into tab switches to render V7 widgets
+    document.addEventListener('click', function(e) {
+        var tab = e.target.closest('.tab[data-tab]');
+        if (!tab) return;
+        var tabName = tab.dataset.tab;
+        setTimeout(function() {
+            if (tabName === 'alta') {
+                v7RenderQuickPicks();
+                v7RenderSmartConfigs();
+                v7RenderFavorites();
+            }
+            if (tabName === 'seguimiento') {
+                v7RenderOneTapPrecond();
+                if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
+            }
+            if (tabName === 'liberacion') {
+                v7RenderBatchRelease();
+            }
+        }, 100);
+    });
+})();
 
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -14733,6 +15818,31 @@ function invLogTestUsage(vehicle) {
     };
 
     invState.usageLog.push(entry);
+
+    // [V7-A2] Auto-deduct estimated PSI from in-use cylinders
+    var PSI_PER_TEST = 50; // Estimated PSI consumed per test
+    inUseCylinders.forEach(function(g) {
+        if (g.readings && g.readings.length > 0) {
+            var lastReading = g.readings[g.readings.length - 1];
+            var currentPsi = lastReading.psi;
+            if (typeof currentPsi === 'number' && currentPsi > 0) {
+                var newPsi = Math.max(0, currentPsi - PSI_PER_TEST);
+                g.readings.push({
+                    date: date,
+                    psi: newPsi,
+                    note: 'Auto-deduccion por prueba VIN:' + (vehicle.vin || '').slice(-4),
+                    auto: true
+                });
+                // Alert if below 25%
+                var maxPsi = g.initialPsi || 2200;
+                var pct = (newPsi / maxPsi) * 100;
+                if (pct < 25 && pct >= 0) {
+                    showToast(g.formula + ' #' + g.controlNo + ' al ' + Math.round(pct) + '% - Considere reemplazo', 'warning');
+                    if (typeof emitEvent === 'function') emitEvent('inventory:lowGas', { gas: g, pct: pct });
+                }
+            }
+        }
+    });
 
     // Keep log manageable
     if (invState.usageLog.length > 3000) invState.usageLog = invState.usageLog.slice(-2000);
@@ -19646,6 +20756,28 @@ function tpBuildFamilies() {
         const maxVol = Math.max(...Object.values(families).map(x => x.totalVol + x.totalHist), 1);
         f.riskScore = ((1 - f.coverage) * 60) + (((f.totalVol + f.totalHist) / maxVol) * 30) + ((1 - f.configCoverage) * 10);
         f.riskLevel = f.riskScore > 60 ? 'high' : f.riskScore > 30 ? 'medium' : 'low';
+
+        // [V7-A3] Gas/fuel availability indicator
+        f.resourceStatus = 'green'; // 🟢 default
+        if (typeof invState !== 'undefined' && invState.gases) {
+            var inUse = invState.gases.filter(function(g) { return g.status === 'In use'; });
+            var lowGas = inUse.filter(function(g) {
+                if (!g.readings || g.readings.length === 0) return false;
+                var lastPsi = g.readings[g.readings.length - 1].psi;
+                var maxPsi = g.initialPsi || 2200;
+                return (lastPsi / maxPsi) < 0.25;
+            });
+            var emptyGas = inUse.filter(function(g) {
+                if (!g.readings || g.readings.length === 0) return true;
+                return g.readings[g.readings.length - 1].psi <= 0;
+            });
+            if (emptyGas.length > 0) f.resourceStatus = 'red';
+            else if (lowGas.length > 0) f.resourceStatus = 'yellow';
+            // Check if enough tests remain based on PSI
+            var testsRemaining = f.deficit;
+            if (testsRemaining > 0 && lowGas.length > 0) f.resourceStatus = 'yellow';
+            if (testsRemaining > 0 && emptyGas.length > 0) f.resourceStatus = 'red';
+        }
     });
 
     _tpCache.families = Object.values(families);
@@ -22856,6 +23988,123 @@ function raPresetApply(data) {
     showToast('Preset aplicado', 'success');
 }
 
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-A4] FEEDBACK CALIDAD → TEST PLAN                               ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raFeedbackToTestPlan() {
+    if (!raState || !raState.tests || raState.tests.length < 3) return;
+    if (!raState.profiles || raState.profiles.length === 0) return;
+
+    var alerts = [];
+    raState.profiles.forEach(function(profile) {
+        if (!profile.limits) return;
+        var filtered = raState.tests.filter(function(t) {
+            return t.profileId === profile.id || (t.regTestMode && t.regTestMode === profile.name);
+        });
+        if (filtered.length < 3) return;
+
+        Object.keys(profile.limits).forEach(function(metric) {
+            var USL = profile.limits[metric];
+            var vals = [];
+            filtered.forEach(function(t) {
+                if (!t.cycleData || t.cycleData.length === 0) return;
+                var last = t.cycleData[t.cycleData.length - 1];
+                var v = last[metric];
+                if (v !== undefined && !isNaN(v) && isFinite(v)) vals.push(parseFloat(v));
+            });
+            if (vals.length < 3) return;
+
+            var n = vals.length;
+            var mean = vals.reduce(function(s,v){ return s+v; }, 0) / n;
+            var mRsum = 0;
+            for (var i = 1; i < vals.length; i++) mRsum += Math.abs(vals[i] - vals[i - 1]);
+            var mRbar = mRsum / (vals.length - 1);
+            var sigmaWithin = mRbar / 1.128;
+            var Cpu = sigmaWithin > 0 ? (USL - mean) / (3 * sigmaWithin) : 999;
+            var Cpl = sigmaWithin > 0 ? (mean - 0) / (3 * sigmaWithin) : 999;
+            var Cpk = Math.min(Cpu, Cpl);
+
+            if (Cpk < 1.33) {
+                alerts.push({
+                    profile: profile.name,
+                    metric: (profile.labels && profile.labels[metric]) || metric,
+                    cpk: Cpk,
+                    n: n
+                });
+            }
+        });
+    });
+
+    if (alerts.length > 0 && typeof tpState !== 'undefined') {
+        // Mark configs needing re-test in test plan
+        alerts.forEach(function(a) {
+            if (typeof emitEvent === 'function') {
+                emitEvent('quality:alert', {
+                    profile: a.profile,
+                    metric: a.metric,
+                    cpk: a.cpk,
+                    message: 'Cpk ' + a.cpk.toFixed(2) + ' < 1.33 para ' + a.metric + ' (' + a.profile + ')'
+                });
+            }
+        });
+        // Show consolidated alert
+        showToast('⚠️ ' + alerts.length + ' metrica(s) con Cpk < 1.33. Revisar re-test.', 'warning');
+    }
+    return alerts;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-B4] ROLLING Cpk ALERT                                          ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function raCheckRollingCpk() {
+    // Check Cpk on last 10 tests per profile/metric
+    if (!raState || !raState.tests || raState.tests.length < 5) return [];
+    if (!raState.profiles || raState.profiles.length === 0) return [];
+
+    var alerts = [];
+    raState.profiles.forEach(function(profile) {
+        if (!profile.limits) return;
+        var filtered = raState.tests.filter(function(t) {
+            return t.profileId === profile.id || (t.regTestMode && t.regTestMode === profile.name);
+        }).slice(-10); // Last 10
+
+        if (filtered.length < 5) return;
+
+        Object.keys(profile.limits).forEach(function(metric) {
+            var USL = profile.limits[metric];
+            var vals = [];
+            filtered.forEach(function(t) {
+                if (!t.cycleData || t.cycleData.length === 0) return;
+                var last = t.cycleData[t.cycleData.length - 1];
+                var v = last[metric];
+                if (v !== undefined && !isNaN(v) && isFinite(v)) vals.push(parseFloat(v));
+            });
+            if (vals.length < 5) return;
+
+            var n = vals.length;
+            var mean = vals.reduce(function(s,v){ return s+v; }, 0) / n;
+            var variance = vals.reduce(function(s,v){ return s + Math.pow(v - mean, 2); }, 0) / (n - 1);
+            var stdDev = Math.sqrt(variance);
+            var Cpu = stdDev > 0 ? (USL - mean) / (3 * stdDev) : 999;
+            var Cpl = stdDev > 0 ? mean / (3 * stdDev) : 999;
+            var Cpk = Math.min(Cpu, Cpl);
+
+            if (Cpk < 1.33) {
+                alerts.push({
+                    profile: profile.name,
+                    metric: (profile.labels && profile.labels[metric]) || metric,
+                    cpk: Cpk,
+                    trend: vals,
+                    n: n
+                });
+            }
+        });
+    });
+    return alerts;
+}
+
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Panel Module (Dashboard, Users, Shift Log, Alerts)    ║
@@ -22893,7 +24142,7 @@ function pnSave() {
     tabCacheInvalidate('pn'); // Mark all tabs dirty on data change
 }
 
-var _pnTabs = ['pn-dashboard','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit'];
+var _pnTabs = ['pn-dashboard','pn-executive','pn-turnaround','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit'];
 
 // Tabs managed by Alpine reactive templates (no innerHTML needed)
 var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true, 'pn-audit': true };
@@ -22913,6 +24162,8 @@ function _pnGetRenderer(tabId) {
     if (_pnAlpineTabs[tabId] && typeof Alpine !== 'undefined') return _pnAlpineTabRenderer;
     // Fallback to legacy renderers when Alpine is not available
     if (tabId === 'pn-dashboard') return pnRenderDashboard;
+    if (tabId === 'pn-executive') return pnRenderExecutive;
+    if (tabId === 'pn-turnaround') return pnRenderTurnaround;
     if (tabId === 'pn-users') return pnRenderUsers;
     if (tabId === 'pn-shift') return pnRenderShiftLog;
     if (tabId === 'pn-alerts') return pnRenderAlerts;
@@ -25050,6 +26301,260 @@ function panelAlpineComponent() {
             if (typeof auditExportCSV === 'function') auditExportCSV();
         }
     };
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-B1] KPI EXECUTIVE TAB                                          ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function pnRenderExecutive(el) {
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var now = new Date();
+    var todayStr = now.toISOString().slice(0,10);
+    var weekAgo = new Date(now - 7 * 86400000).toISOString().slice(0,10);
+    var monthAgo = new Date(now - 30 * 86400000).toISOString().slice(0,10);
+
+    // Throughput metrics
+    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) === todayStr; }).length;
+    var archivedWeek = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= weekAgo; }).length;
+    var archivedMonth = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= monthAgo; }).length;
+    var activeCount = vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
+
+    // Compliance scorecard
+    var tpCoverage = 0;
+    if (typeof tpState !== 'undefined' && typeof tpBuildFamilies === 'function') {
+        var families = tpBuildFamilies();
+        var totalReq = 0, totalTested = 0;
+        families.forEach(function(f) { totalReq += f.totalRequired; totalTested += f.totalTested; });
+        tpCoverage = totalReq > 0 ? Math.round((totalTested / totalReq) * 100) : 100;
+    }
+
+    // Cpk alerts
+    var cpkAlerts = typeof raCheckRollingCpk === 'function' ? raCheckRollingCpk() : [];
+
+    // Resource utilization
+    var gasUtilization = 'N/A';
+    if (typeof invState !== 'undefined' && invState.gases) {
+        var inUse = invState.gases.filter(function(g) { return g.status === 'In use'; });
+        var totalGas = invState.gases.length;
+        gasUtilization = totalGas > 0 ? Math.round((inUse.length / totalGas) * 100) + '%' : 'N/A';
+    }
+
+    var html = '';
+    html += '<div class="v7-exec-grid">';
+
+    // KPI Cards
+    html += '<div class="v7-exec-kpi"><div class="v7-exec-kpi-value">' + archivedToday + '</div><div class="v7-exec-kpi-label">Liberados Hoy</div></div>';
+    html += '<div class="v7-exec-kpi"><div class="v7-exec-kpi-value">' + archivedWeek + '</div><div class="v7-exec-kpi-label">Liberados Semana</div></div>';
+    html += '<div class="v7-exec-kpi"><div class="v7-exec-kpi-value">' + archivedMonth + '</div><div class="v7-exec-kpi-label">Liberados Mes</div></div>';
+    html += '<div class="v7-exec-kpi"><div class="v7-exec-kpi-value">' + activeCount + '</div><div class="v7-exec-kpi-label">En Proceso</div></div>';
+    html += '</div>';
+
+    // Compliance Scorecard
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Compliance Scorecard</span></div>';
+    html += '<div class="v7-exec-compliance">';
+    html += '<div class="v7-exec-metric"><span>Cobertura Plan de Pruebas</span>';
+    html += '<div class="v7-exec-bar"><div class="v7-exec-bar-fill" style="width:' + tpCoverage + '%;background:' + (tpCoverage >= 80 ? 'var(--success)' : tpCoverage >= 50 ? 'var(--warning)' : 'var(--danger)') + ';"></div></div>';
+    html += '<span class="v7-exec-pct">' + tpCoverage + '%</span></div>';
+
+    var cpkStatus = cpkAlerts.length === 0 ? '🟢 Todos Cpk >= 1.33' : '🔴 ' + cpkAlerts.length + ' metrica(s) con Cpk < 1.33';
+    html += '<div class="v7-exec-metric"><span>Capacidad de Proceso</span><span>' + cpkStatus + '</span></div>';
+    html += '<div class="v7-exec-metric"><span>Utilizacion de Gas</span><span>' + gasUtilization + '</span></div>';
+    html += '</div></div>';
+
+    // Cpk Alert Details
+    if (cpkAlerts.length > 0) {
+        html += '<div class="tp-card" style="border-left:3px solid var(--danger);">';
+        html += '<div class="tp-card-title"><span>⚠️ Alertas de Capacidad (Rolling Cpk)</span></div>';
+        cpkAlerts.forEach(function(a) {
+            var color = a.cpk < 1.0 ? 'var(--danger)' : 'var(--warning)';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">';
+            html += '<span>' + a.profile + ' / ' + a.metric + '</span>';
+            html += '<span style="font-weight:700;color:' + color + ';">Cpk ' + a.cpk.toFixed(2) + ' (n=' + a.n + ')</span>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // [V7-B3] Predictive Resource Planner
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Proyeccion de Recursos</span></div>';
+    if (typeof invState !== 'undefined' && invState.gases) {
+        var predictions = [];
+        invState.gases.filter(function(g) { return g.status === 'In use'; }).forEach(function(g) {
+            if (!g.readings || g.readings.length < 2) return;
+            // Calculate consumption rate from last readings
+            var recent = g.readings.slice(-5);
+            if (recent.length < 2) return;
+            var totalDrop = recent[0].psi - recent[recent.length - 1].psi;
+            var daySpan = (new Date(recent[recent.length - 1].date) - new Date(recent[0].date)) / 86400000;
+            if (daySpan <= 0) daySpan = 1;
+            var dailyRate = totalDrop / daySpan;
+            var currentPsi = recent[recent.length - 1].psi;
+            var daysLeft = dailyRate > 0 ? Math.round(currentPsi / dailyRate) : 999;
+            if (daysLeft < 30) {
+                predictions.push({
+                    formula: g.formula,
+                    controlNo: g.controlNo,
+                    daysLeft: daysLeft,
+                    currentPsi: currentPsi,
+                    dailyRate: dailyRate.toFixed(1)
+                });
+            }
+        });
+        if (predictions.length > 0) {
+            predictions.sort(function(a, b) { return a.daysLeft - b.daysLeft; });
+            predictions.forEach(function(p) {
+                var urgency = p.daysLeft < 7 ? 'var(--danger)' : p.daysLeft < 14 ? 'var(--warning)' : 'var(--info)';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">';
+                html += '<span>' + p.formula + ' #' + p.controlNo + '</span>';
+                html += '<span style="color:' + urgency + ';font-weight:600;">' + p.daysLeft + ' dias restantes (' + p.dailyRate + ' PSI/dia)</span>';
+                html += '</div>';
+            });
+        } else {
+            html += '<div style="color:var(--muted);padding:12px;text-align:center;">Sin alertas de agotamiento proximo</div>';
+        }
+    } else {
+        html += '<div style="color:var(--muted);padding:12px;text-align:center;">Inventario no disponible</div>';
+    }
+    html += '</div>';
+
+    // Team metrics
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Metricas por Operador</span></div>';
+    var opStats = {};
+    vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= weekAgo; }).forEach(function(v) {
+        var op = v.registeredBy || (v.testData && v.testData.testResponsible) || 'Desconocido';
+        if (!opStats[op]) opStats[op] = 0;
+        opStats[op]++;
+    });
+    var sortedOps = Object.keys(opStats).sort(function(a,b) { return opStats[b] - opStats[a]; });
+    if (sortedOps.length > 0) {
+        var maxOp = opStats[sortedOps[0]];
+        sortedOps.forEach(function(op) {
+            var pct = Math.round((opStats[op] / maxOp) * 100);
+            html += '<div style="margin-bottom:8px;">';
+            html += '<div style="display:flex;justify-content:space-between;font-size:var(--font-sm);margin-bottom:2px;"><span>' + op + '</span><span>' + opStats[op] + ' esta semana</span></div>';
+            html += '<div class="v7-exec-bar"><div class="v7-exec-bar-fill" style="width:' + pct + '%;background:var(--info);"></div></div>';
+            html += '</div>';
+        });
+    } else {
+        html += '<div style="color:var(--muted);text-align:center;padding:12px;">Sin datos esta semana</div>';
+    }
+    html += '</div>';
+
+    el.innerHTML = html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-B2] VEHICLE TURNAROUND ANALYTICS                               ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function pnRenderTurnaround(el) {
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var archived = vehicles.filter(function(v) { return v.status === 'archived' && v.timeline && v.timeline.length >= 2; });
+
+    if (archived.length === 0) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--muted);">No hay vehiculos archivados para analizar.</div>';
+        return;
+    }
+
+    // Calculate stage durations from timeline
+    var stageStats = { registration_to_precond: [], precond_to_soak: [], soak_to_test: [], test_to_release: [], total: [] };
+
+    archived.slice(-100).forEach(function(v) { // Last 100 vehicles
+        if (!v.timeline || v.timeline.length < 2) return;
+        var regTime = v.registeredAt ? new Date(v.registeredAt).getTime() : null;
+        var archTime = v.archivedAt ? new Date(v.archivedAt).getTime() : null;
+
+        if (regTime && archTime) {
+            var totalHrs = (archTime - regTime) / 3600000;
+            if (totalHrs > 0 && totalHrs < 720) stageStats.total.push(totalHrs); // Max 30 days
+        }
+
+        // Parse timeline for stage transitions
+        var stages = {};
+        v.timeline.forEach(function(t) {
+            var ts = new Date(t.timestamp).getTime();
+            if (t.data && t.data.status) {
+                if (!stages[t.data.status]) stages[t.data.status] = ts;
+            }
+        });
+
+        if (stages['registered'] && stages['in-progress']) {
+            var d = (stages['in-progress'] - stages['registered']) / 3600000;
+            if (d > 0 && d < 168) stageStats.registration_to_precond.push(d);
+        }
+        if (stages['in-progress'] && stages['testing']) {
+            var d2 = (stages['testing'] - stages['in-progress']) / 3600000;
+            if (d2 > 0 && d2 < 168) stageStats.precond_to_soak.push(d2);
+        }
+        if (stages['testing'] && stages['ready-release']) {
+            var d3 = (stages['ready-release'] - stages['testing']) / 3600000;
+            if (d3 > 0 && d3 < 168) stageStats.test_to_release.push(d3);
+        }
+    });
+
+    function avg(arr) { return arr.length > 0 ? (arr.reduce(function(s,v){return s+v;},0)/arr.length) : 0; }
+    function formatHrs(h) {
+        if (h < 1) return Math.round(h * 60) + ' min';
+        if (h < 24) return h.toFixed(1) + ' hrs';
+        return (h / 24).toFixed(1) + ' dias';
+    }
+
+    var html = '';
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Tiempo Promedio por Etapa</span></div>';
+    html += '<div style="font-size:var(--font-xs);color:var(--muted);margin-bottom:12px;">Basado en ultimos ' + Math.min(100, archived.length) + ' vehiculos archivados</div>';
+
+    var stages = [
+        { label: 'Registro → Precond', data: stageStats.registration_to_precond, color: '#3b82f6' },
+        { label: 'Precond → Prueba', data: stageStats.precond_to_soak, color: '#f59e0b' },
+        { label: 'Prueba → Liberacion', data: stageStats.test_to_release, color: '#10b981' },
+        { label: 'Total (Registro → Liberacion)', data: stageStats.total, color: '#8b5cf6' }
+    ];
+
+    var maxAvg = Math.max.apply(null, stages.map(function(s) { return avg(s.data); }).concat([1]));
+
+    stages.forEach(function(s) {
+        var a = avg(s.data);
+        var pct = Math.round((a / maxAvg) * 100);
+        html += '<div style="margin-bottom:12px;">';
+        html += '<div style="display:flex;justify-content:space-between;font-size:var(--font-sm);margin-bottom:4px;">';
+        html += '<span>' + s.label + '</span>';
+        html += '<span style="font-weight:700;">' + formatHrs(a) + ' <span style="color:var(--muted);font-weight:400;">(n=' + s.data.length + ')</span></span>';
+        html += '</div>';
+        html += '<div class="v7-exec-bar"><div class="v7-exec-bar-fill" style="width:' + pct + '%;background:' + s.color + ';"></div></div>';
+        html += '</div>';
+    });
+    html += '</div>';
+
+    // Throughput over time (daily counts for last 14 days)
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Throughput Diario (14 dias)</span></div>';
+    var dailyCounts = {};
+    for (var d = 13; d >= 0; d--) {
+        var dateStr = new Date(Date.now() - d * 86400000).toISOString().slice(0,10);
+        dailyCounts[dateStr] = 0;
+    }
+    archived.forEach(function(v) {
+        if (v.archivedAt) {
+            var ds = v.archivedAt.slice(0,10);
+            if (dailyCounts.hasOwnProperty(ds)) dailyCounts[ds]++;
+        }
+    });
+    var dates = Object.keys(dailyCounts).sort();
+    var counts = dates.map(function(d) { return dailyCounts[d]; });
+    var maxCount = Math.max.apply(null, counts.concat([1]));
+    html += '<div style="display:flex;align-items:flex-end;gap:4px;height:80px;padding:8px 0;">';
+    dates.forEach(function(d, i) {
+        var h = Math.max(4, Math.round((counts[i] / maxCount) * 70));
+        var dayLabel = d.slice(8,10);
+        html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;">';
+        html += '<div style="font-size:9px;font-weight:700;color:var(--text);margin-bottom:2px;">' + counts[i] + '</div>';
+        html += '<div style="width:100%;height:' + h + 'px;background:var(--info);border-radius:3px;"></div>';
+        html += '<div style="font-size:8px;color:var(--muted);margin-top:2px;">' + dayLabel + '</div>';
+        html += '</div>';
+    });
+    html += '</div></div>';
+
+    el.innerHTML = html;
 }
 
 
