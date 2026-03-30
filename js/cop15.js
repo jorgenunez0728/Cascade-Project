@@ -531,10 +531,10 @@ function initCascadeTree() {
     })();
 
     // Setup unsaved changes tracking
-    setupUnsavedTracking();
+    try { setupUnsavedTracking(); } catch(e) {}
 
-    // Inject field help tooltips
-    cascadeInjectTooltips();
+    // Inject field help tooltips (CASCADE_TOOLTIPS may not be ready yet)
+    try { cascadeInjectTooltips(); } catch(e) {}
 
     function toggleMode() {
         const isExternal = document.getElementById('modeToggle').checked;
@@ -5008,6 +5008,9 @@ var CASCADE_TOOLTIPS = {
 
 /** Inject ? help buttons next to labels of fields that have tooltips */
 function cascadeInjectTooltips() {
+    // Guard: CASCADE_TOOLTIPS may not be initialized yet during script load
+    if (typeof CASCADE_TOOLTIPS === 'undefined' || !CASCADE_TOOLTIPS) return;
+
     // Remove existing tooltip buttons first
     document.querySelectorAll('.cascade-help-btn').forEach(function(btn) { btn.remove(); });
 
