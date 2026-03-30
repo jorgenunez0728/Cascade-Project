@@ -2312,6 +2312,7 @@ function generateWeeklyStatusPDF() {
 })();
 
     function initializeSystem() {
+      try {
         // Theme init — apply before any UI renders
         themeInit();
 
@@ -2446,28 +2447,36 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         }
 
         // ═══ [V7] Session Memory — Resume or Restore ═══
-        if (typeof resumeLastSession === 'function') resumeLastSession();
+        try {
+            if (typeof resumeLastSession === 'function') resumeLastSession();
+        } catch(v7err) { console.error('V7 resumeLastSession error:', v7err); }
 
         // ═══ [V7-D3] Check for expired soak timers from previous session ═══
-        if (typeof v7CheckExpiredSoak === 'function') v7CheckExpiredSoak();
+        try {
+            if (typeof v7CheckExpiredSoak === 'function') v7CheckExpiredSoak();
+        } catch(v7err) { console.error('V7 soakCheck error:', v7err); }
 
         // ═══ [V7-A1] Event Bus — wire cross-module events ═══
-        onEvent('vehicle:released', function(data) {
-            if (typeof raFeedbackToTestPlan === 'function') raFeedbackToTestPlan();
-        });
-        onEvent('vehicle:registered', function(data) {
-            if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
-        });
-        onEvent('vehicle:statusChanged', function(data) {
-            if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
-            var conflicts = checkResourceConflicts();
-            if (conflicts.length > 0) {
-                conflicts.forEach(function(c) { showToast(c.message, 'warning'); });
-            }
-        });
+        try {
+            onEvent('vehicle:released', function(data) {
+                if (typeof raFeedbackToTestPlan === 'function') raFeedbackToTestPlan();
+            });
+            onEvent('vehicle:registered', function(data) {
+                if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
+            });
+            onEvent('vehicle:statusChanged', function(data) {
+                if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
+                var conflicts = checkResourceConflicts();
+                if (conflicts.length > 0) {
+                    conflicts.forEach(function(c) { showToast(c.message, 'warning'); });
+                }
+            });
+        } catch(v7err) { console.error('V7 eventBus wiring error:', v7err); }
 
         // ═══ Daily Dashboard (initial render) ═══
-        if (typeof dailyDashRender === 'function') dailyDashRender();
+        try {
+            if (typeof dailyDashRender === 'function') dailyDashRender();
+        } catch(dashErr) { console.error('dailyDashRender error:', dashErr); }
 
         // [R5-M1] Finalize splash
         if (typeof splashUpdate === 'function') splashUpdate('Listo', 100);
@@ -2477,6 +2486,11 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         if (localStorage.getItem('kia_immersive_prefs') === '1') {
             setTimeout(function() { immersiveEnter(); }, 600);
         }
+      } catch(initErr) {
+        // Ensure splash is always dismissed even on error
+        console.error('initializeSystem error:', initErr);
+        if (typeof splashHide === 'function') splashHide();
+      }
         }
 
 window.addEventListener('DOMContentLoaded', initializeSystem);
