@@ -332,6 +332,164 @@ function themeToggle() {
     }
 }
 
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7] SMART INTEGRATION ENGINE — Event Bus                         ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _eventBus = {};
+
+function emitEvent(name, data) {
+    var handlers = _eventBus[name];
+    if (!handlers) return;
+    for (var i = 0; i < handlers.length; i++) {
+        try { handlers[i](data); } catch(e) { console.error('EventBus error on "' + name + '":', e); }
+    }
+}
+
+function onEvent(name, handler) {
+    if (!_eventBus[name]) _eventBus[name] = [];
+    _eventBus[name].push(handler);
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-A5] Resource Conflict Detection                                ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function checkResourceConflicts() {
+    var conflicts = [];
+    var activeVehicles = (db.vehicles || []).filter(function(v) { return v.status === 'testing'; });
+    // Check for two vehicles on same dyno at the same time
+    var dynoUsers = {};
+    activeVehicles.forEach(function(v) {
+        var dyno = v.testData && v.testData.dynoId ? v.testData.dynoId : 'default';
+        if (!dynoUsers[dyno]) dynoUsers[dyno] = [];
+        dynoUsers[dyno].push(v);
+    });
+    Object.keys(dynoUsers).forEach(function(dyno) {
+        if (dynoUsers[dyno].length > 1) {
+            conflicts.push({
+                type: 'dyno',
+                resource: dyno,
+                vehicles: dynoUsers[dyno].map(function(v) { return v.vin; }),
+                message: 'Conflicto: ' + dynoUsers[dyno].length + ' vehículos asignados al dyno ' + dyno
+            });
+        }
+    });
+    // Check for cylinder conflicts (same gas cylinder used by concurrent tests)
+    if (typeof invState !== 'undefined' && invState.gases) {
+        var inUse = invState.gases.filter(function(g) { return g.status === 'In use'; });
+        if (inUse.length > 0 && activeVehicles.length > 1) {
+            conflicts.push({
+                type: 'gas_concurrency',
+                message: activeVehicles.length + ' pruebas simultáneas comparten cilindros en uso'
+            });
+        }
+    }
+    return conflicts;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-C] Session Memory                                              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function resumeLastSession() {
+    // C1: Check for active vehicle < 24h
+    try {
+        var saved = localStorage.getItem('kia_active_vehicle');
+        if (saved) {
+            var ctx = JSON.parse(saved);
+            if (ctx && ctx.vehicleId && (Date.now() - ctx.timestamp) < 86400000) {
+                var vehicle = (db.vehicles || []).find(function(v) { return v.id == ctx.vehicleId && v.status !== 'archived'; });
+                if (vehicle) {
+                    var vinShort = vehicle.vin ? '...' + vehicle.vin.slice(-4) : '';
+                    _showResumeToast(vehicle, ctx, vinShort);
+                    return;
+                }
+            }
+        }
+    } catch(e) { console.warn('resumeLastSession error:', e); }
+
+    // C3: Restore last module if no vehicle to resume
+    _restoreLastModule();
+}
+
+function _showResumeToast(vehicle, ctx, vinShort) {
+    var toast = document.createElement('div');
+    toast.className = 'v7-resume-toast';
+    toast.innerHTML = '<div class="v7-resume-toast-text">Retomar VIN ' + vinShort + '?</div>' +
+        '<div class="v7-resume-toast-actions">' +
+        '<button class="btn btn-primary btn-sm" id="v7-resume-yes">Si</button>' +
+        '<button class="btn btn-ghost btn-sm" id="v7-resume-no">No</button>' +
+        '</div>';
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.classList.add('show'); }, 50);
+
+    document.getElementById('v7-resume-yes').onclick = function() {
+        toast.classList.remove('show');
+        setTimeout(function() { toast.remove(); }, 300);
+        switchPlatform('cop15');
+        setTimeout(function() {
+            // Navigate to last tab
+            if (ctx.lastTab) {
+                var tabEl = document.querySelector('.tab[data-tab="' + ctx.lastTab + '"]');
+                if (tabEl) tabEl.click();
+            }
+            setTimeout(function() {
+                var sel = document.getElementById('activeVehSelect');
+                if (sel) { sel.value = ctx.vehicleId; loadVehicle(); }
+                // Restore scroll position
+                if (ctx.scrollPosition) {
+                    setTimeout(function() { window.scrollTo({ top: ctx.scrollPosition, behavior: 'smooth' }); }, 200);
+                }
+            }, 200);
+        }, 300);
+    };
+    document.getElementById('v7-resume-no').onclick = function() {
+        toast.classList.remove('show');
+        setTimeout(function() { toast.remove(); }, 300);
+        localStorage.removeItem('kia_active_vehicle');
+        _restoreLastModule();
+    };
+    // Auto-dismiss after 10s
+    setTimeout(function() {
+        if (toast.parentNode) { toast.classList.remove('show'); setTimeout(function() { toast.remove(); }, 300); }
+    }, 10000);
+}
+
+function _restoreLastModule() {
+    var lastMod = localStorage.getItem('kia_last_module');
+    if (lastMod) {
+        var parts = lastMod.split(':');
+        var platform = parts[0];
+        if (platform && platform !== 'today' && PLATFORM_ORDER.indexOf(platform) !== -1) {
+            switchPlatform(platform);
+            if (parts[1]) {
+                setTimeout(function() {
+                    if (platform === 'inventory' && typeof invSwitchTab === 'function') invSwitchTab(parts[1]);
+                    else if (platform === 'testplan' && typeof tpSwitchTab === 'function') tpSwitchTab(parts[1]);
+                    else if (platform === 'results' && typeof raSwitchTab === 'function') raSwitchTab(parts[1]);
+                    else if (platform === 'panel' && typeof pnSwitchTab === 'function') pnSwitchTab(parts[1]);
+                }, 200);
+            }
+        }
+    }
+}
+
+function saveActiveVehicleContext(vehicleId, extraCtx) {
+    if (!vehicleId) { localStorage.removeItem('kia_active_vehicle'); return; }
+    var vehicle = (db.vehicles || []).find(function(v) { return v.id == vehicleId; });
+    if (!vehicle || vehicle.status === 'archived') { localStorage.removeItem('kia_active_vehicle'); return; }
+    var ctx = {
+        vehicleId: vehicleId,
+        vin: vehicle.vin,
+        lastTab: localStorage.getItem('kia_cop15_activeTab') || 'seguimiento',
+        scrollPosition: window.scrollY,
+        timestamp: Date.now()
+    };
+    if (extraCtx) Object.assign(ctx, extraCtx);
+    localStorage.setItem('kia_active_vehicle', JSON.stringify(ctx));
+}
+
 // ======================================================================
 // [M01] UTILIDADES GENERALES]
 // ======================================================================
@@ -1307,6 +1465,9 @@ function switchPlatform(platform, swipeDir) {
 
     _currentPlatform = platform;
 
+    // [V7-C3] Save last module visited
+    localStorage.setItem('kia_last_module', platform);
+
     if (platform === 'today') { dailyDashRender(); }
     if (platform === 'testplan') { tpRender(); tpUpdateBadges(); }
     if (platform === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
@@ -1356,6 +1517,71 @@ function dailyDashRender() {
     html += '<div class="daily-dash-greeting">' + greeting + '</div>';
     html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
     html += '</div>';
+
+    // ── [V7-F1] Mi Turno Card ──
+    var currentOp = '';
+    try {
+        if (typeof authGetCurrentUser === 'function') {
+            var u = authGetCurrentUser();
+            if (u && u.name) currentOp = u.name;
+        }
+        if (!currentOp) currentOp = localStorage.getItem('kia_last_operator') || '';
+    } catch(e) {}
+
+    if (currentOp) {
+        var myVehicles = (db.vehicles || []).filter(function(v) {
+            return v.status !== 'archived' && (
+                v.registeredBy === currentOp ||
+                (v.testData && v.testData.testResponsible === currentOp) ||
+                (v.testData && v.testData.preconditioning && v.testData.preconditioning.responsible === currentOp)
+            );
+        });
+        var releasedToday = (db.vehicles || []).filter(function(v) {
+            return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) === now.toISOString().slice(0,10) &&
+                (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
+        }).length;
+        var testingToday = (db.vehicles || []).filter(function(v) {
+            return v.status === 'testing' && (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
+        }).length;
+
+        html += '<div class="daily-dash-section">';
+        html += '<div class="daily-dash-section-title">Mi Turno</div>';
+        html += '<div class="v7-mi-turno-card">';
+        html += '<div class="v7-mi-turno-header">';
+        html += '<span class="v7-mi-turno-avatar">' + currentOp.charAt(0).toUpperCase() + '</span>';
+        html += '<div><div class="v7-mi-turno-name">' + currentOp + '</div>';
+        html += '<div class="v7-mi-turno-stats">Hoy: ' + releasedToday + ' liberados, ' + testingToday + ' en test</div></div>';
+
+        // [V7-F3] Shift progress ring
+        var shiftTarget = 8;
+        var shiftPct = Math.min(100, Math.round((releasedToday / shiftTarget) * 100));
+        html += '<div class="v7-shift-ring">' + buildProgressRing(shiftPct, 52, shiftPct >= 100 ? '#10b981' : '#3b82f6') + '</div>';
+        html += '</div>';
+
+        if (myVehicles.length > 0) {
+            html += '<div class="v7-mi-turno-vehicles">';
+            myVehicles.slice(0, 5).forEach(function(v) {
+                var vinShort = v.vin ? '...' + v.vin.slice(-4) : '';
+                var model = v.config ? (v.config.Modelo || '') : '';
+                var nextStep = typeof getNextStep === 'function' ? getNextStep(v) : null;
+                var stepLabel = nextStep ? nextStep.icon + ' ' + nextStep.action : CONFIG.statusLabels[v.status] || v.status;
+                var stepBtn = '';
+                if (nextStep) {
+                    stepBtn = '<button class="btn btn-sm btn-ghost v7-mi-turno-action" onclick="event.stopPropagation();v7GoToVehicle(' + v.id + ',\'' + (nextStep.goto || '') + '\')">' + stepLabel + '</button>';
+                } else {
+                    stepBtn = '<span class="badge-info" style="font-size:10px;">' + stepLabel + '</span>';
+                }
+                html += '<div class="v7-mi-turno-veh" onclick="v7GoToVehicle(' + v.id + ')">';
+                html += '<span class="v7-mi-turno-veh-name">' + model + ' ' + vinShort + '</span>';
+                html += stepBtn;
+                html += '</div>';
+            });
+            html += '</div>';
+        } else {
+            html += '<div style="color:var(--muted);font-size:var(--font-sm);padding:8px 0;">Sin vehiculos asignados</div>';
+        }
+        html += '</div></div>';
+    }
 
     // ── Soak Timers Active ──
     var soakData = null;
@@ -2218,6 +2444,27 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         if (!localStorage.getItem('kia_tour_done')) {
             setTimeout(function() { if (typeof startTour === 'function') startTour(); }, 1500);
         }
+
+        // ═══ [V7] Session Memory — Resume or Restore ═══
+        if (typeof resumeLastSession === 'function') resumeLastSession();
+
+        // ═══ [V7-D3] Check for expired soak timers from previous session ═══
+        if (typeof v7CheckExpiredSoak === 'function') v7CheckExpiredSoak();
+
+        // ═══ [V7-A1] Event Bus — wire cross-module events ═══
+        onEvent('vehicle:released', function(data) {
+            if (typeof raFeedbackToTestPlan === 'function') raFeedbackToTestPlan();
+        });
+        onEvent('vehicle:registered', function(data) {
+            if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
+        });
+        onEvent('vehicle:statusChanged', function(data) {
+            if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
+            var conflicts = checkResourceConflicts();
+            if (conflicts.length > 0) {
+                conflicts.forEach(function(c) { showToast(c.message, 'warning'); });
+            }
+        });
 
         // ═══ Daily Dashboard (initial render) ═══
         if (typeof dailyDashRender === 'function') dailyDashRender();
@@ -3468,4 +3715,81 @@ function buildProgressRing(pct, size, color) {
         '<circle class="progress-ring-circle" cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + offset + '"/>' +
         '<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" fill="' + color + '" font-size="' + Math.round(size/3.5) + '" font-weight="800">' + Math.round(pct) + '%</text>' +
         '</svg>';
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7] HELPER FUNCTIONS                                              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7GoToVehicle(vehicleId, gotoSection) {
+    switchPlatform('cop15');
+    setTimeout(function() {
+        if (gotoSection === 'release-tab' || gotoSection === 'release-action') {
+            var tabEl = document.querySelector('.tab[data-tab="liberacion"]');
+            if (tabEl) tabEl.click();
+            setTimeout(function() {
+                var sel = document.getElementById('releaseVehSelect');
+                if (sel) { sel.value = vehicleId; if (typeof loadReleaseVehicle === 'function') loadReleaseVehicle(); }
+            }, 200);
+        } else {
+            var tabEl = document.querySelector('.tab[data-tab="seguimiento"]');
+            if (tabEl) tabEl.click();
+            setTimeout(function() {
+                var sel = document.getElementById('activeVehSelect');
+                if (sel) { sel.value = vehicleId; loadVehicle(); }
+                // Open specific accordion if requested
+                if (gotoSection) {
+                    setTimeout(function() {
+                        var acc = document.getElementById(gotoSection);
+                        if (acc && acc.tagName === 'DETAILS') acc.open = true;
+                        else if (acc) acc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                }
+            }, 200);
+        }
+    }, 300);
+}
+
+// [V7-D2] Floating Next Step Banner
+function v7UpdateNextStepBanner() {
+    var banner = document.getElementById('v7-next-step-banner');
+    if (!banner) return;
+    if (!activeVehicleId) { banner.classList.remove('show'); return; }
+    var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || vehicle.status === 'archived') { banner.classList.remove('show'); return; }
+    var step = typeof getNextStep === 'function' ? getNextStep(vehicle) : null;
+    if (!step) { banner.classList.remove('show'); return; }
+    banner.innerHTML = '<span class="v7-next-step-icon">' + step.icon + '</span>' +
+        '<span class="v7-next-step-text">Siguiente: ' + step.action + '</span>' +
+        '<button class="v7-next-step-go" onclick="v7GoToVehicleStep(\'' + (step.goto || '') + '\')">&rarr;</button>';
+    banner.classList.add('show');
+}
+
+function v7GoToVehicleStep(gotoSection) {
+    if (!gotoSection) return;
+    if (gotoSection === 'release-tab' || gotoSection === 'release-action') {
+        var tabEl = document.querySelector('.tab[data-tab="liberacion"]');
+        if (tabEl) tabEl.click();
+        setTimeout(function() {
+            var sel = document.getElementById('releaseVehSelect');
+            if (sel && activeVehicleId) { sel.value = activeVehicleId; if (typeof loadReleaseVehicle === 'function') loadReleaseVehicle(); }
+        }, 200);
+    } else if (gotoSection === 'soak-section') {
+        var soakEl = document.getElementById('soak-section') || document.getElementById('acc-soak');
+        if (soakEl) {
+            if (soakEl.tagName === 'DETAILS') soakEl.open = true;
+            soakEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    } else {
+        var acc = document.getElementById(gotoSection);
+        if (acc) {
+            if (acc.tagName === 'DETAILS') acc.open = true;
+            acc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Focus first input
+            setTimeout(function() {
+                var firstInput = acc.querySelector('input:not([type=hidden]),select,textarea');
+                if (firstInput) firstInput.focus();
+            }, 400);
+        }
+    }
 }

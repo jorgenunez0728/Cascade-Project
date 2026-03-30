@@ -34,7 +34,7 @@ function pnSave() {
     tabCacheInvalidate('pn'); // Mark all tabs dirty on data change
 }
 
-var _pnTabs = ['pn-dashboard','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit'];
+var _pnTabs = ['pn-dashboard','pn-executive','pn-turnaround','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit'];
 
 // Tabs managed by Alpine reactive templates (no innerHTML needed)
 var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true, 'pn-audit': true };
@@ -54,6 +54,8 @@ function _pnGetRenderer(tabId) {
     if (_pnAlpineTabs[tabId] && typeof Alpine !== 'undefined') return _pnAlpineTabRenderer;
     // Fallback to legacy renderers when Alpine is not available
     if (tabId === 'pn-dashboard') return pnRenderDashboard;
+    if (tabId === 'pn-executive') return pnRenderExecutive;
+    if (tabId === 'pn-turnaround') return pnRenderTurnaround;
     if (tabId === 'pn-users') return pnRenderUsers;
     if (tabId === 'pn-shift') return pnRenderShiftLog;
     if (tabId === 'pn-alerts') return pnRenderAlerts;
@@ -2191,4 +2193,258 @@ function panelAlpineComponent() {
             if (typeof auditExportCSV === 'function') auditExportCSV();
         }
     };
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-B1] KPI EXECUTIVE TAB                                          ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function pnRenderExecutive(el) {
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var now = new Date();
+    var todayStr = now.toISOString().slice(0,10);
+    var weekAgo = new Date(now - 7 * 86400000).toISOString().slice(0,10);
+    var monthAgo = new Date(now - 30 * 86400000).toISOString().slice(0,10);
+
+    // Throughput metrics
+    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) === todayStr; }).length;
+    var archivedWeek = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= weekAgo; }).length;
+    var archivedMonth = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= monthAgo; }).length;
+    var activeCount = vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
+
+    // Compliance scorecard
+    var tpCoverage = 0;
+    if (typeof tpState !== 'undefined' && typeof tpBuildFamilies === 'function') {
+        var families = tpBuildFamilies();
+        var totalReq = 0, totalTested = 0;
+        families.forEach(function(f) { totalReq += f.totalRequired; totalTested += f.totalTested; });
+        tpCoverage = totalReq > 0 ? Math.round((totalTested / totalReq) * 100) : 100;
+    }
+
+    // Cpk alerts
+    var cpkAlerts = typeof raCheckRollingCpk === 'function' ? raCheckRollingCpk() : [];
+
+    // Resource utilization
+    var gasUtilization = 'N/A';
+    if (typeof invState !== 'undefined' && invState.gases) {
+        var inUse = invState.gases.filter(function(g) { return g.status === 'In use'; });
+        var totalGas = invState.gases.length;
+        gasUtilization = totalGas > 0 ? Math.round((inUse.length / totalGas) * 100) + '%' : 'N/A';
+    }
+
+    var html = '';
+    html += '<div class="v7-exec-grid">';
+
+    // KPI Cards
+    html += '<div class="v7-exec-kpi"><div class="v7-exec-kpi-value">' + archivedToday + '</div><div class="v7-exec-kpi-label">Liberados Hoy</div></div>';
+    html += '<div class="v7-exec-kpi"><div class="v7-exec-kpi-value">' + archivedWeek + '</div><div class="v7-exec-kpi-label">Liberados Semana</div></div>';
+    html += '<div class="v7-exec-kpi"><div class="v7-exec-kpi-value">' + archivedMonth + '</div><div class="v7-exec-kpi-label">Liberados Mes</div></div>';
+    html += '<div class="v7-exec-kpi"><div class="v7-exec-kpi-value">' + activeCount + '</div><div class="v7-exec-kpi-label">En Proceso</div></div>';
+    html += '</div>';
+
+    // Compliance Scorecard
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Compliance Scorecard</span></div>';
+    html += '<div class="v7-exec-compliance">';
+    html += '<div class="v7-exec-metric"><span>Cobertura Plan de Pruebas</span>';
+    html += '<div class="v7-exec-bar"><div class="v7-exec-bar-fill" style="width:' + tpCoverage + '%;background:' + (tpCoverage >= 80 ? 'var(--success)' : tpCoverage >= 50 ? 'var(--warning)' : 'var(--danger)') + ';"></div></div>';
+    html += '<span class="v7-exec-pct">' + tpCoverage + '%</span></div>';
+
+    var cpkStatus = cpkAlerts.length === 0 ? '🟢 Todos Cpk >= 1.33' : '🔴 ' + cpkAlerts.length + ' metrica(s) con Cpk < 1.33';
+    html += '<div class="v7-exec-metric"><span>Capacidad de Proceso</span><span>' + cpkStatus + '</span></div>';
+    html += '<div class="v7-exec-metric"><span>Utilizacion de Gas</span><span>' + gasUtilization + '</span></div>';
+    html += '</div></div>';
+
+    // Cpk Alert Details
+    if (cpkAlerts.length > 0) {
+        html += '<div class="tp-card" style="border-left:3px solid var(--danger);">';
+        html += '<div class="tp-card-title"><span>⚠️ Alertas de Capacidad (Rolling Cpk)</span></div>';
+        cpkAlerts.forEach(function(a) {
+            var color = a.cpk < 1.0 ? 'var(--danger)' : 'var(--warning)';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">';
+            html += '<span>' + a.profile + ' / ' + a.metric + '</span>';
+            html += '<span style="font-weight:700;color:' + color + ';">Cpk ' + a.cpk.toFixed(2) + ' (n=' + a.n + ')</span>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // [V7-B3] Predictive Resource Planner
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Proyeccion de Recursos</span></div>';
+    if (typeof invState !== 'undefined' && invState.gases) {
+        var predictions = [];
+        invState.gases.filter(function(g) { return g.status === 'In use'; }).forEach(function(g) {
+            if (!g.readings || g.readings.length < 2) return;
+            // Calculate consumption rate from last readings
+            var recent = g.readings.slice(-5);
+            if (recent.length < 2) return;
+            var totalDrop = recent[0].psi - recent[recent.length - 1].psi;
+            var daySpan = (new Date(recent[recent.length - 1].date) - new Date(recent[0].date)) / 86400000;
+            if (daySpan <= 0) daySpan = 1;
+            var dailyRate = totalDrop / daySpan;
+            var currentPsi = recent[recent.length - 1].psi;
+            var daysLeft = dailyRate > 0 ? Math.round(currentPsi / dailyRate) : 999;
+            if (daysLeft < 30) {
+                predictions.push({
+                    formula: g.formula,
+                    controlNo: g.controlNo,
+                    daysLeft: daysLeft,
+                    currentPsi: currentPsi,
+                    dailyRate: dailyRate.toFixed(1)
+                });
+            }
+        });
+        if (predictions.length > 0) {
+            predictions.sort(function(a, b) { return a.daysLeft - b.daysLeft; });
+            predictions.forEach(function(p) {
+                var urgency = p.daysLeft < 7 ? 'var(--danger)' : p.daysLeft < 14 ? 'var(--warning)' : 'var(--info)';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">';
+                html += '<span>' + p.formula + ' #' + p.controlNo + '</span>';
+                html += '<span style="color:' + urgency + ';font-weight:600;">' + p.daysLeft + ' dias restantes (' + p.dailyRate + ' PSI/dia)</span>';
+                html += '</div>';
+            });
+        } else {
+            html += '<div style="color:var(--muted);padding:12px;text-align:center;">Sin alertas de agotamiento proximo</div>';
+        }
+    } else {
+        html += '<div style="color:var(--muted);padding:12px;text-align:center;">Inventario no disponible</div>';
+    }
+    html += '</div>';
+
+    // Team metrics
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Metricas por Operador</span></div>';
+    var opStats = {};
+    vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= weekAgo; }).forEach(function(v) {
+        var op = v.registeredBy || (v.testData && v.testData.testResponsible) || 'Desconocido';
+        if (!opStats[op]) opStats[op] = 0;
+        opStats[op]++;
+    });
+    var sortedOps = Object.keys(opStats).sort(function(a,b) { return opStats[b] - opStats[a]; });
+    if (sortedOps.length > 0) {
+        var maxOp = opStats[sortedOps[0]];
+        sortedOps.forEach(function(op) {
+            var pct = Math.round((opStats[op] / maxOp) * 100);
+            html += '<div style="margin-bottom:8px;">';
+            html += '<div style="display:flex;justify-content:space-between;font-size:var(--font-sm);margin-bottom:2px;"><span>' + op + '</span><span>' + opStats[op] + ' esta semana</span></div>';
+            html += '<div class="v7-exec-bar"><div class="v7-exec-bar-fill" style="width:' + pct + '%;background:var(--info);"></div></div>';
+            html += '</div>';
+        });
+    } else {
+        html += '<div style="color:var(--muted);text-align:center;padding:12px;">Sin datos esta semana</div>';
+    }
+    html += '</div>';
+
+    el.innerHTML = html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-B2] VEHICLE TURNAROUND ANALYTICS                               ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function pnRenderTurnaround(el) {
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var archived = vehicles.filter(function(v) { return v.status === 'archived' && v.timeline && v.timeline.length >= 2; });
+
+    if (archived.length === 0) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--muted);">No hay vehiculos archivados para analizar.</div>';
+        return;
+    }
+
+    // Calculate stage durations from timeline
+    var stageStats = { registration_to_precond: [], precond_to_soak: [], soak_to_test: [], test_to_release: [], total: [] };
+
+    archived.slice(-100).forEach(function(v) { // Last 100 vehicles
+        if (!v.timeline || v.timeline.length < 2) return;
+        var regTime = v.registeredAt ? new Date(v.registeredAt).getTime() : null;
+        var archTime = v.archivedAt ? new Date(v.archivedAt).getTime() : null;
+
+        if (regTime && archTime) {
+            var totalHrs = (archTime - regTime) / 3600000;
+            if (totalHrs > 0 && totalHrs < 720) stageStats.total.push(totalHrs); // Max 30 days
+        }
+
+        // Parse timeline for stage transitions
+        var stages = {};
+        v.timeline.forEach(function(t) {
+            var ts = new Date(t.timestamp).getTime();
+            if (t.data && t.data.status) {
+                if (!stages[t.data.status]) stages[t.data.status] = ts;
+            }
+        });
+
+        if (stages['registered'] && stages['in-progress']) {
+            var d = (stages['in-progress'] - stages['registered']) / 3600000;
+            if (d > 0 && d < 168) stageStats.registration_to_precond.push(d);
+        }
+        if (stages['in-progress'] && stages['testing']) {
+            var d2 = (stages['testing'] - stages['in-progress']) / 3600000;
+            if (d2 > 0 && d2 < 168) stageStats.precond_to_soak.push(d2);
+        }
+        if (stages['testing'] && stages['ready-release']) {
+            var d3 = (stages['ready-release'] - stages['testing']) / 3600000;
+            if (d3 > 0 && d3 < 168) stageStats.test_to_release.push(d3);
+        }
+    });
+
+    function avg(arr) { return arr.length > 0 ? (arr.reduce(function(s,v){return s+v;},0)/arr.length) : 0; }
+    function formatHrs(h) {
+        if (h < 1) return Math.round(h * 60) + ' min';
+        if (h < 24) return h.toFixed(1) + ' hrs';
+        return (h / 24).toFixed(1) + ' dias';
+    }
+
+    var html = '';
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Tiempo Promedio por Etapa</span></div>';
+    html += '<div style="font-size:var(--font-xs);color:var(--muted);margin-bottom:12px;">Basado en ultimos ' + Math.min(100, archived.length) + ' vehiculos archivados</div>';
+
+    var stages = [
+        { label: 'Registro → Precond', data: stageStats.registration_to_precond, color: '#3b82f6' },
+        { label: 'Precond → Prueba', data: stageStats.precond_to_soak, color: '#f59e0b' },
+        { label: 'Prueba → Liberacion', data: stageStats.test_to_release, color: '#10b981' },
+        { label: 'Total (Registro → Liberacion)', data: stageStats.total, color: '#8b5cf6' }
+    ];
+
+    var maxAvg = Math.max.apply(null, stages.map(function(s) { return avg(s.data); }).concat([1]));
+
+    stages.forEach(function(s) {
+        var a = avg(s.data);
+        var pct = Math.round((a / maxAvg) * 100);
+        html += '<div style="margin-bottom:12px;">';
+        html += '<div style="display:flex;justify-content:space-between;font-size:var(--font-sm);margin-bottom:4px;">';
+        html += '<span>' + s.label + '</span>';
+        html += '<span style="font-weight:700;">' + formatHrs(a) + ' <span style="color:var(--muted);font-weight:400;">(n=' + s.data.length + ')</span></span>';
+        html += '</div>';
+        html += '<div class="v7-exec-bar"><div class="v7-exec-bar-fill" style="width:' + pct + '%;background:' + s.color + ';"></div></div>';
+        html += '</div>';
+    });
+    html += '</div>';
+
+    // Throughput over time (daily counts for last 14 days)
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Throughput Diario (14 dias)</span></div>';
+    var dailyCounts = {};
+    for (var d = 13; d >= 0; d--) {
+        var dateStr = new Date(Date.now() - d * 86400000).toISOString().slice(0,10);
+        dailyCounts[dateStr] = 0;
+    }
+    archived.forEach(function(v) {
+        if (v.archivedAt) {
+            var ds = v.archivedAt.slice(0,10);
+            if (dailyCounts.hasOwnProperty(ds)) dailyCounts[ds]++;
+        }
+    });
+    var dates = Object.keys(dailyCounts).sort();
+    var counts = dates.map(function(d) { return dailyCounts[d]; });
+    var maxCount = Math.max.apply(null, counts.concat([1]));
+    html += '<div style="display:flex;align-items:flex-end;gap:4px;height:80px;padding:8px 0;">';
+    dates.forEach(function(d, i) {
+        var h = Math.max(4, Math.round((counts[i] / maxCount) * 70));
+        var dayLabel = d.slice(8,10);
+        html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;">';
+        html += '<div style="font-size:9px;font-weight:700;color:var(--text);margin-bottom:2px;">' + counts[i] + '</div>';
+        html += '<div style="width:100%;height:' + h + 'px;background:var(--info);border-radius:3px;"></div>';
+        html += '<div style="font-size:8px;color:var(--muted);margin-top:2px;">' + dayLabel + '</div>';
+        html += '</div>';
+    });
+    html += '</div></div>';
+
+    el.innerHTML = html;
 }

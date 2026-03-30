@@ -1676,6 +1676,31 @@ function invLogTestUsage(vehicle) {
 
     invState.usageLog.push(entry);
 
+    // [V7-A2] Auto-deduct estimated PSI from in-use cylinders
+    var PSI_PER_TEST = 50; // Estimated PSI consumed per test
+    inUseCylinders.forEach(function(g) {
+        if (g.readings && g.readings.length > 0) {
+            var lastReading = g.readings[g.readings.length - 1];
+            var currentPsi = lastReading.psi;
+            if (typeof currentPsi === 'number' && currentPsi > 0) {
+                var newPsi = Math.max(0, currentPsi - PSI_PER_TEST);
+                g.readings.push({
+                    date: date,
+                    psi: newPsi,
+                    note: 'Auto-deduccion por prueba VIN:' + (vehicle.vin || '').slice(-4),
+                    auto: true
+                });
+                // Alert if below 25%
+                var maxPsi = g.initialPsi || 2200;
+                var pct = (newPsi / maxPsi) * 100;
+                if (pct < 25 && pct >= 0) {
+                    showToast(g.formula + ' #' + g.controlNo + ' al ' + Math.round(pct) + '% - Considere reemplazo', 'warning');
+                    if (typeof emitEvent === 'function') emitEvent('inventory:lowGas', { gas: g, pct: pct });
+                }
+            }
+        }
+    });
+
     // Keep log manageable
     if (invState.usageLog.length > 3000) invState.usageLog = invState.usageLog.slice(-2000);
     invSave();

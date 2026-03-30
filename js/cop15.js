@@ -498,12 +498,16 @@ function initCascadeTree() {
 
         if (vinInput) {
             vinInput.addEventListener('input', function() {
+                // [V7-E4] VIN Smart Input: auto-uppercase, strip spaces/dashes
+                vinInput.value = vinInput.value.toUpperCase().replace(/[\s\-]/g, '');
                 validateField(vinInput, {
                     required: true,
                     exactLength: 17,
                     pattern: /^[A-HJ-NPR-Z0-9]{17}$/,
                     patternMsg: '17 caracteres alfanuméricos (sin I, O, Q)'
                 });
+                // [V7-E4] Check duplicates
+                if (vinInput.value.length === 17) v7CheckVinDuplicate(vinInput.value);
             });
             vinInput.addEventListener('blur', function() {
                 validateField(vinInput, {
@@ -870,6 +874,13 @@ setAltaDatetimeIfEmpty(true);
         closeModal('modalConfirm');
         showToast('Vehículo registrado exitosamente', 'success');
 
+        // [V7-E1] Track purpose usage
+        v7TrackPurposeUsage(newVehicle.purpose);
+        // [V7-E2] Track config usage
+        v7TrackConfigUsage(newVehicle.configCode, newVehicle.config);
+        // [V7-A1] Emit event
+        if (typeof emitEvent === 'function') emitEvent('vehicle:registered', { vehicle: newVehicle });
+
 setAltaDatetimeIfEmpty(true);
         
         // Reset
@@ -924,6 +935,12 @@ function loadVehicle() {
 
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
   if (!vehicle) return;
+
+  // [V7-C1] Save active vehicle context
+  if (typeof saveActiveVehicleContext === 'function') saveActiveVehicleContext(activeVehicleId);
+
+  // [V7-C2] Restore draft if exists
+  v7RestoreDraft(activeVehicleId);
 
   updateOperationBlocksByPurpose(vehicle.purpose);
   content.style.display = 'block';
@@ -1086,6 +1103,10 @@ function handleStatusChange(selectEl) {
   updateTestVerificationVisibility();
   if (typeof smartFormApplyByStatus === 'function') smartFormApplyByStatus(next);
   if (typeof smartFormUpdateBadges === 'function') smartFormUpdateBadges();
+  // [V7-A1] Emit status change event
+  if (typeof emitEvent === 'function') emitEvent('vehicle:statusChanged', { vehicleId: activeVehicleId, from: prev, to: next });
+  // [V7-D2] Update floating next step banner
+  if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
 }
 
 
@@ -2055,8 +2076,17 @@ function _renderUsedCylinders(vehicle) {
         // [R3-M7] Confetti celebration on successful release
         if (!isRetest && typeof showConfetti === 'function') showConfetti();
 
+        // [V7-A1] Emit event
+        if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: isRetest });
+
         document.getElementById('releaseVehSelect').value = '';
         document.getElementById('lib-content').style.display = 'none';
+
+        // [V7-D4] Post-Release Quick Actions
+        if (!isRetest) {
+            var vinShort = vehicle.vin ? '...' + vehicle.vin.slice(-4) : '';
+            v7ShowPostReleaseActions(vinShort);
+        }
 
         // Show flexible substitution modal if pending
         if (window._pendingSubstitution) {
@@ -4094,6 +4124,9 @@ function soakTimerTick() {
         setTimeout(function(){ document.title = _soakOrigTitle; soakUpdateBadge(false); }, 300000);
 
         showToast('SOAK COMPLETADO - El vehiculo esta listo para prueba.', 'success');
+
+        // [V7-D3] Show soak complete modal with action
+        v7ShowSoakCompleteModal();
         return;
     }
 
@@ -5042,3 +5075,542 @@ function cascadeCloseTooltip() {
     if (overlay) overlay.remove();
     if (popup) popup.remove();
 }
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-D1] NEXT STEP ENGINE — Guided Workflow                        ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function getNextStep(vehicle) {
+    if (!vehicle || vehicle.status === 'archived') return null;
+    var td = vehicle.testData || {};
+    var p = td.preconditioning || {};
+    var status = vehicle.status;
+
+    // Check soak status
+    var soakDone = false;
+    try {
+        var soakData = JSON.parse(localStorage.getItem('kia_soak_timer'));
+        if (soakData && soakData.endTime && soakData.endTime <= Date.now()) soakDone = true;
+        if (td.soakCompleted) soakDone = true;
+    } catch(e) {}
+    var soakStarted = false;
+    try {
+        var sd = JSON.parse(localStorage.getItem('kia_soak_timer'));
+        if (sd && sd.endTime) soakStarted = true;
+    } catch(e) {}
+
+    var precondComplete = p.ok === 'Si' && p.datetime && p.responsible;
+    var testStarted = td.testResponsible || td.testDatetime;
+    var tv = td.testVerification || {};
+    var testComplete = tv.tunnel && tv.dyno && tv.fanMode && td.testResponsible && td.testDatetime;
+
+    if (status === 'registered') {
+        return { action: 'Iniciar Precondicionamiento', goto: 'acc-precond', icon: '🔧' };
+    }
+    if (status === 'in-progress' && precondComplete && !soakStarted) {
+        return { action: 'Iniciar Soak Timer', goto: 'soak-section', icon: '⏱️' };
+    }
+    if (status === 'in-progress' && precondComplete && soakStarted && !soakDone) {
+        return { action: 'Soak en curso...', goto: 'soak-section', icon: '⏱️' };
+    }
+    if (status === 'in-progress' && soakDone && !testStarted) {
+        return { action: 'Iniciar Prueba de Emisiones', goto: 'acc-dyno', icon: '🏭' };
+    }
+    if (status === 'testing' && !testComplete) {
+        return { action: 'Completar Verificacion de Prueba', goto: 'acc-testverify', icon: '🏭' };
+    }
+    if (status === 'testing' && testComplete) {
+        return { action: 'Verificar y Liberar', goto: 'release-tab', icon: '✅' };
+    }
+    if (status === 'ready-release') {
+        return { action: 'Liberar Vehiculo', goto: 'release-action', icon: '🚗' };
+    }
+    return null;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-D3] SOAK COMPLETE MODAL                                        ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7ShowSoakCompleteModal() {
+    var soakVin = '';
+    try {
+        var sd = JSON.parse(localStorage.getItem('kia_soak_timer'));
+        if (sd && sd.vin) soakVin = sd.vin;
+    } catch(e) {}
+    if (!soakVin) {
+        // Try to find from active vehicle
+        if (activeVehicleId) {
+            var v = (db.vehicles || []).find(function(vv) { return vv.id == activeVehicleId; });
+            if (v) soakVin = v.vin ? '...' + v.vin.slice(-4) : '';
+        }
+    }
+
+    var overlay = document.createElement('div');
+    overlay.className = 'cascade-tooltip-overlay';
+    overlay.id = 'v7-soak-modal-overlay';
+    overlay.onclick = function() { v7CloseSoakModal(); };
+
+    var modal = document.createElement('div');
+    modal.className = 'v7-soak-modal';
+    modal.id = 'v7-soak-modal';
+    modal.innerHTML =
+        '<div class="v7-soak-modal-icon">⏱️</div>' +
+        '<div class="v7-soak-modal-title">Soak Completado!</div>' +
+        '<div class="v7-soak-modal-text">VIN ' + soakVin + ' esta listo para prueba.</div>' +
+        '<div class="v7-soak-modal-actions">' +
+        '<button class="btn btn-primary" onclick="v7GoToTestForm()">Ir a Formulario de Prueba</button>' +
+        '<button class="btn btn-ghost" onclick="v7CloseSoakModal()">Despues</button>' +
+        '</div>';
+    document.body.appendChild(overlay);
+    document.body.appendChild(modal);
+    setTimeout(function() { modal.classList.add('show'); }, 50);
+}
+
+function v7CloseSoakModal() {
+    var overlay = document.getElementById('v7-soak-modal-overlay');
+    var modal = document.getElementById('v7-soak-modal');
+    if (modal) modal.classList.remove('show');
+    setTimeout(function() {
+        if (overlay) overlay.remove();
+        if (modal) modal.remove();
+    }, 300);
+}
+
+function v7GoToTestForm() {
+    v7CloseSoakModal();
+    if (activeVehicleId) {
+        var acc = document.getElementById('acc-dyno');
+        if (acc) {
+            if (acc.tagName === 'DETAILS') acc.open = true;
+            acc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(function() {
+                var firstInput = acc.querySelector('input,select');
+                if (firstInput) firstInput.focus();
+            }, 400);
+        }
+    }
+}
+
+function v7CheckExpiredSoak() {
+    try {
+        var sd = JSON.parse(localStorage.getItem('kia_soak_timer'));
+        if (sd && sd.endTime && sd.endTime <= Date.now() && !sd._v7notified) {
+            sd._v7notified = true;
+            localStorage.setItem('kia_soak_timer', JSON.stringify(sd));
+            setTimeout(function() { v7ShowSoakCompleteModal(); }, 1000);
+        }
+    } catch(e) {}
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-D4] POST-RELEASE QUICK ACTIONS                                 ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7ShowPostReleaseActions(vinShort) {
+    var existing = document.getElementById('v7-post-release');
+    if (existing) existing.remove();
+
+    var bar = document.createElement('div');
+    bar.className = 'v7-post-release show';
+    bar.id = 'v7-post-release';
+    bar.innerHTML =
+        '<div class="v7-post-release-text">✅ VIN ' + vinShort + ' liberado exitosamente.</div>' +
+        '<div class="v7-post-release-actions">' +
+        '<button class="btn btn-sm btn-primary" onclick="v7PostReleaseRegisterAnother()">Registrar Otro</button>' +
+        '<button class="btn btn-sm btn-ghost" onclick="switchPlatform(\'testplan\');v7ClosePostRelease();">Ver en Plan</button>' +
+        '<button class="btn btn-sm btn-ghost" onclick="switchPlatform(\'today\');v7ClosePostRelease();">Ir a Dashboard</button>' +
+        '</div>';
+    document.body.appendChild(bar);
+    setTimeout(function() { bar.classList.add('visible'); }, 50);
+    // Auto dismiss after 15s
+    setTimeout(function() { v7ClosePostRelease(); }, 15000);
+}
+
+function v7ClosePostRelease() {
+    var el = document.getElementById('v7-post-release');
+    if (el) { el.classList.remove('visible'); setTimeout(function() { el.remove(); }, 300); }
+}
+
+function v7PostReleaseRegisterAnother() {
+    v7ClosePostRelease();
+    var tabEl = document.querySelector('.tab[data-tab="alta"]');
+    if (tabEl) tabEl.click();
+    setTimeout(function() {
+        var purposeEl = document.getElementById('vehiclePurpose');
+        if (purposeEl) purposeEl.focus();
+    }, 300);
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-C2] PER-FIELD AUTO-SAVE DRAFT                                  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7SaveDraft(vehicleId) {
+    if (!vehicleId) return;
+    var fields = {};
+    var formFields = document.querySelectorAll('#op-content input, #op-content select, #op-content textarea');
+    formFields.forEach(function(f) {
+        if (f.id && f.value) fields[f.id] = f.value;
+    });
+    if (Object.keys(fields).length === 0) return;
+    try {
+        localStorage.setItem('kia_cop15_draft_' + vehicleId, JSON.stringify({ fields: fields, ts: Date.now() }));
+    } catch(e) {}
+}
+
+function v7RestoreDraft(vehicleId) {
+    if (!vehicleId) return;
+    try {
+        var raw = localStorage.getItem('kia_cop15_draft_' + vehicleId);
+        if (!raw) return;
+        var draft = JSON.parse(raw);
+        if (!draft || !draft.fields) return;
+        // Only restore if less than 24h old
+        if (Date.now() - draft.ts > 86400000) {
+            localStorage.removeItem('kia_cop15_draft_' + vehicleId);
+            return;
+        }
+        var restored = 0;
+        Object.keys(draft.fields).forEach(function(fid) {
+            var el = document.getElementById(fid);
+            if (el && !el.value && draft.fields[fid]) {
+                el.value = draft.fields[fid];
+                restored++;
+            }
+        });
+        if (restored > 0) {
+            var banner = document.createElement('div');
+            banner.className = 'v7-draft-banner';
+            banner.innerHTML = 'Se restauraron ' + restored + ' campos guardados ' +
+                '<button class="btn btn-sm btn-ghost" onclick="v7DiscardDraft(' + vehicleId + ');this.parentElement.remove();">Descartar</button>';
+            var opContent = document.getElementById('op-content');
+            if (opContent) opContent.insertBefore(banner, opContent.firstChild);
+            // Auto-dismiss after 8s
+            setTimeout(function() { if (banner.parentNode) banner.remove(); }, 8000);
+        }
+    } catch(e) { console.warn('v7RestoreDraft error:', e); }
+}
+
+function v7DiscardDraft(vehicleId) {
+    localStorage.removeItem('kia_cop15_draft_' + vehicleId);
+    // Reload to clear restored fields
+    if (typeof loadVehicle === 'function') loadVehicle();
+}
+
+// Hook: auto-save draft on focusout (piggyback on existing unsaved tracking)
+(function() {
+    document.addEventListener('focusout', function(e) {
+        if (activeVehicleId && e.target.closest && e.target.closest('#op-content')) {
+            v7SaveDraft(activeVehicleId);
+        }
+    }, true);
+})();
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-E1] QUICK-PICK PURPOSE                                         ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7TrackPurposeUsage(purpose) {
+    if (!purpose) return;
+    try {
+        var history = JSON.parse(localStorage.getItem('kia_purpose_history') || '[]');
+        // Move to front
+        history = history.filter(function(p) { return p !== purpose; });
+        history.unshift(purpose);
+        if (history.length > 5) history = history.slice(0, 5);
+        localStorage.setItem('kia_purpose_history', JSON.stringify(history));
+    } catch(e) {}
+}
+
+function v7RenderQuickPicks() {
+    var container = document.getElementById('v7-quick-picks');
+    if (!container) return;
+    try {
+        var history = JSON.parse(localStorage.getItem('kia_purpose_history') || '[]');
+        if (history.length === 0) { container.style.display = 'none'; return; }
+        container.style.display = 'flex';
+        container.innerHTML = '';
+        history.slice(0, 3).forEach(function(p) {
+            var chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'v7-quick-chip';
+            chip.textContent = p;
+            chip.onclick = function() {
+                var sel = document.getElementById('vehiclePurpose');
+                if (sel) {
+                    sel.value = p;
+                    sel.dispatchEvent(new Event('change'));
+                }
+            };
+            container.appendChild(chip);
+        });
+    } catch(e) {}
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-E2] SMART CONFIG SUGGESTION + [V7-E3] FAVORITES                ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7TrackConfigUsage(configCode, config) {
+    if (!configCode || configCode === 'MANUAL') return;
+    try {
+        var ranking = JSON.parse(localStorage.getItem('kia_config_ranking') || '{}');
+        if (!ranking[configCode]) ranking[configCode] = { count: 0, config: config, label: configCode };
+        ranking[configCode].count++;
+        ranking[configCode].config = config;
+        localStorage.setItem('kia_config_ranking', JSON.stringify(ranking));
+    } catch(e) {}
+}
+
+function v7RenderSmartConfigs() {
+    var container = document.getElementById('v7-smart-configs');
+    if (!container) return;
+    try {
+        var ranking = JSON.parse(localStorage.getItem('kia_config_ranking') || '{}');
+        var sorted = Object.keys(ranking).map(function(k) { return ranking[k]; })
+            .sort(function(a, b) { return b.count - a.count; });
+        if (sorted.length === 0) { container.style.display = 'none'; return; }
+        container.style.display = 'block';
+        var html = '<div class="v7-smart-configs-title">Configuraciones frecuentes:</div><div class="v7-smart-configs-list">';
+        sorted.slice(0, 5).forEach(function(item) {
+            var label = item.label;
+            if (label.length > 35) label = label.substring(0, 35) + '...';
+            html += '<button type="button" class="v7-config-chip" onclick="v7ApplySmartConfig(\'' + _escapeHtml(item.label) + '\')">' +
+                label + ' <span class="v7-config-count">(' + item.count + ')</span></button>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    } catch(e) {}
+}
+
+function _escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function v7ApplySmartConfig(configCode) {
+    // Find matching configuration and auto-fill cascade
+    var match = allConfigurations.find(function(c) { return c.codigo_config_text === configCode; });
+    if (!match) { showToast('Configuracion no encontrada en catálogo', 'warning'); return; }
+    // Reset and apply all filters
+    currentFilters = {};
+    Object.keys(fieldMapping).forEach(function(csvField) {
+        if (match[csvField]) {
+            currentFilters[csvField] = match[csvField];
+            var sel = document.getElementById(fieldMapping[csvField]);
+            if (sel) { sel.value = match[csvField]; sel.classList.add('selected'); }
+        }
+    });
+    var filtered = allConfigurations.filter(function(c) {
+        for (var f in currentFilters) { if (c[f] !== currentFilters[f]) return false; }
+        return true;
+    });
+    updateSelectOptions(filtered);
+    document.getElementById('configCount').textContent = filtered.length;
+    displayConfigResult(filtered);
+    showToast('Configuracion aplicada: ' + configCode, 'success');
+}
+
+function v7RenderFavorites() {
+    var container = document.getElementById('v7-favorites');
+    if (!container) return;
+    try {
+        var favs = JSON.parse(localStorage.getItem('kia_config_favorites') || '[]');
+        var ranking = JSON.parse(localStorage.getItem('kia_config_ranking') || '{}');
+        // Auto-detect favorites from ranking (top 3 with 3+ uses)
+        if (favs.length === 0) {
+            var sorted = Object.keys(ranking).map(function(k) { return ranking[k]; })
+                .filter(function(item) { return item.count >= 3; })
+                .sort(function(a, b) { return b.count - a.count; });
+            favs = sorted.slice(0, 3).map(function(item) { return item.label; });
+        }
+        if (favs.length === 0) { container.style.display = 'none'; return; }
+        container.style.display = 'block';
+        var html = '<div class="v7-favorites-title">Favoritos</div><div class="v7-favorites-list">';
+        favs.forEach(function(code) {
+            var count = ranking[code] ? ranking[code].count : 0;
+            var label = code.length > 40 ? code.substring(0, 40) + '...' : code;
+            html += '<button type="button" class="v7-fav-chip" onclick="v7ApplySmartConfig(\'' + _escapeHtml(code) + '\')">' +
+                '⭐ ' + label + (count ? ' (' + count + ' usos)' : '') + '</button>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    } catch(e) {}
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-E4] VIN SMART INPUT                                            ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7CheckVinDuplicate(vin) {
+    if (!vin || vin.length < 17) return;
+    var hint = document.getElementById('v7-vin-hint');
+    // Check active vehicles
+    var active = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status !== 'archived'; });
+    if (active) {
+        if (!hint) hint = _v7CreateVinHint();
+        hint.innerHTML = '⚠️ VIN ya registrado <button class="btn btn-sm btn-ghost" onclick="v7GoToVehicle(' + active.id + ')">Ver vehiculo</button>';
+        hint.className = 'v7-vin-hint warning';
+        return;
+    }
+    // Check archived
+    var archived = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status === 'archived'; });
+    if (archived) {
+        if (!hint) hint = _v7CreateVinHint();
+        hint.innerHTML = 'Re-test de VIN anterior? <button class="btn btn-sm btn-ghost" onclick="v7CopyArchivedConfig(\'' + vin + '\')">Copiar config</button>';
+        hint.className = 'v7-vin-hint info';
+        return;
+    }
+    if (hint) hint.style.display = 'none';
+}
+
+function _v7CreateVinHint() {
+    var existing = document.getElementById('v7-vin-hint');
+    if (existing) { existing.style.display = ''; return existing; }
+    var hint = document.createElement('div');
+    hint.id = 'v7-vin-hint';
+    hint.className = 'v7-vin-hint';
+    var vinInput = document.getElementById('vin');
+    if (vinInput && vinInput.parentNode) vinInput.parentNode.appendChild(hint);
+    return hint;
+}
+
+function v7CopyArchivedConfig(vin) {
+    var archived = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status === 'archived'; });
+    if (!archived || !archived.configCode || archived.configCode === 'MANUAL') return;
+    v7ApplySmartConfig(archived.configCode);
+    showToast('Configuracion copiada del vehiculo anterior', 'success');
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-E5] BATCH RELEASE                                              ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7RenderBatchRelease() {
+    var container = document.getElementById('v7-batch-release');
+    if (!container) return;
+    var ready = (db.vehicles || []).filter(function(v) { return v.status === 'ready-release'; });
+    if (ready.length < 2) { container.style.display = 'none'; return; }
+    container.style.display = 'block';
+    container.innerHTML = '<button class="btn btn-primary" onclick="v7BatchRelease()" style="width:100%;">' +
+        'Liberar Todos los Listos (' + ready.length + ' vehiculos)</button>';
+}
+
+function v7BatchRelease() {
+    var ready = (db.vehicles || []).filter(function(v) { return v.status === 'ready-release'; });
+    if (ready.length === 0) { showToast('No hay vehiculos listos', 'info'); return; }
+
+    if (typeof undoPush === 'function') undoPush('cop15', 'Batch Release de ' + ready.length + ' vehiculos');
+
+    var count = 0;
+    var errors = 0;
+    ready.forEach(function(vehicle) {
+        try {
+            vehicle.status = 'archived';
+            vehicle.archivedAt = new Date().toISOString();
+            vehicle.timeline.push({
+                timestamp: new Date().toISOString(),
+                user: 'Sistema',
+                action: 'Vehiculo Liberado (Batch Release)',
+                data: { status: 'archived' }
+            });
+            if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
+            if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle);
+            if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle);
+            if (typeof tpAutoMarkWeeklyCompletion === 'function') tpAutoMarkWeeklyCompletion(vehicle.configCode);
+            count++;
+        } catch(e) {
+            errors++;
+            console.error('Batch release error for VIN ' + vehicle.vin + ':', e);
+        }
+    });
+
+    saveDB();
+    refreshAllLists();
+    updateProgressBar();
+    if (typeof emitEvent === 'function') emitEvent('vehicle:released', { batch: true, count: count });
+
+    showToast('✅ Liberados ' + count + ' vehiculos' + (errors > 0 ? ' (' + errors + ' errores)' : ''), count > 0 ? 'success' : 'error');
+    if (count > 0 && typeof animateConfetti === 'function') animateConfetti();
+    v7RenderBatchRelease();
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7-E6] ONE-TAP PRECOND FIELDS                                     ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v7RenderOneTapPrecond() {
+    if (!activeVehicleId) return;
+    var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || !vehicle.configCode) return;
+
+    // Calculate most frequent values from archived vehicles with same configCode
+    var archived = (db.vehicles || []).filter(function(v) {
+        return v.status === 'archived' && v.configCode === vehicle.configCode && v.testData && v.testData.preconditioning;
+    });
+    if (archived.length < 2) return;
+
+    var freqMap = {};
+    var fieldsToCheck = ['tire_pressure_front', 'tire_pressure_rear', 'fuel_type', 'precond_cycle'];
+    fieldsToCheck.forEach(function(fid) {
+        freqMap[fid] = {};
+        archived.forEach(function(v) {
+            var val = v.testData.preconditioning[fid];
+            if (val) {
+                freqMap[fid][val] = (freqMap[fid][val] || 0) + 1;
+            }
+        });
+    });
+
+    fieldsToCheck.forEach(function(fid) {
+        var el = document.getElementById(fid);
+        if (!el || el.value) return; // Don't override existing values
+        var freqs = freqMap[fid];
+        var topVal = null;
+        var topCount = 0;
+        Object.keys(freqs).forEach(function(val) {
+            if (freqs[val] > topCount) { topCount = freqs[val]; topVal = val; }
+        });
+        if (!topVal || topCount < 2) return;
+
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'v7-onetap-chip';
+        chip.textContent = topVal + ' ⭐';
+        chip.onclick = function() {
+            el.value = topVal;
+            el.dispatchEvent(new Event('change'));
+            chip.remove();
+        };
+        if (el.parentNode) el.parentNode.insertBefore(chip, el.nextSibling);
+    });
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7] INITIALIZATION HOOKS                                           ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+// Render V7 widgets when COP15 Alta tab loads
+(function() {
+    var origSwitch = window._switchToCop15Tab;
+    // Hook into tab switches to render V7 widgets
+    document.addEventListener('click', function(e) {
+        var tab = e.target.closest('.tab[data-tab]');
+        if (!tab) return;
+        var tabName = tab.dataset.tab;
+        setTimeout(function() {
+            if (tabName === 'alta') {
+                v7RenderQuickPicks();
+                v7RenderSmartConfigs();
+                v7RenderFavorites();
+            }
+            if (tabName === 'seguimiento') {
+                v7RenderOneTapPrecond();
+                if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
+            }
+            if (tabName === 'liberacion') {
+                v7RenderBatchRelease();
+            }
+        }, 100);
+    });
+})();
