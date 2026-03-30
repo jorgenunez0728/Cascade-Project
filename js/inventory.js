@@ -139,7 +139,7 @@ function _invGetRenderer(tabId) {
     if (tabId === 'inv-readings') return invRenderReadings;
     if (tabId === 'inv-predict') return invRenderPredict;
     if (tabId === 'inv-fuel') return invRenderFuel;
-    if (tabId === 'inv-zonemap') return invRenderZoneMap;
+    if (tabId === 'inv-zonemap') return invRenderFloorPlan;
     if (tabId === 'inv-charts') return invRenderCharts;
     if (tabId === 'inv-config') return invRenderConfig;
     if (tabId === 'inv-report') return invRenderReport;
@@ -2214,7 +2214,462 @@ function invExportReport() {
 // ══════════════════════════════════════════════════
 // ZONE VISUAL MAP
 // ══════════════════════════════════════════════════
-function invRenderZoneMap(el) {
+// ══════════════════════════════════════════════════
+// SVG FLOOR PLAN — Interactive Zone Map
+// ══════════════════════════════════════════════════
+
+var _invFloorPlanEditMode = false;
+var _invFloorPlanDrag = { active: false, zoneId: null, offsetX: 0, offsetY: 0, resizing: false, handle: '' };
+var _invCylTooltipEl = null;
+
+function _invDefaultZoneLayout(zones) {
+    var layout = {};
+    var cols = 3;
+    var padX = 40, padY = 30;
+    var gapX = 20, gapY = 20;
+    var zoneW = 200, zoneH = 180;
+    zones.forEach(function(z, i) {
+        var col = i % cols;
+        var row = Math.floor(i / cols);
+        layout[z.id] = {
+            x: padX + col * (zoneW + gapX),
+            y: padY + row * (zoneH + gapY),
+            w: zoneW,
+            h: zoneH
+        };
+    });
+    return layout;
+}
+
+function _invEnsureZoneLayout() {
+    if (!invState.zoneLayout) {
+        invState.zoneLayout = _invDefaultZoneLayout(invState.zones);
+    }
+    // Ensure all zones have layout entries
+    invState.zones.forEach(function(z) {
+        if (!invState.zoneLayout[z.id]) {
+            var existing = Object.keys(invState.zoneLayout);
+            var maxY = 30;
+            existing.forEach(function(k) {
+                var bottom = invState.zoneLayout[k].y + invState.zoneLayout[k].h;
+                if (bottom > maxY) maxY = bottom;
+            });
+            invState.zoneLayout[z.id] = { x: 40, y: maxY + 20, w: 200, h: 180 };
+        }
+    });
+}
+
+function _invCalcViewBox() {
+    _invEnsureZoneLayout();
+    var maxX = 0, maxY = 0;
+    invState.zones.forEach(function(z) {
+        var lay = invState.zoneLayout[z.id];
+        if (!lay) return;
+        var right = lay.x + lay.w + 40;
+        var bottom = lay.y + lay.h + 40;
+        if (right > maxX) maxX = right;
+        if (bottom > maxY) maxY = bottom;
+    });
+    return '0 0 ' + Math.max(maxX, 400) + ' ' + Math.max(maxY, 300);
+}
+
+function _invCylColor(gas) {
+    var expiry = invGasExpiry(gas);
+    if (expiry.status === 'expired') return 'expired';
+    var lvl = invGasLevel(gas);
+    if (lvl.pct > 50) return 'ok';
+    if (lvl.pct > 25) return 'mid';
+    return 'low';
+}
+
+function _invCylFillColor(status) {
+    if (status === 'ok') return '#10b981';
+    if (status === 'mid') return '#f59e0b';
+    if (status === 'low') return '#ef4444';
+    if (status === 'expired') return '#ef4444';
+    return 'none';
+}
+
+function invRenderFloorPlan(el) {
+    _invEnsureZoneLayout();
+    var gases = invState.gases;
+    var viewBox = _invCalcViewBox();
+    var vbParts = viewBox.split(' ');
+    var svgW = parseInt(vbParts[2], 10);
+    var svgH = parseInt(vbParts[3], 10);
+
+    var html = '<div class="inv-floorplan-container">';
+
+    // Toolbar
+    html += '<div class="inv-floorplan-toolbar">';
+    if (_invUndoStack.length > 0) {
+        html += '<button onclick="invUndoLastMove()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;">↶ Deshacer (' + _invUndoStack.length + ')</button>';
+    }
+    html += '<button onclick="_invToggleFloorPlanEdit()" class="tp-btn ' + (_invFloorPlanEditMode ? 'tp-btn-warn' : 'tp-btn-ghost') + '" style="font-size:10px;padding:4px 10px;">' +
+        (_invFloorPlanEditMode ? '✓ Guardar' : '✎ Editar Mapa') + '</button>';
+    if (_invFloorPlanEditMode) {
+        html += '<button onclick="_invResetZoneLayout()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;">↻ Reset</button>';
+    }
+    html += '<button onclick="_invZoomToFit()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;">⊞ Ajustar</button>';
+    html += '<button onclick="_invToggleLegend()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;">◉ Leyenda</button>';
+    html += '</div>';
+
+    // SVG
+    html += '<svg class="inv-floorplan-svg" id="inv-floorplan-svg" viewBox="' + viewBox + '" preserveAspectRatio="xMidYMid meet">';
+
+    // Defs: grid pattern, cross-hatch for expired
+    html += '<defs>';
+    html += '<pattern id="inv-grid-pattern" width="20" height="20" patternUnits="userSpaceOnUse">';
+    html += '<path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e2e8f0" stroke-width="0.5"/>';
+    html += '</pattern>';
+    html += '<pattern id="inv-cross-pattern" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">';
+    html += '<line x1="0" y1="0" x2="0" y2="6" stroke="#ef4444" stroke-width="1.5"/>';
+    html += '</pattern>';
+    html += '</defs>';
+
+    // Background grid
+    html += '<rect width="' + svgW + '" height="' + svgH + '" fill="url(#inv-grid-pattern)"/>';
+
+    // Render each zone
+    invState.zones.forEach(function(z) {
+        var lay = invState.zoneLayout[z.id];
+        if (!lay) return;
+        var zGases = gases.filter(function(g) { return g.zone && g.zone.startsWith(z.id); });
+        var capPct = z.slots > 0 ? Math.round((zGases.length / z.slots) * 100) : 0;
+        var capColor = capPct > 80 ? '#ef4444' : capPct > 50 ? '#f59e0b' : '#10b981';
+
+        // Zone group
+        html += '<g class="inv-zone-group" data-zone-id="' + z.id + '">';
+
+        // Zone rectangle
+        var editClass = _invFloorPlanEditMode ? ' editing' : '';
+        html += '<rect class="inv-zone-shape' + editClass + '" x="' + lay.x + '" y="' + lay.y + '" width="' + lay.w + '" height="' + lay.h + '" rx="8" ry="8" ' +
+            'fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"' +
+            (_invFloorPlanEditMode ? ' stroke-dasharray="6 3"' : '') +
+            ' data-zone-id="' + z.id + '"/>';
+
+        // Zone label
+        html += '<text class="inv-zone-label" x="' + (lay.x + 10) + '" y="' + (lay.y + 18) + '" font-size="13" font-weight="800" fill="#1e293b">' +
+            z.id + ' — ' + z.label + '</text>';
+
+        // Zone sublabel
+        html += '<text class="inv-zone-sublabel" x="' + (lay.x + 10) + '" y="' + (lay.y + 32) + '" font-size="9" fill="' + capColor + '">' +
+            zGases.length + '/' + z.slots + ' (' + capPct + '%) — ' + z.type + '</text>';
+
+        // Cylinder grid inside zone
+        var cylRadius = 12;
+        var cylGap = 6;
+        var cylDiam = cylRadius * 2 + cylGap;
+        var startX = lay.x + 14;
+        var startY = lay.y + 46;
+        var maxCols = Math.max(1, Math.floor((lay.w - 28) / cylDiam));
+
+        for (var s = 1; s <= z.slots; s++) {
+            var code = z.id + (s < 10 ? '0' : '') + s;
+            var col = (s - 1) % maxCols;
+            var row = Math.floor((s - 1) / maxCols);
+            var cx = startX + col * cylDiam + cylRadius;
+            var cy = startY + row * cylDiam + cylRadius;
+            var slotGas = zGases.find(function(g) { return g.zone === code; });
+
+            if (slotGas) {
+                var cylStatus = _invCylColor(slotGas);
+                var fillColor = _invCylFillColor(cylStatus);
+                var lvl = invGasLevel(slotGas);
+                var cssClass = 'inv-cylinder cyl-' + cylStatus;
+
+                html += '<g class="' + cssClass + '" data-zone-code="' + code + '" data-gas-id="' + slotGas.id + '" ' +
+                    'data-tooltip-formula="' + _invEscAttr(slotGas.formula) + '" ' +
+                    'data-tooltip-conc="' + _invEscAttr(slotGas.concNominal || '') + '" ' +
+                    'data-tooltip-level="' + lvl.pct + '%" ' +
+                    'style="cursor:pointer;">';
+                html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="' + fillColor + '" stroke="' + fillColor + '" stroke-width="1.5" opacity="0.9"/>';
+
+                if (cylStatus === 'expired') {
+                    html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="url(#inv-cross-pattern)" stroke="#ef4444" stroke-width="1.5"/>';
+                }
+
+                // Formula label inside cylinder
+                var shortLabel = slotGas.formula.split('/')[0];
+                if (shortLabel.length > 4) shortLabel = shortLabel.substring(0, 4);
+                html += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" font-size="7" font-weight="700" fill="#fff" pointer-events="none">' + shortLabel + '</text>';
+
+                html += '</g>';
+            } else {
+                // Empty slot — dashed circle
+                html += '<g class="inv-cylinder cyl-empty" data-zone-code="' + code + '" style="cursor:pointer;">';
+                html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 2"/>';
+                html += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" font-size="6" fill="#94a3b8" pointer-events="none">' + s + '</text>';
+                html += '</g>';
+            }
+        }
+
+        // Resize handles in edit mode
+        if (_invFloorPlanEditMode) {
+            var handles = [
+                { hx: lay.x + lay.w, hy: lay.y + lay.h, cursor: 'nwse-resize', handle: 'se' },
+                { hx: lay.x + lay.w, hy: lay.y, cursor: 'nesw-resize', handle: 'ne' },
+                { hx: lay.x, hy: lay.y + lay.h, cursor: 'nesw-resize', handle: 'sw' }
+            ];
+            handles.forEach(function(h) {
+                html += '<rect class="inv-resize-handle" x="' + (h.hx - 5) + '" y="' + (h.hy - 5) + '" width="10" height="10" rx="2" ' +
+                    'fill="#3b82f6" stroke="#fff" stroke-width="1" style="cursor:' + h.cursor + ';" ' +
+                    'data-zone-id="' + z.id + '" data-handle="' + h.handle + '"/>';
+            });
+        }
+
+        html += '</g>';
+    });
+
+    html += '</svg>';
+
+    // Tooltip element (hidden by default)
+    html += '<div class="inv-cylinder-tooltip" id="inv-cyl-tooltip" style="display:none;">';
+    html += '<div class="cyl-formula"></div>';
+    html += '<div class="cyl-detail"></div>';
+    html += '<div class="cyl-level-bar"><div class="cyl-level-fill"></div></div>';
+    html += '</div>';
+
+    // Legend (hidden by default)
+    html += '<div class="inv-map-legend" id="inv-map-legend" style="display:none;">';
+    html += '<div class="inv-map-legend-item"><span class="inv-map-legend-dot" style="background:#10b981;"></span> &gt;50%</div>';
+    html += '<div class="inv-map-legend-item"><span class="inv-map-legend-dot" style="background:#f59e0b;"></span> 25-50%</div>';
+    html += '<div class="inv-map-legend-item"><span class="inv-map-legend-dot" style="background:#ef4444;"></span> &lt;25%</div>';
+    html += '<div class="inv-map-legend-item"><span class="inv-map-legend-dot" style="background:none;border:1px dashed #94a3b8;"></span> Vacio</div>';
+    html += '<div class="inv-map-legend-item"><span class="inv-map-legend-dot" style="background:#ef4444;background-image:repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(255,255,255,0.5) 2px,rgba(255,255,255,0.5) 4px);"></span> Vencido</div>';
+    html += '</div>';
+
+    // Compass
+    html += '<div class="inv-map-compass">N</div>';
+
+    html += '</div>';
+
+    el.innerHTML = html;
+
+    // Attach interaction handlers
+    _invFloorPlanBindCylinders(el);
+    if (_invFloorPlanEditMode) {
+        _invFloorPlanBindEditDrag(el);
+    }
+}
+
+function _invEscAttr(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function _invToggleFloorPlanEdit() {
+    if (_invFloorPlanEditMode) {
+        // Saving — persist layout
+        _invFloorPlanEditMode = false;
+        invSave();
+        showToast('Mapa guardado', 'success');
+    } else {
+        _invFloorPlanEditMode = true;
+    }
+    invRender();
+}
+
+function _invResetZoneLayout() {
+    invState.zoneLayout = _invDefaultZoneLayout(invState.zones);
+    invSave();
+    invRender();
+    showToast('Layout restaurado', 'info');
+}
+
+function _invZoomToFit() {
+    var svg = document.getElementById('inv-floorplan-svg');
+    if (!svg) return;
+    svg.setAttribute('viewBox', _invCalcViewBox());
+}
+
+function _invToggleLegend() {
+    var legend = document.getElementById('inv-map-legend');
+    if (!legend) return;
+    legend.style.display = legend.style.display === 'none' ? 'flex' : 'none';
+}
+
+function _invFloorPlanBindCylinders(container) {
+    var svg = container.querySelector('.inv-floorplan-svg');
+    if (!svg) return;
+
+    var cylinders = svg.querySelectorAll('.inv-cylinder');
+    var tooltip = document.getElementById('inv-cyl-tooltip');
+
+    function showTooltipAt(cylEl, clientX, clientY) {
+        if (!tooltip) return;
+        var formula = cylEl.getAttribute('data-tooltip-formula');
+        var conc = cylEl.getAttribute('data-tooltip-conc');
+        var level = cylEl.getAttribute('data-tooltip-level');
+        if (!formula) { tooltip.style.display = 'none'; return; }
+
+        tooltip.querySelector('.cyl-formula').textContent = formula;
+        tooltip.querySelector('.cyl-detail').textContent = (conc ? conc + ' — ' : '') + level;
+        var fillBar = tooltip.querySelector('.cyl-level-fill');
+        var pct = parseInt(level, 10) || 0;
+        fillBar.style.width = pct + '%';
+        fillBar.style.background = pct > 50 ? '#10b981' : pct > 25 ? '#f59e0b' : '#ef4444';
+
+        tooltip.style.display = 'block';
+        // Position near cursor
+        var contRect = container.getBoundingClientRect();
+        var tx = clientX - contRect.left + 12;
+        var ty = clientY - contRect.top - 40;
+        if (tx + 150 > contRect.width) tx = clientX - contRect.left - 160;
+        if (ty < 0) ty = clientY - contRect.top + 16;
+        tooltip.style.left = tx + 'px';
+        tooltip.style.top = ty + 'px';
+    }
+
+    function hideTooltip() {
+        if (tooltip) tooltip.style.display = 'none';
+    }
+
+    cylinders.forEach(function(cyl) {
+        // Hover tooltip (mouse)
+        cyl.addEventListener('mouseenter', function(e) {
+            showTooltipAt(cyl, e.clientX, e.clientY);
+        });
+        cyl.addEventListener('mousemove', function(e) {
+            showTooltipAt(cyl, e.clientX, e.clientY);
+        });
+        cyl.addEventListener('mouseleave', function() {
+            hideTooltip();
+        });
+
+        // Touch: show tooltip briefly, then open detail on tap
+        cyl.addEventListener('touchstart', function(e) {
+            if (_invFloorPlanEditMode) return;
+            var touch = e.touches[0];
+            showTooltipAt(cyl, touch.clientX, touch.clientY);
+        }, { passive: true });
+
+        // Click/tap to show detail
+        cyl.addEventListener('click', function(e) {
+            if (_invFloorPlanEditMode) return;
+            hideTooltip();
+            var code = cyl.getAttribute('data-zone-code');
+            if (code) invShowZoneSlotDetail(code);
+        });
+    });
+
+    // Hide tooltip when touching outside
+    container.addEventListener('touchend', function() {
+        setTimeout(hideTooltip, 1500);
+    }, { passive: true });
+}
+
+function _invFloorPlanBindEditDrag(container) {
+    var svg = container.querySelector('.inv-floorplan-svg');
+    if (!svg) return;
+
+    function getSvgPoint(clientX, clientY) {
+        var pt = svg.createSVGPoint();
+        pt.x = clientX;
+        pt.y = clientY;
+        var ctm = svg.getScreenCTM();
+        if (ctm) {
+            var inv = ctm.inverse();
+            return pt.matrixTransform(inv);
+        }
+        return pt;
+    }
+
+    function onPointerDown(e) {
+        var target = e.target;
+        // Check resize handles first
+        if (target.classList.contains('inv-resize-handle')) {
+            var zoneId = target.getAttribute('data-zone-id');
+            var handle = target.getAttribute('data-handle');
+            var svgPt = getSvgPoint(e.clientX || e.touches[0].clientX, e.clientY || e.touches[0].clientY);
+            _invFloorPlanDrag = { active: true, zoneId: zoneId, resizing: true, handle: handle, startX: svgPt.x, startY: svgPt.y,
+                origLayout: JSON.parse(JSON.stringify(invState.zoneLayout[zoneId])) };
+            e.preventDefault();
+            return;
+        }
+        // Check zone shapes
+        var zoneShape = target.closest('.inv-zone-shape') || (target.classList.contains('inv-zone-shape') ? target : null);
+        if (!zoneShape) {
+            // Also allow dragging from label/sublabel
+            var group = target.closest('.inv-zone-group');
+            if (group) {
+                var zId = group.getAttribute('data-zone-id');
+                if (zId) zoneShape = group.querySelector('.inv-zone-shape');
+            }
+        }
+        if (zoneShape) {
+            var zoneId = zoneShape.getAttribute('data-zone-id');
+            var svgPt = getSvgPoint(e.clientX || e.touches[0].clientX, e.clientY || e.touches[0].clientY);
+            var lay = invState.zoneLayout[zoneId];
+            _invFloorPlanDrag = { active: true, zoneId: zoneId, resizing: false, handle: '',
+                offsetX: svgPt.x - lay.x, offsetY: svgPt.y - lay.y,
+                origLayout: JSON.parse(JSON.stringify(lay)) };
+            e.preventDefault();
+        }
+    }
+
+    function onPointerMove(e) {
+        if (!_invFloorPlanDrag.active) return;
+        e.preventDefault();
+        var clientX = e.clientX !== undefined ? e.clientX : e.touches[0].clientX;
+        var clientY = e.clientY !== undefined ? e.clientY : e.touches[0].clientY;
+        var svgPt = getSvgPoint(clientX, clientY);
+        var lay = invState.zoneLayout[_invFloorPlanDrag.zoneId];
+        var orig = _invFloorPlanDrag.origLayout;
+
+        if (_invFloorPlanDrag.resizing) {
+            var dx = svgPt.x - _invFloorPlanDrag.startX;
+            var dy = svgPt.y - _invFloorPlanDrag.startY;
+            var h = _invFloorPlanDrag.handle;
+            if (h === 'se') {
+                lay.w = Math.max(100, orig.w + dx);
+                lay.h = Math.max(80, orig.h + dy);
+            } else if (h === 'ne') {
+                lay.w = Math.max(100, orig.w + dx);
+                var newH = orig.h - dy;
+                if (newH >= 80) { lay.h = newH; lay.y = orig.y + dy; }
+            } else if (h === 'sw') {
+                var newW = orig.w - dx;
+                if (newW >= 100) { lay.w = newW; lay.x = orig.x + dx; }
+                lay.h = Math.max(80, orig.h + dy);
+            }
+        } else {
+            lay.x = Math.max(0, svgPt.x - _invFloorPlanDrag.offsetX);
+            lay.y = Math.max(0, svgPt.y - _invFloorPlanDrag.offsetY);
+        }
+        // Live re-render
+        invRender();
+    }
+
+    function onPointerUp() {
+        if (_invFloorPlanDrag.active) {
+            _invFloorPlanDrag.active = false;
+        }
+    }
+
+    // Clean up previous listeners
+    if (window._invFloorPlanEditCleanup) window._invFloorPlanEditCleanup();
+
+    svg.addEventListener('mousedown', onPointerDown);
+    svg.addEventListener('touchstart', onPointerDown, { passive: false });
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('touchmove', onPointerMove, { passive: false });
+    document.addEventListener('mouseup', onPointerUp);
+    document.addEventListener('touchend', onPointerUp, { passive: true });
+
+    window._invFloorPlanEditCleanup = function() {
+        svg.removeEventListener('mousedown', onPointerDown);
+        svg.removeEventListener('touchstart', onPointerDown);
+        document.removeEventListener('mousemove', onPointerMove);
+        document.removeEventListener('touchmove', onPointerMove);
+        document.removeEventListener('mouseup', onPointerUp);
+        document.removeEventListener('touchend', onPointerUp);
+    };
+}
+
+// ══════════════════════════════════════════════════
+// LEGACY ZONE MAP (fallback)
+// ══════════════════════════════════════════════════
+function invRenderZoneMapLegacy(el) {
     var gases = invState.gases;
     var html = '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span>';
     if (_invUndoStack.length > 0) {

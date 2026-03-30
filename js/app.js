@@ -528,8 +528,15 @@ function showModal(opts) {
     confirmBtn.focus();
 
     function close() {
-        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-        if (_prevFocus && _prevFocus.focus) try { _prevFocus.focus(); } catch(e){}
+        if (overlay.parentNode) {
+            overlay.classList.add('modal-closing');
+            setTimeout(function() {
+                if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                if (_prevFocus && _prevFocus.focus) try { _prevFocus.focus(); } catch(e){}
+            }, 200);
+        } else {
+            if (_prevFocus && _prevFocus.focus) try { _prevFocus.focus(); } catch(e){}
+        }
     }
 
     // [R3-M2] Focus trap — Tab/Shift+Tab cycle within modal
@@ -1121,13 +1128,27 @@ function tabCacheSwitch(moduleId, tabId, renderFn) {
     var cache = _tabCache[moduleId];
     if (!cache) { renderFn(document.getElementById(moduleId + '-content')); return; }
 
-    // Use View Transitions API if available for smooth tab switch
+    // Find the currently visible (outgoing) tab
+    var outgoingEl = null;
+    cache.tabs.forEach(function(id) {
+        var el = document.getElementById(id + '-cached');
+        if (el && el.style.display !== 'none' && id !== tabId) {
+            outgoingEl = el;
+        }
+    });
+
     var doSwitch = function() {
+        // Hide all tabs except incoming
         cache.tabs.forEach(function(id) {
             var el = document.getElementById(id + '-cached');
             if (el) el.style.display = (id === tabId) ? '' : 'none';
         });
         var target = document.getElementById(tabId + '-cached');
+        if (target) {
+            // Add enter animation
+            target.classList.add('tab-content-enter');
+            setTimeout(function() { target.classList.remove('tab-content-enter'); }, 200);
+        }
         if (target && (!cache.rendered[tabId] || cache.dirty[tabId])) {
             if (!cache.rendered[tabId]) {
                 target.innerHTML = _skeletonHTML();
@@ -1141,10 +1162,23 @@ function tabCacheSwitch(moduleId, tabId, renderFn) {
         }
     };
 
-    if (document.startViewTransition) {
-        document.startViewTransition(doSwitch);
+    // If there's an outgoing tab, animate exit first
+    if (outgoingEl) {
+        outgoingEl.classList.add('tab-content-exit');
+        setTimeout(function() {
+            outgoingEl.classList.remove('tab-content-exit');
+            if (document.startViewTransition) {
+                document.startViewTransition(doSwitch);
+            } else {
+                doSwitch();
+            }
+        }, 150);
     } else {
-        doSwitch();
+        if (document.startViewTransition) {
+            document.startViewTransition(doSwitch);
+        } else {
+            doSwitch();
+        }
     }
 }
 
@@ -1181,6 +1215,26 @@ function tabCacheRefreshActive(moduleId, renderFn) {
         }
     });
 }
+
+/**
+ * Animate a drill-down navigation: exit old content, render new, enter.
+ * @param {string} containerId - DOM id of the container element
+ * @param {function} renderFn - Function that updates the container content
+ */
+function navigateToDetail(containerId, renderFn) {
+    var container = document.getElementById(containerId);
+    if (!container) { renderFn(); return; }
+    container.classList.add('drill-down-exit');
+    setTimeout(function() {
+        container.classList.remove('drill-down-exit');
+        renderFn();
+        container.classList.add('drill-down-enter');
+        setTimeout(function() {
+            container.classList.remove('drill-down-enter');
+        }, 250);
+    }, 200);
+}
+window.navigateToDetail = navigateToDetail;
 
 /**
  * Generate skeleton placeholder HTML for loading state.
