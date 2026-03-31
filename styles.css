@@ -3188,6 +3188,120 @@ details.acc > summary {
 .v7-exec-bar-fill { height: 100%; border-radius: var(--radius-full); transition: width 0.4s ease; }
 .v7-exec-pct { font-weight: var(--weight-bold); min-width: 40px; text-align: right; }
 
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [V7.2-A] MULTI-VEHICLE QUICK SWITCHER                                */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.v72-switcher-fab {
+    position: fixed; bottom: 80px; right: 16px; z-index: 9990;
+    width: 52px; height: 52px; border-radius: 50%; border: none;
+    background: var(--kia-red); color: #fff; font-size: 22px;
+    box-shadow: 0 4px 16px rgba(187,22,43,0.35); cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.v72-switcher-fab:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(187,22,43,0.45); }
+.v72-switcher-fab:active { transform: scale(0.95); }
+.v72-switcher-fab[data-count]:not([data-count=""])::after {
+    content: attr(data-count); position: absolute; top: -4px; right: -4px;
+    min-width: 20px; height: 20px; border-radius: 10px; background: #3b82f6;
+    color: #fff; font-size: 11px; font-weight: 700; text-align: center;
+    line-height: 20px; padding: 0 4px;
+}
+
+.v72-vehicle-switcher {
+    position: fixed; bottom: 0; right: 0; z-index: 9991;
+    width: 320px; max-height: 70vh; background: var(--surface);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    box-shadow: -4px -4px 24px rgba(0,0,0,0.15);
+    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    overflow: hidden;
+}
+.v72-vehicle-switcher.show { transform: translateY(0); }
+
+.v72-switcher-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    background: var(--glass-bg); backdrop-filter: blur(8px);
+}
+.v72-switcher-title { font-weight: var(--weight-bold); font-size: var(--font-base); color: var(--text); }
+
+.v72-switcher-list { overflow-y: auto; max-height: calc(70vh - 52px); padding: 4px; }
+
+.v72-switcher-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: var(--radius-md); cursor: pointer;
+    transition: background 0.15s;
+}
+.v72-switcher-item:hover { background: rgba(0,0,0,0.04); }
+.v72-switcher-item.current { background: rgba(187,22,43,0.06); border-left: 3px solid var(--kia-red); }
+
+.v72-switcher-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+.v72-switcher-info { flex: 1; min-width: 0; }
+.v72-switcher-name { font-size: var(--font-sm); font-weight: var(--weight-semibold); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v72-switcher-meta { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.v72-soak-badge {
+    font-size: 10px; padding: 2px 6px; border-radius: 8px;
+    background: #fef3c7; color: #d97706; font-weight: 600; white-space: nowrap;
+}
+.v72-soak-badge.done { background: #dcfce7; color: #16a34a; }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [V7.2-B] PRODUCTIVITY HEATMAP                                         */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.v72-heatmap-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: var(--space-md);
+    box-shadow: var(--shadow-sm);
+}
+.v72-heatmap-label { font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: var(--weight-semibold); margin-bottom: 6px; }
+.v72-heatmap-row { display: flex; gap: 2px; }
+.v72-heatmap-cell {
+    flex: 1; aspect-ratio: 1; border-radius: 3px; display: flex;
+    align-items: center; justify-content: center; min-width: 0;
+}
+.v72-heatmap-hour { font-size: 8px; color: rgba(0,0,0,0.5); font-weight: 600; }
+.v72-heatmap-days { gap: 4px; }
+.v72-heatmap-day {
+    flex: 1; border-radius: var(--radius-sm); padding: 6px 2px;
+    text-align: center; font-size: 10px; color: rgba(0,0,0,0.6); font-weight: 600;
+}
+.v72-heatmap-insight {
+    margin-top: 10px; padding: 8px 10px; border-radius: var(--radius-sm);
+    background: rgba(59,130,246,0.06); font-size: var(--font-xs); color: var(--text);
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [V7.2-D] ENHANCED NOTIFICATION CENTER                                  */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.v72-notif-count {
+    display: inline-block; margin-left: 4px; padding: 0 5px;
+    border-radius: 8px; background: rgba(0,0,0,0.08); font-size: 10px;
+    font-weight: 700; color: var(--muted); vertical-align: middle;
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [V7.2] DARK MODE ADDITIONS                                             */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="dark"] .v72-switcher-fab { box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
+[data-theme="dark"] .v72-vehicle-switcher { background: #1a202c; box-shadow: -4px -4px 24px rgba(0,0,0,0.5); }
+[data-theme="dark"] .v72-switcher-header { background: rgba(26,32,44,0.95); border-bottom-color: rgba(255,255,255,0.08); }
+[data-theme="dark"] .v72-switcher-title { color: #e2e8f0; }
+[data-theme="dark"] .v72-switcher-item:hover { background: rgba(255,255,255,0.06); }
+[data-theme="dark"] .v72-switcher-item.current { background: rgba(187,22,43,0.15); }
+[data-theme="dark"] .v72-switcher-name { color: #e2e8f0; }
+[data-theme="dark"] .v72-switcher-meta { color: #64748b; }
+[data-theme="dark"] .v72-heatmap-card { background: #1a202c; border-color: rgba(255,255,255,0.08); }
+[data-theme="dark"] .v72-heatmap-label { color: #64748b; }
+[data-theme="dark"] .v72-heatmap-hour { color: rgba(255,255,255,0.5); }
+[data-theme="dark"] .v72-heatmap-day { color: rgba(255,255,255,0.6); }
+[data-theme="dark"] .v72-heatmap-insight { background: rgba(59,130,246,0.1); color: #e2e8f0; }
+[data-theme="dark"] .v72-notif-count { background: rgba(255,255,255,0.1); color: #94a3b8; }
+
 /* ── Animations ── */
 @keyframes v7SlideDown {
     from { opacity: 0; transform: translateY(-10px); }

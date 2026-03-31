@@ -1611,6 +1611,355 @@ function switchPlatform(platform, swipeDir) {
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7.2-A] MULTI-VEHICLE QUICK SWITCHER                               ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _v72SwitcherOpen = false;
+
+function v72ToggleVehicleSwitcher() {
+    var panel = document.getElementById('v72-vehicle-switcher');
+    if (!panel) return;
+    _v72SwitcherOpen = !_v72SwitcherOpen;
+    if (_v72SwitcherOpen) {
+        v72RenderSwitcherList();
+        panel.classList.add('show');
+    } else {
+        panel.classList.remove('show');
+    }
+}
+
+function v72RenderSwitcherList() {
+    var list = document.getElementById('v72-switcher-list');
+    if (!list) return;
+    var vehicles = (db.vehicles || []).filter(function(v) { return v.status !== 'archived'; });
+    if (vehicles.length === 0) {
+        list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:var(--font-sm);">Sin vehiculos activos</div>';
+        return;
+    }
+    // Sort: current active first, then by last activity
+    vehicles.sort(function(a, b) {
+        if (a.id == activeVehicleId) return -1;
+        if (b.id == activeVehicleId) return 1;
+        var tA = a.timeline && a.timeline.length ? a.timeline[a.timeline.length - 1].timestamp : a.registeredAt || '';
+        var tB = b.timeline && b.timeline.length ? b.timeline[b.timeline.length - 1].timestamp : b.registeredAt || '';
+        return tB > tA ? 1 : -1;
+    });
+
+    var html = '';
+    vehicles.forEach(function(v) {
+        var vinShort = v.vin ? '...' + v.vin.slice(-4) : '?';
+        var model = v.config ? (v.config.Modelo || '') : '';
+        var isCurrent = v.id == activeVehicleId;
+        var step = typeof getNextStep === 'function' ? getNextStep(v) : null;
+        var stepText = step ? step.icon + ' ' + step.action : '';
+        var statusLabel = CONFIG.statusLabels[v.status] || v.status;
+        var statusColors = { 'registered': '#3b82f6', 'in-progress': '#d97706', 'testing': '#db2777', 'ready-release': '#16a34a' };
+        var dotColor = statusColors[v.status] || '#94a3b8';
+
+        // Check if this vehicle has an active soak timer
+        var soakInfo = '';
+        try {
+            var sd = JSON.parse(localStorage.getItem('kia_soak_timer'));
+            if (sd && sd.vehicleId == v.id && sd.endTime) {
+                var remaining = sd.endTime - Date.now();
+                if (remaining > 0) {
+                    var mins = Math.ceil(remaining / 60000);
+                    soakInfo = '<span class="v72-soak-badge">⏱ ' + mins + 'm</span>';
+                } else {
+                    soakInfo = '<span class="v72-soak-badge done">⏱ Listo!</span>';
+                }
+            }
+        } catch(e) {}
+
+        html += '<div class="v72-switcher-item' + (isCurrent ? ' current' : '') + '" onclick="v72SwitchToVehicle(' + v.id + ')">';
+        html += '<div class="v72-switcher-dot" style="background:' + dotColor + ';"></div>';
+        html += '<div class="v72-switcher-info">';
+        html += '<div class="v72-switcher-name">' + model + ' ' + vinShort + (isCurrent ? ' ●' : '') + '</div>';
+        html += '<div class="v72-switcher-meta">' + statusLabel + (stepText ? ' — ' + stepText : '') + '</div>';
+        html += '</div>';
+        html += soakInfo;
+        html += '</div>';
+    });
+    list.innerHTML = html;
+}
+
+function v72SwitchToVehicle(vehicleId) {
+    v72ToggleVehicleSwitcher();
+    // If already on COP15, just switch vehicle
+    if (_currentPlatform === 'cop15') {
+        var sel = document.getElementById('activeVehSelect');
+        if (sel) {
+            sel.value = vehicleId;
+            loadVehicle();
+            // Ensure we're on the seguimiento tab
+            var tabEl = document.querySelector('.tab[data-tab="seguimiento"]');
+            if (tabEl && !tabEl.classList.contains('active')) tabEl.click();
+        }
+    } else {
+        v7GoToVehicle(vehicleId);
+    }
+}
+
+// Inject switcher FAB and panel into DOM on init
+function v72InitSwitcher() {
+    if (document.getElementById('v72-vehicle-switcher')) return;
+
+    // Floating Action Button
+    var fab = document.createElement('button');
+    fab.id = 'v72-switcher-fab';
+    fab.className = 'v72-switcher-fab';
+    fab.innerHTML = '🚗';
+    fab.title = 'Cambiar vehiculo';
+    fab.setAttribute('aria-label', 'Cambiar vehiculo rapido');
+    fab.onclick = v72ToggleVehicleSwitcher;
+    document.body.appendChild(fab);
+
+    // Slide-in panel
+    var panel = document.createElement('div');
+    panel.id = 'v72-vehicle-switcher';
+    panel.className = 'v72-vehicle-switcher';
+    panel.innerHTML = '<div class="v72-switcher-header">' +
+        '<span class="v72-switcher-title">Vehiculos Activos</span>' +
+        '<button class="btn btn-ghost btn-sm" onclick="v72ToggleVehicleSwitcher()" aria-label="Cerrar">✕</button>' +
+        '</div>' +
+        '<div id="v72-switcher-list" class="v72-switcher-list"></div>';
+    document.body.appendChild(panel);
+
+    // Close on backdrop click
+    panel.addEventListener('click', function(e) {
+        if (e.target === panel) v72ToggleVehicleSwitcher();
+    });
+
+    // Update switcher when vehicles change
+    onEvent('vehicle:registered', function() { if (_v72SwitcherOpen) v72RenderSwitcherList(); });
+    onEvent('vehicle:released', function() { if (_v72SwitcherOpen) v72RenderSwitcherList(); });
+    onEvent('vehicle:statusChanged', function() { if (_v72SwitcherOpen) v72RenderSwitcherList(); });
+
+    // Update FAB badge
+    v72UpdateFabBadge();
+}
+
+function v72UpdateFabBadge() {
+    var fab = document.getElementById('v72-switcher-fab');
+    if (!fab) return;
+    var count = (db.vehicles || []).filter(function(v) { return v.status !== 'archived'; }).length;
+    fab.setAttribute('data-count', count > 0 ? count : '');
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7.2-B] PRODUCTIVITY HEATMAP                                       ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v72RenderProductivityHeatmap() {
+    var archived = (db.vehicles || []).filter(function(v) { return v.status === 'archived' && v.archivedAt; });
+    if (archived.length < 3) return '';
+
+    // Build hour-of-day histogram from last 30 days
+    var thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+    var recent = archived.filter(function(v) { return v.archivedAt >= thirtyDaysAgo; });
+    if (recent.length < 3) return '';
+
+    var hourBuckets = new Array(24).fill(0);
+    var dayBuckets = new Array(7).fill(0); // 0=Sun, 1=Mon, ...
+    recent.forEach(function(v) {
+        var d = new Date(v.archivedAt);
+        hourBuckets[d.getHours()]++;
+        dayBuckets[d.getDay()]++;
+    });
+
+    // Find work hours only (6-22)
+    var workHours = hourBuckets.slice(6, 22);
+    var maxH = Math.max.apply(null, workHours) || 1;
+
+    var dayNames = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+    var maxD = Math.max.apply(null, dayBuckets) || 1;
+
+    var html = '<div class="daily-dash-section">';
+    html += '<div class="daily-dash-section-title">📊 Productividad (últimos 30 días)</div>';
+    html += '<div class="v72-heatmap-card">';
+
+    // Hour heatmap
+    html += '<div class="v72-heatmap-label">Por hora del día</div>';
+    html += '<div class="v72-heatmap-row">';
+    for (var h = 6; h < 22; h++) {
+        var pct = hourBuckets[h] / maxH;
+        var opacity = Math.max(0.08, pct);
+        var label = h + ':00';
+        html += '<div class="v72-heatmap-cell" style="background:rgba(59,130,246,' + opacity.toFixed(2) + ');" title="' + label + ': ' + hourBuckets[h] + ' liberaciones">';
+        html += '<span class="v72-heatmap-hour">' + h + '</span>';
+        html += '</div>';
+    }
+    html += '</div>';
+
+    // Day heatmap
+    html += '<div class="v72-heatmap-label" style="margin-top:8px;">Por día de la semana</div>';
+    html += '<div class="v72-heatmap-row v72-heatmap-days">';
+    for (var d = 1; d <= 6; d++) { // Mon-Sat (skip Sunday)
+        var dayIdx = d % 7;
+        var pctD = dayBuckets[dayIdx] / maxD;
+        var opacityD = Math.max(0.08, pctD);
+        html += '<div class="v72-heatmap-day" style="background:rgba(16,185,129,' + opacityD.toFixed(2) + ');" title="' + dayNames[dayIdx] + ': ' + dayBuckets[dayIdx] + ' liberaciones">';
+        html += dayNames[dayIdx] + '<br><strong>' + dayBuckets[dayIdx] + '</strong>';
+        html += '</div>';
+    }
+    html += '</div>';
+
+    // Peak hours insight
+    var peakHour = 6;
+    for (var ph = 7; ph < 22; ph++) { if (hourBuckets[ph] > hourBuckets[peakHour]) peakHour = ph; }
+    var peakDay = 1;
+    for (var pd = 2; pd <= 6; pd++) { if (dayBuckets[pd] > dayBuckets[peakDay]) peakDay = pd; }
+
+    html += '<div class="v72-heatmap-insight">';
+    html += 'Mayor productividad: <strong>' + dayNames[peakDay] + '</strong> entre <strong>' + peakHour + ':00-' + (peakHour + 1) + ':00</strong>';
+    html += ' (' + recent.length + ' liberaciones totales)';
+    html += '</div>';
+
+    html += '</div></div>';
+    return html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7.2-C] PROACTIVE GAS DEPLETION FORECAST                          ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v72RenderGasDepletion() {
+    if (typeof invState === 'undefined' || !invState.gases) return '';
+    var inUse = invState.gases.filter(function(g) { return g.status === 'In use' && g.readings && g.readings.length >= 2; });
+    if (inUse.length === 0) return '';
+
+    var forecasts = [];
+    inUse.forEach(function(g) {
+        var readings = g.readings.slice(-10);
+        if (readings.length < 2) return;
+
+        // Calculate daily consumption rate
+        var first = readings[0];
+        var last = readings[readings.length - 1];
+        var daySpan = (new Date(last.date) - new Date(first.date)) / 86400000;
+        if (daySpan <= 0) daySpan = 1;
+        var totalDrop = first.psi - last.psi;
+        if (totalDrop <= 0) return;
+
+        var dailyRate = totalDrop / daySpan;
+        var currentPsi = last.psi;
+        var daysLeft = dailyRate > 0 ? Math.round(currentPsi / dailyRate) : 999;
+
+        if (daysLeft > 60) return; // Only show if depletes within 60 days
+
+        var depletionDate = new Date(Date.now() + daysLeft * 86400000);
+        var dayNames = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+        var dateStr = dayNames[depletionDate.getDay()] + ' ' + depletionDate.getDate() + '/' + (depletionDate.getMonth() + 1);
+
+        forecasts.push({
+            formula: g.formula,
+            controlNo: g.controlNo,
+            currentPsi: Math.round(currentPsi),
+            dailyRate: dailyRate.toFixed(1),
+            daysLeft: daysLeft,
+            dateStr: dateStr,
+            urgency: daysLeft <= 3 ? 'critical' : daysLeft <= 7 ? 'warning' : daysLeft <= 14 ? 'caution' : 'ok'
+        });
+    });
+
+    if (forecasts.length === 0) return '';
+
+    forecasts.sort(function(a, b) { return a.daysLeft - b.daysLeft; });
+
+    var html = '<div class="daily-dash-section">';
+    html += '<div class="daily-dash-section-title">🔮 Proyeccion de Gas</div>';
+
+    forecasts.slice(0, 5).forEach(function(f) {
+        var urgencyColors = {
+            critical: { bg: '#fef2f2', color: '#dc2626', border: '#fca5a5' },
+            warning: { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
+            caution: { bg: '#fefce8', color: '#ca8a04', border: '#fef08a' },
+            ok: { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' }
+        };
+        var uc = urgencyColors[f.urgency];
+        var icon = f.urgency === 'critical' ? '🔴' : f.urgency === 'warning' ? '🟠' : f.urgency === 'caution' ? '🟡' : '🟢';
+
+        html += '<div class="daily-dash-card" style="border-left:3px solid ' + uc.border + ';" onclick="switchPlatform(\'inventory\')">';
+        html += '<div class="daily-dash-card-icon" style="background:' + uc.bg + ';color:' + uc.color + ';">' + icon + '</div>';
+        html += '<div class="daily-dash-card-body">';
+        html += '<div class="daily-dash-card-title">' + f.formula + ' #' + f.controlNo + '</div>';
+        html += '<div class="daily-dash-card-meta">' + f.currentPsi + ' PSI · ' + f.dailyRate + ' PSI/dia · Se agota ~' + f.dateStr + '</div>';
+        html += '</div>';
+        html += '<div class="daily-dash-card-badge" style="background:' + uc.bg + ';color:' + uc.color + ';">' + f.daysLeft + 'd</div>';
+        html += '</div>';
+    });
+
+    html += '</div>';
+    return html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7.2-D] ENHANCED NOTIFICATION CENTER                               ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _notifPriority = { error: 3, warning: 2, success: 1, info: 0 };
+
+function v72GroupedNotifications() {
+    if (_notificationLog.length === 0) return [];
+
+    // Group by type + deduplicate similar messages within 5 minutes
+    var groups = [];
+    var seen = {};
+
+    _notificationLog.forEach(function(n, idx) {
+        // Create a dedup key from the first 30 chars + type
+        var key = n.type + ':' + (n.message || '').substring(0, 30);
+        var fiveMinAgo = n.timestamp - 300000;
+
+        if (seen[key] && seen[key].timestamp > fiveMinAgo) {
+            seen[key].count++;
+            return;
+        }
+
+        var entry = { message: n.message, type: n.type, timestamp: n.timestamp, read: n.read, count: 1, originalIdx: idx };
+        groups.push(entry);
+        seen[key] = entry;
+    });
+
+    // Sort by priority (errors first), then by time
+    groups.sort(function(a, b) {
+        var pA = _notifPriority[a.type] || 0;
+        var pB = _notifPriority[b.type] || 0;
+        if (pA !== pB) return pB - pA;
+        return b.timestamp - a.timestamp;
+    });
+
+    return groups;
+}
+
+// Replace the notification renderer with the enhanced version
+var _origRenderNotifications = typeof renderNotifications === 'function' ? renderNotifications : null;
+
+renderNotifications = function() {
+    var list = document.getElementById('notification-list');
+    if (!list) return;
+
+    var groups = v72GroupedNotifications();
+    if (groups.length === 0) {
+        list.innerHTML = '<div style="text-align:center;padding:30px;color:#64748b;font-size:12px;">Sin notificaciones</div>';
+        return;
+    }
+
+    var icons = { success: '✅', error: '❌', warning: '⚡', info: 'ℹ️' };
+    var priorityBorder = { error: 'border-left:3px solid #ef4444;', warning: 'border-left:3px solid #f59e0b;', success: '', info: '' };
+
+    list.innerHTML = groups.map(function(n) {
+        var ago = _timeAgo(n.timestamp);
+        var countBadge = n.count > 1 ? '<span class="v72-notif-count">×' + n.count + '</span>' : '';
+        return '<div class="notif-item' + (n.read ? '' : ' notif-unread') + '" style="' + (priorityBorder[n.type] || '') + '" onclick="_notificationLog[' + n.originalIdx + '].read=true;this.classList.remove(\'notif-unread\');updateNotifBadge();">' +
+            '<span class="notif-icon">' + (icons[n.type] || 'ℹ️') + '</span>' +
+            '<div class="notif-body"><div class="notif-msg">' + n.message + countBadge + '</div><div class="notif-time">' + ago + '</div></div>' +
+            '<button class="notif-dismiss" onclick="event.stopPropagation();_notificationLog.splice(' + n.originalIdx + ',1);renderNotifications();updateNotifBadge();">×</button>' +
+            '</div>';
+    }).join('');
+};
+
+// ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [M16] DAILY DASHBOARD — Vista Hoy                                  ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
@@ -1804,6 +2153,12 @@ function dailyDashRender() {
         html += '<div class="daily-dash-card-badge" style="background:#eef2ff;color:#4f46e5;">' + pct + '%</div>';
         html += '</div></div>';
     }
+
+    // ── [V7.2-B] Productivity Heatmap ──
+    html += v72RenderProductivityHeatmap();
+
+    // ── [V7.2-C] Proactive Gas Depletion Forecast ──
+    html += v72RenderGasDepletion();
 
     // ── Quick Actions ──
     html += '<div class="daily-dash-section">';
@@ -2599,6 +2954,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try {
             if (typeof dailyDashRender === 'function') dailyDashRender();
         } catch(dashErr) { console.error('dailyDashRender error:', dashErr); }
+
+        // [V7.2-A] Multi-vehicle quick switcher
+        try { if (typeof v72InitSwitcher === 'function') v72InitSwitcher(); } catch(e) {}
 
         // [R5-M1] Finalize splash
         if (typeof splashUpdate === 'function') splashUpdate('Listo', 100);
