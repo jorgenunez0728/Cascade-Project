@@ -1960,6 +1960,81 @@ renderNotifications = function() {
 };
 
 // ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7.2-F] SHIFT SUMMARY AUTO-NOTIFICATION                            ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v72ShiftSummary() {
+    // Only show once per day per session
+    var today = new Date().toISOString().slice(0, 10);
+    var lastSummary = localStorage.getItem('kia_shift_summary_date');
+    if (lastSummary === today) return;
+    localStorage.setItem('kia_shift_summary_date', today);
+
+    // Gather metrics
+    var vehicles = (db.vehicles || []).filter(function(v) { return v.status !== 'archived'; });
+    var pending = vehicles.length;
+    var testing = vehicles.filter(function(v) { return v.status === 'testing'; }).length;
+    var readyRelease = vehicles.filter(function(v) { return v.status === 'ready-release'; }).length;
+
+    // Yesterday's releases
+    var yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    var releasedYesterday = (db.vehicles || []).filter(function(v) {
+        return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0, 10) === yesterday;
+    }).length;
+
+    // Gas alerts
+    var lowGas = 0;
+    if (typeof invState !== 'undefined' && invState.gases) {
+        lowGas = invState.gases.filter(function(g) {
+            if (g.status !== 'In use' || !g.readings || g.readings.length === 0) return false;
+            var lastPsi = g.readings[g.readings.length - 1].psi;
+            var maxPsi = g.initialPsi || 2200;
+            return (lastPsi / maxPsi) < 0.25;
+        }).length;
+    }
+
+    // Equipment calibration due
+    var calDue = 0;
+    if (typeof invState !== 'undefined' && invState.equipment) {
+        var now = new Date();
+        calDue = invState.equipment.filter(function(e) {
+            if (!e.nextCalDate) return false;
+            return Math.round((new Date(e.nextCalDate) - now) / 86400000) <= 7;
+        }).length;
+    }
+
+    // Build summary lines
+    var lines = [];
+    if (pending > 0) lines.push(pending + ' vehiculo(s) en proceso');
+    if (readyRelease > 0) lines.push(readyRelease + ' listo(s) para liberar');
+    if (testing > 0) lines.push(testing + ' en prueba');
+    if (releasedYesterday > 0) lines.push('Ayer: ' + releasedYesterday + ' liberado(s)');
+    if (lowGas > 0) lines.push(lowGas + ' cilindro(s) nivel bajo');
+    if (calDue > 0) lines.push(calDue + ' equipo(s) calibracion pendiente');
+
+    if (lines.length === 0) {
+        showToast('Buenos dias. Sin pendientes. Todo en orden.', 'success');
+        return;
+    }
+
+    // Show as a persistent summary toast
+    var summaryHtml = '<div class="v72-shift-summary">';
+    summaryHtml += '<div class="v72-shift-summary-title">Resumen del Dia</div>';
+    lines.forEach(function(l) { summaryHtml += '<div class="v72-shift-summary-line">' + l + '</div>'; });
+    summaryHtml += '<button class="btn btn-sm btn-ghost" onclick="this.closest(\'.toast\').remove();" style="margin-top:6px;">Entendido</button>';
+    summaryHtml += '</div>';
+
+    // Use a longer-lived toast
+    var toast = document.createElement('div');
+    toast.className = 'toast toast-info';
+    toast.innerHTML = summaryHtml;
+    toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:10000;min-width:280px;max-width:360px;padding:14px 18px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.15);animation:toastIn 0.3s ease;';
+    document.body.appendChild(toast);
+    // Auto-dismiss after 15 seconds
+    setTimeout(function() { if (toast.parentNode) { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 300); } }, 15000);
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [M16] DAILY DASHBOARD — Vista Hoy                                  ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
@@ -2957,6 +3032,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
 
         // [V7.2-A] Multi-vehicle quick switcher
         try { if (typeof v72InitSwitcher === 'function') v72InitSwitcher(); } catch(e) {}
+
+        // [V7.2-F] Shift summary auto-notification
+        try { if (typeof v72ShiftSummary === 'function') v72ShiftSummary(); } catch(e) {}
 
         // [R5-M1] Finalize splash
         if (typeof splashUpdate === 'function') splashUpdate('Listo', 100);

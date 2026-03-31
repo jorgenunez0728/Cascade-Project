@@ -2451,5 +2451,77 @@ function pnRenderTurnaround(el) {
     });
     html += '</div></div>';
 
+    // ── [V7.2-E] Turnaround Trend ──
+    html += v72RenderTurnaroundTrend(archived);
+
     el.innerHTML = html;
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7.2-E] TURNAROUND TREND — Weekly Average Over Time               ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function v72RenderTurnaroundTrend(archived) {
+    if (!archived || archived.length < 5) return '';
+
+    var weekData = {};
+    archived.forEach(function(v) {
+        if (!v.registeredAt || !v.archivedAt) return;
+        var totalHrs = (new Date(v.archivedAt).getTime() - new Date(v.registeredAt).getTime()) / 3600000;
+        if (totalHrs <= 0 || totalHrs > 720) return;
+
+        var d = new Date(v.archivedAt);
+        var jan1 = new Date(d.getFullYear(), 0, 1);
+        var weekNum = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+        var key = d.getFullYear() + '-W' + String(weekNum).padStart(2, '0');
+
+        if (!weekData[key]) weekData[key] = { total: 0, count: 0 };
+        weekData[key].total += totalHrs;
+        weekData[key].count++;
+    });
+
+    var weeks = Object.keys(weekData).sort().slice(-8);
+    if (weeks.length < 2) return '';
+
+    var avgs = weeks.map(function(w) { return weekData[w].total / weekData[w].count; });
+    var maxAvg = Math.max.apply(null, avgs.concat([1]));
+
+    // Linear regression for trend direction
+    var n = avgs.length, sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for (var i = 0; i < n; i++) { sumX += i; sumY += avgs[i]; sumXY += i * avgs[i]; sumXX += i * i; }
+    var slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    var improving = slope < -0.5, worsening = slope > 0.5;
+
+    function fmtH(h) { return h < 1 ? Math.round(h*60)+'m' : h < 24 ? h.toFixed(1)+'h' : (h/24).toFixed(1)+'d'; }
+
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>Tendencia de Turnaround</span>';
+    if (improving) html += '<span class="badge-success" style="font-size:10px;margin-left:8px;">Mejorando</span>';
+    else if (worsening) html += '<span class="badge-danger" style="font-size:10px;margin-left:8px;">Incrementando</span>';
+    else html += '<span class="badge-neutral" style="font-size:10px;margin-left:8px;">Estable</span>';
+    html += '</div>';
+    html += '<div style="font-size:var(--font-xs);color:var(--muted);margin-bottom:8px;">Promedio semanal (registro a liberacion)</div>';
+
+    html += '<div style="display:flex;align-items:flex-end;gap:6px;height:80px;padding:8px 0;">';
+    weeks.forEach(function(w, idx) {
+        var a = avgs[idx], h = Math.max(8, Math.round((a / maxAvg) * 65));
+        var barColor = a <= avgs[0]*0.8 ? '#10b981' : a >= avgs[0]*1.2 ? '#ef4444' : '#3b82f6';
+        html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;">';
+        html += '<div style="font-size:9px;font-weight:700;color:var(--text);margin-bottom:2px;">' + fmtH(a) + '</div>';
+        html += '<div style="width:100%;height:' + h + 'px;background:' + barColor + ';border-radius:3px;"></div>';
+        html += '<div style="font-size:8px;color:var(--muted);margin-top:2px;">' + w.split('-')[1] + '</div>';
+        html += '</div>';
+    });
+    html += '</div>';
+
+    var firstAvg = avgs[0], lastAvg = avgs[avgs.length - 1];
+    var changePct = firstAvg > 0 ? Math.round(((lastAvg - firstAvg) / firstAvg) * 100) : 0;
+    var changeLabel = changePct < 0 ? (changePct + '% mas rapido') : changePct > 0 ? ('+' + changePct + '% mas lento') : 'Sin cambio';
+    var changeColor = changePct < 0 ? 'var(--success)' : changePct > 0 ? 'var(--danger)' : 'var(--muted)';
+
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border);margin-top:8px;font-size:var(--font-xs);">';
+    html += '<span style="color:var(--muted);">Hace ' + weeks.length + ' sem: ' + fmtH(firstAvg) + '</span>';
+    html += '<span style="color:' + changeColor + ';font-weight:700;">' + changeLabel + '</span>';
+    html += '<span style="color:var(--muted);">Ahora: ' + fmtH(lastAvg) + '</span>';
+    html += '</div></div>';
+    return html;
 }

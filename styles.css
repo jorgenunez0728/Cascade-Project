@@ -3302,6 +3302,14 @@ details.acc > summary {
 [data-theme="dark"] .v72-heatmap-insight { background: rgba(59,130,246,0.1); color: #e2e8f0; }
 [data-theme="dark"] .v72-notif-count { background: rgba(255,255,255,0.1); color: #94a3b8; }
 
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [V7.2-F] SHIFT SUMMARY                                                */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.v72-shift-summary-title { font-weight: var(--weight-bold); font-size: var(--font-base); margin-bottom: 6px; }
+.v72-shift-summary-line { font-size: var(--font-sm); padding: 2px 0; color: var(--text); }
+.v72-shift-summary-line::before { content: '• '; color: var(--muted); }
+
 /* ── Animations ── */
 @keyframes v7SlideDown {
     from { opacity: 0; transform: translateY(-10px); }

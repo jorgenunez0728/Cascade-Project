@@ -71,39 +71,50 @@ La app tiene **6 rondas de mejoras completadas** + el V7 "Smart Workflow" **comp
 - `emitEvent(name, data)` — ya existía, ahora con logging en modo debug
 - Archivo: `js/app.js`
 
-### C. Vitest Setup
-- Configurar Vitest (ya existe Vite como devDependency)
-- Migrar 21+ assertions de `tests.html` a Vitest
-- Tests unitarios para funciones críticas: `safeParse`, `escapeHtml`, `getNextStep`, `tpBuildFamilies`
+### C. Vitest Setup ✅ IMPLEMENTADO
+- 46 tests en 5 suites: core-utilities, event-bus, state-manager, cop15-workflow, v72-features
+- jsdom + `vm.runInThisContext` loader para scripts globales
 - Archivo: `tests/`, `package.json`, `vitest.config.js`
 
 ---
 
-## Versión 7.2 — "Multi-Vehículo y Analytics"
+## Versión 7.2 — "Multi-Vehículo y Analytics" ✅ IMPLEMENTADO
 
-**Filosofía**: Features nuevos que los técnicos necesitan pero aún no existen.
+### A. Multi-Vehicle Quick Switcher ✅
+- FAB flotante 🚗 con badge de conteo de vehículos activos
+- Panel slide-up con todos los vehículos, status de soak timer, next step hints
+- Switch rápido sin navegar entre módulos, actualización reactiva via event bus
+- Archivo: `js/app.js`, `styles.css`
 
-### A. Workflow Multi-Vehículo
-- Cola inteligente de vehículos: ver todos los vehículos en progreso del operador en un solo panel
-- Cambio rápido entre vehículos activos (swipe o selector)
-- Notificaciones cuando un soak termina en un vehículo que no es el activo
-- Timeline consolidada: ver acciones de todos los vehículos del turno
+### B. Productivity Heatmap ✅
+- Mapa de calor por hora (6-22h) y día de la semana en dashboard HOY
+- Basado en últimos 30 días de liberaciones
+- Insight automático: "Mayor productividad: Jueves entre 10:00-11:00"
+- Archivo: `js/app.js`
 
-### B. Analytics Avanzados
-- Heatmap de productividad por hora/día (¿cuándo se hacen más pruebas?)
-- Tendencia de turnaround time (¿estamos mejorando?)
-- Comparativa entre operadores (respetuosa, para coaching)
-- Export de reportes ejecutivos a PDF con gráficos
+### C. Gas Depletion Forecast ✅
+- Proyección de agotamiento por cilindro con tasa diaria de consumo
+- Fecha estimada de depleción, urgencia color-coded (critical/warning/caution/ok)
+- Cards en dashboard HOY con días restantes
+- Archivo: `js/app.js`
 
-### C. Inventory Intelligence
-- Alertas proactivas: "A este ritmo, el gas X se agotará el viernes"
-- Sugerencia automática de reorden basada en consumo histórico
-- Dashboard de costos estimados de gas por prueba
+### D. Enhanced Notification Center ✅
+- Agrupación de duplicados en ventanas de 5 minutos
+- Sorting por prioridad (errores > warnings > success > info)
+- Badges de conteo ×N, bordes de prioridad
+- Archivo: `js/app.js`
 
-### D. Smart Notifications
-- Centro de notificaciones mejorado con prioridad y agrupación
-- Notificaciones push via Service Worker (no solo in-app)
-- Resumen diario automático al inicio del turno
+### E. Turnaround Trend ✅
+- Gráfico de barras semanal (últimas 8 semanas) del turnaround promedio
+- Regresión lineal para detectar tendencia (Mejorando/Estable/Incrementando)
+- Comparativa primera vs última semana con % de cambio
+- Archivo: `js/panel.js`
+
+### F. Shift Summary Auto-Notification ✅
+- Resumen automático al inicio del día (una vez por sesión)
+- Muestra: vehículos pendientes, listos para liberar, gas bajo, calibraciones
+- Toast persistente con botón "Entendido"
+- Archivo: `js/app.js`
 
 ---
 
