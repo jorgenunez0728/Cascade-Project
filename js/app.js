@@ -333,22 +333,136 @@ function themeToggle() {
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
-// ║  [V7] SMART INTEGRATION ENGINE — Event Bus                         ║
+// ║  [V7.1] STATE MANAGER — Centralized State Layer                     ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var stateManager = (function() {
+    var _stores = {};
+    var _listeners = {};
+    var _debug = false;
+
+    function _log(action, module, detail) {
+        if (_debug) console.log('[StateManager] ' + action + ' → ' + module, detail || '');
+    }
+
+    return {
+        /**
+         * Register a module's state with the manager.
+         * @param {string} module - Module name (e.g. 'cop15', 'testplan')
+         * @param {object} opts - { state, storageKey, saveFn }
+         */
+        register: function(module, opts) {
+            _stores[module] = {
+                state: opts.state,
+                storageKey: opts.storageKey || null,
+                saveFn: opts.saveFn || null
+            };
+            _listeners[module] = [];
+            _log('register', module, '(key: ' + (opts.storageKey || 'none') + ')');
+        },
+
+        /** Get the current state object for a module. */
+        get: function(module) {
+            var store = _stores[module];
+            return store ? store.state : undefined;
+        },
+
+        /** Update state and notify listeners. Calls the module's saveFn if registered. */
+        set: function(module, newState) {
+            var store = _stores[module];
+            if (!store) { console.warn('[StateManager] Unknown module: ' + module); return; }
+            store.state = newState;
+            _log('set', module);
+            // Persist
+            if (store.saveFn) { try { store.saveFn(); } catch(e) { console.error('[StateManager] saveFn error for ' + module, e); } }
+            // Notify listeners
+            var cbs = _listeners[module];
+            if (cbs) { for (var i = 0; i < cbs.length; i++) { try { cbs[i](newState, module); } catch(e) { console.error('[StateManager] listener error on ' + module, e); } } }
+        },
+
+        /** Notify listeners without replacing state (for when module mutates its own state and calls save). */
+        notify: function(module) {
+            var store = _stores[module];
+            if (!store) return;
+            var cbs = _listeners[module];
+            if (cbs) { for (var i = 0; i < cbs.length; i++) { try { cbs[i](store.state, module); } catch(e) {} } }
+        },
+
+        /** Register a callback for when a module's state changes. Returns unsubscribe function. */
+        onChange: function(module, callback) {
+            if (!_listeners[module]) _listeners[module] = [];
+            _listeners[module].push(callback);
+            return function() {
+                _listeners[module] = _listeners[module].filter(function(cb) { return cb !== callback; });
+            };
+        },
+
+        /** Return a snapshot of all registered states (for debugging). */
+        snapshot: function() {
+            var snap = {};
+            Object.keys(_stores).forEach(function(m) {
+                var store = _stores[m];
+                snap[m] = {
+                    storageKey: store.storageKey,
+                    stateKeys: store.state ? Object.keys(store.state) : [],
+                    size: store.storageKey ? (localStorage.getItem(store.storageKey) || '').length : 0
+                };
+            });
+            return snap;
+        },
+
+        /** List all registered modules. */
+        modules: function() { return Object.keys(_stores); },
+
+        /** Toggle debug logging. */
+        setDebug: function(on) { _debug = !!on; }
+    };
+})();
+
+// Register core COP15 state immediately (others register in their init functions)
+stateManager.register('cop15', {
+    state: db,
+    storageKey: 'kia_db_v11',
+    saveFn: function() { localStorage.setItem('kia_db_v11', JSON.stringify(db)); }
+});
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [V7.1] SMART INTEGRATION ENGINE — Event Bus (Enhanced)             ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 var _eventBus = {};
+var _eventBusDebug = false;
 
 function emitEvent(name, data) {
+    if (_eventBusDebug) console.log('[EventBus] emit "' + name + '"', data || '');
     var handlers = _eventBus[name];
     if (!handlers) return;
-    for (var i = 0; i < handlers.length; i++) {
-        try { handlers[i](data); } catch(e) { console.error('EventBus error on "' + name + '":', e); }
+    // Iterate over a copy to allow handlers to remove themselves
+    var snapshot = handlers.slice();
+    for (var i = 0; i < snapshot.length; i++) {
+        try { snapshot[i](data); } catch(e) { console.error('EventBus error on "' + name + '":', e); }
     }
 }
 
 function onEvent(name, handler) {
     if (!_eventBus[name]) _eventBus[name] = [];
     _eventBus[name].push(handler);
+}
+
+/** Remove a specific event handler. */
+function offEvent(name, handler) {
+    var handlers = _eventBus[name];
+    if (!handlers) return;
+    _eventBus[name] = handlers.filter(function(h) { return h !== handler; });
+}
+
+/** Register a handler that fires only once, then auto-removes. */
+function onceEvent(name, handler) {
+    function wrapper(data) {
+        offEvent(name, wrapper);
+        handler(data);
+    }
+    onEvent(name, wrapper);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗

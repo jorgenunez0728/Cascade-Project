@@ -20,6 +20,11 @@ function pnInit() {
         }
     } catch(e) {}
 
+    // [V7.1] Register with State Manager
+    if (typeof stateManager !== 'undefined') {
+        stateManager.register('panel', { state: pnState, storageKey: PN_LS_KEY, saveFn: pnSave });
+    }
+
     // Sync operators from CONFIG if pnState.operators is empty
     if (pnState.operators.length === 0 && CONFIG && CONFIG.operators) {
         pnState.operators = CONFIG.operators.map(function(name, i) {

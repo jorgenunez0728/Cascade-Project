@@ -2420,7 +2420,13 @@ function raRenderSPC(el) {
     }
 }
 
-function raInit(){ raUpdateBadges(); }
+function raInit(){
+    // [V7.1] Register with State Manager
+    if (typeof stateManager !== 'undefined') {
+        stateManager.register('results', { state: raState, storageKey: RA_LS_KEY, saveFn: raSave });
+    }
+    raUpdateBadges();
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // [R5-M8] Templates — RA Filter Presets

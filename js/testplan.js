@@ -332,6 +332,10 @@ function tpInvalidateCache() { _tpAnalysisCache = { key: '', data: null }; }
 
 // ── Init: load plan from embedded CSV data ──
 function tpInit() {
+    // [V7.1] Register with State Manager
+    if (typeof stateManager !== 'undefined') {
+        stateManager.register('testplan', { state: tpState, storageKey: TP_LS_KEY, saveFn: tpSave });
+    }
     if (tpState.planData.length === 0) {
         tpLoadPlanFromCSV_CONFIGURATIONS();
     }

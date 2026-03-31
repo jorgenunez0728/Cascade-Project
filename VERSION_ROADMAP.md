@@ -1,267 +1,147 @@
-# KIA EmLab — Roadmap de Versiones: 7.1 → 7.2 → 7.3 → 8.0
+# KIA EmLab — Roadmap de Versiones: 7.1 → 8.0
 
-## Contexto
+## Estado Actual (2026-03-31)
 
-La app tiene 5 rondas de mejoras completadas (~25K líneas JS, ~550 funciones, 8 módulos). El overhaul UI/UX v6 (Glass+Neumorphism) fue exitoso. El V7_HANDOFF.md define el "Smart Workflow" pero NO está implementado aún. La app es usada diariamente por técnicos en tablets/smartphones, 100% offline con localStorage.
+La app tiene **6 rondas de mejoras completadas** + el V7 "Smart Workflow" **completamente implementado**:
 
-**Problema central**: La app funciona bien como herramienta, pero aún requiere demasiados clicks, no guía al técnico, pierde contexto al recargar, y la arquitectura interna (global scope, sin event bus, sin tests) limita la velocidad de evolución.
+### V7 Features — Implementados (100%)
 
-**Pregunta clave del usuario**: ¿Vale la pena migrar a Vue?
+| Tier | Feature | Archivo | Línea |
+|------|---------|---------|-------|
+| A1 | Event Bus (publish/subscribe) | `app.js` | 339 |
+| A2 | Auto-deducción de gas PSI por prueba | `inventory.js` | 1679 |
+| A3 | Indicadores de disponibilidad 🟢🟡🔴 en plan | `testplan.js` | 2503 |
+| A5 | Detección de conflictos de recursos | `app.js` | 358 |
+| B1 | Executive Dashboard KPI Scorecard | `panel.js` | 2202 |
+| B2 | Vehicle Turnaround Analytics | `panel.js` | 2343 |
+| B3 | Predictive Resource Planner | `panel.js` | 2271 |
+| C1 | Session Memory (retomar VIN) | `app.js` | 395 |
+| C2 | Per-field draft auto-save | `cop15.js` | 5252 |
+| C3 | Restore last module on startup | `app.js` | 459 |
+| D1 | `getNextStep(vehicle)` engine | `cop15.js` | 5086 |
+| D2 | Banner flotante "Siguiente Paso" | `app.js` | 3771 |
+| D3 | Auto-prompt post-soak modal | `cop15.js` | 5138 |
+| D4 | Post-release quick actions | `cop15.js` | 5213 |
+| E1 | Quick-pick propósitos recientes | `cop15.js` | 5317 |
+| E2 | Smart config suggestions | `cop15.js` | 5369 |
+| E3 | Favoritos auto-detectados | `cop15.js` | 5417 |
+| E4 | VIN smart input + duplicados | `cop15.js` | 5448 |
+| E5 | Batch release | `cop15.js` | 5492 |
+| E6 | One-tap precond values | `cop15.js` | 5545 |
+| F1 | Mi Turno card en dashboard HOY | `app.js` | 1521 |
+| F3 | Progress ring (objetivo del día) | `app.js` | 3726 |
+| — | Dark mode completo (~300 líneas CSS) | `styles.css` | 2238 |
+| — | Field validation engine | `app.js` | 582 |
+
+**Total**: ~25K líneas JS, ~620 funciones, 8 módulos, dark mode, Glass+Neumorphism design system.
 
 ---
 
 ## Recomendación sobre Vue: NO para 7.x, EVALUAR para 8.0
 
 ### Por qué NO migrar a Vue ahora:
-1. **Riesgo de producción** — La app se usa diariamente. Un rewrite de 50-70% del código (12-16 semanas) es un riesgo enorme para una herramienta en producción.
-2. **Constraint de single-file offline** — Vue + Vite genera bundles con imports. Mantener el modelo de un solo HTML requiere configuración extra y pierde ventajas del framework.
-3. **ROI bajo** — Los problemas actuales (muchos clicks, sin guía, sin memoria de sesión) son problemas de **producto**, no de **framework**. Vue no los resuelve automáticamente.
-4. **Alpine.js ya está parcialmente integrado** — El panel ya usa Alpine 3.14.9. Expandir Alpine es incremental, no disruptivo.
+1. **Riesgo de producción** — Un rewrite de 50-70% (12-16 semanas) en una herramienta que se usa diariamente.
+2. **Constraint de single-file offline** — Vue + Vite genera bundles con imports, incompatible con el modelo actual.
+3. **ROI bajo** — Los problemas restantes son de arquitectura interna, no de framework.
+4. **Alpine.js ya parcialmente integrado** — Panel usa Alpine 3.14.9. Expandir es incremental.
 
-### Camino recomendado: Modernización Progresiva
-| Versión | Arquitectura | Framework |
-|---------|-------------|-----------|
-| 7.1 | Event bus + state centralizado | Vanilla JS + Alpine.js expandido |
-| 7.2 | Smart Workflow features | Alpine.js para UI reactiva |
-| 7.3 | Testing + optimización | Vitest + Playwright básico |
+### Camino: Modernización Progresiva
+| Versión | Foco | Framework |
+|---------|------|-----------|
+| 7.1 | State Manager + Event Bus mejorado + Testing | Vanilla JS + Alpine expandido |
+| 7.2 | Nuevas capacidades (workflow multi-vehículo, analytics avanzados) | Alpine.js reactivo |
 | 8.0 | Decisión: Vue/Svelte o Alpine maduro | Basada en datos reales de 7.x |
 
-**La migración a Vue (o Svelte) solo tiene sentido si en 7.x descubrimos que Alpine no escala.** Svelte sería mejor candidato que Vue por su modelo reactivo más compatible con localStorage y su compilación a vanilla JS.
+---
+
+## Versión 7.1 — "Infraestructura Moderna"
+
+**Filosofía**: La funcionalidad V7 ya existe. Ahora consolidar la arquitectura interna para evolucionar más rápido.
+
+### A. State Manager Centralizado ✅ IMPLEMENTADO
+- Capa sobre localStorage con API unificada: `stateManager.get()`, `stateManager.set()`, `stateManager.onChange()`
+- Reactividadligera: callbacks se disparan cuando un módulo cambia su estado
+- Debugging: `stateManager.snapshot()` para inspección del estado completo
+- Los módulos siguen usando sus objetos (`tpState`, etc.) pero las escrituras pasan por el manager
+- Archivo: `js/app.js`
+
+### B. Event Bus Mejorado ✅ IMPLEMENTADO
+- `offEvent(name, handler)` — remover listeners (previene memory leaks)
+- `onceEvent(name, handler)` — listener que se auto-remueve después de una ejecución
+- `emitEvent(name, data)` — ya existía, ahora con logging en modo debug
+- Archivo: `js/app.js`
+
+### C. Vitest Setup
+- Configurar Vitest (ya existe Vite como devDependency)
+- Migrar 21+ assertions de `tests.html` a Vitest
+- Tests unitarios para funciones críticas: `safeParse`, `escapeHtml`, `getNextStep`, `tpBuildFamilies`
+- Archivo: `tests/`, `package.json`, `vitest.config.js`
 
 ---
 
-## Versión 7.1 — "Cimientos Inteligentes" (Arquitectura + Quick Wins)
+## Versión 7.2 — "Multi-Vehículo y Analytics"
 
-**Filosofía**: Preparar la infraestructura que habilita todo lo demás, con wins visibles para los técnicos.
+**Filosofía**: Features nuevos que los técnicos necesitan pero aún no existen.
 
-### A. Infraestructura (invisible para el usuario, crítica para el futuro)
+### A. Workflow Multi-Vehículo
+- Cola inteligente de vehículos: ver todos los vehículos en progreso del operador en un solo panel
+- Cambio rápido entre vehículos activos (swipe o selector)
+- Notificaciones cuando un soak termina en un vehículo que no es el activo
+- Timeline consolidada: ver acciones de todos los vehículos del turno
 
-#### A1. Event Bus Ligero
-- Crear `eventBus` en `js/app.js` (publish/subscribe simple, ~50 líneas)
-- Reemplazar las llamadas directas cross-module más críticas:
-  - `releaseVehicle()` → emite `vehicle:released` → testplan y inventory escuchan
-  - `saveDB()` → emite `db:saved` → firebase-sync escucha
-- **No reemplazar todo de golpe** — solo las 5-8 integraciones más frágiles
-- Archivo: `js/app.js` (agregar eventBus), `js/cop15.js`, `js/testplan.js`, `js/inventory.js` (suscripciones)
+### B. Analytics Avanzados
+- Heatmap de productividad por hora/día (¿cuándo se hacen más pruebas?)
+- Tendencia de turnaround time (¿estamos mejorando?)
+- Comparativa entre operadores (respetuosa, para coaching)
+- Export de reportes ejecutivos a PDF con gráficos
 
-#### A2. State Manager Centralizado
-- Crear capa delgada sobre localStorage: `StateManager` en `js/app.js`
-- API: `state.get('testplan')`, `state.set('testplan', data)`, `state.onChange('testplan', callback)`
-- Los módulos siguen usando sus objetos (`tpState`, etc.) pero las lecturas/escrituras pasan por el manager
-- Habilita: reactividadligera, debugging centralizado, futuro sync
-- Archivo: `js/app.js` (nuevo StateManager ~80 líneas)
+### C. Inventory Intelligence
+- Alertas proactivas: "A este ritmo, el gas X se agotará el viernes"
+- Sugerencia automática de reorden basada en consumo histórico
+- Dashboard de costos estimados de gas por prueba
 
-#### A3. Setup de Testing Básico
-- Agregar Vitest al proyecto (ya hay Vite como devDependency)
-- Migrar los 21 tests de `tests.html` a Vitest
-- Agregar tests para las funciones críticas: `safeParse`, `escapeHtml`, `cascadeFilter`, `tpBuildFamilies`
-- Archivo: nuevo `tests/` directorio, `package.json` (agregar vitest)
-
-### B. Quick Wins Visibles (del V7_HANDOFF.md Tier E)
-
-#### B1. Session Memory (Tier C del handoff)
-- Guardar contexto activo: `vehicleId`, `lastTab`, `lastModule`, `scrollPosition`
-- Al recargar: toast "¿Retomar VIN ...4832?" con botón directo
-- localStorage key: `kia_session_context`
-- Archivo: `js/app.js` (guardar/restaurar contexto en `initializeSystem()`)
-
-#### B2. VIN Smart Input (Tier E4)
-- Auto-uppercase, strip espacios, validación checksum
-- Detección de duplicados en tiempo real
-- Archivo: `js/cop15.js` (mejorar campo VIN)
-
-#### B3. Quick-Pick de Propósitos Recientes (Tier E1)
-- Chips con los últimos 3 propósitos usados arriba del dropdown
-- Un tap en lugar de abrir dropdown + scroll + seleccionar
-- Archivo: `js/cop15.js` (agregar chips al form de alta)
-
-### Archivos tocados: `js/app.js`, `js/cop15.js`, `js/testplan.js`, `js/inventory.js`, `package.json`
-### Complejidad: Media — ~400-600 líneas nuevas, ~100 líneas modificadas
+### D. Smart Notifications
+- Centro de notificaciones mejorado con prioridad y agrupación
+- Notificaciones push via Service Worker (no solo in-app)
+- Resumen diario automático al inicio del turno
 
 ---
 
-## Versión 7.2 — "Smart Workflow" (El corazón del V7)
+## Versión 8.0 — "La Gran Evolución"
 
-**Filosofía**: El técnico nunca se pregunta "¿qué sigue?" — la app lo guía.
-
-### A. Guided Workflow Engine (Tier D del handoff)
-
-#### A1. Motor `getNextStep(vehicle)`
-- Función que analiza el estado del vehículo y retorna la acción recomendada
-- Estados: registrado → en soak → listo para prueba → en prueba → listo para liberar → liberado
-- Archivo: `js/cop15.js` (nuevo motor ~120 líneas)
-
-#### A2. Banner Flotante "Siguiente Paso"
-- Barra persistente abajo de la pantalla mostrando la acción recomendada
-- Botón directo que navega al tab/form correcto
-- Se actualiza reactivamente via eventBus (de 7.1)
-- Archivo: `js/cop15.js`, `styles.css`, `index.html`
-
-#### A3. Auto-Prompt Post-Soak
-- Cuando el soak timer termina → modal "Soak completo. ¿Ir al formulario de prueba?"
-- Usa la Notification API existente + modal in-app
-- Archivo: `js/cop15.js` (hook en soak timer completion)
-
-#### A4. Post-Release Quick Actions (Tier D4)
-- Al liberar: card con "Registrar Otro", "Ver en Plan", "Ir a Dashboard"
-- Archivo: `js/cop15.js`
-
-### B. Form Speed Boosters (Tier E)
-
-#### B1. Smart Config Suggestions (E2)
-- Cards con las 3 configuraciones más frecuentes del técnico
-- Un tap para pre-llenar modelo/año/motor
-- Archivo: `js/cop15.js`
-
-#### B2. Favoritos/Templates Mejorados (E3)
-- Guardar configuraciones completas como templates nombrados
-- Acceso rápido desde el form de alta
-- Archivo: `js/cop15.js`
-
-#### B3. Batch Release (E5)
-- Selección múltiple de vehículos "listos para liberar"
-- Liberación en lote con confirmación
-- Archivo: `js/cop15.js`
-
-#### B4. One-Tap Frequent Values (E6)
-- Chips para valores frecuentes en campos de precondición
-- Tipo combustible, presión llantas, etc.
-- Archivo: `js/cop15.js`, `styles.css`
-
-### C. Mi Turno Dashboard (Tier F)
-
-#### C1. Card "Mi Turno" en HOY
-- Vehículos activos del operador actual con status y tiempo restante
-- Quick actions: "Ver Timer", "Liberar", "Continuar"
-- Archivo: `js/panel.js`, `js/app.js` (sección HOY en index.html)
-
-#### C2. Progress Ring
-- Anillo visual "5/8 objetivo del día"
-- Archivo: `js/panel.js`, `styles.css`
-
-### Archivos tocados: `js/cop15.js` (principal), `js/panel.js`, `js/app.js`, `styles.css`, `index.html`
-### Complejidad: Alta — ~800-1200 líneas nuevas, ~200 líneas modificadas
-
----
-
-## Versión 7.3 — "Calidad y Rendimiento"
-
-**Filosofía**: Estabilizar, optimizar, y preparar métricas para decidir sobre v8.
-
-### A. Executive Dashboard (Tier B del handoff)
-
-#### A1. KPI Scorecard
-- Throughput, velocidad, compliance, utilización de recursos
-- Archivo: `js/panel.js`
-
-#### A2. Vehicle Turnaround Analytics
-- Tiempo promedio por etapa (del timeline data)
-- Archivo: `js/panel.js`, `js/results.js`
-
-#### A3. Predictive Resource Planner
-- Proyección de agotamiento de gas
-- Capacidad de pruebas por semana
-- Archivo: `js/panel.js`, `js/inventory.js`
-
-### B. Testing & Calidad
-
-#### B1. Tests de Integración
-- Playwright tests para los 3 workflows críticos:
-  1. Registro → Soak → Prueba → Liberación
-  2. Creación de plan semanal → Ejecución → Burndown
-  3. Lectura de cilindros → Alertas de gas bajo
-- Archivo: `tests/e2e/`
-
-#### B2. Performance Monitoring
-- Métricas de startup time, render time, localStorage usage
-- Dashboard de métricas en System Health (ya existe estructura)
-- Archivo: `js/panel.js`, `js/app.js`
-
-### C. Optimización
-
-#### C1. Lazy Loading de CDN
-- Chart.js y jsPDF solo cargan cuando se necesitan
-- Archivo: `js/app.js`, `index.html`
-
-#### C2. Render Caching Mejorado
-- Expandir `_tabCache` a todos los módulos
-- Invalidación inteligente via eventBus
-- Archivo: todos los módulos JS
-
-### D. UI/UX Polish
-
-#### D1. Dark Mode
-- El toggle ya existe en UI pero no está implementado
-- Usar CSS variables existentes, agregar variantes dark
-- Archivo: `styles.css`
-
-#### D2. Transiciones entre Tabs
-- Animaciones fade+slide al cambiar de módulo/tab
-- Usar las clases `.tab-content-enter`/`.tab-content-exit` que ya existen
-- Archivo: `styles.css`, `js/app.js`
-
-### Archivos tocados: todos los JS, `styles.css`, `index.html`, nuevo `tests/e2e/`
-### Complejidad: Media-Alta
-
----
-
-## Versión 8.0 — "La Gran Evolución" (Decisión Arquitectónica)
-
-**Filosofía**: Con 7.x estable y con tests, ahora sí podemos tomar decisiones informadas sobre el futuro.
+**Filosofía**: Con 7.x estable y con tests, decisión informada sobre el futuro.
 
 ### Decisión Framework: Basada en Datos de 7.x
 
-| Si en 7.x encontramos que... | Entonces en 8.0... |
+| Si encontramos que... | Entonces en 8.0... |
 |------|------|
-| Alpine.js escala bien, el event bus funciona | Quedarnos con Alpine, agregar Alpine stores formales |
-| Alpine limita (forms complejos, reactividad profunda) | Migrar a **Svelte** (compila a vanilla JS, compatible con single-file) |
-| Se necesita ecosistema rico (routing, i18n, devtools) | Migrar a **Vue 3** con Vite build customizado para single-file |
-| Performance es el cuello de botella | Considerar **Preact** (3KB, API compatible con React) |
+| Alpine.js escala bien, event bus + state manager funcionan | Quedarnos con Alpine + stores formales |
+| Alpine limita en forms complejos o reactividad profunda | Migrar a **Svelte** (compila a vanilla JS) |
+| Se necesita ecosistema rico (routing, i18n, devtools) | Migrar a **Vue 3** con build custom para single-file |
 
-### Posibles Rutas para 8.0
-
-#### Ruta A: "Alpine Maduro" (si 7.x funciona bien)
-- Alpine.js stores formales para estado
-- Web Components para encapsulación
-- Service Worker mejorado con cache strategies
-- **Esfuerzo**: Bajo (4-6 semanas)
-
-#### Ruta B: "Migración Gradual a Svelte" (recomendada si se necesita framework)
-- Svelte compila a vanilla JS — compatible con offline single-file
-- Migración módulo por módulo (empezar por Panel, luego Inventory, etc.)
-- SvelteKit para routing si se decide salir de SPA
-- **Esfuerzo**: Medio (8-12 semanas, sin rewrite completo)
-
-#### Ruta C: "Vue 3 Full Migration"
-- Solo si se decide abandonar el constraint de single-file
-- O con plugin custom de Vite para inline todo en un HTML
-- Vue Router, Pinia stores, Composition API
-- **Esfuerzo**: Alto (12-16 semanas, 50-70% rewrite)
-
-### Otras Mejoras Candidatas para 8.0
+### Mejoras Candidatas para 8.0
 - **IndexedDB** en lugar de localStorage (supera límite de 5MB)
 - **Web Workers** para cálculos pesados (SPC, Cpk/Ppk)
-- **Offline-first sync** mejorado (CRDTs o similar para conflictos)
+- **Offline-first sync** mejorado (CRDTs para conflictos)
 - **Multi-idioma** (i18n — actualmente todo en español)
-- **Role-based access** (técnico vs supervisor vs gerente)
-- **Reportes PDF avanzados** con branding KIA
+- **Role-based access** (técnico vs supervisor vs gerente con permisos granulares)
+- **Reportes PDF avanzados** con branding KIA corporativo
+- **Integración con sistemas externos** (SAP, LIMS) via API gateway
 
 ---
 
-## Timeline Sugerido
+## Timeline
 
 ```
-7.1 "Cimientos"     ──── 2-3 semanas ────▶ Event bus, state manager, session memory, quick wins
-7.2 "Smart Workflow" ──── 3-4 semanas ────▶ Guided workflow, form speed, Mi Turno
-7.3 "Calidad"        ──── 2-3 semanas ────▶ Executive dashboard, tests, dark mode, performance
-8.0 "Evolución"      ──── Decisión basada en datos de 7.x ────▶ Framework o Alpine maduro
+7.1 "Infraestructura"  ──── Ahora ────────▶ State Manager, Event Bus++, Vitest
+7.2 "Multi-Vehículo"   ──── Siguiente ────▶ Workflow paralelo, analytics, inventory intelligence
+8.0 "Evolución"         ──── Futuro ───────▶ Framework decision, IndexedDB, i18n, roles
 ```
 
 ## Verificación
 
 Para validar cada versión:
-1. `node --check js/*.js` — verificar sintaxis de todos los archivos
-2. `./build.sh` — generar unified HTML y verificar que no rompe
-3. Abrir en browser y probar flujos críticos manualmente
-4. Ejecutar `npm test` (a partir de 7.1 con Vitest)
-5. Para 7.3+: Ejecutar tests e2e con Playwright
+1. `node --check js/*.js` — verificar sintaxis
+2. `npm test` — ejecutar Vitest (a partir de 7.1)
+3. `./build.sh` — generar unified HTML
+4. Probar flujos críticos en browser
