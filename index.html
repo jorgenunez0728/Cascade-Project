@@ -816,11 +816,17 @@
                 <div id="testSummary"></div>
             </div>
 
+            <!-- Mandatory scanned-results-sheet capture for emissions vehicles -->
+            <div class="card" id="pa-doc-upload-card" style="display:none;">
+                <div class="card-title">📷 Hoja de Resultados (Software de Emisiones)</div>
+                <div id="pa-doc-upload-container"></div>
+            </div>
+
             <div class="card">
                 <div class="card-title">✅ Validación Final</div>
                 <p style="margin-bottom: 15px;">Seleccione la acción a realizar con este vehículo:</p>
                 <div style="display:flex; gap:10px; flex-wrap: wrap;">
-                    <button class="btn-primary" onclick="finishRelease(false)" style="flex: 1;">
+                    <button class="btn-primary" id="release-archive-btn" onclick="finishRelease(false)" style="flex: 1;">
                         📁 LIBERAR Y ARCHIVAR
                     </button>
                     <button class="btn-secondary" onclick="finishRelease(true)" style="flex: 1;">

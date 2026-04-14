@@ -1858,6 +1858,10 @@ if (vehicle.status !== 'ready-release') {
   _renderUsedCylinders(vehicle);
 
   renderTimeline(vehicle);
+
+  // Mandatory scanned results sheet capture (emissions only)
+  if (typeof paRenderDocUpload === 'function') paRenderDocUpload(vehicle.id);
+  if (typeof paUpdateReleaseButtonState === 'function') paUpdateReleaseButtonState(vehicle.id);
 }
 
 function _renderUsedCylinders(vehicle) {
@@ -2009,6 +2013,14 @@ function _renderUsedCylinders(vehicle) {
 
         const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
         if(!vehicle) return;
+
+        // Mandatory: emissions vehicles need a captured results-sheet photo
+        if (!isRetest && typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose)) {
+            if (!vehicle.testData || !vehicle.testData.scannedReportCaptured) {
+                showToast('Falta capturar la hoja de resultados antes de liberar', 'error');
+                return;
+            }
+        }
 
         // Save snapshot for rollback on error
         const prevStatus = vehicle.status;
@@ -5506,8 +5518,25 @@ function v7RenderBatchRelease() {
 }
 
 function v7BatchRelease() {
-    var ready = (db.vehicles || []).filter(function(v) { return v.status === 'ready-release'; });
-    if (ready.length === 0) { showToast('No hay vehiculos listos', 'info'); return; }
+    var allReady = (db.vehicles || []).filter(function(v) { return v.status === 'ready-release'; });
+    if (allReady.length === 0) { showToast('No hay vehiculos listos', 'info'); return; }
+
+    // Filter out emissions vehicles missing scanned-report photo (mandatory)
+    var ready = [];
+    var blocked = [];
+    allReady.forEach(function(v) {
+        var needsPhoto = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose);
+        var hasPhoto = !!(v.testData && v.testData.scannedReportCaptured);
+        if (needsPhoto && !hasPhoto) blocked.push(v);
+        else ready.push(v);
+    });
+
+    if (blocked.length > 0) {
+        var blockedVins = blocked.map(function(v){ return v.vin || ('ID ' + v.id); }).join(', ');
+        showToast('Omitidos ' + blocked.length + ' vehiculo(s) sin foto de resultados: ' + blockedVins, 'warning');
+    }
+
+    if (ready.length === 0) { showToast('Ningun vehiculo cumple los requisitos para liberar', 'error'); return; }
 
     if (typeof undoPush === 'function') undoPush('cop15', 'Batch Release de ' + ready.length + ' vehiculos');
 
@@ -5527,6 +5556,8 @@ function v7BatchRelease() {
             if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle);
             if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle);
             if (typeof tpAutoMarkWeeklyCompletion === 'function') tpAutoMarkWeeklyCompletion(vehicle.configCode);
+            // Emit per-vehicle event so Power Automate webhook fires with each PDF + photo
+            if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: false, batch: true });
             count++;
         } catch(e) {
             errors++;
@@ -5537,9 +5568,8 @@ function v7BatchRelease() {
     saveDB();
     refreshAllLists();
     updateProgressBar();
-    if (typeof emitEvent === 'function') emitEvent('vehicle:released', { batch: true, count: count });
 
-    showToast('✅ Liberados ' + count + ' vehiculos' + (errors > 0 ? ' (' + errors + ' errores)' : ''), count > 0 ? 'success' : 'error');
+    showToast('Liberados ' + count + ' vehiculos' + (errors > 0 ? ' (' + errors + ' errores)' : ''), count > 0 ? 'success' : 'error');
     if (count > 0 && typeof animateConfetti === 'function') animateConfetti();
     v7RenderBatchRelease();
 }

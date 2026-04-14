@@ -117,11 +117,12 @@ function paQueueRetry() {
         return;
     }
 
-    var payload = paBuildPayload(item.eventType, vehicle);
     item.retries++;
     paQueueSave();
 
-    paSendWebhook(payload)
+    paBuildPayload(item.eventType, vehicle).then(function (payload) {
+        return paSendWebhook(payload);
+    })
         .then(function () {
             paQueue.shift();
             paQueueSave();
@@ -141,27 +142,34 @@ function paQueueRetry() {
 // PAYLOAD BUILDER
 // ══════════════════════════════════════════════════════════════
 
+// Returns a Promise that resolves to the full payload object.
+// Async because the scannedReport photo (IndexedDB) is fetched async.
 function paBuildPayload(eventType, vehicle) {
-    var payload = {
-        event: eventType,
-        timestamp: new Date().toISOString(),
-        station: paConfig.stationName,
-        vehicle: {
-            id: vehicle.id,
-            vin: vehicle.vin || '',
-            configCode: vehicle.configCode || '',
-            purpose: vehicle.purpose || '',
-            model: (vehicle.config && vehicle.config['Modelo']) || '',
-            engine: (vehicle.config && vehicle.config['ENGINE CAPACITY']) || '',
-            regulation: (vehicle.config && vehicle.config['EMISSION REGULATION']) || '',
-            transmission: (vehicle.config && vehicle.config['TRANSMISSION']) || '',
-            registeredBy: vehicle.registeredBy || '',
-            registeredAt: vehicle.registeredAt || '',
-            status: vehicle.status || ''
-        }
-    };
+    return new Promise(function (resolve) {
+        var payload = {
+            event: eventType,
+            timestamp: new Date().toISOString(),
+            station: paConfig.stationName,
+            vehicle: {
+                id: vehicle.id,
+                vin: vehicle.vin || '',
+                configCode: vehicle.configCode || '',
+                purpose: vehicle.purpose || '',
+                model: (vehicle.config && vehicle.config['Modelo']) || '',
+                engine: (vehicle.config && vehicle.config['ENGINE CAPACITY']) || '',
+                regulation: (vehicle.config && vehicle.config['EMISSION REGULATION']) || '',
+                transmission: (vehicle.config && vehicle.config['TRANSMISSION']) || '',
+                registeredBy: vehicle.registeredBy || '',
+                registeredAt: vehicle.registeredAt || '',
+                status: vehicle.status || ''
+            }
+        };
 
-    if (eventType === 'vehicle_released') {
+        if (eventType !== 'vehicle_released') {
+            resolve(payload);
+            return;
+        }
+
         payload.vehicle.archivedAt = vehicle.archivedAt || '';
         payload.vehicle.resultado = _paExtractResult(vehicle);
         payload.vehicle.testSummary = _paExtractTestSummary(vehicle);
@@ -184,9 +192,20 @@ function paBuildPayload(eventType, vehicle) {
                 console.warn('PA: PDF base64 generation failed:', e);
             }
         }
-    }
 
-    return payload;
+        // Attach the scanned results sheet photo from IndexedDB (async)
+        paPhotoGet(vehicle.id, function (photo) {
+            if (photo && photo.base64) {
+                payload.scannedReport = {
+                    base64: photo.base64,
+                    filename: photo.filename || ('Resultados_' + (vehicle.vin || 'SIN-VIN') + '_' + new Date().toISOString().split('T')[0] + '.jpg'),
+                    contentType: photo.contentType || 'image/jpeg',
+                    capturedAt: photo.capturedAt || ''
+                };
+            }
+            resolve(payload);
+        });
+    });
 }
 
 function _paExtractResult(vehicle) {
@@ -262,23 +281,22 @@ function paOnVehicleRegistered(data) {
     var vehicle = data && data.vehicle;
     if (!vehicle) return;
 
-    var payload = paBuildPayload('vehicle_registered', vehicle);
-
-    if (navigator.onLine) {
-        paSendWebhook(payload)
-            .then(function () {
-                _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'vehicle_registered' };
-                if (typeof showToast === 'function') showToast('Aprobación disparada en Power Automate', 'success');
-            })
-            .catch(function (err) {
-                _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'vehicle_registered', error: String(err) };
-                paQueueAdd('vehicle_registered', vehicle.id);
-                if (typeof showToast === 'function') showToast('Webhook en cola — se reintentará automáticamente', 'warning');
-            });
-    } else {
+    if (!navigator.onLine) {
         paQueueAdd('vehicle_registered', vehicle.id);
         if (typeof showToast === 'function') showToast('Sin conexión — aprobación en cola', 'info');
+        return;
     }
+
+    paBuildPayload('vehicle_registered', vehicle).then(function (payload) {
+        return paSendWebhook(payload);
+    }).then(function () {
+        _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'vehicle_registered' };
+        if (typeof showToast === 'function') showToast('Aprobación disparada en Power Automate', 'success');
+    }).catch(function (err) {
+        _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'vehicle_registered', error: String(err) };
+        paQueueAdd('vehicle_registered', vehicle.id);
+        if (typeof showToast === 'function') showToast('Webhook en cola — se reintentará automáticamente', 'warning');
+    });
 }
 
 function paOnVehicleReleased(data) {
@@ -286,23 +304,22 @@ function paOnVehicleReleased(data) {
     var vehicle = data && data.vehicle;
     if (!vehicle || data.isRetest) return;
 
-    var payload = paBuildPayload('vehicle_released', vehicle);
-
-    if (navigator.onLine) {
-        paSendWebhook(payload)
-            .then(function () {
-                _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'vehicle_released' };
-                if (typeof showToast === 'function') showToast('Documentación enviada a Power Automate', 'success');
-            })
-            .catch(function (err) {
-                _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'vehicle_released', error: String(err) };
-                paQueueAdd('vehicle_released', vehicle.id);
-                if (typeof showToast === 'function') showToast('Webhook de liberación en cola — se reintentará', 'warning');
-            });
-    } else {
+    if (!navigator.onLine) {
         paQueueAdd('vehicle_released', vehicle.id);
         if (typeof showToast === 'function') showToast('Sin conexión — liberación en cola', 'info');
+        return;
     }
+
+    paBuildPayload('vehicle_released', vehicle).then(function (payload) {
+        return paSendWebhook(payload);
+    }).then(function () {
+        _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'vehicle_released' };
+        if (typeof showToast === 'function') showToast('Documentación enviada a Power Automate', 'success');
+    }).catch(function (err) {
+        _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'vehicle_released', error: String(err) };
+        paQueueAdd('vehicle_released', vehicle.id);
+        if (typeof showToast === 'function') showToast('Webhook de liberación en cola — se reintentará', 'warning');
+    });
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -474,6 +491,396 @@ function paManualRetry() {
 }
 
 // ══════════════════════════════════════════════════════════════
+// INDEXEDDB PHOTO STORAGE
+// Stores the scanned results sheet photo separately from
+// localStorage (which is capped at 5MB). Pattern follows
+// _openBackupDB() in app.js.
+// ══════════════════════════════════════════════════════════════
+
+var _paPhotoDBName = 'kia_pa_photos_db';
+var _paPhotoStoreName = 'photos';
+
+function _paOpenPhotoDB(callback) {
+    try {
+        var req = indexedDB.open(_paPhotoDBName, 1);
+        req.onupgradeneeded = function (e) {
+            var idb = e.target.result;
+            if (!idb.objectStoreNames.contains(_paPhotoStoreName)) {
+                idb.createObjectStore(_paPhotoStoreName, { keyPath: 'vehicleId' });
+            }
+        };
+        req.onsuccess = function (e) { callback(e.target.result); };
+        req.onerror = function () {
+            console.warn('PA: IndexedDB photo store error');
+            callback(null);
+        };
+    } catch (e) {
+        console.warn('PA: IndexedDB not available:', e);
+        callback(null);
+    }
+}
+
+function paPhotoStore(vehicleId, dataObj, cb) {
+    _paOpenPhotoDB(function (idb) {
+        if (!idb) { if (cb) cb(false); return; }
+        try {
+            var tx = idb.transaction(_paPhotoStoreName, 'readwrite');
+            var store = tx.objectStore(_paPhotoStoreName);
+            var record = {
+                vehicleId: String(vehicleId),
+                base64: dataObj.base64,
+                filename: dataObj.filename || ('Resultados_' + vehicleId + '.jpg'),
+                contentType: dataObj.contentType || 'image/jpeg',
+                capturedAt: dataObj.capturedAt || new Date().toISOString(),
+                sizeBytes: (dataObj.base64 || '').length
+            };
+            store.put(record);
+            tx.oncomplete = function () { if (cb) cb(true); };
+            tx.onerror = function () { if (cb) cb(false); };
+        } catch (e) {
+            console.warn('paPhotoStore:', e);
+            if (cb) cb(false);
+        }
+    });
+}
+
+function paPhotoGet(vehicleId, cb) {
+    _paOpenPhotoDB(function (idb) {
+        if (!idb) { cb(null); return; }
+        try {
+            var tx = idb.transaction(_paPhotoStoreName, 'readonly');
+            var store = tx.objectStore(_paPhotoStoreName);
+            var req = store.get(String(vehicleId));
+            req.onsuccess = function () { cb(req.result || null); };
+            req.onerror = function () { cb(null); };
+        } catch (e) {
+            console.warn('paPhotoGet:', e);
+            cb(null);
+        }
+    });
+}
+
+function paPhotoHas(vehicleId, cb) {
+    _paOpenPhotoDB(function (idb) {
+        if (!idb) { cb(false); return; }
+        try {
+            var tx = idb.transaction(_paPhotoStoreName, 'readonly');
+            var store = tx.objectStore(_paPhotoStoreName);
+            var req = store.getKey ? store.getKey(String(vehicleId)) : store.get(String(vehicleId));
+            req.onsuccess = function () { cb(!!req.result); };
+            req.onerror = function () { cb(false); };
+        } catch (e) { cb(false); }
+    });
+}
+
+function paPhotoDelete(vehicleId, cb) {
+    _paOpenPhotoDB(function (idb) {
+        if (!idb) { if (cb) cb(false); return; }
+        try {
+            var tx = idb.transaction(_paPhotoStoreName, 'readwrite');
+            tx.objectStore(_paPhotoStoreName)['delete'](String(vehicleId));
+            tx.oncomplete = function () { if (cb) cb(true); };
+            tx.onerror = function () { if (cb) cb(false); };
+        } catch (e) { if (cb) cb(false); }
+    });
+}
+
+// Remove photos for vehicles archived >90 days ago
+function paPhotoCleanup() {
+    if (typeof db === 'undefined' || !db.vehicles) return;
+    var cutoff = Date.now() - (90 * 24 * 60 * 60 * 1000);
+    var activeIds = {};
+    db.vehicles.forEach(function (v) {
+        var archived = v.archivedAt ? new Date(v.archivedAt).getTime() : 0;
+        if (!archived || archived > cutoff) activeIds[String(v.id)] = true;
+    });
+
+    _paOpenPhotoDB(function (idb) {
+        if (!idb) return;
+        try {
+            var tx = idb.transaction(_paPhotoStoreName, 'readwrite');
+            var store = tx.objectStore(_paPhotoStoreName);
+            var cursor = store.openCursor();
+            cursor.onsuccess = function (e) {
+                var c = e.target.result;
+                if (!c) return;
+                if (!activeIds[c.key]) c.delete();
+                c.continue();
+            };
+        } catch (e) { console.warn('paPhotoCleanup:', e); }
+    });
+}
+
+// Returns total bytes in the photo store (for System Health)
+function paPhotoTotalSize(cb) {
+    _paOpenPhotoDB(function (idb) {
+        if (!idb) { cb(0, 0); return; }
+        try {
+            var tx = idb.transaction(_paPhotoStoreName, 'readonly');
+            var store = tx.objectStore(_paPhotoStoreName);
+            var total = 0, count = 0;
+            var cursor = store.openCursor();
+            cursor.onsuccess = function (e) {
+                var c = e.target.result;
+                if (!c) { cb(total, count); return; }
+                total += (c.value.sizeBytes || (c.value.base64 || '').length);
+                count++;
+                c.continue();
+            };
+            cursor.onerror = function () { cb(0, 0); };
+        } catch (e) { cb(0, 0); }
+    });
+}
+
+// ══════════════════════════════════════════════════════════════
+// CAMERA CAPTURE — live camera (getUserMedia) with compression
+// Reusable modal overlay separate from other module modals.
+// ══════════════════════════════════════════════════════════════
+
+var _paCameraStream = null;
+var _paCameraVehicleId = null;
+
+function paCameraOpen(vehicleId) {
+    _paCameraVehicleId = vehicleId;
+
+    var overlay = document.getElementById('pa-camera-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'pa-camera-overlay';
+        overlay.className = 'pa-camera-overlay';
+        document.body.appendChild(overlay);
+    }
+
+    overlay.innerHTML =
+        '<div class="pa-camera-box">' +
+            '<div class="pa-camera-header">' +
+                '<div class="pa-camera-title">Hoja de Resultados</div>' +
+                '<button type="button" class="pa-camera-close-btn" onclick="paCameraClose()">&#10005;</button>' +
+            '</div>' +
+            '<div class="pa-camera-hint">Encuadra la hoja de resultados de emisiones y toca Capturar.</div>' +
+            '<div class="pa-camera-stage">' +
+                '<video id="pa-camera-video" autoplay playsinline muted></video>' +
+                '<canvas id="pa-camera-canvas" style="display:none;"></canvas>' +
+                '<div id="pa-camera-status" class="pa-camera-status"></div>' +
+            '</div>' +
+            '<div class="pa-camera-actions">' +
+                '<button type="button" class="btn btn-ghost" onclick="paCameraClose()">Cancelar</button>' +
+                '<button type="button" id="pa-camera-capture-btn" class="btn btn-primary" onclick="paCameraCapture()">Capturar</button>' +
+            '</div>' +
+        '</div>';
+    overlay.style.display = 'flex';
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        _paCameraShowStatus('La camara no esta disponible en este dispositivo.', true);
+        return;
+    }
+
+    navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+        },
+        audio: false
+    }).then(function (stream) {
+        _paCameraStream = stream;
+        var video = document.getElementById('pa-camera-video');
+        if (video) {
+            video.srcObject = stream;
+            video.play().catch(function () {});
+        }
+    }).catch(function (err) {
+        _paCameraShowStatus('No se pudo iniciar la camara: ' + (err && err.message ? err.message : err), true);
+    });
+}
+
+function _paCameraShowStatus(msg, isError) {
+    var s = document.getElementById('pa-camera-status');
+    if (!s) return;
+    s.textContent = msg;
+    s.style.color = isError ? '#ef4444' : '#10b981';
+    s.style.display = 'block';
+}
+
+function paCameraCapture() {
+    var video = document.getElementById('pa-camera-video');
+    var canvas = document.getElementById('pa-camera-canvas');
+    if (!video || !canvas || !video.videoWidth) {
+        _paCameraShowStatus('La camara aun no esta lista.', true);
+        return;
+    }
+
+    var btn = document.getElementById('pa-camera-capture-btn');
+    if (btn) btn.disabled = true;
+
+    // Draw full frame, then compress via resize
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+
+    var dataUrl = paCompressImage(canvas, 1400, 0.75);
+
+    var record = {
+        base64: dataUrl.split(',')[1] || dataUrl, // strip "data:image/jpeg;base64,"
+        filename: 'Resultados_' + (_paCameraVehicleId || 'veh') + '_' + new Date().toISOString().replace(/[:.]/g, '-').split('T')[0] + '.jpg',
+        contentType: 'image/jpeg',
+        capturedAt: new Date().toISOString()
+    };
+
+    paPhotoStore(_paCameraVehicleId, record, function (ok) {
+        if (!ok) {
+            _paCameraShowStatus('Error al guardar la foto. Intenta de nuevo.', true);
+            if (btn) btn.disabled = false;
+            return;
+        }
+
+        // Update lightweight flag on the vehicle so the UI + webhook know it is captured
+        if (typeof db !== 'undefined' && db.vehicles) {
+            var v = db.vehicles.find(function (x) { return x.id == _paCameraVehicleId; });
+            if (v) {
+                if (!v.testData) v.testData = {};
+                v.testData.scannedReportCaptured = true;
+                v.testData.scannedReportCapturedAt = record.capturedAt;
+                if (typeof saveDB === 'function') saveDB();
+            }
+        }
+
+        paCameraClose();
+        if (typeof showToast === 'function') showToast('Hoja de resultados capturada', 'success');
+
+        // Refresh the release screen if visible
+        if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_paCameraVehicleId);
+        if (typeof loadRelease === 'function') {
+            try { loadRelease(_paCameraVehicleId); } catch (e) {}
+        }
+    });
+}
+
+function paCameraClose() {
+    // Stop all tracks
+    if (_paCameraStream) {
+        try {
+            _paCameraStream.getTracks().forEach(function (t) { t.stop(); });
+        } catch (e) {}
+        _paCameraStream = null;
+    }
+
+    var overlay = document.getElementById('pa-camera-overlay');
+    if (overlay) overlay.style.display = 'none';
+    _paCameraVehicleId = null;
+}
+
+// Scale the canvas down and return a JPEG data URL
+function paCompressImage(sourceCanvas, maxWidth, quality) {
+    var sw = sourceCanvas.width;
+    var sh = sourceCanvas.height;
+    if (sw <= maxWidth) {
+        return sourceCanvas.toDataURL('image/jpeg', quality);
+    }
+    var ratio = maxWidth / sw;
+    var out = document.createElement('canvas');
+    out.width = Math.round(sw * ratio);
+    out.height = Math.round(sh * ratio);
+    out.getContext('2d').drawImage(sourceCanvas, 0, 0, out.width, out.height);
+    return out.toDataURL('image/jpeg', quality);
+}
+
+// ══════════════════════════════════════════════════════════════
+// UI: Doc Upload card on the Release screen
+// ══════════════════════════════════════════════════════════════
+
+function paRenderDocUpload(vehicleId) {
+    var container = document.getElementById('pa-doc-upload-container');
+    var card = document.getElementById('pa-doc-upload-card');
+    if (!container || !card) return;
+
+    var vehicle = null;
+    if (typeof db !== 'undefined' && db.vehicles) {
+        vehicle = db.vehicles.find(function (v) { return v.id == vehicleId; });
+    }
+    if (!vehicle) { card.style.display = 'none'; return; }
+
+    var applies = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose);
+    if (!applies) { card.style.display = 'none'; return; }
+
+    card.style.display = '';
+    container.innerHTML = '<div class="pa-doc-loading">Consultando evidencia...</div>';
+
+    paPhotoGet(vehicleId, function (photo) {
+        if (photo && photo.base64) {
+            var when = '';
+            try { when = new Date(photo.capturedAt).toLocaleString('es-MX'); } catch (e) { when = photo.capturedAt || ''; }
+            var sizeKb = ((photo.sizeBytes || photo.base64.length) / 1024).toFixed(0);
+            var src = 'data:' + (photo.contentType || 'image/jpeg') + ';base64,' + photo.base64;
+            container.innerHTML =
+                '<div class="pa-doc-status pa-doc-ok">' +
+                    '<div class="pa-doc-thumb-wrap">' +
+                        '<img class="pa-doc-thumb" src="' + src + '" alt="Hoja de resultados">' +
+                    '</div>' +
+                    '<div class="pa-doc-body">' +
+                        '<div class="pa-doc-title">&#10004; Hoja de resultados capturada</div>' +
+                        '<div class="pa-doc-sub">' + when + ' &middot; ~' + sizeKb + ' KB</div>' +
+                        '<div class="pa-doc-actions">' +
+                            '<button type="button" class="btn btn-sm btn-ghost" onclick="paDocView(\'' + String(vehicleId).replace(/'/g, "\\'") + '\')">Ver</button>' +
+                            '<button type="button" class="btn btn-sm btn-ghost" onclick="paCameraOpen(\'' + String(vehicleId).replace(/'/g, "\\'") + '\')">Reemplazar</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        } else {
+            container.innerHTML =
+                '<div class="pa-doc-status pa-doc-pending">' +
+                    '<div class="pa-doc-body">' +
+                        '<div class="pa-doc-title">&#9888; Pendiente: Fotografia de hoja de resultados</div>' +
+                        '<div class="pa-doc-sub">Obligatorio para vehiculos de emisiones. Toma la foto antes de liberar.</div>' +
+                        '<div class="pa-doc-actions">' +
+                            '<button type="button" class="btn btn-primary" onclick="paCameraOpen(\'' + String(vehicleId).replace(/'/g, "\\'") + '\')">Tomar Foto</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        }
+
+        // Also reflect state on the LIBERAR button if present
+        paUpdateReleaseButtonState(vehicleId);
+    });
+}
+
+function paDocView(vehicleId) {
+    paPhotoGet(vehicleId, function (photo) {
+        if (!photo || !photo.base64) {
+            if (typeof showToast === 'function') showToast('No hay foto guardada', 'info');
+            return;
+        }
+        var src = 'data:' + (photo.contentType || 'image/jpeg') + ';base64,' + photo.base64;
+        var w = window.open('', '_blank');
+        if (w) {
+            w.document.write('<html><head><title>Hoja de Resultados</title></head><body style="margin:0;background:#000;"><img src="' + src + '" style="width:100%;height:auto;display:block;"></body></html>');
+            w.document.close();
+        }
+    });
+}
+
+// Enable/disable the release button based on photo presence (emissions only)
+function paUpdateReleaseButtonState(vehicleId) {
+    var btn = document.getElementById('release-archive-btn');
+    if (!btn) return;
+    if (typeof db === 'undefined' || !db.vehicles) return;
+    var vehicle = db.vehicles.find(function (v) { return v.id == vehicleId; });
+    if (!vehicle) return;
+    var applies = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose);
+    if (!applies) { btn.disabled = false; btn.removeAttribute('title'); return; }
+
+    var captured = !!(vehicle.testData && vehicle.testData.scannedReportCaptured);
+    if (captured) {
+        btn.disabled = false;
+        btn.removeAttribute('title');
+    } else {
+        btn.disabled = true;
+        btn.title = 'Captura la hoja de resultados antes de liberar';
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
 // INITIALIZATION
 // ══════════════════════════════════════════════════════════════
 
@@ -491,6 +898,11 @@ function paInit() {
     if (navigator.onLine && paQueue.length > 0) {
         setTimeout(paQueueRetry, 5000);
     }
+
+    // Drop photos from vehicles archived >90 days ago
+    setTimeout(function () {
+        try { paPhotoCleanup(); } catch (e) {}
+    }, 8000);
 
     console.log('PA Approvals: initialized (enabled=' + paConfig.enabled + ', queue=' + paQueue.length + ')');
 }
