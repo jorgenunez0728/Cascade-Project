@@ -17,6 +17,7 @@ js/
   inventory.js          ← Lab Inventory + SVG Floor Plan Map (~3,580 lines)
   panel.js              ← Dashboard, Users, Shift Log, Alerts, Intelligence, System Health (~1,368 lines)
   auth.js               ← PIN/WebAuthn authentication (~459 lines)
+  approvals.js          ← Power Automate emissions approval webhook integration (~340 lines)
   firebase-sync.js      ← Optional Firebase cloud sync layer (~2,501 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
 kia-emlab-unified.html  ← GENERATED FILE — do not edit directly (~28,000 lines)
@@ -37,6 +38,7 @@ V7_HANDOFF.md           ← Next version planning document (Smart Workflow upgra
 | Lab Inventory | `js/inventory.js` | `inv` | `invState` | `kia_lab_inventory` |
 | Panel | `js/panel.js` | `pn` | `pnState` | `kia_panel_v1` |
 | Auth | `js/auth.js` | — | session-based | `kia_auth_session` |
+| Approvals | `js/approvals.js` | `pa` | `paConfig`, `paQueue` | `kia_pa_config`, `kia_pa_queue` |
 | Firebase Sync | `js/firebase-sync.js` | `fb` | queue-based | `kia_firebase_queue` |
 
 ### Additional localStorage Keys
@@ -47,6 +49,8 @@ V7_HANDOFF.md           ← Next version planning document (Smart Workflow upgra
 | `kia_entity_notes` | Entity Notes system (per-vehicle, per-test annotations) |
 | `kia_soak_timer` | Soak timer persistence across page reloads |
 | `kia_lab_inventory.zoneLayout` | Floor plan zone positions for SVG map |
+| `kia_pa_config` | Power Automate webhook URL and trigger settings |
+| `kia_pa_queue` | Offline queue for pending webhook calls |
 
 ## Cross-Module Dependencies
 
@@ -66,7 +70,8 @@ V7_HANDOFF.md           ← Next version planning document (Smart Workflow upgra
 5. `results.js` — Results Analyzer (depends on testplan for families)
 6. `panel.js` — Panel module (depends on all modules for intelligence/health)
 7. `auth.js` — Authentication (depends on global scope)
-8. `firebase-sync.js` — Cloud sync (must be last, hooks into all save functions)
+8. `approvals.js` — Power Automate webhook (depends on EventBus from app.js, generateCOP15PDF from cop15.js)
+9. `firebase-sync.js` — Cloud sync (must be last, hooks into all save functions)
 
 The `initializeSystem()` function in app.js runs on `DOMContentLoaded` and bootstraps all modules.
 

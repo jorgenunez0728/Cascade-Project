@@ -3194,3 +3194,126 @@ details.acc > summary {
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* ══════════════════════════════════════════════════════════════
+   Power Automate — Scanned Results Sheet Capture
+   ══════════════════════════════════════════════════════════════ */
+
+/* Status card on the Release screen */
+.pa-doc-loading {
+    font-size: 12px;
+    color: #64748b;
+    padding: 8px;
+}
+.pa-doc-status {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+}
+.pa-doc-status.pa-doc-pending {
+    background: #fff7ed;
+    border-color: #fdba74;
+    color: #9a3412;
+}
+.pa-doc-status.pa-doc-ok {
+    background: #f0fdf4;
+    border-color: #86efac;
+    color: #166534;
+}
+.pa-doc-thumb-wrap {
+    flex: 0 0 96px;
+    width: 96px;
+    height: 96px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,0.1);
+    background: #000;
+}
+.pa-doc-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.pa-doc-body { flex: 1; min-width: 0; }
+.pa-doc-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.pa-doc-sub { font-size: 11px; opacity: 0.8; margin-bottom: 8px; }
+.pa-doc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Camera overlay modal */
+.pa-camera-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(5, 20, 31, 0.85);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+}
+.pa-camera-box {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 14px;
+    max-width: 520px;
+    width: 100%;
+    padding: 16px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.pa-camera-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.pa-camera-title { font-weight: 700; font-size: 15px; }
+.pa-camera-close-btn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+.pa-camera-hint { font-size: 11px; color: #94a3b8; }
+.pa-camera-stage {
+    position: relative;
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+    min-height: 240px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.pa-camera-stage video {
+    width: 100%;
+    max-height: 60vh;
+    display: block;
+    background: #000;
+}
+.pa-camera-status {
+    display: none;
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    text-align: center;
+}
+.pa-camera-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+

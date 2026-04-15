@@ -1184,7 +1184,9 @@ function pnRenderSystemHealth(el) {
         { key: 'kia_chart_configs', label: 'Chart Configs', module: 'charts' },
         { key: 'kia_entity_notes', label: 'Notas', module: 'notes' },
         { key: 'kia_soak_timer', label: 'Soak Timer', module: 'soak' },
-        { key: 'kia_firebase_queue', label: 'Firebase Queue', module: 'firebase' }
+        { key: 'kia_firebase_queue', label: 'Firebase Queue', module: 'firebase' },
+        { key: 'kia_pa_config', label: 'Power Automate Config', module: 'approvals' },
+        { key: 'kia_pa_queue', label: 'Power Automate Queue', module: 'approvals' }
     ];
 
     var totalBytes = 0;
@@ -1333,6 +1335,13 @@ function pnRenderSystemHealth(el) {
     html += '</div>';
     html += '</div>';
 
+    // ── Power Automate Approvals ──
+    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">&#9889; Power Automate — Aprobación de Emisiones</h4>';
+    html += '<p style="color:var(--tp-dim);font-size:10px;margin:0 0 10px 0;">Dispara automáticamente el flujo de aprobación en Microsoft Teams al registrar o liberar un vehículo. Elimina la dependencia del escaneo manual.</p>';
+    html += '<div id="pa-config-container"></div>';
+    html += '</div>';
+
     // ── Performance ──
     html += '<div class="tp-card" style="padding:12px;">';
     html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">⚡ Rendimiento</h4>';
@@ -1347,6 +1356,9 @@ function pnRenderSystemHealth(el) {
 
     html += '</div>';
     el.innerHTML = html;
+
+    // Render Power Automate config UI after DOM is set
+    if (typeof paRenderConfigUI === 'function') paRenderConfigUI();
 }
 
 function _pnFormatBytes(bytes) {
