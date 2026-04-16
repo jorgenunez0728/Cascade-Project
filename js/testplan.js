@@ -351,6 +351,11 @@ function tpLoadPlanFromCSV_CONFIGURATIONS() {
 function tpAutoFeedFromRelease(vehicle) {
     if (!vehicle || !vehicle.configCode) return;
     if (!TP_PURPOSES_VALID.includes(vehicle.purpose)) return;
+    // Ad-hoc vehicles are explicitly excluded from plan accounting.
+    if (vehicle.adhoc) {
+        console.log('TP: skipping auto-feed for ad-hoc vehicle', vehicle.vin || vehicle.id);
+        return;
+    }
 
     const entry = {
         configText: vehicle.configCode,

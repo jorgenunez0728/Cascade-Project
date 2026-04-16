@@ -2148,6 +2148,27 @@ html { scroll-behavior: smooth; }
 [data-theme="dark"] .pa-today-url { background: rgba(15,23,42,0.6); border-color: rgba(100,116,139,0.2); color: #cbd5e1; }
 [data-theme="dark"] .pa-today-queue-badge { background: rgba(245,158,11,0.2); color: #fbbf24; }
 
+/* Ad-hoc badge — marks vehicles excluded from plan accounting */
+.adhoc-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    vertical-align: middle;
+}
+[data-theme="dark"] .adhoc-badge {
+    background: rgba(245,158,11,0.15);
+    color: #fbbf24;
+    border-color: rgba(245,158,11,0.35);
+}
+
 /* Today-tab queue badge (pulsing so it's hard to miss) */
 #today-pa-badge { display: none; animation: paBadgePulse 2s ease-in-out infinite; }
 @keyframes paBadgePulse {
@@ -3696,6 +3717,19 @@ details.acc > summary {
       <input type="datetime-local" id="reg_datetime" readonly>
     </div>
   </div><!-- ✅ cierre form-grid -->
+
+  <div class="form-group adhoc-row" style="margin-top:12px;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;">
+    <label for="vehicleAdhoc" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin:0;">
+      <input type="checkbox" id="vehicleAdhoc" style="margin-top:3px;flex:0 0 auto;">
+      <span>
+        <span style="font-weight:600;color:#92400e;">Test ad-hoc — no contabilizar al plan semanal</span>
+        <small style="display:block;color:#78350f;font-size:11px;margin-top:3px;">
+          Úsalo para pruebas del centro de desarrollo, soporte a otro equipo, o cualquier
+          trabajo fuera del plan aprobado. La aprobación en Power Automate sí se enviará.
+        </small>
+      </span>
+    </label>
+  </div>
 </div><!-- ✅ cierre card -->
 
 <button class="btn-primary" onclick="confirmAlta()" id="btnRegister">
@@ -9601,12 +9635,16 @@ setAltaDatetimeIfEmpty(true);
             };
         }
         
+        const adhocEl = document.getElementById('vehicleAdhoc');
+        const isAdhoc = !!(adhocEl && adhocEl.checked);
+
         const newVehicle = {
             id: ++db.lastId,
             vin: document.getElementById('vin').value,
             purpose: document.getElementById('vehiclePurpose').value,
             config: config,
             configCode: configCode,
+            adhoc: isAdhoc,
             status: 'registered',
             registeredBy: document.getElementById('reg_operator').value,
             registeredAt: new Date().toISOString(),
@@ -9614,8 +9652,8 @@ setAltaDatetimeIfEmpty(true);
                 {
                     timestamp: new Date().toISOString(),
                     user: document.getElementById('reg_operator').value,
-                    action: 'Vehículo Registrado',
-                    data: { status: 'registered', configCode: configCode }
+                    action: 'Vehículo Registrado' + (isAdhoc ? ' (ad-hoc)' : ''),
+                    data: { status: 'registered', configCode: configCode, adhoc: isAdhoc }
                 }
             ],
             testData: {},
@@ -9643,6 +9681,7 @@ setAltaDatetimeIfEmpty(true);
         // Reset
         document.getElementById('vin').value = '';
         document.getElementById('vehiclePurpose').value = '';
+        if (adhocEl) adhocEl.checked = false;
         resetCascadeTree();
         validateVIN(document.getElementById('vin'));
         
@@ -10797,9 +10836,13 @@ function _renderUsedCylinders(vehicle) {
                 tpAutoFeedFromRelease(vehicle);
                 invLogTestUsage(vehicle);
 
-                // Try exact match first, then offer flexible substitution
-                var exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
-                if (!exactMatch && typeof tpFindFlexibleMatches === 'function') {
+                // Try exact match first, then offer flexible substitution.
+                // Skip weekly-plan crediting for ad-hoc vehicles.
+                var exactMatch = false;
+                if (!vehicle.adhoc) {
+                    exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                }
+                if (!vehicle.adhoc && !exactMatch && typeof tpFindFlexibleMatches === 'function') {
                     var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
                     if (flexMatches.length > 0) {
                         // Store pending substitution data and show modal AFTER release completes
@@ -11074,7 +11117,7 @@ function closeSubstitutionModal() {
                         return `
                         <tr>
                             <td><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
-                            <td><strong>${safeVin}</strong></td>
+                            <td><strong>${safeVin}</strong>${v.adhoc ? '<span class="adhoc-badge" title="Test ad-hoc — fuera del plan semanal">ad-hoc</span>' : ''}</td>
                             <td>
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
                                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
@@ -13099,6 +13142,7 @@ function renderKanban() {
                 html += '<span style="display:flex;align-items:center;gap:4px;">';
                 html += '<span style="font-family:monospace;font-size:11px;font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
                 html += '<button onclick="event.stopPropagation();copyToClipboard(\'' + fullVin.replace(/'/g,"\\'") + '\', this)" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px;" title="Copiar VIN">📋</button>';
+                if (v.adhoc) html += '<span class="adhoc-badge" title="Test ad-hoc — fuera del plan semanal">ad-hoc</span>';
                 html += '</span>';
                 if (timeSince) html += '<span style="font-size:9px;color:#94a3b8;" title="Tiempo en este estado">' + timeSince + '</span>';
                 html += '</div>';
@@ -14312,7 +14356,10 @@ function v7BatchRelease() {
             if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
             if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle);
             if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle);
-            if (typeof tpAutoMarkWeeklyCompletion === 'function') tpAutoMarkWeeklyCompletion(vehicle.configCode);
+            // Skip weekly-plan crediting for ad-hoc vehicles.
+            if (!vehicle.adhoc && typeof tpAutoMarkWeeklyCompletion === 'function') {
+                tpAutoMarkWeeklyCompletion(vehicle.configCode);
+            }
             // Emit per-vehicle event so Power Automate webhook fires with each PDF + photo
             if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: false, batch: true });
             count++;
@@ -18879,6 +18926,11 @@ function tpLoadPlanFromCSV_CONFIGURATIONS() {
 function tpAutoFeedFromRelease(vehicle) {
     if (!vehicle || !vehicle.configCode) return;
     if (!TP_PURPOSES_VALID.includes(vehicle.purpose)) return;
+    // Ad-hoc vehicles are explicitly excluded from plan accounting.
+    if (vehicle.adhoc) {
+        void 0;
+        return;
+    }
 
     const entry = {
         configText: vehicle.configCode,

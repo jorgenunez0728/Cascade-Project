@@ -844,12 +844,16 @@ setAltaDatetimeIfEmpty(true);
             };
         }
         
+        const adhocEl = document.getElementById('vehicleAdhoc');
+        const isAdhoc = !!(adhocEl && adhocEl.checked);
+
         const newVehicle = {
             id: ++db.lastId,
             vin: document.getElementById('vin').value,
             purpose: document.getElementById('vehiclePurpose').value,
             config: config,
             configCode: configCode,
+            adhoc: isAdhoc,
             status: 'registered',
             registeredBy: document.getElementById('reg_operator').value,
             registeredAt: new Date().toISOString(),
@@ -857,8 +861,8 @@ setAltaDatetimeIfEmpty(true);
                 {
                     timestamp: new Date().toISOString(),
                     user: document.getElementById('reg_operator').value,
-                    action: 'Vehículo Registrado',
-                    data: { status: 'registered', configCode: configCode }
+                    action: 'Vehículo Registrado' + (isAdhoc ? ' (ad-hoc)' : ''),
+                    data: { status: 'registered', configCode: configCode, adhoc: isAdhoc }
                 }
             ],
             testData: {},
@@ -886,6 +890,7 @@ setAltaDatetimeIfEmpty(true);
         // Reset
         document.getElementById('vin').value = '';
         document.getElementById('vehiclePurpose').value = '';
+        if (adhocEl) adhocEl.checked = false;
         resetCascadeTree();
         validateVIN(document.getElementById('vin'));
         
@@ -2040,9 +2045,13 @@ function _renderUsedCylinders(vehicle) {
                 tpAutoFeedFromRelease(vehicle);
                 invLogTestUsage(vehicle);
 
-                // Try exact match first, then offer flexible substitution
-                var exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
-                if (!exactMatch && typeof tpFindFlexibleMatches === 'function') {
+                // Try exact match first, then offer flexible substitution.
+                // Skip weekly-plan crediting for ad-hoc vehicles.
+                var exactMatch = false;
+                if (!vehicle.adhoc) {
+                    exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                }
+                if (!vehicle.adhoc && !exactMatch && typeof tpFindFlexibleMatches === 'function') {
                     var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
                     if (flexMatches.length > 0) {
                         // Store pending substitution data and show modal AFTER release completes
@@ -2317,7 +2326,7 @@ function closeSubstitutionModal() {
                         return `
                         <tr>
                             <td><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
-                            <td><strong>${safeVin}</strong></td>
+                            <td><strong>${safeVin}</strong>${v.adhoc ? '<span class="adhoc-badge" title="Test ad-hoc — fuera del plan semanal">ad-hoc</span>' : ''}</td>
                             <td>
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
                                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
@@ -4342,6 +4351,7 @@ function renderKanban() {
                 html += '<span style="display:flex;align-items:center;gap:4px;">';
                 html += '<span style="font-family:monospace;font-size:11px;font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
                 html += '<button onclick="event.stopPropagation();copyToClipboard(\'' + fullVin.replace(/'/g,"\\'") + '\', this)" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px;" title="Copiar VIN">📋</button>';
+                if (v.adhoc) html += '<span class="adhoc-badge" title="Test ad-hoc — fuera del plan semanal">ad-hoc</span>';
                 html += '</span>';
                 if (timeSince) html += '<span style="font-size:9px;color:#94a3b8;" title="Tiempo en este estado">' + timeSince + '</span>';
                 html += '</div>';
@@ -5555,7 +5565,10 @@ function v7BatchRelease() {
             if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
             if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle);
             if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle);
-            if (typeof tpAutoMarkWeeklyCompletion === 'function') tpAutoMarkWeeklyCompletion(vehicle.configCode);
+            // Skip weekly-plan crediting for ad-hoc vehicles.
+            if (!vehicle.adhoc && typeof tpAutoMarkWeeklyCompletion === 'function') {
+                tpAutoMarkWeeklyCompletion(vehicle.configCode);
+            }
             // Emit per-vehicle event so Power Automate webhook fires with each PDF + photo
             if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: false, batch: true });
             count++;
