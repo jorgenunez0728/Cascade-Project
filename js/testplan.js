@@ -1736,6 +1736,7 @@ function tpRenderWeekly(el) {
                     ${tpScoreBadge(item)}
                     </div>
                     <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+                        ${tpStartTestButton(idx, ii, item, isEdit)}
                         ${isEdit?`<button onclick="tpRemoveWeeklyItem(${idx},${ii})" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:13px;">×</button>`:''}
                     </div>
                 </div>`).join('')}
@@ -1744,6 +1745,9 @@ function tpRenderWeekly(el) {
                     <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
                         <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':'⬜'}</span>
                         ${tpConfigBadges(item,{fontSize:'8px'})}
+                    </div>
+                    <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+                        ${tpStartTestButton(idx, ii, item, isEdit)}
                     </div>
                 </div>`).join('') : '')
             : w.items.map((item, ii) => `
@@ -1755,6 +1759,7 @@ function tpRenderWeekly(el) {
                     ${tpConfigBadges(item,{fontSize:'8px'})}
                 </div>
                 <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+                    ${tpStartTestButton(idx, ii, item, isEdit)}
                     ${isEdit?`<button onclick="tpRemoveWeeklyItem(${idx},${ii})" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:13px;">×</button>`:''}
                 </div>
             </div>`).join('')}
@@ -1770,6 +1775,58 @@ function tpScoreBadge(item) {
     var icon = d.deficit >= 3 ? '🔴' : d.deficit >= 1 ? '🟡' : '🟢';
     var lastStr = d.lastTested ? ' | Ultimo: ' + d.lastTested : '';
     return '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;flex-shrink:0;cursor:help;" title="Score: ' + (d.score||0).toFixed(1) + ' | Deficit: ' + d.deficit + lastStr + ' | ' + d.reason + '">' + icon + ' D:' + d.deficit + ' S:' + (d.score||0).toFixed(1) + '</span>';
+}
+
+// Renders the "Iniciar test" button shown on each weekly-plan item
+// (hidden while the week is in edit mode or the item is already completed).
+function tpStartTestButton(weekIdx, itemIdx, item, isEdit) {
+    if (isEdit || item.completed) return '';
+    return '<button onclick="tpStartTestFromPlan(' + weekIdx + ',' + itemIdx + ')" ' +
+        'class="tp-btn tp-btn-primary" ' +
+        'style="font-size:10px;padding:3px 8px;white-space:nowrap;" ' +
+        'title="Abre Alta de COP15 con esta configuración precargada">' +
+        '▶ Iniciar test</button>';
+}
+
+// Kick off a test for a planned configuration. Stores a preload payload
+// and jumps to COP15 → Alta, where cop15PreloadFromPlan() fills the form.
+function tpStartTestFromPlan(weekIdx, itemIdx) {
+    if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
+    var item = tpState.weeklyPlans[weekIdx].items[itemIdx];
+    if (!item) return;
+
+    window._pendingCop15Preload = {
+        source: 'weekly-plan',
+        weekIdx: weekIdx,
+        itemIdx: itemIdx,
+        configCode: item.desc || '',
+        purpose: 'COP-Emisiones', // sensible default; user can change
+        planItem: {
+            desc: item.desc,
+            mod: item.mod || '', my: item.my || '', eng: item.eng || '',
+            tx: item.tx || '', reg: item.reg || '', ep: item.ep || '',
+            rgn: item.rgn || '', drv: item.drv || '', body: item.body || '',
+            tire: item.tire || '', engpkg: item.engpkg || ''
+        }
+    };
+
+    if (typeof showToast === 'function') {
+        showToast('Abriendo Alta con configuración precargada…', 'info');
+    }
+
+    // Switch platform to COP15, then to the Alta tab, then apply preload.
+    if (typeof switchPlatform === 'function') {
+        switchPlatform('cop15');
+    }
+    setTimeout(function () {
+        var altaTab = document.querySelector('#platform-cop15 .tab[data-tab="alta"]');
+        if (altaTab) altaTab.click();
+        setTimeout(function () {
+            if (typeof cop15PreloadFromPlan === 'function') {
+                cop15PreloadFromPlan(window._pendingCop15Preload);
+            }
+        }, 120);
+    }, 150);
 }
 
 function tpToggleWeeklyItem(weekIdx, itemIdx) {
@@ -2111,6 +2168,29 @@ function tpAutoMarkWeeklyCompletion(configText) {
         }
     }
     return false;
+}
+
+// Prefer an explicit plan link on the vehicle when present (set by
+// cop15PreloadFromPlan). This is more reliable than matching by
+// configCode string, especially when the catalog has near-duplicates.
+function tpAutoMarkWeeklyCompletionFromVehicle(vehicle) {
+    if (!vehicle || !tpState.weeklyPlans) return false;
+    var link = vehicle.fromPlanItem;
+    if (link && typeof link.weekIdx === 'number' && typeof link.itemIdx === 'number') {
+        var plan = tpState.weeklyPlans[link.weekIdx];
+        if (plan && plan.items && plan.items[link.itemIdx]) {
+            var item = plan.items[link.itemIdx];
+            if (!item.completed && item.desc === link.configCode) {
+                item.completed = true;
+                item.completedDate = new Date().toISOString().slice(0,10);
+                tpSave();
+                console.log('TP: Auto-marked weekly item via plan link:', link.configCode);
+                return true;
+            }
+        }
+    }
+    // Fall back to the legacy description-based match
+    return tpAutoMarkWeeklyCompletion(vehicle.configCode);
 }
 
 // ── Flexible Substitution ──

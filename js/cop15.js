@@ -456,6 +456,108 @@ function resetCascadeTree() {
     renderCascadeTree();
 }
 
+// ── Preload Alta from a Test Plan item ─────────────────────────────
+// Called by tpStartTestFromPlan (testplan.js) after switching to COP15
+// → Alta. Tries to locate the exact configuration by code; falls back
+// to matching fields if the code is not in the catalog. Shows a
+// dismissible banner so the technician knows the form was pre-filled.
+function cop15PreloadFromPlan(preload) {
+    if (!preload) return;
+    var banner = document.getElementById('plan-preload-banner');
+
+    var match = null;
+    if (preload.configCode && Array.isArray(allConfigurations)) {
+        match = allConfigurations.find(function (c) {
+            return c && c.codigo_config_text === preload.configCode;
+        });
+    }
+
+    if (match) {
+        // Internal catalog mode (default) — cascade by field.
+        setMode('internal');
+        resetCascadeTree();
+        // tpState field-map → CSV field names
+        var shortToCsv = {
+            mod: 'Modelo', my: 'MODEL YEAR (VIN)', eng: 'ENGINE CAPACITY',
+            tx: 'TRANSMISSION', ep: 'ENVIRONMENT PACKAGE',
+            reg: 'EMISSION REGULATION', rgn: 'REGION', drv: 'DRIVE TYPE',
+            body: 'BODY TYPE', tire: 'TIRE ASSY', engpkg: 'ENGINE PACKAGE'
+        };
+        var fieldsInOrder = Object.keys(fieldMapping);
+        fieldsInOrder.forEach(function (csvField) {
+            var val = match[csvField];
+            if (val == null || val === '') return;
+            cascadeSelections[csvField] = val;
+            currentFilters[csvField] = val;
+            var selectId = fieldMapping[csvField];
+            var selectEl = document.getElementById(selectId);
+            if (selectEl) {
+                // Ensure the value exists as an option (options are rebuilt by updateSelectOptions)
+                if (!Array.from(selectEl.options).some(function (o) { return o.value === val; })) {
+                    var opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = val;
+                    selectEl.appendChild(opt);
+                }
+                selectEl.value = val;
+                selectEl.classList.add('selected');
+            }
+        });
+        // Refresh downstream filter options and the result display
+        var filtered = allConfigurations.filter(function (c) {
+            for (var f in currentFilters) {
+                if (c[f] !== currentFilters[f]) return false;
+            }
+            return true;
+        });
+        updateSelectOptions(filtered);
+        var countEl = document.getElementById('configCount');
+        if (countEl) countEl.textContent = filtered.length;
+        displayConfigResult(filtered);
+        renderCascadeTree();
+    } else {
+        // No exact match — fall back to manual mode and leave fields
+        // blank so the technician chooses explicitly.
+        setMode('external');
+    }
+
+    // Set a sensible default purpose (technician can override)
+    var purposeSel = document.getElementById('vehiclePurpose');
+    if (purposeSel && !purposeSel.value && preload.purpose) {
+        purposeSel.value = preload.purpose;
+    }
+
+    // Render the banner
+    if (banner) {
+        var matchLabel = match
+            ? 'Configuración del catálogo aplicada.'
+            : 'Esta configuración del plan no existe en el catálogo. Revisa o cambia a modo manual.';
+        banner.innerHTML =
+            '<div class="plan-preload-banner-inner">' +
+                '<span class="plan-preload-banner-icon">📋</span>' +
+                '<div class="plan-preload-banner-body">' +
+                    '<strong>Precargado desde el plan semanal — Semana ' + (preload.weekIdx + 1) + '</strong>' +
+                    '<div>' + (preload.configCode || '(sin código)') + '</div>' +
+                    '<small>' + matchLabel + ' Si este vehículo es otra config, cámbiala manualmente antes de registrar.</small>' +
+                '</div>' +
+                '<button class="plan-preload-banner-close" onclick="cop15ClearPlanPreload()" title="Descartar precarga">✕</button>' +
+            '</div>';
+        banner.style.display = 'block';
+    }
+
+    // Scroll the Alta panel into view so the banner is visible
+    var alta = document.getElementById('panel-alta');
+    if (alta && alta.scrollIntoView) {
+        try { alta.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+    }
+}
+
+function cop15ClearPlanPreload() {
+    window._pendingCop15Preload = null;
+    var banner = document.getElementById('plan-preload-banner');
+    if (banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
+}
+
 function initCascadeTree() {
     if (!allConfigurations || allConfigurations.length === 0) return;
     cascadeSelections = {};
@@ -847,6 +949,19 @@ setAltaDatetimeIfEmpty(true);
         const adhocEl = document.getElementById('vehicleAdhoc');
         const isAdhoc = !!(adhocEl && adhocEl.checked);
 
+        // If this Alta was started from a weekly plan item, link the vehicle
+        // back to that item so tpAutoMarkWeeklyCompletion can find it later.
+        var planLink = null;
+        if (window._pendingCop15Preload &&
+            window._pendingCop15Preload.source === 'weekly-plan' &&
+            window._pendingCop15Preload.configCode === configCode) {
+            planLink = {
+                weekIdx: window._pendingCop15Preload.weekIdx,
+                itemIdx: window._pendingCop15Preload.itemIdx,
+                configCode: window._pendingCop15Preload.configCode
+            };
+        }
+
         const newVehicle = {
             id: ++db.lastId,
             vin: document.getElementById('vin').value,
@@ -854,6 +969,7 @@ setAltaDatetimeIfEmpty(true);
             config: config,
             configCode: configCode,
             adhoc: isAdhoc,
+            fromPlanItem: planLink,
             status: 'registered',
             registeredBy: document.getElementById('reg_operator').value,
             registeredAt: new Date().toISOString(),
@@ -862,7 +978,7 @@ setAltaDatetimeIfEmpty(true);
                     timestamp: new Date().toISOString(),
                     user: document.getElementById('reg_operator').value,
                     action: 'Vehículo Registrado' + (isAdhoc ? ' (ad-hoc)' : ''),
-                    data: { status: 'registered', configCode: configCode, adhoc: isAdhoc }
+                    data: { status: 'registered', configCode: configCode, adhoc: isAdhoc, fromPlanItem: planLink }
                 }
             ],
             testData: {},
@@ -891,6 +1007,7 @@ setAltaDatetimeIfEmpty(true);
         document.getElementById('vin').value = '';
         document.getElementById('vehiclePurpose').value = '';
         if (adhocEl) adhocEl.checked = false;
+        cop15ClearPlanPreload();
         resetCascadeTree();
         validateVIN(document.getElementById('vin'));
         
@@ -2049,7 +2166,12 @@ function _renderUsedCylinders(vehicle) {
                 // Skip weekly-plan crediting for ad-hoc vehicles.
                 var exactMatch = false;
                 if (!vehicle.adhoc) {
-                    exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                    // Prefer the explicit plan link set in Alta when available
+                    if (typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function') {
+                        exactMatch = tpAutoMarkWeeklyCompletionFromVehicle(vehicle);
+                    } else {
+                        exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                    }
                 }
                 if (!vehicle.adhoc && !exactMatch && typeof tpFindFlexibleMatches === 'function') {
                     var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
@@ -5566,8 +5688,12 @@ function v7BatchRelease() {
             if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle);
             if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle);
             // Skip weekly-plan crediting for ad-hoc vehicles.
-            if (!vehicle.adhoc && typeof tpAutoMarkWeeklyCompletion === 'function') {
-                tpAutoMarkWeeklyCompletion(vehicle.configCode);
+            if (!vehicle.adhoc) {
+                if (typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function') {
+                    tpAutoMarkWeeklyCompletionFromVehicle(vehicle);
+                } else if (typeof tpAutoMarkWeeklyCompletion === 'function') {
+                    tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                }
             }
             // Emit per-vehicle event so Power Automate webhook fires with each PDF + photo
             if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: false, batch: true });

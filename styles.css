@@ -2114,6 +2114,43 @@ html { scroll-behavior: smooth; }
 [data-theme="dark"] .pa-today-url { background: rgba(15,23,42,0.6); border-color: rgba(100,116,139,0.2); color: #cbd5e1; }
 [data-theme="dark"] .pa-today-queue-badge { background: rgba(245,158,11,0.2); color: #fbbf24; }
 
+/* Plan → Alta preload banner */
+#plan-preload-banner {
+    margin-bottom: 12px;
+    padding: 0;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    animation: tabFadeIn 0.25s ease both;
+}
+.plan-preload-banner-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+}
+.plan-preload-banner-icon { font-size: 18px; flex: 0 0 auto; }
+.plan-preload-banner-body { flex: 1 1 auto; min-width: 0; font-size: 12px; color: #1e3a8a; }
+.plan-preload-banner-body strong { display: block; margin-bottom: 2px; font-size: 12px; }
+.plan-preload-banner-body div { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; color: #1d4ed8; word-break: break-all; }
+.plan-preload-banner-body small { display: block; margin-top: 4px; font-size: 10px; color: #475569; }
+.plan-preload-banner-close {
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+.plan-preload-banner-close:hover { color: #0f172a; }
+[data-theme="dark"] #plan-preload-banner { background: rgba(30,58,138,0.25); border-color: rgba(96,165,250,0.3); }
+[data-theme="dark"] .plan-preload-banner-body { color: #bfdbfe; }
+[data-theme="dark"] .plan-preload-banner-body div { color: #93c5fd; }
+
 /* Ad-hoc badge — marks vehicles excluded from plan accounting */
 .adhoc-badge {
     display: inline-block;
