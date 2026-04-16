@@ -771,7 +771,7 @@ function fbUpdateStationMeta() {
 }
 
 // ── Push data to Firestore (rate-limited, with REST fallback) ──
-function fbPush(collection, data, onDone) {
+function fbPush(collection, data, onDone, opts) {
     if (!fbSync.enabled) { if (onDone) onDone(false, 'Firebase no habilitado'); return; }
     if (!fbSync.stationId) { if (onDone) onDone(false, 'No hay ID de estacion configurado'); return; }
 
@@ -794,6 +794,10 @@ function fbPush(collection, data, onDone) {
     }
 
     if (fbSync.debounceTimers[collection]) clearTimeout(fbSync.debounceTimers[collection]);
+
+    // opts.immediate flushes without the usual 2s debounce (e.g. after CSV import so the upload
+    // isn't lost if the user closes the tab right after).
+    var _fbPushDelay = (opts && opts.immediate) ? 0 : 2000;
 
     fbSync.debounceTimers[collection] = setTimeout(function() {
         // Re-check quota after debounce (another op may have consumed it)
@@ -837,7 +841,7 @@ function fbPush(collection, data, onDone) {
             fbQueueAdd(collection, data);
             if (onDone) onDone(false, fbSync.lastError);
         });
-    }, 2000);
+    }, _fbPushDelay);
 }
 
 // ── Push all modules ──
@@ -1349,6 +1353,19 @@ function fbMergeAnalyze(remoteData) {
             var remoteDescs = (remoteData.testplan.planData || []).map(function(c) { return c.desc; }).sort().join('|');
             planDataDiff = localDescs !== remoteDescs;
         }
+        // Also detect volume/month changes even when the set of configs matches, so a re-import
+        // that only updates numbers is still flagged as a diff.
+        if (!planDataDiff && remotePlanLen > 0) {
+            var localByDesc = {};
+            (tpState.planData || []).forEach(function(c) { localByDesc[c.desc] = c; });
+            for (var pi = 0; pi < remoteData.testplan.planData.length; pi++) {
+                var rc = remoteData.testplan.planData[pi];
+                var lc = localByDesc[rc.desc];
+                if (!lc) { planDataDiff = true; break; }
+                if ((lc.total || 0) !== (rc.total || 0)) { planDataDiff = true; break; }
+                if (JSON.stringify(lc.m || []) !== JSON.stringify(rc.m || [])) { planDataDiff = true; break; }
+            }
+        }
 
         // Compare weeklyPlans
         var localWeeklyLen = (tpState.weeklyPlans || []).length;
@@ -1368,6 +1385,8 @@ function fbMergeAnalyze(remoteData) {
             localPlanConfigs: localPlanLen,
             remotePlanConfigs: remotePlanLen,
             planDataDiff: planDataDiff,
+            localPlanImportDate: tpState.planImportDate || null,
+            remotePlanImportDate: remoteData.testplan.planImportDate || null,
             localWeeklyCount: localWeeklyLen,
             remoteWeeklyCount: remoteWeeklyLen,
             weeklyPlansDiff: weeklyPlansDiff,
@@ -1513,10 +1532,20 @@ function fbMergeExecute(remoteData, analysis, choices) {
             if (analysis.testplan.rulesChanged) {
                 tpState.rules = remoteData.testplan.rules;
             }
-            // Merge planData: use remote if local is empty, or if remote has different/more configs
+            // Merge planData: if remote is newer (or local is empty), replace entirely and carry
+            // over the import metadata so the dashboard reflects the latest import. Otherwise do
+            // an additive merge by `desc` without stomping local volumes.
             if (analysis.testplan.planDataDiff && (remoteData.testplan.planData || []).length > 0) {
-                if ((tpState.planData || []).length === 0) {
+                var remoteImportMs = remoteData.testplan.planImportDate
+                    ? new Date(remoteData.testplan.planImportDate).getTime() : 0;
+                var localImportMs = tpState.planImportDate
+                    ? new Date(tpState.planImportDate).getTime() : 0;
+                var remoteIsNewer = remoteImportMs > 0 && remoteImportMs > localImportMs;
+                if ((tpState.planData || []).length === 0 || remoteIsNewer) {
                     tpState.planData = remoteData.testplan.planData;
+                    if (remoteData.testplan.planImportDate) tpState.planImportDate = remoteData.testplan.planImportDate;
+                    if (remoteData.testplan.lastDiff) tpState.lastDiff = remoteData.testplan.lastDiff;
+                    if (remoteData.testplan.lastDiffDate) tpState.lastDiffDate = remoteData.testplan.lastDiffDate;
                 } else {
                     // Merge: add configs from remote that aren't in local
                     var localDescs = {};
