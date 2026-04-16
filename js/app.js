@@ -461,14 +461,16 @@ function _restoreLastModule() {
     if (lastMod) {
         var parts = lastMod.split(':');
         var platform = parts[0];
-        if (platform && platform !== 'today' && PLATFORM_ORDER.indexOf(platform) !== -1) {
+        // Accept both new tab names and legacy section names via PLATFORM_SECTION_MAP
+        if (platform && platform !== 'today' && (PLATFORM_ORDER.indexOf(platform) !== -1 || PLATFORM_SECTION_MAP[platform])) {
             switchPlatform(platform);
             if (parts[1]) {
                 setTimeout(function() {
-                    if (platform === 'inventory' && typeof invSwitchTab === 'function') invSwitchTab(parts[1]);
-                    else if (platform === 'testplan' && typeof tpSwitchTab === 'function') tpSwitchTab(parts[1]);
-                    else if (platform === 'results' && typeof raSwitchTab === 'function') raSwitchTab(parts[1]);
-                    else if (platform === 'panel' && typeof pnSwitchTab === 'function') pnSwitchTab(parts[1]);
+                    var section = PLATFORM_SECTION_MAP[platform] || platform;
+                    if (section === 'inventory' && typeof invSwitchTab === 'function') invSwitchTab(parts[1]);
+                    else if (section === 'testplan' && typeof tpSwitchTab === 'function') tpSwitchTab(parts[1]);
+                    else if (section === 'results' && typeof raSwitchTab === 'function') raSwitchTab(parts[1]);
+                    else if (section === 'panel' && typeof pnSwitchTab === 'function') pnSwitchTab(parts[1]);
                 }, 200);
             }
         }
@@ -1423,47 +1425,75 @@ function _skeletonHTML() {
 // ║  [M15] PLATFORM SWITCHER                                           ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-var PLATFORM_ORDER = ['today', 'cop15', 'testplan', 'results', 'inventory', 'panel'];
+// Root tabs: 4 workflow-oriented tabs (was 6 feature tabs)
+var PLATFORM_ORDER = ['today', 'plan', 'pruebas', 'datos'];
 var _currentPlatform = 'today';
 
+// Maps any platform name (including legacy aliases) to the root tab it belongs to
+var PLATFORM_TAB_GROUP = {
+    'today': 'today',
+    'plan': 'plan',      'testplan': 'plan',
+    'pruebas': 'pruebas', 'cop15': 'pruebas', 'inventory': 'pruebas',
+    'datos': 'datos',     'results': 'datos',  'panel': 'datos'
+};
+
+// Maps any platform name to the actual DOM section ID suffix (platform-XXX)
+var PLATFORM_SECTION_MAP = {
+    'today': 'today',
+    'plan': 'testplan',   'testplan': 'testplan',
+    'pruebas': 'cop15',   'cop15': 'cop15',    'inventory': 'inventory',
+    'datos': 'results',   'results': 'results', 'panel': 'panel'
+};
+
 function switchPlatform(platform, swipeDir) {
+    // Resolve the actual section and root tab
+    var sectionId = PLATFORM_SECTION_MAP[platform] || platform;
+    var tabGroup  = PLATFORM_TAB_GROUP[platform] || platform;
+
+    // Exact same call — nothing to do
     if (platform === _currentPlatform) return;
 
-    var oldSection = document.getElementById('platform-' + _currentPlatform);
-    var newSection = document.getElementById('platform-' + platform);
+    var oldSectionId = PLATFORM_SECTION_MAP[_currentPlatform] || _currentPlatform;
+    var oldSection = document.getElementById('platform-' + oldSectionId);
+    var newSection = document.getElementById('platform-' + sectionId);
 
-    // Swipe animation
-    if (swipeDir && oldSection && newSection) {
-        var exitClass = swipeDir === 'left' ? 'swipe-exit-left' : 'swipe-exit-right';
-        var enterClass = swipeDir === 'left' ? 'swipe-enter-left' : 'swipe-enter-right';
+    if (!newSection) return;
 
-        oldSection.classList.add(exitClass);
-        setTimeout(function() {
-            oldSection.classList.remove('active', exitClass);
-            newSection.classList.add('active', enterClass);
-            setTimeout(function() { newSection.classList.remove(enterClass); }, 260);
-        }, 240);
-    } else if (document.startViewTransition) {
-        document.startViewTransition(function() {
-            document.querySelectorAll('.platform-section').forEach(s => s.classList.remove('active'));
+    // Only animate DOM sections if they actually differ
+    if (sectionId !== oldSectionId) {
+        if (swipeDir && oldSection && newSection) {
+            var exitClass = swipeDir === 'left' ? 'swipe-exit-left' : 'swipe-exit-right';
+            var enterClass = swipeDir === 'left' ? 'swipe-enter-left' : 'swipe-enter-right';
+
+            oldSection.classList.add(exitClass);
+            setTimeout(function() {
+                oldSection.classList.remove('active', exitClass);
+                newSection.classList.add('active', enterClass);
+                setTimeout(function() { newSection.classList.remove(enterClass); }, 260);
+            }, 240);
+        } else if (document.startViewTransition) {
+            document.startViewTransition(function() {
+                document.querySelectorAll('.platform-section').forEach(function(s) { s.classList.remove('active'); });
+                newSection.classList.add('active');
+            });
+        } else {
+            document.querySelectorAll('.platform-section').forEach(function(s) { s.classList.remove('active'); });
             newSection.classList.add('active');
-        });
-    } else {
-        document.querySelectorAll('.platform-section').forEach(s => s.classList.remove('active'));
-        newSection.classList.add('active');
+        }
     }
 
-    // Update top tabs
-    document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('ptab-' + platform).classList.add('active');
+    // Update top tabs — highlight the root tab group
+    document.querySelectorAll('.platform-tab').forEach(function(t) { t.classList.remove('active'); });
+    var ptabEl = document.getElementById('ptab-' + tabGroup);
+    if (ptabEl) ptabEl.classList.add('active');
 
-    // Update bottom nav
-    document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'));
-    var bnavEl = document.getElementById('bnav-' + platform);
+    // Update bottom nav — highlight the root tab group
+    document.querySelectorAll('.bottom-nav-item').forEach(function(b) { b.classList.remove('active'); });
+    var bnavEl = document.getElementById('bnav-' + tabGroup);
     if (bnavEl) bnavEl.classList.add('active');
 
     // Hide floating action bar when leaving COP15
-    if (platform !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
+    if (sectionId !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
 
     // Theme — unified light theme for all modules
     document.body.style.background = 'var(--bg)';
@@ -1471,16 +1501,16 @@ function switchPlatform(platform, swipeDir) {
 
     _currentPlatform = platform;
 
-    // [V7-C3] Save last module visited
-    localStorage.setItem('kia_last_module', platform);
+    // [V7-C3] Save last module visited (store resolved section name for backward compat)
+    localStorage.setItem('kia_last_module', sectionId);
 
-    if (platform === 'today') { dailyDashRender(); }
-    if (platform === 'testplan') { tpRender(); tpUpdateBadges(); }
-    if (platform === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
-    if (platform === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
-    if (platform === 'panel') { pnRender(); pnUpdateBadges(); }
-    if (platform === 'cop15') {
-        const active = db.vehicles.filter(v => v.status !== 'archived').length;
+    if (sectionId === 'today') { dailyDashRender(); }
+    if (sectionId === 'testplan') { tpRender(); tpUpdateBadges(); }
+    if (sectionId === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
+    if (sectionId === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
+    if (sectionId === 'panel') { pnRender(); pnUpdateBadges(); }
+    if (sectionId === 'cop15') {
+        var active = db.vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
         // Restore COP15 active tab
         var savedCop15Tab = localStorage.getItem('kia_cop15_activeTab');
@@ -2595,11 +2625,12 @@ document.addEventListener('click', function(e) {
 // ══════════════════════════════════════════════════════════════════════
 
 var _commandPaletteCommands = [
-    { label: 'COP15 Cascade', icon: '🔬', action: function(){ switchPlatform('cop15'); }, shortcut: 'Ctrl+1', cat: 'nav' },
-    { label: 'Test Plan Manager', icon: '📊', action: function(){ switchPlatform('testplan'); }, shortcut: 'Ctrl+2', cat: 'nav' },
-    { label: 'Results Analyzer', icon: '🧪', action: function(){ switchPlatform('results'); }, shortcut: 'Ctrl+3', cat: 'nav' },
-    { label: 'Lab Inventory', icon: '📦', action: function(){ switchPlatform('inventory'); }, shortcut: 'Ctrl+4', cat: 'nav' },
-    { label: 'Panel de Control', icon: '⚙️', action: function(){ switchPlatform('panel'); }, shortcut: 'Ctrl+5', cat: 'nav' },
+    { label: 'Plan Semanal', icon: '📋', action: function(){ switchPlatform('plan'); }, shortcut: 'Ctrl+1', cat: 'nav' },
+    { label: 'Pruebas (COP15)', icon: '🔬', action: function(){ switchPlatform('pruebas'); }, shortcut: 'Ctrl+2', cat: 'nav' },
+    { label: 'Datos y Análisis', icon: '📊', action: function(){ switchPlatform('datos'); }, shortcut: 'Ctrl+3', cat: 'nav' },
+    { label: 'Vista Hoy', icon: '🏠', action: function(){ switchPlatform('today'); }, shortcut: 'Ctrl+4', cat: 'nav' },
+    { label: 'Consumibles (Inventario)', icon: '📦', action: function(){ switchPlatform('inventory'); }, cat: 'nav' },
+    { label: 'Panel de Control', icon: '⚙️', action: function(){ switchPlatform('panel'); }, cat: 'nav' },
     { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'action' },
     { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'action' },
     { label: 'Exportar CSV Resultados', icon: '📊', action: function(){ if(typeof raExportCSV==='function') raExportCSV(); }, cat: 'action' },
@@ -2715,9 +2746,9 @@ document.addEventListener('keydown', function(e) {
         var nc = document.getElementById('notification-center');
         if (nc && nc.style.display !== 'none') { nc.style.display = 'none'; e.preventDefault(); return; }
     }
-    // Ctrl+1-5: Switch platform
-    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '5') {
-        var platforms = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
+    // Ctrl+1-4: Switch platform (4 root tabs)
+    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '4') {
+        var platforms = ['plan', 'pruebas', 'datos', 'today'];
         e.preventDefault(); switchPlatform(platforms[parseInt(e.key) - 1]); return;
     }
     // Ctrl+Z: Undo
@@ -3217,13 +3248,11 @@ function shakeElement(el) {
 // ══════════════════════════════════════════════════════════════════════
 
 var _tourSteps = [
-    { target: '.platform-bar', title: 'Navegación', text: 'Usa estas pestañas para cambiar entre los 5 módulos: COP15, Test Plan, Results, Inventory y Panel.', position: 'bottom' },
-    { target: '#ptab-cop15', title: 'COP15 Cascade', text: 'Aquí registras vehículos, operas pruebas de emisiones y liberas resultados.', position: 'bottom' },
+    { target: '.platform-bar', title: 'Navegación', text: 'Usa estas 4 pestañas para navegar: Hoy (resumen), Plan (plan semanal), Pruebas (COP15 + inventario) y Datos (resultados + panel).', position: 'bottom' },
+    { target: '#ptab-pruebas', title: 'Pruebas', text: 'Aquí registras vehículos, operas pruebas de emisiones, liberas resultados y gestionas consumibles del laboratorio.', position: 'bottom' },
     { target: '#panel-alta', title: 'Registro de Vehículos', text: 'Selecciona configuración del vehículo, captura VIN y registra para iniciar el flujo COP15.', position: 'top', tab: 'alta' },
-    { target: '#ptab-testplan', title: 'Test Plan Manager', text: 'Gestiona el plan de pruebas semanal, prioriza configuraciones y monitorea cobertura.', position: 'bottom' },
-    { target: '#ptab-results', title: 'Results Analyzer', text: 'Importa resultados de pruebas, analiza tendencias Cpk/Ppk y genera reportes.', position: 'bottom' },
-    { target: '#ptab-inventory', title: 'Lab Inventory', text: 'Controla cilindros de gas, equipos y lectura de presiones con mapa de zonas.', position: 'bottom' },
-    { target: '#ptab-panel', title: 'Panel Admin', text: 'Dashboard general, operadores, backups y configuración del sistema.', position: 'bottom' }
+    { target: '#ptab-plan', title: 'Plan', text: 'Gestiona el plan de pruebas semanal, prioriza configuraciones y monitorea cobertura.', position: 'bottom' },
+    { target: '#ptab-datos', title: 'Datos', text: 'Resultados de pruebas, tendencias Cpk/Ppk, panel de control, operadores y configuración del sistema.', position: 'bottom' }
 ];
 var _tourCurrent = 0;
 

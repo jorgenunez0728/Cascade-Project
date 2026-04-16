@@ -4,6 +4,23 @@
 
 Single-page web application for KIA Mexico's Emissions Laboratory. 6 modules + panel + auth + daily dashboard, ~620 functions, ~23,500 lines of JS. 100% offline using localStorage. Used daily on smartphones/tablets by lab technicians. 6 rounds of improvements + UI/UX v6 overhaul (Glass+Neumorphism design system, SVG floor plan map, unified components, smooth transitions).
 
+### Navigation: 4 Workflow-Oriented Root Tabs
+
+```
+┌─────────┬──────────┬──────────┬──────────┐
+│   HOY   │   PLAN   │ PRUEBAS  │  DATOS   │
+└─────────┴──────────┴──────────┴──────────┘
+```
+
+| Root Tab | Contains | Internal Section IDs |
+|----------|----------|---------------------|
+| **Hoy** | Daily dashboard, Power Automate card, quick actions | `platform-today` |
+| **Plan** | Test Plan Manager (weekly plan, families, calendar, simulator) | `platform-testplan` |
+| **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
+| **Datos** | Results Analyzer (trends, SPC, Cpk/Ppk) + Panel (users, alerts, system) | `platform-results`, `platform-panel` |
+
+Legacy platform names (`cop15`, `testplan`, `results`, `inventory`, `panel`) are aliased in `switchPlatform()` and work transparently.
+
 ## Project Structure
 
 ```
