@@ -31,6 +31,7 @@ var paConfig = {
 // ── Runtime state ──
 var paQueue = [];
 var _paLastSendStatus = null;
+var _paConfigContainerId = 'pa-config-container'; // tracks active render target
 
 // ══════════════════════════════════════════════════════════════
 // CONFIG PERSISTENCE
@@ -193,6 +194,14 @@ function paBuildPayload(eventType, vehicle) {
             }
         }
 
+        // Attach digital signatures if present
+        if (vehicle.testData && vehicle.testData.signatures) {
+            payload.signatures = {
+                technician: vehicle.testData.signatures.technician || null,
+                releaser: vehicle.testData.signatures.releaser || null
+            };
+        }
+
         // Attach the scanned results sheet photo from IndexedDB (async)
         paPhotoGet(vehicle.id, function (photo) {
             if (photo && photo.base64) {
@@ -291,6 +300,11 @@ function paOnVehicleRegistered(data) {
         return paSendWebhook(payload);
     }).then(function () {
         _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'vehicle_registered' };
+        if (vehicle && typeof db !== 'undefined') {
+            if (!vehicle.paStatus) vehicle.paStatus = {};
+            vehicle.paStatus.vehicle_registered = { sent: true, sentAt: new Date().toISOString() };
+            if (typeof saveDB === 'function') saveDB();
+        }
         if (typeof showToast === 'function') showToast('Aprobación disparada en Power Automate', 'success');
     }).catch(function (err) {
         _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'vehicle_registered', error: String(err) };
@@ -314,6 +328,11 @@ function paOnVehicleReleased(data) {
         return paSendWebhook(payload);
     }).then(function () {
         _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'vehicle_released' };
+        if (vehicle && typeof db !== 'undefined') {
+            if (!vehicle.paStatus) vehicle.paStatus = {};
+            vehicle.paStatus.vehicle_released = { sent: true, sentAt: new Date().toISOString() };
+            if (typeof saveDB === 'function') saveDB();
+        }
         if (typeof showToast === 'function') showToast('Documentación enviada a Power Automate', 'success');
     }).catch(function (err) {
         _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'vehicle_released', error: String(err) };
@@ -332,6 +351,18 @@ function paUpdateIndicator() {
         badge.textContent = paQueue.length;
         badge.style.display = paQueue.length > 0 ? 'inline-flex' : 'none';
     }
+    // Badge on the HOY platform tab — tells the user something needs attention
+    var todayBadge = document.getElementById('today-pa-badge');
+    if (todayBadge) {
+        if (paQueue.length > 0) {
+            todayBadge.textContent = paQueue.length;
+            todayBadge.style.display = 'inline-flex';
+        } else {
+            todayBadge.style.display = 'none';
+        }
+    }
+    // Refresh the Today dashboard card if it is currently rendered
+    if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -357,12 +388,12 @@ function paTestWebhook() {
         .then(function () {
             _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'test_ping' };
             if (typeof showToast === 'function') showToast('Webhook de prueba exitoso', 'success');
-            paRenderConfigUI();
+            paRenderConfigUI(_paConfigContainerId);
         })
         .catch(function (err) {
             _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'test_ping', error: String(err) };
             if (typeof showToast === 'function') showToast('Error en prueba: ' + err.message, 'error');
-            paRenderConfigUI();
+            paRenderConfigUI(_paConfigContainerId);
         });
 }
 
@@ -370,9 +401,12 @@ function paTestWebhook() {
 // CONFIGURATION UI — rendered inside Panel → System Health
 // ══════════════════════════════════════════════════════════════
 
-function paRenderConfigUI() {
-    var el = document.getElementById('pa-config-container');
+function paRenderConfigUI(containerId) {
+    var el = document.getElementById(containerId || 'pa-config-container');
     if (!el) return;
+    // Remember which container is currently showing the form so async
+    // re-renders (test webhook result, queue changes) update the right DOM.
+    _paConfigContainerId = el.id;
 
     // Status badge
     var statusHtml = '';
@@ -459,7 +493,9 @@ function _paEscAttr(str) {
 function paToggleEnabled(val) {
     paConfig.enabled = !!val;
     paSaveConfig();
-    paRenderConfigUI();
+    paRenderConfigUI(_paConfigContainerId);
+    // Refresh the Today dashboard card if visible
+    if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
     if (typeof showToast === 'function') showToast('Power Automate ' + (val ? 'activado' : 'desactivado'), 'info');
 }
 
@@ -477,7 +513,8 @@ function paQueueClear() {
     paQueue = [];
     paQueueSave();
     paUpdateIndicator();
-    paRenderConfigUI();
+    paRenderConfigUI(_paConfigContainerId);
+    if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
     if (typeof showToast === 'function') showToast('Cola de webhooks limpiada', 'info');
 }
 
@@ -736,8 +773,9 @@ function paCameraCapture() {
         }
 
         // Update lightweight flag on the vehicle so the UI + webhook know it is captured
+        var _capturedVehId = _paCameraVehicleId;
         if (typeof db !== 'undefined' && db.vehicles) {
-            var v = db.vehicles.find(function (x) { return x.id == _paCameraVehicleId; });
+            var v = db.vehicles.find(function (x) { return x.id == _capturedVehId; });
             if (v) {
                 if (!v.testData) v.testData = {};
                 v.testData.scannedReportCaptured = true;
@@ -747,12 +785,39 @@ function paCameraCapture() {
         }
 
         paCameraClose();
-        if (typeof showToast === 'function') showToast('Hoja de resultados capturada', 'success');
 
-        // Refresh the release screen if visible
-        if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_paCameraVehicleId);
-        if (typeof loadRelease === 'function') {
-            try { loadRelease(_paCameraVehicleId); } catch (e) {}
+        // Technician signature capture after VETS photo
+        if (typeof sigCaptureOpen === 'function') {
+            var _sigName = '';
+            try { if (typeof authState !== 'undefined' && authState.currentUser) _sigName = authState.currentUser.name || ''; } catch (e) {}
+            sigCaptureOpen({
+                title: 'Firma del Tecnico (Documentacion VETS)',
+                role: 'Tecnico',
+                signerName: _sigName,
+                onSave: function (sig) {
+                    if (typeof db !== 'undefined' && db.vehicles) {
+                        var v2 = db.vehicles.find(function (x) { return x.id == _capturedVehId; });
+                        if (v2) {
+                            if (!v2.testData) v2.testData = {};
+                            if (!v2.testData.signatures) v2.testData.signatures = {};
+                            v2.testData.signatures.technician = sig;
+                            if (typeof saveDB === 'function') saveDB();
+                        }
+                    }
+                    if (typeof showToast === 'function') showToast('Hoja de resultados capturada y firmada', 'success');
+                    if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_capturedVehId);
+                    if (typeof loadRelease === 'function') { try { loadRelease(_capturedVehId); } catch (e) {} }
+                },
+                onCancel: function () {
+                    if (typeof showToast === 'function') showToast('Foto guardada, pero falta firma del tecnico', 'warning');
+                    if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_capturedVehId);
+                    if (typeof loadRelease === 'function') { try { loadRelease(_capturedVehId); } catch (e) {} }
+                }
+            });
+        } else {
+            if (typeof showToast === 'function') showToast('Hoja de resultados capturada', 'success');
+            if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_capturedVehId);
+            if (typeof loadRelease === 'function') { try { loadRelease(_capturedVehId); } catch (e) {} }
         }
     });
 }
@@ -881,6 +946,254 @@ function paUpdateReleaseButtonState(vehicleId) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// TODAY DASHBOARD CARD
+// Prominent card on the "Hoy" view so the integration is
+// discoverable without digging into Panel → System Health.
+// The card is inserted/refreshed into `#pa-today-card-slot`
+// which dailyDashRender() places at the top of the dashboard.
+// ══════════════════════════════════════════════════════════════
+
+function paRenderTodayCard() {
+    var slot = document.getElementById('pa-today-card-slot');
+    if (!slot) return; // not on Today screen
+
+    var enabled = !!paConfig.enabled;
+    var hasUrl = !!(paConfig.webhookUrl && paConfig.webhookUrl.trim());
+    var queued = paQueue.length;
+
+    // Dot color: red = disabled/no URL, amber = queue pending, green = ok
+    var dotColor, label, subLabel;
+    if (!enabled || !hasUrl) {
+        dotColor = '#ef4444';
+        label = hasUrl ? 'Desactivado' : 'Sin configurar';
+        subLabel = hasUrl
+            ? 'Actívalo para enviar aprobaciones a Teams'
+            : 'Pega tu URL de Power Automate para empezar';
+    } else if (queued > 0) {
+        dotColor = '#f59e0b';
+        label = queued + ' pendiente' + (queued === 1 ? '' : 's');
+        subLabel = 'Se reenviarán automáticamente cuando haya conexión';
+    } else {
+        dotColor = '#10b981';
+        label = 'Conectado';
+        subLabel = 'Las aprobaciones se envían automáticamente';
+    }
+
+    var urlShort = '';
+    if (hasUrl) {
+        var u = paConfig.webhookUrl;
+        urlShort = u.length > 60 ? u.slice(0, 40) + '…' + u.slice(-12) : u;
+    }
+
+    var lastStatus = '';
+    if (_paLastSendStatus) {
+        var ok = _paLastSendStatus.ok;
+        var timeStr = '';
+        try { timeStr = new Date(_paLastSendStatus.time).toLocaleTimeString('es-MX'); } catch (e) {}
+        lastStatus = '<div class="pa-today-last" style="color:' + (ok ? '#10b981' : '#ef4444') + ';">'
+            + (ok ? '✓' : '✗') + ' Último: ' + _paLastSendStatus.event + ' — ' + timeStr
+            + '</div>';
+    }
+
+    slot.innerHTML =
+        '<div class="daily-dash-section">' +
+            '<div class="daily-dash-section-title">⚡ Integración Power Automate</div>' +
+            '<div class="pa-today-card">' +
+                '<div class="pa-today-head">' +
+                    '<span class="pa-today-dot" style="background:' + dotColor + ';"></span>' +
+                    '<div class="pa-today-head-text">' +
+                        '<div class="pa-today-label">' + label + '</div>' +
+                        '<div class="pa-today-sub">' + subLabel + '</div>' +
+                    '</div>' +
+                    (queued > 0 ? '<span class="pa-today-queue-badge">' + queued + '</span>' : '') +
+                '</div>' +
+                (hasUrl ? '<div class="pa-today-url" title="' + _paEscAttr(paConfig.webhookUrl) + '">' + urlShort + '</div>' : '') +
+                lastStatus +
+                '<div class="pa-today-actions">' +
+                    '<button class="btn btn-sm btn-secondary" onclick="paShowConfigModal()">⚙ Configurar</button>' +
+                    '<button class="btn btn-sm btn-ghost" onclick="paTestWebhook()"' + (hasUrl ? '' : ' disabled') + '>Probar</button>' +
+                    (queued > 0 ? '<button class="btn btn-sm btn-ghost" onclick="paManualRetry()">Reintentar (' + queued + ')</button>' : '') +
+                '</div>' +
+            '</div>' +
+        '</div>';
+}
+
+// ══════════════════════════════════════════════════════════════
+// CONFIG MODAL — lets the user configure from anywhere, not
+// just the Panel → System Health deep screen.
+// ══════════════════════════════════════════════════════════════
+
+function paShowConfigModal() {
+    var overlay = document.getElementById('pa-config-modal-overlay');
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+
+    overlay = document.createElement('div');
+    overlay.id = 'pa-config-modal-overlay';
+    overlay.className = 'custom-modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Configuración Power Automate');
+
+    overlay.innerHTML =
+        '<div class="custom-modal-box pa-config-modal-box">' +
+            '<div class="custom-modal-title">⚡ Power Automate — Aprobación de Emisiones</div>' +
+            '<div class="custom-modal-message" style="margin-bottom:12px;color:var(--tp-dim);font-size:11px;">' +
+                'Dispara automáticamente el flujo de aprobación en Microsoft Teams al registrar o liberar un vehículo. ' +
+                'Elimina la dependencia del escaneo manual.' +
+            '</div>' +
+            '<div id="pa-config-modal-body"></div>' +
+            '<div class="custom-modal-actions" style="margin-top:12px;">' +
+                '<button class="modal-btn-confirm modal-type-info" onclick="paCloseConfigModal()">Cerrar</button>' +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(overlay);
+
+    // Close on backdrop click
+    overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) paCloseConfigModal();
+    });
+
+    // Close on Escape
+    overlay.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') paCloseConfigModal();
+    });
+
+    // Mount the reusable config UI into the modal body
+    paRenderConfigUI('pa-config-modal-body');
+
+    // Focus the close button
+    var btn = overlay.querySelector('.modal-btn-confirm');
+    if (btn) btn.focus();
+}
+
+function paCloseConfigModal() {
+    var overlay = document.getElementById('pa-config-modal-overlay');
+    if (!overlay) return;
+    overlay.classList.add('modal-closing');
+    setTimeout(function () {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        // After closing, restore the tracked container to the Panel view
+        // if the Panel is currently rendered, otherwise leave as-is.
+        if (document.getElementById('pa-config-container')) {
+            _paConfigContainerId = 'pa-config-container';
+            paRenderConfigUI('pa-config-container');
+        }
+        // Refresh Today card since settings may have changed
+        if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
+    }, 200);
+}
+
+// ══════════════════════════════════════════════════════════════
+// MANUAL TRIGGER & BATCH — send PA webhooks for historical vehicles
+// ══════════════════════════════════════════════════════════════
+
+function paManualTrigger(vehicleId, eventType) {
+    if (!paConfig.enabled || !paConfig.webhookUrl) {
+        if (typeof showToast === 'function') showToast('Configura Power Automate primero', 'warning');
+        return;
+    }
+    var vehicle = null;
+    if (typeof db !== 'undefined' && db.vehicles) {
+        vehicle = db.vehicles.find(function (v) { return v.id == vehicleId; });
+    }
+    if (!vehicle) { if (typeof showToast === 'function') showToast('Vehiculo no encontrado', 'error'); return; }
+
+    paBuildPayload(eventType, vehicle).then(function (payload) {
+        return paSendWebhook(payload);
+    }).then(function () {
+        if (!vehicle.paStatus) vehicle.paStatus = {};
+        vehicle.paStatus[eventType] = { sent: true, sentAt: new Date().toISOString(), manual: true };
+        if (typeof saveDB === 'function') saveDB();
+        _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: eventType };
+        if (typeof showToast === 'function') showToast('Enviado a Power Automate: ' + (vehicle.vin || vehicleId), 'success');
+        if (typeof renderHistory === 'function') renderHistory();
+    }).catch(function (err) {
+        paQueueAdd(eventType, vehicleId);
+        if (typeof showToast === 'function') showToast('En cola para reintento: ' + String(err), 'warning');
+    });
+}
+
+function paBatchTriggerAll() {
+    if (!paConfig.enabled || !paConfig.webhookUrl) {
+        if (typeof showToast === 'function') showToast('Configura Power Automate primero', 'warning');
+        return;
+    }
+    if (typeof db === 'undefined' || !db.vehicles) return;
+    var pending = db.vehicles.filter(function (v) {
+        return v.status === 'archived' &&
+            (!v.paStatus || !v.paStatus.vehicle_released || !v.paStatus.vehicle_released.sent);
+    });
+    if (pending.length === 0) { if (typeof showToast === 'function') showToast('No hay pendientes', 'info'); return; }
+    if (!confirm('Enviar ' + pending.length + ' vehiculos a Power Automate?')) return;
+
+    var queued = 0;
+    pending.forEach(function (v) {
+        paQueueAdd('vehicle_released', v.id);
+        queued++;
+    });
+    if (typeof showToast === 'function') showToast(queued + ' vehiculos agregados a la cola de PA', 'success');
+    paQueueRetry();
+}
+
+// ══════════════════════════════════════════════════════════════
+// WEEKLY PLAN WEBHOOK — send plan via PA for email/Teams distribution
+// ══════════════════════════════════════════════════════════════
+
+function paSendWeeklyPlan(plan) {
+    if (!paConfig.enabled || !paConfig.webhookUrl) {
+        console.log('PA not configured, plan not sent');
+        return;
+    }
+
+    var payload = {
+        event: 'weekly_plan_generated',
+        timestamp: new Date().toISOString(),
+        station: paConfig.stationName,
+        plan: {
+            weekDate: plan.weekDate,
+            accepted: plan.accepted,
+            acceptedDate: plan.acceptedDate || '',
+            capacity: plan.capacity,
+            itemCount: plan.items.length,
+            items: plan.items.map(function (i) {
+                return {
+                    desc: i.desc, mod: i.mod, eng: i.eng, tx: i.tx, my: i.my,
+                    tire: i.tire, scheduledDate: i.scheduledDate || '',
+                    required: i.required, deficit: i.deficit
+                };
+            }),
+            skippedInventory: plan.skippedInventory || []
+        }
+    };
+
+    if (typeof generateWeeklyStatusPDF === 'function') {
+        try {
+            var b64 = generateWeeklyStatusPDF({ returnBase64: true, silent: true });
+            if (b64) {
+                payload.pdf = {
+                    base64: b64,
+                    filename: 'Plan-Semanal-' + plan.weekDate + '.pdf',
+                    contentType: 'application/pdf'
+                };
+            }
+        } catch (e) { console.warn('Weekly PDF base64 failed:', e); }
+    }
+
+    if (!navigator.onLine) {
+        paQueueAdd('weekly_plan_generated', 'plan-' + plan.weekDate);
+        return;
+    }
+
+    paSendWebhook(payload).then(function () {
+        _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'weekly_plan_generated' };
+    }).catch(function (err) {
+        console.error('Weekly plan webhook failed:', err);
+        _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'weekly_plan_generated', error: String(err) };
+    });
+}
+
+// ══════════════════════════════════════════════════════════════
 // INITIALIZATION
 // ══════════════════════════════════════════════════════════════
 
@@ -893,6 +1206,9 @@ function paInit() {
         onEvent('vehicle:registered', paOnVehicleRegistered);
         onEvent('vehicle:released', paOnVehicleReleased);
     }
+
+    // Paint initial state for the HOY tab badge and dashboard card
+    paUpdateIndicator();
 
     // Process any pending queue items on startup
     if (navigator.onLine && paQueue.length > 0) {

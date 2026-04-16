@@ -48,27 +48,20 @@
 <div class="platform-bar" role="navigation" aria-label="Navegación principal entre módulos">
     <div class="platform-tab active" onclick="switchPlatform('today')" id="ptab-today" title="Vista Hoy: Resumen diario del laboratorio">
         🏠 HOY
+        <span id="today-pa-badge" style="display:none;min-width:18px;height:18px;margin-left:6px;padding:0 5px;border-radius:9px;background:#f59e0b;color:#0a0f1a;font-size:10px;font-weight:800;align-items:center;justify-content:center;" title="Aprobaciones pendientes en cola">0</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('cop15')" id="ptab-cop15" title="COP15: Registro y operación de vehículos de emisiones">
-        🔬 COP15 CASCADE
+    <div class="platform-tab" onclick="switchPlatform('plan')" id="ptab-plan" title="Plan: Planificación y priorización de pruebas semanales">
+        📋 PLAN
+        <span class="pt-badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;" id="tp-coverage-badge">--</span>
+    </div>
+    <div class="platform-tab" onclick="switchPlatform('pruebas')" id="ptab-pruebas" style="position:relative;" title="Pruebas: Registro, operación, liberación de vehículos + consumibles">
+        🔬 PRUEBAS
         <span class="pt-badge" style="background:rgba(187,22,43,0.2);color:#f87171;" id="cop15-count-badge">0 activos</span>
-    </div>
-    <div class="platform-tab" onclick="switchPlatform('testplan')" id="ptab-testplan" title="Test Plan: Planificación y priorización de pruebas semanales">
-        📊 TEST PLAN MANAGER
-        <span class="pt-badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;" id="tp-coverage-badge">—</span>
-    </div>
-    <div class="platform-tab" onclick="switchPlatform('results')" id="ptab-results" title="Results: Análisis de resultados, tendencias Cpk/Ppk">
-        🧪 RESULTS ANALYZER
-        <span class="pt-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" id="ra-count-badge">0 pruebas</span>
-    </div>
-    <div class="platform-tab" onclick="switchPlatform('inventory')" id="ptab-inventory" style="position:relative;" title="Inventory: Cilindros de gas, equipos y mapa de zonas">
-        📦 LAB INVENTORY
-        <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
         <span id="inv-alert-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:16px;padding:0 4px;">0</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel" title="Panel: Dashboard, operadores, backups y configuración">
-        ⚙️ PANEL
-        <span class="pt-badge" style="background:rgba(71,85,105,0.15);color:#64748b;" id="pn-alerts-badge">ok</span>
+    <div class="platform-tab" onclick="switchPlatform('datos')" id="ptab-datos" title="Datos: Resultados, tendencias, panel de control">
+        📊 DATOS
+        <span class="pt-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" id="ra-count-badge">0 pruebas</span>
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
     <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
@@ -119,10 +112,13 @@
         <div class="tab" data-tab="liberacion" role="tab" aria-selected="false">3. Liberación</div>
         <div class="tab" data-tab="kanban" role="tab" aria-selected="false">Cola</div>
         <div class="tab" data-tab="dashboard" role="tab" aria-selected="false">Historial</div>
+        <div class="tab" data-tab="consumibles" role="tab" aria-selected="false" style="border-left:2px solid rgba(16,185,129,0.3);margin-left:4px;">📦 Consumibles</div>
     </div>
 
     <!-- ==================== TAB 1: ALTA ==================== -->
     <div class="tab-panel active" id="panel-alta" role="tabpanel">
+        <!-- Banner shown when this Alta was started from a weekly plan item -->
+        <div id="plan-preload-banner" style="display:none;"></div>
         <div class="card">
             <div class="card-title">🎯 Propósito y Tipo</div>
             <!-- [V7-E1] Quick-Pick Purpose Buttons -->
@@ -303,6 +299,19 @@
       <input type="datetime-local" id="reg_datetime" readonly>
     </div>
   </div><!-- ✅ cierre form-grid -->
+
+  <div class="form-group adhoc-row" style="margin-top:12px;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;">
+    <label for="vehicleAdhoc" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin:0;">
+      <input type="checkbox" id="vehicleAdhoc" style="margin-top:3px;flex:0 0 auto;">
+      <span>
+        <span style="font-weight:600;color:#92400e;">Test ad-hoc — no contabilizar al plan semanal</span>
+        <small style="display:block;color:#78350f;font-size:11px;margin-top:3px;">
+          Úsalo para pruebas del centro de desarrollo, soporte a otro equipo, o cualquier
+          trabajo fuera del plan aprobado. La aprobación en Power Automate sí se enviará.
+        </small>
+      </span>
+    </label>
+  </div>
 </div><!-- ✅ cierre card -->
 
 <button class="btn-primary" onclick="confirmAlta()" id="btnRegister">
@@ -967,6 +976,7 @@
         <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-filter')">🧹 Filtro</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-compare')">🔀 Comparar</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-spc')">📉 SPC</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="switchPlatform('panel')" style="border-left:2px solid rgba(71,85,105,0.3);margin-left:4px;">⚙️ Panel</button>
     </div>
     <div class="tp-main">
         <div id="ra-content"></div>
@@ -975,7 +985,12 @@
 
 <div class="platform-section" id="platform-inventory" role="main" aria-label="Lab Inventory">
     <div class="tp-main">
-        <div class="tp-header" style="margin-bottom:12px;"><h2 style="margin:0;font-size:16px;color:var(--tp-text);">📦 Lab Inventory</h2></div>
+        <div class="tp-header" style="margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <button class="btn btn-ghost btn-sm" onclick="switchPlatform('cop15')" title="Volver a COP15 Pruebas" style="font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid var(--tp-border);">🔬 ← COP15</button>
+                <h2 style="margin:0;font-size:16px;color:var(--tp-text);">📦 Consumibles &amp; Inventario</h2>
+            </div>
+        </div>
         <div class="tp-tabs" id="inv-tabs-bar" role="tablist" aria-label="Secciones Inventory" style="margin-bottom:12px;">
             <button class="tp-tab active" role="tab" aria-selected="true" onclick="invSwitchTab('inv-dashboard')">📊 Dashboard</button>
             <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-gases')">🔴 Gases</button>
@@ -999,9 +1014,12 @@
 <div class="platform-section" id="platform-panel" role="main" aria-label="Panel de Control">
     <div class="tp-header">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
-            <div>
-                <h2 style="margin:0;font-size:16px;font-weight:800;">Panel de Control</h2>
-                <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Dashboard, operadores, bitácora y alertas del laboratorio</p>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <button class="btn btn-ghost btn-sm" onclick="switchPlatform('results')" title="Volver a Resultados" style="font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid var(--tp-border);">🧪 ← Resultados</button>
+                <div>
+                    <h2 style="margin:0;font-size:16px;font-weight:800;">Panel de Control</h2>
+                    <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Dashboard, operadores, bitácora y alertas del laboratorio</p>
+                </div>
             </div>
         </div>
     </div>
@@ -1509,25 +1527,17 @@
         <span class="bnav-icon">🏠</span>
         <span>Hoy</span>
     </div>
-    <div class="bottom-nav-item" onclick="switchPlatform('cop15')" id="bnav-cop15">
+    <div class="bottom-nav-item" onclick="switchPlatform('plan')" id="bnav-plan">
+        <span class="bnav-icon">📋</span>
+        <span>Plan</span>
+    </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('pruebas')" id="bnav-pruebas">
         <span class="bnav-icon">🔬</span>
-        <span>COP15</span>
+        <span>Pruebas</span>
     </div>
-    <div class="bottom-nav-item" onclick="switchPlatform('testplan')" id="bnav-testplan">
+    <div class="bottom-nav-item" onclick="switchPlatform('datos')" id="bnav-datos">
         <span class="bnav-icon">📊</span>
-        <span>Test Plan</span>
-    </div>
-    <div class="bottom-nav-item" onclick="switchPlatform('results')" id="bnav-results">
-        <span class="bnav-icon">🧪</span>
-        <span>Results</span>
-    </div>
-    <div class="bottom-nav-item" onclick="switchPlatform('inventory')" id="bnav-inventory">
-        <span class="bnav-icon">📦</span>
-        <span>Inventory</span>
-    </div>
-    <div class="bottom-nav-item" onclick="switchPlatform('panel')" id="bnav-panel">
-        <span class="bnav-icon">⚙️</span>
-        <span>Panel</span>
+        <span>Datos</span>
     </div>
 </nav>
 
@@ -1542,6 +1552,7 @@
 <script src="js/results.js"></script>
 <script src="js/panel.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/signatures.js"></script>
 <script src="js/approvals.js"></script>
 <script src="js/firebase-sync.js"></script>
 

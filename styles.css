@@ -2044,9 +2044,140 @@ html { scroll-behavior: smooth; }
 /* [TIER 3] TAB TRANSITIONS & MICRO-INTERACTIONS                         */
 /* ══════════════════════════════════════════════════════════════════════ */
 
-/* Smooth tab content transitions */
+/* Smooth tab content transitions (equal durations, no overlap frame) */
 .tab-content-enter { animation: tabFadeIn 0.2s ease both; }
-.tab-content-exit { animation: tabFadeOut 0.15s ease both; }
+.tab-content-exit { animation: tabFadeOut 0.2s ease both; }
+
+/* ── Power Automate — Today dashboard card ── */
+.pa-today-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.06));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.pa-today-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.pa-today-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 0 0 4px rgba(0,0,0,0.06);
+}
+.pa-today-head-text { flex: 1 1 auto; min-width: 0; }
+.pa-today-label { font-weight: 700; color: #0f172a; font-size: 14px; }
+.pa-today-sub { color: #64748b; font-size: 11px; margin-top: 2px; }
+.pa-today-queue-badge {
+    background: #fef3c7;
+    color: #d97706;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+}
+.pa-today-url {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 10px;
+    color: #475569;
+    word-break: break-all;
+}
+.pa-today-last { font-size: 10px; }
+.pa-today-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.pa-today-actions .btn { font-size: 11px; }
+
+/* Config modal sizing — wider than generic confirm modal */
+.pa-config-modal-box {
+    max-width: 520px;
+    width: 90vw;
+}
+
+/* Dark-theme variants */
+[data-theme="dark"] .pa-today-card { background: rgba(15,23,42,0.6); border-color: rgba(100,116,139,0.2); }
+[data-theme="dark"] .pa-today-label { color: #e2e8f0; }
+[data-theme="dark"] .pa-today-sub { color: #94a3b8; }
+[data-theme="dark"] .pa-today-url { background: rgba(15,23,42,0.6); border-color: rgba(100,116,139,0.2); color: #cbd5e1; }
+[data-theme="dark"] .pa-today-queue-badge { background: rgba(245,158,11,0.2); color: #fbbf24; }
+
+/* Plan → Alta preload banner */
+#plan-preload-banner {
+    margin-bottom: 12px;
+    padding: 0;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    animation: tabFadeIn 0.25s ease both;
+}
+.plan-preload-banner-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+}
+.plan-preload-banner-icon { font-size: 18px; flex: 0 0 auto; }
+.plan-preload-banner-body { flex: 1 1 auto; min-width: 0; font-size: 12px; color: #1e3a8a; }
+.plan-preload-banner-body strong { display: block; margin-bottom: 2px; font-size: 12px; }
+.plan-preload-banner-body div { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; color: #1d4ed8; word-break: break-all; }
+.plan-preload-banner-body small { display: block; margin-top: 4px; font-size: 10px; color: #475569; }
+.plan-preload-banner-close {
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+.plan-preload-banner-close:hover { color: #0f172a; }
+[data-theme="dark"] #plan-preload-banner { background: rgba(30,58,138,0.25); border-color: rgba(96,165,250,0.3); }
+[data-theme="dark"] .plan-preload-banner-body { color: #bfdbfe; }
+[data-theme="dark"] .plan-preload-banner-body div { color: #93c5fd; }
+
+/* Ad-hoc badge — marks vehicles excluded from plan accounting */
+.adhoc-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    vertical-align: middle;
+}
+[data-theme="dark"] .adhoc-badge {
+    background: rgba(245,158,11,0.15);
+    color: #fbbf24;
+    border-color: rgba(245,158,11,0.35);
+}
+
+/* Today-tab queue badge (pulsing so it's hard to miss) */
+#today-pa-badge { display: none; animation: paBadgePulse 2s ease-in-out infinite; }
+@keyframes paBadgePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.55); }
+    50%      { box-shadow: 0 0 0 6px rgba(245,158,11,0); }
+}
 @keyframes tabFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes tabFadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-4px); } }
 
@@ -3315,5 +3446,57 @@ details.acc > summary {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SIGNATURE CAPTURE OVERLAY
+   ══════════════════════════════════════════════════════════════ */
+.sig-capture-overlay {
+    position: fixed; inset: 0; z-index: 11000;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+}
+.sig-capture-box {
+    background: #fff; border-radius: 14px; width: 100%; max-width: 580px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35); overflow: hidden;
+}
+.sig-capture-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+}
+.sig-capture-title { font-weight: 700; font-size: 14px; color: #1e293b; }
+.sig-capture-close {
+    background: none; border: none; font-size: 20px; cursor: pointer;
+    color: #64748b; padding: 4px 8px; border-radius: 6px;
+}
+.sig-capture-close:hover { background: #f1f5f9; }
+.sig-capture-field {
+    padding: 8px 16px; display: flex; align-items: center; gap: 8px;
+}
+.sig-capture-field label {
+    font-size: 12px; font-weight: 600; color: #475569; min-width: 100px;
+}
+.sig-input {
+    flex: 1; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+    font-size: 13px; background: #fff; color: #1e293b;
+}
+.sig-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+.sig-role-display {
+    font-size: 12px; color: #64748b; padding: 6px 10px;
+    background: #f1f5f9; border-radius: 6px;
+}
+.sig-capture-canvas-wrap {
+    margin: 8px 16px; border: 2px dashed #cbd5e1; border-radius: 10px;
+    background: #fff; position: relative; overflow: hidden;
+}
+.sig-capture-canvas-wrap canvas { display: block; width: 100%; touch-action: none; }
+.sig-hint {
+    position: absolute; bottom: 6px; left: 0; right: 0;
+    text-align: center; font-size: 10px; color: #94a3b8; pointer-events: none;
+}
+.sig-capture-actions {
+    display: flex; gap: 8px; justify-content: flex-end; padding: 12px 16px;
+    border-top: 1px solid #e2e8f0; background: #f8fafc;
 }
 

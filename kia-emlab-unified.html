@@ -2078,9 +2078,140 @@ html { scroll-behavior: smooth; }
 /* [TIER 3] TAB TRANSITIONS & MICRO-INTERACTIONS                         */
 /* ══════════════════════════════════════════════════════════════════════ */
 
-/* Smooth tab content transitions */
+/* Smooth tab content transitions (equal durations, no overlap frame) */
 .tab-content-enter { animation: tabFadeIn 0.2s ease both; }
-.tab-content-exit { animation: tabFadeOut 0.15s ease both; }
+.tab-content-exit { animation: tabFadeOut 0.2s ease both; }
+
+/* ── Power Automate — Today dashboard card ── */
+.pa-today-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.06));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.pa-today-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.pa-today-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 0 0 4px rgba(0,0,0,0.06);
+}
+.pa-today-head-text { flex: 1 1 auto; min-width: 0; }
+.pa-today-label { font-weight: 700; color: #0f172a; font-size: 14px; }
+.pa-today-sub { color: #64748b; font-size: 11px; margin-top: 2px; }
+.pa-today-queue-badge {
+    background: #fef3c7;
+    color: #d97706;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+}
+.pa-today-url {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 10px;
+    color: #475569;
+    word-break: break-all;
+}
+.pa-today-last { font-size: 10px; }
+.pa-today-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.pa-today-actions .btn { font-size: 11px; }
+
+/* Config modal sizing — wider than generic confirm modal */
+.pa-config-modal-box {
+    max-width: 520px;
+    width: 90vw;
+}
+
+/* Dark-theme variants */
+[data-theme="dark"] .pa-today-card { background: rgba(15,23,42,0.6); border-color: rgba(100,116,139,0.2); }
+[data-theme="dark"] .pa-today-label { color: #e2e8f0; }
+[data-theme="dark"] .pa-today-sub { color: #94a3b8; }
+[data-theme="dark"] .pa-today-url { background: rgba(15,23,42,0.6); border-color: rgba(100,116,139,0.2); color: #cbd5e1; }
+[data-theme="dark"] .pa-today-queue-badge { background: rgba(245,158,11,0.2); color: #fbbf24; }
+
+/* Plan → Alta preload banner */
+#plan-preload-banner {
+    margin-bottom: 12px;
+    padding: 0;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    animation: tabFadeIn 0.25s ease both;
+}
+.plan-preload-banner-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+}
+.plan-preload-banner-icon { font-size: 18px; flex: 0 0 auto; }
+.plan-preload-banner-body { flex: 1 1 auto; min-width: 0; font-size: 12px; color: #1e3a8a; }
+.plan-preload-banner-body strong { display: block; margin-bottom: 2px; font-size: 12px; }
+.plan-preload-banner-body div { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; color: #1d4ed8; word-break: break-all; }
+.plan-preload-banner-body small { display: block; margin-top: 4px; font-size: 10px; color: #475569; }
+.plan-preload-banner-close {
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+.plan-preload-banner-close:hover { color: #0f172a; }
+[data-theme="dark"] #plan-preload-banner { background: rgba(30,58,138,0.25); border-color: rgba(96,165,250,0.3); }
+[data-theme="dark"] .plan-preload-banner-body { color: #bfdbfe; }
+[data-theme="dark"] .plan-preload-banner-body div { color: #93c5fd; }
+
+/* Ad-hoc badge — marks vehicles excluded from plan accounting */
+.adhoc-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    vertical-align: middle;
+}
+[data-theme="dark"] .adhoc-badge {
+    background: rgba(245,158,11,0.15);
+    color: #fbbf24;
+    border-color: rgba(245,158,11,0.35);
+}
+
+/* Today-tab queue badge (pulsing so it's hard to miss) */
+#today-pa-badge { display: none; animation: paBadgePulse 2s ease-in-out infinite; }
+@keyframes paBadgePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.55); }
+    50%      { box-shadow: 0 0 0 6px rgba(245,158,11,0); }
+}
 @keyframes tabFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes tabFadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-4px); } }
 
@@ -3351,6 +3482,58 @@ details.acc > summary {
     justify-content: flex-end;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   SIGNATURE CAPTURE OVERLAY
+   ══════════════════════════════════════════════════════════════ */
+.sig-capture-overlay {
+    position: fixed; inset: 0; z-index: 11000;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+}
+.sig-capture-box {
+    background: #fff; border-radius: 14px; width: 100%; max-width: 580px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35); overflow: hidden;
+}
+.sig-capture-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+}
+.sig-capture-title { font-weight: 700; font-size: 14px; color: #1e293b; }
+.sig-capture-close {
+    background: none; border: none; font-size: 20px; cursor: pointer;
+    color: #64748b; padding: 4px 8px; border-radius: 6px;
+}
+.sig-capture-close:hover { background: #f1f5f9; }
+.sig-capture-field {
+    padding: 8px 16px; display: flex; align-items: center; gap: 8px;
+}
+.sig-capture-field label {
+    font-size: 12px; font-weight: 600; color: #475569; min-width: 100px;
+}
+.sig-input {
+    flex: 1; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+    font-size: 13px; background: #fff; color: #1e293b;
+}
+.sig-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+.sig-role-display {
+    font-size: 12px; color: #64748b; padding: 6px 10px;
+    background: #f1f5f9; border-radius: 6px;
+}
+.sig-capture-canvas-wrap {
+    margin: 8px 16px; border: 2px dashed #cbd5e1; border-radius: 10px;
+    background: #fff; position: relative; overflow: hidden;
+}
+.sig-capture-canvas-wrap canvas { display: block; width: 100%; touch-action: none; }
+.sig-hint {
+    position: absolute; bottom: 6px; left: 0; right: 0;
+    text-align: center; font-size: 10px; color: #94a3b8; pointer-events: none;
+}
+.sig-capture-actions {
+    display: flex; gap: 8px; justify-content: flex-end; padding: 12px 16px;
+    border-top: 1px solid #e2e8f0; background: #f8fafc;
+}
+
     </style>
 </head>
 
@@ -3367,27 +3550,20 @@ details.acc > summary {
 <div class="platform-bar" role="navigation" aria-label="Navegación principal entre módulos">
     <div class="platform-tab active" onclick="switchPlatform('today')" id="ptab-today" title="Vista Hoy: Resumen diario del laboratorio">
         🏠 HOY
+        <span id="today-pa-badge" style="display:none;min-width:18px;height:18px;margin-left:6px;padding:0 5px;border-radius:9px;background:#f59e0b;color:#0a0f1a;font-size:10px;font-weight:800;align-items:center;justify-content:center;" title="Aprobaciones pendientes en cola">0</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('cop15')" id="ptab-cop15" title="COP15: Registro y operación de vehículos de emisiones">
-        🔬 COP15 CASCADE
+    <div class="platform-tab" onclick="switchPlatform('plan')" id="ptab-plan" title="Plan: Planificación y priorización de pruebas semanales">
+        📋 PLAN
+        <span class="pt-badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;" id="tp-coverage-badge">--</span>
+    </div>
+    <div class="platform-tab" onclick="switchPlatform('pruebas')" id="ptab-pruebas" style="position:relative;" title="Pruebas: Registro, operación, liberación de vehículos + consumibles">
+        🔬 PRUEBAS
         <span class="pt-badge" style="background:rgba(187,22,43,0.2);color:#f87171;" id="cop15-count-badge">0 activos</span>
-    </div>
-    <div class="platform-tab" onclick="switchPlatform('testplan')" id="ptab-testplan" title="Test Plan: Planificación y priorización de pruebas semanales">
-        📊 TEST PLAN MANAGER
-        <span class="pt-badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;" id="tp-coverage-badge">—</span>
-    </div>
-    <div class="platform-tab" onclick="switchPlatform('results')" id="ptab-results" title="Results: Análisis de resultados, tendencias Cpk/Ppk">
-        🧪 RESULTS ANALYZER
-        <span class="pt-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" id="ra-count-badge">0 pruebas</span>
-    </div>
-    <div class="platform-tab" onclick="switchPlatform('inventory')" id="ptab-inventory" style="position:relative;" title="Inventory: Cilindros de gas, equipos y mapa de zonas">
-        📦 LAB INVENTORY
-        <span class="pt-badge" style="background:rgba(16,185,129,0.2);color:#34d399;" id="inv-count-badge">0 items</span>
         <span id="inv-alert-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:16px;padding:0 4px;">0</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('panel')" id="ptab-panel" title="Panel: Dashboard, operadores, backups y configuración">
-        ⚙️ PANEL
-        <span class="pt-badge" style="background:rgba(71,85,105,0.15);color:#64748b;" id="pn-alerts-badge">ok</span>
+    <div class="platform-tab" onclick="switchPlatform('datos')" id="ptab-datos" title="Datos: Resultados, tendencias, panel de control">
+        📊 DATOS
+        <span class="pt-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" id="ra-count-badge">0 pruebas</span>
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
     <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
@@ -3438,10 +3614,13 @@ details.acc > summary {
         <div class="tab" data-tab="liberacion" role="tab" aria-selected="false">3. Liberación</div>
         <div class="tab" data-tab="kanban" role="tab" aria-selected="false">Cola</div>
         <div class="tab" data-tab="dashboard" role="tab" aria-selected="false">Historial</div>
+        <div class="tab" data-tab="consumibles" role="tab" aria-selected="false" style="border-left:2px solid rgba(16,185,129,0.3);margin-left:4px;">📦 Consumibles</div>
     </div>
 
     <!-- ==================== TAB 1: ALTA ==================== -->
     <div class="tab-panel active" id="panel-alta" role="tabpanel">
+        <!-- Banner shown when this Alta was started from a weekly plan item -->
+        <div id="plan-preload-banner" style="display:none;"></div>
         <div class="card">
             <div class="card-title">🎯 Propósito y Tipo</div>
             <!-- [V7-E1] Quick-Pick Purpose Buttons -->
@@ -3622,6 +3801,19 @@ details.acc > summary {
       <input type="datetime-local" id="reg_datetime" readonly>
     </div>
   </div><!-- ✅ cierre form-grid -->
+
+  <div class="form-group adhoc-row" style="margin-top:12px;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;">
+    <label for="vehicleAdhoc" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin:0;">
+      <input type="checkbox" id="vehicleAdhoc" style="margin-top:3px;flex:0 0 auto;">
+      <span>
+        <span style="font-weight:600;color:#92400e;">Test ad-hoc — no contabilizar al plan semanal</span>
+        <small style="display:block;color:#78350f;font-size:11px;margin-top:3px;">
+          Úsalo para pruebas del centro de desarrollo, soporte a otro equipo, o cualquier
+          trabajo fuera del plan aprobado. La aprobación en Power Automate sí se enviará.
+        </small>
+      </span>
+    </label>
+  </div>
 </div><!-- ✅ cierre card -->
 
 <button class="btn-primary" onclick="confirmAlta()" id="btnRegister">
@@ -4286,6 +4478,7 @@ details.acc > summary {
         <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-filter')">🧹 Filtro</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-compare')">🔀 Comparar</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-spc')">📉 SPC</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="switchPlatform('panel')" style="border-left:2px solid rgba(71,85,105,0.3);margin-left:4px;">⚙️ Panel</button>
     </div>
     <div class="tp-main">
         <div id="ra-content"></div>
@@ -4294,7 +4487,12 @@ details.acc > summary {
 
 <div class="platform-section" id="platform-inventory" role="main" aria-label="Lab Inventory">
     <div class="tp-main">
-        <div class="tp-header" style="margin-bottom:12px;"><h2 style="margin:0;font-size:16px;color:var(--tp-text);">📦 Lab Inventory</h2></div>
+        <div class="tp-header" style="margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <button class="btn btn-ghost btn-sm" onclick="switchPlatform('cop15')" title="Volver a COP15 Pruebas" style="font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid var(--tp-border);">🔬 ← COP15</button>
+                <h2 style="margin:0;font-size:16px;color:var(--tp-text);">📦 Consumibles &amp; Inventario</h2>
+            </div>
+        </div>
         <div class="tp-tabs" id="inv-tabs-bar" role="tablist" aria-label="Secciones Inventory" style="margin-bottom:12px;">
             <button class="tp-tab active" role="tab" aria-selected="true" onclick="invSwitchTab('inv-dashboard')">📊 Dashboard</button>
             <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-gases')">🔴 Gases</button>
@@ -4318,9 +4516,12 @@ details.acc > summary {
 <div class="platform-section" id="platform-panel" role="main" aria-label="Panel de Control">
     <div class="tp-header">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
-            <div>
-                <h2 style="margin:0;font-size:16px;font-weight:800;">Panel de Control</h2>
-                <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Dashboard, operadores, bitácora y alertas del laboratorio</p>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <button class="btn btn-ghost btn-sm" onclick="switchPlatform('results')" title="Volver a Resultados" style="font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid var(--tp-border);">🧪 ← Resultados</button>
+                <div>
+                    <h2 style="margin:0;font-size:16px;font-weight:800;">Panel de Control</h2>
+                    <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Dashboard, operadores, bitácora y alertas del laboratorio</p>
+                </div>
             </div>
         </div>
     </div>
@@ -4828,25 +5029,17 @@ details.acc > summary {
         <span class="bnav-icon">🏠</span>
         <span>Hoy</span>
     </div>
-    <div class="bottom-nav-item" onclick="switchPlatform('cop15')" id="bnav-cop15">
+    <div class="bottom-nav-item" onclick="switchPlatform('plan')" id="bnav-plan">
+        <span class="bnav-icon">📋</span>
+        <span>Plan</span>
+    </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('pruebas')" id="bnav-pruebas">
         <span class="bnav-icon">🔬</span>
-        <span>COP15</span>
+        <span>Pruebas</span>
     </div>
-    <div class="bottom-nav-item" onclick="switchPlatform('testplan')" id="bnav-testplan">
+    <div class="bottom-nav-item" onclick="switchPlatform('datos')" id="bnav-datos">
         <span class="bnav-icon">📊</span>
-        <span>Test Plan</span>
-    </div>
-    <div class="bottom-nav-item" onclick="switchPlatform('results')" id="bnav-results">
-        <span class="bnav-icon">🧪</span>
-        <span>Results</span>
-    </div>
-    <div class="bottom-nav-item" onclick="switchPlatform('inventory')" id="bnav-inventory">
-        <span class="bnav-icon">📦</span>
-        <span>Inventory</span>
-    </div>
-    <div class="bottom-nav-item" onclick="switchPlatform('panel')" id="bnav-panel">
-        <span class="bnav-icon">⚙️</span>
-        <span>Panel</span>
+        <span>Datos</span>
     </div>
 </nav>
 
@@ -5318,14 +5511,16 @@ function _restoreLastModule() {
     if (lastMod) {
         var parts = lastMod.split(':');
         var platform = parts[0];
-        if (platform && platform !== 'today' && PLATFORM_ORDER.indexOf(platform) !== -1) {
+        // Accept both new tab names and legacy section names via PLATFORM_SECTION_MAP
+        if (platform && platform !== 'today' && (PLATFORM_ORDER.indexOf(platform) !== -1 || PLATFORM_SECTION_MAP[platform])) {
             switchPlatform(platform);
             if (parts[1]) {
                 setTimeout(function() {
-                    if (platform === 'inventory' && typeof invSwitchTab === 'function') invSwitchTab(parts[1]);
-                    else if (platform === 'testplan' && typeof tpSwitchTab === 'function') tpSwitchTab(parts[1]);
-                    else if (platform === 'results' && typeof raSwitchTab === 'function') raSwitchTab(parts[1]);
-                    else if (platform === 'panel' && typeof pnSwitchTab === 'function') pnSwitchTab(parts[1]);
+                    var section = PLATFORM_SECTION_MAP[platform] || platform;
+                    if (section === 'inventory' && typeof invSwitchTab === 'function') invSwitchTab(parts[1]);
+                    else if (section === 'testplan' && typeof tpSwitchTab === 'function') tpSwitchTab(parts[1]);
+                    else if (section === 'results' && typeof raSwitchTab === 'function') raSwitchTab(parts[1]);
+                    else if (section === 'panel' && typeof pnSwitchTab === 'function') pnSwitchTab(parts[1]);
                 }, 200);
             }
         }
@@ -6177,17 +6372,23 @@ function tabCacheSwitch(moduleId, tabId, renderFn) {
         }
     };
 
-    // If there's an outgoing tab, animate exit first
+    // If there's an outgoing tab, animate exit first.
+    // Keep the exit class on until doSwitch() applies display:none, otherwise
+    // there is a one-frame flash where the outgoing tab pops back to opacity:1
+    // before being hidden, causing a visible overlap with the incoming tab.
     if (outgoingEl) {
         outgoingEl.classList.add('tab-content-exit');
         setTimeout(function() {
-            outgoingEl.classList.remove('tab-content-exit');
-            if (document.startViewTransition) {
-                document.startViewTransition(doSwitch);
-            } else {
+            var runSwitch = function() {
                 doSwitch();
+                outgoingEl.classList.remove('tab-content-exit');
+            };
+            if (document.startViewTransition) {
+                document.startViewTransition(runSwitch);
+            } else {
+                runSwitch();
             }
-        }, 150);
+        }, 200);
     } else {
         if (document.startViewTransition) {
             document.startViewTransition(doSwitch);
@@ -6274,47 +6475,75 @@ function _skeletonHTML() {
 // ║  [M15] PLATFORM SWITCHER                                           ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-var PLATFORM_ORDER = ['today', 'cop15', 'testplan', 'results', 'inventory', 'panel'];
+// Root tabs: 4 workflow-oriented tabs (was 6 feature tabs)
+var PLATFORM_ORDER = ['today', 'plan', 'pruebas', 'datos'];
 var _currentPlatform = 'today';
 
+// Maps any platform name (including legacy aliases) to the root tab it belongs to
+var PLATFORM_TAB_GROUP = {
+    'today': 'today',
+    'plan': 'plan',      'testplan': 'plan',
+    'pruebas': 'pruebas', 'cop15': 'pruebas', 'inventory': 'pruebas',
+    'datos': 'datos',     'results': 'datos',  'panel': 'datos'
+};
+
+// Maps any platform name to the actual DOM section ID suffix (platform-XXX)
+var PLATFORM_SECTION_MAP = {
+    'today': 'today',
+    'plan': 'testplan',   'testplan': 'testplan',
+    'pruebas': 'cop15',   'cop15': 'cop15',    'inventory': 'inventory',
+    'datos': 'results',   'results': 'results', 'panel': 'panel'
+};
+
 function switchPlatform(platform, swipeDir) {
+    // Resolve the actual section and root tab
+    var sectionId = PLATFORM_SECTION_MAP[platform] || platform;
+    var tabGroup  = PLATFORM_TAB_GROUP[platform] || platform;
+
+    // Exact same call — nothing to do
     if (platform === _currentPlatform) return;
 
-    var oldSection = document.getElementById('platform-' + _currentPlatform);
-    var newSection = document.getElementById('platform-' + platform);
+    var oldSectionId = PLATFORM_SECTION_MAP[_currentPlatform] || _currentPlatform;
+    var oldSection = document.getElementById('platform-' + oldSectionId);
+    var newSection = document.getElementById('platform-' + sectionId);
 
-    // Swipe animation
-    if (swipeDir && oldSection && newSection) {
-        var exitClass = swipeDir === 'left' ? 'swipe-exit-left' : 'swipe-exit-right';
-        var enterClass = swipeDir === 'left' ? 'swipe-enter-left' : 'swipe-enter-right';
+    if (!newSection) return;
 
-        oldSection.classList.add(exitClass);
-        setTimeout(function() {
-            oldSection.classList.remove('active', exitClass);
-            newSection.classList.add('active', enterClass);
-            setTimeout(function() { newSection.classList.remove(enterClass); }, 260);
-        }, 240);
-    } else if (document.startViewTransition) {
-        document.startViewTransition(function() {
-            document.querySelectorAll('.platform-section').forEach(s => s.classList.remove('active'));
+    // Only animate DOM sections if they actually differ
+    if (sectionId !== oldSectionId) {
+        if (swipeDir && oldSection && newSection) {
+            var exitClass = swipeDir === 'left' ? 'swipe-exit-left' : 'swipe-exit-right';
+            var enterClass = swipeDir === 'left' ? 'swipe-enter-left' : 'swipe-enter-right';
+
+            oldSection.classList.add(exitClass);
+            setTimeout(function() {
+                oldSection.classList.remove('active', exitClass);
+                newSection.classList.add('active', enterClass);
+                setTimeout(function() { newSection.classList.remove(enterClass); }, 260);
+            }, 240);
+        } else if (document.startViewTransition) {
+            document.startViewTransition(function() {
+                document.querySelectorAll('.platform-section').forEach(function(s) { s.classList.remove('active'); });
+                newSection.classList.add('active');
+            });
+        } else {
+            document.querySelectorAll('.platform-section').forEach(function(s) { s.classList.remove('active'); });
             newSection.classList.add('active');
-        });
-    } else {
-        document.querySelectorAll('.platform-section').forEach(s => s.classList.remove('active'));
-        newSection.classList.add('active');
+        }
     }
 
-    // Update top tabs
-    document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('ptab-' + platform).classList.add('active');
+    // Update top tabs — highlight the root tab group
+    document.querySelectorAll('.platform-tab').forEach(function(t) { t.classList.remove('active'); });
+    var ptabEl = document.getElementById('ptab-' + tabGroup);
+    if (ptabEl) ptabEl.classList.add('active');
 
-    // Update bottom nav
-    document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'));
-    var bnavEl = document.getElementById('bnav-' + platform);
+    // Update bottom nav — highlight the root tab group
+    document.querySelectorAll('.bottom-nav-item').forEach(function(b) { b.classList.remove('active'); });
+    var bnavEl = document.getElementById('bnav-' + tabGroup);
     if (bnavEl) bnavEl.classList.add('active');
 
     // Hide floating action bar when leaving COP15
-    if (platform !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
+    if (sectionId !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
 
     // Theme — unified light theme for all modules
     document.body.style.background = 'var(--bg)';
@@ -6322,16 +6551,16 @@ function switchPlatform(platform, swipeDir) {
 
     _currentPlatform = platform;
 
-    // [V7-C3] Save last module visited
-    localStorage.setItem('kia_last_module', platform);
+    // [V7-C3] Save last module visited (store resolved section name for backward compat)
+    localStorage.setItem('kia_last_module', sectionId);
 
-    if (platform === 'today') { dailyDashRender(); }
-    if (platform === 'testplan') { tpRender(); tpUpdateBadges(); }
-    if (platform === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
-    if (platform === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
-    if (platform === 'panel') { pnRender(); pnUpdateBadges(); }
-    if (platform === 'cop15') {
-        const active = db.vehicles.filter(v => v.status !== 'archived').length;
+    if (sectionId === 'today') { dailyDashRender(); }
+    if (sectionId === 'testplan') { tpRender(); tpUpdateBadges(); }
+    if (sectionId === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
+    if (sectionId === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
+    if (sectionId === 'panel') { pnRender(); pnUpdateBadges(); }
+    if (sectionId === 'cop15') {
+        var active = db.vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
         // Restore COP15 active tab
         var savedCop15Tab = localStorage.getItem('kia_cop15_activeTab');
@@ -6374,6 +6603,9 @@ function dailyDashRender() {
     html += '<div class="daily-dash-greeting">' + greeting + '</div>';
     html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
     html += '</div>';
+
+    // ── Power Automate Integration card (populated by paRenderTodayCard after innerHTML) ──
+    html += '<div id="pa-today-card-slot"></div>';
 
     // ── [V7-F1] Mi Turno Card ──
     var currentOp = '';
@@ -6577,6 +6809,9 @@ function dailyDashRender() {
     }
 
     el.innerHTML = html;
+
+    // Populate the Power Automate card (after innerHTML so the slot exists)
+    if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -6930,12 +7165,12 @@ function globalVinSearch(query) {
 var _debouncedGlobalVinSearch = debounce(function(val) { globalVinSearch(val); }, 250);
 
 // ── Weekly Status PDF Report ──
-function generateWeeklyStatusPDF() {
+function generateWeeklyStatusPDF(opts) {
     if (typeof window.jspdf === 'undefined') {
-        showToast('jsPDF no está disponible. Verifica la conexión CDN.', 'error');
+        if (!(opts && opts.silent) && typeof showToast === 'function') showToast('jsPDF no esta disponible. Verifica la conexion CDN.', 'error');
         return;
     }
-    showOverlayLoading('Generando PDF semanal...');
+    if (!(opts && opts.silent)) showOverlayLoading('Generando PDF semanal...');
     var jsPDF = window.jspdf.jsPDF;
     var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
     var W = doc.internal.pageSize.getWidth();
@@ -7113,6 +7348,10 @@ function generateWeeklyStatusPDF() {
     doc.setTextColor(150, 150, 150);
     doc.text('Generado automáticamente por KIA EmLab Plataforma Integrada — ' + today.toISOString(), ML, y);
 
+    if (opts && opts.returnBase64) {
+        if (!(opts && opts.silent)) hideOverlayLoading();
+        return doc.output('base64');
+    }
     doc.save('KIA-EmLab-Semanal-' + today.toISOString().slice(0, 10) + '.pdf');
     hideOverlayLoading();
     showToast('Reporte PDF semanal generado', 'success');
@@ -7240,6 +7479,13 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try { tpUpdateBadges(); } catch(e) {}
         try { tpHookCascadeResult(); } catch(e) {}
         try { raInit(); } catch(e) { void 0; }
+
+        // ═══ Auto-plan semanal (viernes 14:00 deadline) ═══
+        try {
+            if (typeof tpAutoGenerateIfNeeded === 'function') {
+                setTimeout(tpAutoGenerateIfNeeded, 3000);
+            }
+        } catch(e) { void 0; }
 
         // ═══ Lab Inventory badges ═══
         try { if (typeof invPreloadData === 'function') invPreloadData(); } catch(e) {}
@@ -7440,11 +7686,12 @@ document.addEventListener('click', function(e) {
 // ══════════════════════════════════════════════════════════════════════
 
 var _commandPaletteCommands = [
-    { label: 'COP15 Cascade', icon: '🔬', action: function(){ switchPlatform('cop15'); }, shortcut: 'Ctrl+1', cat: 'nav' },
-    { label: 'Test Plan Manager', icon: '📊', action: function(){ switchPlatform('testplan'); }, shortcut: 'Ctrl+2', cat: 'nav' },
-    { label: 'Results Analyzer', icon: '🧪', action: function(){ switchPlatform('results'); }, shortcut: 'Ctrl+3', cat: 'nav' },
-    { label: 'Lab Inventory', icon: '📦', action: function(){ switchPlatform('inventory'); }, shortcut: 'Ctrl+4', cat: 'nav' },
-    { label: 'Panel de Control', icon: '⚙️', action: function(){ switchPlatform('panel'); }, shortcut: 'Ctrl+5', cat: 'nav' },
+    { label: 'Plan Semanal', icon: '📋', action: function(){ switchPlatform('plan'); }, shortcut: 'Ctrl+1', cat: 'nav' },
+    { label: 'Pruebas (COP15)', icon: '🔬', action: function(){ switchPlatform('pruebas'); }, shortcut: 'Ctrl+2', cat: 'nav' },
+    { label: 'Datos y Análisis', icon: '📊', action: function(){ switchPlatform('datos'); }, shortcut: 'Ctrl+3', cat: 'nav' },
+    { label: 'Vista Hoy', icon: '🏠', action: function(){ switchPlatform('today'); }, shortcut: 'Ctrl+4', cat: 'nav' },
+    { label: 'Consumibles (Inventario)', icon: '📦', action: function(){ switchPlatform('inventory'); }, cat: 'nav' },
+    { label: 'Panel de Control', icon: '⚙️', action: function(){ switchPlatform('panel'); }, cat: 'nav' },
     { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'action' },
     { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'action' },
     { label: 'Exportar CSV Resultados', icon: '📊', action: function(){ if(typeof raExportCSV==='function') raExportCSV(); }, cat: 'action' },
@@ -7560,9 +7807,9 @@ document.addEventListener('keydown', function(e) {
         var nc = document.getElementById('notification-center');
         if (nc && nc.style.display !== 'none') { nc.style.display = 'none'; e.preventDefault(); return; }
     }
-    // Ctrl+1-5: Switch platform
-    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '5') {
-        var platforms = ['cop15', 'testplan', 'results', 'inventory', 'panel'];
+    // Ctrl+1-4: Switch platform (4 root tabs)
+    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '4') {
+        var platforms = ['plan', 'pruebas', 'datos', 'today'];
         e.preventDefault(); switchPlatform(platforms[parseInt(e.key) - 1]); return;
     }
     // Ctrl+Z: Undo
@@ -8062,13 +8309,11 @@ function shakeElement(el) {
 // ══════════════════════════════════════════════════════════════════════
 
 var _tourSteps = [
-    { target: '.platform-bar', title: 'Navegación', text: 'Usa estas pestañas para cambiar entre los 5 módulos: COP15, Test Plan, Results, Inventory y Panel.', position: 'bottom' },
-    { target: '#ptab-cop15', title: 'COP15 Cascade', text: 'Aquí registras vehículos, operas pruebas de emisiones y liberas resultados.', position: 'bottom' },
+    { target: '.platform-bar', title: 'Navegación', text: 'Usa estas 4 pestañas para navegar: Hoy (resumen), Plan (plan semanal), Pruebas (COP15 + inventario) y Datos (resultados + panel).', position: 'bottom' },
+    { target: '#ptab-pruebas', title: 'Pruebas', text: 'Aquí registras vehículos, operas pruebas de emisiones, liberas resultados y gestionas consumibles del laboratorio.', position: 'bottom' },
     { target: '#panel-alta', title: 'Registro de Vehículos', text: 'Selecciona configuración del vehículo, captura VIN y registra para iniciar el flujo COP15.', position: 'top', tab: 'alta' },
-    { target: '#ptab-testplan', title: 'Test Plan Manager', text: 'Gestiona el plan de pruebas semanal, prioriza configuraciones y monitorea cobertura.', position: 'bottom' },
-    { target: '#ptab-results', title: 'Results Analyzer', text: 'Importa resultados de pruebas, analiza tendencias Cpk/Ppk y genera reportes.', position: 'bottom' },
-    { target: '#ptab-inventory', title: 'Lab Inventory', text: 'Controla cilindros de gas, equipos y lectura de presiones con mapa de zonas.', position: 'bottom' },
-    { target: '#ptab-panel', title: 'Panel Admin', text: 'Dashboard general, operadores, backups y configuración del sistema.', position: 'bottom' }
+    { target: '#ptab-plan', title: 'Plan', text: 'Gestiona el plan de pruebas semanal, prioriza configuraciones y monitorea cobertura.', position: 'bottom' },
+    { target: '#ptab-datos', title: 'Datos', text: 'Resultados de pruebas, tendencias Cpk/Ppk, panel de control, operadores y configuración del sistema.', position: 'bottom' }
 ];
 var _tourCurrent = 0;
 
@@ -9127,6 +9372,108 @@ function resetCascadeTree() {
     renderCascadeTree();
 }
 
+// ── Preload Alta from a Test Plan item ─────────────────────────────
+// Called by tpStartTestFromPlan (testplan.js) after switching to COP15
+// → Alta. Tries to locate the exact configuration by code; falls back
+// to matching fields if the code is not in the catalog. Shows a
+// dismissible banner so the technician knows the form was pre-filled.
+function cop15PreloadFromPlan(preload) {
+    if (!preload) return;
+    var banner = document.getElementById('plan-preload-banner');
+
+    var match = null;
+    if (preload.configCode && Array.isArray(allConfigurations)) {
+        match = allConfigurations.find(function (c) {
+            return c && c.codigo_config_text === preload.configCode;
+        });
+    }
+
+    if (match) {
+        // Internal catalog mode (default) — cascade by field.
+        setMode('internal');
+        resetCascadeTree();
+        // tpState field-map → CSV field names
+        var shortToCsv = {
+            mod: 'Modelo', my: 'MODEL YEAR (VIN)', eng: 'ENGINE CAPACITY',
+            tx: 'TRANSMISSION', ep: 'ENVIRONMENT PACKAGE',
+            reg: 'EMISSION REGULATION', rgn: 'REGION', drv: 'DRIVE TYPE',
+            body: 'BODY TYPE', tire: 'TIRE ASSY', engpkg: 'ENGINE PACKAGE'
+        };
+        var fieldsInOrder = Object.keys(fieldMapping);
+        fieldsInOrder.forEach(function (csvField) {
+            var val = match[csvField];
+            if (val == null || val === '') return;
+            cascadeSelections[csvField] = val;
+            currentFilters[csvField] = val;
+            var selectId = fieldMapping[csvField];
+            var selectEl = document.getElementById(selectId);
+            if (selectEl) {
+                // Ensure the value exists as an option (options are rebuilt by updateSelectOptions)
+                if (!Array.from(selectEl.options).some(function (o) { return o.value === val; })) {
+                    var opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = val;
+                    selectEl.appendChild(opt);
+                }
+                selectEl.value = val;
+                selectEl.classList.add('selected');
+            }
+        });
+        // Refresh downstream filter options and the result display
+        var filtered = allConfigurations.filter(function (c) {
+            for (var f in currentFilters) {
+                if (c[f] !== currentFilters[f]) return false;
+            }
+            return true;
+        });
+        updateSelectOptions(filtered);
+        var countEl = document.getElementById('configCount');
+        if (countEl) countEl.textContent = filtered.length;
+        displayConfigResult(filtered);
+        renderCascadeTree();
+    } else {
+        // No exact match — fall back to manual mode and leave fields
+        // blank so the technician chooses explicitly.
+        setMode('external');
+    }
+
+    // Set a sensible default purpose (technician can override)
+    var purposeSel = document.getElementById('vehiclePurpose');
+    if (purposeSel && !purposeSel.value && preload.purpose) {
+        purposeSel.value = preload.purpose;
+    }
+
+    // Render the banner
+    if (banner) {
+        var matchLabel = match
+            ? 'Configuración del catálogo aplicada.'
+            : 'Esta configuración del plan no existe en el catálogo. Revisa o cambia a modo manual.';
+        banner.innerHTML =
+            '<div class="plan-preload-banner-inner">' +
+                '<span class="plan-preload-banner-icon">📋</span>' +
+                '<div class="plan-preload-banner-body">' +
+                    '<strong>Precargado desde el plan semanal — Semana ' + (preload.weekIdx + 1) + '</strong>' +
+                    '<div>' + (preload.configCode || '(sin código)') + '</div>' +
+                    '<small>' + matchLabel + ' Si este vehículo es otra config, cámbiala manualmente antes de registrar.</small>' +
+                '</div>' +
+                '<button class="plan-preload-banner-close" onclick="cop15ClearPlanPreload()" title="Descartar precarga">✕</button>' +
+            '</div>';
+        banner.style.display = 'block';
+    }
+
+    // Scroll the Alta panel into view so the banner is visible
+    var alta = document.getElementById('panel-alta');
+    if (alta && alta.scrollIntoView) {
+        try { alta.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+    }
+}
+
+function cop15ClearPlanPreload() {
+    window._pendingCop15Preload = null;
+    var banner = document.getElementById('plan-preload-banner');
+    if (banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
+}
+
 function initCascadeTree() {
     if (!allConfigurations || allConfigurations.length === 0) return;
     cascadeSelections = {};
@@ -9148,6 +9495,19 @@ function initCascadeTree() {
     });
 
     function _switchToCop15Tab(tab) {
+        // Special: "Consumibles" tab navigates to inventory (stays within Pruebas group)
+        if (tab.dataset.tab === 'consumibles') {
+            if (typeof switchPlatform === 'function') switchPlatform('inventory');
+            return;
+        }
+        // If we're currently on inventory, switch back to cop15 section first
+        if (typeof _currentPlatform !== 'undefined' && (_currentPlatform === 'inventory')) {
+            if (typeof switchPlatform === 'function') {
+                // Force _currentPlatform so switchPlatform doesn't short-circuit
+                _currentPlatform = '__switching__';
+                switchPlatform('cop15');
+            }
+        }
         document.querySelectorAll('.tab, .tab-panel').forEach(function(el){ el.classList.remove('active'); });
         tab.classList.add('active');
         document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
@@ -9515,12 +9875,30 @@ setAltaDatetimeIfEmpty(true);
             };
         }
         
+        const adhocEl = document.getElementById('vehicleAdhoc');
+        const isAdhoc = !!(adhocEl && adhocEl.checked);
+
+        // If this Alta was started from a weekly plan item, link the vehicle
+        // back to that item so tpAutoMarkWeeklyCompletion can find it later.
+        var planLink = null;
+        if (window._pendingCop15Preload &&
+            window._pendingCop15Preload.source === 'weekly-plan' &&
+            window._pendingCop15Preload.configCode === configCode) {
+            planLink = {
+                weekIdx: window._pendingCop15Preload.weekIdx,
+                itemIdx: window._pendingCop15Preload.itemIdx,
+                configCode: window._pendingCop15Preload.configCode
+            };
+        }
+
         const newVehicle = {
             id: ++db.lastId,
             vin: document.getElementById('vin').value,
             purpose: document.getElementById('vehiclePurpose').value,
             config: config,
             configCode: configCode,
+            adhoc: isAdhoc,
+            fromPlanItem: planLink,
             status: 'registered',
             registeredBy: document.getElementById('reg_operator').value,
             registeredAt: new Date().toISOString(),
@@ -9528,8 +9906,8 @@ setAltaDatetimeIfEmpty(true);
                 {
                     timestamp: new Date().toISOString(),
                     user: document.getElementById('reg_operator').value,
-                    action: 'Vehículo Registrado',
-                    data: { status: 'registered', configCode: configCode }
+                    action: 'Vehículo Registrado' + (isAdhoc ? ' (ad-hoc)' : ''),
+                    data: { status: 'registered', configCode: configCode, adhoc: isAdhoc, fromPlanItem: planLink }
                 }
             ],
             testData: {},
@@ -9557,6 +9935,8 @@ setAltaDatetimeIfEmpty(true);
         // Reset
         document.getElementById('vin').value = '';
         document.getElementById('vehiclePurpose').value = '';
+        if (adhocEl) adhocEl.checked = false;
+        cop15ClearPlanPreload();
         resetCascadeTree();
         validateVIN(document.getElementById('vin'));
         
@@ -10685,10 +11065,36 @@ function _renderUsedCylinders(vehicle) {
         const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
         if(!vehicle) return;
 
-        // Mandatory: emissions vehicles need a captured results-sheet photo
+        // Mandatory gates for emissions vehicles
         if (!isRetest && typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose)) {
+            // Gate 1: VETS photo
             if (!vehicle.testData || !vehicle.testData.scannedReportCaptured) {
                 showToast('Falta capturar la hoja de resultados antes de liberar', 'error');
+                return;
+            }
+            // Gate 2: Technician signature (captured with VETS photo)
+            if (!vehicle.testData.signatures || !vehicle.testData.signatures.technician) {
+                showToast('Falta firma del tecnico que documento la foto', 'error');
+                return;
+            }
+            // Gate 3: Releaser signature — prompt now, then re-invoke
+            if (!vehicle.testData.signatures.releaser) {
+                if (typeof sigCaptureOpen === 'function') {
+                    sigCaptureOpen({
+                        title: 'Firma del Liberador (Signatario)',
+                        role: 'Signatario / Gerente',
+                        signerName: '',
+                        onSave: function (sig) {
+                            if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
+                            vehicle.testData.signatures.releaser = sig;
+                            saveDB();
+                            finishRelease(isRetest);
+                        },
+                        onCancel: function () { showToast('Liberacion cancelada: falta firma del liberador', 'info'); }
+                    });
+                } else {
+                    showToast('Falta firma del liberador', 'error');
+                }
                 return;
             }
         }
@@ -10711,9 +11117,18 @@ function _renderUsedCylinders(vehicle) {
                 tpAutoFeedFromRelease(vehicle);
                 invLogTestUsage(vehicle);
 
-                // Try exact match first, then offer flexible substitution
-                var exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
-                if (!exactMatch && typeof tpFindFlexibleMatches === 'function') {
+                // Try exact match first, then offer flexible substitution.
+                // Skip weekly-plan crediting for ad-hoc vehicles.
+                var exactMatch = false;
+                if (!vehicle.adhoc) {
+                    // Prefer the explicit plan link set in Alta when available
+                    if (typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function') {
+                        exactMatch = tpAutoMarkWeeklyCompletionFromVehicle(vehicle);
+                    } else {
+                        exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                    }
+                }
+                if (!vehicle.adhoc && !exactMatch && typeof tpFindFlexibleMatches === 'function') {
                     var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
                     if (flexMatches.length > 0) {
                         // Store pending substitution data and show modal AFTER release completes
@@ -10963,6 +11378,7 @@ function closeSubstitutionModal() {
                 <span>Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</span>
                 <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;">PDF Seleccionados</button>
                 <button class="btn-secondary" onclick="window.print()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Imprimir tabla de historial">🖨️ Imprimir</button>
+                ${(function(){ var _pendPA = typeof db !== 'undefined' && db.vehicles ? db.vehicles.filter(function(v){ return v.status === 'archived' && (!v.paStatus || !v.paStatus.vehicle_released || !v.paStatus.vehicle_released.sent); }).length : 0; return (_pendPA > 0 && typeof paConfig !== 'undefined' && paConfig.enabled) ? '<button class="btn-secondary" onclick="paBatchTriggerAll()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Enviar todos los archivados pendientes a Power Automate">⚡ Enviar ' + _pendPA + ' pendientes a PA</button>' : ''; })()}
             </div>
             <table class="history-table">
                 <thead>
@@ -10973,6 +11389,7 @@ function closeSubstitutionModal() {
                         <th>Propósito</th>
                         <th>Estado</th>
                         <th>Fecha</th>
+                        <th style="width:55px;">PA</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -10988,7 +11405,7 @@ function closeSubstitutionModal() {
                         return `
                         <tr>
                             <td><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
-                            <td><strong>${safeVin}</strong></td>
+                            <td><strong>${safeVin}</strong>${v.adhoc ? '<span class="adhoc-badge" title="Test ad-hoc — fuera del plan semanal">ad-hoc</span>' : ''}</td>
                             <td>
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
                                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
@@ -11000,6 +11417,7 @@ function closeSubstitutionModal() {
                             <td>${safePurpose}</td>
                             <td><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
                             <td>${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
+                            <td>${(function(){ var _paR = v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent; if (_paR) return '<span style="color:#10b981;font-size:14px;" title="Enviado a PA: ' + escapeHtml((v.paStatus.vehicle_released.sentAt || '')) + '">&#10004;</span>'; if (v.status === 'archived') return '<button class="btn-secondary" onclick="paManualTrigger(' + parseInt(v.id) + ',&#39;vehicle_released&#39;)" style="padding:3px 8px;font-size:10px;font-weight:700;" title="Enviar a Power Automate">Enviar</button>'; return '<span style="color:#94a3b8;font-size:10px;">—</span>'; })()}</td>
                             <td>
                                 <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
@@ -11880,11 +12298,43 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
     ry += rH;
   });
 
-  // Bottom: Comentarios (left) + Firma (right)
+  // Bottom: Comentarios (left) + Firmas digitales (right)
   const bottomLibY = Math.max(y, ry) + 1;
-  cell(ML, bottomLibY, CW*0.5, 12, 'Comentarios:', {font:'bold', sz:6, valign:'top'});
-  cell(ML+CW*0.5, bottomLibY, CW*0.5, 12, 'Liberador\nDebe ser personal signatario\no gerente de laboratorio', {sz:5, align:'left', font:'italic', color:[130,130,130]});
-  y = bottomLibY + 13;
+  const _sigH = 20;
+  cell(ML, bottomLibY, CW*0.5, _sigH, 'Comentarios:', {font:'bold', sz:6, valign:'top'});
+
+  const _sigs = (vehicle.testData && vehicle.testData.signatures) || {};
+  const _sigW = CW*0.5;
+  const _sigColW = _sigW / 2;
+
+  // Sub-cell: Technician
+  cell(ML+CW*0.5, bottomLibY, _sigColW, _sigH, '', {});
+  doc.setTextColor(80,80,80); setF('bold', 4.5);
+  doc.text('Tecnico (Doc. VETS)', ML+CW*0.5+1, bottomLibY+2.5);
+  if (_sigs.technician && _sigs.technician.dataUrl) {
+      try { doc.addImage(_sigs.technician.dataUrl, 'PNG', ML+CW*0.5+2, bottomLibY+3.5, _sigColW-4, 9); } catch(e) {}
+      setF('normal', 4); doc.setTextColor(60,60,60);
+      doc.text(_sigs.technician.signerName || '', ML+CW*0.5+1, bottomLibY+14);
+      try { doc.text(new Date(_sigs.technician.signedAt).toLocaleString('es-MX'), ML+CW*0.5+1, bottomLibY+17); } catch(e) {}
+  } else {
+      setF('italic', 4); doc.setTextColor(160,160,160);
+      doc.text('(sin firma)', ML+CW*0.5+1, bottomLibY+10);
+  }
+
+  // Sub-cell: Releaser
+  cell(ML+CW*0.5+_sigColW, bottomLibY, _sigColW, _sigH, '', {});
+  doc.setTextColor(80,80,80); setF('bold', 4.5);
+  doc.text('Liberador / Signatario', ML+CW*0.5+_sigColW+1, bottomLibY+2.5);
+  if (_sigs.releaser && _sigs.releaser.dataUrl) {
+      try { doc.addImage(_sigs.releaser.dataUrl, 'PNG', ML+CW*0.5+_sigColW+2, bottomLibY+3.5, _sigColW-4, 9); } catch(e) {}
+      setF('normal', 4); doc.setTextColor(60,60,60);
+      doc.text(_sigs.releaser.signerName || '', ML+CW*0.5+_sigColW+1, bottomLibY+14);
+      try { doc.text(new Date(_sigs.releaser.signedAt).toLocaleString('es-MX'), ML+CW*0.5+_sigColW+1, bottomLibY+17); } catch(e) {}
+  } else {
+      setF('italic', 4); doc.setTextColor(160,160,160);
+      doc.text('Debe ser personal signatario\no gerente de laboratorio', ML+CW*0.5+_sigColW+1, bottomLibY+8);
+  }
+  y = bottomLibY + _sigH + 1;
 
   // =====================================================
   //  FOOTER
@@ -13013,6 +13463,7 @@ function renderKanban() {
                 html += '<span style="display:flex;align-items:center;gap:4px;">';
                 html += '<span style="font-family:monospace;font-size:11px;font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
                 html += '<button onclick="event.stopPropagation();copyToClipboard(\'' + fullVin.replace(/'/g,"\\'") + '\', this)" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px;" title="Copiar VIN">📋</button>';
+                if (v.adhoc) html += '<span class="adhoc-badge" title="Test ad-hoc — fuera del plan semanal">ad-hoc</span>';
                 html += '</span>';
                 if (timeSince) html += '<span style="font-size:9px;color:#94a3b8;" title="Tiempo en este estado">' + timeSince + '</span>';
                 html += '</div>';
@@ -14226,7 +14677,14 @@ function v7BatchRelease() {
             if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
             if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle);
             if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle);
-            if (typeof tpAutoMarkWeeklyCompletion === 'function') tpAutoMarkWeeklyCompletion(vehicle.configCode);
+            // Skip weekly-plan crediting for ad-hoc vehicles.
+            if (!vehicle.adhoc) {
+                if (typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function') {
+                    tpAutoMarkWeeklyCompletionFromVehicle(vehicle);
+                } else if (typeof tpAutoMarkWeeklyCompletion === 'function') {
+                    tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                }
+            }
             // Emit per-vehicle event so Power Automate webhook fires with each PDF + photo
             if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: false, batch: true });
             count++;
@@ -18793,6 +19251,11 @@ function tpLoadPlanFromCSV_CONFIGURATIONS() {
 function tpAutoFeedFromRelease(vehicle) {
     if (!vehicle || !vehicle.configCode) return;
     if (!TP_PURPOSES_VALID.includes(vehicle.purpose)) return;
+    // Ad-hoc vehicles are explicitly excluded from plan accounting.
+    if (vehicle.adhoc) {
+        void 0;
+        return;
+    }
 
     const entry = {
         configText: vehicle.configCode,
@@ -19035,9 +19498,46 @@ function tpRenderDashboard(el) {
         ? `<div class="tp-plan-fixed">📌 Plan Fijado: ${new Date(tpState.fixedPlan.date).toLocaleDateString('es-MX')} — ${tpState.fixedPlan.configs} configuraciones, ${tpState.fixedPlan.totalTests} pruebas requeridas</div>`
         : '';
 
+    // Audit summary data
+    var auditFamilies = typeof tpBuildFamilies === 'function' ? tpBuildFamilies() : [];
+    var auditTotalFam = auditFamilies.length;
+    var auditRepTested = auditFamilies.filter(function(f) { return f.repTested; }).length;
+    var auditFullCov = auditFamilies.filter(function(f) { return f.coverage >= 1; }).length;
+    var auditPartial = auditFamilies.filter(function(f) { return f.coverage > 0 && f.coverage < 1; }).length;
+    var auditNone = auditFamilies.filter(function(f) { return f.coverage === 0 || (f.totalTested === 0 && f.totalRequired > 0); }).length;
+    var auditRepPct = auditTotalFam > 0 ? Math.round((auditRepTested / auditTotalFam) * 100) : 0;
+    var auditGlobalPct = stats.totalReq > 0 ? Math.round((stats.totalT / stats.totalReq) * 100) : 100;
+
     el.innerHTML = `
     ${fixedBanner}
     ${tpRenderAlertsBanner()}
+
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;color:var(--tp-dim);">
+        <input type="checkbox" onchange="window._tpAuditView=this.checked;tpRender();" ${window._tpAuditView ? 'checked' : ''}>
+        Vista Auditoria (cobertura por representativa)
+      </label>
+    </div>
+
+    ${window._tpAuditView ? `
+    <div class="tp-card tp-audit-card" style="border-left:3px solid var(--tp-blue);margin-bottom:14px;">
+      <div class="tp-card-title" style="color:var(--tp-blue);font-size:12px;">RESUMEN PARA AUDITORIA</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;margin:8px 0;">
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">${auditTotalFam}</div><div class="tp-metric-label">Familias</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green)">${auditFullCov}</div><div class="tp-metric-label">Cubiertas</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">${auditPartial}</div><div class="tp-metric-label">Parcial</div></div>
+        <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${auditNone}</div><div class="tp-metric-label">Sin cobertura</div></div>
+      </div>
+      <div style="margin-bottom:6px;">
+        <div style="font-size:10px;color:var(--tp-dim);margin-bottom:2px;">Pruebas realizadas: ${stats.totalT} / ${stats.totalReq} (${auditGlobalPct}%)</div>
+        <div class="tp-bar" style="height:8px;"><div class="tp-bar-fill" style="width:${auditGlobalPct}%;background:var(--tp-green);"></div></div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--tp-dim);margin-bottom:2px;">Representativas probadas: ${auditRepTested} / ${auditTotalFam} familias (${auditRepPct}%)</div>
+        <div class="tp-bar" style="height:8px;"><div class="tp-bar-fill" style="width:${auditRepPct}%;background:var(--tp-blue);"></div></div>
+      </div>
+    </div>` : ''}
+
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">${stats.total}</div><div class="tp-metric-label">Configuraciones</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">${stats.totalReq}</div><div class="tp-metric-label">Pruebas Requeridas</div></div>
@@ -20145,6 +20645,7 @@ function tpRenderWeekly(el) {
                     <span style="font-size:10px;color:var(--tp-dim);">${dt}</span>
                     ${wdStr ? `<span style="font-size:9px;color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:3px;">${wdStr}</span>` : ''}
                     ${w.accepted?'<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size:9px;">Aceptado</span>':''}
+                    ${w.autoGenerated?'<span class="tp-badge" style="background:rgba(59,130,246,0.15);color:var(--tp-blue);font-size:9px;">Auto-generado</span>':''}
                     ${carryoverCount>0&&w.accepted?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:9px;">${carryoverCount} carryover</span>`:''}
                     ${w.carriedFrom?`<span class="tp-badge" style="background:rgba(139,92,246,0.1);color:#8b5cf6;font-size:9px;">desde Sem ${w.carriedFrom}</span>`:''}
                 </div>
@@ -20173,6 +20674,7 @@ function tpRenderWeekly(el) {
                     ${tpScoreBadge(item)}
                     </div>
                     <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+                        ${tpStartTestButton(idx, ii, item, isEdit)}
                         ${isEdit?`<button onclick="tpRemoveWeeklyItem(${idx},${ii})" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:13px;">×</button>`:''}
                     </div>
                 </div>`).join('')}
@@ -20181,6 +20683,9 @@ function tpRenderWeekly(el) {
                     <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
                         <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':'⬜'}</span>
                         ${tpConfigBadges(item,{fontSize:'8px'})}
+                    </div>
+                    <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+                        ${tpStartTestButton(idx, ii, item, isEdit)}
                     </div>
                 </div>`).join('') : '')
             : w.items.map((item, ii) => `
@@ -20192,6 +20697,7 @@ function tpRenderWeekly(el) {
                     ${tpConfigBadges(item,{fontSize:'8px'})}
                 </div>
                 <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+                    ${tpStartTestButton(idx, ii, item, isEdit)}
                     ${isEdit?`<button onclick="tpRemoveWeeklyItem(${idx},${ii})" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:13px;">×</button>`:''}
                 </div>
             </div>`).join('')}
@@ -20207,6 +20713,58 @@ function tpScoreBadge(item) {
     var icon = d.deficit >= 3 ? '🔴' : d.deficit >= 1 ? '🟡' : '🟢';
     var lastStr = d.lastTested ? ' | Ultimo: ' + d.lastTested : '';
     return '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:' + color + '15;color:' + color + ';border:1px solid ' + color + '30;flex-shrink:0;cursor:help;" title="Score: ' + (d.score||0).toFixed(1) + ' | Deficit: ' + d.deficit + lastStr + ' | ' + d.reason + '">' + icon + ' D:' + d.deficit + ' S:' + (d.score||0).toFixed(1) + '</span>';
+}
+
+// Renders the "Iniciar test" button shown on each weekly-plan item
+// (hidden while the week is in edit mode or the item is already completed).
+function tpStartTestButton(weekIdx, itemIdx, item, isEdit) {
+    if (isEdit || item.completed) return '';
+    return '<button onclick="tpStartTestFromPlan(' + weekIdx + ',' + itemIdx + ')" ' +
+        'class="tp-btn tp-btn-primary" ' +
+        'style="font-size:10px;padding:3px 8px;white-space:nowrap;" ' +
+        'title="Abre Alta de COP15 con esta configuración precargada">' +
+        '▶ Iniciar test</button>';
+}
+
+// Kick off a test for a planned configuration. Stores a preload payload
+// and jumps to COP15 → Alta, where cop15PreloadFromPlan() fills the form.
+function tpStartTestFromPlan(weekIdx, itemIdx) {
+    if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
+    var item = tpState.weeklyPlans[weekIdx].items[itemIdx];
+    if (!item) return;
+
+    window._pendingCop15Preload = {
+        source: 'weekly-plan',
+        weekIdx: weekIdx,
+        itemIdx: itemIdx,
+        configCode: item.desc || '',
+        purpose: 'COP-Emisiones', // sensible default; user can change
+        planItem: {
+            desc: item.desc,
+            mod: item.mod || '', my: item.my || '', eng: item.eng || '',
+            tx: item.tx || '', reg: item.reg || '', ep: item.ep || '',
+            rgn: item.rgn || '', drv: item.drv || '', body: item.body || '',
+            tire: item.tire || '', engpkg: item.engpkg || ''
+        }
+    };
+
+    if (typeof showToast === 'function') {
+        showToast('Abriendo Alta con configuración precargada…', 'info');
+    }
+
+    // Switch platform to COP15, then to the Alta tab, then apply preload.
+    if (typeof switchPlatform === 'function') {
+        switchPlatform('cop15');
+    }
+    setTimeout(function () {
+        var altaTab = document.querySelector('#platform-cop15 .tab[data-tab="alta"]');
+        if (altaTab) altaTab.click();
+        setTimeout(function () {
+            if (typeof cop15PreloadFromPlan === 'function') {
+                cop15PreloadFromPlan(window._pendingCop15Preload);
+            }
+        }, 120);
+    }, 150);
 }
 
 function tpToggleWeeklyItem(weekIdx, itemIdx) {
@@ -20445,6 +21003,73 @@ function tpAcceptWeeklyPlan(weekIdx) {
     showToast('Plan semana ' + (weekIdx+1) + ' aceptado. ' + plan.items.filter(i=>i.status==='carryover').length + ' items marcados como carryover.', 'success');
 }
 
+// ══════════════════════════════════════════════════════════════
+// AUTO-PLAN: Friday 14:00 deadline auto-generation
+// ══════════════════════════════════════════════════════════════
+
+var AUTOPLAN_LS_KEY = 'kia_autoplan_lastrun';
+
+function tpShouldAutoGenerate() {
+    if (!tpState || !tpState.planData || tpState.planData.length === 0) return false;
+
+    var now = new Date();
+    var day = now.getDay(); // 0=dom, 5=vie, 6=sab
+    var isPastDeadline = (day === 5 && now.getHours() >= 14) || day === 6 || day === 0;
+    if (!isPastDeadline) return false;
+
+    // Calculate next Monday
+    var daysUntilMon = (8 - day) % 7;
+    if (daysUntilMon === 0) daysUntilMon = 7;
+    var nextMon = new Date(now);
+    nextMon.setDate(now.getDate() + daysUntilMon);
+    var nextMonISO = nextMon.toISOString().slice(0, 10);
+
+    // Already accepted for that week?
+    var plans = tpState.weeklyPlans || [];
+    var hasAccepted = plans.some(function (p) {
+        return p.accepted && p.weekDate === nextMonISO;
+    });
+    if (hasAccepted) return false;
+
+    // Already ran for this week?
+    var lastRun = localStorage.getItem(AUTOPLAN_LS_KEY);
+    if (lastRun === nextMonISO) return false;
+
+    return { nextMonday: nextMonISO };
+}
+
+function tpAutoGenerateIfNeeded() {
+    var check = tpShouldAutoGenerate();
+    if (!check) return;
+
+    // Set the date target before generating
+    var dateEl = document.getElementById('tp-weekly-date');
+    if (dateEl) dateEl.value = check.nextMonday;
+
+    if (typeof showToast === 'function') showToast('Generando plan semanal automatico (viernes 14:00+)...', 'info');
+
+    try {
+        tpSmartGenerate();
+        var lastIdx = tpState.weeklyPlans.length - 1;
+        if (lastIdx >= 0 && tpState.weeklyPlans[lastIdx].smartGenerated) {
+            tpState.weeklyPlans[lastIdx].weekDate = check.nextMonday;
+            tpState.weeklyPlans[lastIdx].autoGenerated = true;
+            tpAcceptWeeklyPlan(lastIdx);
+            localStorage.setItem(AUTOPLAN_LS_KEY, check.nextMonday);
+
+            if (typeof paSendWeeklyPlan === 'function') {
+                paSendWeeklyPlan(tpState.weeklyPlans[lastIdx]);
+            }
+
+            if (typeof showToast === 'function') showToast('Plan semana ' + check.nextMonday + ' generado y enviado a Power Automate', 'success');
+            if (typeof emitEvent === 'function') emitEvent('plan:autoGenerated', { weekDate: check.nextMonday, itemCount: tpState.weeklyPlans[lastIdx].items.length });
+        }
+    } catch (e) {
+        void 0;
+        if (typeof showToast === 'function') showToast('Error en auto-generacion: ' + e.message, 'error');
+    }
+}
+
 function tpCarryOverWeekly(weekIdx) {
     if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
     var source = tpState.weeklyPlans[weekIdx];
@@ -20548,6 +21173,29 @@ function tpAutoMarkWeeklyCompletion(configText) {
         }
     }
     return false;
+}
+
+// Prefer an explicit plan link on the vehicle when present (set by
+// cop15PreloadFromPlan). This is more reliable than matching by
+// configCode string, especially when the catalog has near-duplicates.
+function tpAutoMarkWeeklyCompletionFromVehicle(vehicle) {
+    if (!vehicle || !tpState.weeklyPlans) return false;
+    var link = vehicle.fromPlanItem;
+    if (link && typeof link.weekIdx === 'number' && typeof link.itemIdx === 'number') {
+        var plan = tpState.weeklyPlans[link.weekIdx];
+        if (plan && plan.items && plan.items[link.itemIdx]) {
+            var item = plan.items[link.itemIdx];
+            if (!item.completed && item.desc === link.configCode) {
+                item.completed = true;
+                item.completedDate = new Date().toISOString().slice(0,10);
+                tpSave();
+                void 0;
+                return true;
+            }
+        }
+    }
+    // Fall back to the legacy description-based match
+    return tpAutoMarkWeeklyCompletion(vehicle.configCode);
 }
 
 // ── Flexible Substitution ──
@@ -20963,6 +21611,19 @@ function tpBuildFamilies() {
             if (testsRemaining > 0 && lowGas.length > 0) f.resourceStatus = 'yellow';
             if (testsRemaining > 0 && emptyGas.length > 0) f.resourceStatus = 'red';
         }
+
+        // Representative coverage: highest-volume config is the "representative"
+        f.configs.sort(function(a, b) { return (b.total + b.hist) - (a.total + a.hist); });
+        var rep = f.configs[0];
+        f.representative = rep;
+        f.repTested = rep.testedN > 0;
+        f.configs.forEach(function(c) {
+            c.isRepresentative = (c === rep);
+            c.coveredByRep = (!c.isRepresentative && c.testedN === 0 && f.repTested);
+        });
+        f.auditCoverage = f.repTested ? Math.max(f.coverage, 0.85) : f.coverage;
+        f.auditRiskScore = ((1 - f.auditCoverage) * 60) + (((f.totalVol + f.totalHist) / Math.max(...Object.values(families).map(function(x) { return x.totalVol + x.totalHist; }), 1)) * 30) + ((1 - f.configCoverage) * 10);
+        f.auditRiskLevel = f.auditRiskScore > 60 ? 'high' : f.auditRiskScore > 30 ? 'medium' : 'low';
     });
 
     _tpCache.families = Object.values(families);
@@ -20976,17 +21637,19 @@ function tpRenderFamilies(el) {
     const regionFilter = window._tpFamRegion || 'ALL';
     const allRegions = [...new Set(families.map(f => f.rgn || '?'))].sort();
     let filtered = regionFilter === 'ALL' ? families : families.filter(f => f.rgn === regionFilter);
+    var _rkScore = window._tpAuditView ? 'auditRiskScore' : 'riskScore';
     const sorted = [...filtered].sort((a,b) => {
-        if (sortBy === 'risk') return b.riskScore - a.riskScore;
+        if (sortBy === 'risk') return b[_rkScore] - a[_rkScore];
         if (sortBy === 'volume') return (b.totalVol+b.totalHist) - (a.totalVol+a.totalHist);
         if (sortBy === 'urgency') return b.deficit - a.deficit;
         return 0;
     });
     const rc = { high:'var(--tp-red)', medium:'var(--tp-amber)', low:'var(--tp-green)' };
     const rl = { high:'Alto', medium:'Medio', low:'Bajo' };
-    const hR = filtered.filter(f => f.riskLevel === 'high').length;
-    const mR = filtered.filter(f => f.riskLevel === 'medium').length;
-    const lR = filtered.filter(f => f.riskLevel === 'low').length;
+    var _rkKey = window._tpAuditView ? 'auditRiskLevel' : 'riskLevel';
+    const hR = filtered.filter(function(f) { return f[_rkKey] === 'high'; }).length;
+    const mR = filtered.filter(function(f) { return f[_rkKey] === 'medium'; }).length;
+    const lR = filtered.filter(function(f) { return f[_rkKey] === 'low'; }).length;
 
     function epLabel(v) { return !v||v==='0'?'12V':v==='M'?'48V':v; }
     function getDiffFields(configs) {
@@ -21021,8 +21684,11 @@ function tpRenderFamilies(el) {
             const diffs = getDiffFields(f.configs);
             const epTag = f.ep&&f.ep!=='0' ? `<span class="tp-badge" style="background:rgba(251,146,60,0.15);color:#fb923c;font-size:9px;">${epLabel(f.ep)}</span>` : '';
             const engTag = f.engpkg&&f.engpkg!=='0' ? `<span class="tp-badge" style="background:rgba(168,85,247,0.15);color:#a855f7;font-size:9px;">${f.engpkg}</span>` : '';
+            var _fRisk = window._tpAuditView ? f.auditRiskLevel : f.riskLevel;
+            var _fCov = window._tpAuditView ? f.auditCoverage : f.coverage;
+            var _repStar = (window._tpAuditView && f.repTested) ? '<span style="font-size:9px;color:var(--tp-blue);" title="Representativa probada: ' + (f.representative && f.representative.tire || '') + '"> &#9733;</span>' : '';
             return `
-            <details style="margin-bottom:4px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;border-left:3px solid ${rc[f.riskLevel]};">
+            <details style="margin-bottom:4px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;border-left:3px solid ${rc[_fRisk]};">
                 <summary style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;cursor:pointer;list-style:none;background:var(--tp-card);gap:4px;flex-wrap:wrap;">
                     <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:140px;flex-wrap:wrap;">
                         <span style="font-weight:800;font-size:11px;">${f.mod}</span>
@@ -21032,11 +21698,11 @@ function tpRenderFamilies(el) {
                         <span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:9px;">${f.reg}</span>
                         <span class="tp-badge" style="background:${tpRegionColor(f.rgn)}20;color:${tpRegionColor(f.rgn)};font-size:9px;">${f.rgn}</span>
                         ${f.drv?`<span class="tp-badge" style="background:rgba(236,72,153,0.15);color:#ec4899;font-size:9px;">${f.drv}</span>`:''}
-                        ${epTag}${engTag}
+                        ${epTag}${engTag}${_repStar}
                     </div>
                     <div style="display:flex;align-items:center;gap:4px;">
                         <span style="font-size:10px;font-weight:700;color:${f.totalTested>0?'var(--tp-green)':'var(--tp-red)'};">${f.totalTested}/${f.totalRequired}</span>
-                        <div class="tp-bar" style="width:40px;"><div class="tp-bar-fill" style="width:${Math.round(f.coverage*100)}%;background:${rc[f.riskLevel]};"></div><span class="tp-bar-text" style="font-size:9px;">${Math.round(f.coverage*100)}%</span></div>
+                        <div class="tp-bar" style="width:40px;"><div class="tp-bar-fill" style="width:${Math.round(_fCov*100)}%;background:${rc[_fRisk]};"></div><span class="tp-bar-text" style="font-size:9px;">${Math.round(_fCov*100)}%</span></div>
                     </div>
                 </summary>
                 <div style="padding:6px 8px;background:#0d1422;border-top:1px solid var(--tp-border);">
@@ -21081,12 +21747,18 @@ function tpRenderFamilies(el) {
                             });
                             vinHtml += `</div>`;
                         }
+                        var _dotColor, _dotTitle;
+                        if (c.testedN >= c.required) { _dotColor = 'var(--tp-green)'; _dotTitle = 'Probada'; }
+                        else if (c.coveredByRep && window._tpAuditView) { _dotColor = 'var(--tp-blue)'; _dotTitle = 'Cubierta por representativa (' + (f.representative && f.representative.tire || '') + ')'; }
+                        else if (c.testedN > 0) { _dotColor = 'var(--tp-amber)'; _dotTitle = 'Parcial'; }
+                        else { _dotColor = 'var(--tp-red)'; _dotTitle = 'Sin pruebas'; }
+                        var _repBadge = c.isRepresentative && window._tpAuditView ? '<span style="font-size:8px;color:var(--tp-blue);font-weight:700;" title="Representativa (mayor volumen)">REP</span>' : '';
                         const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${fi}-${_ci}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
                         return `
                         <div style="margin-bottom:2px;border:1px solid var(--tp-border);border-radius:4px;background:var(--tp-card);overflow:hidden;">
                             <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;font-size:9px;" ${clickable}>
                                 <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap;">
-                                    <span class="tp-dot" style="background:${c.testedN>=c.required?'var(--tp-green)':c.testedN>0?'var(--tp-amber)':'var(--tp-red)'}"></span>
+                                    <span class="tp-dot" style="background:${_dotColor};" title="${_dotTitle}"></span>${_repBadge}
                                     ${badges}
                                     ${c.testedN > 0 ? '<span style="font-size:9px;color:var(--tp-dim);">▼</span>' : ''}
                                 </div>
@@ -27220,6 +27892,105 @@ function authFirebaseSignIn() {
 
 
 // ╔══════════════════════════════════════════════════════════════════════╗
+// ║  KIA EmLab — Digital Signature Capture Module                      ║
+// ║  Reusable modal using SignaturePad (CDN already loaded).           ║
+// ║  Two capture moments: technician (VETS photo) + releaser.         ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var _sigPadInstance = null;
+var _sigCaptureOpts = null;
+
+function sigCaptureOpen(opts) {
+    opts = opts || {};
+    _sigCaptureOpts = opts;
+
+    var existing = document.querySelector('.sig-capture-overlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.className = 'sig-capture-overlay';
+    overlay.innerHTML =
+        '<div class="sig-capture-box">' +
+            '<div class="sig-capture-header">' +
+                '<div class="sig-capture-title">' + (opts.title || 'Firma Digital') + '</div>' +
+                '<button type="button" class="sig-capture-close" onclick="sigCaptureCancel()">&times;</button>' +
+            '</div>' +
+            '<div class="sig-capture-field">' +
+                '<label>Nombre completo:</label>' +
+                '<input type="text" id="sig-signer-name" class="sig-input" value="' + (opts.signerName || '') + '" placeholder="Escribe tu nombre" autocomplete="name">' +
+            '</div>' +
+            '<div class="sig-capture-field">' +
+                '<label>Rol:</label>' +
+                '<div class="sig-role-display">' + (opts.role || 'Tecnico') + '</div>' +
+            '</div>' +
+            '<div class="sig-capture-canvas-wrap">' +
+                '<canvas id="sig-capture-canvas"></canvas>' +
+                '<div class="sig-hint">Firme arriba con el dedo o mouse</div>' +
+            '</div>' +
+            '<div class="sig-capture-actions">' +
+                '<button type="button" class="btn btn-ghost" onclick="sigCaptureClear()">Borrar</button>' +
+                '<button type="button" class="btn btn-ghost" onclick="sigCaptureCancel()">Cancelar</button>' +
+                '<button type="button" class="btn btn-primary" onclick="sigCaptureConfirm()">Firmar y Continuar</button>' +
+            '</div>' +
+        '</div>';
+    document.body.appendChild(overlay);
+    overlay.style.display = 'flex';
+
+    var canvas = document.getElementById('sig-capture-canvas');
+    if (canvas) {
+        var wrap = canvas.parentElement;
+        canvas.width = Math.min(wrap.clientWidth - 16, 560);
+        canvas.height = 180;
+        if (typeof SignaturePad !== 'undefined') {
+            _sigPadInstance = new SignaturePad(canvas, { backgroundColor: '#ffffff', penColor: '#000000' });
+        } else {
+            void 0;
+        }
+    }
+}
+
+function sigCaptureClear() {
+    if (_sigPadInstance) _sigPadInstance.clear();
+}
+
+function sigCaptureConfirm() {
+    if (!_sigPadInstance || _sigPadInstance.isEmpty()) {
+        if (typeof showToast === 'function') showToast('Por favor firme antes de continuar', 'warning');
+        return;
+    }
+    var nameEl = document.getElementById('sig-signer-name');
+    var name = nameEl ? nameEl.value.trim() : '';
+    if (!name) {
+        if (typeof showToast === 'function') showToast('Escriba su nombre', 'warning');
+        return;
+    }
+
+    var result = {
+        signerName: name,
+        signerRole: (_sigCaptureOpts && _sigCaptureOpts.role) || 'Tecnico',
+        signedAt: new Date().toISOString(),
+        dataUrl: _sigPadInstance.toDataURL('image/png')
+    };
+    var cb = _sigCaptureOpts && _sigCaptureOpts.onSave;
+    sigCaptureDismiss();
+    if (cb) cb(result);
+}
+
+function sigCaptureCancel() {
+    var cb = _sigCaptureOpts && _sigCaptureOpts.onCancel;
+    sigCaptureDismiss();
+    if (cb) cb();
+}
+
+function sigCaptureDismiss() {
+    var o = document.querySelector('.sig-capture-overlay');
+    if (o) o.remove();
+    _sigPadInstance = null;
+    _sigCaptureOpts = null;
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Power Automate Emissions Approval Integration         ║
 // ║                                                                    ║
 // ║  Automatically triggers Power Automate approval workflows when     ║
@@ -27252,6 +28023,7 @@ var paConfig = {
 // ── Runtime state ──
 var paQueue = [];
 var _paLastSendStatus = null;
+var _paConfigContainerId = 'pa-config-container'; // tracks active render target
 
 // ══════════════════════════════════════════════════════════════
 // CONFIG PERSISTENCE
@@ -27414,6 +28186,14 @@ function paBuildPayload(eventType, vehicle) {
             }
         }
 
+        // Attach digital signatures if present
+        if (vehicle.testData && vehicle.testData.signatures) {
+            payload.signatures = {
+                technician: vehicle.testData.signatures.technician || null,
+                releaser: vehicle.testData.signatures.releaser || null
+            };
+        }
+
         // Attach the scanned results sheet photo from IndexedDB (async)
         paPhotoGet(vehicle.id, function (photo) {
             if (photo && photo.base64) {
@@ -27512,6 +28292,11 @@ function paOnVehicleRegistered(data) {
         return paSendWebhook(payload);
     }).then(function () {
         _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'vehicle_registered' };
+        if (vehicle && typeof db !== 'undefined') {
+            if (!vehicle.paStatus) vehicle.paStatus = {};
+            vehicle.paStatus.vehicle_registered = { sent: true, sentAt: new Date().toISOString() };
+            if (typeof saveDB === 'function') saveDB();
+        }
         if (typeof showToast === 'function') showToast('Aprobación disparada en Power Automate', 'success');
     }).catch(function (err) {
         _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'vehicle_registered', error: String(err) };
@@ -27535,6 +28320,11 @@ function paOnVehicleReleased(data) {
         return paSendWebhook(payload);
     }).then(function () {
         _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'vehicle_released' };
+        if (vehicle && typeof db !== 'undefined') {
+            if (!vehicle.paStatus) vehicle.paStatus = {};
+            vehicle.paStatus.vehicle_released = { sent: true, sentAt: new Date().toISOString() };
+            if (typeof saveDB === 'function') saveDB();
+        }
         if (typeof showToast === 'function') showToast('Documentación enviada a Power Automate', 'success');
     }).catch(function (err) {
         _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'vehicle_released', error: String(err) };
@@ -27553,6 +28343,18 @@ function paUpdateIndicator() {
         badge.textContent = paQueue.length;
         badge.style.display = paQueue.length > 0 ? 'inline-flex' : 'none';
     }
+    // Badge on the HOY platform tab — tells the user something needs attention
+    var todayBadge = document.getElementById('today-pa-badge');
+    if (todayBadge) {
+        if (paQueue.length > 0) {
+            todayBadge.textContent = paQueue.length;
+            todayBadge.style.display = 'inline-flex';
+        } else {
+            todayBadge.style.display = 'none';
+        }
+    }
+    // Refresh the Today dashboard card if it is currently rendered
+    if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -27578,12 +28380,12 @@ function paTestWebhook() {
         .then(function () {
             _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'test_ping' };
             if (typeof showToast === 'function') showToast('Webhook de prueba exitoso', 'success');
-            paRenderConfigUI();
+            paRenderConfigUI(_paConfigContainerId);
         })
         .catch(function (err) {
             _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'test_ping', error: String(err) };
             if (typeof showToast === 'function') showToast('Error en prueba: ' + err.message, 'error');
-            paRenderConfigUI();
+            paRenderConfigUI(_paConfigContainerId);
         });
 }
 
@@ -27591,9 +28393,12 @@ function paTestWebhook() {
 // CONFIGURATION UI — rendered inside Panel → System Health
 // ══════════════════════════════════════════════════════════════
 
-function paRenderConfigUI() {
-    var el = document.getElementById('pa-config-container');
+function paRenderConfigUI(containerId) {
+    var el = document.getElementById(containerId || 'pa-config-container');
     if (!el) return;
+    // Remember which container is currently showing the form so async
+    // re-renders (test webhook result, queue changes) update the right DOM.
+    _paConfigContainerId = el.id;
 
     // Status badge
     var statusHtml = '';
@@ -27680,7 +28485,9 @@ function _paEscAttr(str) {
 function paToggleEnabled(val) {
     paConfig.enabled = !!val;
     paSaveConfig();
-    paRenderConfigUI();
+    paRenderConfigUI(_paConfigContainerId);
+    // Refresh the Today dashboard card if visible
+    if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
     if (typeof showToast === 'function') showToast('Power Automate ' + (val ? 'activado' : 'desactivado'), 'info');
 }
 
@@ -27698,7 +28505,8 @@ function paQueueClear() {
     paQueue = [];
     paQueueSave();
     paUpdateIndicator();
-    paRenderConfigUI();
+    paRenderConfigUI(_paConfigContainerId);
+    if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
     if (typeof showToast === 'function') showToast('Cola de webhooks limpiada', 'info');
 }
 
@@ -27957,8 +28765,9 @@ function paCameraCapture() {
         }
 
         // Update lightweight flag on the vehicle so the UI + webhook know it is captured
+        var _capturedVehId = _paCameraVehicleId;
         if (typeof db !== 'undefined' && db.vehicles) {
-            var v = db.vehicles.find(function (x) { return x.id == _paCameraVehicleId; });
+            var v = db.vehicles.find(function (x) { return x.id == _capturedVehId; });
             if (v) {
                 if (!v.testData) v.testData = {};
                 v.testData.scannedReportCaptured = true;
@@ -27968,12 +28777,39 @@ function paCameraCapture() {
         }
 
         paCameraClose();
-        if (typeof showToast === 'function') showToast('Hoja de resultados capturada', 'success');
 
-        // Refresh the release screen if visible
-        if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_paCameraVehicleId);
-        if (typeof loadRelease === 'function') {
-            try { loadRelease(_paCameraVehicleId); } catch (e) {}
+        // Technician signature capture after VETS photo
+        if (typeof sigCaptureOpen === 'function') {
+            var _sigName = '';
+            try { if (typeof authState !== 'undefined' && authState.currentUser) _sigName = authState.currentUser.name || ''; } catch (e) {}
+            sigCaptureOpen({
+                title: 'Firma del Tecnico (Documentacion VETS)',
+                role: 'Tecnico',
+                signerName: _sigName,
+                onSave: function (sig) {
+                    if (typeof db !== 'undefined' && db.vehicles) {
+                        var v2 = db.vehicles.find(function (x) { return x.id == _capturedVehId; });
+                        if (v2) {
+                            if (!v2.testData) v2.testData = {};
+                            if (!v2.testData.signatures) v2.testData.signatures = {};
+                            v2.testData.signatures.technician = sig;
+                            if (typeof saveDB === 'function') saveDB();
+                        }
+                    }
+                    if (typeof showToast === 'function') showToast('Hoja de resultados capturada y firmada', 'success');
+                    if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_capturedVehId);
+                    if (typeof loadRelease === 'function') { try { loadRelease(_capturedVehId); } catch (e) {} }
+                },
+                onCancel: function () {
+                    if (typeof showToast === 'function') showToast('Foto guardada, pero falta firma del tecnico', 'warning');
+                    if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_capturedVehId);
+                    if (typeof loadRelease === 'function') { try { loadRelease(_capturedVehId); } catch (e) {} }
+                }
+            });
+        } else {
+            if (typeof showToast === 'function') showToast('Hoja de resultados capturada', 'success');
+            if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_capturedVehId);
+            if (typeof loadRelease === 'function') { try { loadRelease(_capturedVehId); } catch (e) {} }
         }
     });
 }
@@ -28102,6 +28938,254 @@ function paUpdateReleaseButtonState(vehicleId) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// TODAY DASHBOARD CARD
+// Prominent card on the "Hoy" view so the integration is
+// discoverable without digging into Panel → System Health.
+// The card is inserted/refreshed into `#pa-today-card-slot`
+// which dailyDashRender() places at the top of the dashboard.
+// ══════════════════════════════════════════════════════════════
+
+function paRenderTodayCard() {
+    var slot = document.getElementById('pa-today-card-slot');
+    if (!slot) return; // not on Today screen
+
+    var enabled = !!paConfig.enabled;
+    var hasUrl = !!(paConfig.webhookUrl && paConfig.webhookUrl.trim());
+    var queued = paQueue.length;
+
+    // Dot color: red = disabled/no URL, amber = queue pending, green = ok
+    var dotColor, label, subLabel;
+    if (!enabled || !hasUrl) {
+        dotColor = '#ef4444';
+        label = hasUrl ? 'Desactivado' : 'Sin configurar';
+        subLabel = hasUrl
+            ? 'Actívalo para enviar aprobaciones a Teams'
+            : 'Pega tu URL de Power Automate para empezar';
+    } else if (queued > 0) {
+        dotColor = '#f59e0b';
+        label = queued + ' pendiente' + (queued === 1 ? '' : 's');
+        subLabel = 'Se reenviarán automáticamente cuando haya conexión';
+    } else {
+        dotColor = '#10b981';
+        label = 'Conectado';
+        subLabel = 'Las aprobaciones se envían automáticamente';
+    }
+
+    var urlShort = '';
+    if (hasUrl) {
+        var u = paConfig.webhookUrl;
+        urlShort = u.length > 60 ? u.slice(0, 40) + '…' + u.slice(-12) : u;
+    }
+
+    var lastStatus = '';
+    if (_paLastSendStatus) {
+        var ok = _paLastSendStatus.ok;
+        var timeStr = '';
+        try { timeStr = new Date(_paLastSendStatus.time).toLocaleTimeString('es-MX'); } catch (e) {}
+        lastStatus = '<div class="pa-today-last" style="color:' + (ok ? '#10b981' : '#ef4444') + ';">'
+            + (ok ? '✓' : '✗') + ' Último: ' + _paLastSendStatus.event + ' — ' + timeStr
+            + '</div>';
+    }
+
+    slot.innerHTML =
+        '<div class="daily-dash-section">' +
+            '<div class="daily-dash-section-title">⚡ Integración Power Automate</div>' +
+            '<div class="pa-today-card">' +
+                '<div class="pa-today-head">' +
+                    '<span class="pa-today-dot" style="background:' + dotColor + ';"></span>' +
+                    '<div class="pa-today-head-text">' +
+                        '<div class="pa-today-label">' + label + '</div>' +
+                        '<div class="pa-today-sub">' + subLabel + '</div>' +
+                    '</div>' +
+                    (queued > 0 ? '<span class="pa-today-queue-badge">' + queued + '</span>' : '') +
+                '</div>' +
+                (hasUrl ? '<div class="pa-today-url" title="' + _paEscAttr(paConfig.webhookUrl) + '">' + urlShort + '</div>' : '') +
+                lastStatus +
+                '<div class="pa-today-actions">' +
+                    '<button class="btn btn-sm btn-secondary" onclick="paShowConfigModal()">⚙ Configurar</button>' +
+                    '<button class="btn btn-sm btn-ghost" onclick="paTestWebhook()"' + (hasUrl ? '' : ' disabled') + '>Probar</button>' +
+                    (queued > 0 ? '<button class="btn btn-sm btn-ghost" onclick="paManualRetry()">Reintentar (' + queued + ')</button>' : '') +
+                '</div>' +
+            '</div>' +
+        '</div>';
+}
+
+// ══════════════════════════════════════════════════════════════
+// CONFIG MODAL — lets the user configure from anywhere, not
+// just the Panel → System Health deep screen.
+// ══════════════════════════════════════════════════════════════
+
+function paShowConfigModal() {
+    var overlay = document.getElementById('pa-config-modal-overlay');
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+
+    overlay = document.createElement('div');
+    overlay.id = 'pa-config-modal-overlay';
+    overlay.className = 'custom-modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Configuración Power Automate');
+
+    overlay.innerHTML =
+        '<div class="custom-modal-box pa-config-modal-box">' +
+            '<div class="custom-modal-title">⚡ Power Automate — Aprobación de Emisiones</div>' +
+            '<div class="custom-modal-message" style="margin-bottom:12px;color:var(--tp-dim);font-size:11px;">' +
+                'Dispara automáticamente el flujo de aprobación en Microsoft Teams al registrar o liberar un vehículo. ' +
+                'Elimina la dependencia del escaneo manual.' +
+            '</div>' +
+            '<div id="pa-config-modal-body"></div>' +
+            '<div class="custom-modal-actions" style="margin-top:12px;">' +
+                '<button class="modal-btn-confirm modal-type-info" onclick="paCloseConfigModal()">Cerrar</button>' +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(overlay);
+
+    // Close on backdrop click
+    overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) paCloseConfigModal();
+    });
+
+    // Close on Escape
+    overlay.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') paCloseConfigModal();
+    });
+
+    // Mount the reusable config UI into the modal body
+    paRenderConfigUI('pa-config-modal-body');
+
+    // Focus the close button
+    var btn = overlay.querySelector('.modal-btn-confirm');
+    if (btn) btn.focus();
+}
+
+function paCloseConfigModal() {
+    var overlay = document.getElementById('pa-config-modal-overlay');
+    if (!overlay) return;
+    overlay.classList.add('modal-closing');
+    setTimeout(function () {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        // After closing, restore the tracked container to the Panel view
+        // if the Panel is currently rendered, otherwise leave as-is.
+        if (document.getElementById('pa-config-container')) {
+            _paConfigContainerId = 'pa-config-container';
+            paRenderConfigUI('pa-config-container');
+        }
+        // Refresh Today card since settings may have changed
+        if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
+    }, 200);
+}
+
+// ══════════════════════════════════════════════════════════════
+// MANUAL TRIGGER & BATCH — send PA webhooks for historical vehicles
+// ══════════════════════════════════════════════════════════════
+
+function paManualTrigger(vehicleId, eventType) {
+    if (!paConfig.enabled || !paConfig.webhookUrl) {
+        if (typeof showToast === 'function') showToast('Configura Power Automate primero', 'warning');
+        return;
+    }
+    var vehicle = null;
+    if (typeof db !== 'undefined' && db.vehicles) {
+        vehicle = db.vehicles.find(function (v) { return v.id == vehicleId; });
+    }
+    if (!vehicle) { if (typeof showToast === 'function') showToast('Vehiculo no encontrado', 'error'); return; }
+
+    paBuildPayload(eventType, vehicle).then(function (payload) {
+        return paSendWebhook(payload);
+    }).then(function () {
+        if (!vehicle.paStatus) vehicle.paStatus = {};
+        vehicle.paStatus[eventType] = { sent: true, sentAt: new Date().toISOString(), manual: true };
+        if (typeof saveDB === 'function') saveDB();
+        _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: eventType };
+        if (typeof showToast === 'function') showToast('Enviado a Power Automate: ' + (vehicle.vin || vehicleId), 'success');
+        if (typeof renderHistory === 'function') renderHistory();
+    }).catch(function (err) {
+        paQueueAdd(eventType, vehicleId);
+        if (typeof showToast === 'function') showToast('En cola para reintento: ' + String(err), 'warning');
+    });
+}
+
+function paBatchTriggerAll() {
+    if (!paConfig.enabled || !paConfig.webhookUrl) {
+        if (typeof showToast === 'function') showToast('Configura Power Automate primero', 'warning');
+        return;
+    }
+    if (typeof db === 'undefined' || !db.vehicles) return;
+    var pending = db.vehicles.filter(function (v) {
+        return v.status === 'archived' &&
+            (!v.paStatus || !v.paStatus.vehicle_released || !v.paStatus.vehicle_released.sent);
+    });
+    if (pending.length === 0) { if (typeof showToast === 'function') showToast('No hay pendientes', 'info'); return; }
+    if (!confirm('Enviar ' + pending.length + ' vehiculos a Power Automate?')) return;
+
+    var queued = 0;
+    pending.forEach(function (v) {
+        paQueueAdd('vehicle_released', v.id);
+        queued++;
+    });
+    if (typeof showToast === 'function') showToast(queued + ' vehiculos agregados a la cola de PA', 'success');
+    paQueueRetry();
+}
+
+// ══════════════════════════════════════════════════════════════
+// WEEKLY PLAN WEBHOOK — send plan via PA for email/Teams distribution
+// ══════════════════════════════════════════════════════════════
+
+function paSendWeeklyPlan(plan) {
+    if (!paConfig.enabled || !paConfig.webhookUrl) {
+        void 0;
+        return;
+    }
+
+    var payload = {
+        event: 'weekly_plan_generated',
+        timestamp: new Date().toISOString(),
+        station: paConfig.stationName,
+        plan: {
+            weekDate: plan.weekDate,
+            accepted: plan.accepted,
+            acceptedDate: plan.acceptedDate || '',
+            capacity: plan.capacity,
+            itemCount: plan.items.length,
+            items: plan.items.map(function (i) {
+                return {
+                    desc: i.desc, mod: i.mod, eng: i.eng, tx: i.tx, my: i.my,
+                    tire: i.tire, scheduledDate: i.scheduledDate || '',
+                    required: i.required, deficit: i.deficit
+                };
+            }),
+            skippedInventory: plan.skippedInventory || []
+        }
+    };
+
+    if (typeof generateWeeklyStatusPDF === 'function') {
+        try {
+            var b64 = generateWeeklyStatusPDF({ returnBase64: true, silent: true });
+            if (b64) {
+                payload.pdf = {
+                    base64: b64,
+                    filename: 'Plan-Semanal-' + plan.weekDate + '.pdf',
+                    contentType: 'application/pdf'
+                };
+            }
+        } catch (e) { void 0; }
+    }
+
+    if (!navigator.onLine) {
+        paQueueAdd('weekly_plan_generated', 'plan-' + plan.weekDate);
+        return;
+    }
+
+    paSendWebhook(payload).then(function () {
+        _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'weekly_plan_generated' };
+    }).catch(function (err) {
+        void 0;
+        _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'weekly_plan_generated', error: String(err) };
+    });
+}
+
+// ══════════════════════════════════════════════════════════════
 // INITIALIZATION
 // ══════════════════════════════════════════════════════════════
 
@@ -28114,6 +29198,9 @@ function paInit() {
         onEvent('vehicle:registered', paOnVehicleRegistered);
         onEvent('vehicle:released', paOnVehicleReleased);
     }
+
+    // Paint initial state for the HOY tab badge and dashboard card
+    paUpdateIndicator();
 
     // Process any pending queue items on startup
     if (navigator.onLine && paQueue.length > 0) {

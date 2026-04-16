@@ -456,6 +456,108 @@ function resetCascadeTree() {
     renderCascadeTree();
 }
 
+// ── Preload Alta from a Test Plan item ─────────────────────────────
+// Called by tpStartTestFromPlan (testplan.js) after switching to COP15
+// → Alta. Tries to locate the exact configuration by code; falls back
+// to matching fields if the code is not in the catalog. Shows a
+// dismissible banner so the technician knows the form was pre-filled.
+function cop15PreloadFromPlan(preload) {
+    if (!preload) return;
+    var banner = document.getElementById('plan-preload-banner');
+
+    var match = null;
+    if (preload.configCode && Array.isArray(allConfigurations)) {
+        match = allConfigurations.find(function (c) {
+            return c && c.codigo_config_text === preload.configCode;
+        });
+    }
+
+    if (match) {
+        // Internal catalog mode (default) — cascade by field.
+        setMode('internal');
+        resetCascadeTree();
+        // tpState field-map → CSV field names
+        var shortToCsv = {
+            mod: 'Modelo', my: 'MODEL YEAR (VIN)', eng: 'ENGINE CAPACITY',
+            tx: 'TRANSMISSION', ep: 'ENVIRONMENT PACKAGE',
+            reg: 'EMISSION REGULATION', rgn: 'REGION', drv: 'DRIVE TYPE',
+            body: 'BODY TYPE', tire: 'TIRE ASSY', engpkg: 'ENGINE PACKAGE'
+        };
+        var fieldsInOrder = Object.keys(fieldMapping);
+        fieldsInOrder.forEach(function (csvField) {
+            var val = match[csvField];
+            if (val == null || val === '') return;
+            cascadeSelections[csvField] = val;
+            currentFilters[csvField] = val;
+            var selectId = fieldMapping[csvField];
+            var selectEl = document.getElementById(selectId);
+            if (selectEl) {
+                // Ensure the value exists as an option (options are rebuilt by updateSelectOptions)
+                if (!Array.from(selectEl.options).some(function (o) { return o.value === val; })) {
+                    var opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = val;
+                    selectEl.appendChild(opt);
+                }
+                selectEl.value = val;
+                selectEl.classList.add('selected');
+            }
+        });
+        // Refresh downstream filter options and the result display
+        var filtered = allConfigurations.filter(function (c) {
+            for (var f in currentFilters) {
+                if (c[f] !== currentFilters[f]) return false;
+            }
+            return true;
+        });
+        updateSelectOptions(filtered);
+        var countEl = document.getElementById('configCount');
+        if (countEl) countEl.textContent = filtered.length;
+        displayConfigResult(filtered);
+        renderCascadeTree();
+    } else {
+        // No exact match — fall back to manual mode and leave fields
+        // blank so the technician chooses explicitly.
+        setMode('external');
+    }
+
+    // Set a sensible default purpose (technician can override)
+    var purposeSel = document.getElementById('vehiclePurpose');
+    if (purposeSel && !purposeSel.value && preload.purpose) {
+        purposeSel.value = preload.purpose;
+    }
+
+    // Render the banner
+    if (banner) {
+        var matchLabel = match
+            ? 'Configuración del catálogo aplicada.'
+            : 'Esta configuración del plan no existe en el catálogo. Revisa o cambia a modo manual.';
+        banner.innerHTML =
+            '<div class="plan-preload-banner-inner">' +
+                '<span class="plan-preload-banner-icon">📋</span>' +
+                '<div class="plan-preload-banner-body">' +
+                    '<strong>Precargado desde el plan semanal — Semana ' + (preload.weekIdx + 1) + '</strong>' +
+                    '<div>' + (preload.configCode || '(sin código)') + '</div>' +
+                    '<small>' + matchLabel + ' Si este vehículo es otra config, cámbiala manualmente antes de registrar.</small>' +
+                '</div>' +
+                '<button class="plan-preload-banner-close" onclick="cop15ClearPlanPreload()" title="Descartar precarga">✕</button>' +
+            '</div>';
+        banner.style.display = 'block';
+    }
+
+    // Scroll the Alta panel into view so the banner is visible
+    var alta = document.getElementById('panel-alta');
+    if (alta && alta.scrollIntoView) {
+        try { alta.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+    }
+}
+
+function cop15ClearPlanPreload() {
+    window._pendingCop15Preload = null;
+    var banner = document.getElementById('plan-preload-banner');
+    if (banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
+}
+
 function initCascadeTree() {
     if (!allConfigurations || allConfigurations.length === 0) return;
     cascadeSelections = {};
@@ -477,6 +579,19 @@ function initCascadeTree() {
     });
 
     function _switchToCop15Tab(tab) {
+        // Special: "Consumibles" tab navigates to inventory (stays within Pruebas group)
+        if (tab.dataset.tab === 'consumibles') {
+            if (typeof switchPlatform === 'function') switchPlatform('inventory');
+            return;
+        }
+        // If we're currently on inventory, switch back to cop15 section first
+        if (typeof _currentPlatform !== 'undefined' && (_currentPlatform === 'inventory')) {
+            if (typeof switchPlatform === 'function') {
+                // Force _currentPlatform so switchPlatform doesn't short-circuit
+                _currentPlatform = '__switching__';
+                switchPlatform('cop15');
+            }
+        }
         document.querySelectorAll('.tab, .tab-panel').forEach(function(el){ el.classList.remove('active'); });
         tab.classList.add('active');
         document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
@@ -844,12 +959,30 @@ setAltaDatetimeIfEmpty(true);
             };
         }
         
+        const adhocEl = document.getElementById('vehicleAdhoc');
+        const isAdhoc = !!(adhocEl && adhocEl.checked);
+
+        // If this Alta was started from a weekly plan item, link the vehicle
+        // back to that item so tpAutoMarkWeeklyCompletion can find it later.
+        var planLink = null;
+        if (window._pendingCop15Preload &&
+            window._pendingCop15Preload.source === 'weekly-plan' &&
+            window._pendingCop15Preload.configCode === configCode) {
+            planLink = {
+                weekIdx: window._pendingCop15Preload.weekIdx,
+                itemIdx: window._pendingCop15Preload.itemIdx,
+                configCode: window._pendingCop15Preload.configCode
+            };
+        }
+
         const newVehicle = {
             id: ++db.lastId,
             vin: document.getElementById('vin').value,
             purpose: document.getElementById('vehiclePurpose').value,
             config: config,
             configCode: configCode,
+            adhoc: isAdhoc,
+            fromPlanItem: planLink,
             status: 'registered',
             registeredBy: document.getElementById('reg_operator').value,
             registeredAt: new Date().toISOString(),
@@ -857,8 +990,8 @@ setAltaDatetimeIfEmpty(true);
                 {
                     timestamp: new Date().toISOString(),
                     user: document.getElementById('reg_operator').value,
-                    action: 'Vehículo Registrado',
-                    data: { status: 'registered', configCode: configCode }
+                    action: 'Vehículo Registrado' + (isAdhoc ? ' (ad-hoc)' : ''),
+                    data: { status: 'registered', configCode: configCode, adhoc: isAdhoc, fromPlanItem: planLink }
                 }
             ],
             testData: {},
@@ -886,6 +1019,8 @@ setAltaDatetimeIfEmpty(true);
         // Reset
         document.getElementById('vin').value = '';
         document.getElementById('vehiclePurpose').value = '';
+        if (adhocEl) adhocEl.checked = false;
+        cop15ClearPlanPreload();
         resetCascadeTree();
         validateVIN(document.getElementById('vin'));
         
@@ -2014,10 +2149,36 @@ function _renderUsedCylinders(vehicle) {
         const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
         if(!vehicle) return;
 
-        // Mandatory: emissions vehicles need a captured results-sheet photo
+        // Mandatory gates for emissions vehicles
         if (!isRetest && typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose)) {
+            // Gate 1: VETS photo
             if (!vehicle.testData || !vehicle.testData.scannedReportCaptured) {
                 showToast('Falta capturar la hoja de resultados antes de liberar', 'error');
+                return;
+            }
+            // Gate 2: Technician signature (captured with VETS photo)
+            if (!vehicle.testData.signatures || !vehicle.testData.signatures.technician) {
+                showToast('Falta firma del tecnico que documento la foto', 'error');
+                return;
+            }
+            // Gate 3: Releaser signature — prompt now, then re-invoke
+            if (!vehicle.testData.signatures.releaser) {
+                if (typeof sigCaptureOpen === 'function') {
+                    sigCaptureOpen({
+                        title: 'Firma del Liberador (Signatario)',
+                        role: 'Signatario / Gerente',
+                        signerName: '',
+                        onSave: function (sig) {
+                            if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
+                            vehicle.testData.signatures.releaser = sig;
+                            saveDB();
+                            finishRelease(isRetest);
+                        },
+                        onCancel: function () { showToast('Liberacion cancelada: falta firma del liberador', 'info'); }
+                    });
+                } else {
+                    showToast('Falta firma del liberador', 'error');
+                }
                 return;
             }
         }
@@ -2040,9 +2201,18 @@ function _renderUsedCylinders(vehicle) {
                 tpAutoFeedFromRelease(vehicle);
                 invLogTestUsage(vehicle);
 
-                // Try exact match first, then offer flexible substitution
-                var exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
-                if (!exactMatch && typeof tpFindFlexibleMatches === 'function') {
+                // Try exact match first, then offer flexible substitution.
+                // Skip weekly-plan crediting for ad-hoc vehicles.
+                var exactMatch = false;
+                if (!vehicle.adhoc) {
+                    // Prefer the explicit plan link set in Alta when available
+                    if (typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function') {
+                        exactMatch = tpAutoMarkWeeklyCompletionFromVehicle(vehicle);
+                    } else {
+                        exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                    }
+                }
+                if (!vehicle.adhoc && !exactMatch && typeof tpFindFlexibleMatches === 'function') {
                     var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
                     if (flexMatches.length > 0) {
                         // Store pending substitution data and show modal AFTER release completes
@@ -2292,6 +2462,7 @@ function closeSubstitutionModal() {
                 <span>Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</span>
                 <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;">PDF Seleccionados</button>
                 <button class="btn-secondary" onclick="window.print()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Imprimir tabla de historial">🖨️ Imprimir</button>
+                ${(function(){ var _pendPA = typeof db !== 'undefined' && db.vehicles ? db.vehicles.filter(function(v){ return v.status === 'archived' && (!v.paStatus || !v.paStatus.vehicle_released || !v.paStatus.vehicle_released.sent); }).length : 0; return (_pendPA > 0 && typeof paConfig !== 'undefined' && paConfig.enabled) ? '<button class="btn-secondary" onclick="paBatchTriggerAll()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Enviar todos los archivados pendientes a Power Automate">⚡ Enviar ' + _pendPA + ' pendientes a PA</button>' : ''; })()}
             </div>
             <table class="history-table">
                 <thead>
@@ -2302,6 +2473,7 @@ function closeSubstitutionModal() {
                         <th>Propósito</th>
                         <th>Estado</th>
                         <th>Fecha</th>
+                        <th style="width:55px;">PA</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -2317,7 +2489,7 @@ function closeSubstitutionModal() {
                         return `
                         <tr>
                             <td><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
-                            <td><strong>${safeVin}</strong></td>
+                            <td><strong>${safeVin}</strong>${v.adhoc ? '<span class="adhoc-badge" title="Test ad-hoc — fuera del plan semanal">ad-hoc</span>' : ''}</td>
                             <td>
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
                                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
@@ -2329,6 +2501,7 @@ function closeSubstitutionModal() {
                             <td>${safePurpose}</td>
                             <td><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
                             <td>${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
+                            <td>${(function(){ var _paR = v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent; if (_paR) return '<span style="color:#10b981;font-size:14px;" title="Enviado a PA: ' + escapeHtml((v.paStatus.vehicle_released.sentAt || '')) + '">&#10004;</span>'; if (v.status === 'archived') return '<button class="btn-secondary" onclick="paManualTrigger(' + parseInt(v.id) + ',&#39;vehicle_released&#39;)" style="padding:3px 8px;font-size:10px;font-weight:700;" title="Enviar a Power Automate">Enviar</button>'; return '<span style="color:#94a3b8;font-size:10px;">—</span>'; })()}</td>
                             <td>
                                 <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
@@ -3209,11 +3382,43 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
     ry += rH;
   });
 
-  // Bottom: Comentarios (left) + Firma (right)
+  // Bottom: Comentarios (left) + Firmas digitales (right)
   const bottomLibY = Math.max(y, ry) + 1;
-  cell(ML, bottomLibY, CW*0.5, 12, 'Comentarios:', {font:'bold', sz:6, valign:'top'});
-  cell(ML+CW*0.5, bottomLibY, CW*0.5, 12, 'Liberador\nDebe ser personal signatario\no gerente de laboratorio', {sz:5, align:'left', font:'italic', color:[130,130,130]});
-  y = bottomLibY + 13;
+  const _sigH = 20;
+  cell(ML, bottomLibY, CW*0.5, _sigH, 'Comentarios:', {font:'bold', sz:6, valign:'top'});
+
+  const _sigs = (vehicle.testData && vehicle.testData.signatures) || {};
+  const _sigW = CW*0.5;
+  const _sigColW = _sigW / 2;
+
+  // Sub-cell: Technician
+  cell(ML+CW*0.5, bottomLibY, _sigColW, _sigH, '', {});
+  doc.setTextColor(80,80,80); setF('bold', 4.5);
+  doc.text('Tecnico (Doc. VETS)', ML+CW*0.5+1, bottomLibY+2.5);
+  if (_sigs.technician && _sigs.technician.dataUrl) {
+      try { doc.addImage(_sigs.technician.dataUrl, 'PNG', ML+CW*0.5+2, bottomLibY+3.5, _sigColW-4, 9); } catch(e) {}
+      setF('normal', 4); doc.setTextColor(60,60,60);
+      doc.text(_sigs.technician.signerName || '', ML+CW*0.5+1, bottomLibY+14);
+      try { doc.text(new Date(_sigs.technician.signedAt).toLocaleString('es-MX'), ML+CW*0.5+1, bottomLibY+17); } catch(e) {}
+  } else {
+      setF('italic', 4); doc.setTextColor(160,160,160);
+      doc.text('(sin firma)', ML+CW*0.5+1, bottomLibY+10);
+  }
+
+  // Sub-cell: Releaser
+  cell(ML+CW*0.5+_sigColW, bottomLibY, _sigColW, _sigH, '', {});
+  doc.setTextColor(80,80,80); setF('bold', 4.5);
+  doc.text('Liberador / Signatario', ML+CW*0.5+_sigColW+1, bottomLibY+2.5);
+  if (_sigs.releaser && _sigs.releaser.dataUrl) {
+      try { doc.addImage(_sigs.releaser.dataUrl, 'PNG', ML+CW*0.5+_sigColW+2, bottomLibY+3.5, _sigColW-4, 9); } catch(e) {}
+      setF('normal', 4); doc.setTextColor(60,60,60);
+      doc.text(_sigs.releaser.signerName || '', ML+CW*0.5+_sigColW+1, bottomLibY+14);
+      try { doc.text(new Date(_sigs.releaser.signedAt).toLocaleString('es-MX'), ML+CW*0.5+_sigColW+1, bottomLibY+17); } catch(e) {}
+  } else {
+      setF('italic', 4); doc.setTextColor(160,160,160);
+      doc.text('Debe ser personal signatario\no gerente de laboratorio', ML+CW*0.5+_sigColW+1, bottomLibY+8);
+  }
+  y = bottomLibY + _sigH + 1;
 
   // =====================================================
   //  FOOTER
@@ -4342,6 +4547,7 @@ function renderKanban() {
                 html += '<span style="display:flex;align-items:center;gap:4px;">';
                 html += '<span style="font-family:monospace;font-size:11px;font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
                 html += '<button onclick="event.stopPropagation();copyToClipboard(\'' + fullVin.replace(/'/g,"\\'") + '\', this)" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px;" title="Copiar VIN">📋</button>';
+                if (v.adhoc) html += '<span class="adhoc-badge" title="Test ad-hoc — fuera del plan semanal">ad-hoc</span>';
                 html += '</span>';
                 if (timeSince) html += '<span style="font-size:9px;color:#94a3b8;" title="Tiempo en este estado">' + timeSince + '</span>';
                 html += '</div>';
@@ -5555,7 +5761,14 @@ function v7BatchRelease() {
             if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
             if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle);
             if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle);
-            if (typeof tpAutoMarkWeeklyCompletion === 'function') tpAutoMarkWeeklyCompletion(vehicle.configCode);
+            // Skip weekly-plan crediting for ad-hoc vehicles.
+            if (!vehicle.adhoc) {
+                if (typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function') {
+                    tpAutoMarkWeeklyCompletionFromVehicle(vehicle);
+                } else if (typeof tpAutoMarkWeeklyCompletion === 'function') {
+                    tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                }
+            }
             // Emit per-vehicle event so Power Automate webhook fires with each PDF + photo
             if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: false, batch: true });
             count++;
