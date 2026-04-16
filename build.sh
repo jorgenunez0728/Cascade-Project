@@ -111,6 +111,12 @@ fi
 echo "Updating sw.js build version to ${BUILD_TS}..."
 sed -i "s/__BUILD_VERSION__/${BUILD_TS}/g" "$DIR/sw.js"
 
+# ═══════════════════════════════════════════════════════════════
+# Inject build version into the unified HTML (replaces APP_BUILD
+# placeholder embedded in app.js / firebase-sync.js sections)
+# ═══════════════════════════════════════════════════════════════
+sed -i "s/__BUILD_VERSION__/${BUILD_TS}/g" "$DIR/$OUTPUT"
+
 LINES=$(wc -l < "$DIR/$OUTPUT")
 SIZE=$(du -h "$DIR/$OUTPUT" | cut -f1)
 echo "Done! $OUTPUT — $LINES lines, $SIZE"
@@ -120,6 +126,31 @@ cp "$DIR/manifest.json" "$(dirname "$DIR/$OUTPUT")/" 2>/dev/null || true
 cp "$DIR/sw.js" "$(dirname "$DIR/$OUTPUT")/" 2>/dev/null || true
 
 echo "PWA files (manifest.json, sw.js) copied."
+
+# ═══════════════════════════════════════════════════════════════
+# Publish version to Firebase so stations can detect the update.
+# Extracts API key and project ID from the freshly-built HTML so
+# no secrets need to live in the build script itself.
+# ═══════════════════════════════════════════════════════════════
+# Match both JSON format ("apiKey":"val") and JS object literal format (apiKey: "val")
+FIREBASE_API_KEY=$(grep -oE '(apiKey: *"|"apiKey":")[^"]+' "$DIR/$OUTPUT" | head -1 | grep -oE '"[^"]+$' | tr -d '"')
+FIREBASE_PROJECT=$(grep -oE '(projectId: *"|"projectId":")[^"]+' "$DIR/$OUTPUT" | head -1 | grep -oE '"[^"]+$' | tr -d '"')
+GH_RAW_URL="https://raw.githubusercontent.com/jorgenunez0728/Cascade-Project/main/kia-emlab-unified.html"
+
+if [ -n "$FIREBASE_API_KEY" ] && [ -n "$FIREBASE_PROJECT" ] && [ "$FIREBASE_PROJECT" != "YOUR_PROJECT_ID" ]; then
+    TS_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH \
+      "https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/app/version?key=${FIREBASE_API_KEY}&updateMask.fieldPaths=build&updateMask.fieldPaths=downloadUrl&updateMask.fieldPaths=publishedAt" \
+      -H "Content-Type: application/json" \
+      -d "{\"fields\":{\"build\":{\"stringValue\":\"${BUILD_TS}\"},\"downloadUrl\":{\"stringValue\":\"${GH_RAW_URL}\"},\"publishedAt\":{\"stringValue\":\"${TS_ISO}\"}}}")
+    if [ "$HTTP_CODE" = "200" ]; then
+        echo "Version ${BUILD_TS} publicada en Firebase (app/version)."
+    else
+        echo "Warning: no se pudo publicar version en Firebase (HTTP ${HTTP_CODE}). Las estaciones no recibirán notificación de actualización."
+    fi
+else
+    echo "Firebase no configurado — omitiendo publicación de versión."
+fi
 
 # ═══════════════════════════════════════════════════════════════
 # Restore sw.js placeholder so source stays build-ready

@@ -406,6 +406,7 @@ function fbInit() {
                         fbPullAll();
                         fbBackupCheck();
                     }
+                    fbCheckAppVersion();
                     // Drain offline queue
                     if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 3000);
                 }
@@ -2025,6 +2026,59 @@ function fbMergeConfirmAndExecute() {
     });
 }
 
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  APP VERSION CHECK                                                  ║
+// ║  Compares local build with Firestore app/version on startup.       ║
+// ║  Shows a 1-click download banner when a newer build is available.  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function fbCheckAppVersion() {
+    if (!FIREBASE_CONFIG.projectId || !FIREBASE_CONFIG.apiKey) return;
+    if (FIREBASE_CONFIG.projectId === 'YOUR_PROJECT_ID') return;
+    if (fbSync._versionChecked) return;
+    fbSync._versionChecked = true;
+
+    var url = 'https://firestore.googleapis.com/v1/projects/' +
+        FIREBASE_CONFIG.projectId + '/databases/(default)/documents/app/version?key=' + FIREBASE_CONFIG.apiKey;
+
+    fetch(url).then(function(r) { return r.json(); }).then(function(doc) {
+        if (!doc || !doc.fields || !doc.fields.build) return;
+        var remoteBuild = (doc.fields.build.stringValue || '').trim();
+        var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
+        var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
+        // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
+        if (!localBuild || localBuild === '__BUILD_VERSION__' || !remoteBuild || remoteBuild <= localBuild) return;
+        var dismissKey = 'kia_update_dismissed_' + remoteBuild;
+        if (localStorage.getItem(dismissKey)) return;
+        fbShowUpdateBanner(remoteBuild, downloadUrl, dismissKey);
+    }).catch(function() {}); // non-critical — silent fail
+}
+
+function fbShowUpdateBanner(remoteBuild, downloadUrl, dismissKey) {
+    if (document.getElementById('kia-update-banner')) return;
+    var dateStr = remoteBuild.slice(0,4) + '-' + remoteBuild.slice(4,6) + '-' + remoteBuild.slice(6,8);
+    var banner = document.createElement('div');
+    banner.id = 'kia-update-banner';
+    banner.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);' +
+        'background:#0f172a;border:1px solid #f59e0b;border-radius:12px;padding:12px 18px;' +
+        'display:flex;align-items:center;gap:12px;z-index:9999;' +
+        'box-shadow:0 4px 24px rgba(0,0,0,0.6);color:#e2e8f0;font-size:13px;max-width:90vw;';
+    banner.innerHTML =
+        '<span style="font-size:20px;">🔄</span>' +
+        '<span>Nueva versión disponible: <strong>' + dateStr + '</strong></span>' +
+        (downloadUrl
+            ? '<a href="' + downloadUrl + '" download="kia-emlab-unified.html"' +
+              ' style="background:#f59e0b;color:#000;padding:6px 14px;border-radius:8px;' +
+              'font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0;">' +
+              'Descargar →</a>'
+            : '') +
+        '<button onclick="localStorage.setItem(\'' + dismissKey + '\',\'1\');' +
+            'document.getElementById(\'kia-update-banner\').remove();"' +
+            ' style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;' +
+            'padding:0 4px;flex-shrink:0;" title="Recordar después">✕</button>';
+    document.body.appendChild(banner);
+}
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [QW5] AUTOMATIC DAILY BACKUP TO FIRESTORE                         ║
