@@ -2078,9 +2078,82 @@ html { scroll-behavior: smooth; }
 /* [TIER 3] TAB TRANSITIONS & MICRO-INTERACTIONS                         */
 /* ══════════════════════════════════════════════════════════════════════ */
 
-/* Smooth tab content transitions */
+/* Smooth tab content transitions (equal durations, no overlap frame) */
 .tab-content-enter { animation: tabFadeIn 0.2s ease both; }
-.tab-content-exit { animation: tabFadeOut 0.15s ease both; }
+.tab-content-exit { animation: tabFadeOut 0.2s ease both; }
+
+/* ── Power Automate — Today dashboard card ── */
+.pa-today-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.06));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.pa-today-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.pa-today-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 0 0 4px rgba(0,0,0,0.06);
+}
+.pa-today-head-text { flex: 1 1 auto; min-width: 0; }
+.pa-today-label { font-weight: 700; color: #0f172a; font-size: 14px; }
+.pa-today-sub { color: #64748b; font-size: 11px; margin-top: 2px; }
+.pa-today-queue-badge {
+    background: #fef3c7;
+    color: #d97706;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+}
+.pa-today-url {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 10px;
+    color: #475569;
+    word-break: break-all;
+}
+.pa-today-last { font-size: 10px; }
+.pa-today-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.pa-today-actions .btn { font-size: 11px; }
+
+/* Config modal sizing — wider than generic confirm modal */
+.pa-config-modal-box {
+    max-width: 520px;
+    width: 90vw;
+}
+
+/* Dark-theme variants */
+[data-theme="dark"] .pa-today-card { background: rgba(15,23,42,0.6); border-color: rgba(100,116,139,0.2); }
+[data-theme="dark"] .pa-today-label { color: #e2e8f0; }
+[data-theme="dark"] .pa-today-sub { color: #94a3b8; }
+[data-theme="dark"] .pa-today-url { background: rgba(15,23,42,0.6); border-color: rgba(100,116,139,0.2); color: #cbd5e1; }
+[data-theme="dark"] .pa-today-queue-badge { background: rgba(245,158,11,0.2); color: #fbbf24; }
+
+/* Today-tab queue badge (pulsing so it's hard to miss) */
+#today-pa-badge { display: none; animation: paBadgePulse 2s ease-in-out infinite; }
+@keyframes paBadgePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.55); }
+    50%      { box-shadow: 0 0 0 6px rgba(245,158,11,0); }
+}
 @keyframes tabFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes tabFadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-4px); } }
 
@@ -3367,6 +3440,7 @@ details.acc > summary {
 <div class="platform-bar" role="navigation" aria-label="Navegación principal entre módulos">
     <div class="platform-tab active" onclick="switchPlatform('today')" id="ptab-today" title="Vista Hoy: Resumen diario del laboratorio">
         🏠 HOY
+        <span id="today-pa-badge" style="display:none;min-width:18px;height:18px;margin-left:6px;padding:0 5px;border-radius:9px;background:#f59e0b;color:#0a0f1a;font-size:10px;font-weight:800;align-items:center;justify-content:center;" title="Aprobaciones pendientes en cola">0</span>
     </div>
     <div class="platform-tab" onclick="switchPlatform('cop15')" id="ptab-cop15" title="COP15: Registro y operación de vehículos de emisiones">
         🔬 COP15 CASCADE
@@ -6177,17 +6251,23 @@ function tabCacheSwitch(moduleId, tabId, renderFn) {
         }
     };
 
-    // If there's an outgoing tab, animate exit first
+    // If there's an outgoing tab, animate exit first.
+    // Keep the exit class on until doSwitch() applies display:none, otherwise
+    // there is a one-frame flash where the outgoing tab pops back to opacity:1
+    // before being hidden, causing a visible overlap with the incoming tab.
     if (outgoingEl) {
         outgoingEl.classList.add('tab-content-exit');
         setTimeout(function() {
-            outgoingEl.classList.remove('tab-content-exit');
-            if (document.startViewTransition) {
-                document.startViewTransition(doSwitch);
-            } else {
+            var runSwitch = function() {
                 doSwitch();
+                outgoingEl.classList.remove('tab-content-exit');
+            };
+            if (document.startViewTransition) {
+                document.startViewTransition(runSwitch);
+            } else {
+                runSwitch();
             }
-        }, 150);
+        }, 200);
     } else {
         if (document.startViewTransition) {
             document.startViewTransition(doSwitch);
@@ -6374,6 +6454,9 @@ function dailyDashRender() {
     html += '<div class="daily-dash-greeting">' + greeting + '</div>';
     html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
     html += '</div>';
+
+    // ── Power Automate Integration card (populated by paRenderTodayCard after innerHTML) ──
+    html += '<div id="pa-today-card-slot"></div>';
 
     // ── [V7-F1] Mi Turno Card ──
     var currentOp = '';
@@ -6577,6 +6660,9 @@ function dailyDashRender() {
     }
 
     el.innerHTML = html;
+
+    // Populate the Power Automate card (after innerHTML so the slot exists)
+    if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -27252,6 +27338,7 @@ var paConfig = {
 // ── Runtime state ──
 var paQueue = [];
 var _paLastSendStatus = null;
+var _paConfigContainerId = 'pa-config-container'; // tracks active render target
 
 // ══════════════════════════════════════════════════════════════
 // CONFIG PERSISTENCE
@@ -27553,6 +27640,18 @@ function paUpdateIndicator() {
         badge.textContent = paQueue.length;
         badge.style.display = paQueue.length > 0 ? 'inline-flex' : 'none';
     }
+    // Badge on the HOY platform tab — tells the user something needs attention
+    var todayBadge = document.getElementById('today-pa-badge');
+    if (todayBadge) {
+        if (paQueue.length > 0) {
+            todayBadge.textContent = paQueue.length;
+            todayBadge.style.display = 'inline-flex';
+        } else {
+            todayBadge.style.display = 'none';
+        }
+    }
+    // Refresh the Today dashboard card if it is currently rendered
+    if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -27578,12 +27677,12 @@ function paTestWebhook() {
         .then(function () {
             _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'test_ping' };
             if (typeof showToast === 'function') showToast('Webhook de prueba exitoso', 'success');
-            paRenderConfigUI();
+            paRenderConfigUI(_paConfigContainerId);
         })
         .catch(function (err) {
             _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'test_ping', error: String(err) };
             if (typeof showToast === 'function') showToast('Error en prueba: ' + err.message, 'error');
-            paRenderConfigUI();
+            paRenderConfigUI(_paConfigContainerId);
         });
 }
 
@@ -27591,9 +27690,12 @@ function paTestWebhook() {
 // CONFIGURATION UI — rendered inside Panel → System Health
 // ══════════════════════════════════════════════════════════════
 
-function paRenderConfigUI() {
-    var el = document.getElementById('pa-config-container');
+function paRenderConfigUI(containerId) {
+    var el = document.getElementById(containerId || 'pa-config-container');
     if (!el) return;
+    // Remember which container is currently showing the form so async
+    // re-renders (test webhook result, queue changes) update the right DOM.
+    _paConfigContainerId = el.id;
 
     // Status badge
     var statusHtml = '';
@@ -27680,7 +27782,9 @@ function _paEscAttr(str) {
 function paToggleEnabled(val) {
     paConfig.enabled = !!val;
     paSaveConfig();
-    paRenderConfigUI();
+    paRenderConfigUI(_paConfigContainerId);
+    // Refresh the Today dashboard card if visible
+    if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
     if (typeof showToast === 'function') showToast('Power Automate ' + (val ? 'activado' : 'desactivado'), 'info');
 }
 
@@ -27698,7 +27802,8 @@ function paQueueClear() {
     paQueue = [];
     paQueueSave();
     paUpdateIndicator();
-    paRenderConfigUI();
+    paRenderConfigUI(_paConfigContainerId);
+    if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
     if (typeof showToast === 'function') showToast('Cola de webhooks limpiada', 'info');
 }
 
@@ -28102,6 +28207,145 @@ function paUpdateReleaseButtonState(vehicleId) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// TODAY DASHBOARD CARD
+// Prominent card on the "Hoy" view so the integration is
+// discoverable without digging into Panel → System Health.
+// The card is inserted/refreshed into `#pa-today-card-slot`
+// which dailyDashRender() places at the top of the dashboard.
+// ══════════════════════════════════════════════════════════════
+
+function paRenderTodayCard() {
+    var slot = document.getElementById('pa-today-card-slot');
+    if (!slot) return; // not on Today screen
+
+    var enabled = !!paConfig.enabled;
+    var hasUrl = !!(paConfig.webhookUrl && paConfig.webhookUrl.trim());
+    var queued = paQueue.length;
+
+    // Dot color: red = disabled/no URL, amber = queue pending, green = ok
+    var dotColor, label, subLabel;
+    if (!enabled || !hasUrl) {
+        dotColor = '#ef4444';
+        label = hasUrl ? 'Desactivado' : 'Sin configurar';
+        subLabel = hasUrl
+            ? 'Actívalo para enviar aprobaciones a Teams'
+            : 'Pega tu URL de Power Automate para empezar';
+    } else if (queued > 0) {
+        dotColor = '#f59e0b';
+        label = queued + ' pendiente' + (queued === 1 ? '' : 's');
+        subLabel = 'Se reenviarán automáticamente cuando haya conexión';
+    } else {
+        dotColor = '#10b981';
+        label = 'Conectado';
+        subLabel = 'Las aprobaciones se envían automáticamente';
+    }
+
+    var urlShort = '';
+    if (hasUrl) {
+        var u = paConfig.webhookUrl;
+        urlShort = u.length > 60 ? u.slice(0, 40) + '…' + u.slice(-12) : u;
+    }
+
+    var lastStatus = '';
+    if (_paLastSendStatus) {
+        var ok = _paLastSendStatus.ok;
+        var timeStr = '';
+        try { timeStr = new Date(_paLastSendStatus.time).toLocaleTimeString('es-MX'); } catch (e) {}
+        lastStatus = '<div class="pa-today-last" style="color:' + (ok ? '#10b981' : '#ef4444') + ';">'
+            + (ok ? '✓' : '✗') + ' Último: ' + _paLastSendStatus.event + ' — ' + timeStr
+            + '</div>';
+    }
+
+    slot.innerHTML =
+        '<div class="daily-dash-section">' +
+            '<div class="daily-dash-section-title">⚡ Integración Power Automate</div>' +
+            '<div class="pa-today-card">' +
+                '<div class="pa-today-head">' +
+                    '<span class="pa-today-dot" style="background:' + dotColor + ';"></span>' +
+                    '<div class="pa-today-head-text">' +
+                        '<div class="pa-today-label">' + label + '</div>' +
+                        '<div class="pa-today-sub">' + subLabel + '</div>' +
+                    '</div>' +
+                    (queued > 0 ? '<span class="pa-today-queue-badge">' + queued + '</span>' : '') +
+                '</div>' +
+                (hasUrl ? '<div class="pa-today-url" title="' + _paEscAttr(paConfig.webhookUrl) + '">' + urlShort + '</div>' : '') +
+                lastStatus +
+                '<div class="pa-today-actions">' +
+                    '<button class="btn btn-sm btn-secondary" onclick="paShowConfigModal()">⚙ Configurar</button>' +
+                    '<button class="btn btn-sm btn-ghost" onclick="paTestWebhook()"' + (hasUrl ? '' : ' disabled') + '>Probar</button>' +
+                    (queued > 0 ? '<button class="btn btn-sm btn-ghost" onclick="paManualRetry()">Reintentar (' + queued + ')</button>' : '') +
+                '</div>' +
+            '</div>' +
+        '</div>';
+}
+
+// ══════════════════════════════════════════════════════════════
+// CONFIG MODAL — lets the user configure from anywhere, not
+// just the Panel → System Health deep screen.
+// ══════════════════════════════════════════════════════════════
+
+function paShowConfigModal() {
+    var overlay = document.getElementById('pa-config-modal-overlay');
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+
+    overlay = document.createElement('div');
+    overlay.id = 'pa-config-modal-overlay';
+    overlay.className = 'custom-modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Configuración Power Automate');
+
+    overlay.innerHTML =
+        '<div class="custom-modal-box pa-config-modal-box">' +
+            '<div class="custom-modal-title">⚡ Power Automate — Aprobación de Emisiones</div>' +
+            '<div class="custom-modal-message" style="margin-bottom:12px;color:var(--tp-dim);font-size:11px;">' +
+                'Dispara automáticamente el flujo de aprobación en Microsoft Teams al registrar o liberar un vehículo. ' +
+                'Elimina la dependencia del escaneo manual.' +
+            '</div>' +
+            '<div id="pa-config-modal-body"></div>' +
+            '<div class="custom-modal-actions" style="margin-top:12px;">' +
+                '<button class="modal-btn-confirm modal-type-info" onclick="paCloseConfigModal()">Cerrar</button>' +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(overlay);
+
+    // Close on backdrop click
+    overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) paCloseConfigModal();
+    });
+
+    // Close on Escape
+    overlay.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') paCloseConfigModal();
+    });
+
+    // Mount the reusable config UI into the modal body
+    paRenderConfigUI('pa-config-modal-body');
+
+    // Focus the close button
+    var btn = overlay.querySelector('.modal-btn-confirm');
+    if (btn) btn.focus();
+}
+
+function paCloseConfigModal() {
+    var overlay = document.getElementById('pa-config-modal-overlay');
+    if (!overlay) return;
+    overlay.classList.add('modal-closing');
+    setTimeout(function () {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        // After closing, restore the tracked container to the Panel view
+        // if the Panel is currently rendered, otherwise leave as-is.
+        if (document.getElementById('pa-config-container')) {
+            _paConfigContainerId = 'pa-config-container';
+            paRenderConfigUI('pa-config-container');
+        }
+        // Refresh Today card since settings may have changed
+        if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
+    }, 200);
+}
+
+// ══════════════════════════════════════════════════════════════
 // INITIALIZATION
 // ══════════════════════════════════════════════════════════════
 
@@ -28114,6 +28358,9 @@ function paInit() {
         onEvent('vehicle:registered', paOnVehicleRegistered);
         onEvent('vehicle:released', paOnVehicleReleased);
     }
+
+    // Paint initial state for the HOY tab badge and dashboard card
+    paUpdateIndicator();
 
     // Process any pending queue items on startup
     if (navigator.onLine && paQueue.length > 0) {

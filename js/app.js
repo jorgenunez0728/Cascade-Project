@@ -1320,17 +1320,23 @@ function tabCacheSwitch(moduleId, tabId, renderFn) {
         }
     };
 
-    // If there's an outgoing tab, animate exit first
+    // If there's an outgoing tab, animate exit first.
+    // Keep the exit class on until doSwitch() applies display:none, otherwise
+    // there is a one-frame flash where the outgoing tab pops back to opacity:1
+    // before being hidden, causing a visible overlap with the incoming tab.
     if (outgoingEl) {
         outgoingEl.classList.add('tab-content-exit');
         setTimeout(function() {
-            outgoingEl.classList.remove('tab-content-exit');
-            if (document.startViewTransition) {
-                document.startViewTransition(doSwitch);
-            } else {
+            var runSwitch = function() {
                 doSwitch();
+                outgoingEl.classList.remove('tab-content-exit');
+            };
+            if (document.startViewTransition) {
+                document.startViewTransition(runSwitch);
+            } else {
+                runSwitch();
             }
-        }, 150);
+        }, 200);
     } else {
         if (document.startViewTransition) {
             document.startViewTransition(doSwitch);
@@ -1517,6 +1523,9 @@ function dailyDashRender() {
     html += '<div class="daily-dash-greeting">' + greeting + '</div>';
     html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
     html += '</div>';
+
+    // ── Power Automate Integration card (populated by paRenderTodayCard after innerHTML) ──
+    html += '<div id="pa-today-card-slot"></div>';
 
     // ── [V7-F1] Mi Turno Card ──
     var currentOp = '';
@@ -1720,6 +1729,9 @@ function dailyDashRender() {
     }
 
     el.innerHTML = html;
+
+    // Populate the Power Automate card (after innerHTML so the slot exists)
+    if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗

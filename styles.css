@@ -2044,9 +2044,82 @@ html { scroll-behavior: smooth; }
 /* [TIER 3] TAB TRANSITIONS & MICRO-INTERACTIONS                         */
 /* ══════════════════════════════════════════════════════════════════════ */
 
-/* Smooth tab content transitions */
+/* Smooth tab content transitions (equal durations, no overlap frame) */
 .tab-content-enter { animation: tabFadeIn 0.2s ease both; }
-.tab-content-exit { animation: tabFadeOut 0.15s ease both; }
+.tab-content-exit { animation: tabFadeOut 0.2s ease both; }
+
+/* ── Power Automate — Today dashboard card ── */
+.pa-today-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.06));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.pa-today-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.pa-today-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 0 0 4px rgba(0,0,0,0.06);
+}
+.pa-today-head-text { flex: 1 1 auto; min-width: 0; }
+.pa-today-label { font-weight: 700; color: #0f172a; font-size: 14px; }
+.pa-today-sub { color: #64748b; font-size: 11px; margin-top: 2px; }
+.pa-today-queue-badge {
+    background: #fef3c7;
+    color: #d97706;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+}
+.pa-today-url {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 10px;
+    color: #475569;
+    word-break: break-all;
+}
+.pa-today-last { font-size: 10px; }
+.pa-today-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.pa-today-actions .btn { font-size: 11px; }
+
+/* Config modal sizing — wider than generic confirm modal */
+.pa-config-modal-box {
+    max-width: 520px;
+    width: 90vw;
+}
+
+/* Dark-theme variants */
+[data-theme="dark"] .pa-today-card { background: rgba(15,23,42,0.6); border-color: rgba(100,116,139,0.2); }
+[data-theme="dark"] .pa-today-label { color: #e2e8f0; }
+[data-theme="dark"] .pa-today-sub { color: #94a3b8; }
+[data-theme="dark"] .pa-today-url { background: rgba(15,23,42,0.6); border-color: rgba(100,116,139,0.2); color: #cbd5e1; }
+[data-theme="dark"] .pa-today-queue-badge { background: rgba(245,158,11,0.2); color: #fbbf24; }
+
+/* Today-tab queue badge (pulsing so it's hard to miss) */
+#today-pa-badge { display: none; animation: paBadgePulse 2s ease-in-out infinite; }
+@keyframes paBadgePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.55); }
+    50%      { box-shadow: 0 0 0 6px rgba(245,158,11,0); }
+}
 @keyframes tabFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes tabFadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-4px); } }
 
