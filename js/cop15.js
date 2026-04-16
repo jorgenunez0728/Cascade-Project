@@ -2149,10 +2149,36 @@ function _renderUsedCylinders(vehicle) {
         const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
         if(!vehicle) return;
 
-        // Mandatory: emissions vehicles need a captured results-sheet photo
+        // Mandatory gates for emissions vehicles
         if (!isRetest && typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose)) {
+            // Gate 1: VETS photo
             if (!vehicle.testData || !vehicle.testData.scannedReportCaptured) {
                 showToast('Falta capturar la hoja de resultados antes de liberar', 'error');
+                return;
+            }
+            // Gate 2: Technician signature (captured with VETS photo)
+            if (!vehicle.testData.signatures || !vehicle.testData.signatures.technician) {
+                showToast('Falta firma del tecnico que documento la foto', 'error');
+                return;
+            }
+            // Gate 3: Releaser signature — prompt now, then re-invoke
+            if (!vehicle.testData.signatures.releaser) {
+                if (typeof sigCaptureOpen === 'function') {
+                    sigCaptureOpen({
+                        title: 'Firma del Liberador (Signatario)',
+                        role: 'Signatario / Gerente',
+                        signerName: '',
+                        onSave: function (sig) {
+                            if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
+                            vehicle.testData.signatures.releaser = sig;
+                            saveDB();
+                            finishRelease(isRetest);
+                        },
+                        onCancel: function () { showToast('Liberacion cancelada: falta firma del liberador', 'info'); }
+                    });
+                } else {
+                    showToast('Falta firma del liberador', 'error');
+                }
                 return;
             }
         }
@@ -2436,6 +2462,7 @@ function closeSubstitutionModal() {
                 <span>Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</span>
                 <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;">PDF Seleccionados</button>
                 <button class="btn-secondary" onclick="window.print()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Imprimir tabla de historial">🖨️ Imprimir</button>
+                ${(function(){ var _pendPA = typeof db !== 'undefined' && db.vehicles ? db.vehicles.filter(function(v){ return v.status === 'archived' && (!v.paStatus || !v.paStatus.vehicle_released || !v.paStatus.vehicle_released.sent); }).length : 0; return (_pendPA > 0 && typeof paConfig !== 'undefined' && paConfig.enabled) ? '<button class="btn-secondary" onclick="paBatchTriggerAll()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Enviar todos los archivados pendientes a Power Automate">⚡ Enviar ' + _pendPA + ' pendientes a PA</button>' : ''; })()}
             </div>
             <table class="history-table">
                 <thead>
@@ -2446,6 +2473,7 @@ function closeSubstitutionModal() {
                         <th>Propósito</th>
                         <th>Estado</th>
                         <th>Fecha</th>
+                        <th style="width:55px;">PA</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -2473,6 +2501,7 @@ function closeSubstitutionModal() {
                             <td>${safePurpose}</td>
                             <td><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
                             <td>${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
+                            <td>${(function(){ var _paR = v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent; if (_paR) return '<span style="color:#10b981;font-size:14px;" title="Enviado a PA: ' + escapeHtml((v.paStatus.vehicle_released.sentAt || '')) + '">&#10004;</span>'; if (v.status === 'archived') return '<button class="btn-secondary" onclick="paManualTrigger(' + parseInt(v.id) + ',&#39;vehicle_released&#39;)" style="padding:3px 8px;font-size:10px;font-weight:700;" title="Enviar a Power Automate">Enviar</button>'; return '<span style="color:#94a3b8;font-size:10px;">—</span>'; })()}</td>
                             <td>
                                 <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
@@ -3353,11 +3382,43 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
     ry += rH;
   });
 
-  // Bottom: Comentarios (left) + Firma (right)
+  // Bottom: Comentarios (left) + Firmas digitales (right)
   const bottomLibY = Math.max(y, ry) + 1;
-  cell(ML, bottomLibY, CW*0.5, 12, 'Comentarios:', {font:'bold', sz:6, valign:'top'});
-  cell(ML+CW*0.5, bottomLibY, CW*0.5, 12, 'Liberador\nDebe ser personal signatario\no gerente de laboratorio', {sz:5, align:'left', font:'italic', color:[130,130,130]});
-  y = bottomLibY + 13;
+  const _sigH = 20;
+  cell(ML, bottomLibY, CW*0.5, _sigH, 'Comentarios:', {font:'bold', sz:6, valign:'top'});
+
+  const _sigs = (vehicle.testData && vehicle.testData.signatures) || {};
+  const _sigW = CW*0.5;
+  const _sigColW = _sigW / 2;
+
+  // Sub-cell: Technician
+  cell(ML+CW*0.5, bottomLibY, _sigColW, _sigH, '', {});
+  doc.setTextColor(80,80,80); setF('bold', 4.5);
+  doc.text('Tecnico (Doc. VETS)', ML+CW*0.5+1, bottomLibY+2.5);
+  if (_sigs.technician && _sigs.technician.dataUrl) {
+      try { doc.addImage(_sigs.technician.dataUrl, 'PNG', ML+CW*0.5+2, bottomLibY+3.5, _sigColW-4, 9); } catch(e) {}
+      setF('normal', 4); doc.setTextColor(60,60,60);
+      doc.text(_sigs.technician.signerName || '', ML+CW*0.5+1, bottomLibY+14);
+      try { doc.text(new Date(_sigs.technician.signedAt).toLocaleString('es-MX'), ML+CW*0.5+1, bottomLibY+17); } catch(e) {}
+  } else {
+      setF('italic', 4); doc.setTextColor(160,160,160);
+      doc.text('(sin firma)', ML+CW*0.5+1, bottomLibY+10);
+  }
+
+  // Sub-cell: Releaser
+  cell(ML+CW*0.5+_sigColW, bottomLibY, _sigColW, _sigH, '', {});
+  doc.setTextColor(80,80,80); setF('bold', 4.5);
+  doc.text('Liberador / Signatario', ML+CW*0.5+_sigColW+1, bottomLibY+2.5);
+  if (_sigs.releaser && _sigs.releaser.dataUrl) {
+      try { doc.addImage(_sigs.releaser.dataUrl, 'PNG', ML+CW*0.5+_sigColW+2, bottomLibY+3.5, _sigColW-4, 9); } catch(e) {}
+      setF('normal', 4); doc.setTextColor(60,60,60);
+      doc.text(_sigs.releaser.signerName || '', ML+CW*0.5+_sigColW+1, bottomLibY+14);
+      try { doc.text(new Date(_sigs.releaser.signedAt).toLocaleString('es-MX'), ML+CW*0.5+_sigColW+1, bottomLibY+17); } catch(e) {}
+  } else {
+      setF('italic', 4); doc.setTextColor(160,160,160);
+      doc.text('Debe ser personal signatario\no gerente de laboratorio', ML+CW*0.5+_sigColW+1, bottomLibY+8);
+  }
+  y = bottomLibY + _sigH + 1;
 
   // =====================================================
   //  FOOTER

@@ -2115,12 +2115,12 @@ function globalVinSearch(query) {
 var _debouncedGlobalVinSearch = debounce(function(val) { globalVinSearch(val); }, 250);
 
 // ── Weekly Status PDF Report ──
-function generateWeeklyStatusPDF() {
+function generateWeeklyStatusPDF(opts) {
     if (typeof window.jspdf === 'undefined') {
-        showToast('jsPDF no está disponible. Verifica la conexión CDN.', 'error');
+        if (!(opts && opts.silent) && typeof showToast === 'function') showToast('jsPDF no esta disponible. Verifica la conexion CDN.', 'error');
         return;
     }
-    showOverlayLoading('Generando PDF semanal...');
+    if (!(opts && opts.silent)) showOverlayLoading('Generando PDF semanal...');
     var jsPDF = window.jspdf.jsPDF;
     var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
     var W = doc.internal.pageSize.getWidth();
@@ -2298,6 +2298,10 @@ function generateWeeklyStatusPDF() {
     doc.setTextColor(150, 150, 150);
     doc.text('Generado automáticamente por KIA EmLab Plataforma Integrada — ' + today.toISOString(), ML, y);
 
+    if (opts && opts.returnBase64) {
+        if (!(opts && opts.silent)) hideOverlayLoading();
+        return doc.output('base64');
+    }
     doc.save('KIA-EmLab-Semanal-' + today.toISOString().slice(0, 10) + '.pdf');
     hideOverlayLoading();
     showToast('Reporte PDF semanal generado', 'success');
@@ -2425,6 +2429,13 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try { tpUpdateBadges(); } catch(e) {}
         try { tpHookCascadeResult(); } catch(e) {}
         try { raInit(); } catch(e) { console.error('raInit error:', e); }
+
+        // ═══ Auto-plan semanal (viernes 14:00 deadline) ═══
+        try {
+            if (typeof tpAutoGenerateIfNeeded === 'function') {
+                setTimeout(tpAutoGenerateIfNeeded, 3000);
+            }
+        } catch(e) { console.error('autoplan error:', e); }
 
         // ═══ Lab Inventory badges ═══
         try { if (typeof invPreloadData === 'function') invPreloadData(); } catch(e) {}

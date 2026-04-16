@@ -34,7 +34,8 @@ js/
   inventory.js          ← Lab Inventory + SVG Floor Plan Map (~3,580 lines)
   panel.js              ← Dashboard, Users, Shift Log, Alerts, Intelligence, System Health (~1,368 lines)
   auth.js               ← PIN/WebAuthn authentication (~459 lines)
-  approvals.js          ← Power Automate emissions approval webhook integration (~340 lines)
+  signatures.js         ← Digital signature capture (SignaturePad overlay) (~90 lines)
+  approvals.js          ← Power Automate emissions approval webhook integration (~460 lines)
   firebase-sync.js      ← Optional Firebase cloud sync layer (~2,501 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
 kia-emlab-unified.html  ← GENERATED FILE — do not edit directly (~28,000 lines)
@@ -55,6 +56,7 @@ V7_HANDOFF.md           ← Next version planning document (Smart Workflow upgra
 | Lab Inventory | `js/inventory.js` | `inv` | `invState` | `kia_lab_inventory` |
 | Panel | `js/panel.js` | `pn` | `pnState` | `kia_panel_v1` |
 | Auth | `js/auth.js` | — | session-based | `kia_auth_session` |
+| Signatures | `js/signatures.js` | `sig` | overlay-based | — (stored in `vehicle.testData.signatures`) |
 | Approvals | `js/approvals.js` | `pa` | `paConfig`, `paQueue` | `kia_pa_config`, `kia_pa_queue` |
 | Firebase Sync | `js/firebase-sync.js` | `fb` | queue-based | `kia_firebase_queue` |
 
@@ -68,12 +70,16 @@ V7_HANDOFF.md           ← Next version planning document (Smart Workflow upgra
 | `kia_lab_inventory.zoneLayout` | Floor plan zone positions for SVG map |
 | `kia_pa_config` | Power Automate webhook URL and trigger settings |
 | `kia_pa_queue` | Offline queue for pending webhook calls |
+| `kia_autoplan_lastrun` | Guard key: ISO date of next Monday for which auto-plan already ran |
 
 ## Cross-Module Dependencies
 
 - **COP15 → Test Plan**: `tpAutoFeedFromRelease()`, `tpAutoMarkWeeklyCompletion()`
 - **COP15 → Inventory**: `invLogTestUsage()`
+- **COP15 → Signatures**: `sigCaptureOpen()` for releaser signature gate in `finishRelease()`
+- **Approvals → Signatures**: `sigCaptureOpen()` for technician signature after VETS photo capture
 - **Test Plan → Results**: `tpBuildFamilies()` uses `raState.tests`
+- **Test Plan → Approvals**: `paSendWeeklyPlan()` for auto-plan webhook
 - **Test Plan → Inventory**: Prediction checks inventory for gas/fuel sufficiency
 - **App Core → All**: Chart config engine (`chartConfig*`), undo engine (`undoPush/Pop`), notes (`note*`), search (`globalVinSearch`)
 - **Panel → All**: Intelligence correlations read from `db`, `raState`, `tpState`, `invState`
@@ -87,8 +93,9 @@ V7_HANDOFF.md           ← Next version planning document (Smart Workflow upgra
 5. `results.js` — Results Analyzer (depends on testplan for families)
 6. `panel.js` — Panel module (depends on all modules for intelligence/health)
 7. `auth.js` — Authentication (depends on global scope)
-8. `approvals.js` — Power Automate webhook (depends on EventBus from app.js, generateCOP15PDF from cop15.js)
-9. `firebase-sync.js` — Cloud sync (must be last, hooks into all save functions)
+8. `signatures.js` — Digital signature capture (depends on SignaturePad CDN, global scope)
+9. `approvals.js` — Power Automate webhook (depends on EventBus from app.js, generateCOP15PDF from cop15.js, sigCaptureOpen from signatures.js)
+10. `firebase-sync.js` — Cloud sync (must be last, hooks into all save functions)
 
 The `initializeSystem()` function in app.js runs on `DOMContentLoaded` and bootstraps all modules.
 

@@ -194,6 +194,14 @@ function paBuildPayload(eventType, vehicle) {
             }
         }
 
+        // Attach digital signatures if present
+        if (vehicle.testData && vehicle.testData.signatures) {
+            payload.signatures = {
+                technician: vehicle.testData.signatures.technician || null,
+                releaser: vehicle.testData.signatures.releaser || null
+            };
+        }
+
         // Attach the scanned results sheet photo from IndexedDB (async)
         paPhotoGet(vehicle.id, function (photo) {
             if (photo && photo.base64) {
@@ -292,6 +300,11 @@ function paOnVehicleRegistered(data) {
         return paSendWebhook(payload);
     }).then(function () {
         _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'vehicle_registered' };
+        if (vehicle && typeof db !== 'undefined') {
+            if (!vehicle.paStatus) vehicle.paStatus = {};
+            vehicle.paStatus.vehicle_registered = { sent: true, sentAt: new Date().toISOString() };
+            if (typeof saveDB === 'function') saveDB();
+        }
         if (typeof showToast === 'function') showToast('Aprobación disparada en Power Automate', 'success');
     }).catch(function (err) {
         _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'vehicle_registered', error: String(err) };
@@ -315,6 +328,11 @@ function paOnVehicleReleased(data) {
         return paSendWebhook(payload);
     }).then(function () {
         _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'vehicle_released' };
+        if (vehicle && typeof db !== 'undefined') {
+            if (!vehicle.paStatus) vehicle.paStatus = {};
+            vehicle.paStatus.vehicle_released = { sent: true, sentAt: new Date().toISOString() };
+            if (typeof saveDB === 'function') saveDB();
+        }
         if (typeof showToast === 'function') showToast('Documentación enviada a Power Automate', 'success');
     }).catch(function (err) {
         _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'vehicle_released', error: String(err) };
@@ -755,8 +773,9 @@ function paCameraCapture() {
         }
 
         // Update lightweight flag on the vehicle so the UI + webhook know it is captured
+        var _capturedVehId = _paCameraVehicleId;
         if (typeof db !== 'undefined' && db.vehicles) {
-            var v = db.vehicles.find(function (x) { return x.id == _paCameraVehicleId; });
+            var v = db.vehicles.find(function (x) { return x.id == _capturedVehId; });
             if (v) {
                 if (!v.testData) v.testData = {};
                 v.testData.scannedReportCaptured = true;
@@ -766,12 +785,39 @@ function paCameraCapture() {
         }
 
         paCameraClose();
-        if (typeof showToast === 'function') showToast('Hoja de resultados capturada', 'success');
 
-        // Refresh the release screen if visible
-        if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_paCameraVehicleId);
-        if (typeof loadRelease === 'function') {
-            try { loadRelease(_paCameraVehicleId); } catch (e) {}
+        // Technician signature capture after VETS photo
+        if (typeof sigCaptureOpen === 'function') {
+            var _sigName = '';
+            try { if (typeof authState !== 'undefined' && authState.currentUser) _sigName = authState.currentUser.name || ''; } catch (e) {}
+            sigCaptureOpen({
+                title: 'Firma del Tecnico (Documentacion VETS)',
+                role: 'Tecnico',
+                signerName: _sigName,
+                onSave: function (sig) {
+                    if (typeof db !== 'undefined' && db.vehicles) {
+                        var v2 = db.vehicles.find(function (x) { return x.id == _capturedVehId; });
+                        if (v2) {
+                            if (!v2.testData) v2.testData = {};
+                            if (!v2.testData.signatures) v2.testData.signatures = {};
+                            v2.testData.signatures.technician = sig;
+                            if (typeof saveDB === 'function') saveDB();
+                        }
+                    }
+                    if (typeof showToast === 'function') showToast('Hoja de resultados capturada y firmada', 'success');
+                    if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_capturedVehId);
+                    if (typeof loadRelease === 'function') { try { loadRelease(_capturedVehId); } catch (e) {} }
+                },
+                onCancel: function () {
+                    if (typeof showToast === 'function') showToast('Foto guardada, pero falta firma del tecnico', 'warning');
+                    if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_capturedVehId);
+                    if (typeof loadRelease === 'function') { try { loadRelease(_capturedVehId); } catch (e) {} }
+                }
+            });
+        } else {
+            if (typeof showToast === 'function') showToast('Hoja de resultados capturada', 'success');
+            if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_capturedVehId);
+            if (typeof loadRelease === 'function') { try { loadRelease(_capturedVehId); } catch (e) {} }
         }
     });
 }
@@ -1036,6 +1082,115 @@ function paCloseConfigModal() {
         // Refresh Today card since settings may have changed
         if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
     }, 200);
+}
+
+// ══════════════════════════════════════════════════════════════
+// MANUAL TRIGGER & BATCH — send PA webhooks for historical vehicles
+// ══════════════════════════════════════════════════════════════
+
+function paManualTrigger(vehicleId, eventType) {
+    if (!paConfig.enabled || !paConfig.webhookUrl) {
+        if (typeof showToast === 'function') showToast('Configura Power Automate primero', 'warning');
+        return;
+    }
+    var vehicle = null;
+    if (typeof db !== 'undefined' && db.vehicles) {
+        vehicle = db.vehicles.find(function (v) { return v.id == vehicleId; });
+    }
+    if (!vehicle) { if (typeof showToast === 'function') showToast('Vehiculo no encontrado', 'error'); return; }
+
+    paBuildPayload(eventType, vehicle).then(function (payload) {
+        return paSendWebhook(payload);
+    }).then(function () {
+        if (!vehicle.paStatus) vehicle.paStatus = {};
+        vehicle.paStatus[eventType] = { sent: true, sentAt: new Date().toISOString(), manual: true };
+        if (typeof saveDB === 'function') saveDB();
+        _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: eventType };
+        if (typeof showToast === 'function') showToast('Enviado a Power Automate: ' + (vehicle.vin || vehicleId), 'success');
+        if (typeof renderHistory === 'function') renderHistory();
+    }).catch(function (err) {
+        paQueueAdd(eventType, vehicleId);
+        if (typeof showToast === 'function') showToast('En cola para reintento: ' + String(err), 'warning');
+    });
+}
+
+function paBatchTriggerAll() {
+    if (!paConfig.enabled || !paConfig.webhookUrl) {
+        if (typeof showToast === 'function') showToast('Configura Power Automate primero', 'warning');
+        return;
+    }
+    if (typeof db === 'undefined' || !db.vehicles) return;
+    var pending = db.vehicles.filter(function (v) {
+        return v.status === 'archived' &&
+            (!v.paStatus || !v.paStatus.vehicle_released || !v.paStatus.vehicle_released.sent);
+    });
+    if (pending.length === 0) { if (typeof showToast === 'function') showToast('No hay pendientes', 'info'); return; }
+    if (!confirm('Enviar ' + pending.length + ' vehiculos a Power Automate?')) return;
+
+    var queued = 0;
+    pending.forEach(function (v) {
+        paQueueAdd('vehicle_released', v.id);
+        queued++;
+    });
+    if (typeof showToast === 'function') showToast(queued + ' vehiculos agregados a la cola de PA', 'success');
+    paQueueRetry();
+}
+
+// ══════════════════════════════════════════════════════════════
+// WEEKLY PLAN WEBHOOK — send plan via PA for email/Teams distribution
+// ══════════════════════════════════════════════════════════════
+
+function paSendWeeklyPlan(plan) {
+    if (!paConfig.enabled || !paConfig.webhookUrl) {
+        console.log('PA not configured, plan not sent');
+        return;
+    }
+
+    var payload = {
+        event: 'weekly_plan_generated',
+        timestamp: new Date().toISOString(),
+        station: paConfig.stationName,
+        plan: {
+            weekDate: plan.weekDate,
+            accepted: plan.accepted,
+            acceptedDate: plan.acceptedDate || '',
+            capacity: plan.capacity,
+            itemCount: plan.items.length,
+            items: plan.items.map(function (i) {
+                return {
+                    desc: i.desc, mod: i.mod, eng: i.eng, tx: i.tx, my: i.my,
+                    tire: i.tire, scheduledDate: i.scheduledDate || '',
+                    required: i.required, deficit: i.deficit
+                };
+            }),
+            skippedInventory: plan.skippedInventory || []
+        }
+    };
+
+    if (typeof generateWeeklyStatusPDF === 'function') {
+        try {
+            var b64 = generateWeeklyStatusPDF({ returnBase64: true, silent: true });
+            if (b64) {
+                payload.pdf = {
+                    base64: b64,
+                    filename: 'Plan-Semanal-' + plan.weekDate + '.pdf',
+                    contentType: 'application/pdf'
+                };
+            }
+        } catch (e) { console.warn('Weekly PDF base64 failed:', e); }
+    }
+
+    if (!navigator.onLine) {
+        paQueueAdd('weekly_plan_generated', 'plan-' + plan.weekDate);
+        return;
+    }
+
+    paSendWebhook(payload).then(function () {
+        _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'weekly_plan_generated' };
+    }).catch(function (err) {
+        console.error('Weekly plan webhook failed:', err);
+        _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'weekly_plan_generated', error: String(err) };
+    });
 }
 
 // ══════════════════════════════════════════════════════════════
