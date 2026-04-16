@@ -459,6 +459,16 @@ function tpImportPlanCSV(csvText) {
     tpState.planImportDate = new Date().toISOString();
     tpSave();
 
+    // Force an immediate Firebase push so the CSV import isn't lost if the user closes the tab
+    // before the 2s debounce fires (also surfaces quota/network errors instead of failing silent).
+    if (typeof fbPush === 'function' && typeof fbSync !== 'undefined' && fbSync.enabled
+        && typeof fbSyncModules !== 'undefined' && fbSyncModules.testplan) {
+        fbPush('testplan', tpState, function(ok, err) {
+            if (ok) showToast('Plan de producción subido a Firebase', 'success');
+            else if (err) showToast('Plan guardado local; error subiendo a Firebase: ' + err, 'warning');
+        }, { immediate: true });
+    }
+
     let msg = 'Plan importado: ' + newData.filter(c=>c.total>0).length + ' configs activas\n\n';
     if (diff.added.length) msg += 'Nuevas: ' + diff.added.length + '\n';
     if (diff.removed.length) msg += 'Retiradas (conservadas vol=0): ' + diff.removed.length + '\n';
