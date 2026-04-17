@@ -11422,9 +11422,10 @@ function closeSubstitutionModal() {
                                 <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
                                 </button>
-                                ${v.status === 'archived' ? `<button class="btn-secondary" onclick="purgeSingleVehicle(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Purgar del sistema">
-                                    Purgar
-                                </button>` : ''}
+                                ${v.status === 'archived'
+                                    ? `<button class="btn-secondary" onclick="purgeSingleVehicle(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Purgar del sistema">Purgar</button>`
+                                    : `<button class="btn-secondary" onclick="purgeSingleVehicle(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#c2410c;color:#fed7aa;margin-left:4px;" title="Eliminar vehículo activo">Eliminar</button>`
+                                }
                             </td>
                         </tr>
                     `}).join('')}
@@ -11810,11 +11811,25 @@ function exportSingleArchivedVehicle(vehicleId) {
 function purgeSingleVehicle(vehicleId) {
   const v = db.vehicles.find(x => x.id == vehicleId);
   if (!v) return;
-  showConfirmDialog({ title: '⚠️ Purgar vehículo', message: 'Purgar VIN ' + (v.vin||'?') + ' del sistema?', type: 'danger', confirmText: 'Purgar', cancelText: 'Cancelar' }).then(function(ok) {
+  const isActive = v.status !== 'archived';
+  const statusLabel = (CONFIG.statusLabels && CONFIG.statusLabels[v.status]) || v.status;
+  const title = isActive ? '⚠️ Eliminar vehículo activo' : '⚠️ Purgar vehículo';
+  const message = isActive
+    ? 'Eliminar VIN ' + (v.vin||'?') + ' (' + statusLabel + ') del sistema?<br><br>Esta acción borra también los datos de prueba en progreso.'
+    : 'Purgar VIN ' + (v.vin||'?') + ' del sistema?';
+  const confirmText = isActive ? 'Sí, eliminar' : 'Purgar';
+  showConfirmDialog({ title: title, message: message, type: 'danger', confirmText: confirmText, cancelText: 'Cancelar' }).then(function(ok) {
     if (!ok) return;
-    auditLog('cop15', 'vehicle_purged', {type:'vehicle', id:vehicleId, label:v.vin}, 'Purgado del sistema');
+    if (typeof undoPush === 'function') undoPush('cop15', 'Eliminar ' + (v.vin||'vehículo'));
+    auditLog('cop15', isActive ? 'vehicle_deleted_active' : 'vehicle_purged', {type:'vehicle', id:vehicleId, label:v.vin}, 'Estado: ' + v.status);
+    try { localStorage.removeItem('kia_cop15_draft_' + vehicleId); } catch(e) {}
     db.vehicles = db.vehicles.filter(x => x.id != vehicleId);
-    saveDB(); refreshAllLists(); updateProgressBar(); renderHistory();
+    saveDB();
+    refreshAllLists();
+    updateProgressBar();
+    if (typeof renderHistory === 'function') renderHistory();
+    if (typeof renderKanban === 'function') renderKanban();
+    if (typeof showToast === 'function') showToast('Vehículo eliminado', 'success');
   });
 }
 
@@ -13465,7 +13480,10 @@ function renderKanban() {
                 html += '<button onclick="event.stopPropagation();copyToClipboard(\'' + fullVin.replace(/'/g,"\\'") + '\', this)" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px;" title="Copiar VIN">📋</button>';
                 if (v.adhoc) html += '<span class="adhoc-badge" title="Test ad-hoc — fuera del plan semanal">ad-hoc</span>';
                 html += '</span>';
+                html += '<span style="display:flex;align-items:center;gap:6px;">';
                 if (timeSince) html += '<span style="font-size:9px;color:#94a3b8;" title="Tiempo en este estado">' + timeSince + '</span>';
+                html += '<button onclick="event.stopPropagation();purgeSingleVehicle(' + parseInt(v.id) + ')" style="background:none;border:none;cursor:pointer;font-size:12px;color:#ef4444;padding:0 2px;line-height:1;" title="Eliminar vehículo">🗑️</button>';
+                html += '</span>';
                 html += '</div>';
                 // Config labels
                 if (modelo) {
