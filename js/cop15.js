@@ -975,6 +975,20 @@ setAltaDatetimeIfEmpty(true);
             };
         }
 
+        const regDtEl = document.getElementById('reg_datetime');
+        const regDtVal = regDtEl && regDtEl.value ? regDtEl.value : '';
+        let registeredAtIso;
+        if (regDtVal) {
+            const parsed = new Date(regDtVal);
+            if (isNaN(parsed.getTime())) {
+                showToast('Fecha/hora de alta inválida', 'error');
+                return;
+            }
+            registeredAtIso = parsed.toISOString();
+        } else {
+            registeredAtIso = new Date().toISOString();
+        }
+
         const newVehicle = {
             id: ++db.lastId,
             vin: document.getElementById('vin').value,
@@ -985,10 +999,10 @@ setAltaDatetimeIfEmpty(true);
             fromPlanItem: planLink,
             status: 'registered',
             registeredBy: document.getElementById('reg_operator').value,
-            registeredAt: new Date().toISOString(),
+            registeredAt: registeredAtIso,
             timeline: [
                 {
-                    timestamp: new Date().toISOString(),
+                    timestamp: registeredAtIso,
                     user: document.getElementById('reg_operator').value,
                     action: 'Vehículo Registrado' + (isAdhoc ? ' (ad-hoc)' : ''),
                     data: { status: 'registered', configCode: configCode, adhoc: isAdhoc, fromPlanItem: planLink }

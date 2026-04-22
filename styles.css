@@ -769,6 +769,12 @@ body{ overflow-x: hidden; }
 .tp-table tr:hover { background:#f1f5f9; }
 .tp-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
 
+/* [AUDIT-EXT] Coverage heatmap */
+.tp-heatmap { border:1px solid var(--tp-border); border-radius:8px; overflow:hidden; }
+.tp-heatmap th { background:var(--tp-card); border-bottom:1px solid var(--tp-border); }
+.tp-heatmap-cell { text-align:center; vertical-align:middle; }
+.tp-heatmap-cell:hover > div { outline:2px solid #2563eb; outline-offset:-2px; }
+
 /* Bars */
 .tp-bar { background:#e2e8f0; border-radius:6px; height:14px; overflow:hidden; position:relative; }
 .tp-bar-fill { height:100%; border-radius:6px; transition:width .3s; }
