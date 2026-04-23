@@ -2301,7 +2301,7 @@ function showSubstitutionModal(data) {
     var modal = document.getElementById('substitutionModal');
     if (!modal) return;
 
-    var html = '<div style="font-size:0.85rem;color:#64748b;margin-bottom:16px;">' +
+    var html = '<div style="font-size:0.85rem;color:#475569;margin-bottom:16px;">' +
         'El vehículo <strong style="color:#1e293b;">' + data.vin + '</strong> con configuración ' +
         '<span style="font-family:monospace;font-size:0.75rem;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + (data.configCode.length > 50 ? data.configCode.substring(0, 48) + '..' : data.configCode) + '</span>' +
         ' no coincide exactamente con ninguna configuración pendiente en el plan semanal.' +
@@ -2322,7 +2322,7 @@ function showSubstitutionModal(data) {
         html += '</div>';
 
         html += '<div style="display:flex;gap:8px;align-items:center;">';
-        html += '<span style="font-size:0.7rem;color:#64748b;">' + m.diffs.length + ' diferencia' + (m.diffs.length > 1 ? 's' : '') + '</span>';
+        html += '<span style="font-size:0.7rem;color:#475569;">' + m.diffs.length + ' diferencia' + (m.diffs.length > 1 ? 's' : '') + '</span>';
         html += '<button class="btn-primary" onclick="applySubstitution(' + m.planIdx + ',' + m.itemIdx + ',\'' + data.configCode.replace(/'/g, "\\'") + '\',\'' + data.vin + '\',' + idx + ')" ' +
             'style="margin-left:auto;padding:6px 16px;font-size:0.8rem;border-radius:6px;">Sustituir</button>';
         html += '</div></div>';
@@ -2565,7 +2565,7 @@ function batchPDFExport() {
 
     showConfirm(
         '<p>Generar PDF con <strong>' + ids.length + ' vehículos</strong> en un solo documento?</p>' +
-        '<p style="font-size:11px;color:#64748b;">Cada vehículo será una página del PDF.</p>',
+        '<p style="font-size:11px;color:#475569;">Cada vehículo será una página del PDF.</p>',
         function() { _doBatchPDF(ids); },
         { title: 'Batch PDF Export', type: 'info', confirmText: 'Generar PDF' }
     );
@@ -2835,7 +2835,7 @@ function handleImportArchive(event) {
       modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9000;display:flex;align-items:center;justify-content:center;';
       modal.innerHTML = '<div style="background:#fff;border-radius:14px;padding:24px;max-width:380px;width:90%;">' +
         '<h3 style="margin:0 0 8px;color:#0f172a;">Importar ' + data.vehicles.length + ' vehículos</h3>' +
-        '<p style="font-size:11px;color:#64748b;margin-bottom:14px;">Selecciona el estado destino:</p>' +
+        '<p style="font-size:11px;color:#475569;margin-bottom:14px;">Selecciona el estado destino:</p>' +
         '<div style="display:grid;gap:6px;">' +
         '<button onclick="executeArchiveImport(\'registered\')" style="padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Registrado</button>' +
         '<button onclick="executeArchiveImport(\'in-progress\')" style="padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">En Progreso</button>' +
@@ -3568,7 +3568,7 @@ function openManualConfigForm(editIdx) {
     });
 
     html += '<div class="mcf-preview" id="mcfPreview">' +
-        '<div style="font-size:10px;color:#64748b;margin-bottom:2px;">Código generado:</div>' +
+        '<div style="font-size:10px;color:#475569;margin-bottom:2px;">Código generado:</div>' +
         '<div id="mcfPreviewCode" style="font-family:monospace;font-size:11px;color:var(--kia-red);font-weight:700;word-break:break-all;">-</div>' +
         '</div></div>';
 
@@ -3931,7 +3931,7 @@ function openQuickReview() {
     var header = '<div style="margin-bottom:14px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
         '<span style="font-size:13px;font-weight:700;">' + filled + '/' + total + ' campos completados</span>' +
-        '<span style="font-size:11px;color:#64748b;">' + empty + ' pendientes' + (warnings ? ' · ' + warnings + ' advertencias' : '') + '</span></div>' +
+        '<span style="font-size:11px;color:#475569;">' + empty + ' pendientes' + (warnings ? ' · ' + warnings + ' advertencias' : '') + '</span></div>' +
         '<div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">' +
         '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;transition:width 0.3s;"></div></div></div>';
 
@@ -4055,7 +4055,7 @@ function copyFromLastVehicle() {
     showConfirm(
         '<div style="text-align:left;">' +
         '<p><strong>Copiar datos de VIN ' + vinShort + '</strong> (archivado ' + sourceDate + ')</p>' +
-        '<p style="font-size:11px;color:#64748b;margin:8px 0 4px;">Campos a copiar (' + fieldsToCopy.length + '):</p>' +
+        '<p style="font-size:11px;color:#475569;margin:8px 0 4px;">Campos a copiar (' + fieldsToCopy.length + '):</p>' +
         '<div style="font-size:11px;color:#475569;max-height:150px;overflow-y:auto;columns:2;column-gap:12px;">' +
         fieldsToCopy.map(function(f) { return '<div>• ' + f.label + '</div>'; }).join('') +
         '</div></div>',
@@ -4481,7 +4481,7 @@ function renderKanban() {
     var html = '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
     html += '<h3 style="margin:0;font-size:16px;">Cola de Vehiculos</h3>';
     var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
-    html += '<span style="font-size:11px;color:#64748b;">' + totalActive + ' activos</span>';
+    html += '<span style="font-size:11px;color:#475569;">' + totalActive + ' activos</span>';
     html += '<span style="margin-left:auto;">' + renderViewModeToggle('kanban', true) + '</span>';
     if (precondCount > 0) {
         html += '<button onclick="renderPrecondBatchView()" style="background:#f59e0b;color:#000;border:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 Precond Lote (' + precondCount + ')</button>';
@@ -4490,7 +4490,7 @@ function renderKanban() {
 
     // Search + Sort + Filter bar
     html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">';
-    html += '<input type="text" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;renderKanban();" style="flex:1;min-width:140px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;">';
+    html += '<input type="text" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;renderKanban();" style="flex:1 1 140px;min-width:0;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">';
     html += '<select onchange="_kanbanFilters.sort=this.value;renderKanban();" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;background:#fff;">';
     html += '<option value="newest"' + (_kanbanFilters.sort==='newest'?' selected':'') + '>Mas reciente</option>';
     html += '<option value="oldest"' + (_kanbanFilters.sort==='oldest'?' selected':'') + '>Mas antiguo</option>';
@@ -4605,8 +4605,8 @@ function renderKanban() {
     // Summary metrics below
     var archived = vehicles.filter(function(v){ return v.status === 'archived'; }).length;
     html += '<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">';
-    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + archived + '</strong> <span style="color:#64748b;">archivados</span></div>';
-    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + vehicles.length + '</strong> <span style="color:#64748b;">total historico</span></div>';
+    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + archived + '</strong> <span style="color:#475569;">archivados</span></div>';
+    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + vehicles.length + '</strong> <span style="color:#475569;">total historico</span></div>';
     html += '</div>';
 
     el.innerHTML = html;
@@ -4643,7 +4643,7 @@ function renderPrecondBatchView() {
     var html = '<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">';
     html += '<button onclick="renderKanban()" style="background:#334155;color:#f8fafc;border:none;padding:6px 12px;border-radius:8px;font-size:11px;cursor:pointer;">← Kanban</button>';
     html += '<h3 style="margin:0;font-size:16px;">📋 Preacondicionamiento en Lote</h3>';
-    html += '<span style="font-size:11px;color:#64748b;">' + vehicles.length + ' vehiculos</span>';
+    html += '<span style="font-size:11px;color:#475569;">' + vehicles.length + ' vehiculos</span>';
     html += '</div>';
 
     // Batch actions

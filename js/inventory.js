@@ -392,18 +392,18 @@ function invShowAddGas(editId) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;">' + title + '</h3>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div><label style="font-size:10px;color:#64748b;">No. Control * <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size:9px;background:#0f766e;color:#fff;border:none;border-radius:4px;padding:1px 6px;cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div style="grid-column:1/-1;"><label style="font-size:10px;color:#64748b;">Tipo de Gas *</label><select id="inv-g-type" onchange="invUpdateConcOpts()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + gasTypeOpts + '</select></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Conc. Nominal</label><select id="inv-g-conc" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></select></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Trazabilidad</label><select id="inv-g-trace" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (g&&g.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (g&&g.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Vigencia</label><input id="inv-g-valid" type="date" value="' + (g?g.validUntil:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Zona + Posicion *</label><select id="inv-g-zone" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + zoneOpts + '</select></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Estatus</label><select id="inv-g-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.status==='Stock'?'selected':'') + '>Stock</option><option ' + (g&&g.status==='In use'?'selected':'') + '>In use</option><option ' + (g&&g.status==='Empty'?'selected':'') + '>Empty</option><option ' + (g&&g.status==='Spare'?'selected':'') + '>Spare</option></select></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Proveedor</label><input id="inv-g-supplier" value="' + (g?g.supplier||'':'') + '" placeholder="Nombre del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Control * <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size:9px;background:#0f766e;color:#fff;border:none;border-radius:4px;padding:1px 6px;cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div style="grid-column:1/-1;"><label style="font-size:11px;color:#475569;font-weight:600;">Tipo de Gas *</label><select id="inv-g-type" onchange="invUpdateConcOpts()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + gasTypeOpts + '</select></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Conc. Nominal</label><select id="inv-g-conc" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></select></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Trazabilidad</label><select id="inv-g-trace" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (g&&g.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (g&&g.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Vigencia</label><input id="inv-g-valid" type="date" value="' + (g?g.validUntil:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Zona + Posicion *</label><select id="inv-g-zone" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + zoneOpts + '</select></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Estatus</label><select id="inv-g-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.status==='Stock'?'selected':'') + '>Stock</option><option ' + (g&&g.status==='In use'?'selected':'') + '>In use</option><option ' + (g&&g.status==='Empty'?'selected':'') + '>Empty</option><option ' + (g&&g.status==='Spare'?'selected':'') + '>Spare</option></select></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Proveedor</label><input id="inv-g-supplier" value="' + (g?g.supplier||'':'') + '" placeholder="Nombre del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveGas(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
@@ -538,7 +538,7 @@ function invShowBarcode(id) {
     html += '<div style="font-size:20px;font-weight:800;">KIA Emissions Lab</div>';
     html += '<div style="font-size:11px;color:#64748b;">Ficha de Recepcion de Cilindro de Gas</div>';
     html += '</div>';
-    html += '<div style="text-align:right;font-size:10px;color:#64748b;">';
+    html += '<div style="text-align:right;font-size:11px;color:#475569;font-weight:600;">';
     html += '<div>Fecha recepcion: <strong style="color:#0f172a;font-size:12px;">' + (g.regDate || new Date().toISOString().slice(0,10)) + '</strong></div>';
     html += '<div>Folio: ' + g.controlNo + '</div>';
     html += '</div></div>';
@@ -860,7 +860,7 @@ function invRenderReadings(el) {
                 last5.forEach(function(r){ html += '<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.05);border:1px solid var(--tp-border);color:var(--tp-dim);">' + r.date.slice(5) + ': <strong style="color:#fff;">' + r.psi + '</strong></span>'; });
             } else { html += '<span style="font-size:9px;color:var(--tp-dim);">Sin lecturas</span>'; }
             html += '</div>';
-            html += '<input type="number" id="inv-rd-' + g.id + '" placeholder="psi" style="width:70px;padding:5px;border:1px solid var(--tp-border);border-radius:5px;background:#1e293b;color:#fff;font-size:11px;text-align:center;">';
+            html += '<input type="number" inputmode="numeric" id="inv-rd-' + g.id + '" placeholder="psi" style="width:90px;min-height:40px;padding:8px 10px;border:1px solid var(--tp-border);border-radius:8px;background:#1e293b;color:#fff;font-size:14px;text-align:center;font-weight:600;">';
             html += '</div>';
         });
         html += '</div>';
@@ -1043,7 +1043,7 @@ function invScanFilter() {
             html += '<div style="font-size:14px;font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' psi</div>';
             html += '<div style="font-size:9px;color:#64748b;">' + lastR.date + '</div>';
         } else {
-            html += '<div style="font-size:10px;color:#64748b;">Sin lecturas</div>';
+            html += '<div style="font-size:11px;color:#475569;font-weight:600;">Sin lecturas</div>';
         }
         html += '</div></div></button>';
     });
@@ -1074,7 +1074,7 @@ function invQuickReadPopup(g) {
 
     // Previous reading
     html += '<div style="background:#1e293b;border-radius:10px;padding:14px;margin-bottom:16px;border:1px solid #334155;">';
-    html += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;">Lectura anterior</div>';
+    html += '<div style="font-size:11px;color:#475569;font-weight:600;margin-bottom:6px;">Lectura anterior</div>';
     if (lastR) {
         html += '<div style="display:flex;justify-content:space-between;align-items:baseline;">';
         html += '<span style="font-size:28px;font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' <span style="font-size:14px;font-weight:400;">psi</span></span>';
@@ -1094,7 +1094,7 @@ function invQuickReadPopup(g) {
     html += '<div style="display:flex;gap:10px;align-items:center;">';
     html += '<div style="flex:1;">';
     html += '<input id="inv-quick-psi" type="number" inputmode="numeric" placeholder="0" autofocus style="width:100%;padding:14px;font-size:24px;font-weight:700;text-align:center;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#fff;">';
-    html += '<div style="text-align:center;font-size:10px;color:#64748b;margin-top:3px;">psi</div>';
+    html += '<div style="text-align:center;font-size:11px;color:#475569;font-weight:600;margin-top:3px;">psi</div>';
     html += '</div>';
     html += '<div>';
     html += '<input id="inv-quick-date" type="date" value="' + today + '" style="padding:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:11px;">';
@@ -1193,18 +1193,18 @@ function invAddEquipment(editId) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Equipo' : 'Nuevo Equipo') + '</h3>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div style="grid-column:1/-1;"><label style="font-size:10px;color:#64748b;">Nombre *</label><input id="inv-eq-name" value="' + v('name') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Tipo</label><input id="inv-eq-type" value="' + v('type') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Marca</label><input id="inv-eq-brand" value="' + v('brand') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Modelo</label><input id="inv-eq-model" value="' + v('model') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">No. Serie</label><input id="inv-eq-serial" value="' + v('serialNo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">KMM ID</label><input id="inv-eq-kmmid" value="' + v('kmmId') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Ubicacion</label><input id="inv-eq-loc" value="' + v('location') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Trazabilidad</label><input id="inv-eq-trace" value="' + v('traceability','EMA') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Lab Calibracion</label><input id="inv-eq-callab" value="' + v('calLab') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Ultima Cal.</label><input id="inv-eq-lastcal" type="date" value="' + v('lastCalDate') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Proxima Cal.</label><input id="inv-eq-nextcal" type="date" value="' + v('nextCalDate') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">No. Certificado</label><input id="inv-eq-cert" value="' + v('calCertNo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div style="grid-column:1/-1;"><label style="font-size:11px;color:#475569;font-weight:600;">Nombre *</label><input id="inv-eq-name" value="' + v('name') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Tipo</label><input id="inv-eq-type" value="' + v('type') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Marca</label><input id="inv-eq-brand" value="' + v('brand') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Modelo</label><input id="inv-eq-model" value="' + v('model') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Serie</label><input id="inv-eq-serial" value="' + v('serialNo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">KMM ID</label><input id="inv-eq-kmmid" value="' + v('kmmId') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Ubicacion</label><input id="inv-eq-loc" value="' + v('location') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Trazabilidad</label><input id="inv-eq-trace" value="' + v('traceability','EMA') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Lab Calibracion</label><input id="inv-eq-callab" value="' + v('calLab') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Ultima Cal.</label><input id="inv-eq-lastcal" type="date" value="' + v('lastCalDate') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Proxima Cal.</label><input id="inv-eq-nextcal" type="date" value="' + v('nextCalDate') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Certificado</label><input id="inv-eq-cert" value="' + v('calCertNo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveEquipment(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
@@ -1743,11 +1743,11 @@ function invRenderTrace(el) {
         '<div class="tp-card-title"><span>🔗 Trazabilidad Gas ↔ Prueba</span></div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">' +
         '<div style="flex:1;min-width:140px;">' +
-        '<label style="font-size:10px;color:#64748b;display:block;margin-bottom:3px;">Buscar por</label>' +
+        '<label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Buscar por</label>' +
         '<select id="inv-trace-mode" onchange="invTraceSearch()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
         '<option value="gas">Cilindro</option><option value="lot">No. Lote</option><option value="vin">VIN</option></select></div>' +
         '<div style="flex:2;min-width:200px;" id="inv-trace-input-wrap">' +
-        '<label style="font-size:10px;color:#64748b;display:block;margin-bottom:3px;">Valor</label>' +
+        '<label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Valor</label>' +
         '<input id="inv-trace-q" placeholder="Escribe para buscar..." onkeyup="invTraceSearch()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
         '</div>' +
         '<button onclick="invTraceSearch()" class="tp-btn tp-btn-primary" style="padding:8px 14px;">Buscar</button>' +
@@ -2022,16 +2022,16 @@ function invAddFuelTank(editId) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Tambo' : 'Nuevo Tambo') + '</h3>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div style="grid-column:1/-1;"><label style="font-size:10px;color:#64748b;">Nombre *</label><input id="inv-ft-name" value="' + v('name','Tambo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Tipo combustible</label><input id="inv-ft-type" value="' + v('fuelType','Gasolina Referencia') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Regulacion</label><input id="inv-ft-reg" value="' + v('regulation') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Octanaje/Spec</label><input id="inv-ft-octane" value="' + v('octane','87 AKI') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Proveedor</label><input id="inv-ft-supplier" value="' + v('supplier') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Capacidad</label><input id="inv-ft-cap" type="number" value="' + v('capacity','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Nivel actual</label><input id="inv-ft-level" type="number" value="' + v('currentLevel','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Unidad</label><select id="inv-ft-unit" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Fecha recepcion</label><input id="inv-ft-date" type="date" value="' + v('regDate',new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Estatus</label><select id="inv-ft-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
+        '<div style="grid-column:1/-1;"><label style="font-size:11px;color:#475569;font-weight:600;">Nombre *</label><input id="inv-ft-name" value="' + v('name','Tambo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Tipo combustible</label><input id="inv-ft-type" value="' + v('fuelType','Gasolina Referencia') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Regulacion</label><input id="inv-ft-reg" value="' + v('regulation') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Octanaje/Spec</label><input id="inv-ft-octane" value="' + v('octane','87 AKI') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Proveedor</label><input id="inv-ft-supplier" value="' + v('supplier') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Capacidad</label><input id="inv-ft-cap" type="number" value="' + v('capacity','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Nivel actual</label><input id="inv-ft-level" type="number" value="' + v('currentLevel','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Unidad</label><select id="inv-ft-unit" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recepcion</label><input id="inv-ft-date" type="date" value="' + v('regDate',new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Estatus</label><select id="inv-ft-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveFuelTank(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
@@ -2086,7 +2086,7 @@ function invFuelReading(tankId) {
     modal.innerHTML = '<div style="max-width:360px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;color:#0f172a;">Lectura: ' + t.name + '</h3>' +
-        '<div><label style="font-size:10px;color:#64748b;">Nivel actual (' + (t.unit||'L') + ')</label>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Nivel actual (' + (t.unit||'L') + ')</label>' +
         '<input id="inv-fuel-level" type="number" step="0.1" value="' + (t.currentLevel||0) + '" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:6px;font-size:16px;margin-top:4px;"></div>' +
         '<button onclick="invSaveFuelReading(\x27' + tankId + '\x27)" style="width:100%;margin-top:14px;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar Lectura</button>' +
         '</div>';
@@ -2298,6 +2298,19 @@ function _invCalcViewBox() {
     return '0 0 ' + Math.max(maxX, 400) + ' ' + Math.max(maxY, 300);
 }
 
+function _invHeaderPath(x, y, w, h, r) {
+    // Rounded top-left and top-right, flat bottom — for zone header strip
+    var r2 = Math.min(r, h, w / 2);
+    return 'M' + (x + r2) + ' ' + y +
+           ' H' + (x + w - r2) +
+           ' Q' + (x + w) + ' ' + y + ' ' + (x + w) + ' ' + (y + r2) +
+           ' V' + (y + h) +
+           ' H' + x +
+           ' V' + (y + r2) +
+           ' Q' + x + ' ' + y + ' ' + (x + r2) + ' ' + y +
+           ' Z';
+}
+
 function _invCylColor(gas) {
     var expiry = invGasExpiry(gas);
     if (expiry.status === 'expired') return 'expired';
@@ -2361,35 +2374,65 @@ function invRenderFloorPlan(el) {
         if (!lay) return;
         var zGases = gases.filter(function(g) { return g.zone && g.zone.startsWith(z.id); });
         var capPct = z.slots > 0 ? Math.round((zGases.length / z.slots) * 100) : 0;
-        var capColor = capPct > 80 ? '#ef4444' : capPct > 50 ? '#f59e0b' : '#10b981';
+        // Capacity palette: green <=50, amber <=80, red >80
+        var capStroke = capPct > 80 ? '#dc2626' : capPct > 50 ? '#d97706' : '#059669';
+        var capHeader = capPct > 80 ? '#dc2626' : capPct > 50 ? '#d97706' : '#059669';
+        var capTint   = capPct > 80 ? 'rgba(239,68,68,0.06)' : capPct > 50 ? 'rgba(245,158,11,0.06)' : 'rgba(16,185,129,0.05)';
+
+        var headerH = 26;
+        var rCorner = 10;
 
         // Zone group
         html += '<g class="inv-zone-group" data-zone-id="' + z.id + '">';
 
-        // Zone rectangle
+        // Main zone rectangle — capacity-colored border, CSS-driven fill
         var editClass = _invFloorPlanEditMode ? ' editing' : '';
-        html += '<rect class="inv-zone-shape' + editClass + '" x="' + lay.x + '" y="' + lay.y + '" width="' + lay.w + '" height="' + lay.h + '" rx="8" ry="8" ' +
-            'fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"' +
-            (_invFloorPlanEditMode ? ' stroke-dasharray="6 3"' : '') +
-            ' data-zone-id="' + z.id + '"/>';
+        var strokeW = _invFloorPlanEditMode ? 2 : (capPct > 80 ? 2.5 : 1.8);
+        var dashAttr = _invFloorPlanEditMode ? ';stroke-dasharray:6 3' : '';
+        html += '<rect class="inv-zone-shape' + editClass + '" x="' + lay.x + '" y="' + lay.y + '" width="' + lay.w + '" height="' + lay.h + '" rx="' + rCorner + '" ry="' + rCorner + '" ' +
+            'style="stroke:' + capStroke + ';stroke-width:' + strokeW + dashAttr + '" ' +
+            'data-zone-id="' + z.id + '"/>';
 
-        // Zone label
-        html += '<text class="inv-zone-label" x="' + (lay.x + 10) + '" y="' + (lay.y + 18) + '" font-size="13" font-weight="800" fill="#1e293b">' +
-            z.id + ' — ' + z.label + '</text>';
+        // Subtle capacity tint overlay (transparent to clicks)
+        html += '<rect x="' + lay.x + '" y="' + lay.y + '" width="' + lay.w + '" height="' + lay.h + '" rx="' + rCorner + '" ry="' + rCorner + '" fill="' + capTint + '" pointer-events="none"/>';
 
-        // Zone sublabel
-        html += '<text class="inv-zone-sublabel" x="' + (lay.x + 10) + '" y="' + (lay.y + 32) + '" font-size="9" fill="' + capColor + '">' +
-            zGases.length + '/' + z.slots + ' (' + capPct + '%) — ' + z.type + '</text>';
+        // Header bar (rounded top, flat bottom) — capacity color
+        var headerPath = _invHeaderPath(lay.x, lay.y, lay.w, headerH, rCorner);
+        html += '<path d="' + headerPath + '" fill="' + capHeader + '" pointer-events="none"/>';
 
-        // Cylinder grid inside zone
+        // Zone label (white on colored header, left-aligned)
+        var labelText = z.id + '  ' + z.label;
+        html += '<text x="' + (lay.x + 12) + '" y="' + (lay.y + 17) + '" font-size="12" font-weight="800" fill="#fff" text-anchor="start" pointer-events="none" style="letter-spacing:0.3px;">' +
+            _invEscAttr(labelText) + '</text>';
+
+        // Capacity badge on right of header
+        html += '<text x="' + (lay.x + lay.w - 10) + '" y="' + (lay.y + 17) + '" font-size="11" font-weight="700" fill="#fff" text-anchor="end" pointer-events="none">' +
+            zGases.length + '/' + z.slots + '  ·  ' + capPct + '%</text>';
+
+        // Zone type sub-line (just below header, inside the tinted area)
+        html += '<text x="' + (lay.x + 12) + '" y="' + (lay.y + headerH + 12) + '" font-size="9" font-weight="600" fill="' + capHeader + '" text-anchor="start" pointer-events="none" style="letter-spacing:0.2px;text-transform:uppercase;">' +
+            _invEscAttr(z.type || '') + '</text>';
+
+        // Clip cylinders within the zone content area so they never overflow
+        var clipId = 'inv-clip-' + z.id;
+        var clipY = lay.y + headerH + 16;
+        var clipH = Math.max(0, lay.h - headerH - 16);
+        html += '<defs><clipPath id="' + clipId + '"><rect x="' + (lay.x + 2) + '" y="' + clipY + '" width="' + (lay.w - 4) + '" height="' + clipH + '" rx="' + Math.max(0, rCorner - 2) + '" ry="' + Math.max(0, rCorner - 2) + '"/></clipPath></defs>';
+
+        // Cylinder grid inside zone (clipped)
+        html += '<g clip-path="url(#' + clipId + ')">';
         var cylRadius = 12;
         var cylGap = 6;
         var cylDiam = cylRadius * 2 + cylGap;
         var startX = lay.x + 14;
-        var startY = lay.y + 46;
+        var startY = clipY + 6;
         var maxCols = Math.max(1, Math.floor((lay.w - 28) / cylDiam));
+        var maxRows = Math.max(1, Math.floor((clipH - 12) / cylDiam));
+        var visibleSlots = maxCols * maxRows;
+        var overflowN = z.slots - visibleSlots;
 
-        for (var s = 1; s <= z.slots; s++) {
+        var renderMax = Math.min(z.slots, visibleSlots);
+        for (var s = 1; s <= renderMax; s++) {
             var code = z.id + (s < 10 ? '0' : '') + s;
             var col = (s - 1) % maxCols;
             var row = Math.floor((s - 1) / maxCols);
@@ -2408,33 +2451,48 @@ function invRenderFloorPlan(el) {
                     'data-tooltip-conc="' + _invEscAttr(slotGas.concNominal || '') + '" ' +
                     'data-tooltip-level="' + lvl.pct + '%" ' +
                     'style="cursor:pointer;">';
-                html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="' + fillColor + '" stroke="' + fillColor + '" stroke-width="1.5" opacity="0.9"/>';
+                html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="' + fillColor + '" stroke="' + fillColor + '" stroke-width="1.5" opacity="0.92"/>';
 
                 if (cylStatus === 'expired') {
                     html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="url(#inv-cross-pattern)" stroke="#ef4444" stroke-width="1.5"/>';
                 }
 
-                // Formula label inside cylinder
+                // Formula label inside cylinder — 3 chars max to fit radius 12
                 var shortLabel = slotGas.formula.split('/')[0];
-                if (shortLabel.length > 4) shortLabel = shortLabel.substring(0, 4);
-                html += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" font-size="7" font-weight="700" fill="#fff" pointer-events="none">' + shortLabel + '</text>';
+                if (shortLabel.length > 3) shortLabel = shortLabel.substring(0, 3);
+                var labelFs = shortLabel.length <= 2 ? 10 : 9;
+                html += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" font-size="' + labelFs + '" font-weight="700" fill="#fff" pointer-events="none">' + _invEscAttr(shortLabel) + '</text>';
 
                 html += '</g>';
             } else {
                 // Empty slot — dashed circle
                 html += '<g class="inv-cylinder cyl-empty" data-zone-code="' + code + '" style="cursor:pointer;">';
                 html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 2"/>';
-                html += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" font-size="6" fill="#94a3b8" pointer-events="none">' + s + '</text>';
+                html += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#94a3b8" pointer-events="none">' + s + '</text>';
                 html += '</g>';
             }
         }
+        html += '</g>'; // close clipped cylinder group
 
-        // Resize handles in edit mode
+        // Overflow badge if zone is too small to show all slots
+        if (overflowN > 0) {
+            var badgeX = lay.x + lay.w - 38;
+            var badgeY = lay.y + lay.h - 18;
+            html += '<rect x="' + badgeX + '" y="' + badgeY + '" width="32" height="14" rx="7" ry="7" fill="#334155" opacity="0.85" pointer-events="none"/>';
+            html += '<text x="' + (badgeX + 16) + '" y="' + (badgeY + 10) + '" font-size="9" font-weight="700" fill="#fff" text-anchor="middle" pointer-events="none">+' + overflowN + '</text>';
+        }
+
+        // Resize handles in edit mode (4 corners + 4 mid-sides)
         if (_invFloorPlanEditMode) {
             var handles = [
                 { hx: lay.x + lay.w, hy: lay.y + lay.h, cursor: 'nwse-resize', handle: 'se' },
-                { hx: lay.x + lay.w, hy: lay.y, cursor: 'nesw-resize', handle: 'ne' },
-                { hx: lay.x, hy: lay.y + lay.h, cursor: 'nesw-resize', handle: 'sw' }
+                { hx: lay.x + lay.w, hy: lay.y,         cursor: 'nesw-resize', handle: 'ne' },
+                { hx: lay.x,         hy: lay.y + lay.h, cursor: 'nesw-resize', handle: 'sw' },
+                { hx: lay.x,         hy: lay.y,         cursor: 'nwse-resize', handle: 'nw' },
+                { hx: lay.x + lay.w / 2, hy: lay.y,         cursor: 'ns-resize', handle: 'n' },
+                { hx: lay.x + lay.w / 2, hy: lay.y + lay.h, cursor: 'ns-resize', handle: 's' },
+                { hx: lay.x,             hy: lay.y + lay.h / 2, cursor: 'ew-resize', handle: 'w' },
+                { hx: lay.x + lay.w,     hy: lay.y + lay.h / 2, cursor: 'ew-resize', handle: 'e' }
             ];
             handles.forEach(function(h) {
                 html += '<rect class="inv-resize-handle" x="' + (h.hx - 5) + '" y="' + (h.hy - 5) + '" width="10" height="10" rx="2" ' +
@@ -3176,10 +3234,10 @@ function invShowZoneModal(idx) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Zona ' + v('id') : 'Nueva Zona') + '</h3>' +
         '<div style="display:grid;gap:10px;">' +
-        (!isEdit ? '<div><label style="font-size:10px;color:#64748b;">ID (1-2 caracteres, ej: I, J)</label><input id="inv-zone-id" maxlength="2" value="" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;font-size:16px;text-transform:uppercase;"></div>' : '') +
-        '<div><label style="font-size:10px;color:#64748b;">Nombre</label><input id="inv-zone-label" value="' + v('label', 'Zona') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Cantidad de slots</label><input id="inv-zone-slots" type="number" value="' + v('slots', '10') + '" min="1" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Tipo</label><select id="inv-zone-type" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+        (!isEdit ? '<div><label style="font-size:11px;color:#475569;font-weight:600;">ID (1-2 caracteres, ej: I, J)</label><input id="inv-zone-id" maxlength="2" value="" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;font-size:16px;text-transform:uppercase;"></div>' : '') +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Nombre</label><input id="inv-zone-label" value="' + v('label', 'Zona') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Cantidad de slots</label><input id="inv-zone-slots" type="number" value="' + v('slots', '10') + '" min="1" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Tipo</label><select id="inv-zone-type" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
         '<option value="online"' + (v('type')==='online'?' selected':'') + '>Online</option>' +
         '<option value="offline"' + (v('type','offline')==='offline'?' selected':'') + '>Offline</option>' +
         '<option value="special"' + (v('type')==='special'?' selected':'') + '>Special</option>' +
@@ -3251,9 +3309,9 @@ function invShowGasTypeModal(idx) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Tipo de Gas' : 'Nuevo Tipo de Gas') + '</h3>' +
         '<div style="display:grid;gap:10px;">' +
-        '<div><label style="font-size:10px;color:#64748b;">Nombre completo (ej: Propano/Aire)</label><input id="inv-gt-name" value="' + v('name') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Formula (ej: C3H8/Air)</label><input id="inv-gt-formula" value="' + v('formula') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Concentraciones (separadas por coma)</label><input id="inv-gt-concs" value="' + concsVal + '" placeholder="ej: 2 ppm, 5 ppm, 10 ppm" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Nombre completo (ej: Propano/Aire)</label><input id="inv-gt-name" value="' + v('name') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Formula (ej: C3H8/Air)</label><input id="inv-gt-formula" value="' + v('formula') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Concentraciones (separadas por coma)</label><input id="inv-gt-concs" value="' + concsVal + '" placeholder="ej: 2 ppm, 5 ppm, 10 ppm" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveGasTypeModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
@@ -3310,7 +3368,7 @@ function invShowTrendChart(gasId) {
     modal.innerHTML = '<div style="max-width:520px;margin:20px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>' +
         '<h3 style="margin:0 0 2px;color:#06b6d4;">' + g.formula + ' ' + (g.concNominal || '') + '</h3>' +
-        '<div style="font-size:10px;color:#64748b;margin-bottom:12px;">#' + g.controlNo + ' | Zona ' + (g.zone || '?') + ' | ' + g.readings.length + ' lecturas</div>' +
+        '<div style="font-size:11px;color:#475569;font-weight:600;margin-bottom:12px;">#' + g.controlNo + ' | Zona ' + (g.zone || '?') + ' | ' + g.readings.length + ' lecturas</div>' +
         '<canvas id="inv-trend-canvas" style="width:100%;height:220px;"></canvas>' +
         '<div id="inv-trend-stats" style="margin-top:10px;"></div>' +
         '</div>';
