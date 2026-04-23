@@ -621,6 +621,8 @@ function tpRenderDashboard(el) {
     el.innerHTML = `
     ${fixedBanner}
     ${tpRenderAlertsBanner()}
+    ${tpRenderAuditReadinessCard()}
+    ${tpRenderCoverageHeatmap()}
 
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;color:var(--tp-dim);">
@@ -2736,8 +2738,102 @@ function tpBuildFamilies() {
         f.auditRiskLevel = f.auditRiskScore > 60 ? 'high' : f.auditRiskScore > 30 ? 'medium' : 'low';
     });
 
-    _tpCache.families = Object.values(families);
+    // ==================================================================
+    // [AUDIT-EXT] Continuidad MY + Equivalencia cruzada entre familias
+    // ==================================================================
+    var famArr = Object.values(families);
+    var continuityMap = (tpState && tpState.myContinuity) || {};
+
+    // Pass 1: continuity coverage per config (same family, previous MY)
+    famArr.forEach(function(f) {
+        f.continuityCoveredCount = 0;
+        f.configs.forEach(function(c) {
+            c.coveredByContinuity = null;
+            if (c.testedN > 0) return;
+            var cont = continuityMap[c.desc];
+            if (!cont || !cont.prevConfigDesc) return;
+            var prevTests = tpState.testedList.filter(function(t) { return t.configText === cont.prevConfigDesc; });
+            if (prevTests.length === 0) return;
+            c.coveredByContinuity = {
+                prevMy: cont.prevMy || '',
+                prevConfigDesc: cont.prevConfigDesc,
+                prevTestDate: prevTests[0].date || '',
+                prevTestVin: _tpExtractVin(prevTests[0].note || ''),
+                note: cont.note || ''
+            };
+            f.continuityCoveredCount++;
+        });
+    });
+
+    // Pass 2: cross-family equivalence (same powertrain+regulation, diff only in body/drive/rgn)
+    famArr.forEach(function(f) {
+        f.coveredByEquivalent = null;
+        if (f.totalTested > 0) return;
+        if (f.continuityCoveredCount > 0 && f.continuityCoveredCount === f.configCount) return;
+        var candidates = famArr.filter(function(g) {
+            if (g === f || g.totalTested === 0) return false;
+            if (g.mod !== f.mod || g.eng !== f.eng || g.tx !== f.tx || g.my !== f.my) return false;
+            if (g.reg !== f.reg) return false;
+            if (g.ep !== f.ep || g.engpkg !== f.engpkg) return false;
+            var diffs = 0;
+            if (g.body !== f.body) diffs++;
+            if (g.drv !== f.drv) diffs++;
+            if (g.rgn !== f.rgn) diffs++;
+            return diffs >= 1;
+        });
+        if (candidates.length === 0) return;
+        candidates.sort(function(a, b) { return b.totalTested - a.totalTested; });
+        var best = candidates[0];
+        var reasons = [];
+        if (best.body !== f.body) reasons.push('body');
+        if (best.drv !== f.drv) reasons.push('drive');
+        if (best.rgn !== f.rgn) reasons.push('region');
+        var sampleVin = '';
+        for (var i = 0; i < best.configs.length; i++) {
+            if (best.configs[i].vins && best.configs[i].vins.length > 0) {
+                sampleVin = _tpExtractVin(best.configs[i].vins[0].note || '');
+                if (sampleVin) break;
+            }
+        }
+        f.coveredByEquivalent = {
+            siblingKey: best.key,
+            siblingLabel: [best.mod, best.body, best.drv, best.rgn].filter(Boolean).join(' · '),
+            reasons: reasons,
+            sampleVin: sampleVin
+        };
+    });
+
+    // Pass 3: recompute auditCoverage/auditRiskLevel with new signals
+    var maxVol2 = Math.max.apply(null, famArr.map(function(x) { return x.totalVol + x.totalHist; }).concat([1]));
+    famArr.forEach(function(f) {
+        var base = f.auditCoverage != null ? f.auditCoverage : f.coverage;
+        if (f.coveredByEquivalent) base = Math.max(base, 0.85);
+        if (f.continuityCoveredCount > 0 && f.configCount > 0) {
+            var effectiveCfgs = f.testedConfigs + f.continuityCoveredCount;
+            base = Math.max(base, effectiveCfgs / f.configCount);
+        }
+        f.auditCoverage = base;
+        f.auditRiskScore = ((1 - f.auditCoverage) * 60) + (((f.totalVol + f.totalHist) / maxVol2) * 30) + ((1 - f.configCoverage) * 10);
+        f.auditRiskLevel = f.auditRiskScore > 60 ? 'high' : f.auditRiskScore > 30 ? 'medium' : 'low';
+
+        // Coverage category for audit card (E) / heatmap (F)
+        if (f.totalTested > 0 && f.coverage >= 1) f.auditCoverageKind = 'direct';
+        else if (f.totalTested > 0) f.auditCoverageKind = 'partial';
+        else if (f.continuityCoveredCount > 0 && f.continuityCoveredCount === f.configCount) f.auditCoverageKind = 'continuity';
+        else if (f.coveredByEquivalent) f.auditCoverageKind = 'equivalent';
+        else f.auditCoverageKind = 'none';
+    });
+
+    _tpCache.families = famArr;
     return _tpCache.families;
+}
+
+function _tpExtractVin(note) {
+    if (!note) return '';
+    var m = String(note).match(/VIN:\s*([^\s—]+)/);
+    if (m) return m[1];
+    var parts = String(note).split('—');
+    return (parts[0] || '').trim();
 }
 
 function tpRenderFamilies(el) {
@@ -2745,8 +2841,12 @@ function tpRenderFamilies(el) {
     const families = tpBuildFamilies();
     const sortBy = window._tpFamSort || 'risk';
     const regionFilter = window._tpFamRegion || 'ALL';
+    const readinessFilter = window._tpReadinessFilter || 'ALL';
     const allRegions = [...new Set(families.map(f => f.rgn || '?'))].sort();
     let filtered = regionFilter === 'ALL' ? families : families.filter(f => f.rgn === regionFilter);
+    if (readinessFilter !== 'ALL') {
+        filtered = filtered.filter(function(f) { return f.auditCoverageKind === readinessFilter; });
+    }
     var _rkScore = window._tpAuditView ? 'auditRiskScore' : 'riskScore';
     const sorted = [...filtered].sort((a,b) => {
         if (sortBy === 'risk') return b[_rkScore] - a[_rkScore];
@@ -2771,7 +2871,15 @@ function tpRenderFamilies(el) {
         }).map(f => ({field:f, label:lbls[f]}));
     }
 
+    var _readinessLabels = { direct:'Probadas', partial:'Parciales', equivalent:'Cubiertas por similar', continuity:'Continuidad MY', none:'Sin cubrir' };
+    var _readinessBanner = readinessFilter !== 'ALL' ? `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.3);border-radius:6px;margin-bottom:8px;font-size:11px;">
+            <span>Filtro: <b>${_readinessLabels[readinessFilter] || readinessFilter}</b></span>
+            <button class="tp-btn tp-btn-ghost" onclick="window._tpReadinessFilter='ALL';tpRender();" style="font-size:9px;margin-left:auto;">Quitar</button>
+        </div>` : '';
+
     el.innerHTML = `
+    ${_readinessBanner}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px;">
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">${filtered.length}</div><div class="tp-metric-label">Familias</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${hR}</div><div class="tp-metric-label">Alto</div></div>
@@ -2797,6 +2905,9 @@ function tpRenderFamilies(el) {
             var _fRisk = window._tpAuditView ? f.auditRiskLevel : f.riskLevel;
             var _fCov = window._tpAuditView ? f.auditCoverage : f.coverage;
             var _repStar = (window._tpAuditView && f.repTested) ? '<span style="font-size:9px;color:var(--tp-blue);" title="Representativa probada: ' + (f.representative && f.representative.tire || '') + '"> &#9733;</span>' : '';
+            var _equivBadge = (window._tpAuditView && f.coveredByEquivalent) ? '<span class="tp-badge" style="background:rgba(56,189,248,0.18);color:#38bdf8;font-size:9px;" title="Cubierta por similar: ' + f.coveredByEquivalent.siblingLabel + ' (difiere en ' + f.coveredByEquivalent.reasons.join('/') + ')">≈ ' + f.coveredByEquivalent.reasons.join('/') + '</span>' : '';
+            var _contBadge = (f.continuityCoveredCount > 0) ? '<span class="tp-badge" style="background:rgba(34,197,94,0.15);color:#22c55e;font-size:9px;" title="' + f.continuityCoveredCount + ' configs por continuidad MY">↪ Cont ' + f.continuityCoveredCount + '</span>' : '';
+            var _evidBtn = (f.totalTested > 0) ? '<button class="tp-btn tp-btn-ghost" onclick="event.preventDefault();event.stopPropagation();tpOpenFamilyEvidence(\'' + f.key.replace(/'/g, "\\'") + '\');" style="font-size:9px;padding:2px 6px;" title="Ver VINs y evidencia">📋</button>' : '';
             return `
             <details style="margin-bottom:4px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;border-left:3px solid ${rc[_fRisk]};">
                 <summary style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;cursor:pointer;list-style:none;background:var(--tp-card);gap:4px;flex-wrap:wrap;">
@@ -2808,9 +2919,10 @@ function tpRenderFamilies(el) {
                         <span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:9px;">${f.reg}</span>
                         <span class="tp-badge" style="background:${tpRegionColor(f.rgn)}20;color:${tpRegionColor(f.rgn)};font-size:9px;">${f.rgn}</span>
                         ${f.drv?`<span class="tp-badge" style="background:rgba(236,72,153,0.15);color:#ec4899;font-size:9px;">${f.drv}</span>`:''}
-                        ${epTag}${engTag}${_repStar}
+                        ${epTag}${engTag}${_repStar}${_equivBadge}${_contBadge}
                     </div>
                     <div style="display:flex;align-items:center;gap:4px;">
+                        ${_evidBtn}
                         <span style="font-size:10px;font-weight:700;color:${f.totalTested>0?'var(--tp-green)':'var(--tp-red)'};">${f.totalTested}/${f.totalRequired}</span>
                         <div class="tp-bar" style="width:40px;"><div class="tp-bar-fill" style="width:${Math.round(_fCov*100)}%;background:${rc[_fRisk]};"></div><span class="tp-bar-text" style="font-size:9px;">${Math.round(_fCov*100)}%</span></div>
                     </div>
@@ -2859,20 +2971,24 @@ function tpRenderFamilies(el) {
                         }
                         var _dotColor, _dotTitle;
                         if (c.testedN >= c.required) { _dotColor = 'var(--tp-green)'; _dotTitle = 'Probada'; }
+                        else if (c.coveredByContinuity) { _dotColor = '#84cc16'; _dotTitle = 'Continuidad MY ' + c.coveredByContinuity.prevMy + ' (' + c.coveredByContinuity.prevTestVin + ')'; }
                         else if (c.coveredByRep && window._tpAuditView) { _dotColor = 'var(--tp-blue)'; _dotTitle = 'Cubierta por representativa (' + (f.representative && f.representative.tire || '') + ')'; }
                         else if (c.testedN > 0) { _dotColor = 'var(--tp-amber)'; _dotTitle = 'Parcial'; }
                         else { _dotColor = 'var(--tp-red)'; _dotTitle = 'Sin pruebas'; }
                         var _repBadge = c.isRepresentative && window._tpAuditView ? '<span style="font-size:8px;color:var(--tp-blue);font-weight:700;" title="Representativa (mayor volumen)">REP</span>' : '';
+                        var _contTag = c.coveredByContinuity ? '<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(132,204,22,0.2);color:#84cc16;" title="Carry-over sin cambios de emisiones">CONT ' + c.coveredByContinuity.prevMy + '</span>' : '';
+                        var _contBtn = (c.testedN === 0) ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpOpenContinuityModal(' + JSON.stringify(c.desc).replace(/"/g, '&quot;') + ',' + JSON.stringify(c.my || '').replace(/"/g, '&quot;') + ');" style="font-size:8px;padding:1px 5px;" title="Marcar continuidad técnica vs MY previo">↪</button>' : '';
                         const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${fi}-${_ci}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
                         return `
                         <div style="margin-bottom:2px;border:1px solid var(--tp-border);border-radius:4px;background:var(--tp-card);overflow:hidden;">
                             <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;font-size:9px;" ${clickable}>
                                 <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap;">
-                                    <span class="tp-dot" style="background:${_dotColor};" title="${_dotTitle}"></span>${_repBadge}
+                                    <span class="tp-dot" style="background:${_dotColor};" title="${_dotTitle}"></span>${_repBadge}${_contTag}
                                     ${badges}
                                     ${c.testedN > 0 ? '<span style="font-size:9px;color:var(--tp-dim);">▼</span>' : ''}
                                 </div>
                                 <div style="display:flex;gap:4px;align-items:center;">
+                                    ${_contBtn}
                                     <span style="font-size:9px;font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
                                     <span style="font-size:9px;color:var(--tp-dim);">${c.total.toLocaleString()}</span>
                                 </div>
@@ -3498,6 +3614,383 @@ function tpHookCascadeResult() {
     });
     const target = document.getElementById('cfg_result');
     if (target) observer.observe(target, { childList: true, characterData: true, subtree: true });
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [AUDIT-EXT] Continuidad MY, Evidencia, Readiness Card, Heatmap     ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function _tpEnsureAuditState() {
+    if (!tpState.myContinuity) tpState.myContinuity = {};
+}
+
+function tpOpenContinuityModal(configDesc, currentMy) {
+    _tpEnsureAuditState();
+    if (!tpState.planData || tpState.planData.length === 0) {
+        showToast('Importa el plan de producción primero', 'error');
+        return;
+    }
+    var cfg = tpState.planData.find(function(c) { return c.desc === configDesc; });
+    if (!cfg) { showToast('Configuración no encontrada', 'error'); return; }
+
+    var candidates = tpState.planData.filter(function(c) {
+        if (c.desc === configDesc) return false;
+        if (c.my === cfg.my) return false;
+        return c.mod === cfg.mod && c.eng === cfg.eng && c.tx === cfg.tx &&
+               c.reg === cfg.reg && c.rgn === cfg.rgn &&
+               (c.tire || '') === (cfg.tire || '');
+    });
+
+    var existing = tpState.myContinuity[configDesc] || null;
+
+    var html = '';
+    html += '<div style="text-align:left;font-size:12px;max-width:560px;">';
+    html += '<div style="background:rgba(132,204,22,0.08);border:1px solid rgba(132,204,22,0.25);border-radius:6px;padding:8px;margin-bottom:10px;">';
+    html += '<div style="font-weight:700;color:#65a30d;margin-bottom:2px;">Config actual</div>';
+    html += '<div style="font-family:monospace;font-size:11px;color:#374151;">' + cfg.desc + '</div>';
+    html += '</div>';
+    html += '<p style="color:#4b5563;font-size:11px;margin:6px 0 10px;">Marcar como "continuidad técnica" si el powertrain y las calibraciones de emisiones no cambiaron respecto al Model Year previo. La cobertura se hereda de la prueba anterior.</p>';
+
+    if (candidates.length === 0) {
+        html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px;color:#991b1b;font-size:11px;">No se encontraron configs equivalentes en otros Model Years (mismo powertrain+region+regulación+llanta).</div>';
+        html += '</div>';
+        showModal({ title: '↪ Continuidad entre Model Years', message: html, confirmText: 'Cerrar', showCancel: false, type: 'info' });
+        return;
+    }
+
+    candidates.sort(function(a, b) { return String(a.my).localeCompare(String(b.my)); });
+
+    html += '<label style="display:block;font-weight:700;margin-bottom:4px;">MY previo equivalente</label>';
+    html += '<select id="_tp-cont-select" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:monospace;">';
+    candidates.forEach(function(c) {
+        var tested = tpState.testedList.filter(function(t) { return t.configText === c.desc; }).length;
+        var mark = tested > 0 ? ' ✓' + tested : ' (sin pruebas)';
+        var sel = existing && existing.prevConfigDesc === c.desc ? ' selected' : '';
+        html += '<option value="' + c.desc.replace(/"/g, '&quot;') + '" data-my="' + (c.my || '') + '"' + sel + '>[' + (c.my || '?') + ']' + mark + ' — ' + c.desc + '</option>';
+    });
+    html += '</select>';
+    html += '<label style="display:block;font-weight:700;margin-top:10px;margin-bottom:4px;">Nota (opcional)</label>';
+    html += '<textarea id="_tp-cont-note" rows="2" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;" placeholder="Ej: Carry-over sin cambios de hardware ni calibración de emisiones">' + ((existing && existing.note) || '') + '</textarea>';
+    if (existing) {
+        html += '<div style="margin-top:8px;padding:6px 8px;background:#f3f4f6;border-radius:6px;font-size:10px;color:#6b7280;">Marcada previamente el ' + (existing.markedAt || '?') + (existing.markedBy ? ' por ' + existing.markedBy : '') + '</div>';
+    }
+    html += '</div>';
+
+    showModal({
+        title: '↪ Continuidad entre Model Years',
+        message: html,
+        confirmText: 'Guardar continuidad',
+        cancelText: existing ? 'Cancelar' : 'Cerrar',
+        type: 'info',
+        onConfirm: function() {
+            var sel = document.getElementById('_tp-cont-select');
+            var note = document.getElementById('_tp-cont-note');
+            if (!sel || !sel.value) return;
+            var opt = sel.options[sel.selectedIndex];
+            tpState.myContinuity[configDesc] = {
+                prevConfigDesc: sel.value,
+                prevMy: opt.getAttribute('data-my') || '',
+                note: note ? note.value : '',
+                markedAt: new Date().toISOString().slice(0, 10),
+                markedBy: (typeof getCurrentUser === 'function' ? (getCurrentUser() || '') : '')
+            };
+            tpSave();
+            _tpInvalidateCache();
+            tpRender();
+            showToast('Continuidad MY guardada', 'success');
+        }
+    });
+
+    if (existing) {
+        setTimeout(function() {
+            var box = document.querySelector('.custom-modal-box');
+            if (!box) return;
+            var actions = box.querySelector('.custom-modal-actions');
+            if (!actions || actions.querySelector('#_tp-cont-remove')) return;
+            var rm = document.createElement('button');
+            rm.id = '_tp-cont-remove';
+            rm.className = 'modal-btn-cancel';
+            rm.style.color = '#dc2626';
+            rm.textContent = 'Quitar continuidad';
+            rm.onclick = function() {
+                delete tpState.myContinuity[configDesc];
+                tpSave();
+                _tpInvalidateCache();
+                tpRender();
+                showToast('Continuidad MY eliminada', 'success');
+                var overlay = document.querySelector('.custom-modal-overlay');
+                if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            };
+            actions.insertBefore(rm, actions.firstChild);
+        }, 30);
+    }
+}
+
+function tpOpenFamilyEvidence(famKey) {
+    var families = tpBuildFamilies();
+    var f = families.find(function(x) { return x.key === famKey; });
+    if (!f) { showToast('Familia no encontrada', 'error'); return; }
+
+    var rows = [];
+    f.configs.forEach(function(c) {
+        (c.vins || []).forEach(function(v) {
+            var vin = _tpExtractVin(v.note || '');
+            var vehicle = null;
+            if (typeof db !== 'undefined' && db.vehicles && vin) {
+                vehicle = db.vehicles.find(function(veh) { return veh.vin === vin; });
+            }
+            rows.push({
+                vin: vin,
+                date: v.date || '',
+                operator: vehicle ? (vehicle.registeredBy || '') : '',
+                purpose: vehicle ? (vehicle.purpose || '') : '',
+                status: vehicle ? (vehicle.status || '') : '',
+                vehicleId: vehicle ? vehicle.id : null,
+                tire: c.tire || '',
+                rep: c.isRepresentative ? 'REP' : ''
+            });
+        });
+    });
+
+    var html = '';
+    html += '<div style="text-align:left;font-size:12px;max-width:720px;">';
+    html += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:8px;margin-bottom:10px;">';
+    html += '<div style="font-weight:700;color:#1e40af;">' + f.mod + ' · ' + f.eng + ' ' + f.tx + ' · ' + f.my + '</div>';
+    html += '<div style="font-size:10px;color:#475569;">' + f.reg + ' · ' + f.rgn + (f.drv ? ' · ' + f.drv : '') + (f.body ? ' · ' + f.body : '') + '</div>';
+    html += '<div style="font-size:10px;color:#475569;margin-top:2px;">' + f.totalTested + '/' + f.totalRequired + ' pruebas · ' + Math.round((f.coverage || 0) * 100) + '% cobertura directa</div>';
+    html += '</div>';
+
+    if (rows.length === 0) {
+        html += '<div style="color:#6b7280;font-size:11px;padding:12px;text-align:center;">Sin VINs registrados en esta familia.</div>';
+    } else {
+        html += '<div style="max-height:340px;overflow:auto;border:1px solid #e5e7eb;border-radius:6px;">';
+        html += '<table style="width:100%;font-size:10px;border-collapse:collapse;">';
+        html += '<thead style="background:#f9fafb;position:sticky;top:0;"><tr>';
+        ['VIN', 'Fecha', 'Operador', 'Propósito', 'Estado', 'Variante', ''].forEach(function(h) {
+            html += '<th style="padding:5px 6px;text-align:left;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;">' + h + '</th>';
+        });
+        html += '</tr></thead><tbody>';
+        rows.forEach(function(r) {
+            html += '<tr style="border-bottom:1px solid #f3f4f6;">';
+            html += '<td style="padding:4px 6px;font-family:monospace;color:#1f2937;">' + (r.vin || '?') + (r.rep ? ' <span style="font-size:8px;color:#2563eb;font-weight:700;">REP</span>' : '') + '</td>';
+            html += '<td style="padding:4px 6px;color:#4b5563;">' + r.date + '</td>';
+            html += '<td style="padding:4px 6px;color:#4b5563;">' + (r.operator || '—') + '</td>';
+            html += '<td style="padding:4px 6px;color:#4b5563;">' + (r.purpose || '—') + '</td>';
+            html += '<td style="padding:4px 6px;color:#4b5563;">' + (r.status || '—') + '</td>';
+            html += '<td style="padding:4px 6px;color:#475569;font-size:9px;">' + (r.tire || '—') + '</td>';
+            if (r.vehicleId != null) {
+                html += '<td style="padding:4px 6px;"><button onclick="tpGoToVehicle(' + r.vehicleId + ')" style="background:none;border:1px solid #bfdbfe;color:#1d4ed8;font-size:9px;padding:2px 6px;border-radius:4px;cursor:pointer;">Ver</button></td>';
+            } else {
+                html += '<td></td>';
+            }
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        html += '<div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">';
+        html += '<span style="font-size:10px;color:#6b7280;">Total: ' + rows.length + ' evidencias</span>';
+        html += '<button onclick="tpExportFamilyEvidenceCSV(\'' + famKey.replace(/'/g, "\\'") + '\')" style="background:#e0e7ff;border:1px solid #a5b4fc;color:#3730a3;font-size:10px;padding:3px 8px;border-radius:4px;cursor:pointer;">Exportar CSV</button>';
+        html += '</div>';
+    }
+    html += '</div>';
+
+    showModal({
+        title: '📋 Evidencia · Familia',
+        message: html,
+        confirmText: 'Cerrar',
+        showCancel: false,
+        type: 'info'
+    });
+}
+
+function tpGoToVehicle(vehicleId) {
+    if (typeof switchPlatform === 'function') switchPlatform('cop15');
+    setTimeout(function() {
+        var sel = document.getElementById('activeVehSelect');
+        if (sel) {
+            sel.value = vehicleId;
+            if (typeof loadVehicle === 'function') loadVehicle();
+        }
+        var opTab = document.querySelector('[onclick*="switchTab(\'op-\'"]');
+        var rel = document.querySelector('[onclick*="cop15-release"]');
+        if (rel) try { rel.click(); } catch(e){}
+    }, 120);
+    var overlay = document.querySelector('.custom-modal-overlay');
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+}
+
+function tpExportFamilyEvidenceCSV(famKey) {
+    var families = tpBuildFamilies();
+    var f = families.find(function(x) { return x.key === famKey; });
+    if (!f) return;
+    var lines = ['VIN,Fecha,Operador,Proposito,Estado,Variante,ConfigCode'];
+    f.configs.forEach(function(c) {
+        (c.vins || []).forEach(function(v) {
+            var vin = _tpExtractVin(v.note || '');
+            var vehicle = null;
+            if (typeof db !== 'undefined' && db.vehicles && vin) {
+                vehicle = db.vehicles.find(function(veh) { return veh.vin === vin; });
+            }
+            lines.push([
+                vin,
+                v.date || '',
+                vehicle ? (vehicle.registeredBy || '') : '',
+                vehicle ? (vehicle.purpose || '') : '',
+                vehicle ? (vehicle.status || '') : '',
+                c.tire || '',
+                (vehicle && vehicle.configCode) || ''
+            ].map(function(x) { return '"' + String(x).replace(/"/g, '""') + '"'; }).join(','));
+        });
+    });
+    var csv = lines.join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'evidencia_' + f.mod + '_' + f.eng.replace(/\s+/g, '') + '_' + f.my + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function tpRenderAuditReadinessCard() {
+    var families = tpBuildFamilies();
+    if (families.length === 0) return '';
+    var direct = families.filter(function(f) { return f.auditCoverageKind === 'direct'; }).length;
+    var partial = families.filter(function(f) { return f.auditCoverageKind === 'partial'; }).length;
+    var equiv = families.filter(function(f) { return f.auditCoverageKind === 'equivalent'; }).length;
+    var cont = families.filter(function(f) { return f.auditCoverageKind === 'continuity'; }).length;
+    var none = families.filter(function(f) { return f.auditCoverageKind === 'none'; }).length;
+    var total = families.length;
+
+    var coveredFullOrMitigated = direct + equiv + cont;
+    var effectivePct = total > 0 ? Math.round(((coveredFullOrMitigated + partial * 0.5) / total) * 100) : 0;
+
+    var verdict, verdictColor, verdictIcon;
+    if (none === 0 && partial === 0) { verdict = 'Listo para auditoría'; verdictColor = '#22c55e'; verdictIcon = '✅'; }
+    else if (none === 0) { verdict = 'Listo con brechas parciales'; verdictColor = '#84cc16'; verdictIcon = '🟡'; }
+    else if (none <= 3) { verdict = 'Atender ' + none + ' brecha' + (none === 1 ? '' : 's'); verdictColor = '#f59e0b'; verdictIcon = '⚠️'; }
+    else { verdict = 'Requiere plan inmediato — ' + none + ' brechas críticas'; verdictColor = '#ef4444'; verdictIcon = '❌'; }
+
+    var html = '';
+    html += '<div class="tp-card" style="border-left:3px solid ' + verdictColor + ';margin-bottom:12px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">';
+    html += '<div style="font-weight:800;font-size:13px;color:var(--tp-text);">🛡️ Preparación para auditoría</div>';
+    html += '<div style="display:flex;align-items:center;gap:8px;">';
+    html += '<span style="font-size:22px;font-weight:800;font-family:monospace;color:' + verdictColor + ';">' + effectivePct + '%</span>';
+    html += '<span style="font-size:11px;font-weight:700;color:' + verdictColor + ';">' + verdictIcon + ' ' + verdict + '</span>';
+    html += '</div>';
+    html += '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin-bottom:8px;">';
+    html += '<div class="tp-metric" onclick="window._tpReadinessFilter=\'direct\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;"><div class="tp-metric-val" style="color:var(--tp-green)">' + direct + '</div><div class="tp-metric-label">Probadas</div></div>';
+    html += '<div class="tp-metric" onclick="window._tpReadinessFilter=\'partial\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;"><div class="tp-metric-val" style="color:var(--tp-amber)">' + partial + '</div><div class="tp-metric-label">Parciales</div></div>';
+    html += '<div class="tp-metric" onclick="window._tpReadinessFilter=\'equivalent\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;" title="Cubiertas por familia similar (body/drive/region)"><div class="tp-metric-val" style="color:#38bdf8">' + equiv + '</div><div class="tp-metric-label">Por similar</div></div>';
+    html += '<div class="tp-metric" onclick="window._tpReadinessFilter=\'continuity\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;" title="Configs cubiertas por continuidad MY"><div class="tp-metric-val" style="color:#84cc16">' + cont + '</div><div class="tp-metric-label">Continuidad MY</div></div>';
+    html += '<div class="tp-metric" onclick="window._tpReadinessFilter=\'none\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;"><div class="tp-metric-val" style="color:var(--tp-red)">' + none + '</div><div class="tp-metric-label">Sin cubrir</div></div>';
+    html += '</div>';
+    html += '<div class="tp-bar" style="height:10px;"><div class="tp-bar-fill" style="width:' + effectivePct + '%;background:' + verdictColor + ';"></div></div>';
+    if (none > 0) {
+        html += '<div style="margin-top:8px;font-size:10px;color:var(--tp-dim);">Las brechas sin cubrir son las que un auditor va a cuestionar primero. Considera marcar continuidad MY donde aplique o priorizar pruebas físicas en el plan semanal.</div>';
+    }
+    html += '</div>';
+    return html;
+}
+
+function tpRenderCoverageHeatmap() {
+    var families = tpBuildFamilies();
+    if (families.length === 0) return '';
+
+    var axisY = window._tpHeatmapY || 'eng_tx';
+    var rowKeyFn = function(f) {
+        if (axisY === 'eng') return f.eng;
+        if (axisY === 'model') return f.mod;
+        return f.eng + ' · ' + f.tx;
+    };
+
+    var cells = {};
+    var rowSet = {};
+    var colSet = {};
+    families.forEach(function(f) {
+        var r = rowKeyFn(f);
+        var c = f.rgn + ' · ' + f.reg;
+        rowSet[r] = true;
+        colSet[c] = true;
+        var k = r + '||' + c;
+        if (!cells[k]) cells[k] = { families: [], kinds: {} };
+        cells[k].families.push(f);
+        cells[k].kinds[f.auditCoverageKind] = (cells[k].kinds[f.auditCoverageKind] || 0) + 1;
+    });
+
+    var rows = Object.keys(rowSet).sort();
+    var cols = Object.keys(colSet).sort();
+
+    function cellColor(cell) {
+        if (!cell) return 'transparent';
+        var k = cell.kinds;
+        if (k.none) return 'rgba(239,68,68,0.85)';
+        if (k.partial) return 'rgba(245,158,11,0.85)';
+        if (k.equivalent && !k.direct && !k.continuity) return 'rgba(56,189,248,0.80)';
+        if (k.continuity && !k.direct) return 'rgba(132,204,22,0.80)';
+        if (k.direct) return 'rgba(34,197,94,0.85)';
+        return 'rgba(148,163,184,0.3)';
+    }
+    function cellLabel(cell) {
+        if (!cell) return '';
+        var k = cell.kinds;
+        var n = cell.families.length;
+        if (k.none) return k.none + '/' + n;
+        return n;
+    }
+
+    var html = '';
+    html += '<div class="tp-card">';
+    html += '<div class="tp-card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">';
+    html += '<span>🧭 Matriz de cobertura</span>';
+    html += '<select class="tp-select" style="font-size:10px;" onchange="window._tpHeatmapY=this.value;tpRender();">';
+    html += '<option value="eng_tx"' + (axisY === 'eng_tx' ? ' selected' : '') + '>Engine + Transmisión</option>';
+    html += '<option value="eng"' + (axisY === 'eng' ? ' selected' : '') + '>Engine</option>';
+    html += '<option value="model"' + (axisY === 'model' ? ' selected' : '') + '>Modelo</option>';
+    html += '</select>';
+    html += '</div>';
+    html += '<div style="overflow-x:auto;">';
+    html += '<table class="tp-heatmap" style="border-collapse:collapse;font-size:10px;min-width:100%;">';
+    html += '<thead><tr><th style="padding:4px 6px;text-align:left;color:var(--tp-dim);font-weight:600;position:sticky;left:0;background:var(--tp-card);z-index:2;">' + (axisY === 'model' ? 'Modelo' : axisY === 'eng' ? 'Engine' : 'Engine+Tx') + '</th>';
+    cols.forEach(function(c) {
+        html += '<th style="padding:4px 6px;text-align:center;color:var(--tp-dim);font-weight:600;font-size:9px;white-space:nowrap;">' + c + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    rows.forEach(function(r) {
+        html += '<tr>';
+        html += '<td style="padding:4px 6px;color:var(--tp-text);font-weight:600;white-space:nowrap;position:sticky;left:0;background:var(--tp-card);z-index:1;">' + r + '</td>';
+        cols.forEach(function(c) {
+            var cell = cells[r + '||' + c];
+            var color = cellColor(cell);
+            var label = cellLabel(cell);
+            var tip = '';
+            if (cell) {
+                var bits = [];
+                ['direct','partial','equivalent','continuity','none'].forEach(function(kk) {
+                    if (cell.kinds[kk]) bits.push(kk + ':' + cell.kinds[kk]);
+                });
+                tip = r + ' / ' + c + ' · ' + bits.join(' · ');
+            }
+            var clickAttr = cell ? 'onclick="window._tpFamRegion=\'' + (cell.families[0].rgn || 'ALL') + '\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;"' : '';
+            html += '<td class="tp-heatmap-cell" ' + clickAttr + ' title="' + tip + '" style="padding:0;">';
+            html += '<div style="width:38px;height:30px;margin:2px;border-radius:4px;background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;">' + label + '</div>';
+            html += '</td>';
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    html += '<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;font-size:9px;color:var(--tp-dim);">';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(34,197,94,0.85);border-radius:2px;vertical-align:middle;"></span> Probada</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(132,204,22,0.80);border-radius:2px;vertical-align:middle;"></span> Continuidad MY</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(56,189,248,0.80);border-radius:2px;vertical-align:middle;"></span> Por similar</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(245,158,11,0.85);border-radius:2px;vertical-align:middle;"></span> Parcial</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(239,68,68,0.85);border-radius:2px;vertical-align:middle;"></span> Sin cubrir</span>';
+    html += '<span style="color:var(--tp-dim);">Click en celda para filtrar familias</span>';
+    html += '</div>';
+    html += '</div>';
+    return html;
 }
 
 

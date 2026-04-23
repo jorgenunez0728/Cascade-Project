@@ -195,7 +195,7 @@
         input:checked + .slider:before { transform: translateX(26px); }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 3000; }
-        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; box-sizing: border-box; }
         
         /* ===== Dyno Layout ===== */
 .dyno-grid {
@@ -736,7 +736,14 @@ body{ overflow-x: hidden; }
 .badge-warning, .smart-badge-partial { background: rgba(245,158,11,0.15); color: #d97706; }
 .badge-danger { background: rgba(239,68,68,0.15); color: #dc2626; }
 .badge-info { background: rgba(59,130,246,0.15); color: #2563eb; }
-.badge-neutral, .smart-badge-empty { background: rgba(148,163,184,0.15); color: #64748b; }
+.badge-neutral, .smart-badge-empty { background: rgba(148,163,184,0.18); color: #475569; }
+
+/* Badge contrast in dark mode — low-alpha tints vanish on dark bg */
+[data-theme="dark"] .badge-success, [data-theme="dark"] .smart-badge-complete { background: rgba(16,185,129,0.32); color: #6ee7b7; }
+[data-theme="dark"] .badge-warning, [data-theme="dark"] .smart-badge-partial { background: rgba(245,158,11,0.32); color: #fcd34d; }
+[data-theme="dark"] .badge-danger { background: rgba(239,68,68,0.32); color: #fca5a5; }
+[data-theme="dark"] .badge-info { background: rgba(59,130,246,0.32); color: #93c5fd; }
+[data-theme="dark"] .badge-neutral, [data-theme="dark"] .smart-badge-empty { background: rgba(148,163,184,0.32); color: #cbd5e1; }
 
 /* Tabs — pill/capsule with neumorphic active state */
 .tp-tabs {
@@ -801,12 +808,18 @@ body{ overflow-x: hidden; }
 .tp-table td { padding:6px 10px; border-bottom:1px solid #f1f5f9; }
 .tp-table tr:nth-child(even) { background:#f8fafc; }
 .tp-table tr:hover { background:#f1f5f9; }
-.tp-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+.tp-dot { width:8px; height:8px; border-radius:50%; display:inline-block; vertical-align: middle; margin-top: -1px; flex-shrink: 0; }
+
+/* [AUDIT-EXT] Coverage heatmap */
+.tp-heatmap { border:1px solid var(--tp-border); border-radius:8px; overflow:hidden; }
+.tp-heatmap th { background:var(--tp-card); border-bottom:1px solid var(--tp-border); }
+.tp-heatmap-cell { text-align:center; vertical-align:middle; }
+.tp-heatmap-cell:hover > div { outline:2px solid #2563eb; outline-offset:-2px; }
 
 /* Bars */
-.tp-bar { background:#e2e8f0; border-radius:6px; height:14px; overflow:hidden; position:relative; }
+.tp-bar { background:#e2e8f0; border-radius:6px; height:18px; overflow:hidden; position:relative; }
 .tp-bar-fill { height:100%; border-radius:6px; transition:width .3s; }
-.tp-bar-text { position:absolute; top:0; left:4px; font-size:10px; font-weight:700; color:#fff; line-height:14px; }
+.tp-bar-text { position:absolute; top:0; left:0; right:0; font-size:11px; font-weight:700; color:#fff; line-height:18px; text-align:center; text-shadow: 0 0 3px rgba(0,0,0,0.45); white-space:nowrap; }
 
 /* Suggestions dropdown */
 .tp-suggestions { position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--tp-border); border-radius:10px; z-index:10; max-height:150px; overflow-y:auto; box-shadow: var(--shadow-lg); }
@@ -2282,22 +2295,16 @@ details.acc > summary {
 
 /* Zone shapes */
 .inv-zone-shape {
-    fill: rgba(255,255,255,0.85); stroke: var(--border); stroke-width: 2;
-    rx: 12; ry: 12; cursor: pointer; transition: fill 0.2s, stroke 0.2s;
+    fill: #ffffff; transition: fill 0.2s, stroke-width 0.15s;
+    cursor: pointer;
 }
-.inv-zone-shape:hover { fill: rgba(255,255,255,0.95); stroke: var(--info); }
-.inv-zone-shape.editing { stroke: var(--kia-red); stroke-dasharray: 6 3; cursor: move; }
-.inv-zone-shape.drag-over { fill: rgba(59,130,246,0.08); stroke: var(--info); stroke-width: 2.5; }
+.inv-zone-shape:hover { fill: #f8fafc; filter: brightness(0.98); }
+.inv-zone-shape.editing { cursor: move; }
+.inv-zone-shape.drag-over { fill: rgba(59,130,246,0.1); }
 
-/* Zone labels */
-.inv-zone-label {
-    font-size: 13px; font-weight: 800; fill: var(--text);
-    pointer-events: none; text-anchor: middle;
-}
-.inv-zone-sublabel {
-    font-size: 10px; font-weight: 600; fill: var(--muted);
-    pointer-events: none; text-anchor: middle;
-}
+/* Zone labels (anchored by JS x coords; fill driven inline so it works on colored headers) */
+.inv-zone-label { font-size: 12px; font-weight: 800; pointer-events: none; }
+.inv-zone-sublabel { font-size: 10px; font-weight: 600; pointer-events: none; }
 
 /* Cylinder circles */
 .inv-cylinder {
@@ -2313,7 +2320,7 @@ details.acc > summary {
 
 /* Cylinder tooltip */
 .inv-cylinder-tooltip {
-    position: absolute; z-index: 20; pointer-events: none;
+    position: absolute; z-index: 3100; pointer-events: none;
     background: var(--glass-bg); backdrop-filter: blur(16px);
     border: 1px solid var(--glass-border); border-radius: var(--radius-md);
     padding: var(--space-sm) var(--space-md); box-shadow: var(--shadow-lg);
@@ -2717,10 +2724,8 @@ details.acc > summary {
 
 /* --- Floor Plan Map Dark --- */
 [data-theme="dark"] .inv-floorplan-container { background: #0f1419; border-color: rgba(255,255,255,0.08); }
-[data-theme="dark"] .inv-zone-shape { fill: rgba(26,32,44,0.85); stroke: rgba(255,255,255,0.12); }
-[data-theme="dark"] .inv-zone-shape:hover { fill: rgba(30,38,51,0.95); stroke: var(--info); }
-[data-theme="dark"] .inv-zone-label { fill: #e2e8f0; }
-[data-theme="dark"] .inv-zone-sublabel { fill: #94a3b8; }
+[data-theme="dark"] .inv-zone-shape { fill: #1a202c; }
+[data-theme="dark"] .inv-zone-shape:hover { fill: #222a38; }
 [data-theme="dark"] .inv-cylinder-tooltip { background: rgba(26,32,44,0.9); border-color: rgba(255,255,255,0.1); }
 [data-theme="dark"] .inv-map-legend { background: rgba(26,32,44,0.9); border-color: rgba(255,255,255,0.08); }
 [data-theme="dark"] .detail-panel { background: #1a202c; box-shadow: -8px 0 30px rgba(0,0,0,0.4); }
@@ -3798,7 +3803,8 @@ details.acc > summary {
 
     <div class="form-group">
       <label for="reg_datetime">Fecha/Hora de Alta</label>
-      <input type="datetime-local" id="reg_datetime" readonly>
+      <input type="datetime-local" id="reg_datetime">
+      <small style="display:block;color:#6b7280;font-size:11px;margin-top:4px;">Editable — ajusta si registras fuera del momento real.</small>
     </div>
   </div><!-- ✅ cierre form-grid -->
 
@@ -5236,7 +5242,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202604162005';
+var APP_BUILD = '202604231648';
 
 let allConfigurations = [];
 let currentFilters = {};
@@ -7154,11 +7160,11 @@ function globalVinSearch(query) {
         html += '</div>';
         html += '<div style="text-align:right;">';
         html += '<span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,0.15);color:#818cf8;">' + escapeHtml(r.module) + '</span>';
-        if (r.date) html += '<div style="font-size:0.65rem;color:#64748b;margin-top:2px;">' + escapeHtml(r.date) + '</div>';
+        if (r.date) html += '<div style="font-size:0.65rem;color:#475569;margin-top:2px;">' + escapeHtml(r.date) + '</div>';
         html += '</div></div>';
     });
     if (results.length > 15) {
-        html += '<div style="padding:8px;text-align:center;font-size:0.75rem;color:#64748b;">...y ' + (results.length - 15) + ' más</div>';
+        html += '<div style="padding:8px;text-align:center;font-size:0.75rem;color:#475569;">...y ' + (results.length - 15) + ' más</div>';
     }
     html += '</div>';
     res.innerHTML = html;
@@ -7646,7 +7652,7 @@ function renderNotifications() {
     var list = document.getElementById('notification-list');
     if (!list) return;
     if (_notificationLog.length === 0) {
-        list.innerHTML = '<div style="text-align:center;padding:30px;color:#64748b;font-size:12px;">Sin notificaciones</div>';
+        list.innerHTML = '<div style="text-align:center;padding:30px;color:#475569;font-size:12px;">Sin notificaciones</div>';
         return;
     }
     var icons = { success: '✅', error: '❌', warning: '⚡', info: 'ℹ️' };
@@ -7940,7 +7946,7 @@ function renderLabDashboard(container) {
                 '<span class="lab-dash-alert-badge" style="background:' + a.color + '20;color:' + a.color + ';">' + a.level + '</span>' +
                 '<span class="lab-dash-alert-mod">' + a.module + '</span>' +
                 '<span style="flex:1;font-size:10px;color:#e2e8f0;">' + a.message + '</span>' +
-                '<span style="font-size:9px;color:#64748b;">→</span></div>';
+                '<span style="font-size:9px;color:#475569;">→</span></div>';
         });
         html += '</div>';
     } else {
@@ -8535,7 +8541,7 @@ function templateRenderManager(module, applyCallback) {
             html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #1e293b;">';
             html += '<div>';
             html += '<div style="font-size:12px;font-weight:700;color:#e2e8f0;">' + escapeHtml(tpl.name) + '</div>';
-            html += '<div style="font-size:9px;color:#64748b;">Usado ' + (tpl.usageCount || 0) + 'x · ' + new Date(tpl.createdAt).toLocaleDateString('es-MX') + '</div>';
+            html += '<div style="font-size:9px;color:#475569;">Usado ' + (tpl.usageCount || 0) + 'x · ' + new Date(tpl.createdAt).toLocaleDateString('es-MX') + '</div>';
             html += '</div>';
             html += '<div style="display:flex;gap:6px;">';
             html += '<button onclick="var d=templateApply(\'' + module + '\',\'' + tpl.id + '\');if(d && typeof ' + (applyCallback || 'null') + '===\'function\') ' + (applyCallback || 'null') + '(d);closeModal();" class="btn-primary" style="padding:4px 12px;font-size:10px;">Aplicar</button>';
@@ -9894,6 +9900,20 @@ setAltaDatetimeIfEmpty(true);
             };
         }
 
+        const regDtEl = document.getElementById('reg_datetime');
+        const regDtVal = regDtEl && regDtEl.value ? regDtEl.value : '';
+        let registeredAtIso;
+        if (regDtVal) {
+            const parsed = new Date(regDtVal);
+            if (isNaN(parsed.getTime())) {
+                showToast('Fecha/hora de alta inválida', 'error');
+                return;
+            }
+            registeredAtIso = parsed.toISOString();
+        } else {
+            registeredAtIso = new Date().toISOString();
+        }
+
         const newVehicle = {
             id: ++db.lastId,
             vin: document.getElementById('vin').value,
@@ -9904,10 +9924,10 @@ setAltaDatetimeIfEmpty(true);
             fromPlanItem: planLink,
             status: 'registered',
             registeredBy: document.getElementById('reg_operator').value,
-            registeredAt: new Date().toISOString(),
+            registeredAt: registeredAtIso,
             timeline: [
                 {
-                    timestamp: new Date().toISOString(),
+                    timestamp: registeredAtIso,
                     user: document.getElementById('reg_operator').value,
                     action: 'Vehículo Registrado' + (isAdhoc ? ' (ad-hoc)' : ''),
                     data: { status: 'registered', configCode: configCode, adhoc: isAdhoc, fromPlanItem: planLink }
@@ -11206,7 +11226,7 @@ function showSubstitutionModal(data) {
     var modal = document.getElementById('substitutionModal');
     if (!modal) return;
 
-    var html = '<div style="font-size:0.85rem;color:#64748b;margin-bottom:16px;">' +
+    var html = '<div style="font-size:0.85rem;color:#475569;margin-bottom:16px;">' +
         'El vehículo <strong style="color:#1e293b;">' + data.vin + '</strong> con configuración ' +
         '<span style="font-family:monospace;font-size:0.75rem;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + (data.configCode.length > 50 ? data.configCode.substring(0, 48) + '..' : data.configCode) + '</span>' +
         ' no coincide exactamente con ninguna configuración pendiente en el plan semanal.' +
@@ -11227,7 +11247,7 @@ function showSubstitutionModal(data) {
         html += '</div>';
 
         html += '<div style="display:flex;gap:8px;align-items:center;">';
-        html += '<span style="font-size:0.7rem;color:#64748b;">' + m.diffs.length + ' diferencia' + (m.diffs.length > 1 ? 's' : '') + '</span>';
+        html += '<span style="font-size:0.7rem;color:#475569;">' + m.diffs.length + ' diferencia' + (m.diffs.length > 1 ? 's' : '') + '</span>';
         html += '<button class="btn-primary" onclick="applySubstitution(' + m.planIdx + ',' + m.itemIdx + ',\'' + data.configCode.replace(/'/g, "\\'") + '\',\'' + data.vin + '\',' + idx + ')" ' +
             'style="margin-left:auto;padding:6px 16px;font-size:0.8rem;border-radius:6px;">Sustituir</button>';
         html += '</div></div>';
@@ -11470,7 +11490,7 @@ function batchPDFExport() {
 
     showConfirm(
         '<p>Generar PDF con <strong>' + ids.length + ' vehículos</strong> en un solo documento?</p>' +
-        '<p style="font-size:11px;color:#64748b;">Cada vehículo será una página del PDF.</p>',
+        '<p style="font-size:11px;color:#475569;">Cada vehículo será una página del PDF.</p>',
         function() { _doBatchPDF(ids); },
         { title: 'Batch PDF Export', type: 'info', confirmText: 'Generar PDF' }
     );
@@ -11740,7 +11760,7 @@ function handleImportArchive(event) {
       modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9000;display:flex;align-items:center;justify-content:center;';
       modal.innerHTML = '<div style="background:#fff;border-radius:14px;padding:24px;max-width:380px;width:90%;">' +
         '<h3 style="margin:0 0 8px;color:#0f172a;">Importar ' + data.vehicles.length + ' vehículos</h3>' +
-        '<p style="font-size:11px;color:#64748b;margin-bottom:14px;">Selecciona el estado destino:</p>' +
+        '<p style="font-size:11px;color:#475569;margin-bottom:14px;">Selecciona el estado destino:</p>' +
         '<div style="display:grid;gap:6px;">' +
         '<button onclick="executeArchiveImport(\'registered\')" style="padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Registrado</button>' +
         '<button onclick="executeArchiveImport(\'in-progress\')" style="padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">En Progreso</button>' +
@@ -12473,7 +12493,7 @@ function openManualConfigForm(editIdx) {
     });
 
     html += '<div class="mcf-preview" id="mcfPreview">' +
-        '<div style="font-size:10px;color:#64748b;margin-bottom:2px;">Código generado:</div>' +
+        '<div style="font-size:10px;color:#475569;margin-bottom:2px;">Código generado:</div>' +
         '<div id="mcfPreviewCode" style="font-family:monospace;font-size:11px;color:var(--kia-red);font-weight:700;word-break:break-all;">-</div>' +
         '</div></div>';
 
@@ -12836,7 +12856,7 @@ function openQuickReview() {
     var header = '<div style="margin-bottom:14px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
         '<span style="font-size:13px;font-weight:700;">' + filled + '/' + total + ' campos completados</span>' +
-        '<span style="font-size:11px;color:#64748b;">' + empty + ' pendientes' + (warnings ? ' · ' + warnings + ' advertencias' : '') + '</span></div>' +
+        '<span style="font-size:11px;color:#475569;">' + empty + ' pendientes' + (warnings ? ' · ' + warnings + ' advertencias' : '') + '</span></div>' +
         '<div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">' +
         '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;transition:width 0.3s;"></div></div></div>';
 
@@ -12960,7 +12980,7 @@ function copyFromLastVehicle() {
     showConfirm(
         '<div style="text-align:left;">' +
         '<p><strong>Copiar datos de VIN ' + vinShort + '</strong> (archivado ' + sourceDate + ')</p>' +
-        '<p style="font-size:11px;color:#64748b;margin:8px 0 4px;">Campos a copiar (' + fieldsToCopy.length + '):</p>' +
+        '<p style="font-size:11px;color:#475569;margin:8px 0 4px;">Campos a copiar (' + fieldsToCopy.length + '):</p>' +
         '<div style="font-size:11px;color:#475569;max-height:150px;overflow-y:auto;columns:2;column-gap:12px;">' +
         fieldsToCopy.map(function(f) { return '<div>• ' + f.label + '</div>'; }).join('') +
         '</div></div>',
@@ -13386,7 +13406,7 @@ function renderKanban() {
     var html = '<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
     html += '<h3 style="margin:0;font-size:16px;">Cola de Vehiculos</h3>';
     var totalActive = vehicles.filter(function(v){ return v.status !== 'archived'; }).length;
-    html += '<span style="font-size:11px;color:#64748b;">' + totalActive + ' activos</span>';
+    html += '<span style="font-size:11px;color:#475569;">' + totalActive + ' activos</span>';
     html += '<span style="margin-left:auto;">' + renderViewModeToggle('kanban', true) + '</span>';
     if (precondCount > 0) {
         html += '<button onclick="renderPrecondBatchView()" style="background:#f59e0b;color:#000;border:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">📋 Precond Lote (' + precondCount + ')</button>';
@@ -13395,7 +13415,7 @@ function renderKanban() {
 
     // Search + Sort + Filter bar
     html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">';
-    html += '<input type="text" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;renderKanban();" style="flex:1;min-width:140px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;">';
+    html += '<input type="text" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;renderKanban();" style="flex:1 1 140px;min-width:0;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">';
     html += '<select onchange="_kanbanFilters.sort=this.value;renderKanban();" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;background:#fff;">';
     html += '<option value="newest"' + (_kanbanFilters.sort==='newest'?' selected':'') + '>Mas reciente</option>';
     html += '<option value="oldest"' + (_kanbanFilters.sort==='oldest'?' selected':'') + '>Mas antiguo</option>';
@@ -13510,8 +13530,8 @@ function renderKanban() {
     // Summary metrics below
     var archived = vehicles.filter(function(v){ return v.status === 'archived'; }).length;
     html += '<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">';
-    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + archived + '</strong> <span style="color:#64748b;">archivados</span></div>';
-    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + vehicles.length + '</strong> <span style="color:#64748b;">total historico</span></div>';
+    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + archived + '</strong> <span style="color:#475569;">archivados</span></div>';
+    html += '<div style="padding:8px 14px;border-radius:8px;background:#f1f5f9;font-size:11px;"><strong style="color:#0f172a;">' + vehicles.length + '</strong> <span style="color:#475569;">total historico</span></div>';
     html += '</div>';
 
     el.innerHTML = html;
@@ -13548,7 +13568,7 @@ function renderPrecondBatchView() {
     var html = '<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">';
     html += '<button onclick="renderKanban()" style="background:#334155;color:#f8fafc;border:none;padding:6px 12px;border-radius:8px;font-size:11px;cursor:pointer;">← Kanban</button>';
     html += '<h3 style="margin:0;font-size:16px;">📋 Preacondicionamiento en Lote</h3>';
-    html += '<span style="font-size:11px;color:#64748b;">' + vehicles.length + ' vehiculos</span>';
+    html += '<span style="font-size:11px;color:#475569;">' + vehicles.length + ' vehiculos</span>';
     html += '</div>';
 
     // Batch actions
@@ -15181,18 +15201,18 @@ function invShowAddGas(editId) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;">' + title + '</h3>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div><label style="font-size:10px;color:#64748b;">No. Control * <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size:9px;background:#0f766e;color:#fff;border:none;border-radius:4px;padding:1px 6px;cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div style="grid-column:1/-1;"><label style="font-size:10px;color:#64748b;">Tipo de Gas *</label><select id="inv-g-type" onchange="invUpdateConcOpts()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + gasTypeOpts + '</select></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Conc. Nominal</label><select id="inv-g-conc" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></select></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Trazabilidad</label><select id="inv-g-trace" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (g&&g.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (g&&g.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Vigencia</label><input id="inv-g-valid" type="date" value="' + (g?g.validUntil:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Zona + Posicion *</label><select id="inv-g-zone" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + zoneOpts + '</select></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Estatus</label><select id="inv-g-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.status==='Stock'?'selected':'') + '>Stock</option><option ' + (g&&g.status==='In use'?'selected':'') + '>In use</option><option ' + (g&&g.status==='Empty'?'selected':'') + '>Empty</option><option ' + (g&&g.status==='Spare'?'selected':'') + '>Spare</option></select></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Proveedor</label><input id="inv-g-supplier" value="' + (g?g.supplier||'':'') + '" placeholder="Nombre del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Control * <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size:9px;background:#0f766e;color:#fff;border:none;border-radius:4px;padding:1px 6px;cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div style="grid-column:1/-1;"><label style="font-size:11px;color:#475569;font-weight:600;">Tipo de Gas *</label><select id="inv-g-type" onchange="invUpdateConcOpts()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + gasTypeOpts + '</select></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Conc. Nominal</label><select id="inv-g-conc" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></select></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Trazabilidad</label><select id="inv-g-trace" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (g&&g.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (g&&g.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Vigencia</label><input id="inv-g-valid" type="date" value="' + (g?g.validUntil:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Zona + Posicion *</label><select id="inv-g-zone" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + zoneOpts + '</select></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Estatus</label><select id="inv-g-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.status==='Stock'?'selected':'') + '>Stock</option><option ' + (g&&g.status==='In use'?'selected':'') + '>In use</option><option ' + (g&&g.status==='Empty'?'selected':'') + '>Empty</option><option ' + (g&&g.status==='Spare'?'selected':'') + '>Spare</option></select></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Proveedor</label><input id="inv-g-supplier" value="' + (g?g.supplier||'':'') + '" placeholder="Nombre del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveGas(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
@@ -15327,7 +15347,7 @@ function invShowBarcode(id) {
     html += '<div style="font-size:20px;font-weight:800;">KIA Emissions Lab</div>';
     html += '<div style="font-size:11px;color:#64748b;">Ficha de Recepcion de Cilindro de Gas</div>';
     html += '</div>';
-    html += '<div style="text-align:right;font-size:10px;color:#64748b;">';
+    html += '<div style="text-align:right;font-size:11px;color:#475569;font-weight:600;">';
     html += '<div>Fecha recepcion: <strong style="color:#0f172a;font-size:12px;">' + (g.regDate || new Date().toISOString().slice(0,10)) + '</strong></div>';
     html += '<div>Folio: ' + g.controlNo + '</div>';
     html += '</div></div>';
@@ -15649,7 +15669,7 @@ function invRenderReadings(el) {
                 last5.forEach(function(r){ html += '<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.05);border:1px solid var(--tp-border);color:var(--tp-dim);">' + r.date.slice(5) + ': <strong style="color:#fff;">' + r.psi + '</strong></span>'; });
             } else { html += '<span style="font-size:9px;color:var(--tp-dim);">Sin lecturas</span>'; }
             html += '</div>';
-            html += '<input type="number" id="inv-rd-' + g.id + '" placeholder="psi" style="width:70px;padding:5px;border:1px solid var(--tp-border);border-radius:5px;background:#1e293b;color:#fff;font-size:11px;text-align:center;">';
+            html += '<input type="number" inputmode="numeric" id="inv-rd-' + g.id + '" placeholder="psi" style="width:90px;min-height:40px;padding:8px 10px;border:1px solid var(--tp-border);border-radius:8px;background:#1e293b;color:#fff;font-size:14px;text-align:center;font-weight:600;">';
             html += '</div>';
         });
         html += '</div>';
@@ -15832,7 +15852,7 @@ function invScanFilter() {
             html += '<div style="font-size:14px;font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' psi</div>';
             html += '<div style="font-size:9px;color:#64748b;">' + lastR.date + '</div>';
         } else {
-            html += '<div style="font-size:10px;color:#64748b;">Sin lecturas</div>';
+            html += '<div style="font-size:11px;color:#475569;font-weight:600;">Sin lecturas</div>';
         }
         html += '</div></div></button>';
     });
@@ -15863,7 +15883,7 @@ function invQuickReadPopup(g) {
 
     // Previous reading
     html += '<div style="background:#1e293b;border-radius:10px;padding:14px;margin-bottom:16px;border:1px solid #334155;">';
-    html += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;">Lectura anterior</div>';
+    html += '<div style="font-size:11px;color:#475569;font-weight:600;margin-bottom:6px;">Lectura anterior</div>';
     if (lastR) {
         html += '<div style="display:flex;justify-content:space-between;align-items:baseline;">';
         html += '<span style="font-size:28px;font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' <span style="font-size:14px;font-weight:400;">psi</span></span>';
@@ -15883,7 +15903,7 @@ function invQuickReadPopup(g) {
     html += '<div style="display:flex;gap:10px;align-items:center;">';
     html += '<div style="flex:1;">';
     html += '<input id="inv-quick-psi" type="number" inputmode="numeric" placeholder="0" autofocus style="width:100%;padding:14px;font-size:24px;font-weight:700;text-align:center;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#fff;">';
-    html += '<div style="text-align:center;font-size:10px;color:#64748b;margin-top:3px;">psi</div>';
+    html += '<div style="text-align:center;font-size:11px;color:#475569;font-weight:600;margin-top:3px;">psi</div>';
     html += '</div>';
     html += '<div>';
     html += '<input id="inv-quick-date" type="date" value="' + today + '" style="padding:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:11px;">';
@@ -15982,18 +16002,18 @@ function invAddEquipment(editId) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Equipo' : 'Nuevo Equipo') + '</h3>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div style="grid-column:1/-1;"><label style="font-size:10px;color:#64748b;">Nombre *</label><input id="inv-eq-name" value="' + v('name') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Tipo</label><input id="inv-eq-type" value="' + v('type') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Marca</label><input id="inv-eq-brand" value="' + v('brand') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Modelo</label><input id="inv-eq-model" value="' + v('model') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">No. Serie</label><input id="inv-eq-serial" value="' + v('serialNo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">KMM ID</label><input id="inv-eq-kmmid" value="' + v('kmmId') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Ubicacion</label><input id="inv-eq-loc" value="' + v('location') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Trazabilidad</label><input id="inv-eq-trace" value="' + v('traceability','EMA') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Lab Calibracion</label><input id="inv-eq-callab" value="' + v('calLab') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Ultima Cal.</label><input id="inv-eq-lastcal" type="date" value="' + v('lastCalDate') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Proxima Cal.</label><input id="inv-eq-nextcal" type="date" value="' + v('nextCalDate') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">No. Certificado</label><input id="inv-eq-cert" value="' + v('calCertNo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div style="grid-column:1/-1;"><label style="font-size:11px;color:#475569;font-weight:600;">Nombre *</label><input id="inv-eq-name" value="' + v('name') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Tipo</label><input id="inv-eq-type" value="' + v('type') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Marca</label><input id="inv-eq-brand" value="' + v('brand') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Modelo</label><input id="inv-eq-model" value="' + v('model') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Serie</label><input id="inv-eq-serial" value="' + v('serialNo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">KMM ID</label><input id="inv-eq-kmmid" value="' + v('kmmId') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Ubicacion</label><input id="inv-eq-loc" value="' + v('location') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Trazabilidad</label><input id="inv-eq-trace" value="' + v('traceability','EMA') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Lab Calibracion</label><input id="inv-eq-callab" value="' + v('calLab') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Ultima Cal.</label><input id="inv-eq-lastcal" type="date" value="' + v('lastCalDate') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Proxima Cal.</label><input id="inv-eq-nextcal" type="date" value="' + v('nextCalDate') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Certificado</label><input id="inv-eq-cert" value="' + v('calCertNo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveEquipment(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
@@ -16532,11 +16552,11 @@ function invRenderTrace(el) {
         '<div class="tp-card-title"><span>🔗 Trazabilidad Gas ↔ Prueba</span></div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">' +
         '<div style="flex:1;min-width:140px;">' +
-        '<label style="font-size:10px;color:#64748b;display:block;margin-bottom:3px;">Buscar por</label>' +
+        '<label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Buscar por</label>' +
         '<select id="inv-trace-mode" onchange="invTraceSearch()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
         '<option value="gas">Cilindro</option><option value="lot">No. Lote</option><option value="vin">VIN</option></select></div>' +
         '<div style="flex:2;min-width:200px;" id="inv-trace-input-wrap">' +
-        '<label style="font-size:10px;color:#64748b;display:block;margin-bottom:3px;">Valor</label>' +
+        '<label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Valor</label>' +
         '<input id="inv-trace-q" placeholder="Escribe para buscar..." onkeyup="invTraceSearch()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
         '</div>' +
         '<button onclick="invTraceSearch()" class="tp-btn tp-btn-primary" style="padding:8px 14px;">Buscar</button>' +
@@ -16811,16 +16831,16 @@ function invAddFuelTank(editId) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Tambo' : 'Nuevo Tambo') + '</h3>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div style="grid-column:1/-1;"><label style="font-size:10px;color:#64748b;">Nombre *</label><input id="inv-ft-name" value="' + v('name','Tambo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Tipo combustible</label><input id="inv-ft-type" value="' + v('fuelType','Gasolina Referencia') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Regulacion</label><input id="inv-ft-reg" value="' + v('regulation') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Octanaje/Spec</label><input id="inv-ft-octane" value="' + v('octane','87 AKI') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Proveedor</label><input id="inv-ft-supplier" value="' + v('supplier') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Capacidad</label><input id="inv-ft-cap" type="number" value="' + v('capacity','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Nivel actual</label><input id="inv-ft-level" type="number" value="' + v('currentLevel','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Unidad</label><select id="inv-ft-unit" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Fecha recepcion</label><input id="inv-ft-date" type="date" value="' + v('regDate',new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Estatus</label><select id="inv-ft-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
+        '<div style="grid-column:1/-1;"><label style="font-size:11px;color:#475569;font-weight:600;">Nombre *</label><input id="inv-ft-name" value="' + v('name','Tambo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Tipo combustible</label><input id="inv-ft-type" value="' + v('fuelType','Gasolina Referencia') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Regulacion</label><input id="inv-ft-reg" value="' + v('regulation') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Octanaje/Spec</label><input id="inv-ft-octane" value="' + v('octane','87 AKI') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Proveedor</label><input id="inv-ft-supplier" value="' + v('supplier') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Capacidad</label><input id="inv-ft-cap" type="number" value="' + v('capacity','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Nivel actual</label><input id="inv-ft-level" type="number" value="' + v('currentLevel','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Unidad</label><select id="inv-ft-unit" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recepcion</label><input id="inv-ft-date" type="date" value="' + v('regDate',new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Estatus</label><select id="inv-ft-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveFuelTank(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
@@ -16875,7 +16895,7 @@ function invFuelReading(tankId) {
     modal.innerHTML = '<div style="max-width:360px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;color:#0f172a;">Lectura: ' + t.name + '</h3>' +
-        '<div><label style="font-size:10px;color:#64748b;">Nivel actual (' + (t.unit||'L') + ')</label>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Nivel actual (' + (t.unit||'L') + ')</label>' +
         '<input id="inv-fuel-level" type="number" step="0.1" value="' + (t.currentLevel||0) + '" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:6px;font-size:16px;margin-top:4px;"></div>' +
         '<button onclick="invSaveFuelReading(\x27' + tankId + '\x27)" style="width:100%;margin-top:14px;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar Lectura</button>' +
         '</div>';
@@ -17087,6 +17107,19 @@ function _invCalcViewBox() {
     return '0 0 ' + Math.max(maxX, 400) + ' ' + Math.max(maxY, 300);
 }
 
+function _invHeaderPath(x, y, w, h, r) {
+    // Rounded top-left and top-right, flat bottom — for zone header strip
+    var r2 = Math.min(r, h, w / 2);
+    return 'M' + (x + r2) + ' ' + y +
+           ' H' + (x + w - r2) +
+           ' Q' + (x + w) + ' ' + y + ' ' + (x + w) + ' ' + (y + r2) +
+           ' V' + (y + h) +
+           ' H' + x +
+           ' V' + (y + r2) +
+           ' Q' + x + ' ' + y + ' ' + (x + r2) + ' ' + y +
+           ' Z';
+}
+
 function _invCylColor(gas) {
     var expiry = invGasExpiry(gas);
     if (expiry.status === 'expired') return 'expired';
@@ -17150,35 +17183,65 @@ function invRenderFloorPlan(el) {
         if (!lay) return;
         var zGases = gases.filter(function(g) { return g.zone && g.zone.startsWith(z.id); });
         var capPct = z.slots > 0 ? Math.round((zGases.length / z.slots) * 100) : 0;
-        var capColor = capPct > 80 ? '#ef4444' : capPct > 50 ? '#f59e0b' : '#10b981';
+        // Capacity palette: green <=50, amber <=80, red >80
+        var capStroke = capPct > 80 ? '#dc2626' : capPct > 50 ? '#d97706' : '#059669';
+        var capHeader = capPct > 80 ? '#dc2626' : capPct > 50 ? '#d97706' : '#059669';
+        var capTint   = capPct > 80 ? 'rgba(239,68,68,0.06)' : capPct > 50 ? 'rgba(245,158,11,0.06)' : 'rgba(16,185,129,0.05)';
+
+        var headerH = 26;
+        var rCorner = 10;
 
         // Zone group
         html += '<g class="inv-zone-group" data-zone-id="' + z.id + '">';
 
-        // Zone rectangle
+        // Main zone rectangle — capacity-colored border, CSS-driven fill
         var editClass = _invFloorPlanEditMode ? ' editing' : '';
-        html += '<rect class="inv-zone-shape' + editClass + '" x="' + lay.x + '" y="' + lay.y + '" width="' + lay.w + '" height="' + lay.h + '" rx="8" ry="8" ' +
-            'fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"' +
-            (_invFloorPlanEditMode ? ' stroke-dasharray="6 3"' : '') +
-            ' data-zone-id="' + z.id + '"/>';
+        var strokeW = _invFloorPlanEditMode ? 2 : (capPct > 80 ? 2.5 : 1.8);
+        var dashAttr = _invFloorPlanEditMode ? ';stroke-dasharray:6 3' : '';
+        html += '<rect class="inv-zone-shape' + editClass + '" x="' + lay.x + '" y="' + lay.y + '" width="' + lay.w + '" height="' + lay.h + '" rx="' + rCorner + '" ry="' + rCorner + '" ' +
+            'style="stroke:' + capStroke + ';stroke-width:' + strokeW + dashAttr + '" ' +
+            'data-zone-id="' + z.id + '"/>';
 
-        // Zone label
-        html += '<text class="inv-zone-label" x="' + (lay.x + 10) + '" y="' + (lay.y + 18) + '" font-size="13" font-weight="800" fill="#1e293b">' +
-            z.id + ' — ' + z.label + '</text>';
+        // Subtle capacity tint overlay (transparent to clicks)
+        html += '<rect x="' + lay.x + '" y="' + lay.y + '" width="' + lay.w + '" height="' + lay.h + '" rx="' + rCorner + '" ry="' + rCorner + '" fill="' + capTint + '" pointer-events="none"/>';
 
-        // Zone sublabel
-        html += '<text class="inv-zone-sublabel" x="' + (lay.x + 10) + '" y="' + (lay.y + 32) + '" font-size="9" fill="' + capColor + '">' +
-            zGases.length + '/' + z.slots + ' (' + capPct + '%) — ' + z.type + '</text>';
+        // Header bar (rounded top, flat bottom) — capacity color
+        var headerPath = _invHeaderPath(lay.x, lay.y, lay.w, headerH, rCorner);
+        html += '<path d="' + headerPath + '" fill="' + capHeader + '" pointer-events="none"/>';
 
-        // Cylinder grid inside zone
+        // Zone label (white on colored header, left-aligned)
+        var labelText = z.id + '  ' + z.label;
+        html += '<text x="' + (lay.x + 12) + '" y="' + (lay.y + 17) + '" font-size="12" font-weight="800" fill="#fff" text-anchor="start" pointer-events="none" style="letter-spacing:0.3px;">' +
+            _invEscAttr(labelText) + '</text>';
+
+        // Capacity badge on right of header
+        html += '<text x="' + (lay.x + lay.w - 10) + '" y="' + (lay.y + 17) + '" font-size="11" font-weight="700" fill="#fff" text-anchor="end" pointer-events="none">' +
+            zGases.length + '/' + z.slots + '  ·  ' + capPct + '%</text>';
+
+        // Zone type sub-line (just below header, inside the tinted area)
+        html += '<text x="' + (lay.x + 12) + '" y="' + (lay.y + headerH + 12) + '" font-size="9" font-weight="600" fill="' + capHeader + '" text-anchor="start" pointer-events="none" style="letter-spacing:0.2px;text-transform:uppercase;">' +
+            _invEscAttr(z.type || '') + '</text>';
+
+        // Clip cylinders within the zone content area so they never overflow
+        var clipId = 'inv-clip-' + z.id;
+        var clipY = lay.y + headerH + 16;
+        var clipH = Math.max(0, lay.h - headerH - 16);
+        html += '<defs><clipPath id="' + clipId + '"><rect x="' + (lay.x + 2) + '" y="' + clipY + '" width="' + (lay.w - 4) + '" height="' + clipH + '" rx="' + Math.max(0, rCorner - 2) + '" ry="' + Math.max(0, rCorner - 2) + '"/></clipPath></defs>';
+
+        // Cylinder grid inside zone (clipped)
+        html += '<g clip-path="url(#' + clipId + ')">';
         var cylRadius = 12;
         var cylGap = 6;
         var cylDiam = cylRadius * 2 + cylGap;
         var startX = lay.x + 14;
-        var startY = lay.y + 46;
+        var startY = clipY + 6;
         var maxCols = Math.max(1, Math.floor((lay.w - 28) / cylDiam));
+        var maxRows = Math.max(1, Math.floor((clipH - 12) / cylDiam));
+        var visibleSlots = maxCols * maxRows;
+        var overflowN = z.slots - visibleSlots;
 
-        for (var s = 1; s <= z.slots; s++) {
+        var renderMax = Math.min(z.slots, visibleSlots);
+        for (var s = 1; s <= renderMax; s++) {
             var code = z.id + (s < 10 ? '0' : '') + s;
             var col = (s - 1) % maxCols;
             var row = Math.floor((s - 1) / maxCols);
@@ -17197,33 +17260,48 @@ function invRenderFloorPlan(el) {
                     'data-tooltip-conc="' + _invEscAttr(slotGas.concNominal || '') + '" ' +
                     'data-tooltip-level="' + lvl.pct + '%" ' +
                     'style="cursor:pointer;">';
-                html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="' + fillColor + '" stroke="' + fillColor + '" stroke-width="1.5" opacity="0.9"/>';
+                html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="' + fillColor + '" stroke="' + fillColor + '" stroke-width="1.5" opacity="0.92"/>';
 
                 if (cylStatus === 'expired') {
                     html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="url(#inv-cross-pattern)" stroke="#ef4444" stroke-width="1.5"/>';
                 }
 
-                // Formula label inside cylinder
+                // Formula label inside cylinder — 3 chars max to fit radius 12
                 var shortLabel = slotGas.formula.split('/')[0];
-                if (shortLabel.length > 4) shortLabel = shortLabel.substring(0, 4);
-                html += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" font-size="7" font-weight="700" fill="#fff" pointer-events="none">' + shortLabel + '</text>';
+                if (shortLabel.length > 3) shortLabel = shortLabel.substring(0, 3);
+                var labelFs = shortLabel.length <= 2 ? 10 : 9;
+                html += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" font-size="' + labelFs + '" font-weight="700" fill="#fff" pointer-events="none">' + _invEscAttr(shortLabel) + '</text>';
 
                 html += '</g>';
             } else {
                 // Empty slot — dashed circle
                 html += '<g class="inv-cylinder cyl-empty" data-zone-code="' + code + '" style="cursor:pointer;">';
                 html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 2"/>';
-                html += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" font-size="6" fill="#94a3b8" pointer-events="none">' + s + '</text>';
+                html += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#94a3b8" pointer-events="none">' + s + '</text>';
                 html += '</g>';
             }
         }
+        html += '</g>'; // close clipped cylinder group
 
-        // Resize handles in edit mode
+        // Overflow badge if zone is too small to show all slots
+        if (overflowN > 0) {
+            var badgeX = lay.x + lay.w - 38;
+            var badgeY = lay.y + lay.h - 18;
+            html += '<rect x="' + badgeX + '" y="' + badgeY + '" width="32" height="14" rx="7" ry="7" fill="#334155" opacity="0.85" pointer-events="none"/>';
+            html += '<text x="' + (badgeX + 16) + '" y="' + (badgeY + 10) + '" font-size="9" font-weight="700" fill="#fff" text-anchor="middle" pointer-events="none">+' + overflowN + '</text>';
+        }
+
+        // Resize handles in edit mode (4 corners + 4 mid-sides)
         if (_invFloorPlanEditMode) {
             var handles = [
                 { hx: lay.x + lay.w, hy: lay.y + lay.h, cursor: 'nwse-resize', handle: 'se' },
-                { hx: lay.x + lay.w, hy: lay.y, cursor: 'nesw-resize', handle: 'ne' },
-                { hx: lay.x, hy: lay.y + lay.h, cursor: 'nesw-resize', handle: 'sw' }
+                { hx: lay.x + lay.w, hy: lay.y,         cursor: 'nesw-resize', handle: 'ne' },
+                { hx: lay.x,         hy: lay.y + lay.h, cursor: 'nesw-resize', handle: 'sw' },
+                { hx: lay.x,         hy: lay.y,         cursor: 'nwse-resize', handle: 'nw' },
+                { hx: lay.x + lay.w / 2, hy: lay.y,         cursor: 'ns-resize', handle: 'n' },
+                { hx: lay.x + lay.w / 2, hy: lay.y + lay.h, cursor: 'ns-resize', handle: 's' },
+                { hx: lay.x,             hy: lay.y + lay.h / 2, cursor: 'ew-resize', handle: 'w' },
+                { hx: lay.x + lay.w,     hy: lay.y + lay.h / 2, cursor: 'ew-resize', handle: 'e' }
             ];
             handles.forEach(function(h) {
                 html += '<rect class="inv-resize-handle" x="' + (h.hx - 5) + '" y="' + (h.hy - 5) + '" width="10" height="10" rx="2" ' +
@@ -17965,10 +18043,10 @@ function invShowZoneModal(idx) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Zona ' + v('id') : 'Nueva Zona') + '</h3>' +
         '<div style="display:grid;gap:10px;">' +
-        (!isEdit ? '<div><label style="font-size:10px;color:#64748b;">ID (1-2 caracteres, ej: I, J)</label><input id="inv-zone-id" maxlength="2" value="" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;font-size:16px;text-transform:uppercase;"></div>' : '') +
-        '<div><label style="font-size:10px;color:#64748b;">Nombre</label><input id="inv-zone-label" value="' + v('label', 'Zona') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Cantidad de slots</label><input id="inv-zone-slots" type="number" value="' + v('slots', '10') + '" min="1" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Tipo</label><select id="inv-zone-type" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+        (!isEdit ? '<div><label style="font-size:11px;color:#475569;font-weight:600;">ID (1-2 caracteres, ej: I, J)</label><input id="inv-zone-id" maxlength="2" value="" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;font-size:16px;text-transform:uppercase;"></div>' : '') +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Nombre</label><input id="inv-zone-label" value="' + v('label', 'Zona') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Cantidad de slots</label><input id="inv-zone-slots" type="number" value="' + v('slots', '10') + '" min="1" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Tipo</label><select id="inv-zone-type" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
         '<option value="online"' + (v('type')==='online'?' selected':'') + '>Online</option>' +
         '<option value="offline"' + (v('type','offline')==='offline'?' selected':'') + '>Offline</option>' +
         '<option value="special"' + (v('type')==='special'?' selected':'') + '>Special</option>' +
@@ -18040,9 +18118,9 @@ function invShowGasTypeModal(idx) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Tipo de Gas' : 'Nuevo Tipo de Gas') + '</h3>' +
         '<div style="display:grid;gap:10px;">' +
-        '<div><label style="font-size:10px;color:#64748b;">Nombre completo (ej: Propano/Aire)</label><input id="inv-gt-name" value="' + v('name') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Formula (ej: C3H8/Air)</label><input id="inv-gt-formula" value="' + v('formula') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:10px;color:#64748b;">Concentraciones (separadas por coma)</label><input id="inv-gt-concs" value="' + concsVal + '" placeholder="ej: 2 ppm, 5 ppm, 10 ppm" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Nombre completo (ej: Propano/Aire)</label><input id="inv-gt-name" value="' + v('name') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Formula (ej: C3H8/Air)</label><input id="inv-gt-formula" value="' + v('formula') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Concentraciones (separadas por coma)</label><input id="inv-gt-concs" value="' + concsVal + '" placeholder="ej: 2 ppm, 5 ppm, 10 ppm" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveGasTypeModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
@@ -18099,7 +18177,7 @@ function invShowTrendChart(gasId) {
     modal.innerHTML = '<div style="max-width:520px;margin:20px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>' +
         '<h3 style="margin:0 0 2px;color:#06b6d4;">' + g.formula + ' ' + (g.concNominal || '') + '</h3>' +
-        '<div style="font-size:10px;color:#64748b;margin-bottom:12px;">#' + g.controlNo + ' | Zona ' + (g.zone || '?') + ' | ' + g.readings.length + ' lecturas</div>' +
+        '<div style="font-size:11px;color:#475569;font-weight:600;margin-bottom:12px;">#' + g.controlNo + ' | Zona ' + (g.zone || '?') + ' | ' + g.readings.length + ' lecturas</div>' +
         '<canvas id="inv-trend-canvas" style="width:100%;height:220px;"></canvas>' +
         '<div id="inv-trend-stats" style="margin-top:10px;"></div>' +
         '</div>';
@@ -19524,6 +19602,8 @@ function tpRenderDashboard(el) {
     el.innerHTML = `
     ${fixedBanner}
     ${tpRenderAlertsBanner()}
+    ${tpRenderAuditReadinessCard()}
+    ${tpRenderCoverageHeatmap()}
 
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;color:var(--tp-dim);">
@@ -21639,8 +21719,102 @@ function tpBuildFamilies() {
         f.auditRiskLevel = f.auditRiskScore > 60 ? 'high' : f.auditRiskScore > 30 ? 'medium' : 'low';
     });
 
-    _tpCache.families = Object.values(families);
+    // ==================================================================
+    // [AUDIT-EXT] Continuidad MY + Equivalencia cruzada entre familias
+    // ==================================================================
+    var famArr = Object.values(families);
+    var continuityMap = (tpState && tpState.myContinuity) || {};
+
+    // Pass 1: continuity coverage per config (same family, previous MY)
+    famArr.forEach(function(f) {
+        f.continuityCoveredCount = 0;
+        f.configs.forEach(function(c) {
+            c.coveredByContinuity = null;
+            if (c.testedN > 0) return;
+            var cont = continuityMap[c.desc];
+            if (!cont || !cont.prevConfigDesc) return;
+            var prevTests = tpState.testedList.filter(function(t) { return t.configText === cont.prevConfigDesc; });
+            if (prevTests.length === 0) return;
+            c.coveredByContinuity = {
+                prevMy: cont.prevMy || '',
+                prevConfigDesc: cont.prevConfigDesc,
+                prevTestDate: prevTests[0].date || '',
+                prevTestVin: _tpExtractVin(prevTests[0].note || ''),
+                note: cont.note || ''
+            };
+            f.continuityCoveredCount++;
+        });
+    });
+
+    // Pass 2: cross-family equivalence (same powertrain+regulation, diff only in body/drive/rgn)
+    famArr.forEach(function(f) {
+        f.coveredByEquivalent = null;
+        if (f.totalTested > 0) return;
+        if (f.continuityCoveredCount > 0 && f.continuityCoveredCount === f.configCount) return;
+        var candidates = famArr.filter(function(g) {
+            if (g === f || g.totalTested === 0) return false;
+            if (g.mod !== f.mod || g.eng !== f.eng || g.tx !== f.tx || g.my !== f.my) return false;
+            if (g.reg !== f.reg) return false;
+            if (g.ep !== f.ep || g.engpkg !== f.engpkg) return false;
+            var diffs = 0;
+            if (g.body !== f.body) diffs++;
+            if (g.drv !== f.drv) diffs++;
+            if (g.rgn !== f.rgn) diffs++;
+            return diffs >= 1;
+        });
+        if (candidates.length === 0) return;
+        candidates.sort(function(a, b) { return b.totalTested - a.totalTested; });
+        var best = candidates[0];
+        var reasons = [];
+        if (best.body !== f.body) reasons.push('body');
+        if (best.drv !== f.drv) reasons.push('drive');
+        if (best.rgn !== f.rgn) reasons.push('region');
+        var sampleVin = '';
+        for (var i = 0; i < best.configs.length; i++) {
+            if (best.configs[i].vins && best.configs[i].vins.length > 0) {
+                sampleVin = _tpExtractVin(best.configs[i].vins[0].note || '');
+                if (sampleVin) break;
+            }
+        }
+        f.coveredByEquivalent = {
+            siblingKey: best.key,
+            siblingLabel: [best.mod, best.body, best.drv, best.rgn].filter(Boolean).join(' · '),
+            reasons: reasons,
+            sampleVin: sampleVin
+        };
+    });
+
+    // Pass 3: recompute auditCoverage/auditRiskLevel with new signals
+    var maxVol2 = Math.max.apply(null, famArr.map(function(x) { return x.totalVol + x.totalHist; }).concat([1]));
+    famArr.forEach(function(f) {
+        var base = f.auditCoverage != null ? f.auditCoverage : f.coverage;
+        if (f.coveredByEquivalent) base = Math.max(base, 0.85);
+        if (f.continuityCoveredCount > 0 && f.configCount > 0) {
+            var effectiveCfgs = f.testedConfigs + f.continuityCoveredCount;
+            base = Math.max(base, effectiveCfgs / f.configCount);
+        }
+        f.auditCoverage = base;
+        f.auditRiskScore = ((1 - f.auditCoverage) * 60) + (((f.totalVol + f.totalHist) / maxVol2) * 30) + ((1 - f.configCoverage) * 10);
+        f.auditRiskLevel = f.auditRiskScore > 60 ? 'high' : f.auditRiskScore > 30 ? 'medium' : 'low';
+
+        // Coverage category for audit card (E) / heatmap (F)
+        if (f.totalTested > 0 && f.coverage >= 1) f.auditCoverageKind = 'direct';
+        else if (f.totalTested > 0) f.auditCoverageKind = 'partial';
+        else if (f.continuityCoveredCount > 0 && f.continuityCoveredCount === f.configCount) f.auditCoverageKind = 'continuity';
+        else if (f.coveredByEquivalent) f.auditCoverageKind = 'equivalent';
+        else f.auditCoverageKind = 'none';
+    });
+
+    _tpCache.families = famArr;
     return _tpCache.families;
+}
+
+function _tpExtractVin(note) {
+    if (!note) return '';
+    var m = String(note).match(/VIN:\s*([^\s—]+)/);
+    if (m) return m[1];
+    var parts = String(note).split('—');
+    return (parts[0] || '').trim();
 }
 
 function tpRenderFamilies(el) {
@@ -21648,8 +21822,12 @@ function tpRenderFamilies(el) {
     const families = tpBuildFamilies();
     const sortBy = window._tpFamSort || 'risk';
     const regionFilter = window._tpFamRegion || 'ALL';
+    const readinessFilter = window._tpReadinessFilter || 'ALL';
     const allRegions = [...new Set(families.map(f => f.rgn || '?'))].sort();
     let filtered = regionFilter === 'ALL' ? families : families.filter(f => f.rgn === regionFilter);
+    if (readinessFilter !== 'ALL') {
+        filtered = filtered.filter(function(f) { return f.auditCoverageKind === readinessFilter; });
+    }
     var _rkScore = window._tpAuditView ? 'auditRiskScore' : 'riskScore';
     const sorted = [...filtered].sort((a,b) => {
         if (sortBy === 'risk') return b[_rkScore] - a[_rkScore];
@@ -21674,7 +21852,15 @@ function tpRenderFamilies(el) {
         }).map(f => ({field:f, label:lbls[f]}));
     }
 
+    var _readinessLabels = { direct:'Probadas', partial:'Parciales', equivalent:'Cubiertas por similar', continuity:'Continuidad MY', none:'Sin cubrir' };
+    var _readinessBanner = readinessFilter !== 'ALL' ? `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.3);border-radius:6px;margin-bottom:8px;font-size:11px;">
+            <span>Filtro: <b>${_readinessLabels[readinessFilter] || readinessFilter}</b></span>
+            <button class="tp-btn tp-btn-ghost" onclick="window._tpReadinessFilter='ALL';tpRender();" style="font-size:9px;margin-left:auto;">Quitar</button>
+        </div>` : '';
+
     el.innerHTML = `
+    ${_readinessBanner}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px;">
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">${filtered.length}</div><div class="tp-metric-label">Familias</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${hR}</div><div class="tp-metric-label">Alto</div></div>
@@ -21700,6 +21886,9 @@ function tpRenderFamilies(el) {
             var _fRisk = window._tpAuditView ? f.auditRiskLevel : f.riskLevel;
             var _fCov = window._tpAuditView ? f.auditCoverage : f.coverage;
             var _repStar = (window._tpAuditView && f.repTested) ? '<span style="font-size:9px;color:var(--tp-blue);" title="Representativa probada: ' + (f.representative && f.representative.tire || '') + '"> &#9733;</span>' : '';
+            var _equivBadge = (window._tpAuditView && f.coveredByEquivalent) ? '<span class="tp-badge" style="background:rgba(56,189,248,0.18);color:#38bdf8;font-size:9px;" title="Cubierta por similar: ' + f.coveredByEquivalent.siblingLabel + ' (difiere en ' + f.coveredByEquivalent.reasons.join('/') + ')">≈ ' + f.coveredByEquivalent.reasons.join('/') + '</span>' : '';
+            var _contBadge = (f.continuityCoveredCount > 0) ? '<span class="tp-badge" style="background:rgba(34,197,94,0.15);color:#22c55e;font-size:9px;" title="' + f.continuityCoveredCount + ' configs por continuidad MY">↪ Cont ' + f.continuityCoveredCount + '</span>' : '';
+            var _evidBtn = (f.totalTested > 0) ? '<button class="tp-btn tp-btn-ghost" onclick="event.preventDefault();event.stopPropagation();tpOpenFamilyEvidence(\'' + f.key.replace(/'/g, "\\'") + '\');" style="font-size:9px;padding:2px 6px;" title="Ver VINs y evidencia">📋</button>' : '';
             return `
             <details style="margin-bottom:4px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;border-left:3px solid ${rc[_fRisk]};">
                 <summary style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;cursor:pointer;list-style:none;background:var(--tp-card);gap:4px;flex-wrap:wrap;">
@@ -21711,9 +21900,10 @@ function tpRenderFamilies(el) {
                         <span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:9px;">${f.reg}</span>
                         <span class="tp-badge" style="background:${tpRegionColor(f.rgn)}20;color:${tpRegionColor(f.rgn)};font-size:9px;">${f.rgn}</span>
                         ${f.drv?`<span class="tp-badge" style="background:rgba(236,72,153,0.15);color:#ec4899;font-size:9px;">${f.drv}</span>`:''}
-                        ${epTag}${engTag}${_repStar}
+                        ${epTag}${engTag}${_repStar}${_equivBadge}${_contBadge}
                     </div>
                     <div style="display:flex;align-items:center;gap:4px;">
+                        ${_evidBtn}
                         <span style="font-size:10px;font-weight:700;color:${f.totalTested>0?'var(--tp-green)':'var(--tp-red)'};">${f.totalTested}/${f.totalRequired}</span>
                         <div class="tp-bar" style="width:40px;"><div class="tp-bar-fill" style="width:${Math.round(_fCov*100)}%;background:${rc[_fRisk]};"></div><span class="tp-bar-text" style="font-size:9px;">${Math.round(_fCov*100)}%</span></div>
                     </div>
@@ -21762,20 +21952,24 @@ function tpRenderFamilies(el) {
                         }
                         var _dotColor, _dotTitle;
                         if (c.testedN >= c.required) { _dotColor = 'var(--tp-green)'; _dotTitle = 'Probada'; }
+                        else if (c.coveredByContinuity) { _dotColor = '#84cc16'; _dotTitle = 'Continuidad MY ' + c.coveredByContinuity.prevMy + ' (' + c.coveredByContinuity.prevTestVin + ')'; }
                         else if (c.coveredByRep && window._tpAuditView) { _dotColor = 'var(--tp-blue)'; _dotTitle = 'Cubierta por representativa (' + (f.representative && f.representative.tire || '') + ')'; }
                         else if (c.testedN > 0) { _dotColor = 'var(--tp-amber)'; _dotTitle = 'Parcial'; }
                         else { _dotColor = 'var(--tp-red)'; _dotTitle = 'Sin pruebas'; }
                         var _repBadge = c.isRepresentative && window._tpAuditView ? '<span style="font-size:8px;color:var(--tp-blue);font-weight:700;" title="Representativa (mayor volumen)">REP</span>' : '';
+                        var _contTag = c.coveredByContinuity ? '<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(132,204,22,0.2);color:#84cc16;" title="Carry-over sin cambios de emisiones">CONT ' + c.coveredByContinuity.prevMy + '</span>' : '';
+                        var _contBtn = (c.testedN === 0) ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpOpenContinuityModal(' + JSON.stringify(c.desc).replace(/"/g, '&quot;') + ',' + JSON.stringify(c.my || '').replace(/"/g, '&quot;') + ');" style="font-size:8px;padding:1px 5px;" title="Marcar continuidad técnica vs MY previo">↪</button>' : '';
                         const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${fi}-${_ci}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
                         return `
                         <div style="margin-bottom:2px;border:1px solid var(--tp-border);border-radius:4px;background:var(--tp-card);overflow:hidden;">
                             <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;font-size:9px;" ${clickable}>
                                 <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap;">
-                                    <span class="tp-dot" style="background:${_dotColor};" title="${_dotTitle}"></span>${_repBadge}
+                                    <span class="tp-dot" style="background:${_dotColor};" title="${_dotTitle}"></span>${_repBadge}${_contTag}
                                     ${badges}
                                     ${c.testedN > 0 ? '<span style="font-size:9px;color:var(--tp-dim);">▼</span>' : ''}
                                 </div>
                                 <div style="display:flex;gap:4px;align-items:center;">
+                                    ${_contBtn}
                                     <span style="font-size:9px;font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
                                     <span style="font-size:9px;color:var(--tp-dim);">${c.total.toLocaleString()}</span>
                                 </div>
@@ -22401,6 +22595,383 @@ function tpHookCascadeResult() {
     });
     const target = document.getElementById('cfg_result');
     if (target) observer.observe(target, { childList: true, characterData: true, subtree: true });
+}
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [AUDIT-EXT] Continuidad MY, Evidencia, Readiness Card, Heatmap     ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function _tpEnsureAuditState() {
+    if (!tpState.myContinuity) tpState.myContinuity = {};
+}
+
+function tpOpenContinuityModal(configDesc, currentMy) {
+    _tpEnsureAuditState();
+    if (!tpState.planData || tpState.planData.length === 0) {
+        showToast('Importa el plan de producción primero', 'error');
+        return;
+    }
+    var cfg = tpState.planData.find(function(c) { return c.desc === configDesc; });
+    if (!cfg) { showToast('Configuración no encontrada', 'error'); return; }
+
+    var candidates = tpState.planData.filter(function(c) {
+        if (c.desc === configDesc) return false;
+        if (c.my === cfg.my) return false;
+        return c.mod === cfg.mod && c.eng === cfg.eng && c.tx === cfg.tx &&
+               c.reg === cfg.reg && c.rgn === cfg.rgn &&
+               (c.tire || '') === (cfg.tire || '');
+    });
+
+    var existing = tpState.myContinuity[configDesc] || null;
+
+    var html = '';
+    html += '<div style="text-align:left;font-size:12px;max-width:560px;">';
+    html += '<div style="background:rgba(132,204,22,0.08);border:1px solid rgba(132,204,22,0.25);border-radius:6px;padding:8px;margin-bottom:10px;">';
+    html += '<div style="font-weight:700;color:#65a30d;margin-bottom:2px;">Config actual</div>';
+    html += '<div style="font-family:monospace;font-size:11px;color:#374151;">' + cfg.desc + '</div>';
+    html += '</div>';
+    html += '<p style="color:#4b5563;font-size:11px;margin:6px 0 10px;">Marcar como "continuidad técnica" si el powertrain y las calibraciones de emisiones no cambiaron respecto al Model Year previo. La cobertura se hereda de la prueba anterior.</p>';
+
+    if (candidates.length === 0) {
+        html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px;color:#991b1b;font-size:11px;">No se encontraron configs equivalentes en otros Model Years (mismo powertrain+region+regulación+llanta).</div>';
+        html += '</div>';
+        showModal({ title: '↪ Continuidad entre Model Years', message: html, confirmText: 'Cerrar', showCancel: false, type: 'info' });
+        return;
+    }
+
+    candidates.sort(function(a, b) { return String(a.my).localeCompare(String(b.my)); });
+
+    html += '<label style="display:block;font-weight:700;margin-bottom:4px;">MY previo equivalente</label>';
+    html += '<select id="_tp-cont-select" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:monospace;">';
+    candidates.forEach(function(c) {
+        var tested = tpState.testedList.filter(function(t) { return t.configText === c.desc; }).length;
+        var mark = tested > 0 ? ' ✓' + tested : ' (sin pruebas)';
+        var sel = existing && existing.prevConfigDesc === c.desc ? ' selected' : '';
+        html += '<option value="' + c.desc.replace(/"/g, '&quot;') + '" data-my="' + (c.my || '') + '"' + sel + '>[' + (c.my || '?') + ']' + mark + ' — ' + c.desc + '</option>';
+    });
+    html += '</select>';
+    html += '<label style="display:block;font-weight:700;margin-top:10px;margin-bottom:4px;">Nota (opcional)</label>';
+    html += '<textarea id="_tp-cont-note" rows="2" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;" placeholder="Ej: Carry-over sin cambios de hardware ni calibración de emisiones">' + ((existing && existing.note) || '') + '</textarea>';
+    if (existing) {
+        html += '<div style="margin-top:8px;padding:6px 8px;background:#f3f4f6;border-radius:6px;font-size:10px;color:#6b7280;">Marcada previamente el ' + (existing.markedAt || '?') + (existing.markedBy ? ' por ' + existing.markedBy : '') + '</div>';
+    }
+    html += '</div>';
+
+    showModal({
+        title: '↪ Continuidad entre Model Years',
+        message: html,
+        confirmText: 'Guardar continuidad',
+        cancelText: existing ? 'Cancelar' : 'Cerrar',
+        type: 'info',
+        onConfirm: function() {
+            var sel = document.getElementById('_tp-cont-select');
+            var note = document.getElementById('_tp-cont-note');
+            if (!sel || !sel.value) return;
+            var opt = sel.options[sel.selectedIndex];
+            tpState.myContinuity[configDesc] = {
+                prevConfigDesc: sel.value,
+                prevMy: opt.getAttribute('data-my') || '',
+                note: note ? note.value : '',
+                markedAt: new Date().toISOString().slice(0, 10),
+                markedBy: (typeof getCurrentUser === 'function' ? (getCurrentUser() || '') : '')
+            };
+            tpSave();
+            _tpInvalidateCache();
+            tpRender();
+            showToast('Continuidad MY guardada', 'success');
+        }
+    });
+
+    if (existing) {
+        setTimeout(function() {
+            var box = document.querySelector('.custom-modal-box');
+            if (!box) return;
+            var actions = box.querySelector('.custom-modal-actions');
+            if (!actions || actions.querySelector('#_tp-cont-remove')) return;
+            var rm = document.createElement('button');
+            rm.id = '_tp-cont-remove';
+            rm.className = 'modal-btn-cancel';
+            rm.style.color = '#dc2626';
+            rm.textContent = 'Quitar continuidad';
+            rm.onclick = function() {
+                delete tpState.myContinuity[configDesc];
+                tpSave();
+                _tpInvalidateCache();
+                tpRender();
+                showToast('Continuidad MY eliminada', 'success');
+                var overlay = document.querySelector('.custom-modal-overlay');
+                if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            };
+            actions.insertBefore(rm, actions.firstChild);
+        }, 30);
+    }
+}
+
+function tpOpenFamilyEvidence(famKey) {
+    var families = tpBuildFamilies();
+    var f = families.find(function(x) { return x.key === famKey; });
+    if (!f) { showToast('Familia no encontrada', 'error'); return; }
+
+    var rows = [];
+    f.configs.forEach(function(c) {
+        (c.vins || []).forEach(function(v) {
+            var vin = _tpExtractVin(v.note || '');
+            var vehicle = null;
+            if (typeof db !== 'undefined' && db.vehicles && vin) {
+                vehicle = db.vehicles.find(function(veh) { return veh.vin === vin; });
+            }
+            rows.push({
+                vin: vin,
+                date: v.date || '',
+                operator: vehicle ? (vehicle.registeredBy || '') : '',
+                purpose: vehicle ? (vehicle.purpose || '') : '',
+                status: vehicle ? (vehicle.status || '') : '',
+                vehicleId: vehicle ? vehicle.id : null,
+                tire: c.tire || '',
+                rep: c.isRepresentative ? 'REP' : ''
+            });
+        });
+    });
+
+    var html = '';
+    html += '<div style="text-align:left;font-size:12px;max-width:720px;">';
+    html += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:8px;margin-bottom:10px;">';
+    html += '<div style="font-weight:700;color:#1e40af;">' + f.mod + ' · ' + f.eng + ' ' + f.tx + ' · ' + f.my + '</div>';
+    html += '<div style="font-size:10px;color:#475569;">' + f.reg + ' · ' + f.rgn + (f.drv ? ' · ' + f.drv : '') + (f.body ? ' · ' + f.body : '') + '</div>';
+    html += '<div style="font-size:10px;color:#475569;margin-top:2px;">' + f.totalTested + '/' + f.totalRequired + ' pruebas · ' + Math.round((f.coverage || 0) * 100) + '% cobertura directa</div>';
+    html += '</div>';
+
+    if (rows.length === 0) {
+        html += '<div style="color:#6b7280;font-size:11px;padding:12px;text-align:center;">Sin VINs registrados en esta familia.</div>';
+    } else {
+        html += '<div style="max-height:340px;overflow:auto;border:1px solid #e5e7eb;border-radius:6px;">';
+        html += '<table style="width:100%;font-size:10px;border-collapse:collapse;">';
+        html += '<thead style="background:#f9fafb;position:sticky;top:0;"><tr>';
+        ['VIN', 'Fecha', 'Operador', 'Propósito', 'Estado', 'Variante', ''].forEach(function(h) {
+            html += '<th style="padding:5px 6px;text-align:left;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;">' + h + '</th>';
+        });
+        html += '</tr></thead><tbody>';
+        rows.forEach(function(r) {
+            html += '<tr style="border-bottom:1px solid #f3f4f6;">';
+            html += '<td style="padding:4px 6px;font-family:monospace;color:#1f2937;">' + (r.vin || '?') + (r.rep ? ' <span style="font-size:8px;color:#2563eb;font-weight:700;">REP</span>' : '') + '</td>';
+            html += '<td style="padding:4px 6px;color:#4b5563;">' + r.date + '</td>';
+            html += '<td style="padding:4px 6px;color:#4b5563;">' + (r.operator || '—') + '</td>';
+            html += '<td style="padding:4px 6px;color:#4b5563;">' + (r.purpose || '—') + '</td>';
+            html += '<td style="padding:4px 6px;color:#4b5563;">' + (r.status || '—') + '</td>';
+            html += '<td style="padding:4px 6px;color:#475569;font-size:9px;">' + (r.tire || '—') + '</td>';
+            if (r.vehicleId != null) {
+                html += '<td style="padding:4px 6px;"><button onclick="tpGoToVehicle(' + r.vehicleId + ')" style="background:none;border:1px solid #bfdbfe;color:#1d4ed8;font-size:9px;padding:2px 6px;border-radius:4px;cursor:pointer;">Ver</button></td>';
+            } else {
+                html += '<td></td>';
+            }
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        html += '<div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">';
+        html += '<span style="font-size:10px;color:#6b7280;">Total: ' + rows.length + ' evidencias</span>';
+        html += '<button onclick="tpExportFamilyEvidenceCSV(\'' + famKey.replace(/'/g, "\\'") + '\')" style="background:#e0e7ff;border:1px solid #a5b4fc;color:#3730a3;font-size:10px;padding:3px 8px;border-radius:4px;cursor:pointer;">Exportar CSV</button>';
+        html += '</div>';
+    }
+    html += '</div>';
+
+    showModal({
+        title: '📋 Evidencia · Familia',
+        message: html,
+        confirmText: 'Cerrar',
+        showCancel: false,
+        type: 'info'
+    });
+}
+
+function tpGoToVehicle(vehicleId) {
+    if (typeof switchPlatform === 'function') switchPlatform('cop15');
+    setTimeout(function() {
+        var sel = document.getElementById('activeVehSelect');
+        if (sel) {
+            sel.value = vehicleId;
+            if (typeof loadVehicle === 'function') loadVehicle();
+        }
+        var opTab = document.querySelector('[onclick*="switchTab(\'op-\'"]');
+        var rel = document.querySelector('[onclick*="cop15-release"]');
+        if (rel) try { rel.click(); } catch(e){}
+    }, 120);
+    var overlay = document.querySelector('.custom-modal-overlay');
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+}
+
+function tpExportFamilyEvidenceCSV(famKey) {
+    var families = tpBuildFamilies();
+    var f = families.find(function(x) { return x.key === famKey; });
+    if (!f) return;
+    var lines = ['VIN,Fecha,Operador,Proposito,Estado,Variante,ConfigCode'];
+    f.configs.forEach(function(c) {
+        (c.vins || []).forEach(function(v) {
+            var vin = _tpExtractVin(v.note || '');
+            var vehicle = null;
+            if (typeof db !== 'undefined' && db.vehicles && vin) {
+                vehicle = db.vehicles.find(function(veh) { return veh.vin === vin; });
+            }
+            lines.push([
+                vin,
+                v.date || '',
+                vehicle ? (vehicle.registeredBy || '') : '',
+                vehicle ? (vehicle.purpose || '') : '',
+                vehicle ? (vehicle.status || '') : '',
+                c.tire || '',
+                (vehicle && vehicle.configCode) || ''
+            ].map(function(x) { return '"' + String(x).replace(/"/g, '""') + '"'; }).join(','));
+        });
+    });
+    var csv = lines.join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'evidencia_' + f.mod + '_' + f.eng.replace(/\s+/g, '') + '_' + f.my + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function tpRenderAuditReadinessCard() {
+    var families = tpBuildFamilies();
+    if (families.length === 0) return '';
+    var direct = families.filter(function(f) { return f.auditCoverageKind === 'direct'; }).length;
+    var partial = families.filter(function(f) { return f.auditCoverageKind === 'partial'; }).length;
+    var equiv = families.filter(function(f) { return f.auditCoverageKind === 'equivalent'; }).length;
+    var cont = families.filter(function(f) { return f.auditCoverageKind === 'continuity'; }).length;
+    var none = families.filter(function(f) { return f.auditCoverageKind === 'none'; }).length;
+    var total = families.length;
+
+    var coveredFullOrMitigated = direct + equiv + cont;
+    var effectivePct = total > 0 ? Math.round(((coveredFullOrMitigated + partial * 0.5) / total) * 100) : 0;
+
+    var verdict, verdictColor, verdictIcon;
+    if (none === 0 && partial === 0) { verdict = 'Listo para auditoría'; verdictColor = '#22c55e'; verdictIcon = '✅'; }
+    else if (none === 0) { verdict = 'Listo con brechas parciales'; verdictColor = '#84cc16'; verdictIcon = '🟡'; }
+    else if (none <= 3) { verdict = 'Atender ' + none + ' brecha' + (none === 1 ? '' : 's'); verdictColor = '#f59e0b'; verdictIcon = '⚠️'; }
+    else { verdict = 'Requiere plan inmediato — ' + none + ' brechas críticas'; verdictColor = '#ef4444'; verdictIcon = '❌'; }
+
+    var html = '';
+    html += '<div class="tp-card" style="border-left:3px solid ' + verdictColor + ';margin-bottom:12px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">';
+    html += '<div style="font-weight:800;font-size:13px;color:var(--tp-text);">🛡️ Preparación para auditoría</div>';
+    html += '<div style="display:flex;align-items:center;gap:8px;">';
+    html += '<span style="font-size:22px;font-weight:800;font-family:monospace;color:' + verdictColor + ';">' + effectivePct + '%</span>';
+    html += '<span style="font-size:11px;font-weight:700;color:' + verdictColor + ';">' + verdictIcon + ' ' + verdict + '</span>';
+    html += '</div>';
+    html += '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin-bottom:8px;">';
+    html += '<div class="tp-metric" onclick="window._tpReadinessFilter=\'direct\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;"><div class="tp-metric-val" style="color:var(--tp-green)">' + direct + '</div><div class="tp-metric-label">Probadas</div></div>';
+    html += '<div class="tp-metric" onclick="window._tpReadinessFilter=\'partial\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;"><div class="tp-metric-val" style="color:var(--tp-amber)">' + partial + '</div><div class="tp-metric-label">Parciales</div></div>';
+    html += '<div class="tp-metric" onclick="window._tpReadinessFilter=\'equivalent\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;" title="Cubiertas por familia similar (body/drive/region)"><div class="tp-metric-val" style="color:#38bdf8">' + equiv + '</div><div class="tp-metric-label">Por similar</div></div>';
+    html += '<div class="tp-metric" onclick="window._tpReadinessFilter=\'continuity\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;" title="Configs cubiertas por continuidad MY"><div class="tp-metric-val" style="color:#84cc16">' + cont + '</div><div class="tp-metric-label">Continuidad MY</div></div>';
+    html += '<div class="tp-metric" onclick="window._tpReadinessFilter=\'none\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;"><div class="tp-metric-val" style="color:var(--tp-red)">' + none + '</div><div class="tp-metric-label">Sin cubrir</div></div>';
+    html += '</div>';
+    html += '<div class="tp-bar" style="height:10px;"><div class="tp-bar-fill" style="width:' + effectivePct + '%;background:' + verdictColor + ';"></div></div>';
+    if (none > 0) {
+        html += '<div style="margin-top:8px;font-size:10px;color:var(--tp-dim);">Las brechas sin cubrir son las que un auditor va a cuestionar primero. Considera marcar continuidad MY donde aplique o priorizar pruebas físicas en el plan semanal.</div>';
+    }
+    html += '</div>';
+    return html;
+}
+
+function tpRenderCoverageHeatmap() {
+    var families = tpBuildFamilies();
+    if (families.length === 0) return '';
+
+    var axisY = window._tpHeatmapY || 'eng_tx';
+    var rowKeyFn = function(f) {
+        if (axisY === 'eng') return f.eng;
+        if (axisY === 'model') return f.mod;
+        return f.eng + ' · ' + f.tx;
+    };
+
+    var cells = {};
+    var rowSet = {};
+    var colSet = {};
+    families.forEach(function(f) {
+        var r = rowKeyFn(f);
+        var c = f.rgn + ' · ' + f.reg;
+        rowSet[r] = true;
+        colSet[c] = true;
+        var k = r + '||' + c;
+        if (!cells[k]) cells[k] = { families: [], kinds: {} };
+        cells[k].families.push(f);
+        cells[k].kinds[f.auditCoverageKind] = (cells[k].kinds[f.auditCoverageKind] || 0) + 1;
+    });
+
+    var rows = Object.keys(rowSet).sort();
+    var cols = Object.keys(colSet).sort();
+
+    function cellColor(cell) {
+        if (!cell) return 'transparent';
+        var k = cell.kinds;
+        if (k.none) return 'rgba(239,68,68,0.85)';
+        if (k.partial) return 'rgba(245,158,11,0.85)';
+        if (k.equivalent && !k.direct && !k.continuity) return 'rgba(56,189,248,0.80)';
+        if (k.continuity && !k.direct) return 'rgba(132,204,22,0.80)';
+        if (k.direct) return 'rgba(34,197,94,0.85)';
+        return 'rgba(148,163,184,0.3)';
+    }
+    function cellLabel(cell) {
+        if (!cell) return '';
+        var k = cell.kinds;
+        var n = cell.families.length;
+        if (k.none) return k.none + '/' + n;
+        return n;
+    }
+
+    var html = '';
+    html += '<div class="tp-card">';
+    html += '<div class="tp-card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">';
+    html += '<span>🧭 Matriz de cobertura</span>';
+    html += '<select class="tp-select" style="font-size:10px;" onchange="window._tpHeatmapY=this.value;tpRender();">';
+    html += '<option value="eng_tx"' + (axisY === 'eng_tx' ? ' selected' : '') + '>Engine + Transmisión</option>';
+    html += '<option value="eng"' + (axisY === 'eng' ? ' selected' : '') + '>Engine</option>';
+    html += '<option value="model"' + (axisY === 'model' ? ' selected' : '') + '>Modelo</option>';
+    html += '</select>';
+    html += '</div>';
+    html += '<div style="overflow-x:auto;">';
+    html += '<table class="tp-heatmap" style="border-collapse:collapse;font-size:10px;min-width:100%;">';
+    html += '<thead><tr><th style="padding:4px 6px;text-align:left;color:var(--tp-dim);font-weight:600;position:sticky;left:0;background:var(--tp-card);z-index:2;">' + (axisY === 'model' ? 'Modelo' : axisY === 'eng' ? 'Engine' : 'Engine+Tx') + '</th>';
+    cols.forEach(function(c) {
+        html += '<th style="padding:4px 6px;text-align:center;color:var(--tp-dim);font-weight:600;font-size:9px;white-space:nowrap;">' + c + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    rows.forEach(function(r) {
+        html += '<tr>';
+        html += '<td style="padding:4px 6px;color:var(--tp-text);font-weight:600;white-space:nowrap;position:sticky;left:0;background:var(--tp-card);z-index:1;">' + r + '</td>';
+        cols.forEach(function(c) {
+            var cell = cells[r + '||' + c];
+            var color = cellColor(cell);
+            var label = cellLabel(cell);
+            var tip = '';
+            if (cell) {
+                var bits = [];
+                ['direct','partial','equivalent','continuity','none'].forEach(function(kk) {
+                    if (cell.kinds[kk]) bits.push(kk + ':' + cell.kinds[kk]);
+                });
+                tip = r + ' / ' + c + ' · ' + bits.join(' · ');
+            }
+            var clickAttr = cell ? 'onclick="window._tpFamRegion=\'' + (cell.families[0].rgn || 'ALL') + '\';tpSwitchTab(\'tp-families\');tpRender();" style="cursor:pointer;"' : '';
+            html += '<td class="tp-heatmap-cell" ' + clickAttr + ' title="' + tip + '" style="padding:0;">';
+            html += '<div style="width:38px;height:30px;margin:2px;border-radius:4px;background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;">' + label + '</div>';
+            html += '</td>';
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    html += '<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;font-size:9px;color:var(--tp-dim);">';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(34,197,94,0.85);border-radius:2px;vertical-align:middle;"></span> Probada</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(132,204,22,0.80);border-radius:2px;vertical-align:middle;"></span> Continuidad MY</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(56,189,248,0.80);border-radius:2px;vertical-align:middle;"></span> Por similar</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(245,158,11,0.85);border-radius:2px;vertical-align:middle;"></span> Parcial</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(239,68,68,0.85);border-radius:2px;vertical-align:middle;"></span> Sin cubrir</span>';
+    html += '<span style="color:var(--tp-dim);">Click en celda para filtrar familias</span>';
+    html += '</div>';
+    html += '</div>';
+    return html;
 }
 
 
@@ -25055,11 +25626,11 @@ function pnRenderAuditTrail(el) {
     var html = '<div class="tp-card"><div class="tp-card-title"><span>🔍 Auditoría (' + trail.length + ' registros)</span>' +
         '<button onclick="if(typeof auditExportCSV===\'function\')auditExportCSV()" class="tp-btn tp-btn-ghost" style="font-size:10px;">📤 Exportar CSV</button></div>';
     if (trail.length === 0) {
-        html += '<div style="text-align:center;padding:20px;color:#64748b;">Sin registros de auditoría.</div>';
+        html += '<div style="text-align:center;padding:20px;color:#475569;">Sin registros de auditoría.</div>';
     } else {
         trail.slice(0, 100).forEach(function(e) {
             html += '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:10px;">' +
-                '<span style="color:#64748b;min-width:55px;">' + (e.ts ? e.ts.slice(11,16) : '') + '</span>' +
+                '<span style="color:#475569;min-width:55px;">' + (e.ts ? e.ts.slice(11,16) : '') + '</span>' +
                 '<span style="min-width:40px;font-weight:700;">' + (e.mod || '') + '</span>' +
                 '<span style="color:#3b82f6;min-width:60px;">' + (e.user ? e.user.name : '') + '</span>' +
                 '<span style="flex:1;">' + (e.action || '') + (e.details ? ' — ' + e.details : '') + '</span></div>';
@@ -31293,7 +31864,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202604162005' || !remoteBuild || remoteBuild <= localBuild) return;
+        if (!localBuild || localBuild === '202604231648' || !remoteBuild || remoteBuild <= localBuild) return;
         var dismissKey = 'kia_update_dismissed_' + remoteBuild;
         if (localStorage.getItem(dismissKey)) return;
         fbShowUpdateBanner(remoteBuild, downloadUrl, dismissKey);

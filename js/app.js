@@ -2104,11 +2104,11 @@ function globalVinSearch(query) {
         html += '</div>';
         html += '<div style="text-align:right;">';
         html += '<span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,0.15);color:#818cf8;">' + escapeHtml(r.module) + '</span>';
-        if (r.date) html += '<div style="font-size:0.65rem;color:#64748b;margin-top:2px;">' + escapeHtml(r.date) + '</div>';
+        if (r.date) html += '<div style="font-size:0.65rem;color:#475569;margin-top:2px;">' + escapeHtml(r.date) + '</div>';
         html += '</div></div>';
     });
     if (results.length > 15) {
-        html += '<div style="padding:8px;text-align:center;font-size:0.75rem;color:#64748b;">...y ' + (results.length - 15) + ' más</div>';
+        html += '<div style="padding:8px;text-align:center;font-size:0.75rem;color:#475569;">...y ' + (results.length - 15) + ' más</div>';
     }
     html += '</div>';
     res.innerHTML = html;
@@ -2596,7 +2596,7 @@ function renderNotifications() {
     var list = document.getElementById('notification-list');
     if (!list) return;
     if (_notificationLog.length === 0) {
-        list.innerHTML = '<div style="text-align:center;padding:30px;color:#64748b;font-size:12px;">Sin notificaciones</div>';
+        list.innerHTML = '<div style="text-align:center;padding:30px;color:#475569;font-size:12px;">Sin notificaciones</div>';
         return;
     }
     var icons = { success: '✅', error: '❌', warning: '⚡', info: 'ℹ️' };
@@ -2890,7 +2890,7 @@ function renderLabDashboard(container) {
                 '<span class="lab-dash-alert-badge" style="background:' + a.color + '20;color:' + a.color + ';">' + a.level + '</span>' +
                 '<span class="lab-dash-alert-mod">' + a.module + '</span>' +
                 '<span style="flex:1;font-size:10px;color:#e2e8f0;">' + a.message + '</span>' +
-                '<span style="font-size:9px;color:#64748b;">→</span></div>';
+                '<span style="font-size:9px;color:#475569;">→</span></div>';
         });
         html += '</div>';
     } else {
@@ -3485,7 +3485,7 @@ function templateRenderManager(module, applyCallback) {
             html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #1e293b;">';
             html += '<div>';
             html += '<div style="font-size:12px;font-weight:700;color:#e2e8f0;">' + escapeHtml(tpl.name) + '</div>';
-            html += '<div style="font-size:9px;color:#64748b;">Usado ' + (tpl.usageCount || 0) + 'x · ' + new Date(tpl.createdAt).toLocaleDateString('es-MX') + '</div>';
+            html += '<div style="font-size:9px;color:#475569;">Usado ' + (tpl.usageCount || 0) + 'x · ' + new Date(tpl.createdAt).toLocaleDateString('es-MX') + '</div>';
             html += '</div>';
             html += '<div style="display:flex;gap:6px;">';
             html += '<button onclick="var d=templateApply(\'' + module + '\',\'' + tpl.id + '\');if(d && typeof ' + (applyCallback || 'null') + '===\'function\') ' + (applyCallback || 'null') + '(d);closeModal();" class="btn-primary" style="padding:4px 12px;font-size:10px;">Aplicar</button>';
