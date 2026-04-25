@@ -5242,7 +5242,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202604231648';
+var APP_BUILD = '202604250004';
 
 let allConfigurations = [];
 let currentFilters = {};
@@ -11401,7 +11401,19 @@ function closeSubstitutionModal() {
                 <span>Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</span>
                 <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;">PDF Seleccionados</button>
                 <button class="btn-secondary" onclick="window.print()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Imprimir tabla de historial">🖨️ Imprimir</button>
-                ${(function(){ var _pendPA = typeof db !== 'undefined' && db.vehicles ? db.vehicles.filter(function(v){ return v.status === 'archived' && (!v.paStatus || !v.paStatus.vehicle_released || !v.paStatus.vehicle_released.sent); }).length : 0; return (_pendPA > 0 && typeof paConfig !== 'undefined' && paConfig.enabled) ? '<button class="btn-secondary" onclick="paBatchTriggerAll()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Enviar todos los archivados pendientes a Power Automate">⚡ Enviar ' + _pendPA + ' pendientes a PA</button>' : ''; })()}
+                ${(function(){
+                    if (typeof paConfig === 'undefined' || !paConfig.enabled || typeof db === 'undefined' || !db.vehicles) return '';
+                    var archived = db.vehicles.filter(function(vv){ return vv.status === 'archived'; });
+                    function _needsPhoto(vv){ return typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vv.purpose); }
+                    function _hasPhoto(vv){ return !!(vv.testData && vv.testData.scannedReportCaptured); }
+                    var notSent = archived.filter(function(vv){ return !(vv.paStatus && vv.paStatus.vehicle_released && vv.paStatus.vehicle_released.sent); });
+                    var ready = notSent.filter(function(vv){ return !_needsPhoto(vv) || _hasPhoto(vv); }).length;
+                    var blocked = notSent.filter(function(vv){ return _needsPhoto(vv) && !_hasPhoto(vv); }).length;
+                    var parts = '';
+                    if (ready > 0) parts += '<button class="btn-secondary" onclick="paBatchTriggerAll()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Enviar los archivados pendientes que ya tienen foto">⚡ Enviar ' + ready + ' pendientes a PA</button>';
+                    if (blocked > 0) parts += '<span style="padding:4px 10px;font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:6px;" title="Requieren foto de resultados antes de enviar">📸 ' + blocked + ' sin foto</span>';
+                    return parts;
+                })()}
             </div>
             <table class="history-table">
                 <thead>
@@ -11412,7 +11424,8 @@ function closeSubstitutionModal() {
                         <th>Propósito</th>
                         <th>Estado</th>
                         <th>Fecha</th>
-                        <th style="width:55px;">PA</th>
+                        <th style="width:90px;">Foto</th>
+                        <th style="width:90px;">PA</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -11440,7 +11453,39 @@ function closeSubstitutionModal() {
                             <td>${safePurpose}</td>
                             <td><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
                             <td>${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
-                            <td>${(function(){ var _paR = v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent; if (_paR) return '<span style="color:#10b981;font-size:14px;" title="Enviado a PA: ' + escapeHtml((v.paStatus.vehicle_released.sentAt || '')) + '">&#10004;</span>'; if (v.status === 'archived') return '<button class="btn-secondary" onclick="paManualTrigger(' + parseInt(v.id) + ',&#39;vehicle_released&#39;)" style="padding:3px 8px;font-size:10px;font-weight:700;" title="Enviar a Power Automate">Enviar</button>'; return '<span style="color:#94a3b8;font-size:10px;">—</span>'; })()}</td>
+                            <td>${(function(){
+                                var needsPhoto = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose);
+                                if (!needsPhoto) return '<span style="color:#94a3b8;font-size:10px;" title="No aplica (prueba no-emisiones)">N/A</span>';
+                                var hasPhoto = !!(v.testData && v.testData.scannedReportCaptured);
+                                if (hasPhoto) {
+                                    var when = '';
+                                    try { when = v.testData.scannedReportCapturedAt ? new Date(v.testData.scannedReportCapturedAt).toLocaleString('es-MX') : ''; } catch(e) {}
+                                    return '<div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap;">' +
+                                        '<button class="btn-secondary" onclick="paDocView(' + parseInt(v.id) + ')" style="padding:3px 8px;font-size:10px;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;font-weight:700;" title="' + escapeHtml(when) + '">✓ Ver</button>' +
+                                        '<button onclick="paCameraOpen(' + parseInt(v.id) + ')" style="background:none;border:none;color:#2563eb;cursor:pointer;font-size:9px;text-decoration:underline;padding:0;" title="Reemplazar foto">Reemplazar</button>' +
+                                    '</div>';
+                                }
+                                return '<button class="btn-secondary" onclick="paCameraOpen(' + parseInt(v.id) + ')" style="padding:3px 8px;font-size:10px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-weight:700;" title="Foto pendiente — requerida para enviar a PA">📸 Tomar foto</button>';
+                            })()}</td>
+                            <td>${(function(){
+                                if (v.status !== 'archived') return '<span style="color:#94a3b8;font-size:10px;">—</span>';
+                                var needsPhoto = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose);
+                                var hasPhoto = !!(v.testData && v.testData.scannedReportCaptured);
+                                var blocked = needsPhoto && !hasPhoto;
+                                var sent = !!(v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent);
+                                var disabledAttr = blocked ? 'disabled' : '';
+                                var disabledStyle = blocked ? 'opacity:0.5;cursor:not-allowed;' : '';
+                                var blockTitle = blocked ? 'Falta la foto de hoja de resultados' : '';
+                                if (sent) {
+                                    var when = escapeHtml(v.paStatus.vehicle_released.sentAt || '');
+                                    var resend = v.paStatus.vehicle_released.resendCount || 0;
+                                    return '<div style="display:flex;gap:4px;align-items:center;">' +
+                                        '<span style="color:#10b981;font-size:14px;" title="Enviado: ' + when + (resend > 0 ? ' · reenviado ' + resend + 'x' : '') + '">&#10004;</span>' +
+                                        '<button class="btn-secondary" onclick="paManualTrigger(' + parseInt(v.id) + ',&#39;vehicle_released&#39;)" ' + disabledAttr + ' style="padding:2px 6px;font-size:10px;font-weight:700;' + disabledStyle + '" title="' + (blockTitle || 'Reenviar a Power Automate') + '">↻ Reenviar</button>' +
+                                    '</div>';
+                                }
+                                return '<button class="btn-secondary" onclick="paManualTrigger(' + parseInt(v.id) + ',&#39;vehicle_released&#39;)" ' + disabledAttr + ' style="padding:3px 8px;font-size:10px;font-weight:700;' + disabledStyle + '" title="' + (blockTitle || 'Enviar a Power Automate') + '">Enviar</button>';
+                            })()}</td>
                             <td>
                                 <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
@@ -29383,17 +29428,20 @@ function paCameraCapture() {
                     if (typeof showToast === 'function') showToast('Hoja de resultados capturada y firmada', 'success');
                     if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_capturedVehId);
                     if (typeof loadRelease === 'function') { try { loadRelease(_capturedVehId); } catch (e) {} }
+                    if (typeof renderHistory === 'function') { try { renderHistory(); } catch (e) {} }
                 },
                 onCancel: function () {
                     if (typeof showToast === 'function') showToast('Foto guardada, pero falta firma del tecnico', 'warning');
                     if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_capturedVehId);
                     if (typeof loadRelease === 'function') { try { loadRelease(_capturedVehId); } catch (e) {} }
+                    if (typeof renderHistory === 'function') { try { renderHistory(); } catch (e) {} }
                 }
             });
         } else {
             if (typeof showToast === 'function') showToast('Hoja de resultados capturada', 'success');
             if (typeof paRenderDocUpload === 'function') paRenderDocUpload(_capturedVehId);
             if (typeof loadRelease === 'function') { try { loadRelease(_capturedVehId); } catch (e) {} }
+            if (typeof renderHistory === 'function') { try { renderHistory(); } catch (e) {} }
         }
     });
 }
@@ -29675,14 +29723,29 @@ function paManualTrigger(vehicleId, eventType) {
     }
     if (!vehicle) { if (typeof showToast === 'function') showToast('Vehiculo no encontrado', 'error'); return; }
 
+    // Gate: emissions vehicles must have the results photo captured before sending to PA
+    if (eventType === 'vehicle_released' &&
+        typeof isEmissionsPurpose === 'function' &&
+        isEmissionsPurpose(vehicle.purpose) &&
+        !(vehicle.testData && vehicle.testData.scannedReportCaptured)) {
+        if (typeof showToast === 'function') showToast('Falta la foto de hoja de resultados — captúrala antes de enviar a PA', 'error');
+        return;
+    }
+
     paBuildPayload(eventType, vehicle).then(function (payload) {
         return paSendWebhook(payload);
     }).then(function () {
         if (!vehicle.paStatus) vehicle.paStatus = {};
-        vehicle.paStatus[eventType] = { sent: true, sentAt: new Date().toISOString(), manual: true };
+        var isResend = !!(vehicle.paStatus[eventType] && vehicle.paStatus[eventType].sent);
+        vehicle.paStatus[eventType] = {
+            sent: true,
+            sentAt: new Date().toISOString(),
+            manual: true,
+            resendCount: isResend ? ((vehicle.paStatus[eventType].resendCount || 0) + 1) : 0
+        };
         if (typeof saveDB === 'function') saveDB();
         _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: eventType };
-        if (typeof showToast === 'function') showToast('Enviado a Power Automate: ' + (vehicle.vin || vehicleId), 'success');
+        if (typeof showToast === 'function') showToast((isResend ? 'Reenviado' : 'Enviado') + ' a Power Automate: ' + (vehicle.vin || vehicleId), 'success');
         if (typeof renderHistory === 'function') renderHistory();
     }).catch(function (err) {
         paQueueAdd(eventType, vehicleId);
@@ -29696,19 +29759,42 @@ function paBatchTriggerAll() {
         return;
     }
     if (typeof db === 'undefined' || !db.vehicles) return;
-    var pending = db.vehicles.filter(function (v) {
-        return v.status === 'archived' &&
-            (!v.paStatus || !v.paStatus.vehicle_released || !v.paStatus.vehicle_released.sent);
+
+    function _hasPhotoOrNotEmissions(v) {
+        var emissions = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose);
+        if (!emissions) return true;
+        return !!(v.testData && v.testData.scannedReportCaptured);
+    }
+
+    var archived = db.vehicles.filter(function (v) { return v.status === 'archived'; });
+    var blockedByPhoto = archived.filter(function (v) {
+        if (v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent) return false;
+        return !_hasPhotoOrNotEmissions(v);
+    }).length;
+    var pending = archived.filter(function (v) {
+        if (v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent) return false;
+        return _hasPhotoOrNotEmissions(v);
     });
-    if (pending.length === 0) { if (typeof showToast === 'function') showToast('No hay pendientes', 'info'); return; }
-    if (!confirm('Enviar ' + pending.length + ' vehiculos a Power Automate?')) return;
+
+    if (pending.length === 0) {
+        if (blockedByPhoto > 0) {
+            if (typeof showToast === 'function') showToast('No hay pendientes enviables — ' + blockedByPhoto + ' bloqueados por falta de foto', 'warning');
+        } else {
+            if (typeof showToast === 'function') showToast('No hay pendientes', 'info');
+        }
+        return;
+    }
+
+    var msg = 'Enviar ' + pending.length + ' vehiculos a Power Automate?';
+    if (blockedByPhoto > 0) msg += '\n\nOjo: ' + blockedByPhoto + ' vehiculo(s) quedaran fuera por falta de foto de resultados.';
+    if (!confirm(msg)) return;
 
     var queued = 0;
     pending.forEach(function (v) {
         paQueueAdd('vehicle_released', v.id);
         queued++;
     });
-    if (typeof showToast === 'function') showToast(queued + ' vehiculos agregados a la cola de PA', 'success');
+    if (typeof showToast === 'function') showToast(queued + ' vehiculos agregados a la cola de PA' + (blockedByPhoto > 0 ? ' (' + blockedByPhoto + ' bloqueados sin foto)' : ''), 'success');
     paQueueRetry();
 }
 
@@ -31864,7 +31950,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202604231648' || !remoteBuild || remoteBuild <= localBuild) return;
+        if (!localBuild || localBuild === '202604250004' || !remoteBuild || remoteBuild <= localBuild) return;
         var dismissKey = 'kia_update_dismissed_' + remoteBuild;
         if (localStorage.getItem(dismissKey)) return;
         fbShowUpdateBanner(remoteBuild, downloadUrl, dismissKey);
