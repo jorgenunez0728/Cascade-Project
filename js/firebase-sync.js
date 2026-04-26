@@ -19,8 +19,10 @@ var FB_SYNC_MODULES_KEY = 'kia_fb_sync_modules';
 var fbSyncModules = (function() {
     try { return JSON.parse(localStorage.getItem(FB_SYNC_MODULES_KEY)) || null; } catch(e) { return null; }
 })() || {
-    cop15: true, testplan: true, results: true, inventory: true, panel: true
+    cop15: true, testplan: true, results: true, inventory: true, panel: true, approvals: true
 };
+// Backfill new module flags for users that already have a saved fbSyncModules object
+if (typeof fbSyncModules.approvals === 'undefined') fbSyncModules.approvals = true;
 function fbSaveSyncModules() {
     localStorage.setItem(FB_SYNC_MODULES_KEY, JSON.stringify(fbSyncModules));
 }
@@ -856,6 +858,9 @@ function fbPushAll(showFeedback) {
     if (fbSyncModules.results) modules.push({col:'results', data:raState});
     if (fbSyncModules.inventory) modules.push({col:'inventory', data:invState});
     if (fbSyncModules.panel) modules.push({col:'panel', data:typeof pnState !== 'undefined' ? pnState : {}});
+    if (fbSyncModules.approvals && typeof paConfig !== 'undefined' && typeof _paShareablePayload === 'function') {
+        modules.push({col:'approvals', data: _paShareablePayload()});
+    }
     if (modules.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
 
     var pending = modules.length, errors = [];
@@ -885,7 +890,7 @@ function fbPullAll(showFeedback) {
     fbSync.status = 'syncing';
     fbUpdateIndicator();
 
-    var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel'].filter(function(c) { return fbSyncModules[c]; });
+    var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel', 'approvals'].filter(function(c) { return fbSyncModules[c]; });
     if (collections.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
 
     // Use REST API if SDK transport is broken
@@ -961,6 +966,16 @@ function fbPullApply(collections, results, showFeedback) {
                 localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
                 if (typeof pnRender === 'function') pnRender();
                 pulled.push('Panel');
+            }
+        } else if (col === 'approvals') {
+            // Defensive: only adopt remote PA config when local has no webhookUrl yet.
+            // If the local station already has its own webhook, keep it — Smart Merge handles overrides.
+            if (typeof paConfig !== 'undefined' && typeof paApplyRemoteConfig === 'function') {
+                var localUrl = (paConfig.webhookUrl || '').trim();
+                if (!localUrl && remoteData && remoteData.webhookUrl) {
+                    var changed = paApplyRemoteConfig(remoteData);
+                    if (changed.length > 0) pulled.push('Power Automate (' + changed.length + ' campos)');
+                }
             }
         }
     });
@@ -1100,7 +1115,7 @@ function fbShowSettings() {
         (hasConfig ? '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:12px;">' +
         '<div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:8px;">Modulos a sincronizar</div>' +
         (function() {
-            var mods = [{k:'cop15',l:'COP15 Cascade'},{k:'testplan',l:'Test Plan'},{k:'results',l:'Results'},{k:'inventory',l:'Inventario'},{k:'panel',l:'Panel'}];
+            var mods = [{k:'cop15',l:'COP15 Cascade'},{k:'testplan',l:'Test Plan'},{k:'results',l:'Results'},{k:'inventory',l:'Inventario'},{k:'panel',l:'Panel'},{k:'approvals',l:'Power Automate (config webhook)'}];
             var h = '';
             mods.forEach(function(m) {
                 h += '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">' +
@@ -1230,7 +1245,7 @@ function fbMergeLoadStation(stationId, callback) {
     var quota = fbQuotaCheck('read');
     if (!quota.allowed) { showToast(quota.reason, 'error'); callback(null); return; }
 
-    var cols = ['cop15', 'testplan', 'results', 'inventory'];
+    var cols = ['cop15', 'testplan', 'results', 'inventory', 'approvals'];
 
     // REST API fallback
     if (fbSync._useREST || !fbSync.db) {
@@ -1477,6 +1492,31 @@ function fbMergeAnalyze(remoteData) {
         };
     }
 
+    // ── Power Automate config (approvals) ──
+    if (remoteData.approvals) {
+        var local = typeof paConfig !== 'undefined' ? paConfig : null;
+        var remote = remoteData.approvals;
+        var fields = (typeof PA_SHAREABLE_FIELDS !== 'undefined') ? PA_SHAREABLE_FIELDS
+            : ['enabled', 'webhookUrl', 'triggerOnRegister', 'triggerOnRelease', 'includePdfOnRelease'];
+        var diffs = [];
+        fields.forEach(function (f) {
+            var lv = local ? local[f] : undefined;
+            var rv = remote[f];
+            if (lv !== rv) diffs.push(f);
+        });
+        var localHasUrl = !!(local && (local.webhookUrl || '').trim());
+        var remoteHasUrl = !!((remote.webhookUrl || '').trim());
+        analysis.approvals = {
+            diffs: diffs,
+            localHasUrl: localHasUrl,
+            remoteHasUrl: remoteHasUrl,
+            canAdopt: remoteHasUrl,
+            local: local,
+            remote: remote,
+            remoteTs: remoteData.approvals_ts || null
+        };
+    }
+
     return analysis;
 }
 
@@ -1706,6 +1746,17 @@ function fbMergeExecute(remoteData, analysis, choices) {
         }
         localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
         if (typeof invRender === 'function') invRender();
+    }
+
+    // Power Automate config
+    if (choices.approvals === 'adopt' && analysis.approvals && analysis.approvals.remote &&
+        typeof paApplyRemoteConfig === 'function') {
+        var changedFields = paApplyRemoteConfig(analysis.approvals.remote);
+        if (changedFields.length > 0) {
+            merged.push('Power Automate: ' + changedFields.length + ' campo(s) actualizados (stationName conservado)');
+        } else {
+            merged.push('Power Automate: sin cambios efectivos');
+        }
     }
 
     // Record in merge history
@@ -2044,6 +2095,33 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
         html += '</div>';
     }
 
+    // ── Power Automate ──
+    var pa = analysis.approvals;
+    if (pa && pa.canAdopt) {
+        var adoptDefault = pa.localHasUrl ? '' : 'adopt';
+        var borderColor = pa.localHasUrl ? '#f59e0b' : '#10b981';
+        var headline = pa.localHasUrl
+            ? 'Conflicto: local ya tiene URL distinta. Por defecto se mantiene local.'
+            : 'Adoptar config remota — local está vacía.';
+        var headlineColor = pa.localHasUrl ? '#fbbf24' : '#34d399';
+        html += '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:8px;border-color:' + borderColor + ';">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+        html += '<span style="font-weight:700;font-size:12px;">Power Automate</span>';
+        html += '<span style="font-size:9px;color:#64748b;">' + (pa.diffs.length) + ' campo(s) distintos</span></div>';
+        html += '<div style="font-size:10px;color:' + headlineColor + ';margin-bottom:6px;font-weight:600;">' + headline + '</div>';
+        html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;font-family:monospace;">URL remota: ' + _fbMaskWebhook(pa.remote.webhookUrl) + '</div>';
+        var togglesChanged = pa.diffs.filter(function (f) { return f !== 'webhookUrl'; });
+        if (togglesChanged.length > 0) {
+            html += '<div style="font-size:9px;color:#94a3b8;margin-bottom:6px;">Cambia: ' + togglesChanged.join(', ') + '</div>';
+        }
+        html += '<div style="font-size:9px;color:#64748b;margin-bottom:6px;font-style:italic;">Nombre de Estación NO se copia — cada estación conserva el suyo.</div>';
+        html += '<select id="fb-merge-approvals" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:10px;">';
+        html += '<option value=""' + (adoptDefault === '' ? ' selected' : '') + '>No fusionar</option>';
+        html += '<option value="adopt"' + (adoptDefault === 'adopt' ? ' selected' : '') + '>Adoptar config remota (excepto Nombre de Estación)</option>';
+        html += '</select>';
+        html += '</div>';
+    }
+
     // Action buttons
     html += '<div style="display:flex;gap:8px;margin-top:12px;">';
     html += '<button onclick="fbMergeShowPanel()" style="flex:1;padding:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Cancelar</button>';
@@ -2051,6 +2129,20 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
     html += '</div></div>';
 
     modal.innerHTML = html;
+}
+
+// Mask a webhook URL for display: keep host + last 8 chars of the path so user can identify
+// which webhook they would adopt without leaking the full secret URL into the UI.
+function _fbMaskWebhook(url) {
+    if (!url) return '(sin URL)';
+    try {
+        var u = new URL(url);
+        var path = u.pathname || '';
+        var tail = path.length > 8 ? path.slice(-8) : path;
+        return u.host + '/...' + tail;
+    } catch (e) {
+        return String(url).slice(0, 24) + '...' + String(url).slice(-8);
+    }
 }
 
 function fbMergeConfirmAndExecute() {
@@ -2065,6 +2157,8 @@ function fbMergeConfirmAndExecute() {
     if (s && s.value) choices.results = s.value;
     s = document.getElementById('fb-merge-inventory');
     if (s && s.value) choices.inventory = s.value;
+    s = document.getElementById('fb-merge-approvals');
+    if (s && s.value) choices.approvals = s.value;
 
     if (Object.keys(choices).length === 0) {
         showToast('Selecciona al menos un modulo para fusionar', 'info');
@@ -2076,6 +2170,7 @@ function fbMergeConfirmAndExecute() {
     if (choices.testplan) actions.push('TestPlan: ' + choices.testplan);
     if (choices.results) actions.push('Results: ' + choices.results);
     if (choices.inventory) actions.push('Inventory: ' + choices.inventory);
+    if (choices.approvals) actions.push('Power Automate: ' + choices.approvals);
 
     showConfirmDialog({ title: '🔀 Ejecutar merge', message: 'Ejecutar merge desde ' + (window._fbMergeRemoteId || '?') + '?\n\n' + actions.join('\n') + '\n\nSe guardara un snapshot para poder deshacer.', type: 'warning', confirmText: 'Ejecutar', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
