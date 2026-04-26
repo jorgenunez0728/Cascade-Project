@@ -211,6 +211,15 @@ function paBuildPayload(eventType, vehicle) {
                     contentType: photo.contentType || 'image/jpeg',
                     capturedAt: photo.capturedAt || ''
                 };
+            } else if (typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose) &&
+                       vehicle.testData && vehicle.testData.scannedReportCaptured) {
+                // Flag says captured but file is missing locally — likely captured on another station
+                // (post Smart Merge). Tell PA explicitly so the receiver doesn't think it was omitted.
+                payload.scannedReportMissing = {
+                    reason: 'captured-on-another-station',
+                    flaggedAt: vehicle.testData.scannedReportCapturedAt || ''
+                };
+                console.warn('PA: scannedReport flagged but not in local IndexedDB for vehicle', vehicle.id);
             }
             resolve(payload);
         });
@@ -607,6 +616,20 @@ function paPhotoHas(vehicleId, cb) {
             req.onsuccess = function () { cb(!!req.result); };
             req.onerror = function () { cb(false); };
         } catch (e) { cb(false); }
+    });
+}
+
+// Photo gate that respects "captured on another station via Smart Merge".
+// Calls cb(state) where state is one of: 'ok', 'not-needed', 'missing-flag', 'remote-only'.
+// 'remote-only' means vehicle.testData.scannedReportCaptured=true but the photo file isn't
+// in this station's IndexedDB — typically the case after Smart Merge from another station.
+function paPhotoLocalState(vehicle, cb) {
+    var emissions = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose);
+    if (!emissions) { cb('not-needed'); return; }
+    var flagged = !!(vehicle.testData && vehicle.testData.scannedReportCaptured);
+    if (!flagged) { cb('missing-flag'); return; }
+    paPhotoHas(vehicle.id, function (has) {
+        cb(has ? 'ok' : 'remote-only');
     });
 }
 
@@ -1102,15 +1125,27 @@ function paManualTrigger(vehicleId, eventType) {
     }
     if (!vehicle) { if (typeof showToast === 'function') showToast('Vehiculo no encontrado', 'error'); return; }
 
-    // Gate: emissions vehicles must have the results photo captured before sending to PA
-    if (eventType === 'vehicle_released' &&
-        typeof isEmissionsPurpose === 'function' &&
-        isEmissionsPurpose(vehicle.purpose) &&
-        !(vehicle.testData && vehicle.testData.scannedReportCaptured)) {
-        if (typeof showToast === 'function') showToast('Falta la foto de hoja de resultados — captúrala antes de enviar a PA', 'error');
+    // Gate: emissions vehicles must have the results photo captured AND physically present
+    // in this station's IndexedDB before sending to PA. After Smart Merge a vehicle's flag
+    // can say "captured" while the image bytes still live on the origin station.
+    if (eventType === 'vehicle_released') {
+        paPhotoLocalState(vehicle, function (state) {
+            if (state === 'missing-flag') {
+                if (typeof showToast === 'function') showToast('Falta la foto de hoja de resultados — captúrala antes de enviar a PA', 'error');
+                return;
+            }
+            if (state === 'remote-only') {
+                if (typeof showToast === 'function') showToast('La foto fue capturada en otra estación. Re-captúrala aquí antes de enviar a PA.', 'error');
+                return;
+            }
+            _paManualTriggerSend(vehicle, eventType);
+        });
         return;
     }
+    _paManualTriggerSend(vehicle, eventType);
+}
 
+function _paManualTriggerSend(vehicle, eventType) {
     paBuildPayload(eventType, vehicle).then(function (payload) {
         return paSendWebhook(payload);
     }).then(function () {
@@ -1139,41 +1174,57 @@ function paBatchTriggerAll() {
     }
     if (typeof db === 'undefined' || !db.vehicles) return;
 
-    function _hasPhotoOrNotEmissions(v) {
-        var emissions = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose);
-        if (!emissions) return true;
-        return !!(v.testData && v.testData.scannedReportCaptured);
-    }
-
     var archived = db.vehicles.filter(function (v) { return v.status === 'archived'; });
-    var blockedByPhoto = archived.filter(function (v) {
-        if (v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent) return false;
-        return !_hasPhotoOrNotEmissions(v);
-    }).length;
-    var pending = archived.filter(function (v) {
-        if (v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent) return false;
-        return _hasPhotoOrNotEmissions(v);
+    var notSent = archived.filter(function (v) {
+        return !(v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent);
     });
 
-    if (pending.length === 0) {
-        if (blockedByPhoto > 0) {
-            if (typeof showToast === 'function') showToast('No hay pendientes enviables — ' + blockedByPhoto + ' bloqueados por falta de foto', 'warning');
-        } else {
-            if (typeof showToast === 'function') showToast('No hay pendientes', 'info');
-        }
+    // Resolve photo state for every candidate (async due to IndexedDB lookup).
+    var ready = [];
+    var blockedByFlag = 0;   // emissions, no flag at all
+    var blockedRemoteOnly = 0; // flag yes, file lives in another station
+    var pendingChecks = notSent.length;
+    if (pendingChecks === 0) {
+        if (typeof showToast === 'function') showToast('No hay pendientes', 'info');
         return;
     }
 
-    var msg = 'Enviar ' + pending.length + ' vehiculos a Power Automate?';
-    if (blockedByPhoto > 0) msg += '\n\nOjo: ' + blockedByPhoto + ' vehiculo(s) quedaran fuera por falta de foto de resultados.';
+    notSent.forEach(function (v) {
+        paPhotoLocalState(v, function (state) {
+            if (state === 'ok' || state === 'not-needed') ready.push(v);
+            else if (state === 'remote-only') blockedRemoteOnly++;
+            else blockedByFlag++;
+            pendingChecks--;
+            if (pendingChecks === 0) _paBatchProceed(ready, blockedByFlag, blockedRemoteOnly);
+        });
+    });
+}
+
+function _paBatchProceed(ready, blockedByFlag, blockedRemoteOnly) {
+    var totalBlocked = blockedByFlag + blockedRemoteOnly;
+    if (ready.length === 0) {
+        if (totalBlocked > 0 && typeof showToast === 'function') {
+            showToast('No hay pendientes enviables — ' + totalBlocked + ' bloqueados (foto faltante o solo en otra estación)', 'warning');
+        } else if (typeof showToast === 'function') {
+            showToast('No hay pendientes', 'info');
+        }
+        return;
+    }
+    var msg = 'Enviar ' + ready.length + ' vehiculos a Power Automate?';
+    var notes = [];
+    if (blockedByFlag > 0) notes.push(blockedByFlag + ' sin foto');
+    if (blockedRemoteOnly > 0) notes.push(blockedRemoteOnly + ' con foto solo en otra estación');
+    if (notes.length > 0) msg += '\n\nOjo: ' + notes.join(', ') + ' quedaran fuera.';
     if (!confirm(msg)) return;
 
     var queued = 0;
-    pending.forEach(function (v) {
+    ready.forEach(function (v) {
         paQueueAdd('vehicle_released', v.id);
         queued++;
     });
-    if (typeof showToast === 'function') showToast(queued + ' vehiculos agregados a la cola de PA' + (blockedByPhoto > 0 ? ' (' + blockedByPhoto + ' bloqueados sin foto)' : ''), 'success');
+    var toastMsg = queued + ' vehiculos agregados a la cola de PA';
+    if (notes.length > 0) toastMsg += ' (' + notes.join(', ') + ')';
+    if (typeof showToast === 'function') showToast(toastMsg, 'success');
     paQueueRetry();
 }
 
