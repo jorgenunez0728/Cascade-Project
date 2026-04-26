@@ -1296,16 +1296,28 @@ function fbMergeAnalyze(remoteData) {
         (db.vehicles || []).forEach(function(v) { localVINs[v.vin] = v; });
         var remoteVehicles = remoteData.cop15.vehicles || [];
         var newVehicles = [], duplicateVehicles = [], conflicts = [];
+        var paStatusGains = 0; // remote-only PA sends we'll inherit
+        var paPhotoOnlyRemote = 0; // remote claims photo captured but local lacks the file (we can't auto-fetch)
 
         remoteVehicles.forEach(function(rv) {
             if (!localVINs[rv.vin]) {
                 newVehicles.push(rv);
+                if (rv.paStatus && rv.paStatus.vehicle_released && rv.paStatus.vehicle_released.sent) paStatusGains++;
+                if (rv.testData && rv.testData.scannedReportCaptured) paPhotoOnlyRemote++;
             } else {
                 var lv = localVINs[rv.vin];
-                // Check if different (compare status and timeline length)
+                // Detect paStatus differences (sent flag, sentAt, resendCount)
+                var paDiff = JSON.stringify(lv.paStatus || {}) !== JSON.stringify(rv.paStatus || {});
+                if (paDiff) {
+                    var lvSent = !!(lv.paStatus && lv.paStatus.vehicle_released && lv.paStatus.vehicle_released.sent);
+                    var rvSent = !!(rv.paStatus && rv.paStatus.vehicle_released && rv.paStatus.vehicle_released.sent);
+                    if (rvSent && !lvSent) paStatusGains++;
+                }
+                // Check if different (compare status, timeline length, testData, paStatus)
                 var isDiff = lv.status !== rv.status ||
                     (lv.timeline || []).length !== (rv.timeline || []).length ||
-                    JSON.stringify(lv.testData || {}) !== JSON.stringify(rv.testData || {});
+                    JSON.stringify(lv.testData || {}) !== JSON.stringify(rv.testData || {}) ||
+                    paDiff;
                 if (isDiff) {
                     conflicts.push({ vin: rv.vin, local: lv, remote: rv });
                 } else {
@@ -1320,6 +1332,8 @@ function fbMergeAnalyze(remoteData) {
             newItems: newVehicles,
             duplicates: duplicateVehicles,
             conflicts: conflicts,
+            paStatusGains: paStatusGains,
+            paPhotoOnlyRemote: paPhotoOnlyRemote,
             remoteTs: remoteData.cop15_ts || null
         };
     }
@@ -1480,25 +1494,79 @@ function fbMergeExecute(remoteData, analysis, choices) {
 
     // COP15
     if (choices.cop15 && analysis.cop15) {
+        // Helper: take the union of two paStatus objects, "sent=true" always wins.
+        // Preserves PA send history across stations so we don't double-send or lose the receipt.
+        function _mergePaStatus(localPa, remotePa) {
+            if (!localPa && !remotePa) return undefined;
+            if (!localPa) return remotePa;
+            if (!remotePa) return localPa;
+            var out = {};
+            var keys = {};
+            Object.keys(localPa).forEach(function(k){ keys[k] = true; });
+            Object.keys(remotePa).forEach(function(k){ keys[k] = true; });
+            Object.keys(keys).forEach(function(k) {
+                var lv = localPa[k] || {};
+                var rv = remotePa[k] || {};
+                var lvSent = !!lv.sent, rvSent = !!rv.sent;
+                if (lvSent && rvSent) {
+                    var lvAt = lv.sentAt || '';
+                    var rvAt = rv.sentAt || '';
+                    out[k] = (lvAt >= rvAt) ? lv : rv;
+                    out[k].resendCount = Math.max(lv.resendCount || 0, rv.resendCount || 0);
+                } else if (lvSent) {
+                    out[k] = lv;
+                } else if (rvSent) {
+                    out[k] = rv;
+                } else {
+                    out[k] = (lv.sentAt || '') >= (rv.sentAt || '') ? lv : rv;
+                }
+            });
+            return out;
+        }
+
         if (choices.cop15 === 'new') {
             // Add only new vehicles
             analysis.cop15.newItems.forEach(function(v) { db.vehicles.push(v); });
             merged.push('COP15: +' + analysis.cop15.newItems.length + ' vehiculos nuevos');
         } else if (choices.cop15 === 'replace') {
-            db = remoteData.cop15;
-            merged.push('COP15: reemplazado con version remota');
+            // Even when fully replacing, preserve any local "sent to PA" receipts so we don't
+            // accidentally re-send vehicles that were already pushed from this station.
+            var remoteDb = remoteData.cop15;
+            if (remoteDb && remoteDb.vehicles) {
+                var localByVin = {};
+                (db.vehicles || []).forEach(function(v){ localByVin[v.vin] = v; });
+                remoteDb.vehicles.forEach(function(rv) {
+                    var lv = localByVin[rv.vin];
+                    if (lv) {
+                        var mergedPa = _mergePaStatus(lv.paStatus, rv.paStatus);
+                        if (mergedPa) rv.paStatus = mergedPa;
+                    }
+                });
+            }
+            db = remoteDb;
+            merged.push('COP15: reemplazado con version remota (paStatus preservado)');
         } else if (choices.cop15 === 'merge_all') {
-            // Add new + for conflicts keep the one with more timeline entries
+            // Add new + for conflicts keep the richer record but always preserve PA send receipts
             analysis.cop15.newItems.forEach(function(v) { db.vehicles.push(v); });
+            var paPreserved = 0;
             analysis.cop15.conflicts.forEach(function(c) {
                 var idx = db.vehicles.findIndex(function(v) { return v.vin === c.vin; });
                 if (idx >= 0) {
                     var localTL = (c.local.timeline || []).length;
                     var remoteTL = (c.remote.timeline || []).length;
-                    if (remoteTL > localTL) db.vehicles[idx] = c.remote;
+                    var winner = (remoteTL > localTL) ? c.remote : c.local;
+                    var mergedPa = _mergePaStatus(c.local.paStatus, c.remote.paStatus);
+                    var localSent = !!(c.local.paStatus && c.local.paStatus.vehicle_released && c.local.paStatus.vehicle_released.sent);
+                    var winnerSent = !!(winner.paStatus && winner.paStatus.vehicle_released && winner.paStatus.vehicle_released.sent);
+                    if (localSent && !winnerSent) paPreserved++;
+                    if (mergedPa) winner.paStatus = mergedPa;
+                    db.vehicles[idx] = winner;
                 }
             });
-            merged.push('COP15: +' + analysis.cop15.newItems.length + ' nuevos, ' + analysis.cop15.conflicts.length + ' conflictos resueltos');
+            var summary = 'COP15: +' + analysis.cop15.newItems.length + ' nuevos, ' + analysis.cop15.conflicts.length + ' conflictos resueltos';
+            if (paPreserved > 0) summary += ', ' + paPreserved + ' envío(s) PA preservados';
+            if (analysis.cop15.paStatusGains > 0) summary += ', ' + analysis.cop15.paStatusGains + ' envío(s) PA heredados';
+            merged.push(summary);
         }
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
         refreshAllLists();
@@ -1880,6 +1948,13 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
         html += '<span style="color:#10b981;font-weight:700;">+' + c.newItems.length + ' nuevos</span>';
         html += ' &nbsp; <span style="color:#64748b;">' + c.duplicates.length + ' iguales</span>';
         html += ' &nbsp; <span style="color:' + (c.conflicts.length > 0 ? '#ef4444' : '#64748b') + ';font-weight:' + (c.conflicts.length > 0 ? '700' : '400') + ';">' + c.conflicts.length + ' conflictos</span></div>';
+        if (c.paStatusGains > 0 || c.paPhotoOnlyRemote > 0) {
+            html += '<div style="font-size:10px;margin-bottom:6px;padding:6px 8px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:6px;color:#fbbf24;">';
+            html += '<span style="font-weight:700;">Power Automate:</span>';
+            if (c.paStatusGains > 0) html += ' &nbsp; <span title="Vehiculos con receipt de envio PA que aun no estaba en local">+' + c.paStatusGains + ' envio(s) heredados</span>';
+            if (c.paPhotoOnlyRemote > 0) html += ' &nbsp; <span style="color:#fcd34d;" title="Estos vehiculos tienen el flag scannedReportCaptured=true en remoto, pero la foto fisica vive en IndexedDB de la otra estacion. Tendras que recapturarla aqui antes de poder enviar a PA.">' + c.paPhotoOnlyRemote + ' foto(s) solo en estacion origen</span>';
+            html += '</div>';
+        }
         if (hasChanges) {
             html += '<select id="fb-merge-cop15" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:10px;">';
             html += '<option value="">No fusionar</option>';
