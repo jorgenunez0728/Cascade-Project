@@ -2476,7 +2476,19 @@ function closeSubstitutionModal() {
                 <span>Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</span>
                 <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;">PDF Seleccionados</button>
                 <button class="btn-secondary" onclick="window.print()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Imprimir tabla de historial">🖨️ Imprimir</button>
-                ${(function(){ var _pendPA = typeof db !== 'undefined' && db.vehicles ? db.vehicles.filter(function(v){ return v.status === 'archived' && (!v.paStatus || !v.paStatus.vehicle_released || !v.paStatus.vehicle_released.sent); }).length : 0; return (_pendPA > 0 && typeof paConfig !== 'undefined' && paConfig.enabled) ? '<button class="btn-secondary" onclick="paBatchTriggerAll()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Enviar todos los archivados pendientes a Power Automate">⚡ Enviar ' + _pendPA + ' pendientes a PA</button>' : ''; })()}
+                ${(function(){
+                    if (typeof paConfig === 'undefined' || !paConfig.enabled || typeof db === 'undefined' || !db.vehicles) return '';
+                    var archived = db.vehicles.filter(function(vv){ return vv.status === 'archived'; });
+                    function _needsPhoto(vv){ return typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vv.purpose); }
+                    function _hasPhoto(vv){ return !!(vv.testData && vv.testData.scannedReportCaptured); }
+                    var notSent = archived.filter(function(vv){ return !(vv.paStatus && vv.paStatus.vehicle_released && vv.paStatus.vehicle_released.sent); });
+                    var ready = notSent.filter(function(vv){ return !_needsPhoto(vv) || _hasPhoto(vv); }).length;
+                    var blocked = notSent.filter(function(vv){ return _needsPhoto(vv) && !_hasPhoto(vv); }).length;
+                    var parts = '';
+                    if (ready > 0) parts += '<button class="btn-secondary" onclick="paBatchTriggerAll()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Enviar los archivados pendientes que ya tienen foto">⚡ Enviar ' + ready + ' pendientes a PA</button>';
+                    if (blocked > 0) parts += '<span style="padding:4px 10px;font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:6px;" title="Requieren foto de resultados antes de enviar">📸 ' + blocked + ' sin foto</span>';
+                    return parts;
+                })()}
             </div>
             <table class="history-table">
                 <thead>
@@ -2487,7 +2499,8 @@ function closeSubstitutionModal() {
                         <th>Propósito</th>
                         <th>Estado</th>
                         <th>Fecha</th>
-                        <th style="width:55px;">PA</th>
+                        <th style="width:90px;">Foto</th>
+                        <th style="width:90px;">PA</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -2515,7 +2528,39 @@ function closeSubstitutionModal() {
                             <td>${safePurpose}</td>
                             <td><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
                             <td>${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
-                            <td>${(function(){ var _paR = v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent; if (_paR) return '<span style="color:#10b981;font-size:14px;" title="Enviado a PA: ' + escapeHtml((v.paStatus.vehicle_released.sentAt || '')) + '">&#10004;</span>'; if (v.status === 'archived') return '<button class="btn-secondary" onclick="paManualTrigger(' + parseInt(v.id) + ',&#39;vehicle_released&#39;)" style="padding:3px 8px;font-size:10px;font-weight:700;" title="Enviar a Power Automate">Enviar</button>'; return '<span style="color:#94a3b8;font-size:10px;">—</span>'; })()}</td>
+                            <td>${(function(){
+                                var needsPhoto = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose);
+                                if (!needsPhoto) return '<span style="color:#94a3b8;font-size:10px;" title="No aplica (prueba no-emisiones)">N/A</span>';
+                                var hasPhoto = !!(v.testData && v.testData.scannedReportCaptured);
+                                if (hasPhoto) {
+                                    var when = '';
+                                    try { when = v.testData.scannedReportCapturedAt ? new Date(v.testData.scannedReportCapturedAt).toLocaleString('es-MX') : ''; } catch(e) {}
+                                    return '<div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap;">' +
+                                        '<button class="btn-secondary" onclick="paDocView(' + parseInt(v.id) + ')" style="padding:3px 8px;font-size:10px;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;font-weight:700;" title="' + escapeHtml(when) + '">✓ Ver</button>' +
+                                        '<button onclick="paCameraOpen(' + parseInt(v.id) + ')" style="background:none;border:none;color:#2563eb;cursor:pointer;font-size:9px;text-decoration:underline;padding:0;" title="Reemplazar foto">Reemplazar</button>' +
+                                    '</div>';
+                                }
+                                return '<button class="btn-secondary" onclick="paCameraOpen(' + parseInt(v.id) + ')" style="padding:3px 8px;font-size:10px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-weight:700;" title="Foto pendiente — requerida para enviar a PA">📸 Tomar foto</button>';
+                            })()}</td>
+                            <td>${(function(){
+                                if (v.status !== 'archived') return '<span style="color:#94a3b8;font-size:10px;">—</span>';
+                                var needsPhoto = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose);
+                                var hasPhoto = !!(v.testData && v.testData.scannedReportCaptured);
+                                var blocked = needsPhoto && !hasPhoto;
+                                var sent = !!(v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent);
+                                var disabledAttr = blocked ? 'disabled' : '';
+                                var disabledStyle = blocked ? 'opacity:0.5;cursor:not-allowed;' : '';
+                                var blockTitle = blocked ? 'Falta la foto de hoja de resultados' : '';
+                                if (sent) {
+                                    var when = escapeHtml(v.paStatus.vehicle_released.sentAt || '');
+                                    var resend = v.paStatus.vehicle_released.resendCount || 0;
+                                    return '<div style="display:flex;gap:4px;align-items:center;">' +
+                                        '<span style="color:#10b981;font-size:14px;" title="Enviado: ' + when + (resend > 0 ? ' · reenviado ' + resend + 'x' : '') + '">&#10004;</span>' +
+                                        '<button class="btn-secondary" onclick="paManualTrigger(' + parseInt(v.id) + ',&#39;vehicle_released&#39;)" ' + disabledAttr + ' style="padding:2px 6px;font-size:10px;font-weight:700;' + disabledStyle + '" title="' + (blockTitle || 'Reenviar a Power Automate') + '">↻ Reenviar</button>' +
+                                    '</div>';
+                                }
+                                return '<button class="btn-secondary" onclick="paManualTrigger(' + parseInt(v.id) + ',&#39;vehicle_released&#39;)" ' + disabledAttr + ' style="padding:3px 8px;font-size:10px;font-weight:700;' + disabledStyle + '" title="' + (blockTitle || 'Enviar a Power Automate') + '">Enviar</button>';
+                            })()}</td>
                             <td>
                                 <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
