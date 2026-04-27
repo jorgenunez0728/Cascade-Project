@@ -17,6 +17,9 @@ var PA_LS_KEY = 'kia_pa_config';
 var PA_QUEUE_LS_KEY = 'kia_pa_queue';
 var PA_MAX_RETRIES = 8;
 var PA_QUEUE_MAX = 20;
+// Fields that travel between stations via Smart Merge / Firebase.
+// stationName is intentionally excluded so each station keeps its own identity in webhook payloads.
+var PA_SHAREABLE_FIELDS = ['enabled', 'webhookUrl', 'triggerOnRegister', 'triggerOnRelease', 'includePdfOnRelease'];
 
 // ── Configuration (persisted to localStorage) ──
 var paConfig = {
@@ -49,10 +52,47 @@ function paLoadConfig() {
     } catch (e) { console.warn('paLoadConfig:', e); }
 }
 
-function paSaveConfig() {
+function paSaveConfig(skipFbPush) {
     try {
         localStorage.setItem(PA_LS_KEY, JSON.stringify(paConfig));
     } catch (e) { console.warn('paSaveConfig:', e); }
+    // Push the shareable subset to Firebase so other stations can pick it up.
+    // Skip when called as a result of applying a remote config to avoid push/pull loops.
+    if (!skipFbPush && typeof fbPush === 'function' &&
+        typeof fbSyncModules !== 'undefined' && fbSyncModules.approvals !== false &&
+        typeof fbSync !== 'undefined' && fbSync.enabled) {
+        try { fbPush('approvals', _paShareablePayload()); } catch (e) { console.warn('paSaveConfig push:', e); }
+    }
+}
+
+// Returns the subset of paConfig that is safe to share with other stations
+// (everything except stationName, plus a save timestamp for ordering).
+function _paShareablePayload() {
+    var out = { _savedAt: new Date().toISOString() };
+    PA_SHAREABLE_FIELDS.forEach(function (f) { out[f] = paConfig[f]; });
+    return out;
+}
+
+// Applies a remote PA config (from Firebase pull or Smart Merge) onto the local paConfig,
+// honouring the rules: stationName never changes, only PA_SHAREABLE_FIELDS are touched.
+// Returns the list of field names that actually changed.
+function paApplyRemoteConfig(remoteConfig) {
+    if (!remoteConfig) return [];
+    var changed = [];
+    PA_SHAREABLE_FIELDS.forEach(function (f) {
+        if (!remoteConfig.hasOwnProperty(f)) return;
+        if (paConfig[f] !== remoteConfig[f]) {
+            paConfig[f] = remoteConfig[f];
+            changed.push(f);
+        }
+    });
+    if (changed.length > 0) {
+        paSaveConfig(true); // skipFbPush — avoid bouncing the same config back to Firebase
+        if (typeof paRenderConfigUI === 'function' && _paConfigContainerId) {
+            try { paRenderConfigUI(_paConfigContainerId); } catch (e) {}
+        }
+    }
+    return changed;
 }
 
 // ══════════════════════════════════════════════════════════════
