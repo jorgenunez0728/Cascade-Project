@@ -3492,6 +3492,12 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // =====================================================
   //  GUARDAR
   // =====================================================
+  // Return the jsPDF instance itself if requested — caller can append pages
+  // (used by Power Automate webhook to merge COP15-F05 + scanned photo into ONE PDF)
+  if (opts && opts.returnDoc) {
+      if (!(opts && opts.silent)) hideOverlayLoading();
+      return doc;
+  }
   // Return base64 if requested (used by Power Automate webhook integration)
   if (opts && opts.returnBase64) {
       if (!(opts && opts.silent)) hideOverlayLoading();
