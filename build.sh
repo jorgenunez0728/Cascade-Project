@@ -29,12 +29,6 @@ cat > "$DIR/$OUTPUT" <<'HEADER'
     <meta name="theme-color" content="#05141f">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="EmLab">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
-    <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
-    <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 
     <!-- [Fase 4.2] CDN Preconnect hints for faster resource loading -->
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
