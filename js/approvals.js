@@ -215,25 +215,6 @@ function paBuildPayload(eventType, vehicle) {
         payload.vehicle.resultado = _paExtractResult(vehicle);
         payload.vehicle.testSummary = _paExtractTestSummary(vehicle);
 
-        // Include PDF as base64 if configured and vehicle is emissions purpose
-        if (paConfig.includePdfOnRelease &&
-            typeof isEmissionsPurpose === 'function' &&
-            isEmissionsPurpose(vehicle.purpose) &&
-            typeof generateCOP15PDF === 'function') {
-            try {
-                var b64 = generateCOP15PDF(vehicle.id, { returnBase64: true, silent: true });
-                if (b64) {
-                    payload.pdf = {
-                        base64: b64,
-                        filename: 'COP15-F05_' + (vehicle.vin || 'SIN-VIN') + '_' + new Date().toISOString().split('T')[0] + '.pdf',
-                        contentType: 'application/pdf'
-                    };
-                }
-            } catch (e) {
-                console.warn('PA: PDF base64 generation failed:', e);
-            }
-        }
-
         // Attach digital signatures if present
         if (vehicle.testData && vehicle.testData.signatures) {
             payload.signatures = {
@@ -242,7 +223,93 @@ function paBuildPayload(eventType, vehicle) {
             };
         }
 
-        // Attach the scanned results sheet photo from IndexedDB (async)
+        // Combined-PDF path for emissions vehicles: COP15-F05 (page 1) + scanned photo (page 2)
+        // in a single PDF, so the Power Automate flow only handles one attachment.
+        if (paConfig.includePdfOnRelease &&
+            typeof isEmissionsPurpose === 'function' &&
+            isEmissionsPurpose(vehicle.purpose) &&
+            typeof generateCOP15PDF === 'function') {
+
+            var doc = null;
+            try { doc = generateCOP15PDF(vehicle.id, { returnDoc: true, silent: true }); }
+            catch (e) { console.warn('PA: PDF doc generation failed:', e); }
+
+            paPhotoGet(vehicle.id, function (photo) {
+                var fname = 'COP15-F05_' + (vehicle.vin || 'SIN-VIN') + '_' + new Date().toISOString().split('T')[0] + '.pdf';
+
+                function finalize() {
+                    if (doc) {
+                        try {
+                            payload.pdf = {
+                                base64: doc.output('base64'),
+                                filename: fname,
+                                contentType: 'application/pdf'
+                            };
+                        } catch (e) {
+                            console.warn('PA: PDF output failed:', e);
+                        }
+                    }
+                    if (photo && photo.base64) {
+                        payload.scannedReportEmbedded = {
+                            pageInPdf: 2,
+                            capturedAt: photo.capturedAt || ''
+                        };
+                    } else if (vehicle.testData && vehicle.testData.scannedReportCaptured) {
+                        payload.scannedReportMissing = {
+                            reason: 'captured-on-another-station',
+                            flaggedAt: vehicle.testData.scannedReportCapturedAt || ''
+                        };
+                        console.warn('PA: scannedReport flagged but not in local IndexedDB for vehicle', vehicle.id);
+                    }
+                    resolve(payload);
+                }
+
+                if (doc && photo && photo.base64) {
+                    try { doc.addPage(); } catch (e) { console.warn('PA: addPage failed:', e); finalize(); return; }
+                    var pageW = doc.internal.pageSize.getWidth();
+                    var pageH = doc.internal.pageSize.getHeight();
+
+                    // Page header
+                    doc.setFontSize(11);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(5, 20, 31);
+                    doc.text('Hoja de Resultados — Captura VETS', pageW / 2, 13, { align: 'center' });
+                    doc.setFontSize(8);
+                    doc.setFont('helvetica', 'normal');
+                    var capStr = '';
+                    try { capStr = photo.capturedAt ? new Date(photo.capturedAt).toLocaleString('es-MX') : ''; } catch (e) {}
+                    doc.text('VIN: ' + (vehicle.vin || 'SIN-VIN') + '   ·   Capturada: ' + capStr,
+                             pageW / 2, 19, { align: 'center' });
+
+                    var dataUrl = 'data:' + (photo.contentType || 'image/jpeg') + ';base64,' + photo.base64;
+                    var imgFmt = (photo.contentType === 'image/png') ? 'PNG' : 'JPEG';
+                    var areaX = 8, areaY = 24, areaW = pageW - 16, areaH = pageH - areaY - 8;
+
+                    var img = new Image();
+                    img.onload = function () {
+                        var r = Math.min(areaW / img.naturalWidth, areaH / img.naturalHeight);
+                        var dW = img.naturalWidth * r;
+                        var dH = img.naturalHeight * r;
+                        var dX = areaX + (areaW - dW) / 2;
+                        var dY = areaY + (areaH - dH) / 2;
+                        try { doc.addImage(dataUrl, imgFmt, dX, dY, dW, dH); }
+                        catch (e) { console.warn('PA: addImage failed:', e); }
+                        finalize();
+                    };
+                    img.onerror = function () {
+                        try { doc.addImage(dataUrl, imgFmt, areaX, areaY, areaW, areaH); }
+                        catch (e) { console.warn('PA: addImage fallback failed:', e); }
+                        finalize();
+                    };
+                    img.src = dataUrl;
+                } else {
+                    finalize();
+                }
+            });
+            return; // resolve() runs inside finalize()
+        }
+
+        // Non-emissions / PDF disabled fallback: send the photo separately if present
         paPhotoGet(vehicle.id, function (photo) {
             if (photo && photo.base64) {
                 payload.scannedReport = {
@@ -251,15 +318,6 @@ function paBuildPayload(eventType, vehicle) {
                     contentType: photo.contentType || 'image/jpeg',
                     capturedAt: photo.capturedAt || ''
                 };
-            } else if (typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose) &&
-                       vehicle.testData && vehicle.testData.scannedReportCaptured) {
-                // Flag says captured but file is missing locally — likely captured on another station
-                // (post Smart Merge). Tell PA explicitly so the receiver doesn't think it was omitted.
-                payload.scannedReportMissing = {
-                    reason: 'captured-on-another-station',
-                    flaggedAt: vehicle.testData.scannedReportCapturedAt || ''
-                };
-                console.warn('PA: scannedReport flagged but not in local IndexedDB for vehicle', vehicle.id);
             }
             resolve(payload);
         });

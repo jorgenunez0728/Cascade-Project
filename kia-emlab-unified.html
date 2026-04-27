@@ -5248,7 +5248,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202604271717';
+var APP_BUILD = '202604272249';
 
 let allConfigurations = [];
 let currentFilters = {};
@@ -12423,6 +12423,12 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   // =====================================================
   //  GUARDAR
   // =====================================================
+  // Return the jsPDF instance itself if requested — caller can append pages
+  // (used by Power Automate webhook to merge COP15-F05 + scanned photo into ONE PDF)
+  if (opts && opts.returnDoc) {
+      if (!(opts && opts.silent)) hideOverlayLoading();
+      return doc;
+  }
   // Return base64 if requested (used by Power Automate webhook integration)
   if (opts && opts.returnBase64) {
       if (!(opts && opts.silent)) hideOverlayLoading();
@@ -28842,25 +28848,6 @@ function paBuildPayload(eventType, vehicle) {
         payload.vehicle.resultado = _paExtractResult(vehicle);
         payload.vehicle.testSummary = _paExtractTestSummary(vehicle);
 
-        // Include PDF as base64 if configured and vehicle is emissions purpose
-        if (paConfig.includePdfOnRelease &&
-            typeof isEmissionsPurpose === 'function' &&
-            isEmissionsPurpose(vehicle.purpose) &&
-            typeof generateCOP15PDF === 'function') {
-            try {
-                var b64 = generateCOP15PDF(vehicle.id, { returnBase64: true, silent: true });
-                if (b64) {
-                    payload.pdf = {
-                        base64: b64,
-                        filename: 'COP15-F05_' + (vehicle.vin || 'SIN-VIN') + '_' + new Date().toISOString().split('T')[0] + '.pdf',
-                        contentType: 'application/pdf'
-                    };
-                }
-            } catch (e) {
-                void 0;
-            }
-        }
-
         // Attach digital signatures if present
         if (vehicle.testData && vehicle.testData.signatures) {
             payload.signatures = {
@@ -28869,7 +28856,93 @@ function paBuildPayload(eventType, vehicle) {
             };
         }
 
-        // Attach the scanned results sheet photo from IndexedDB (async)
+        // Combined-PDF path for emissions vehicles: COP15-F05 (page 1) + scanned photo (page 2)
+        // in a single PDF, so the Power Automate flow only handles one attachment.
+        if (paConfig.includePdfOnRelease &&
+            typeof isEmissionsPurpose === 'function' &&
+            isEmissionsPurpose(vehicle.purpose) &&
+            typeof generateCOP15PDF === 'function') {
+
+            var doc = null;
+            try { doc = generateCOP15PDF(vehicle.id, { returnDoc: true, silent: true }); }
+            catch (e) { void 0; }
+
+            paPhotoGet(vehicle.id, function (photo) {
+                var fname = 'COP15-F05_' + (vehicle.vin || 'SIN-VIN') + '_' + new Date().toISOString().split('T')[0] + '.pdf';
+
+                function finalize() {
+                    if (doc) {
+                        try {
+                            payload.pdf = {
+                                base64: doc.output('base64'),
+                                filename: fname,
+                                contentType: 'application/pdf'
+                            };
+                        } catch (e) {
+                            void 0;
+                        }
+                    }
+                    if (photo && photo.base64) {
+                        payload.scannedReportEmbedded = {
+                            pageInPdf: 2,
+                            capturedAt: photo.capturedAt || ''
+                        };
+                    } else if (vehicle.testData && vehicle.testData.scannedReportCaptured) {
+                        payload.scannedReportMissing = {
+                            reason: 'captured-on-another-station',
+                            flaggedAt: vehicle.testData.scannedReportCapturedAt || ''
+                        };
+                        void 0;
+                    }
+                    resolve(payload);
+                }
+
+                if (doc && photo && photo.base64) {
+                    try { doc.addPage(); } catch (e) { void 0; finalize(); return; }
+                    var pageW = doc.internal.pageSize.getWidth();
+                    var pageH = doc.internal.pageSize.getHeight();
+
+                    // Page header
+                    doc.setFontSize(11);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(5, 20, 31);
+                    doc.text('Hoja de Resultados — Captura VETS', pageW / 2, 13, { align: 'center' });
+                    doc.setFontSize(8);
+                    doc.setFont('helvetica', 'normal');
+                    var capStr = '';
+                    try { capStr = photo.capturedAt ? new Date(photo.capturedAt).toLocaleString('es-MX') : ''; } catch (e) {}
+                    doc.text('VIN: ' + (vehicle.vin || 'SIN-VIN') + '   ·   Capturada: ' + capStr,
+                             pageW / 2, 19, { align: 'center' });
+
+                    var dataUrl = 'data:' + (photo.contentType || 'image/jpeg') + ';base64,' + photo.base64;
+                    var imgFmt = (photo.contentType === 'image/png') ? 'PNG' : 'JPEG';
+                    var areaX = 8, areaY = 24, areaW = pageW - 16, areaH = pageH - areaY - 8;
+
+                    var img = new Image();
+                    img.onload = function () {
+                        var r = Math.min(areaW / img.naturalWidth, areaH / img.naturalHeight);
+                        var dW = img.naturalWidth * r;
+                        var dH = img.naturalHeight * r;
+                        var dX = areaX + (areaW - dW) / 2;
+                        var dY = areaY + (areaH - dH) / 2;
+                        try { doc.addImage(dataUrl, imgFmt, dX, dY, dW, dH); }
+                        catch (e) { void 0; }
+                        finalize();
+                    };
+                    img.onerror = function () {
+                        try { doc.addImage(dataUrl, imgFmt, areaX, areaY, areaW, areaH); }
+                        catch (e) { void 0; }
+                        finalize();
+                    };
+                    img.src = dataUrl;
+                } else {
+                    finalize();
+                }
+            });
+            return; // resolve() runs inside finalize()
+        }
+
+        // Non-emissions / PDF disabled fallback: send the photo separately if present
         paPhotoGet(vehicle.id, function (photo) {
             if (photo && photo.base64) {
                 payload.scannedReport = {
@@ -28878,15 +28951,6 @@ function paBuildPayload(eventType, vehicle) {
                     contentType: photo.contentType || 'image/jpeg',
                     capturedAt: photo.capturedAt || ''
                 };
-            } else if (typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose) &&
-                       vehicle.testData && vehicle.testData.scannedReportCaptured) {
-                // Flag says captured but file is missing locally — likely captured on another station
-                // (post Smart Merge). Tell PA explicitly so the receiver doesn't think it was omitted.
-                payload.scannedReportMissing = {
-                    reason: 'captured-on-another-station',
-                    flaggedAt: vehicle.testData.scannedReportCapturedAt || ''
-                };
-                void 0;
             }
             resolve(payload);
         });
@@ -32217,7 +32281,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202604271717' || !remoteBuild || remoteBuild <= localBuild) return;
+        if (!localBuild || localBuild === '202604272249' || !remoteBuild || remoteBuild <= localBuild) return;
         var dismissKey = 'kia_update_dismissed_' + remoteBuild;
         if (localStorage.getItem(dismissKey)) return;
         fbShowUpdateBanner(remoteBuild, downloadUrl, dismissKey);
