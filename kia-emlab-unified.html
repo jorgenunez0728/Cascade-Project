@@ -10,12 +10,6 @@
     <meta name="theme-color" content="#05141f">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="EmLab">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
-    <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
-    <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 
     <!-- [Fase 4.2] CDN Preconnect hints for faster resource loading -->
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
@@ -5248,7 +5242,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202604271717';
+var APP_BUILD = '202604262028';
 
 let allConfigurations = [];
 let currentFilters = {};
@@ -32217,7 +32211,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202604271717' || !remoteBuild || remoteBuild <= localBuild) return;
+        if (!localBuild || localBuild === '202604262028' || !remoteBuild || remoteBuild <= localBuild) return;
         var dismissKey = 'kia_update_dismissed_' + remoteBuild;
         if (localStorage.getItem(dismissKey)) return;
         fbShowUpdateBanner(remoteBuild, downloadUrl, dismissKey);
