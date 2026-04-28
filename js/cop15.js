@@ -3035,8 +3035,12 @@ function generateCOP15PDF(vehicleId, opts) {
   if (!(opts && opts.silent)) showOverlayLoading('Generando PDF...');
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
-    if (!(opts && opts.silent)) showToast('PDF COP15-F05 solo aplica para Emisiones. Este vehículo: ' + vehicle.purpose, 'warning');
-    return null;
+    if (opts && (opts.returnDoc || opts.returnBase64)) {
+      // Called programmatically (e.g. Power Automate) — generate PDF regardless of purpose
+    } else {
+      if (!(opts && opts.silent)) showToast('PDF COP15-F05 solo aplica para Emisiones. Este vehículo: ' + vehicle.purpose, 'warning');
+      return null;
+    }
   }
 
   // ---------- Extraer datos ----------
