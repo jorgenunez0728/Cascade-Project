@@ -6,6 +6,73 @@ Este documento explica cómo consumir el webhook en el flow para que el correo s
 
 ---
 
+## ⭐ TL;DR — expresiones listas para pegar (solo `triggerBody`, sin Parse JSON)
+
+Si tu trigger HTTP **no** tiene un JSON Schema definido, `triggerBody()` te devuelve el cuerpo como **string** y `?['pdf']` te da `null`. Solución: envuelve con `json()` para forzar el parseo.
+
+**En el step "Send an email (V2)" → Show advanced options → Attachments:**
+
+| Campo | Expresión |
+|---|---|
+| **Attachments Name - 1** | `json(triggerBody())?['pdf']?['filename']` |
+| **Attachments Content - 1** | `base64ToBinary(json(triggerBody())?['pdf']?['base64'])` |
+
+Eso es todo. Con `json(triggerBody())` parseas el body a objeto cada vez. Con `base64ToBinary(...)` el adjunto llega como PDF real (con extensión, abre normal). Sin esos dos envoltorios el archivo te sale como blob opaco sin extensión — el bug que tenías.
+
+**Subject sugerido:**
+```
+COP15-F05 Liberación VIN @{json(triggerBody())?['vehicle']?['vin']} — @{json(triggerBody())?['vehicle']?['resultado']}
+```
+
+**Cuerpo (HTML):**
+```html
+<p>Hola,</p>
+<p>Se liberó el vehículo VIN <b>@{json(triggerBody())?['vehicle']?['vin']}</b>.</p>
+<ul>
+  <li><b>Modelo:</b> @{json(triggerBody())?['vehicle']?['model']}</li>
+  <li><b>Motor:</b> @{json(triggerBody())?['vehicle']?['engine']}</li>
+  <li><b>Transmisión:</b> @{json(triggerBody())?['vehicle']?['transmission']}</li>
+  <li><b>Regulación:</b> @{json(triggerBody())?['vehicle']?['regulation']}</li>
+  <li><b>Propósito:</b> @{json(triggerBody())?['vehicle']?['purpose']}</li>
+  <li><b>Resultado:</b> @{json(triggerBody())?['vehicle']?['resultado']}</li>
+  <li><b>Operador de registro:</b> @{json(triggerBody())?['vehicle']?['registeredBy']}</li>
+  <li><b>Estación:</b> @{json(triggerBody())?['station']}</li>
+</ul>
+<p>Adjunto el PDF COP15-F05 (página 2 incluye la foto de la hoja de resultados del equipo VETS).</p>
+<p>Saludos,<br>KIA EmLab</p>
+```
+
+**Si quieres confirmar primero que el JSON sí llega bien:** agrega un step **Compose** entre el trigger y el Send email con valor:
+```
+json(triggerBody())?['pdf']?['filename']
+```
+Corre el flow una vez. El output del Compose debe mostrar `COP15-F05_<VIN>_<fecha>.pdf`. Si muestra `null`, el body no es JSON o no llegó. Si muestra el filename, el resto va a funcionar.
+
+---
+
+## Por qué `triggerBody()?['pdf']?['base64']` venía null
+
+El trigger HTTP de Power Automate, **sin schema definido**, recibe el body como string. Las expresiones `?['propiedad']` solo funcionan sobre objetos parseados, así que sobre un string te devuelven `null` en silencio.
+
+Tres formas de arreglarlo (escoge la que prefieras):
+
+**Opción A · Forzar parseo con `json()`** ← lo más simple, lo de arriba.
+
+**Opción B · Pegar el schema en el trigger**
+1. Edita el step "When a HTTP request is received".
+2. En el campo "Request Body JSON Schema" pega el schema que está más abajo en este doc.
+3. Después de eso, `triggerBody()?['pdf']?['base64']` (sin `json()`) ya funciona.
+
+**Opción C · Agregar un step "Parse JSON"**
+1. Después del trigger, agrega un step **Parse JSON**.
+2. Content: `triggerBody()`
+3. Schema: pegar el schema más abajo.
+4. Usa `body('Parse_JSON')?['pdf']?['base64']`.
+
+Las tres son equivalentes. **Opción A no requiere tocar la configuración del trigger ni meter steps extra**, por eso es la más rápida.
+
+---
+
 ## El JSON que llega al trigger
 
 Cuando se libera un vehículo de emisiones, el webhook HTTP recibe este JSON. Es lo que ves en el step "When a HTTP request is received".
@@ -192,7 +259,8 @@ Después de configurar:
 
 | Síntoma | Causa | Cómo arreglar |
 |---|---|---|
-| Adjunto sin extensión, no abre como PDF | Pegaste el base64 en "Attachments Content" sin envolver en `base64ToBinary()` | Cambia el campo a `base64ToBinary(body('Parse_JSON')?['pdf']?['base64'])` |
+| `triggerBody()?['pdf']` o `triggerBody()?['pdf']?['base64']` devuelven `null` | El trigger HTTP no tiene JSON Schema, así que `triggerBody()` devuelve un string y `?['propiedad']` te da null | Envuelve con `json()`: `base64ToBinary(json(triggerBody())?['pdf']?['base64'])`. O pega el schema en el trigger. Ver sección TL;DR arriba. |
+| Adjunto sin extensión, no abre como PDF | Pegaste el base64 en "Attachments Content" sin envolver en `base64ToBinary()` | Cambia el campo a `base64ToBinary(json(triggerBody())?['pdf']?['base64'])` |
 | El correo llega con un archivo de 0 KB | `pdf.base64` viene vacío en el trigger — probablemente el vehículo no es de emisiones o `includePdfOnRelease` está apagado en la config de la app | Revisa la config en KIA EmLab → Power Automate, marca "Incluir PDF COP15-F05 al liberar" |
 | Llegan DOS adjuntos como antes | Versión vieja de la app — sigue mandando `pdf` y `scannedReport` separados | Confirma que la PWA actualizó (recargar fuerte / desinstalar y reinstalar). El indicador de versión debe coincidir con el último build |
 | El PDF se abre pero solo tiene 1 página y la foto sí estaba | Probablemente `payload.scannedReportEmbedded` no llegó — revisa el trigger output, posiblemente la imagen no se cargó a tiempo (`img.onload` falló). Mira la consola del navegador en la estación origen |
