@@ -188,6 +188,45 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,1
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
 var APP_BUILD = '__BUILD_VERSION__';
 
+// Format a build timestamp YYYYMMDDHHmm into a human readable label.
+function formatBuildLabel(buildTs) {
+    if (!buildTs || buildTs === '__BUILD_VERSION__' || String(buildTs).length < 12) return 'dev';
+    var s = String(buildTs);
+    return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
+}
+
+// Update the topbar version pill. status: 'uptodate' | 'outdated' | undefined.
+// remoteBuild + downloadUrl are passed in when status === 'outdated' so the user
+// can click straight to the new build.
+function updateVersionDisplay(status, remoteBuild, downloadUrl) {
+    var el = document.getElementById('app-version-info');
+    if (!el) return;
+    var localLabel = formatBuildLabel(APP_BUILD);
+    var statusBadge = '';
+    var color = 'rgba(255,255,255,0.4)';
+    var clickable = '';
+    var title = 'Build local: ' + localLabel;
+    if (status === 'outdated' && remoteBuild) {
+        statusBadge = ' <span style="background:#f59e0b;color:#000;padding:1px 6px;border-radius:8px;font-weight:700;margin-left:4px;">Actualizar</span>';
+        color = '#fbbf24';
+        title = 'Build local: ' + localLabel + ' · Disponible: ' + formatBuildLabel(remoteBuild);
+        if (downloadUrl) {
+            clickable = ' onclick="window.open(\'' + downloadUrl.replace(/'/g, "\\'") + '\',\'_blank\')" style="cursor:pointer;"';
+        }
+    } else if (status === 'uptodate') {
+        statusBadge = ' <span style="color:#10b981;margin-left:4px;">●</span>';
+    }
+    el.style.color = color;
+    el.style.cursor = clickable ? 'pointer' : 'default';
+    el.title = title;
+    el.innerHTML = 'KIA EmLab v14.0 · ' + localLabel + statusBadge;
+    if (clickable) {
+        el.setAttribute('onclick', clickable.match(/onclick="([^"]+)"/)[1]);
+    } else {
+        el.removeAttribute('onclick');
+    }
+}
+
 let allConfigurations = [];
 let currentFilters = {};
 
@@ -2363,6 +2402,9 @@ function generateWeeklyStatusPDF(opts) {
     function initializeSystem() {
         // Theme init — apply before any UI renders
         try { themeInit(); } catch(e) { console.error('themeInit error:', e); }
+
+        // Show local build in the topbar version pill (Firebase will call again with remote status)
+        try { updateVersionDisplay(); } catch(e) { console.error('version display error:', e); }
 
         // [R5-M1] Splash screen
         if (typeof splashShow === 'function') splashShow();

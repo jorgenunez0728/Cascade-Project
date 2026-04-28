@@ -2218,7 +2218,12 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '__BUILD_VERSION__' || !remoteBuild || remoteBuild <= localBuild) return;
+        if (!localBuild || localBuild === '__BUILD_VERSION__' || !remoteBuild) return;
+        if (remoteBuild <= localBuild) {
+            if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
+            return;
+        }
+        if (typeof updateVersionDisplay === 'function') updateVersionDisplay('outdated', remoteBuild, downloadUrl);
         var dismissKey = 'kia_update_dismissed_' + remoteBuild;
         if (localStorage.getItem(dismissKey)) return;
         fbShowUpdateBanner(remoteBuild, downloadUrl, dismissKey);
