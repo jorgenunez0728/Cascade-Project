@@ -5248,11 +5248,11 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202604281730';
+var APP_BUILD = '202604281858';
 
 // Format a build timestamp YYYYMMDDHHmm into a human readable label.
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202604281730' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202604281858' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
@@ -7404,7 +7404,11 @@ function generateWeeklyStatusPDF(opts) {
 
     if (opts && opts.returnBase64) {
         if (!(opts && opts.silent)) hideOverlayLoading();
-        return doc.output('base64');
+        // jsPDF 2.5.x: 'base64' is not a valid output type — use datauristring + strip prefix.
+        var _dataUri = doc.output('datauristring');
+        return (typeof _dataUri === 'string' && _dataUri.indexOf(',') >= 0)
+            ? _dataUri.split(',')[1]
+            : '';
     }
     doc.save('KIA-EmLab-Semanal-' + today.toISOString().slice(0, 10) + '.pdf');
     hideOverlayLoading();
@@ -12472,9 +12476,14 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
       return doc;
   }
   // Return base64 if requested (used by Power Automate webhook integration)
+  // jsPDF 2.5.x: 'base64' is not a valid output type — returns null silently.
+  // Use 'datauristring' and strip the "data:application/pdf;base64," prefix.
   if (opts && opts.returnBase64) {
       if (!(opts && opts.silent)) hideOverlayLoading();
-      return doc.output('base64');
+      var _dataUri = doc.output('datauristring');
+      return (typeof _dataUri === 'string' && _dataUri.indexOf(',') >= 0)
+          ? _dataUri.split(',')[1]
+          : '';
   }
 
   const fname = 'COP15-F05_'+(vehicle.vin||'SIN-VIN')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
@@ -28915,8 +28924,14 @@ function paBuildPayload(eventType, vehicle) {
                 function finalize() {
                     if (doc) {
                         try {
+                            // jsPDF 2.5.x doesn't support 'base64' as output type — it returns
+                            // null silently. Use 'datauristring' and strip the data URI prefix.
+                            var dataUri = doc.output('datauristring');
+                            var b64 = (typeof dataUri === 'string' && dataUri.indexOf(',') >= 0)
+                                ? dataUri.split(',')[1]
+                                : '';
                             payload.pdf = {
-                                base64: doc.output('base64'),
+                                base64: b64,
                                 filename: fname,
                                 contentType: 'application/pdf'
                             };
@@ -32323,7 +32338,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202604281730' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202604281858' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

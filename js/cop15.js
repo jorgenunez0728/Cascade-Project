@@ -3499,9 +3499,14 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
       return doc;
   }
   // Return base64 if requested (used by Power Automate webhook integration)
+  // jsPDF 2.5.x: 'base64' is not a valid output type — returns null silently.
+  // Use 'datauristring' and strip the "data:application/pdf;base64," prefix.
   if (opts && opts.returnBase64) {
       if (!(opts && opts.silent)) hideOverlayLoading();
-      return doc.output('base64');
+      var _dataUri = doc.output('datauristring');
+      return (typeof _dataUri === 'string' && _dataUri.indexOf(',') >= 0)
+          ? _dataUri.split(',')[1]
+          : '';
   }
 
   const fname = 'COP15-F05_'+(vehicle.vin||'SIN-VIN')+'_'+new Date().toISOString().split('T')[0]+'.pdf';

@@ -240,8 +240,14 @@ function paBuildPayload(eventType, vehicle) {
                 function finalize() {
                     if (doc) {
                         try {
+                            // jsPDF 2.5.x doesn't support 'base64' as output type — it returns
+                            // null silently. Use 'datauristring' and strip the data URI prefix.
+                            var dataUri = doc.output('datauristring');
+                            var b64 = (typeof dataUri === 'string' && dataUri.indexOf(',') >= 0)
+                                ? dataUri.split(',')[1]
+                                : '';
                             payload.pdf = {
-                                base64: doc.output('base64'),
+                                base64: b64,
                                 filename: fname,
                                 contentType: 'application/pdf'
                             };

@@ -2342,7 +2342,11 @@ function generateWeeklyStatusPDF(opts) {
 
     if (opts && opts.returnBase64) {
         if (!(opts && opts.silent)) hideOverlayLoading();
-        return doc.output('base64');
+        // jsPDF 2.5.x: 'base64' is not a valid output type — use datauristring + strip prefix.
+        var _dataUri = doc.output('datauristring');
+        return (typeof _dataUri === 'string' && _dataUri.indexOf(',') >= 0)
+            ? _dataUri.split(',')[1]
+            : '';
     }
     doc.save('KIA-EmLab-Semanal-' + today.toISOString().slice(0, 10) + '.pdf');
     hideOverlayLoading();
