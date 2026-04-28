@@ -233,11 +233,13 @@ function paBuildPayload(eventType, vehicle) {
             var doc = null;
             try { doc = generateCOP15PDF(vehicle.id, { returnDoc: true, silent: true }); }
             catch (e) { console.warn('PA: PDF doc generation failed:', e); }
+            if (!doc) { console.warn('PA: generateCOP15PDF returned null for vehicle', vehicle.id, '— will send photo only if available'); }
 
             paPhotoGet(vehicle.id, function (photo) {
                 var fname = 'COP15-F05_' + (vehicle.vin || 'SIN-VIN') + '_' + new Date().toISOString().split('T')[0] + '.pdf';
 
                 function finalize() {
+                    var pdfSucceeded = false;
                     if (doc) {
                         try {
                             payload.pdf = {
@@ -245,13 +247,23 @@ function paBuildPayload(eventType, vehicle) {
                                 filename: fname,
                                 contentType: 'application/pdf'
                             };
+                            pdfSucceeded = true;
                         } catch (e) {
                             console.warn('PA: PDF output failed:', e);
                         }
                     }
-                    if (photo && photo.base64) {
+                    if (pdfSucceeded && photo && photo.base64) {
+                        // Photo was successfully embedded as page 2 of the PDF
                         payload.scannedReportEmbedded = {
                             pageInPdf: 2,
+                            capturedAt: photo.capturedAt || ''
+                        };
+                    } else if (photo && photo.base64) {
+                        // PDF not available — send photo as a separate attachment
+                        payload.scannedReport = {
+                            base64: photo.base64,
+                            filename: photo.filename || ('Resultados_' + (vehicle.vin || 'SIN-VIN') + '_' + new Date().toISOString().split('T')[0] + '.jpg'),
+                            contentType: photo.contentType || 'image/jpeg',
                             capturedAt: photo.capturedAt || ''
                         };
                     } else if (vehicle.testData && vehicle.testData.scannedReportCaptured) {
