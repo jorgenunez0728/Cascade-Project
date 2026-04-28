@@ -230,9 +230,37 @@ function paBuildPayload(eventType, vehicle) {
             typeof generateCOP15PDF === 'function') {
 
             var doc = null;
+            var _pdfErr = null;
             try { doc = generateCOP15PDF(vehicle.id, { returnDoc: true, silent: true }); }
-            catch (e) { console.warn('PA: PDF doc generation failed:', e); }
-            if (!doc) { console.warn('PA: generateCOP15PDF returned null for vehicle', vehicle.id, '— will send photo only if available'); }
+            catch (e) {
+                _pdfErr = e;
+                console.error('PA: generateCOP15PDF threw for vehicle', vehicle.id, ':', e);
+            }
+            // If full PDF generation failed but jsPDF is available, create a minimal fallback PDF
+            // so base64 is never null in the payload — the PA flow always receives an attachment.
+            if (!doc && window.jspdf && typeof window.jspdf.jsPDF === 'function') {
+                try {
+                    var _fbDoc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+                    _fbDoc.setFontSize(12);
+                    _fbDoc.text('COP15-F05 — ' + (vehicle.vin || 'SIN-VIN'), 20, 20);
+                    _fbDoc.setFontSize(9);
+                    _fbDoc.text('Propósito: ' + (vehicle.purpose || '') + '   |   Generado: ' + new Date().toLocaleString('es-MX'), 20, 32);
+                    if (_pdfErr) {
+                        _fbDoc.setTextColor(200, 50, 50);
+                        _fbDoc.text('(Error en generación completa: ' + String(_pdfErr.message || _pdfErr) + ')', 20, 44);
+                    }
+                    doc = _fbDoc;
+                    console.warn('PA: using fallback minimal PDF for vehicle', vehicle.id, '— check console for root cause');
+                    if (typeof showToast === 'function') showToast('⚠️ PDF simplificado enviado a PA. Consulta la consola.', 'warning');
+                } catch (fe) {
+                    console.warn('PA: fallback PDF creation also failed:', fe);
+                }
+            }
+            if (!doc) {
+                var _noDocMsg = _pdfErr ? String(_pdfErr.message || _pdfErr) : 'null returned';
+                console.warn('PA: sin PDF para vehicle', vehicle.id, '—', _noDocMsg, '— solo foto si está disponible');
+                if (typeof showToast === 'function') showToast('⚠️ Error generando PDF para PA: ' + _noDocMsg, 'warning');
+            }
 
             paPhotoGet(vehicle.id, function (photo) {
                 var fname = 'COP15-F05_' + (vehicle.vin || 'SIN-VIN') + '_' + new Date().toISOString().split('T')[0] + '.pdf';

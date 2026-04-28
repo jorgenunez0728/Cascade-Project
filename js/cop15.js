@@ -3051,6 +3051,10 @@ function generateCOP15PDF(vehicleId, opts) {
   const notes = td.notes || '';  // comentarios de recepción
   const tvNotes = tv.notes || ''; // comentarios de verificación
 
+  if (!window.jspdf || typeof window.jspdf.jsPDF !== 'function') {
+    if (!(opts && opts.silent)) showToast('jsPDF no disponible. Recarga la página e intenta de nuevo.', 'error');
+    return null;
+  }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
 

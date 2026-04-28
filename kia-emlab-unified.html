@@ -5248,11 +5248,11 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202604281848';
+var APP_BUILD = '202604281914';
 
 // Format a build timestamp YYYYMMDDHHmm into a human readable label.
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202604281848' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202604281914' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
@@ -12024,6 +12024,10 @@ function generateCOP15PDF(vehicleId, opts) {
   const notes = td.notes || '';  // comentarios de recepción
   const tvNotes = tv.notes || ''; // comentarios de verificación
 
+  if (!window.jspdf || typeof window.jspdf.jsPDF !== 'function') {
+    if (!(opts && opts.silent)) showToast('jsPDF no disponible. Recarga la página e intenta de nuevo.', 'error');
+    return null;
+  }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
 
@@ -28909,9 +28913,37 @@ function paBuildPayload(eventType, vehicle) {
             typeof generateCOP15PDF === 'function') {
 
             var doc = null;
+            var _pdfErr = null;
             try { doc = generateCOP15PDF(vehicle.id, { returnDoc: true, silent: true }); }
-            catch (e) { void 0; }
-            if (!doc) { void 0; }
+            catch (e) {
+                _pdfErr = e;
+                void 0;
+            }
+            // If full PDF generation failed but jsPDF is available, create a minimal fallback PDF
+            // so base64 is never null in the payload — the PA flow always receives an attachment.
+            if (!doc && window.jspdf && typeof window.jspdf.jsPDF === 'function') {
+                try {
+                    var _fbDoc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+                    _fbDoc.setFontSize(12);
+                    _fbDoc.text('COP15-F05 — ' + (vehicle.vin || 'SIN-VIN'), 20, 20);
+                    _fbDoc.setFontSize(9);
+                    _fbDoc.text('Propósito: ' + (vehicle.purpose || '') + '   |   Generado: ' + new Date().toLocaleString('es-MX'), 20, 32);
+                    if (_pdfErr) {
+                        _fbDoc.setTextColor(200, 50, 50);
+                        _fbDoc.text('(Error en generación completa: ' + String(_pdfErr.message || _pdfErr) + ')', 20, 44);
+                    }
+                    doc = _fbDoc;
+                    void 0;
+                    if (typeof showToast === 'function') showToast('⚠️ PDF simplificado enviado a PA. Consulta la consola.', 'warning');
+                } catch (fe) {
+                    void 0;
+                }
+            }
+            if (!doc) {
+                var _noDocMsg = _pdfErr ? String(_pdfErr.message || _pdfErr) : 'null returned';
+                void 0;
+                if (typeof showToast === 'function') showToast('⚠️ Error generando PDF para PA: ' + _noDocMsg, 'warning');
+            }
 
             paPhotoGet(vehicle.id, function (photo) {
                 var fname = 'COP15-F05_' + (vehicle.vin || 'SIN-VIN') + '_' + new Date().toISOString().split('T')[0] + '.pdf';
@@ -32338,7 +32370,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202604281848' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202604281914' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
