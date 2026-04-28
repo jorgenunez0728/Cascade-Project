@@ -223,11 +223,10 @@ function paBuildPayload(eventType, vehicle) {
             };
         }
 
-        // Combined-PDF path for emissions vehicles: COP15-F05 (page 1) + scanned photo (page 2)
-        // in a single PDF, so the Power Automate flow only handles one attachment.
+        // Combined-PDF path: COP15-F05 (page 1) + scanned photo (page 2) in a single PDF,
+        // so the Power Automate flow only handles one attachment.
+        // generateCOP15PDF() handles non-emissions vehicles when called with returnDoc:true.
         if (paConfig.includePdfOnRelease &&
-            typeof isEmissionsPurpose === 'function' &&
-            isEmissionsPurpose(vehicle.purpose) &&
             typeof generateCOP15PDF === 'function') {
 
             var doc = null;

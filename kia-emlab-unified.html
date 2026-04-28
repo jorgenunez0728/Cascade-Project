@@ -5248,11 +5248,11 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202604281821';
+var APP_BUILD = '202604281848';
 
 // Format a build timestamp YYYYMMDDHHmm into a human readable label.
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202604281821' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202604281848' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
@@ -12008,8 +12008,12 @@ function generateCOP15PDF(vehicleId, opts) {
   if (!(opts && opts.silent)) showOverlayLoading('Generando PDF...');
 
   if (!isEmissionsPurpose(vehicle.purpose)) {
-    if (!(opts && opts.silent)) showToast('PDF COP15-F05 solo aplica para Emisiones. Este vehículo: ' + vehicle.purpose, 'warning');
-    return null;
+    if (opts && (opts.returnDoc || opts.returnBase64)) {
+      // Called programmatically (e.g. Power Automate) — generate PDF regardless of purpose
+    } else {
+      if (!(opts && opts.silent)) showToast('PDF COP15-F05 solo aplica para Emisiones. Este vehículo: ' + vehicle.purpose, 'warning');
+      return null;
+    }
   }
 
   // ---------- Extraer datos ----------
@@ -28898,11 +28902,10 @@ function paBuildPayload(eventType, vehicle) {
             };
         }
 
-        // Combined-PDF path for emissions vehicles: COP15-F05 (page 1) + scanned photo (page 2)
-        // in a single PDF, so the Power Automate flow only handles one attachment.
+        // Combined-PDF path: COP15-F05 (page 1) + scanned photo (page 2) in a single PDF,
+        // so the Power Automate flow only handles one attachment.
+        // generateCOP15PDF() handles non-emissions vehicles when called with returnDoc:true.
         if (paConfig.includePdfOnRelease &&
-            typeof isEmissionsPurpose === 'function' &&
-            isEmissionsPurpose(vehicle.purpose) &&
             typeof generateCOP15PDF === 'function') {
 
             var doc = null;
@@ -32335,7 +32338,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202604281821' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202604281848' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
