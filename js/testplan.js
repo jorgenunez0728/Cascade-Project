@@ -2662,9 +2662,9 @@ function tpBuildFamilies() {
     _tpCache.planHash = h;
     const families = {};
     tpState.planData.forEach(cfg => {
-        const key = `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${cfg.rgn}|${cfg.drv}|${cfg.body}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}`;
+        const key = `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${cfg.rgn}|${cfg.drv}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}`;
         if (!families[key]) {
-            families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgn:cfg.rgn||'', drv:cfg.drv||'', body:cfg.body||'', ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, testedConfigs:0, totalTested:0, totalRequired:0 };
+            families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgn:cfg.rgn||'', drv:cfg.drv||'', bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, testedConfigs:0, totalTested:0, totalRequired:0 };
         }
         const rule = tpGetRule(cfg);
         const n = tpState.testedList.filter(t => t.configText === cfg.desc).length;
@@ -2686,6 +2686,7 @@ function tpBuildFamilies() {
         }
 
         families[key].configs.push({ ...cfg, testedN:n, required:req, deficit:Math.max(0,req-n), vins, raResults });
+        families[key].bodies.add(cfg.body||'');
         families[key].totalVol += cfg.total;
         families[key].totalHist += cfg.hist;
         families[key].totalRequired += req;
@@ -2694,6 +2695,7 @@ function tpBuildFamilies() {
     });
 
     Object.values(families).forEach(f => {
+        f.bodies = [...f.bodies].filter(Boolean).sort();
         f.configCount = f.configs.length;
         f.coverage = f.totalRequired > 0 ? f.totalTested / f.totalRequired : 1;
         f.configCoverage = f.configCount > 0 ? f.testedConfigs / f.configCount : 1;
@@ -2776,7 +2778,6 @@ function tpBuildFamilies() {
             if (g.reg !== f.reg) return false;
             if (g.ep !== f.ep || g.engpkg !== f.engpkg) return false;
             var diffs = 0;
-            if (g.body !== f.body) diffs++;
             if (g.drv !== f.drv) diffs++;
             if (g.rgn !== f.rgn) diffs++;
             return diffs >= 1;
@@ -2785,7 +2786,6 @@ function tpBuildFamilies() {
         candidates.sort(function(a, b) { return b.totalTested - a.totalTested; });
         var best = candidates[0];
         var reasons = [];
-        if (best.body !== f.body) reasons.push('body');
         if (best.drv !== f.drv) reasons.push('drive');
         if (best.rgn !== f.rgn) reasons.push('region');
         var sampleVin = '';
@@ -2797,7 +2797,7 @@ function tpBuildFamilies() {
         }
         f.coveredByEquivalent = {
             siblingKey: best.key,
-            siblingLabel: [best.mod, best.body, best.drv, best.rgn].filter(Boolean).join(' · '),
+            siblingLabel: [best.mod, ...(best.bodies||[]), best.drv, best.rgn].filter(Boolean).join(' · '),
             reasons: reasons,
             sampleVin: sampleVin
         };
@@ -2861,10 +2861,30 @@ function tpRenderFamilies(el) {
     const mR = filtered.filter(function(f) { return f[_rkKey] === 'medium'; }).length;
     const lR = filtered.filter(function(f) { return f[_rkKey] === 'low'; }).length;
 
+    // Compliance summary (global, all families before region/readiness filter)
+    const _totalFams = families.length;
+    const _directCount = families.filter(function(f){return f.auditCoverageKind==='direct';}).length;
+    const _partialCount = families.filter(function(f){return f.auditCoverageKind==='partial';}).length;
+    const _equivCount = families.filter(function(f){return f.auditCoverageKind==='equivalent';}).length;
+    const _contCount = families.filter(function(f){return f.auditCoverageKind==='continuity';}).length;
+    const _noneCount = families.filter(function(f){return f.auditCoverageKind==='none';}).length;
+    const _coveredCount = _directCount + _partialCount + _equivCount + _contCount;
+    const _covPct = Math.round(_coveredCount / Math.max(_totalFams, 1) * 100);
+    const _dirPct = Math.round(_directCount / Math.max(_totalFams, 1) * 100);
+    const _parPct = Math.round(_partialCount / Math.max(_totalFams, 1) * 100);
+    const _eqPct  = Math.round(_equivCount / Math.max(_totalFams, 1) * 100);
+    const _coPct  = Math.round(_contCount / Math.max(_totalFams, 1) * 100);
+
     function epLabel(v) { return !v||v==='0'?'12V':v==='M'?'48V':v; }
+    function _bodyBadge(b) {
+        if (!b) return '';
+        const bColors = {'4DR':'#3b82f6','5DR':'#8b5cf6','WGN':'#14b8a6','WGN LONG':'#10b981','2DR':'#f59e0b'};
+        const c = bColors[b] || '#64748b';
+        return `<span class="tp-badge" style="background:${c}22;color:${c};font-size:9px;border:1px solid ${c}44;">${b}</span>`;
+    }
     function getDiffFields(configs) {
-        const fields = ['tire','ep','engpkg','drv','body'];
-        const lbls = {tire:'Llanta',ep:'Env',engpkg:'EngPkg',drv:'Drive',body:'Body'};
+        const fields = ['body','tire','ep','engpkg','drv'];
+        const lbls = {tire:'Llanta',ep:'Env',engpkg:'EngPkg',drv:'Drive',body:'Carrocería'};
         return fields.filter(f => {
             const vals = [...new Set(configs.map(c => c[f]||''))];
             return vals.length > 1;
@@ -2880,6 +2900,25 @@ function tpRenderFamilies(el) {
 
     el.innerHTML = `
     ${_readinessBanner}
+    <div style="margin-bottom:10px;padding:10px 12px;background:var(--tp-card);border-radius:10px;border:1px solid var(--tp-border);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:10px;font-weight:700;color:var(--tp-text);letter-spacing:0.03em;">CUMPLIMIENTO DE FAMILIAS</span>
+            <span style="font-size:15px;font-weight:800;color:${_covPct>=80?'var(--tp-green)':_covPct>=40?'var(--tp-amber)':'var(--tp-red)'};">${_coveredCount}/${_totalFams} <span style="font-size:10px;font-weight:600;">(${_covPct}%)</span></span>
+        </div>
+        <div style="height:9px;border-radius:5px;background:rgba(255,255,255,0.06);overflow:hidden;display:flex;gap:1px;">
+            <div style="width:${_dirPct}%;background:var(--tp-green);transition:width 0.4s;" title="Directas: ${_directCount}"></div>
+            <div style="width:${_parPct}%;background:var(--tp-amber);transition:width 0.4s;" title="Parciales: ${_partialCount}"></div>
+            <div style="width:${_eqPct}%;background:#38bdf8;transition:width 0.4s;" title="Equivalencia: ${_equivCount}"></div>
+            <div style="width:${_coPct}%;background:#84cc16;transition:width 0.4s;" title="Continuidad: ${_contCount}"></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:5px;flex-wrap:wrap;">
+            <span style="font-size:9px;color:var(--tp-green);cursor:pointer;" onclick="window._tpReadinessFilter='direct';tpRender();">● Directas ${_directCount}</span>
+            <span style="font-size:9px;color:var(--tp-amber);cursor:pointer;" onclick="window._tpReadinessFilter='partial';tpRender();">● Parciales ${_partialCount}</span>
+            <span style="font-size:9px;color:#38bdf8;cursor:pointer;" onclick="window._tpReadinessFilter='equivalent';tpRender();">● Equiv ${_equivCount}</span>
+            <span style="font-size:9px;color:#84cc16;cursor:pointer;" onclick="window._tpReadinessFilter='continuity';tpRender();">● Cont ${_contCount}</span>
+            <span style="font-size:9px;color:var(--tp-dim);cursor:pointer;" onclick="window._tpReadinessFilter='none';tpRender();">● Sin cubrir ${_noneCount}</span>
+        </div>
+    </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px;">
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">${filtered.length}</div><div class="tp-metric-label">Familias</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${hR}</div><div class="tp-metric-label">Alto</div></div>
@@ -2913,7 +2952,7 @@ function tpRenderFamilies(el) {
                 <summary style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;cursor:pointer;list-style:none;background:var(--tp-card);gap:4px;flex-wrap:wrap;">
                     <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:140px;flex-wrap:wrap;">
                         <span style="font-weight:800;font-size:11px;">${f.mod}</span>
-                        ${f.body?`<span style="font-size:9px;color:var(--tp-dim);">${f.body}</span>`:''}
+                        ${(f.bodies||[]).map(_bodyBadge).join('')}
                         <span style="font-size:9px;color:var(--tp-dim);">${f.eng} ${f.tx}</span>
                         <span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;font-size:9px;">${f.my}</span>
                         <span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:9px;">${f.reg}</span>
@@ -2927,8 +2966,8 @@ function tpRenderFamilies(el) {
                         <div class="tp-bar" style="width:40px;"><div class="tp-bar-fill" style="width:${Math.round(_fCov*100)}%;background:${rc[_fRisk]};"></div><span class="tp-bar-text" style="font-size:9px;">${Math.round(_fCov*100)}%</span></div>
                     </div>
                 </summary>
-                <div style="padding:6px 8px;background:#0d1422;border-top:1px solid var(--tp-border);">
-                    ${diffs.length > 0 ? `<div style="font-size:9px;color:var(--tp-dim);margin-bottom:3px;">Variantes: ${diffs.map(d=>d.label).join(', ')}</div>` : ''}
+                <div style="padding:6px 8px;background:#0f1826;border-top:1px solid var(--tp-border);">
+                    ${diffs.length > 0 ? `<div style="font-size:9px;color:var(--tp-dim);margin-bottom:4px;letter-spacing:0.02em;">Variantes por: <span style="color:var(--tp-text);font-weight:600;">${diffs.map(d=>d.label).join(' · ')}</span></div>` : ''}
                     ${f.configs.sort((a,b)=>b.total-a.total).map((c, _ci) => {
                         let badges = '';
                         if (diffs.length > 0) {
@@ -2936,8 +2975,10 @@ function tpRenderFamilies(el) {
                                 let v = c[d.field]||'';
                                 if (d.field==='ep') v = epLabel(v);
                                 if (!v||v==='0') v = '-';
-                                const colors = {tire:'#38bdf8',ep:'#fb923c',engpkg:'#a855f7',drv:'#ec4899',body:'#94a3b8'};
-                                return `<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:${colors[d.field]||'#888'}15;color:${colors[d.field]||'#888'};border:1px solid ${colors[d.field]||'#888'}30;">${v}</span>`;
+                                const _fldColors = {tire:'#38bdf8',ep:'#fb923c',engpkg:'#a855f7',drv:'#ec4899'};
+                                const _bodyColors = {'4DR':'#3b82f6','5DR':'#8b5cf6','WGN':'#14b8a6','WGN LONG':'#10b981','2DR':'#f59e0b'};
+                                const _c = d.field === 'body' ? (_bodyColors[v] || '#64748b') : (_fldColors[d.field] || '#888');
+                                return `<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:${_c}22;color:${_c};border:1px solid ${_c}44;">${v}</span>`;
                             }).join(' ');
                         } else {
                             // Single config - show tire as identifier
@@ -2948,21 +2989,20 @@ function tpRenderFamilies(el) {
                         let vinHtml = '';
                         if (c.testedN > 0 && c.vins && c.vins.length > 0) {
                             var _vinId = 'tp-vins-' + fi + '-' + _ci;
-                            vinHtml = `<div id="${_vinId}" style="display:none;padding:4px 6px 4px 20px;background:#0a0f1a;border-top:1px solid var(--tp-border);">`;
+                            vinHtml = `<div id="${_vinId}" style="display:none;padding:4px 6px 4px 20px;background:#12192b;border-top:1px solid var(--tp-border);">`;
                             c.vins.forEach(function(v) {
-                                const vinMatch = (v.note || '').match(/VIN:\s*([^\s—]+)/);
-                                const vin = vinMatch ? vinMatch[1] : (v.note || '?');
+                                const vin = _tpExtractVin(v.note) || (String(v.note||'').split('—')[0].trim()) || '—';
                                 // Check if this VIN has a matching RA test
                                 let raTestId = '';
-                                if (typeof raState !== 'undefined' && raState.tests) {
+                                if (typeof raState !== 'undefined' && raState.tests && vin && vin !== '—') {
                                     const raMatch = raState.tests.find(t => t.vin && t.vin === vin);
                                     if (raMatch) raTestId = raMatch.id;
                                 }
-                                const vinClickable = raTestId ? `onclick="event.stopPropagation();tpGoToRADetail('${raTestId}');" style="cursor:pointer;font-family:monospace;color:var(--tp-amber);text-decoration:underline;" title="Ver detalle en Results Analyzer"` : `style="font-family:monospace;color:var(--tp-text);"`;
-                                vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 4px;font-size:9px;border-bottom:1px solid var(--tp-border);">
+                                const vinClickable = raTestId ? `onclick="event.stopPropagation();tpGoToRADetail('${raTestId}');" style="cursor:pointer;font-family:monospace;font-size:9px;color:var(--tp-amber);text-decoration:underline;" title="Ver detalle en Results Analyzer"` : `style="font-family:monospace;font-size:9px;color:#e2e8f0;"`;
+                                vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 4px;border-bottom:1px solid rgba(255,255,255,0.06);color:#e2e8f0;">
                                     <span ${vinClickable}>${vin}</span>
                                     <div style="display:flex;gap:6px;align-items:center;">
-                                        <span style="color:var(--tp-dim);">${v.date || '?'}</span>
+                                        <span style="font-size:9px;color:var(--tp-dim);">${v.date || '?'}</span>
                                         ${raTestId ? '<span style="font-size:9px;color:var(--tp-blue);">📊</span>' : ''}
                                     </div>
                                 </div>`;
