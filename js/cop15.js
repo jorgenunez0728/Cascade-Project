@@ -2475,6 +2475,7 @@ function closeSubstitutionModal() {
             <div class="hist-filter-count" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <span>Mostrando ${showing} de ${filtered} registros${filtered !== total ? ' (' + total + ' total)' : ''}</span>
                 <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;">PDF Seleccionados</button>
+                <button class="btn-secondary" id="batchDeleteBtn" onclick="batchDeleteVehicles()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;background:#7f1d1d;color:#fca5a5;">🗑 Eliminar seleccionados</button>
                 <button class="btn-secondary" onclick="window.print()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Imprimir tabla de historial">🖨️ Imprimir</button>
                 ${(function(){
                     if (typeof paConfig === 'undefined' || !paConfig.enabled || typeof db === 'undefined' || !db.vehicles) return '';
@@ -2565,9 +2566,9 @@ function closeSubstitutionModal() {
                                 <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
                                 </button>
-                                ${v.status === 'archived' ? `<button class="btn-secondary" onclick="purgeSingleVehicle(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Purgar del sistema">
-                                    Purgar
-                                </button>` : ''}
+                                <button class="btn-secondary" onclick="deleteVehicleCascade(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Eliminar vehículo y todos sus datos relacionados">
+                                    🗑
+                                </button>
                             </td>
                         </tr>
                     `}).join('')}
@@ -2591,13 +2592,15 @@ function histToggleAll(checked) {
 
 function histUpdateBatchBtn() {
     var checked = document.querySelectorAll('.hist-chk:checked');
-    var btn = document.getElementById('batchPdfBtn');
-    if (!btn) return;
-    if (checked.length > 0) {
-        btn.style.display = '';
-        btn.textContent = 'PDF ' + checked.length + ' seleccionados';
-    } else {
-        btn.style.display = 'none';
+    var pdfBtn = document.getElementById('batchPdfBtn');
+    var delBtn = document.getElementById('batchDeleteBtn');
+    if (pdfBtn) {
+        if (checked.length > 0) { pdfBtn.style.display = ''; pdfBtn.textContent = 'PDF ' + checked.length + ' seleccionados'; }
+        else { pdfBtn.style.display = 'none'; }
+    }
+    if (delBtn) {
+        if (checked.length > 0) { delBtn.style.display = ''; delBtn.textContent = '🗑 Eliminar ' + checked.length + ' seleccionado' + (checked.length>1?'s':''); }
+        else { delBtn.style.display = 'none'; }
     }
 }
 
@@ -2950,15 +2953,114 @@ function exportSingleArchivedVehicle(vehicleId) {
   return true;
 }
 
+function deleteVehicleCascade(vehicleId) {
+    const v = db.vehicles.find(x => x.id == vehicleId);
+    if (!v) return;
+
+    // Count what will be removed in each module
+    const tpCount  = (typeof tpState !== 'undefined' && tpState.testedList)
+        ? tpState.testedList.filter(t => t.note && t.note.includes('VIN: ' + v.vin)).length : 0;
+    const raCount  = (typeof raState !== 'undefined' && raState.tests && v.vin)
+        ? raState.tests.filter(t => t.vin === v.vin).length : 0;
+    const paCount  = (typeof paQueue !== 'undefined')
+        ? paQueue.filter(q => q.vehicleId == vehicleId).length : 0;
+    const invCount = (typeof invState !== 'undefined' && invState.usageLog && v.vin)
+        ? invState.usageLog.filter(u => u.vin === v.vin).length : 0;
+
+    const lines = ['• COP15: <b>' + (v.vin||'?') + '</b> — ' + (v.status||'')];
+    if (tpCount  > 0) lines.push('• Plan Manager: ' + tpCount  + ' registro' + (tpCount >1?'s':'') + ' de prueba');
+    if (raCount  > 0) lines.push('• Results Analyzer: ' + raCount  + ' resultado' + (raCount >1?'s':''));
+    if (paCount  > 0) lines.push('• Cola PA: ' + paCount  + ' elemento' + (paCount >1?'s':''));
+    if (invCount > 0) lines.push('• Inventario: ' + invCount + ' registro' + (invCount>1?'s':'') + ' de uso');
+
+    showConfirm(
+        '<p style="margin-bottom:8px;">Eliminar <b>' + (v.vin||'?') + '</b> permanentemente de:</p>' +
+        '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:8px 10px;font-size:12px;line-height:1.9;">' + lines.join('<br>') + '</div>' +
+        '<p style="margin-top:8px;font-size:11px;color:#94a3b8;">Esta acción no se puede deshacer.</p>',
+        function() {
+            // 1. COP15
+            db.vehicles = db.vehicles.filter(x => x.id != vehicleId);
+            saveDB();
+            // 2. Test Plan testedList
+            if (typeof tpState !== 'undefined' && tpState.testedList && v.vin) {
+                tpState.testedList = tpState.testedList.filter(t => !(t.note && t.note.includes('VIN: ' + v.vin)));
+                if (typeof tpSave === 'function') tpSave();
+                if (typeof _tpInvalidateCache === 'function') _tpInvalidateCache();
+            }
+            // 3. Results Analyzer
+            if (typeof raState !== 'undefined' && raState.tests && v.vin) {
+                raState.tests = raState.tests.filter(t => t.vin !== v.vin);
+                if (typeof raSave === 'function') raSave();
+            }
+            // 4. Approvals queue
+            if (typeof paQueue !== 'undefined') {
+                paQueue = paQueue.filter(q => q.vehicleId != vehicleId);
+                if (typeof paQueueSave === 'function') paQueueSave();
+            }
+            // 5. Inventory usage log
+            if (typeof invState !== 'undefined' && invState.usageLog && v.vin) {
+                invState.usageLog = invState.usageLog.filter(u => u.vin !== v.vin);
+                if (typeof invSave === 'function') invSave();
+            }
+            // Refresh UI
+            refreshAllLists(); updateProgressBar(); renderHistory();
+            if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies();
+            if (typeof tpUpdateBadges    === 'function') tpUpdateBadges();
+            showToast('Vehículo eliminado y datos relacionados borrados', 'success');
+        },
+        { title: 'Eliminar vehículo', type: 'danger', confirmText: 'Eliminar permanentemente' }
+    );
+}
+
+function batchDeleteVehicles() {
+    var ids = [];
+    document.querySelectorAll('.hist-chk:checked').forEach(function(cb) {
+        ids.push(parseInt(cb.dataset.vid));
+    });
+    if (ids.length === 0) { showToast('Selecciona al menos un vehículo', 'warning'); return; }
+
+    var vins = ids.map(function(id){
+        var veh = db.vehicles.find(function(x){return x.id==id;});
+        return veh ? (veh.vin||'?') : '?';
+    });
+
+    showConfirm(
+        '<p style="margin-bottom:8px;">Eliminar <b>' + ids.length + ' vehículo' + (ids.length>1?'s':'') + '</b> y todos sus datos?</p>' +
+        '<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:6px;padding:6px 10px;font-size:11px;max-height:120px;overflow-y:auto;">' +
+        vins.map(function(vin){return '• '+vin;}).join('<br>') + '</div>' +
+        '<p style="margin-top:8px;font-size:11px;color:#94a3b8;">Esto borrará también sus registros en Plan Manager, Results, PA e Inventario. No se puede deshacer.</p>',
+        function() {
+            ids.forEach(function(id) {
+                var veh = db.vehicles.find(function(x){return x.id==id;});
+                if (!veh) return;
+                db.vehicles = db.vehicles.filter(function(x){return x.id!=id;});
+                if (typeof tpState !== 'undefined' && tpState.testedList && veh.vin)
+                    tpState.testedList = tpState.testedList.filter(function(t){return !(t.note && t.note.includes('VIN: '+veh.vin));});
+                if (typeof raState !== 'undefined' && raState.tests && veh.vin)
+                    raState.tests = raState.tests.filter(function(t){return t.vin !== veh.vin;});
+                if (typeof paQueue !== 'undefined')
+                    paQueue = paQueue.filter(function(q){return q.vehicleId != id;});
+                if (typeof invState !== 'undefined' && invState.usageLog && veh.vin)
+                    invState.usageLog = invState.usageLog.filter(function(u){return u.vin !== veh.vin;});
+            });
+            saveDB();
+            if (typeof tpSave       === 'function') tpSave();
+            if (typeof _tpInvalidateCache === 'function') _tpInvalidateCache();
+            if (typeof raSave       === 'function') raSave();
+            if (typeof paQueueSave  === 'function') paQueueSave();
+            if (typeof invSave      === 'function') invSave();
+            refreshAllLists(); updateProgressBar(); renderHistory();
+            if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies();
+            if (typeof tpUpdateBadges    === 'function') tpUpdateBadges();
+            showToast(ids.length + ' vehículo' + (ids.length>1?'s eliminados':' eliminado') + ' correctamente', 'success');
+        },
+        { title: 'Eliminar ' + ids.length + ' vehículo' + (ids.length>1?'s':''), type: 'danger', confirmText: 'Eliminar ' + ids.length + ' vehículo' + (ids.length>1?'s':'') }
+    );
+}
+
 function purgeSingleVehicle(vehicleId) {
-  const v = db.vehicles.find(x => x.id == vehicleId);
-  if (!v) return;
-  showConfirmDialog({ title: '⚠️ Purgar vehículo', message: 'Purgar VIN ' + (v.vin||'?') + ' del sistema?', type: 'danger', confirmText: 'Purgar', cancelText: 'Cancelar' }).then(function(ok) {
-    if (!ok) return;
-    auditLog('cop15', 'vehicle_purged', {type:'vehicle', id:vehicleId, label:v.vin}, 'Purgado del sistema');
-    db.vehicles = db.vehicles.filter(x => x.id != vehicleId);
-    saveDB(); refreshAllLists(); updateProgressBar(); renderHistory();
-  });
+  // Legacy - redirige al nuevo borrado en cascada
+  deleteVehicleCascade(vehicleId);
 }
 
 // ── [Fase 5.3] Timeline compaction — keeps last 50 entries per vehicle ──
