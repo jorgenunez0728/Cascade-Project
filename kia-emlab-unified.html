@@ -5248,11 +5248,11 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202604292352';
+var APP_BUILD = '202604300003';
 
 // Format a build timestamp YYYYMMDDHHmm into a human readable label.
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202604292352' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202604300003' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
@@ -21755,9 +21755,9 @@ function tpBuildFamilies() {
     _tpCache.planHash = h;
     const families = {};
     tpState.planData.forEach(cfg => {
-        const key = `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${cfg.rgn}|${cfg.drv}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}`;
+        const key = `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}`;
         if (!families[key]) {
-            families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgn:cfg.rgn||'', drv:cfg.drv||'', bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, testedConfigs:0, totalTested:0, totalRequired:0 };
+            families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgns:new Set(), drvs:new Set(), bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, testedConfigs:0, totalTested:0, totalRequired:0 };
         }
         const rule = tpGetRule(cfg);
         const n = tpState.testedList.filter(t => t.configText === cfg.desc).length;
@@ -21780,6 +21780,8 @@ function tpBuildFamilies() {
 
         families[key].configs.push({ ...cfg, testedN:n, required:req, deficit:Math.max(0,req-n), vins, raResults });
         families[key].bodies.add(cfg.body||'');
+        families[key].drvs.add(cfg.drv||'');
+        families[key].rgns.add(cfg.rgn||'');
         families[key].totalVol += cfg.total;
         families[key].totalHist += cfg.hist;
         families[key].totalRequired += req;
@@ -21789,6 +21791,8 @@ function tpBuildFamilies() {
 
     Object.values(families).forEach(f => {
         f.bodies = [...f.bodies].filter(Boolean).sort();
+        f.drvs  = [...f.drvs].filter(Boolean).sort();
+        f.rgns  = [...f.rgns].filter(Boolean).sort();
         f.configCount = f.configs.length;
         f.coverage = f.totalRequired > 0 ? f.totalTested / f.totalRequired : 1;
         f.configCoverage = f.configCount > 0 ? f.testedConfigs / f.configCount : 1;
@@ -21860,47 +21864,46 @@ function tpBuildFamilies() {
         });
     });
 
-    // Pass 2: cross-family equivalence (same powertrain+regulation, diff only in body/drive/rgn)
+    // Pass 2: Auto-continuidad MY — si un MY anterior del mismo powertrain tiene pruebas,
+    // marcar automáticamente las configs no probadas como cubiertas por continuidad.
+    function _myNum(s) { var n = parseInt(s); return isNaN(n) ? 0 : n; }
     famArr.forEach(function(f) {
-        f.coveredByEquivalent = null;
-        if (f.totalTested > 0) return;
-        if (f.continuityCoveredCount > 0 && f.continuityCoveredCount === f.configCount) return;
-        var candidates = famArr.filter(function(g) {
-            if (g === f || g.totalTested === 0) return false;
-            if (g.mod !== f.mod || g.eng !== f.eng || g.tx !== f.tx || g.my !== f.my) return false;
-            if (g.reg !== f.reg) return false;
-            if (g.ep !== f.ep || g.engpkg !== f.engpkg) return false;
-            var diffs = 0;
-            if (g.drv !== f.drv) diffs++;
-            if (g.rgn !== f.rgn) diffs++;
-            return diffs >= 1;
+        f.coveredByEquivalent = null; // No longer used but kept for UI compatibility
+        if (f.continuityCoveredCount === f.configCount) return;
+        // Find closest previous MY sibling (same powertrain + regulation)
+        var prevSiblings = famArr.filter(function(g) {
+            if (g === f) return false;
+            if (g.mod !== f.mod || g.eng !== f.eng || g.tx !== f.tx) return false;
+            if (g.reg !== f.reg || g.ep !== f.ep || g.engpkg !== f.engpkg) return false;
+            return _myNum(g.my) < _myNum(f.my) && g.totalTested > 0;
         });
-        if (candidates.length === 0) return;
-        candidates.sort(function(a, b) { return b.totalTested - a.totalTested; });
-        var best = candidates[0];
-        var reasons = [];
-        if (best.drv !== f.drv) reasons.push('drive');
-        if (best.rgn !== f.rgn) reasons.push('region');
-        var sampleVin = '';
-        for (var i = 0; i < best.configs.length; i++) {
-            if (best.configs[i].vins && best.configs[i].vins.length > 0) {
-                sampleVin = _tpExtractVin(best.configs[i].vins[0].note || '');
-                if (sampleVin) break;
-            }
-        }
-        f.coveredByEquivalent = {
-            siblingKey: best.key,
-            siblingLabel: [best.mod, ...(best.bodies||[]), best.drv, best.rgn].filter(Boolean).join(' · '),
-            reasons: reasons,
-            sampleVin: sampleVin
-        };
+        if (prevSiblings.length === 0) return;
+        prevSiblings.sort(function(a, b) { return _myNum(b.my) - _myNum(a.my); });
+        var prevFam = prevSiblings[0];
+        var testedInPrev = prevFam.configs.filter(function(pc) { return pc.testedN > 0; });
+        if (testedInPrev.length === 0) return;
+        f.configs.forEach(function(c) {
+            if (c.testedN > 0 || c.coveredByContinuity) return;
+            // Best match: same tire → same body+drv → any tested config in prev family
+            var match = testedInPrev.find(function(pc) { return pc.tire === c.tire; })
+                     || testedInPrev.find(function(pc) { return pc.body === c.body && pc.drv === c.drv; })
+                     || testedInPrev[0];
+            c.coveredByContinuity = {
+                prevMy: prevFam.my,
+                prevConfigDesc: match.desc,
+                prevTestDate: match.vins.length > 0 ? (match.vins[0].date || '') : '',
+                prevTestVin: match.vins.length > 0 ? _tpExtractVin(match.vins[0].note || '') : '',
+                note: 'Auto-detectado: mismo powertrain en ' + prevFam.my,
+                auto: true
+            };
+            f.continuityCoveredCount++;
+        });
     });
 
     // Pass 3: recompute auditCoverage/auditRiskLevel with new signals
     var maxVol2 = Math.max.apply(null, famArr.map(function(x) { return x.totalVol + x.totalHist; }).concat([1]));
     famArr.forEach(function(f) {
         var base = f.auditCoverage != null ? f.auditCoverage : f.coverage;
-        if (f.coveredByEquivalent) base = Math.max(base, 0.85);
         if (f.continuityCoveredCount > 0 && f.configCount > 0) {
             var effectiveCfgs = f.testedConfigs + f.continuityCoveredCount;
             base = Math.max(base, effectiveCfgs / f.configCount);
@@ -21935,8 +21938,8 @@ function tpRenderFamilies(el) {
     const sortBy = window._tpFamSort || 'risk';
     const regionFilter = window._tpFamRegion || 'ALL';
     const readinessFilter = window._tpReadinessFilter || 'ALL';
-    const allRegions = [...new Set(families.map(f => f.rgn || '?'))].sort();
-    let filtered = regionFilter === 'ALL' ? families : families.filter(f => f.rgn === regionFilter);
+    const allRegions = [...new Set(families.flatMap(f => f.rgns && f.rgns.length ? f.rgns : ['?']))].sort();
+    let filtered = regionFilter === 'ALL' ? families : families.filter(f => f.rgns && f.rgns.includes(regionFilter));
     if (readinessFilter !== 'ALL') {
         filtered = filtered.filter(function(f) { return f.auditCoverageKind === readinessFilter; });
     }
@@ -21976,8 +21979,8 @@ function tpRenderFamilies(el) {
         return `<span class="tp-badge" style="background:${c}22;color:${c};font-size:9px;border:1px solid ${c}44;">${b}</span>`;
     }
     function getDiffFields(configs) {
-        const fields = ['body','tire','ep','engpkg','drv'];
-        const lbls = {tire:'Llanta',ep:'Env',engpkg:'EngPkg',drv:'Drive',body:'Carrocería'};
+        const fields = ['body','rgn','drv','tire','ep','engpkg'];
+        const lbls = {tire:'Llanta',ep:'Env',engpkg:'EngPkg',drv:'Drive',body:'Carrocería',rgn:'Región'};
         return fields.filter(f => {
             const vals = [...new Set(configs.map(c => c[f]||''))];
             return vals.length > 1;
@@ -22038,7 +22041,9 @@ function tpRenderFamilies(el) {
             var _fCov = window._tpAuditView ? f.auditCoverage : f.coverage;
             var _repStar = (window._tpAuditView && f.repTested) ? '<span style="font-size:9px;color:var(--tp-blue);" title="Representativa probada: ' + (f.representative && f.representative.tire || '') + '"> &#9733;</span>' : '';
             var _equivBadge = (window._tpAuditView && f.coveredByEquivalent) ? '<span class="tp-badge" style="background:rgba(56,189,248,0.18);color:#38bdf8;font-size:9px;" title="Cubierta por similar: ' + f.coveredByEquivalent.siblingLabel + ' (difiere en ' + f.coveredByEquivalent.reasons.join('/') + ')">≈ ' + f.coveredByEquivalent.reasons.join('/') + '</span>' : '';
-            var _contBadge = (f.continuityCoveredCount > 0) ? '<span class="tp-badge" style="background:rgba(34,197,94,0.15);color:#22c55e;font-size:9px;" title="' + f.continuityCoveredCount + ' configs por continuidad MY">↪ Cont ' + f.continuityCoveredCount + '</span>' : '';
+            var _autoContCount = f.configs.filter(function(c){return c.coveredByContinuity&&c.coveredByContinuity.auto;}).length;
+            var _manContCount  = f.continuityCoveredCount - _autoContCount;
+            var _contBadge = (f.continuityCoveredCount > 0) ? '<span class="tp-badge" style="background:rgba(34,197,94,0.15);color:#22c55e;font-size:9px;" title="' + _manContCount + ' manual + ' + _autoContCount + ' auto-detectadas por MY">↪ Cont ' + (_autoContCount > 0 ? _autoContCount + ' auto' : f.continuityCoveredCount) + '</span>' : '';
             var _evidBtn = (f.totalTested > 0) ? '<button class="tp-btn tp-btn-ghost" onclick="event.preventDefault();event.stopPropagation();tpOpenFamilyEvidence(\'' + f.key.replace(/'/g, "\\'") + '\');" style="font-size:9px;padding:2px 6px;" title="Ver VINs y evidencia">📋</button>' : '';
             return `
             <details style="margin-bottom:4px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;border-left:3px solid ${rc[_fRisk]};">
@@ -22049,8 +22054,8 @@ function tpRenderFamilies(el) {
                         <span style="font-size:9px;color:var(--tp-dim);">${f.eng} ${f.tx}</span>
                         <span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;font-size:9px;">${f.my}</span>
                         <span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:9px;">${f.reg}</span>
-                        <span class="tp-badge" style="background:${tpRegionColor(f.rgn)}20;color:${tpRegionColor(f.rgn)};font-size:9px;">${f.rgn}</span>
-                        ${f.drv?`<span class="tp-badge" style="background:rgba(236,72,153,0.15);color:#ec4899;font-size:9px;">${f.drv}</span>`:''}
+                        ${(f.rgns||[]).map(r=>`<span class="tp-badge" style="background:${tpRegionColor(r)}20;color:${tpRegionColor(r)};font-size:9px;">${r}</span>`).join('')}
+                        ${(f.drvs||[]).map(d=>`<span class="tp-badge" style="background:rgba(236,72,153,0.15);color:#ec4899;font-size:9px;">${d}</span>`).join('')}
                         ${epTag}${engTag}${_repStar}${_equivBadge}${_contBadge}
                     </div>
                     <div style="display:flex;align-items:center;gap:4px;">
@@ -22068,7 +22073,7 @@ function tpRenderFamilies(el) {
                                 let v = c[d.field]||'';
                                 if (d.field==='ep') v = epLabel(v);
                                 if (!v||v==='0') v = '-';
-                                const _fldColors = {tire:'#38bdf8',ep:'#fb923c',engpkg:'#a855f7',drv:'#ec4899'};
+                                const _fldColors = {tire:'#38bdf8',ep:'#fb923c',engpkg:'#a855f7',drv:'#ec4899',rgn:'#f97316'};
                                 const _bodyColors = {'4DR':'#3b82f6','5DR':'#8b5cf6','WGN':'#14b8a6','WGN LONG':'#10b981','2DR':'#f59e0b'};
                                 const _c = d.field === 'body' ? (_bodyColors[v] || '#64748b') : (_fldColors[d.field] || '#888');
                                 return `<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:${_c}22;color:${_c};border:1px solid ${_c}44;">${v}</span>`;
@@ -22109,7 +22114,8 @@ function tpRenderFamilies(el) {
                         else if (c.testedN > 0) { _dotColor = 'var(--tp-amber)'; _dotTitle = 'Parcial'; }
                         else { _dotColor = 'var(--tp-red)'; _dotTitle = 'Sin pruebas'; }
                         var _repBadge = c.isRepresentative && window._tpAuditView ? '<span style="font-size:8px;color:var(--tp-blue);font-weight:700;" title="Representativa (mayor volumen)">REP</span>' : '';
-                        var _contTag = c.coveredByContinuity ? '<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(132,204,22,0.2);color:#84cc16;" title="Carry-over sin cambios de emisiones">CONT ' + c.coveredByContinuity.prevMy + '</span>' : '';
+                        var _isAutoCont = c.coveredByContinuity && c.coveredByContinuity.auto;
+                        var _contTag = c.coveredByContinuity ? '<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(132,204,22,0.2);color:#84cc16;' + (_isAutoCont ? 'border:1px dashed #84cc16;' : '') + '" title="' + (c.coveredByContinuity.note || 'Carry-over sin cambios de emisiones') + '">' + (_isAutoCont ? 'AUTO ' : '') + 'CONT ' + c.coveredByContinuity.prevMy + '</span>' : '';
                         var _contBtn = (c.testedN === 0) ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpOpenContinuityModal(' + JSON.stringify(c.desc).replace(/"/g, '&quot;') + ',' + JSON.stringify(c.my || '').replace(/"/g, '&quot;') + ');" style="font-size:8px;padding:1px 5px;" title="Marcar continuidad técnica vs MY previo">↪</button>' : '';
                         const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${fi}-${_ci}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
                         return `
@@ -32394,7 +32400,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202604292352' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202604300003' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
