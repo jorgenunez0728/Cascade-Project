@@ -154,7 +154,11 @@ var fbSync = {
     _persistenceAttempted: false,  // Track if enablePersistence was already called
     _initialized: false,           // Track if fbInit completed setup
     _onlineListenerAdded: false,   // Prevent duplicate event listeners
-    _useREST: false                // Fall back to REST API if SDK transport broken
+    _useREST: false,               // Fall back to REST API if SDK transport broken
+    _listeners: [],                // onSnapshot unsubscribe functions for live sync
+    _pendingMerge: {},             // Debounce timers: "stationId|col" → timerID
+    _recentRemote: {},             // Anti-duplicate: "stationId|col" → timestamp of last processed change
+    _liveSync: false               // true when onSnapshot listeners are active
 };
 
 // Detect if we're on a non-standard origin (content://, file://)
@@ -311,6 +315,7 @@ function fbInit() {
                     fbUpdateIndicator();
                     if (fbSync.stationId) {
                         fbPullAll();
+                        fbStartListening();
                     }
                     if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 3000);
                 }
@@ -407,6 +412,7 @@ function fbInit() {
                     if (fbSync.stationId) {
                         fbPullAll();
                         fbBackupCheck();
+                        fbStartListening();
                     }
                     fbCheckAppVersion();
                     // Drain offline queue
@@ -733,6 +739,8 @@ function fbSetStation(id) {
     fbUpdateIndicator();
     showToast('Estacion guardada: ' + fbSync.stationId, 'success');
     if (fbSync.enabled) { fbUpdateStationMeta(); fbPushAll(); }
+    // Start live sync listeners now that we have a station ID (if already connected)
+    if (fbSync.status === 'connected' && !fbSync._liveSync) fbStartListening();
     var modal = document.getElementById('fbModal');
     if (modal && modal.style.display === 'block') fbShowSettings();
 }
@@ -1015,6 +1023,128 @@ function fbHookSaves() {
     if (_origPnSave) { window.pnSave = function() { _origPnSave(); if (fbSyncModules.panel) fbPush('panel', pnState); }; }
 }
 
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  LIVE SYNC — Real-time onSnapshot listeners                         ║
+// ║  Auto-merges additive changes from other stations silently.         ║
+// ║  Conflicts are notified via toast but never auto-applied.           ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+function fbStartListening() {
+    if (!fbSync.db || fbSync._useREST || !fbSync.stationId) return;
+    if (!FB_IS_HTTP_ORIGIN) return; // onSnapshot unreliable on file:// / content://
+    if (fbSync._liveSync) return;  // Already active
+
+    var _startedAt = Date.now();
+    var cols = ['cop15', 'testplan', 'results', 'inventory', 'approvals'];
+
+    cols.forEach(function(col) {
+        if (!fbSyncModules[col]) return; // Respect module enable/disable config
+        try {
+            var unsub = fbSync.db.collectionGroup(col).onSnapshot(function(snap) {
+                // 5-second grace period at startup to skip initial delivery of existing docs
+                if (Date.now() - _startedAt < 5000) return;
+                snap.docChanges().forEach(function(change) {
+                    if (change.type === 'removed') return;
+                    var remoteSt = change.doc.ref.parent.parent.id; // stationId from path
+                    if (!remoteSt || remoteSt === fbSync.stationId) return; // Own echo
+                    // Debounce 300ms to coalesce rapid-fire changes from same station+collection
+                    var key = remoteSt + '|' + col;
+                    clearTimeout(fbSync._pendingMerge[key]);
+                    fbSync._pendingMerge[key] = setTimeout(function() {
+                        fbHandleRemoteChange(col, change.doc.data(), remoteSt);
+                    }, 300);
+                });
+            }, function(err) {
+                console.warn('fbStartListening error (' + col + '):', err.message);
+            });
+            fbSync._listeners.push(unsub);
+        } catch(e) {
+            console.warn('fbStartListening: collectionGroup(' + col + ') failed:', e);
+        }
+    });
+
+    fbSync._liveSync = fbSync._listeners.length > 0;
+    fbUpdateIndicator();
+    if (fbSync._liveSync) {
+        console.log('Firebase: Live sync active (' + fbSync._listeners.length + ' listeners)');
+    }
+}
+
+function fbStopListening() {
+    fbSync._listeners.forEach(function(unsub) { try { unsub(); } catch(e) {} });
+    fbSync._listeners = [];
+    fbSync._liveSync = false;
+    fbUpdateIndicator();
+    console.log('Firebase: Live sync stopped');
+}
+
+function fbHandleRemoteChange(col, docData, remoteSt) {
+    var now = Date.now();
+    var key = remoteSt + '|' + col;
+    // Anti-duplicate: skip if we already processed this remote change within the last 5s
+    if (fbSync._recentRemote[key] && (now - fbSync._recentRemote[key]) < 5000) return;
+    fbSync._recentRemote[key] = now;
+
+    var parsedData = null;
+    try {
+        parsedData = (docData && docData.data)
+            ? fbFromFirestoreValue(docData.data)
+            : null;
+    } catch(e) {
+        console.warn('fbHandleRemoteChange: parse error for ' + col, e);
+        return;
+    }
+    if (!parsedData) return;
+    fbQuotaRecord('read');
+    fbAutoMerge(col, parsedData, remoteSt);
+}
+
+function fbAutoMerge(col, parsedData, remoteSt) {
+    // Build synthetic envelope so we can reuse fbMergeAnalyze
+    var synth = { cop15: null, testplan: null, results: null, inventory: null, approvals: null };
+    synth[col] = parsedData;
+
+    var analysis;
+    try { analysis = fbMergeAnalyze(synth); }
+    catch(e) { console.warn('fbAutoMerge analyze error (' + col + '):', e); return; }
+
+    var a = analysis[col];
+    if (!a) return;
+
+    var newCount    = (a.newItems  || []).length;
+    var conflictCnt = (a.conflicts || []).length;
+    var label       = remoteSt.slice(0, 14);
+
+    if (newCount === 0 && conflictCnt === 0) return; // Nothing to do
+
+    // Conflicts: warn but do NOT auto-apply — technician must review manually
+    if (conflictCnt > 0) {
+        showToast('⚠️ ' + conflictCnt + ' conflicto(s) en ' + col +
+            ' de ' + label + ' — revisar en Sincronización', 'warning', 8000);
+        if (newCount === 0) return;
+    }
+
+    // Safe: only additive new items — apply automatically, never deletes local data
+    var choices = {};
+    choices[col] = 'new';
+    try { fbMergeExecute(synth, analysis, choices); }
+    catch(e) {
+        console.warn('fbAutoMerge execute error (' + col + '):', e);
+        showToast('Error al sincronizar ' + col + ' de ' + label, 'error');
+        return;
+    }
+
+    showToast('✓ Live sync: +' + newCount + ' en ' + col + ' de ' + label, 'success', 4000);
+
+    // Refresh relevant module UI (best-effort)
+    try {
+        if (col === 'cop15')     { refreshAllLists(); updateProgressBar(); }
+        if (col === 'testplan')  { if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies(); }
+        if (col === 'results')   { if (typeof raRender === 'function') raRender(); }
+        if (col === 'inventory') { if (typeof invRender === 'function') invRender(); }
+    } catch(uiErr) { /* UI refresh is best-effort */ }
+}
+
 // ── UI Indicator ──
 function fbUpdateIndicator() {
     var el = document.getElementById('fb-sync-indicator');
@@ -1029,6 +1159,7 @@ function fbUpdateIndicator() {
         '"></span>' + label +
         (fbSync.stationId ? ' (' + fbSync.stationId + ')' : '') +
         (fbSync.lastSync ? ' ' + fbSync.lastSync.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '') +
+        (fbSync._liveSync ? ' <span style="color:#22d3ee;font-size:8px;font-weight:700;">● vivo</span>' : '') +
         (fbOfflineQueue.length > 0 ? ' <span style="background:#f59e0b;color:#000;padding:1px 5px;border-radius:8px;font-size:8px;font-weight:700;">' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</span>' : '');
 }
 
@@ -1149,6 +1280,14 @@ function fbShowSettings() {
         // ═══ ACTIVITY FEED BUTTON ═══
         (fbSync.enabled && fbSync.status === 'connected' ? '<div style="margin-bottom:12px;">' +
         '<button onclick="fbActivityShowFeed()" style="width:100%;padding:10px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">📡 Activity Feed (entre estaciones)</button>' +
+        '</div>' : '') +
+
+        // ═══ LIVE SYNC TOGGLE ═══
+        (fbSync.enabled && fbSync.status === 'connected' && FB_IS_HTTP_ORIGIN ? '<div style="margin-bottom:12px;padding:10px;background:#1e293b;border-radius:8px;border:1px solid ' + (fbSync._liveSync ? '#0e7490' : '#334155') + ';">' +
+        '<div style="font-size:11px;font-weight:700;color:' + (fbSync._liveSync ? '#22d3ee' : '#94a3b8') + ';margin-bottom:4px;">' + (fbSync._liveSync ? '● Sync en vivo — activo' : 'Sync en vivo — inactivo') + '</div>' +
+        '<div style="font-size:9px;color:#64748b;margin-bottom:8px;">Recibe cambios de otras estaciones en tiempo real. Solo agrega datos nuevos, nunca borra los locales.</div>' +
+        '<button onclick="fbSync._liveSync ? fbStopListening() : fbStartListening(); setTimeout(fbShowSettings, 200);" style="width:100%;padding:9px;background:' + (fbSync._liveSync ? '#164e63' : '#334155') + ';color:' + (fbSync._liveSync ? '#22d3ee' : '#e2e8f0') + ';border:1px solid ' + (fbSync._liveSync ? '#0e7490' : '#475569') + ';border-radius:6px;cursor:pointer;font-weight:700;font-size:11px;">' +
+        (fbSync._liveSync ? '⏹ Detener sync en vivo' : '▶ Iniciar sync en vivo') + '</button>' +
         '</div>' : '') +
 
         // ═══ SMART MERGE BUTTON ═══
