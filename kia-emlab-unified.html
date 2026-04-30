@@ -5248,11 +5248,11 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202604300003';
+var APP_BUILD = '202604301523';
 
 // Format a build timestamp YYYYMMDDHHmm into a human readable label.
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202604300003' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202604301523' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
@@ -21932,22 +21932,51 @@ function _tpExtractVin(note) {
     return (parts[0] || '').trim();
 }
 
+// Force re-render of families tab (bypasses tabCache so filters/sort take effect immediately)
+function tpRefreshFamilies() {
+    tabCacheInvalidate('tp', 'tp-families');
+    tpRender();
+}
+function tpClearFamilyFilters() {
+    window._tpFamRegion = 'ALL';
+    window._tpFamMY = 'ALL';
+    window._tpFamModel = 'ALL';
+    window._tpReadinessFilter = 'ALL';
+    tpRefreshFamilies();
+}
+
 function tpRenderFamilies(el) {
     if (tpState.planData.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Importa el plan primero.</div>'; return; }
     const families = tpBuildFamilies();
-    const sortBy = window._tpFamSort || 'risk';
-    const regionFilter = window._tpFamRegion || 'ALL';
+    const sortBy        = window._tpFamSort    || 'risk';
+    const regionFilter  = window._tpFamRegion  || 'ALL';
+    const myFilter      = window._tpFamMY      || 'ALL';
+    const modelFilter   = window._tpFamModel   || 'ALL';
     const readinessFilter = window._tpReadinessFilter || 'ALL';
+
     const allRegions = [...new Set(families.flatMap(f => f.rgns && f.rgns.length ? f.rgns : ['?']))].sort();
-    let filtered = regionFilter === 'ALL' ? families : families.filter(f => f.rgns && f.rgns.includes(regionFilter));
-    if (readinessFilter !== 'ALL') {
-        filtered = filtered.filter(function(f) { return f.auditCoverageKind === readinessFilter; });
-    }
+    const allMYs     = [...new Set(families.map(f => f.my || '?'))].sort((a,b)=>parseInt(b)-parseInt(a));
+    const allModels  = [...new Set(families.map(f => f.mod || '?'))].sort();
+
+    let filtered = families;
+    if (regionFilter !== 'ALL') filtered = filtered.filter(f => f.rgns && f.rgns.includes(regionFilter));
+    if (myFilter     !== 'ALL') filtered = filtered.filter(f => f.my === myFilter);
+    if (modelFilter  !== 'ALL') filtered = filtered.filter(f => f.mod === modelFilter);
+    if (readinessFilter !== 'ALL') filtered = filtered.filter(f => f.auditCoverageKind === readinessFilter);
+
+    const _activeFilters = [regionFilter,myFilter,modelFilter,readinessFilter].filter(x=>x!=='ALL').length;
     var _rkScore = window._tpAuditView ? 'auditRiskScore' : 'riskScore';
+    var _covVal = function(f){ return window._tpAuditView ? f.auditCoverage : f.coverage; };
+    var _myN    = function(f){ return parseInt(f.my) || 0; };
     const sorted = [...filtered].sort((a,b) => {
-        if (sortBy === 'risk') return b[_rkScore] - a[_rkScore];
-        if (sortBy === 'volume') return (b.totalVol+b.totalHist) - (a.totalVol+a.totalHist);
-        if (sortBy === 'urgency') return b.deficit - a.deficit;
+        if (sortBy === 'risk')         return b[_rkScore] - a[_rkScore];
+        if (sortBy === 'volume')       return (b.totalVol+b.totalHist) - (a.totalVol+a.totalHist);
+        if (sortBy === 'cov_asc')      return _covVal(a) - _covVal(b);
+        if (sortBy === 'cov_desc')     return _covVal(b) - _covVal(a);
+        if (sortBy === 'my_desc')      return _myN(b) - _myN(a);
+        if (sortBy === 'my_asc')       return _myN(a) - _myN(b);
+        if (sortBy === 'model')        return (a.mod||'').localeCompare(b.mod||'');
+        if (sortBy === 'deficit')      return b.deficit - a.deficit;
         return 0;
     });
     const rc = { high:'var(--tp-red)', medium:'var(--tp-amber)', low:'var(--tp-green)' };
@@ -21990,8 +22019,8 @@ function tpRenderFamilies(el) {
     var _readinessLabels = { direct:'Probadas', partial:'Parciales', equivalent:'Cubiertas por similar', continuity:'Continuidad MY', none:'Sin cubrir' };
     var _readinessBanner = readinessFilter !== 'ALL' ? `
         <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.3);border-radius:6px;margin-bottom:8px;font-size:11px;">
-            <span>Filtro: <b>${_readinessLabels[readinessFilter] || readinessFilter}</b></span>
-            <button class="tp-btn tp-btn-ghost" onclick="window._tpReadinessFilter='ALL';tpRender();" style="font-size:9px;margin-left:auto;">Quitar</button>
+            <span>Filtro estado: <b>${_readinessLabels[readinessFilter] || readinessFilter}</b></span>
+            <button class="tp-btn tp-btn-ghost" onclick="window._tpReadinessFilter='ALL';tpRefreshFamilies();" style="font-size:9px;margin-left:auto;">Quitar</button>
         </div>` : '';
 
     el.innerHTML = `
@@ -22008,11 +22037,11 @@ function tpRenderFamilies(el) {
             <div style="width:${_coPct}%;background:#84cc16;transition:width 0.4s;" title="Continuidad: ${_contCount}"></div>
         </div>
         <div style="display:flex;gap:10px;margin-top:5px;flex-wrap:wrap;">
-            <span style="font-size:9px;color:var(--tp-green);cursor:pointer;" onclick="window._tpReadinessFilter='direct';tpRender();">● Directas ${_directCount}</span>
-            <span style="font-size:9px;color:var(--tp-amber);cursor:pointer;" onclick="window._tpReadinessFilter='partial';tpRender();">● Parciales ${_partialCount}</span>
-            <span style="font-size:9px;color:#38bdf8;cursor:pointer;" onclick="window._tpReadinessFilter='equivalent';tpRender();">● Equiv ${_equivCount}</span>
-            <span style="font-size:9px;color:#84cc16;cursor:pointer;" onclick="window._tpReadinessFilter='continuity';tpRender();">● Cont ${_contCount}</span>
-            <span style="font-size:9px;color:var(--tp-dim);cursor:pointer;" onclick="window._tpReadinessFilter='none';tpRender();">● Sin cubrir ${_noneCount}</span>
+            <span style="font-size:9px;color:var(--tp-green);cursor:pointer;" onclick="window._tpReadinessFilter='direct';tpRefreshFamilies();">● Directas ${_directCount}</span>
+            <span style="font-size:9px;color:var(--tp-amber);cursor:pointer;" onclick="window._tpReadinessFilter='partial';tpRefreshFamilies();">● Parciales ${_partialCount}</span>
+            <span style="font-size:9px;color:#38bdf8;cursor:pointer;" onclick="window._tpReadinessFilter='equivalent';tpRefreshFamilies();">● Equiv ${_equivCount}</span>
+            <span style="font-size:9px;color:#84cc16;cursor:pointer;" onclick="window._tpReadinessFilter='continuity';tpRefreshFamilies();">● Cont ${_contCount}</span>
+            <span style="font-size:9px;color:var(--tp-dim);cursor:pointer;" onclick="window._tpReadinessFilter='none';tpRefreshFamilies();">● Sin cubrir ${_noneCount}</span>
         </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px;">
@@ -22022,16 +22051,33 @@ function tpRenderFamilies(el) {
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-green)">${lR}</div><div class="tp-metric-label">Bajo</div></div>
     </div>
     <div class="tp-card">
-        <div class="tp-card-title" style="flex-wrap:wrap;gap:6px;">
-            <span style="font-size:11px;">Familias</span>
-            <div style="display:flex;gap:5px;flex-wrap:wrap;">
-                <select class="tp-select" onchange="window._tpFamRegion=this.value;tpRender();" style="font-size:10px;">
-                    <option value="ALL">Todas</option>
-                    ${allRegions.map(r => `<option value="${r}" ${r===regionFilter?'selected':''}>${r}</option>`).join('')}
-                </select>
-                <button class="tp-btn ${sortBy==='risk'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpFamSort='risk';tpRender();" style="font-size:9px;">Riesgo</button>
-                <button class="tp-btn ${sortBy==='volume'?'tp-btn-primary':'tp-btn-ghost'}" onclick="window._tpFamSort='volume';tpRender();" style="font-size:9px;">Vol</button>
-            </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+            <span style="font-size:11px;font-weight:700;color:var(--tp-text);">Familias <span style="font-size:9px;font-weight:400;color:var(--tp-dim);">${filtered.length} mostradas</span></span>
+            ${_activeFilters > 0 ? `<button class="tp-btn tp-btn-ghost" onclick="tpClearFamilyFilters();" style="font-size:9px;color:var(--tp-red);border-color:rgba(239,68,68,0.3);">✕ Quitar ${_activeFilters} filtro${_activeFilters>1?'s':''}</button>` : ''}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:5px;margin-bottom:6px;">
+            <select class="tp-select" onchange="window._tpFamRegion=this.value;tpRefreshFamilies();" style="font-size:10px;${regionFilter!=='ALL'?'border-color:#38bdf8;color:#38bdf8;':''}" title="Filtrar por región de mercado">
+                <option value="ALL">📍 Región: Todas</option>
+                ${allRegions.map(r => `<option value="${r}" ${r===regionFilter?'selected':''}>${r}</option>`).join('')}
+            </select>
+            <select class="tp-select" onchange="window._tpFamMY=this.value;tpRefreshFamilies();" style="font-size:10px;${myFilter!=='ALL'?'border-color:#06b6d4;color:#06b6d4;':''}" title="Filtrar por Model Year">
+                <option value="ALL">📅 MY: Todos</option>
+                ${allMYs.map(m => `<option value="${m}" ${m===myFilter?'selected':''}>${m}</option>`).join('')}
+            </select>
+            <select class="tp-select" onchange="window._tpFamModel=this.value;tpRefreshFamilies();" style="font-size:10px;${modelFilter!=='ALL'?'border-color:#a855f7;color:#a855f7;':''}" title="Filtrar por modelo de vehículo">
+                <option value="ALL">🚗 Modelo: Todos</option>
+                ${allModels.map(m => `<option value="${m}" ${m===modelFilter?'selected':''}>${m}</option>`).join('')}
+            </select>
+            <select class="tp-select" onchange="window._tpFamSort=this.value;tpRefreshFamilies();" style="font-size:10px;" title="Ordenar familias">
+                <option value="risk"     ${sortBy==='risk'    ?'selected':''}>↕ Riesgo</option>
+                <option value="volume"   ${sortBy==='volume'  ?'selected':''}>↕ Volumen</option>
+                <option value="cov_asc"  ${sortBy==='cov_asc' ?'selected':''}>↑ Cobertura (menor)</option>
+                <option value="cov_desc" ${sortBy==='cov_desc'?'selected':''}>↓ Cobertura (mayor)</option>
+                <option value="my_desc"  ${sortBy==='my_desc' ?'selected':''}>↕ MY nuevo → antiguo</option>
+                <option value="my_asc"   ${sortBy==='my_asc'  ?'selected':''}>↕ MY antiguo → nuevo</option>
+                <option value="model"    ${sortBy==='model'   ?'selected':''}>↕ Modelo A–Z</option>
+                <option value="deficit"  ${sortBy==='deficit' ?'selected':''}>↕ Déficit (más urgente)</option>
+            </select>
         </div>
         ${sorted.map((f, fi) => {
             const diffs = getDiffFields(f.configs);
@@ -32400,7 +32446,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202604300003' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202604301523' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
