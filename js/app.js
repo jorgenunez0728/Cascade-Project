@@ -1468,7 +1468,7 @@ function _skeletonHTML() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 // Root tabs: 4 workflow-oriented tabs (was 6 feature tabs)
-var PLATFORM_ORDER = ['today', 'plan', 'pruebas', 'datos'];
+var PLATFORM_ORDER = ['today', 'plan', 'pruebas', 'datos', 'cop'];
 var _currentPlatform = 'today';
 
 // Maps any platform name (including legacy aliases) to the root tab it belongs to
@@ -1476,7 +1476,8 @@ var PLATFORM_TAB_GROUP = {
     'today': 'today',
     'plan': 'plan',      'testplan': 'plan',
     'pruebas': 'pruebas', 'cop15': 'pruebas', 'inventory': 'pruebas',
-    'datos': 'datos',     'results': 'datos',  'panel': 'datos'
+    'datos': 'datos',     'results': 'datos',  'panel': 'datos',
+    'cop': 'cop',
 };
 
 // Maps any platform name to the actual DOM section ID suffix (platform-XXX)
@@ -1484,7 +1485,8 @@ var PLATFORM_SECTION_MAP = {
     'today': 'today',
     'plan': 'testplan',   'testplan': 'testplan',
     'pruebas': 'cop15',   'cop15': 'cop15',    'inventory': 'inventory',
-    'datos': 'results',   'results': 'results', 'panel': 'panel'
+    'datos': 'results',   'results': 'results', 'panel': 'panel',
+    'cop': 'cop',
 };
 
 function switchPlatform(platform, swipeDir) {
@@ -1551,6 +1553,7 @@ function switchPlatform(platform, swipeDir) {
     if (sectionId === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
     if (sectionId === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
     if (sectionId === 'panel') { pnRender(); pnUpdateBadges(); }
+    if (sectionId === 'cop') { if (typeof copRender === 'function') copRender(); }
     if (sectionId === 'cop15') {
         var active = db.vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
