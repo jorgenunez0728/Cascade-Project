@@ -62,6 +62,7 @@
             --accent-results: #0d9488;
             --accent-inventory: #059669;
             --accent-panel: #475569;
+            --accent-cop: #0891b2;
 
             /* ═══ Typography Scale ═══ */
             --font-xs: 10px; --font-sm: 12px; --font-base: 14px;
@@ -1836,6 +1837,10 @@ button:focus-visible { outline-offset: 1px; }
 #platform-panel > .tp-header { border-left: 4px solid var(--accent-panel); }
 #platform-panel .tp-tab.active { background: var(--accent-panel); }
 
+/* CoP Type 1 accent */
+#platform-cop .card-title { border-bottom-color: var(--accent-cop); }
+#ptab-cop.active { border-bottom-color: var(--accent-cop) !important; background: rgba(8,145,178,0.08) !important; }
+
 /* ══════════════════════════════════════════════════════════════════════ */
 /* DAILY DASHBOARD (Vista Hoy)                                          */
 /* ══════════════════════════════════════════════════════════════════════ */
@@ -3576,6 +3581,9 @@ details.acc > summary {
         📊 DATOS
         <span class="pt-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" id="ra-count-badge">0 pruebas</span>
     </div>
+    <div class="platform-tab" onclick="switchPlatform('cop')" id="ptab-cop" title="CoP Type 1: Validador estadístico de Conformidad de Producción">
+        📋 CoP
+    </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
     <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
     <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
@@ -5001,6 +5009,11 @@ details.acc > summary {
 <div id="invModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
 <div id="fbModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;"></div>
 
+<!-- ═══ PLATFORM 7: CoP TYPE 1 VALIDATOR ═══ -->
+<div class="platform-section" id="platform-cop" role="main" aria-label="CoP Type 1 Validator">
+    <!-- Rendered dynamically by copRender() -->
+</div>
+
 <!-- ═══ SOAK FLOATING BADGE ═══ -->
 <div id="soak-floating-badge" style="display:none;position:fixed;bottom:68px;right:12px;z-index:1999;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:800;box-shadow:0 4px 16px rgba(245,158,11,0.4);cursor:pointer;align-items:center;gap:6px;animation:soakBadgePulse 2s infinite;" onclick="switchPlatform('cop15');document.querySelector('.tab[data-tab=\\'seguimiento\\']').click();">
     <span>SOAK</span>
@@ -5052,6 +5065,10 @@ details.acc > summary {
     <div class="bottom-nav-item" onclick="switchPlatform('datos')" id="bnav-datos">
         <span class="bnav-icon">📊</span>
         <span>Datos</span>
+    </div>
+    <div class="bottom-nav-item" onclick="switchPlatform('cop')" id="bnav-cop">
+        <span class="bnav-icon">📋</span>
+        <span>CoP</span>
     </div>
 </nav>
 
@@ -5248,11 +5265,11 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202604301912';
+var APP_BUILD = '202605112319';
 
 // Format a build timestamp YYYYMMDDHHmm into a human readable label.
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202604301912' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202605112319' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
@@ -6530,7 +6547,7 @@ function _skeletonHTML() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 // Root tabs: 4 workflow-oriented tabs (was 6 feature tabs)
-var PLATFORM_ORDER = ['today', 'plan', 'pruebas', 'datos'];
+var PLATFORM_ORDER = ['today', 'plan', 'pruebas', 'datos', 'cop'];
 var _currentPlatform = 'today';
 
 // Maps any platform name (including legacy aliases) to the root tab it belongs to
@@ -6538,7 +6555,8 @@ var PLATFORM_TAB_GROUP = {
     'today': 'today',
     'plan': 'plan',      'testplan': 'plan',
     'pruebas': 'pruebas', 'cop15': 'pruebas', 'inventory': 'pruebas',
-    'datos': 'datos',     'results': 'datos',  'panel': 'datos'
+    'datos': 'datos',     'results': 'datos',  'panel': 'datos',
+    'cop': 'cop',
 };
 
 // Maps any platform name to the actual DOM section ID suffix (platform-XXX)
@@ -6546,7 +6564,8 @@ var PLATFORM_SECTION_MAP = {
     'today': 'today',
     'plan': 'testplan',   'testplan': 'testplan',
     'pruebas': 'cop15',   'cop15': 'cop15',    'inventory': 'inventory',
-    'datos': 'results',   'results': 'results', 'panel': 'panel'
+    'datos': 'results',   'results': 'results', 'panel': 'panel',
+    'cop': 'cop',
 };
 
 function switchPlatform(platform, swipeDir) {
@@ -6613,6 +6632,7 @@ function switchPlatform(platform, swipeDir) {
     if (sectionId === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
     if (sectionId === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
     if (sectionId === 'panel') { pnRender(); pnUpdateBadges(); }
+    if (sectionId === 'cop') { if (typeof copRender === 'function') copRender(); }
     if (sectionId === 'cop15') {
         var active = db.vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
         document.getElementById('cop15-count-badge').textContent = active + ' activos';
@@ -32687,7 +32707,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202604301912' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202605112319' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

@@ -22,6 +22,7 @@
             --accent-results: #0d9488;
             --accent-inventory: #059669;
             --accent-panel: #475569;
+            --accent-cop: #0891b2;
 
             /* ═══ Typography Scale ═══ */
             --font-xs: 10px; --font-sm: 12px; --font-base: 14px;
@@ -1795,6 +1796,10 @@ button:focus-visible { outline-offset: 1px; }
 /* Panel accent */
 #platform-panel > .tp-header { border-left: 4px solid var(--accent-panel); }
 #platform-panel .tp-tab.active { background: var(--accent-panel); }
+
+/* CoP Type 1 accent */
+#platform-cop .card-title { border-bottom-color: var(--accent-cop); }
+#ptab-cop.active { border-bottom-color: var(--accent-cop) !important; background: rgba(8,145,178,0.08) !important; }
 
 /* ══════════════════════════════════════════════════════════════════════ */
 /* DAILY DASHBOARD (Vista Hoy)                                          */
