@@ -400,10 +400,11 @@ function copBuildHTML() {
 
     html += '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">';
     html += '<button onclick="copAddVehicle()" class="btn btn-sm btn-ghost" ' +
-            (n >= 20 ? 'disabled style="opacity:0.4;"' : '') +
-            ' style="color:var(--info);">+ Vehículo</button>';
+            (n >= 20 ? 'disabled ' : '') +
+            'style="color:var(--info);' + (n >= 20 ? 'opacity:0.4;' : '') + '">+ Vehículo</button>';
     html += '<button onclick="copRemoveVehicle()" class="btn btn-sm btn-ghost" ' +
-            (n <= 3 ? 'disabled style="opacity:0.4;"' : '') + '>− Quitar</button>';
+            (n <= 3 ? 'disabled ' : '') +
+            'style="' + (n <= 3 ? 'opacity:0.4;' : '') + '">− Quitar</button>';
     html += '<button onclick="copClearData()" class="btn btn-sm btn-ghost">Limpiar datos</button>';
     html += '</div>';
 
