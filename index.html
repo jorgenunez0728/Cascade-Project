@@ -59,9 +59,9 @@
         <span class="pt-badge" style="background:rgba(187,22,43,0.2);color:#f87171;" id="cop15-count-badge">0 activos</span>
         <span id="inv-alert-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:16px;padding:0 4px;">0</span>
     </div>
-    <div class="platform-tab" onclick="switchPlatform('datos')" id="ptab-datos" title="Datos: Resultados, tendencias, panel de control">
+    <div class="platform-tab" onclick="switchPlatform('datos')" id="ptab-datos" title="Datos: Panel de control y configuración">
         📊 DATOS
-        <span class="pt-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" id="ra-count-badge">0 pruebas</span>
+        <span id="pn-alerts-badge" style="background:rgba(6,182,212,0.2);color:#22d3ee;" class="pt-badge">ok</span>
     </div>
     <div class="platform-tab" onclick="switchPlatform('cop')" id="ptab-cop" title="CoP Type 1: Validador estadístico de Conformidad de Producción">
         📋 CoP
@@ -812,48 +812,87 @@
 
     <!-- ==================== TAB 3: LIBERACIÓN ==================== -->
     <div class="tab-panel" id="panel-liberacion" role="tabpanel">
-        <!-- [V7-E5] Batch Release -->
-        <div id="v7-batch-release" style="display:none;margin-bottom:12px;"></div>
-        <div class="form-group">
-            <label>Seleccionar Vehículo para Liberar</label>
-            <select id="releaseVehSelect" onchange="loadRelease()">
-                <option value="">-- Seleccionar --</option>
-            </select>
+        <!-- Sub-tabs: Liberador / Aprobador -->
+        <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px;">
+            <button id="lib-subtab-liberador" class="tp-tab active" onclick="libSwitchSubtab('liberador')" style="flex:1;border-radius:0;font-size:12px;">
+                📋 Liberador
+                <span id="lib-ready-count" style="margin-left:4px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;padding:1px 5px;font-size:10px;">0</span>
+            </button>
+            <button id="lib-subtab-aprobador" class="tp-tab" onclick="libSwitchSubtab('aprobador')" style="flex:1;border-radius:0;font-size:12px;">
+                ✅ Aprobador
+                <span id="lib-approval-count" style="margin-left:4px;background:rgba(245,158,11,0.15);color:#f59e0b;border-radius:4px;padding:1px 5px;font-size:10px;">0</span>
+            </button>
         </div>
 
-        <div id="lib-content" style="display:none;">
-            <div class="alert alert-success" id="releaseInfo"></div>
-
-            <div class="card">
-                <div class="card-title">📋 Resumen de Pruebas</div>
-                <div id="testSummary"></div>
+        <!-- ── SUB-TAB A: LIBERADOR ── -->
+        <div id="lib-panel-liberador">
+            <div id="v7-batch-release" style="display:none;margin-bottom:12px;"></div>
+            <div class="form-group">
+                <label>Seleccionar Vehículo para Liberar</label>
+                <select id="releaseVehSelect" onchange="loadRelease()">
+                    <option value="">-- Seleccionar --</option>
+                </select>
             </div>
-
-            <!-- Mandatory scanned-results-sheet capture for emissions vehicles -->
-            <div class="card" id="pa-doc-upload-card" style="display:none;">
-                <div class="card-title">📷 Hoja de Resultados (Software de Emisiones)</div>
-                <div id="pa-doc-upload-container"></div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">✅ Validación Final</div>
-                <p style="margin-bottom: 15px;">Seleccione la acción a realizar con este vehículo:</p>
-                <div style="display:flex; gap:10px; flex-wrap: wrap;">
-                    <button class="btn-primary" id="release-archive-btn" onclick="finishRelease(false)" style="flex: 1;">
-                        📁 LIBERAR Y ARCHIVAR
-                    </button>
-                    <button class="btn-secondary" onclick="finishRelease(true)" style="flex: 1;">
-                        🔄 REPETIR PRUEBA (Retest)
+            <div id="lib-content" style="display:none;">
+                <div class="alert alert-success" id="releaseInfo"></div>
+                <div class="card">
+                    <div class="card-title">📋 Resumen de Prueba</div>
+                    <div id="testSummary"></div>
+                </div>
+                <!-- Gas results entry for emissions vehicles -->
+                <div id="lib-gas-entry-card" style="display:none;">
+                    <div class="card">
+                        <div class="card-title">⚗️ Resultados de Emisiones</div>
+                        <div id="lib-gas-entry-content"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">✅ Acción</div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button class="btn-primary" id="release-archive-btn" onclick="submitToApproval()" style="flex:1;" disabled>
+                            📤 ENVIAR A APROBACIÓN
+                        </button>
+                        <button class="btn-secondary" onclick="requestRetest()" style="flex:1;">
+                            🔄 REPETIR PRUEBA (Retest)
+                        </button>
+                    </div>
+                    <button class="btn-primary" onclick="generateCOP15PDF(activeVehicleId)" style="margin-top:12px;background:#0f766e;">
+                        📄 GENERAR PDF COP15-F05
                     </button>
                 </div>
-                <button class="btn-primary" onclick="generateCOP15PDF(activeVehicleId)" style="margin-top:12px; background:#0f766e;">
-                    📄 GENERAR PDF COP15-F05
-                </button>
+                <div class="card">
+                    <div class="card-title">📝 Timeline de Actividades</div>
+                    <div id="vehicleTimeline" class="timeline"></div>
+                </div>
             </div>
+        </div>
 
-            <div class="card">
-                <div class="card-title">📝 Timeline de Actividades</div>
-                <div id="vehicleTimeline" class="timeline"></div>
+        <!-- ── SUB-TAB B: APROBADOR ── -->
+        <div id="lib-panel-aprobador" style="display:none;">
+            <div class="form-group">
+                <label>Seleccionar Vehículo Pendiente de Aprobación</label>
+                <select id="approvalVehSelect" onchange="loadApproval()">
+                    <option value="">-- Seleccionar --</option>
+                </select>
+            </div>
+            <div id="appr-content" style="display:none;">
+                <div class="alert alert-success" id="approvalInfo"></div>
+                <div class="card">
+                    <div class="card-title">📋 Resumen de Prueba</div>
+                    <div id="approvalSummary"></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">⚗️ Verificación de Aprobador</div>
+                    <p style="font-size:12px;color:#64748b;margin-bottom:12px;">Ingresa los valores de gases que mediste. <strong>No se muestran los valores del liberador</strong> para garantizar la independencia.</p>
+                    <div id="appr-gas-entry-content"></div>
+                    <div id="appr-match-status" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;"></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">✅ Acción</div>
+                    <button class="btn-primary" id="approve-archive-btn" onclick="approveAndArchive()" style="width:100%;" disabled>
+                        ✅ APROBAR Y ARCHIVAR
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -955,38 +994,6 @@
 </div><!-- END platform-testplan -->
 
 <!-- ═══════════════════════════════════════════════════════════════
-     PLATFORM 3: RESULTS ANALYZER
-     ═══════════════════════════════════════════════════════════════ -->
-<div class="platform-section" id="platform-results" role="main" aria-label="Results Analyzer">
-    <div class="tp-header">
-        <div>
-            <h2>🧪 RESULTS ANALYZER</h2>
-            <small>Visualizador de Resultados de Pruebas — Laboratorio de Emisiones</small>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-            <span class="tp-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;border:1px solid rgba(6,182,212,0.3);" id="ra-tests-badge">0 pruebas</span>
-            <span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);" id="ra-profiles-badge">0 perfiles</span>
-        </div>
-    </div>
-    <div class="tp-tabs" id="ra-tabs-bar" role="tablist" aria-label="Secciones Results Analyzer">
-        <button class="tp-tab active" role="tab" aria-selected="true" onclick="raSwitchTab('ra-dashboard')">📊 Dashboard</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-import')">📥 Importar</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-profiles')">⚙️ Perfiles</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-trends')">📈 Tendencias</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-detail')">🔍 Detalle</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-outliers')">⚠️ Outliers</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-capability')">📐 Cpk/Ppk</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-search')">🔎 Buscar</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-filter')">🧹 Filtro</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-compare')">🔀 Comparar</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="raSwitchTab('ra-spc')">📉 SPC</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="switchPlatform('panel')" style="border-left:2px solid rgba(71,85,105,0.3);margin-left:4px;">⚙️ Panel</button>
-    </div>
-    <div class="tp-main">
-        <div id="ra-content"></div>
-    </div>
-</div><!-- END platform-results -->
-
 <div class="platform-section" id="platform-inventory" role="main" aria-label="Lab Inventory">
     <div class="tp-main">
         <div class="tp-header" style="margin-bottom:12px;">
@@ -1019,10 +1026,9 @@
     <div class="tp-header">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
             <div style="display:flex;align-items:center;gap:10px;">
-                <button class="btn btn-ghost btn-sm" onclick="switchPlatform('results')" title="Volver a Resultados" style="font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid var(--tp-border);">🧪 ← Resultados</button>
                 <div>
                     <h2 style="margin:0;font-size:16px;font-weight:800;">Panel de Control</h2>
-                    <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Dashboard, operadores, bitácora y alertas del laboratorio</p>
+                    <p style="margin:4px 0 0;font-size:11px;color:#64748b;">Dashboard, operadores, bitácora, alertas y regulaciones</p>
                 </div>
             </div>
         </div>
@@ -1039,6 +1045,7 @@
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-calendar')">📅 Calendario</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-system')">💾 Sistema</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-audit')">🔍 Auditoría</button>
+        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-regulations')">⚗️ Regulaciones</button>
     </div>
 
     <div class="tp-main">
@@ -1557,16 +1564,14 @@
 <!-- [V7-D2] Floating Next Step Banner -->
 <div id="v7-next-step-banner"></div>
 
-<!-- JS Modules (load order: app core → COP15 → inventory → testplan → results → firebase) -->
+<!-- JS Modules (load order: app core → COP15 → inventory → testplan → panel → auth → signatures → firebase) -->
 <script src="js/app.js"></script>
 <script src="js/cop15.js"></script>
 <script src="js/inventory.js"></script>
 <script src="js/testplan.js"></script>
-<script src="js/results.js"></script>
 <script src="js/panel.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/signatures.js"></script>
-<script src="js/approvals.js"></script>
 <script src="js/firebase-sync.js"></script>
 <script src="js/cop_validator.js"></script>
 

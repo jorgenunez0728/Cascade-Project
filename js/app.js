@@ -243,6 +243,7 @@ let currentFilters = {};
             'in-progress': 'En Progreso',
             'testing': 'En Prueba',
             'ready-release': 'Listo para Liberar',
+            'pending-approval': 'Pendiente Aprobación',
             'archived': 'Archivado'
         }
     };
@@ -310,6 +311,102 @@ let db = safeParse('kia_db_v11', {
   vehicles: [],
   lastId: 0
 });
+
+// ======================================================================
+// [M00c] REGULATION PROFILES — Emission gas limits per regulation
+// ======================================================================
+var REGS_LS_KEY = 'kia_regulations_v1';
+var _regulationsData = null;
+
+var DEFAULT_REGULATION_PROFILES = [
+    {
+        id: 'reg_euro5', name: 'EURO-5', shortName: 'EURO-5',
+        gases: [
+            { field: 'CO',   label: 'CO',   unit: 'g/km', limit: 1.0 },
+            { field: 'CO2',  label: 'CO₂',  unit: 'g/km', limit: null },
+            { field: 'THC',  label: 'THC',  unit: 'g/km', limit: 0.1 },
+            { field: 'NOx',  label: 'NOx',  unit: 'g/km', limit: 0.06 },
+            { field: 'NMHC', label: 'NMHC', unit: 'g/km', limit: 0.068 }
+        ]
+    },
+    {
+        id: 'reg_euro6c', name: 'EURO-6C', shortName: 'EURO-6C',
+        gases: [
+            { field: 'CO',   label: 'CO',   unit: 'g/km', limit: 1.0 },
+            { field: 'CO2',  label: 'CO₂',  unit: 'g/km', limit: null },
+            { field: 'THC',  label: 'THC',  unit: 'g/km', limit: 0.1 },
+            { field: 'NOx',  label: 'NOx',  unit: 'g/km', limit: 0.06 },
+            { field: 'NMHC', label: 'NMHC', unit: 'g/km', limit: 0.068 }
+        ]
+    },
+    {
+        id: 'reg_euro2', name: 'EURO-2', shortName: 'EURO-2',
+        gases: [
+            { field: 'CO',  label: 'CO',  unit: 'g/km', limit: 2.2 },
+            { field: 'CO2', label: 'CO₂', unit: 'g/km', limit: null },
+            { field: 'THC', label: 'THC+NOx', unit: 'g/km', limit: 0.5 }
+        ]
+    },
+    {
+        id: 'reg_euro4', name: 'EURO-4', shortName: 'EURO-4',
+        gases: [
+            { field: 'CO',   label: 'CO',   unit: 'g/km', limit: 1.0 },
+            { field: 'CO2',  label: 'CO₂',  unit: 'g/km', limit: null },
+            { field: 'THC',  label: 'THC',  unit: 'g/km', limit: 0.1 },
+            { field: 'NOx',  label: 'NOx',  unit: 'g/km', limit: 0.08 },
+            { field: 'NMHC', label: 'NMHC', unit: 'g/km', limit: 0.068 }
+        ]
+    },
+    {
+        id: 'reg_sulev30', name: 'SULEV 30', shortName: 'SULEV 30',
+        gases: [
+            { field: 'CO',   label: 'CO',   unit: 'g/mi', limit: 1.0 },
+            { field: 'CO2',  label: 'CO₂',  unit: 'g/mi', limit: null },
+            { field: 'NMHC', label: 'NMHC', unit: 'g/mi', limit: 0.01 },
+            { field: 'NOx',  label: 'NOx',  unit: 'g/mi', limit: 0.02 }
+        ]
+    },
+    {
+        id: 'reg_preeuro7', name: 'PRE-EURO 7', shortName: 'PRE-EURO 7',
+        gases: [
+            { field: 'CO',   label: 'CO',   unit: 'g/km', limit: 1.0 },
+            { field: 'CO2',  label: 'CO₂',  unit: 'g/km', limit: null },
+            { field: 'THC',  label: 'THC',  unit: 'g/km', limit: 0.1 },
+            { field: 'NOx',  label: 'NOx',  unit: 'g/km', limit: 0.06 },
+            { field: 'NMHC', label: 'NMHC', unit: 'g/km', limit: 0.068 }
+        ]
+    }
+];
+
+function loadRegulations() {
+    if (_regulationsData) return _regulationsData;
+    var saved = safeParse(REGS_LS_KEY, null);
+    if (!saved || !saved.profiles || saved.profiles.length === 0) {
+        _regulationsData = { profiles: JSON.parse(JSON.stringify(DEFAULT_REGULATION_PROFILES)) };
+        saveRegulations();
+    } else {
+        _regulationsData = saved;
+    }
+    return _regulationsData;
+}
+
+function saveRegulations() {
+    if (!_regulationsData) return;
+    try { localStorage.setItem(REGS_LS_KEY, JSON.stringify(_regulationsData)); } catch(e) {}
+}
+
+function getRegulationProfile(regulationName) {
+    if (!regulationName) return null;
+    var data = loadRegulations();
+    var norm = regulationName.trim().toUpperCase();
+    return data.profiles.find(function(p) {
+        return p.name.toUpperCase() === norm || p.shortName.toUpperCase() === norm;
+    }) || null;
+}
+
+function getAllRegulationProfiles() {
+    return loadRegulations().profiles;
+}
 
 let activeVehicleId = null;
 let currentFilter = 'all';
@@ -1161,7 +1258,7 @@ function undoPush(module, actionLabel) {
     try {
         if (module === 'cop15' || module === 'all') snapshot.cop15 = JSON.stringify(db);
         if (module === 'testplan' || module === 'all') snapshot.testplan = typeof tpState !== 'undefined' ? JSON.stringify(tpState) : null;
-        if (module === 'results' || module === 'all') snapshot.results = typeof raState !== 'undefined' ? JSON.stringify(raState) : null;
+
         if (module === 'inventory' || module === 'all') snapshot.inventory = typeof invState !== 'undefined' ? JSON.stringify(invState) : null;
     } catch(e) { console.error('Undo snapshot failed:', e); return; }
     _undoStack.push({ module: module, label: actionLabel, timestamp: new Date().toISOString(), data: snapshot });
@@ -1174,13 +1271,13 @@ function undoPop() {
     try {
         if (entry.data.cop15) { var restored = JSON.parse(entry.data.cop15); Object.keys(restored).forEach(function(k) { db[k] = restored[k]; }); saveDB(); }
         if (entry.data.testplan && typeof tpState !== 'undefined') { var restored = JSON.parse(entry.data.testplan); Object.keys(restored).forEach(function(k) { tpState[k] = restored[k]; }); if (typeof tpSave === 'function') tpSave(); }
-        if (entry.data.results && typeof raState !== 'undefined') { var restored = JSON.parse(entry.data.results); Object.keys(restored).forEach(function(k) { raState[k] = restored[k]; }); if (typeof raSave === 'function') raSave(); }
+
         if (entry.data.inventory && typeof invState !== 'undefined') { var restored = JSON.parse(entry.data.inventory); Object.keys(restored).forEach(function(k) { invState[k] = restored[k]; }); if (typeof invSave === 'function') invSave(); }
     } catch(e) { console.error('Undo restore failed:', e); showToast('Error al deshacer', 'error'); return; }
     // Re-render affected modules
     if (entry.data.cop15 && typeof refreshAllLists === 'function') refreshAllLists();
     if (entry.data.testplan && typeof tpRender === 'function') tpRender();
-    if (entry.data.results && typeof raRender === 'function') raRender();
+
     if (entry.data.inventory && typeof invRender === 'function') invRender();
     showToast('Deshecho: ' + entry.label, 'success');
 }
@@ -1476,7 +1573,7 @@ var PLATFORM_TAB_GROUP = {
     'today': 'today',
     'plan': 'plan',      'testplan': 'plan',
     'pruebas': 'pruebas', 'cop15': 'pruebas', 'inventory': 'pruebas',
-    'datos': 'datos',     'results': 'datos',  'panel': 'datos',
+    'datos': 'datos',    'panel': 'datos',
     'cop': 'cop',
 };
 
@@ -1485,7 +1582,7 @@ var PLATFORM_SECTION_MAP = {
     'today': 'today',
     'plan': 'testplan',   'testplan': 'testplan',
     'pruebas': 'cop15',   'cop15': 'cop15',    'inventory': 'inventory',
-    'datos': 'results',   'results': 'results', 'panel': 'panel',
+    'datos': 'panel',     'panel': 'panel',
     'cop': 'cop',
 };
 
@@ -1550,7 +1647,7 @@ function switchPlatform(platform, swipeDir) {
 
     if (sectionId === 'today') { dailyDashRender(); }
     if (sectionId === 'testplan') { tpRender(); tpUpdateBadges(); }
-    if (sectionId === 'results') { if(typeof raRestoreTab==='function') raRestoreTab(); else raRender(); raUpdateBadges(); }
+
     if (sectionId === 'inventory') { invPreloadData(); if(typeof invRestoreTab==='function') invRestoreTab(); else invRender(); invUpdateBadges(); }
     if (sectionId === 'panel') { pnRender(); pnUpdateBadges(); }
     if (sectionId === 'cop') { if (typeof copRender === 'function') copRender(); }
@@ -1701,7 +1798,8 @@ function dailyDashRender() {
                 'registered': { bg: '#eff6ff', color: '#3b82f6', label: 'Registrado' },
                 'in-progress': { bg: '#fef3c7', color: '#d97706', label: 'En Progreso' },
                 'testing': { bg: '#fce7f3', color: '#db2777', label: 'En Prueba' },
-                'ready-release': { bg: '#dcfce7', color: '#16a34a', label: 'Listo' }
+                'ready-release': { bg: '#dcfce7', color: '#16a34a', label: 'Listo' },
+                'pending-approval': { bg: '#f3e8ff', color: '#7c3aed', label: 'Pend. Aprobación' }
             };
             var sc = statusColors[v.status] || { bg: '#f1f5f9', color: '#64748b', label: v.status };
             var model = v.config ? (v.config.Modelo || '') : '';
@@ -1794,8 +1892,8 @@ function dailyDashRender() {
         html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
     }
 
-    html += '<div class="daily-dash-action" onclick="switchPlatform(\'results\')"><span class="daily-dash-action-icon">🧪</span>Resultados</div>';
     html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
+    html += '<div class="daily-dash-action" onclick="switchPlatform(\'panel\')"><span class="daily-dash-action-icon">⚙️</span>Panel</div>';
     html += '</div></div>';
 
     // ── No data state ──
@@ -1804,9 +1902,6 @@ function dailyDashRender() {
     }
 
     el.innerHTML = html;
-
-    // Populate the Power Automate card (after innerHTML so the slot exists)
-    if (typeof paRenderTodayCard === 'function') paRenderTodayCard();
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -2027,25 +2122,6 @@ function globalVinSearch(query) {
         }
     });
 
-    // Search Results Analyzer
-    if (typeof raState !== 'undefined' && raState.tests) {
-        var seenVins = {};
-        raState.tests.forEach(function(t) {
-            var tVin = (t.vin || t.VIN || '').toUpperCase();
-            if (tVin.includes(q) && !seenVins[tVin]) {
-                seenVins[tVin] = true;
-                results.push({
-                    module: 'Results',
-                    icon: '🧪',
-                    vin: tVin,
-                    detail: (t.regulation || t.testDesc || '') + (t.verdict ? ' — ' + t.verdict : ''),
-                    date: t.date || t.importDate || '',
-                    action: 'switchPlatform("results")'
-                });
-            }
-        });
-    }
-
     // Search Test Plan tested list
     if (typeof tpState !== 'undefined' && tpState.testedList) {
         var seenTP = {};
@@ -2113,23 +2189,6 @@ function globalVinSearch(query) {
             });
         }
     });
-
-    // [R4-M4] Search RA by operator, testDesc, regulation
-    if (typeof raState !== 'undefined' && raState.tests) {
-        raState.tests.forEach(function(t) {
-            var searchStr = ((t.operator || '') + ' ' + (t.testDesc || '') + ' ' + (t.regulation || '') + ' ' + (t.emissionReg || '')).toUpperCase();
-            if (searchStr.includes(q) && !((t.vin || t.VIN || '').toUpperCase().includes(q))) {
-                results.push({
-                    module: 'Results',
-                    icon: '📊',
-                    vin: t.testDesc || t.regulation || '?',
-                    detail: 'Op: ' + (t.operator || '—') + (t.verdict ? ' — ' + t.verdict : ''),
-                    date: t.date || t.importDate || '',
-                    action: 'switchPlatform("results")'
-                });
-            }
-        });
-    }
 
     if (results.length === 0) {
         res.innerHTML = '<div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:0 0 8px 8px;color:#94a3b8;font-size:0.85rem;text-align:center;">No se encontraron resultados para "' + escapeHtml(query) + '"</div>';
@@ -2255,26 +2314,7 @@ function generateWeeklyStatusPDF(opts) {
     } catch (e) { y = addRow('Error cargando datos', e.message, y, [239, 68, 68]); }
     y += 5;
 
-    // ── Section 3: Results Analyzer ──
-    y = addSection('Results Analyzer — Emisiones', y);
-    try {
-        var raTests = (typeof raState !== 'undefined' && raState.tests) ? raState.tests : [];
-        var importedThisWeek = raTests.filter(function(t) {
-            var d = t.importDate || t.dateStr || '';
-            return d >= weekAgoISO.slice(0, 10);
-        }).length;
-        var passCount = raTests.filter(function(t) { return typeof raTestVerdict === 'function' && raTestVerdict(t) === 'PASS'; }).length;
-        var failCount = raTests.filter(function(t) { return typeof raTestVerdict === 'function' && raTestVerdict(t) === 'FAIL'; }).length;
-        var passRate = raTests.length > 0 ? (passCount / raTests.length * 100).toFixed(1) : '—';
-
-        y = addRow('Total pruebas', raTests.length, y);
-        y = addRow('Importadas esta semana', importedThisWeek, y);
-        y = addRow('Pass rate global', passRate + '%', y, passCount >= failCount ? [16, 185, 129] : [239, 68, 68]);
-        y = addRow('PASS / FAIL', passCount + ' / ' + failCount, y);
-    } catch (e) { y = addRow('Error', e.message, y, [239, 68, 68]); }
-    y += 5;
-
-    // ── Section 4: Inventario ──
+    // ── Section 3: Inventario ──
     y = addSection('Inventario — Alertas', y);
     try {
         var gases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
@@ -2571,9 +2611,6 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
 
         // ═══ [V7-A1] Event Bus — wire cross-module events ═══
         try {
-            onEvent('vehicle:released', function(data) {
-                if (typeof raFeedbackToTestPlan === 'function') raFeedbackToTestPlan();
-            });
             onEvent('vehicle:registered', function(data) {
                 if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
             });
@@ -2696,14 +2733,12 @@ var _commandPaletteCommands = [
     { label: 'Panel de Control', icon: '⚙️', action: function(){ switchPlatform('panel'); }, cat: 'nav' },
     { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'action' },
     { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'action' },
-    { label: 'Exportar CSV Resultados', icon: '📊', action: function(){ if(typeof raExportCSV==='function') raExportCSV(); }, cat: 'action' },
     { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'action' },
     { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'action' },
     { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'action' },
     { label: 'Generar Plan Smart', icon: '⚡', action: function(){ switchPlatform('testplan'); setTimeout(function(){ if(typeof tpSmartGenerate==='function') tpSmartGenerate(); }, 300); }, cat: 'action' },
     { label: 'Ver Kanban', icon: '📋', action: function(){ switchPlatform('cop15'); setTimeout(function(){ var t=document.querySelector('.tab[data-tab="kanban"]'); if(t)t.click(); }, 200); }, cat: 'nav' },
-    { label: 'Ver Outliers', icon: '⚠️', action: function(){ switchPlatform('results'); setTimeout(function(){ raState.activeTab='ra-outliers'; raRender(); }, 200); }, cat: 'action' },
-    { label: 'Ver Tendencias', icon: '📈', action: function(){ switchPlatform('results'); setTimeout(function(){ raState.activeTab='ra-trends'; raRender(); }, 200); }, cat: 'action' }
+    { label: 'Configurar Regulaciones', icon: '⚗️', action: function(){ switchPlatform('panel'); setTimeout(function(){ pnSwitchTab('pn-regulations'); }, 200); }, cat: 'nav' }
 ];
 var _cmdActiveIdx = 0;
 var _cmdFiltered = [];

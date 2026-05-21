@@ -310,7 +310,37 @@ function renderCascadeTree() {
         if (state === 'active') {
             var data = getCascadeOptionsForLevel(field);
             html += '<div class="cascade-chips">';
-            if (data.options.length === 0) {
+            if (field === 'EMISSION REGULATION') {
+                var profiles = typeof getAllRegulationProfiles === 'function' ? getAllRegulationProfiles() : [];
+                var profileNames = profiles.map(function(p){ return p.name; });
+                var withProfile = data.options.filter(function(o){ return profileNames.indexOf(o.value) !== -1; });
+                var withoutProfile = data.options.filter(function(o){ return profileNames.indexOf(o.value) === -1; });
+                if (profiles.length === 0) {
+                    html += '<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:8px;">⚠️ No hay perfiles de regulación configurados. ' +
+                        '<button onclick="switchPlatform(\'panel\');setTimeout(function(){pnSwitchTab(\'pn-regulations\');},200);" style="background:none;border:none;color:#2563eb;text-decoration:underline;cursor:pointer;font-size:12px;padding:0;">Configurar regulaciones →</button></div>';
+                    data.options.forEach(function(opt) {
+                        var escaped = opt.value.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;');
+                        var escapedAttr = opt.value.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+                        html += '<button class="cascade-chip" style="opacity:0.5;" onclick="selectCascadeChip(\'' + field + '\',\'' + escapedAttr + '\')" title="Sin perfil de regulación configurado">' +
+                            escaped + ' <span class="chip-count">(' + opt.count + ')</span></button>';
+                    });
+                } else {
+                    if (withProfile.length === 0) {
+                        html += '<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:8px;">⚠️ Ninguna regulación disponible tiene perfil configurado. ' +
+                            '<button onclick="switchPlatform(\'panel\');setTimeout(function(){pnSwitchTab(\'pn-regulations\');},200);" style="background:none;border:none;color:#2563eb;text-decoration:underline;cursor:pointer;font-size:12px;padding:0;">Configurar →</button></div>';
+                    }
+                    withProfile.forEach(function(opt) {
+                        var escaped = opt.value.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;');
+                        var escapedAttr = opt.value.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+                        html += '<button class="cascade-chip" onclick="selectCascadeChip(\'' + field + '\',\'' + escapedAttr + '\')">' +
+                            escaped + ' <span class="chip-count">(' + opt.count + ')</span></button>';
+                    });
+                    if (withoutProfile.length > 0) {
+                        html += '<div style="font-size:11px;color:#94a3b8;margin-top:6px;">' + withoutProfile.length + ' regulación(es) sin perfil (ocultas). ' +
+                            '<button onclick="switchPlatform(\'panel\');setTimeout(function(){pnSwitchTab(\'pn-regulations\');},200);" style="background:none;border:none;color:#2563eb;text-decoration:underline;cursor:pointer;font-size:11px;padding:0;">Configurar →</button></div>';
+                    }
+                }
+            } else if (data.options.length === 0) {
                 html += '<span style="color:#94a3b8;font-size:0.85rem;">Sin opciones disponibles</span>';
             } else {
                 data.options.forEach(function(opt) {
@@ -1941,76 +1971,406 @@ function applyAutoAdvance(nextStatus) {
 }
 
 // ======================================================================
-// [M10] LIBERACIÓN]
+// [M10] LIBERACIÓN — Flujo doble-ciego
 // ======================================================================
 
-
-function loadRelease() {
-  activeVehicleId = document.getElementById('releaseVehSelect').value;
-  const content = document.getElementById('lib-content');
-
-  if (!activeVehicleId) {
-    content.style.display = 'none';
-    return;
-  }
-
-  const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
-  if (!vehicle) return;
-
-  content.style.display = 'block';
-
-  document.getElementById('releaseInfo').innerHTML = `
-    📋 <strong>VIN:</strong> ${vehicle.vin} | 
-    <strong>Config:</strong> ${vehicle.configCode}
-  `;
-
-if (vehicle.status !== 'ready-release') {
-  showToast('Este vehículo aún no está "Listo para Liberación".', 'warning');
-  document.getElementById('releaseVehSelect').value = '';
-  content.style.display = 'none';
-  return;
+function libSwitchSubtab(tab) {
+    document.getElementById('lib-panel-liberador').style.display = tab === 'liberador' ? '' : 'none';
+    document.getElementById('lib-panel-aprobador').style.display = tab === 'aprobador' ? '' : 'none';
+    document.getElementById('lib-subtab-liberador').classList.toggle('active', tab === 'liberador');
+    document.getElementById('lib-subtab-aprobador').classList.toggle('active', tab === 'aprobador');
 }
 
-  // ✅ DECLARAR testData ANTES
-  const testData = vehicle.testData || {};
-  const isEm = isEmissionsPurpose(vehicle.purpose);
+function _libGetVehicleRegulation(vehicle) {
+    if (vehicle.config && vehicle.config['EMISSION REGULATION']) return vehicle.config['EMISSION REGULATION'];
+    if (vehicle.regulation) return vehicle.regulation;
+    return null;
+}
 
-  // ✅ RAMA SIMPLE (NO EMISIONES)
-  if (!isEm) {
-    const s = (testData.simple || {});
-    document.getElementById('testSummary').innerHTML = `
-      <div style="background:#f8fafc; padding:15px; border-radius:8px;">
-        <strong>Propósito:</strong> ${vehicle.purpose}<br>
-        <strong>Operador:</strong> ${s.operator || 'N/A'}<br>
-        <strong>Fecha/Hora:</strong> ${s.datetime || 'N/A'}<br>
-        <strong>Notas:</strong> ${s.notes ? s.notes : '<em>Sin notas</em>'}
-      </div>
-    `;
+function _libNormalizeVal(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = parseFloat(String(v).replace(',', '.'));
+    return isNaN(n) ? null : Math.round(n * 1000) / 1000;
+}
+
+function _libRenderGasEntry(containerId, profile, existingValues, onChangeCallback) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    html += '<thead><tr style="border-bottom:2px solid var(--border);">';
+    html += '<th style="text-align:left;padding:6px 8px;font-size:11px;color:#64748b;">Gas</th>';
+    html += '<th style="text-align:center;padding:6px 8px;font-size:11px;color:#64748b;">Unidad</th>';
+    html += '<th style="text-align:center;padding:6px 8px;font-size:11px;color:#64748b;">Límite</th>';
+    html += '<th style="text-align:center;padding:6px 8px;font-size:11px;color:#64748b;">Valor</th>';
+    html += '<th style="text-align:center;padding:6px 8px;font-size:11px;color:#64748b;">Estado</th>';
+    html += '</tr></thead><tbody>';
+    profile.gases.forEach(function(g) {
+        var val = existingValues && existingValues[g.field] != null ? existingValues[g.field] : '';
+        html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.06);" id="lib-gas-row-' + g.field + '">';
+        html += '<td style="padding:6px 8px;font-weight:600;">' + escapeHtml(g.label) + '</td>';
+        html += '<td style="text-align:center;padding:6px 8px;color:#64748b;">' + escapeHtml(g.unit) + '</td>';
+        html += '<td style="text-align:center;padding:6px 8px;">' + (g.limit !== null && g.limit !== undefined ? '<span style="font-weight:700;color:#dc2626;">' + g.limit + '</span>' : '<span style="color:#94a3b8;">—</span>') + '</td>';
+        html += '<td style="padding:6px 8px;text-align:center;"><input type="number" step="0.001" min="0" class="form-control lib-gas-input" data-field="' + g.field + '" value="' + escapeHtml(String(val)) + '" style="width:90px;text-align:center;font-size:13px;" oninput="' + onChangeCallback + '"></td>';
+        html += '<td style="text-align:center;padding:6px 8px;" id="lib-gas-status-' + g.field + '">—</td>';
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+    if (existingValues && Object.keys(existingValues).length > 0) _libUpdateGasStatuses(profile, containerId);
+}
+
+function _libUpdateGasStatuses(profile, containerId) {
+    var allPass = true;
+    var anyValue = false;
+    profile.gases.forEach(function(g) {
+        var input = document.querySelector('#' + containerId + ' .lib-gas-input[data-field="' + g.field + '"]');
+        var statusEl = document.getElementById('lib-gas-status-' + g.field);
+        if (!input || !statusEl) return;
+        var val = _libNormalizeVal(input.value);
+        if (val === null) { statusEl.innerHTML = '<span style="color:#94a3b8;">—</span>'; if (g.limit !== null) allPass = false; return; }
+        anyValue = true;
+        if (g.limit !== null && g.limit !== undefined) {
+            var pass = val <= g.limit;
+            if (!pass) allPass = false;
+            statusEl.innerHTML = pass
+                ? '<span style="color:#10b981;font-weight:700;">✓ PASA</span>'
+                : '<span style="color:#ef4444;font-weight:700;">✗ FALLA</span>';
+            var row = document.getElementById('lib-gas-row-' + g.field);
+            if (row) row.style.background = pass ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.07)';
+        } else {
+            statusEl.innerHTML = '<span style="color:#3b82f6;font-size:11px;">Registrado</span>';
+        }
+    });
+    return { allPass: allPass, anyValue: anyValue };
+}
+
+function _libCollectGasValues(profile, containerId) {
+    var values = {};
+    profile.gases.forEach(function(g) {
+        var input = document.querySelector('#' + containerId + ' .lib-gas-input[data-field="' + g.field + '"]');
+        if (input) values[g.field] = _libNormalizeVal(input.value);
+    });
+    return values;
+}
+
+function libOnGasChange() {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) return;
+    var regName = _libGetVehicleRegulation(vehicle);
+    var profile = regName ? getRegulationProfile(regName) : null;
+    if (!profile) return;
+    var result = _libUpdateGasStatuses(profile, 'lib-gas-entry-content');
+    var btn = document.getElementById('release-archive-btn');
+    if (btn) {
+        var gasValues = _libCollectGasValues(profile, 'lib-gas-entry-content');
+        var hasAllRequired = profile.gases.every(function(g) { return g.limit === null || gasValues[g.field] !== null; });
+        btn.disabled = !(result && result.allPass && hasAllRequired);
+    }
+}
+
+function libOnApproverGasChange() {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) return;
+    var regName = _libGetVehicleRegulation(vehicle);
+    var profile = regName ? getRegulationProfile(regName) : null;
+    if (!profile) return;
+    _libUpdateGasStatuses(profile, 'appr-gas-entry-content');
+    var approverValues = _libCollectGasValues(profile, 'appr-gas-entry-content');
+    var liberadorValues = (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.liberador) ? vehicle.testData.gasResults.liberador.values : {};
+    var matchStatus = document.getElementById('appr-match-status');
+    var btn = document.getElementById('approve-archive-btn');
+    if (!matchStatus || !btn) return;
+    var mismatches = [];
+    var hasAllValues = true;
+    profile.gases.forEach(function(g) {
+        var approverVal = approverValues[g.field];
+        var liberadorVal = liberadorValues[g.field];
+        if (approverVal === null) { hasAllValues = false; return; }
+        if (liberadorVal !== null && liberadorVal !== undefined) {
+            if (_libNormalizeVal(approverVal) !== _libNormalizeVal(liberadorVal)) {
+                mismatches.push(g.label);
+            }
+        }
+    });
+    if (!hasAllValues) {
+        matchStatus.style.display = 'none';
+        btn.disabled = true;
+        return;
+    }
+    matchStatus.style.display = 'block';
+    if (mismatches.length === 0) {
+        matchStatus.style.background = 'rgba(16,185,129,0.1)';
+        matchStatus.style.border = '1px solid rgba(16,185,129,0.3)';
+        matchStatus.style.color = '#10b981';
+        matchStatus.innerHTML = '✓ Valores concordantes con el liberador';
+        btn.disabled = false;
+    } else {
+        matchStatus.style.background = 'rgba(239,68,68,0.1)';
+        matchStatus.style.border = '1px solid rgba(239,68,68,0.3)';
+        matchStatus.style.color = '#ef4444';
+        matchStatus.innerHTML = '✗ Los valores de <strong>' + mismatches.join(', ') + '</strong> no coinciden. Verifique su lectura.';
+        btn.disabled = true;
+    }
+}
+
+function loadRelease() {
+    activeVehicleId = document.getElementById('releaseVehSelect').value;
+    var content = document.getElementById('lib-content');
+    if (!activeVehicleId) { content.style.display = 'none'; return; }
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) return;
+
+    if (vehicle.status !== 'ready-release') {
+        showToast('Este vehículo aún no está "Listo para Liberación".', 'warning');
+        document.getElementById('releaseVehSelect').value = '';
+        content.style.display = 'none';
+        return;
+    }
+    content.style.display = 'block';
+    document.getElementById('releaseInfo').innerHTML =
+        '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Config:</strong> ' + escapeHtml(vehicle.configCode);
+
+    var testData = vehicle.testData || {};
+    var isEm = isEmissionsPurpose(vehicle.purpose);
+
+    if (!isEm) {
+        var s = testData.simple || {};
+        document.getElementById('testSummary').innerHTML =
+            '<div style="background:#f8fafc;padding:15px;border-radius:8px;">' +
+            '<strong>Propósito:</strong> ' + escapeHtml(vehicle.purpose) + '<br>' +
+            '<strong>Operador:</strong> ' + escapeHtml(s.operator || 'N/A') + '<br>' +
+            '<strong>Fecha/Hora:</strong> ' + escapeHtml(s.datetime || 'N/A') + '<br>' +
+            '<strong>Notas:</strong> ' + (s.notes ? escapeHtml(s.notes) : '<em>Sin notas</em>') +
+            '</div>';
+        document.getElementById('lib-gas-entry-card').style.display = 'none';
+        document.getElementById('release-archive-btn').disabled = false;
+        _renderUsedCylinders(vehicle);
+        renderTimeline(vehicle);
+        return;
+    }
+
+    document.getElementById('testSummary').innerHTML =
+        '<div style="background:#f8fafc;padding:15px;border-radius:8px;">' +
+        (testData.odometer ? '<strong>Odómetro:</strong> ' + testData.odometer + ' km<br>' : '') +
+        (testData.targetA ? '<strong>Target A:</strong> ' + testData.targetA + ' lbs<br>' : '') +
+        (testData.operator ? '<strong>Operador:</strong> ' + escapeHtml(testData.operator) + '<br>' : '') +
+        '</div>';
+
+    var regName = _libGetVehicleRegulation(vehicle);
+    var profile = regName ? getRegulationProfile(regName) : null;
+    var gasCard = document.getElementById('lib-gas-entry-card');
+    var btn = document.getElementById('release-archive-btn');
+
+    if (!profile) {
+        gasCard.style.display = 'block';
+        document.getElementById('lib-gas-entry-content').innerHTML =
+            '<div style="padding:16px;text-align:center;color:#f59e0b;background:#fef3c7;border-radius:8px;">' +
+            '⚠️ La regulación <strong>' + escapeHtml(regName || 'desconocida') + '</strong> no tiene perfil de gases configurado.<br>' +
+            '<button class="btn-secondary" onclick="switchPlatform(\'panel\');setTimeout(function(){pnSwitchTab(\'pn-regulations\');},200);" style="margin-top:10px;font-size:12px;">⚗️ Configurar regulaciones</button>' +
+            '</div>';
+        btn.disabled = true;
+    } else {
+        gasCard.style.display = 'block';
+        var existing = (testData.gasResults && testData.gasResults.liberador) ? testData.gasResults.liberador.values : {};
+        _libRenderGasEntry('lib-gas-entry-content', profile, existing, 'libOnGasChange()');
+        libOnGasChange();
+    }
+
     _renderUsedCylinders(vehicle);
     renderTimeline(vehicle);
-    return;
-  }
+}
 
-  // ✅ RAMA EMISIONES (tu lógica actual)
-  document.getElementById('testSummary').innerHTML = `
-    <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
-      ${testData.odometer ? `<strong>Odómetro:</strong> ${testData.odometer} km<br>` : ''}
-      ${testData.targetA ? `<strong>Target A:</strong> ${testData.targetA} lbs<br>` : ''}
-      ${testData.targetB ? `<strong>Target B:</strong> ${testData.targetB} lbs<br>` : ''}
-      ${testData.targetC ? `<strong>Target C:</strong> ${testData.targetC} lbs<br>` : ''}
-      ${testData.operator ? `<strong>Operador:</strong> ${testData.operator}<br>` : ''}
-      ${!testData.odometer && !testData.targetA ? '<em>No hay datos de prueba registrados</em>' : ''}
-    </div>
-  `;
+function loadApproval() {
+    activeVehicleId = document.getElementById('approvalVehSelect').value;
+    var content = document.getElementById('appr-content');
+    if (!activeVehicleId) { content.style.display = 'none'; return; }
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || vehicle.status !== 'pending-approval') {
+        content.style.display = 'none'; return;
+    }
+    content.style.display = 'block';
+    document.getElementById('approvalInfo').innerHTML =
+        '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libGetVehicleRegulation(vehicle) || 'N/A');
 
-  // Show gas cylinders used (from traceability log)
-  _renderUsedCylinders(vehicle);
+    var testData = vehicle.testData || {};
+    var isEm = isEmissionsPurpose(vehicle.purpose);
+    document.getElementById('approvalSummary').innerHTML =
+        '<div style="background:#f8fafc;padding:15px;border-radius:8px;">' +
+        (testData.odometer ? '<strong>Odómetro:</strong> ' + testData.odometer + ' km<br>' : '') +
+        '<strong>Propósito:</strong> ' + escapeHtml(vehicle.purpose) + '<br>' +
+        (testData.operator ? '<strong>Operador:</strong> ' + escapeHtml(testData.operator) + '<br>' : '') +
+        '</div>';
 
-  renderTimeline(vehicle);
+    var regName = _libGetVehicleRegulation(vehicle);
+    var profile = regName ? getRegulationProfile(regName) : null;
+    var btn = document.getElementById('approve-archive-btn');
+    var matchDiv = document.getElementById('appr-match-status');
+    if (matchDiv) matchDiv.style.display = 'none';
 
-  // Mandatory scanned results sheet capture (emissions only)
-  if (typeof paRenderDocUpload === 'function') paRenderDocUpload(vehicle.id);
-  if (typeof paUpdateReleaseButtonState === 'function') paUpdateReleaseButtonState(vehicle.id);
+    if (!isEm || !profile) {
+        document.getElementById('appr-gas-entry-content').innerHTML =
+            '<p style="color:#64748b;font-size:12px;">Este vehículo no requiere verificación de gases.</p>';
+        if (btn) btn.disabled = false;
+        return;
+    }
+
+    _libRenderGasEntry('appr-gas-entry-content', profile, {}, 'libOnApproverGasChange()');
+    if (btn) btn.disabled = true;
+}
+
+function submitToApproval() {
+    if (!activeVehicleId) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || vehicle.status !== 'ready-release') return;
+
+    var isEm = isEmissionsPurpose(vehicle.purpose);
+    var regName = _libGetVehicleRegulation(vehicle);
+    var profile = isEm && regName ? getRegulationProfile(regName) : null;
+    var gasValues = profile ? _libCollectGasValues(profile, 'lib-gas-entry-content') : {};
+
+    sigCaptureOpen({
+        title: 'Firma del Liberador',
+        role: 'Liberador / Técnico',
+        signerName: '',
+        onSave: function(sig) {
+            undoPush('cop15', 'Enviar a Aprobación: ' + vehicle.vin);
+            if (!vehicle.testData) vehicle.testData = {};
+            if (!vehicle.testData.gasResults) vehicle.testData.gasResults = {};
+            if (profile) {
+                vehicle.testData.gasResults.liberador = {
+                    values: gasValues,
+                    capturedBy: sig.signerName,
+                    capturedAt: new Date().toISOString(),
+                    passedLimits: true
+                };
+            }
+            if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
+            vehicle.testData.signatures.releaser = sig;
+            vehicle.status = 'pending-approval';
+            vehicle.timeline.push({
+                timestamp: new Date().toISOString(),
+                user: sig.signerName || 'Liberador',
+                action: 'Enviado a Aprobación',
+                data: { status: 'pending-approval', gasValues: gasValues }
+            });
+            auditLog('cop15', 'vehicle_pending_approval', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Enviado a aprobación por ' + (sig.signerName || ''));
+            saveDB();
+            refreshAllLists();
+            updateProgressBar();
+            document.getElementById('releaseVehSelect').value = '';
+            document.getElementById('lib-content').style.display = 'none';
+            showToast('Vehículo enviado a aprobación', 'success');
+        },
+        onCancel: function() { showToast('Operación cancelada', 'info'); }
+    });
+}
+
+function approveAndArchive() {
+    if (!activeVehicleId) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || vehicle.status !== 'pending-approval') return;
+
+    var isEm = isEmissionsPurpose(vehicle.purpose);
+    var regName = _libGetVehicleRegulation(vehicle);
+    var profile = isEm && regName ? getRegulationProfile(regName) : null;
+    var approverValues = profile ? _libCollectGasValues(profile, 'appr-gas-entry-content') : {};
+
+    sigCaptureOpen({
+        title: 'Firma del Aprobador',
+        role: 'Aprobador / Gerente',
+        signerName: '',
+        onSave: function(sig) {
+            undoPush('cop15', 'Aprobar y Archivar: ' + vehicle.vin);
+            var prevStatus = vehicle.status;
+            var prevTimeline = JSON.parse(JSON.stringify(vehicle.timeline || []));
+            try {
+                if (!vehicle.testData) vehicle.testData = {};
+                if (!vehicle.testData.gasResults) vehicle.testData.gasResults = {};
+                if (profile) {
+                    vehicle.testData.gasResults.aprobador = {
+                        values: approverValues,
+                        capturedBy: sig.signerName,
+                        capturedAt: new Date().toISOString(),
+                        matchedLiberador: true
+                    };
+                }
+                if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
+                vehicle.testData.signatures.approver = sig;
+                vehicle.status = 'archived';
+                vehicle.archivedAt = new Date().toISOString();
+                vehicle.timeline.push({
+                    timestamp: new Date().toISOString(),
+                    user: sig.signerName || 'Aprobador',
+                    action: 'Vehículo Aprobado y Archivado',
+                    data: { status: 'archived', approverValues: approverValues }
+                });
+                exportSingleArchivedVehicle(vehicle.id);
+                tpAutoFeedFromRelease(vehicle);
+                invLogTestUsage(vehicle);
+                if (!vehicle.adhoc) {
+                    var exactMatch = typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function'
+                        ? tpAutoMarkWeeklyCompletionFromVehicle(vehicle)
+                        : tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                    if (!exactMatch && typeof tpFindFlexibleMatches === 'function') {
+                        var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
+                        if (flexMatches.length > 0) {
+                            window._pendingSubstitution = { configCode: vehicle.configCode, vin: vehicle.vin, matches: flexMatches };
+                        }
+                    }
+                }
+                auditLog('cop15', 'vehicle_released', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Aprobado y archivado por ' + (sig.signerName || ''));
+                if (typeof fbPostTestCompleted === 'function') {
+                    var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : '';
+                    fbPostTestCompleted(vehicle.vin, _res);
+                }
+                if (typeof fbPostVehicleReleased === 'function') fbPostVehicleReleased(vehicle.vin);
+                generateCOP15PDF(vehicle.id, { silent: true });
+                showToast('Vehículo aprobado y archivado. PDF generado.', 'success');
+                if (typeof animateConfetti === 'function') animateConfetti();
+            } catch(e) {
+                vehicle.status = prevStatus;
+                vehicle.timeline = prevTimeline;
+                delete vehicle.archivedAt;
+                showToast('Error al archivar: ' + e.message + '. Cambios revertidos.', 'error');
+                console.error('approveAndArchive rollback:', e);
+                return;
+            }
+            saveDB();
+            refreshAllLists();
+            updateProgressBar();
+            if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: false });
+            document.getElementById('approvalVehSelect').value = '';
+            document.getElementById('appr-content').style.display = 'none';
+            if (window._pendingSubstitution) {
+                showSubstitutionModal(window._pendingSubstitution);
+                window._pendingSubstitution = null;
+            }
+        },
+        onCancel: function() { showToast('Aprobación cancelada', 'info'); }
+    });
+}
+
+function requestRetest() {
+    if (!activeVehicleId) return;
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) return;
+    showConfirm('¿Regresar este vehículo a prueba? Se perderán los datos de liberación.', function() {
+        undoPush('cop15', 'Retest: ' + vehicle.vin);
+        vehicle.status = 'registered';
+        vehicle.timeline.push({
+            timestamp: new Date().toISOString(),
+            user: 'Sistema',
+            action: 'Retest solicitado - Vehículo regresado a estado inicial',
+            data: { status: 'registered', retest: true }
+        });
+        auditLog('cop15', 'vehicle_retest', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Retest solicitado');
+        saveDB();
+        refreshAllLists();
+        updateProgressBar();
+        document.getElementById('releaseVehSelect').value = '';
+        document.getElementById('lib-content').style.display = 'none';
+        showToast('Vehículo marcado para nueva prueba', 'info');
+    }, { title: 'Confirmar Retest', confirmText: 'Regresar a Prueba' });
 }
 
 function _renderUsedCylinders(vehicle) {
@@ -2154,142 +2514,6 @@ function _renderUsedCylinders(vehicle) {
 
 
 
-    function finishRelease(isRetest) {
-        if(!activeVehicleId) {
-            showToast('No hay vehículo seleccionado', 'error');
-            return;
-        }
-
-        const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
-        if(!vehicle) return;
-
-        // Mandatory gates for emissions vehicles
-        if (!isRetest && typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vehicle.purpose)) {
-            // Gate 1: VETS photo
-            if (!vehicle.testData || !vehicle.testData.scannedReportCaptured) {
-                showToast('Falta capturar la hoja de resultados antes de liberar', 'error');
-                return;
-            }
-            // Gate 2: Technician signature (captured with VETS photo)
-            if (!vehicle.testData.signatures || !vehicle.testData.signatures.technician) {
-                showToast('Falta firma del tecnico que documento la foto', 'error');
-                return;
-            }
-            // Gate 3: Releaser signature — prompt now, then re-invoke
-            if (!vehicle.testData.signatures.releaser) {
-                if (typeof sigCaptureOpen === 'function') {
-                    sigCaptureOpen({
-                        title: 'Firma del Liberador (Signatario)',
-                        role: 'Signatario / Gerente',
-                        signerName: '',
-                        onSave: function (sig) {
-                            if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
-                            vehicle.testData.signatures.releaser = sig;
-                            saveDB();
-                            finishRelease(isRetest);
-                        },
-                        onCancel: function () { showToast('Liberacion cancelada: falta firma del liberador', 'info'); }
-                    });
-                } else {
-                    showToast('Falta firma del liberador', 'error');
-                }
-                return;
-            }
-        }
-
-        // Save snapshot for rollback on error
-        const prevStatus = vehicle.status;
-        const prevTimeline = JSON.parse(JSON.stringify(vehicle.timeline || []));
-
-        if(!isRetest) {
-            vehicle.status = 'archived';
-            vehicle.archivedAt = new Date().toISOString();
-            vehicle.timeline.push({
-                timestamp: new Date().toISOString(),
-                user: 'Sistema',
-                action: 'Vehículo Liberado y Archivado',
-                data: { status: 'archived' }
-            });
-            try {
-                exportSingleArchivedVehicle(vehicle.id);
-                tpAutoFeedFromRelease(vehicle);
-                invLogTestUsage(vehicle);
-
-                // Try exact match first, then offer flexible substitution.
-                // Skip weekly-plan crediting for ad-hoc vehicles.
-                var exactMatch = false;
-                if (!vehicle.adhoc) {
-                    // Prefer the explicit plan link set in Alta when available
-                    if (typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function') {
-                        exactMatch = tpAutoMarkWeeklyCompletionFromVehicle(vehicle);
-                    } else {
-                        exactMatch = tpAutoMarkWeeklyCompletion(vehicle.configCode);
-                    }
-                }
-                if (!vehicle.adhoc && !exactMatch && typeof tpFindFlexibleMatches === 'function') {
-                    var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
-                    if (flexMatches.length > 0) {
-                        // Store pending substitution data and show modal AFTER release completes
-                        window._pendingSubstitution = {
-                            configCode: vehicle.configCode,
-                            vin: vehicle.vin,
-                            matches: flexMatches
-                        };
-                    }
-                }
-
-                auditLog('cop15', 'vehicle_released', {type:'vehicle', id:vehicle.id, label:vehicle.vin}, 'Liberado y archivado');
-                if (typeof fbPostTestCompleted === 'function') { var _res = vehicle.testData && vehicle.testData.resultado ? vehicle.testData.resultado : (vehicle.testData && vehicle.testData.simple && vehicle.testData.simple.resultado ? vehicle.testData.simple.resultado : ''); fbPostTestCompleted(vehicle.vin, _res); }
-                if (typeof fbPostVehicleReleased === 'function') fbPostVehicleReleased(vehicle.vin);
-                showToast('Vehículo liberado. JSON descargado.', 'success');
-                // [R5-M4] Confetti burst on vehicle release
-                if (typeof animateConfetti === 'function') animateConfetti();
-            } catch(e) {
-                // Rollback on cross-module error
-                vehicle.status = prevStatus;
-                vehicle.timeline = prevTimeline;
-                delete vehicle.archivedAt;
-                showToast('Error en liberación: ' + e.message + '. Cambios revertidos.', 'error');
-                console.error('finishRelease rollback:', e);
-                return;
-            }
-        } else {
-            vehicle.status = 'registered';
-            vehicle.timeline.push({
-                timestamp: new Date().toISOString(),
-                user: 'Sistema',
-                action: 'Retest solicitado - Vehículo regresado a estado inicial',
-                data: { status: 'registered', retest: true }
-            });
-            auditLog('cop15', 'vehicle_retest', {type:'vehicle', id:vehicle.id, label:vehicle.vin}, 'Retest solicitado');
-            showToast('Vehículo marcado para nueva prueba', 'info');
-        }
-
-        saveDB();
-        refreshAllLists();
-        updateProgressBar();
-
-        // [R3-M7] Confetti celebration on successful release
-        if (!isRetest && typeof showConfetti === 'function') showConfetti();
-
-        // [V7-A1] Emit event
-        if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: isRetest });
-
-        document.getElementById('releaseVehSelect').value = '';
-        document.getElementById('lib-content').style.display = 'none';
-
-        // [V7-D4] Post-Release Quick Actions
-        if (!isRetest) {
-            var vinShort = vehicle.vin ? '...' + vehicle.vin.slice(-4) : '';
-            v7ShowPostReleaseActions(vinShort);
-        }
-
-        // Show flexible substitution modal if pending
-        if (window._pendingSubstitution) {
-            showSubstitutionModal(window._pendingSubstitution);
-            window._pendingSubstitution = null;
-        }
-    }
 
 
 // ======================================================================
@@ -2477,19 +2701,6 @@ function closeSubstitutionModal() {
                 <button class="btn-secondary batch-pdf-btn" id="batchPdfBtn" onclick="batchPDFExport()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;">PDF Seleccionados</button>
                 <button class="btn-secondary" id="batchDeleteBtn" onclick="batchDeleteVehicles()" style="display:none;padding:4px 12px;font-size:11px;font-weight:700;background:#7f1d1d;color:#fca5a5;">🗑 Eliminar seleccionados</button>
                 <button class="btn-secondary" onclick="window.print()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Imprimir tabla de historial">🖨️ Imprimir</button>
-                ${(function(){
-                    if (typeof paConfig === 'undefined' || !paConfig.enabled || typeof db === 'undefined' || !db.vehicles) return '';
-                    var archived = db.vehicles.filter(function(vv){ return vv.status === 'archived'; });
-                    function _needsPhoto(vv){ return typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(vv.purpose); }
-                    function _hasPhoto(vv){ return !!(vv.testData && vv.testData.scannedReportCaptured); }
-                    var notSent = archived.filter(function(vv){ return !(vv.paStatus && vv.paStatus.vehicle_released && vv.paStatus.vehicle_released.sent); });
-                    var ready = notSent.filter(function(vv){ return !_needsPhoto(vv) || _hasPhoto(vv); }).length;
-                    var blocked = notSent.filter(function(vv){ return _needsPhoto(vv) && !_hasPhoto(vv); }).length;
-                    var parts = '';
-                    if (ready > 0) parts += '<button class="btn-secondary" onclick="paBatchTriggerAll()" style="padding:4px 12px;font-size:11px;font-weight:700;" title="Enviar los archivados pendientes que ya tienen foto">⚡ Enviar ' + ready + ' pendientes a PA</button>';
-                    if (blocked > 0) parts += '<span style="padding:4px 10px;font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:6px;" title="Requieren foto de resultados antes de enviar">📸 ' + blocked + ' sin foto</span>';
-                    return parts;
-                })()}
             </div>
             <table class="history-table">
                 <thead>
@@ -2500,8 +2711,7 @@ function closeSubstitutionModal() {
                         <th>Propósito</th>
                         <th>Estado</th>
                         <th>Fecha</th>
-                        <th style="width:90px;">Foto</th>
-                        <th style="width:90px;">PA</th>
+                        <th>Emisiones</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -2530,37 +2740,12 @@ function closeSubstitutionModal() {
                             <td><span class="status-badge status-${escapeHtml(v.status)}">${escapeHtml(CONFIG.statusLabels[v.status])}</span></td>
                             <td>${new Date(v.registeredAt).toLocaleDateString('es-MX')}</td>
                             <td>${(function(){
-                                var needsPhoto = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose);
-                                if (!needsPhoto) return '<span style="color:#94a3b8;font-size:10px;" title="No aplica (prueba no-emisiones)">N/A</span>';
-                                var hasPhoto = !!(v.testData && v.testData.scannedReportCaptured);
-                                if (hasPhoto) {
-                                    var when = '';
-                                    try { when = v.testData.scannedReportCapturedAt ? new Date(v.testData.scannedReportCapturedAt).toLocaleString('es-MX') : ''; } catch(e) {}
-                                    return '<div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap;">' +
-                                        '<button class="btn-secondary" onclick="paDocView(' + parseInt(v.id) + ')" style="padding:3px 8px;font-size:10px;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;font-weight:700;" title="' + escapeHtml(when) + '">✓ Ver</button>' +
-                                        '<button onclick="paCameraOpen(' + parseInt(v.id) + ')" style="background:none;border:none;color:#2563eb;cursor:pointer;font-size:9px;text-decoration:underline;padding:0;" title="Reemplazar foto">Reemplazar</button>' +
-                                    '</div>';
-                                }
-                                return '<button class="btn-secondary" onclick="paCameraOpen(' + parseInt(v.id) + ')" style="padding:3px 8px;font-size:10px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-weight:700;" title="Foto pendiente — requerida para enviar a PA">📸 Tomar foto</button>';
-                            })()}</td>
-                            <td>${(function(){
-                                if (v.status !== 'archived') return '<span style="color:#94a3b8;font-size:10px;">—</span>';
-                                var needsPhoto = typeof isEmissionsPurpose === 'function' && isEmissionsPurpose(v.purpose);
-                                var hasPhoto = !!(v.testData && v.testData.scannedReportCaptured);
-                                var blocked = needsPhoto && !hasPhoto;
-                                var sent = !!(v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent);
-                                var disabledAttr = blocked ? 'disabled' : '';
-                                var disabledStyle = blocked ? 'opacity:0.5;cursor:not-allowed;' : '';
-                                var blockTitle = blocked ? 'Falta la foto de hoja de resultados' : '';
-                                if (sent) {
-                                    var when = escapeHtml(v.paStatus.vehicle_released.sentAt || '');
-                                    var resend = v.paStatus.vehicle_released.resendCount || 0;
-                                    return '<div style="display:flex;gap:4px;align-items:center;">' +
-                                        '<span style="color:#10b981;font-size:14px;" title="Enviado: ' + when + (resend > 0 ? ' · reenviado ' + resend + 'x' : '') + '">&#10004;</span>' +
-                                        '<button class="btn-secondary" onclick="paManualTrigger(' + parseInt(v.id) + ',&#39;vehicle_released&#39;)" ' + disabledAttr + ' style="padding:2px 6px;font-size:10px;font-weight:700;' + disabledStyle + '" title="' + (blockTitle || 'Reenviar a Power Automate') + '">↻ Reenviar</button>' +
-                                    '</div>';
-                                }
-                                return '<button class="btn-secondary" onclick="paManualTrigger(' + parseInt(v.id) + ',&#39;vehicle_released&#39;)" ' + disabledAttr + ' style="padding:3px 8px;font-size:10px;font-weight:700;' + disabledStyle + '" title="' + (blockTitle || 'Enviar a Power Automate') + '">Enviar</button>';
+                                var gr = v.testData && v.testData.gasResults;
+                                if (!gr || !gr.liberador) return '<span style="color:#94a3b8;font-size:10px;">—</span>';
+                                var libVals = gr.liberador.values || {};
+                                var gasCount = Object.keys(libVals).length;
+                                var appr = gr.aprobador ? '<span style="color:#10b981;font-size:10px;" title="Doble verificación completada">✓✓</span>' : '<span style="color:#f59e0b;font-size:10px;" title="Solo liberador">✓</span>';
+                                return '<div style="display:flex;gap:4px;align-items:center;">' + appr + '<span style="font-size:10px;color:#64748b;">' + gasCount + ' gases</span></div>';
                             })()}</td>
                             <td>
                                 <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
@@ -2730,50 +2915,66 @@ function _renderVehiclePDFPage(doc, vehicle) {
 
 
 function refreshAllLists() {
-  // Render kanban if panel is visible
-  var kanbanPanel = document.getElementById('panel-kanban');
-  if (kanbanPanel && kanbanPanel.classList.contains('active')) renderKanban();
-  const activeSelect = document.getElementById('activeVehSelect');
-  const releaseSelect = document.getElementById('releaseVehSelect');
+    var kanbanPanel = document.getElementById('panel-kanban');
+    if (kanbanPanel && kanbanPanel.classList.contains('active')) renderKanban();
 
-  if (!activeSelect || !releaseSelect) return;
+    var activeSelect = document.getElementById('activeVehSelect');
+    var releaseSelect = document.getElementById('releaseVehSelect');
+    var approvalSelect = document.getElementById('approvalVehSelect');
 
-  activeSelect.innerHTML = '<option value="">-- Seleccionar Vehículo --</option>';
-  releaseSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
+    if (!activeSelect || !releaseSelect) return;
 
-  const activeVehicles = db.vehicles.filter(v => v.status !== 'archived');
-  const readyVehicles  = db.vehicles.filter(v => v.status === 'ready-release');
+    activeSelect.innerHTML = '<option value="">-- Seleccionar Vehículo --</option>';
+    releaseSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
+    if (approvalSelect) approvalSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
 
-  // ✅ Activos
-  activeVehicles.forEach(v => {
-    const statusLabel  = (CONFIG.statusLabels && CONFIG.statusLabels[v.status]) ? CONFIG.statusLabels[v.status] : v.status;
-    const purposeLabel = v.purpose || 'N/A';
+    var activeVehicles = db.vehicles.filter(function(v) { return v.status !== 'archived'; });
+    var readyVehicles  = db.vehicles.filter(function(v) { return v.status === 'ready-release'; });
+    var pendingVehicles = db.vehicles.filter(function(v) { return v.status === 'pending-approval'; });
 
-    const opt = document.createElement('option');
-    opt.value = v.id;
-    const shortCfg = truncateMiddle(v.configCode, 34);
-opt.textContent = `${v.vin} | ${purposeLabel} | ${shortCfg} [${statusLabel}]`;
-// Tooltip con la info completa (en PC se ve al pasar el mouse)
-opt.title = `VIN: ${v.vin}\nPropósito: ${purposeLabel}\nConfig: ${v.configCode}\nEstado: ${statusLabel}`;
-// Por si luego quieres mostrarlo en UI sin recalcular:
-opt.dataset.fullConfig = v.configCode;
-    activeSelect.appendChild(opt);
-  });
+    activeVehicles.forEach(function(v) {
+        var statusLabel = (CONFIG.statusLabels && CONFIG.statusLabels[v.status]) ? CONFIG.statusLabels[v.status] : v.status;
+        var purposeLabel = v.purpose || 'N/A';
+        var opt = document.createElement('option');
+        opt.value = v.id;
+        var shortCfg = truncateMiddle(v.configCode, 34);
+        opt.textContent = v.vin + ' | ' + purposeLabel + ' | ' + shortCfg + ' [' + statusLabel + ']';
+        opt.title = 'VIN: ' + v.vin + '\nPropósito: ' + purposeLabel + '\nConfig: ' + v.configCode + '\nEstado: ' + statusLabel;
+        opt.dataset.fullConfig = v.configCode;
+        activeSelect.appendChild(opt);
+    });
 
-  // ✅ Listos para liberación
-  readyVehicles.forEach(v => {
-    const purposeLabel = v.purpose || 'N/A';
+    readyVehicles.forEach(function(v) {
+        var purposeLabel = v.purpose || 'N/A';
+        var opt = document.createElement('option');
+        opt.value = v.id;
+        var shortCfg = truncateMiddle(v.configCode, 34);
+        opt.textContent = v.vin + ' | ' + purposeLabel + ' | ' + shortCfg;
+        opt.title = 'VIN: ' + v.vin + '\nPropósito: ' + purposeLabel + '\nConfig: ' + v.configCode;
+        opt.dataset.fullConfig = v.configCode;
+        releaseSelect.appendChild(opt);
+    });
 
-    const opt = document.createElement('option');
-    opt.value = v.id;
-const shortCfg = truncateMiddle(v.configCode, 34);
-opt.textContent = `${v.vin} | ${purposeLabel} | ${shortCfg}`;
-opt.title = `VIN: ${v.vin}\nPropósito: ${purposeLabel}\nConfig: ${v.configCode}`;
-opt.dataset.fullConfig = v.configCode;
-    releaseSelect.appendChild(opt);
-  });
+    if (approvalSelect) {
+        pendingVehicles.forEach(function(v) {
+            var purposeLabel = v.purpose || 'N/A';
+            var opt = document.createElement('option');
+            opt.value = v.id;
+            var shortCfg = truncateMiddle(v.configCode, 34);
+            opt.textContent = v.vin + ' | ' + purposeLabel + ' | ' + shortCfg;
+            opt.title = 'VIN: ' + v.vin + '\nPropósito: ' + purposeLabel + '\nConfig: ' + v.configCode;
+            opt.dataset.fullConfig = v.configCode;
+            approvalSelect.appendChild(opt);
+        });
+    }
 
-  renderHistory();
+    // Update sub-tab counters
+    var readyCount = document.getElementById('lib-ready-count');
+    var approvalCount = document.getElementById('lib-approval-count');
+    if (readyCount) readyCount.textContent = readyVehicles.length;
+    if (approvalCount) approvalCount.textContent = pendingVehicles.length;
+
+    renderHistory();
 }
 
 
@@ -2960,17 +3161,11 @@ function deleteVehicleCascade(vehicleId) {
     // Count what will be removed in each module
     const tpCount  = (typeof tpState !== 'undefined' && tpState.testedList)
         ? tpState.testedList.filter(t => t.note && t.note.includes('VIN: ' + v.vin)).length : 0;
-    const raCount  = (typeof raState !== 'undefined' && raState.tests && v.vin)
-        ? raState.tests.filter(t => t.vin === v.vin).length : 0;
-    const paCount  = (typeof paQueue !== 'undefined')
-        ? paQueue.filter(q => q.vehicleId == vehicleId).length : 0;
     const invCount = (typeof invState !== 'undefined' && invState.usageLog && v.vin)
         ? invState.usageLog.filter(u => u.vin === v.vin).length : 0;
 
     const lines = ['• COP15: <b>' + (v.vin||'?') + '</b> — ' + (v.status||'')];
     if (tpCount  > 0) lines.push('• Plan Manager: ' + tpCount  + ' registro' + (tpCount >1?'s':'') + ' de prueba');
-    if (raCount  > 0) lines.push('• Results Analyzer: ' + raCount  + ' resultado' + (raCount >1?'s':''));
-    if (paCount  > 0) lines.push('• Cola PA: ' + paCount  + ' elemento' + (paCount >1?'s':''));
     if (invCount > 0) lines.push('• Inventario: ' + invCount + ' registro' + (invCount>1?'s':'') + ' de uso');
 
     showConfirm(
@@ -2987,17 +3182,7 @@ function deleteVehicleCascade(vehicleId) {
                 if (typeof tpSave === 'function') tpSave();
                 if (typeof _tpInvalidateCache === 'function') _tpInvalidateCache();
             }
-            // 3. Results Analyzer
-            if (typeof raState !== 'undefined' && raState.tests && v.vin) {
-                raState.tests = raState.tests.filter(t => t.vin !== v.vin);
-                if (typeof raSave === 'function') raSave();
-            }
-            // 4. Approvals queue
-            if (typeof paQueue !== 'undefined') {
-                paQueue = paQueue.filter(q => q.vehicleId != vehicleId);
-                if (typeof paQueueSave === 'function') paQueueSave();
-            }
-            // 5. Inventory usage log
+            // 3. Inventory usage log
             if (typeof invState !== 'undefined' && invState.usageLog && v.vin) {
                 invState.usageLog = invState.usageLog.filter(u => u.vin !== v.vin);
                 if (typeof invSave === 'function') invSave();
@@ -3028,7 +3213,7 @@ function batchDeleteVehicles() {
         '<p style="margin-bottom:8px;">Eliminar <b>' + ids.length + ' vehículo' + (ids.length>1?'s':'') + '</b> y todos sus datos?</p>' +
         '<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:6px;padding:6px 10px;font-size:11px;max-height:120px;overflow-y:auto;">' +
         vins.map(function(vin){return '• '+vin;}).join('<br>') + '</div>' +
-        '<p style="margin-top:8px;font-size:11px;color:#94a3b8;">Esto borrará también sus registros en Plan Manager, Results, PA e Inventario. No se puede deshacer.</p>',
+        '<p style="margin-top:8px;font-size:11px;color:#94a3b8;">Esto borrará también sus registros en Plan Manager e Inventario. No se puede deshacer.</p>',
         function() {
             ids.forEach(function(id) {
                 var veh = db.vehicles.find(function(x){return x.id==id;});
@@ -3036,18 +3221,12 @@ function batchDeleteVehicles() {
                 db.vehicles = db.vehicles.filter(function(x){return x.id!=id;});
                 if (typeof tpState !== 'undefined' && tpState.testedList && veh.vin)
                     tpState.testedList = tpState.testedList.filter(function(t){return !(t.note && t.note.includes('VIN: '+veh.vin));});
-                if (typeof raState !== 'undefined' && raState.tests && veh.vin)
-                    raState.tests = raState.tests.filter(function(t){return t.vin !== veh.vin;});
-                if (typeof paQueue !== 'undefined')
-                    paQueue = paQueue.filter(function(q){return q.vehicleId != id;});
                 if (typeof invState !== 'undefined' && invState.usageLog && veh.vin)
                     invState.usageLog = invState.usageLog.filter(function(u){return u.vin !== veh.vin;});
             });
             saveDB();
             if (typeof tpSave       === 'function') tpSave();
             if (typeof _tpInvalidateCache === 'function') _tpInvalidateCache();
-            if (typeof raSave       === 'function') raSave();
-            if (typeof paQueueSave  === 'function') paQueueSave();
             if (typeof invSave      === 'function') invSave();
             refreshAllLists(); updateProgressBar(); renderHistory();
             if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies();
@@ -3547,41 +3726,72 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
     ry += rH;
   });
 
-  // Bottom: Comentarios (left) + Firmas digitales (right)
-  const bottomLibY = Math.max(y, ry) + 1;
-  const _sigH = 20;
-  cell(ML, bottomLibY, CW*0.5, _sigH, 'Comentarios:', {font:'bold', sz:6, valign:'top'});
-
-  const _sigs = (vehicle.testData && vehicle.testData.signatures) || {};
-  const _sigW = CW*0.5;
-  const _sigColW = _sigW / 2;
-
-  // Sub-cell: Technician
-  cell(ML+CW*0.5, bottomLibY, _sigColW, _sigH, '', {});
-  doc.setTextColor(80,80,80); setF('bold', 4.5);
-  doc.text('Tecnico (Doc. VETS)', ML+CW*0.5+1, bottomLibY+2.5);
-  if (_sigs.technician && _sigs.technician.dataUrl) {
-      try { doc.addImage(_sigs.technician.dataUrl, 'PNG', ML+CW*0.5+2, bottomLibY+3.5, _sigColW-4, 9); } catch(e) {}
-      setF('normal', 4); doc.setTextColor(60,60,60);
-      doc.text(_sigs.technician.signerName || '', ML+CW*0.5+1, bottomLibY+14);
-      try { doc.text(new Date(_sigs.technician.signedAt).toLocaleString('es-MX'), ML+CW*0.5+1, bottomLibY+17); } catch(e) {}
-  } else {
-      setF('italic', 4); doc.setTextColor(160,160,160);
-      doc.text('(sin firma)', ML+CW*0.5+1, bottomLibY+10);
+  // Gas Results section
+  const gasResults = (vehicle.testData && vehicle.testData.gasResults) || {};
+  const liberadorGas = gasResults.liberador;
+  if (liberadorGas && liberadorGas.values) {
+      const regName = (vehicle.config && vehicle.config['EMISSION REGULATION']) || vehicle.regulation || '';
+      const regProfile = typeof getRegulationProfile === 'function' ? getRegulationProfile(regName) : null;
+      y += 1;
+      cell(ML, y, CW, 5, 'Resultados de Emisiones', {fill:LT_GREEN, font:'bold', sz:8, align:'center'});
+      y += 5;
+      const gasColW = CW / 4;
+      cell(ML, y, gasColW, 4, 'Gas', {fill:GRAY_BG, font:'bold', sz:6, align:'center'});
+      cell(ML+gasColW, y, gasColW, 4, 'Unidad', {fill:GRAY_BG, font:'bold', sz:6, align:'center'});
+      cell(ML+gasColW*2, y, gasColW, 4, 'Valor', {fill:GRAY_BG, font:'bold', sz:6, align:'center'});
+      cell(ML+gasColW*3, y, gasColW, 4, 'Límite / Estado', {fill:GRAY_BG, font:'bold', sz:6, align:'center'});
+      y += 4;
+      var gasEntries = regProfile ? regProfile.gases : Object.keys(liberadorGas.values).map(function(k){ return {field:k,label:k,unit:'',limit:null}; });
+      gasEntries.forEach(function(g) {
+          var val = liberadorGas.values[g.field];
+          var passStr = (g.limit !== null && g.limit !== undefined && val !== null && val !== undefined)
+              ? (parseFloat(val) <= g.limit ? 'PASA' : 'FALLA')
+              : '—';
+          var passClr = passStr === 'PASA' ? [16,185,129] : passStr === 'FALLA' ? [239,68,68] : [100,116,139];
+          cell(ML, y, gasColW, 4.5, g.label, {font:'bold', sz:6, align:'center'});
+          cell(ML+gasColW, y, gasColW, 4.5, g.unit || '', {sz:6, align:'center'});
+          cell(ML+gasColW*2, y, gasColW, 4.5, val !== null && val !== undefined ? String(val) : '—', {font:'bold', sz:7, align:'center'});
+          var limitStr = (g.limit !== null && g.limit !== undefined ? '≤ ' + g.limit + '  ' : '') + passStr;
+          cell(ML+gasColW*3, y, gasColW, 4.5, limitStr, {font:'bold', sz:5.5, align:'center', color: passClr});
+          y += 4.5;
+      });
+      y += 1;
   }
 
-  // Sub-cell: Releaser
-  cell(ML+CW*0.5+_sigColW, bottomLibY, _sigColW, _sigH, '', {});
+  // Bottom: Comentarios (left) + Firmas digitales (right)
+  const bottomLibY = Math.max(y, ry) + 1;
+  const _sigH = 22;
+  cell(ML, bottomLibY, CW*0.4, _sigH, 'Comentarios:', {font:'bold', sz:6, valign:'top'});
+
+  const _sigs = (vehicle.testData && vehicle.testData.signatures) || {};
+  const _sigColW = CW * 0.3;
+
+  // Sub-cell: Liberador
+  cell(ML+CW*0.4, bottomLibY, _sigColW, _sigH, '', {});
   doc.setTextColor(80,80,80); setF('bold', 4.5);
-  doc.text('Liberador / Signatario', ML+CW*0.5+_sigColW+1, bottomLibY+2.5);
+  doc.text('Liberador', ML+CW*0.4+1, bottomLibY+2.5);
   if (_sigs.releaser && _sigs.releaser.dataUrl) {
-      try { doc.addImage(_sigs.releaser.dataUrl, 'PNG', ML+CW*0.5+_sigColW+2, bottomLibY+3.5, _sigColW-4, 9); } catch(e) {}
+      try { doc.addImage(_sigs.releaser.dataUrl, 'PNG', ML+CW*0.4+2, bottomLibY+3.5, _sigColW-4, 10); } catch(e) {}
       setF('normal', 4); doc.setTextColor(60,60,60);
-      doc.text(_sigs.releaser.signerName || '', ML+CW*0.5+_sigColW+1, bottomLibY+14);
-      try { doc.text(new Date(_sigs.releaser.signedAt).toLocaleString('es-MX'), ML+CW*0.5+_sigColW+1, bottomLibY+17); } catch(e) {}
+      doc.text(_sigs.releaser.signerName || '', ML+CW*0.4+1, bottomLibY+15);
+      try { doc.text(new Date(_sigs.releaser.signedAt).toLocaleString('es-MX'), ML+CW*0.4+1, bottomLibY+18); } catch(e) {}
   } else {
       setF('italic', 4); doc.setTextColor(160,160,160);
-      doc.text('Debe ser personal signatario\no gerente de laboratorio', ML+CW*0.5+_sigColW+1, bottomLibY+8);
+      doc.text('(sin firma)', ML+CW*0.4+1, bottomLibY+10);
+  }
+
+  // Sub-cell: Aprobador
+  cell(ML+CW*0.4+_sigColW, bottomLibY, _sigColW, _sigH, '', {});
+  doc.setTextColor(80,80,80); setF('bold', 4.5);
+  doc.text('Aprobador', ML+CW*0.4+_sigColW+1, bottomLibY+2.5);
+  if (_sigs.approver && _sigs.approver.dataUrl) {
+      try { doc.addImage(_sigs.approver.dataUrl, 'PNG', ML+CW*0.4+_sigColW+2, bottomLibY+3.5, _sigColW-4, 10); } catch(e) {}
+      setF('normal', 4); doc.setTextColor(60,60,60);
+      doc.text(_sigs.approver.signerName || '', ML+CW*0.4+_sigColW+1, bottomLibY+15);
+      try { doc.text(new Date(_sigs.approver.signedAt).toLocaleString('es-MX'), ML+CW*0.4+_sigColW+1, bottomLibY+18); } catch(e) {}
+  } else {
+      setF('italic', 4); doc.setTextColor(160,160,160);
+      doc.text('Pendiente de aprobación', ML+CW*0.4+_sigColW+1, bottomLibY+10);
   }
   y = bottomLibY + _sigH + 1;
 
@@ -3591,7 +3801,7 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   const fY = H - 10;
   doc.setDrawColor(...RED); doc.setLineWidth(0.5); doc.line(ML, fY, ML+CW, fY);
   doc.setTextColor(...RED); setF('bold', 5.5);
-  doc.text('Anexar Evidencia de Aprobación de Resultados vía Teams a la documentación archivada en físico', ML+CW/2, fY+3.5, {align:'center'});
+  doc.text('Documento generado por KIA EmLab — Archivado con doble firma (Liberador + Aprobador)', ML+CW/2, fY+3.5, {align:'center'});
   doc.setTextColor(150,150,150); setF('normal', 4.5);
   doc.text('Config: '+(vehicle.configCode||'N/A')+' | Propósito: '+(vehicle.purpose||'')+' | Generado: '+new Date().toLocaleString('es-MX'), ML+2, fY+7);
 
@@ -4620,10 +4830,11 @@ function renderKanban() {
 
     var vehicles = db.vehicles || [];
     var columns = [
-        { key: 'registered',    label: 'Registrado',       color: '#3b82f6', icon: '📝' },
-        { key: 'in-progress',   label: 'En Progreso',      color: '#f59e0b', icon: '🔧' },
-        { key: 'testing',       label: 'En Prueba',        color: '#8b5cf6', icon: '🧪' },
-        { key: 'ready-release', label: 'Listo p/ Liberar', color: '#10b981', icon: '✅' }
+        { key: 'registered',       label: 'Registrado',       color: '#3b82f6', icon: '📝' },
+        { key: 'in-progress',      label: 'En Progreso',      color: '#f59e0b', icon: '🔧' },
+        { key: 'testing',          label: 'En Prueba',        color: '#8b5cf6', icon: '🧪' },
+        { key: 'ready-release',    label: 'Listo p/ Liberar', color: '#10b981', icon: '✅' },
+        { key: 'pending-approval', label: 'Pend. Aprobación', color: '#7c3aed', icon: '⏳' }
     ];
 
     // Soak timer info
