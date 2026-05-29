@@ -254,6 +254,7 @@
         .status-in-progress { background: #fef3c7; color: #92400e; }
         .status-testing { background: #fed7aa; color: #9a3412; }
         .status-ready-release { background: #d1fae5; color: #065f46; }
+        .status-pending-approval { background: #ede9fe; color: #5b21b6; }
         .status-archived { background: #e5e7eb; color: #374151; }
 
         /* Timeline */
@@ -2497,6 +2498,7 @@ details.acc > summary {
 [data-theme="dark"] .status-in-progress { background: #451a03; color: #fcd34d; }
 [data-theme="dark"] .status-testing { background: #431407; color: #fdba74; }
 [data-theme="dark"] .status-ready-release { background: #052e16; color: #86efac; }
+[data-theme="dark"] .status-pending-approval { background: #2e1065; color: #c4b5fd; }
 [data-theme="dark"] .status-archived { background: #1f2937; color: #9ca3af; }
 
 /* --- Accordion --- */

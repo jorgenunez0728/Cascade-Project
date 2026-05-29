@@ -34,7 +34,7 @@ function pnSave() {
     tabCacheInvalidate('pn'); // Mark all tabs dirty on data change
 }
 
-var _pnTabs = ['pn-dashboard','pn-executive','pn-turnaround','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit'];
+var _pnTabs = ['pn-dashboard','pn-executive','pn-turnaround','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit','pn-regulations'];
 
 // Tabs managed by Alpine reactive templates (no innerHTML needed)
 var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true, 'pn-audit': true };
@@ -63,6 +63,7 @@ function _pnGetRenderer(tabId) {
     if (tabId === 'pn-system') return pnRenderSystemHealth;
     if (tabId === 'pn-calendar') return pnRenderCalendar;
     if (tabId === 'pn-audit') return pnRenderAuditTrail;
+    if (tabId === 'pn-regulations') return pnRenderRegulations;
     return null;
 }
 
@@ -134,11 +135,7 @@ function pnRenderDashboard(el) {
     var tpTotal = latestPlan ? latestPlan.items.length : 0;
     var tpPct = tpTotal > 0 ? Math.round((tpDone / tpTotal) * 100) : 0;
 
-    var raTests = (typeof raState !== 'undefined' && raState.tests) ? raState.tests : [];
-    var raToday = raTests.filter(function(t) {
-        if (!t.importedAt) return false;
-        return t.importedAt.substring(0, 10) === new Date().toISOString().substring(0, 10);
-    }).length;
+    var raToday = 0;
 
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
     var lowGases = invGases.filter(function(g) {
@@ -189,7 +186,7 @@ function pnRenderDashboard(el) {
         { value: activeVehicles.length, label: 'Vehiculos Activos', color: '#3b82f6' },
         { value: archivedToday.length, label: 'Liberados Hoy', color: '#10b981' },
         { value: tpPct, label: 'Plan Semanal', color: '#f59e0b', suffix: '%' },
-        { value: raTests.length, label: 'Pruebas Results', color: '#8b5cf6' },
+        { value: (db.vehicles||[]).filter(function(v){return v.status==='pending-approval';}).length, label: 'Pendiente Aprobación', color: '#8b5cf6' },
         { value: lowGases.length, label: 'Gases Bajos', color: lowGases.length > 0 ? '#ef4444' : '#10b981' },
         { value: pnState.operators.filter(function(o) { return o.active; }).length, label: 'Operadores', color: '#06b6d4' }
     ];
@@ -268,31 +265,6 @@ function pnRenderDashboard(el) {
             html += '</div>';
         });
         html += '</div>';
-    }
-
-    // ── Cpk/Process Capability Summary ──
-    if (raTests.length >= 3) {
-        html += '<div class="tp-card">';
-        html += '<div class="tp-card-title"><span>📈 Capacidad de Proceso (Cpk)</span></div>';
-        var regGroups = {};
-        raTests.forEach(function(t) {
-            var reg = t.emissionReg || t.regSpec || '?';
-            if (!regGroups[reg]) regGroups[reg] = [];
-            regGroups[reg].push(t);
-        });
-        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;">';
-        Object.keys(regGroups).slice(0, 6).forEach(function(reg) {
-            var tests = regGroups[reg];
-            var passCount = tests.filter(function(t) { return typeof raTestVerdict === 'function' && raTestVerdict(t) === 'PASS'; }).length;
-            var passRate = tests.length > 0 ? Math.round((passCount / tests.length) * 100) : 0;
-            var clr = passRate >= 90 ? '#10b981' : passRate >= 70 ? '#f59e0b' : '#ef4444';
-            html += '<div style="padding:10px;border:1px solid ' + clr + '30;border-radius:8px;background:' + clr + '08;text-align:center;">';
-            html += '<div style="font-size:9px;color:var(--tp-dim);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + reg + '">' + reg + '</div>';
-            html += '<div style="font-size:20px;font-weight:800;color:' + clr + ';">' + passRate + '%</div>';
-            html += '<div style="font-size:9px;color:var(--tp-dim);">' + passCount + '/' + tests.length + ' PASS</div>';
-            html += '</div>';
-        });
-        html += '</div></div>';
     }
 
     // ── Inventory Anomalies ──
@@ -947,7 +919,7 @@ function pnRenderIntelligence(el) {
     html += '<p style="color:var(--tp-dim);font-size:11px;margin:0 0 16px 0;">Correlaciones automáticas entre módulos para detectar patrones.</p>';
 
     // Gather data from all modules
-    var tests = (typeof raState !== 'undefined' && raState.tests) ? raState.tests : [];
+    var tests = [];
     var gasItems = [];
     var fuelItems = [];
     if (typeof invState !== 'undefined' && invState.items) {
@@ -1178,15 +1150,13 @@ function pnRenderSystemHealth(el) {
     var storageKeys = [
         { key: 'kia_db_v11', label: 'COP15 (Base de Datos)', module: 'cop15' },
         { key: 'kia_testplan_v1', label: 'Test Plan Manager', module: 'testplan' },
-        { key: 'kia_results_v1', label: 'Results Analyzer', module: 'results' },
+        { key: 'kia_regulations_v1', label: 'Perfiles de Regulación', module: 'regulations' },
         { key: 'kia_lab_inventory', label: 'Lab Inventory', module: 'inventory' },
         { key: 'kia_panel_v1', label: 'Panel', module: 'panel' },
         { key: 'kia_chart_configs', label: 'Chart Configs', module: 'charts' },
         { key: 'kia_entity_notes', label: 'Notas', module: 'notes' },
         { key: 'kia_soak_timer', label: 'Soak Timer', module: 'soak' },
-        { key: 'kia_firebase_queue', label: 'Firebase Queue', module: 'firebase' },
-        { key: 'kia_pa_config', label: 'Power Automate Config', module: 'approvals' },
-        { key: 'kia_pa_queue', label: 'Power Automate Queue', module: 'approvals' }
+        { key: 'kia_firebase_queue', label: 'Firebase Queue', module: 'firebase' }
     ];
 
     var totalBytes = 0;
@@ -1267,19 +1237,6 @@ function pnRenderSystemHealth(el) {
         agingData.push({ label: 'COP15 Vehículos', module: 'cop15', d30: cop30, d60: cop60, d90: cop90, total: db.vehicles.length });
     }
 
-    // RA tests aging
-    if (typeof raState !== 'undefined' && raState.tests) {
-        var ra30 = 0, ra60 = 0, ra90 = 0;
-        raState.tests.forEach(function(t) {
-            if (!t.date) return;
-            var age = (now - new Date(t.date).getTime()) / 86400000;
-            if (age > 90) ra90++;
-            else if (age > 60) ra60++;
-            else if (age > 30) ra30++;
-        });
-        agingData.push({ label: 'Resultados (Pruebas)', module: 'results', d30: ra30, d60: ra60, d90: ra90, total: raState.tests.length });
-    }
-
     // TP records aging
     if (typeof tpState !== 'undefined' && tpState.plans) {
         var tp30 = 0, tp60 = 0, tp90 = 0, tpTotal = 0;
@@ -1329,17 +1286,9 @@ function pnRenderSystemHealth(el) {
 
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
     html += '<button class="tp-btn" onclick="pnPurgeOldData(\'cop15\', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>';
-    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'results\', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Resultados >90 días</button>';
     html += '<button class="tp-btn" onclick="pnPurgeOldData(\'testplan\', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>';
     html += '<button class="tp-btn" onclick="pnPurgeOldData(\'notes\', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>';
     html += '</div>';
-    html += '</div>';
-
-    // ── Power Automate Approvals ──
-    html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
-    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">&#9889; Power Automate — Aprobación de Emisiones</h4>';
-    html += '<p style="color:var(--tp-dim);font-size:10px;margin:0 0 10px 0;">Dispara automáticamente el flujo de aprobación en Microsoft Teams al registrar o liberar un vehículo. Elimina la dependencia del escaneo manual.</p>';
-    html += '<div id="pa-config-container"></div>';
     html += '</div>';
 
     // ── Performance ──
@@ -1356,9 +1305,6 @@ function pnRenderSystemHealth(el) {
 
     html += '</div>';
     el.innerHTML = html;
-
-    // Render Power Automate config UI after DOM is set
-    if (typeof paRenderConfigUI === 'function') paRenderConfigUI();
 }
 
 function _pnFormatBytes(bytes) {
@@ -1395,13 +1341,6 @@ function pnPurgeOldData(module, maxDays) {
             });
             count = before - db.vehicles.length;
             if (count > 0) saveDB();
-        } else if (module === 'results' && typeof raState !== 'undefined' && raState.tests) {
-            var before2 = raState.tests.length;
-            raState.tests = raState.tests.filter(function(t) {
-                return !t.date || new Date(t.date).getTime() >= cutoff;
-            });
-            count = before2 - raState.tests.length;
-            if (count > 0 && typeof raSave === 'function') raSave();
         } else if (module === 'testplan' && typeof tpState !== 'undefined' && tpState.plans) {
             tpState.plans.forEach(function(p) {
                 if (!p.records) return;
@@ -2096,15 +2035,6 @@ function panelAlpineComponent() {
                 });
                 data.push({ label: 'COP15 Vehículos', total: db.vehicles.length, d30: c30, d60: c60, d90: c90 });
             }
-            if (typeof raState !== 'undefined' && raState.tests) {
-                var r30 = 0, r60 = 0, r90 = 0;
-                raState.tests.forEach(function(t) {
-                    if (!t.date) return;
-                    var age = (now - new Date(t.date).getTime()) / 86400000;
-                    if (age > 90) r90++; else if (age > 60) r60++; else if (age > 30) r30++;
-                });
-                data.push({ label: 'Resultados (Pruebas)', total: raState.tests.length, d30: r30, d60: r60, d90: r90 });
-            }
             if (typeof tpState !== 'undefined' && tpState.plans) {
                 var t30 = 0, t60 = 0, t90 = 0, tTotal = 0;
                 tpState.plans.forEach(function(p) {
@@ -2459,4 +2389,154 @@ function pnRenderTurnaround(el) {
     html += '</div></div>';
 
     el.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// REGULATION PROFILES MANAGEMENT TAB
+// ══════════════════════════════════════════════════════════════════════
+
+function pnRenderRegulations(el) {
+    var profiles = getAllRegulationProfiles();
+    var html = '<div style="padding:4px 0;">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">';
+    html += '<h3 style="margin:0;font-size:14px;">⚗️ Perfiles de Regulación de Emisiones</h3>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="pnRegAddNew()" style="font-size:11px;padding:6px 14px;">+ Agregar Regulación</button>';
+    html += '</div>';
+
+    if (profiles.length === 0) {
+        html += '<div class="tp-card" style="text-align:center;padding:32px;">';
+        html += '<div style="font-size:32px;margin-bottom:8px;">⚗️</div>';
+        html += '<div style="font-weight:700;margin-bottom:6px;">No hay perfiles configurados</div>';
+        html += '<div style="color:var(--tp-dim);font-size:11px;margin-bottom:16px;">Los perfiles definen qué gases medir y sus límites máximos por regulación.</div>';
+        html += '<button class="tp-btn tp-btn-primary" onclick="pnRegAddNew()">+ Agregar primer perfil</button>';
+        html += '</div>';
+    } else {
+        profiles.forEach(function(p) {
+            html += '<div class="tp-card" style="margin-bottom:10px;">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+            html += '<div><div style="font-weight:700;font-size:13px;">' + escapeHtml(p.name) + '</div>';
+            html += '<div style="font-size:10px;color:var(--tp-dim);">' + p.gases.length + ' gas' + (p.gases.length !== 1 ? 'es' : '') + ' configurado' + (p.gases.length !== 1 ? 's' : '') + '</div></div>';
+            html += '<div style="display:flex;gap:6px;">';
+            html += '<button class="tp-btn" onclick="pnRegEdit(\'' + escapeHtml(p.id) + '\')" style="font-size:10px;padding:4px 10px;">✏️ Editar</button>';
+            html += '<button class="tp-btn" onclick="pnRegDelete(\'' + escapeHtml(p.id) + '\')" style="font-size:10px;padding:4px 10px;color:#ef4444;">🗑️</button>';
+            html += '</div></div>';
+            if (p.gases.length > 0) {
+                html += '<div style="overflow-x:auto;"><table style="width:100%;font-size:10px;border-collapse:collapse;">';
+                html += '<tr style="color:var(--tp-dim);border-bottom:1px solid rgba(0,0,0,0.08);"><th style="text-align:left;padding:3px 6px;">Gas</th><th style="text-align:center;padding:3px 6px;">Unidad</th><th style="text-align:center;padding:3px 6px;">Límite</th></tr>';
+                p.gases.forEach(function(g) {
+                    html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.05);">';
+                    html += '<td style="padding:4px 6px;font-weight:600;">' + escapeHtml(g.label) + '</td>';
+                    html += '<td style="text-align:center;padding:4px 6px;color:var(--tp-dim);">' + escapeHtml(g.unit) + '</td>';
+                    html += '<td style="text-align:center;padding:4px 6px;">' + (g.limit !== null && g.limit !== undefined ? '<span style="font-weight:700;color:#dc2626;">' + g.limit + '</span>' : '<span style="color:var(--tp-dim);">Sin límite</span>') + '</td>';
+                    html += '</tr>';
+                });
+                html += '</table></div>';
+            }
+            html += '</div>';
+        });
+    }
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+function pnRegAddNew() { _pnRegShowModal(null); }
+
+function pnRegEdit(id) {
+    var data = loadRegulations();
+    var profile = data.profiles.find(function(p) { return p.id === id; });
+    if (profile) _pnRegShowModal(profile);
+}
+
+function pnRegDelete(id) {
+    var data = loadRegulations();
+    var profile = data.profiles.find(function(p) { return p.id === id; });
+    if (!profile) return;
+    showConfirm('¿Eliminar el perfil "' + profile.name + '"? Los vehículos con esta regulación no podrán ser liberados hasta recrear el perfil.', function() {
+        data.profiles = data.profiles.filter(function(p) { return p.id !== id; });
+        saveRegulations();
+        _regulationsData = data;
+        pnSwitchTab('pn-regulations');
+        showToast('Perfil eliminado', 'success');
+    }, { title: 'Eliminar Perfil', type: 'danger', confirmText: 'Eliminar' });
+}
+
+function _pnRegShowModal(profile) {
+    var isNew = !profile;
+    var p = profile ? JSON.parse(JSON.stringify(profile)) : { id: 'reg_' + Date.now(), name: '', gases: [] };
+
+    var gasRowsHtml = '';
+    p.gases.forEach(function(g, i) { gasRowsHtml += _pnRegGasRowHtml(i, g); });
+
+    var bodyHtml =
+        '<div style="margin-bottom:12px;">' +
+        '<label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px;">Nombre de la Regulación *</label>' +
+        '<input id="reg-modal-name" class="form-control" value="' + escapeHtml(p.name) + '" placeholder="Ej: EURO-6C, NOM-163, SULEV 30" style="width:100%;box-sizing:border-box;">' +
+        '</div>' +
+        '<div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+        '<label style="font-size:11px;font-weight:600;">Gases a medir</label>' +
+        '<button class="tp-btn tp-btn-ghost" onclick="pnRegAddGasRow()" style="font-size:10px;padding:3px 10px;">+ Agregar gas</button>' +
+        '</div>' +
+        '<table style="width:100%;font-size:11px;border-collapse:collapse;">' +
+        '<thead><tr style="color:var(--tp-dim);font-size:10px;"><th style="text-align:left;padding:3px;">Campo</th><th style="text-align:left;padding:3px;">Etiqueta</th><th style="text-align:left;padding:3px;">Unidad</th><th style="text-align:center;padding:3px;">Límite (vacío=sin lím.)</th><th></th></tr></thead>' +
+        '<tbody id="reg-gas-rows">' + gasRowsHtml + '</tbody>' +
+        '</table></div>';
+
+    showModal({
+        title: isNew ? 'Agregar Perfil de Regulación' : 'Editar Perfil: ' + escapeHtml(p.name),
+        body: bodyHtml,
+        buttons: [
+            { label: 'Cancelar', cls: 'btn-secondary', onclick: function() { document.getElementById('globalModal').style.display='none'; } },
+            { label: isNew ? 'Crear Perfil' : 'Guardar Cambios', cls: 'btn-primary', onclick: function() {
+                var name = document.getElementById('reg-modal-name').value.trim();
+                if (!name) { showToast('El nombre es requerido', 'error'); return; }
+                var rows = document.querySelectorAll('#reg-gas-rows tr[data-gas-idx]');
+                var gases = [];
+                rows.forEach(function(row) {
+                    var field = row.querySelector('.reg-gas-field').value.trim().toUpperCase().replace(/\s+/g,'');
+                    var label = row.querySelector('.reg-gas-label').value.trim();
+                    var unit  = row.querySelector('.reg-gas-unit').value.trim();
+                    var limitVal = row.querySelector('.reg-gas-limit').value.trim();
+                    var limit = limitVal === '' ? null : parseFloat(limitVal);
+                    if (field && label) gases.push({ field: field, label: label, unit: unit || 'g/km', limit: isNaN(limit) ? null : limit });
+                });
+                if (gases.length === 0) { showToast('Agrega al menos un gas', 'error'); return; }
+                var data = loadRegulations();
+                var existing = data.profiles.find(function(x) { return x.id === p.id; });
+                if (existing) {
+                    existing.name = name; existing.shortName = name; existing.gases = gases; existing.updatedAt = new Date().toISOString();
+                } else {
+                    data.profiles.push({ id: p.id, name: name, shortName: name, gases: gases, createdAt: new Date().toISOString() });
+                }
+                saveRegulations();
+                _regulationsData = data;
+                document.getElementById('globalModal').style.display = 'none';
+                pnSwitchTab('pn-regulations');
+                showToast(isNew ? 'Perfil creado' : 'Perfil actualizado', 'success');
+            }}
+        ]
+    });
+}
+
+function _pnRegGasRowHtml(i, g) {
+    return '<tr data-gas-idx="' + i + '">' +
+        '<td style="padding:2px;"><input class="form-control reg-gas-field" value="' + escapeHtml(g.field||'') + '" placeholder="CO" style="width:55px;font-size:10px;"></td>' +
+        '<td style="padding:2px;"><input class="form-control reg-gas-label" value="' + escapeHtml(g.label||'') + '" placeholder="CO" style="width:65px;font-size:10px;"></td>' +
+        '<td style="padding:2px;"><input class="form-control reg-gas-unit" value="' + escapeHtml(g.unit||'g/km') + '" placeholder="g/km" style="width:50px;font-size:10px;"></td>' +
+        '<td style="padding:2px;text-align:center;"><input class="form-control reg-gas-limit" type="number" step="0.001" value="' + (g.limit!=null?g.limit:'') + '" placeholder="—" style="width:65px;font-size:10px;text-align:center;"></td>' +
+        '<td style="padding:2px;"><button onclick="this.closest(\'tr\').remove()" class="tp-btn" style="padding:2px 6px;font-size:10px;color:#ef4444;">✕</button></td>' +
+        '</tr>';
+}
+
+function pnRegAddGasRow() {
+    var tbody = document.getElementById('reg-gas-rows');
+    if (!tbody) return;
+    var idx = tbody.querySelectorAll('tr[data-gas-idx]').length;
+    var tr = document.createElement('tr');
+    tr.setAttribute('data-gas-idx', idx);
+    tr.innerHTML = '<td style="padding:2px;"><input class="form-control reg-gas-field" value="" placeholder="CO" style="width:55px;font-size:10px;"></td>' +
+        '<td style="padding:2px;"><input class="form-control reg-gas-label" value="" placeholder="CO" style="width:65px;font-size:10px;"></td>' +
+        '<td style="padding:2px;"><input class="form-control reg-gas-unit" value="g/km" placeholder="g/km" style="width:50px;font-size:10px;"></td>' +
+        '<td style="padding:2px;text-align:center;"><input class="form-control reg-gas-limit" type="number" step="0.001" value="" placeholder="—" style="width:65px;font-size:10px;text-align:center;"></td>' +
+        '<td style="padding:2px;"><button onclick="this.closest(\'tr\').remove()" class="tp-btn" style="padding:2px 6px;font-size:10px;color:#ef4444;">✕</button></td>';
+    tbody.appendChild(tr);
 }
