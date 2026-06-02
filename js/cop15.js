@@ -167,6 +167,13 @@ setAltaDatetimeIfEmpty(true);
         
         if(filtered.length === 1) {
             const config = filtered[0];
+            const _regName = config['EMISSION REGULATION'] || '';
+            const _hasProfile = (typeof getRegulationProfile === 'function') ? !!getRegulationProfile(_regName) : true;
+            const _regHint = (_regName && !_hasProfile) ? `
+                <div style="margin-top:10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#b45309;">
+                    ⚠️ La regulación <strong>${escapeHtml(_regName)}</strong> no tiene perfil de límites configurado. Será necesario para liberar emisiones.
+                    <button onclick="switchPlatform('panel');setTimeout(function(){if(typeof pnSwitchTab==='function')pnSwitchTab('pn-regulations');},150);" style="margin-left:6px;background:#b45309;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">⚗️ Configurar</button>
+                </div>` : '';
             resultDiv.innerHTML = `
                 <strong>✅ CONFIGURACIÓN ÚNICA ENCONTRADA:</strong><br>
                 <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
@@ -182,7 +189,7 @@ setAltaDatetimeIfEmpty(true);
                     <strong>Transmisión:</strong> ${config.TRANSMISSION} |
  			<strong>Env:</strong> ${config['ENVIRONMENT PACKAGE']} |
                     <strong>Regulación:</strong> ${config['EMISSION REGULATION']}
-                </div>
+                </div>${_regHint}
             `;
         } else {
             resultDiv.innerHTML = `
@@ -254,6 +261,67 @@ function getCascadeOptionsForLevel(fieldName) {
         return { value: val, count: counts[val] };
     });
     return { options: options, totalFiltered: filtered.length };
+}
+
+// ── Type-ahead config search (sits on top of the cascade tree) ──
+function cascadeSearch(q) {
+    var box = document.getElementById('cascade-search-results');
+    if (!box) return;
+    q = (q || '').trim().toLowerCase();
+    if (q.length < 2) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    var terms = q.split(/\s+/);
+    var matches = (allConfigurations || []).filter(function(c) {
+        var hay = ((c.Modelo||'') + ' ' + (c['MODEL YEAR (VIN)']||'') + ' ' + (c['ENGINE CAPACITY']||'') + ' ' +
+            (c.TRANSMISSION||'') + ' ' + (c['EMISSION REGULATION']||'') + ' ' + (c['DRIVE TYPE']||'') + ' ' +
+            (c['BODY TYPE']||'') + ' ' + (c.REGION||'') + ' ' + (c.codigo_config_text||'')).toLowerCase();
+        return terms.every(function(t) { return hay.indexOf(t) !== -1; });
+    }).slice(0, 12);
+    if (matches.length === 0) {
+        box.style.display = 'block';
+        box.innerHTML = '<div style="padding:8px 10px;color:#94a3b8;font-size:12px;">Sin coincidencias</div>';
+        return;
+    }
+    var html = '';
+    matches.forEach(function(c) {
+        var i = allConfigurations.indexOf(c);
+        var label = (c.Modelo||'') + ' ' + (c['MODEL YEAR (VIN)']||'') + ' · ' + (c['ENGINE CAPACITY']||'') + ' ' +
+            (c.TRANSMISSION||'') + ' · ' + (c['EMISSION REGULATION']||'');
+        html += '<button type="button" onclick="cascadePickConfig(allConfigurations[' + i + '])" style="display:block;width:100%;text-align:left;border:none;border-bottom:1px solid #f1f5f9;background:#fff;padding:8px 10px;font-size:12px;cursor:pointer;">' + escapeHtml(label) + '</button>';
+    });
+    box.style.display = 'block';
+    box.innerHTML = html;
+}
+
+// Apply a full config selection from the type-ahead picker (reuses cascade state).
+function cascadePickConfig(cfg) {
+    if (!cfg) return;
+    var fields = Object.keys(fieldMapping);
+    // Clear current cascade state (keep object references intact)
+    fields.forEach(function(f) { delete cascadeSelections[f]; delete cascadeAutoSelected[f]; delete currentFilters[f]; });
+    // Set every level from the picked config
+    fields.forEach(function(f) {
+        if (cfg[f]) {
+            cascadeSelections[f] = cfg[f];
+            currentFilters[f] = cfg[f];
+            var sel = document.getElementById(fieldMapping[f]);
+            if (sel) {
+                if (![].some.call(sel.options, function(o){ return o.value === cfg[f]; })) {
+                    var o = document.createElement('option'); o.value = cfg[f]; o.textContent = cfg[f]; sel.appendChild(o);
+                }
+                sel.value = cfg[f]; sel.classList.add('selected');
+            }
+        }
+    });
+    var filtered = allConfigurations.filter(function(c) {
+        for (var f in currentFilters) { if (c[f] !== currentFilters[f]) return false; }
+        return true;
+    });
+    updateSelectOptions(filtered);
+    var cntEl = document.getElementById('configCount'); if (cntEl) cntEl.textContent = filtered.length;
+    renderCascadeTree();
+    displayConfigResult(filtered);
+    var box = document.getElementById('cascade-search-results'); if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+    var inp = document.getElementById('cascade-search-input'); if (inp) inp.value = '';
 }
 
 function renderCascadeTree() {
@@ -2081,6 +2149,7 @@ function libOnApproverGasChange() {
     var btn = document.getElementById('approve-archive-btn');
     if (!matchStatus || !btn) return;
     var mismatches = [];
+    var mismatchFields = [];
     var hasAllValues = true;
     profile.gases.forEach(function(g) {
         var approverVal = approverValues[g.field];
@@ -2089,8 +2158,14 @@ function libOnApproverGasChange() {
         if (liberadorVal !== null && liberadorVal !== undefined) {
             if (_libNormalizeVal(approverVal) !== _libNormalizeVal(liberadorVal)) {
                 mismatches.push(g.label);
+                mismatchFields.push(g.field);
             }
         }
+    });
+    // Reset per-row mismatch cue (never reveals the liberador's value)
+    profile.gases.forEach(function(g) {
+        var row = document.getElementById('lib-gas-row-' + g.field);
+        if (row) row.style.boxShadow = '';
     });
     if (!hasAllValues) {
         matchStatus.style.display = 'none';
@@ -2105,6 +2180,10 @@ function libOnApproverGasChange() {
         matchStatus.innerHTML = '✓ Valores concordantes con el liberador';
         btn.disabled = false;
     } else {
+        mismatchFields.forEach(function(f) {
+            var row = document.getElementById('lib-gas-row-' + f);
+            if (row) { row.style.background = 'rgba(239,68,68,0.12)'; row.style.boxShadow = 'inset 3px 0 0 #ef4444'; }
+        });
         matchStatus.style.background = 'rgba(239,68,68,0.1)';
         matchStatus.style.border = '1px solid rgba(239,68,68,0.3)';
         matchStatus.style.color = '#ef4444';

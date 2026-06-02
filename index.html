@@ -156,6 +156,11 @@
 
             <!-- MODO INTERNO: Configuración con filtros en cascada -->
             <div id="container-internal">
+                <!-- Type-ahead config search (atajo sobre el árbol) -->
+                <div style="margin-bottom:12px;position:relative;">
+                    <input id="cascade-search-input" type="text" autocomplete="off" placeholder="🔎 Buscar configuración (modelo, año, motor, regulación...)" oninput="cascadeSearch(this.value)" style="width:100%;padding:10px 12px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    <div id="cascade-search-results" style="display:none;position:absolute;z-index:50;left:0;right:0;top:calc(100% + 2px);background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);max-height:280px;overflow-y:auto;"></div>
+                </div>
                 <!-- Visual Cascade Tree -->
                 <div id="cascade-tree-container">
                     <div id="cascade-breadcrumb" class="cascade-breadcrumb"></div>
@@ -825,6 +830,7 @@
 
         <!-- ── SUB-TAB A: LIBERADOR ── -->
         <div id="lib-panel-liberador">
+            <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#1d4ed8;">📋 <strong>Liberador:</strong> captura tus lecturas de gases. El aprobador las verificará por separado (doble ciego).</div>
             <div id="v7-batch-release" style="display:none;margin-bottom:12px;"></div>
             <div class="form-group">
                 <label>Seleccionar Vehículo para Liberar</label>
@@ -868,6 +874,7 @@
 
         <!-- ── SUB-TAB B: APROBADOR ── -->
         <div id="lib-panel-aprobador" style="display:none;">
+            <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#7c3aed;">✅ <strong>Aprobador:</strong> ingresa tus propias lecturas. No verás las del liberador; el sistema confirma si coinciden.</div>
             <div class="form-group">
                 <label>Seleccionar Vehículo Pendiente de Aprobación</label>
                 <select id="approvalVehSelect" onchange="loadApproval()">
