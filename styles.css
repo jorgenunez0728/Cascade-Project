@@ -1868,6 +1868,14 @@ button:focus-visible { outline-offset: 1px; }
     font-size: 11px; font-weight: 800; padding: 2px 8px;
     border-radius: 6px; white-space: nowrap; flex-shrink: 0;
 }
+/* Action chip on dashboard cards — clear "tap to resolve" affordance */
+.daily-dash-card-action {
+    font-size: 11px; font-weight: 800; padding: 5px 10px;
+    border-radius: 8px; white-space: nowrap; flex-shrink: 0;
+    box-shadow: var(--shadow-sm); transition: transform .12s, filter .12s;
+}
+.daily-dash-card:hover .daily-dash-card-action { filter: brightness(1.08); }
+.daily-dash-card:active .daily-dash-card-action { transform: scale(0.96); }
 .daily-dash-card.soak-active {
     border-color: #fcd34d; background: linear-gradient(135deg, #fffbeb, #fff);
 }

@@ -1678,6 +1678,22 @@ function switchPlatform(platform, swipeDir) {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 /** Toggle the advanced-tabs dropdown for a module tab bar. */
+/** Deep-link helper for the "Hoy" dashboard cards: switch platform, optional
+ *  sub-tab, then optionally invoke an action (e.g. open an edit modal) by name. */
+function dashGo(platform, tabId, action, id) {
+    if (typeof switchPlatform === 'function') switchPlatform(platform);
+    setTimeout(function() {
+        if (tabId) {
+            if (platform === 'inventory' && typeof invSwitchTab === 'function') invSwitchTab(tabId);
+            else if (platform === 'testplan' && typeof tpSwitchTab === 'function') tpSwitchTab(tabId);
+            else if (platform === 'panel' && typeof pnSwitchTab === 'function') pnSwitchTab(tabId);
+        }
+        if (action && typeof window[action] === 'function') {
+            setTimeout(function() { try { window[action](id); } catch(e) {} }, 220);
+        }
+    }, 160);
+}
+
 function toggleTabMore(btn) {
     var wrap = btn && btn.closest ? btn.closest('.tp-tab-more-wrap') : null;
     if (!wrap) return;
@@ -1718,7 +1734,7 @@ function dailyDashRender() {
     // ── Recordatorios de captura de lecturas (gases + combustible) ──
     // (a) progreso de captura de hoy  (b) días desde la última captura
     var readingReminderShown = false;
-    var rdGoTo = "switchPlatform('inventory');setTimeout(function(){if(typeof invSwitchTab===&#39;function&#39;)invSwitchTab(&#39;inv-readings&#39;);},150);";
+    var rdGoTo = "dashGo('inventory','inv-readings')";
     var rdStatus = typeof invReadingStatusToday === 'function' ? invReadingStatusToday() : { inUseTotal: 0, capturedToday: 0, daysSinceLast: null };
 
     if (rdStatus.inUseTotal > 0 && rdStatus.capturedToday < rdStatus.inUseTotal) {
@@ -1731,7 +1747,7 @@ function dailyDashRender() {
         html += '<div class="daily-dash-card-title">Lecturas de hoy: ' + rdStatus.capturedToday + '/' + rdStatus.inUseTotal + ' capturados</div>';
         html += '<div class="daily-dash-week-bar"><div class="daily-dash-week-fill" style="width:' + rdPct + '%"></div></div>';
         html += '</div>';
-        html += '<div class="daily-dash-card-badge" style="background:#ecfeff;color:#0891b2;">Capturar</div>';
+        html += '<div class="daily-dash-card-action" style="background:#0891b2;color:#fff;">Capturar ›</div>';
         html += '</div></div>';
         readingReminderShown = true;
     }
@@ -1745,7 +1761,7 @@ function dailyDashRender() {
         html += '<div class="daily-dash-card-icon" style="background:' + (daysCritical ? '#fef2f2' : '#fef3c7') + ';color:' + (daysCritical ? '#dc2626' : '#d97706') + ';">📅</div>';
         html += '<div class="daily-dash-card-body"><div class="daily-dash-card-title">' + daysTxt + '</div>';
         html += '<div class="daily-dash-card-meta">Toca para capturar gases y combustible</div></div>';
-        html += '<div class="daily-dash-card-badge" style="background:' + (daysCritical ? '#fef2f2' : '#fef3c7') + ';color:' + (daysCritical ? '#dc2626' : '#d97706') + ';">Capturar ahora</div>';
+        html += '<div class="daily-dash-card-action" style="background:' + (daysCritical ? '#dc2626' : '#d97706') + ';color:#fff;">Capturar ahora ›</div>';
         html += '</div></div>';
         readingReminderShown = true;
     }
@@ -1876,38 +1892,44 @@ function dailyDashRender() {
         html += '</div>';
     }
 
-    // ── Inventory Alerts ──
+    // ── Inventory Alerts (deep-link a cada ítem) ──
     var invAlerts = [];
     if (typeof invState !== 'undefined' && invState.gases) {
         invState.gases.forEach(function(g) {
             if (typeof invGasExpiry === 'function') {
                 var exp = invGasExpiry(g);
-                if (exp.status === 'expired') invAlerts.push({ icon: '⚠️', text: g.formula + ' #' + g.controlNo + ' VENCIDO', type: 'critical' });
+                if (exp.status === 'expired') invAlerts.push({ icon: '⚠️', text: g.formula + ' #' + g.controlNo + ' VENCIDO', type: 'critical', tab: 'inv-gases', action: 'invEditGas', id: g.id, chip: 'Reemplazar' });
             }
             if (typeof invGasLevel === 'function') {
                 var lvl = invGasLevel(g);
-                if (lvl.pct < 15 && lvl.pct >= 0) invAlerts.push({ icon: '📉', text: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', type: 'warning' });
+                if (lvl.pct < 15 && lvl.pct >= 0) invAlerts.push({ icon: '📉', text: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', type: 'warning', tab: 'inv-gases', action: 'invEditGas', id: g.id, chip: 'Reponer' });
             }
         });
         if (invState.equipment) {
             invState.equipment.forEach(function(e) {
                 if (!e.nextCalDate) return;
                 var diff = Math.round((new Date(e.nextCalDate) - now) / (1000*60*60*24));
-                if (diff < 0) invAlerts.push({ icon: '🔧', text: e.name + ' calibración vencida', type: 'critical' });
-                else if (diff <= 7) invAlerts.push({ icon: '🔧', text: e.name + ' calibra en ' + diff + ' días', type: 'warning' });
+                if (diff < 0) invAlerts.push({ icon: '🔧', text: e.name + ' calibración vencida', type: 'critical', tab: 'inv-equipment', action: 'invEditEquipment', id: e.id, chip: 'Calibrar' });
+                else if (diff <= 7) invAlerts.push({ icon: '🔧', text: e.name + ' calibra en ' + diff + ' días', type: 'warning', tab: 'inv-equipment', action: 'invEditEquipment', id: e.id, chip: 'Calibrar' });
             });
         }
     }
     if (invAlerts.length > 0) {
+        // Críticos primero
+        invAlerts.sort(function(a, b) { return (a.type === 'critical' ? 0 : 1) - (b.type === 'critical' ? 0 : 1); });
         html += '<div class="daily-dash-section">';
         html += '<div class="daily-dash-section-title">⚠️ Alertas de Inventario (' + invAlerts.length + ')</div>';
-        invAlerts.slice(0, 4).forEach(function(a) {
-            html += '<div class="daily-dash-card ' + (a.type === 'critical' ? 'alert-critical' : '') + '" onclick="switchPlatform(\'inventory\')">';
+        html += '<div style="max-height:340px;overflow-y:auto;">';
+        invAlerts.forEach(function(a) {
+            var goer = a.id ? "dashGo('inventory','" + a.tab + "','" + a.action + "','" + a.id + "')" : "dashGo('inventory','inv-dashboard')";
+            var chipBg = a.type === 'critical' ? '#dc2626' : '#d97706';
+            html += '<div class="daily-dash-card ' + (a.type === 'critical' ? 'alert-critical' : '') + '" onclick="' + goer + '">';
             html += '<div class="daily-dash-card-icon" style="background:' + (a.type === 'critical' ? '#fef2f2' : '#fef3c7') + ';">' + a.icon + '</div>';
             html += '<div class="daily-dash-card-body"><div class="daily-dash-card-title">' + a.text + '</div></div>';
+            html += '<div class="daily-dash-card-action" style="background:' + chipBg + ';color:#fff;">' + (a.chip || 'Revisar') + ' ›</div>';
             html += '</div>';
         });
-        html += '</div>';
+        html += '</div></div>';
     }
 
     // ── Week Progress (Test Plan) ──
@@ -1945,7 +1967,7 @@ function dailyDashRender() {
         var lModel = lastVehicle.config ? (lastVehicle.config.Modelo || '') : '';
         html += '<div class="daily-dash-action" onclick="switchPlatform(\'cop15\');setTimeout(function(){var s=document.getElementById(\'activeVehSelect\');if(s){s.value=\'' + lastVehicle.id + '\';loadVehicle();var t=document.querySelector(\'.tab[data-tab=seguimiento]\');if(t)t.click();}},200);"><span class="daily-dash-action-icon">📝</span>Último: ' + lModel + '</div>';
     } else {
-        html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
+        html += '<div class="daily-dash-action" onclick="dashGo(\'inventory\',\'inv-readings\')"><span class="daily-dash-action-icon">🧪</span>Captura</div>';
     }
 
     html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
