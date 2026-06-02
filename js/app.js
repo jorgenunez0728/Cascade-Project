@@ -1674,6 +1674,26 @@ function switchPlatform(platform, swipeDir) {
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
+// ║  Sub-tab overflow menu ("⋯ Más") — navigation simplification         ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+/** Toggle the advanced-tabs dropdown for a module tab bar. */
+function toggleTabMore(btn) {
+    var wrap = btn && btn.closest ? btn.closest('.tp-tab-more-wrap') : null;
+    if (!wrap) return;
+    var wasOpen = wrap.classList.contains('open');
+    // Close any other open menus first
+    document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); });
+    if (!wasOpen) wrap.classList.add('open');
+}
+
+// Close the overflow menu when clicking elsewhere (capture once globally).
+document.addEventListener('click', function(e) {
+    var inWrap = e.target && e.target.closest ? e.target.closest('.tp-tab-more-wrap') : null;
+    if (!inWrap) document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); });
+});
+
+// ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [M16] DAILY DASHBOARD — Vista Hoy                                  ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 

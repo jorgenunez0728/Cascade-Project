@@ -975,14 +975,19 @@
 
     <div class="tp-tabs" id="tp-tabs-bar" role="tablist" aria-label="Secciones Test Plan">
         <button class="tp-tab active" role="tab" aria-selected="true" onclick="tpSwitchTab('tp-dashboard')">📊 Dashboard</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-tested')">✏️ Probados</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-families')">🧬 Familias</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-rules')">⚙️ Reglas</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-weekly')">📅 Plan Semanal</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-weekhistory')">📋 Historial Sem</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-calendar')">🗓️ Calendario</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-simulator')">🔮 Simulador</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-production')">🏭 Producción</button>
+        <div class="tp-tab-more-wrap">
+            <button type="button" class="tp-tab tp-tab-more-btn" aria-haspopup="true" onclick="toggleTabMore(this)" title="Más secciones">⋯ Más</button>
+            <div class="tp-tab-more-menu" role="menu">
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-tested');this.closest('.tp-tab-more-wrap').classList.remove('open')">✏️ Probados</button>
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-families');this.closest('.tp-tab-more-wrap').classList.remove('open')">🧬 Familias</button>
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-rules');this.closest('.tp-tab-more-wrap').classList.remove('open')">⚙️ Reglas</button>
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-weekhistory');this.closest('.tp-tab-more-wrap').classList.remove('open')">📋 Historial Sem</button>
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-calendar');this.closest('.tp-tab-more-wrap').classList.remove('open')">🗓️ Calendario</button>
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="tpSwitchTab('tp-simulator');this.closest('.tp-tab-more-wrap').classList.remove('open')">🔮 Simulador</button>
+            </div>
+        </div>
     </div>
 
     <div class="tp-main">
@@ -1003,16 +1008,21 @@
         </div>
         <div class="tp-tabs" id="inv-tabs-bar" role="tablist" aria-label="Secciones Inventory" style="margin-bottom:12px;">
             <button class="tp-tab active" role="tab" aria-selected="true" onclick="invSwitchTab('inv-dashboard')">📊 Dashboard</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-readings')">📏 Captura</button>
             <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-gases')">🔴 Gases</button>
-            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-equipment')">🔧 Equipos</button>
-            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-readings')">📏 Lecturas</button>
-            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-predict')">🔮 Predicción</button>
-            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-fuel')">⛽ Combustible</button>
-            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-zonemap')">🗺️ Mapa</button>
-            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-charts')">📈 Graficas</button>
-            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-config')">⚙️ Config</button>
-            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-report')">📧 Reporte</button>
-            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-trace')">🔗 Trazabilidad</button>
+            <div class="tp-tab-more-wrap">
+                <button type="button" class="tp-tab tp-tab-more-btn" aria-haspopup="true" onclick="toggleTabMore(this)" title="Más secciones">⋯ Más</button>
+                <div class="tp-tab-more-menu" role="menu">
+                    <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-equipment');this.closest('.tp-tab-more-wrap').classList.remove('open')">🔧 Equipos</button>
+                    <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-predict');this.closest('.tp-tab-more-wrap').classList.remove('open')">🔮 Predicción</button>
+                    <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-fuel');this.closest('.tp-tab-more-wrap').classList.remove('open')">⛽ Combustible</button>
+                    <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-zonemap');this.closest('.tp-tab-more-wrap').classList.remove('open')">🗺️ Mapa</button>
+                    <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-charts');this.closest('.tp-tab-more-wrap').classList.remove('open')">📈 Graficas</button>
+                    <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-config');this.closest('.tp-tab-more-wrap').classList.remove('open')">⚙️ Config</button>
+                    <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-report');this.closest('.tp-tab-more-wrap').classList.remove('open')">📧 Reporte</button>
+                    <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-trace');this.closest('.tp-tab-more-wrap').classList.remove('open')">🔗 Trazabilidad</button>
+                </div>
+            </div>
         </div>
         <div id="inv-content" style="padding:0;"></div>
     </div>
@@ -1035,16 +1045,21 @@
 
     <div class="tp-tabs" id="pn-tabs-bar" role="tablist" aria-label="Secciones Panel">
         <button class="tp-tab active" role="tab" aria-selected="true" onclick="pnSwitchTab('pn-dashboard')">📊 Dashboard</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-executive')">📈 Ejecutivo</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-turnaround')">⏱ Turnaround</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-users')">👥 Usuarios</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-shift')">📝 Bitácora</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-alerts')">🔔 Alertas</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-intelligence')">🧠 Inteligencia</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-calendar')">📅 Calendario</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-system')">💾 Sistema</button>
-        <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-audit')">🔍 Auditoría</button>
         <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-regulations')">⚗️ Regulaciones</button>
+        <div class="tp-tab-more-wrap">
+            <button type="button" class="tp-tab tp-tab-more-btn" aria-haspopup="true" onclick="toggleTabMore(this)" title="Más secciones">⋯ Más</button>
+            <div class="tp-tab-more-menu" role="menu">
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-executive');this.closest('.tp-tab-more-wrap').classList.remove('open')">📈 Ejecutivo</button>
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-turnaround');this.closest('.tp-tab-more-wrap').classList.remove('open')">⏱ Turnaround</button>
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-users');this.closest('.tp-tab-more-wrap').classList.remove('open')">👥 Usuarios</button>
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-shift');this.closest('.tp-tab-more-wrap').classList.remove('open')">📝 Bitácora</button>
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-intelligence');this.closest('.tp-tab-more-wrap').classList.remove('open')">🧠 Inteligencia</button>
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-calendar');this.closest('.tp-tab-more-wrap').classList.remove('open')">📅 Calendario</button>
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-system');this.closest('.tp-tab-more-wrap').classList.remove('open')">💾 Sistema</button>
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-audit');this.closest('.tp-tab-more-wrap').classList.remove('open')">🔍 Auditoría</button>
+            </div>
+        </div>
     </div>
 
     <div class="tp-main">

@@ -515,7 +515,12 @@ function tpSwitchTab(tabId) {
     tpState.activeTab = tabId;
     window._tpLastTab = tabId;
     document.querySelectorAll('#tp-tabs-bar .tp-tab').forEach(b => b.classList.remove('active'));
-    if (event && event.target) event.target.classList.add('active');
+    if (event && event.target && event.target.classList.contains('tp-tab')) {
+        event.target.classList.add('active');
+    } else {
+        var btn = document.querySelector('#tp-tabs-bar .tp-tab[onclick*="' + tabId + '"]');
+        if (btn) btn.classList.add('active');
+    }
     tpRender();
 }
 
@@ -538,8 +543,8 @@ function tpRender() {
     if (window._tpLastTab && tpState.activeTab === 'tp-dashboard' && window._tpLastTab !== 'tp-dashboard') {
         tpState.activeTab = window._tpLastTab;
         var allTabs = document.querySelectorAll('#tp-tabs-bar .tp-tab');
-        var idx = _tpTabs.indexOf(window._tpLastTab);
-        if (idx >= 0 && allTabs[idx]) { allTabs.forEach(function(b){b.classList.remove('active');}); allTabs[idx].classList.add('active'); }
+        var targetBtn = document.querySelector('#tp-tabs-bar .tp-tab[onclick*="' + window._tpLastTab + '"]');
+        if (targetBtn) { allTabs.forEach(function(b){b.classList.remove('active');}); targetBtn.classList.add('active'); }
     }
     var tab = tpState.activeTab;
     var renderer = _tpGetRenderer(tab);
