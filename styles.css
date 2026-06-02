@@ -729,6 +729,24 @@ body{ overflow-x: hidden; }
 .tp-tab:hover { background: rgba(0,0,0,0.04); color: var(--text); }
 .tp-tab:active { transform: scale(0.97); }
 .tp-tab.active { background: var(--kia-dark); color: #fff; box-shadow: var(--shadow-md); }
+
+/* "⋯ Más" overflow menu for advanced sub-tabs (navigation simplification) */
+.tp-tab-more-wrap { position: relative; display: inline-flex; }
+.tp-tab-more-menu {
+    display: none; position: absolute; top: calc(100% + 4px); right: 0; z-index: 60;
+    flex-direction: column; gap: 2px; padding: 6px; min-width: 200px;
+    background: var(--glass-bg, #fff); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border, rgba(0,0,0,0.1)); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.18));
+}
+.tp-tab-more-wrap.open .tp-tab-more-menu { display: flex; }
+.tp-tab-more-menu .tp-tab { width: 100%; justify-content: flex-start; }
+/* Highlight the "Más" trigger when one of its advanced tabs is active */
+.tp-tab-more-wrap:has(.tp-tab.active) > .tp-tab-more-btn { background: var(--kia-dark); color: #fff; box-shadow: var(--shadow-md); }
+#platform-testplan .tp-tab-more-wrap:has(.tp-tab.active) > .tp-tab-more-btn { background: var(--accent-testplan); }
+#platform-inventory .tp-tab-more-wrap:has(.tp-tab.active) > .tp-tab-more-btn { background: var(--accent-inventory); }
+#platform-panel .tp-tab-more-wrap:has(.tp-tab.active) > .tp-tab-more-btn { background: var(--accent-panel); }
+.tp-tabs { position: relative; }
 .tp-main { padding: var(--space-xl) var(--space-2xl); max-width: 1400px; margin: 0 auto; }
 
 /* Cards — covered by unified .card system above; .tp-card-title extended for justify */

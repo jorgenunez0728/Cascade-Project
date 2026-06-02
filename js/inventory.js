@@ -225,6 +225,36 @@ function invGasLevel(g) {
     return {pct:pct,text:last.psi + ' psi (' + pct + '%)',color:'#10b981'};
 }
 
+// Daily reading status for the reception dashboard ("Hoy").
+// Returns { inUseTotal, capturedToday, daysSinceLast } — null-safe even if
+// the inventory module / localStorage has not been initialized yet.
+function invReadingStatusToday() {
+    var safe = { inUseTotal: 0, capturedToday: 0, daysSinceLast: null };
+    if (typeof invState === 'undefined' || !invState) return safe;
+    var todayISO = new Date().toISOString().slice(0,10);
+    var inUse = (invState.gases || []).filter(function(g){ return g.status !== 'Empty'; });
+    var capturedToday = inUse.filter(function(g){
+        return g.readings && g.readings.length && g.readings[g.readings.length-1].date === todayISO;
+    }).length;
+
+    // Most recent reading date: prefer lastReadingDate, else scan readings.
+    var lastDate = invState.lastReadingDate || null;
+    if (!lastDate) {
+        (invState.gases || []).forEach(function(g){
+            (g.readings || []).forEach(function(r){ if (r.date && (!lastDate || r.date > lastDate)) lastDate = r.date; });
+        });
+        (invState.fuelTanks || []).forEach(function(t){
+            (t.readings || []).forEach(function(r){ if (r.date && (!lastDate || r.date > lastDate)) lastDate = r.date; });
+        });
+    }
+    var daysSinceLast = null;
+    if (lastDate) {
+        var diff = (new Date(todayISO) - new Date(lastDate)) / 86400000;
+        daysSinceLast = Math.max(0, Math.round(diff));
+    }
+    return { inUseTotal: inUse.length, capturedToday: capturedToday, daysSinceLast: daysSinceLast };
+}
+
 // ══════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════
@@ -245,6 +275,25 @@ function invRenderDashboard(el) {
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-blue)">' + equip.length + '</div><div class="tp-metric-label">Equipos</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (eqExpired > 0 ? 'var(--tp-red)' : 'var(--tp-green)') + '">' + eqExpired + '</div><div class="tp-metric-label">Cal. vencida</div></div>';
     html += '</div>';
+
+    // Top 3 cilindros a reponer (menor nivel)
+    var refill = gases.filter(function(g){ return g.status !== 'Empty'; })
+        .map(function(g){ return { g: g, lvl: invGasLevel(g) }; })
+        .filter(function(x){ return x.lvl.pct >= 0; })
+        .sort(function(a,b){ return a.lvl.pct - b.lvl.pct; })
+        .slice(0, 3);
+    if (refill.length > 0) {
+        html += '<div class="tp-card"><div class="tp-card-title"><span>🔻 Top 3 a Reponer</span>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invSwitchTab(\'inv-readings\')" style="font-size:10px;">Capturar</button></div>';
+        refill.forEach(function(x){
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;">';
+            html += '<div style="flex:1;"><div style="font-weight:700;font-size:11px;">' + x.g.formula + ' #' + x.g.controlNo + '</div><div style="font-size:9px;color:var(--tp-dim);">' + (x.g.zone||'?') + ' · ' + x.lvl.text + '</div></div>';
+            html += '<div style="min-width:70px;"><div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;"><div style="height:100%;width:' + Math.max(2, x.lvl.pct) + '%;background:' + x.lvl.color + ';"></div></div></div>';
+            html += '<div style="font-weight:800;font-size:11px;color:' + x.lvl.color + ';min-width:38px;text-align:right;">' + x.lvl.pct + '%</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
 
     // Alerts
     var alerts = [];
@@ -305,7 +354,7 @@ function invRenderDashboard(el) {
     html += '</div></div>';
 
     if (gases.length === 0) {
-        html += '<div class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">Sin cilindros registrados.<br><button class="tp-btn tp-btn-primary" onclick="invState.activeTab=\'inv-gases\';invRender();document.querySelectorAll(\'#inv-tabs-bar .tp-tab\').forEach(b=>b.classList.remove(\'active\'));document.querySelectorAll(\'#inv-tabs-bar .tp-tab\')[1].classList.add(\'active\');" style="margin-top:12px;">➕ Agregar Gas</button></div>';
+        html += '<div class="tp-card" style="text-align:center;padding:30px;color:var(--tp-dim);">Sin cilindros registrados.<br><button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-gases\')" style="margin-top:12px;">➕ Agregar Gas</button></div>';
     }
 
     el.innerHTML = html;
@@ -392,19 +441,22 @@ function invShowAddGas(editId) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;">' + title + '</h3>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Control * <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size:9px;background:#0f766e;color:#fff;border:none;border-radius:4px;padding:1px 6px;cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div style="grid-column:1/-1;"><label style="font-size:11px;color:#475569;font-weight:600;">No. Control * <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size:9px;background:#0f766e;color:#fff;border:none;border-radius:4px;padding:1px 6px;cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div style="grid-column:1/-1;"><label style="font-size:11px;color:#475569;font-weight:600;">Tipo de Gas *</label><select id="inv-g-type" onchange="invUpdateConcOpts()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + gasTypeOpts + '</select></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Conc. Nominal</label><select id="inv-g-conc" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></select></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Trazabilidad</label><select id="inv-g-trace" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (g&&g.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (g&&g.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Vigencia</label><input id="inv-g-valid" type="date" value="' + (g?g.validUntil:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Zona + Posicion *</label><select id="inv-g-zone" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + zoneOpts + '</select></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Estatus</label><select id="inv-g-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.status==='Stock'?'selected':'') + '>Stock</option><option ' + (g&&g.status==='In use'?'selected':'') + '>In use</option><option ' + (g&&g.status==='Empty'?'selected':'') + '>Empty</option><option ' + (g&&g.status==='Spare'?'selected':'') + '>Spare</option></select></div>' +
+        '</div>' +
+        '<details style="margin-top:10px;"><summary style="font-size:11px;color:#475569;font-weight:700;cursor:pointer;padding:6px 0;">Avanzado (cilindro, lote, trazabilidad...)</summary>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Trazabilidad</label><select id="inv-g-trace" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (g&&g.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (g&&g.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Proveedor</label><input id="inv-g-supplier" value="' + (g?g.supplier||'':'') + '" placeholder="Nombre del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '</div>' +
+        '</div></details>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveGas(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
         (isEdit ? '<button onclick="showConfirm(\'Eliminar cilindro?\',function(){invDeleteGas(\x27' + editId + '\x27);},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
@@ -827,7 +879,10 @@ function invMapQuickReadSave(gasId) {
 function invShowZone(zoneId) {
     window._invGasFilterZone = zoneId;
     invState.activeTab = 'inv-gases';
-    document.querySelectorAll('#inv-tabs-bar .tp-tab').forEach(function(b,i){b.classList.toggle('active',i===1);});
+    localStorage.setItem('kia_inv_activeTab', 'inv-gases');
+    document.querySelectorAll('#inv-tabs-bar .tp-tab').forEach(function(b){b.classList.remove('active');});
+    var btn = document.querySelector('#inv-tabs-bar .tp-tab[onclick*="inv-gases"]');
+    if (btn) btn.classList.add('active');
     invRender();
 }
 
@@ -837,13 +892,13 @@ function invShowZone(zoneId) {
 function invRenderReadings(el) {
     var gases = invState.gases.filter(function(g){ return g.status !== 'Empty'; });
     var html = invRenderAnomalyBanner();
-    html += '<div class="tp-card"><div class="tp-card-title"><span>Lecturas Diarias de Presion</span>';
+    html += '<div class="tp-card"><div class="tp-card-title"><span>Captura Diaria — Gases (psi)</span>';
     html += '<div style="display:flex;gap:6px;">';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invStartReadingRound()" style="font-size:10px;border-color:#10b981;color:#10b981;">🔄 Ronda</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size:10px;border-color:#8b5cf6;color:#8b5cf6;">📷 Escanear</button>';
-    html += '<button class="tp-btn tp-btn-primary" onclick="invBulkReading()" style="font-size:10px;">Guardar Lecturas</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="invSaveDailyCapture()" style="font-size:10px;">💾 Guardar Captura</button>';
     html += '</div></div>';
-    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Registra la presion (psi) de cada cilindro en uso.</div>';
+    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Registra la presion (psi) de cada cilindro en uso y los niveles de combustible. Un solo botón guarda todo.</div>';
 
     if (gases.length === 0) {
         html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin cilindros en uso.</div>';
@@ -867,6 +922,23 @@ function invRenderReadings(el) {
     }
     html += '</div>';
 
+    // ── Fuel tanks capture (unified daily capture) ──
+    var tanks = invState.fuelTanks || [];
+    html += '<div class="tp-card"><div class="tp-card-title"><span>⛽ Captura Diaria — Combustible</span></div>';
+    if (tanks.length === 0) {
+        html += '<div style="text-align:center;padding:15px;color:var(--tp-dim);">Sin tanques configurados.</div>';
+    } else {
+        html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Registra el nivel actual de cada tanque.</div>';
+        tanks.forEach(function(t) {
+            var lastR = (t.readings && t.readings.length) ? t.readings[t.readings.length-1] : null;
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);flex-wrap:wrap;">';
+            html += '<div style="min-width:120px;"><div style="font-weight:700;font-size:10px;">' + (t.name||'Tanque') + '</div><div style="font-size:9px;color:var(--tp-dim);">Actual: ' + (t.currentLevel!=null?t.currentLevel:'?') + ' ' + (t.unit||'L') + (lastR?(' | '+lastR.date.slice(5)):'') + '</div></div>';
+            html += '<input type="number" inputmode="decimal" id="inv-fuel-rd-' + t.id + '" placeholder="' + (t.unit||'L') + '" style="width:100px;min-height:40px;padding:8px 10px;border:1px solid var(--tp-border);border-radius:8px;background:#1e293b;color:#fff;font-size:14px;text-align:center;font-weight:600;">';
+            html += '</div>';
+        });
+    }
+    html += '</div>';
+
     // Recent readings history
     html += '<div class="tp-card"><div class="tp-card-title"><span>Ultimas lecturas</span></div>';
     var allReadings = [];
@@ -885,6 +957,32 @@ function invRenderReadings(el) {
     el.innerHTML = html;
 }
 
+// Unified daily capture: saves gas PSI + fuel levels in a single action.
+function invSaveDailyCapture() {
+    var date = new Date().toISOString().slice(0,10);
+    var count = 0;
+    (invState.gases || []).filter(function(g){ return g.status !== 'Empty'; }).forEach(function(g) {
+        var inp = document.getElementById('inv-rd-' + g.id);
+        if (inp && inp.value !== '') {
+            var psi = parseFloat(inp.value);
+            if (!isNaN(psi) && psi >= 0) { if (!g.readings) g.readings = []; g.readings.push({date: date, psi: psi}); count++; }
+        }
+    });
+    var fuelCount = 0;
+    (invState.fuelTanks || []).forEach(function(t) {
+        var inp = document.getElementById('inv-fuel-rd-' + t.id);
+        if (inp && inp.value !== '') {
+            var lvl = parseFloat(inp.value);
+            if (!isNaN(lvl) && lvl >= 0) { t.currentLevel = lvl; if (!t.readings) t.readings = []; t.readings.push({date: date, level: lvl}); fuelCount++; }
+        }
+    });
+    if (count === 0 && fuelCount === 0) { showToast('No se ingresaron capturas', 'warning'); return; }
+    invState.lastReadingDate = date;
+    invSave(); invRender();
+    if (count > 0 && typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
+    showToast(count + ' lecturas de gas y ' + fuelCount + ' de combustible guardadas (' + date + ')', 'success');
+}
+
 function invBulkReading() {
     var date = new Date().toISOString().slice(0,10);
     var count = 0;
@@ -900,6 +998,7 @@ function invBulkReading() {
         }
     });
     if (count === 0) { showToast('No se ingresaron lecturas', 'warning'); return; }
+    invState.lastReadingDate = date;
     invSave(); invRender();
     if (typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
     showToast(count + ' lecturas guardadas para ' + date, 'success');
@@ -2100,7 +2199,9 @@ function invSaveFuelReading(tankId) {
     if (isNaN(level)) { showToast('Nivel inválido', 'error'); return; }
     t.currentLevel = level;
     if (!t.readings) t.readings = [];
-    t.readings.push({ date: new Date().toISOString().slice(0,10), level: level });
+    var fuelDate = new Date().toISOString().slice(0,10);
+    t.readings.push({ date: fuelDate, level: level });
+    invState.lastReadingDate = fuelDate;
     invSave(); invRender();
     document.getElementById('invModal').style.display = 'none';
     showToast('Lectura guardada: ' + level + ' ' + (t.unit||'L'), 'success');

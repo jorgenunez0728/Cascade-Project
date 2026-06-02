@@ -608,7 +608,6 @@ function _restoreLastModule() {
                     var section = PLATFORM_SECTION_MAP[platform] || platform;
                     if (section === 'inventory' && typeof invSwitchTab === 'function') invSwitchTab(parts[1]);
                     else if (section === 'testplan' && typeof tpSwitchTab === 'function') tpSwitchTab(parts[1]);
-                    else if (section === 'results' && typeof raSwitchTab === 'function') raSwitchTab(parts[1]);
                     else if (section === 'panel' && typeof pnSwitchTab === 'function') pnSwitchTab(parts[1]);
                 }, 200);
             }
@@ -1675,6 +1674,26 @@ function switchPlatform(platform, swipeDir) {
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
+// ║  Sub-tab overflow menu ("⋯ Más") — navigation simplification         ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+/** Toggle the advanced-tabs dropdown for a module tab bar. */
+function toggleTabMore(btn) {
+    var wrap = btn && btn.closest ? btn.closest('.tp-tab-more-wrap') : null;
+    if (!wrap) return;
+    var wasOpen = wrap.classList.contains('open');
+    // Close any other open menus first
+    document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); });
+    if (!wasOpen) wrap.classList.add('open');
+}
+
+// Close the overflow menu when clicking elsewhere (capture once globally).
+document.addEventListener('click', function(e) {
+    var inWrap = e.target && e.target.closest ? e.target.closest('.tp-tab-more-wrap') : null;
+    if (!inWrap) document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); });
+});
+
+// ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [M16] DAILY DASHBOARD — Vista Hoy                                  ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
@@ -1696,8 +1715,40 @@ function dailyDashRender() {
     html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
     html += '</div>';
 
-    // ── Power Automate Integration card (populated by paRenderTodayCard after innerHTML) ──
-    html += '<div id="pa-today-card-slot"></div>';
+    // ── Recordatorios de captura de lecturas (gases + combustible) ──
+    // (a) progreso de captura de hoy  (b) días desde la última captura
+    var readingReminderShown = false;
+    var rdGoTo = "switchPlatform('inventory');setTimeout(function(){if(typeof invSwitchTab===&#39;function&#39;)invSwitchTab(&#39;inv-readings&#39;);},150);";
+    var rdStatus = typeof invReadingStatusToday === 'function' ? invReadingStatusToday() : { inUseTotal: 0, capturedToday: 0, daysSinceLast: null };
+
+    if (rdStatus.inUseTotal > 0 && rdStatus.capturedToday < rdStatus.inUseTotal) {
+        var rdPct = Math.round((rdStatus.capturedToday / rdStatus.inUseTotal) * 100);
+        html += '<div class="daily-dash-section">';
+        html += '<div class="daily-dash-section-title">🧪 Captura de Hoy</div>';
+        html += '<div class="daily-dash-card" onclick="' + rdGoTo + '">';
+        html += '<div class="daily-dash-card-icon" style="background:#ecfeff;color:#0891b2;">🧪</div>';
+        html += '<div class="daily-dash-card-body">';
+        html += '<div class="daily-dash-card-title">Lecturas de hoy: ' + rdStatus.capturedToday + '/' + rdStatus.inUseTotal + ' capturados</div>';
+        html += '<div class="daily-dash-week-bar"><div class="daily-dash-week-fill" style="width:' + rdPct + '%"></div></div>';
+        html += '</div>';
+        html += '<div class="daily-dash-card-badge" style="background:#ecfeff;color:#0891b2;">Capturar</div>';
+        html += '</div></div>';
+        readingReminderShown = true;
+    }
+
+    if (rdStatus.inUseTotal > 0 && (rdStatus.daysSinceLast === null || rdStatus.daysSinceLast >= 1)) {
+        var daysTxt = rdStatus.daysSinceLast === null ? 'Aún no hay capturas de producción' : ('Van ' + rdStatus.daysSinceLast + ' día' + (rdStatus.daysSinceLast === 1 ? '' : 's') + ' desde la última captura');
+        var daysCritical = (rdStatus.daysSinceLast === null || rdStatus.daysSinceLast >= 3);
+        html += '<div class="daily-dash-section">';
+        html += '<div class="daily-dash-section-title">📅 Datos de Producción</div>';
+        html += '<div class="daily-dash-card ' + (daysCritical ? 'alert-critical' : '') + '" onclick="' + rdGoTo + '">';
+        html += '<div class="daily-dash-card-icon" style="background:' + (daysCritical ? '#fef2f2' : '#fef3c7') + ';color:' + (daysCritical ? '#dc2626' : '#d97706') + ';">📅</div>';
+        html += '<div class="daily-dash-card-body"><div class="daily-dash-card-title">' + daysTxt + '</div>';
+        html += '<div class="daily-dash-card-meta">Toca para capturar gases y combustible</div></div>';
+        html += '<div class="daily-dash-card-badge" style="background:' + (daysCritical ? '#fef2f2' : '#fef3c7') + ';color:' + (daysCritical ? '#dc2626' : '#d97706') + ';">Capturar ahora</div>';
+        html += '</div></div>';
+        readingReminderShown = true;
+    }
 
     // ── [V7-F1] Mi Turno Card ──
     var currentOp = '';
@@ -1804,6 +1855,7 @@ function dailyDashRender() {
             var sc = statusColors[v.status] || { bg: '#f1f5f9', color: '#64748b', label: v.status };
             var model = v.config ? (v.config.Modelo || '') : '';
             var vinShort = v.vin ? '...' + v.vin.slice(-4) : '';
+            var avNext = typeof getNextStep === 'function' ? getNextStep(v) : null;
 
             html += '<div class="daily-dash-card" onclick="switchPlatform(\'cop15\');setTimeout(function(){var s=document.getElementById(\'activeVehSelect\');if(s){s.value=\'' + v.id + '\';loadVehicle();}},200);">';
             html += '<div class="daily-dash-card-icon" style="background:' + sc.bg + ';color:' + sc.color + ';">🚗</div>';
@@ -1811,7 +1863,11 @@ function dailyDashRender() {
             html += '<div class="daily-dash-card-title">' + model + ' ' + vinShort + '</div>';
             html += '<div class="daily-dash-card-meta">' + (v.purpose || '') + '</div>';
             html += '</div>';
-            html += '<div class="daily-dash-card-badge" style="background:' + sc.bg + ';color:' + sc.color + ';">' + sc.label + '</div>';
+            if (avNext) {
+                html += '<button class="btn btn-sm btn-ghost" style="white-space:nowrap;" onclick="event.stopPropagation();v7GoToVehicle(' + v.id + ',\'' + (avNext.goto || '') + '\')">' + avNext.icon + ' ' + avNext.action + '</button>';
+            } else {
+                html += '<div class="daily-dash-card-badge" style="background:' + sc.bg + ';color:' + sc.color + ';">' + sc.label + '</div>';
+            }
             html += '</div>';
         });
         if (activeVehicles.length > 5) {
@@ -1897,7 +1953,7 @@ function dailyDashRender() {
     html += '</div></div>';
 
     // ── No data state ──
-    if (activeVehicles.length === 0 && !soakActive && invAlerts.length === 0) {
+    if (activeVehicles.length === 0 && !soakActive && invAlerts.length === 0 && !readingReminderShown) {
         html += '<div class="daily-dash-empty">Sin actividad pendiente. ¡Todo en orden! 👍</div>';
     }
 
@@ -3880,12 +3936,21 @@ function buildProgressRing(pct, size, color) {
 function v7GoToVehicle(vehicleId, gotoSection) {
     switchPlatform('cop15');
     setTimeout(function() {
-        if (gotoSection === 'release-tab' || gotoSection === 'release-action') {
+        if (gotoSection === 'approval-tab') {
             var tabEl = document.querySelector('.tab[data-tab="liberacion"]');
             if (tabEl) tabEl.click();
             setTimeout(function() {
+                if (typeof libSwitchSubtab === 'function') libSwitchSubtab('aprobador');
+                var sel = document.getElementById('approvalVehSelect');
+                if (sel) { sel.value = vehicleId; if (typeof loadApproval === 'function') loadApproval(); }
+            }, 200);
+        } else if (gotoSection === 'release-tab' || gotoSection === 'release-action') {
+            var tabEl = document.querySelector('.tab[data-tab="liberacion"]');
+            if (tabEl) tabEl.click();
+            setTimeout(function() {
+                if (typeof libSwitchSubtab === 'function') libSwitchSubtab('liberador');
                 var sel = document.getElementById('releaseVehSelect');
-                if (sel) { sel.value = vehicleId; if (typeof loadReleaseVehicle === 'function') loadReleaseVehicle(); }
+                if (sel) { sel.value = vehicleId; if (typeof loadRelease === 'function') loadRelease(); }
             }, 200);
         } else {
             var tabEl = document.querySelector('.tab[data-tab="seguimiento"]');
@@ -3923,12 +3988,21 @@ function v7UpdateNextStepBanner() {
 
 function v7GoToVehicleStep(gotoSection) {
     if (!gotoSection) return;
-    if (gotoSection === 'release-tab' || gotoSection === 'release-action') {
+    if (gotoSection === 'approval-tab') {
         var tabEl = document.querySelector('.tab[data-tab="liberacion"]');
         if (tabEl) tabEl.click();
         setTimeout(function() {
+            if (typeof libSwitchSubtab === 'function') libSwitchSubtab('aprobador');
+            var sel = document.getElementById('approvalVehSelect');
+            if (sel && activeVehicleId) { sel.value = activeVehicleId; if (typeof loadApproval === 'function') loadApproval(); }
+        }, 200);
+    } else if (gotoSection === 'release-tab' || gotoSection === 'release-action') {
+        var tabEl = document.querySelector('.tab[data-tab="liberacion"]');
+        if (tabEl) tabEl.click();
+        setTimeout(function() {
+            if (typeof libSwitchSubtab === 'function') libSwitchSubtab('liberador');
             var sel = document.getElementById('releaseVehSelect');
-            if (sel && activeVehicleId) { sel.value = activeVehicleId; if (typeof loadReleaseVehicle === 'function') loadReleaseVehicle(); }
+            if (sel && activeVehicleId) { sel.value = activeVehicleId; if (typeof loadRelease === 'function') loadRelease(); }
         }, 200);
     } else if (gotoSection === 'soak-section') {
         var soakEl = document.getElementById('soak-section') || document.getElementById('acc-soak');

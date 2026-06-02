@@ -770,6 +770,11 @@ function pnGetActiveAlerts() {
     var now = Date.now();
     vehicles.forEach(function(v) {
         if (v.status === 'archived') return;
+        // Desacuerdo liberador/aprobador (doble ciego) sin resolver
+        if (v.testData && v.testData.gasResults && v.testData.gasResults.mismatch) {
+            var mm = v.testData.gasResults.mismatch;
+            alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'VIN ' + (v.vin || '?').slice(-6) + ': desacuerdo liberador/aprobador en ' + ((mm.gases || []).join(', ') || 'gases') + ' — revisar', source: 'COP15' });
+        }
         var lastAction = v.timeline && v.timeline.length > 0 ? new Date(v.timeline[v.timeline.length - 1].timestamp).getTime() : null;
         if (lastAction) {
             var hours = (now - lastAction) / 3600000;
