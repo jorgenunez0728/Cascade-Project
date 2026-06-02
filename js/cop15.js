@@ -5739,6 +5739,9 @@ function getNextStep(vehicle) {
     if (status === 'ready-release') {
         return { action: 'Liberar Vehiculo', goto: 'release-action', icon: '🚗' };
     }
+    if (status === 'pending-approval') {
+        return { action: 'Aprobar (doble ciego)', goto: 'approval-tab', icon: '🔏' };
+    }
     return null;
 }
 

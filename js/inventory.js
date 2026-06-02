@@ -225,6 +225,36 @@ function invGasLevel(g) {
     return {pct:pct,text:last.psi + ' psi (' + pct + '%)',color:'#10b981'};
 }
 
+// Daily reading status for the reception dashboard ("Hoy").
+// Returns { inUseTotal, capturedToday, daysSinceLast } — null-safe even if
+// the inventory module / localStorage has not been initialized yet.
+function invReadingStatusToday() {
+    var safe = { inUseTotal: 0, capturedToday: 0, daysSinceLast: null };
+    if (typeof invState === 'undefined' || !invState) return safe;
+    var todayISO = new Date().toISOString().slice(0,10);
+    var inUse = (invState.gases || []).filter(function(g){ return g.status !== 'Empty'; });
+    var capturedToday = inUse.filter(function(g){
+        return g.readings && g.readings.length && g.readings[g.readings.length-1].date === todayISO;
+    }).length;
+
+    // Most recent reading date: prefer lastReadingDate, else scan readings.
+    var lastDate = invState.lastReadingDate || null;
+    if (!lastDate) {
+        (invState.gases || []).forEach(function(g){
+            (g.readings || []).forEach(function(r){ if (r.date && (!lastDate || r.date > lastDate)) lastDate = r.date; });
+        });
+        (invState.fuelTanks || []).forEach(function(t){
+            (t.readings || []).forEach(function(r){ if (r.date && (!lastDate || r.date > lastDate)) lastDate = r.date; });
+        });
+    }
+    var daysSinceLast = null;
+    if (lastDate) {
+        var diff = (new Date(todayISO) - new Date(lastDate)) / 86400000;
+        daysSinceLast = Math.max(0, Math.round(diff));
+    }
+    return { inUseTotal: inUse.length, capturedToday: capturedToday, daysSinceLast: daysSinceLast };
+}
+
 // ══════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════
@@ -900,6 +930,7 @@ function invBulkReading() {
         }
     });
     if (count === 0) { showToast('No se ingresaron lecturas', 'warning'); return; }
+    invState.lastReadingDate = date;
     invSave(); invRender();
     if (typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
     showToast(count + ' lecturas guardadas para ' + date, 'success');
@@ -2100,7 +2131,9 @@ function invSaveFuelReading(tankId) {
     if (isNaN(level)) { showToast('Nivel inválido', 'error'); return; }
     t.currentLevel = level;
     if (!t.readings) t.readings = [];
-    t.readings.push({ date: new Date().toISOString().slice(0,10), level: level });
+    var fuelDate = new Date().toISOString().slice(0,10);
+    t.readings.push({ date: fuelDate, level: level });
+    invState.lastReadingDate = fuelDate;
     invSave(); invRender();
     document.getElementById('invModal').style.display = 'none';
     showToast('Lectura guardada: ' + level + ' ' + (t.unit||'L'), 'success');
