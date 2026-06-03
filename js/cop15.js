@@ -679,11 +679,22 @@ function initCascadeTree() {
     function _switchToCop15Tab(tab) {
         // Special: "Consumibles" tab navigates to inventory (stays within Pruebas group)
         if (tab.dataset.tab === 'consumibles') {
-            if (typeof switchPlatform === 'function') {
-                // Force _currentPlatform so switchPlatform no se corto-circuite si quedó en 'inventory'
-                if (typeof _currentPlatform !== 'undefined') _currentPlatform = '__switching__';
-                switchPlatform('inventory');
-            }
+            // Cambio de sección DIRECTO y síncrono (no depender de switchPlatform, cuyo
+            // camino con document.startViewTransition no aplicaba el cambio COP15→Inventario).
+            document.querySelectorAll('.platform-section').forEach(function(s){ s.classList.remove('active'); });
+            var invSec = document.getElementById('platform-inventory');
+            if (invSec) invSec.classList.add('active');
+            document.querySelectorAll('.platform-tab').forEach(function(t){ t.classList.remove('active'); });
+            var pt = document.getElementById('ptab-pruebas'); if (pt) pt.classList.add('active');
+            document.querySelectorAll('.bottom-nav-item').forEach(function(b){ b.classList.remove('active'); });
+            var bn = document.getElementById('bnav-pruebas'); if (bn) bn.classList.add('active');
+            if (typeof toggleActionBar === 'function') toggleActionBar(false);
+            if (typeof _currentPlatform !== 'undefined') _currentPlatform = 'inventory';
+            try { localStorage.setItem('kia_last_module','inventory'); } catch(e){}
+            if (typeof invPreloadData === 'function') invPreloadData();
+            if (typeof invRestoreTab === 'function') invRestoreTab(); else if (typeof invRender === 'function') invRender();
+            if (typeof invUpdateBadges === 'function') invUpdateBadges();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
         // If we're currently on inventory, switch back to cop15 section first
