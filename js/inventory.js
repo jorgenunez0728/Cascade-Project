@@ -112,6 +112,7 @@ function invSwitchTab(tabId) {
 function invRestoreTab() {
     var saved = localStorage.getItem('kia_inv_activeTab');
     if (saved) { invSwitchTab(saved); }
+    else if (typeof invRender === 'function') { invRender(); } // sin tab guardado: render del tab por defecto (no dejar en blanco)
 }
 
 // Proactive alerts on module open (runs once per session)
