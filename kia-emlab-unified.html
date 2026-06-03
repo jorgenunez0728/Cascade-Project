@@ -5321,11 +5321,11 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202606031624';
+var APP_BUILD = '202606031711';
 
 // Format a build timestamp YYYYMMDDHHmm into a human readable label.
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202606031624' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202606031711' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
@@ -6816,6 +6816,16 @@ function switchPlatform(platform, swipeDir) {
 /** Deep-link helper for the "Hoy" dashboard cards: switch platform, optional
  *  sub-tab, then optionally invoke an action (e.g. open an edit modal) by name. */
 function dashGo(platform, tabId, action, id) {
+    // Pre-fijar el sub-tab destino ANTES de cambiar de plataforma, para que el
+    // restore-de-tab que hace switchPlatform (p.ej. invRestoreTab) aterrice ahí
+    // y no compita con el invSwitchTab posterior (causaba que la lectura de gases
+    // "no jalara" mientras la calibración sí, porque esa abre un modal encima).
+    if (tabId) {
+        try {
+            if (platform === 'inventory') { localStorage.setItem('kia_inv_activeTab', tabId); if (typeof invState !== 'undefined') invState.activeTab = tabId; }
+            else if (platform === 'cop15') { localStorage.setItem('kia_cop15_activeTab', tabId); }
+        } catch (e) {}
+    }
     if (typeof switchPlatform === 'function') switchPlatform(platform);
     setTimeout(function() {
         if (tabId) {
@@ -29814,7 +29824,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202606031624' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202606031711' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
