@@ -1908,6 +1908,14 @@ button:focus-visible { outline-offset: 1px; }
     font-size: 11px; font-weight: 800; padding: 2px 8px;
     border-radius: 6px; white-space: nowrap; flex-shrink: 0;
 }
+/* Action chip on dashboard cards — clear "tap to resolve" affordance */
+.daily-dash-card-action {
+    font-size: 11px; font-weight: 800; padding: 5px 10px;
+    border-radius: 8px; white-space: nowrap; flex-shrink: 0;
+    box-shadow: var(--shadow-sm); transition: transform .12s, filter .12s;
+}
+.daily-dash-card:hover .daily-dash-card-action { filter: brightness(1.08); }
+.daily-dash-card:active .daily-dash-card-action { transform: scale(0.96); }
 .daily-dash-card.soak-active {
     border-color: #fcd34d; background: linear-gradient(135deg, #fffbeb, #fff);
 }
@@ -5313,11 +5321,11 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202606021640';
+var APP_BUILD = '202606031624';
 
 // Format a build timestamp YYYYMMDDHHmm into a human readable label.
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202606021640' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202606031624' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
@@ -6805,6 +6813,22 @@ function switchPlatform(platform, swipeDir) {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 /** Toggle the advanced-tabs dropdown for a module tab bar. */
+/** Deep-link helper for the "Hoy" dashboard cards: switch platform, optional
+ *  sub-tab, then optionally invoke an action (e.g. open an edit modal) by name. */
+function dashGo(platform, tabId, action, id) {
+    if (typeof switchPlatform === 'function') switchPlatform(platform);
+    setTimeout(function() {
+        if (tabId) {
+            if (platform === 'inventory' && typeof invSwitchTab === 'function') invSwitchTab(tabId);
+            else if (platform === 'testplan' && typeof tpSwitchTab === 'function') tpSwitchTab(tabId);
+            else if (platform === 'panel' && typeof pnSwitchTab === 'function') pnSwitchTab(tabId);
+        }
+        if (action && typeof window[action] === 'function') {
+            setTimeout(function() { try { window[action](id); } catch(e) {} }, 220);
+        }
+    }, 160);
+}
+
 function toggleTabMore(btn) {
     var wrap = btn && btn.closest ? btn.closest('.tp-tab-more-wrap') : null;
     if (!wrap) return;
@@ -6845,7 +6869,7 @@ function dailyDashRender() {
     // ── Recordatorios de captura de lecturas (gases + combustible) ──
     // (a) progreso de captura de hoy  (b) días desde la última captura
     var readingReminderShown = false;
-    var rdGoTo = "switchPlatform('inventory');setTimeout(function(){if(typeof invSwitchTab===&#39;function&#39;)invSwitchTab(&#39;inv-readings&#39;);},150);";
+    var rdGoTo = "dashGo('inventory','inv-readings')";
     var rdStatus = typeof invReadingStatusToday === 'function' ? invReadingStatusToday() : { inUseTotal: 0, capturedToday: 0, daysSinceLast: null };
 
     if (rdStatus.inUseTotal > 0 && rdStatus.capturedToday < rdStatus.inUseTotal) {
@@ -6858,7 +6882,7 @@ function dailyDashRender() {
         html += '<div class="daily-dash-card-title">Lecturas de hoy: ' + rdStatus.capturedToday + '/' + rdStatus.inUseTotal + ' capturados</div>';
         html += '<div class="daily-dash-week-bar"><div class="daily-dash-week-fill" style="width:' + rdPct + '%"></div></div>';
         html += '</div>';
-        html += '<div class="daily-dash-card-badge" style="background:#ecfeff;color:#0891b2;">Capturar</div>';
+        html += '<div class="daily-dash-card-action" style="background:#0891b2;color:#fff;">Capturar ›</div>';
         html += '</div></div>';
         readingReminderShown = true;
     }
@@ -6872,7 +6896,7 @@ function dailyDashRender() {
         html += '<div class="daily-dash-card-icon" style="background:' + (daysCritical ? '#fef2f2' : '#fef3c7') + ';color:' + (daysCritical ? '#dc2626' : '#d97706') + ';">📅</div>';
         html += '<div class="daily-dash-card-body"><div class="daily-dash-card-title">' + daysTxt + '</div>';
         html += '<div class="daily-dash-card-meta">Toca para capturar gases y combustible</div></div>';
-        html += '<div class="daily-dash-card-badge" style="background:' + (daysCritical ? '#fef2f2' : '#fef3c7') + ';color:' + (daysCritical ? '#dc2626' : '#d97706') + ';">Capturar ahora</div>';
+        html += '<div class="daily-dash-card-action" style="background:' + (daysCritical ? '#dc2626' : '#d97706') + ';color:#fff;">Capturar ahora ›</div>';
         html += '</div></div>';
         readingReminderShown = true;
     }
@@ -7003,38 +7027,44 @@ function dailyDashRender() {
         html += '</div>';
     }
 
-    // ── Inventory Alerts ──
+    // ── Inventory Alerts (deep-link a cada ítem) ──
     var invAlerts = [];
     if (typeof invState !== 'undefined' && invState.gases) {
         invState.gases.forEach(function(g) {
             if (typeof invGasExpiry === 'function') {
                 var exp = invGasExpiry(g);
-                if (exp.status === 'expired') invAlerts.push({ icon: '⚠️', text: g.formula + ' #' + g.controlNo + ' VENCIDO', type: 'critical' });
+                if (exp.status === 'expired') invAlerts.push({ icon: '⚠️', text: g.formula + ' #' + g.controlNo + ' VENCIDO', type: 'critical', tab: 'inv-gases', action: 'invEditGas', id: g.id, chip: 'Reemplazar' });
             }
             if (typeof invGasLevel === 'function') {
                 var lvl = invGasLevel(g);
-                if (lvl.pct < 15 && lvl.pct >= 0) invAlerts.push({ icon: '📉', text: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', type: 'warning' });
+                if (lvl.pct < 15 && lvl.pct >= 0) invAlerts.push({ icon: '📉', text: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', type: 'warning', tab: 'inv-gases', action: 'invEditGas', id: g.id, chip: 'Reponer' });
             }
         });
         if (invState.equipment) {
             invState.equipment.forEach(function(e) {
                 if (!e.nextCalDate) return;
                 var diff = Math.round((new Date(e.nextCalDate) - now) / (1000*60*60*24));
-                if (diff < 0) invAlerts.push({ icon: '🔧', text: e.name + ' calibración vencida', type: 'critical' });
-                else if (diff <= 7) invAlerts.push({ icon: '🔧', text: e.name + ' calibra en ' + diff + ' días', type: 'warning' });
+                if (diff < 0) invAlerts.push({ icon: '🔧', text: e.name + ' calibración vencida', type: 'critical', tab: 'inv-equipment', action: 'invEditEquipment', id: e.id, chip: 'Calibrar' });
+                else if (diff <= 7) invAlerts.push({ icon: '🔧', text: e.name + ' calibra en ' + diff + ' días', type: 'warning', tab: 'inv-equipment', action: 'invEditEquipment', id: e.id, chip: 'Calibrar' });
             });
         }
     }
     if (invAlerts.length > 0) {
+        // Críticos primero
+        invAlerts.sort(function(a, b) { return (a.type === 'critical' ? 0 : 1) - (b.type === 'critical' ? 0 : 1); });
         html += '<div class="daily-dash-section">';
         html += '<div class="daily-dash-section-title">⚠️ Alertas de Inventario (' + invAlerts.length + ')</div>';
-        invAlerts.slice(0, 4).forEach(function(a) {
-            html += '<div class="daily-dash-card ' + (a.type === 'critical' ? 'alert-critical' : '') + '" onclick="switchPlatform(\'inventory\')">';
+        html += '<div style="max-height:340px;overflow-y:auto;">';
+        invAlerts.forEach(function(a) {
+            var goer = a.id ? "dashGo('inventory','" + a.tab + "','" + a.action + "','" + a.id + "')" : "dashGo('inventory','inv-dashboard')";
+            var chipBg = a.type === 'critical' ? '#dc2626' : '#d97706';
+            html += '<div class="daily-dash-card ' + (a.type === 'critical' ? 'alert-critical' : '') + '" onclick="' + goer + '">';
             html += '<div class="daily-dash-card-icon" style="background:' + (a.type === 'critical' ? '#fef2f2' : '#fef3c7') + ';">' + a.icon + '</div>';
             html += '<div class="daily-dash-card-body"><div class="daily-dash-card-title">' + a.text + '</div></div>';
+            html += '<div class="daily-dash-card-action" style="background:' + chipBg + ';color:#fff;">' + (a.chip || 'Revisar') + ' ›</div>';
             html += '</div>';
         });
-        html += '</div>';
+        html += '</div></div>';
     }
 
     // ── Week Progress (Test Plan) ──
@@ -7072,7 +7102,7 @@ function dailyDashRender() {
         var lModel = lastVehicle.config ? (lastVehicle.config.Modelo || '') : '';
         html += '<div class="daily-dash-action" onclick="switchPlatform(\'cop15\');setTimeout(function(){var s=document.getElementById(\'activeVehSelect\');if(s){s.value=\'' + lastVehicle.id + '\';loadVehicle();var t=document.querySelector(\'.tab[data-tab=seguimiento]\');if(t)t.click();}},200);"><span class="daily-dash-action-icon">📝</span>Último: ' + lModel + '</div>';
     } else {
-        html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
+        html += '<div class="daily-dash-action" onclick="dashGo(\'inventory\',\'inv-readings\')"><span class="daily-dash-action-icon">🧪</span>Captura</div>';
     }
 
     html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
@@ -20201,7 +20231,9 @@ let tpState = safeParse(TP_LS_KEY, null) || {
         {id:11,region:"AUSTRALIA",regulation:"*",ratio:2,per:1000,label:"Australia"},
         {id:12,region:"*",regulation:"*",ratio:1,per:1000,label:"Default (catch-all)"},
     ],
-    weights: { volume:40, compliance:30, newConfig:20, urgency:10 },
+    weights: { volume:35, compliance:25, region:20, newConfig:10, urgency:10 },
+    regionPriority: { EUROPE:100, USA:90, CANADA:80, GENERAL:60, MEXICO:55, 'MIDDLE EAST':50, BRAZIL:50, RUSSIA:45, AUSTRALIA:40, '*':50 },
+    familyOverrides: {}, // { [familyKey]: {criticality:'critical'|'high'|'normal', deadline:'YYYY-MM-DD', note} }
     fixedPlan: null,     // {date, plan[]}
     fixedWeeklyPlan: null, // {fixedDate, capacity, numWeeks, weeks[{week, items[{desc,completed,...}]}]}
     capacity: 8,
@@ -20212,6 +20244,10 @@ let tpState = safeParse(TP_LS_KEY, null) || {
 };
 // Ensure weekHistory exists for existing localStorage data
 if (!tpState.weekHistory) tpState.weekHistory = [];
+// ── Migración suave para datos ya guardados en localStorage ──
+if (!tpState.regionPriority) tpState.regionPriority = { EUROPE:100, USA:90, CANADA:80, GENERAL:60, MEXICO:55, 'MIDDLE EAST':50, BRAZIL:50, RUSSIA:45, AUSTRALIA:40, '*':50 };
+if (!tpState.familyOverrides) tpState.familyOverrides = {};
+if (tpState.weights && tpState.weights.region === undefined) tpState.weights.region = 0; // no rompe sumas de pesos viejas
 
 function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); tabCacheInvalidate('tp'); }
 
@@ -20244,6 +20280,34 @@ function tpCalcRequired(cfg, rule) {
     return Math.max(1, Math.ceil((vol * rule.ratio) / rule.per));
 }
 
+// Replica la clave de familia usada en tpBuildFamilies() para un config suelto.
+function tpFamilyKeyForCfg(cfg) {
+    return `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}`;
+}
+
+// Importancia 0-100 de la región (editable en pestaña Reglas).
+function tpRegionPriorityValue(rgn) {
+    var rp = tpState.regionPriority || {};
+    var v = rp[rgn];
+    if (v === undefined || v === null) v = rp['*'];
+    if (v === undefined || v === null) v = 50;
+    return v;
+}
+
+// Override manual de familia (criticidad + deadline). Devuelve {boost, criticality, deadline, days}.
+function tpFamilyOverrideFor(cfg) {
+    var ov = (tpState.familyOverrides || {})[tpFamilyKeyForCfg(cfg)];
+    if (!ov) return null;
+    var boost = 0, days = null;
+    if (ov.criticality === 'critical') boost += 40;
+    else if (ov.criticality === 'high') boost += 20;
+    if (ov.deadline) {
+        days = Math.ceil((new Date(ov.deadline + 'T12:00:00') - Date.now()) / 86400000);
+        if (days <= 30) boost += Math.max(0, 30 - days) * 1.2; // más cerca → más boost
+    }
+    return { boost: boost, criticality: ov.criticality || 'normal', deadline: ov.deadline || '', days: days };
+}
+
 function tpPriorityScore(cfg, testedN) {
     const rule = tpGetRule(cfg);
     const req = tpCalcRequired(cfg, rule);
@@ -20254,7 +20318,45 @@ function tpPriorityScore(cfg, testedN) {
     const newScore = cfg.hist === 0 && cfg.total > 0 ? 100 : 0;
     const firstM = cfg.m.findIndex(v => v > 0);
     const urgScore = firstM === -1 ? 0 : ((6 - firstM) / 6) * 100;
-    return (volScore * w.volume + compScore * w.compliance + newScore * w.newConfig + urgScore * w.urgency) / 100;
+    const regScore = tpRegionPriorityValue(cfg.rgn);
+    const wReg = w.region || 0;
+    const base = (volScore * w.volume + compScore * w.compliance + newScore * w.newConfig + urgScore * w.urgency + regScore * wReg) / 100;
+    const ov = tpFamilyOverrideFor(cfg);
+    return base + (ov ? ov.boost : 0);
+}
+
+// Texto "por qué se priorizó" — para transparencia en plan y resumen ejecutivo.
+function tpScoreReason(cfg, testedN) {
+    var parts = [];
+    var ov = tpFamilyOverrideFor(cfg);
+    if (ov && ov.criticality === 'critical') parts.push('⚑ Crítico');
+    else if (ov && ov.criticality === 'high') parts.push('▲ Alto');
+    if (ov && ov.days !== null && ov.days <= 30) parts.push('⏰ ' + (ov.days < 0 ? 'vencido' : ov.days + 'd'));
+    var vol = (cfg.total || 0) + (cfg.hist || 0);
+    if (vol > 0) parts.push('Vol ' + vol.toLocaleString('es-MX'));
+    var regV = tpRegionPriorityValue(cfg.rgn);
+    if (cfg.rgn && regV >= 80) parts.push(cfg.rgn + ' (alta)');
+    else if (cfg.rgn) parts.push(cfg.rgn);
+    if ((testedN || 0) === 0) parts.push('0 probadas');
+    if (cfg.hist === 0 && cfg.total > 0) parts.push('config nueva');
+    return parts.join(' · ');
+}
+
+// Detalle de score para mostrar el "por qué" en cada item del plan.
+function tpBuildScoreDetail(cfg, n, req, score) {
+    var lastTested = '';
+    for (var i = tpState.testedList.length - 1; i >= 0; i--) {
+        if (tpState.testedList[i].configText === cfg.desc) { lastTested = tpState.testedList[i].date || ''; break; }
+    }
+    return { deficit: Math.max(0, req - n), score: score, lastTested: lastTested, reason: tpScoreReason(cfg, n) };
+}
+
+// Balance por región de un conjunto de items del plan (string compacto).
+function tpWeekRegionBalance(items) {
+    var counts = {};
+    (items || []).forEach(function(it) { var r = it.rgn || '?'; counts[r] = (counts[r] || 0) + 1; });
+    return Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; })
+        .map(function(r) { return '<span style="color:' + tpRegionColor(r) + ';">' + r + ' ' + counts[r] + '</span>'; }).join(' · ');
 }
 
 // Cache for tpGetAnalysis — invalidated on plan/tested changes
@@ -20535,6 +20637,81 @@ function tpConfigBadges(item, opts) {
 }
 
 // ═══ DASHBOARD ═══
+// ── Resumen ejecutivo: foto instantánea de pendientes/prioridades/urgencias ──
+function tpRenderExecSummary() {
+    if (tpState.planData.length === 0) return '';
+    var analysis = tpGetAnalysis();
+    var families = typeof tpBuildFamilies === 'function' ? tpBuildFamilies() : [];
+    var totalReq = analysis.reduce(function(s,a){return s+a.required;},0);
+    var totalT = analysis.reduce(function(s,a){return s+a.testedN;},0);
+    var deficit = Math.max(0, totalReq - totalT);
+    var covPct = totalReq > 0 ? Math.round(totalT/totalReq*100) : 100;
+    var highRisk = families.filter(function(f){return f.riskLevel==='high';}).length;
+    var critFams = families.filter(function(f){return f.criticality==='critical' || f.criticality==='high';}).length;
+    var dueSoon  = families.filter(function(f){return f.daysToDeadline!==null && f.daysToDeadline<=14;}).length;
+
+    // Velocidad reciente (pruebas en últimos 28 días) y ETA al ritmo actual
+    var now = Date.now();
+    var recent = tpState.testedList.filter(function(t){ var d=new Date(t.date); return !isNaN(d.getTime()) && (now-d.getTime())<=28*86400000; }).length;
+    var velo = recent/4; // por semana
+    var etaWeeks = velo>0 ? Math.ceil(deficit/velo) : null;
+    var gd = tpState.deadline ? Math.ceil((new Date(tpState.deadline+'T12:00:00')-now)/86400000) : null;
+    var gdWeeks = gd!==null ? Math.ceil(gd/7) : null;
+    var etaColor = (etaWeeks!==null && gdWeeks!==null) ? (etaWeeks>gdWeeks?'var(--tp-red)':'var(--tp-green)') : 'var(--tp-text)';
+    var etaTxt = etaWeeks===null ? '—' : etaWeeks + ' sem';
+
+    var top = analysis.filter(function(a){return a.deficit>0;}).slice(0,8);
+    var deadlines = families.filter(function(f){return f.daysToDeadline!==null;}).sort(function(a,b){return a.daysToDeadline-b.daysToDeadline;}).slice(0,8);
+
+    var html = '<div class="tp-card" style="border-left:3px solid var(--tp-amber);margin-bottom:14px;background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">';
+    html += '<div class="tp-card-title"><span style="font-size:14px;">📸 Resumen Ejecutivo — Foto del Plan</span></div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:8px;margin:8px 0;">';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">'+deficit+'</div><div class="tp-metric-label">Pruebas pendientes</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:'+(covPct>=80?'var(--tp-green)':covPct>=40?'var(--tp-amber)':'var(--tp-red)')+'">'+covPct+'%</div><div class="tp-metric-label">Cobertura global</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">'+highRisk+'</div><div class="tp-metric-label">Familias riesgo alto</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">'+critFams+'</div><div class="tp-metric-label">Críticas/Altas</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">'+dueSoon+'</div><div class="tp-metric-label">Deadline ≤14d</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:'+etaColor+'">'+etaTxt+'</div><div class="tp-metric-label">ETA ritmo actual</div></div>';
+    html += '</div>';
+    if (etaWeeks!==null && gdWeeks!==null) {
+        html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:4px;">Al ritmo de '+velo.toFixed(1)+' pruebas/sem terminas en ~'+etaWeeks+' sem; deadline global en '+gdWeeks+' sem '+(etaWeeks>gdWeeks?'<span style="color:var(--tp-red);font-weight:700;">(EN RIESGO)</span>':'<span style="color:var(--tp-green);font-weight:700;">(a tiempo)</span>')+'.</div>';
+    }
+
+    // 🔥 Prioridades — qué probar ahora
+    html += '<div style="margin-top:10px;"><div style="font-size:11px;font-weight:700;color:var(--tp-text);margin-bottom:5px;">🔥 Prioridades — qué probar ahora</div>';
+    if (top.length === 0) html += '<div style="font-size:10px;color:var(--tp-dim);">Sin déficit pendiente. 🎉</div>';
+    else top.forEach(function(a){
+        var reason = tpScoreReason(a, a.testedN);
+        var modSafe = (a.mod||'').replace(/'/g,"\\'");
+        html += '<div onclick="window._tpFamModel=\''+modSafe+'\';tpSwitchTab(\'tp-families\');" style="display:flex;align-items:center;gap:6px;padding:5px 7px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);cursor:pointer;flex-wrap:wrap;">';
+        html += '<span class="tp-badge" style="background:'+tpRegionColor(a.rgn)+'20;color:'+tpRegionColor(a.rgn)+';font-size:9px;">'+(a.rgn||'?')+'</span>';
+        html += '<span style="font-size:10px;font-weight:700;">'+a.mod+'</span><span style="font-size:9px;color:var(--tp-dim);">'+a.eng+' '+a.tx+' '+a.my+'</span>';
+        html += '<span style="font-size:9px;color:var(--tp-dim);flex:1;min-width:80px;">'+reason+'</span>';
+        html += '<span style="font-size:9px;font-weight:700;color:var(--tp-red);">déficit '+a.deficit+'</span>';
+        html += '<span style="font-size:9px;color:var(--tp-dim);">›</span></div>';
+    });
+    html += '</div>';
+
+    // ⏰ Deadlines próximos
+    if (deadlines.length > 0) {
+        html += '<div style="margin-top:10px;"><div style="font-size:11px;font-weight:700;color:var(--tp-text);margin-bottom:5px;">⏰ Deadlines próximos</div>';
+        deadlines.forEach(function(f){
+            var c = f.daysToDeadline < 7 ? 'var(--tp-red)' : f.daysToDeadline < 14 ? 'var(--tp-amber)' : 'var(--tp-blue)';
+            var t = f.daysToDeadline < 0 ? 'VENCIDO' : f.daysToDeadline + ' días';
+            var modSafe = (f.mod||'').replace(/'/g,"\\'");
+            html += '<div onclick="window._tpFamModel=\''+modSafe+'\';tpSwitchTab(\'tp-families\');" style="display:flex;align-items:center;gap:6px;padding:5px 7px;margin-bottom:3px;border:1px solid '+c+'40;border-radius:6px;background:'+c+'10;cursor:pointer;flex-wrap:wrap;">';
+            html += tpFamilyFlagBadge(f);
+            html += '<span style="font-size:10px;font-weight:700;">'+f.mod+'</span><span style="font-size:9px;color:var(--tp-dim);">'+f.eng+' '+f.tx+' '+f.my+' · '+f.reg+'</span>';
+            html += '<span style="font-size:9px;font-weight:700;color:'+c+';margin-left:auto;">'+t+' ('+f.overrideDeadline+')</span>';
+            html += '<span style="font-size:9px;font-weight:700;color:var(--tp-red);">déficit '+f.deficit+'</span></div>';
+        });
+        html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
 function tpRenderDashboard(el) {
     if (tpState.planData.length === 0) {
         el.innerHTML = `<div class="tp-card" style="text-align:center;padding:60px 20px;">
@@ -20574,6 +20751,7 @@ function tpRenderDashboard(el) {
     var auditGlobalPct = stats.totalReq > 0 ? Math.round((stats.totalT / stats.totalReq) * 100) : 100;
 
     el.innerHTML = `
+    ${tpRenderExecSummary()}
     ${fixedBanner}
     ${tpRenderAlertsBanner()}
     ${tpRenderAuditReadinessCard()}
@@ -21385,7 +21563,8 @@ function tpRenderRules(el) {
     const regions = ['*','AUSTRALIA','BRAZIL','CANADA','EUROPE','GENERAL','MEXICO','MIDDLE EAST','RUSSIA','USA'];
     const regulations = ['*','120V','220V','BRAZIL L8','EURO-2','EURO-3','EURO-4','EURO-5','EURO-6C','PRE-EURO 7','SULEV 30'];
     const w = tpState.weights;
-    const wTotal = w.volume + w.compliance + w.newConfig + w.urgency;
+    const wTotal = w.volume + w.compliance + (w.region||0) + w.newConfig + w.urgency;
+    const rp = tpState.regionPriority || {};
 
     el.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr;gap:14px;">
@@ -21420,18 +21599,31 @@ function tpRenderRules(el) {
             <div class="tp-card">
                 <div class="tp-card-title"><span>⚖️ Pesos de Priorización</span></div>
                 <p style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Peso relativo de cada factor. Deben sumar 100.</p>
-                ${[['volume','📦 Volumen de Producción'],['compliance','📊 Cumplimiento (déficit)'],['newConfig','🆕 Config Nueva'],['urgency','⏰ Urgencia (prod. próxima)']].map(([k,label]) => `
+                ${[['volume','📦 Volumen de Producción'],['compliance','📊 Cumplimiento (déficit)'],['region','🌍 Importancia de Región'],['newConfig','🆕 Config Nueva'],['urgency','⏰ Urgencia (prod. próxima)']].map(([k,label]) => `
                     <div style="margin-bottom:10px;">
                         <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
                             <span style="font-size:11px;">${label}</span>
                             <span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tp-amber)">${w[k]}%</span>
                         </div>
-                        <input type="range" min="0" max="100" step="5" value="${w[k]}" style="width:100%;accent-color:var(--tp-amber);" oninput="tpState.weights.${k}=+this.value;tpSave();_tpDebouncedRender();">
+                        <input type="range" min="0" max="100" step="5" value="${w[k]}" style="width:100%;accent-color:var(--tp-amber);" oninput="tpState.weights.${k}=+this.value;tpInvalidateCache();tpSave();_tpDebouncedRender();">
                     </div>
                 `).join('')}
                 <div style="margin-top:8px;padding:8px;background:#161f2e;border-radius:6px;text-align:center;">
                     <span style="font-size:11px;color:${wTotal===100?'var(--tp-green)':'var(--tp-amber)'};font-weight:700;">Total: ${wTotal}% ${wTotal===100?'✓':'(ajustar a 100%)'}</span>
                 </div>
+            </div>
+            <div class="tp-card" style="margin-top:14px;">
+                <div class="tp-card-title"><span>🌍 Prioridad por Región</span></div>
+                <p style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Importancia relativa de cada mercado (0-100). Europa más alto por SOP. Pesa según el factor "Importancia de Región" de arriba.</p>
+                ${regions.filter(r=>r!=='*').concat(['*']).map(r => `
+                    <div style="margin-bottom:8px;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                            <span style="font-size:11px;color:${tpRegionColor(r)};font-weight:600;">${r==='*'?'Otras (default)':r}</span>
+                            <span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tp-amber)">${rp[r]!==undefined?rp[r]:50}</span>
+                        </div>
+                        <input type="range" min="0" max="100" step="5" value="${rp[r]!==undefined?rp[r]:50}" style="width:100%;accent-color:${tpRegionColor(r)};" oninput="if(!tpState.regionPriority)tpState.regionPriority={};tpState.regionPriority['${r}']=+this.value;tpInvalidateCache();tpSave();_tpDebouncedRender();">
+                    </div>
+                `).join('')}
             </div>
             <div class="tp-card" style="margin-top:14px;">
                 <div class="tp-card-title">
@@ -21475,6 +21667,7 @@ function tpSaveRulePreset() {
         name: name,
         rules: JSON.parse(JSON.stringify(tpState.rules)),
         weights: JSON.parse(JSON.stringify(tpState.weights)),
+        regionPriority: JSON.parse(JSON.stringify(tpState.regionPriority || {})),
         created: new Date().toISOString()
     });
     tpSave(); tpRender();
@@ -21489,6 +21682,7 @@ function tpLoadRulePreset(idx) {
         var preset = tpState.rulePresets[idx];
         tpState.rules = JSON.parse(JSON.stringify(preset.rules));
         tpState.weights = JSON.parse(JSON.stringify(preset.weights));
+        if (preset.regionPriority) tpState.regionPriority = JSON.parse(JSON.stringify(preset.regionPriority));
         tpSave(); tpRender(); tpInvalidateCache();
         showToast('Plantilla "' + preset.name + '" cargada', 'success');
     });
@@ -21615,6 +21809,7 @@ function tpRenderWeekly(el) {
             </div>
             <button class="tp-btn tp-btn-primary" onclick="tpGenerateWeekly()" style="font-size:12px;padding:8px 14px;background:var(--tp-amber);color:#000;font-weight:700;">🚀 Generar</button>
             <button class="tp-btn tp-btn-primary" onclick="tpSmartGenerate()" style="font-size:12px;padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;" title="Genera plan optimo con validacion de inventario y carryover automatico">⚡ Smart</button>
+            <button class="tp-btn tp-btn-primary" onclick="tpGenerateMonthly()" style="font-size:12px;padding:8px 14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:700;" title="Genera 4 semanas de una vez distribuyendo los déficits de mayor prioridad">📅 Generar Mes</button>
         </div>
 
         <div style="padding:8px 10px;background:var(--tp-card);border-radius:8px;border:1px solid var(--tp-border);margin-bottom:12px;">
@@ -21726,6 +21921,7 @@ function tpRenderWeekly(el) {
                     <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Eliminar semana ${idx+1}?',function(){tpState.weeklyPlans.splice(${idx},1);tpSave();tpRender();},{title:'Eliminar semana',type:'danger',confirmText:'Eliminar'})" style="font-size:10px;color:var(--tp-red);">🗑</button>
                 </div>
             </div>
+            <div style="font-size:9px;color:var(--tp-dim);margin:-2px 0 6px;">⚖️ Balance: ${tpWeekRegionBalance(w.items)}${w.monthBatch?' · <span style="color:var(--tp-blue);">parte de plan mensual</span>':''}</div>
             ${hasSchedule ? ['dom','lun','mar','mie','jue','vie','sab'].filter(d => dayGroups[d] && dayGroups[d].length > 0).map(d => `
             <div style="margin-bottom:6px;">
                 <div style="font-size:9px;font-weight:700;color:var(--tp-blue);padding:3px 6px;background:rgba(59,130,246,0.06);border-radius:4px;margin-bottom:3px;">
@@ -21750,6 +21946,7 @@ function tpRenderWeekly(el) {
                     <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
                         <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':'⬜'}</span>
                         ${tpConfigBadges(item,{fontSize:'8px'})}
+                    ${tpScoreBadge(item)}
                     </div>
                     <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
                         ${tpStartTestButton(idx, ii, item, isEdit)}
@@ -21868,7 +22065,8 @@ function tpGenerateWeekly() {
             const n = testedCopy.filter(t => t.configText === cfg.desc).length;
             const req = tpCalcRequired(cfg, rule);
             const isCarryover = carryoverDescs.has(cfg.desc);
-            items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:req, deficit:Math.max(0,req-n), score:tpPriorityScore(cfg,n), completed:false, completedDate:null, manual:true, carriedOver:isCarryover });
+            const _sc = tpPriorityScore(cfg,n);
+            items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:req, deficit:Math.max(0,req-n), score:_sc, completed:false, completedDate:null, manual:true, carriedOver:isCarryover, _scoreDetail: tpBuildScoreDetail(cfg, n, req, _sc) });
             testedCopy.push({ configText:cfg.desc, date:'Manual', source:'plan' });
             used.add(cfg.desc);
         }
@@ -21877,7 +22075,7 @@ function tpGenerateWeekly() {
     for (const cfg of pool) {
         if (items.length >= capacity) break;
         if (used.has(cfg.desc)) continue;
-        items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:cfg.required, deficit:cfg.deficit, score:cfg.score, completed:false, completedDate:null, manual:false, carriedOver:false });
+        items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:cfg.required, deficit:cfg.deficit, score:cfg.score, completed:false, completedDate:null, manual:false, carriedOver:false, _scoreDetail: tpBuildScoreDetail(cfg, cfg.testedN, cfg.required, cfg.score) });
         used.add(cfg.desc);
     }
 
@@ -21958,7 +22156,8 @@ function tpSmartGenerate() {
                 ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire,
                 required: req, deficit: Math.max(0, req - n),
                 score: tpPriorityScore(cfg, n), completed: false, completedDate: null,
-                manual: false, carriedOver: true
+                manual: false, carriedOver: true,
+                _scoreDetail: tpBuildScoreDetail(cfg, n, req, tpPriorityScore(cfg, n))
             });
             testedCopy.push({ configText: cfg.desc, date: 'Smart', source: 'plan' });
             used.add(cfg.desc);
@@ -21989,7 +22188,7 @@ function tpSmartGenerate() {
             required: cfg.required, deficit: cfg.deficit, score: cfg.score,
             completed: false, completedDate: null, manual: false, carriedOver: false,
             _scoreDetail: { deficit: cfg.deficit, score: cfg.score, lastTested: _lastTested,
-                reason: cfg.deficit >= 3 ? 'Alto deficit' : cfg.deficit >= 1 ? 'Deficit pendiente' : 'Mantenimiento' }
+                reason: tpScoreReason(cfg, cfg.testedN) }
         });
         used.add(cfg.desc);
     }
@@ -22029,6 +22228,65 @@ function tpSmartGenerate() {
             setTimeout(function() { showToast('⚠️ ' + impactWarning, 'warning'); }, 1500);
         }
     }
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  MONTHLY PLAN GENERATION — genera 4 semanas de una vez               ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+function tpGenerateMonthly(startDateStr) {
+    if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
+    if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
+    var capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
+    var workDays = window._tpWorkDays || { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
+    var baseStr = startDateStr || document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0,10);
+    var base = new Date(baseStr + 'T12:00:00');
+    var numWeeks = 4;
+
+    var analysis = tpGetAnalysis();
+    // Déficit simulado por config: baja a lo largo de las semanas (igual que el simulador).
+    var testedSim = new Map();
+    analysis.forEach(function(a){ testedSim.set(a.desc, a.testedN); });
+
+    var monthBatch = Date.now();
+    var created = 0;
+    for (var wk = 0; wk < numWeeks; wk++) {
+        var weekDate = new Date(base.getTime()); weekDate.setDate(base.getDate() + wk * 7);
+        var weekStr = weekDate.toISOString().slice(0,10);
+        var scored = analysis.map(function(a){
+            var n = testedSim.get(a.desc) || 0;
+            var rule = tpGetRule(a);
+            var req = tpCalcRequired(a, rule);
+            return Object.assign({}, a, { simTested:n, simReq:req, simDeficit:Math.max(0, req - n) });
+        }).filter(function(c){ return c.simDeficit > 0 && c.total > 0; }).sort(function(a,b){ return b.score - a.score; });
+
+        var items = []; var used = new Set();
+        for (var i = 0; i < scored.length && items.length < capacity; i++) {
+            var cfg = scored[i];
+            if (used.has(cfg.desc)) continue;
+            items.push({
+                desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg,
+                eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body,
+                ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire,
+                required:cfg.simReq, deficit:cfg.simDeficit, score:cfg.score,
+                completed:false, completedDate:null, manual:false, carriedOver:false,
+                _scoreDetail: tpBuildScoreDetail(cfg, cfg.simTested, cfg.simReq, cfg.score)
+            });
+            used.add(cfg.desc);
+            testedSim.set(cfg.desc, (testedSim.get(cfg.desc) || 0) + 1);
+        }
+        if (items.length === 0) break;
+        var scheduled = tpAssignSchedule(items, workDays);
+        tpState.weeklyPlans.push({
+            id: monthBatch + wk, created: new Date().toISOString(), weekDate: weekStr,
+            workDays: JSON.parse(JSON.stringify(workDays)), capacity: capacity,
+            items: scheduled, accepted: false, monthBatch: monthBatch
+        });
+        created++;
+    }
+    if (created === 0) { showToast('Sin configuraciones pendientes', 'info'); return; }
+    tpSave(); tpRender(); tpUpdateBadges();
+    if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(created);
+    showToast('📅 Plan mensual generado: ' + created + ' semanas. Revísalas y acéptalas.', 'success');
 }
 
 function tpAcceptWeeklyPlan(weekIdx) {
@@ -22659,6 +22917,12 @@ function tpBuildFamilies() {
         f.riskScore = ((1 - f.coverage) * 60) + (((f.totalVol + f.totalHist) / maxVol) * 30) + ((1 - f.configCoverage) * 10);
         f.riskLevel = f.riskScore > 60 ? 'high' : f.riskScore > 30 ? 'medium' : 'low';
 
+        // Override manual (criticidad + deadline por familia)
+        var _ov = (tpState.familyOverrides || {})[f.key] || {};
+        f.criticality = _ov.criticality || 'normal';
+        f.overrideDeadline = _ov.deadline || '';
+        f.daysToDeadline = _ov.deadline ? Math.ceil((new Date(_ov.deadline + 'T12:00:00') - Date.now()) / 86400000) : null;
+
         // [V7-A3] Gas/fuel availability indicator
         f.resourceStatus = 'green'; // 🟢 default
         if (typeof invState !== 'undefined' && invState.gases) {
@@ -22801,6 +23065,32 @@ function tpClearFamilyFilters() {
     window._tpFamModel = 'ALL';
     window._tpReadinessFilter = 'ALL';
     tpRefreshFamilies();
+}
+
+// Set/clear criticidad o deadline manual de una familia.
+function tpSetFamilyOverride(key, field, value) {
+    if (!tpState.familyOverrides) tpState.familyOverrides = {};
+    var ov = tpState.familyOverrides[key] || {};
+    if (value === '' || value === 'normal' || value == null) { delete ov[field]; }
+    else { ov[field] = value; }
+    if (!ov.criticality && !ov.deadline) delete tpState.familyOverrides[key];
+    else tpState.familyOverrides[key] = ov;
+    tpInvalidateCache();
+    tpSave();
+    tpRefreshFamilies();
+}
+
+// Badge visible de criticidad/deadline de familia (para summaries y resumen ejecutivo).
+function tpFamilyFlagBadge(f) {
+    var h = '';
+    if (f.criticality === 'critical') h += '<span class="tp-badge" style="background:rgba(239,68,68,0.2);color:#ef4444;font-size:9px;font-weight:800;">⚑ CRÍTICO</span>';
+    else if (f.criticality === 'high') h += '<span class="tp-badge" style="background:rgba(245,158,11,0.2);color:#f59e0b;font-size:9px;font-weight:800;">▲ ALTO</span>';
+    if (f.daysToDeadline !== null) {
+        var c = f.daysToDeadline < 7 ? '#ef4444' : f.daysToDeadline < 14 ? '#f59e0b' : '#06b6d4';
+        var t = f.daysToDeadline < 0 ? 'vencido' : f.daysToDeadline + 'd';
+        h += '<span class="tp-badge" style="background:' + c + '20;color:' + c + ';font-size:9px;font-weight:700;">⏰ ' + t + '</span>';
+    }
+    return h;
 }
 
 function tpRenderFamilies(el) {
@@ -22960,7 +23250,7 @@ function tpRenderFamilies(el) {
                         <span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:9px;">${f.reg}</span>
                         ${(f.rgns||[]).map(r=>`<span class="tp-badge" style="background:${tpRegionColor(r)}20;color:${tpRegionColor(r)};font-size:9px;">${r}</span>`).join('')}
                         ${(f.drvs||[]).map(d=>`<span class="tp-badge" style="background:rgba(236,72,153,0.15);color:#ec4899;font-size:9px;">${d}</span>`).join('')}
-                        ${epTag}${engTag}${_repStar}${_equivBadge}${_contBadge}
+                        ${epTag}${engTag}${_repStar}${_equivBadge}${_contBadge}${tpFamilyFlagBadge(f)}
                     </div>
                     <div style="display:flex;align-items:center;gap:4px;">
                         ${_evidBtn}
@@ -22969,6 +23259,20 @@ function tpRenderFamilies(el) {
                     </div>
                 </summary>
                 <div style="padding:6px 8px;background:#0f1826;border-top:1px solid var(--tp-border);">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 6px;margin-bottom:6px;background:rgba(245,158,11,0.05);border:1px dashed rgba(245,158,11,0.3);border-radius:5px;">
+                        <span style="font-size:9px;font-weight:700;color:var(--tp-amber);">⚑ Prioridad</span>
+                        <label style="font-size:9px;color:var(--tp-dim);display:flex;align-items:center;gap:3px;">Criticidad
+                            <select class="tp-select" style="font-size:9px;padding:2px 4px;" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','criticality',this.value);">
+                                <option value="normal" ${f.criticality==='normal'?'selected':''}>Normal</option>
+                                <option value="high" ${f.criticality==='high'?'selected':''}>Alto</option>
+                                <option value="critical" ${f.criticality==='critical'?'selected':''}>Crítico</option>
+                            </select>
+                        </label>
+                        <label style="font-size:9px;color:var(--tp-dim);display:flex;align-items:center;gap:3px;">Deadline
+                            <input type="date" value="${f.overrideDeadline||''}" class="tp-select" style="font-size:9px;padding:2px 4px;" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline',this.value);">
+                        </label>
+                        ${f.overrideDeadline?`<button class="tp-btn tp-btn-ghost" onclick="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline','');" style="font-size:8px;padding:1px 5px;color:var(--tp-red);">Quitar deadline</button>`:''}
+                    </div>
                     ${diffs.length > 0 ? `<div style="font-size:9px;color:var(--tp-dim);margin-bottom:4px;letter-spacing:0.02em;">Variantes por: <span style="color:var(--tp-text);font-weight:600;">${diffs.map(d=>d.label).join(' · ')}</span></div>` : ''}
                     ${f.configs.sort((a,b)=>b.total-a.total).map((c, _ci) => {
                         let badges = '';
@@ -29510,7 +29814,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202606021640' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202606031624' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
