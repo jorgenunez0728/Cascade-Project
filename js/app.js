@@ -1681,6 +1681,16 @@ function switchPlatform(platform, swipeDir) {
 /** Deep-link helper for the "Hoy" dashboard cards: switch platform, optional
  *  sub-tab, then optionally invoke an action (e.g. open an edit modal) by name. */
 function dashGo(platform, tabId, action, id) {
+    // Pre-fijar el sub-tab destino ANTES de cambiar de plataforma, para que el
+    // restore-de-tab que hace switchPlatform (p.ej. invRestoreTab) aterrice ahí
+    // y no compita con el invSwitchTab posterior (causaba que la lectura de gases
+    // "no jalara" mientras la calibración sí, porque esa abre un modal encima).
+    if (tabId) {
+        try {
+            if (platform === 'inventory') { localStorage.setItem('kia_inv_activeTab', tabId); if (typeof invState !== 'undefined') invState.activeTab = tabId; }
+            else if (platform === 'cop15') { localStorage.setItem('kia_cop15_activeTab', tabId); }
+        } catch (e) {}
+    }
     if (typeof switchPlatform === 'function') switchPlatform(platform);
     setTimeout(function() {
         if (tabId) {
