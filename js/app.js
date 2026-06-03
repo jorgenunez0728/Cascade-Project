@@ -1694,39 +1694,58 @@ function dashGo(platform, tabId, action, id) {
     }, 160);
 }
 
-function _tabMoreResetMenu(w) {
-    var m = w && w.querySelector ? w.querySelector('.tp-tab-more-menu') : null;
-    if (m) { m.style.position = ''; m.style.top = ''; m.style.left = ''; m.style.right = ''; m.style.maxHeight = ''; m.style.overflowY = ''; }
+function _tabMoreReset(menu) {
+    if (!menu) return;
+    menu.style.position = ''; menu.style.top = ''; menu.style.left = ''; menu.style.right = '';
+    menu.style.maxHeight = ''; menu.style.overflowY = ''; menu.style.zIndex = ''; menu.style.display = '';
+}
+function _tabMoreClose(wrap) {
+    if (!wrap) return;
+    wrap.classList.remove('open');
+    var menu = wrap.__tabMoreMenu || (wrap.querySelector ? wrap.querySelector('.tp-tab-more-menu') : null);
+    if (menu) {
+        if (menu.parentNode !== wrap) wrap.appendChild(menu); // devolver el menú a su wrap
+        _tabMoreReset(menu);
+    }
 }
 function toggleTabMore(btn) {
     var wrap = btn && btn.closest ? btn.closest('.tp-tab-more-wrap') : null;
     if (!wrap) return;
     var wasOpen = wrap.classList.contains('open');
-    // Close any other open menus first
-    document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); _tabMoreResetMenu(w); });
-    if (!wasOpen) {
-        wrap.classList.add('open');
-        // The tab bar (.tp-tabs) uses overflow-x:auto, which clips an absolutely
-        // positioned dropdown. Anchor the menu with position:fixed to the button
-        // so it escapes the overflow and is actually visible.
-        var menu = wrap.querySelector('.tp-tab-more-menu');
-        if (menu) {
-            var r = btn.getBoundingClientRect();
-            var W = 220;
-            menu.style.position = 'fixed';
-            menu.style.top = (r.bottom + 4) + 'px';
-            menu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8)) + 'px';
-            menu.style.right = 'auto';
-            menu.style.maxHeight = Math.max(120, window.innerHeight - r.bottom - 16) + 'px';
-            menu.style.overflowY = 'auto';
-        }
+    // Cerrar cualquier menú abierto (y devolverlo a su wrap)
+    document.querySelectorAll('.tp-tab-more-wrap.open').forEach(_tabMoreClose);
+    if (wasOpen) return;
+    var menu = wrap.querySelector('.tp-tab-more-menu');
+    if (!menu) { wrap.classList.add('open'); return; }
+    wrap.__tabMoreMenu = menu;
+    // Portal: mover el menú a <body> para que position:fixed escape del contenedor
+    // de la barra (.tp-tabs tiene backdrop-filter y .platform-section tiene contain:layout,
+    // que de otro modo lo anclan/recortan). Por eso "se contenía dentro de la barra".
+    document.body.appendChild(menu);
+    wrap.classList.add('open');
+    var r = btn.getBoundingClientRect();
+    var W = 220;
+    menu.style.position = 'fixed';
+    menu.style.top = (r.bottom + 4) + 'px';
+    menu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8)) + 'px';
+    menu.style.right = 'auto';
+    menu.style.maxHeight = Math.max(120, window.innerHeight - r.bottom - 16) + 'px';
+    menu.style.overflowY = 'auto';
+    menu.style.zIndex = '9999';
+    menu.style.display = 'flex'; // el menú ya no es descendiente de .open; mostrarlo explícitamente
+    // En captura (antes del onclick inline del item, que usa this.closest('.tp-tab-more-wrap')),
+    // devolver el menú a su wrap y cerrar — así la navegación funciona y el menú se oculta.
+    if (!menu.__tabMoreHooked) {
+        menu.__tabMoreHooked = true;
+        menu.addEventListener('click', function() { _tabMoreClose(wrap); }, true);
     }
 }
 
 // Close the overflow menu when clicking elsewhere (capture once globally).
 document.addEventListener('click', function(e) {
-    var inWrap = e.target && e.target.closest ? e.target.closest('.tp-tab-more-wrap') : null;
-    if (!inWrap) document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); _tabMoreResetMenu(w); });
+    var t = e.target;
+    if (t && t.closest && (t.closest('.tp-tab-more-wrap') || t.closest('.tp-tab-more-menu'))) return;
+    document.querySelectorAll('.tp-tab-more-wrap.open').forEach(_tabMoreClose);
 });
 
 // ╔══════════════════════════════════════════════════════════════════════╗
