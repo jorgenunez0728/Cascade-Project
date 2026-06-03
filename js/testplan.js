@@ -336,7 +336,7 @@ function tpPriorityScore(cfg, testedN) {
     const volScore = ((cfg.total + cfg.hist) / maxVol) * 100;
     const compScore = req > 0 ? (1 - Math.min(testedN / req, 1)) * 100 : 0;
     const newScore = cfg.hist === 0 && cfg.total > 0 ? 100 : 0;
-    const firstM = cfg.m.findIndex(v => v > 0);
+    const firstM = (cfg.m || []).findIndex(v => v > 0);
     const urgScore = firstM === -1 ? 0 : ((6 - firstM) / 6) * 100;
     const regScore = tpRegionPriorityValue(cfg.rgn);
     const wReg = w.region || 0;
@@ -404,6 +404,10 @@ function tpInvalidateCache() { _tpAnalysisCache = { key: '', data: null }; }
 
 // ── Init: load plan from embedded CSV data ──
 function tpInit() {
+    // Siempre abrir el módulo en Dashboard en la primera carga de la sesión
+    // (antes reabría en el último tab, p.ej. Semanal).
+    tpState.activeTab = 'tp-dashboard';
+    window._tpLastTab = null;
     if (tpState.planData.length === 0) {
         tpLoadPlanFromCSV_CONFIGURATIONS();
     }
@@ -611,12 +615,12 @@ function _tpGetRenderer(tabId) {
 function tpRender() {
     if (!document.getElementById('tp-content')) return;
     if (!_tabCache['tp']) tabCacheInit('tp', _tpTabs);
-    // Restore last active tab if available
-    if (window._tpLastTab && tpState.activeTab === 'tp-dashboard' && window._tpLastTab !== 'tp-dashboard') {
-        tpState.activeTab = window._tpLastTab;
-        var allTabs = document.querySelectorAll('#tp-tabs-bar .tp-tab');
-        var targetBtn = document.querySelector('#tp-tabs-bar .tp-tab[onclick*="' + window._tpLastTab + '"]');
-        if (targetBtn) { allTabs.forEach(function(b){b.classList.remove('active');}); targetBtn.classList.add('active'); }
+    // Keep the active tab button in sync with tpState.activeTab (covers programmatic
+    // navigation, e.g. deep-links from the Hoy dashboard or the exec summary).
+    var _bar = document.getElementById('tp-tabs-bar');
+    if (_bar) {
+        var _btn = _bar.querySelector('.tp-tab[onclick*="' + tpState.activeTab + '"]');
+        if (_btn) { _bar.querySelectorAll('.tp-tab').forEach(function(b){ b.classList.remove('active'); }); _btn.classList.add('active'); }
     }
     var tab = tpState.activeTab;
     var renderer = _tpGetRenderer(tab);

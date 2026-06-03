@@ -5321,11 +5321,11 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202606031711';
+var APP_BUILD = '202606031735';
 
 // Format a build timestamp YYYYMMDDHHmm into a human readable label.
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202606031711' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202606031735' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
@@ -6559,66 +6559,58 @@ function tabCacheInit(moduleId, tabIds) {
  */
 function tabCacheSwitch(moduleId, tabId, renderFn) {
     var cache = _tabCache[moduleId];
-    if (!cache) { renderFn(document.getElementById(moduleId + '-content')); return; }
+    if (!cache) {
+        var c = document.getElementById(moduleId + '-content');
+        try { renderFn(c); } catch (err) { _tabRenderError(c, err); }
+        return;
+    }
 
-    // Find the currently visible (outgoing) tab
-    var outgoingEl = null;
+    // Swap content IMMEDIATELY and reliably. The previous implementation wrapped
+    // the swap in setTimeout(200) + document.startViewTransition(), which on
+    // Chrome/Brave could leave the swap stranded (button highlighted but the
+    // *-cached div display never toggled → "resalta pero no cambia"). We now do
+    // the display toggle synchronously and keep only non-blocking CSS animations.
     cache.tabs.forEach(function(id) {
         var el = document.getElementById(id + '-cached');
-        if (el && el.style.display !== 'none' && id !== tabId) {
-            outgoingEl = el;
+        if (!el) return;
+        if (id === tabId) {
+            el.style.display = '';
+            el.classList.remove('tab-content-exit');
+            el.classList.add('tab-content-enter');
+            setTimeout(function() { el.classList.remove('tab-content-enter'); }, 200);
+        } else {
+            el.style.display = 'none';
+            el.classList.remove('tab-content-exit', 'tab-content-enter');
         }
     });
 
-    var doSwitch = function() {
-        // Hide all tabs except incoming
-        cache.tabs.forEach(function(id) {
-            var el = document.getElementById(id + '-cached');
-            if (el) el.style.display = (id === tabId) ? '' : 'none';
-        });
-        var target = document.getElementById(tabId + '-cached');
-        if (target) {
-            // Add enter animation
-            target.classList.add('tab-content-enter');
-            setTimeout(function() { target.classList.remove('tab-content-enter'); }, 200);
-        }
-        if (target && (!cache.rendered[tabId] || cache.dirty[tabId])) {
-            if (!cache.rendered[tabId]) {
-                target.innerHTML = _skeletonHTML();
-            }
-            // Use rAF to show skeleton briefly, then render
-            requestAnimationFrame(function() {
+    var target = document.getElementById(tabId + '-cached');
+    if (!target) return;
+    if (!cache.rendered[tabId] || cache.dirty[tabId]) {
+        if (!cache.rendered[tabId]) target.innerHTML = _skeletonHTML();
+        // Show skeleton one frame, then render. Wrap in try/catch so a failing
+        // renderer shows a visible error instead of a silent blank ("dead") tab.
+        requestAnimationFrame(function() {
+            try {
                 renderFn(target);
                 cache.rendered[tabId] = true;
                 cache.dirty[tabId] = false;
-            });
-        }
-    };
-
-    // If there's an outgoing tab, animate exit first.
-    // Keep the exit class on until doSwitch() applies display:none, otherwise
-    // there is a one-frame flash where the outgoing tab pops back to opacity:1
-    // before being hidden, causing a visible overlap with the incoming tab.
-    if (outgoingEl) {
-        outgoingEl.classList.add('tab-content-exit');
-        setTimeout(function() {
-            var runSwitch = function() {
-                doSwitch();
-                outgoingEl.classList.remove('tab-content-exit');
-            };
-            if (document.startViewTransition) {
-                document.startViewTransition(runSwitch);
-            } else {
-                runSwitch();
+            } catch (err) {
+                _tabRenderError(target, err);
+                cache.rendered[tabId] = false; // allow retry on next switch
             }
-        }, 200);
-    } else {
-        if (document.startViewTransition) {
-            document.startViewTransition(doSwitch);
-        } else {
-            doSwitch();
-        }
+        });
     }
+}
+
+/** Render a visible error box into a tab when its renderer throws. */
+function _tabRenderError(target, err) {
+    if (!target) { void 0; return; }
+    var msg = (err && err.message) ? err.message : String(err);
+    target.innerHTML = '<div class="tp-card" style="border-left:3px solid var(--tp-red,#ef4444);padding:12px;">' +
+        '<b style="color:var(--tp-red,#ef4444);">Error al renderizar esta sección</b>' +
+        '<pre style="white-space:pre-wrap;font-size:10px;color:var(--tp-dim,#64748b);margin-top:6px;overflow:auto;">' +
+        msg.replace(/</g, '&lt;') + '</pre></div>';
 }
 
 /**
@@ -15819,9 +15811,11 @@ function invSwitchTab(tabId) {
     invState.activeTab = tabId;
     localStorage.setItem('kia_inv_activeTab', tabId);
     document.querySelectorAll('#inv-tabs-bar .tp-tab').forEach(function(b){b.classList.remove('active');});
+    // Resaltar el botón por su tabId (robusto en llamadas programáticas como dashGo,
+    // donde el `event` global no corresponde al tab). event.target solo de respaldo.
     var targetBtn = document.querySelector('#inv-tabs-bar .tp-tab[onclick*="' + tabId + '"]');
-    if (event && event.target) event.target.classList.add('active');
-    else if (targetBtn) targetBtn.classList.add('active');
+    if (targetBtn) targetBtn.classList.add('active');
+    else if (typeof event !== 'undefined' && event && event.target && event.target.classList && event.target.classList.contains('tp-tab')) event.target.classList.add('active');
     invRender();
 }
 function invRestoreTab() {
@@ -20326,7 +20320,7 @@ function tpPriorityScore(cfg, testedN) {
     const volScore = ((cfg.total + cfg.hist) / maxVol) * 100;
     const compScore = req > 0 ? (1 - Math.min(testedN / req, 1)) * 100 : 0;
     const newScore = cfg.hist === 0 && cfg.total > 0 ? 100 : 0;
-    const firstM = cfg.m.findIndex(v => v > 0);
+    const firstM = (cfg.m || []).findIndex(v => v > 0);
     const urgScore = firstM === -1 ? 0 : ((6 - firstM) / 6) * 100;
     const regScore = tpRegionPriorityValue(cfg.rgn);
     const wReg = w.region || 0;
@@ -20394,6 +20388,10 @@ function tpInvalidateCache() { _tpAnalysisCache = { key: '', data: null }; }
 
 // ── Init: load plan from embedded CSV data ──
 function tpInit() {
+    // Siempre abrir el módulo en Dashboard en la primera carga de la sesión
+    // (antes reabría en el último tab, p.ej. Semanal).
+    tpState.activeTab = 'tp-dashboard';
+    window._tpLastTab = null;
     if (tpState.planData.length === 0) {
         tpLoadPlanFromCSV_CONFIGURATIONS();
     }
@@ -20601,12 +20599,12 @@ function _tpGetRenderer(tabId) {
 function tpRender() {
     if (!document.getElementById('tp-content')) return;
     if (!_tabCache['tp']) tabCacheInit('tp', _tpTabs);
-    // Restore last active tab if available
-    if (window._tpLastTab && tpState.activeTab === 'tp-dashboard' && window._tpLastTab !== 'tp-dashboard') {
-        tpState.activeTab = window._tpLastTab;
-        var allTabs = document.querySelectorAll('#tp-tabs-bar .tp-tab');
-        var targetBtn = document.querySelector('#tp-tabs-bar .tp-tab[onclick*="' + window._tpLastTab + '"]');
-        if (targetBtn) { allTabs.forEach(function(b){b.classList.remove('active');}); targetBtn.classList.add('active'); }
+    // Keep the active tab button in sync with tpState.activeTab (covers programmatic
+    // navigation, e.g. deep-links from the Hoy dashboard or the exec summary).
+    var _bar = document.getElementById('tp-tabs-bar');
+    if (_bar) {
+        var _btn = _bar.querySelector('.tp-tab[onclick*="' + tpState.activeTab + '"]');
+        if (_btn) { _bar.querySelectorAll('.tp-tab').forEach(function(b){ b.classList.remove('active'); }); _btn.classList.add('active'); }
     }
     var tab = tpState.activeTab;
     var renderer = _tpGetRenderer(tab);
@@ -29824,7 +29822,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202606031711' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202606031735' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

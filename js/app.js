@@ -1424,66 +1424,58 @@ function tabCacheInit(moduleId, tabIds) {
  */
 function tabCacheSwitch(moduleId, tabId, renderFn) {
     var cache = _tabCache[moduleId];
-    if (!cache) { renderFn(document.getElementById(moduleId + '-content')); return; }
+    if (!cache) {
+        var c = document.getElementById(moduleId + '-content');
+        try { renderFn(c); } catch (err) { _tabRenderError(c, err); }
+        return;
+    }
 
-    // Find the currently visible (outgoing) tab
-    var outgoingEl = null;
+    // Swap content IMMEDIATELY and reliably. The previous implementation wrapped
+    // the swap in setTimeout(200) + document.startViewTransition(), which on
+    // Chrome/Brave could leave the swap stranded (button highlighted but the
+    // *-cached div display never toggled → "resalta pero no cambia"). We now do
+    // the display toggle synchronously and keep only non-blocking CSS animations.
     cache.tabs.forEach(function(id) {
         var el = document.getElementById(id + '-cached');
-        if (el && el.style.display !== 'none' && id !== tabId) {
-            outgoingEl = el;
+        if (!el) return;
+        if (id === tabId) {
+            el.style.display = '';
+            el.classList.remove('tab-content-exit');
+            el.classList.add('tab-content-enter');
+            setTimeout(function() { el.classList.remove('tab-content-enter'); }, 200);
+        } else {
+            el.style.display = 'none';
+            el.classList.remove('tab-content-exit', 'tab-content-enter');
         }
     });
 
-    var doSwitch = function() {
-        // Hide all tabs except incoming
-        cache.tabs.forEach(function(id) {
-            var el = document.getElementById(id + '-cached');
-            if (el) el.style.display = (id === tabId) ? '' : 'none';
-        });
-        var target = document.getElementById(tabId + '-cached');
-        if (target) {
-            // Add enter animation
-            target.classList.add('tab-content-enter');
-            setTimeout(function() { target.classList.remove('tab-content-enter'); }, 200);
-        }
-        if (target && (!cache.rendered[tabId] || cache.dirty[tabId])) {
-            if (!cache.rendered[tabId]) {
-                target.innerHTML = _skeletonHTML();
-            }
-            // Use rAF to show skeleton briefly, then render
-            requestAnimationFrame(function() {
+    var target = document.getElementById(tabId + '-cached');
+    if (!target) return;
+    if (!cache.rendered[tabId] || cache.dirty[tabId]) {
+        if (!cache.rendered[tabId]) target.innerHTML = _skeletonHTML();
+        // Show skeleton one frame, then render. Wrap in try/catch so a failing
+        // renderer shows a visible error instead of a silent blank ("dead") tab.
+        requestAnimationFrame(function() {
+            try {
                 renderFn(target);
                 cache.rendered[tabId] = true;
                 cache.dirty[tabId] = false;
-            });
-        }
-    };
-
-    // If there's an outgoing tab, animate exit first.
-    // Keep the exit class on until doSwitch() applies display:none, otherwise
-    // there is a one-frame flash where the outgoing tab pops back to opacity:1
-    // before being hidden, causing a visible overlap with the incoming tab.
-    if (outgoingEl) {
-        outgoingEl.classList.add('tab-content-exit');
-        setTimeout(function() {
-            var runSwitch = function() {
-                doSwitch();
-                outgoingEl.classList.remove('tab-content-exit');
-            };
-            if (document.startViewTransition) {
-                document.startViewTransition(runSwitch);
-            } else {
-                runSwitch();
+            } catch (err) {
+                _tabRenderError(target, err);
+                cache.rendered[tabId] = false; // allow retry on next switch
             }
-        }, 200);
-    } else {
-        if (document.startViewTransition) {
-            document.startViewTransition(doSwitch);
-        } else {
-            doSwitch();
-        }
+        });
     }
+}
+
+/** Render a visible error box into a tab when its renderer throws. */
+function _tabRenderError(target, err) {
+    if (!target) { console.error('tab render error', err); return; }
+    var msg = (err && err.message) ? err.message : String(err);
+    target.innerHTML = '<div class="tp-card" style="border-left:3px solid var(--tp-red,#ef4444);padding:12px;">' +
+        '<b style="color:var(--tp-red,#ef4444);">Error al renderizar esta sección</b>' +
+        '<pre style="white-space:pre-wrap;font-size:10px;color:var(--tp-dim,#64748b);margin-top:6px;overflow:auto;">' +
+        msg.replace(/</g, '&lt;') + '</pre></div>';
 }
 
 /**

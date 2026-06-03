@@ -102,9 +102,11 @@ function invSwitchTab(tabId) {
     invState.activeTab = tabId;
     localStorage.setItem('kia_inv_activeTab', tabId);
     document.querySelectorAll('#inv-tabs-bar .tp-tab').forEach(function(b){b.classList.remove('active');});
+    // Resaltar el botón por su tabId (robusto en llamadas programáticas como dashGo,
+    // donde el `event` global no corresponde al tab). event.target solo de respaldo.
     var targetBtn = document.querySelector('#inv-tabs-bar .tp-tab[onclick*="' + tabId + '"]');
-    if (event && event.target) event.target.classList.add('active');
-    else if (targetBtn) targetBtn.classList.add('active');
+    if (targetBtn) targetBtn.classList.add('active');
+    else if (typeof event !== 'undefined' && event && event.target && event.target.classList && event.target.classList.contains('tp-tab')) event.target.classList.add('active');
     invRender();
 }
 function invRestoreTab() {
