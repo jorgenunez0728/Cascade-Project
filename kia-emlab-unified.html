@@ -5321,13 +5321,44 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202606031823';
+var APP_BUILD = '202606031855';
 
-// Format a build timestamp YYYYMMDDHHmm into a human readable label.
+// Human-facing app version label (semantic). Update on meaningful releases.
+var APP_VERSION = '14.0';
+
+// Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202606031823' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202606031855' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
+}
+
+// Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
+function formatBuildDateES(buildTs) {
+    if (!buildTs || buildTs === '202606031855' || String(buildTs).length < 12) return null;
+    var s = String(buildTs);
+    var d = new Date(
+        +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
+        +s.slice(8, 10), +s.slice(10, 12)
+    );
+    if (isNaN(d.getTime())) return null;
+    try {
+        return d.toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+        return formatBuildLabel(buildTs);
+    }
+}
+
+// Reusable version info for the topbar, Panel and exports.
+function getAppVersionInfo() {
+    var built = (APP_BUILD && APP_BUILD !== '202606031855' && String(APP_BUILD).length >= 12);
+    return {
+        version: APP_VERSION,
+        build: built ? String(APP_BUILD) : null,
+        buildLabel: formatBuildLabel(APP_BUILD),
+        publishedES: built ? formatBuildDateES(APP_BUILD) : null,
+        isDev: !built
+    };
 }
 
 // Update the topbar version pill. status: 'uptodate' | 'outdated' | undefined.
@@ -5336,15 +5367,16 @@ function formatBuildLabel(buildTs) {
 function updateVersionDisplay(status, remoteBuild, downloadUrl) {
     var el = document.getElementById('app-version-info');
     if (!el) return;
-    var localLabel = formatBuildLabel(APP_BUILD);
+    var info = getAppVersionInfo();
+    var dateLabel = info.publishedES ? ('Publicada ' + info.publishedES) : 'dev';
     var statusBadge = '';
     var color = 'rgba(255,255,255,0.4)';
     var clickable = '';
-    var title = 'Build local: ' + localLabel;
+    var title = info.publishedES ? ('Versión ' + info.version + ' · Publicada ' + info.publishedES) : 'Versión de desarrollo (sin build)';
     if (status === 'outdated' && remoteBuild) {
         statusBadge = ' <span style="background:#f59e0b;color:#000;padding:1px 6px;border-radius:8px;font-weight:700;margin-left:4px;">Actualizar</span>';
         color = '#fbbf24';
-        title = 'Build local: ' + localLabel + ' · Disponible: ' + formatBuildLabel(remoteBuild);
+        title = 'Versión ' + info.version + ' (' + dateLabel + ') · Disponible: ' + (formatBuildDateES(remoteBuild) || formatBuildLabel(remoteBuild));
         if (downloadUrl) {
             clickable = ' onclick="window.open(\'' + downloadUrl.replace(/'/g, "\\'") + '\',\'_blank\')" style="cursor:pointer;"';
         }
@@ -5354,7 +5386,7 @@ function updateVersionDisplay(status, remoteBuild, downloadUrl) {
     el.style.color = color;
     el.style.cursor = clickable ? 'pointer' : 'default';
     el.title = title;
-    el.innerHTML = 'KIA EmLab v14.0 · ' + localLabel + statusBadge;
+    el.innerHTML = 'KIA EmLab v' + info.version + ' · 📅 ' + dateLabel + statusBadge;
     if (clickable) {
         el.setAttribute('onclick', clickable.match(/onclick="([^"]+)"/)[1]);
     } else {
@@ -20818,7 +20850,8 @@ function tpRenderDashboard(el) {
     ${tpRenderAuditReadinessCard()}
     ${tpRenderCoverageHeatmap()}
 
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+      <button class="tp-btn tp-btn-ghost" onclick="tpExportPlanJSON()" title="Exporta unidades probadas/liberadas, plan semanal, familias, calendario y KPIs en JSON" style="font-size:11px;">📦 Exportar datos (JSON)</button>
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;color:var(--tp-dim);">
         <input type="checkbox" onchange="window._tpAuditView=this.checked;tpRender();" ${window._tpAuditView ? 'checked' : ''}>
         Vista Auditoria (cobertura por representativa)
@@ -21384,6 +21417,160 @@ function tpExportGapCSV() {
     a.download = 'gap_analysis_' + new Date().toISOString().slice(0,10) + '.csv';
     a.click();
     showToast('CSV gap analysis exportado', 'success');
+}
+
+// ═══ JSON EXPORT — Reporte ejecutivo del Plan (para presentaciones) ═══
+// Agrupa unidades probadas/liberadas, plan semanal + cumplimiento, familias +
+// calendario y KPIs en un solo archivo .json listo para analizar después.
+function tpExportPlanJSON() {
+    try {
+        function tally(arr, keyFn) {
+            var m = {};
+            (arr || []).forEach(function(x) { var k = keyFn(x) || '(sin dato)'; m[k] = (m[k] || 0) + 1; });
+            return m;
+        }
+        var ver = (typeof getAppVersionInfo === 'function') ? getAppVersionInfo() : { version: '?', build: null, publishedES: null };
+        var families = (typeof tpBuildFamilies === 'function') ? (tpBuildFamilies() || []) : [];
+        var analysis = (typeof tpGetAnalysis === 'function') ? (tpGetAnalysis() || []) : [];
+        var tested = (typeof tpState !== 'undefined' && tpState.testedList) ? tpState.testedList : [];
+        var weekly = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
+        var vehicles = (typeof db !== 'undefined' && db && db.vehicles) ? db.vehicles : [];
+        var raTests = (typeof raState !== 'undefined' && raState && raState.tests) ? raState.tests : [];
+
+        // Unidades liberadas (archivadas) desde COP15
+        var released = vehicles.filter(function(v) { return v.status === 'archived'; }).map(function(v) {
+            var arch = null;
+            if (v.timeline && v.timeline.length) {
+                var e = v.timeline.filter(function(t) { return /archiv|liber/i.test(t.action || ''); }).pop();
+                if (e) arch = e.timestamp;
+            }
+            var gas = v.testData && (v.testData.gasResults || v.testData.gases);
+            return {
+                vin: v.vin || null,
+                configCode: v.configCode || null,
+                proposito: v.purpose || null,
+                modelo: (v.config && (v.config['Modelo'] || v.config['MODEL'])) || null,
+                regulacion: (v.config && v.config['EMISSION REGULATION']) || null,
+                registeredAt: v.registeredAt || null,
+                archivedAt: arch,
+                tieneResultadosGas: !!gas
+            };
+        });
+
+        // Unidades probadas agrupadas por configuración
+        var byConfig = {};
+        tested.forEach(function(t) {
+            var k = t.configText || '(sin config)';
+            if (!byConfig[k]) byConfig[k] = { configText: k, probadas: 0, fechas: [], purposes: {} };
+            byConfig[k].probadas++;
+            if (t.date) byConfig[k].fechas.push(t.date);
+            var p = t.purpose || '(sin propósito)';
+            byConfig[k].purposes[p] = (byConfig[k].purposes[p] || 0) + 1;
+        });
+        var porConfiguracion = Object.keys(byConfig).map(function(k) {
+            var o = byConfig[k]; var f = o.fechas.slice().sort();
+            return { configText: k, probadas: o.probadas, purposes: o.purposes, primeraFecha: f[0] || null, ultimaFecha: f[f.length - 1] || null };
+        }).sort(function(a, b) { return b.probadas - a.probadas; });
+
+        // Plan semanal + cumplimiento
+        var planSemanal = weekly.map(function(w, i) {
+            var items = w.items || [];
+            var done = items.filter(function(x) { return x.completed; }).length;
+            var carry = items.filter(function(x) { return x.status === 'carryover'; }).length;
+            return {
+                semana: i + 1, weekDate: w.weekDate || null, created: w.created || null,
+                aceptada: !!w.accepted, capacidad: w.capacity || null,
+                total: items.length, completadas: done, pendientes: items.length - done, carryover: carry,
+                cumplimientoPct: items.length ? Math.round(done / items.length * 100) : 0,
+                items: items.map(function(x) {
+                    return {
+                        desc: x.desc, modelo: x.mod, region: x.rgn, regulacion: x.reg, motor: x.eng,
+                        requeridas: x.required, deficit: x.deficit,
+                        completada: !!x.completed, completedDate: x.completedDate || null, status: x.status || null
+                    };
+                })
+            };
+        });
+        var totalWeekItems = planSemanal.reduce(function(s, w) { return s + w.total; }, 0);
+        var totalWeekDone = planSemanal.reduce(function(s, w) { return s + w.completadas; }, 0);
+
+        // Familias + calendario
+        var familias = families.map(function(f) {
+            return {
+                key: f.key, modelo: f.mod, motor: f.eng, transmision: f.tx, modelYear: f.my,
+                regulacion: f.reg, regiones: f.rgns, carrocerias: f.bodies, traccion: f.drvs,
+                volumenTotal: f.totalVol, configs: f.configs ? f.configs.length : 0,
+                probadas: f.totalTested, requeridas: f.totalRequired,
+                coberturaPct: typeof f.coverage === 'number' ? Math.round(f.coverage * 100) : null,
+                deficit: f.deficit, riesgo: f.riskLevel, criticidad: f.criticality,
+                deadline: f.overrideDeadline || null,
+                diasParaDeadline: (typeof f.daysToDeadline === 'number' ? f.daysToDeadline : null),
+                recurso: f.resourceStatus || null
+            };
+        });
+        var calendario = familias.filter(function(f) { return f.deadline; })
+            .map(function(f) { return { familia: f.key, modelo: f.modelo, regulacion: f.regulacion, deadline: f.deadline, diasRestantes: f.diasParaDeadline, criticidad: f.criticidad, coberturaPct: f.coberturaPct }; })
+            .sort(function(a, b) { return String(a.deadline).localeCompare(String(b.deadline)); });
+
+        var totalReq = analysis.reduce(function(s, a) { return s + (a.required || 0); }, 0);
+        var totalT = analysis.reduce(function(s, a) { return s + (a.testedN || 0); }, 0);
+
+        var payload = {
+            meta: {
+                app: 'KIA EmLab',
+                version: ver.version, build: ver.build, publicadaApp: ver.publishedES,
+                exportadoEl: new Date().toISOString(),
+                exportadoEsMX: new Date().toLocaleString('es-MX'),
+                planImportadoEl: (typeof tpState !== 'undefined' && tpState.planImportDate) || null,
+                descripcion: 'Exportación del Test Plan Manager (KIA EmLab) para reporte ejecutivo / presentación.'
+            },
+            resumenEjecutivo: {
+                configuraciones: analysis.length,
+                pruebasRequeridas: totalReq,
+                pruebasRealizadas: totalT,
+                deficit: Math.max(0, totalReq - totalT),
+                coberturaGlobalPct: totalReq ? Math.round(totalT / totalReq * 100) : 100,
+                configsSinProbar: analysis.filter(function(a) { return a.testedN === 0 && a.total > 0; }).length,
+                totalUnidadesProbadas: tested.length,
+                totalUnidadesLiberadas: released.length,
+                familias: familias.length,
+                familiasCubiertas: familias.filter(function(f) { return f.coberturaPct != null && f.coberturaPct >= 100; }).length,
+                familiasCriticas: familias.filter(function(f) { return f.criticidad === 'critical'; }).length,
+                cumplimientoSemanalPct: totalWeekItems ? Math.round(totalWeekDone / totalWeekItems * 100) : 0
+            },
+            unidades: {
+                totalProbadas: tested.length,
+                totalLiberadas: released.length,
+                probadasPorProposito: tally(tested, function(t) { return t.purpose; }),
+                probadasPorFuente: tally(tested, function(t) { return t.source; }),
+                liberadasPorModelo: tally(released, function(r) { return r.modelo; }),
+                liberadasPorRegulacion: tally(released, function(r) { return r.regulacion; }),
+                porConfiguracion: porConfiguracion,
+                liberadas: released,
+                registroProbadas: tested
+            },
+            planSemanal: planSemanal,
+            familias: familias,
+            calendario: calendario,
+            kpis: {
+                resultadosRegistrados: raTests.length,
+                perfilesRegulacion: (typeof raState !== 'undefined' && raState && raState.profiles) ? raState.profiles.length : 0,
+                pruebasUltimos30d: raTests.filter(function(t) { var d = t.date || t.fecha; return d && (Date.now() - new Date(d).getTime()) < 30 * 864e5; }).length
+            }
+        };
+
+        var json = JSON.stringify(payload, null, 2);
+        var blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'kia_emlab_plan_' + new Date().toISOString().slice(0, 10) + '.json';
+        a.click();
+        setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
+        showToast('Datos del Plan exportados (JSON) — ' + tested.length + ' probadas, ' + released.length + ' liberadas', 'success');
+    } catch (e) {
+        void 0;
+        showToast('Error al exportar: ' + e.message, 'error');
+    }
 }
 
 
@@ -25556,6 +25743,19 @@ function _pnIntelRenderCharts(wkKeys, weeklyData, gasAgeGroups, hasAgeData, velo
 function pnRenderSystemHealth(el) {
     var html = '<div style="padding:12px 0;">';
     html += '<h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">💾 Monitor de Salud del Sistema</h3>';
+
+    // ── Version / publication date ──
+    var _ver = (typeof getAppVersionInfo === 'function') ? getAppVersionInfo() : { version: '?', publishedES: null, isDev: true };
+    html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--glass-bg,#f7f7f9);border:1px solid var(--glass-border,#e5e7eb);border-radius:10px;padding:10px 14px;margin-bottom:14px;">'
+        + '<span style="font-size:20px;">🏷️</span>'
+        + '<div>'
+        + '<div style="font-size:13px;font-weight:700;">KIA EmLab v' + _ver.version + '</div>'
+        + '<div style="font-size:11px;color:var(--tp-dim,#6b7280);">'
+        + (_ver.publishedES ? ('Publicada: ' + _ver.publishedES) : 'Versión de desarrollo (sin build)')
+        + '</div>'
+        + '</div>'
+        + (_ver.build ? '<span style="margin-left:auto;font-size:10px;color:var(--tp-dim,#9ca3af);font-family:monospace;">build ' + _ver.build + '</span>' : '')
+        + '</div>';
 
     // Storage breakdown
     var storageKeys = [
@@ -29875,7 +30075,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202606031823' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202606031855' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

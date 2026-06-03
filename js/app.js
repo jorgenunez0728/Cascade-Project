@@ -188,11 +188,42 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,1
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
 var APP_BUILD = '__BUILD_VERSION__';
 
-// Format a build timestamp YYYYMMDDHHmm into a human readable label.
+// Human-facing app version label (semantic). Update on meaningful releases.
+var APP_VERSION = '14.0';
+
+// Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
     if (!buildTs || buildTs === '__BUILD_VERSION__' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
+}
+
+// Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
+function formatBuildDateES(buildTs) {
+    if (!buildTs || buildTs === '__BUILD_VERSION__' || String(buildTs).length < 12) return null;
+    var s = String(buildTs);
+    var d = new Date(
+        +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
+        +s.slice(8, 10), +s.slice(10, 12)
+    );
+    if (isNaN(d.getTime())) return null;
+    try {
+        return d.toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+        return formatBuildLabel(buildTs);
+    }
+}
+
+// Reusable version info for the topbar, Panel and exports.
+function getAppVersionInfo() {
+    var built = (APP_BUILD && APP_BUILD !== '__BUILD_VERSION__' && String(APP_BUILD).length >= 12);
+    return {
+        version: APP_VERSION,
+        build: built ? String(APP_BUILD) : null,
+        buildLabel: formatBuildLabel(APP_BUILD),
+        publishedES: built ? formatBuildDateES(APP_BUILD) : null,
+        isDev: !built
+    };
 }
 
 // Update the topbar version pill. status: 'uptodate' | 'outdated' | undefined.
@@ -201,15 +232,16 @@ function formatBuildLabel(buildTs) {
 function updateVersionDisplay(status, remoteBuild, downloadUrl) {
     var el = document.getElementById('app-version-info');
     if (!el) return;
-    var localLabel = formatBuildLabel(APP_BUILD);
+    var info = getAppVersionInfo();
+    var dateLabel = info.publishedES ? ('Publicada ' + info.publishedES) : 'dev';
     var statusBadge = '';
     var color = 'rgba(255,255,255,0.4)';
     var clickable = '';
-    var title = 'Build local: ' + localLabel;
+    var title = info.publishedES ? ('Versión ' + info.version + ' · Publicada ' + info.publishedES) : 'Versión de desarrollo (sin build)';
     if (status === 'outdated' && remoteBuild) {
         statusBadge = ' <span style="background:#f59e0b;color:#000;padding:1px 6px;border-radius:8px;font-weight:700;margin-left:4px;">Actualizar</span>';
         color = '#fbbf24';
-        title = 'Build local: ' + localLabel + ' · Disponible: ' + formatBuildLabel(remoteBuild);
+        title = 'Versión ' + info.version + ' (' + dateLabel + ') · Disponible: ' + (formatBuildDateES(remoteBuild) || formatBuildLabel(remoteBuild));
         if (downloadUrl) {
             clickable = ' onclick="window.open(\'' + downloadUrl.replace(/'/g, "\\'") + '\',\'_blank\')" style="cursor:pointer;"';
         }
@@ -219,7 +251,7 @@ function updateVersionDisplay(status, remoteBuild, downloadUrl) {
     el.style.color = color;
     el.style.cursor = clickable ? 'pointer' : 'default';
     el.title = title;
-    el.innerHTML = 'KIA EmLab v14.0 · ' + localLabel + statusBadge;
+    el.innerHTML = 'KIA EmLab v' + info.version + ' · 📅 ' + dateLabel + statusBadge;
     if (clickable) {
         el.setAttribute('onclick', clickable.match(/onclick="([^"]+)"/)[1]);
     } else {

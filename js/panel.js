@@ -1151,6 +1151,19 @@ function pnRenderSystemHealth(el) {
     var html = '<div style="padding:12px 0;">';
     html += '<h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">💾 Monitor de Salud del Sistema</h3>';
 
+    // ── Version / publication date ──
+    var _ver = (typeof getAppVersionInfo === 'function') ? getAppVersionInfo() : { version: '?', publishedES: null, isDev: true };
+    html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--glass-bg,#f7f7f9);border:1px solid var(--glass-border,#e5e7eb);border-radius:10px;padding:10px 14px;margin-bottom:14px;">'
+        + '<span style="font-size:20px;">🏷️</span>'
+        + '<div>'
+        + '<div style="font-size:13px;font-weight:700;">KIA EmLab v' + _ver.version + '</div>'
+        + '<div style="font-size:11px;color:var(--tp-dim,#6b7280);">'
+        + (_ver.publishedES ? ('Publicada: ' + _ver.publishedES) : 'Versión de desarrollo (sin build)')
+        + '</div>'
+        + '</div>'
+        + (_ver.build ? '<span style="margin-left:auto;font-size:10px;color:var(--tp-dim,#9ca3af);font-family:monospace;">build ' + _ver.build + '</span>' : '')
+        + '</div>';
+
     // Storage breakdown
     var storageKeys = [
         { key: 'kia_db_v11', label: 'COP15 (Base de Datos)', module: 'cop15' },

@@ -781,7 +781,8 @@ function tpRenderDashboard(el) {
     ${tpRenderAuditReadinessCard()}
     ${tpRenderCoverageHeatmap()}
 
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+      <button class="tp-btn tp-btn-ghost" onclick="tpExportPlanJSON()" title="Exporta unidades probadas/liberadas, plan semanal, familias, calendario y KPIs en JSON" style="font-size:11px;">📦 Exportar datos (JSON)</button>
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;color:var(--tp-dim);">
         <input type="checkbox" onchange="window._tpAuditView=this.checked;tpRender();" ${window._tpAuditView ? 'checked' : ''}>
         Vista Auditoria (cobertura por representativa)
@@ -1347,6 +1348,160 @@ function tpExportGapCSV() {
     a.download = 'gap_analysis_' + new Date().toISOString().slice(0,10) + '.csv';
     a.click();
     showToast('CSV gap analysis exportado', 'success');
+}
+
+// ═══ JSON EXPORT — Reporte ejecutivo del Plan (para presentaciones) ═══
+// Agrupa unidades probadas/liberadas, plan semanal + cumplimiento, familias +
+// calendario y KPIs en un solo archivo .json listo para analizar después.
+function tpExportPlanJSON() {
+    try {
+        function tally(arr, keyFn) {
+            var m = {};
+            (arr || []).forEach(function(x) { var k = keyFn(x) || '(sin dato)'; m[k] = (m[k] || 0) + 1; });
+            return m;
+        }
+        var ver = (typeof getAppVersionInfo === 'function') ? getAppVersionInfo() : { version: '?', build: null, publishedES: null };
+        var families = (typeof tpBuildFamilies === 'function') ? (tpBuildFamilies() || []) : [];
+        var analysis = (typeof tpGetAnalysis === 'function') ? (tpGetAnalysis() || []) : [];
+        var tested = (typeof tpState !== 'undefined' && tpState.testedList) ? tpState.testedList : [];
+        var weekly = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
+        var vehicles = (typeof db !== 'undefined' && db && db.vehicles) ? db.vehicles : [];
+        var raTests = (typeof raState !== 'undefined' && raState && raState.tests) ? raState.tests : [];
+
+        // Unidades liberadas (archivadas) desde COP15
+        var released = vehicles.filter(function(v) { return v.status === 'archived'; }).map(function(v) {
+            var arch = null;
+            if (v.timeline && v.timeline.length) {
+                var e = v.timeline.filter(function(t) { return /archiv|liber/i.test(t.action || ''); }).pop();
+                if (e) arch = e.timestamp;
+            }
+            var gas = v.testData && (v.testData.gasResults || v.testData.gases);
+            return {
+                vin: v.vin || null,
+                configCode: v.configCode || null,
+                proposito: v.purpose || null,
+                modelo: (v.config && (v.config['Modelo'] || v.config['MODEL'])) || null,
+                regulacion: (v.config && v.config['EMISSION REGULATION']) || null,
+                registeredAt: v.registeredAt || null,
+                archivedAt: arch,
+                tieneResultadosGas: !!gas
+            };
+        });
+
+        // Unidades probadas agrupadas por configuración
+        var byConfig = {};
+        tested.forEach(function(t) {
+            var k = t.configText || '(sin config)';
+            if (!byConfig[k]) byConfig[k] = { configText: k, probadas: 0, fechas: [], purposes: {} };
+            byConfig[k].probadas++;
+            if (t.date) byConfig[k].fechas.push(t.date);
+            var p = t.purpose || '(sin propósito)';
+            byConfig[k].purposes[p] = (byConfig[k].purposes[p] || 0) + 1;
+        });
+        var porConfiguracion = Object.keys(byConfig).map(function(k) {
+            var o = byConfig[k]; var f = o.fechas.slice().sort();
+            return { configText: k, probadas: o.probadas, purposes: o.purposes, primeraFecha: f[0] || null, ultimaFecha: f[f.length - 1] || null };
+        }).sort(function(a, b) { return b.probadas - a.probadas; });
+
+        // Plan semanal + cumplimiento
+        var planSemanal = weekly.map(function(w, i) {
+            var items = w.items || [];
+            var done = items.filter(function(x) { return x.completed; }).length;
+            var carry = items.filter(function(x) { return x.status === 'carryover'; }).length;
+            return {
+                semana: i + 1, weekDate: w.weekDate || null, created: w.created || null,
+                aceptada: !!w.accepted, capacidad: w.capacity || null,
+                total: items.length, completadas: done, pendientes: items.length - done, carryover: carry,
+                cumplimientoPct: items.length ? Math.round(done / items.length * 100) : 0,
+                items: items.map(function(x) {
+                    return {
+                        desc: x.desc, modelo: x.mod, region: x.rgn, regulacion: x.reg, motor: x.eng,
+                        requeridas: x.required, deficit: x.deficit,
+                        completada: !!x.completed, completedDate: x.completedDate || null, status: x.status || null
+                    };
+                })
+            };
+        });
+        var totalWeekItems = planSemanal.reduce(function(s, w) { return s + w.total; }, 0);
+        var totalWeekDone = planSemanal.reduce(function(s, w) { return s + w.completadas; }, 0);
+
+        // Familias + calendario
+        var familias = families.map(function(f) {
+            return {
+                key: f.key, modelo: f.mod, motor: f.eng, transmision: f.tx, modelYear: f.my,
+                regulacion: f.reg, regiones: f.rgns, carrocerias: f.bodies, traccion: f.drvs,
+                volumenTotal: f.totalVol, configs: f.configs ? f.configs.length : 0,
+                probadas: f.totalTested, requeridas: f.totalRequired,
+                coberturaPct: typeof f.coverage === 'number' ? Math.round(f.coverage * 100) : null,
+                deficit: f.deficit, riesgo: f.riskLevel, criticidad: f.criticality,
+                deadline: f.overrideDeadline || null,
+                diasParaDeadline: (typeof f.daysToDeadline === 'number' ? f.daysToDeadline : null),
+                recurso: f.resourceStatus || null
+            };
+        });
+        var calendario = familias.filter(function(f) { return f.deadline; })
+            .map(function(f) { return { familia: f.key, modelo: f.modelo, regulacion: f.regulacion, deadline: f.deadline, diasRestantes: f.diasParaDeadline, criticidad: f.criticidad, coberturaPct: f.coberturaPct }; })
+            .sort(function(a, b) { return String(a.deadline).localeCompare(String(b.deadline)); });
+
+        var totalReq = analysis.reduce(function(s, a) { return s + (a.required || 0); }, 0);
+        var totalT = analysis.reduce(function(s, a) { return s + (a.testedN || 0); }, 0);
+
+        var payload = {
+            meta: {
+                app: 'KIA EmLab',
+                version: ver.version, build: ver.build, publicadaApp: ver.publishedES,
+                exportadoEl: new Date().toISOString(),
+                exportadoEsMX: new Date().toLocaleString('es-MX'),
+                planImportadoEl: (typeof tpState !== 'undefined' && tpState.planImportDate) || null,
+                descripcion: 'Exportación del Test Plan Manager (KIA EmLab) para reporte ejecutivo / presentación.'
+            },
+            resumenEjecutivo: {
+                configuraciones: analysis.length,
+                pruebasRequeridas: totalReq,
+                pruebasRealizadas: totalT,
+                deficit: Math.max(0, totalReq - totalT),
+                coberturaGlobalPct: totalReq ? Math.round(totalT / totalReq * 100) : 100,
+                configsSinProbar: analysis.filter(function(a) { return a.testedN === 0 && a.total > 0; }).length,
+                totalUnidadesProbadas: tested.length,
+                totalUnidadesLiberadas: released.length,
+                familias: familias.length,
+                familiasCubiertas: familias.filter(function(f) { return f.coberturaPct != null && f.coberturaPct >= 100; }).length,
+                familiasCriticas: familias.filter(function(f) { return f.criticidad === 'critical'; }).length,
+                cumplimientoSemanalPct: totalWeekItems ? Math.round(totalWeekDone / totalWeekItems * 100) : 0
+            },
+            unidades: {
+                totalProbadas: tested.length,
+                totalLiberadas: released.length,
+                probadasPorProposito: tally(tested, function(t) { return t.purpose; }),
+                probadasPorFuente: tally(tested, function(t) { return t.source; }),
+                liberadasPorModelo: tally(released, function(r) { return r.modelo; }),
+                liberadasPorRegulacion: tally(released, function(r) { return r.regulacion; }),
+                porConfiguracion: porConfiguracion,
+                liberadas: released,
+                registroProbadas: tested
+            },
+            planSemanal: planSemanal,
+            familias: familias,
+            calendario: calendario,
+            kpis: {
+                resultadosRegistrados: raTests.length,
+                perfilesRegulacion: (typeof raState !== 'undefined' && raState && raState.profiles) ? raState.profiles.length : 0,
+                pruebasUltimos30d: raTests.filter(function(t) { var d = t.date || t.fecha; return d && (Date.now() - new Date(d).getTime()) < 30 * 864e5; }).length
+            }
+        };
+
+        var json = JSON.stringify(payload, null, 2);
+        var blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'kia_emlab_plan_' + new Date().toISOString().slice(0, 10) + '.json';
+        a.click();
+        setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
+        showToast('Datos del Plan exportados (JSON) — ' + tested.length + ' probadas, ' + released.length + ' liberadas', 'success');
+    } catch (e) {
+        console.error('tpExportPlanJSON error:', e);
+        showToast('Error al exportar: ' + e.message, 'error');
+    }
 }
 
 
