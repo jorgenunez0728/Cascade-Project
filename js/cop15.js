@@ -679,7 +679,11 @@ function initCascadeTree() {
     function _switchToCop15Tab(tab) {
         // Special: "Consumibles" tab navigates to inventory (stays within Pruebas group)
         if (tab.dataset.tab === 'consumibles') {
-            if (typeof switchPlatform === 'function') switchPlatform('inventory');
+            if (typeof switchPlatform === 'function') {
+                // Force _currentPlatform so switchPlatform no se corto-circuite si quedó en 'inventory'
+                if (typeof _currentPlatform !== 'undefined') _currentPlatform = '__switching__';
+                switchPlatform('inventory');
+            }
             return;
         }
         // If we're currently on inventory, switch back to cop15 section first
