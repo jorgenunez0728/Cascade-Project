@@ -1696,19 +1696,36 @@ function dashGo(platform, tabId, action, id) {
     }, 160);
 }
 
+function _tabMoreResetMenu(w) {
+    var m = w && w.querySelector ? w.querySelector('.tp-tab-more-menu') : null;
+    if (m) { m.style.position = ''; m.style.top = ''; m.style.left = ''; m.style.right = ''; }
+}
 function toggleTabMore(btn) {
     var wrap = btn && btn.closest ? btn.closest('.tp-tab-more-wrap') : null;
     if (!wrap) return;
     var wasOpen = wrap.classList.contains('open');
     // Close any other open menus first
-    document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); });
-    if (!wasOpen) wrap.classList.add('open');
+    document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); _tabMoreResetMenu(w); });
+    if (!wasOpen) {
+        wrap.classList.add('open');
+        // The tab bar (.tp-tabs) uses overflow-x:auto, which clips an absolutely
+        // positioned dropdown. Anchor the menu with position:fixed to the button
+        // so it escapes the overflow and is actually visible.
+        var menu = wrap.querySelector('.tp-tab-more-menu');
+        if (menu) {
+            var r = btn.getBoundingClientRect();
+            menu.style.position = 'fixed';
+            menu.style.top = (r.bottom + 4) + 'px';
+            menu.style.right = (window.innerWidth - r.right) + 'px';
+            menu.style.left = 'auto';
+        }
+    }
 }
 
 // Close the overflow menu when clicking elsewhere (capture once globally).
 document.addEventListener('click', function(e) {
     var inWrap = e.target && e.target.closest ? e.target.closest('.tp-tab-more-wrap') : null;
-    if (!inWrap) document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); });
+    if (!inWrap) document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); _tabMoreResetMenu(w); });
 });
 
 // ╔══════════════════════════════════════════════════════════════════════╗

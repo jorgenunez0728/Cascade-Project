@@ -5321,11 +5321,11 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202606031735';
+var APP_BUILD = '202606031750';
 
 // Format a build timestamp YYYYMMDDHHmm into a human readable label.
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202606031735' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202606031750' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
@@ -6831,19 +6831,36 @@ function dashGo(platform, tabId, action, id) {
     }, 160);
 }
 
+function _tabMoreResetMenu(w) {
+    var m = w && w.querySelector ? w.querySelector('.tp-tab-more-menu') : null;
+    if (m) { m.style.position = ''; m.style.top = ''; m.style.left = ''; m.style.right = ''; }
+}
 function toggleTabMore(btn) {
     var wrap = btn && btn.closest ? btn.closest('.tp-tab-more-wrap') : null;
     if (!wrap) return;
     var wasOpen = wrap.classList.contains('open');
     // Close any other open menus first
-    document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); });
-    if (!wasOpen) wrap.classList.add('open');
+    document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); _tabMoreResetMenu(w); });
+    if (!wasOpen) {
+        wrap.classList.add('open');
+        // The tab bar (.tp-tabs) uses overflow-x:auto, which clips an absolutely
+        // positioned dropdown. Anchor the menu with position:fixed to the button
+        // so it escapes the overflow and is actually visible.
+        var menu = wrap.querySelector('.tp-tab-more-menu');
+        if (menu) {
+            var r = btn.getBoundingClientRect();
+            menu.style.position = 'fixed';
+            menu.style.top = (r.bottom + 4) + 'px';
+            menu.style.right = (window.innerWidth - r.right) + 'px';
+            menu.style.left = 'auto';
+        }
+    }
 }
 
 // Close the overflow menu when clicking elsewhere (capture once globally).
 document.addEventListener('click', function(e) {
     var inWrap = e.target && e.target.closest ? e.target.closest('.tp-tab-more-wrap') : null;
-    if (!inWrap) document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); });
+    if (!inWrap) document.querySelectorAll('.tp-tab-more-wrap.open').forEach(function(w){ w.classList.remove('open'); _tabMoreResetMenu(w); });
 });
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -9865,7 +9882,11 @@ function initCascadeTree() {
     function _switchToCop15Tab(tab) {
         // Special: "Consumibles" tab navigates to inventory (stays within Pruebas group)
         if (tab.dataset.tab === 'consumibles') {
-            if (typeof switchPlatform === 'function') switchPlatform('inventory');
+            if (typeof switchPlatform === 'function') {
+                // Force _currentPlatform so switchPlatform no se corto-circuite si quedó en 'inventory'
+                if (typeof _currentPlatform !== 'undefined') _currentPlatform = '__switching__';
+                switchPlatform('inventory');
+            }
             return;
         }
         // If we're currently on inventory, switch back to cop15 section first
@@ -29822,7 +29843,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202606031735' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202606031750' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
