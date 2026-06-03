@@ -1603,12 +1603,10 @@ function switchPlatform(platform, swipeDir) {
                 newSection.classList.add('active', enterClass);
                 setTimeout(function() { newSection.classList.remove(enterClass); }, 260);
             }, 240);
-        } else if (document.startViewTransition) {
-            document.startViewTransition(function() {
-                document.querySelectorAll('.platform-section').forEach(function(s) { s.classList.remove('active'); });
-                newSection.classList.add('active');
-            });
         } else {
+            // Cambio de sección síncrono y fiable. (Antes usaba document.startViewTransition,
+            // que de forma intermitente dejaba la sección sin cambiar — mismo problema que
+            // ya se corrigió en el motor de tabs.)
             document.querySelectorAll('.platform-section').forEach(function(s) { s.classList.remove('active'); });
             newSection.classList.add('active');
         }
@@ -1698,7 +1696,7 @@ function dashGo(platform, tabId, action, id) {
 
 function _tabMoreResetMenu(w) {
     var m = w && w.querySelector ? w.querySelector('.tp-tab-more-menu') : null;
-    if (m) { m.style.position = ''; m.style.top = ''; m.style.left = ''; m.style.right = ''; }
+    if (m) { m.style.position = ''; m.style.top = ''; m.style.left = ''; m.style.right = ''; m.style.maxHeight = ''; m.style.overflowY = ''; }
 }
 function toggleTabMore(btn) {
     var wrap = btn && btn.closest ? btn.closest('.tp-tab-more-wrap') : null;
@@ -1714,10 +1712,13 @@ function toggleTabMore(btn) {
         var menu = wrap.querySelector('.tp-tab-more-menu');
         if (menu) {
             var r = btn.getBoundingClientRect();
+            var W = 220;
             menu.style.position = 'fixed';
             menu.style.top = (r.bottom + 4) + 'px';
-            menu.style.right = (window.innerWidth - r.right) + 'px';
-            menu.style.left = 'auto';
+            menu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8)) + 'px';
+            menu.style.right = 'auto';
+            menu.style.maxHeight = Math.max(120, window.innerHeight - r.bottom - 16) + 'px';
+            menu.style.overflowY = 'auto';
         }
     }
 }
