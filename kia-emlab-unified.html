@@ -5321,21 +5321,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202606031855';
+var APP_BUILD = '202606041523';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202606031855' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202606041523' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202606031855' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202606041523' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5351,7 +5351,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202606031855' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202606041523' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -20323,6 +20323,7 @@ let tpState = safeParse(TP_LS_KEY, null) || {
     weights: { volume:35, compliance:25, region:20, newConfig:10, urgency:10 },
     regionPriority: { EUROPE:100, USA:90, CANADA:80, GENERAL:60, MEXICO:55, 'MIDDLE EAST':50, BRAZIL:50, RUSSIA:45, AUSTRALIA:40, '*':50 },
     familyOverrides: {}, // { [familyKey]: {criticality:'critical'|'high'|'normal', deadline:'YYYY-MM-DD', note} }
+    configOverrides: {}, // { [configDesc]: {deadline:'YYYY-MM-DD'} } — deadline particular por variante
     fixedPlan: null,     // {date, plan[]}
     fixedWeeklyPlan: null, // {fixedDate, capacity, numWeeks, weeks[{week, items[{desc,completed,...}]}]}
     capacity: 8,
@@ -20336,6 +20337,7 @@ if (!tpState.weekHistory) tpState.weekHistory = [];
 // ── Migración suave para datos ya guardados en localStorage ──
 if (!tpState.regionPriority) tpState.regionPriority = { EUROPE:100, USA:90, CANADA:80, GENERAL:60, MEXICO:55, 'MIDDLE EAST':50, BRAZIL:50, RUSSIA:45, AUSTRALIA:40, '*':50 };
 if (!tpState.familyOverrides) tpState.familyOverrides = {};
+if (!tpState.configOverrides) tpState.configOverrides = {};
 if (tpState.weights && tpState.weights.region === undefined) tpState.weights.region = 0; // no rompe sumas de pesos viejas
 
 function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); tabCacheInvalidate('tp'); }
@@ -21512,6 +21514,22 @@ function tpExportPlanJSON() {
             .map(function(f) { return { familia: f.key, modelo: f.modelo, regulacion: f.regulacion, deadline: f.deadline, diasRestantes: f.diasParaDeadline, criticidad: f.criticidad, coberturaPct: f.coberturaPct }; })
             .sort(function(a, b) { return String(a.deadline).localeCompare(String(b.deadline)); });
 
+        // Calendario por variante (deadlines particulares de cada configuración)
+        var calendarioVariantes = [];
+        families.forEach(function(f) {
+            (f.configs || []).forEach(function(c) {
+                if (c.overrideDeadline) {
+                    calendarioVariantes.push({
+                        familia: f.key, modelo: f.mod, carroceria: c.body || null, tire: c.tire || null,
+                        region: c.rgn || null, configText: c.desc,
+                        deadline: c.overrideDeadline, diasRestantes: c.daysToDeadline,
+                        probadas: c.testedN, requeridas: c.required
+                    });
+                }
+            });
+        });
+        calendarioVariantes.sort(function(a, b) { return String(a.deadline).localeCompare(String(b.deadline)); });
+
         var totalReq = analysis.reduce(function(s, a) { return s + (a.required || 0); }, 0);
         var totalT = analysis.reduce(function(s, a) { return s + (a.testedN || 0); }, 0);
 
@@ -21552,6 +21570,7 @@ function tpExportPlanJSON() {
             planSemanal: planSemanal,
             familias: familias,
             calendario: calendario,
+            calendarioVariantes: calendarioVariantes,
             kpis: {
                 resultadosRegistrados: raTests.length,
                 perfilesRegulacion: (typeof raState !== 'undefined' && raState && raState.profiles) ? raState.profiles.length : 0,
@@ -23168,8 +23187,25 @@ function tpBuildFamilies() {
         // Override manual (criticidad + deadline por familia)
         var _ov = (tpState.familyOverrides || {})[f.key] || {};
         f.criticality = _ov.criticality || 'normal';
-        f.overrideDeadline = _ov.deadline || '';
-        f.daysToDeadline = _ov.deadline ? Math.ceil((new Date(_ov.deadline + 'T12:00:00') - Date.now()) / 86400000) : null;
+        f.familyDeadline = _ov.deadline || ''; // deadline propio de la familia (para el input de familia)
+
+        // Deadline particular por variante (configuración)
+        var _cov = tpState.configOverrides || {};
+        var _dlDays = function(d) { return d ? Math.ceil((new Date(d + 'T12:00:00') - Date.now()) / 86400000) : null; };
+        f.configs.forEach(function(c) {
+            var co = _cov[c.desc];
+            c.overrideDeadline = (co && co.deadline) || '';
+            c.daysToDeadline = _dlDays(c.overrideDeadline);
+        });
+
+        // Deadline efectivo de la familia = el más próximo entre el propio y los de sus variantes
+        var _allDl = [];
+        if (f.familyDeadline) _allDl.push(f.familyDeadline);
+        f.configs.forEach(function(c) { if (c.overrideDeadline) _allDl.push(c.overrideDeadline); });
+        _allDl.sort(function(a, b) { return String(a).localeCompare(String(b)); });
+        f.overrideDeadline = _allDl[0] || '';
+        f.daysToDeadline = _dlDays(f.overrideDeadline);
+        f.deadlineFromVariant = !!(f.overrideDeadline && f.overrideDeadline !== f.familyDeadline);
 
         // [V7-A3] Gas/fuel availability indicator
         f.resourceStatus = 'green'; // 🟢 default
@@ -23323,6 +23359,17 @@ function tpSetFamilyOverride(key, field, value) {
     else { ov[field] = value; }
     if (!ov.criticality && !ov.deadline) delete tpState.familyOverrides[key];
     else tpState.familyOverrides[key] = ov;
+    tpInvalidateCache();
+    tpSave();
+    tpRefreshFamilies();
+}
+
+// Set/clear deadline particular de una variante (configuración), keyed por su desc.
+function tpSetConfigOverride(desc, value) {
+    if (!desc) return;
+    if (!tpState.configOverrides) tpState.configOverrides = {};
+    if (value === '' || value == null) { delete tpState.configOverrides[desc]; }
+    else { tpState.configOverrides[desc] = { deadline: value }; }
     tpInvalidateCache();
     tpSave();
     tpRefreshFamilies();
@@ -23516,10 +23563,11 @@ function tpRenderFamilies(el) {
                                 <option value="critical" ${f.criticality==='critical'?'selected':''}>Crítico</option>
                             </select>
                         </label>
-                        <label style="font-size:9px;color:var(--tp-dim);display:flex;align-items:center;gap:3px;">Deadline
-                            <input type="date" value="${f.overrideDeadline||''}" class="tp-select" style="font-size:9px;padding:2px 4px;" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline',this.value);">
+                        <label style="font-size:9px;color:var(--tp-dim);display:flex;align-items:center;gap:3px;">Deadline familia
+                            <input type="date" value="${f.familyDeadline||''}" class="tp-select" style="font-size:9px;padding:2px 4px;" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline',this.value);">
                         </label>
-                        ${f.overrideDeadline?`<button class="tp-btn tp-btn-ghost" onclick="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline','');" style="font-size:8px;padding:1px 5px;color:var(--tp-red);">Quitar deadline</button>`:''}
+                        ${f.familyDeadline?`<button class="tp-btn tp-btn-ghost" onclick="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline','');" style="font-size:8px;padding:1px 5px;color:var(--tp-red);">Quitar deadline</button>`:''}
+                        <span style="font-size:8px;color:var(--tp-dim);font-style:italic;">· o pon un deadline por variante abajo ↓</span>
                     </div>
                     ${diffs.length > 0 ? `<div style="font-size:9px;color:var(--tp-dim);margin-bottom:4px;letter-spacing:0.02em;">Variantes por: <span style="color:var(--tp-text);font-weight:600;">${diffs.map(d=>d.label).join(' · ')}</span></div>` : ''}
                     ${f.configs.sort((a,b)=>b.total-a.total).map((c, _ci) => {
@@ -23573,6 +23621,17 @@ function tpRenderFamilies(el) {
                         var _isAutoCont = c.coveredByContinuity && c.coveredByContinuity.auto;
                         var _contTag = c.coveredByContinuity ? '<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(132,204,22,0.2);color:#84cc16;' + (_isAutoCont ? 'border:1px dashed #84cc16;' : '') + '" title="' + (c.coveredByContinuity.note || 'Carry-over sin cambios de emisiones') + '">' + (_isAutoCont ? 'AUTO ' : '') + 'CONT ' + c.coveredByContinuity.prevMy + '</span>' : '';
                         var _contBtn = (c.testedN === 0) ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpOpenContinuityModal(' + JSON.stringify(c.desc).replace(/"/g, '&quot;') + ',' + JSON.stringify(c.my || '').replace(/"/g, '&quot;') + ');" style="font-size:8px;padding:1px 5px;" title="Marcar continuidad técnica vs MY previo">↪</button>' : '';
+                        // Deadline particular por variante
+                        var _descArg = JSON.stringify(c.desc).replace(/"/g, '&quot;');
+                        var _cDeadBadge = '';
+                        if (c.overrideDeadline) {
+                            var _cd = c.daysToDeadline;
+                            var _cc = _cd < 7 ? '#ef4444' : _cd < 14 ? '#f59e0b' : '#06b6d4';
+                            var _ct = _cd < 0 ? 'vencido' : _cd + 'd';
+                            _cDeadBadge = '<span style="font-size:8px;font-weight:700;color:' + _cc + ';" title="Deadline ' + c.overrideDeadline + '">⏰' + _ct + '</span>';
+                        }
+                        var _cDeadCtrl = '<input type="date" value="' + (c.overrideDeadline || '') + '" class="tp-select" title="Deadline de esta variante" onclick="event.stopPropagation();" onchange="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',this.value);" style="font-size:8px;padding:0 2px;width:104px;">'
+                            + (c.overrideDeadline ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',&quot;&quot;);" style="font-size:8px;padding:0 4px;color:var(--tp-red);" title="Quitar deadline de variante">✕</button>' : '');
                         const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${fi}-${_ci}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
                         return `
                         <div style="margin-bottom:2px;border:1px solid var(--tp-border);border-radius:4px;background:var(--tp-card);overflow:hidden;">
@@ -23583,6 +23642,7 @@ function tpRenderFamilies(el) {
                                     ${c.testedN > 0 ? '<span style="font-size:9px;color:var(--tp-dim);">▼</span>' : ''}
                                 </div>
                                 <div style="display:flex;gap:4px;align-items:center;">
+                                    ${_cDeadBadge}${_cDeadCtrl}
                                     ${_contBtn}
                                     <span style="font-size:9px;font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
                                     <span style="font-size:9px;color:var(--tp-dim);">${c.total.toLocaleString()}</span>
@@ -30075,7 +30135,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202606031855' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202606041523' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
