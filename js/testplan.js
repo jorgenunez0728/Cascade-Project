@@ -4182,7 +4182,6 @@ function tpGetSubstitutionBadge(item, itemIdx, predictions) {
 }
 
 // Override/extend the cascade filter result to also show TP suggestion
-const _origUpdateConfigResult = typeof updateConfigResult === 'function' ? updateConfigResult : null;
 
 function tpHookCascadeResult() {
     // Watch for changes in cfg_result to trigger suggestion

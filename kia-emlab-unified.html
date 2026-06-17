@@ -5321,21 +5321,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202606041523';
+var APP_BUILD = '202606171756';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202606041523' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202606171756' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202606041523' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202606171756' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5351,7 +5351,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202606041523' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202606171756' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -5809,8 +5809,6 @@ function saveActiveVehicleContext(vehicleId, extraCtx) {
 
 // ── [Fase 2.2] Debounced save wrapper for focusout/auto-save scenarios ──
 var _debouncedSaveDB = debounce(function() { saveDB(); }, 500);
-function saveDBSoft() { _debouncedSaveDB(); }
-
 // ══════════════════════════════════════════════════
 // AUDIT TRAIL — Centralized mutation logging
 // ══════════════════════════════════════════════════
@@ -5866,14 +5864,6 @@ var _viewModes = {};
 (function loadViewModes(){
     try { _viewModes = JSON.parse(localStorage.getItem('kia_viewModes') || '{}'); } catch(e){ _viewModes = {}; }
 })();
-function toggleViewMode(module) {
-    _viewModes[module] = _viewModes[module] === 'compact' ? 'detailed' : 'compact';
-    localStorage.setItem('kia_viewModes', JSON.stringify(_viewModes));
-    // Re-render appropriate module
-    if (module === 'kanban' && typeof renderKanban === 'function') renderKanban();
-    if (module === 'inv-gases' && typeof invRender === 'function') invRender();
-    if (module === 'tp-tested' && typeof tpRender === 'function') tpRender();
-}
 function getViewMode(module) { return _viewModes[module] || 'detailed'; }
 function renderViewModeToggle(module, isLight) {
     var mode = getViewMode(module);
@@ -6033,18 +6023,6 @@ function showConfirm(message, onConfirm, opts) {
         type: opts.type || 'warning',
         onConfirm: onConfirm,
         onCancel: opts.onCancel || null
-    });
-}
-
-function showAlert(message, opts) {
-    opts = opts || {};
-    showModal({
-        title: opts.title || 'Aviso',
-        message: message,
-        confirmText: opts.confirmText || 'Entendido',
-        type: opts.type || 'info',
-        showCancel: false,
-        onConfirm: opts.onConfirm || null
     });
 }
 
@@ -6448,8 +6426,6 @@ function undoPop() {
     showToast('Deshecho: ' + entry.label, 'success');
 }
 
-function undoGetStack() { return _undoStack.slice(); }
-
 // ══════════════════════════════════════════════════════════════════════
 // [R4-M7] ENTITY NOTES SYSTEM
 // ══════════════════════════════════════════════════════════════════════
@@ -6527,13 +6503,6 @@ function truncateMiddle(str, max = 34) {
 function isEmissionsPurpose(purpose) {
   return purpose === 'COP-Emisiones' || purpose === 'EO-Emisiones' || purpose === 'ND-Emisiones';
 }
-function isCountsForPlan(purpose) {
-  return purpose === 'COP-Emisiones' || purpose === 'EO-Emisiones';
-}
-function isOBDPurpose(purpose) {
-  return purpose === 'COP-OBD2' || purpose === 'EO-OBD2' || purpose === 'ND-OBD2';
-}
-
 
 function nowLocalDatetimeValue() {
   const d = new Date();
@@ -6666,19 +6635,6 @@ function tabCacheInvalidate(moduleId, tabId) {
 /**
  * Force re-render of the currently visible tab in a module.
  */
-function tabCacheRefreshActive(moduleId, renderFn) {
-    var cache = _tabCache[moduleId];
-    if (!cache) return;
-    cache.tabs.forEach(function(id) {
-        var el = document.getElementById(id + '-cached');
-        if (el && el.style.display !== 'none') {
-            renderFn(el);
-            cache.rendered[id] = true;
-            cache.dirty[id] = false;
-        }
-    });
-}
-
 /**
  * Animate a drill-down navigation: exit old content, render new, enter.
  * @param {string} containerId - DOM id of the container element
@@ -8402,30 +8358,6 @@ function _getLocalStorageUsage() {
 }
 
 // ── [Fase 5.3] Run all module compaction functions ──
-function storageCompactAll() {
-    var actions = [];
-    // COP15 timeline compaction
-    if (typeof compactTimelineEntries === 'function') {
-        if (compactTimelineEntries()) { saveDB(); actions.push('timeline'); }
-    }
-    // Test Plan old plans compaction
-    if (typeof tpCompactOldPlans === 'function') {
-        tpCompactOldPlans();
-        actions.push('testplan');
-    }
-    // Results Analyzer compaction (if exists)
-    if (typeof raCompact === 'function') {
-        raCompact();
-        actions.push('results');
-    }
-    if (actions.length > 0) {
-        showToast('Compactación completada: ' + actions.join(', '), 'success');
-    } else {
-        showToast('No se requiere compactación.', 'info');
-    }
-    return actions;
-}
-
 function renderBackupStatus(container) {
     var usage = _getLocalStorageUsage();
     var maxBytes = 5 * 1024 * 1024;
@@ -8599,26 +8531,6 @@ function _addRipple(e, btn) {
     setTimeout(function() { ripple.remove(); }, 500);
 }
 
-function showConfetti() {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    var colors = ['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899'];
-    var container = document.createElement('div');
-    container.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:99999;overflow:hidden;';
-    for (var i = 0; i < 40; i++) {
-        var piece = document.createElement('div');
-        piece.className = 'confetti-piece';
-        piece.style.cssText = 'position:absolute;width:' + (6 + Math.random()*6) + 'px;height:' + (6 + Math.random()*6) + 'px;' +
-            'background:' + colors[Math.floor(Math.random()*colors.length)] + ';' +
-            'left:' + (Math.random()*100) + '%;top:-10px;' +
-            'border-radius:' + (Math.random() > 0.5 ? '50%' : '2px') + ';' +
-            'animation:confettiFall ' + (1.5 + Math.random()*1.5) + 's ease-out forwards;' +
-            'animation-delay:' + (Math.random()*0.5) + 's;';
-        container.appendChild(piece);
-    }
-    document.body.appendChild(container);
-    setTimeout(function() { container.remove(); }, 3500);
-}
-
 function shakeElement(el) {
     if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     el.classList.add('field-shake');
@@ -8747,10 +8659,6 @@ function autoSaveInit(module, saveFn, dirtyFn) {
     _autoSaveRegistry[module] = { saveFn: saveFn, dirtyFn: dirtyFn, lastSaveTs: 0 };
 }
 
-function autoSaveDestroy(module) {
-    delete _autoSaveRegistry[module];
-}
-
 function _autoSaveFlush(source) {
     Object.keys(_autoSaveRegistry).forEach(function(mod) {
         var reg = _autoSaveRegistry[mod];
@@ -8871,31 +8779,6 @@ function templateRenderManager(module, applyCallback) {
  * @param {string} containerId - Element to insert buttons into
  * @param {string} applyCallback - Function name to call with template data
  */
-function templateRenderQuickButtons(module, containerId, applyCallback) {
-    var container = document.getElementById(containerId);
-    if (!container) return;
-    var list = templateGetAll(module).slice(0, 5); // Top 5 by usage
-    if (list.length === 0) return;
-
-    var existing = container.querySelector('.tpl-quick-bar');
-    if (existing) existing.remove();
-
-    var bar = document.createElement('div');
-    bar.className = 'tpl-quick-bar';
-    list.forEach(function(tpl) {
-        var btn = document.createElement('button');
-        btn.className = 'tpl-quick-btn';
-        btn.textContent = tpl.name;
-        btn.title = 'Aplicar plantilla: ' + tpl.name;
-        btn.onclick = function() {
-            var data = templateApply(module, tpl.id);
-            if (data && typeof window[applyCallback] === 'function') window[applyCallback](data);
-        };
-        bar.appendChild(btn);
-    });
-    container.insertBefore(bar, container.firstChild);
-}
-
 // ══════════════════════════════════════════════════════════════════════
 // [R5-M1] Immersive Mode — App-like fullscreen experience
 // ══════════════════════════════════════════════════════════════════════
@@ -9054,29 +8937,9 @@ function animateStaggerChildren(container, selector, delayMs) {
 /**
  * Flash-highlight an element as newly inserted.
  */
-function animateInsert(el) {
-    if (!el || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
-    el.classList.add('anim-flash-insert');
-    setTimeout(function(){ el.classList.remove('anim-flash-insert'); }, 1000);
-}
-
 /**
  * Animate removal of an element (slide-out then remove from DOM).
  */
-function animateRemove(el, callback) {
-    if (!el) return;
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        if (el.parentNode) el.parentNode.removeChild(el);
-        if (callback) callback();
-        return;
-    }
-    el.classList.add('anim-remove');
-    el.addEventListener('animationend', function() {
-        if (el.parentNode) el.parentNode.removeChild(el);
-        if (callback) callback();
-    }, { once: true });
-}
-
 /**
  * Show confetti burst at a position (CSS-only, lightweight).
  * @param {number} [x] - Center X (default: viewport center)
@@ -9110,16 +8973,6 @@ function animateConfetti(x, y) {
  * @param {HTMLElement} container - Where to show skeletons
  * @param {number} [count] - Number of skeleton items (default: 3)
  */
-function skeletonShow(container, count) {
-    if (!container) return;
-    count = count || 3;
-    var html = '';
-    for (var i = 0; i < count; i++) {
-        html += '<div class="skeleton skeleton-card" style="animation-delay:' + (i * 100) + 'ms;"></div>';
-    }
-    container.innerHTML = html;
-}
-
 /**
  * Build a progress ring SVG string.
  * @param {number} pct - Percentage 0-100
@@ -10065,10 +9918,6 @@ function initCascadeTree() {
         });
     }
 
-
-function scrollToTopOp(){
-  document.getElementById('panel-seguimiento')?.scrollIntoView({behavior:'smooth', block:'start'});
-}
 
 
 function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
@@ -12654,11 +12503,6 @@ function batchDeleteVehicles() {
     );
 }
 
-function purgeSingleVehicle(vehicleId) {
-  // Legacy - redirige al nuevo borrado en cascada
-  deleteVehicleCascade(vehicleId);
-}
-
 // ── [Fase 5.3] Timeline compaction — keeps last 50 entries per vehicle ──
 function compactTimelineEntries() {
     var changed = false;
@@ -12669,53 +12513,6 @@ function compactTimelineEntries() {
         }
     });
     return changed;
-}
-
-function buildF05Data(vehicle) {
-  const td = vehicle.testData || {};
-  const pre = td.preconditioning || {};
-  const tv  = td.testVerification || {};
-
-  return {
-    vin: vehicle.vin,
-    fechaHora: td.datetime,
-    operador: td.operator,
-
-    recepcion: {
-      odometro: td.odometer,
-      combustible: `${pre.fuelTypeIn || ''} ${pre.fuelLevelFractionIn || ''}`,
-      tanque: pre.tankCapacityL,
-      llantas: pre.tirePressureInPsi,
-      bateria: pre.batterySocPct
-    },
-
-    preacond: {
-fechaHora: pre.datetime,
-      ciclo: pre.cycle,
-      soak: pre.soakTimeH,
-      ok: pre.ok
-    },
-
-    dtc: pre.dtc || {},
-
-    dinamometro: {
-      etw: td.etw,
-      A: `${td.targetA} / ${td.dynoA}`,
-      B: `${td.targetB} / ${td.dynoB}`,
-      C: `${td.targetC} / ${td.dynoC}`
-    },
-
-    prueba: {
-      tunel: tv.tunnel,
-      ventilador: tv.fanMode,
-      inercia: tv.inertiaOk,
-      cadenas: tv.chains,
-      eslingas: tv.slings,
-      capo: tv.hood,
-      rodillos: tv.rearRollers,
-      pantalla: tv.screen
-    }
-  };
 }
 
 
@@ -13797,52 +13594,6 @@ var _reviewSections = [
     ]}
 ];
 
-function openQuickReview() {
-    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle) { showToast('Selecciona un vehículo', 'warning'); return; }
-
-    var total = 0, filled = 0, empty = 0, warnings = 0;
-    var html = '<div style="max-height:60vh;overflow-y:auto;">';
-
-    _reviewSections.forEach(function(sec) {
-        var secHtml = '';
-        sec.fields.forEach(function(f) {
-            var el = document.getElementById(f.id);
-            if (!el) return;
-            total++;
-            var val = el.value;
-            var isEmpty = !val || val === '';
-            var isWarn = !isEmpty && f.warn && f.warn(val);
-            var icon, color;
-            if (isEmpty) { icon = '❌'; color = '#fef2f2'; empty++; }
-            else if (isWarn) { icon = '⚠️'; color = '#fffbeb'; warnings++; }
-            else { icon = '✅'; color = 'transparent'; filled++; }
-
-            var displayVal = isEmpty ? '<em style="color:#94a3b8;">vacío</em>' : (val.length > 25 ? val.substring(0,23)+'..' : val);
-
-            secHtml += '<div class="qr-field" style="background:' + color + ';" onclick="quickReviewGoTo(\'' + f.id + '\')">' +
-                '<span class="qr-icon">' + icon + '</span>' +
-                '<span class="qr-label">' + f.label + '</span>' +
-                '<span class="qr-val">' + displayVal + '</span></div>';
-        });
-        html += '<div class="qr-section"><div class="qr-section-title">' + sec.title + '</div>' + secHtml + '</div>';
-    });
-
-    html += '</div>';
-
-    var pct = total > 0 ? Math.round((filled / total) * 100) : 0;
-    var barColor = pct === 100 ? '#10b981' : pct >= 70 ? '#f59e0b' : '#ef4444';
-
-    var header = '<div style="margin-bottom:14px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
-        '<span style="font-size:13px;font-weight:700;">' + filled + '/' + total + ' campos completados</span>' +
-        '<span style="font-size:11px;color:#475569;">' + empty + ' pendientes' + (warnings ? ' · ' + warnings + ' advertencias' : '') + '</span></div>' +
-        '<div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">' +
-        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;transition:width 0.3s;"></div></div></div>';
-
-    showModal(header + html, 'Quick Review — ' + (vehicle.vin || '').slice(-8));
-}
-
 function quickReviewGoTo(fieldId) {
     // Close the modal
     var modal = document.querySelector('.modal-overlay');
@@ -13897,94 +13648,6 @@ var _copyableFields = [
     {id:'dC', label:'Dyno C'},
     {id:'test_responsible', label:'Responsable prueba'}
 ];
-
-function copyFromLastVehicle() {
-    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle) { showToast('No hay vehículo seleccionado', 'error'); return; }
-
-    // Find last archived vehicle with same configCode
-    var candidates = db.vehicles.filter(function(v) {
-        return v.id !== vehicle.id && v.configCode === vehicle.configCode &&
-               (v.status === 'archived' || v.status === 'released' || v.status === 'ready-release') &&
-               v.testData;
-    }).sort(function(a, b) {
-        return new Date(b.lastModified || b.registeredAt) - new Date(a.lastModified || a.registeredAt);
-    });
-
-    if (candidates.length === 0) {
-        showToast('No hay vehículo anterior con config ' + (vehicle.configCode || '').substring(0, 30) + '...', 'warning');
-        return;
-    }
-
-    var source = candidates[0];
-    var td = source.testData || {};
-    var p = td.preconditioning || {};
-    var tv = td.testVerification || {};
-
-    // Build values map from source
-    var sourceValues = {
-        'precond_responsible': p.responsible || '',
-        'tire_pressure': p.tirePressurePsi || '',
-        'fuel_typein': p.fuelTypeIn || '',
-        'fuel_typepre': p.fuelTypePre || '',
-        'precond_cycle': p.cycle || '',
-        'soak_time': p.soakTimeH != null ? String(p.soakTimeH) : '',
-        'tank_capacity': p.tankCapacityL || '',
-        'test_tunnel': tv.tunnel || '',
-        'test_dyno_on': tv.dyno || '',
-        'test_fan_mode': tv.fanMode || '',
-        'test_fan_speed': tv.fanSpeedKmh || '',
-        'test_fan_flow': tv.fanFlowM3Min || '',
-        'test_chains': tv.chains || '',
-        'test_slings': tv.slings || '',
-        'test_hood': tv.hood || '',
-        'test_rear_rollers': tv.rearRollers || '',
-        'test_screen': tv.screen || '',
-        'test_inertia_ok': tv.inertiaOk || '',
-        'test_responsible': td.testResponsible || '',
-        'etw': td.etw || '', 'tA': td.targetA || '', 'dA': td.dynoA || '',
-        'tB': td.targetB || '', 'dB': td.dynoB || '',
-        'tC': td.targetC || '', 'dC': td.dynoC || ''
-    };
-
-    // Count non-empty fields to copy
-    var fieldsToCopy = _copyableFields.filter(function(f) { return sourceValues[f.id]; });
-    if (fieldsToCopy.length === 0) {
-        showToast('El vehículo anterior no tiene datos para copiar', 'warning');
-        return;
-    }
-
-    var sourceDate = new Date(source.lastModified || source.registeredAt).toLocaleDateString('es-MX');
-    var vinShort = '...' + source.vin.slice(-6);
-
-    showConfirm(
-        '<div style="text-align:left;">' +
-        '<p><strong>Copiar datos de VIN ' + vinShort + '</strong> (archivado ' + sourceDate + ')</p>' +
-        '<p style="font-size:11px;color:#475569;margin:8px 0 4px;">Campos a copiar (' + fieldsToCopy.length + '):</p>' +
-        '<div style="font-size:11px;color:#475569;max-height:150px;overflow-y:auto;columns:2;column-gap:12px;">' +
-        fieldsToCopy.map(function(f) { return '<div>• ' + f.label + '</div>'; }).join('') +
-        '</div></div>',
-        function() {
-            // Apply values
-            fieldsToCopy.forEach(function(f) {
-                var el = document.getElementById(f.id);
-                if (el) {
-                    el.value = sourceValues[f.id];
-                    // Visual feedback - pulsing blue border
-                    el.style.outline = '2px dashed #3b82f6';
-                    el.style.outlineOffset = '2px';
-                    setTimeout(function() {
-                        el.style.outline = '';
-                        el.style.outlineOffset = '';
-                    }, 4000);
-                }
-            });
-            updateFanFieldsByMode();
-            showToast(fieldsToCopy.length + ' campos copiados de VIN ' + vinShort, 'success');
-        },
-        { title: 'Copiar de Último Vehículo', type: 'info', confirmText: 'Copiar' }
-    );
-}
 
 // ======================================================================
 // [R2-M3] AUTO-SUGGEST INTELLIGENT DATES
@@ -14073,28 +13736,6 @@ function _renderDateSuggestion(inputEl, suggestedDate, label) {
 // ======================================================================
 // STALLED VEHICLE ALERTS
 // ======================================================================
-function checkStalledVehicles() {
-    const now = Date.now();
-    const STALL_HOURS = 48;
-    const stalled = db.vehicles.filter(v => {
-        if (v.status === 'archived') return false;
-        const lastUp = v.lastModified || v.registeredAt;
-        if (!lastUp) return false;
-        return (now - new Date(lastUp).getTime()) / (1000*60*60) > STALL_HOURS;
-    });
-    const el = document.getElementById('stalledBanner');
-    if (!el) return;
-    if (stalled.length === 0) { el.style.display = 'none'; return; }
-    el.style.display = 'block';
-    el.innerHTML = '<div style="padding:10px 14px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;margin:0 14px 10px;">' +
-        '<div style="font-size:12px;font-weight:700;color:#ef4444;margin-bottom:4px;">\u26A0\uFE0F ' + stalled.length + ' vehiculo(s) estancado(s) (>48h)</div>' +
-        stalled.map(function(v) {
-            var hrs = Math.round((now - new Date(v.lastModified||v.registeredAt).getTime()) / (1000*60*60));
-            return '<div style="font-size:10px;color:#fca5a5;padding:2px 0;">\u2022 <strong>' + (v.vin||'?') + '</strong> \u2014 ' + v.status + ' \u2014 ' + hrs + 'h</div>';
-        }).join('') +
-    '</div>';
-}
-
 // ======================================================================
 // PLAN HISTORY VIEWER
 // ======================================================================
@@ -15000,24 +14641,7 @@ function cop15TemplateApplyData(data) {
 }
 
 /** Save current operation as a named template. */
-function cop15TemplateSave() {
-    var data = cop15TemplateCollect();
-    if (Object.keys(data).length < 3) {
-        showToast('Muy pocos campos para guardar como plantilla', 'warning');
-        return;
-    }
-    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
-    var defaultName = vehicle && vehicle.config ? (vehicle.config.Modelo || '') + ' ' + (vehicle.config['EMISSION REGULATION'] || '') : 'Plantilla';
-    var name = prompt('Nombre de la plantilla:', defaultName.trim());
-    if (!name) return;
-    templateSave('cop15', name, data);
-}
-
 /** Show COP15 template manager. */
-function cop15TemplateManager() {
-    templateRenderManager('cop15', 'cop15TemplateApplyData');
-}
-
 // ======================================================================
 // [TOOLTIPS] CASCADE FIELD HELP TOOLTIPS
 // ======================================================================
@@ -15356,26 +14980,6 @@ function v7CheckExpiredSoak() {
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [V7-D4] POST-RELEASE QUICK ACTIONS                                 ║
 // ╚══════════════════════════════════════════════════════════════════════╝
-
-function v7ShowPostReleaseActions(vinShort) {
-    var existing = document.getElementById('v7-post-release');
-    if (existing) existing.remove();
-
-    var bar = document.createElement('div');
-    bar.className = 'v7-post-release show';
-    bar.id = 'v7-post-release';
-    bar.innerHTML =
-        '<div class="v7-post-release-text">✅ VIN ' + vinShort + ' liberado exitosamente.</div>' +
-        '<div class="v7-post-release-actions">' +
-        '<button class="btn btn-sm btn-primary" onclick="v7PostReleaseRegisterAnother()">Registrar Otro</button>' +
-        '<button class="btn btn-sm btn-ghost" onclick="switchPlatform(\'testplan\');v7ClosePostRelease();">Ver en Plan</button>' +
-        '<button class="btn btn-sm btn-ghost" onclick="switchPlatform(\'today\');v7ClosePostRelease();">Ir a Dashboard</button>' +
-        '</div>';
-    document.body.appendChild(bar);
-    setTimeout(function() { bar.classList.add('visible'); }, 50);
-    // Auto dismiss after 15s
-    setTimeout(function() { v7ClosePostRelease(); }, 15000);
-}
 
 function v7ClosePostRelease() {
     var el = document.getElementById('v7-post-release');
@@ -16777,27 +16381,6 @@ function invSaveDailyCapture() {
     invSave(); invRender();
     if (count > 0 && typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
     showToast(count + ' lecturas de gas y ' + fuelCount + ' de combustible guardadas (' + date + ')', 'success');
-}
-
-function invBulkReading() {
-    var date = new Date().toISOString().slice(0,10);
-    var count = 0;
-    invState.gases.filter(function(g){ return g.status !== 'Empty'; }).forEach(function(g) {
-        var inp = document.getElementById('inv-rd-' + g.id);
-        if (inp && inp.value) {
-            var psi = parseFloat(inp.value);
-            if (!isNaN(psi) && psi >= 0) {
-                if (!g.readings) g.readings = [];
-                g.readings.push({date: date, psi: psi});
-                count++;
-            }
-        }
-    });
-    if (count === 0) { showToast('No se ingresaron lecturas', 'warning'); return; }
-    invState.lastReadingDate = date;
-    invSave(); invRender();
-    if (typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
-    showToast(count + ' lecturas guardadas para ' + date, 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -18649,64 +18232,6 @@ function _invFloorPlanBindEditDrag(container) {
 // ══════════════════════════════════════════════════
 // LEGACY ZONE MAP (fallback)
 // ══════════════════════════════════════════════════
-function invRenderZoneMapLegacy(el) {
-    var gases = invState.gases;
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span>';
-    if (_invUndoStack.length > 0) {
-        html += '<button onclick="invUndoLastMove()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;animation:soakBadgePulse 2s 1;">↶ Deshacer (' + _invUndoStack.length + ')</button>';
-    }
-    html += '</div>';
-    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Verde >50% | Amarillo 25-50% | Rojo <25% | Gris: vacio &mdash; Mantener presionado para arrastrar</div>';
-
-    invState.zones.forEach(function(z) {
-        var zGases = gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); });
-        var capPct = z.slots > 0 ? Math.round((zGases.length / z.slots) * 100) : 0;
-        var capColor = capPct > 80 ? '#ef4444' : capPct > 50 ? '#f59e0b' : '#10b981';
-        html += '<div style="margin-bottom:10px;padding:8px;border:1px solid var(--tp-border);border-radius:8px;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:12px;margin-bottom:6px;">';
-        html += '<span>' + z.id + ' — ' + z.label + ' <span style="font-size:9px;color:var(--tp-dim);">(' + z.type + ')</span></span>';
-        html += '<span style="font-size:10px;font-weight:700;color:' + capColor + ';background:' + capColor + '15;padding:2px 8px;border-radius:6px;border:1px solid ' + capColor + '30;">' + zGases.length + '/' + z.slots + ' (' + capPct + '%)</span>';
-        html += '</div>';
-
-        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:4px;">';
-        for (var s = 1; s <= z.slots; s++) {
-            var code = z.id + (s < 10 ? '0' : '') + s;
-            var slotGas = zGases.find(function(g){ return g.zone === code; });
-            var bgColor = '#1e293b';
-            var label = '';
-            var detail = '';
-            var gasIdAttr = '';
-
-            if (slotGas) {
-                var lvl = invGasLevel(slotGas);
-                bgColor = lvl.pct > 50 ? '#065f46' : lvl.pct > 25 ? '#854d0e' : '#991b1b';
-                label = slotGas.formula.split('/')[0];
-                detail = lvl.pct + '%';
-                gasIdAttr = ' data-gas-id="' + slotGas.id + '"';
-            }
-
-            html += '<div class="inv-zone-slot" data-zone-code="' + code + '"' + gasIdAttr +
-                ' style="padding:6px 4px;text-align:center;border-radius:6px;' +
-                'background:' + bgColor + ';border:1px solid var(--tp-border);cursor:pointer;' +
-                'min-height:44px;display:flex;flex-direction:column;justify-content:center;' +
-                'user-select:none;-webkit-user-select:none;touch-action:none;">';
-            html += '<div style="font-size:9px;color:var(--tp-dim);">' + code + '</div>';
-            if (slotGas) {
-                html += '<div style="font-size:10px;font-weight:700;color:#fff;">' + label + '</div>';
-                html += '<div style="font-size:9px;color:#fff;">' + detail + '</div>';
-            } else {
-                html += '<div style="font-size:9px;color:#475569;">---</div>';
-            }
-            html += '</div>';
-        }
-        html += '</div></div>';
-    });
-
-    html += '</div>';
-    el.innerHTML = html;
-    invInitZoneDrag(el);
-}
-
 function invShowZoneSlotDetail(code) {
     var gas = invState.gases.find(function(g){ return g.zone === code; });
     if (gas) {
@@ -19777,58 +19302,7 @@ var _debouncedInvScanFilter = debounce(function() { invScanFilter(); }, 200);
 // ══════════════════════════════════════════════════════════════════════
 
 /** Duplicate a gas cylinder with new auto-incremented control number. */
-function invDuplicateGas(gasId) {
-    var source = invState.gases.find(function(g) { return g.id === gasId; });
-    if (!source) { showToast('Gas no encontrado', 'error'); return; }
-
-    var maxCtrl = invState.gases.reduce(function(max, g) {
-        var num = parseInt((g.controlNo || '').replace(/\D/g, ''), 10);
-        return num > max ? num : max;
-    }, 0);
-
-    var newGas = JSON.parse(JSON.stringify(source));
-    newGas.id = 'gas_' + Date.now();
-    newGas.controlNo = 'C-' + String(maxCtrl + 1).padStart(4, '0');
-    newGas.readings = [];
-    newGas.timeline = [];
-    newGas.registeredAt = new Date().toISOString();
-
-    invState.gases.push(newGas);
-    invSave();
-    invRender();
-    showToast('Cilindro duplicado: ' + newGas.controlNo, 'success');
-}
-
 /** Batch add multiple gas cylinders of the same type. */
-function invBatchAddGas(gasType, concNominal, concReal, count, zone) {
-    if (!count || count < 1 || count > 20) { showToast('Cantidad inválida (1-20)', 'error'); return; }
-
-    var maxCtrl = invState.gases.reduce(function(max, g) {
-        var num = parseInt((g.controlNo || '').replace(/\D/g, ''), 10);
-        return num > max ? num : max;
-    }, 0);
-
-    for (var i = 0; i < count; i++) {
-        var newGas = {
-            id: 'gas_' + Date.now() + '_' + i,
-            controlNo: 'C-' + String(maxCtrl + 1 + i).padStart(4, '0'),
-            gasType: gasType || '',
-            concNominal: concNominal || '',
-            concReal: concReal || '',
-            zone: zone || _invFindLeastFullZone(),
-            position: null,
-            status: 'active',
-            readings: [],
-            timeline: [],
-            registeredAt: new Date().toISOString()
-        };
-        invState.gases.push(newGas);
-    }
-    invSave();
-    invRender();
-    showToast(count + ' cilindros agregados en lote', 'success');
-}
-
 function _invFindLeastFullZone() {
     var zones = invState.zones || [];
     if (zones.length === 0) return '';
@@ -24251,7 +23725,6 @@ function tpGetSubstitutionBadge(item, itemIdx, predictions) {
 }
 
 // Override/extend the cascade filter result to also show TP suggestion
-const _origUpdateConfigResult = typeof updateConfigResult === 'function' ? updateConfigResult : null;
 
 function tpHookCascadeResult() {
     // Watch for changes in cfg_result to trigger suggestion
@@ -30135,7 +29608,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202606041523' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202606171756' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

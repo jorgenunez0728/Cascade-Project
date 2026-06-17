@@ -811,10 +811,6 @@ function initCascadeTree() {
     }
 
 
-function scrollToTopOp(){
-  document.getElementById('panel-seguimiento')?.scrollIntoView({behavior:'smooth', block:'start'});
-}
-
 
 function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
   const container = document.getElementById(containerId);
@@ -3399,11 +3395,6 @@ function batchDeleteVehicles() {
     );
 }
 
-function purgeSingleVehicle(vehicleId) {
-  // Legacy - redirige al nuevo borrado en cascada
-  deleteVehicleCascade(vehicleId);
-}
-
 // ── [Fase 5.3] Timeline compaction — keeps last 50 entries per vehicle ──
 function compactTimelineEntries() {
     var changed = false;
@@ -3414,53 +3405,6 @@ function compactTimelineEntries() {
         }
     });
     return changed;
-}
-
-function buildF05Data(vehicle) {
-  const td = vehicle.testData || {};
-  const pre = td.preconditioning || {};
-  const tv  = td.testVerification || {};
-
-  return {
-    vin: vehicle.vin,
-    fechaHora: td.datetime,
-    operador: td.operator,
-
-    recepcion: {
-      odometro: td.odometer,
-      combustible: `${pre.fuelTypeIn || ''} ${pre.fuelLevelFractionIn || ''}`,
-      tanque: pre.tankCapacityL,
-      llantas: pre.tirePressureInPsi,
-      bateria: pre.batterySocPct
-    },
-
-    preacond: {
-fechaHora: pre.datetime,
-      ciclo: pre.cycle,
-      soak: pre.soakTimeH,
-      ok: pre.ok
-    },
-
-    dtc: pre.dtc || {},
-
-    dinamometro: {
-      etw: td.etw,
-      A: `${td.targetA} / ${td.dynoA}`,
-      B: `${td.targetB} / ${td.dynoB}`,
-      C: `${td.targetC} / ${td.dynoC}`
-    },
-
-    prueba: {
-      tunel: tv.tunnel,
-      ventilador: tv.fanMode,
-      inercia: tv.inertiaOk,
-      cadenas: tv.chains,
-      eslingas: tv.slings,
-      capo: tv.hood,
-      rodillos: tv.rearRollers,
-      pantalla: tv.screen
-    }
-  };
 }
 
 
@@ -4542,52 +4486,6 @@ var _reviewSections = [
     ]}
 ];
 
-function openQuickReview() {
-    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle) { showToast('Selecciona un vehículo', 'warning'); return; }
-
-    var total = 0, filled = 0, empty = 0, warnings = 0;
-    var html = '<div style="max-height:60vh;overflow-y:auto;">';
-
-    _reviewSections.forEach(function(sec) {
-        var secHtml = '';
-        sec.fields.forEach(function(f) {
-            var el = document.getElementById(f.id);
-            if (!el) return;
-            total++;
-            var val = el.value;
-            var isEmpty = !val || val === '';
-            var isWarn = !isEmpty && f.warn && f.warn(val);
-            var icon, color;
-            if (isEmpty) { icon = '❌'; color = '#fef2f2'; empty++; }
-            else if (isWarn) { icon = '⚠️'; color = '#fffbeb'; warnings++; }
-            else { icon = '✅'; color = 'transparent'; filled++; }
-
-            var displayVal = isEmpty ? '<em style="color:#94a3b8;">vacío</em>' : (val.length > 25 ? val.substring(0,23)+'..' : val);
-
-            secHtml += '<div class="qr-field" style="background:' + color + ';" onclick="quickReviewGoTo(\'' + f.id + '\')">' +
-                '<span class="qr-icon">' + icon + '</span>' +
-                '<span class="qr-label">' + f.label + '</span>' +
-                '<span class="qr-val">' + displayVal + '</span></div>';
-        });
-        html += '<div class="qr-section"><div class="qr-section-title">' + sec.title + '</div>' + secHtml + '</div>';
-    });
-
-    html += '</div>';
-
-    var pct = total > 0 ? Math.round((filled / total) * 100) : 0;
-    var barColor = pct === 100 ? '#10b981' : pct >= 70 ? '#f59e0b' : '#ef4444';
-
-    var header = '<div style="margin-bottom:14px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
-        '<span style="font-size:13px;font-weight:700;">' + filled + '/' + total + ' campos completados</span>' +
-        '<span style="font-size:11px;color:#475569;">' + empty + ' pendientes' + (warnings ? ' · ' + warnings + ' advertencias' : '') + '</span></div>' +
-        '<div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">' +
-        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;transition:width 0.3s;"></div></div></div>';
-
-    showModal(header + html, 'Quick Review — ' + (vehicle.vin || '').slice(-8));
-}
-
 function quickReviewGoTo(fieldId) {
     // Close the modal
     var modal = document.querySelector('.modal-overlay');
@@ -4642,94 +4540,6 @@ var _copyableFields = [
     {id:'dC', label:'Dyno C'},
     {id:'test_responsible', label:'Responsable prueba'}
 ];
-
-function copyFromLastVehicle() {
-    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle) { showToast('No hay vehículo seleccionado', 'error'); return; }
-
-    // Find last archived vehicle with same configCode
-    var candidates = db.vehicles.filter(function(v) {
-        return v.id !== vehicle.id && v.configCode === vehicle.configCode &&
-               (v.status === 'archived' || v.status === 'released' || v.status === 'ready-release') &&
-               v.testData;
-    }).sort(function(a, b) {
-        return new Date(b.lastModified || b.registeredAt) - new Date(a.lastModified || a.registeredAt);
-    });
-
-    if (candidates.length === 0) {
-        showToast('No hay vehículo anterior con config ' + (vehicle.configCode || '').substring(0, 30) + '...', 'warning');
-        return;
-    }
-
-    var source = candidates[0];
-    var td = source.testData || {};
-    var p = td.preconditioning || {};
-    var tv = td.testVerification || {};
-
-    // Build values map from source
-    var sourceValues = {
-        'precond_responsible': p.responsible || '',
-        'tire_pressure': p.tirePressurePsi || '',
-        'fuel_typein': p.fuelTypeIn || '',
-        'fuel_typepre': p.fuelTypePre || '',
-        'precond_cycle': p.cycle || '',
-        'soak_time': p.soakTimeH != null ? String(p.soakTimeH) : '',
-        'tank_capacity': p.tankCapacityL || '',
-        'test_tunnel': tv.tunnel || '',
-        'test_dyno_on': tv.dyno || '',
-        'test_fan_mode': tv.fanMode || '',
-        'test_fan_speed': tv.fanSpeedKmh || '',
-        'test_fan_flow': tv.fanFlowM3Min || '',
-        'test_chains': tv.chains || '',
-        'test_slings': tv.slings || '',
-        'test_hood': tv.hood || '',
-        'test_rear_rollers': tv.rearRollers || '',
-        'test_screen': tv.screen || '',
-        'test_inertia_ok': tv.inertiaOk || '',
-        'test_responsible': td.testResponsible || '',
-        'etw': td.etw || '', 'tA': td.targetA || '', 'dA': td.dynoA || '',
-        'tB': td.targetB || '', 'dB': td.dynoB || '',
-        'tC': td.targetC || '', 'dC': td.dynoC || ''
-    };
-
-    // Count non-empty fields to copy
-    var fieldsToCopy = _copyableFields.filter(function(f) { return sourceValues[f.id]; });
-    if (fieldsToCopy.length === 0) {
-        showToast('El vehículo anterior no tiene datos para copiar', 'warning');
-        return;
-    }
-
-    var sourceDate = new Date(source.lastModified || source.registeredAt).toLocaleDateString('es-MX');
-    var vinShort = '...' + source.vin.slice(-6);
-
-    showConfirm(
-        '<div style="text-align:left;">' +
-        '<p><strong>Copiar datos de VIN ' + vinShort + '</strong> (archivado ' + sourceDate + ')</p>' +
-        '<p style="font-size:11px;color:#475569;margin:8px 0 4px;">Campos a copiar (' + fieldsToCopy.length + '):</p>' +
-        '<div style="font-size:11px;color:#475569;max-height:150px;overflow-y:auto;columns:2;column-gap:12px;">' +
-        fieldsToCopy.map(function(f) { return '<div>• ' + f.label + '</div>'; }).join('') +
-        '</div></div>',
-        function() {
-            // Apply values
-            fieldsToCopy.forEach(function(f) {
-                var el = document.getElementById(f.id);
-                if (el) {
-                    el.value = sourceValues[f.id];
-                    // Visual feedback - pulsing blue border
-                    el.style.outline = '2px dashed #3b82f6';
-                    el.style.outlineOffset = '2px';
-                    setTimeout(function() {
-                        el.style.outline = '';
-                        el.style.outlineOffset = '';
-                    }, 4000);
-                }
-            });
-            updateFanFieldsByMode();
-            showToast(fieldsToCopy.length + ' campos copiados de VIN ' + vinShort, 'success');
-        },
-        { title: 'Copiar de Último Vehículo', type: 'info', confirmText: 'Copiar' }
-    );
-}
 
 // ======================================================================
 // [R2-M3] AUTO-SUGGEST INTELLIGENT DATES
@@ -4818,28 +4628,6 @@ function _renderDateSuggestion(inputEl, suggestedDate, label) {
 // ======================================================================
 // STALLED VEHICLE ALERTS
 // ======================================================================
-function checkStalledVehicles() {
-    const now = Date.now();
-    const STALL_HOURS = 48;
-    const stalled = db.vehicles.filter(v => {
-        if (v.status === 'archived') return false;
-        const lastUp = v.lastModified || v.registeredAt;
-        if (!lastUp) return false;
-        return (now - new Date(lastUp).getTime()) / (1000*60*60) > STALL_HOURS;
-    });
-    const el = document.getElementById('stalledBanner');
-    if (!el) return;
-    if (stalled.length === 0) { el.style.display = 'none'; return; }
-    el.style.display = 'block';
-    el.innerHTML = '<div style="padding:10px 14px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;margin:0 14px 10px;">' +
-        '<div style="font-size:12px;font-weight:700;color:#ef4444;margin-bottom:4px;">\u26A0\uFE0F ' + stalled.length + ' vehiculo(s) estancado(s) (>48h)</div>' +
-        stalled.map(function(v) {
-            var hrs = Math.round((now - new Date(v.lastModified||v.registeredAt).getTime()) / (1000*60*60));
-            return '<div style="font-size:10px;color:#fca5a5;padding:2px 0;">\u2022 <strong>' + (v.vin||'?') + '</strong> \u2014 ' + v.status + ' \u2014 ' + hrs + 'h</div>';
-        }).join('') +
-    '</div>';
-}
-
 // ======================================================================
 // PLAN HISTORY VIEWER
 // ======================================================================
@@ -5745,24 +5533,7 @@ function cop15TemplateApplyData(data) {
 }
 
 /** Save current operation as a named template. */
-function cop15TemplateSave() {
-    var data = cop15TemplateCollect();
-    if (Object.keys(data).length < 3) {
-        showToast('Muy pocos campos para guardar como plantilla', 'warning');
-        return;
-    }
-    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
-    var defaultName = vehicle && vehicle.config ? (vehicle.config.Modelo || '') + ' ' + (vehicle.config['EMISSION REGULATION'] || '') : 'Plantilla';
-    var name = prompt('Nombre de la plantilla:', defaultName.trim());
-    if (!name) return;
-    templateSave('cop15', name, data);
-}
-
 /** Show COP15 template manager. */
-function cop15TemplateManager() {
-    templateRenderManager('cop15', 'cop15TemplateApplyData');
-}
-
 // ======================================================================
 // [TOOLTIPS] CASCADE FIELD HELP TOOLTIPS
 // ======================================================================
@@ -6101,26 +5872,6 @@ function v7CheckExpiredSoak() {
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [V7-D4] POST-RELEASE QUICK ACTIONS                                 ║
 // ╚══════════════════════════════════════════════════════════════════════╝
-
-function v7ShowPostReleaseActions(vinShort) {
-    var existing = document.getElementById('v7-post-release');
-    if (existing) existing.remove();
-
-    var bar = document.createElement('div');
-    bar.className = 'v7-post-release show';
-    bar.id = 'v7-post-release';
-    bar.innerHTML =
-        '<div class="v7-post-release-text">✅ VIN ' + vinShort + ' liberado exitosamente.</div>' +
-        '<div class="v7-post-release-actions">' +
-        '<button class="btn btn-sm btn-primary" onclick="v7PostReleaseRegisterAnother()">Registrar Otro</button>' +
-        '<button class="btn btn-sm btn-ghost" onclick="switchPlatform(\'testplan\');v7ClosePostRelease();">Ver en Plan</button>' +
-        '<button class="btn btn-sm btn-ghost" onclick="switchPlatform(\'today\');v7ClosePostRelease();">Ir a Dashboard</button>' +
-        '</div>';
-    document.body.appendChild(bar);
-    setTimeout(function() { bar.classList.add('visible'); }, 50);
-    // Auto dismiss after 15s
-    setTimeout(function() { v7ClosePostRelease(); }, 15000);
-}
 
 function v7ClosePostRelease() {
     var el = document.getElementById('v7-post-release');
