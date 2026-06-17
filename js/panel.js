@@ -34,7 +34,7 @@ function pnSave() {
     tabCacheInvalidate('pn'); // Mark all tabs dirty on data change
 }
 
-var _pnTabs = ['pn-dashboard','pn-executive','pn-turnaround','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit','pn-regulations'];
+var _pnTabs = ['pn-dashboard','pn-reports','pn-executive','pn-turnaround','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit','pn-regulations'];
 
 // Tabs managed by Alpine reactive templates (no innerHTML needed)
 var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true, 'pn-audit': true };
@@ -54,6 +54,7 @@ function _pnGetRenderer(tabId) {
     if (_pnAlpineTabs[tabId] && typeof Alpine !== 'undefined') return _pnAlpineTabRenderer;
     // Fallback to legacy renderers when Alpine is not available
     if (tabId === 'pn-dashboard') return pnRenderDashboard;
+    if (tabId === 'pn-reports') return pnRenderReports;
     if (tabId === 'pn-executive') return pnRenderExecutive;
     if (tabId === 'pn-turnaround') return pnRenderTurnaround;
     if (tabId === 'pn-users') return pnRenderUsers;
@@ -116,6 +117,59 @@ function pnUpdateBadges() {
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  LAB DASHBOARD — Real-time overview of all modules                  ║
 // ╚══════════════════════════════════════════════════════════════════════╝
+
+// ── [v15-P2] Reports Center — single hub that dispatches to existing exporters ──
+function pnRenderReports(el) {
+    var reports = [
+        { icon: '📈', title: 'Presentación ejecutiva (Plan)', desc: 'Unidades probadas/liberadas, plan semanal, familias, calendario y KPIs — ideal para armar presentaciones.', actions: [{ label: 'JSON', fn: 'tpExportPlanJSON' }] },
+        { icon: '📋', title: 'Plan semanal', desc: 'Plan de la última semana (texto para compartir).', actions: [{ label: 'Texto', fn: '_pnReportWeeklyPlan' }] },
+        { icon: '📊', title: 'Análisis de brechas (Gap)', desc: 'Cobertura: requeridas vs probadas por configuración.', actions: [{ label: 'CSV', fn: 'tpExportGapCSV' }] },
+        { icon: '🧪', title: 'Resultados de emisiones', desc: 'Todos los resultados importados del analizador.', actions: [{ label: 'CSV', fn: 'raExportAll' }] },
+        { icon: '📦', title: 'Inventario de gases', desc: 'Cilindros con fórmula, control, nivel y vencimiento.', actions: [{ label: 'JSON', fn: 'invExportGases' }, { label: 'Reporte', fn: 'invExportReport' }] },
+        { icon: '⛽', title: 'Pronóstico semanal de gas', desc: 'Consumo y proyección de agotamiento.', actions: [{ label: 'CSV', fn: 'invExportWeeklyForecast' }] },
+        { icon: '📝', title: 'Bitácora de turnos', desc: 'Registros de la bitácora del laboratorio.', actions: [{ label: 'CSV', fn: 'pnExportShiftLog' }] },
+        { icon: '🔔', title: 'Alertas', desc: 'Alertas activas del sistema.', actions: [{ label: 'CSV', fn: 'pnExportAlerts' }] },
+        { icon: '🔍', title: 'Auditoría', desc: 'Traza de acciones de usuarios.', actions: [{ label: 'CSV', fn: 'auditExportCSV' }] },
+        { icon: '📄', title: 'Estado semanal', desc: 'Reporte ejecutivo cross-módulo en PDF.', actions: [{ label: 'PDF', fn: 'generateWeeklyStatusPDF' }] }
+    ];
+    var html = '<div class="tp-card"><div class="tp-card-title"><span>📤 Centro de Reportes</span></div>'
+        + '<div style="font-size:11px;color:var(--tp-dim);margin-bottom:6px;">Un solo lugar para exportar. Cada reporte usa los datos actuales del sistema.</div>';
+    reports.forEach(function(r) {
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;">';
+        html += '<div style="font-size:22px;">' + r.icon + '</div>';
+        html += '<div style="flex:1;min-width:170px;"><div style="font-size:12px;font-weight:700;color:var(--tp-text);">' + r.title + '</div><div style="font-size:10px;color:var(--tp-dim);">' + r.desc + '</div></div>';
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+        r.actions.forEach(function(a) {
+            html += '<button class="tp-btn tp-btn-ghost" onclick="pnRunReport(\'' + a.fn + '\')" style="font-size:11px;">' + a.label + '</button>';
+        });
+        html += '</div></div>';
+    });
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+// Dispatch a report by global function name (exporters live in their own modules).
+function pnRunReport(fnName) {
+    try {
+        if (fnName === '_pnReportWeeklyPlan') return _pnReportWeeklyPlan();
+        var fn = window[fnName];
+        if (typeof fn === 'function') fn();
+        else if (typeof showToast === 'function') showToast('Reporte no disponible: ' + fnName, 'error');
+    } catch (e) {
+        console.error('pnRunReport', fnName, e);
+        if (typeof showToast === 'function') showToast('Error al generar: ' + e.message, 'error');
+    }
+}
+
+// tpExportWeeklyPlan needs a week index — pick the last accepted week (else the last).
+function _pnReportWeeklyPlan() {
+    if (typeof tpExportWeeklyPlan !== 'function') { if (typeof showToast === 'function') showToast('No disponible', 'error'); return; }
+    var plans = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
+    if (!plans.length) { if (typeof showToast === 'function') showToast('No hay plan semanal', 'warning'); return; }
+    var idx = plans.length - 1;
+    for (var i = plans.length - 1; i >= 0; i--) { if (plans[i].accepted) { idx = i; break; } }
+    tpExportWeeklyPlan(idx);
+}
 
 // ── [v15-P1] Cross-module Lab Overview (single source of truth) ──
 // Renders the canonical cross-module KPI strip + pipeline + weekly plan + alerts.

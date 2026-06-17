@@ -2001,6 +2001,7 @@ function dailyDashRender() {
     }
 
     html += '<div class="daily-dash-action" onclick="switchPlatform(\'inventory\')"><span class="daily-dash-action-icon">📦</span>Inventario</div>';
+    html += '<div class="daily-dash-action" onclick="switchPlatform(\'panel\');if(typeof pnSwitchTab===\'function\')pnSwitchTab(\'pn-reports\');"><span class="daily-dash-action-icon">📤</span>Reportes</div>';
     html += '<div class="daily-dash-action" onclick="switchPlatform(\'panel\')"><span class="daily-dash-action-icon">⚙️</span>Panel</div>';
     html += '</div></div>';
 
