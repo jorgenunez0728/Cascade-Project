@@ -777,6 +777,7 @@ function tpRenderDashboard(el) {
     var auditGlobalPct = stats.totalReq > 0 ? Math.round((stats.totalT / stats.totalReq) * 100) : 100;
 
     el.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;"><button class="tp-btn tp-btn-ghost" onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-dashboard');" style="font-size:10px;" title="Resumen cross-módulo del laboratorio">📊 Ver Resumen del Lab →</button></div>
     ${tpRenderExecSummary()}
     ${fixedBanner}
     ${tpRenderAlertsBanner()}
