@@ -307,11 +307,6 @@ function raSwitchTab(tabId){
     else if(targetBtn) targetBtn.classList.add('active');
     raRender();
 }
-function raRestoreTab(){
-    var saved = localStorage.getItem('kia_ra_activeTab');
-    if(saved){ raSwitchTab(saved); }
-}
-
 function _raGetRenderer(tabId){
     var map = {
         'ra-dashboard': raRenderDashboard, 'ra-import': raRenderImport,
@@ -1244,27 +1239,6 @@ function raRenderTrends(el){
 }
 
 // ── Chart adjustment helpers — redirected to unified chart config system ──
-function raChartSetHeight(val) {
-    if (typeof chartConfigSet === 'function') { chartConfigSet('ra_trend', 'height', val); chartConfigApply('ra_trend', '_raTrendChart'); return; }
-    window._raChartHeight = val;
-    var wrapper = document.getElementById('ra_trend-wrapper');
-    if (wrapper) wrapper.style.height = val + 'px';
-    if (window._raTrendChart) window._raTrendChart.resize();
-}
-function raChartSetYRange(minVal, maxVal, which) {
-    if (typeof chartConfigSet === 'function') { chartConfigSet('ra_trend', which === 'min' ? 'yMin' : 'yMax', which === 'min' ? minVal : maxVal); chartConfigApply('ra_trend', '_raTrendChart'); return; }
-    if (which === 'min') window._raChartYMin = minVal;
-    if (which === 'max') window._raChartYMax = maxVal;
-    if (!window._raTrendChart) return;
-    var yScale = window._raTrendChart.options.scales.y;
-    if (which === 'min') yScale.min = minVal !== null ? minVal : undefined;
-    if (which === 'max') yScale.max = maxVal !== null ? maxVal : undefined;
-    window._raTrendChart.update();
-}
-function raChartAutoFit() {
-    if (typeof chartConfigAutoFit === 'function') { chartConfigAutoFit('ra_trend', '_raTrendChart'); return; }
-}
-
 function raFilterTrendRange(days) {
     if (days === 0) {
         window._raTrendDateFrom = '';
@@ -2426,95 +2400,9 @@ function raInit(){ raUpdateBadges(); }
 // [R5-M8] Templates — RA Filter Presets
 // ══════════════════════════════════════════════════════════════════════
 
-function raPresetSave(name) {
-    if (!name) name = prompt('Nombre del preset de filtros:', (window._raTrendGroup || 'ALL') + ' ' + (window._raTrendMetric || ''));
-    if (!name) return;
-    var data = {
-        groupBy: window._raTrendGroupBy || 'regTestMode',
-        group: window._raTrendGroup || 'ALL',
-        metric: window._raTrendMetric || 'FuelConsumptionBag',
-        dateFrom: window._raTrendDateFrom || '',
-        dateTo: window._raTrendDateTo || ''
-    };
-    templateSave('results', name, data);
-}
-
-function raPresetApply(data) {
-    if (!data) return;
-    window._raTrendGroupBy = data.groupBy || 'regTestMode';
-    window._raTrendGroup = data.group || 'ALL';
-    window._raTrendMetric = data.metric || 'FuelConsumptionBag';
-    window._raTrendDateFrom = data.dateFrom || '';
-    window._raTrendDateTo = data.dateTo || '';
-    raRender();
-    showToast('Preset aplicado', 'success');
-}
-
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [V7-A4] FEEDBACK CALIDAD → TEST PLAN                               ║
 // ╚══════════════════════════════════════════════════════════════════════╝
-
-function raFeedbackToTestPlan() {
-    if (!raState || !raState.tests || raState.tests.length < 3) return;
-    if (!raState.profiles || raState.profiles.length === 0) return;
-
-    var alerts = [];
-    raState.profiles.forEach(function(profile) {
-        if (!profile.limits) return;
-        var filtered = raState.tests.filter(function(t) {
-            return t.profileId === profile.id || (t.regTestMode && t.regTestMode === profile.name);
-        });
-        if (filtered.length < 3) return;
-
-        Object.keys(profile.limits).forEach(function(metric) {
-            var USL = profile.limits[metric];
-            var vals = [];
-            filtered.forEach(function(t) {
-                if (!t.cycleData || t.cycleData.length === 0) return;
-                var last = t.cycleData[t.cycleData.length - 1];
-                var v = last[metric];
-                if (v !== undefined && !isNaN(v) && isFinite(v)) vals.push(parseFloat(v));
-            });
-            if (vals.length < 3) return;
-
-            var n = vals.length;
-            var mean = vals.reduce(function(s,v){ return s+v; }, 0) / n;
-            var mRsum = 0;
-            for (var i = 1; i < vals.length; i++) mRsum += Math.abs(vals[i] - vals[i - 1]);
-            var mRbar = mRsum / (vals.length - 1);
-            var sigmaWithin = mRbar / 1.128;
-            var Cpu = sigmaWithin > 0 ? (USL - mean) / (3 * sigmaWithin) : 999;
-            var Cpl = sigmaWithin > 0 ? (mean - 0) / (3 * sigmaWithin) : 999;
-            var Cpk = Math.min(Cpu, Cpl);
-
-            if (Cpk < 1.33) {
-                alerts.push({
-                    profile: profile.name,
-                    metric: (profile.labels && profile.labels[metric]) || metric,
-                    cpk: Cpk,
-                    n: n
-                });
-            }
-        });
-    });
-
-    if (alerts.length > 0 && typeof tpState !== 'undefined') {
-        // Mark configs needing re-test in test plan
-        alerts.forEach(function(a) {
-            if (typeof emitEvent === 'function') {
-                emitEvent('quality:alert', {
-                    profile: a.profile,
-                    metric: a.metric,
-                    cpk: a.cpk,
-                    message: 'Cpk ' + a.cpk.toFixed(2) + ' < 1.33 para ' + a.metric + ' (' + a.profile + ')'
-                });
-            }
-        });
-        // Show consolidated alert
-        showToast('⚠️ ' + alerts.length + ' metrica(s) con Cpk < 1.33. Revisar re-test.', 'warning');
-    }
-    return alerts;
-}
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [V7-B4] ROLLING Cpk ALERT                                          ║

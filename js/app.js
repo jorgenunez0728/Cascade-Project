@@ -674,8 +674,6 @@ function saveActiveVehicleContext(vehicleId, extraCtx) {
 
 // ── [Fase 2.2] Debounced save wrapper for focusout/auto-save scenarios ──
 var _debouncedSaveDB = debounce(function() { saveDB(); }, 500);
-function saveDBSoft() { _debouncedSaveDB(); }
-
 // ══════════════════════════════════════════════════
 // AUDIT TRAIL — Centralized mutation logging
 // ══════════════════════════════════════════════════
@@ -731,14 +729,6 @@ var _viewModes = {};
 (function loadViewModes(){
     try { _viewModes = JSON.parse(localStorage.getItem('kia_viewModes') || '{}'); } catch(e){ _viewModes = {}; }
 })();
-function toggleViewMode(module) {
-    _viewModes[module] = _viewModes[module] === 'compact' ? 'detailed' : 'compact';
-    localStorage.setItem('kia_viewModes', JSON.stringify(_viewModes));
-    // Re-render appropriate module
-    if (module === 'kanban' && typeof renderKanban === 'function') renderKanban();
-    if (module === 'inv-gases' && typeof invRender === 'function') invRender();
-    if (module === 'tp-tested' && typeof tpRender === 'function') tpRender();
-}
 function getViewMode(module) { return _viewModes[module] || 'detailed'; }
 function renderViewModeToggle(module, isLight) {
     var mode = getViewMode(module);
@@ -898,18 +888,6 @@ function showConfirm(message, onConfirm, opts) {
         type: opts.type || 'warning',
         onConfirm: onConfirm,
         onCancel: opts.onCancel || null
-    });
-}
-
-function showAlert(message, opts) {
-    opts = opts || {};
-    showModal({
-        title: opts.title || 'Aviso',
-        message: message,
-        confirmText: opts.confirmText || 'Entendido',
-        type: opts.type || 'info',
-        showCancel: false,
-        onConfirm: opts.onConfirm || null
     });
 }
 
@@ -1313,8 +1291,6 @@ function undoPop() {
     showToast('Deshecho: ' + entry.label, 'success');
 }
 
-function undoGetStack() { return _undoStack.slice(); }
-
 // ══════════════════════════════════════════════════════════════════════
 // [R4-M7] ENTITY NOTES SYSTEM
 // ══════════════════════════════════════════════════════════════════════
@@ -1392,13 +1368,6 @@ function truncateMiddle(str, max = 34) {
 function isEmissionsPurpose(purpose) {
   return purpose === 'COP-Emisiones' || purpose === 'EO-Emisiones' || purpose === 'ND-Emisiones';
 }
-function isCountsForPlan(purpose) {
-  return purpose === 'COP-Emisiones' || purpose === 'EO-Emisiones';
-}
-function isOBDPurpose(purpose) {
-  return purpose === 'COP-OBD2' || purpose === 'EO-OBD2' || purpose === 'ND-OBD2';
-}
-
 
 function nowLocalDatetimeValue() {
   const d = new Date();
@@ -1531,19 +1500,6 @@ function tabCacheInvalidate(moduleId, tabId) {
 /**
  * Force re-render of the currently visible tab in a module.
  */
-function tabCacheRefreshActive(moduleId, renderFn) {
-    var cache = _tabCache[moduleId];
-    if (!cache) return;
-    cache.tabs.forEach(function(id) {
-        var el = document.getElementById(id + '-cached');
-        if (el && el.style.display !== 'none') {
-            renderFn(el);
-            cache.rendered[id] = true;
-            cache.dirty[id] = false;
-        }
-    });
-}
-
 /**
  * Animate a drill-down navigation: exit old content, render new, enter.
  * @param {string} containerId - DOM id of the container element
@@ -3267,30 +3223,6 @@ function _getLocalStorageUsage() {
 }
 
 // ── [Fase 5.3] Run all module compaction functions ──
-function storageCompactAll() {
-    var actions = [];
-    // COP15 timeline compaction
-    if (typeof compactTimelineEntries === 'function') {
-        if (compactTimelineEntries()) { saveDB(); actions.push('timeline'); }
-    }
-    // Test Plan old plans compaction
-    if (typeof tpCompactOldPlans === 'function') {
-        tpCompactOldPlans();
-        actions.push('testplan');
-    }
-    // Results Analyzer compaction (if exists)
-    if (typeof raCompact === 'function') {
-        raCompact();
-        actions.push('results');
-    }
-    if (actions.length > 0) {
-        showToast('Compactación completada: ' + actions.join(', '), 'success');
-    } else {
-        showToast('No se requiere compactación.', 'info');
-    }
-    return actions;
-}
-
 function renderBackupStatus(container) {
     var usage = _getLocalStorageUsage();
     var maxBytes = 5 * 1024 * 1024;
@@ -3464,26 +3396,6 @@ function _addRipple(e, btn) {
     setTimeout(function() { ripple.remove(); }, 500);
 }
 
-function showConfetti() {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    var colors = ['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899'];
-    var container = document.createElement('div');
-    container.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:99999;overflow:hidden;';
-    for (var i = 0; i < 40; i++) {
-        var piece = document.createElement('div');
-        piece.className = 'confetti-piece';
-        piece.style.cssText = 'position:absolute;width:' + (6 + Math.random()*6) + 'px;height:' + (6 + Math.random()*6) + 'px;' +
-            'background:' + colors[Math.floor(Math.random()*colors.length)] + ';' +
-            'left:' + (Math.random()*100) + '%;top:-10px;' +
-            'border-radius:' + (Math.random() > 0.5 ? '50%' : '2px') + ';' +
-            'animation:confettiFall ' + (1.5 + Math.random()*1.5) + 's ease-out forwards;' +
-            'animation-delay:' + (Math.random()*0.5) + 's;';
-        container.appendChild(piece);
-    }
-    document.body.appendChild(container);
-    setTimeout(function() { container.remove(); }, 3500);
-}
-
 function shakeElement(el) {
     if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     el.classList.add('field-shake');
@@ -3612,10 +3524,6 @@ function autoSaveInit(module, saveFn, dirtyFn) {
     _autoSaveRegistry[module] = { saveFn: saveFn, dirtyFn: dirtyFn, lastSaveTs: 0 };
 }
 
-function autoSaveDestroy(module) {
-    delete _autoSaveRegistry[module];
-}
-
 function _autoSaveFlush(source) {
     Object.keys(_autoSaveRegistry).forEach(function(mod) {
         var reg = _autoSaveRegistry[mod];
@@ -3736,31 +3644,6 @@ function templateRenderManager(module, applyCallback) {
  * @param {string} containerId - Element to insert buttons into
  * @param {string} applyCallback - Function name to call with template data
  */
-function templateRenderQuickButtons(module, containerId, applyCallback) {
-    var container = document.getElementById(containerId);
-    if (!container) return;
-    var list = templateGetAll(module).slice(0, 5); // Top 5 by usage
-    if (list.length === 0) return;
-
-    var existing = container.querySelector('.tpl-quick-bar');
-    if (existing) existing.remove();
-
-    var bar = document.createElement('div');
-    bar.className = 'tpl-quick-bar';
-    list.forEach(function(tpl) {
-        var btn = document.createElement('button');
-        btn.className = 'tpl-quick-btn';
-        btn.textContent = tpl.name;
-        btn.title = 'Aplicar plantilla: ' + tpl.name;
-        btn.onclick = function() {
-            var data = templateApply(module, tpl.id);
-            if (data && typeof window[applyCallback] === 'function') window[applyCallback](data);
-        };
-        bar.appendChild(btn);
-    });
-    container.insertBefore(bar, container.firstChild);
-}
-
 // ══════════════════════════════════════════════════════════════════════
 // [R5-M1] Immersive Mode — App-like fullscreen experience
 // ══════════════════════════════════════════════════════════════════════
@@ -3919,29 +3802,9 @@ function animateStaggerChildren(container, selector, delayMs) {
 /**
  * Flash-highlight an element as newly inserted.
  */
-function animateInsert(el) {
-    if (!el || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
-    el.classList.add('anim-flash-insert');
-    setTimeout(function(){ el.classList.remove('anim-flash-insert'); }, 1000);
-}
-
 /**
  * Animate removal of an element (slide-out then remove from DOM).
  */
-function animateRemove(el, callback) {
-    if (!el) return;
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        if (el.parentNode) el.parentNode.removeChild(el);
-        if (callback) callback();
-        return;
-    }
-    el.classList.add('anim-remove');
-    el.addEventListener('animationend', function() {
-        if (el.parentNode) el.parentNode.removeChild(el);
-        if (callback) callback();
-    }, { once: true });
-}
-
 /**
  * Show confetti burst at a position (CSS-only, lightweight).
  * @param {number} [x] - Center X (default: viewport center)
@@ -3975,16 +3838,6 @@ function animateConfetti(x, y) {
  * @param {HTMLElement} container - Where to show skeletons
  * @param {number} [count] - Number of skeleton items (default: 3)
  */
-function skeletonShow(container, count) {
-    if (!container) return;
-    count = count || 3;
-    var html = '';
-    for (var i = 0; i < count; i++) {
-        html += '<div class="skeleton skeleton-card" style="animation-delay:' + (i * 100) + 'ms;"></div>';
-    }
-    container.innerHTML = html;
-}
-
 /**
  * Build a progress ring SVG string.
  * @param {number} pct - Percentage 0-100

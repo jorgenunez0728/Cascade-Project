@@ -986,27 +986,6 @@ function invSaveDailyCapture() {
     showToast(count + ' lecturas de gas y ' + fuelCount + ' de combustible guardadas (' + date + ')', 'success');
 }
 
-function invBulkReading() {
-    var date = new Date().toISOString().slice(0,10);
-    var count = 0;
-    invState.gases.filter(function(g){ return g.status !== 'Empty'; }).forEach(function(g) {
-        var inp = document.getElementById('inv-rd-' + g.id);
-        if (inp && inp.value) {
-            var psi = parseFloat(inp.value);
-            if (!isNaN(psi) && psi >= 0) {
-                if (!g.readings) g.readings = [];
-                g.readings.push({date: date, psi: psi});
-                count++;
-            }
-        }
-    });
-    if (count === 0) { showToast('No se ingresaron lecturas', 'warning'); return; }
-    invState.lastReadingDate = date;
-    invSave(); invRender();
-    if (typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
-    showToast(count + ' lecturas guardadas para ' + date, 'success');
-}
-
 // ══════════════════════════════════════════════════
 // BARCODE SCANNER + QUICK READING
 // ══════════════════════════════════════════════════
@@ -2856,64 +2835,6 @@ function _invFloorPlanBindEditDrag(container) {
 // ══════════════════════════════════════════════════
 // LEGACY ZONE MAP (fallback)
 // ══════════════════════════════════════════════════
-function invRenderZoneMapLegacy(el) {
-    var gases = invState.gases;
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Mapa de Zonas</span>';
-    if (_invUndoStack.length > 0) {
-        html += '<button onclick="invUndoLastMove()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;animation:soakBadgePulse 2s 1;">↶ Deshacer (' + _invUndoStack.length + ')</button>';
-    }
-    html += '</div>';
-    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Verde >50% | Amarillo 25-50% | Rojo <25% | Gris: vacio &mdash; Mantener presionado para arrastrar</div>';
-
-    invState.zones.forEach(function(z) {
-        var zGases = gases.filter(function(g){ return g.zone && g.zone.startsWith(z.id); });
-        var capPct = z.slots > 0 ? Math.round((zGases.length / z.slots) * 100) : 0;
-        var capColor = capPct > 80 ? '#ef4444' : capPct > 50 ? '#f59e0b' : '#10b981';
-        html += '<div style="margin-bottom:10px;padding:8px;border:1px solid var(--tp-border);border-radius:8px;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:12px;margin-bottom:6px;">';
-        html += '<span>' + z.id + ' — ' + z.label + ' <span style="font-size:9px;color:var(--tp-dim);">(' + z.type + ')</span></span>';
-        html += '<span style="font-size:10px;font-weight:700;color:' + capColor + ';background:' + capColor + '15;padding:2px 8px;border-radius:6px;border:1px solid ' + capColor + '30;">' + zGases.length + '/' + z.slots + ' (' + capPct + '%)</span>';
-        html += '</div>';
-
-        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:4px;">';
-        for (var s = 1; s <= z.slots; s++) {
-            var code = z.id + (s < 10 ? '0' : '') + s;
-            var slotGas = zGases.find(function(g){ return g.zone === code; });
-            var bgColor = '#1e293b';
-            var label = '';
-            var detail = '';
-            var gasIdAttr = '';
-
-            if (slotGas) {
-                var lvl = invGasLevel(slotGas);
-                bgColor = lvl.pct > 50 ? '#065f46' : lvl.pct > 25 ? '#854d0e' : '#991b1b';
-                label = slotGas.formula.split('/')[0];
-                detail = lvl.pct + '%';
-                gasIdAttr = ' data-gas-id="' + slotGas.id + '"';
-            }
-
-            html += '<div class="inv-zone-slot" data-zone-code="' + code + '"' + gasIdAttr +
-                ' style="padding:6px 4px;text-align:center;border-radius:6px;' +
-                'background:' + bgColor + ';border:1px solid var(--tp-border);cursor:pointer;' +
-                'min-height:44px;display:flex;flex-direction:column;justify-content:center;' +
-                'user-select:none;-webkit-user-select:none;touch-action:none;">';
-            html += '<div style="font-size:9px;color:var(--tp-dim);">' + code + '</div>';
-            if (slotGas) {
-                html += '<div style="font-size:10px;font-weight:700;color:#fff;">' + label + '</div>';
-                html += '<div style="font-size:9px;color:#fff;">' + detail + '</div>';
-            } else {
-                html += '<div style="font-size:9px;color:#475569;">---</div>';
-            }
-            html += '</div>';
-        }
-        html += '</div></div>';
-    });
-
-    html += '</div>';
-    el.innerHTML = html;
-    invInitZoneDrag(el);
-}
-
 function invShowZoneSlotDetail(code) {
     var gas = invState.gases.find(function(g){ return g.zone === code; });
     if (gas) {
@@ -3984,58 +3905,7 @@ var _debouncedInvScanFilter = debounce(function() { invScanFilter(); }, 200);
 // ══════════════════════════════════════════════════════════════════════
 
 /** Duplicate a gas cylinder with new auto-incremented control number. */
-function invDuplicateGas(gasId) {
-    var source = invState.gases.find(function(g) { return g.id === gasId; });
-    if (!source) { showToast('Gas no encontrado', 'error'); return; }
-
-    var maxCtrl = invState.gases.reduce(function(max, g) {
-        var num = parseInt((g.controlNo || '').replace(/\D/g, ''), 10);
-        return num > max ? num : max;
-    }, 0);
-
-    var newGas = JSON.parse(JSON.stringify(source));
-    newGas.id = 'gas_' + Date.now();
-    newGas.controlNo = 'C-' + String(maxCtrl + 1).padStart(4, '0');
-    newGas.readings = [];
-    newGas.timeline = [];
-    newGas.registeredAt = new Date().toISOString();
-
-    invState.gases.push(newGas);
-    invSave();
-    invRender();
-    showToast('Cilindro duplicado: ' + newGas.controlNo, 'success');
-}
-
 /** Batch add multiple gas cylinders of the same type. */
-function invBatchAddGas(gasType, concNominal, concReal, count, zone) {
-    if (!count || count < 1 || count > 20) { showToast('Cantidad inválida (1-20)', 'error'); return; }
-
-    var maxCtrl = invState.gases.reduce(function(max, g) {
-        var num = parseInt((g.controlNo || '').replace(/\D/g, ''), 10);
-        return num > max ? num : max;
-    }, 0);
-
-    for (var i = 0; i < count; i++) {
-        var newGas = {
-            id: 'gas_' + Date.now() + '_' + i,
-            controlNo: 'C-' + String(maxCtrl + 1 + i).padStart(4, '0'),
-            gasType: gasType || '',
-            concNominal: concNominal || '',
-            concReal: concReal || '',
-            zone: zone || _invFindLeastFullZone(),
-            position: null,
-            status: 'active',
-            readings: [],
-            timeline: [],
-            registeredAt: new Date().toISOString()
-        };
-        invState.gases.push(newGas);
-    }
-    invSave();
-    invRender();
-    showToast(count + ' cilindros agregados en lote', 'success');
-}
-
 function _invFindLeastFullZone() {
     var zones = invState.zones || [];
     if (zones.length === 0) return '';

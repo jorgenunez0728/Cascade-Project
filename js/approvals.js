@@ -749,18 +749,6 @@ function paPhotoLocalState(vehicle, cb) {
     });
 }
 
-function paPhotoDelete(vehicleId, cb) {
-    _paOpenPhotoDB(function (idb) {
-        if (!idb) { if (cb) cb(false); return; }
-        try {
-            var tx = idb.transaction(_paPhotoStoreName, 'readwrite');
-            tx.objectStore(_paPhotoStoreName)['delete'](String(vehicleId));
-            tx.oncomplete = function () { if (cb) cb(true); };
-            tx.onerror = function () { if (cb) cb(false); };
-        } catch (e) { if (cb) cb(false); }
-    });
-}
-
 // Remove photos for vehicles archived >90 days ago
 function paPhotoCleanup() {
     if (typeof db === 'undefined' || !db.vehicles) return;
@@ -788,26 +776,6 @@ function paPhotoCleanup() {
 }
 
 // Returns total bytes in the photo store (for System Health)
-function paPhotoTotalSize(cb) {
-    _paOpenPhotoDB(function (idb) {
-        if (!idb) { cb(0, 0); return; }
-        try {
-            var tx = idb.transaction(_paPhotoStoreName, 'readonly');
-            var store = tx.objectStore(_paPhotoStoreName);
-            var total = 0, count = 0;
-            var cursor = store.openCursor();
-            cursor.onsuccess = function (e) {
-                var c = e.target.result;
-                if (!c) { cb(total, count); return; }
-                total += (c.value.sizeBytes || (c.value.base64 || '').length);
-                count++;
-                c.continue();
-            };
-            cursor.onerror = function () { cb(0, 0); };
-        } catch (e) { cb(0, 0); }
-    });
-}
-
 // ══════════════════════════════════════════════════════════════
 // CAMERA CAPTURE — live camera (getUserMedia) with compression
 // Reusable modal overlay separate from other module modals.
@@ -1283,39 +1251,6 @@ function _paManualTriggerSend(vehicle, eventType) {
     });
 }
 
-function paBatchTriggerAll() {
-    if (!paConfig.enabled || !paConfig.webhookUrl) {
-        if (typeof showToast === 'function') showToast('Configura Power Automate primero', 'warning');
-        return;
-    }
-    if (typeof db === 'undefined' || !db.vehicles) return;
-
-    var archived = db.vehicles.filter(function (v) { return v.status === 'archived'; });
-    var notSent = archived.filter(function (v) {
-        return !(v.paStatus && v.paStatus.vehicle_released && v.paStatus.vehicle_released.sent);
-    });
-
-    // Resolve photo state for every candidate (async due to IndexedDB lookup).
-    var ready = [];
-    var blockedByFlag = 0;   // emissions, no flag at all
-    var blockedRemoteOnly = 0; // flag yes, file lives in another station
-    var pendingChecks = notSent.length;
-    if (pendingChecks === 0) {
-        if (typeof showToast === 'function') showToast('No hay pendientes', 'info');
-        return;
-    }
-
-    notSent.forEach(function (v) {
-        paPhotoLocalState(v, function (state) {
-            if (state === 'ok' || state === 'not-needed') ready.push(v);
-            else if (state === 'remote-only') blockedRemoteOnly++;
-            else blockedByFlag++;
-            pendingChecks--;
-            if (pendingChecks === 0) _paBatchProceed(ready, blockedByFlag, blockedRemoteOnly);
-        });
-    });
-}
-
 function _paBatchProceed(ready, blockedByFlag, blockedRemoteOnly) {
     var totalBlocked = blockedByFlag + blockedRemoteOnly;
     if (ready.length === 0) {
@@ -1347,59 +1282,6 @@ function _paBatchProceed(ready, blockedByFlag, blockedRemoteOnly) {
 // ══════════════════════════════════════════════════════════════
 // WEEKLY PLAN WEBHOOK — send plan via PA for email/Teams distribution
 // ══════════════════════════════════════════════════════════════
-
-function paSendWeeklyPlan(plan) {
-    if (!paConfig.enabled || !paConfig.webhookUrl) {
-        console.log('PA not configured, plan not sent');
-        return;
-    }
-
-    var payload = {
-        event: 'weekly_plan_generated',
-        timestamp: new Date().toISOString(),
-        station: paConfig.stationName,
-        plan: {
-            weekDate: plan.weekDate,
-            accepted: plan.accepted,
-            acceptedDate: plan.acceptedDate || '',
-            capacity: plan.capacity,
-            itemCount: plan.items.length,
-            items: plan.items.map(function (i) {
-                return {
-                    desc: i.desc, mod: i.mod, eng: i.eng, tx: i.tx, my: i.my,
-                    tire: i.tire, scheduledDate: i.scheduledDate || '',
-                    required: i.required, deficit: i.deficit
-                };
-            }),
-            skippedInventory: plan.skippedInventory || []
-        }
-    };
-
-    if (typeof generateWeeklyStatusPDF === 'function') {
-        try {
-            var b64 = generateWeeklyStatusPDF({ returnBase64: true, silent: true });
-            if (b64) {
-                payload.pdf = {
-                    base64: b64,
-                    filename: 'Plan-Semanal-' + plan.weekDate + '.pdf',
-                    contentType: 'application/pdf'
-                };
-            }
-        } catch (e) { console.warn('Weekly PDF base64 failed:', e); }
-    }
-
-    if (!navigator.onLine) {
-        paQueueAdd('weekly_plan_generated', 'plan-' + plan.weekDate);
-        return;
-    }
-
-    paSendWebhook(payload).then(function () {
-        _paLastSendStatus = { ok: true, time: new Date().toISOString(), event: 'weekly_plan_generated' };
-    }).catch(function (err) {
-        console.error('Weekly plan webhook failed:', err);
-        _paLastSendStatus = { ok: false, time: new Date().toISOString(), event: 'weekly_plan_generated', error: String(err) };
-    });
-}
 
 // ══════════════════════════════════════════════════════════════
 // INITIALIZATION
