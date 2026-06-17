@@ -117,6 +117,96 @@ function pnUpdateBadges() {
 // ║  LAB DASHBOARD — Real-time overview of all modules                  ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// ── [v15-P1] Cross-module Lab Overview (single source of truth) ──
+// Renders the canonical cross-module KPI strip + pipeline + weekly plan + alerts.
+// Reused by Panel (pn-dashboard) and HOY so the numbers come from ONE place.
+// opts.sections: subset of ['kpi','pipeline','plan','alerts'] (default: all).
+function renderLabOverview(el, opts) {
+    if (!el) return;
+    opts = opts || {};
+    var sections = opts.sections || ['kpi', 'pipeline', 'plan', 'alerts'];
+    var has = function(s) { return sections.indexOf(s) !== -1; };
+
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
+    var today = new Date().toISOString().substring(0, 10);
+    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.substring(0, 10) === today; });
+    var byStatus = {}; activeVehicles.forEach(function(v) { byStatus[v.status] = (byStatus[v.status] || 0) + 1; });
+    var pendingApproval = vehicles.filter(function(v) { return v.status === 'pending-approval'; }).length;
+
+    var tpPlans = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
+    var latestPlan = tpPlans.length ? tpPlans[tpPlans.length - 1] : null;
+    var tpDone = latestPlan ? latestPlan.items.filter(function(i) { return i.completed; }).length : 0;
+    var tpTotal = latestPlan ? latestPlan.items.length : 0;
+    var tpPct = tpTotal ? Math.round(tpDone / tpTotal * 100) : 0;
+
+    var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
+    var lowGases = invGases.filter(function(g) { if (!g.readings || !g.readings.length) return false; return g.readings[g.readings.length - 1].psi < (g.reorderPSI || 500); });
+    var activeOps = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }).length : 0;
+
+    var html = '';
+    if (has('kpi')) {
+        var kpis = [
+            { value: activeVehicles.length, label: 'Vehículos Activos', color: '#3b82f6' },
+            { value: archivedToday.length, label: 'Liberados Hoy', color: '#10b981' },
+            { value: tpPct, label: 'Plan Semanal', color: '#f59e0b', suffix: '%' },
+            { value: pendingApproval, label: 'Pendiente Aprobación', color: '#8b5cf6' },
+            { value: lowGases.length, label: 'Gases Bajos', color: lowGases.length > 0 ? '#ef4444' : '#10b981' },
+            { value: activeOps, label: 'Operadores', color: '#06b6d4' }
+        ];
+        html += '<div class="pn-lab-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px;">';
+        kpis.forEach(function(k) {
+            html += '<div class="tp-card anim-card-hover" style="text-align:center;padding:12px;">'
+                + '<div class="pn-kpi-num" data-kpi-target="' + k.value + '" data-kpi-suffix="' + (k.suffix || '') + '" style="font-size:24px;font-weight:800;color:' + k.color + ';">0</div>'
+                + '<div style="font-size:9px;color:var(--tp-dim);">' + k.label + '</div></div>';
+        });
+        html += '</div>';
+    }
+    if (has('pipeline')) {
+        var pipeline = [
+            { key: 'registered', label: 'Registrado', color: '#3b82f6', icon: '📝' },
+            { key: 'in-progress', label: 'En Progreso', color: '#f59e0b', icon: '🔧' },
+            { key: 'testing', label: 'En Prueba', color: '#8b5cf6', icon: '🧪' },
+            { key: 'ready-release', label: 'Listo Liberar', color: '#10b981', icon: '🏁' }
+        ];
+        html += '<div class="tp-card"><div class="tp-card-title"><span>🔄 Pipeline de Vehículos</span></div><div style="display:flex;gap:4px;">';
+        pipeline.forEach(function(st) {
+            var c = byStatus[st.key] || 0;
+            html += '<div style="flex:1;text-align:center;padding:10px 4px;background:' + st.color + '10;border:1px solid ' + st.color + '30;border-radius:8px;"><div style="font-size:18px;">' + st.icon + '</div><div style="font-size:20px;font-weight:800;color:' + st.color + ';">' + c + '</div><div style="font-size:9px;color:var(--tp-dim);">' + st.label + '</div></div>';
+        });
+        html += '</div></div>';
+    }
+    if (has('plan') && latestPlan) {
+        html += '<div class="tp-card"><div class="tp-card-title"><span>📅 Plan Semanal Actual</span><span style="font-size:11px;font-weight:700;color:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';">' + tpDone + '/' + tpTotal + ' (' + tpPct + '%)</span></div>';
+        html += '<div class="tp-bar" style="height:8px;margin-bottom:8px;"><div class="tp-bar-fill" style="width:' + tpPct + '%;background:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';"></div></div>';
+        latestPlan.items.slice(0, 6).forEach(function(item) {
+            var sd = item.desc.length > 50 ? item.desc.substring(0, 48) + '..' : item.desc;
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size:10px;color:' + (item.completed ? 'var(--tp-green)' : 'var(--tp-dim)') + ';' + (item.completed ? 'text-decoration:line-through;' : '') + '">' + sd + '</span><span style="font-size:10px;">' + (item.completed ? '✅' : '⏳') + '</span></div>';
+        });
+        if (latestPlan.items.length > 6) html += '<div style="font-size:9px;color:var(--tp-dim);text-align:center;margin-top:4px;">+' + (latestPlan.items.length - 6) + ' más...</div>';
+        html += '</div>';
+    }
+    if (has('alerts') && typeof pnGetActiveAlerts === 'function') {
+        var alerts = pnGetActiveAlerts();
+        if (alerts.length) {
+            html += '<div class="tp-card" style="border-left:3px solid var(--tp-red);"><div class="tp-card-title"><span style="color:var(--tp-red);">⚠️ Alertas Activas (' + alerts.length + ')</span></div>';
+            alerts.slice(0, 5).forEach(function(a) {
+                html += '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size:9px;padding:2px 6px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:700;">' + a.level + '</span><span style="font-size:10px;color:var(--tp-text);flex:1;">' + a.message + '</span></div>';
+            });
+            html += '</div>';
+        }
+    }
+    el.innerHTML = html;
+    el.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
+        var t = parseFloat(numEl.dataset.kpiTarget) || 0;
+        if (typeof animateCounter === 'function') animateCounter(numEl, t, { suffix: numEl.dataset.kpiSuffix || '' });
+        else numEl.textContent = t + (numEl.dataset.kpiSuffix || '');
+    });
+    var grid = el.querySelector('.pn-lab-kpi-grid');
+    if (grid && typeof animateStaggerChildren === 'function') animateStaggerChildren(grid, '.tp-card', 60);
+}
+
+
 function pnRenderDashboard(el) {
     // Gather cross-module stats
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
@@ -181,91 +271,8 @@ function pnRenderDashboard(el) {
     }
     html += '</div></div>';
 
-    // KPI grid [R5-M4] with animated counters
-    var _kpiData = [
-        { value: activeVehicles.length, label: 'Vehiculos Activos', color: '#3b82f6' },
-        { value: archivedToday.length, label: 'Liberados Hoy', color: '#10b981' },
-        { value: tpPct, label: 'Plan Semanal', color: '#f59e0b', suffix: '%' },
-        { value: (db.vehicles||[]).filter(function(v){return v.status==='pending-approval';}).length, label: 'Pendiente Aprobación', color: '#8b5cf6' },
-        { value: lowGases.length, label: 'Gases Bajos', color: lowGases.length > 0 ? '#ef4444' : '#10b981' },
-        { value: pnState.operators.filter(function(o) { return o.active; }).length, label: 'Operadores', color: '#06b6d4' }
-    ];
-    html += '<div id="pn-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px;">';
-    _kpiData.forEach(function(kpi, idx) {
-        html += '<div class="tp-card anim-card-hover" style="text-align:center;padding:12px;">';
-        html += '<div class="pn-kpi-num" data-kpi-idx="' + idx + '" data-kpi-target="' + kpi.value + '" data-kpi-suffix="' + (kpi.suffix || '') + '" style="font-size:24px;font-weight:800;color:' + kpi.color + ';">0</div>';
-        html += '<div style="font-size:9px;color:var(--tp-dim);">' + kpi.label + '</div>';
-        html += '</div>';
-    });
-    html += '</div>';
-
-    // Vehicle pipeline
-    html += '<div class="tp-card">';
-    html += '<div class="tp-card-title"><span>🔄 Pipeline de Vehiculos</span></div>';
-    var pipeline = [
-        { key: 'registered', label: 'Registrado', color: '#3b82f6', icon: '📝' },
-        { key: 'in-progress', label: 'En Progreso', color: '#f59e0b', icon: '🔧' },
-        { key: 'testing', label: 'En Prueba', color: '#8b5cf6', icon: '🧪' },
-        { key: 'ready-release', label: 'Listo Liberar', color: '#10b981', icon: '🏁' }
-    ];
-    html += '<div style="display:flex;gap:4px;margin-bottom:10px;">';
-    pipeline.forEach(function(st) {
-        var count = byStatus[st.key] || 0;
-        var pct = activeVehicles.length > 0 ? Math.round((count / activeVehicles.length) * 100) : 0;
-        html += '<div style="flex:1;text-align:center;padding:10px 4px;background:' + st.color + '10;border:1px solid ' + st.color + '30;border-radius:8px;">';
-        html += '<div style="font-size:18px;">' + st.icon + '</div>';
-        html += '<div style="font-size:20px;font-weight:800;color:' + st.color + ';">' + count + '</div>';
-        html += '<div style="font-size:9px;color:var(--tp-dim);">' + st.label + '</div>';
-        html += '</div>';
-    });
-    html += '</div></div>';
-
-    // Weekly plan progress
-    if (latestPlan) {
-        html += '<div class="tp-card">';
-        html += '<div class="tp-card-title"><span>📅 Plan Semanal Actual</span><span style="font-size:11px;font-weight:700;color:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';">' + tpDone + '/' + tpTotal + ' (' + tpPct + '%)</span></div>';
-        html += '<div class="tp-bar" style="height:8px;margin-bottom:8px;"><div class="tp-bar-fill" style="width:' + tpPct + '%;background:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';"></div></div>';
-        latestPlan.items.slice(0, 6).forEach(function(item) {
-            var shortDesc = item.desc.length > 50 ? item.desc.substring(0, 48) + '..' : item.desc;
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--tp-border);">';
-            html += '<span style="font-size:10px;color:' + (item.completed ? 'var(--tp-green)' : 'var(--tp-dim)') + ';' + (item.completed ? 'text-decoration:line-through;' : '') + '">' + shortDesc + '</span>';
-            html += '<span style="font-size:10px;">' + (item.completed ? '✅' : '⏳') + '</span>';
-            html += '</div>';
-        });
-        if (latestPlan.items.length > 6) {
-            html += '<div style="font-size:9px;color:var(--tp-dim);text-align:center;margin-top:4px;">+' + (latestPlan.items.length - 6) + ' mas...</div>';
-        }
-        html += '</div>';
-    }
-
-    // Recent activity (from shift log)
-    var recentLogs = pnState.shiftLog.slice(-5).reverse();
-    if (recentLogs.length > 0) {
-        html += '<div class="tp-card">';
-        html += '<div class="tp-card-title"><span>📋 Actividad Reciente (Bitacora)</span></div>';
-        recentLogs.forEach(function(log) {
-            html += '<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--tp-border);">';
-            html += '<div style="font-size:9px;color:var(--tp-dim);min-width:60px;">' + log.date + '</div>';
-            html += '<div style="font-size:10px;font-weight:700;color:var(--tp-blue);min-width:70px;">' + (log.operator || '?') + '</div>';
-            html += '<div style="font-size:10px;color:var(--tp-text);flex:1;">' + (log.notes || '—') + '</div>';
-            html += '</div>';
-        });
-        html += '</div>';
-    }
-
-    // Alerts summary
-    var alerts = pnGetActiveAlerts();
-    if (alerts.length > 0) {
-        html += '<div class="tp-card" style="border-left:3px solid var(--tp-red);">';
-        html += '<div class="tp-card-title"><span style="color:var(--tp-red);">⚠️ Alertas Activas (' + alerts.length + ')</span></div>';
-        alerts.slice(0, 5).forEach(function(a) {
-            html += '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);">';
-            html += '<span style="font-size:9px;padding:2px 6px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:700;">' + a.level + '</span>';
-            html += '<span style="font-size:10px;color:var(--tp-text);flex:1;">' + a.message + '</span>';
-            html += '</div>';
-        });
-        html += '</div>';
-    }
+    // [v15-P1] Cross-module overview (single source: renderLabOverview)
+    html += '<div id="pn-lab-overview"></div>';
 
     // ── Inventory Anomalies ──
     if (typeof invDetectAnomalies === 'function') {
@@ -357,16 +364,9 @@ function pnRenderDashboard(el) {
 
     el.innerHTML = html;
 
-    // [R5-M4] Animate KPI counters
-    document.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
-        var target = parseFloat(numEl.dataset.kpiTarget) || 0;
-        var suffix = numEl.dataset.kpiSuffix || '';
-        animateCounter(numEl, target, { suffix: suffix });
-    });
-
-    // [R5-M4] Stagger KPI cards
-    var kpiGrid = document.getElementById('pn-kpi-grid');
-    if (kpiGrid) animateStaggerChildren(kpiGrid, '.tp-card', 60);
+// [v15-P1] Render cross-module overview from single source
+    var _ovEl = document.getElementById('pn-lab-overview');
+    if (_ovEl) renderLabOverview(_ovEl);
 
     // Render lab dashboard
     var labEl = document.getElementById('labDashContainer');

@@ -1758,6 +1758,9 @@ function dailyDashRender() {
     html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
     html += '</div>';
 
+    // ── [v15-P1] Resumen del Lab (fuente única: renderLabOverview, KPI + pipeline) ──
+    html += '<div id="hoy-lab-overview" style="margin-bottom:8px;"></div>';
+
     // ── Recordatorios de captura de lecturas (gases + combustible) ──
     // (a) progreso de captura de hoy  (b) días desde la última captura
     var readingReminderShown = false;
@@ -2007,6 +2010,10 @@ function dailyDashRender() {
     }
 
     el.innerHTML = html;
+
+    // [v15-P1] Render cross-module overview from the single source
+    var _hov = document.getElementById('hoy-lab-overview');
+    if (_hov && typeof renderLabOverview === 'function') renderLabOverview(_hov, { sections: ['kpi', 'pipeline'] });
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
