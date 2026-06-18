@@ -274,6 +274,7 @@ if (tpState.weights && tpState.weights.region === undefined) tpState.weights.reg
 if (!tpState.priorityRules) tpState.priorityRules = tpDefaultPriorityRules();
 if (!tpState.weekAvailability) tpState.weekAvailability = {}; // { 'YYYY-MM-DD'(lunes): {available, capacity, workDays, note} }
 if (tpState.recoveryHorizonWeeks === undefined) tpState.recoveryHorizonWeeks = 12;
+if (tpState.recoveryUntil === undefined) tpState.recoveryUntil = null; // fecha límite de visualización 'YYYY-MM-DD'
 
 function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); tabCacheInvalidate('tp'); }
 
@@ -2330,10 +2331,11 @@ function _tpFmtDate(dt) {
 // Deadline más lejano (global + por familia) para extender el horizonte; null si no hay.
 function tpRecoveryHorizonEnd() {
     var dates = [];
+    if (tpState.recoveryUntil) dates.push(tpState.recoveryUntil);
     if (tpState.deadline) dates.push(tpState.deadline);
     var fo = tpState.familyOverrides || {};
     Object.keys(fo).forEach(function(k) { if (fo[k] && fo[k].deadline) dates.push(fo[k].deadline); });
-    if (!dates.length) return null;
+    if (!dates.length) return new Date().getFullYear() + '-12-31'; // por defecto: hasta fin del año en curso
     dates.sort();
     return dates[dates.length - 1];
 }
@@ -2343,14 +2345,10 @@ var _TP_DEFAULT_WD = { dom: false, lun: true, mar: true, mie: true, jue: true, v
 // Lista de semanas (lunes) desde fromDate hasta el horizonte, con disponibilidad/capacidad resueltas.
 function tpRecoveryWeeks(fromDate) {
     var start = _tpMonday(fromDate || new Date());
-    var nWeeks = tpState.recoveryHorizonWeeks || 12;
-    var end = tpRecoveryHorizonEnd();
-    if (end) {
-        var endMon = _tpMonday(new Date(end + 'T12:00:00'));
-        var wk = Math.ceil((endMon - start) / (7 * 86400000)) + 1;
-        nWeeks = Math.max(nWeeks, wk);
-    }
-    nWeeks = Math.min(Math.max(nWeeks, 1), 52);
+    var endMon = _tpMonday(new Date(tpRecoveryHorizonEnd() + 'T12:00:00'));
+    var nWeeks = Math.floor((endMon - start) / (7 * 86400000)) + 1;
+    nWeeks = Math.min(Math.max(nWeeks, 1), 60);
+    var dayKeys = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'];
     var weeks = [];
     for (var i = 0; i < nWeeks; i++) {
         var mon = new Date(start); mon.setDate(start.getDate() + i * 7);
@@ -2358,10 +2356,12 @@ function tpRecoveryWeeks(fromDate) {
         var av = (tpState.weekAvailability || {})[key] || {};
         var available = av.available !== false;                 // default disponible
         var workDays = av.workDays || _TP_DEFAULT_WD;
+        var attendDays = dayKeys.filter(function(d) { return workDays[d]; }).length;
         var slots = tpBuildTestSlots(workDays).length;
         var capNum = (av.capacity !== undefined && av.capacity !== null) ? av.capacity : (tpState.capacity || 8);
-        var effCap = available ? Math.min(slots, capNum) : 0;
-        weeks.push({ monday: key, mondayDate: mon, available: available, capacity: capNum, slots: slots, workDays: workDays, effCap: effCap, note: av.note || '' });
+        // Capacidad real = nº de pruebas por semana (se pueden preparar/probar varios vehículos por día).
+        var effCap = available ? capNum : 0;
+        weeks.push({ monday: key, mondayDate: mon, available: available, capacity: capNum, slots: slots, attendDays: attendDays, workDays: workDays, effCap: effCap, note: av.note || '' });
     }
     return weeks;
 }
@@ -2433,6 +2433,10 @@ function tpSetWeekDay(monday, day, checked) {
     var av = _tpEnsureWeekAv(monday);
     if (!av.workDays) av.workDays = JSON.parse(JSON.stringify(_TP_DEFAULT_WD));
     av.workDays[day] = !!checked;
+    tpSave(); tpRender();
+}
+function tpSetRecoveryUntil(val) {
+    tpState.recoveryUntil = val || null;
     tpSave(); tpRender();
 }
 
@@ -2539,8 +2543,14 @@ function tpRenderRecovery(el) {
     html += '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-calendar\')" style="font-size:12px;">🗓️ Ver Calendario</button></div>';
 
     // Weekly availability
-    html += '<div class="tp-card"><div class="tp-card-title"><span>📆 Disponibilidad de la celda por semana</span></div>';
-    html += '<p style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Marca las semanas en que NO probarás (mantenimiento) y ajusta días/capacidad. Capacidad efectiva = mín(pares de día, número).</p>';
+    html += '<div class="tp-card"><div class="tp-card-title"><span>📆 Disponibilidad de la celda por semana</span><span style="font-size:10px;color:var(--tp-dim);font-weight:400;">' + R.weeks.length + ' semanas</span></div>';
+    var _endYear = new Date().getFullYear() + '-12-31';
+    html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:10px;">';
+    html += '<label style="color:var(--tp-dim);">📅 Planear hasta: <input type="date" value="' + (tpState.recoveryUntil || '') + '" onchange="tpSetRecoveryUntil(this.value)" style="background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;"></label>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="tpSetRecoveryUntil(\'' + _endYear + '\')" style="font-size:9px;">Fin de año</button>';
+    if (tpState.recoveryUntil) html += '<button class="tp-btn tp-btn-ghost" onclick="tpSetRecoveryUntil(\'\')" style="font-size:9px;">Auto</button>';
+    html += '</div>';
+    html += '<p style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Marca las semanas en que NO probarás (mantenimiento) y ajusta días/capacidad. La capacidad es el nº de pruebas por semana — puedes preparar/probar más de un vehículo por día.</p>';
     R.weeks.forEach(function(w) {
         var dt = w.mondayDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
         html += '<div style="border:1px solid var(--tp-border);border-radius:8px;padding:8px;margin-bottom:6px;background:' + (w.available ? 'transparent' : 'rgba(239,68,68,0.06)') + ';opacity:' + (w.available ? '1' : '0.6') + ';">';
@@ -2548,7 +2558,7 @@ function tpRenderRecovery(el) {
         html += '<div style="font-size:11px;font-weight:700;min-width:74px;">Sem ' + dt + '</div>';
         html += '<button class="tp-btn ' + (w.available ? 'tp-btn-primary' : 'tp-btn-danger') + '" onclick="tpToggleWeekAvailable(\'' + w.monday + '\')" style="font-size:10px;padding:3px 8px;">' + (w.available ? '✅ Disponible' : '🚫 No disponible') + '</button>';
         html += '<label style="font-size:10px;color:var(--tp-dim);">Cap: <input type="number" min="0" value="' + w.capacity + '" onchange="tpSetWeekCapacity(\'' + w.monday + '\',this.value)" style="width:48px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;"></label>';
-        html += '<span style="font-size:9px;color:var(--tp-dim);">pares: ' + w.slots + ' → efectiva: <strong style="color:' + (w.effCap > 0 ? 'var(--tp-green)' : 'var(--tp-red)') + ';">' + w.effCap + '</strong></span>';
+        html += '<span style="font-size:9px;color:var(--tp-dim);">días: ' + w.attendDays + ' · capacidad: <strong style="color:' + (w.effCap > 0 ? 'var(--tp-green)' : 'var(--tp-red)') + ';">' + w.effCap + '</strong>/sem</span>';
         html += '</div><div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">';
         dayOrder.forEach(function(d) {
             var on = w.workDays[d];
