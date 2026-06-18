@@ -270,6 +270,10 @@ if (!tpState.regionPriority) tpState.regionPriority = { EUROPE:100, USA:90, CANA
 if (!tpState.familyOverrides) tpState.familyOverrides = {};
 if (!tpState.configOverrides) tpState.configOverrides = {};
 if (tpState.weights && tpState.weights.region === undefined) tpState.weights.region = 0; // no rompe sumas de pesos viejas
+// ── [Recuperación] Estado para el Plan de Recuperación ──
+if (!tpState.priorityRules) tpState.priorityRules = tpDefaultPriorityRules();
+if (!tpState.weekAvailability) tpState.weekAvailability = {}; // { 'YYYY-MM-DD'(lunes): {available, capacity, workDays, note} }
+if (tpState.recoveryHorizonWeeks === undefined) tpState.recoveryHorizonWeeks = 12;
 
 function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); tabCacheInvalidate('tp'); }
 
@@ -587,7 +591,7 @@ function tpUpdateBadges() {
 // ║  [M17] TEST PLAN MANAGER — RENDERER                                ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-var _tpTabs = ['tp-dashboard','tp-tested','tp-families','tp-planactual','tp-planhistory','tp-rules','tp-weekly','tp-simulator','tp-production','tp-calendar','tp-weekhistory'];
+var _tpTabs = ['tp-dashboard','tp-recovery','tp-tested','tp-families','tp-planactual','tp-planhistory','tp-rules','tp-weekly','tp-simulator','tp-production','tp-calendar','tp-weekhistory'];
 
 function tpSwitchTab(tabId) {
     tpState.activeTab = tabId;
@@ -609,7 +613,7 @@ function _tpGetRenderer(tabId) {
         'tp-planhistory': tpRenderPlanHistory, 'tp-rules': tpRenderRules,
         'tp-weekly': tpRenderWeekly, 'tp-simulator': tpRenderSimulator,
         'tp-production': tpRenderProduction, 'tp-calendar': tpRenderCalendar,
-        'tp-weekhistory': tpRenderWeekHistory
+        'tp-weekhistory': tpRenderWeekHistory, 'tp-recovery': tpRenderRecovery
     };
     return map[tabId] || null;
 }
@@ -2238,6 +2242,373 @@ function tpToggleWeeklyItem(weekIdx, itemIdx) {
     item.completedDate = item.completed ? new Date().toISOString() : null;
     if (item.completed) tpAutoMarkWeeklyCompletion(item.desc);
     tpSave(); tpRender();
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  PLAN DE RECUPERACIÓN — capacidad restante × prioridad × deadlines    ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+// Reglas de prioridad por defecto (editables en la pestaña Recuperación).
+// Esquema corporativo: P1 = EU COP (Euro6e); P2 = COP Euro5~Euro6d; P3 = US CL4 1.6/2.0.
+// (PVV standardization se omite por indicación del usuario.)
+function tpDefaultPriorityRules() {
+    return [
+        { id:'p1eu7',  tier:1, region:'EUROPE', regulation:'PRE-EURO 7', modelMatch:'',    engMatch:'',     label:'P1 · EU COP (Pre-Euro7/Euro6e)' },
+        { id:'p1eu',   tier:1, region:'EUROPE', regulation:'*',          modelMatch:'',    engMatch:'',     label:'P1 · EU COP (Europa)' },
+        { id:'p2e5',   tier:2, region:'*',      regulation:'EURO-5',     modelMatch:'',    engMatch:'',     label:'P2 · COP Euro5' },
+        { id:'p2e6',   tier:2, region:'*',      regulation:'EURO-6C',    modelMatch:'',    engMatch:'',     label:'P2 · COP Euro6' },
+        { id:'p3c16',  tier:3, region:'USA',    regulation:'*',          modelMatch:'CL4', engMatch:'1.6',  label:'P3 · US CL4 1.6' },
+        { id:'p3c16b', tier:3, region:'USA',    regulation:'*',          modelMatch:'CL4', engMatch:'1600', label:'P3 · US CL4 1600cc' },
+        { id:'p3c20',  tier:3, region:'USA',    regulation:'*',          modelMatch:'CL4', engMatch:'2.0',  label:'P3 · US CL4 2.0' },
+        { id:'p3c20b', tier:3, region:'USA',    regulation:'*',          modelMatch:'CL4', engMatch:'2000', label:'P3 · US CL4 2000cc' }
+    ];
+}
+
+function _tpNorm(s) { return (s == null ? '' : String(s)).trim().toUpperCase(); }
+
+// Clasifica una configuración en P1/P2/P3 según las reglas (primera coincidencia gana). null = sin prioridad.
+function tpClassifyTier(cfg) {
+    var rules = tpState.priorityRules || [];
+    var rgn = _tpNorm(cfg.rgn), reg = _tpNorm(cfg.reg), mod = _tpNorm(cfg.mod), eng = _tpNorm(cfg.eng);
+    for (var i = 0; i < rules.length; i++) {
+        var r = rules[i];
+        if (r.region && r.region !== '*' && _tpNorm(r.region) !== rgn) continue;
+        if (r.regulation && r.regulation !== '*' && _tpNorm(r.regulation) !== reg) continue;
+        if (r.modelMatch && mod.indexOf(_tpNorm(r.modelMatch)) === -1) continue;
+        if (r.engMatch && eng.indexOf(_tpNorm(r.engMatch)) === -1) continue;
+        return r.tier;
+    }
+    return null;
+}
+
+// Pendientes (déficit) clasificados por prioridad, con deadline de familia. Reúsa tpGetAnalysis + tpFamilyOverrideFor.
+function tpRecoveryPending() {
+    var analysis = tpGetAnalysis();
+    var byTier = { 1: [], 2: [], 3: [], none: [] };
+    var totals = { p1: 0, p2: 0, p3: 0, none: 0, totalDeficit: 0 };
+    analysis.forEach(function(cfg) {
+        if (cfg.deficit <= 0) return;
+        var tier = tpClassifyTier(cfg);
+        var ov = tpFamilyOverrideFor(cfg);
+        var item = {
+            desc: cfg.desc, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg, eng: cfg.eng,
+            deficit: cfg.deficit, score: cfg.score, tier: tier,
+            familyKey: tpFamilyKeyForCfg(cfg),
+            deadline: ov && ov.deadline ? ov.deadline : '',
+            daysToDeadline: ov ? ov.days : null,
+            criticality: ov ? ov.criticality : 'normal'
+        };
+        (tier === 1 ? byTier[1] : tier === 2 ? byTier[2] : tier === 3 ? byTier[3] : byTier.none).push(item);
+        if (tier === 1) totals.p1 += cfg.deficit;
+        else if (tier === 2) totals.p2 += cfg.deficit;
+        else if (tier === 3) totals.p3 += cfg.deficit;
+        else totals.none += cfg.deficit;
+        totals.totalDeficit += cfg.deficit;
+    });
+    function ord(a, b) {
+        var aHas = a.daysToDeadline !== null && a.deadline, bHas = b.daysToDeadline !== null && b.deadline;
+        if (aHas && bHas && a.daysToDeadline !== b.daysToDeadline) return a.daysToDeadline - b.daysToDeadline;
+        if (aHas && !bHas) return -1;
+        if (!aHas && bHas) return 1;
+        return b.score - a.score;
+    }
+    byTier[1].sort(ord); byTier[2].sort(ord); byTier[3].sort(ord); byTier.none.sort(ord);
+    return { byTier: byTier, totals: totals };
+}
+
+// Lunes (Date) de la semana que contiene a d.
+function _tpMonday(d) {
+    var dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var day = dt.getDay();              // 0=Dom .. 6=Sab
+    dt.setDate(dt.getDate() + (day === 0 ? -6 : 1 - day));
+    return dt;
+}
+function _tpFmtDate(dt) {
+    return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+}
+
+// Deadline más lejano (global + por familia) para extender el horizonte; null si no hay.
+function tpRecoveryHorizonEnd() {
+    var dates = [];
+    if (tpState.deadline) dates.push(tpState.deadline);
+    var fo = tpState.familyOverrides || {};
+    Object.keys(fo).forEach(function(k) { if (fo[k] && fo[k].deadline) dates.push(fo[k].deadline); });
+    if (!dates.length) return null;
+    dates.sort();
+    return dates[dates.length - 1];
+}
+
+var _TP_DEFAULT_WD = { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
+
+// Lista de semanas (lunes) desde fromDate hasta el horizonte, con disponibilidad/capacidad resueltas.
+function tpRecoveryWeeks(fromDate) {
+    var start = _tpMonday(fromDate || new Date());
+    var nWeeks = tpState.recoveryHorizonWeeks || 12;
+    var end = tpRecoveryHorizonEnd();
+    if (end) {
+        var endMon = _tpMonday(new Date(end + 'T12:00:00'));
+        var wk = Math.ceil((endMon - start) / (7 * 86400000)) + 1;
+        nWeeks = Math.max(nWeeks, wk);
+    }
+    nWeeks = Math.min(Math.max(nWeeks, 1), 52);
+    var weeks = [];
+    for (var i = 0; i < nWeeks; i++) {
+        var mon = new Date(start); mon.setDate(start.getDate() + i * 7);
+        var key = _tpFmtDate(mon);
+        var av = (tpState.weekAvailability || {})[key] || {};
+        var available = av.available !== false;                 // default disponible
+        var workDays = av.workDays || _TP_DEFAULT_WD;
+        var slots = tpBuildTestSlots(workDays).length;
+        var capNum = (av.capacity !== undefined && av.capacity !== null) ? av.capacity : (tpState.capacity || 8);
+        var effCap = available ? Math.min(slots, capNum) : 0;
+        weeks.push({ monday: key, mondayDate: mon, available: available, capacity: capNum, slots: slots, workDays: workDays, effCap: effCap, note: av.note || '' });
+    }
+    return weeks;
+}
+
+// Motor: asigna los pendientes (P1→P3, urgencia de deadline, score) a las semanas disponibles.
+function tpBuildRecoveryPlan() {
+    var pend = tpRecoveryPending();
+    var weeks = tpRecoveryWeeks(new Date());
+    var ordered = [].concat(pend.byTier[1], pend.byTier[2], pend.byTier[3], pend.byTier.none);
+    var units = [];
+    ordered.forEach(function(it) { for (var k = 0; k < it.deficit; k++) units.push(it); });
+
+    var schedule = weeks.map(function(w) {
+        return { monday: w.monday, mondayDate: w.mondayDate, available: w.available, effCap: w.effCap, items: [] };
+    });
+    var unscheduled = [], deadlineRisk = [], ui = 0;
+    for (var wi = 0; wi < schedule.length && ui < units.length; wi++) {
+        var wk = schedule[wi];
+        if (!wk.available || wk.effCap <= 0) continue;
+        for (var c = 0; c < wk.effCap && ui < units.length; c++) {
+            var unit = units[ui++];
+            wk.items.push(unit);
+            if (unit.deadline) {
+                var dlMon = _tpMonday(new Date(unit.deadline + 'T12:00:00'));
+                if (wk.mondayDate > dlMon) deadlineRisk.push({ item: unit, week: wk.monday });
+            }
+        }
+    }
+    for (; ui < units.length; ui++) unscheduled.push(units[ui]);
+
+    function etaFor(tier) {
+        if (unscheduled.some(function(it) { return it.tier === tier; })) return null;
+        var last = -1;
+        schedule.forEach(function(w, idx) { if (w.items.some(function(it) { return it.tier === tier; })) last = idx; });
+        return last < 0 ? 0 : last + 1;
+    }
+    var lastUsed = schedule.reduce(function(m, w, idx) { return w.items.length ? idx : m; }, -1);
+    var summary = {
+        pending: pend.totals,
+        availWeeks: weeks.filter(function(w) { return w.available && w.effCap > 0; }).length,
+        totalCap: schedule.reduce(function(s, w) { return s + (w.available ? w.effCap : 0); }, 0),
+        scheduledCount: units.length - unscheduled.length,
+        unscheduledCount: unscheduled.length,
+        deadlineRiskCount: deadlineRisk.length,
+        etaP1: etaFor(1), etaP2: etaFor(2), etaP3: etaFor(3),
+        etaAll: unscheduled.length > 0 ? null : (lastUsed + 1)
+    };
+    return { schedule: schedule, unscheduled: unscheduled, deadlineRisk: deadlineRisk, summary: summary, pending: pend, weeks: weeks };
+}
+
+// ── Mutadores de disponibilidad semanal ──
+function _tpEnsureWeekAv(monday) {
+    if (!tpState.weekAvailability) tpState.weekAvailability = {};
+    if (!tpState.weekAvailability[monday]) tpState.weekAvailability[monday] = { available: true, capacity: null, workDays: null, note: '' };
+    return tpState.weekAvailability[monday];
+}
+function tpToggleWeekAvailable(monday) {
+    var av = _tpEnsureWeekAv(monday);
+    av.available = !(av.available !== false);
+    tpSave(); tpRender();
+}
+function tpSetWeekCapacity(monday, val) {
+    var av = _tpEnsureWeekAv(monday);
+    var n = parseInt(val, 10);
+    av.capacity = (isNaN(n) || n < 0) ? null : n;
+    tpSave(); tpRender();
+}
+function tpSetWeekDay(monday, day, checked) {
+    var av = _tpEnsureWeekAv(monday);
+    if (!av.workDays) av.workDays = JSON.parse(JSON.stringify(_TP_DEFAULT_WD));
+    av.workDays[day] = !!checked;
+    tpSave(); tpRender();
+}
+
+// ── Editores de reglas de prioridad ──
+function tpAddPriorityRule() {
+    if (!tpState.priorityRules) tpState.priorityRules = [];
+    tpState.priorityRules.push({ id: 'r' + Date.now(), tier: 3, region: '*', regulation: '*', modelMatch: '', engMatch: '', label: 'Nueva regla' });
+    tpSave(); tpRender();
+}
+function tpDeletePriorityRule(id) {
+    tpState.priorityRules = (tpState.priorityRules || []).filter(function(r) { return r.id !== id; });
+    tpSave(); tpRender();
+}
+function tpSetPriorityRule(id, field, val) {
+    var r = (tpState.priorityRules || []).find(function(x) { return x.id === id; });
+    if (!r) return;
+    r[field] = (field === 'tier') ? (parseInt(val, 10) || 3) : val;
+    tpSave(); tpRender();
+}
+function tpResetPriorityRules() {
+    tpState.priorityRules = tpDefaultPriorityRules();
+    tpSave(); tpRender();
+    if (typeof showToast === 'function') showToast('Reglas de prioridad restauradas', 'info');
+}
+
+// Materializa el cronograma en planes semanales reales (reúsa la forma de item + tpAssignSchedule).
+function tpMaterializeRecovery() {
+    var plan = tpBuildRecoveryPlan();
+    var weeksWithItems = plan.schedule.filter(function(w) { return w.available && w.items.length > 0; });
+    if (!weeksWithItems.length) { if (typeof showToast === 'function') showToast('No hay nada que agendar en semanas disponibles', 'warning'); return; }
+    if (typeof undoPush === 'function') undoPush('testplan', 'Plan de recuperación');
+    if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
+    var created = 0;
+    weeksWithItems.forEach(function(w) {
+        var av = (tpState.weekAvailability || {})[w.monday] || {};
+        var workDays = av.workDays || _TP_DEFAULT_WD;
+        var seen = {};
+        var items = w.items.map(function(unit) {
+            var cfg = tpState.planData.find(function(c) { return c.desc === unit.desc; }) || unit;
+            var n = tpState.testedList.filter(function(t) { return t.configText === unit.desc; }).length;
+            var rule = tpGetRule(cfg);
+            var req = tpCalcRequired(cfg, rule);
+            return { desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg, eng: cfg.eng, tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body, ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire, required: req, deficit: Math.max(0, req - n), score: unit.score, completed: false, completedDate: null, manual: false, carriedOver: false, recovery: true, tier: unit.tier };
+        });
+        var scheduled = tpAssignSchedule(items, workDays);
+        tpState.weeklyPlans.push({
+            id: Date.now() + created,
+            created: new Date().toISOString(),
+            weekDate: w.monday,
+            workDays: JSON.parse(JSON.stringify(workDays)),
+            capacity: w.effCap,
+            items: scheduled,
+            accepted: false,
+            recoveryGenerated: true
+        });
+        created++;
+    });
+    tpSave();
+    if (typeof showToast === 'function') showToast(created + ' semana(s) de recuperación generadas en Plan Semanal', 'success');
+    tpSwitchTab('tp-weekly');
+}
+
+// ── Render de la pestaña Recuperación ──
+function tpRenderRecovery(el) {
+    if (!tpState.planData || tpState.planData.length === 0) {
+        el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">Importa el plan primero para calcular la recuperación.</div>';
+        return;
+    }
+    var R = tpBuildRecoveryPlan();
+    var s = R.summary;
+    var dayLabels = { dom: 'D', lun: 'L', mar: 'M', mie: 'X', jue: 'J', vie: 'V', sab: 'S' };
+    var dayOrder = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'];
+    var html = '';
+
+    // Banner
+    html += '<div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.08),transparent);">';
+    html += '<div style="font-size:16px;font-weight:800;color:var(--tp-amber);">🚑 Plan de Recuperación</div>';
+    html += '<div style="font-size:11px;color:var(--tp-dim);margin-top:2px;">Dinamómetro en mantenimiento — agenda las pruebas pendientes por prioridad en las semanas disponibles.</div></div>';
+
+    // KPIs
+    function kpi(val, label, color) { return '<div class="tp-card" style="text-align:center;padding:12px;"><div style="font-size:24px;font-weight:800;color:' + color + ';">' + val + '</div><div style="font-size:9px;color:var(--tp-dim);">' + label + '</div></div>'; }
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:12px;">';
+    html += kpi(s.pending.p1, 'Pendientes P1', '#ef4444');
+    html += kpi(s.pending.p2, 'Pendientes P2', '#f59e0b');
+    html += kpi(s.pending.p3, 'Pendientes P3', '#3b82f6');
+    html += kpi(s.pending.none, 'Sin prioridad', '#94a3b8');
+    html += kpi(s.availWeeks, 'Semanas disp.', '#10b981');
+    html += kpi(s.totalCap, 'Capacidad total', '#06b6d4');
+    html += '</div>';
+
+    // Feasibility
+    var etaTxt = s.etaAll === null
+        ? '<span style="color:var(--tp-red);font-weight:700;">No alcanza en el horizonte (' + s.unscheduledCount + ' pruebas sin lugar)</span>'
+        : '<span style="color:var(--tp-green);font-weight:700;">Todo cabe en ' + s.etaAll + ' semana(s)</span>';
+    html += '<div class="tp-card" style="font-size:11px;">🏁 ' + etaTxt;
+    html += ' &nbsp;·&nbsp; P1: ' + (s.etaP1 === null ? '⚠️ no alcanza' : s.etaP1 + ' sem') + ' · P2: ' + (s.etaP2 === null ? '⚠️ no alcanza' : s.etaP2 + ' sem') + ' · P3: ' + (s.etaP3 === null ? '⚠️ no alcanza' : s.etaP3 + ' sem');
+    if (s.deadlineRiskCount > 0) html += '<div style="color:var(--tp-red);margin-top:4px;">⏰ ' + s.deadlineRiskCount + ' prueba(s) quedarían después del deadline de su familia.</div>';
+    html += '</div>';
+
+    // Actions
+    html += '<div class="tp-card" style="display:flex;gap:8px;flex-wrap:wrap;">';
+    html += '<button class="tp-btn tp-btn-primary" onclick="tpRender()" style="font-size:12px;">🔄 Recalcular</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="tpMaterializeRecovery()" style="font-size:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;">📅 Generar planes semanales</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-calendar\')" style="font-size:12px;">🗓️ Ver Calendario</button></div>';
+
+    // Weekly availability
+    html += '<div class="tp-card"><div class="tp-card-title"><span>📆 Disponibilidad de la celda por semana</span></div>';
+    html += '<p style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Marca las semanas en que NO probarás (mantenimiento) y ajusta días/capacidad. Capacidad efectiva = mín(pares de día, número).</p>';
+    R.weeks.forEach(function(w) {
+        var dt = w.mondayDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+        html += '<div style="border:1px solid var(--tp-border);border-radius:8px;padding:8px;margin-bottom:6px;background:' + (w.available ? 'transparent' : 'rgba(239,68,68,0.06)') + ';opacity:' + (w.available ? '1' : '0.6') + ';">';
+        html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+        html += '<div style="font-size:11px;font-weight:700;min-width:74px;">Sem ' + dt + '</div>';
+        html += '<button class="tp-btn ' + (w.available ? 'tp-btn-primary' : 'tp-btn-danger') + '" onclick="tpToggleWeekAvailable(\'' + w.monday + '\')" style="font-size:10px;padding:3px 8px;">' + (w.available ? '✅ Disponible' : '🚫 No disponible') + '</button>';
+        html += '<label style="font-size:10px;color:var(--tp-dim);">Cap: <input type="number" min="0" value="' + w.capacity + '" onchange="tpSetWeekCapacity(\'' + w.monday + '\',this.value)" style="width:48px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;"></label>';
+        html += '<span style="font-size:9px;color:var(--tp-dim);">pares: ' + w.slots + ' → efectiva: <strong style="color:' + (w.effCap > 0 ? 'var(--tp-green)' : 'var(--tp-red)') + ';">' + w.effCap + '</strong></span>';
+        html += '</div><div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">';
+        dayOrder.forEach(function(d) {
+            var on = w.workDays[d];
+            html += '<label style="font-size:9px;padding:2px 6px;border:1px solid var(--tp-border);border-radius:5px;cursor:pointer;background:' + (on ? 'rgba(59,130,246,0.12)' : 'transparent') + ';"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="tpSetWeekDay(\'' + w.monday + '\',\'' + d + '\',this.checked)" style="accent-color:var(--tp-blue);transform:scale(0.8);"> ' + dayLabels[d] + '</label>';
+        });
+        html += '</div></div>';
+    });
+    html += '</div>';
+
+    // Priority rules
+    html += '<div class="tp-card"><div class="tp-card-title"><span>🎯 Reglas de Prioridad (editables)</span><button class="tp-btn tp-btn-ghost" onclick="tpResetPriorityRules()" style="font-size:9px;">Restaurar default</button></div>';
+    html += '<p style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Se evalúan de arriba a abajo; la primera coincidencia asigna la prioridad. Usa * o vacío como comodín. Cilindrada admite substring (p.ej. 1.6, 1600).</p>';
+    html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:10px;"><tr style="color:var(--tp-dim);text-align:left;"><th>P</th><th>Región</th><th>Regulación</th><th>Modelo</th><th>Cilindrada</th><th></th></tr>';
+    (tpState.priorityRules || []).forEach(function(r) {
+        function inp(field, val, w) { return '<input value="' + (val || '') + '" onchange="tpSetPriorityRule(\'' + r.id + '\',\'' + field + '\',this.value)" style="width:' + (w || 60) + 'px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;font-size:10px;">'; }
+        html += '<tr style="border-top:1px solid var(--tp-border);">';
+        html += '<td><select onchange="tpSetPriorityRule(\'' + r.id + '\',\'tier\',this.value)" style="background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);font-size:10px;">' + [1, 2, 3].map(function(t) { return '<option value="' + t + '" ' + (r.tier === t ? 'selected' : '') + '>P' + t + '</option>'; }).join('') + '</select></td>';
+        html += '<td>' + inp('region', r.region, 70) + '</td><td>' + inp('regulation', r.regulation, 80) + '</td><td>' + inp('modelMatch', r.modelMatch, 50) + '</td><td>' + inp('engMatch', r.engMatch, 55) + '</td>';
+        html += '<td><button class="tp-btn tp-btn-danger" onclick="tpDeletePriorityRule(\'' + r.id + '\')" style="font-size:9px;padding:2px 6px;">✕</button></td></tr>';
+    });
+    html += '</table></div><button class="tp-btn tp-btn-ghost" onclick="tpAddPriorityRule()" style="font-size:10px;margin-top:6px;">+ Agregar regla</button></div>';
+
+    // Pending by priority
+    function tierSection(title, color, arr) {
+        var cnt = arr.reduce(function(a, b) { return a + b.deficit; }, 0);
+        var h = '<div class="tp-card"><div class="tp-card-title"><span style="color:' + color + ';">' + title + '</span><span style="font-size:11px;color:' + color + ';font-weight:700;">' + cnt + ' pruebas / ' + arr.length + ' configs</span></div>';
+        if (!arr.length) return h + '<div style="font-size:10px;color:var(--tp-dim);">Sin pendientes.</div></div>';
+        arr.slice(0, 15).forEach(function(it) {
+            var dl = it.deadline ? ' · ⏰ ' + (it.daysToDeadline < 0 ? 'vencido' : it.daysToDeadline + 'd') : '';
+            h += '<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--tp-border);font-size:10px;"><span style="flex:1;color:var(--tp-text);">' + it.desc + '</span><span style="white-space:nowrap;color:var(--tp-dim);">×' + it.deficit + dl + '</span></div>';
+        });
+        if (arr.length > 15) h += '<div style="font-size:9px;color:var(--tp-dim);text-align:center;margin-top:4px;">+' + (arr.length - 15) + ' más…</div>';
+        return h + '</div>';
+    }
+    html += tierSection('🔴 Prioridad 1', '#ef4444', R.pending.byTier[1]);
+    html += tierSection('🟠 Prioridad 2', '#f59e0b', R.pending.byTier[2]);
+    html += tierSection('🔵 Prioridad 3', '#3b82f6', R.pending.byTier[3]);
+    if (R.pending.byTier.none.length) html += tierSection('⚪ Sin prioridad', '#94a3b8', R.pending.byTier.none);
+
+    // Schedule
+    html += '<div class="tp-card"><div class="tp-card-title"><span>🗓️ Cronograma de Recuperación</span></div>';
+    var anyWk = R.schedule.filter(function(w) { return w.items.length > 0; });
+    if (!anyWk.length) html += '<div style="font-size:10px;color:var(--tp-dim);">No hay semanas disponibles con capacidad. Marca semanas disponibles arriba.</div>';
+    anyWk.forEach(function(w) {
+        var dt = w.mondayDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+        html += '<div style="margin-bottom:8px;"><div style="font-size:10px;font-weight:700;color:var(--tp-blue);">Semana ' + dt + ' (' + w.items.length + '/' + w.effCap + ')</div>';
+        w.items.forEach(function(it) {
+            var tc = it.tier === 1 ? '#ef4444' : it.tier === 2 ? '#f59e0b' : it.tier === 3 ? '#3b82f6' : '#94a3b8';
+            html += '<div style="display:flex;gap:6px;align-items:center;padding:2px 0;font-size:9px;"><span style="padding:1px 5px;border-radius:3px;background:' + tc + '20;color:' + tc + ';font-weight:700;">' + (it.tier ? 'P' + it.tier : '—') + '</span><span style="flex:1;color:var(--tp-text);">' + it.desc + '</span></div>';
+        });
+        html += '</div>';
+    });
+    if (R.unscheduled.length) {
+        var byT = { 1: 0, 2: 0, 3: 0, none: 0 };
+        R.unscheduled.forEach(function(it) { byT[it.tier || 'none']++; });
+        html += '<div style="border-top:1px solid var(--tp-border);margin-top:6px;padding-top:6px;"><div style="font-size:10px;font-weight:700;color:var(--tp-red);">⚠️ No alcanzan (' + R.unscheduled.length + ')</div><div style="font-size:9px;color:var(--tp-dim);">P1: ' + byT[1] + ' · P2: ' + byT[2] + ' · P3: ' + byT[3] + ' · Sin prioridad: ' + byT.none + '</div></div>';
+    }
+    html += '</div>';
+
+    el.innerHTML = html;
 }
 
 function tpGenerateWeekly() {
