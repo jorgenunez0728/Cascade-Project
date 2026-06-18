@@ -2281,16 +2281,38 @@ function tpSetMaxTiers(val) {
 // Clasifica una configuración en P1/P2/P3 según las reglas (primera coincidencia gana). null = sin prioridad.
 function tpClassifyTier(cfg) {
     var rules = tpState.priorityRules || [];
-    var rgn = _tpNorm(cfg.rgn), reg = _tpNorm(cfg.reg), mod = _tpNorm(cfg.mod), eng = _tpNorm(cfg.eng);
+    var rgn = _tpNorm(cfg.rgn), reg = _tpNorm(cfg.reg), mod = _tpNorm(cfg.mod), eng = _tpNorm(cfg.eng), body = _tpNorm(cfg.body);
     for (var i = 0; i < rules.length; i++) {
         var r = rules[i];
         if (r.region && r.region !== '*' && _tpNorm(r.region) !== rgn) continue;
         if (r.regulation && r.regulation !== '*' && _tpNorm(r.regulation) !== reg) continue;
         if (r.modelMatch && mod.indexOf(_tpNorm(r.modelMatch)) === -1) continue;
         if (r.engMatch && eng.indexOf(_tpNorm(r.engMatch)) === -1) continue;
+        if (r.bodyMatch && body.indexOf(_tpNorm(r.bodyMatch)) === -1) continue;
         return r.tier;
     }
     return null;
+}
+
+// Mapa campo-de-regla -> campo-de-config (orden = orden de columnas en la tabla).
+var _TP_RULE_FIELDS = { region: 'rgn', regulation: 'reg', modelMatch: 'mod', engMatch: 'eng', bodyMatch: 'body' };
+
+// Cascade: opciones posibles para un campo dado lo ya seleccionado en los OTROS campos de la regla.
+function tpRuleFieldOptions(rule, field) {
+    var self = _TP_RULE_FIELDS[field];
+    var configs = (tpState.planData || []).filter(function(c) {
+        return Object.keys(_TP_RULE_FIELDS).every(function(f) {
+            if (f === field) return true; // no filtrar por el campo que estamos listando
+            var val = rule[f];
+            if (!val || val === '*') return true;
+            var cv = _tpNorm(c[_TP_RULE_FIELDS[f]]);
+            if (f === 'region' || f === 'regulation') return cv === _tpNorm(val);
+            return cv.indexOf(_tpNorm(val)) !== -1;
+        });
+    });
+    var set = {};
+    configs.forEach(function(c) { var v = c[self]; if (v !== undefined && v !== null && v !== '') set[v] = true; });
+    return Object.keys(set).sort();
 }
 
 // Pendientes (déficit) clasificados por prioridad, con deadline de familia. Reúsa tpGetAnalysis + tpFamilyOverrideFor.
@@ -2593,14 +2615,23 @@ function tpRenderRecovery(el) {
 
     // Priority rules
     html += '<div class="tp-card"><div class="tp-card-title"><span>🎯 Reglas de Prioridad (editables)</span><span style="display:flex;align-items:center;gap:6px;"><label style="font-size:9px;color:var(--tp-dim);font-weight:400;">Niveles: <input type="number" min="1" max="10" value="' + tpMaxTiers() + '" onchange="tpSetMaxTiers(this.value)" style="width:42px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;"></label><button class="tp-btn tp-btn-ghost" onclick="tpResetPriorityRules()" style="font-size:9px;">Restaurar default</button></span></div>';
-    html += '<p style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Se evalúan de arriba a abajo; la primera coincidencia asigna la prioridad. Usa * o vacío como comodín. Cilindrada admite substring (p.ej. 1.6, 1600). Puedes definir hasta 10 niveles (P1 = más alta).</p>';
-    html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:10px;"><tr style="color:var(--tp-dim);text-align:left;"><th>P</th><th>Región</th><th>Regulación</th><th>Modelo</th><th>Cilindrada</th><th></th></tr>';
+    html += '<p style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Se evalúan de arriba a abajo; la primera coincidencia asigna la prioridad. Cada filtro es un menú que se va acotando con lo ya seleccionado (estilo Cascade); "Todas" = comodín. Puedes definir hasta 10 niveles (P1 = más alta).</p>';
+    html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:10px;"><tr style="color:var(--tp-dim);text-align:left;"><th>P</th><th>Región</th><th>Regulación</th><th>Modelo</th><th>Cilindrada</th><th>Body</th><th></th></tr>';
     (tpState.priorityRules || []).forEach(function(r) {
-        function inp(field, val, w) { return '<input value="' + (val || '') + '" onchange="tpSetPriorityRule(\'' + r.id + '\',\'' + field + '\',this.value)" style="width:' + (w || 60) + 'px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;font-size:10px;">'; }
+        function sel(field, cur) {
+            var opts = tpRuleFieldOptions(r, field);
+            cur = cur || '';
+            var o = '<select onchange="tpSetPriorityRule(\'' + r.id + '\',\'' + field + '\',this.value)" style="max-width:120px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;font-size:10px;">';
+            o += '<option value="" ' + (!cur ? 'selected' : '') + '>Todas</option>';
+            var has = false;
+            opts.forEach(function(v) { var sd = _tpNorm(v) === _tpNorm(cur); if (sd) has = true; var ev = String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); o += '<option value="' + ev + '" ' + (sd ? 'selected' : '') + '>' + ev + '</option>'; });
+            if (cur && !has && cur !== '*') { var ec = String(cur).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); o += '<option value="' + ec + '" selected>' + ec + ' (actual)</option>'; }
+            return o + '</select>';
+        }
         html += '<tr style="border-top:1px solid var(--tp-border);">';
         var _topts = ''; for (var _tt = 1; _tt <= Math.max(tpMaxTiers(), r.tier || 1); _tt++) _topts += '<option value="' + _tt + '" ' + (r.tier === _tt ? 'selected' : '') + '>P' + _tt + '</option>';
         html += '<td><select onchange="tpSetPriorityRule(\'' + r.id + '\',\'tier\',this.value)" style="background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);font-size:10px;">' + _topts + '</select></td>';
-        html += '<td>' + inp('region', r.region, 70) + '</td><td>' + inp('regulation', r.regulation, 80) + '</td><td>' + inp('modelMatch', r.modelMatch, 50) + '</td><td>' + inp('engMatch', r.engMatch, 55) + '</td>';
+        html += '<td>' + sel('region', r.region) + '</td><td>' + sel('regulation', r.regulation) + '</td><td>' + sel('modelMatch', r.modelMatch) + '</td><td>' + sel('engMatch', r.engMatch) + '</td><td>' + sel('bodyMatch', r.bodyMatch) + '</td>';
         html += '<td><button class="tp-btn tp-btn-danger" onclick="tpDeletePriorityRule(\'' + r.id + '\')" style="font-size:9px;padding:2px 6px;">✕</button></td></tr>';
     });
     html += '</table></div><button class="tp-btn tp-btn-ghost" onclick="tpAddPriorityRule()" style="font-size:10px;margin-top:6px;">+ Agregar regla</button></div>';
