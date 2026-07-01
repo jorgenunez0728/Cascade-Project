@@ -101,6 +101,13 @@ function copInitState() {
     if (!copState.saved) copState.saved = [];
 }
 
+// Recargar copState desde localStorage (lo usa Firebase sync tras hacer pull/merge).
+function copSyncReload() {
+    _copLoaded = false;
+    copInitState();
+    if (document.getElementById('platform-cop') && typeof copRender === 'function') copRender();
+}
+
 // ─── FAMILIA + VINes + GUARDADO ──────────────────────────────────────────────
 function _copEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 function copPlanData() { return (typeof tpState !== 'undefined' && tpState.planData) ? tpState.planData : []; }
