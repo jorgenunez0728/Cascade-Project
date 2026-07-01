@@ -51,28 +51,160 @@ var COP_FUEL_LIMITS = {
 };
 
 // ─── ESTADO ───────────────────────────────────────────────────────────────────
+var COP_LS_KEY = 'kia_cop_v1';
 var copState = {
     regulation:    'R154',
     fuelType:      'PI',
+    region:        '',      // filtro de región para el selector de familia
+    familyKey:     '',      // familia seleccionada (misma clave que el Plan)
+    familyLabel:   '',
     activePolls:   null,
-    vehicles:      null,
+    vehicles:      null,    // filas = VINes: {id, vin, values:{pollId}, source:'auto'|'manual'}
     showTable:     false,
     showFormula:   false,
     _lastDecision: null,
+    saved:         [],      // juicios guardados
 };
 
+function copPersist() {
+    try {
+        localStorage.setItem(COP_LS_KEY, JSON.stringify({
+            regulation: copState.regulation, fuelType: copState.fuelType,
+            region: copState.region, familyKey: copState.familyKey, familyLabel: copState.familyLabel,
+            activePolls: copState.activePolls, vehicles: copState.vehicles, saved: copState.saved
+        }));
+    } catch (e) {}
+}
+function copLoad() {
+    var raw = null;
+    try { raw = JSON.parse(localStorage.getItem(COP_LS_KEY)); } catch (e) {}
+    if (raw && typeof raw === 'object') {
+        ['regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved'].forEach(function(k) {
+            if (raw[k] !== undefined && raw[k] !== null) copState[k] = raw[k];
+        });
+    }
+}
+var _copLoaded = false;
 function copInitState() {
+    if (!_copLoaded) { copLoad(); _copLoaded = true; }
     if (!copState.activePolls) {
         copState.activePolls = {};
-        COP_PI_LIMITS.forEach(function(p) { copState.activePolls[p.id] = p.active; });
+        (COP_FUEL_LIMITS[copState.fuelType] || COP_PI_LIMITS).forEach(function(p) { copState.activePolls[p.id] = p.active; });
     }
-    if (!copState.vehicles) {
+    if (!copState.vehicles || !copState.vehicles.length) {
         copState.vehicles = [
-            { id: 1, values: {} },
-            { id: 2, values: {} },
-            { id: 3, values: {} },
+            { id: 1, vin: '', values: {}, source: 'manual' },
+            { id: 2, vin: '', values: {}, source: 'manual' },
+            { id: 3, vin: '', values: {}, source: 'manual' },
         ];
     }
+    if (!copState.saved) copState.saved = [];
+}
+
+// ─── FAMILIA + VINes + GUARDADO ──────────────────────────────────────────────
+function _copEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+function copPlanData() { return (typeof tpState !== 'undefined' && tpState.planData) ? tpState.planData : []; }
+function copRegions() {
+    var set = {}; copPlanData().forEach(function(c) { if (c.rgn) set[c.rgn] = true; });
+    return Object.keys(set).sort();
+}
+// Familias reusando el MISMO agrupamiento del Plan (tpFamilyKeyForCfg).
+function copFamilies() {
+    var fams = {};
+    copPlanData().forEach(function(c) {
+        if (typeof tpFamilyKeyForCfg !== 'function') return;
+        var k = tpFamilyKeyForCfg(c);
+        if (!fams[k]) fams[k] = { key: k, mod: c.mod, eng: c.eng, tx: c.tx, my: c.my, reg: c.reg, rgns: {} };
+        if (c.rgn) fams[k].rgns[c.rgn] = true;
+    });
+    return Object.keys(fams).map(function(k) {
+        var f = fams[k];
+        f.label = [f.mod, f.eng, f.tx, f.my, f.reg].filter(Boolean).join(' · ');
+        f.regionsArr = Object.keys(f.rgns);
+        return f;
+    }).sort(function(a, b) { return a.label < b.label ? -1 : a.label > b.label ? 1 : 0; });
+}
+// Clave de familia derivada de un vehículo COP15 (db.vehicles) — replica tpFamilyKeyForCfg con headers crudos.
+function copVehicleFamilyKey(v) {
+    var cfg = (v && v.config) ? v.config : {};
+    var mod = cfg['Modelo'] || '', eng = cfg['ENGINE CAPACITY'] || '', tx = cfg['TRANSMISSION'] || '',
+        my = cfg['MODEL YEAR (VIN)'] || '', reg = cfg['EMISSION REGULATION'] || '',
+        ep = cfg['ENVIRONMENT PACKAGE'] || '', engpkg = cfg['ENGINE PACKAGE'] || '';
+    return mod + '|' + eng + '|' + tx + '|' + my + '|' + reg + '|' + ((ep && ep !== '0') ? ep : '') + '|' + ((engpkg && engpkg !== '0') ? engpkg : '');
+}
+function copSetRegion(r) { copState.region = r; copState.familyKey = ''; copState.familyLabel = ''; copPersist(); copRender(); }
+function copSelectFamily(key) {
+    copState.familyKey = key;
+    var fam = copFamilies().find(function(f) { return f.key === key; });
+    copState.familyLabel = fam ? fam.label : '';
+    if (key) copAutoPopulateVins(key);
+    copPersist(); copRender();
+}
+// Autollenar VINes de vehículos ya probados (db.vehicles) de esa familia. Valores de gases best-effort.
+function copAutoPopulateVins(key) {
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var rows = [], nextId = 1;
+    vehicles.forEach(function(v) {
+        if (!v.vin || copVehicleFamilyKey(v) !== key) return;
+        var values = {};
+        copGetActiveLimits().forEach(function(p) {
+            var val = copResultValue(v, p.id);
+            if (val !== null && val !== undefined) values[p.id] = String(val);
+        });
+        rows.push({ id: nextId++, vin: v.vin, values: values, source: 'auto' });
+    });
+    while (rows.length < 3) rows.push({ id: nextId++, vin: '', values: {}, source: 'manual' });
+    copState.vehicles = rows;
+}
+// Best-effort de valores desde resultados. Conservador: null (el usuario captura/edita los gases)
+// para no arriesgar el juicio regulatorio con mapeos inciertos de bags→final.
+function copResultValue(vehicle, pollId) { return null; }
+function copAddManualRow() {
+    copInitState();
+    var maxId = copState.vehicles.reduce(function(m, v) { return Math.max(m, v.id); }, 0);
+    copState.vehicles.push({ id: maxId + 1, vin: '', values: {}, source: 'manual' });
+    copPersist(); copRender();
+}
+function copRemoveRow(id) {
+    copState.vehicles = copState.vehicles.filter(function(v) { return v.id !== id; });
+    if (!copState.vehicles.length) copState.vehicles.push({ id: 1, vin: '', values: {}, source: 'manual' });
+    copPersist(); copRender();
+}
+function copSetVin(el) {
+    var id = parseInt(el.dataset.vid);
+    var v = copState.vehicles.find(function(x) { return x.id === id; });
+    if (v) v.vin = el.value;
+    copPersist(); // sin re-render para no perder el foco
+}
+function copSaveJudgment() {
+    copInitState();
+    var decision = copGetOverallDecision(copGetPollStats());
+    copState.saved.unshift({
+        id: 'cop_' + Date.now(),
+        date: new Date().toISOString(),
+        region: copState.region, familyKey: copState.familyKey, familyLabel: copState.familyLabel,
+        regulation: copState.regulation, fuelType: copState.fuelType,
+        activePolls: JSON.parse(JSON.stringify(copState.activePolls)),
+        vehicles: JSON.parse(JSON.stringify(copState.vehicles)),
+        decision: decision || 'INCOMPLETO'
+    });
+    copPersist();
+    if (typeof showToast === 'function') showToast('Juicio guardado' + (copState.familyLabel ? ' — ' + copState.familyLabel : ''), 'success');
+    copRender();
+}
+function copLoadJudgment(id) {
+    var rec = (copState.saved || []).find(function(r) { return r.id === id; });
+    if (!rec) return;
+    copState.regulation = rec.regulation; copState.fuelType = rec.fuelType;
+    copState.region = rec.region; copState.familyKey = rec.familyKey; copState.familyLabel = rec.familyLabel;
+    copState.activePolls = JSON.parse(JSON.stringify(rec.activePolls));
+    copState.vehicles = JSON.parse(JSON.stringify(rec.vehicles));
+    copPersist(); copRender();
+    if (typeof showToast === 'function') showToast('Juicio cargado', 'info');
+}
+function copDeleteJudgment(id) {
+    copState.saved = (copState.saved || []).filter(function(r) { return r.id !== id; });
+    copPersist(); copRender();
 }
 
 // ─── LÓGICA DE NEGOCIO ───────────────────────────────────────────────────────
@@ -135,6 +267,7 @@ function copGetOverallDecision(pollStats) {
 // ─── MANEJADORES DE EVENTOS ──────────────────────────────────────────────────
 function copSetRegulation(r) {
     copState.regulation = r;
+    copPersist();
     copRender();
 }
 
@@ -143,13 +276,15 @@ function copSetFuel(fuel) {
     var newLimits = COP_FUEL_LIMITS[fuel] || COP_PI_LIMITS;
     copState.activePolls = {};
     newLimits.forEach(function(p) { copState.activePolls[p.id] = p.active; });
-    copState.vehicles = copState.vehicles.map(function(v) { return { id: v.id, values: {} }; });
+    copState.vehicles = copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; });
     copState._lastDecision = null;
+    copPersist();
     copRender();
 }
 
 function copTogglePoll(pollId) {
     copState.activePolls[pollId] = !copState.activePolls[pollId];
+    copPersist();
     copRender();
 }
 
@@ -158,6 +293,7 @@ function copHandleInput(el) {
     var pid = el.dataset.pid;
     var vehicle = copState.vehicles.find(function(v) { return v.id === vid; });
     if (vehicle) vehicle.values[pid] = el.value;
+    copPersist();
     copRenderStats();
 }
 
@@ -176,8 +312,9 @@ function copRemoveVehicle() {
 }
 
 function copClearData() {
-    copState.vehicles = copState.vehicles.map(function(v) { return { id: v.id, values: {} }; });
+    copState.vehicles = copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; });
     copState._lastDecision = null;
+    copPersist();
     copRender();
 }
 
@@ -299,30 +436,33 @@ function copBuildStatsHTML() {
     html += '</tbody></table></div>';
     html += '</div>'; // stats card
 
-    // Decisión global
+    // Veredicto de concordancia de la familia
     if (overallDecision) {
         var decLabel = {
-            PASS:     '✓ Serie Conforme',
-            FAIL:     '✗ Serie No Conforme',
-            CONTINUE: '⧗ Ensayar Vehículo Adicional',
+            PASS:     '✓ Familia CONCORDANTE',
+            FAIL:     '✗ Familia NO CONCORDANTE',
+            CONTINUE: '⧗ Faltan VINes (ensayar más)',
         }[overallDecision];
 
         html += '<div class="card" style="margin-bottom:16px;border-color:' + _copDecBorderColor(overallDecision) +
                 ';background:' + _copDecBgColor(overallDecision) + ';display:flex;align-items:center;gap:16px;flex-wrap:wrap;">';
-        html += '<p class="label-title" style="margin:0;white-space:nowrap;">DECISIÓN GLOBAL</p>';
+        html += '<p class="label-title" style="margin:0;white-space:nowrap;">CONCORDANCIA DE FAMILIA</p>';
         html += '<span class="' + _copDecClass(overallDecision) +
                 '" style="padding:8px 20px;border-radius:var(--radius-md);font-size:15px;font-weight:800;letter-spacing:0.04em;">' +
                 decLabel + '</span>';
         html += '<p class="label-title" style="margin:0 0 0 auto;white-space:nowrap;">n = ' +
-                copState.vehicles.length + ' / 20</p>';
+                copState.vehicles.length + ' VIN(es)</p>';
         html += '</div>';
 
-        // Toast único al cambiar a FAIL
+        // Toast único al cambiar a NO CONCORDANTE
         if (overallDecision === 'FAIL' && copState._lastDecision !== 'FAIL' && typeof showToast === 'function') {
-            showToast('⚠ Decisión FAIL: la serie no es conforme', 'error');
+            showToast('⚠ Familia NO CONCORDANTE', 'error');
         }
         copState._lastDecision = overallDecision;
     } else {
+        html += '<div class="card" style="margin-bottom:16px;border-color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.05);">';
+        html += '<p class="label-title" style="margin:0;color:var(--warning);">⧗ Aún sin veredicto — captura al menos 3 VINes con valores por contaminante para calcular la concordancia.</p>';
+        html += '</div>';
         copState._lastDecision = null;
     }
 
@@ -389,63 +529,85 @@ function copBuildHTML() {
     html += '</div>'; // config row
     html += '</div>'; // header card
 
+    // ── Selección de familia (filtrable por región) ───────────────────────────
+    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">👪 Familia a evaluar</div>';
+    html += '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">';
+    var _copRegs = copRegions();
+    html += '<div><p class="label-title" style="margin-bottom:6px;">Región</p>';
+    html += '<select onchange="copSetRegion(this.value)" style="padding:6px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
+    html += '<option value="">Todas</option>';
+    _copRegs.forEach(function(r) { html += '<option value="' + _copEsc(r) + '" ' + (copState.region === r ? 'selected' : '') + '>' + _copEsc(r) + '</option>'; });
+    html += '</select></div>';
+    var _copFams = copFamilies().filter(function(f) { return !copState.region || f.regionsArr.indexOf(copState.region) !== -1; });
+    html += '<div style="flex:1;min-width:260px;"><p class="label-title" style="margin-bottom:6px;">Familia (' + _copFams.length + ')</p>';
+    html += '<select onchange="copSelectFamily(this.value)" style="width:100%;padding:6px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
+    html += '<option value="">— Selecciona una familia —</option>';
+    _copFams.forEach(function(f) { html += '<option value="' + _copEsc(f.key) + '" ' + (copState.familyKey === f.key ? 'selected' : '') + '>' + _copEsc(f.label) + '</option>'; });
+    html += '</select></div>';
+    html += '</div>';
+    if (!copPlanData().length) {
+        html += '<p class="label-title" style="margin-top:10px;color:var(--warning);">Importa el plan de producción (Plan → Producción) para listar familias.</p>';
+    } else if (copState.familyLabel) {
+        html += '<p class="label-title" style="margin-top:10px;color:var(--accent-cop);">Evaluando: ' + _copEsc(copState.familyLabel) + '</p>';
+    }
+    html += '</div>'; // family card
+
     // ── Tabla de datos de vehículos ───────────────────────────────────────────
     html += '<div class="card" style="margin-bottom:16px;">';
     html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;' +
             'border-bottom:2px solid var(--accent-cop);padding-bottom:10px;">';
     html += '<span style="font-size:var(--font-base);font-weight:var(--weight-bold);color:var(--text);flex:1;">' +
             '🚗 Datos de Vehículos</span>';
-    html += '<span class="label-title">' + n + ' / 20 máx.</span>';
+    html += '<span class="label-title">' + n + ' VIN(es)</span>';
     html += '</div>';
 
     html += '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">';
-    html += '<button onclick="copAddVehicle()" class="btn btn-sm btn-ghost" ' +
-            (n >= 20 ? 'disabled ' : '') +
-            'style="color:var(--info);' + (n >= 20 ? 'opacity:0.4;' : '') + '">+ Vehículo</button>';
-    html += '<button onclick="copRemoveVehicle()" class="btn btn-sm btn-ghost" ' +
-            (n <= 3 ? 'disabled ' : '') +
-            'style="' + (n <= 3 ? 'opacity:0.4;' : '') + '">− Quitar</button>';
-    html += '<button onclick="copClearData()" class="btn btn-sm btn-ghost">Limpiar datos</button>';
+    html += '<button onclick="copAddManualRow()" class="btn btn-sm btn-ghost" style="color:var(--info);">➕ VIN manual</button>';
+    html += '<button onclick="copClearData()" class="btn btn-sm btn-ghost">Limpiar valores</button>';
+    html += '<button onclick="copSaveJudgment()" class="btn btn-sm" style="background:var(--accent-cop);color:#fff;margin-left:auto;">💾 Guardar juicio</button>';
     html += '</div>';
 
     if (activeLimits.length === 0) {
         html += '<p class="label-title" style="text-align:center;padding:20px;">Activa al menos un contaminante para introducir datos.</p>';
     } else {
+        // Encabezado de límites por contaminante (columnas)
         html += '<div style="overflow-x:auto;">';
-        html += '<table style="border-collapse:collapse;width:100%;min-width:400px;">';
+        html += '<table style="border-collapse:collapse;width:100%;min-width:520px;">';
         html += '<thead><tr style="background:var(--bg);">';
-        html += '<th style="' + _copTh() + 'text-align:left;padding-left:14px;">Contaminante</th>';
-        html += '<th style="' + _copTh() + '">Límite (L)</th>';
-        html += '<th style="' + _copTh() + '">Unidad</th>';
-        copState.vehicles.forEach(function(v) {
-            html += '<th style="' + _copTh() + '">V' + v.id + '</th>';
+        html += '<th style="' + _copTh() + 'text-align:left;padding-left:14px;">VIN</th>';
+        activeLimits.forEach(function(p) {
+            html += '<th style="' + _copTh() + '">' + p.label +
+                    '<br><span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;">L=' + copFmtLimit(p.limit, p.isPn) + ' ' + p.unit + '</span></th>';
         });
+        html += '<th style="' + _copTh() + '"></th>';
         html += '</tr></thead><tbody>';
 
-        activeLimits.forEach(function(p) {
+        // Una fila por VIN
+        copState.vehicles.forEach(function(v) {
             html += '<tr>';
-            html += '<td style="' + _copTd() + 'text-align:left;padding-left:14px;font-weight:600;">';
-            html += p.label;
-            if (p.note) html += ' <span style="font-size:10px;color:var(--muted);">(' + p.note + ')</span>';
+            html += '<td style="' + _copTd() + 'text-align:left;padding-left:10px;">';
+            html += '<input type="text" value="' + _copEsc(v.vin || '') + '" data-vid="' + v.id + '" ' +
+                    'oninput="copSetVin(this)" placeholder="VIN" ' + (v.source === 'auto' ? 'title="Auto desde vehículo probado" ' : '') +
+                    'style="width:170px;padding:6px 8px;font-size:11px;box-sizing:border-box;font-family:monospace;' +
+                    (v.source === 'auto' ? 'border-left:3px solid var(--accent-cop);' : '') + '" />';
             html += '</td>';
-            html += '<td style="' + _copTd() + 'color:var(--muted);font-family:monospace;">' +
-                    copFmtLimit(p.limit, p.isPn) + '</td>';
-            html += '<td style="' + _copTd() + 'color:var(--muted);font-size:11px;">' + p.unit + '</td>';
-            copState.vehicles.forEach(function(v) {
+            activeLimits.forEach(function(p) {
                 html += '<td style="' + _copTd() + 'padding:6px 8px;">';
                 html += '<input type="number" step="any" placeholder="—" ';
                 html += 'value="' + (v.values[p.id] !== undefined ? v.values[p.id] : '') + '" ';
                 html += 'data-vid="' + v.id + '" data-pid="' + p.id + '" ';
                 html += 'oninput="copHandleInput(this)" ';
-                html += 'style="width:90px;padding:6px 8px;font-size:12px;text-align:right;' +
-                        'box-sizing:border-box;font-family:monospace;" />';
+                html += 'style="width:90px;padding:6px 8px;font-size:12px;text-align:right;box-sizing:border-box;font-family:monospace;" />';
                 html += '</td>';
             });
+            html += '<td style="' + _copTd() + 'padding:4px;"><button onclick="copRemoveRow(' + v.id + ')" class="btn btn-sm btn-ghost" title="Quitar VIN" style="padding:2px 8px;">✕</button></td>';
             html += '</tr>';
         });
 
         html += '</tbody></table>';
         html += '</div>'; // overflow-x
+        html += '<p class="label-title" style="margin-top:10px;font-size:10px;color:var(--muted);">Los VINes marcados en azul se autollenaron desde vehículos probados de la familia; captura/edita los gases. El veredicto se recalcula en vivo (requiere ≥3 VINes con valor por contaminante).</p>';
     }
     html += '</div>'; // data card
 
@@ -481,6 +643,23 @@ function copBuildHTML() {
     html += '</tbody></table>';
     html += '</div>'; // table body
     html += '</div>'; // cv card
+
+    // ── Juicios guardados ──────────────────────────────────────────────────────
+    if (copState.saved && copState.saved.length) {
+        html += '<div class="card" style="margin-bottom:16px;">';
+        html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">💾 Juicios guardados (' + copState.saved.length + ')</div>';
+        copState.saved.forEach(function(r) {
+            var decTxt = r.decision === 'PASS' ? 'CONCORDANTE' : r.decision === 'FAIL' ? 'NO CONCORDANTE' : r.decision === 'CONTINUE' ? 'INCOMPLETO' : r.decision;
+            html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">';
+            html += '<span style="font-size:10px;color:var(--muted);min-width:74px;">' + new Date(r.date).toLocaleDateString('es-MX') + '</span>';
+            html += '<span style="flex:1;min-width:160px;font-size:11px;color:var(--text);">' + _copEsc(r.familyLabel || '(sin familia)') + ' · ' + r.fuelType + ' · ' + r.regulation + '</span>';
+            html += '<span class="' + _copDecClass(r.decision) + '" style="padding:3px 10px;border-radius:var(--radius-sm);font-size:10px;font-weight:700;">' + decTxt + '</span>';
+            html += '<button onclick="copLoadJudgment(\'' + r.id + '\')" class="btn btn-sm btn-ghost" style="font-size:10px;">Cargar</button>';
+            html += '<button onclick="copDeleteJudgment(\'' + r.id + '\')" class="btn btn-sm btn-ghost" style="font-size:10px;" title="Borrar">✕</button>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
 
     // ── Disclaimer regulatorio ─────────────────────────────────────────────────
     html += '<div class="card" style="margin-bottom:16px;background:rgba(245,158,11,0.04);' +
