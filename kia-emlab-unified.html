@@ -5325,21 +5325,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607011845';
+var APP_BUILD = '202607011935';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607011845' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607011935' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607011845' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607011935' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5355,7 +5355,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607011845' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607011935' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -19783,7 +19783,32 @@ function tpRenderPlanHistory(el) {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 const TP_PURPOSES_VALID = ['Correlacion', 'Investigacion', 'COP-Emisiones', 'EO-Emisiones', 'COP-OBD2', 'EO-OBD2', 'ND-Emisiones', 'ND-OBD2'];
-const TP_MONTHS = ['Feb-26','Mar-26','Apr-26','May-26','Jun-26','Jul-26'];
+const TP_MONTHS = ['Feb-26','Mar-26','Apr-26','May-26','Jun-26','Jul-26']; // semilla por defecto; los meses reales viven en tpState.months (dinámicos)
+
+// ── Meses de producción dinámicos (etiquetas 'MMM-YY') ──
+var _TP_MON_ABBR = { jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12,
+                     ene:1,abr:4,ago:8,dic:12 };
+var _TP_MON_NAMES = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function _tpParseMonthLabel(label) {
+    var m = /^([A-Za-z]{3,4})-?(\d{2})$/.exec((label == null ? '' : String(label)).trim());
+    if (!m) return null;
+    var mo = _TP_MON_ABBR[m[1].toLowerCase()];
+    if (!mo) return null;
+    var yy = parseInt(m[2], 10);
+    return { mo: mo, yy: yy, key: yy * 12 + mo };
+}
+function _tpIsMonthLabel(label) { return !!_tpParseMonthLabel(label); }
+function _tpCanonMonth(label) {
+    var p = _tpParseMonthLabel(label);
+    return p ? (_TP_MON_NAMES[p.mo] + '-' + String(p.yy).padStart(2, '0')) : label;
+}
+function _tpSortMonths(labels) {
+    return labels.slice().sort(function(a, b) {
+        var pa = _tpParseMonthLabel(a), pb = _tpParseMonthLabel(b);
+        return (pa ? pa.key : 0) - (pb ? pb.key : 0);
+    });
+}
+function tpMonths() { return (tpState.months && tpState.months.length) ? tpState.months : TP_MONTHS; }
 const TP_LS_KEY = 'kia_testplan_v1';
 
 let tpState = safeParse(TP_LS_KEY, null) || {
@@ -19832,6 +19857,7 @@ if (!tpState.weekAvailability) tpState.weekAvailability = {}; // { 'YYYY-MM-DD'(
 if (tpState.recoveryHorizonWeeks === undefined) tpState.recoveryHorizonWeeks = 12;
 if (tpState.recoveryUntil === undefined) tpState.recoveryUntil = null; // fecha límite de visualización 'YYYY-MM-DD'
 if (tpState.maxTiers === undefined) tpState.maxTiers = 3; // niveles de prioridad (1..10)
+if (!tpState.months || !tpState.months.length) tpState.months = TP_MONTHS.slice(); // meses de producción dinámicos
 
 function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); tabCacheInvalidate('tp'); }
 
@@ -19900,8 +19926,10 @@ function tpPriorityScore(cfg, testedN) {
     const volScore = ((cfg.total + cfg.hist) / maxVol) * 100;
     const compScore = req > 0 ? (1 - Math.min(testedN / req, 1)) * 100 : 0;
     const newScore = cfg.hist === 0 && cfg.total > 0 ? 100 : 0;
-    const firstM = (cfg.m || []).findIndex(v => v > 0);
-    const urgScore = firstM === -1 ? 0 : ((6 - firstM) / 6) * 100;
+    const _mArr = cfg.m || [];
+    const _mLen = _mArr.length || 6;
+    const firstM = _mArr.findIndex(v => v > 0);
+    const urgScore = firstM === -1 ? 0 : ((_mLen - firstM) / _mLen) * 100;
     const regScore = tpRegionPriorityValue(cfg.rgn);
     const wReg = w.region || 0;
     const base = (volScore * w.volume + compScore * w.compliance + newScore * w.newConfig + urgScore * w.urgency + regScore * wReg) / 100;
@@ -20030,7 +20058,9 @@ function tpImportPlanCSV(csvText) {
     const idxBody = header.indexOf('BODY TYPE');
     const idxEngPkg = header.indexOf('ENGINE PACKAGE');
     const idxHist = header.indexOf('count_hist');
-    const monthCols = TP_MONTHS.map(m => header.indexOf(m));
+    // Detectar dinámicamente TODAS las columnas de mes del header (no solo un set fijo)
+    const csvMonths = [];
+    header.forEach((h, ci) => { if (_tpIsMonthLabel(h)) csvMonths.push({ label: _tpCanonMonth(h), idx: ci }); });
     const idxTotalCalc = header.indexOf('Total_Calc');
 
     if (idxDesc < 0 || idxRgn < 0) { showToast('CSV sin columnas requeridas (codigo_config_text, REGION)', 'error'); return; }
@@ -20054,7 +20084,7 @@ function tpImportPlanCSV(csvText) {
             body: cols[idxBody] || '',
             engpkg: cols[idxEngPkg] || '',
             hist: parseInt(cols[idxHist]) || 0,
-            m: monthCols.map(ci => parseInt(cols[ci]) || 0),
+            _cvals: (function(){ var o = {}; csvMonths.forEach(function(mc){ o[mc.label] = parseInt(cols[mc.idx]) || 0; }); return o; })(),
             total: parseInt(cols[idxTotalCalc]) || 0,
         });
     }
@@ -20075,13 +20105,35 @@ function tpImportPlanCSV(csvText) {
             else diff.volDown.push({ desc:c.desc, oldVol:old.total, newVol:c.total });
         } else { diff.unchanged++; }
     });
-    // Configs removed from new plan: keep them with vol=0 so history is preserved
+    // Configs removed from new plan: keep them (vol=0) preservando su histórico de meses
     oldData.forEach(c => {
         if (!newMap[c.desc]) {
             diff.removed.push(c);
-            newData.push({ ...c, total: 0, m: c.m.map(() => 0), _retired: true });
+            newData.push({ ...c, total: 0, _retired: true });
         }
     });
+
+    // ── Meses: unión (preserva histórico) + orden cronológico, y re-alinear m de cada config ──
+    const oldMonths = (tpState.months && tpState.months.length) ? tpState.months.slice() : TP_MONTHS.slice();
+    const monthSet = {};
+    oldMonths.forEach(l => { monthSet[l] = true; });
+    csvMonths.forEach(mc => { monthSet[mc.label] = true; });
+    const unionMonths = _tpSortMonths(Object.keys(monthSet));
+    function _oldVal(desc, label) {
+        const oc = oldMap[desc];
+        if (!oc || !oc.m) return undefined;
+        const k = oldMonths.indexOf(label);
+        return k >= 0 ? oc.m[k] : undefined;
+    }
+    newData.forEach(c => {
+        c.m = unionMonths.map(label => {
+            if (c._cvals && Object.prototype.hasOwnProperty.call(c._cvals, label)) return c._cvals[label]; // valor del CSV nuevo
+            const ov = _oldVal(c.desc, label);                                                             // si no viene en el CSV, preservar el previo
+            return (ov === undefined || ov === null) ? 0 : ov;
+        });
+        delete c._cvals;
+    });
+    tpState.months = unionMonths;
 
     // ── Save plan history snapshot ──
     if (!tpState.planHistory) tpState.planHistory = [];
@@ -22893,11 +22945,11 @@ function tpRenderProduction(el) {
             const chartType = window._tpProdChartType || 'bar';
 
             if (groupBy === 'month') {
-                const totals = TP_MONTHS.map((m,i) => plan.reduce((s,c) => s + c.m[i], 0));
+                const totals = tpMonths().map((m,i) => plan.reduce((s,c) => s + c.m[i], 0));
                 const maxT = window._tpProdYMax > 0 ? window._tpProdYMax : Math.max(...totals, 1);
                 if (chartType === 'hbar') {
                     return `<div style="display:flex;flex-direction:column;gap:3px;">
-                        ${TP_MONTHS.map((m,i) => `<div style="display:flex;align-items:center;gap:6px;">
+                        ${tpMonths().map((m,i) => `<div style="display:flex;align-items:center;gap:6px;">
                             <div style="width:45px;font-size:9px;color:var(--tp-dim);text-align:right;">${m}</div>
                             <div style="flex:1;height:16px;background:var(--tp-border);border-radius:3px;overflow:hidden;">
                                 <div style="height:100%;width:${Math.min(100,(totals[i]/maxT)*100)}%;background:var(--tp-blue);border-radius:3px;"></div>
@@ -22907,7 +22959,7 @@ function tpRenderProduction(el) {
                     </div>`;
                 }
                 return `<div class="tp-chart-bar" style="height:${chartH}px;">
-                    ${TP_MONTHS.map((m,i) => `
+                    ${tpMonths().map((m,i) => `
                         <div class="tp-chart-col">
                             <div class="tp-chart-value">${totals[i].toLocaleString()}</div>
                             <div class="tp-chart-fill" style="height:${Math.min(100,(totals[i]/maxT)*100)}%;background:var(--tp-blue);"></div>
@@ -22955,7 +23007,7 @@ function tpRenderProduction(el) {
                 <thead><tr>
                     <th>Config Text</th><th>Mod</th><th>MY</th><th>Reg</th><th>Rgn</th><th>Motor</th><th>TX</th><th>Body</th>
                     <th style="text-align:right">Hist</th>
-                    ${TP_MONTHS.map(m => `<th style="text-align:right">${m}</th>`).join('')}
+                    ${tpMonths().map(m => `<th style="text-align:right">${m}</th>`).join('')}
                     <th style="text-align:right">Total</th>
                 </tr></thead>
                 <tbody>
@@ -30133,7 +30185,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607011845' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607011935' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
