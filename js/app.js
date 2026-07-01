@@ -2583,6 +2583,7 @@ function generateWeeklyStatusPDF(opts) {
         if (typeof splashUpdate === 'function') splashUpdate('Cargando configuraciones...', 20);
         try { parseCSV(); } catch(e) { console.error('parseCSV error:', e); }
         try { populateOperators(); } catch(e) { console.error('populateOperators error:', e); }
+        try { if (typeof authRenderOperatorPicker === 'function') authRenderOperatorPicker(); } catch(e) { console.error('op picker error:', e); }
         
         // Poblar selector inicial de MODELO
         try {

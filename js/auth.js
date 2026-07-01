@@ -12,29 +12,25 @@ var AUTH_LS_KEY = 'kia_auth_session';
 var AUTH_SESSION_HOURS = 12;
 var AUTH_WEBAUTHN_LS = 'kia_webauthn_creds';
 
-// ── Initialization ──
-function authInit() {
-    // Check for existing valid session
-    try {
-        var saved = localStorage.getItem(AUTH_LS_KEY);
-        if (saved) {
-            var session = JSON.parse(saved);
-            if (session.expiresAt && new Date(session.expiresAt).getTime() > Date.now()) {
-                authState.currentUser = { id: session.operatorId, name: session.operatorName, role: session.role };
-                authState.sessionActive = true;
-                authState.sessionExpiry = new Date(session.expiresAt);
-                authUpdateUI();
-                return;
-            }
-            // Session expired
-            localStorage.removeItem(AUTH_LS_KEY);
-        }
-    } catch(e) {}
+var AUTH_OP_LS_KEY = 'kia_current_operator';
 
-    // No valid session — show login
-    authState.sessionActive = false;
-    authState.currentUser = null;
-    authShowLogin();
+// ── Initialization ──
+// Sin muro de login: se establece una sesión ligera con el operador actual (sin contraseña).
+// El "quién" solo sirve para atribución en el historial de cambios.
+function authInit() {
+    var name = 'Laboratorio', role = 'Lab', id = 0;
+    try {
+        var saved = localStorage.getItem(AUTH_OP_LS_KEY);
+        if (saved) { var o = JSON.parse(saved); if (o && o.name) { name = o.name; role = o.role || 'Técnico'; id = o.id || 0; } }
+    } catch(e) {}
+    authState.currentUser = { id: id, name: name, role: role };
+    authState.sessionActive = true;
+    authState.sessionExpiry = null;
+    var overlay = document.getElementById('auth-overlay');
+    if (overlay) overlay.style.display = 'none';
+    authUpdateUI();
+    authRenderOperatorPicker();
+    authFirebaseSignIn();
 }
 
 // ── Login Screen ──
@@ -255,20 +251,50 @@ function authCreateSession(op) {
     authFirebaseSignIn();
 }
 
+// Sin login: "salir" simplemente vuelve al operador genérico 'Laboratorio'.
 function authSignOut() {
-    showConfirmDialog({ title: '🔒 Cerrar sesión', message: '¿Cerrar sesion?', type: 'warning', confirmText: 'Cerrar', cancelText: 'Cancelar' }).then(function(ok) {
-        if (!ok) return;
-        localStorage.removeItem(AUTH_LS_KEY);
-        authState.currentUser = null;
-        authState.sessionActive = false;
-        authState.sessionExpiry = null;
-        authShowLogin();
-        showToast('Sesion cerrada', 'info');
-    });
+    authSetOperator('Laboratorio', 'Lab', 0);
 }
 
 function authGetCurrentUser() {
+    if (!authState.currentUser) authState.currentUser = { id: 0, name: 'Laboratorio', role: 'Lab' };
     return authState.currentUser;
+}
+
+// ── Selector de operador (sin contraseña) — para atribución en el historial ──
+function authSetOperator(name, role, id) {
+    name = name || 'Laboratorio';
+    authState.currentUser = { id: id || 0, name: name, role: role || (name === 'Laboratorio' ? 'Lab' : 'Técnico') };
+    authState.sessionActive = true;
+    try { localStorage.setItem(AUTH_OP_LS_KEY, JSON.stringify(authState.currentUser)); } catch(e) {}
+    authUpdateUI();
+    authRenderOperatorPicker();
+    if (typeof showToast === 'function') showToast('Operador: ' + name, 'info');
+}
+
+function authOnPickOperator(sel) {
+    if (!sel) return;
+    if (sel.value === '__lab__') { authSetOperator('Laboratorio', 'Lab', 0); return; }
+    var ops = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators : [];
+    var op = null;
+    for (var i = 0; i < ops.length; i++) { if (ops[i].name === sel.value) { op = ops[i]; break; } }
+    authSetOperator(sel.value, op ? (op.role || 'Técnico') : 'Técnico', op ? op.id : 0);
+}
+
+function authRenderOperatorPicker() {
+    var el = document.getElementById('op-picker');
+    if (!el) return;
+    var ops = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }) : [];
+    var cur = (authState.currentUser && authState.currentUser.name) || 'Laboratorio';
+    var html = '<span style="font-size:11px;margin-right:3px;" title="Operador actual">👤</span>';
+    html += '<select onchange="authOnPickOperator(this)" title="Operador actual (para el historial de cambios)" style="font-size:10px;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:2px 6px;max-width:160px;">';
+    html += '<option value="__lab__"' + (cur === 'Laboratorio' ? ' selected' : '') + '>Laboratorio</option>';
+    ops.forEach(function(o) {
+        var nm = String(o.name).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        html += '<option value="' + nm + '"' + (cur === o.name ? ' selected' : '') + '>' + nm + '</option>';
+    });
+    html += '</select>';
+    el.innerHTML = html;
 }
 
 function authBypassLogin() {
