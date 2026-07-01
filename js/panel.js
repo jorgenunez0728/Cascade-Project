@@ -312,8 +312,8 @@ function pnRenderDashboard(el) {
     html += '<div style="font-size:10px;color:var(--tp-amber);margin-top:4px;">' + shiftLabel + '</div>';
     if (authUser) {
         html += '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">';
-        html += '<span style="font-size:10px;color:#a78bfa;">Sesion: <strong>' + authUser.name + '</strong></span>';
-        html += '<button onclick="if(typeof authSignOut===\'function\')authSignOut();" style="padding:2px 8px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.2);border-radius:4px;cursor:pointer;font-size:9px;">Salir</button>';
+        html += '<span style="font-size:10px;color:#a78bfa;">Operador: <strong>' + authUser.name + '</strong></span>';
+        html += '<span style="font-size:9px;color:var(--tp-dim);">(cámbialo en la barra superior 👤)</span>';
         html += '</div>';
     }
     html += '</div>';

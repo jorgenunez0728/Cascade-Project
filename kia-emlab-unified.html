@@ -3612,6 +3612,7 @@ details.acc > summary {
         📋 CoP
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
+    <div id="op-picker" style="align-self:center;display:flex;align-items:center;padding:0 4px;" title="Operador actual"></div>
     <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
     <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
     <button id="theme-toggle-btn" onclick="themeToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Cambiar tema" aria-label="Cambiar tema">🔄</button>
@@ -5325,21 +5326,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607012021';
+var APP_BUILD = '202607012025';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607012021' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607012025' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607012021' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607012025' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5355,7 +5356,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607012021' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607012025' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -7722,6 +7723,7 @@ function generateWeeklyStatusPDF(opts) {
         if (typeof splashUpdate === 'function') splashUpdate('Cargando configuraciones...', 20);
         try { parseCSV(); } catch(e) { void 0; }
         try { populateOperators(); } catch(e) { void 0; }
+        try { if (typeof authRenderOperatorPicker === 'function') authRenderOperatorPicker(); } catch(e) { void 0; }
         
         // Poblar selector inicial de MODELO
         try {
@@ -24961,8 +24963,8 @@ function pnRenderDashboard(el) {
     html += '<div style="font-size:10px;color:var(--tp-amber);margin-top:4px;">' + shiftLabel + '</div>';
     if (authUser) {
         html += '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">';
-        html += '<span style="font-size:10px;color:#a78bfa;">Sesion: <strong>' + authUser.name + '</strong></span>';
-        html += '<button onclick="if(typeof authSignOut===\'function\')authSignOut();" style="padding:2px 8px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.2);border-radius:4px;cursor:pointer;font-size:9px;">Salir</button>';
+        html += '<span style="font-size:10px;color:#a78bfa;">Operador: <strong>' + authUser.name + '</strong></span>';
+        html += '<span style="font-size:9px;color:var(--tp-dim);">(cámbialo en la barra superior 👤)</span>';
         html += '</div>';
     }
     html += '</div>';
@@ -27277,29 +27279,25 @@ var AUTH_LS_KEY = 'kia_auth_session';
 var AUTH_SESSION_HOURS = 12;
 var AUTH_WEBAUTHN_LS = 'kia_webauthn_creds';
 
-// ── Initialization ──
-function authInit() {
-    // Check for existing valid session
-    try {
-        var saved = localStorage.getItem(AUTH_LS_KEY);
-        if (saved) {
-            var session = JSON.parse(saved);
-            if (session.expiresAt && new Date(session.expiresAt).getTime() > Date.now()) {
-                authState.currentUser = { id: session.operatorId, name: session.operatorName, role: session.role };
-                authState.sessionActive = true;
-                authState.sessionExpiry = new Date(session.expiresAt);
-                authUpdateUI();
-                return;
-            }
-            // Session expired
-            localStorage.removeItem(AUTH_LS_KEY);
-        }
-    } catch(e) {}
+var AUTH_OP_LS_KEY = 'kia_current_operator';
 
-    // No valid session — show login
-    authState.sessionActive = false;
-    authState.currentUser = null;
-    authShowLogin();
+// ── Initialization ──
+// Sin muro de login: se establece una sesión ligera con el operador actual (sin contraseña).
+// El "quién" solo sirve para atribución en el historial de cambios.
+function authInit() {
+    var name = 'Laboratorio', role = 'Lab', id = 0;
+    try {
+        var saved = localStorage.getItem(AUTH_OP_LS_KEY);
+        if (saved) { var o = JSON.parse(saved); if (o && o.name) { name = o.name; role = o.role || 'Técnico'; id = o.id || 0; } }
+    } catch(e) {}
+    authState.currentUser = { id: id, name: name, role: role };
+    authState.sessionActive = true;
+    authState.sessionExpiry = null;
+    var overlay = document.getElementById('auth-overlay');
+    if (overlay) overlay.style.display = 'none';
+    authUpdateUI();
+    authRenderOperatorPicker();
+    authFirebaseSignIn();
 }
 
 // ── Login Screen ──
@@ -27520,20 +27518,50 @@ function authCreateSession(op) {
     authFirebaseSignIn();
 }
 
+// Sin login: "salir" simplemente vuelve al operador genérico 'Laboratorio'.
 function authSignOut() {
-    showConfirmDialog({ title: '🔒 Cerrar sesión', message: '¿Cerrar sesion?', type: 'warning', confirmText: 'Cerrar', cancelText: 'Cancelar' }).then(function(ok) {
-        if (!ok) return;
-        localStorage.removeItem(AUTH_LS_KEY);
-        authState.currentUser = null;
-        authState.sessionActive = false;
-        authState.sessionExpiry = null;
-        authShowLogin();
-        showToast('Sesion cerrada', 'info');
-    });
+    authSetOperator('Laboratorio', 'Lab', 0);
 }
 
 function authGetCurrentUser() {
+    if (!authState.currentUser) authState.currentUser = { id: 0, name: 'Laboratorio', role: 'Lab' };
     return authState.currentUser;
+}
+
+// ── Selector de operador (sin contraseña) — para atribución en el historial ──
+function authSetOperator(name, role, id) {
+    name = name || 'Laboratorio';
+    authState.currentUser = { id: id || 0, name: name, role: role || (name === 'Laboratorio' ? 'Lab' : 'Técnico') };
+    authState.sessionActive = true;
+    try { localStorage.setItem(AUTH_OP_LS_KEY, JSON.stringify(authState.currentUser)); } catch(e) {}
+    authUpdateUI();
+    authRenderOperatorPicker();
+    if (typeof showToast === 'function') showToast('Operador: ' + name, 'info');
+}
+
+function authOnPickOperator(sel) {
+    if (!sel) return;
+    if (sel.value === '__lab__') { authSetOperator('Laboratorio', 'Lab', 0); return; }
+    var ops = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators : [];
+    var op = null;
+    for (var i = 0; i < ops.length; i++) { if (ops[i].name === sel.value) { op = ops[i]; break; } }
+    authSetOperator(sel.value, op ? (op.role || 'Técnico') : 'Técnico', op ? op.id : 0);
+}
+
+function authRenderOperatorPicker() {
+    var el = document.getElementById('op-picker');
+    if (!el) return;
+    var ops = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }) : [];
+    var cur = (authState.currentUser && authState.currentUser.name) || 'Laboratorio';
+    var html = '<span style="font-size:11px;margin-right:3px;" title="Operador actual">👤</span>';
+    html += '<select onchange="authOnPickOperator(this)" title="Operador actual (para el historial de cambios)" style="font-size:10px;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:2px 6px;max-width:160px;">';
+    html += '<option value="__lab__"' + (cur === 'Laboratorio' ? ' selected' : '') + '>Laboratorio</option>';
+    ops.forEach(function(o) {
+        var nm = String(o.name).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        html += '<option value="' + nm + '"' + (cur === o.name ? ' selected' : '') + '>' + nm + '</option>';
+    });
+    html += '</select>';
+    el.innerHTML = html;
 }
 
 function authBypassLogin() {
@@ -30229,7 +30257,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607012021' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607012025' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
