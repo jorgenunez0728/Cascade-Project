@@ -3619,6 +3619,7 @@ details.acc > summary {
     <button id="immersive-toggle-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">⛶</button>
     <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">🔍</button></div>
     <div style="padding:4px 4px;align-self:center;position:relative;"><button onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones" aria-label="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
+    <div style="padding:4px 4px;align-self:center;"><button onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-audit');" style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;color:rgba(255,255,255,0.5);" title="Historial de cambios" aria-label="Historial de cambios">🕘</button></div>
     <div style="padding:4px 4px;align-self:center;"><button onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación" aria-label="Tour guiado de la aplicación">?</button></div>
     <div style="flex:1"></div>
     <div id="app-version-info" style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.4); align-self:center; cursor:default;" title="Versión de la app">
@@ -5326,21 +5327,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607012025';
+var APP_BUILD = '202607012029';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607012025' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607012029' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607012025' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607012029' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5356,7 +5357,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607012025' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607012029' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -5843,6 +5844,13 @@ function auditLog(module, action, entity, details) {
     trail = trail.filter(function(e) { return e.ts >= cutoff; });
 
     try { localStorage.setItem(AUDIT_LS_KEY, JSON.stringify(trail)); } catch(e) {}
+    // Compartir el historial entre dispositivos (espacio compartido de Firebase)
+    try {
+        if (typeof fbPush === 'function' && typeof fbSync !== 'undefined' && fbSync.enabled
+            && typeof fbSyncModules !== 'undefined' && fbSyncModules.audit) {
+            fbPush('audit', trail);
+        }
+    } catch(e) {}
 }
 
 function auditGetTrail() {
@@ -16279,6 +16287,7 @@ function invMapQuickReadSave(gasId) {
     function _doSaveMapRead() {
         if (existing) { existing.psi = psi; } else { gas.readings.push({ date: date, psi: psi }); }
         invSave();
+        if (typeof auditLog === 'function') auditLog('inv', 'gas_reading', {type:'gas', id:gas.id, label:gas.controlNo}, gas.formula + ': ' + psi + ' psi (' + date + ')');
         if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
         showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi', 'success');
         invShowTimeline(gasId);
@@ -16393,6 +16402,7 @@ function invSaveDailyCapture() {
     });
     if (count === 0 && fuelCount === 0) { showToast('No se ingresaron capturas', 'warning'); return; }
     invState.lastReadingDate = date;
+    if (typeof auditLog === 'function') auditLog('inv', 'daily_capture', {type:'reading', label:date}, count + ' gases, ' + fuelCount + ' combustibles');
     invSave(); invRender();
     if (count > 0 && typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
     showToast(count + ' lecturas de gas y ' + fuelCount + ' de combustible guardadas (' + date + ')', 'success');
@@ -16634,6 +16644,7 @@ function invQuickReadSave(gasId) {
         if (existingToday) { existingToday.psi = psi; } else { gas.readings.push({ date: date, psi: psi }); }
         invSave();
         invRender();
+        if (typeof auditLog === 'function') auditLog('inv', 'gas_reading', {type:'gas', id:gas.id, label:gas.controlNo}, gas.formula + ': ' + psi + ' psi (' + date + ')');
         if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
         showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi guardado', 'success');
         document.getElementById('invModal').style.display = 'none';
@@ -17596,6 +17607,7 @@ function invSaveFuelReading(tankId) {
     var fuelDate = new Date().toISOString().slice(0,10);
     t.readings.push({ date: fuelDate, level: level });
     invState.lastReadingDate = fuelDate;
+    if (typeof auditLog === 'function') auditLog('inv', 'fuel_reading', {type:'fuel', id:t.id, label:(t.name||t.id)}, level + ' ' + (t.unit||'L') + ' (' + fuelDate + ')');
     invSave(); invRender();
     document.getElementById('invModal').style.display = 'none';
     showToast('Lectura guardada: ' + level + ' ' + (t.unit||'L'), 'success');
@@ -20151,6 +20163,7 @@ function tpImportPlanCSV(csvText) {
     tpState.lastDiffDate = new Date().toISOString();
     tpState.planData = newData;
     tpState.planImportDate = new Date().toISOString();
+    if (typeof auditLog === 'function') auditLog('tp', 'plan_imported', {type:'plan', label:'producción'}, newData.length + ' configs · +' + (diff.added ? diff.added.length : 0) + ' / -' + (diff.removed ? diff.removed.length : 0));
     tpSave();
 
     // Force an immediate Firebase push so the CSV import isn't lost if the user closes the tab
@@ -27885,11 +27898,12 @@ var FB_SYNC_MODULES_KEY = 'kia_fb_sync_modules';
 var fbSyncModules = (function() {
     try { return JSON.parse(localStorage.getItem(FB_SYNC_MODULES_KEY)) || null; } catch(e) { return null; }
 })() || {
-    cop15: true, testplan: true, results: true, inventory: true, panel: true, approvals: true, cop: true
+    cop15: true, testplan: true, results: true, inventory: true, panel: true, approvals: true, cop: true, audit: true
 };
 // Backfill new module flags for users that already have a saved fbSyncModules object
 if (typeof fbSyncModules.approvals === 'undefined') fbSyncModules.approvals = true;
 if (typeof fbSyncModules.cop === 'undefined') fbSyncModules.cop = true;
+if (typeof fbSyncModules.audit === 'undefined') fbSyncModules.audit = true;
 function fbSaveSyncModules() {
     localStorage.setItem(FB_SYNC_MODULES_KEY, JSON.stringify(fbSyncModules));
 }
@@ -28748,6 +28762,10 @@ function fbPushAll(showFeedback) {
         var copRaw = null; try { copRaw = JSON.parse(localStorage.getItem('kia_cop_v1')); } catch(e) {}
         if (copRaw) modules.push({col:'cop', data: copRaw});
     }
+    if (fbSyncModules.audit && typeof auditGetTrail === 'function') {
+        var auditArr = auditGetTrail();
+        if (auditArr && auditArr.length) modules.push({col:'audit', data: auditArr});
+    }
     if (modules.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
 
     var pending = modules.length, errors = [];
@@ -28777,7 +28795,7 @@ function fbPullAll(showFeedback) {
     fbSync.status = 'syncing';
     fbUpdateIndicator();
 
-    var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel', 'approvals', 'cop'].filter(function(c) { return fbSyncModules[c]; });
+    var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel', 'approvals', 'cop', 'audit'].filter(function(c) { return fbSyncModules[c]; });
     if (collections.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
 
     // Use REST API if SDK transport is broken
@@ -28883,6 +28901,16 @@ function fbPullApply(collections, results, showFeedback) {
             localStorage.setItem('kia_cop_v1', JSON.stringify(_mergedCop));
             if (typeof copSyncReload === 'function') copSyncReload();
             pulled.push('CoP');
+        } else if (col === 'audit') {
+            // Merge del historial de cambios por id (no perder registros), orden cronológico, cap 1000
+            var _localAudit = []; try { _localAudit = JSON.parse(localStorage.getItem('kia_audit_trail')) || []; } catch(e) {}
+            var _remoteAudit = Array.isArray(remoteData) ? remoteData : [];
+            var _seenA = {}, _mergedA = [];
+            _localAudit.concat(_remoteAudit).forEach(function(e) { if (e && e.id && !_seenA[e.id]) { _seenA[e.id] = true; _mergedA.push(e); } });
+            _mergedA.sort(function(a, b) { return (a.ts || '') < (b.ts || '') ? -1 : (a.ts || '') > (b.ts || '') ? 1 : 0; });
+            if (_mergedA.length > 1000) _mergedA = _mergedA.slice(-1000);
+            localStorage.setItem('kia_audit_trail', JSON.stringify(_mergedA));
+            pulled.push('Historial');
         }
     });
 
@@ -30257,7 +30285,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607012025' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607012029' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -31010,6 +31038,7 @@ function copSaveJudgment() {
         decision: decision || 'INCOMPLETO'
     });
     copPersist();
+    if (typeof auditLog === 'function') auditLog('cop', 'judgment_saved', {type:'cop', label:(copState.familyLabel || '(sin familia)')}, 'Veredicto: ' + (decision === 'PASS' ? 'CONCORDANTE' : decision === 'FAIL' ? 'NO CONCORDANTE' : (decision || 'INCOMPLETO')));
     if (typeof showToast === 'function') showToast('Juicio guardado' + (copState.familyLabel ? ' — ' + copState.familyLabel : ''), 'success');
     copRender();
 }
