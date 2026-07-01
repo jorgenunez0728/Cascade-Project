@@ -593,6 +593,7 @@ function tpImportPlanCSV(csvText) {
     tpState.lastDiffDate = new Date().toISOString();
     tpState.planData = newData;
     tpState.planImportDate = new Date().toISOString();
+    if (typeof auditLog === 'function') auditLog('tp', 'plan_imported', {type:'plan', label:'producción'}, newData.length + ' configs · +' + (diff.added ? diff.added.length : 0) + ' / -' + (diff.removed ? diff.removed.length : 0));
     tpSave();
 
     // Force an immediate Firebase push so the CSV import isn't lost if the user closes the tab

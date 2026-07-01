@@ -29,11 +29,12 @@ var FB_SYNC_MODULES_KEY = 'kia_fb_sync_modules';
 var fbSyncModules = (function() {
     try { return JSON.parse(localStorage.getItem(FB_SYNC_MODULES_KEY)) || null; } catch(e) { return null; }
 })() || {
-    cop15: true, testplan: true, results: true, inventory: true, panel: true, approvals: true, cop: true
+    cop15: true, testplan: true, results: true, inventory: true, panel: true, approvals: true, cop: true, audit: true
 };
 // Backfill new module flags for users that already have a saved fbSyncModules object
 if (typeof fbSyncModules.approvals === 'undefined') fbSyncModules.approvals = true;
 if (typeof fbSyncModules.cop === 'undefined') fbSyncModules.cop = true;
+if (typeof fbSyncModules.audit === 'undefined') fbSyncModules.audit = true;
 function fbSaveSyncModules() {
     localStorage.setItem(FB_SYNC_MODULES_KEY, JSON.stringify(fbSyncModules));
 }
@@ -892,6 +893,10 @@ function fbPushAll(showFeedback) {
         var copRaw = null; try { copRaw = JSON.parse(localStorage.getItem('kia_cop_v1')); } catch(e) {}
         if (copRaw) modules.push({col:'cop', data: copRaw});
     }
+    if (fbSyncModules.audit && typeof auditGetTrail === 'function') {
+        var auditArr = auditGetTrail();
+        if (auditArr && auditArr.length) modules.push({col:'audit', data: auditArr});
+    }
     if (modules.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
 
     var pending = modules.length, errors = [];
@@ -921,7 +926,7 @@ function fbPullAll(showFeedback) {
     fbSync.status = 'syncing';
     fbUpdateIndicator();
 
-    var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel', 'approvals', 'cop'].filter(function(c) { return fbSyncModules[c]; });
+    var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel', 'approvals', 'cop', 'audit'].filter(function(c) { return fbSyncModules[c]; });
     if (collections.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
 
     // Use REST API if SDK transport is broken
@@ -1027,6 +1032,16 @@ function fbPullApply(collections, results, showFeedback) {
             localStorage.setItem('kia_cop_v1', JSON.stringify(_mergedCop));
             if (typeof copSyncReload === 'function') copSyncReload();
             pulled.push('CoP');
+        } else if (col === 'audit') {
+            // Merge del historial de cambios por id (no perder registros), orden cronológico, cap 1000
+            var _localAudit = []; try { _localAudit = JSON.parse(localStorage.getItem('kia_audit_trail')) || []; } catch(e) {}
+            var _remoteAudit = Array.isArray(remoteData) ? remoteData : [];
+            var _seenA = {}, _mergedA = [];
+            _localAudit.concat(_remoteAudit).forEach(function(e) { if (e && e.id && !_seenA[e.id]) { _seenA[e.id] = true; _mergedA.push(e); } });
+            _mergedA.sort(function(a, b) { return (a.ts || '') < (b.ts || '') ? -1 : (a.ts || '') > (b.ts || '') ? 1 : 0; });
+            if (_mergedA.length > 1000) _mergedA = _mergedA.slice(-1000);
+            localStorage.setItem('kia_audit_trail', JSON.stringify(_mergedA));
+            pulled.push('Historial');
         }
     });
 

@@ -868,6 +868,7 @@ function invMapQuickReadSave(gasId) {
     function _doSaveMapRead() {
         if (existing) { existing.psi = psi; } else { gas.readings.push({ date: date, psi: psi }); }
         invSave();
+        if (typeof auditLog === 'function') auditLog('inv', 'gas_reading', {type:'gas', id:gas.id, label:gas.controlNo}, gas.formula + ': ' + psi + ' psi (' + date + ')');
         if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
         showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi', 'success');
         invShowTimeline(gasId);
@@ -982,6 +983,7 @@ function invSaveDailyCapture() {
     });
     if (count === 0 && fuelCount === 0) { showToast('No se ingresaron capturas', 'warning'); return; }
     invState.lastReadingDate = date;
+    if (typeof auditLog === 'function') auditLog('inv', 'daily_capture', {type:'reading', label:date}, count + ' gases, ' + fuelCount + ' combustibles');
     invSave(); invRender();
     if (count > 0 && typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
     showToast(count + ' lecturas de gas y ' + fuelCount + ' de combustible guardadas (' + date + ')', 'success');
@@ -1223,6 +1225,7 @@ function invQuickReadSave(gasId) {
         if (existingToday) { existingToday.psi = psi; } else { gas.readings.push({ date: date, psi: psi }); }
         invSave();
         invRender();
+        if (typeof auditLog === 'function') auditLog('inv', 'gas_reading', {type:'gas', id:gas.id, label:gas.controlNo}, gas.formula + ': ' + psi + ' psi (' + date + ')');
         if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
         showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi guardado', 'success');
         document.getElementById('invModal').style.display = 'none';
@@ -2185,6 +2188,7 @@ function invSaveFuelReading(tankId) {
     var fuelDate = new Date().toISOString().slice(0,10);
     t.readings.push({ date: fuelDate, level: level });
     invState.lastReadingDate = fuelDate;
+    if (typeof auditLog === 'function') auditLog('inv', 'fuel_reading', {type:'fuel', id:t.id, label:(t.name||t.id)}, level + ' ' + (t.unit||'L') + ' (' + fuelDate + ')');
     invSave(); invRender();
     document.getElementById('invModal').style.display = 'none';
     showToast('Lectura guardada: ' + level + ' ' + (t.unit||'L'), 'success');

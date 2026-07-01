@@ -703,6 +703,13 @@ function auditLog(module, action, entity, details) {
     trail = trail.filter(function(e) { return e.ts >= cutoff; });
 
     try { localStorage.setItem(AUDIT_LS_KEY, JSON.stringify(trail)); } catch(e) {}
+    // Compartir el historial entre dispositivos (espacio compartido de Firebase)
+    try {
+        if (typeof fbPush === 'function' && typeof fbSync !== 'undefined' && fbSync.enabled
+            && typeof fbSyncModules !== 'undefined' && fbSyncModules.audit) {
+            fbPush('audit', trail);
+        }
+    } catch(e) {}
 }
 
 function auditGetTrail() {
