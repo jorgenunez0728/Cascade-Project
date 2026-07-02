@@ -646,7 +646,6 @@ function raBuildComplianceTrendHTML() {
 
     // Schedule chart render
     setTimeout(function() {
-        if (window._raComplianceChart) { try { window._raComplianceChart.destroy(); } catch(e) {} }
         var ctx = document.getElementById('ra-compliance-canvas');
         if (!ctx || typeof Chart === 'undefined') return;
 
@@ -664,6 +663,7 @@ function raBuildComplianceTrendHTML() {
         datasets.push({ label: 'Meta 100%', data: Array(months.length).fill(100), borderColor: '#10b98140', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false });
         datasets.push({ label: 'Umbral 90%', data: Array(months.length).fill(90), borderColor: '#f59e0b40', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false });
 
+        if (window._raComplianceChart) { try { window._raComplianceChart.destroy(); } catch(e) {} }
         window._raComplianceChart = new Chart(ctx, {
             type: 'line',
             data: { labels: months, datasets: datasets },

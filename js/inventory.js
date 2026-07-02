@@ -3457,7 +3457,10 @@ function invDrawTrendChart(g) {
     // Depletion line at threshold
     var depletionPsi = g.limitPsi || 150;
 
-    new Chart(canvas, {
+    // Destruir la instancia previa: recrear sobre el mismo canvas lanza
+    // "Canvas is already in use" y fuga contextos (patrón window._* de CLAUDE.md)
+    if (window._invForecastChart) { try { window._invForecastChart.destroy(); } catch(e) {} }
+    window._invForecastChart = new Chart(canvas, {
         type: 'line',
         data: {
             labels: allLabels,
