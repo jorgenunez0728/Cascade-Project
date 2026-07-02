@@ -146,7 +146,9 @@ echo "PWA files (manifest.json, sw.build.js) ready."
 # Match both JSON format ("apiKey":"val") and JS object literal format (apiKey: "val")
 FIREBASE_API_KEY=$(grep -oE '(apiKey: *"|"apiKey":")[^"]+' "$DIR/$OUTPUT" | head -1 | grep -oE '"[^"]+$' | tr -d '"')
 FIREBASE_PROJECT=$(grep -oE '(projectId: *"|"projectId":")[^"]+' "$DIR/$OUTPUT" | head -1 | grep -oE '"[^"]+$' | tr -d '"')
-GH_RAW_URL="https://raw.githubusercontent.com/jorgenunez0728/Cascade-Project/main/kia-emlab-unified.html"
+# v15.6: URL informativa de la app hosteada (el banner actualiza in-place con
+# fbApplyUpdate; ya no descarga el HTML crudo de GitHub)
+GH_RAW_URL="https://kia-emlab-test-system.web.app/"
 
 if [ -n "$FIREBASE_API_KEY" ] && [ -n "$FIREBASE_PROJECT" ] && [ "$FIREBASE_PROJECT" != "YOUR_PROJECT_ID" ]; then
     TS_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
