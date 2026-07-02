@@ -908,16 +908,46 @@ function fbPushAll(showFeedback) {
     modules.forEach(function(m) { fbPush(m.col, m.data, onPushDone); });
 }
 
+// ── [v15.6] ¿Este dispositivo está vacío? (sin datos de los módulos núcleo) ──
+// Gobierna la excepción de seed del pull, los reintentos y el guard del push.
+function _fbLocalIsEmpty() {
+    return (_fbPullLocalScore('cop15') + _fbPullLocalScore('testplan') + _fbPullLocalScore('inventory')) === 0;
+}
+
+// Reintentos del pull inicial en un dispositivo vacío: antes fallaba en
+// silencio (quota/red) y el técnico veía "Sync conectado" con 0 registros.
+var _fbSeedRetryDelays = [5000, 15000, 45000, 90000];
+function _fbScheduleSeedRetry(reason) {
+    if (!_fbLocalIsEmpty()) return;
+    var n = fbSync._seedRetries || 0;
+    if (n >= _fbSeedRetryDelays.length) {
+        if (typeof showToast === 'function') {
+            showToast('⚠️ No se pudieron descargar los datos del laboratorio. Toca el indicador de Sync para reintentar.', 'error');
+        }
+        return;
+    }
+    fbSync._seedRetries = n + 1;
+    if (typeof showToast === 'function' && n === 0) {
+        showToast('Descargando datos del laboratorio… reintentando (' + (reason || 'sin conexión') + ')', 'warning');
+    }
+    setTimeout(function() { if (_fbLocalIsEmpty()) fbPullAll(); }, _fbSeedRetryDelays[n]);
+}
+
 // ── Pull data from Firestore (rate-limited, with REST fallback) ──
 function fbPullAll(showFeedback) {
     if (!fbSync.enabled) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
     if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
 
-    // Rate limit check (5 reads: one per collection)
-    var quota = fbQuotaCheck('read');
-    if (!quota.allowed) {
-        if (showFeedback) showToast(quota.reason, 'error');
-        return;
+    // Rate limit check (una lectura por colección). EXCEPCIÓN de seed: un
+    // dispositivo vacío siempre puede intentar su primera descarga — antes el
+    // check retornaba sin feedback y el dispositivo quedaba en 0 para siempre.
+    var seedMode = _fbLocalIsEmpty();
+    if (!seedMode) {
+        var quota = fbQuotaCheck('read');
+        if (!quota.allowed) {
+            if (showFeedback) showToast(quota.reason, 'error');
+            return;
+        }
     }
 
     fbSync.status = 'syncing';
@@ -930,11 +960,16 @@ function fbPullAll(showFeedback) {
     if (fbSync._useREST) {
         var restPending = collections.length;
         var restResults = {};
+        var restAnyData = false;
         collections.forEach(function(col) {
             fbPullREST(col, function(data) {
                 restResults[col] = data;
+                if (data) restAnyData = true;
                 restPending--;
-                if (restPending === 0) fbPullApply(collections, restResults, showFeedback);
+                if (restPending === 0) {
+                    fbPullApply(collections, restResults, showFeedback);
+                    if (!restAnyData) _fbScheduleSeedRetry('REST sin datos');
+                }
             });
         });
         return;
@@ -958,6 +993,7 @@ function fbPullAll(showFeedback) {
         fbSync.lastError = err.code === 'permission-denied' ? 'Acceso denegado. Revisa las Security Rules.' : 'Error al descargar: ' + (err.message || err.code);
         fbUpdateIndicator();
         if (showFeedback) showToast(fbSync.lastError, 'error');
+        _fbScheduleSeedRetry(err.code || 'error de red');
     });
 }
 
@@ -1110,7 +1146,11 @@ function fbPullApply(collections, results, showFeedback) {
 
     for (var ri = 0; ri < collections.length; ri++) fbQuotaRecord('read');
 
-    fbSync.lastSync = new Date();
+    // v15.6: lastSync solo cuando de verdad se aplicó algo — antes se ponía
+    // siempre y el indicador decía "Sync HH:MM" con 0 datos descargados
+    if (pulled.length > 0) fbSync.lastSync = new Date();
+    fbSync._pullCompleted = true; // el pull terminó sin error (gobierna el seed push)
+    fbSync._seedRetries = 0;
     fbSync.status = 'connected';
     fbSync.lastError = '';
     fbUpdateIndicator();
