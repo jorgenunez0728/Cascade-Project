@@ -1710,7 +1710,8 @@ function invHandleImport(event) {
 // ══════════════════════════════════════════════════
 // INVENTORY: CASCADE USAGE LOGGING
 // ══════════════════════════════════════════════════
-function invLogTestUsage(vehicle) {
+// opts.skipSave: el llamador (cascada de liberación) hace un único invSave al final
+function invLogTestUsage(vehicle, opts) {
     if (!vehicle) return;
     var date = localToday();
     var regulation = vehicle.configCode ? vehicle.configCode.split(' ')[0] : '';
@@ -1788,7 +1789,7 @@ function invLogTestUsage(vehicle) {
 
     // Keep log manageable
     if (invState.usageLog.length > 3000) invState.usageLog = invState.usageLog.slice(-2000);
-    invSave();
+    if (!(opts && opts.skipSave)) invSave();
 }
 
 // ══════════════════════════════════════════════════

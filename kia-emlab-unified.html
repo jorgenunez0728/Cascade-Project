@@ -5327,21 +5327,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607020552';
+var APP_BUILD = '202607020555';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607020552' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607020555' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607020552' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607020555' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5357,7 +5357,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607020552' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607020555' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -11402,7 +11402,8 @@ function libOnApproverGasChange() {
         _libMismatchAlarmKey = null;
         if (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.mismatch) {
             delete vehicle.testData.gasResults.mismatch;
-            saveDB();
+            // Debounced: corre mientras el aprobador teclea; la aprobación final persiste directo
+            if (typeof _debouncedSaveDB === 'function') _debouncedSaveDB(); else saveDB();
             if (typeof pnUpdateBadges === 'function') pnUpdateBadges();
         }
     } else {
@@ -11425,7 +11426,7 @@ function libOnApproverGasChange() {
             var approverName = '';
             try { if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) approverName = u.name; } } catch(e) {}
             vehicle.testData.gasResults.mismatch = { gases: mismatches.slice(), at: new Date().toISOString(), approver: approverName };
-            saveDB();
+            if (typeof _debouncedSaveDB === 'function') _debouncedSaveDB(); else saveDB();
             if (typeof auditLog === 'function') auditLog('cop15', 'approval_mismatch', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Desacuerdo liberador/aprobador en ' + mismatches.join(', '));
             if (typeof pnUpdateBadges === 'function') pnUpdateBadges();
         }
@@ -11647,12 +11648,13 @@ function approveAndArchive() {
                     data: { status: 'archived', approverValues: approverValues }
                 });
                 exportSingleArchivedVehicle(vehicle.id);
-                tpAutoFeedFromRelease(vehicle);
-                invLogTestUsage(vehicle);
+                // skipSave: un solo tpSave/invSave al final de la cascada (antes: 2× tpSave + invSave)
+                tpAutoFeedFromRelease(vehicle, { skipSave: true });
+                invLogTestUsage(vehicle, { skipSave: true });
                 if (!vehicle.adhoc) {
                     var exactMatch = typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function'
-                        ? tpAutoMarkWeeklyCompletionFromVehicle(vehicle)
-                        : tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                        ? tpAutoMarkWeeklyCompletionFromVehicle(vehicle, { skipSave: true })
+                        : tpAutoMarkWeeklyCompletion(vehicle.configCode, { skipSave: true });
                     if (!exactMatch && typeof tpFindFlexibleMatches === 'function') {
                         var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
                         if (flexMatches.length > 0) {
@@ -11678,6 +11680,8 @@ function approveAndArchive() {
                 return;
             }
             saveDB();
+            if (typeof tpSave === 'function') tpSave();
+            if (typeof invSave === 'function') invSave();
             refreshAllLists();
             updateProgressBar();
             if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: false });
@@ -15362,14 +15366,15 @@ function v7BatchRelease() {
                 data: { status: 'archived' }
             });
             if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
-            if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle);
-            if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle);
+            // skipSave: un solo tpSave/invSave al final del lote, no por vehículo
+            if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle, { skipSave: true });
+            if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle, { skipSave: true });
             // Skip weekly-plan crediting for ad-hoc vehicles.
             if (!vehicle.adhoc) {
                 if (typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function') {
-                    tpAutoMarkWeeklyCompletionFromVehicle(vehicle);
+                    tpAutoMarkWeeklyCompletionFromVehicle(vehicle, { skipSave: true });
                 } else if (typeof tpAutoMarkWeeklyCompletion === 'function') {
-                    tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                    tpAutoMarkWeeklyCompletion(vehicle.configCode, { skipSave: true });
                 }
             }
             // Emit per-vehicle event so Power Automate webhook fires with each PDF + photo
@@ -15382,6 +15387,8 @@ function v7BatchRelease() {
     });
 
     saveDB();
+    if (typeof tpSave === 'function') tpSave();
+    if (typeof invSave === 'function') invSave();
     refreshAllLists();
     updateProgressBar();
 
@@ -17183,7 +17190,8 @@ function invHandleImport(event) {
 // ══════════════════════════════════════════════════
 // INVENTORY: CASCADE USAGE LOGGING
 // ══════════════════════════════════════════════════
-function invLogTestUsage(vehicle) {
+// opts.skipSave: el llamador (cascada de liberación) hace un único invSave al final
+function invLogTestUsage(vehicle, opts) {
     if (!vehicle) return;
     var date = localToday();
     var regulation = vehicle.configCode ? vehicle.configCode.split(' ')[0] : '';
@@ -17261,7 +17269,7 @@ function invLogTestUsage(vehicle) {
 
     // Keep log manageable
     if (invState.usageLog.length > 3000) invState.usageLog = invState.usageLog.slice(-2000);
-    invSave();
+    if (!(opts && opts.skipSave)) invSave();
 }
 
 // ══════════════════════════════════════════════════
@@ -20097,7 +20105,8 @@ function tpLoadPlanFromCSV_CONFIGURATIONS() {
 }
 
 // ── Auto-feed from COP15 releases ──
-function tpAutoFeedFromRelease(vehicle) {
+// opts.skipSave: el llamador (cascada de liberación) hace un único tpSave al final
+function tpAutoFeedFromRelease(vehicle, opts) {
     if (!vehicle || !vehicle.configCode) return;
     if (!TP_PURPOSES_VALID.includes(vehicle.purpose)) return;
     // Ad-hoc vehicles are explicitly excluded from plan accounting.
@@ -20114,7 +20123,7 @@ function tpAutoFeedFromRelease(vehicle) {
         purpose: vehicle.purpose,
     };
     tpState.testedList.push(entry);
-    tpSave();
+    if (!(opts && opts.skipSave)) tpSave();
     tpUpdateBadges();
     auditLog('tp', 'vehicle_tested', {type:'plan', label:vehicle.configCode}, 'VIN: ' + (vehicle.vin || ''));
 }
@@ -22827,7 +22836,7 @@ function tpRenderWeekHistory(el) {
 }
 
 // ── Auto-mark weekly items when COP15 releases match ──
-function tpAutoMarkWeeklyCompletion(configText) {
+function tpAutoMarkWeeklyCompletion(configText, opts) {
     if (!tpState.weeklyPlans || tpState.weeklyPlans.length === 0) return false;
     // Search all weekly plans for a matching pending item
     for (const plan of tpState.weeklyPlans) {
@@ -22836,7 +22845,7 @@ function tpAutoMarkWeeklyCompletion(configText) {
             if (!item.completed && item.desc === configText) {
                 item.completed = true;
                 item.completedDate = localToday();
-                tpSave();
+                if (!(opts && opts.skipSave)) tpSave();
                 void 0;
                 return true;
             }
@@ -22848,7 +22857,7 @@ function tpAutoMarkWeeklyCompletion(configText) {
 // Prefer an explicit plan link on the vehicle when present (set by
 // cop15PreloadFromPlan). This is more reliable than matching by
 // configCode string, especially when the catalog has near-duplicates.
-function tpAutoMarkWeeklyCompletionFromVehicle(vehicle) {
+function tpAutoMarkWeeklyCompletionFromVehicle(vehicle, opts) {
     if (!vehicle || !tpState.weeklyPlans) return false;
     var link = vehicle.fromPlanItem;
     if (link && typeof link.weekIdx === 'number' && typeof link.itemIdx === 'number') {
@@ -22858,14 +22867,14 @@ function tpAutoMarkWeeklyCompletionFromVehicle(vehicle) {
             if (!item.completed && item.desc === link.configCode) {
                 item.completed = true;
                 item.completedDate = localToday();
-                tpSave();
+                if (!(opts && opts.skipSave)) tpSave();
                 void 0;
                 return true;
             }
         }
     }
     // Fall back to the legacy description-based match
-    return tpAutoMarkWeeklyCompletion(vehicle.configCode);
+    return tpAutoMarkWeeklyCompletion(vehicle.configCode, opts);
 }
 
 // ── Flexible Substitution ──
@@ -30467,7 +30476,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607020552' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607020555' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

@@ -473,7 +473,8 @@ function tpLoadPlanFromCSV_CONFIGURATIONS() {
 }
 
 // ── Auto-feed from COP15 releases ──
-function tpAutoFeedFromRelease(vehicle) {
+// opts.skipSave: el llamador (cascada de liberación) hace un único tpSave al final
+function tpAutoFeedFromRelease(vehicle, opts) {
     if (!vehicle || !vehicle.configCode) return;
     if (!TP_PURPOSES_VALID.includes(vehicle.purpose)) return;
     // Ad-hoc vehicles are explicitly excluded from plan accounting.
@@ -490,7 +491,7 @@ function tpAutoFeedFromRelease(vehicle) {
         purpose: vehicle.purpose,
     };
     tpState.testedList.push(entry);
-    tpSave();
+    if (!(opts && opts.skipSave)) tpSave();
     tpUpdateBadges();
     auditLog('tp', 'vehicle_tested', {type:'plan', label:vehicle.configCode}, 'VIN: ' + (vehicle.vin || ''));
 }
@@ -3203,7 +3204,7 @@ function tpRenderWeekHistory(el) {
 }
 
 // ── Auto-mark weekly items when COP15 releases match ──
-function tpAutoMarkWeeklyCompletion(configText) {
+function tpAutoMarkWeeklyCompletion(configText, opts) {
     if (!tpState.weeklyPlans || tpState.weeklyPlans.length === 0) return false;
     // Search all weekly plans for a matching pending item
     for (const plan of tpState.weeklyPlans) {
@@ -3212,7 +3213,7 @@ function tpAutoMarkWeeklyCompletion(configText) {
             if (!item.completed && item.desc === configText) {
                 item.completed = true;
                 item.completedDate = localToday();
-                tpSave();
+                if (!(opts && opts.skipSave)) tpSave();
                 console.log('TP: Auto-marked weekly item as completed:', configText);
                 return true;
             }
@@ -3224,7 +3225,7 @@ function tpAutoMarkWeeklyCompletion(configText) {
 // Prefer an explicit plan link on the vehicle when present (set by
 // cop15PreloadFromPlan). This is more reliable than matching by
 // configCode string, especially when the catalog has near-duplicates.
-function tpAutoMarkWeeklyCompletionFromVehicle(vehicle) {
+function tpAutoMarkWeeklyCompletionFromVehicle(vehicle, opts) {
     if (!vehicle || !tpState.weeklyPlans) return false;
     var link = vehicle.fromPlanItem;
     if (link && typeof link.weekIdx === 'number' && typeof link.itemIdx === 'number') {
@@ -3234,14 +3235,14 @@ function tpAutoMarkWeeklyCompletionFromVehicle(vehicle) {
             if (!item.completed && item.desc === link.configCode) {
                 item.completed = true;
                 item.completedDate = localToday();
-                tpSave();
+                if (!(opts && opts.skipSave)) tpSave();
                 console.log('TP: Auto-marked weekly item via plan link:', link.configCode);
                 return true;
             }
         }
     }
     // Fall back to the legacy description-based match
-    return tpAutoMarkWeeklyCompletion(vehicle.configCode);
+    return tpAutoMarkWeeklyCompletion(vehicle.configCode, opts);
 }
 
 // ── Flexible Substitution ──

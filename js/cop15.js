@@ -2218,7 +2218,8 @@ function libOnApproverGasChange() {
         _libMismatchAlarmKey = null;
         if (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.mismatch) {
             delete vehicle.testData.gasResults.mismatch;
-            saveDB();
+            // Debounced: corre mientras el aprobador teclea; la aprobación final persiste directo
+            if (typeof _debouncedSaveDB === 'function') _debouncedSaveDB(); else saveDB();
             if (typeof pnUpdateBadges === 'function') pnUpdateBadges();
         }
     } else {
@@ -2241,7 +2242,7 @@ function libOnApproverGasChange() {
             var approverName = '';
             try { if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) approverName = u.name; } } catch(e) {}
             vehicle.testData.gasResults.mismatch = { gases: mismatches.slice(), at: new Date().toISOString(), approver: approverName };
-            saveDB();
+            if (typeof _debouncedSaveDB === 'function') _debouncedSaveDB(); else saveDB();
             if (typeof auditLog === 'function') auditLog('cop15', 'approval_mismatch', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Desacuerdo liberador/aprobador en ' + mismatches.join(', '));
             if (typeof pnUpdateBadges === 'function') pnUpdateBadges();
         }
@@ -2463,12 +2464,13 @@ function approveAndArchive() {
                     data: { status: 'archived', approverValues: approverValues }
                 });
                 exportSingleArchivedVehicle(vehicle.id);
-                tpAutoFeedFromRelease(vehicle);
-                invLogTestUsage(vehicle);
+                // skipSave: un solo tpSave/invSave al final de la cascada (antes: 2× tpSave + invSave)
+                tpAutoFeedFromRelease(vehicle, { skipSave: true });
+                invLogTestUsage(vehicle, { skipSave: true });
                 if (!vehicle.adhoc) {
                     var exactMatch = typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function'
-                        ? tpAutoMarkWeeklyCompletionFromVehicle(vehicle)
-                        : tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                        ? tpAutoMarkWeeklyCompletionFromVehicle(vehicle, { skipSave: true })
+                        : tpAutoMarkWeeklyCompletion(vehicle.configCode, { skipSave: true });
                     if (!exactMatch && typeof tpFindFlexibleMatches === 'function') {
                         var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
                         if (flexMatches.length > 0) {
@@ -2494,6 +2496,8 @@ function approveAndArchive() {
                 return;
             }
             saveDB();
+            if (typeof tpSave === 'function') tpSave();
+            if (typeof invSave === 'function') invSave();
             refreshAllLists();
             updateProgressBar();
             if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: false });
@@ -6178,14 +6182,15 @@ function v7BatchRelease() {
                 data: { status: 'archived' }
             });
             if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
-            if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle);
-            if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle);
+            // skipSave: un solo tpSave/invSave al final del lote, no por vehículo
+            if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle, { skipSave: true });
+            if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle, { skipSave: true });
             // Skip weekly-plan crediting for ad-hoc vehicles.
             if (!vehicle.adhoc) {
                 if (typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function') {
-                    tpAutoMarkWeeklyCompletionFromVehicle(vehicle);
+                    tpAutoMarkWeeklyCompletionFromVehicle(vehicle, { skipSave: true });
                 } else if (typeof tpAutoMarkWeeklyCompletion === 'function') {
-                    tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                    tpAutoMarkWeeklyCompletion(vehicle.configCode, { skipSave: true });
                 }
             }
             // Emit per-vehicle event so Power Automate webhook fires with each PDF + photo
@@ -6198,6 +6203,8 @@ function v7BatchRelease() {
     });
 
     saveDB();
+    if (typeof tpSave === 'function') tpSave();
+    if (typeof invSave === 'function') invSave();
     refreshAllLists();
     updateProgressBar();
 
