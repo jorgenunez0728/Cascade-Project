@@ -2684,8 +2684,8 @@ function showSubstitutionModal(data) {
     if (!modal) return;
 
     var html = '<div style="font-size:0.85rem;color:#475569;margin-bottom:16px;">' +
-        'El vehículo <strong style="color:#1e293b;">' + data.vin + '</strong> con configuración ' +
-        '<span style="font-family:monospace;font-size:0.75rem;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + (data.configCode.length > 50 ? data.configCode.substring(0, 48) + '..' : data.configCode) + '</span>' +
+        'El vehículo <strong style="color:#1e293b;">' + escapeHtml(data.vin) + '</strong> con configuración ' +
+        '<span style="font-family:monospace;font-size:0.75rem;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + escapeHtml(data.configCode.length > 50 ? data.configCode.substring(0, 48) + '..' : data.configCode) + '</span>' +
         ' no coincide exactamente con ninguna configuración pendiente en el plan semanal.' +
         '</div>' +
         '<div style="font-size:0.85rem;font-weight:700;color:#1e293b;margin-bottom:10px;">Configuraciones similares encontradas:</div>';
@@ -6103,7 +6103,7 @@ function v7CheckVinDuplicate(vin) {
     var archived = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status === 'archived'; });
     if (archived) {
         if (!hint) hint = _v7CreateVinHint();
-        hint.innerHTML = 'Re-test de VIN anterior? <button class="btn btn-sm btn-ghost" onclick="v7CopyArchivedConfig(\'' + vin + '\')">Copiar config</button>';
+        hint.innerHTML = 'Re-test de VIN anterior? <button class="btn btn-sm btn-ghost" onclick="v7CopyArchivedConfig(\'' + escapeHtml(vin).replace(/'/g, '&#39;') + '\')">Copiar config</button>';
         hint.className = 'v7-vin-hint info';
         return;
     }

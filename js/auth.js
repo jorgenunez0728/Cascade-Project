@@ -64,13 +64,13 @@ function authShowLogin() {
         html += '</div>';
         html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">';
         operators.forEach(function(op, idx) {
-            var initials = op.name.split(' ').map(function(w) { return w[0]; }).join('').substring(0, 2).toUpperCase();
+            var initials = authInitials(op.name);
             var colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
             var c = colors[idx % colors.length];
-            html += '<button onclick="authBypassForOperator(' + op.id + ',\'' + op.name.replace(/'/g, "\\'") + '\',\'' + (op.role || 'Técnico').replace(/'/g, "\\'") + '\')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111827;border:2px solid #1e293b;border-radius:12px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'' + c + '\'" onmouseout="this.style.borderColor=\'#1e293b\'">';
-            html += '<div style="width:50px;height:50px;border-radius:50%;background:' + c + '20;color:' + c + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">' + initials + '</div>';
-            html += '<div style="color:#e2e8f0;font-size:12px;font-weight:700;">' + op.name + '</div>';
-            html += '<div style="color:#64748b;font-size:9px;">' + (op.role || 'Técnico') + '</div>';
+            html += '<button onclick="authBypassForOperator(' + idx + ')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111827;border:2px solid #1e293b;border-radius:12px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'' + c + '\'" onmouseout="this.style.borderColor=\'#1e293b\'">';
+            html += '<div style="width:50px;height:50px;border-radius:50%;background:' + c + '20;color:' + c + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">' + escapeHtml(initials) + '</div>';
+            html += '<div style="color:#e2e8f0;font-size:12px;font-weight:700;">' + escapeHtml(op.name) + '</div>';
+            html += '<div style="color:#64748b;font-size:9px;">' + escapeHtml(op.role || 'Técnico') + '</div>';
             html += '</button>';
         });
         html += '</div>';
@@ -78,14 +78,14 @@ function authShowLogin() {
         html += '<div style="color:#94a3b8;font-size:12px;text-align:center;margin-bottom:16px;">Selecciona tu usuario</div>';
         html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">';
         operators.forEach(function(op, idx) {
-            var initials = op.name.split(' ').map(function(w) { return w[0]; }).join('').substring(0, 2).toUpperCase();
+            var initials = authInitials(op.name);
             var colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
             var c = colors[idx % colors.length];
             var hasPin = !!op.pinHash;
             html += '<button onclick="authSelectOperator(' + idx + ')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111827;border:2px solid #1e293b;border-radius:12px;cursor:pointer;transition:all 0.2s;' + (!hasPin ? 'opacity:0.4;' : '') + '" ' + (!hasPin ? 'disabled title="Sin PIN configurado"' : '') + ' onmouseover="this.style.borderColor=\'' + c + '\'" onmouseout="this.style.borderColor=\'#1e293b\'">';
-            html += '<div style="width:50px;height:50px;border-radius:50%;background:' + c + '20;color:' + c + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">' + initials + '</div>';
-            html += '<div style="color:#e2e8f0;font-size:12px;font-weight:700;">' + op.name + '</div>';
-            html += '<div style="color:#64748b;font-size:9px;">' + (op.role || 'Técnico') + (hasPin ? '' : ' (sin PIN)') + '</div>';
+            html += '<div style="width:50px;height:50px;border-radius:50%;background:' + c + '20;color:' + c + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">' + escapeHtml(initials) + '</div>';
+            html += '<div style="color:#e2e8f0;font-size:12px;font-weight:700;">' + escapeHtml(op.name) + '</div>';
+            html += '<div style="color:#64748b;font-size:9px;">' + escapeHtml(op.role || 'Técnico') + (hasPin ? '' : ' (sin PIN)') + '</div>';
             html += '</button>';
         });
         html += '</div>';
@@ -114,7 +114,7 @@ function authSelectOperator(idx) {
     var webAuthnAvailable = window.PublicKeyCredential !== undefined && window.isSecureContext;
 
     var html = '<div style="margin-top:20px;padding:20px;background:#111827;border:2px solid #6366f1;border-radius:12px;text-align:center;">';
-    html += '<div style="font-size:13px;font-weight:700;color:#c4b5fd;margin-bottom:12px;">' + op.name + '</div>';
+    html += '<div style="font-size:13px;font-weight:700;color:#c4b5fd;margin-bottom:12px;">' + escapeHtml(op.name) + '</div>';
     html += '<div style="color:#94a3b8;font-size:11px;margin-bottom:14px;">Ingresa tu PIN de 4 digitos</div>';
 
     // PIN inputs
@@ -290,7 +290,7 @@ function authRenderOperatorPicker() {
     html += '<select onchange="authOnPickOperator(this)" title="Operador actual (para el historial de cambios)" style="font-size:10px;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:2px 6px;max-width:160px;">';
     html += '<option value="__lab__"' + (cur === 'Laboratorio' ? ' selected' : '') + '>Laboratorio</option>';
     ops.forEach(function(o) {
-        var nm = String(o.name).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        var nm = escapeHtml(o.name);
         html += '<option value="' + nm + '"' + (cur === o.name ? ' selected' : '') + '>' + nm + '</option>';
     });
     html += '</select>';
@@ -314,10 +314,12 @@ function authBypassLogin() {
     authFirebaseSignIn();
 }
 
-function authBypassForOperator(id, name, role) {
-    // Quick entry when PINs haven't been set yet
-    var op = { id: id, name: name, role: role };
-    authCreateSession(op);
+function authBypassForOperator(idx) {
+    // Quick entry when PINs haven't been set yet — resolve by index like authSelectOperator
+    var operators = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }) : [];
+    var op = operators[idx];
+    if (!op) return;
+    authCreateSession({ id: op.id, name: op.name, role: op.role || 'Técnico' });
 }
 
 // ── UI Updates ──

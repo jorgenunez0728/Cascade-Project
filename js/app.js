@@ -315,6 +315,12 @@ function escapeHtml(text) {
     return String(text == null ? '' : text).replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
+// ── Iniciales de avatar a partir de un nombre (tolera espacios múltiples) ──
+function authInitials(name) {
+    return String(name == null ? '' : name).trim().split(/\s+/)
+        .map(function(w) { return w[0] || ''; }).join('').substring(0, 2).toUpperCase();
+}
+
 // ── [R3-M6] safeParse — Corruption-safe localStorage parsing ──
 function safeParse(key, fallback) {
     try {

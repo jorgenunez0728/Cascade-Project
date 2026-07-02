@@ -235,7 +235,7 @@ function renderLabOverview(el, opts) {
         html += '<div class="tp-bar" style="height:8px;margin-bottom:8px;"><div class="tp-bar-fill" style="width:' + tpPct + '%;background:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';"></div></div>';
         latestPlan.items.slice(0, 6).forEach(function(item) {
             var sd = item.desc.length > 50 ? item.desc.substring(0, 48) + '..' : item.desc;
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size:10px;color:' + (item.completed ? 'var(--tp-green)' : 'var(--tp-dim)') + ';' + (item.completed ? 'text-decoration:line-through;' : '') + '">' + sd + '</span><span style="font-size:10px;">' + (item.completed ? '✅' : '⏳') + '</span></div>';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size:10px;color:' + (item.completed ? 'var(--tp-green)' : 'var(--tp-dim)') + ';' + (item.completed ? 'text-decoration:line-through;' : '') + '">' + escapeHtml(sd) + '</span><span style="font-size:10px;">' + (item.completed ? '✅' : '⏳') + '</span></div>';
         });
         if (latestPlan.items.length > 6) html += '<div style="font-size:9px;color:var(--tp-dim);text-align:center;margin-top:4px;">+' + (latestPlan.items.length - 6) + ' más...</div>';
         html += '</div>';
@@ -245,7 +245,7 @@ function renderLabOverview(el, opts) {
         if (alerts.length) {
             html += '<div class="tp-card" style="border-left:3px solid var(--tp-red);"><div class="tp-card-title"><span style="color:var(--tp-red);">⚠️ Alertas Activas (' + alerts.length + ')</span></div>';
             alerts.slice(0, 5).forEach(function(a) {
-                html += '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size:9px;padding:2px 6px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:700;">' + a.level + '</span><span style="font-size:10px;color:var(--tp-text);flex:1;">' + a.message + '</span></div>';
+                html += '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size:9px;padding:2px 6px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:700;">' + a.level + '</span><span style="font-size:10px;color:var(--tp-text);flex:1;">' + escapeHtml(a.message) + '</span></div>';
             });
             html += '</div>';
         }
@@ -483,16 +483,16 @@ function pnRenderUsers(el) {
             html += '<div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;background:' + (op.active ? 'var(--tp-card)' : 'rgba(100,116,139,0.05)') + ';border:1px solid var(--tp-border);border-radius:8px;' + (!op.active ? 'opacity:0.5;' : '') + '">';
 
             // Avatar
-            var initials = op.name.split(' ').map(function(w) { return w[0]; }).join('').substring(0, 2).toUpperCase();
+            var initials = authInitials(op.name);
             var avatarColors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
             var aColor = avatarColors[idx % avatarColors.length];
-            html += '<div style="width:38px;height:38px;border-radius:50%;background:' + aColor + '20;color:' + aColor + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">' + initials + '</div>';
+            html += '<div style="width:38px;height:38px;border-radius:50%;background:' + aColor + '20;color:' + aColor + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">' + escapeHtml(initials) + '</div>';
 
             // Info
             html += '<div style="flex:1;min-width:0;">';
             html += '<div style="display:flex;align-items:center;gap:6px;">';
-            html += '<span style="font-size:12px;font-weight:700;color:var(--tp-text);">' + op.name + '</span>';
-            html += '<span style="font-size:9px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;">' + (op.role || 'Técnico') + '</span>';
+            html += '<span style="font-size:12px;font-weight:700;color:var(--tp-text);">' + escapeHtml(op.name) + '</span>';
+            html += '<span style="font-size:9px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;">' + escapeHtml(op.role || 'Técnico') + '</span>';
             if (!op.active) html += '<span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span>';
             html += op.pinHash ? '<span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span>' : '<span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span>';
             html += '</div>';
@@ -525,11 +525,14 @@ function pnAddOperator() {
     var name = document.getElementById('pn-new-op-name');
     var role = document.getElementById('pn-new-op-role');
     if (!name || !name.value.trim()) { showToast('Ingresa un nombre', 'error'); return; }
+    // Defensa en profundidad: los renders escapan HTML, pero un nombre con <> nunca es legítimo
+    var opName = name.value.trim().replace(/\s+/g, ' ');
+    if (/[<>]/.test(opName)) { showToast('El nombre no puede contener < o >', 'error'); return; }
 
     var maxId = pnState.operators.reduce(function(m, o) { return Math.max(m, o.id || 0); }, 0);
     pnState.operators.push({
         id: maxId + 1,
-        name: name.value.trim(),
+        name: opName,
         role: role ? role.value : 'Técnico',
         active: true,
         createdAt: new Date().toISOString()
@@ -538,7 +541,7 @@ function pnAddOperator() {
     pnSave();
     pnSyncOperators();
     pnRender();
-    showToast('Operador agregado: ' + name.value.trim(), 'success');
+    showToast('Operador agregado: ' + opName, 'success');
 }
 
 function pnEditOperator(idx) {
