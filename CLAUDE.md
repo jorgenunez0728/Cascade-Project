@@ -23,20 +23,17 @@ no-login operator picker, synced change history).
 | **Hoy** | Daily dashboard (incl. shared Lab Overview strip), quick actions | `platform-today` |
 | **Plan** | Test Plan Manager (weekly plan, **🚑 Recuperación**, families, calendar, simulator, production) | `platform-testplan` |
 | **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
-| **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system). *(Results Analyzer es un módulo latente — ver nota abajo)* | `platform-panel` |
+| **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system) | `platform-panel` |
 | **CoP** | CoP Type 1 statistical Conformity-of-Production validator (family + VINes, live verdict) | `platform-cop` |
 
-Legacy platform names (`cop15`, `testplan`, `results`, `inventory`, `panel`) are aliased in
+Legacy platform names (`cop15`, `testplan`, `inventory`, `panel`) are aliased in
 `switchPlatform()`. Topbar (`index.html`) also has: **👤 operator picker** (`#op-picker`, no password),
 **🕘 change history** (deep-links to Panel → Auditoría), Firebase sync indicator, notificaciones y un
 menú **⋯** que colapsa los controles secundarios en móvil (<768px; en móvil las 5 tabs se ocultan —
 la bottom-nav navega). **v15.5**: tema claro único (el dark mode se eliminó por completo).
-
-> **Módulos latentes**: `js/results.js` (Results Analyzer) y `js/approvals.js` (Power Automate) siguen
-> en el repo pero NO se cargan — están fuera de los `<script>` de `index.html` y de la lista de
-> `build.sh` desde mayo 2026 (reemplazo del flujo PA/VETS por la aprobación doble-ciego interna).
-> Las referencias cruzadas (`raState`, `paConfig`) están protegidas con `typeof`. Revivirlos o
-> eliminarlos definitivamente es una decisión de producto pendiente.
+**v15.6**: `results.js` (Results Analyzer) y `approvals.js` (Power Automate) se **eliminaron
+definitivamente** (estaban fuera del build desde mayo 2026; el flujo PA/VETS fue reemplazado por la
+aprobación doble-ciego interna de la pestaña Liberación).
 
 ## Project Structure
 
@@ -48,11 +45,9 @@ js/
   cop15.js              ← COP15 Cascade module + Soak Timer + Field Tooltips (~6,290 lines)
   testplan.js           ← Test Plan Manager + Recovery Plan + dynamic months (~5,090 lines)
   inventory.js          ← Lab Inventory + SVG Floor Plan Map (~4,150 lines)
-  results.js            ← Results Analyzer + Cpk/Ppk + SPC (~2,460 lines)
   panel.js              ← Dashboard, Lab Overview, Reports Center, Users, Alerts, Audit, Health (~2,610 lines)
-  firebase-sync.js      ← Shared-workspace cloud sync layer (~2,970 lines)
-  approvals.js          ← Power Automate emissions approval webhook integration (~1,330 lines)
-  auth.js               ← Lightweight operator identity (no login wall) (~490 lines)
+  firebase-sync.js      ← Shared-workspace cloud sync layer (~2,900 lines)
+  auth.js               ← Operator identity + PIN wall (~490 lines)
   cop_validator.js      ← CoP Type 1 statistical validator (family + VIN matrix) (~690 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
@@ -69,13 +64,11 @@ CHANGELOG.md            ← Detailed changelog
 | App Core | `js/app.js` | — | `db`, `allConfigurations`, `CONFIG` | `kia_db_v11` |
 | COP15 Cascade | `js/cop15.js` | — | Uses `db` from app.js | — |
 | Test Plan Manager | `js/testplan.js` | `tp` | `tpState` | `kia_testplan_v1` |
-| Results Analyzer | `js/results.js` | `ra` | `raState` | `kia_results_v1` |
 | Lab Inventory | `js/inventory.js` | `inv` | `invState` | `kia_lab_inventory` |
 | Panel | `js/panel.js` | `pn` | `pnState` | `kia_panel_v1` |
 | CoP Validator | `js/cop_validator.js` | `cop` | `copState` | `kia_cop_v1` |
 | Auth / Operator | `js/auth.js` | `auth` | `authState` (lightweight) | `kia_current_operator` |
 | Signatures | `js/signatures.js` | `sig` | overlay-based | — (in `vehicle.testData.signatures`) |
-| Approvals | `js/approvals.js` | `pa` | `paConfig`, `paQueue` | `kia_pa_config`, `kia_pa_queue` |
 | Firebase Sync | `js/firebase-sync.js` | `fb` | `fbSync`, queue | `kia_firebase_queue` |
 
 ### Additional localStorage Keys
@@ -87,11 +80,10 @@ CHANGELOG.md            ← Detailed changelog
 | `kia_current_operator` | Current operator for attribution (no-password picker) |
 | `kia_fb_station` | Sync workspace id — forced to shared `KIA-EMLAB` |
 | `kia_fb_device` | Per-device id (`writer`) to distinguish own vs remote live-sync echoes |
-| `kia_fb_sync_modules` | Which modules sync (cop15, testplan, results, inventory, panel, approvals, cop, audit) |
+| `kia_fb_sync_modules` | Which modules sync (cop15, testplan, inventory, panel, cop, audit) |
 | `kia_chart_configs` | Chart Config Engine settings |
 | `kia_entity_notes` | Entity Notes (per-vehicle/per-test annotations) |
 | `kia_soak_timer` | Soak timer persistence |
-| `kia_pa_config` / `kia_pa_queue` | Power Automate webhook config + offline queue |
 | `kia_autoplan_lastrun` | Guard: ISO date of next Monday auto-plan already ran |
 
 **`tpState` sub-fields added in v15:** `months` (dynamic production month labels), `priorityRules`
@@ -102,11 +94,10 @@ CHANGELOG.md            ← Detailed changelog
 - **COP15 → Test Plan**: `tpAutoFeedFromRelease()`, `tpAutoMarkWeeklyCompletion()`
 - **COP15 → Inventory**: `invLogTestUsage()`
 - **COP15 → Signatures**: `sigCaptureOpen()` releaser gate in `finishRelease()`
-- **Test Plan → Results**: `tpBuildFamilies()` uses `raState.tests`
 - **Test Plan → Inventory**: prediction checks inventory for gas/fuel sufficiency
 - **CoP → Test Plan**: `copFamilies()` reuses the family grouping (`tpFamilyKeyForCfg`); **CoP → COP15**:
   auto-populates VINes from `db.vehicles` of the selected family
-- **Panel → All**: Lab Overview (`renderLabOverview`) + Intelligence read `db`, `raState`, `tpState`, `invState`
+- **Panel → All**: Lab Overview (`renderLabOverview`) + Intelligence read `db`, `tpState`, `invState`
 - **Firebase Sync → All**: pushes/pulls per-module state to `stations/KIA-EMLAB/{module}/current`
 - **App Core → All**: chart engine (`chartConfig*`), undo (`undoPush/Pop`), notes (`note*`),
   search (`globalVinSearch`), **audit (`auditLog`)**
@@ -115,16 +106,15 @@ CHANGELOG.md            ← Detailed changelog
 
 `app.js` → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → `auth.js` → `signatures.js` →
 `firebase-sync.js` → `cop_validator.js` (last; reuses `tpFamilyKeyForCfg`/`tpState` — guard with
-`typeof`). `results.js` and `approvals.js` load with the module set. `initializeSystem()` in app.js
-runs on `DOMContentLoaded` and bootstraps everything (no login gate — see below).
+`typeof`). `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
 
 ## Conventions
 
 - All functions use global scope (no ES modules) — intentional for single-file offline compatibility
-- Function naming: `tp*`=Test Plan, `ra*`=Results, `inv*`=Inventory, `pn*`=Panel, `cop*`=CoP validator,
+- Function naming: `tp*`=Test Plan, `inv*`=Inventory, `pn*`=Panel, `cop*`=CoP validator,
   `fb*`=Firebase sync, `auth*`=operator, `note*`=Entity Notes, `chartConfig*`=Chart, `undo*`=Undo,
   `cascade*`=Cascade tooltips, no prefix = COP15/shared
-- State stored in localStorage as JSON; TP/RA/Inventory/Panel/CoP render HTML dynamically via JS
+- State stored in localStorage as JSON; TP/Inventory/Panel/CoP render HTML dynamically via JS
 - CSS custom properties in `:root`; unified light theme with per-module `--accent-*`
 - Destructive actions call `undoPush(module, label)` first; important state changes call
   `auditLog(module, action, entity, details)` so they appear in the change history
@@ -138,7 +128,7 @@ runs on `DOMContentLoaded` and bootstraps everything (no login gate — see belo
   KPIs + pipeline + weekly plan + alerts; used by both HOY (`dailyDashRender`) and Panel dashboard.
   Module dashboards link to it via "📊 Ver Resumen del Lab".
 - **Reports Center**: Panel tab `pn-reports` (`pnRenderReports`/`pnRunReport`) — one hub that dispatches
-  to existing exporters (plan JSON, gap CSV, results, inventory, forecast, shift log, alerts, audit, PDF).
+  to existing exporters (plan JSON, gap CSV, inventory, forecast, shift log, alerts, audit, PDF).
 - **Test Recovery Plan**: Plan tab `tp-recovery` (`tpRenderRecovery`, `tpBuildRecoveryPlan`,
   `tpClassifyTier`). Mark weeks unavailable, set per-week capacity/days + a "plan until" date; classify
   pending tests into **editable priority levels (P1..P10)** via **cascade-filtered dropdowns**
@@ -162,9 +152,9 @@ runs on `DOMContentLoaded` and bootstraps everything (no login gate — see belo
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).
 - New function: add to the right module file; global scope makes it cross-available.
-- Saving state: `tpSave()`, `raSave()`, `invSave()`, `pnSave()`, `saveDB()`, `copPersist()`.
-- Rendering: `tpRender()`, `raRender()`, `invRender()`, `pnRender()`, `copRender()`, `refreshAllLists()`.
-- Tab switching: `tpSwitchTab`, `raSwitchTab`, `invSwitchTab`, `pnSwitchTab`; platforms via `switchPlatform`.
+- Saving state: `tpSave()`, `invSave()`, `pnSave()`, `saveDB()`, `copPersist()`.
+- Rendering: `tpRender()`, `invRender()`, `pnRender()`, `copRender()`, `refreshAllLists()`.
+- Tab switching: `tpSwitchTab`, `invSwitchTab`, `pnSwitchTab`; platforms via `switchPlatform`.
 - New chart: create Chart.js on `window._yourChartVar`; `chartConfigBuildPanel('id','_var',{rerenderFn})`;
   wrap canvas in `<div id="id-wrapper">`; config persists to `kia_chart_configs`.
 

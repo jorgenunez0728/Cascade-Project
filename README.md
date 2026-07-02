@@ -14,7 +14,6 @@ KIA EmLab manages the complete emissions testing workflow: vehicle registration 
 |--------|------|-----------|-------------|
 | **COP15 Cascade** | `js/cop15.js` | 121 | Vehicle registration, operation tracking, cascade testing workflow, soak timer |
 | **Test Plan Manager** | `js/testplan.js` | 79 | Weekly/monthly test planning, burndown charts, family tracking, predictions |
-| **Results Analyzer** | `js/results.js` | 56 | Test results, Cpk/Ppk analysis, SPC I-charts/mR-charts, trend analysis |
 | **Lab Inventory** | `js/inventory.js` | 88 | Gas cylinders, fuel tracking, equipment management, consumption charts |
 | **Panel** | `js/panel.js` | 28 | Dashboard, user management, shift log, alerts, intelligence, system health |
 | **App Core** | `js/app.js` | 88 | Config, utilities, chart config engine, undo system, search, notes, PDF |
@@ -68,7 +67,6 @@ python3 -m http.server 8080
 - **COP15 Cascade** — Vehicle registration with VIN validation, multi-step operation workflow (register, test, release), digital signatures, cascade tree visualization
 - **Soak Timer** — Persistent countdown timer with browser notifications, survives page reloads
 - **Test Plan Manager** — Create plans by family/regulation, track completion with burndown charts, weekly predictions with inventory sufficiency checks
-- **Results Analyzer** — Import/manual entry of test results, Cpk/Ppk statistical analysis, SPC control charts (I-chart, mR-chart), compliance rate tracking
 - **Lab Inventory** — Gas cylinder PSI tracking with usage logs, fuel level monitoring, equipment management with barcode/QR scanning
 
 ### Cross-Module Intelligence (Round 4)
@@ -121,7 +119,6 @@ Cascade-Project/
 │   ├── app.js                  ← Core: config, utilities, chart engine, undo, notes (~2,272 lines)
 │   ├── cop15.js                ← COP15 Cascade + Soak Timer (~4,449 lines)
 │   ├── testplan.js             ← Test Plan Manager (~3,214 lines)
-│   ├── results.js              ← Results Analyzer + Cpk/Ppk + SPC (~2,390 lines)
 │   ├── inventory.js            ← Lab Inventory (~3,127 lines)
 │   ├── panel.js                ← Dashboard, Users, Intelligence, System Health (~1,368 lines)
 │   ├── firebase-sync.js        ← Optional Firebase cloud sync (~2,501 lines)
@@ -136,12 +133,12 @@ Cascade-Project/
 
 ## Conventions for Contributors
 
-- **Function naming**: `tp*` = Test Plan, `ra*` = Results Analyzer, `inv*` = Inventory, `pn*` = Panel, `fb*` = Firebase, `note*` = Notes, `chartConfig*` = Chart system, no prefix = COP15/shared
-- **State saving**: Always call `saveDB()`, `tpSave()`, `raSave()`, `invSave()`, or `pnSave()` after mutations
-- **Rendering**: Call `refreshAllLists()`, `tpRender()`, `raRender()`, `invRender()`, or `pnRender()` to update UI
+- **Function naming**: `tp*` = Test Plan, `inv*` = Inventory, `pn*` = Panel, `cop*` = CoP validator, `fb*` = Firebase, `auth*` = operador, `note*` = Notes, `chartConfig*` = Chart system, no prefix = COP15/shared
+- **State saving**: Always call `saveDB()`, `tpSave()`, `invSave()`, `pnSave()` or `copPersist()` after mutations
+- **Rendering**: Call `refreshAllLists()`, `tpRender()`, `invRender()`, `pnRender()` or `copRender()` to update UI
 - **Dark theme** for TP/RA/Inventory/Panel, **light theme** for COP15
 - **Never edit** `kia-emlab-unified.html` — always edit source files and run `build.sh`
-- **Script load order matters**: app.js → cop15.js → inventory.js → testplan.js → results.js → panel.js → auth.js → firebase-sync.js
+- **Script load order matters**: app.js → cop15.js → inventory.js → testplan.js → panel.js → auth.js → signatures.js → firebase-sync.js → cop_validator.js
 
 ## Potential Future Improvements
 
