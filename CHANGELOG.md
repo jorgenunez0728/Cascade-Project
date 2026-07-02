@@ -2,6 +2,42 @@
 
 All notable changes to this project, organized by development round.
 
+## v15.6 — "Sync confiable + Seguridad real + Limpieza final" (2026-07-02)
+
+Tres frentes pedidos por el usuario: que **todo dispositivo vea siempre lo último**,
+**volver a tener seguridad**, y **borrar definitivamente** los módulos muertos.
+
+### Sync siempre actualizado (causa raíz del celular vacío + versión vieja)
+- **Service worker descongelado**: `sw.js` tenía `CACHE_VERSION` pegado desde el 28/abr (un build
+  interrumpido dejó el literal; `build.sh` buscaba un placeholder inexistente). El SW salía
+  byte-idéntico en cada deploy → los dispositivos nunca recibían actualizaciones. Ahora `build.sh`
+  genera el artefacto `sw.build.js` (guard que aborta si el placeholder se pierde) y `deploy.sh`
+  despliega ese artefacto versionado. **Este es el fix que recupera el celular.**
+- **Auto-actualización de la PWA**: `reg.update()` al arrancar y al volver a la app; al llegar el SW
+  nuevo, recarga en la ventana segura (<15 s, sin modal) o banner "Actualizar ahora"
+- **Pull inicial robusto**: un dispositivo vacío siempre puede descargar (excepción de quota),
+  con reintentos y feedback visible; el indicador ya no dice "conectado" con 0 datos
+- **Guard anti-vaciado**: un dispositivo vacío nunca sube `{vehicles:[]}` y pisa la nube (había un
+  push de semilla a los 6 s sin protección)
+- **CSV de producción en vivo a todas las estaciones** (pedido explícito): el live-sync ya no
+  descarta los cambios de plan; adopta `planData` + `months` del import más nuevo
+- Indicador honesto ("⚠ sin datos — toca para descargar") + botón "🔄 Actualizar datos" en el menú ⋯
+
+### Seguridad real (nube + PIN)
+- **Firebase Auth + Security Rules**: `firestore.rules` versionadas — `stations/**` solo para
+  sesiones Email/Password (antes: sign-in anónimo + sin reglas = workspace abierto a cualquiera con
+  la URL). Login de dispositivo con contraseña del laboratorio (una vez por dispositivo)
+- **Muro de PIN por operador**: SHA-256 con sal (`pinHash2`, migra los hashes de 32 bits viejos);
+  lockout de 60 s tras 5 fallos; auditoría de accesos (login/login_failed/logout)
+- Ver README → "Seguridad — setup una sola vez" para los pasos de consola y el orden de rollout
+
+### Limpieza final
+- **Eliminados definitivamente** `js/results.js` (Results Analyzer) y `js/approvals.js` (Power
+  Automate) — fuera del build desde mayo 2026. De paso se arreglaron **2 crashes latentes**
+  (`fbMergeExecute` y `fbBackupNow` usaban `raState` inexistente → el merge manual y el backup a la
+  nube crasheaban). ~3,800 líneas menos + docs actualizados.
+
+
 ## v15.5 — "Pulir y Endurecer" (2026-07-02)
 
 **16 commits: corrección de bugs de fondo, performance medible y UX móvil — sin módulos nuevos.**

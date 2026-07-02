@@ -91,7 +91,6 @@ python3 -m http.server 8080
 |-----|--------|-------------|
 | `kia_db_v11` | COP15 | Vehicles, configurations, timeline |
 | `kia_testplan_v1` | Test Plan | Plans, records, families |
-| `kia_results_v1` | Results | Tests, profiles, limits |
 | `kia_lab_inventory` | Inventory | Gas, fuel, equipment items |
 | `kia_panel_v1` | Panel | Operators, shift log, alerts |
 | `kia_chart_configs` | Charts | All chart configuration settings |
@@ -139,6 +138,52 @@ Cascade-Project/
 - **Dark theme** for TP/RA/Inventory/Panel, **light theme** for COP15
 - **Never edit** `kia-emlab-unified.html` — always edit source files and run `build.sh`
 - **Script load order matters**: app.js → cop15.js → inventory.js → testplan.js → panel.js → auth.js → signatures.js → firebase-sync.js → cop_validator.js
+
+## Seguridad — setup una sola vez (v15.6)
+
+Desde v15.6 los datos en la nube están protegidos por Firebase Authentication +
+Security Rules, y la app tiene muro de PIN por operador. **Antes de desplegar
+por primera vez** hay que hacer dos cosas en la consola de Firebase (proyecto
+`kia-emlab-test-system`), ~5 minutos:
+
+1. **Habilitar el usuario del laboratorio** (para el login de dispositivo):
+   - Firebase Console → **Authentication** → *Get started* (si no está iniciado)
+     → pestaña **Sign-in method** → habilitar **Email/Password**.
+   - Pestaña **Users** → **Add user** → email
+     `laboratorio@kia-emlab-test-system.firebaseapp.com` (constante `FB_LAB_EMAIL`
+     en `firebase-sync.js`; no necesita buzón real) + una **contraseña fuerte**.
+   - Reparte esa contraseña a los dispositivos del laboratorio: cada uno la
+     ingresa **una sola vez** (queda persistida en el navegador).
+
+2. **Publicar las Security Rules** (`firestore.rules`, versionadas en el repo):
+   - El workflow de CI intenta desplegarlas (`firebase deploy --only
+     firestore:rules`). Si el service account no tiene el rol
+     *Firebase Rules Admin*, el paso falla sin bloquear el deploy — en ese caso,
+     publicarlas a mano: Console → **Firestore Database** → **Reglas** → pegar el
+     contenido de `firestore.rules` → **Publicar**.
+
+**Orden de rollout (importante):** las reglas cerradas y el build con login
+viajan en el **mismo merge**. Los dispositivos con la versión vieja tendrán
+`permission-denied` hasta que se actualicen. Secuencia:
+`mergear a main → esperar el deploy → en cada dispositivo: abrir con red,
+aceptar la actualización, escribir la contraseña del laboratorio una vez, y
+entrar con el PIN de operador`.
+
+**Recuperar el celular con Historial vacío / versión vieja:** tras el deploy,
+abrir la app en el celular **con red** y dejarla ~30 s — el service worker nuevo
+se instala, purga el caché de abril, recarga y descarga los datos. Si en 2-3 min
+no cambia: cerrar todas las pestañas/la app y reabrir. Último recurso: Ajustes
+del sitio → Borrar datos (seguro: su almacenamiento local ya está vacío; la
+descarga inicial lo repuebla).
+
+**Notas de seguridad:**
+- El muro de PIN usa **SHA-256 con sal por operador** (`pinHash2`); los PIN
+  viejos (`pinHash`, hash débil) se migran automáticamente al primer login y
+  dejan de sincronizarse.
+- **5 intentos fallidos → bloqueo de 60 s** (persistido). Los accesos quedan en
+  el historial de cambios (`auditLog`: login / login_failed / logout).
+- El PIN es atribución/anti-curioso; la protección real de los datos la dan las
+  Security Rules + el login de dispositivo.
 
 ## Potential Future Improvements
 

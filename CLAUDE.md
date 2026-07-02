@@ -33,7 +33,13 @@ menú **⋯** que colapsa los controles secundarios en móvil (<768px; en móvil
 la bottom-nav navega). **v15.5**: tema claro único (el dark mode se eliminó por completo).
 **v15.6**: `results.js` (Results Analyzer) y `approvals.js` (Power Automate) se **eliminaron
 definitivamente** (estaban fuera del build desde mayo 2026; el flujo PA/VETS fue reemplazado por la
-aprobación doble-ciego interna de la pestaña Liberación).
+aprobación doble-ciego interna de la pestaña Liberación). **v15.6 también reactivó la seguridad**:
+Firebase Auth (contraseña de laboratorio por dispositivo) + Security Rules (`firestore.rules`) +
+**muro de PIN por operador** (SHA-256 `pinHash2`, lockout 60 s tras 5 fallos, auditoría de accesos).
+El `#op-picker` sin contraseña se reemplazó por un chip 👤 con "Cambiar usuario". Ver README →
+"Seguridad — setup una sola vez" para los pasos de consola. El service worker (`sw.js` →
+`sw.build.js` vía `build.sh`) se versiona por build para que la PWA se auto-actualice
+(nunca dejar un timestamp pegado en `sw.js`).
 
 ## Project Structure
 
@@ -142,9 +148,11 @@ CHANGELOG.md            ← Detailed changelog
 - **Shared sync**: `FB_SHARED_WORKSPACE='KIA-EMLAB'` (all devices → same Firestore path); `FB_DEVICE_ID`
   `writer` field distinguishes own vs remote live changes; initial **seed push**; hardened `fbPullApply`
   (never overwrite richer local with an emptier remote); **CoP + audit** now synced.
-- **No login wall**: `authInit()` sets a lightweight session (`kia_current_operator`, default
-  "Laboratorio"); `authGetCurrentUser()` always returns a valid object; topbar **👤 operator picker**
-  (no password) sets the actor for attribution.
+- **Login wall (reactivado en v15.6)**: `authInit()` valida `kia_auth_session` (12 h); sin sesión
+  vigente → `authShowLogin()` y `initializeSystem()` se detiene. PIN por operador con SHA-256
+  (`pinHash2`, migra `pinHash` legacy), lockout de 60 s tras 5 fallos (`kia_pin_lockout`), auditoría
+  (`auditLog('auth', …)`). Bypasses solo en setup inicial. La contraseña de dispositivo (Email/Password)
+  la gestiona `firebase-sync.js` (`fbEnsureAuth`/`fbShowAuthPrompt`).
 - **Change history surfaced**: topbar **🕘** → Panel `pn-audit`; more `auditLog` coverage (gas/fuel
   readings, production import, CoP save); synced (`audit` collection, merge by id).
 
@@ -166,8 +174,10 @@ CHANGELOG.md            ← Detailed changelog
   — every device/user reads-writes `stations/KIA-EMLAB/...`, so all see the same data (no per-user
   namespacing). When unifying devices, open the one with the most complete data first (it seeds the
   cloud); merges prefer the more-complete/newer side to avoid data loss.
-- **Auth**: no login gate; the operator picker is identity (attribution), **not security**. PIN/WebAuthn
-  code remains in `auth.js` but is not on the happy path.
+- **Auth (v15.6)**: muro de PIN por operador (SHA-256 `pinHash2` + lockout + auditoría) **y** login de
+  dispositivo con contraseña de laboratorio (Firebase Email/Password) — juntos, no solo cosméticos.
+  Las **Security Rules** (`firestore.rules`) son la protección real de los datos; el PIN es atribución
+  fuerte. Ver README → "Seguridad — setup una sola vez". WebAuthn queda como acceso rápido opcional.
 - **CDN deps**: signature_pad, jsPDF, Chart.js 4.4.7 (+zoom), JsBarcode, html5-qrcode, Firebase SDK.
 - `CSV_CONFIGURATIONS` in `app.js` holds the embedded vehicle configuration catalog.
 - **Soak Timer** persists via `kia_soak_timer` + Notification API. **Command Palette** `Ctrl+K`.
