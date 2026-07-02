@@ -471,14 +471,17 @@ function pnRenderUsers(el) {
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddOperator()" style="padding:8px 16px;">+ Agregar</button>';
     html += '</div></div>';
 
-    // Operators list
+    // Operators list — los tombstones (deleted) permanecen en el array para el sync
+    // pero no se muestran; idx se conserva porque las acciones indexan pnState.operators.
+    var visibleCount = operators.filter(function(o) { return !o.deleted; }).length;
     html += '<div class="tp-card">';
-    html += '<div class="tp-card-title"><span>👤 Operadores (' + operators.length + ')</span></div>';
+    html += '<div class="tp-card-title"><span>👤 Operadores (' + visibleCount + ')</span></div>';
 
-    if (operators.length === 0) {
+    if (visibleCount === 0) {
         html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">No hay operadores registrados.</div>';
     } else {
         operators.forEach(function(op, idx) {
+            if (op.deleted) return;
             var stats = opStats[op.name] || { registered: 0, released: 0, active: 0 };
             html += '<div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;background:' + (op.active ? 'var(--tp-card)' : 'rgba(100,116,139,0.05)') + ';border:1px solid var(--tp-border);border-radius:8px;' + (!op.active ? 'opacity:0.5;' : '') + '">';
 
@@ -535,7 +538,8 @@ function pnAddOperator() {
         name: opName,
         role: role ? role.value : 'Técnico',
         active: true,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
     });
 
     pnSave();
@@ -553,6 +557,7 @@ function pnEditOperator(idx) {
     var newRole = prompt('Rol (' + roles.join(', ') + '):', op.role || 'Técnico');
     op.name = newName.trim();
     if (newRole && roles.indexOf(newRole) !== -1) op.role = newRole;
+    op.updatedAt = new Date().toISOString();
     pnSave();
     pnSyncOperators();
     pnRender();
@@ -563,6 +568,7 @@ function pnToggleOperator(idx) {
     var op = pnState.operators[idx];
     if (!op) return;
     op.active = !op.active;
+    op.updatedAt = new Date().toISOString();
     pnSave();
     pnSyncOperators();
     pnRender();
@@ -574,7 +580,12 @@ function pnRemoveOperator(idx) {
     if (!op) return;
     showConfirmDialog({ title: '⚠️ Eliminar operador', message: '¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
-        pnState.operators.splice(idx, 1);
+        // Tombstone en lugar de splice: el borrado sobrevive al merge del sync
+        // (un splice resucitaba al operador desde cualquier remoto viejo)
+        op.active = false;
+        op.deleted = true;
+        op.deletedAt = new Date().toISOString();
+        op.updatedAt = op.deletedAt;
         pnSave();
         pnSyncOperators();
         pnRender();
@@ -605,6 +616,7 @@ function pnSetOperatorPin(idx) {
         return;
     }
     op.pinHash = pnHashPin(pin);
+    op.updatedAt = new Date().toISOString();
     pnSave();
     pnRender();
     showToast('PIN configurado para ' + op.name, 'success');
@@ -1943,7 +1955,8 @@ function panelAlpineComponent() {
                 name: this.newOpName.trim(),
                 role: this.newOpRole,
                 active: true,
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             });
             var _addedName = this.newOpName.trim();
             this.newOpName = '';
@@ -1959,6 +1972,7 @@ function panelAlpineComponent() {
             var newRole = prompt('Rol (' + this.roles.join(', ') + '):', op.role || 'Técnico');
             op.name = newName.trim();
             if (newRole && this.roles.indexOf(newRole) !== -1) op.role = newRole;
+            op.updatedAt = new Date().toISOString();
             this._syncAndSave();
             showToast('Operador actualizado', 'success');
         },
@@ -1966,6 +1980,7 @@ function panelAlpineComponent() {
             var op = this.operators[idx];
             if (!op) return;
             op.active = !op.active;
+            op.updatedAt = new Date().toISOString();
             this._syncAndSave();
             showToast(op.name + (op.active ? ' activado' : ' desactivado'), 'info');
         },
@@ -1976,7 +1991,11 @@ function panelAlpineComponent() {
             showConfirmDialog({ title: '⚠️ Eliminar operador', message: '¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
                 if (!ok) return;
                 auditLog('pn', 'operator_removed', {type:'operator', label:op.name});
-                self.operators.splice(idx, 1);
+                // Tombstone: el borrado sobrevive al merge del sync (splice resucitaba)
+                op.active = false;
+                op.deleted = true;
+                op.deletedAt = new Date().toISOString();
+                op.updatedAt = op.deletedAt;
                 self._syncAndSave();
                 showToast('Operador eliminado', 'info');
             });
@@ -1989,6 +2008,7 @@ function panelAlpineComponent() {
             pin = pin.trim();
             if (!/^\d{4}$/.test(pin)) { showToast('El PIN debe ser exactamente 4 dígitos numéricos', 'error'); return; }
             op.pinHash = pnHashPin(pin);
+            op.updatedAt = new Date().toISOString();
             this._syncAndSave();
             showToast('PIN configurado para ' + op.name, 'success');
         },

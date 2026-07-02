@@ -965,6 +965,112 @@ function fbPullAll(showFeedback) {
 }
 
 // ── Apply pulled data to local state ──
+// v15.5: cop15/testplan/results/inventory se aplican con merge por elemento
+// (reutiliza fbMergeAnalyze/fbMergeExecute, igual que el live-sync) en lugar del
+// reemplazo por conteo: dos altas concurrentes o una edición sin cambio de conteo
+// ya no se pierden. Si el análisis falla, cae a la heurística previa por conteo.
+
+function _fbPullLocalScore(col) {
+    if (col === 'cop15') return (typeof db !== 'undefined' && db.vehicles) ? db.vehicles.length : 0;
+    if (col === 'testplan') return (typeof tpState !== 'undefined' && tpState) ? ((tpState.planData || []).length + (tpState.testedList || []).length + (tpState.weeklyPlans || []).length) : 0;
+    if (col === 'results') return (typeof raState !== 'undefined' && raState && raState.tests) ? raState.tests.length : 0;
+    if (col === 'inventory') {
+        var s = 0, st = (typeof invState !== 'undefined') ? invState : null;
+        if (st && st.gases) st.gases.forEach(function(g) { s += 1 + ((g.readings && g.readings.length) || 0); });
+        if (st && st.equipment) s += st.equipment.length;
+        return s;
+    }
+    return 0;
+}
+
+// Local vacío → adoptar el remoto completo (seed inicial del dispositivo)
+function _fbPullSeed(col, remoteData, pulled) {
+    if (col === 'cop15') {
+        db = remoteData;
+        localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        refreshAllLists();
+        pulled.push('COP15 (' + (db.vehicles || []).length + ' vehiculos)');
+    } else if (col === 'testplan') {
+        var prevTp = (typeof tpState !== 'undefined' && tpState) ? tpState : {};
+        tpState = remoteData;
+        // Preservar subcampos v15 locales que un remoto de código viejo no trae
+        ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks'].forEach(function(k) {
+            if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
+        });
+        localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
+        if (typeof tpRender === 'function') tpRender();
+        pulled.push('Test Plan');
+    } else if (col === 'results') {
+        raState = remoteData;
+        localStorage.setItem('kia_results_v1', JSON.stringify(raState));
+        if (typeof raRender === 'function') raRender();
+        pulled.push('Results (' + (raState.tests || []).length + ' pruebas)');
+    } else if (col === 'inventory') {
+        invState = remoteData;
+        localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
+        if (typeof invRender === 'function') invRender();
+        pulled.push('Inventory');
+    }
+}
+
+function _fbPullMergeModule(col, remoteData, pulled) {
+    if (_fbPullLocalScore(col) === 0) { _fbPullSeed(col, remoteData, pulled); return; }
+
+    var synth = { cop15: null, testplan: null, results: null, inventory: null, approvals: null };
+    synth[col] = remoteData;
+    var analysis = fbMergeAnalyze(synth);
+    var a = analysis[col];
+    if (!a) return;
+
+    var hasWork = false;
+    if (col === 'cop15') hasWork = (a.newItems || []).length > 0 || (a.conflicts || []).length > 0;
+    else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged;
+    else if (col === 'results') hasWork = (a.newItems || []).length > 0;
+    else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0;
+    if (!hasWork) return;
+
+    // merge_all: agrega lo nuevo y resuelve diferencias con la política existente
+    // (cop15: gana el timeline más rico + recibos PA preservados; inventory: la
+    // lectura remota propaga PSI/estado). Results solo agrega ('new' ≡ merge).
+    var choices = {};
+    choices[col] = (col === 'results') ? 'new' : 'merge_all';
+    fbMergeExecute(synth, analysis, choices);
+    pulled.push({ cop15: 'COP15', testplan: 'Test Plan', results: 'Results', inventory: 'Inventory' }[col]);
+}
+
+// Heurística previa por conteo — solo como fallback si el merge falla
+function _fbPullAdoptByCount(col, remoteData, pulled) {
+    if (col === 'cop15') {
+        if (remoteData.vehicles && remoteData.vehicles.length >= _fbPullLocalScore('cop15')) _fbPullSeed(col, remoteData, pulled);
+    } else if (col === 'testplan') {
+        var _rTp = (remoteData.planData ? remoteData.planData.length : 0) + (remoteData.testedList ? remoteData.testedList.length : 0) + (remoteData.weeklyPlans ? remoteData.weeklyPlans.length : 0);
+        if (_rTp >= _fbPullLocalScore('testplan')) _fbPullSeed(col, remoteData, pulled);
+    } else if (col === 'results') {
+        if (remoteData.tests && remoteData.tests.length >= _fbPullLocalScore('results')) _fbPullSeed(col, remoteData, pulled);
+    } else if (col === 'inventory') {
+        var _invScoreFn = function(s) { var n = 0; if (s && s.gases) s.gases.forEach(function(g) { n += 1 + ((g.readings && g.readings.length) || 0); }); if (s && s.equipment) n += s.equipment.length; return n; };
+        if (_invScoreFn(remoteData) >= _fbPullLocalScore('inventory')) _fbPullSeed(col, remoteData, pulled);
+    }
+}
+
+// Unión de operadores por id+nombre; en colisión gana el updatedAt más reciente.
+// Los tombstones (deleted:true) sobreviven al merge para que un operador borrado
+// no resucite desde un remoto viejo.
+function _fbMergeOperators(localOps, remoteOps) {
+    var byKey = {};
+    var keyOf = function(o) { return (o.id != null ? o.id : '') + '|' + (o.name || ''); };
+    (localOps || []).forEach(function(o) { if (o) byKey[keyOf(o)] = o; });
+    (remoteOps || []).forEach(function(r) {
+        if (!r) return;
+        var k = keyOf(r), l = byKey[k];
+        if (!l) { byKey[k] = r; return; }
+        var lt = l.updatedAt || l.deletedAt || l.createdAt || '';
+        var rt = r.updatedAt || r.deletedAt || r.createdAt || '';
+        byKey[k] = (rt > lt) ? r : l;
+    });
+    return Object.keys(byKey).map(function(k) { return byKey[k]; });
+}
+
 function fbPullApply(collections, results, showFeedback) {
     var pulled = [];
 
@@ -972,42 +1078,18 @@ function fbPullApply(collections, results, showFeedback) {
         var remoteData = results[col];
         if (!remoteData) return;
 
-        if (col === 'cop15') {
-            if (remoteData.vehicles && remoteData.vehicles.length >= db.vehicles.length) {
-                db = remoteData;
-                localStorage.setItem('kia_db_v11', JSON.stringify(db));
-                refreshAllLists();
-                pulled.push('COP15 (' + db.vehicles.length + ' vehiculos)');
-            }
-        } else if (col === 'testplan') {
-            // No pisar datos locales más completos con un remoto vacío/menor
-            var _rTp = (remoteData.planData ? remoteData.planData.length : 0) + (remoteData.testedList ? remoteData.testedList.length : 0) + (remoteData.weeklyPlans ? remoteData.weeklyPlans.length : 0);
-            var _lTp = (typeof tpState !== 'undefined' && tpState) ? ((tpState.planData ? tpState.planData.length : 0) + (tpState.testedList ? tpState.testedList.length : 0) + (tpState.weeklyPlans ? tpState.weeklyPlans.length : 0)) : 0;
-            if (_rTp >= _lTp) {
-                tpState = remoteData;
-                localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
-                if (typeof tpRender === 'function') tpRender();
-                pulled.push('Test Plan');
-            }
-        } else if (col === 'results') {
-            if (remoteData.tests && remoteData.tests.length >= raState.tests.length) {
-                raState = remoteData;
-                localStorage.setItem('kia_results_v1', JSON.stringify(raState));
-                if (typeof raRender === 'function') raRender();
-                pulled.push('Results (' + raState.tests.length + ' pruebas)');
-            }
-        } else if (col === 'inventory') {
-            // Puntaje = cilindros + lecturas + equipos, para no perder capturas por un remoto menor
-            var _invScoreFn = function(s) { var n = 0; if (s && s.gases) s.gases.forEach(function(g) { n += 1 + ((g.readings && g.readings.length) || 0); }); if (s && s.equipment) n += s.equipment.length; return n; };
-            if (_invScoreFn(remoteData) >= _invScoreFn(typeof invState !== 'undefined' ? invState : {})) {
-                invState = remoteData;
-                localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
-                if (typeof invRender === 'function') invRender();
-                pulled.push('Inventory');
+        if (col === 'cop15' || col === 'testplan' || col === 'results' || col === 'inventory') {
+            try {
+                _fbPullMergeModule(col, remoteData, pulled);
+            } catch(e) {
+                console.warn('fbPullApply: merge falló en ' + col + ', usando heurística por conteo', e);
+                _fbPullAdoptByCount(col, remoteData, pulled);
             }
         } else if (col === 'panel') {
             if (typeof pnState !== 'undefined') {
+                var _localOpsPn = (pnState.operators || []).slice();
                 Object.assign(pnState, remoteData);
+                pnState.operators = _fbMergeOperators(_localOpsPn, (remoteData && remoteData.operators) || []);
                 localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
                 if (typeof pnRender === 'function') pnRender();
                 pulled.push('Panel');
@@ -1033,14 +1115,17 @@ function fbPullApply(collections, results, showFeedback) {
             if (typeof copSyncReload === 'function') copSyncReload();
             pulled.push('CoP');
         } else if (col === 'audit') {
-            // Merge del historial de cambios por id (no perder registros), orden cronológico, cap 1000
+            // Merge del historial de cambios por id (no perder registros), orden cronológico.
+            // Cap unificado con el local (AUDIT_MAX) — antes el pull truncaba a 1000 y encogía la historia.
             var _localAudit = []; try { _localAudit = JSON.parse(localStorage.getItem('kia_audit_trail')) || []; } catch(e) {}
             var _remoteAudit = Array.isArray(remoteData) ? remoteData : [];
             var _seenA = {}, _mergedA = [];
             _localAudit.concat(_remoteAudit).forEach(function(e) { if (e && e.id && !_seenA[e.id]) { _seenA[e.id] = true; _mergedA.push(e); } });
             _mergedA.sort(function(a, b) { return (a.ts || '') < (b.ts || '') ? -1 : (a.ts || '') > (b.ts || '') ? 1 : 0; });
-            if (_mergedA.length > 1000) _mergedA = _mergedA.slice(-1000);
+            var _auditCap = (typeof AUDIT_MAX !== 'undefined') ? AUDIT_MAX : 2000;
+            if (_mergedA.length > _auditCap) _mergedA = _mergedA.slice(-_auditCap);
             localStorage.setItem('kia_audit_trail', JSON.stringify(_mergedA));
+            if (typeof auditReloadFromStorage === 'function') auditReloadFromStorage();
             pulled.push('Historial');
         }
     });

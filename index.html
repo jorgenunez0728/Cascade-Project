@@ -1103,12 +1103,12 @@
 
             <!-- Operators List -->
             <div class="tp-card">
-                <div class="tp-card-title"><span>👤 Operadores (<span x-text="operators.length"></span>)</span></div>
-                <template x-if="operators.length === 0">
+                <div class="tp-card-title"><span>👤 Operadores (<span x-text="operators.filter(o => !o.deleted).length"></span>)</span></div>
+                <template x-if="operators.filter(o => !o.deleted).length === 0">
                     <div style="text-align:center;padding:20px;color:var(--tp-dim);">No hay operadores registrados.</div>
                 </template>
                 <template x-for="(op, idx) in operators" :key="op.id">
-                    <div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:8px;"
+                    <div x-show="!op.deleted" style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:8px;"
                          :style="{ background: op.active ? 'var(--tp-card)' : 'rgba(100,116,139,0.05)', opacity: op.active ? '1' : '0.5' }">
                         <!-- Avatar -->
                         <div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;"
