@@ -428,10 +428,14 @@ function fbInit() {
                         fbPullAll();
                         fbBackupCheck();
                         fbStartListening();
-                        // Semilla: subir los datos locales al espacio compartido una vez tras el pull inicial
+                        // Semilla: subir los datos locales una vez, SOLO después de que el
+                        // pull inicial terminó (v15.6: antes corría a los 6s aunque el pull
+                        // hubiera fallado, y un dispositivo vacío podía pisar la nube)
                         if (!fbSync._seeded) {
                             fbSync._seeded = true;
-                            setTimeout(function() { if (fbSync.enabled) fbPushAll(); }, 6000);
+                            setTimeout(function() {
+                                if (fbSync.enabled && fbSync._pullCompleted) fbPushAll();
+                            }, 6000);
                         }
                     }
                     fbCheckAppVersion();
@@ -806,6 +810,15 @@ function fbPush(collection, data, onDone, opts) {
     if (!fbSync.enabled) { if (onDone) onDone(false, 'Firebase no habilitado'); return; }
     if (!fbSync.stationId) { if (onDone) onDone(false, 'No hay ID de estacion configurado'); return; }
 
+    // [v15.6] Cinturón anti-vaciado: nunca subir un módulo núcleo vacío
+    // (segunda línea de defensa; fbPushAll ya filtra, esto cubre los hooks de save)
+    if ((collection === 'cop15' || collection === 'testplan' || collection === 'inventory')
+        && typeof _fbPullLocalScore === 'function' && _fbPullLocalScore(collection) === 0) {
+        console.warn('fbPush: omitido ' + collection + ' vacío (protección de datos)');
+        if (onDone) onDone(false, 'Módulo vacío omitido');
+        return;
+    }
+
     // Rate limit check
     var quota = fbQuotaCheck('write');
     if (!quota.allowed) {
@@ -881,11 +894,21 @@ function fbPushAll(showFeedback) {
     if (!fbSync.enabled) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
     if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
 
+    // [v15.6] Guard anti-vaciado: un módulo local VACÍO nunca se sube — si el
+    // pull inicial falló, empujar {vehicles:[]} sobrescribiría los datos del
+    // laboratorio en stations/KIA-EMLAB/*/current para todos.
     var modules = [];
-    if (fbSyncModules.cop15) modules.push({col:'cop15', data:db});
-    if (fbSyncModules.testplan) modules.push({col:'testplan', data:tpState});
-    if (fbSyncModules.inventory) modules.push({col:'inventory', data:invState});
-    if (fbSyncModules.panel) modules.push({col:'panel', data:typeof pnState !== 'undefined' ? pnState : {}});
+    var skippedEmpty = [];
+    if (fbSyncModules.cop15) { if (_fbPullLocalScore('cop15') > 0) modules.push({col:'cop15', data:db}); else skippedEmpty.push('cop15'); }
+    if (fbSyncModules.testplan) { if (_fbPullLocalScore('testplan') > 0) modules.push({col:'testplan', data:tpState}); else skippedEmpty.push('testplan'); }
+    if (fbSyncModules.inventory) { if (_fbPullLocalScore('inventory') > 0) modules.push({col:'inventory', data:invState}); else skippedEmpty.push('inventory'); }
+    if (fbSyncModules.panel) {
+        var _pnHasData = (typeof pnState !== 'undefined' && pnState && (pnState.operators || []).length > 0);
+        if (_pnHasData) modules.push({col:'panel', data:pnState}); else skippedEmpty.push('panel');
+    }
+    if (skippedEmpty.length && showFeedback) {
+        showToast('Módulos vacíos omitidos del envío (protección de datos): ' + skippedEmpty.join(', '), 'info');
+    }
     if (fbSyncModules.cop) {
         var copRaw = null; try { copRaw = JSON.parse(localStorage.getItem('kia_cop_v1')); } catch(e) {}
         if (copRaw) modules.push({col:'cop', data: copRaw});
