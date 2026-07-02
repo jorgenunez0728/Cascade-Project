@@ -1122,8 +1122,8 @@
                                 <span style="font-size:12px;font-weight:700;color:var(--tp-text);" x-text="op.name"></span>
                                 <span style="font-size:9px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;" x-text="op.role || 'Técnico'"></span>
                                 <template x-if="!op.active"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span></template>
-                                <template x-if="op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span></template>
-                                <template x-if="!op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span></template>
+                                <template x-if="op.pinHash2 || op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span></template>
+                                <template x-if="!(op.pinHash2 || op.pinHash)"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span></template>
                             </div>
                             <div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">
                                 <span x-text="operatorStats(op.name).registered"></span> registrados |
@@ -1133,7 +1133,7 @@
                         </div>
                         <!-- Actions -->
                         <div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
-                            <button @click="setOperatorPin(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN" x-text="op.pinHash ? '🔑' : '🔒'"></button>
+                            <button @click="setOperatorPin(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN" x-text="(op.pinHash2 || op.pinHash) ? '🔑' : '🔒'"></button>
                             <button @click="editOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">✏️</button>
                             <button @click="toggleOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" x-text="op.active ? '🚫' : '✅'"></button>
                             <button @click="removeOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--tp-red);">🗑</button>

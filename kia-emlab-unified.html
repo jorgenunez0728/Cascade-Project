@@ -3973,8 +3973,8 @@ details.acc > summary {
                                 <span style="font-size:12px;font-weight:700;color:var(--tp-text);" x-text="op.name"></span>
                                 <span style="font-size:9px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;" x-text="op.role || 'Técnico'"></span>
                                 <template x-if="!op.active"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span></template>
-                                <template x-if="op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span></template>
-                                <template x-if="!op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span></template>
+                                <template x-if="op.pinHash2 || op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span></template>
+                                <template x-if="!(op.pinHash2 || op.pinHash)"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span></template>
                             </div>
                             <div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">
                                 <span x-text="operatorStats(op.name).registered"></span> registrados |
@@ -3984,7 +3984,7 @@ details.acc > summary {
                         </div>
                         <!-- Actions -->
                         <div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
-                            <button @click="setOperatorPin(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN" x-text="op.pinHash ? '🔑' : '🔒'"></button>
+                            <button @click="setOperatorPin(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN" x-text="(op.pinHash2 || op.pinHash) ? '🔑' : '🔒'"></button>
                             <button @click="editOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">✏️</button>
                             <button @click="toggleOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" x-text="op.active ? '🚫' : '✅'"></button>
                             <button @click="removeOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--tp-red);">🗑</button>
@@ -4634,21 +4634,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607022136';
+var APP_BUILD = '202607022141';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607022136' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607022141' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607022136' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607022141' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -4664,7 +4664,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607022136' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607022141' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -24563,14 +24563,14 @@ function pnRenderUsers(el) {
             html += '<span style="font-size:12px;font-weight:700;color:var(--tp-text);">' + escapeHtml(op.name) + '</span>';
             html += '<span style="font-size:9px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;">' + escapeHtml(op.role || 'Técnico') + '</span>';
             if (!op.active) html += '<span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span>';
-            html += op.pinHash ? '<span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span>' : '<span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span>';
+            html += (op.pinHash2 || op.pinHash) ? '<span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span>' : '<span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span>';
             html += '</div>';
             html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">' + stats.registered + ' registrados | ' + stats.released + ' liberados | ' + stats.active + ' activos</div>';
             html += '</div>';
 
             // Actions
             html += '<div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">';
-            html += '<button onclick="pnSetOperatorPin(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN">' + (op.pinHash ? '🔑' : '🔒') + '</button>';
+            html += '<button onclick="pnSetOperatorPin(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN">' + ((op.pinHash2 || op.pinHash) ? '🔑' : '🔒') + '</button>';
             html += '<button onclick="pnEditOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">✏️</button>';
             html += '<button onclick="pnToggleOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">' + (op.active ? '🚫' : '✅') + '</button>';
             html += '<button onclick="pnRemoveOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--tp-red);">🗑</button>';
@@ -24667,8 +24667,9 @@ function pnRemoveOperator(idx) {
     });
 }
 
+// LEGACY (v15.6): hash de 32 bits no criptográfico — solo se conserva para
+// verificar PINs viejos una última vez y re-hashearlos a pinHash2 (SHA-256).
 function pnHashPin(pin) {
-    // Simple hash for PIN (not cryptographic, but sufficient for local offline use)
     var hash = 0;
     var str = 'kia_pin_' + pin + '_salt';
     for (var i = 0; i < str.length; i++) {
@@ -24677,6 +24678,35 @@ function pnHashPin(pin) {
         hash = hash & hash; // Convert to 32bit integer
     }
     return 'pin_' + Math.abs(hash).toString(36);
+}
+
+// [v15.6] SHA-256 con sal aleatoria por operador (crypto.subtle, async).
+// El pinHash legacy viajaba a Firestore y era fuerza-bruteable al instante.
+function pnHashPin2(pin, salt) {
+    if (!(window.crypto && crypto.subtle)) {
+        // Solo dev en file:// — en producción (https) subtle siempre existe
+        return Promise.resolve('legacy:' + pnHashPin(pin));
+    }
+    var data = new TextEncoder().encode(salt + '|' + pin);
+    return crypto.subtle.digest('SHA-256', data).then(function(buf) {
+        return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+    });
+}
+
+function _pnRandomSalt() {
+    var bytes = new Uint8Array(16);
+    (window.crypto || {}).getRandomValues ? crypto.getRandomValues(bytes) : bytes.forEach(function(_, i) { bytes[i] = Math.floor(Math.random() * 256); });
+    return Array.from(bytes).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+// Configura pinHash2 y BORRA el hash legacy (deja de sincronizarse el hash débil)
+function _pnAssignPin(op, pin) {
+    var salt = _pnRandomSalt();
+    return pnHashPin2(pin, salt).then(function(hash) {
+        op.pinHash2 = { salt: salt, hash: hash };
+        delete op.pinHash;
+        op.updatedAt = new Date().toISOString();
+    });
 }
 
 function pnSetOperatorPin(idx) {
@@ -24689,13 +24719,30 @@ function pnSetOperatorPin(idx) {
         showToast('El PIN debe ser exactamente 4 digitos numericos', 'error');
         return;
     }
-    op.pinHash = pnHashPin(pin);
-    op.updatedAt = new Date().toISOString();
-    pnSave();
-    pnRender();
-    showToast('PIN configurado para ' + op.name, 'success');
+    _pnAssignPin(op, pin).then(function() {
+        pnSave();
+        pnRender();
+        showToast('PIN configurado para ' + op.name, 'success');
+    });
 }
 
+// Verificación async: usa pinHash2; si solo existe el legacy, lo verifica y
+// re-hashea automáticamente al primer login exitoso (migración transparente)
+function pnVerifyPinAsync(idx, pin) {
+    var op = pnState.operators[idx];
+    if (!op) return Promise.resolve(false);
+    if (op.pinHash2 && op.pinHash2.salt && op.pinHash2.hash) {
+        return pnHashPin2(pin, op.pinHash2.salt).then(function(h) { return h === op.pinHash2.hash; });
+    }
+    if (op.pinHash) {
+        var ok = op.pinHash === pnHashPin(pin);
+        if (!ok) return Promise.resolve(false);
+        return _pnAssignPin(op, pin).then(function() { pnSave(); return true; });
+    }
+    return Promise.resolve(false);
+}
+
+// Compat: verificación sync solo contra el hash legacy (llamadores viejos)
 function pnVerifyPin(idx, pin) {
     var op = pnState.operators[idx];
     if (!op || !op.pinHash) return false;
@@ -26081,10 +26128,11 @@ function panelAlpineComponent() {
             if (!pin) return;
             pin = pin.trim();
             if (!/^\d{4}$/.test(pin)) { showToast('El PIN debe ser exactamente 4 dígitos numéricos', 'error'); return; }
-            op.pinHash = pnHashPin(pin);
-            op.updatedAt = new Date().toISOString();
-            this._syncAndSave();
-            showToast('PIN configurado para ' + op.name, 'success');
+            var self = this;
+            _pnAssignPin(op, pin).then(function() {   // v15.6: SHA-256 + sal (ver pnHashPin2)
+                self._syncAndSave();
+                showToast('PIN configurado para ' + op.name, 'success');
+            });
         },
 
         // ── Computed — Shift Log ──
@@ -26710,22 +26758,34 @@ var AUTH_WEBAUTHN_LS = 'kia_webauthn_creds';
 var AUTH_OP_LS_KEY = 'kia_current_operator';
 
 // ── Initialization ──
-// Sin muro de login: se establece una sesión ligera con el operador actual (sin contraseña).
-// El "quién" solo sirve para atribución en el historial de cambios.
+// [v15.6] Muro de PIN reactivado (decisión de seguridad del usuario): sin
+// sesión válida (kia_auth_session con expiresAt vigente, 12h) la app muestra
+// el login de operadores y initializeSystem se detiene hasta autenticar.
 function authInit() {
-    var name = 'Laboratorio', role = 'Lab', id = 0;
+    // Sesión válida persistida → restaurar y continuar
     try {
-        var saved = localStorage.getItem(AUTH_OP_LS_KEY);
-        if (saved) { var o = JSON.parse(saved); if (o && o.name) { name = o.name; role = o.role || 'Técnico'; id = o.id || 0; } }
+        var saved = localStorage.getItem(AUTH_LS_KEY);
+        if (saved) {
+            var session = JSON.parse(saved);
+            if (session.expiresAt && new Date(session.expiresAt).getTime() > Date.now()) {
+                authState.currentUser = { id: session.operatorId, name: session.operatorName, role: session.role };
+                authState.sessionActive = true;
+                authState.sessionExpiry = new Date(session.expiresAt);
+                var overlay = document.getElementById('auth-overlay');
+                if (overlay) overlay.style.display = 'none';
+                authUpdateUI();
+                authFirebaseSignIn();
+                return;
+            }
+            // Sesión expirada
+            localStorage.removeItem(AUTH_LS_KEY);
+        }
     } catch(e) {}
-    authState.currentUser = { id: id, name: name, role: role };
-    authState.sessionActive = true;
-    authState.sessionExpiry = null;
-    var overlay = document.getElementById('auth-overlay');
-    if (overlay) overlay.style.display = 'none';
-    authUpdateUI();
-    authRenderOperatorPicker();
-    authFirebaseSignIn();
+
+    // Sin sesión válida → muro de login (el gate de initializeSystem corta)
+    authState.sessionActive = false;
+    authState.currentUser = null;
+    authShowLogin();
 }
 
 // ── Login Screen ──
@@ -26878,38 +26938,75 @@ function authCheckComplete() {
     authVerifyAndLogin(pin);
 }
 
+// ── [v15.6] Lockout de PIN: 5 fallos → 60s bloqueado (persistido) ──
+var AUTH_LOCKOUT_KEY = 'kia_pin_lockout';
+var AUTH_MAX_FAILS = 5;
+var AUTH_LOCKOUT_MS = 60000;
+
+function _authLockoutGet(opId) {
+    try { return (JSON.parse(localStorage.getItem(AUTH_LOCKOUT_KEY)) || {})[opId] || { fails: 0, until: 0 }; }
+    catch(e) { return { fails: 0, until: 0 }; }
+}
+function _authLockoutSet(opId, rec) {
+    var all = {};
+    try { all = JSON.parse(localStorage.getItem(AUTH_LOCKOUT_KEY)) || {}; } catch(e) {}
+    all[opId] = rec;
+    try { localStorage.setItem(AUTH_LOCKOUT_KEY, JSON.stringify(all)); } catch(e) {}
+}
+
 function authVerifyAndLogin(pin) {
     var op = window._authSelectedOp;
     if (!op) return;
 
-    // Find the operator in the full pnState list to get the correct index
     var fullIdx = -1;
     pnState.operators.forEach(function(o, i) { if (o.id === op.id) fullIdx = i; });
     if (fullIdx === -1) return;
 
-    if (pnVerifyPin(fullIdx, pin)) {
-        authCreateSession(op);
-        // Offer biometric registration (only in secure context — no self-signed certs)
-        if (window.PublicKeyCredential && window.isSecureContext && !authHasStoredCredential(op.id)) {
-            setTimeout(function() { authOfferBiometricRegistration(op.id); }, 1500);
+    var err = document.getElementById('auth-pin-error');
+
+    // ¿Bloqueado?
+    var lock = _authLockoutGet(op.id);
+    if (lock.until && lock.until > Date.now()) {
+        var secs = Math.ceil((lock.until - Date.now()) / 1000);
+        if (err) err.textContent = 'Bloqueado por intentos fallidos. Reintenta en ' + secs + 's.';
+        return;
+    }
+
+    pnVerifyPinAsync(fullIdx, pin).then(function(ok) {
+        if (ok) {
+            _authLockoutSet(op.id, { fails: 0, until: 0 });
+            if (typeof auditLog === 'function') auditLog('auth', 'login', { type: 'operator', label: op.name });
+            authCreateSession(op);
+            if (window.PublicKeyCredential && window.isSecureContext && !authHasStoredCredential(op.id)) {
+                setTimeout(function() { authOfferBiometricRegistration(op.id); }, 1500);
+            }
+            return;
         }
-    } else {
-        var err = document.getElementById('auth-pin-error');
-        if (err) err.textContent = 'PIN incorrecto. Intenta de nuevo.';
-        // Clear inputs
+        // Fallo: contar y quizá bloquear
+        var rec = _authLockoutGet(op.id);
+        rec.fails = (rec.fails || 0) + 1;
+        if (rec.fails >= AUTH_MAX_FAILS) { rec.until = Date.now() + AUTH_LOCKOUT_MS; rec.fails = 0; }
+        _authLockoutSet(op.id, rec);
+        if (typeof auditLog === 'function') auditLog('auth', 'login_failed', { type: 'operator', label: op.name });
+
+        if (rec.until && rec.until > Date.now()) {
+            if (err) err.textContent = 'Demasiados intentos. Bloqueado 60 segundos.';
+        } else if (err) {
+            err.textContent = 'PIN incorrecto (' + rec.fails + '/' + AUTH_MAX_FAILS + '). Intenta de nuevo.';
+        }
         for (var i = 0; i < 4; i++) {
             var d = document.getElementById('auth-pin-' + i);
             if (d) { d.value = ''; d.style.borderColor = '#ef4444'; }
         }
         setTimeout(function() {
-            for (var i = 0; i < 4; i++) {
-                var d = document.getElementById('auth-pin-' + i);
-                if (d) d.style.borderColor = '#334155';
+            for (var j = 0; j < 4; j++) {
+                var e2 = document.getElementById('auth-pin-' + j);
+                if (e2) e2.style.borderColor = '#334155';
             }
             var first = document.getElementById('auth-pin-0');
             if (first) first.focus();
         }, 800);
-    }
+    });
 }
 
 // ── Session Management ──
@@ -26937,18 +27034,30 @@ function authCreateSession(op) {
 
     // Continue app initialization
     authUpdateUI();
+    authRenderOperatorPicker();
     if (typeof initializeSystem !== 'undefined') {
         // Re-run init now that we're authenticated
         initializeSystem();
     }
 
-    // Firebase anonymous sign-in (for security rules)
+    // Sesión de dispositivo con Firebase (Email/Password)
     authFirebaseSignIn();
 }
 
-// Sin login: "salir" simplemente vuelve al operador genérico 'Laboratorio'.
+// [v15.6] Cerrar sesión → volver al muro de login (con confirmación)
 function authSignOut() {
-    authSetOperator('Laboratorio', 'Lab', 0);
+    var doSignOut = function() {
+        var prev = authState.currentUser;
+        if (prev && typeof auditLog === 'function') auditLog('auth', 'logout', { type: 'operator', label: prev.name });
+        try { localStorage.removeItem(AUTH_LS_KEY); } catch(e) {}
+        authState.currentUser = null;
+        authState.sessionActive = false;
+        authState.sessionExpiry = null;
+        authShowLogin();
+    };
+    if (typeof showConfirmDialog === 'function') {
+        showConfirmDialog({ title: 'Cambiar usuario', message: '¿Cerrar sesión y volver a la pantalla de acceso?', type: 'info', confirmText: 'Cerrar sesión', cancelText: 'Cancelar' }).then(function(ok) { if (ok) doSignOut(); });
+    } else { doSignOut(); }
 }
 
 function authGetCurrentUser() {
@@ -26976,24 +27085,23 @@ function authOnPickOperator(sel) {
     authSetOperator(sel.value, op ? (op.role || 'Técnico') : 'Técnico', op ? op.id : 0);
 }
 
+// [v15.6] Con el muro de PIN reactivado, el selector sin contraseña se
+// retira: el chip muestra el usuario de la sesión y permite cambiar de
+// usuario (cierra sesión → login con PIN).
 function authRenderOperatorPicker() {
     var el = document.getElementById('op-picker');
     if (!el) return;
-    var ops = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }) : [];
     var cur = (authState.currentUser && authState.currentUser.name) || 'Laboratorio';
-    var html = '<span style="font-size:11px;margin-right:3px;" title="Operador actual">👤</span>';
-    html += '<select onchange="authOnPickOperator(this)" title="Operador actual (para el historial de cambios)" style="font-size:10px;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:2px 6px;max-width:160px;">';
-    html += '<option value="__lab__"' + (cur === 'Laboratorio' ? ' selected' : '') + '>Laboratorio</option>';
-    ops.forEach(function(o) {
-        var nm = escapeHtml(o.name);
-        html += '<option value="' + nm + '"' + (cur === o.name ? ' selected' : '') + '>' + nm + '</option>';
-    });
-    html += '</select>';
-    el.innerHTML = html;
+    el.innerHTML = '<button onclick="authSignOut()" title="Cambiar de usuario (cerrar sesión)" ' +
+        'style="display:flex;align-items:center;gap:4px;font-size:11px;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:4px 8px;cursor:pointer;max-width:170px;min-height:32px;">' +
+        '<span>👤</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(cur) + '</span></button>';
 }
 
 function authBypassLogin() {
-    // For initial setup when no operators exist
+    // [v15.6] Solo para el setup inicial: si ya existe cualquier operador, el
+    // bypass de administrador queda deshabilitado (no es una puerta trasera)
+    var anyOp = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.some(function(o) { return !o.deleted; }) : false;
+    if (anyOp) { showToast('Selecciona un operador e ingresa tu PIN.', 'error'); return; }
     authState.currentUser = { id: 0, name: 'Administrador', role: 'Admin' };
     authState.sessionActive = true;
     var expiry = new Date(Date.now() + 2 * 3600000); // 2 hours for admin bypass
@@ -27010,11 +27118,20 @@ function authBypassLogin() {
 }
 
 function authBypassForOperator(idx) {
-    // Quick entry when PINs haven't been set yet — resolve by index like authSelectOperator
+    // [v15.6] Entrada rápida SOLO durante el setup inicial (ningún operador
+    // tiene PIN todavía). Si ya hay algún PIN configurado, se exige PIN.
     var operators = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }) : [];
     var op = operators[idx];
     if (!op) return;
+    var anyPin = operators.some(function(o) { return o.pinHash || o.pinHash2; });
+    if (anyPin) { showSelected(idx); return; }
+    if (typeof auditLog === 'function') auditLog('auth', 'login', { type: 'operator', label: op.name });
     authCreateSession({ id: op.id, name: op.name, role: op.role || 'Técnico' });
+}
+
+// Helper: cuando el bypass no aplica, ir a la pantalla de PIN del operador
+function showSelected(idx) {
+    if (typeof authSelectOperator === 'function') authSelectOperator(idx);
 }
 
 // ── UI Updates ──
@@ -29814,7 +29931,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607022136' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607022141' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

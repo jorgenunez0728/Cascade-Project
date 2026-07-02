@@ -527,14 +527,14 @@ function pnRenderUsers(el) {
             html += '<span style="font-size:12px;font-weight:700;color:var(--tp-text);">' + escapeHtml(op.name) + '</span>';
             html += '<span style="font-size:9px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;">' + escapeHtml(op.role || 'Técnico') + '</span>';
             if (!op.active) html += '<span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span>';
-            html += op.pinHash ? '<span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span>' : '<span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span>';
+            html += (op.pinHash2 || op.pinHash) ? '<span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span>' : '<span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span>';
             html += '</div>';
             html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">' + stats.registered + ' registrados | ' + stats.released + ' liberados | ' + stats.active + ' activos</div>';
             html += '</div>';
 
             // Actions
             html += '<div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">';
-            html += '<button onclick="pnSetOperatorPin(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN">' + (op.pinHash ? '🔑' : '🔒') + '</button>';
+            html += '<button onclick="pnSetOperatorPin(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN">' + ((op.pinHash2 || op.pinHash) ? '🔑' : '🔒') + '</button>';
             html += '<button onclick="pnEditOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">✏️</button>';
             html += '<button onclick="pnToggleOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">' + (op.active ? '🚫' : '✅') + '</button>';
             html += '<button onclick="pnRemoveOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--tp-red);">🗑</button>';
@@ -631,8 +631,9 @@ function pnRemoveOperator(idx) {
     });
 }
 
+// LEGACY (v15.6): hash de 32 bits no criptográfico — solo se conserva para
+// verificar PINs viejos una última vez y re-hashearlos a pinHash2 (SHA-256).
 function pnHashPin(pin) {
-    // Simple hash for PIN (not cryptographic, but sufficient for local offline use)
     var hash = 0;
     var str = 'kia_pin_' + pin + '_salt';
     for (var i = 0; i < str.length; i++) {
@@ -641,6 +642,35 @@ function pnHashPin(pin) {
         hash = hash & hash; // Convert to 32bit integer
     }
     return 'pin_' + Math.abs(hash).toString(36);
+}
+
+// [v15.6] SHA-256 con sal aleatoria por operador (crypto.subtle, async).
+// El pinHash legacy viajaba a Firestore y era fuerza-bruteable al instante.
+function pnHashPin2(pin, salt) {
+    if (!(window.crypto && crypto.subtle)) {
+        // Solo dev en file:// — en producción (https) subtle siempre existe
+        return Promise.resolve('legacy:' + pnHashPin(pin));
+    }
+    var data = new TextEncoder().encode(salt + '|' + pin);
+    return crypto.subtle.digest('SHA-256', data).then(function(buf) {
+        return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+    });
+}
+
+function _pnRandomSalt() {
+    var bytes = new Uint8Array(16);
+    (window.crypto || {}).getRandomValues ? crypto.getRandomValues(bytes) : bytes.forEach(function(_, i) { bytes[i] = Math.floor(Math.random() * 256); });
+    return Array.from(bytes).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+// Configura pinHash2 y BORRA el hash legacy (deja de sincronizarse el hash débil)
+function _pnAssignPin(op, pin) {
+    var salt = _pnRandomSalt();
+    return pnHashPin2(pin, salt).then(function(hash) {
+        op.pinHash2 = { salt: salt, hash: hash };
+        delete op.pinHash;
+        op.updatedAt = new Date().toISOString();
+    });
 }
 
 function pnSetOperatorPin(idx) {
@@ -653,13 +683,30 @@ function pnSetOperatorPin(idx) {
         showToast('El PIN debe ser exactamente 4 digitos numericos', 'error');
         return;
     }
-    op.pinHash = pnHashPin(pin);
-    op.updatedAt = new Date().toISOString();
-    pnSave();
-    pnRender();
-    showToast('PIN configurado para ' + op.name, 'success');
+    _pnAssignPin(op, pin).then(function() {
+        pnSave();
+        pnRender();
+        showToast('PIN configurado para ' + op.name, 'success');
+    });
 }
 
+// Verificación async: usa pinHash2; si solo existe el legacy, lo verifica y
+// re-hashea automáticamente al primer login exitoso (migración transparente)
+function pnVerifyPinAsync(idx, pin) {
+    var op = pnState.operators[idx];
+    if (!op) return Promise.resolve(false);
+    if (op.pinHash2 && op.pinHash2.salt && op.pinHash2.hash) {
+        return pnHashPin2(pin, op.pinHash2.salt).then(function(h) { return h === op.pinHash2.hash; });
+    }
+    if (op.pinHash) {
+        var ok = op.pinHash === pnHashPin(pin);
+        if (!ok) return Promise.resolve(false);
+        return _pnAssignPin(op, pin).then(function() { pnSave(); return true; });
+    }
+    return Promise.resolve(false);
+}
+
+// Compat: verificación sync solo contra el hash legacy (llamadores viejos)
 function pnVerifyPin(idx, pin) {
     var op = pnState.operators[idx];
     if (!op || !op.pinHash) return false;
@@ -2045,10 +2092,11 @@ function panelAlpineComponent() {
             if (!pin) return;
             pin = pin.trim();
             if (!/^\d{4}$/.test(pin)) { showToast('El PIN debe ser exactamente 4 dígitos numéricos', 'error'); return; }
-            op.pinHash = pnHashPin(pin);
-            op.updatedAt = new Date().toISOString();
-            this._syncAndSave();
-            showToast('PIN configurado para ' + op.name, 'success');
+            var self = this;
+            _pnAssignPin(op, pin).then(function() {   // v15.6: SHA-256 + sal (ver pnHashPin2)
+                self._syncAndSave();
+                showToast('PIN configurado para ' + op.name, 'success');
+            });
         },
 
         // ── Computed — Shift Log ──
