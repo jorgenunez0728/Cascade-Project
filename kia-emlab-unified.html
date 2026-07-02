@@ -4634,21 +4634,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607022129';
+var APP_BUILD = '202607022131';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607022129' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607022131' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607022129' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607022131' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -4664,7 +4664,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607022129' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607022131' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -28585,18 +28585,25 @@ function fbAutoMerge(col, parsedData, remoteSt) {
     var conflictCnt = (a.conflicts || []).length;
     var label       = remoteSt.slice(0, 14);
 
-    if (newCount === 0 && conflictCnt === 0) return; // Nothing to do
+    // [v15.6] El plan de producción también es trabajo: un CSV re-importado en
+    // otra estación cambia planData/months/weeklyPlans sin agregar testedList —
+    // antes este return lo descartaba y las demás estaciones nunca lo recibían.
+    var planWork = col === 'testplan' && (a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged);
+
+    if (newCount === 0 && conflictCnt === 0 && !planWork) return; // Nothing to do
 
     // Conflicts: warn but do NOT auto-apply — technician must review manually
     if (conflictCnt > 0) {
         showToast('⚠️ ' + conflictCnt + ' conflicto(s) en ' + col +
             ' de ' + label + ' — revisar en Sincronización', 'warning', 8000);
-        if (newCount === 0) return;
+        if (newCount === 0 && !planWork) return;
     }
 
-    // Safe: only additive new items — apply automatically, never deletes local data
+    // Additive new items apply automatically; para testplan con cambios de plan
+    // se usa merge_all (adopta el import más nuevo por planImportDate, si no
+    // hace merge aditivo por desc — nunca borra datos locales)
     var choices = {};
-    choices[col] = 'new';
+    choices[col] = planWork ? 'merge_all' : 'new';
     try { fbMergeExecute(synth, analysis, choices); }
     catch(e) {
         void 0;
@@ -28604,12 +28611,20 @@ function fbAutoMerge(col, parsedData, remoteSt) {
         return;
     }
 
-    showToast('✓ Live sync: +' + newCount + ' en ' + col + ' de ' + label, 'success', 4000);
+    if (planWork) {
+        showToast('📦 Plan de producción actualizado desde otra estación', 'success', 5000);
+    } else {
+        showToast('✓ Live sync: +' + newCount + ' en ' + col + ' de ' + label, 'success', 4000);
+    }
 
     // Refresh relevant module UI (best-effort)
     try {
         if (col === 'cop15')     { refreshAllLists(); updateProgressBar(); }
-        if (col === 'testplan')  { if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies(); }
+        if (col === 'testplan')  {
+            if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies();
+            if (typeof tabCacheInvalidate === 'function') tabCacheInvalidate('tp');
+            if (typeof tpUpdateBadges === 'function') tpUpdateBadges();
+        }
         if (col === 'inventory') { if (typeof invRender === 'function') invRender(); }
     } catch(uiErr) { /* UI refresh is best-effort */ }
 }
@@ -29229,6 +29244,12 @@ function fbMergeExecute(remoteData, analysis, choices) {
                     if (remoteData.testplan.planImportDate) tpState.planImportDate = remoteData.testplan.planImportDate;
                     if (remoteData.testplan.lastDiff) tpState.lastDiff = remoteData.testplan.lastDiff;
                     if (remoteData.testplan.lastDiffDate) tpState.lastDiffDate = remoteData.testplan.lastDiffDate;
+                    // [v15.6] Los meses dinámicos van con el plan: las columnas de
+                    // volumen dependen de esos labels — sin esto, un CSV con un mes
+                    // nuevo llegaba a las demás estaciones con columnas desalineadas
+                    if (remoteData.testplan.months && remoteData.testplan.months.length) {
+                        tpState.months = remoteData.testplan.months;
+                    }
                 } else {
                     // Merge: add configs from remote that aren't in local
                     var localDescs = {};
@@ -29704,7 +29725,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607022129' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607022131' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

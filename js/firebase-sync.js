@@ -1299,18 +1299,25 @@ function fbAutoMerge(col, parsedData, remoteSt) {
     var conflictCnt = (a.conflicts || []).length;
     var label       = remoteSt.slice(0, 14);
 
-    if (newCount === 0 && conflictCnt === 0) return; // Nothing to do
+    // [v15.6] El plan de producción también es trabajo: un CSV re-importado en
+    // otra estación cambia planData/months/weeklyPlans sin agregar testedList —
+    // antes este return lo descartaba y las demás estaciones nunca lo recibían.
+    var planWork = col === 'testplan' && (a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged);
+
+    if (newCount === 0 && conflictCnt === 0 && !planWork) return; // Nothing to do
 
     // Conflicts: warn but do NOT auto-apply — technician must review manually
     if (conflictCnt > 0) {
         showToast('⚠️ ' + conflictCnt + ' conflicto(s) en ' + col +
             ' de ' + label + ' — revisar en Sincronización', 'warning', 8000);
-        if (newCount === 0) return;
+        if (newCount === 0 && !planWork) return;
     }
 
-    // Safe: only additive new items — apply automatically, never deletes local data
+    // Additive new items apply automatically; para testplan con cambios de plan
+    // se usa merge_all (adopta el import más nuevo por planImportDate, si no
+    // hace merge aditivo por desc — nunca borra datos locales)
     var choices = {};
-    choices[col] = 'new';
+    choices[col] = planWork ? 'merge_all' : 'new';
     try { fbMergeExecute(synth, analysis, choices); }
     catch(e) {
         console.warn('fbAutoMerge execute error (' + col + '):', e);
@@ -1318,12 +1325,20 @@ function fbAutoMerge(col, parsedData, remoteSt) {
         return;
     }
 
-    showToast('✓ Live sync: +' + newCount + ' en ' + col + ' de ' + label, 'success', 4000);
+    if (planWork) {
+        showToast('📦 Plan de producción actualizado desde otra estación', 'success', 5000);
+    } else {
+        showToast('✓ Live sync: +' + newCount + ' en ' + col + ' de ' + label, 'success', 4000);
+    }
 
     // Refresh relevant module UI (best-effort)
     try {
         if (col === 'cop15')     { refreshAllLists(); updateProgressBar(); }
-        if (col === 'testplan')  { if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies(); }
+        if (col === 'testplan')  {
+            if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies();
+            if (typeof tabCacheInvalidate === 'function') tabCacheInvalidate('tp');
+            if (typeof tpUpdateBadges === 'function') tpUpdateBadges();
+        }
         if (col === 'inventory') { if (typeof invRender === 'function') invRender(); }
     } catch(uiErr) { /* UI refresh is best-effort */ }
 }
@@ -1943,6 +1958,12 @@ function fbMergeExecute(remoteData, analysis, choices) {
                     if (remoteData.testplan.planImportDate) tpState.planImportDate = remoteData.testplan.planImportDate;
                     if (remoteData.testplan.lastDiff) tpState.lastDiff = remoteData.testplan.lastDiff;
                     if (remoteData.testplan.lastDiffDate) tpState.lastDiffDate = remoteData.testplan.lastDiffDate;
+                    // [v15.6] Los meses dinámicos van con el plan: las columnas de
+                    // volumen dependen de esos labels — sin esto, un CSV con un mes
+                    // nuevo llegaba a las demás estaciones con columnas desalineadas
+                    if (remoteData.testplan.months && remoteData.testplan.months.length) {
+                        tpState.months = remoteData.testplan.months;
+                    }
                 } else {
                     // Merge: add configs from remote that aren't in local
                     var localDescs = {};
