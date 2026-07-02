@@ -5327,21 +5327,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607020555';
+var APP_BUILD = '202607020556';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607020555' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607020556' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607020555' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607020556' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5357,7 +5357,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607020555' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607020556' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -21512,7 +21512,7 @@ function tpRenderRules(el) {
                             <span style="font-size:11px;">${label}</span>
                             <span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tp-amber)">${w[k]}%</span>
                         </div>
-                        <input type="range" min="0" max="100" step="5" value="${w[k]}" style="width:100%;accent-color:var(--tp-amber);" oninput="tpState.weights.${k}=+this.value;tpInvalidateCache();tpSave();_tpDebouncedRender();">
+                        <input type="range" min="0" max="100" step="5" value="${w[k]}" style="width:100%;accent-color:var(--tp-amber);" oninput="tpState.weights.${k}=+this.value;tpInvalidateCache();_tpDebouncedRender();" onchange="tpSave();">
                     </div>
                 `).join('')}
                 <div style="margin-top:8px;padding:8px;background:#161f2e;border-radius:6px;text-align:center;">
@@ -21528,7 +21528,7 @@ function tpRenderRules(el) {
                             <span style="font-size:11px;color:${tpRegionColor(r)};font-weight:600;">${r==='*'?'Otras (default)':r}</span>
                             <span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tp-amber)">${rp[r]!==undefined?rp[r]:50}</span>
                         </div>
-                        <input type="range" min="0" max="100" step="5" value="${rp[r]!==undefined?rp[r]:50}" style="width:100%;accent-color:${tpRegionColor(r)};" oninput="if(!tpState.regionPriority)tpState.regionPriority={};tpState.regionPriority['${r}']=+this.value;tpInvalidateCache();tpSave();_tpDebouncedRender();">
+                        <input type="range" min="0" max="100" step="5" value="${rp[r]!==undefined?rp[r]:50}" style="width:100%;accent-color:${tpRegionColor(r)};" oninput="if(!tpState.regionPriority)tpState.regionPriority={};tpState.regionPriority['${r}']=+this.value;tpInvalidateCache();_tpDebouncedRender();" onchange="tpSave();">
                     </div>
                 `).join('')}
             </div>
@@ -23263,6 +23263,8 @@ function tpBuildFamilies() {
         if (n > 0) families[key].testedConfigs++;
     });
 
+    // maxVol izado fuera del loop: recomputarlo por familia era O(familias²)
+    const maxVol = Math.max(...Object.values(families).map(x => x.totalVol + x.totalHist), 1);
     Object.values(families).forEach(f => {
         f.bodies = [...f.bodies].filter(Boolean).sort();
         f.drvs  = [...f.drvs].filter(Boolean).sort();
@@ -23271,7 +23273,6 @@ function tpBuildFamilies() {
         f.coverage = f.totalRequired > 0 ? f.totalTested / f.totalRequired : 1;
         f.configCoverage = f.configCount > 0 ? f.testedConfigs / f.configCount : 1;
         f.deficit = Math.max(0, f.totalRequired - f.totalTested);
-        const maxVol = Math.max(...Object.values(families).map(x => x.totalVol + x.totalHist), 1);
         f.riskScore = ((1 - f.coverage) * 60) + (((f.totalVol + f.totalHist) / maxVol) * 30) + ((1 - f.configCoverage) * 10);
         f.riskLevel = f.riskScore > 60 ? 'high' : f.riskScore > 30 ? 'medium' : 'low';
 
@@ -30476,7 +30477,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607020555' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607020556' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

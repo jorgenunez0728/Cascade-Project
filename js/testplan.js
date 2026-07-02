@@ -1880,7 +1880,7 @@ function tpRenderRules(el) {
                             <span style="font-size:11px;">${label}</span>
                             <span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tp-amber)">${w[k]}%</span>
                         </div>
-                        <input type="range" min="0" max="100" step="5" value="${w[k]}" style="width:100%;accent-color:var(--tp-amber);" oninput="tpState.weights.${k}=+this.value;tpInvalidateCache();tpSave();_tpDebouncedRender();">
+                        <input type="range" min="0" max="100" step="5" value="${w[k]}" style="width:100%;accent-color:var(--tp-amber);" oninput="tpState.weights.${k}=+this.value;tpInvalidateCache();_tpDebouncedRender();" onchange="tpSave();">
                     </div>
                 `).join('')}
                 <div style="margin-top:8px;padding:8px;background:#161f2e;border-radius:6px;text-align:center;">
@@ -1896,7 +1896,7 @@ function tpRenderRules(el) {
                             <span style="font-size:11px;color:${tpRegionColor(r)};font-weight:600;">${r==='*'?'Otras (default)':r}</span>
                             <span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tp-amber)">${rp[r]!==undefined?rp[r]:50}</span>
                         </div>
-                        <input type="range" min="0" max="100" step="5" value="${rp[r]!==undefined?rp[r]:50}" style="width:100%;accent-color:${tpRegionColor(r)};" oninput="if(!tpState.regionPriority)tpState.regionPriority={};tpState.regionPriority['${r}']=+this.value;tpInvalidateCache();tpSave();_tpDebouncedRender();">
+                        <input type="range" min="0" max="100" step="5" value="${rp[r]!==undefined?rp[r]:50}" style="width:100%;accent-color:${tpRegionColor(r)};" oninput="if(!tpState.regionPriority)tpState.regionPriority={};tpState.regionPriority['${r}']=+this.value;tpInvalidateCache();_tpDebouncedRender();" onchange="tpSave();">
                     </div>
                 `).join('')}
             </div>
@@ -3631,6 +3631,8 @@ function tpBuildFamilies() {
         if (n > 0) families[key].testedConfigs++;
     });
 
+    // maxVol izado fuera del loop: recomputarlo por familia era O(familias²)
+    const maxVol = Math.max(...Object.values(families).map(x => x.totalVol + x.totalHist), 1);
     Object.values(families).forEach(f => {
         f.bodies = [...f.bodies].filter(Boolean).sort();
         f.drvs  = [...f.drvs].filter(Boolean).sort();
@@ -3639,7 +3641,6 @@ function tpBuildFamilies() {
         f.coverage = f.totalRequired > 0 ? f.totalTested / f.totalRequired : 1;
         f.configCoverage = f.configCount > 0 ? f.testedConfigs / f.configCount : 1;
         f.deficit = Math.max(0, f.totalRequired - f.totalTested);
-        const maxVol = Math.max(...Object.values(families).map(x => x.totalVol + x.totalHist), 1);
         f.riskScore = ((1 - f.coverage) * 60) + (((f.totalVol + f.totalHist) / maxVol) * 30) + ((1 - f.configCoverage) * 10);
         f.riskLevel = f.riskScore > 60 ? 'high' : f.riskScore > 30 ? 'medium' : 'low';
 
