@@ -511,6 +511,34 @@ function _modalUxClose(el) {
     el._modalTrigger = null;
 }
 
+// ── [v15.6] Recarga tras actualización del service worker ──
+// Recarga inmediata solo en la ventana segura (recién cargada la app y sin
+// modal abierto); en cualquier otro caso, aviso persistente con botón.
+var _appLoadedAt = Date.now();
+
+function _swSafeToReload() {
+    if (Date.now() - _appLoadedAt > 15000) return false;
+    var openModal = document.querySelector(
+        '#substitutionModal[style*="flex"], #configModal[style*="block"], ' +
+        '#invModal[style*="block"], #fbModal[style*="block"], .custom-modal-overlay');
+    return !openModal;
+}
+
+function _swPromptReload() {
+    if (_swSafeToReload()) { location.reload(); return; }
+    if (document.getElementById('sw-update-banner')) return; // ya visible
+    var bar = document.createElement('div');
+    bar.id = 'sw-update-banner';
+    bar.setAttribute('role', 'status');
+    bar.style.cssText = 'position:fixed;bottom:74px;left:50%;transform:translateX(-50%);z-index:4000;' +
+        'background:#05141f;color:#f8fafc;border:1px solid rgba(255,255,255,0.2);border-radius:12px;' +
+        'padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 12px 28px rgba(0,0,0,0.35);font-size:13px;';
+    bar.innerHTML = '⬆️ Nueva versión disponible' +
+        '<button onclick="location.reload()" style="padding:8px 14px;background:var(--kia-red,#bb162b);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;min-height:40px;">Actualizar ahora</button>' +
+        '<button onclick="document.getElementById(\'sw-update-banner\').remove()" aria-label="Cerrar" style="background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:16px;padding:4px;">✕</button>';
+    document.body.appendChild(bar);
+}
+
 // ── [v15.5] Menú "⋯" de la topbar (móvil): colapsa los controles secundarios ──
 function topbarMoreToggle() {
     var group = document.getElementById('topbar-more-group');
@@ -2795,13 +2823,25 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(function(reg) {
                 console.log('SW registered:', reg.scope);
+                window._swReg = reg;
+                // [v15.6] Buscar actualización al arrancar y al volver a la app
+                // (throttle 5 min) — antes nadie llamaba reg.update() y los
+                // dispositivos podían quedarse en versiones viejas
+                try { reg.update(); } catch(e) {}
+                var _lastSwCheck = Date.now();
+                document.addEventListener('visibilitychange', function() {
+                    if (document.visibilityState === 'visible' && Date.now() - _lastSwCheck > 300000) {
+                        _lastSwCheck = Date.now();
+                        try { reg.update(); } catch(e) {}
+                    }
+                });
             }).catch(function(err) { console.log('SW registration skipped:', err.message); });
 
-            // [Fase 4.3] Listen for SW update notifications
+            // [Fase 4.3 → v15.6] El SW nuevo (skipWaiting+claim) avisa con SW_UPDATED:
+            // recargar de inmediato si el usuario aún no empezó a trabajar; si no,
+            // toast persistente con botón — nunca recargar a mitad de una captura
             navigator.serviceWorker.addEventListener('message', function(event) {
-                if (event.data && event.data.type === 'SW_UPDATED') {
-                    showToast('Nueva versión disponible. Recarga para actualizar.', 'info');
-                }
+                if (event.data && event.data.type === 'SW_UPDATED') _swPromptReload();
             });
         }
 
