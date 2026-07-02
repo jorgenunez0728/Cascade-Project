@@ -2237,6 +2237,7 @@ function libOnApproverGasChange() {
         if (_libMismatchAlarmKey !== alarmKey) {
             _libMismatchAlarmKey = alarmKey;
             if (typeof showToast === 'function') showToast('⚠️ Resultados no coinciden: ' + mismatches.join(', ') + '. Revise su lectura.', 'error');
+            if (typeof shakeElement === 'function') shakeElement(matchStatus);
             if (!vehicle.testData) vehicle.testData = {};
             if (!vehicle.testData.gasResults) vehicle.testData.gasResults = {};
             var approverName = '';

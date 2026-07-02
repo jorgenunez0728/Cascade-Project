@@ -558,10 +558,18 @@ function pnRenderUsers(el) {
 function pnAddOperator() {
     var name = document.getElementById('pn-new-op-name');
     var role = document.getElementById('pn-new-op-role');
-    if (!name || !name.value.trim()) { showToast('Ingresa un nombre', 'error'); return; }
+    if (!name || !name.value.trim()) {
+        showToast('Ingresa un nombre', 'error');
+        if (name && typeof shakeElement === 'function') shakeElement(name);
+        return;
+    }
     // Defensa en profundidad: los renders escapan HTML, pero un nombre con <> nunca es legítimo
     var opName = name.value.trim().replace(/\s+/g, ' ');
-    if (/[<>]/.test(opName)) { showToast('El nombre no puede contener < o >', 'error'); return; }
+    if (/[<>]/.test(opName)) {
+        showToast('El nombre no puede contener < o >', 'error');
+        if (typeof shakeElement === 'function') shakeElement(name);
+        return;
+    }
 
     var maxId = pnState.operators.reduce(function(m, o) { return Math.max(m, o.id || 0); }, 0);
     pnState.operators.push({

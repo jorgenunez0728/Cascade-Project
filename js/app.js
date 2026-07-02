@@ -2817,9 +2817,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
             if (installBtn) installBtn.style.display = '';
         });
 
-        // ═══ [R3-M7] Ripple effect on buttons ═══
+        // ═══ [R3-M7] Ripple effect on buttons (v15.5: también botones TP/módulos) ═══
         document.addEventListener('click', function(e) {
-            var btn = e.target.closest('.btn-primary, .btn-secondary, .modal-btn-confirm');
+            var btn = e.target.closest('.btn-primary, .btn-secondary, .modal-btn-confirm, .tp-btn-primary');
             if (!btn || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
             _addRipple(e, btn);
         });

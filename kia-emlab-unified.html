@@ -4626,21 +4626,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607020611';
+var APP_BUILD = '202607020613';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607020611' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607020613' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607020611' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607020613' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -4656,7 +4656,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607020611' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607020613' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -7257,9 +7257,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
             if (installBtn) installBtn.style.display = '';
         });
 
-        // ═══ [R3-M7] Ripple effect on buttons ═══
+        // ═══ [R3-M7] Ripple effect on buttons (v15.5: también botones TP/módulos) ═══
         document.addEventListener('click', function(e) {
-            var btn = e.target.closest('.btn-primary, .btn-secondary, .modal-btn-confirm');
+            var btn = e.target.closest('.btn-primary, .btn-secondary, .modal-btn-confirm, .tp-btn-primary');
             if (!btn || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
             _addRipple(e, btn);
         });
@@ -10775,6 +10775,7 @@ function libOnApproverGasChange() {
         if (_libMismatchAlarmKey !== alarmKey) {
             _libMismatchAlarmKey = alarmKey;
             if (typeof showToast === 'function') showToast('⚠️ Resultados no coinciden: ' + mismatches.join(', ') + '. Revise su lectura.', 'error');
+            if (typeof shakeElement === 'function') shakeElement(matchStatus);
             if (!vehicle.testData) vehicle.testData = {};
             if (!vehicle.testData.gasResults) vehicle.testData.gasResults = {};
             var approverName = '';
@@ -24664,10 +24665,18 @@ function pnRenderUsers(el) {
 function pnAddOperator() {
     var name = document.getElementById('pn-new-op-name');
     var role = document.getElementById('pn-new-op-role');
-    if (!name || !name.value.trim()) { showToast('Ingresa un nombre', 'error'); return; }
+    if (!name || !name.value.trim()) {
+        showToast('Ingresa un nombre', 'error');
+        if (name && typeof shakeElement === 'function') shakeElement(name);
+        return;
+    }
     // Defensa en profundidad: los renders escapan HTML, pero un nombre con <> nunca es legítimo
     var opName = name.value.trim().replace(/\s+/g, ' ');
-    if (/[<>]/.test(opName)) { showToast('El nombre no puede contener < o >', 'error'); return; }
+    if (/[<>]/.test(opName)) {
+        showToast('El nombre no puede contener < o >', 'error');
+        if (typeof shakeElement === 'function') shakeElement(name);
+        return;
+    }
 
     var maxId = pnState.operators.reduce(function(m, o) { return Math.max(m, o.id || 0); }, 0);
     pnState.operators.push({
@@ -29870,7 +29879,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607020611' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607020613' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
