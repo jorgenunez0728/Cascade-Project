@@ -175,11 +175,41 @@ function _pnReportWeeklyPlan() {
 // Renders the canonical cross-module KPI strip + pipeline + weekly plan + alerts.
 // Reused by Panel (pn-dashboard) and HOY so the numbers come from ONE place.
 // opts.sections: subset of ['kpi','pipeline','plan','alerts'] (default: all).
+
+// [v15.5] Memoización: HOY y Panel re-escaneaban todos los módulos en cada
+// visita. Clave compuesta barata + contador de saves; en hit se reinyecta el
+// HTML sin recomputar ni re-animar los contadores.
+var _labOverviewCache = {};   // sectionsKey → { key, html }
+var _labOverviewGen = 0;      // se incrementa con cada 'data:saved' (saveDB/invSave)
+window.addEventListener('data:saved', function() { _labOverviewGen++; });
+
+function _labOverviewKey(sections) {
+    var vCount = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles.length : 0;
+    var tpStamp = (typeof tpState !== 'undefined' && tpState) ? (tpState._lastSave || 0) : 0;
+    var opsSig = (typeof pnState !== 'undefined' && pnState.operators)
+        ? pnState.operators.length + ':' + pnState.operators.filter(function(o) { return o.active; }).length : '0:0';
+    var gasCount = (typeof invState !== 'undefined' && invState.gases) ? invState.gases.length : 0;
+    var syncStamp = (typeof fbSync !== 'undefined' && fbSync.lastSync) ? fbSync.lastSync.getTime() : 0;
+    return [_labOverviewGen, vCount, tpStamp, opsSig, gasCount, syncStamp, localToday(), sections.join(',')].join('|');
+}
+
 function renderLabOverview(el, opts) {
     if (!el) return;
     opts = opts || {};
     var sections = opts.sections || ['kpi', 'pipeline', 'plan', 'alerts'];
     var has = function(s) { return sections.indexOf(s) !== -1; };
+
+    var sectionsKey = sections.join(',');
+    var memoKey = _labOverviewKey(sections);
+    var cached = _labOverviewCache[sectionsKey];
+    if (cached && cached.key === memoKey) {
+        el.innerHTML = cached.html;
+        // Contadores al valor final sin re-animar (los datos no cambiaron)
+        el.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
+            numEl.textContent = (parseFloat(numEl.dataset.kpiTarget) || 0) + (numEl.dataset.kpiSuffix || '');
+        });
+        return;
+    }
 
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
@@ -251,6 +281,7 @@ function renderLabOverview(el, opts) {
         }
     }
     el.innerHTML = html;
+    _labOverviewCache[sectionsKey] = { key: memoKey, html: html };
     el.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
         var t = parseFloat(numEl.dataset.kpiTarget) || 0;
         if (typeof animateCounter === 'function') animateCounter(numEl, t, { suffix: numEl.dataset.kpiSuffix || '' });

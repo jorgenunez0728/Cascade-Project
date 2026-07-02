@@ -5327,21 +5327,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607020559';
+var APP_BUILD = '202607020601';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607020559' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607020601' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607020559' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607020601' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5357,7 +5357,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607020559' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607020601' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -11648,6 +11648,9 @@ function approveAndArchive() {
                     data: { status: 'archived', approverValues: approverValues }
                 });
                 exportSingleArchivedVehicle(vehicle.id);
+                // Compactar timeline al archivar: el historial completo ya quedó en el export
+                // JSON/PDF; el vehículo archivado se serializa y sube en cada save para siempre
+                if (vehicle.timeline && vehicle.timeline.length > 30) vehicle.timeline = vehicle.timeline.slice(-30);
                 // skipSave: un solo tpSave/invSave al final de la cascada (antes: 2× tpSave + invSave)
                 tpAutoFeedFromRelease(vehicle, { skipSave: true });
                 invLogTestUsage(vehicle, { skipSave: true });
@@ -15366,6 +15369,8 @@ function v7BatchRelease() {
                 data: { status: 'archived' }
             });
             if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
+            // Compactar timeline al archivar (el historial completo quedó en el export)
+            if (vehicle.timeline && vehicle.timeline.length > 30) vehicle.timeline = vehicle.timeline.slice(-30);
             // skipSave: un solo tpSave/invSave al final del lote, no por vehículo
             if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle, { skipSave: true });
             if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle, { skipSave: true });
@@ -24922,11 +24927,41 @@ function _pnReportWeeklyPlan() {
 // Renders the canonical cross-module KPI strip + pipeline + weekly plan + alerts.
 // Reused by Panel (pn-dashboard) and HOY so the numbers come from ONE place.
 // opts.sections: subset of ['kpi','pipeline','plan','alerts'] (default: all).
+
+// [v15.5] Memoización: HOY y Panel re-escaneaban todos los módulos en cada
+// visita. Clave compuesta barata + contador de saves; en hit se reinyecta el
+// HTML sin recomputar ni re-animar los contadores.
+var _labOverviewCache = {};   // sectionsKey → { key, html }
+var _labOverviewGen = 0;      // se incrementa con cada 'data:saved' (saveDB/invSave)
+window.addEventListener('data:saved', function() { _labOverviewGen++; });
+
+function _labOverviewKey(sections) {
+    var vCount = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles.length : 0;
+    var tpStamp = (typeof tpState !== 'undefined' && tpState) ? (tpState._lastSave || 0) : 0;
+    var opsSig = (typeof pnState !== 'undefined' && pnState.operators)
+        ? pnState.operators.length + ':' + pnState.operators.filter(function(o) { return o.active; }).length : '0:0';
+    var gasCount = (typeof invState !== 'undefined' && invState.gases) ? invState.gases.length : 0;
+    var syncStamp = (typeof fbSync !== 'undefined' && fbSync.lastSync) ? fbSync.lastSync.getTime() : 0;
+    return [_labOverviewGen, vCount, tpStamp, opsSig, gasCount, syncStamp, localToday(), sections.join(',')].join('|');
+}
+
 function renderLabOverview(el, opts) {
     if (!el) return;
     opts = opts || {};
     var sections = opts.sections || ['kpi', 'pipeline', 'plan', 'alerts'];
     var has = function(s) { return sections.indexOf(s) !== -1; };
+
+    var sectionsKey = sections.join(',');
+    var memoKey = _labOverviewKey(sections);
+    var cached = _labOverviewCache[sectionsKey];
+    if (cached && cached.key === memoKey) {
+        el.innerHTML = cached.html;
+        // Contadores al valor final sin re-animar (los datos no cambiaron)
+        el.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
+            numEl.textContent = (parseFloat(numEl.dataset.kpiTarget) || 0) + (numEl.dataset.kpiSuffix || '');
+        });
+        return;
+    }
 
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
@@ -24998,6 +25033,7 @@ function renderLabOverview(el, opts) {
         }
     }
     el.innerHTML = html;
+    _labOverviewCache[sectionsKey] = { key: memoKey, html: html };
     el.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
         var t = parseFloat(numEl.dataset.kpiTarget) || 0;
         if (typeof animateCounter === 'function') animateCounter(numEl, t, { suffix: numEl.dataset.kpiSuffix || '' });
@@ -30480,7 +30516,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607020559' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607020601' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

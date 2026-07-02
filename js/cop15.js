@@ -2464,6 +2464,9 @@ function approveAndArchive() {
                     data: { status: 'archived', approverValues: approverValues }
                 });
                 exportSingleArchivedVehicle(vehicle.id);
+                // Compactar timeline al archivar: el historial completo ya quedó en el export
+                // JSON/PDF; el vehículo archivado se serializa y sube en cada save para siempre
+                if (vehicle.timeline && vehicle.timeline.length > 30) vehicle.timeline = vehicle.timeline.slice(-30);
                 // skipSave: un solo tpSave/invSave al final de la cascada (antes: 2× tpSave + invSave)
                 tpAutoFeedFromRelease(vehicle, { skipSave: true });
                 invLogTestUsage(vehicle, { skipSave: true });
@@ -6182,6 +6185,8 @@ function v7BatchRelease() {
                 data: { status: 'archived' }
             });
             if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
+            // Compactar timeline al archivar (el historial completo quedó en el export)
+            if (vehicle.timeline && vehicle.timeline.length > 30) vehicle.timeline = vehicle.timeline.slice(-30);
             // skipSave: un solo tpSave/invSave al final del lote, no por vehículo
             if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle, { skipSave: true });
             if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle, { skipSave: true });
