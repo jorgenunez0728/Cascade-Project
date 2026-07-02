@@ -201,7 +201,7 @@ function invGenerateSerial(controlNo) {
 }
 
 function invAutoControlNo() {
-    var today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    var today = localToday().replace(/-/g,'');
     var todayCount = invState.gases.filter(function(g){ return g.controlNo && g.controlNo.startsWith(today); }).length;
     return today + '-' + String(todayCount + 1).padStart(2,'0');
 }
@@ -234,7 +234,7 @@ function invGasLevel(g) {
 function invReadingStatusToday() {
     var safe = { inUseTotal: 0, capturedToday: 0, daysSinceLast: null };
     if (typeof invState === 'undefined' || !invState) return safe;
-    var todayISO = new Date().toISOString().slice(0,10);
+    var todayISO = localToday();
     var inUse = (invState.gases || []).filter(function(g){ return g.status !== 'Empty'; });
     var capturedToday = inUse.filter(function(g){
         return g.readings && g.readings.length && g.readings[g.readings.length-1].date === todayISO;
@@ -457,7 +457,7 @@ function invShowAddGas(editId) {
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Trazabilidad</label><select id="inv-g-trace" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (g&&g.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (g&&g.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:localToday()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Proveedor</label><input id="inv-g-supplier" value="' + (g?g.supplier||'':'') + '" placeholder="Nombre del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '</div></details>' +
@@ -595,7 +595,7 @@ function invShowBarcode(id) {
     html += '<div style="font-size:11px;color:#64748b;">Ficha de Recepcion de Cilindro de Gas</div>';
     html += '</div>';
     html += '<div style="text-align:right;font-size:11px;color:#475569;font-weight:600;">';
-    html += '<div>Fecha recepcion: <strong style="color:#0f172a;font-size:12px;">' + (g.regDate || new Date().toISOString().slice(0,10)) + '</strong></div>';
+    html += '<div>Fecha recepcion: <strong style="color:#0f172a;font-size:12px;">' + (g.regDate || localToday()) + '</strong></div>';
     html += '<div>Folio: ' + g.controlNo + '</div>';
     html += '</div></div>';
 
@@ -830,7 +830,7 @@ function invShowTimeline(id) {
     html += '<div id="inv-map-read-area" style="display:none;margin-top:8px;">';
     html += '<div style="display:flex;gap:6px;align-items:center;">';
     html += '<input id="inv-map-psi" type="number" inputmode="numeric" placeholder="psi" style="flex:1;padding:10px;font-size:16px;font-weight:700;text-align:center;border:2px solid #8b5cf6;border-radius:8px;background:#f8fafc;color:#0f172a;">';
-    html += '<input id="inv-map-date" type="date" value="' + new Date().toISOString().slice(0,10) + '" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:10px;color:#334155;">';
+    html += '<input id="inv-map-date" type="date" value="' + localToday() + '" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:10px;color:#334155;">';
     html += '</div>';
     html += '<div style="display:flex;gap:6px;margin-top:6px;">';
     html += '<button onclick="document.getElementById(\'inv-map-read-area\').style.display=\'none\';document.getElementById(\'inv-map-read-btn\').style.display=\'block\';" style="flex:1;padding:8px;background:#e2e8f0;color:#334155;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Cancelar</button>';
@@ -856,7 +856,7 @@ function invMapQuickReadSave(gasId) {
     var psi = parseFloat(inp.value);
     if (isNaN(psi) || psi < 0) { showToast('Presion invalida', 'error'); return; }
 
-    var date = dateInp ? dateInp.value : new Date().toISOString().slice(0, 10);
+    var date = dateInp ? dateInp.value : localToday();
     var gas = invState.gases.find(function(g) { return g.id === gasId; });
     if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
 
@@ -964,7 +964,7 @@ function invRenderReadings(el) {
 
 // Unified daily capture: saves gas PSI + fuel levels in a single action.
 function invSaveDailyCapture() {
-    var date = new Date().toISOString().slice(0,10);
+    var date = localToday();
     var count = 0;
     (invState.gases || []).filter(function(g){ return g.status !== 'Empty'; }).forEach(function(g) {
         var inp = document.getElementById('inv-rd-' + g.id);
@@ -1141,7 +1141,7 @@ function invQuickReadPopup(g) {
 
     var lastR = g.readings && g.readings.length > 0 ? g.readings[g.readings.length - 1] : null;
     var lvl = invGasLevel(g);
-    var today = new Date().toISOString().slice(0, 10);
+    var today = localToday();
 
     var html = '<div style="max-width:400px;margin:30px auto;background:#0f172a;border-radius:14px;padding:24px;position:relative;color:#e2e8f0;">';
     html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
@@ -1212,7 +1212,7 @@ function invQuickReadSave(gasId) {
     var psi = parseFloat(inp.value);
     if (isNaN(psi) || psi < 0) { showToast('Presion invalida', 'error'); return; }
 
-    var date = dateInp ? dateInp.value : new Date().toISOString().slice(0, 10);
+    var date = dateInp ? dateInp.value : localToday();
     var gas = invState.gases.find(function(g) { return g.id === gasId; });
     if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
 
@@ -1683,7 +1683,7 @@ function invRenderPredict(el) {
 function invExportGases() {
     var a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(invState, null, 2)], {type:'application/json'}));
-    a.download = 'kia_inventory_' + new Date().toISOString().slice(0,10) + '.json';
+    a.download = 'kia_inventory_' + localToday() + '.json';
     a.click();
 }
 function invImportGases() { document.getElementById('inv-import-file').click(); }
@@ -1712,7 +1712,7 @@ function invHandleImport(event) {
 // ══════════════════════════════════════════════════
 function invLogTestUsage(vehicle) {
     if (!vehicle) return;
-    var date = new Date().toISOString().slice(0,10);
+    var date = localToday();
     var regulation = vehicle.configCode ? vehicle.configCode.split(' ')[0] : '';
 
     // Capture specific cylinders "In use" with full traceability
@@ -2115,7 +2115,7 @@ function invAddFuelTank(editId) {
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Capacidad</label><input id="inv-ft-cap" type="number" value="' + v('capacity','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Nivel actual</label><input id="inv-ft-level" type="number" value="' + v('currentLevel','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Unidad</label><select id="inv-ft-unit" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recepcion</label><input id="inv-ft-date" type="date" value="' + v('regDate',new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recepcion</label><input id="inv-ft-date" type="date" value="' + v('regDate',localToday()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Estatus</label><select id="inv-ft-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
@@ -2185,7 +2185,7 @@ function invSaveFuelReading(tankId) {
     if (isNaN(level)) { showToast('Nivel inválido', 'error'); return; }
     t.currentLevel = level;
     if (!t.readings) t.readings = [];
-    var fuelDate = new Date().toISOString().slice(0,10);
+    var fuelDate = localToday();
     t.readings.push({ date: fuelDate, level: level });
     invState.lastReadingDate = fuelDate;
     if (typeof auditLog === 'function') auditLog('inv', 'fuel_reading', {type:'fuel', id:t.id, label:(t.name||t.id)}, level + ' ' + (t.unit||'L') + ' (' + fuelDate + ')');
@@ -2319,7 +2319,7 @@ function invExportReport() {
     ], {type:'text/html'});
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'consumables_report_' + new Date().toISOString().slice(0,10) + '.html';
+    a.download = 'consumables_report_' + localToday() + '.html';
     a.click();
     showToast('Reporte HTML descargado', 'success');
 }
@@ -3824,7 +3824,7 @@ function invExportWeeklyForecast() {
 
     var a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = 'forecast_semanal_' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.download = 'forecast_semanal_' + localToday() + '.csv';
     a.click();
     showToast('Forecast exportado', 'success');
 }

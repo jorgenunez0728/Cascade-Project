@@ -183,8 +183,8 @@ function renderLabOverview(el, opts) {
 
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
-    var today = new Date().toISOString().substring(0, 10);
-    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.substring(0, 10) === today; });
+    var today = localToday();
+    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) === today; });
     var byStatus = {}; activeVehicles.forEach(function(v) { byStatus[v.status] = (byStatus[v.status] || 0) + 1; });
     var pendingApproval = vehicles.filter(function(v) { return v.status === 'pending-approval'; }).length;
 
@@ -267,7 +267,7 @@ function pnRenderDashboard(el) {
     var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
     var archivedToday = vehicles.filter(function(v) {
         if (v.status !== 'archived' || !v.archivedAt) return false;
-        return v.archivedAt.substring(0, 10) === new Date().toISOString().substring(0, 10);
+        return localDateStr(new Date(v.archivedAt)) === localToday();
     });
 
     var byStatus = {};
@@ -296,7 +296,7 @@ function pnRenderDashboard(el) {
 
     // Active operator from shift log
     var todayShifts = pnState.shiftLog.filter(function(s) {
-        return s.date === new Date().toISOString().substring(0, 10);
+        return s.date === localToday();
     });
     var currentShift = todayShifts.length > 0 ? todayShifts[todayShifts.length - 1] : null;
 
@@ -647,7 +647,7 @@ function pnSyncOperators() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function pnRenderShiftLog(el) {
-    var todayStr = new Date().toISOString().substring(0, 10);
+    var todayStr = localToday();
     var activeOps = pnState.operators.filter(function(o) { return o.active; }).map(function(o) { return o.name; });
 
     // Categories for log entries
@@ -767,7 +767,7 @@ function pnAddShiftEntry() {
     var now = new Date();
     pnState.shiftLog.push({
         id: 'sl_' + Date.now(),
-        date: now.toISOString().substring(0, 10),
+        date: localDateStr(now),
         time: now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
         operator: op.value,
         category: cat ? cat.value : 'Observación',
@@ -793,7 +793,7 @@ function pnDeleteShiftEntry(id) {
 }
 
 function pnExportShiftLog() {
-    var todayStr = new Date().toISOString().substring(0, 10);
+    var todayStr = localToday();
     var entries = pnState.shiftLog.filter(function(s) { return s.date === todayStr; });
     if (entries.length === 0) { showToast('Sin entradas hoy', 'error'); return; }
 
@@ -1000,10 +1000,10 @@ function pnRenderIntelligence(el) {
     var weeklyData = {};
     tests.forEach(function(t) {
         if (!t.date) return;
-        var d = new Date(t.date);
+        var d = parseLocalDate(t.date); // parse local: new Date('YYYY-MM-DD') es UTC y corre el día
         var weekStart = new Date(d);
         weekStart.setDate(d.getDate() - d.getDay());
-        var wk = weekStart.toISOString().slice(0, 10);
+        var wk = localDateStr(weekStart);
         if (!weeklyData[wk]) weeklyData[wk] = { tests: 0, gasUsed: 0 };
         weeklyData[wk].tests++;
     });
@@ -1013,10 +1013,10 @@ function pnRenderIntelligence(el) {
         if (g.usageLog) {
             g.usageLog.forEach(function(log) {
                 if (!log.date) return;
-                var d = new Date(log.date);
+                var d = parseLocalDate(log.date);
                 var weekStart = new Date(d);
                 weekStart.setDate(d.getDate() - d.getDay());
-                var wk = weekStart.toISOString().slice(0, 10);
+                var wk = localDateStr(weekStart);
                 if (!weeklyData[wk]) weeklyData[wk] = { tests: 0, gasUsed: 0 };
                 weeklyData[wk].gasUsed += (log.psiUsed || 0);
             });
@@ -1572,7 +1572,7 @@ function _pnCollectCalendarEvents(year, month) {
             var depDate = new Date();
             depDate.setDate(depDate.getDate() + Math.round(daysLeft));
             if (depDate >= monthStart && depDate <= monthEnd) {
-                var dateStr = depDate.toISOString().slice(0, 10);
+                var dateStr = localDateStr(depDate);
                 events.push({
                     date: dateStr,
                     type: 'gas_depletion',
@@ -1588,13 +1588,13 @@ function _pnCollectCalendarEvents(year, month) {
     if (typeof tpState !== 'undefined' && tpState.weeklyPlans) {
         tpState.weeklyPlans.forEach(function(plan) {
             if (!plan.weekStart) return;
-            var ws = new Date(plan.weekStart);
+            var ws = parseLocalDate(plan.weekStart);
             // Show each day of the week
             for (var i = 0; i < 5; i++) {
                 var d = new Date(ws);
                 d.setDate(d.getDate() + i);
                 if (d >= monthStart && d <= monthEnd) {
-                    var dateStr = d.toISOString().slice(0, 10);
+                    var dateStr = localDateStr(d);
                     var pending = (plan.items || []).filter(function(it) { return !it.completed; }).length;
                     if (pending > 0) {
                         events.push({
@@ -1619,7 +1619,7 @@ function _pnCollectCalendarEvents(year, month) {
                 var d = new Date();
                 if (d >= monthStart && d <= monthEnd) {
                     events.push({
-                        date: d.toISOString().slice(0, 10),
+                        date: localDateStr(d),
                         type: 'release',
                         color: '#10b981',
                         label: '🏁 Listo: VIN ...' + (v.vin || '').slice(-6),
@@ -1675,8 +1675,8 @@ function _pnCalendarWeekSummary(events) {
     var weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
 
-    var weekStartStr = weekStart.toISOString().slice(0, 10);
-    var weekEndStr = weekEnd.toISOString().slice(0, 10);
+    var weekStartStr = localDateStr(weekStart);
+    var weekEndStr = localDateStr(weekEnd);
 
     var weekEvents = events.filter(function(ev) { return ev.date >= weekStartStr && ev.date <= weekEndStr; });
     if (weekEvents.length === 0) return '';
@@ -1994,7 +1994,7 @@ function panelAlpineComponent() {
         },
 
         // ── Computed — Shift Log ──
-        todayStr: function() { return new Date().toISOString().substring(0, 10); },
+        todayStr: function() { return localToday(); },
         todayEntries: function() {
             var today = this.todayStr();
             return this.shiftLog.filter(function(s) { return s.date === today; }).slice().reverse();
@@ -2020,7 +2020,7 @@ function panelAlpineComponent() {
             var now = new Date();
             this.shiftLog.push({
                 id: 'sl_' + Date.now(),
-                date: now.toISOString().substring(0, 10),
+                date: localDateStr(now),
                 time: now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
                 operator: this.shiftOperator,
                 category: this.shiftCategory,
@@ -2219,14 +2219,15 @@ function panelAlpineComponent() {
 function pnRenderExecutive(el) {
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var now = new Date();
-    var todayStr = now.toISOString().slice(0,10);
-    var weekAgo = new Date(now - 7 * 86400000).toISOString().slice(0,10);
-    var monthAgo = new Date(now - 30 * 86400000).toISOString().slice(0,10);
+    var todayStr = localToday();
+    var weekAgo = localDateStr(new Date(now - 7 * 86400000));
+    var monthAgo = localDateStr(new Date(now - 30 * 86400000));
 
-    // Throughput metrics
-    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) === todayStr; }).length;
-    var archivedWeek = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= weekAgo; }).length;
-    var archivedMonth = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= monthAgo; }).length;
+    // Throughput metrics (día local del timestamp de archivado)
+    var _archDay = function(v) { return localDateStr(new Date(v.archivedAt)); };
+    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) === todayStr; }).length;
+    var archivedWeek = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) >= weekAgo; }).length;
+    var archivedMonth = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) >= monthAgo; }).length;
     var activeCount = vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
 
     // Compliance scorecard
@@ -2330,7 +2331,7 @@ function pnRenderExecutive(el) {
     // Team metrics
     html += '<div class="tp-card"><div class="tp-card-title"><span>Metricas por Operador</span></div>';
     var opStats = {};
-    vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= weekAgo; }).forEach(function(v) {
+    vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) >= weekAgo; }).forEach(function(v) {
         var op = v.registeredBy || (v.testData && v.testData.testResponsible) || 'Desconocido';
         if (!opStats[op]) opStats[op] = 0;
         opStats[op]++;
@@ -2439,12 +2440,12 @@ function pnRenderTurnaround(el) {
     html += '<div class="tp-card"><div class="tp-card-title"><span>Throughput Diario (14 dias)</span></div>';
     var dailyCounts = {};
     for (var d = 13; d >= 0; d--) {
-        var dateStr = new Date(Date.now() - d * 86400000).toISOString().slice(0,10);
+        var dateStr = localDateStr(new Date(Date.now() - d * 86400000));
         dailyCounts[dateStr] = 0;
     }
     archived.forEach(function(v) {
         if (v.archivedAt) {
-            var ds = v.archivedAt.slice(0,10);
+            var ds = localDateStr(new Date(v.archivedAt));
             if (dailyCounts.hasOwnProperty(ds)) dailyCounts[ds]++;
         }
     });

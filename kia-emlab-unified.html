@@ -5327,21 +5327,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607020536';
+var APP_BUILD = '202607020542';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607020536' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607020542' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607020536' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607020542' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5357,7 +5357,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607020536' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607020542' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -5874,7 +5874,7 @@ function auditExportCSV() {
     var blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'audit_trail_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.download = 'audit_trail_' + localToday() + '.csv';
     a.click();
 }
 
@@ -6530,6 +6530,20 @@ function nowLocalDatetimeValue() {
   return d.toISOString().slice(0,16); // "YYYY-MM-DDTHH:MM"
 }
 
+// ── Fechas de calendario en hora LOCAL (el lab opera en UTC-6: toISOString()
+//    después de ~18:00 ya es "mañana"; usar estos helpers para días calendario) ──
+function localDateStr(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function localToday() { return localDateStr(new Date()); }
+// Parse 'YYYY-MM-DD' como fecha LOCAL (new Date('YYYY-MM-DD') parsea UTC y corre el día)
+function parseLocalDate(ymd) {
+  if (ymd instanceof Date) return ymd;
+  var p = String(ymd || '').slice(0, 10).split('-');
+  return new Date(+p[0], (+p[1] || 1) - 1, +p[2] || 1);
+}
+
 
 function setAltaDatetimeIfEmpty(force = false) {
   const el = document.getElementById('reg_datetime');
@@ -6969,7 +6983,7 @@ function dailyDashRender() {
             );
         });
         var releasedToday = (db.vehicles || []).filter(function(v) {
-            return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) === now.toISOString().slice(0,10) &&
+            return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) === localToday() &&
                 (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
         }).length;
         var testingToday = (db.vehicles || []).filter(function(v) {
@@ -7658,7 +7672,7 @@ function generateWeeklyStatusPDF(opts) {
             ? _dataUri.split(',')[1]
             : '';
     }
-    doc.save('KIA-EmLab-Semanal-' + today.toISOString().slice(0, 10) + '.pdf');
+    doc.save('KIA-EmLab-Semanal-' + localDateStr(today) + '.pdf');
     hideOverlayLoading();
     showToast('Reporte PDF semanal generado', 'success');
 }
@@ -8454,7 +8468,7 @@ function downloadFullBackup() {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = 'kia-emlab-backup_' + new Date().toISOString().slice(0,10) + '.json';
+    a.download = 'kia-emlab-backup_' + localToday() + '.json';
     a.click();
     URL.revokeObjectURL(url);
     showToast('Backup completo descargado', 'success');
@@ -11177,7 +11191,7 @@ function applyAutoAdvance(nextStatus) {
         tomorrow.setDate(tomorrow.getDate() + 1);
         if (tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
         if (tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
-        testDt.value = tomorrow.toISOString().slice(0, 16).replace('T', 'T') || tomorrow.toISOString().slice(0, 10) + 'T08:00';
+        testDt.value = localDateStr(tomorrow) + 'T08:00';
       }
     }
   }
@@ -12118,7 +12132,7 @@ function _doBatchPDF(ids) {
     function next() {
         if (idx >= total) {
             overlay.remove();
-            var dateStr = new Date().toISOString().slice(0,10);
+            var dateStr = localToday();
             doc.save('COP15-F05_Batch_' + dateStr + '.pdf');
             showToast(total + ' vehículos exportados a PDF', 'success');
             return;
@@ -14327,7 +14341,7 @@ function batchAdvanceToTesting(vehicleId) {
         tomorrow.setDate(tomorrow.getDate() + 1);
         if (tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
         if (tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
-        vehicle.testData.testDatetime = tomorrow.toISOString().slice(0, 10) + 'T08:00';
+        vehicle.testData.testDatetime = localDateStr(tomorrow) + 'T08:00';
     }
 
     saveDB();
@@ -14358,7 +14372,7 @@ function batchScheduleTests() {
         if (!precondOk) return; // Only advance precond-complete vehicles
 
         var hour = 8 + (idx * 2); // 8, 10, 12, 14...
-        var dateStr = baseDate.toISOString().slice(0, 10) + 'T' + String(hour).padStart(2, '0') + ':00';
+        var dateStr = localDateStr(baseDate) + 'T' + String(hour).padStart(2, '0') + ':00';
 
         vehicle.status = 'testing';
         vehicle.testData = vehicle.testData || {};
@@ -15626,7 +15640,7 @@ function invGenerateSerial(controlNo) {
 }
 
 function invAutoControlNo() {
-    var today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    var today = localToday().replace(/-/g,'');
     var todayCount = invState.gases.filter(function(g){ return g.controlNo && g.controlNo.startsWith(today); }).length;
     return today + '-' + String(todayCount + 1).padStart(2,'0');
 }
@@ -15659,7 +15673,7 @@ function invGasLevel(g) {
 function invReadingStatusToday() {
     var safe = { inUseTotal: 0, capturedToday: 0, daysSinceLast: null };
     if (typeof invState === 'undefined' || !invState) return safe;
-    var todayISO = new Date().toISOString().slice(0,10);
+    var todayISO = localToday();
     var inUse = (invState.gases || []).filter(function(g){ return g.status !== 'Empty'; });
     var capturedToday = inUse.filter(function(g){
         return g.readings && g.readings.length && g.readings[g.readings.length-1].date === todayISO;
@@ -15882,7 +15896,7 @@ function invShowAddGas(editId) {
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Trazabilidad</label><select id="inv-g-trace" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (g&&g.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (g&&g.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:localToday()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Proveedor</label><input id="inv-g-supplier" value="' + (g?g.supplier||'':'') + '" placeholder="Nombre del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '</div></details>' +
@@ -16020,7 +16034,7 @@ function invShowBarcode(id) {
     html += '<div style="font-size:11px;color:#64748b;">Ficha de Recepcion de Cilindro de Gas</div>';
     html += '</div>';
     html += '<div style="text-align:right;font-size:11px;color:#475569;font-weight:600;">';
-    html += '<div>Fecha recepcion: <strong style="color:#0f172a;font-size:12px;">' + (g.regDate || new Date().toISOString().slice(0,10)) + '</strong></div>';
+    html += '<div>Fecha recepcion: <strong style="color:#0f172a;font-size:12px;">' + (g.regDate || localToday()) + '</strong></div>';
     html += '<div>Folio: ' + g.controlNo + '</div>';
     html += '</div></div>';
 
@@ -16255,7 +16269,7 @@ function invShowTimeline(id) {
     html += '<div id="inv-map-read-area" style="display:none;margin-top:8px;">';
     html += '<div style="display:flex;gap:6px;align-items:center;">';
     html += '<input id="inv-map-psi" type="number" inputmode="numeric" placeholder="psi" style="flex:1;padding:10px;font-size:16px;font-weight:700;text-align:center;border:2px solid #8b5cf6;border-radius:8px;background:#f8fafc;color:#0f172a;">';
-    html += '<input id="inv-map-date" type="date" value="' + new Date().toISOString().slice(0,10) + '" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:10px;color:#334155;">';
+    html += '<input id="inv-map-date" type="date" value="' + localToday() + '" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:10px;color:#334155;">';
     html += '</div>';
     html += '<div style="display:flex;gap:6px;margin-top:6px;">';
     html += '<button onclick="document.getElementById(\'inv-map-read-area\').style.display=\'none\';document.getElementById(\'inv-map-read-btn\').style.display=\'block\';" style="flex:1;padding:8px;background:#e2e8f0;color:#334155;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Cancelar</button>';
@@ -16281,7 +16295,7 @@ function invMapQuickReadSave(gasId) {
     var psi = parseFloat(inp.value);
     if (isNaN(psi) || psi < 0) { showToast('Presion invalida', 'error'); return; }
 
-    var date = dateInp ? dateInp.value : new Date().toISOString().slice(0, 10);
+    var date = dateInp ? dateInp.value : localToday();
     var gas = invState.gases.find(function(g) { return g.id === gasId; });
     if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
 
@@ -16389,7 +16403,7 @@ function invRenderReadings(el) {
 
 // Unified daily capture: saves gas PSI + fuel levels in a single action.
 function invSaveDailyCapture() {
-    var date = new Date().toISOString().slice(0,10);
+    var date = localToday();
     var count = 0;
     (invState.gases || []).filter(function(g){ return g.status !== 'Empty'; }).forEach(function(g) {
         var inp = document.getElementById('inv-rd-' + g.id);
@@ -16566,7 +16580,7 @@ function invQuickReadPopup(g) {
 
     var lastR = g.readings && g.readings.length > 0 ? g.readings[g.readings.length - 1] : null;
     var lvl = invGasLevel(g);
-    var today = new Date().toISOString().slice(0, 10);
+    var today = localToday();
 
     var html = '<div style="max-width:400px;margin:30px auto;background:#0f172a;border-radius:14px;padding:24px;position:relative;color:#e2e8f0;">';
     html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
@@ -16637,7 +16651,7 @@ function invQuickReadSave(gasId) {
     var psi = parseFloat(inp.value);
     if (isNaN(psi) || psi < 0) { showToast('Presion invalida', 'error'); return; }
 
-    var date = dateInp ? dateInp.value : new Date().toISOString().slice(0, 10);
+    var date = dateInp ? dateInp.value : localToday();
     var gas = invState.gases.find(function(g) { return g.id === gasId; });
     if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
 
@@ -17108,7 +17122,7 @@ function invRenderPredict(el) {
 function invExportGases() {
     var a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(invState, null, 2)], {type:'application/json'}));
-    a.download = 'kia_inventory_' + new Date().toISOString().slice(0,10) + '.json';
+    a.download = 'kia_inventory_' + localToday() + '.json';
     a.click();
 }
 function invImportGases() { document.getElementById('inv-import-file').click(); }
@@ -17137,7 +17151,7 @@ function invHandleImport(event) {
 // ══════════════════════════════════════════════════
 function invLogTestUsage(vehicle) {
     if (!vehicle) return;
-    var date = new Date().toISOString().slice(0,10);
+    var date = localToday();
     var regulation = vehicle.configCode ? vehicle.configCode.split(' ')[0] : '';
 
     // Capture specific cylinders "In use" with full traceability
@@ -17540,7 +17554,7 @@ function invAddFuelTank(editId) {
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Capacidad</label><input id="inv-ft-cap" type="number" value="' + v('capacity','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Nivel actual</label><input id="inv-ft-level" type="number" value="' + v('currentLevel','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Unidad</label><select id="inv-ft-unit" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('unit')==='L'?'selected':'') + '>L</option><option ' + (v('unit')==='gal'?'selected':'') + '>gal</option></select></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recepcion</label><input id="inv-ft-date" type="date" value="' + v('regDate',new Date().toISOString().slice(0,10)) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recepcion</label><input id="inv-ft-date" type="date" value="' + v('regDate',localToday()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Estatus</label><select id="inv-ft-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (v('fuelStatus')==='Abierto'?'selected':'') + '>Abierto</option><option ' + (v('fuelStatus')==='Cerrado'?'selected':'') + '>Cerrado</option></select></div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
@@ -17610,7 +17624,7 @@ function invSaveFuelReading(tankId) {
     if (isNaN(level)) { showToast('Nivel inválido', 'error'); return; }
     t.currentLevel = level;
     if (!t.readings) t.readings = [];
-    var fuelDate = new Date().toISOString().slice(0,10);
+    var fuelDate = localToday();
     t.readings.push({ date: fuelDate, level: level });
     invState.lastReadingDate = fuelDate;
     if (typeof auditLog === 'function') auditLog('inv', 'fuel_reading', {type:'fuel', id:t.id, label:(t.name||t.id)}, level + ' ' + (t.unit||'L') + ' (' + fuelDate + ')');
@@ -17744,7 +17758,7 @@ function invExportReport() {
     ], {type:'text/html'});
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'consumables_report_' + new Date().toISOString().slice(0,10) + '.html';
+    a.download = 'consumables_report_' + localToday() + '.html';
     a.click();
     showToast('Reporte HTML descargado', 'success');
 }
@@ -19249,7 +19263,7 @@ function invExportWeeklyForecast() {
 
     var a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = 'forecast_semanal_' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.download = 'forecast_semanal_' + localToday() + '.csv';
     a.click();
     showToast('Forecast exportado', 'success');
 }
@@ -20047,7 +20061,7 @@ function tpAutoFeedFromRelease(vehicle) {
 
     const entry = {
         configText: vehicle.configCode,
-        date: new Date().toISOString().slice(0,10),
+        date: localToday(),
         note: `VIN: ${vehicle.vin} — Auto desde COP15`,
         source: 'cop15-release',
         purpose: vehicle.purpose,
@@ -20761,10 +20775,11 @@ function tpRenderBurndownChart(stats) {
 }
 
 function tpISOWeekKey(d) {
-    var dt = new Date(d);
+    // parse local ('YYYY-MM-DD' con new Date() es UTC y corre el día); copiar si ya es Date
+    var dt = (d instanceof Date) ? new Date(d) : parseLocalDate(d);
     dt.setHours(0, 0, 0, 0);
     dt.setDate(dt.getDate() - (dt.getDay() || 7) + 1); // Monday
-    return dt.toISOString().slice(0, 10);
+    return localDateStr(dt);
 }
 
 // ═══ DASHBOARD CHART RENDERER ═══
@@ -20983,7 +20998,7 @@ function tpExportGapCSV() {
     var blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'gap_analysis_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.download = 'gap_analysis_' + localToday() + '.csv';
     a.click();
     showToast('CSV gap analysis exportado', 'success');
 }
@@ -21149,7 +21164,7 @@ function tpExportPlanJSON() {
         var blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'kia_emlab_plan_' + new Date().toISOString().slice(0, 10) + '.json';
+        a.download = 'kia_emlab_plan_' + localToday() + '.json';
         a.click();
         setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
         showToast('Datos del Plan exportados (JSON) — ' + tested.length + ' probadas, ' + released.length + ' liberadas', 'success');
@@ -21180,7 +21195,7 @@ function tpRenderTested(el) {
             </div>
             <div style="width:130px;">
                 <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Fecha</label>
-                <input class="tp-input" type="date" id="tp-manual-date" value="${new Date().toISOString().slice(0,10)}">
+                <input class="tp-input" type="date" id="tp-manual-date" value="${localToday()}">
             </div>
             <div style="flex:1;min-width:150px;">
                 <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Nota (VIN, etc.)</label>
@@ -21310,7 +21325,8 @@ function tpImportJSON() {
             const configText = r.configCode || r.codigo_config_text || r.configText || '';
             const purpose = r.purpose || '';
             if (configText && TP_PURPOSES_VALID.includes(purpose)) {
-                tpState.testedList.push({ configText, date: r.archivedAt?.slice(0,10) || r.registeredAt?.slice(0,10) || new Date().toISOString().slice(0,10), note: `VIN: ${r.vin||'?'}`, source:'json-import', purpose });
+                const tsImp = r.archivedAt || r.registeredAt;
+                tpState.testedList.push({ configText, date: tsImp ? localDateStr(new Date(tsImp)) : localToday(), note: `VIN: ${r.vin||'?'}`, source:'json-import', purpose });
                 added++;
             }
         });
@@ -21363,7 +21379,8 @@ function tpRecoverFromCOP15() {
         // Skip if VIN already registered
         if (existingVINs[v.vin]) { skipped++; return; }
 
-        var date = (v.archivedAt || v.registeredAt || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+        var tsArch = v.archivedAt || v.registeredAt;
+        var date = tsArch ? localDateStr(new Date(tsArch)) : localToday();
         var key = v.configCode + '|' + date;
 
         // Also skip if same configText+date already exists (unlikely but safe)
@@ -21623,7 +21640,7 @@ function tpRenderWeekly(el) {
     const _dow = _defDate.getDay();
     const _nextMon = new Date(_defDate);
     _nextMon.setDate(_defDate.getDate() + ((_dow === 0 ? 1 : _dow === 6 ? 2 : 8 - _dow)));
-    const _defDateStr = _nextMon.toISOString().slice(0, 10);
+    const _defDateStr = localDateStr(_nextMon);
     // Persisted working days or default (Mon-Fri)
     const _workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
 
@@ -22330,7 +22347,7 @@ function tpGenerateWeekly() {
     if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     const capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
-    const weekDate = document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0,10);
+    const weekDate = document.getElementById('tp-weekly-date')?.value || localToday();
     const workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
     const manualPicks = window._tpWeeklyManualPicks || [];
     const analysis = tpGetAnalysis();
@@ -22413,7 +22430,7 @@ function tpSmartGenerate() {
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
 
     var capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
-    var weekDate = document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0, 10);
+    var weekDate = document.getElementById('tp-weekly-date')?.value || localToday();
     var workDays = window._tpWorkDays || { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
 
     var analysis = tpGetAnalysis();
@@ -22523,7 +22540,7 @@ function tpGenerateMonthly(startDateStr) {
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     var capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
     var workDays = window._tpWorkDays || { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
-    var baseStr = startDateStr || document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0,10);
+    var baseStr = startDateStr || document.getElementById('tp-weekly-date')?.value || localToday();
     var base = new Date(baseStr + 'T12:00:00');
     var numWeeks = 4;
 
@@ -22536,7 +22553,7 @@ function tpGenerateMonthly(startDateStr) {
     var created = 0;
     for (var wk = 0; wk < numWeeks; wk++) {
         var weekDate = new Date(base.getTime()); weekDate.setDate(base.getDate() + wk * 7);
-        var weekStr = weekDate.toISOString().slice(0,10);
+        var weekStr = localDateStr(weekDate);
         var scored = analysis.map(function(a){
             var n = testedSim.get(a.desc) || 0;
             var rule = tpGetRule(a);
@@ -22632,7 +22649,7 @@ function tpShouldAutoGenerate() {
     if (daysUntilMon === 0) daysUntilMon = 7;
     var nextMon = new Date(now);
     nextMon.setDate(now.getDate() + daysUntilMon);
-    var nextMonISO = nextMon.toISOString().slice(0, 10);
+    var nextMonISO = localDateStr(nextMon);
 
     // Already accepted for that week?
     var plans = tpState.weeklyPlans || [];
@@ -22771,7 +22788,7 @@ function tpAutoMarkWeeklyCompletion(configText) {
         for (const item of plan.items) {
             if (!item.completed && item.desc === configText) {
                 item.completed = true;
-                item.completedDate = new Date().toISOString().slice(0,10);
+                item.completedDate = localToday();
                 tpSave();
                 void 0;
                 return true;
@@ -22793,7 +22810,7 @@ function tpAutoMarkWeeklyCompletionFromVehicle(vehicle) {
             var item = plan.items[link.itemIdx];
             if (!item.completed && item.desc === link.configCode) {
                 item.completed = true;
-                item.completedDate = new Date().toISOString().slice(0,10);
+                item.completedDate = localToday();
                 tpSave();
                 void 0;
                 return true;
@@ -22892,7 +22909,7 @@ function tpSubstituteItem(planIdx, itemIdx, testedConfigCode, testedVin, diffs) 
     var item = plan.items[itemIdx];
 
     item.completed = true;
-    item.completedDate = new Date().toISOString().slice(0, 10);
+    item.completedDate = localToday();
     item.substituted = true;
     item.substitution = {
         originalDesc: item.desc,
@@ -24364,7 +24381,7 @@ function tpOpenContinuityModal(configDesc, currentMy) {
                 prevConfigDesc: sel.value,
                 prevMy: opt.getAttribute('data-my') || '',
                 note: note ? note.value : '',
-                markedAt: new Date().toISOString().slice(0, 10),
+                markedAt: localToday(),
                 markedBy: (typeof getCurrentUser === 'function' ? (getCurrentUser() || '') : '')
             };
             tpSave();
@@ -24853,8 +24870,8 @@ function renderLabOverview(el, opts) {
 
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
-    var today = new Date().toISOString().substring(0, 10);
-    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.substring(0, 10) === today; });
+    var today = localToday();
+    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) === today; });
     var byStatus = {}; activeVehicles.forEach(function(v) { byStatus[v.status] = (byStatus[v.status] || 0) + 1; });
     var pendingApproval = vehicles.filter(function(v) { return v.status === 'pending-approval'; }).length;
 
@@ -24937,7 +24954,7 @@ function pnRenderDashboard(el) {
     var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
     var archivedToday = vehicles.filter(function(v) {
         if (v.status !== 'archived' || !v.archivedAt) return false;
-        return v.archivedAt.substring(0, 10) === new Date().toISOString().substring(0, 10);
+        return localDateStr(new Date(v.archivedAt)) === localToday();
     });
 
     var byStatus = {};
@@ -24966,7 +24983,7 @@ function pnRenderDashboard(el) {
 
     // Active operator from shift log
     var todayShifts = pnState.shiftLog.filter(function(s) {
-        return s.date === new Date().toISOString().substring(0, 10);
+        return s.date === localToday();
     });
     var currentShift = todayShifts.length > 0 ? todayShifts[todayShifts.length - 1] : null;
 
@@ -25317,7 +25334,7 @@ function pnSyncOperators() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function pnRenderShiftLog(el) {
-    var todayStr = new Date().toISOString().substring(0, 10);
+    var todayStr = localToday();
     var activeOps = pnState.operators.filter(function(o) { return o.active; }).map(function(o) { return o.name; });
 
     // Categories for log entries
@@ -25437,7 +25454,7 @@ function pnAddShiftEntry() {
     var now = new Date();
     pnState.shiftLog.push({
         id: 'sl_' + Date.now(),
-        date: now.toISOString().substring(0, 10),
+        date: localDateStr(now),
         time: now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
         operator: op.value,
         category: cat ? cat.value : 'Observación',
@@ -25463,7 +25480,7 @@ function pnDeleteShiftEntry(id) {
 }
 
 function pnExportShiftLog() {
-    var todayStr = new Date().toISOString().substring(0, 10);
+    var todayStr = localToday();
     var entries = pnState.shiftLog.filter(function(s) { return s.date === todayStr; });
     if (entries.length === 0) { showToast('Sin entradas hoy', 'error'); return; }
 
@@ -25670,10 +25687,10 @@ function pnRenderIntelligence(el) {
     var weeklyData = {};
     tests.forEach(function(t) {
         if (!t.date) return;
-        var d = new Date(t.date);
+        var d = parseLocalDate(t.date); // parse local: new Date('YYYY-MM-DD') es UTC y corre el día
         var weekStart = new Date(d);
         weekStart.setDate(d.getDate() - d.getDay());
-        var wk = weekStart.toISOString().slice(0, 10);
+        var wk = localDateStr(weekStart);
         if (!weeklyData[wk]) weeklyData[wk] = { tests: 0, gasUsed: 0 };
         weeklyData[wk].tests++;
     });
@@ -25683,10 +25700,10 @@ function pnRenderIntelligence(el) {
         if (g.usageLog) {
             g.usageLog.forEach(function(log) {
                 if (!log.date) return;
-                var d = new Date(log.date);
+                var d = parseLocalDate(log.date);
                 var weekStart = new Date(d);
                 weekStart.setDate(d.getDate() - d.getDay());
-                var wk = weekStart.toISOString().slice(0, 10);
+                var wk = localDateStr(weekStart);
                 if (!weeklyData[wk]) weeklyData[wk] = { tests: 0, gasUsed: 0 };
                 weeklyData[wk].gasUsed += (log.psiUsed || 0);
             });
@@ -26242,7 +26259,7 @@ function _pnCollectCalendarEvents(year, month) {
             var depDate = new Date();
             depDate.setDate(depDate.getDate() + Math.round(daysLeft));
             if (depDate >= monthStart && depDate <= monthEnd) {
-                var dateStr = depDate.toISOString().slice(0, 10);
+                var dateStr = localDateStr(depDate);
                 events.push({
                     date: dateStr,
                     type: 'gas_depletion',
@@ -26258,13 +26275,13 @@ function _pnCollectCalendarEvents(year, month) {
     if (typeof tpState !== 'undefined' && tpState.weeklyPlans) {
         tpState.weeklyPlans.forEach(function(plan) {
             if (!plan.weekStart) return;
-            var ws = new Date(plan.weekStart);
+            var ws = parseLocalDate(plan.weekStart);
             // Show each day of the week
             for (var i = 0; i < 5; i++) {
                 var d = new Date(ws);
                 d.setDate(d.getDate() + i);
                 if (d >= monthStart && d <= monthEnd) {
-                    var dateStr = d.toISOString().slice(0, 10);
+                    var dateStr = localDateStr(d);
                     var pending = (plan.items || []).filter(function(it) { return !it.completed; }).length;
                     if (pending > 0) {
                         events.push({
@@ -26289,7 +26306,7 @@ function _pnCollectCalendarEvents(year, month) {
                 var d = new Date();
                 if (d >= monthStart && d <= monthEnd) {
                     events.push({
-                        date: d.toISOString().slice(0, 10),
+                        date: localDateStr(d),
                         type: 'release',
                         color: '#10b981',
                         label: '🏁 Listo: VIN ...' + (v.vin || '').slice(-6),
@@ -26345,8 +26362,8 @@ function _pnCalendarWeekSummary(events) {
     var weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
 
-    var weekStartStr = weekStart.toISOString().slice(0, 10);
-    var weekEndStr = weekEnd.toISOString().slice(0, 10);
+    var weekStartStr = localDateStr(weekStart);
+    var weekEndStr = localDateStr(weekEnd);
 
     var weekEvents = events.filter(function(ev) { return ev.date >= weekStartStr && ev.date <= weekEndStr; });
     if (weekEvents.length === 0) return '';
@@ -26664,7 +26681,7 @@ function panelAlpineComponent() {
         },
 
         // ── Computed — Shift Log ──
-        todayStr: function() { return new Date().toISOString().substring(0, 10); },
+        todayStr: function() { return localToday(); },
         todayEntries: function() {
             var today = this.todayStr();
             return this.shiftLog.filter(function(s) { return s.date === today; }).slice().reverse();
@@ -26690,7 +26707,7 @@ function panelAlpineComponent() {
             var now = new Date();
             this.shiftLog.push({
                 id: 'sl_' + Date.now(),
-                date: now.toISOString().substring(0, 10),
+                date: localDateStr(now),
                 time: now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
                 operator: this.shiftOperator,
                 category: this.shiftCategory,
@@ -26889,14 +26906,15 @@ function panelAlpineComponent() {
 function pnRenderExecutive(el) {
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var now = new Date();
-    var todayStr = now.toISOString().slice(0,10);
-    var weekAgo = new Date(now - 7 * 86400000).toISOString().slice(0,10);
-    var monthAgo = new Date(now - 30 * 86400000).toISOString().slice(0,10);
+    var todayStr = localToday();
+    var weekAgo = localDateStr(new Date(now - 7 * 86400000));
+    var monthAgo = localDateStr(new Date(now - 30 * 86400000));
 
-    // Throughput metrics
-    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) === todayStr; }).length;
-    var archivedWeek = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= weekAgo; }).length;
-    var archivedMonth = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= monthAgo; }).length;
+    // Throughput metrics (día local del timestamp de archivado)
+    var _archDay = function(v) { return localDateStr(new Date(v.archivedAt)); };
+    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) === todayStr; }).length;
+    var archivedWeek = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) >= weekAgo; }).length;
+    var archivedMonth = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) >= monthAgo; }).length;
     var activeCount = vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
 
     // Compliance scorecard
@@ -27000,7 +27018,7 @@ function pnRenderExecutive(el) {
     // Team metrics
     html += '<div class="tp-card"><div class="tp-card-title"><span>Metricas por Operador</span></div>';
     var opStats = {};
-    vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= weekAgo; }).forEach(function(v) {
+    vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) >= weekAgo; }).forEach(function(v) {
         var op = v.registeredBy || (v.testData && v.testData.testResponsible) || 'Desconocido';
         if (!opStats[op]) opStats[op] = 0;
         opStats[op]++;
@@ -27109,12 +27127,12 @@ function pnRenderTurnaround(el) {
     html += '<div class="tp-card"><div class="tp-card-title"><span>Throughput Diario (14 dias)</span></div>';
     var dailyCounts = {};
     for (var d = 13; d >= 0; d--) {
-        var dateStr = new Date(Date.now() - d * 86400000).toISOString().slice(0,10);
+        var dateStr = localDateStr(new Date(Date.now() - d * 86400000));
         dailyCounts[dateStr] = 0;
     }
     archived.forEach(function(v) {
         if (v.archivedAt) {
-            var ds = v.archivedAt.slice(0,10);
+            var ds = localDateStr(new Date(v.archivedAt));
             if (dailyCounts.hasOwnProperty(ds)) dailyCounts[ds]++;
         }
     });
@@ -30296,7 +30314,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607020536' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607020542' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

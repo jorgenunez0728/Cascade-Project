@@ -909,7 +909,7 @@ async function raSingleImport(){
 function raExportAll(){
     const a=document.createElement('a');
     a.href=URL.createObjectURL(new Blob([JSON.stringify(raState.tests,null,2)],{type:'application/json'}));
-    a.download='kia_results_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+    a.download='kia_results_'+localToday()+'.json'; a.click();
 }
 
 function raImportJSON(){
@@ -1247,8 +1247,8 @@ function raFilterTrendRange(days) {
     } else {
         var now = new Date();
         var from = new Date(now.getTime() - days * 86400000);
-        window._raTrendDateFrom = from.toISOString().slice(0, 10);
-        window._raTrendDateTo = now.toISOString().slice(0, 10);
+        window._raTrendDateFrom = localDateStr(from);
+        window._raTrendDateTo = localDateStr(now);
     }
     raRender();
 }
@@ -1954,7 +1954,7 @@ function raExportCSV(testsSubset) {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = 'results_export_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.download = 'results_export_' + localToday() + '.csv';
     a.click();
     URL.revokeObjectURL(url);
     showToast(tests.length + ' pruebas exportadas a CSV', 'success');

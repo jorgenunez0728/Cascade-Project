@@ -471,7 +471,7 @@ function tpAutoFeedFromRelease(vehicle) {
 
     const entry = {
         configText: vehicle.configCode,
-        date: new Date().toISOString().slice(0,10),
+        date: localToday(),
         note: `VIN: ${vehicle.vin} — Auto desde COP15`,
         source: 'cop15-release',
         purpose: vehicle.purpose,
@@ -1185,10 +1185,11 @@ function tpRenderBurndownChart(stats) {
 }
 
 function tpISOWeekKey(d) {
-    var dt = new Date(d);
+    // parse local ('YYYY-MM-DD' con new Date() es UTC y corre el día); copiar si ya es Date
+    var dt = (d instanceof Date) ? new Date(d) : parseLocalDate(d);
     dt.setHours(0, 0, 0, 0);
     dt.setDate(dt.getDate() - (dt.getDay() || 7) + 1); // Monday
-    return dt.toISOString().slice(0, 10);
+    return localDateStr(dt);
 }
 
 // ═══ DASHBOARD CHART RENDERER ═══
@@ -1407,7 +1408,7 @@ function tpExportGapCSV() {
     var blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'gap_analysis_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.download = 'gap_analysis_' + localToday() + '.csv';
     a.click();
     showToast('CSV gap analysis exportado', 'success');
 }
@@ -1573,7 +1574,7 @@ function tpExportPlanJSON() {
         var blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'kia_emlab_plan_' + new Date().toISOString().slice(0, 10) + '.json';
+        a.download = 'kia_emlab_plan_' + localToday() + '.json';
         a.click();
         setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
         showToast('Datos del Plan exportados (JSON) — ' + tested.length + ' probadas, ' + released.length + ' liberadas', 'success');
@@ -1604,7 +1605,7 @@ function tpRenderTested(el) {
             </div>
             <div style="width:130px;">
                 <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Fecha</label>
-                <input class="tp-input" type="date" id="tp-manual-date" value="${new Date().toISOString().slice(0,10)}">
+                <input class="tp-input" type="date" id="tp-manual-date" value="${localToday()}">
             </div>
             <div style="flex:1;min-width:150px;">
                 <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Nota (VIN, etc.)</label>
@@ -1734,7 +1735,8 @@ function tpImportJSON() {
             const configText = r.configCode || r.codigo_config_text || r.configText || '';
             const purpose = r.purpose || '';
             if (configText && TP_PURPOSES_VALID.includes(purpose)) {
-                tpState.testedList.push({ configText, date: r.archivedAt?.slice(0,10) || r.registeredAt?.slice(0,10) || new Date().toISOString().slice(0,10), note: `VIN: ${r.vin||'?'}`, source:'json-import', purpose });
+                const tsImp = r.archivedAt || r.registeredAt;
+                tpState.testedList.push({ configText, date: tsImp ? localDateStr(new Date(tsImp)) : localToday(), note: `VIN: ${r.vin||'?'}`, source:'json-import', purpose });
                 added++;
             }
         });
@@ -1787,7 +1789,8 @@ function tpRecoverFromCOP15() {
         // Skip if VIN already registered
         if (existingVINs[v.vin]) { skipped++; return; }
 
-        var date = (v.archivedAt || v.registeredAt || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+        var tsArch = v.archivedAt || v.registeredAt;
+        var date = tsArch ? localDateStr(new Date(tsArch)) : localToday();
         var key = v.configCode + '|' + date;
 
         // Also skip if same configText+date already exists (unlikely but safe)
@@ -2047,7 +2050,7 @@ function tpRenderWeekly(el) {
     const _dow = _defDate.getDay();
     const _nextMon = new Date(_defDate);
     _nextMon.setDate(_defDate.getDate() + ((_dow === 0 ? 1 : _dow === 6 ? 2 : 8 - _dow)));
-    const _defDateStr = _nextMon.toISOString().slice(0, 10);
+    const _defDateStr = localDateStr(_nextMon);
     // Persisted working days or default (Mon-Fri)
     const _workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
 
@@ -2754,7 +2757,7 @@ function tpGenerateWeekly() {
     if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     const capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
-    const weekDate = document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0,10);
+    const weekDate = document.getElementById('tp-weekly-date')?.value || localToday();
     const workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
     const manualPicks = window._tpWeeklyManualPicks || [];
     const analysis = tpGetAnalysis();
@@ -2837,7 +2840,7 @@ function tpSmartGenerate() {
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
 
     var capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
-    var weekDate = document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0, 10);
+    var weekDate = document.getElementById('tp-weekly-date')?.value || localToday();
     var workDays = window._tpWorkDays || { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
 
     var analysis = tpGetAnalysis();
@@ -2947,7 +2950,7 @@ function tpGenerateMonthly(startDateStr) {
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     var capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
     var workDays = window._tpWorkDays || { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
-    var baseStr = startDateStr || document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0,10);
+    var baseStr = startDateStr || document.getElementById('tp-weekly-date')?.value || localToday();
     var base = new Date(baseStr + 'T12:00:00');
     var numWeeks = 4;
 
@@ -2960,7 +2963,7 @@ function tpGenerateMonthly(startDateStr) {
     var created = 0;
     for (var wk = 0; wk < numWeeks; wk++) {
         var weekDate = new Date(base.getTime()); weekDate.setDate(base.getDate() + wk * 7);
-        var weekStr = weekDate.toISOString().slice(0,10);
+        var weekStr = localDateStr(weekDate);
         var scored = analysis.map(function(a){
             var n = testedSim.get(a.desc) || 0;
             var rule = tpGetRule(a);
@@ -3056,7 +3059,7 @@ function tpShouldAutoGenerate() {
     if (daysUntilMon === 0) daysUntilMon = 7;
     var nextMon = new Date(now);
     nextMon.setDate(now.getDate() + daysUntilMon);
-    var nextMonISO = nextMon.toISOString().slice(0, 10);
+    var nextMonISO = localDateStr(nextMon);
 
     // Already accepted for that week?
     var plans = tpState.weeklyPlans || [];
@@ -3195,7 +3198,7 @@ function tpAutoMarkWeeklyCompletion(configText) {
         for (const item of plan.items) {
             if (!item.completed && item.desc === configText) {
                 item.completed = true;
-                item.completedDate = new Date().toISOString().slice(0,10);
+                item.completedDate = localToday();
                 tpSave();
                 console.log('TP: Auto-marked weekly item as completed:', configText);
                 return true;
@@ -3217,7 +3220,7 @@ function tpAutoMarkWeeklyCompletionFromVehicle(vehicle) {
             var item = plan.items[link.itemIdx];
             if (!item.completed && item.desc === link.configCode) {
                 item.completed = true;
-                item.completedDate = new Date().toISOString().slice(0,10);
+                item.completedDate = localToday();
                 tpSave();
                 console.log('TP: Auto-marked weekly item via plan link:', link.configCode);
                 return true;
@@ -3316,7 +3319,7 @@ function tpSubstituteItem(planIdx, itemIdx, testedConfigCode, testedVin, diffs) 
     var item = plan.items[itemIdx];
 
     item.completed = true;
-    item.completedDate = new Date().toISOString().slice(0, 10);
+    item.completedDate = localToday();
     item.substituted = true;
     item.substitution = {
         originalDesc: item.desc,
@@ -4788,7 +4791,7 @@ function tpOpenContinuityModal(configDesc, currentMy) {
                 prevConfigDesc: sel.value,
                 prevMy: opt.getAttribute('data-my') || '',
                 note: note ? note.value : '',
-                markedAt: new Date().toISOString().slice(0, 10),
+                markedAt: localToday(),
                 markedBy: (typeof getCurrentUser === 'function' ? (getCurrentUser() || '') : '')
             };
             tpSave();

@@ -733,7 +733,7 @@ function auditExportCSV() {
     var blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'audit_trail_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.download = 'audit_trail_' + localToday() + '.csv';
     a.click();
 }
 
@@ -1389,6 +1389,20 @@ function nowLocalDatetimeValue() {
   return d.toISOString().slice(0,16); // "YYYY-MM-DDTHH:MM"
 }
 
+// ── Fechas de calendario en hora LOCAL (el lab opera en UTC-6: toISOString()
+//    después de ~18:00 ya es "mañana"; usar estos helpers para días calendario) ──
+function localDateStr(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function localToday() { return localDateStr(new Date()); }
+// Parse 'YYYY-MM-DD' como fecha LOCAL (new Date('YYYY-MM-DD') parsea UTC y corre el día)
+function parseLocalDate(ymd) {
+  if (ymd instanceof Date) return ymd;
+  var p = String(ymd || '').slice(0, 10).split('-');
+  return new Date(+p[0], (+p[1] || 1) - 1, +p[2] || 1);
+}
+
 
 function setAltaDatetimeIfEmpty(force = false) {
   const el = document.getElementById('reg_datetime');
@@ -1828,7 +1842,7 @@ function dailyDashRender() {
             );
         });
         var releasedToday = (db.vehicles || []).filter(function(v) {
-            return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) === now.toISOString().slice(0,10) &&
+            return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) === localToday() &&
                 (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
         }).length;
         var testingToday = (db.vehicles || []).filter(function(v) {
@@ -2517,7 +2531,7 @@ function generateWeeklyStatusPDF(opts) {
             ? _dataUri.split(',')[1]
             : '';
     }
-    doc.save('KIA-EmLab-Semanal-' + today.toISOString().slice(0, 10) + '.pdf');
+    doc.save('KIA-EmLab-Semanal-' + localDateStr(today) + '.pdf');
     hideOverlayLoading();
     showToast('Reporte PDF semanal generado', 'success');
 }
@@ -3313,7 +3327,7 @@ function downloadFullBackup() {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = 'kia-emlab-backup_' + new Date().toISOString().slice(0,10) + '.json';
+    a.download = 'kia-emlab-backup_' + localToday() + '.json';
     a.click();
     URL.revokeObjectURL(url);
     showToast('Backup completo descargado', 'success');

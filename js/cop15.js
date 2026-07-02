@@ -2041,7 +2041,7 @@ function applyAutoAdvance(nextStatus) {
         tomorrow.setDate(tomorrow.getDate() + 1);
         if (tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
         if (tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
-        testDt.value = tomorrow.toISOString().slice(0, 16).replace('T', 'T') || tomorrow.toISOString().slice(0, 10) + 'T08:00';
+        testDt.value = localDateStr(tomorrow) + 'T08:00';
       }
     }
   }
@@ -2982,7 +2982,7 @@ function _doBatchPDF(ids) {
     function next() {
         if (idx >= total) {
             overlay.remove();
-            var dateStr = new Date().toISOString().slice(0,10);
+            var dateStr = localToday();
             doc.save('COP15-F05_Batch_' + dateStr + '.pdf');
             showToast(total + ' vehículos exportados a PDF', 'success');
             return;
@@ -5191,7 +5191,7 @@ function batchAdvanceToTesting(vehicleId) {
         tomorrow.setDate(tomorrow.getDate() + 1);
         if (tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
         if (tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
-        vehicle.testData.testDatetime = tomorrow.toISOString().slice(0, 10) + 'T08:00';
+        vehicle.testData.testDatetime = localDateStr(tomorrow) + 'T08:00';
     }
 
     saveDB();
@@ -5222,7 +5222,7 @@ function batchScheduleTests() {
         if (!precondOk) return; // Only advance precond-complete vehicles
 
         var hour = 8 + (idx * 2); // 8, 10, 12, 14...
-        var dateStr = baseDate.toISOString().slice(0, 10) + 'T' + String(hour).padStart(2, '0') + ':00';
+        var dateStr = localDateStr(baseDate) + 'T' + String(hour).padStart(2, '0') + ':00';
 
         vehicle.status = 'testing';
         vehicle.testData = vehicle.testData || {};
