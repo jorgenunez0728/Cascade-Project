@@ -1332,6 +1332,22 @@ function fbAutoMerge(col, parsedData, remoteSt) {
 function fbUpdateIndicator() {
     var el = document.getElementById('fb-sync-indicator');
     if (!el) return;
+
+    // [v15.6] Indicador honesto: "conectado" con el dispositivo VACÍO no es
+    // estar sincronizado — mostrar aviso ámbar y que el tap dispare la descarga
+    var emptyConnected = fbSync.status === 'connected'
+        && typeof _fbLocalIsEmpty === 'function' && _fbLocalIsEmpty();
+    if (emptyConnected) {
+        el.style.color = '#f59e0b';
+        el.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#f59e0b;margin-right:4px;animation:pulse 1s infinite;"></span>' +
+            '⚠ sin datos — toca para descargar';
+        el.onclick = function() { fbPullAll(true); };
+        el.title = 'Este dispositivo no tiene datos del laboratorio. Toca para descargarlos.';
+        return;
+    }
+    el.onclick = function() { fbShowSettings(); };
+    el.title = '';
+
     var colors = { off: '#475569', connecting: '#f59e0b', connected: '#10b981', syncing: '#3b82f6', error: '#ef4444' };
     var labels = { off: 'Offline', connecting: 'Conectando...', connected: fbSync._useREST ? 'REST Sync' : 'Sync', syncing: 'Syncing...', error: 'Error' };
     var color = colors[fbSync.status] || '#475569';

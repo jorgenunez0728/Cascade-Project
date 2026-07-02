@@ -2922,6 +2922,7 @@ details.acc > summary {
     <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-audit');" style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;color:rgba(255,255,255,0.5);" title="Historial de cambios" aria-label="Historial de cambios">🕘</button></div>
     <button id="topbar-more-btn" class="topbar-icon-btn" onclick="topbarMoreToggle()" title="Más opciones" aria-label="Más opciones" aria-haspopup="true" aria-expanded="false">⋯</button>
     <div class="topbar-more-group" id="topbar-more-group">
+        <button class="topbar-icon-btn" onclick="if(typeof fbPullAll==='function')fbPullAll(true);" style="align-self:center;padding:4px 10px;font-size:12px;font-weight:700;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.7);" title="Descargar los datos más recientes del laboratorio" aria-label="Actualizar datos">🔄 Actualizar datos</button>
         <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
         <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
         <button id="immersive-toggle-btn" class="topbar-icon-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">⛶</button>
@@ -4633,21 +4634,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607022128';
+var APP_BUILD = '202607022129';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607022128' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607022129' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607022128' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607022129' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -4663,7 +4664,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607022128' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607022129' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -28617,6 +28618,22 @@ function fbAutoMerge(col, parsedData, remoteSt) {
 function fbUpdateIndicator() {
     var el = document.getElementById('fb-sync-indicator');
     if (!el) return;
+
+    // [v15.6] Indicador honesto: "conectado" con el dispositivo VACÍO no es
+    // estar sincronizado — mostrar aviso ámbar y que el tap dispare la descarga
+    var emptyConnected = fbSync.status === 'connected'
+        && typeof _fbLocalIsEmpty === 'function' && _fbLocalIsEmpty();
+    if (emptyConnected) {
+        el.style.color = '#f59e0b';
+        el.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#f59e0b;margin-right:4px;animation:pulse 1s infinite;"></span>' +
+            '⚠ sin datos — toca para descargar';
+        el.onclick = function() { fbPullAll(true); };
+        el.title = 'Este dispositivo no tiene datos del laboratorio. Toca para descargarlos.';
+        return;
+    }
+    el.onclick = function() { fbShowSettings(); };
+    el.title = '';
+
     var colors = { off: '#475569', connecting: '#f59e0b', connected: '#10b981', syncing: '#3b82f6', error: '#ef4444' };
     var labels = { off: 'Offline', connecting: 'Conectando...', connected: fbSync._useREST ? 'REST Sync' : 'Sync', syncing: 'Syncing...', error: 'Error' };
     var color = colors[fbSync.status] || '#475569';
@@ -29687,7 +29704,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607022128' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607022129' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
