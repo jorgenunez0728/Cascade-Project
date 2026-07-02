@@ -73,7 +73,12 @@ function copPersist() {
             region: copState.region, familyKey: copState.familyKey, familyLabel: copState.familyLabel,
             activePolls: copState.activePolls, vehicles: copState.vehicles, saved: copState.saved
         }));
-    } catch (e) {}
+        return true;
+    } catch (e) {
+        console.error('copPersist: no se pudo guardar', e);
+        if (typeof showToast === 'function') showToast('⚠️ Almacenamiento lleno — el CoP no se guardó. Libera espacio en Panel → Sistema.', 'error');
+        return false;
+    }
 }
 function copLoad() {
     var raw = null;
@@ -195,7 +200,7 @@ function copSaveJudgment() {
         vehicles: JSON.parse(JSON.stringify(copState.vehicles)),
         decision: decision || 'INCOMPLETO'
     });
-    copPersist();
+    if (!copPersist()) { copRender(); return; } // no reportar éxito si no se pudo guardar
     if (typeof auditLog === 'function') auditLog('cop', 'judgment_saved', {type:'cop', label:(copState.familyLabel || '(sin familia)')}, 'Veredicto: ' + (decision === 'PASS' ? 'CONCORDANTE' : decision === 'FAIL' ? 'NO CONCORDANTE' : (decision || 'INCOMPLETO')));
     if (typeof showToast === 'function') showToast('Juicio guardado' + (copState.familyLabel ? ' — ' + copState.familyLabel : ''), 'success');
     copRender();

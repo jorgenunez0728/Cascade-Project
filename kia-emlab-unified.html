@@ -5327,21 +5327,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607020542';
+var APP_BUILD = '202607020544';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607020542' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607020544' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607020542' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607020544' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5357,7 +5357,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607020542' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607020544' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -5814,9 +5814,16 @@ function saveActiveVehicleContext(vehicleId, extraCtx) {
 // ======================================================================
 
     function saveDB() {
-        localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        try {
+            localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        } catch(e) {
+            void 0;
+            try { showToast('⚠️ Almacenamiento lleno — no se guardó COP15. Libera espacio en Panel → Sistema.', 'error'); } catch(e2) {}
+            return false;
+        }
         // [R6] Notify Alpine components of data change
         window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'cop15' } }));
+        return true;
     }
 
 // ── [Fase 2.2] Debounced save wrapper for focusout/auto-save scenarios ──
@@ -19893,7 +19900,20 @@ if (tpState.recoveryUntil === undefined) tpState.recoveryUntil = null; // fecha 
 if (tpState.maxTiers === undefined) tpState.maxTiers = 3; // niveles de prioridad (1..10)
 if (!tpState.months || !tpState.months.length) tpState.months = TP_MONTHS.slice(); // meses de producción dinámicos
 
-function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); tabCacheInvalidate('tp'); }
+function tpSave() {
+    _tpInvalidateCache();
+    tpState._lastSave = Date.now();
+    try {
+        localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState));
+    } catch(e) {
+        void 0;
+        try { showToast('⚠️ Almacenamiento lleno — no se guardó el Plan. Libera espacio en Panel → Sistema.', 'error'); } catch(e2) {}
+        tabCacheInvalidate('tp');
+        return false;
+    }
+    tabCacheInvalidate('tp');
+    return true;
+}
 
 // ── [Fase 5.3] Compact old completed plans (older than 6 months) ──
 function tpCompactOldPlans() {
@@ -28966,16 +28986,17 @@ function fbHookSaves() {
     if (_fbHooksApplied) return;
     _fbHooksApplied = true;
 
+    // Nota: se preserva el valor de retorno (false = no se pudo persistir → no subir a la nube)
     var _origSaveDB = window.saveDB;
-    if (_origSaveDB) { window.saveDB = function() { _origSaveDB(); if (fbSyncModules.cop15) fbPush('cop15', db); }; }
+    if (_origSaveDB) { window.saveDB = function() { var ok = _origSaveDB(); if (ok !== false && fbSyncModules.cop15) fbPush('cop15', db); return ok; }; }
     var _origTpSave = window.tpSave;
-    if (_origTpSave) { window.tpSave = function() { _origTpSave(); if (fbSyncModules.testplan) fbPush('testplan', tpState); }; }
+    if (_origTpSave) { window.tpSave = function() { var ok = _origTpSave(); if (ok !== false && fbSyncModules.testplan) fbPush('testplan', tpState); return ok; }; }
     var _origRaSave = window.raSave;
-    if (_origRaSave) { window.raSave = function() { _origRaSave(); if (fbSyncModules.results) fbPush('results', raState); }; }
+    if (_origRaSave) { window.raSave = function() { var ok = _origRaSave(); if (ok !== false && fbSyncModules.results) fbPush('results', raState); return ok; }; }
     var _origInvSave = window.invSave;
-    if (_origInvSave) { window.invSave = function() { _origInvSave(); if (fbSyncModules.inventory) fbPush('inventory', invState); }; }
+    if (_origInvSave) { window.invSave = function() { var ok = _origInvSave(); if (ok !== false && fbSyncModules.inventory) fbPush('inventory', invState); return ok; }; }
     var _origPnSave = window.pnSave;
-    if (_origPnSave) { window.pnSave = function() { _origPnSave(); if (fbSyncModules.panel) fbPush('panel', pnState); }; }
+    if (_origPnSave) { window.pnSave = function() { var ok = _origPnSave(); if (ok !== false && fbSyncModules.panel) fbPush('panel', pnState); return ok; }; }
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -30314,7 +30335,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607020542' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607020544' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -30944,7 +30965,12 @@ function copPersist() {
             region: copState.region, familyKey: copState.familyKey, familyLabel: copState.familyLabel,
             activePolls: copState.activePolls, vehicles: copState.vehicles, saved: copState.saved
         }));
-    } catch (e) {}
+        return true;
+    } catch (e) {
+        void 0;
+        if (typeof showToast === 'function') showToast('⚠️ Almacenamiento lleno — el CoP no se guardó. Libera espacio en Panel → Sistema.', 'error');
+        return false;
+    }
 }
 function copLoad() {
     var raw = null;
@@ -31066,7 +31092,7 @@ function copSaveJudgment() {
         vehicles: JSON.parse(JSON.stringify(copState.vehicles)),
         decision: decision || 'INCOMPLETO'
     });
-    copPersist();
+    if (!copPersist()) { copRender(); return; } // no reportar éxito si no se pudo guardar
     if (typeof auditLog === 'function') auditLog('cop', 'judgment_saved', {type:'cop', label:(copState.familyLabel || '(sin familia)')}, 'Veredicto: ' + (decision === 'PASS' ? 'CONCORDANTE' : decision === 'FAIL' ? 'NO CONCORDANTE' : (decision || 'INCOMPLETO')));
     if (typeof showToast === 'function') showToast('Juicio guardado' + (copState.familyLabel ? ' — ' + copState.familyLabel : ''), 'success');
     copRender();

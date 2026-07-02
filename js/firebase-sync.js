@@ -1068,16 +1068,17 @@ function fbHookSaves() {
     if (_fbHooksApplied) return;
     _fbHooksApplied = true;
 
+    // Nota: se preserva el valor de retorno (false = no se pudo persistir → no subir a la nube)
     var _origSaveDB = window.saveDB;
-    if (_origSaveDB) { window.saveDB = function() { _origSaveDB(); if (fbSyncModules.cop15) fbPush('cop15', db); }; }
+    if (_origSaveDB) { window.saveDB = function() { var ok = _origSaveDB(); if (ok !== false && fbSyncModules.cop15) fbPush('cop15', db); return ok; }; }
     var _origTpSave = window.tpSave;
-    if (_origTpSave) { window.tpSave = function() { _origTpSave(); if (fbSyncModules.testplan) fbPush('testplan', tpState); }; }
+    if (_origTpSave) { window.tpSave = function() { var ok = _origTpSave(); if (ok !== false && fbSyncModules.testplan) fbPush('testplan', tpState); return ok; }; }
     var _origRaSave = window.raSave;
-    if (_origRaSave) { window.raSave = function() { _origRaSave(); if (fbSyncModules.results) fbPush('results', raState); }; }
+    if (_origRaSave) { window.raSave = function() { var ok = _origRaSave(); if (ok !== false && fbSyncModules.results) fbPush('results', raState); return ok; }; }
     var _origInvSave = window.invSave;
-    if (_origInvSave) { window.invSave = function() { _origInvSave(); if (fbSyncModules.inventory) fbPush('inventory', invState); }; }
+    if (_origInvSave) { window.invSave = function() { var ok = _origInvSave(); if (ok !== false && fbSyncModules.inventory) fbPush('inventory', invState); return ok; }; }
     var _origPnSave = window.pnSave;
-    if (_origPnSave) { window.pnSave = function() { _origPnSave(); if (fbSyncModules.panel) fbPush('panel', pnState); }; }
+    if (_origPnSave) { window.pnSave = function() { var ok = _origPnSave(); if (ok !== false && fbSyncModules.panel) fbPush('panel', pnState); return ok; }; }
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗

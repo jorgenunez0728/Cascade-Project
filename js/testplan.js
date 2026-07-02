@@ -303,7 +303,20 @@ if (tpState.recoveryUntil === undefined) tpState.recoveryUntil = null; // fecha 
 if (tpState.maxTiers === undefined) tpState.maxTiers = 3; // niveles de prioridad (1..10)
 if (!tpState.months || !tpState.months.length) tpState.months = TP_MONTHS.slice(); // meses de producción dinámicos
 
-function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); tabCacheInvalidate('tp'); }
+function tpSave() {
+    _tpInvalidateCache();
+    tpState._lastSave = Date.now();
+    try {
+        localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState));
+    } catch(e) {
+        console.error('tpSave: localStorage lleno', e);
+        try { showToast('⚠️ Almacenamiento lleno — no se guardó el Plan. Libera espacio en Panel → Sistema.', 'error'); } catch(e2) {}
+        tabCacheInvalidate('tp');
+        return false;
+    }
+    tabCacheInvalidate('tp');
+    return true;
+}
 
 // ── [Fase 5.3] Compact old completed plans (older than 6 months) ──
 function tpCompactOldPlans() {

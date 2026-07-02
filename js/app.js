@@ -673,9 +673,16 @@ function saveActiveVehicleContext(vehicleId, extraCtx) {
 // ======================================================================
 
     function saveDB() {
-        localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        try {
+            localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        } catch(e) {
+            console.error('saveDB: localStorage lleno', e);
+            try { showToast('⚠️ Almacenamiento lleno — no se guardó COP15. Libera espacio en Panel → Sistema.', 'error'); } catch(e2) {}
+            return false;
+        }
         // [R6] Notify Alpine components of data change
         window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'cop15' } }));
+        return true;
     }
 
 // ── [Fase 2.2] Debounced save wrapper for focusout/auto-save scenarios ──
