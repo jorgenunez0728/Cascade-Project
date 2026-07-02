@@ -2813,6 +2813,9 @@ details.acc > summary {
 .avatar-circle { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0; }
 .empty-state { text-align: center; padding: 24px 16px; color: var(--tp-dim, #64748b); font-size: var(--fs-xs, 12px); }
 .empty-state .empty-icon { font-size: 28px; margin-bottom: 8px; display: block; }
+
+/* [v15.5] Animación de entrada para los modales-contenedor legacy */
+.modal-anim-in { animation: modalFadeIn 0.2s ease; }
     </style>
 </head>
 
@@ -4561,21 +4564,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607020606';
+var APP_BUILD = '202607020609';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607020606' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607020609' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607020606' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607020609' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -4591,7 +4594,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607020606' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607020609' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -4688,6 +4691,28 @@ const UNIT_CONVERSION = {
 function escapeHtml(text) {
     var map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
     return String(text == null ? '' : text).replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+// ── [v15.5] preserveFocus: re-render sin perder el foco ni el caret ──
+// Para listas con filtro en vivo cuyo innerHTML se reconstruye en cada tecla
+// (el input necesita un id para poder re-encontrarlo tras el render).
+function preserveFocus(renderFn) {
+    var ae = document.activeElement;
+    var id = ae ? ae.id : '';
+    var selStart = null, selEnd = null;
+    if (id && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
+        try { selStart = ae.selectionStart; selEnd = ae.selectionEnd; } catch(e) {}
+    }
+    renderFn();
+    if (id) {
+        var el = document.getElementById(id);
+        if (el && el !== document.activeElement) {
+            try {
+                el.focus();
+                if (selStart !== null && el.setSelectionRange) el.setSelectionRange(selStart, selEnd);
+            } catch(e) {}
+        }
+    }
 }
 
 // ── Iniciales de avatar a partir de un nombre (tolera espacios múltiples) ──
@@ -4843,6 +4868,53 @@ let currentUnitSystem = 'SI';
 function themeInit() {
     document.documentElement.setAttribute('data-theme', 'light');
     try { localStorage.removeItem('kia_theme_pref'); } catch(e) {}
+}
+
+// ======================================================================
+// [v15.5] UX unificada para los modales-contenedor legacy
+// (substitutionModal, configModal, invModal, fbModal): ESC y click en el
+// fondo cierran, y hay animación de entrada. Los sitios de apertura/cierre
+// existentes (style.display) siguen funcionando sin cambios — aquí solo se
+// observa el atributo style de cada contenedor.
+// ======================================================================
+var _MODAL_UX_IDS = ['substitutionModal', 'configModal', 'invModal', 'fbModal'];
+
+function _modalUxClose(el) {
+    // El escáner de códigos vive dentro de invModal: apagar la cámara al cerrar
+    if (el.id === 'invModal' && typeof invScanStop === 'function') { try { invScanStop(); } catch(e) {} }
+    el.style.display = 'none';
+    if (el._modalTrigger && document.contains(el._modalTrigger)) {
+        try { el._modalTrigger.focus(); } catch(e) {}
+    }
+    el._modalTrigger = null;
+}
+
+function modalUxInit() {
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        for (var i = _MODAL_UX_IDS.length - 1; i >= 0; i--) {
+            var el = document.getElementById(_MODAL_UX_IDS[i]);
+            if (el && el.style.display && el.style.display !== 'none') {
+                _modalUxClose(el);
+                e.stopPropagation();
+                return;
+            }
+        }
+    });
+    _MODAL_UX_IDS.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('click', function(e) {
+            if (e.target === el) _modalUxClose(el);
+        });
+        new MutationObserver(function() {
+            if (el.style.display && el.style.display !== 'none' && !el.classList.contains('modal-anim-in')) {
+                el._modalTrigger = (document.activeElement && document.activeElement !== document.body) ? document.activeElement : null;
+                el.classList.add('modal-anim-in');
+                setTimeout(function() { el.classList.remove('modal-anim-in'); }, 250);
+            }
+        }).observe(el, { attributes: true, attributeFilter: ['style'] });
+    });
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -6959,6 +7031,7 @@ function generateWeeklyStatusPDF(opts) {
     function initializeSystem() {
         // Theme init — apply before any UI renders
         try { themeInit(); } catch(e) { void 0; }
+        try { modalUxInit(); } catch(e) { void 0; }
 
         // Show local build in the topbar version pill (Firebase will call again with remote status)
         try { updateVersionDisplay(); } catch(e) { void 0; }
@@ -11171,7 +11244,7 @@ function closeSubstitutionModal() {
 
         bar.innerHTML = '<div class="hist-filter-bar">' +
             '<div><label>Estado</label><select onchange="window._histFilterStatus=this.value;renderHistory();">' + statusHtml + '</select></div>' +
-            '<div><label>VIN</label><input type="text" value="' + vinQ + '" oninput="window._histFilterVin=this.value;renderHistory();" placeholder="Buscar VIN..."></div>' +
+            '<div><label>VIN</label><input type="text" id="hist-filter-vin" value="' + escapeHtml(vinQ) + '" oninput="window._histFilterVin=this.value;preserveFocus(renderHistory);" placeholder="Buscar VIN..."></div>' +
             '<div><label>Año</label><select onchange="window._histFilterYear=this.value;if(!this.value){window._histFilterMonth=\'\';} renderHistory();">' + yearOpts + '</select></div>' +
             '<div><label>Mes</label><select onchange="window._histFilterMonth=this.value;renderHistory();"' + (!yearF ? ' disabled' : '') + '>' + monthOpts + '</select></div>' +
             '<div class="hist-filter-actions"><button class="btn-secondary" onclick="histFilterReset()" style="min-height:40px;font-size:0.8rem;padding:8px 14px;">Limpiar</button></div>' +
@@ -29711,7 +29784,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607020606' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607020609' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

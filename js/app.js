@@ -315,6 +315,28 @@ function escapeHtml(text) {
     return String(text == null ? '' : text).replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
+// ── [v15.5] preserveFocus: re-render sin perder el foco ni el caret ──
+// Para listas con filtro en vivo cuyo innerHTML se reconstruye en cada tecla
+// (el input necesita un id para poder re-encontrarlo tras el render).
+function preserveFocus(renderFn) {
+    var ae = document.activeElement;
+    var id = ae ? ae.id : '';
+    var selStart = null, selEnd = null;
+    if (id && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
+        try { selStart = ae.selectionStart; selEnd = ae.selectionEnd; } catch(e) {}
+    }
+    renderFn();
+    if (id) {
+        var el = document.getElementById(id);
+        if (el && el !== document.activeElement) {
+            try {
+                el.focus();
+                if (selStart !== null && el.setSelectionRange) el.setSelectionRange(selStart, selEnd);
+            } catch(e) {}
+        }
+    }
+}
+
 // ── Iniciales de avatar a partir de un nombre (tolera espacios múltiples) ──
 function authInitials(name) {
     return String(name == null ? '' : name).trim().split(/\s+/)
@@ -468,6 +490,53 @@ let currentUnitSystem = 'SI';
 function themeInit() {
     document.documentElement.setAttribute('data-theme', 'light');
     try { localStorage.removeItem('kia_theme_pref'); } catch(e) {}
+}
+
+// ======================================================================
+// [v15.5] UX unificada para los modales-contenedor legacy
+// (substitutionModal, configModal, invModal, fbModal): ESC y click en el
+// fondo cierran, y hay animación de entrada. Los sitios de apertura/cierre
+// existentes (style.display) siguen funcionando sin cambios — aquí solo se
+// observa el atributo style de cada contenedor.
+// ======================================================================
+var _MODAL_UX_IDS = ['substitutionModal', 'configModal', 'invModal', 'fbModal'];
+
+function _modalUxClose(el) {
+    // El escáner de códigos vive dentro de invModal: apagar la cámara al cerrar
+    if (el.id === 'invModal' && typeof invScanStop === 'function') { try { invScanStop(); } catch(e) {} }
+    el.style.display = 'none';
+    if (el._modalTrigger && document.contains(el._modalTrigger)) {
+        try { el._modalTrigger.focus(); } catch(e) {}
+    }
+    el._modalTrigger = null;
+}
+
+function modalUxInit() {
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        for (var i = _MODAL_UX_IDS.length - 1; i >= 0; i--) {
+            var el = document.getElementById(_MODAL_UX_IDS[i]);
+            if (el && el.style.display && el.style.display !== 'none') {
+                _modalUxClose(el);
+                e.stopPropagation();
+                return;
+            }
+        }
+    });
+    _MODAL_UX_IDS.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('click', function(e) {
+            if (e.target === el) _modalUxClose(el);
+        });
+        new MutationObserver(function() {
+            if (el.style.display && el.style.display !== 'none' && !el.classList.contains('modal-anim-in')) {
+                el._modalTrigger = (document.activeElement && document.activeElement !== document.body) ? document.activeElement : null;
+                el.classList.add('modal-anim-in');
+                setTimeout(function() { el.classList.remove('modal-anim-in'); }, 250);
+            }
+        }).observe(el, { attributes: true, attributeFilter: ['style'] });
+    });
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -2584,6 +2653,7 @@ function generateWeeklyStatusPDF(opts) {
     function initializeSystem() {
         // Theme init — apply before any UI renders
         try { themeInit(); } catch(e) { console.error('themeInit error:', e); }
+        try { modalUxInit(); } catch(e) { console.error('modalUxInit error:', e); }
 
         // Show local build in the topbar version pill (Firebase will call again with remote status)
         try { updateVersionDisplay(); } catch(e) { console.error('version display error:', e); }

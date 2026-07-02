@@ -2773,3 +2773,6 @@ details.acc > summary {
 .avatar-circle { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0; }
 .empty-state { text-align: center; padding: 24px 16px; color: var(--tp-dim, #64748b); font-size: var(--fs-xs, 12px); }
 .empty-state .empty-icon { font-size: 28px; margin-bottom: 8px; display: block; }
+
+/* [v15.5] Animación de entrada para los modales-contenedor legacy */
+.modal-anim-in { animation: modalFadeIn 0.2s ease; }
