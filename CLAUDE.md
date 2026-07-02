@@ -23,12 +23,20 @@ no-login operator picker, synced change history).
 | **Hoy** | Daily dashboard (incl. shared Lab Overview strip), quick actions | `platform-today` |
 | **Plan** | Test Plan Manager (weekly plan, **🚑 Recuperación**, families, calendar, simulator, production) | `platform-testplan` |
 | **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
-| **Datos** | Results Analyzer (trends, SPC, Cpk/Ppk) + Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system) | `platform-results`, `platform-panel` |
+| **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system). *(Results Analyzer es un módulo latente — ver nota abajo)* | `platform-panel` |
 | **CoP** | CoP Type 1 statistical Conformity-of-Production validator (family + VINes, live verdict) | `platform-cop` |
 
 Legacy platform names (`cop15`, `testplan`, `results`, `inventory`, `panel`) are aliased in
 `switchPlatform()`. Topbar (`index.html`) also has: **👤 operator picker** (`#op-picker`, no password),
-**🕘 change history** (deep-links to Panel → Auditoría), Firebase sync indicator, global search, theme.
+**🕘 change history** (deep-links to Panel → Auditoría), Firebase sync indicator, notificaciones y un
+menú **⋯** que colapsa los controles secundarios en móvil (<768px; en móvil las 5 tabs se ocultan —
+la bottom-nav navega). **v15.5**: tema claro único (el dark mode se eliminó por completo).
+
+> **Módulos latentes**: `js/results.js` (Results Analyzer) y `js/approvals.js` (Power Automate) siguen
+> en el repo pero NO se cargan — están fuera de los `<script>` de `index.html` y de la lista de
+> `build.sh` desde mayo 2026 (reemplazo del flujo PA/VETS por la aprobación doble-ciego interna).
+> Las referencias cruzadas (`raState`, `paConfig`) están protegidas con `typeof`. Revivirlos o
+> eliminarlos definitivamente es una decisión de producto pendiente.
 
 ## Project Structure
 

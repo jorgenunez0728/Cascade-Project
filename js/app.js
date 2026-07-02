@@ -2750,7 +2750,8 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try { tpInit(); } catch(e) { console.error('tpInit error:', e); }
         try { tpUpdateBadges(); } catch(e) {}
         try { tpHookCascadeResult(); } catch(e) {}
-        try { raInit(); } catch(e) { console.error('raInit error:', e); }
+        // results.js es un módulo latente (fuera del build desde mayo 2026); no ensuciar la consola
+        try { if (typeof raInit === 'function') raInit(); } catch(e) { console.error('raInit error:', e); }
 
         // ═══ Auto-plan semanal (viernes 14:00 deadline) ═══
         try {

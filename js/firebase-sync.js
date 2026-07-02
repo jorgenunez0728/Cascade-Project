@@ -883,7 +883,8 @@ function fbPushAll(showFeedback) {
     var modules = [];
     if (fbSyncModules.cop15) modules.push({col:'cop15', data:db});
     if (fbSyncModules.testplan) modules.push({col:'testplan', data:tpState});
-    if (fbSyncModules.results) modules.push({col:'results', data:raState});
+    // results.js es un módulo latente (fuera del build): no subir undefined
+    if (fbSyncModules.results && typeof raState !== 'undefined' && raState) modules.push({col:'results', data:raState});
     if (fbSyncModules.inventory) modules.push({col:'inventory', data:invState});
     if (fbSyncModules.panel) modules.push({col:'panel', data:typeof pnState !== 'undefined' ? pnState : {}});
     if (fbSyncModules.approvals && typeof paConfig !== 'undefined' && typeof _paShareablePayload === 'function') {

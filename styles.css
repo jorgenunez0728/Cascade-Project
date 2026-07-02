@@ -2836,3 +2836,10 @@ details.acc > summary {
 .platform-bar :focus-visible, .bottom-nav :focus-visible {
     outline-color: #f8fafc;
 }
+
+/* [v15.5] En móvil la bottom-nav (siempre visible) ya cubre la navegación:
+   ocultar las tabs de la topbar libera una fila completa de pantalla */
+@media (max-width: 768px) {
+    .platform-bar .platform-tab { display: none; }
+    #fb-sync-indicator { margin-left: 0; }
+}
