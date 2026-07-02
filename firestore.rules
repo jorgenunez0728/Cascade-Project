@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════
+// KIA EmLab — Firestore Security Rules (v15.6)
+//
+// Antes de estas reglas el workspace era efectivamente abierto (sign-in
+// anónimo + guía "allow read, write: if true"): cualquiera con la URL podía
+// leer/escribir todos los datos del laboratorio.
+//
+// Modelo: un solo usuario de laboratorio con Email/Password (la contraseña
+// se ingresa UNA vez por dispositivo). Solo sesiones con proveedor
+// 'password' pueden tocar stations/. Anónimos y no autenticados: denegado.
+//
+// Despliegue: CI (firebase-tools deploy --only firestore:rules) o pegar
+// este archivo en Consola → Firestore Database → Reglas → Publicar.
+// ═══════════════════════════════════════════════════════════════════════
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isLabUser() {
+      return request.auth != null
+          && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+
+    // Workspace del laboratorio: doc de estación + todas sus subcolecciones
+    // (cop15/testplan/inventory/panel/cop/audit/backups → doc 'current' o fechas)
+    match /stations/{station} {
+      allow read, write: if isLabUser();
+      match /{path=**} {
+        allow read, write: if isLabUser();
+      }
+    }
+
+    // El live-sync usa collectionGroup(col).onSnapshot: las collection-group
+    // queries requieren reglas con comodín por colección LITERAL — sin estas,
+    // los listeners reciben permission-denied aunque stations/ esté permitido.
+    match /{path=**}/cop15/{doc}     { allow read: if isLabUser(); }
+    match /{path=**}/testplan/{doc}  { allow read: if isLabUser(); }
+    match /{path=**}/inventory/{doc} { allow read: if isLabUser(); }
+
+    // Versión de la app: lectura pública (fbCheckAppVersion usa REST sin
+    // token). Escritura cerrada — el publish sin auth de build.sh recibirá
+    // 403 (tolerado con warning); el auto-update del SW cubre la notificación.
+    match /app/version {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Todo lo demás: denegado
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
