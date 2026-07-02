@@ -2787,3 +2787,52 @@ details.acc > summary {
 @media (prefers-reduced-motion: reduce) {
     .platform-section.platform-enter { animation: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [v15.5] TOPBAR MÓVIL — menú "⋯", touch targets y focus ring            */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* Desktop: el grupo "más" se integra al flex de la barra sin cambios */
+.topbar-more-group { display: contents; }
+#topbar-more-btn {
+    display: none;
+    align-self: center;
+    background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
+    color: rgba(255,255,255,0.6); font-size: 18px; font-weight: 800;
+    padding: 4px 10px; cursor: pointer; line-height: 1;
+}
+
+@media (max-width: 768px) {
+    .platform-bar { position: sticky; }
+    #topbar-more-btn { display: flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: center; }
+    /* En móvil el grupo se vuelve un dropdown anclado a la barra */
+    .topbar-more-group {
+        display: none;
+        position: absolute;
+        top: 100%; right: 6px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 2px;
+        background: linear-gradient(135deg, #05141f 0%, #0a1628 100%);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 0 0 10px 10px;
+        box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+        padding: 8px;
+        z-index: 2001;
+    }
+    .topbar-more-group.open { display: flex; }
+    .topbar-more-group > * { align-self: stretch !important; }
+    /* Touch targets ≥44px en toda la barra en móvil */
+    .platform-bar button, .topbar-more-group button { min-height: 44px; min-width: 44px; }
+    #op-picker select { min-height: 38px; }
+}
+
+/* Focus ring global de marca (teclado): antes solo había 5 :focus-visible */
+:focus-visible {
+    outline: 2px solid var(--kia-red, #bb162b);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.platform-bar :focus-visible, .bottom-nav :focus-visible {
+    outline-color: #f8fafc;
+}

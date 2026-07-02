@@ -511,6 +511,26 @@ function _modalUxClose(el) {
     el._modalTrigger = null;
 }
 
+// ── [v15.5] Menú "⋯" de la topbar (móvil): colapsa los controles secundarios ──
+function topbarMoreToggle() {
+    var group = document.getElementById('topbar-more-group');
+    var btn = document.getElementById('topbar-more-btn');
+    if (!group) return;
+    var open = group.classList.toggle('open');
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+        setTimeout(function() {
+            document.addEventListener('click', function _closeMore(e) {
+                if (!group.contains(e.target) && e.target !== btn) {
+                    group.classList.remove('open');
+                    if (btn) btn.setAttribute('aria-expanded', 'false');
+                    document.removeEventListener('click', _closeMore);
+                }
+            });
+        }, 0);
+    }
+}
+
 function modalUxInit() {
     document.addEventListener('keydown', function(e) {
         if (e.key !== 'Escape') return;

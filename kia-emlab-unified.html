@@ -2827,6 +2827,55 @@ details.acc > summary {
 @media (prefers-reduced-motion: reduce) {
     .platform-section.platform-enter { animation: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [v15.5] TOPBAR MÓVIL — menú "⋯", touch targets y focus ring            */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* Desktop: el grupo "más" se integra al flex de la barra sin cambios */
+.topbar-more-group { display: contents; }
+#topbar-more-btn {
+    display: none;
+    align-self: center;
+    background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
+    color: rgba(255,255,255,0.6); font-size: 18px; font-weight: 800;
+    padding: 4px 10px; cursor: pointer; line-height: 1;
+}
+
+@media (max-width: 768px) {
+    .platform-bar { position: sticky; }
+    #topbar-more-btn { display: flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: center; }
+    /* En móvil el grupo se vuelve un dropdown anclado a la barra */
+    .topbar-more-group {
+        display: none;
+        position: absolute;
+        top: 100%; right: 6px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 2px;
+        background: linear-gradient(135deg, #05141f 0%, #0a1628 100%);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 0 0 10px 10px;
+        box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+        padding: 8px;
+        z-index: 2001;
+    }
+    .topbar-more-group.open { display: flex; }
+    .topbar-more-group > * { align-self: stretch !important; }
+    /* Touch targets ≥44px en toda la barra en móvil */
+    .platform-bar button, .topbar-more-group button { min-height: 44px; min-width: 44px; }
+    #op-picker select { min-height: 38px; }
+}
+
+/* Focus ring global de marca (teclado): antes solo había 5 :focus-visible */
+:focus-visible {
+    outline: 2px solid var(--kia-red, #bb162b);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.platform-bar :focus-visible, .bottom-nav :focus-visible {
+    outline-color: #f8fafc;
+}
     </style>
 </head>
 
@@ -2862,16 +2911,18 @@ details.acc > summary {
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
     <div id="op-picker" style="align-self:center;display:flex;align-items:center;padding:0 4px;" title="Operador actual"></div>
-    <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
-    <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
-    <button id="immersive-toggle-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">⛶</button>
-    <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">🔍</button></div>
-    <div style="padding:4px 4px;align-self:center;position:relative;"><button onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones" aria-label="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
-    <div style="padding:4px 4px;align-self:center;"><button onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-audit');" style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;color:rgba(255,255,255,0.5);" title="Historial de cambios" aria-label="Historial de cambios">🕘</button></div>
-    <div style="padding:4px 4px;align-self:center;"><button onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación" aria-label="Tour guiado de la aplicación">?</button></div>
-    <div style="flex:1"></div>
-    <div id="app-version-info" style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.4); align-self:center; cursor:default;" title="Versión de la app">
-        KIA EmLab v14.0
+    <div style="padding:4px 4px;align-self:center;position:relative;"><button class="topbar-icon-btn" onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones" aria-label="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
+    <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-audit');" style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;color:rgba(255,255,255,0.5);" title="Historial de cambios" aria-label="Historial de cambios">🕘</button></div>
+    <button id="topbar-more-btn" class="topbar-icon-btn" onclick="topbarMoreToggle()" title="Más opciones" aria-label="Más opciones" aria-haspopup="true" aria-expanded="false">⋯</button>
+    <div class="topbar-more-group" id="topbar-more-group">
+        <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
+        <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
+        <button id="immersive-toggle-btn" class="topbar-icon-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">⛶</button>
+        <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary topbar-icon-btn" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">🔍</button></div>
+        <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación" aria-label="Tour guiado de la aplicación">?</button></div>
+        <div id="app-version-info" style="padding:10px 12px; font-size:10px; color:rgba(255,255,255,0.4); align-self:center; cursor:default;" title="Versión de la app">
+            KIA EmLab v14.0
+        </div>
     </div>
 </div>
 
@@ -4575,21 +4626,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607020609';
+var APP_BUILD = '202607020611';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607020609' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607020611' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607020609' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607020611' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -4605,7 +4656,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607020609' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607020611' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -4898,6 +4949,26 @@ function _modalUxClose(el) {
         try { el._modalTrigger.focus(); } catch(e) {}
     }
     el._modalTrigger = null;
+}
+
+// ── [v15.5] Menú "⋯" de la topbar (móvil): colapsa los controles secundarios ──
+function topbarMoreToggle() {
+    var group = document.getElementById('topbar-more-group');
+    var btn = document.getElementById('topbar-more-btn');
+    if (!group) return;
+    var open = group.classList.toggle('open');
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+        setTimeout(function() {
+            document.addEventListener('click', function _closeMore(e) {
+                if (!group.contains(e.target) && e.target !== btn) {
+                    group.classList.remove('open');
+                    if (btn) btn.setAttribute('aria-expanded', 'false');
+                    document.removeEventListener('click', _closeMore);
+                }
+            });
+        }, 0);
+    }
 }
 
 function modalUxInit() {
@@ -29799,7 +29870,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607020609' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607020611' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
