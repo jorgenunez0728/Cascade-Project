@@ -689,17 +689,57 @@ function saveActiveVehicleContext(vehicleId, extraCtx) {
 var _debouncedSaveDB = debounce(function() { saveDB(); }, 500);
 // ══════════════════════════════════════════════════
 // AUDIT TRAIL — Centralized mutation logging
+// [v15.5] Trail en memoria + persistencia debounced: antes cada evento hacía
+// JSON.parse+filter+stringify del arreglo completo (hasta 5000 entradas) y subía
+// TODO el arreglo a Firestore — el costo por-acción más alto de la app.
 // ══════════════════════════════════════════════════
 var AUDIT_LS_KEY = 'kia_audit_trail';
-var AUDIT_MAX = 5000;
+// 2000 ≈ ~90 días reales de historia y mantiene el documento de Firestore
+// lejos de su límite de 1MB (5000 entradas lo rozaban)
+var AUDIT_MAX = 2000;
 var AUDIT_PURGE_DAYS = 90;
+
+var _auditTrail = null;        // caché en memoria (lazy)
+var _auditDirty = false;       // hay cambios sin persistir
+
+function _auditEnsureLoaded() {
+    if (_auditTrail === null) {
+        try { _auditTrail = JSON.parse(localStorage.getItem(AUDIT_LS_KEY) || '[]'); } catch(e) { _auditTrail = []; }
+        if (!Array.isArray(_auditTrail)) _auditTrail = [];
+    }
+    return _auditTrail;
+}
+
+// Hook para el sync: tras un merge del pull que escribe localStorage directo
+function auditReloadFromStorage() { _auditTrail = null; _auditDirty = false; }
+
+function _auditPersistNow() {
+    if (!_auditDirty || _auditTrail === null) return;
+    // FIFO cap + purga >90 días (solo aquí, no en cada evento)
+    if (_auditTrail.length > AUDIT_MAX) _auditTrail = _auditTrail.slice(-AUDIT_MAX);
+    var cutoff = new Date(Date.now() - AUDIT_PURGE_DAYS * 86400000).toISOString();
+    _auditTrail = _auditTrail.filter(function(e) { return e.ts >= cutoff; });
+    try { localStorage.setItem(AUDIT_LS_KEY, JSON.stringify(_auditTrail)); _auditDirty = false; } catch(e) {}
+    // Compartir el historial entre dispositivos (fbPush ya coalesce 2s por colección)
+    try {
+        if (typeof fbPush === 'function' && typeof fbSync !== 'undefined' && fbSync.enabled
+            && typeof fbSyncModules !== 'undefined' && fbSyncModules.audit) {
+            fbPush('audit', _auditTrail);
+        }
+    } catch(e) {}
+}
+var _auditPersistDebounced = debounce(_auditPersistNow, 2500);
+
+// Flush síncrono a localStorage al ocultar/cerrar la página (el push pendiente
+// se recupera en el siguiente arranque vía fbPushAll)
+window.addEventListener('pagehide', _auditPersistNow);
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') _auditPersistNow();
+});
 
 function auditLog(module, action, entity, details) {
     var user = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
-    var trail = [];
-    try { trail = JSON.parse(localStorage.getItem(AUDIT_LS_KEY) || '[]'); } catch(e) {}
-
-    trail.push({
+    _auditEnsureLoaded().push({
         id: 'aud_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
         ts: new Date().toISOString(),
         user: user ? { name: user.name, role: user.role } : { name: 'Sistema', role: '' },
@@ -708,25 +748,12 @@ function auditLog(module, action, entity, details) {
         entity: entity || null,
         details: details || ''
     });
-
-    // FIFO cap
-    if (trail.length > AUDIT_MAX) trail = trail.slice(-AUDIT_MAX);
-    // Purge >90 days
-    var cutoff = new Date(Date.now() - AUDIT_PURGE_DAYS * 86400000).toISOString();
-    trail = trail.filter(function(e) { return e.ts >= cutoff; });
-
-    try { localStorage.setItem(AUDIT_LS_KEY, JSON.stringify(trail)); } catch(e) {}
-    // Compartir el historial entre dispositivos (espacio compartido de Firebase)
-    try {
-        if (typeof fbPush === 'function' && typeof fbSync !== 'undefined' && fbSync.enabled
-            && typeof fbSyncModules !== 'undefined' && fbSyncModules.audit) {
-            fbPush('audit', trail);
-        }
-    } catch(e) {}
+    _auditDirty = true;
+    _auditPersistDebounced();
 }
 
 function auditGetTrail() {
-    try { return JSON.parse(localStorage.getItem(AUDIT_LS_KEY) || '[]'); } catch(e) { return []; }
+    return _auditEnsureLoaded().slice();
 }
 
 function auditExportCSV() {
