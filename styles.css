@@ -2776,3 +2776,14 @@ details.acc > summary {
 
 /* [v15.5] Animación de entrada para los modales-contenedor legacy */
 .modal-anim-in { animation: modalFadeIn 0.2s ease; }
+
+/* [v15.5] Entrada por defecto entre plataformas (sin swipe): fade+lift corto,
+   solo opacity/transform — barato en móvil */
+@keyframes platformEnter {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.platform-section.platform-enter { animation: platformEnter 0.18s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+    .platform-section.platform-enter { animation: none; }
+}

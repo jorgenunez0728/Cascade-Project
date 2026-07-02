@@ -1685,9 +1685,11 @@ function switchPlatform(platform, swipeDir) {
         } else {
             // Cambio de sección síncrono y fiable. (Antes usaba document.startViewTransition,
             // que de forma intermitente dejaba la sección sin cambiar — mismo problema que
-            // ya se corrigió en el motor de tabs.)
-            document.querySelectorAll('.platform-section').forEach(function(s) { s.classList.remove('active'); });
-            newSection.classList.add('active');
+            // ya se corrigió en el motor de tabs.) [v15.5] Con una entrada corta de
+            // opacity/transform vía CSS — el toggle sigue siendo síncrono.
+            document.querySelectorAll('.platform-section').forEach(function(s) { s.classList.remove('active', 'platform-enter'); });
+            newSection.classList.add('active', 'platform-enter');
+            setTimeout(function() { newSection.classList.remove('platform-enter'); }, 200);
         }
     }
 
@@ -1739,7 +1741,9 @@ function switchPlatform(platform, swipeDir) {
     // Update vehicle checklist visibility
     if (typeof vclUpdate === 'function') vclUpdate();
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Instant: el smooth-scroll competía con la animación de entrada y se
+    // percibía como un salto; el smooth queda para navegación intra-vista
+    window.scrollTo(0, 0);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
