@@ -168,9 +168,49 @@ function copAutoPopulateVins(key) {
     while (rows.length < 3) rows.push({ id: nextId++, vin: '', values: {}, source: 'manual' });
     copState.vehicles = rows;
 }
-// Best-effort de valores desde resultados. Conservador: null (el usuario captura/edita los gases)
-// para no arriesgar el juicio regulatorio con mapeos inciertos de bags→final.
-function copResultValue(vehicle, pollId) { return null; }
+// Autollenado desde valores FINALES verificados (testData.gasResults capturados en
+// liberación/aprobación) — nunca bolsas crudas del analizador: el juicio regulatorio
+// exige valores finales. La celda queda source:'auto' y el técnico puede corregirla.
+var COP_VALUE_FIELDS = { CO: 'CO', THC: 'THC', NMHC: 'NMHC', NOx: 'NOx', PM: 'PM', PN: 'PN' };
+
+function _copNum(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = parseFloat(String(v).replace(',', '.'));
+    return isFinite(n) ? n : null;
+}
+
+function _copFinalGasValues(vehicle) {
+    var gr = vehicle && vehicle.testData && vehicle.testData.gasResults;
+    if (!gr) return null;
+    // Preferir aprobador (doble ciego verificado); fallback liberador
+    if (gr.aprobador && gr.aprobador.values) return gr.aprobador.values;
+    if (gr.liberador && gr.liberador.values) return gr.liberador.values;
+    return null;
+}
+
+// ¿La regulación del vehículo guarda el combinado THC+NOx bajo el campo THC? (caso EURO-2)
+function _copRegCombinesTHC(vehicle) {
+    try {
+        if (typeof _libGetVehicleRegulation !== 'function' || typeof getRegulationProfile !== 'function') return false;
+        var prof = getRegulationProfile(_libGetVehicleRegulation(vehicle));
+        if (!prof || !prof.gases) return false;
+        var g = prof.gases.find(function(x) { return x.field === 'THC'; });
+        return !!(g && /\+\s*NO/i.test(g.label || ''));
+    } catch (e) { return false; }
+}
+
+function copResultValue(vehicle, pollId) {
+    var values = _copFinalGasValues(vehicle);
+    if (!values) return null;
+    if (pollId === 'HCNOx') {
+        var thc = _copNum(values.THC), nox = _copNum(values.NOx);
+        if (thc !== null && nox !== null) return Math.round((thc + nox) * 10000) / 10000;
+        if (thc !== null && nox === null && _copRegCombinesTHC(vehicle)) return thc;
+        return null;
+    }
+    var field = COP_VALUE_FIELDS[pollId];
+    return field ? _copNum(values[field]) : null;
+}
 function copAddManualRow() {
     copInitState();
     var maxId = copState.vehicles.reduce(function(m, v) { return Math.max(m, v.id); }, 0);
@@ -201,9 +241,21 @@ function copSaveJudgment() {
         decision: decision || 'INCOMPLETO'
     });
     if (!copPersist()) { copRender(); return; } // no reportar éxito si no se pudo guardar
+    _copPushNow();
     if (typeof auditLog === 'function') auditLog('cop', 'judgment_saved', {type:'cop', label:(copState.familyLabel || '(sin familia)')}, 'Veredicto: ' + (decision === 'PASS' ? 'CONCORDANTE' : decision === 'FAIL' ? 'NO CONCORDANTE' : (decision || 'INCOMPLETO')));
     if (typeof showToast === 'function') showToast('Juicio guardado' + (copState.familyLabel ? ' — ' + copState.familyLabel : ''), 'success');
     copRender();
+}
+
+// Push inmediato del estado CoP persistido (los juicios no esperan al ciclo de fbPushAll).
+// No se engancha copPersist en fbHookSaves porque corre en cada tecla; solo guardar/borrar juicio.
+function _copPushNow() {
+    try {
+        if (typeof fbPush !== 'function' || typeof fbSync === 'undefined' || !fbSync.enabled) return;
+        if (typeof fbSyncModules === 'undefined' || !fbSyncModules.cop) return;
+        var raw = JSON.parse(localStorage.getItem(COP_LS_KEY));
+        if (raw) fbPush('cop', raw);
+    } catch (e) {}
 }
 function copLoadJudgment(id) {
     var rec = (copState.saved || []).find(function(r) { return r.id === id; });
@@ -217,7 +269,8 @@ function copLoadJudgment(id) {
 }
 function copDeleteJudgment(id) {
     copState.saved = (copState.saved || []).filter(function(r) { return r.id !== id; });
-    copPersist(); copRender();
+    if (copPersist()) _copPushNow();
+    copRender();
 }
 
 // ─── LÓGICA DE NEGOCIO ───────────────────────────────────────────────────────
@@ -308,20 +361,6 @@ function copHandleInput(el) {
     if (vehicle) vehicle.values[pid] = el.value;
     copPersist();
     copRenderStats();
-}
-
-function copAddVehicle() {
-    if (copState.vehicles.length < 20) {
-        copState.vehicles.push({ id: copState.vehicles.length + 1, values: {} });
-        copRender();
-    }
-}
-
-function copRemoveVehicle() {
-    if (copState.vehicles.length > 3) {
-        copState.vehicles = copState.vehicles.slice(0, -1);
-        copRender();
-    }
 }
 
 function copClearData() {
