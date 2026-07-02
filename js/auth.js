@@ -463,28 +463,10 @@ function authVerifyBiometric() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function authFirebaseSignIn() {
-    // Anonymous sign-in to Firebase for Firestore security rules
-    if (typeof firebase === 'undefined') return;
-    if (!firebase.apps || firebase.apps.length === 0) return;
-
-    // Skip on non-HTTP origins (content://, file://) — signInAnonymously() may hang
-    // and poison the Firebase SDK internal state, causing Firestore operations to hang too
-    var proto = location.protocol;
-    if (proto !== 'http:' && proto !== 'https:') {
-        console.log('Firebase auth: Skipping on ' + proto + ' origin');
-        return;
-    }
-
-    try {
-        var auth = firebase.auth();
-        if (auth.currentUser) return; // Already signed in
-
-        auth.signInAnonymously().then(function() {
-            console.log('Firebase anonymous auth successful');
-        }).catch(function(err) {
-            console.warn('Firebase anonymous auth failed:', err);
-        });
-    } catch(e) {
-        console.warn('Firebase auth error:', e);
+    // [v15.6] Ya no hay sign-in anónimo (las Security Rules lo rechazan).
+    // La sesión del dispositivo es Email/Password y la gestiona firebase-sync
+    // (fbEnsureAuth + prompt de contraseña); aquí solo se delega.
+    if (typeof fbEnsureAuth === 'function') {
+        try { fbEnsureAuth(); } catch(e) { console.warn('authFirebaseSignIn:', e); }
     }
 }

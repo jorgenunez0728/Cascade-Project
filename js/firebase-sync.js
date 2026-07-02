@@ -16,6 +16,12 @@ var FIREBASE_CONFIG = {
 
 // ── Espacio de trabajo compartido: todos los dispositivos comparten un solo dataset del lab ──
 var FB_SHARED_WORKSPACE = 'KIA-EMLAB';
+
+// [v15.6] Usuario único del laboratorio (Email/Password). La contraseña se
+// ingresa UNA vez por dispositivo; la sesión persiste en el navegador. Las
+// Security Rules solo aceptan sesiones con proveedor 'password' (firestore.rules).
+// El usuario se crea en la consola: Authentication → Users → Add user.
+var FB_LAB_EMAIL = 'laboratorio@kia-emlab-test-system.firebaseapp.com';
 // ID único de ESTE dispositivo (para distinguir ecos propios de cambios de otros en el mismo espacio)
 var FB_DEVICE_ID = (function() {
     var k = 'kia_fb_device', v = null;
@@ -300,6 +306,33 @@ function fbQuotaStats() {
     };
 }
 
+// ── [v15.6] Camino conectado tras autenticación (extraído de fbInit) ──
+// Corre cuando hay sesión de laboratorio: test de conexión → pull inicial →
+// listeners → seed push (condicionado al pull) → chequeo de versión → cola.
+function _fbAfterAuthConnected() {
+    fbTestConnectionWithRetry(2, function(ok) {
+        if (!ok) return;
+        fbSync.status = 'connected';
+        fbUpdateIndicator();
+        if (fbSync.stationId) {
+            fbPullAll();
+            fbBackupCheck();
+            fbStartListening();
+            // Semilla: subir los datos locales una vez, SOLO después de que el
+            // pull inicial terminó (antes corría a los 6s aunque el pull hubiera
+            // fallado, y un dispositivo vacío podía pisar la nube)
+            if (!fbSync._seeded) {
+                fbSync._seeded = true;
+                setTimeout(function() {
+                    if (fbSync.enabled && fbSync._pullCompleted) fbPushAll();
+                }, 6000);
+            }
+        }
+        fbCheckAppVersion();
+        if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 3000);
+    });
+}
+
 // ── Initialize Firebase ──
 function fbInit() {
     if (!FIREBASE_CONFIG.apiKey || !FIREBASE_CONFIG.projectId) {
@@ -321,7 +354,13 @@ function fbInit() {
         fbSync.status = 'connecting';
         fbSync.lastError = '';
         fbUpdateIndicator();
-        (FB_IS_HTTP_ORIGIN ? fbAnonymousAuth() : Promise.resolve()).then(function() {
+        fbEnsureAuth().then(function(hasSession) {
+            _fbWatchAuthState();
+            if (!hasSession) {
+                fbSync.status = 'auth';
+                fbUpdateIndicator();
+                return;
+            }
             fbTestConnectionWithRetry(2, function(ok) {
                 if (ok) {
                     fbSync.status = 'connected';
@@ -409,40 +448,19 @@ function fbInit() {
         }
 
         persistencePromise.then(function() {
-            // Skip anonymous auth on non-HTTP origins — signInAnonymously() may hang
-            // on content:// protocol and poison the SDK internal state.
-            // Rules should be "allow read, write: if true;" which doesn't require auth.
-            if (FB_IS_HTTP_ORIGIN) {
-                return fbAnonymousAuth();
-            }
-            console.log('Firebase: Skipping anonymous auth on ' + location.protocol + ' origin');
-            return Promise.resolve();
-        }).then(function() {
+            return fbEnsureAuth();
+        }).then(function(hasSession) {
             fbSync._initialized = true;
-            // Now test connection (with retry)
-            fbTestConnectionWithRetry(2, function(ok) {
-                if (ok) {
-                    fbSync.status = 'connected';
-                    fbUpdateIndicator();
-                    if (fbSync.stationId) {
-                        fbPullAll();
-                        fbBackupCheck();
-                        fbStartListening();
-                        // Semilla: subir los datos locales una vez, SOLO después de que el
-                        // pull inicial terminó (v15.6: antes corría a los 6s aunque el pull
-                        // hubiera fallado, y un dispositivo vacío podía pisar la nube)
-                        if (!fbSync._seeded) {
-                            fbSync._seeded = true;
-                            setTimeout(function() {
-                                if (fbSync.enabled && fbSync._pullCompleted) fbPushAll();
-                            }, 6000);
-                        }
-                    }
-                    fbCheckAppVersion();
-                    // Drain offline queue
-                    if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 3000);
-                }
-            });
+            _fbWatchAuthState();
+            if (hasSession) {
+                _fbAfterAuthConnected();
+            } else {
+                // Sin sesión de laboratorio: la app funciona local; el indicador
+                // 🔑 ofrece conectar (contraseña una vez por dispositivo)
+                fbSync.status = 'auth';
+                fbUpdateIndicator();
+                fbCheckAppVersion(); // lectura pública, no requiere sesión
+            }
         }).catch(function(chainErr) {
             console.error('Firebase init chain error:', chainErr);
             fbSync._initialized = true;
@@ -459,38 +477,101 @@ function fbInit() {
     }
 }
 
-// ── Anonymous Auth (for security rules that require auth) ──
-function fbAnonymousAuth() {
-    // Skip auth on non-HTTP origins — signInAnonymously() uses HTTP requests
-    // that may hang on content:// or file:// protocols, poisoning SDK state
+// ── [v15.6] Sesión de dispositivo (reemplaza al sign-in anónimo) ──
+// Ya NO se inicia sesión anónima: las Security Rules la rechazan. Este helper
+// solo reporta si el dispositivo tiene sesión persistida (Email/Password).
+// Sin sesión, la app sigue funcionando offline y el indicador ofrece conectar.
+function fbEnsureAuth() {
     if (!FB_IS_HTTP_ORIGIN) {
         console.log('Firebase: Skipping auth on non-HTTP origin');
-        return Promise.resolve();
+        return Promise.resolve(false);
     }
-
     try {
         var auth = firebase.auth();
-        if (auth.currentUser) {
-            return Promise.resolve(); // Already signed in
-        }
-        // Race against a timeout — auth should not block initialization
-        var authPromise = auth.signInAnonymously().then(function() {
-            console.log('Firebase: Anonymous auth OK');
-        }).catch(function(err) {
-            // Auth might not be enabled — that's OK if rules use "if true"
-            console.warn('Firebase: Anonymous auth failed (if rules use "if true" this is OK):', err.code || err.message);
-        });
-        var timeoutPromise = new Promise(function(resolve) {
+        if (auth.currentUser) return Promise.resolve(true);
+        // Esperar brevemente a que el SDK restaure la sesión persistida (IndexedDB)
+        return new Promise(function(resolve) {
+            var settled = false;
+            var unsub = auth.onAuthStateChanged(function(user) {
+                if (settled) return;
+                settled = true;
+                try { unsub(); } catch(e) {}
+                resolve(!!user);
+            });
             setTimeout(function() {
-                console.warn('Firebase: Anonymous auth timed out after 10s, continuing without auth');
-                resolve();
-            }, 10000);
+                if (settled) return;
+                settled = true;
+                try { unsub(); } catch(e) {}
+                resolve(!!auth.currentUser);
+            }, 4000);
         });
-        return Promise.race([authPromise, timeoutPromise]);
     } catch(e) {
         console.warn('Firebase: Auth not available:', e.message);
-        return Promise.resolve(); // Continue without auth
+        return Promise.resolve(false);
     }
+}
+
+// Vigila la sesión: cuando el dispositivo inicia sesión (tras el prompt de
+// contraseña), continúa automáticamente con el camino conectado.
+function _fbWatchAuthState() {
+    if (fbSync._authWatchActive) return;
+    try {
+        fbSync._authWatchActive = true;
+        firebase.auth().onAuthStateChanged(function(user) {
+            if (user && fbSync.status === 'auth') {
+                console.log('Firebase: sesión de laboratorio iniciada — conectando');
+                _fbAfterAuthConnected();
+            }
+        });
+    } catch(e) { fbSync._authWatchActive = false; }
+}
+
+// Prompt de contraseña del laboratorio (una vez por dispositivo)
+function fbShowAuthPrompt() {
+    var modal = document.getElementById('fbModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'fbModal';
+        modal.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;';
+        document.body.appendChild(modal);
+    }
+    modal.style.display = 'block';
+    modal.innerHTML =
+        '<div style="max-width:380px;margin:60px auto;background:#0f172a;border-radius:14px;padding:24px;position:relative;color:#e2e8f0;">' +
+        '<button onclick="document.getElementById(\'fbModal\').style.display=\'none\'" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">✕</button>' +
+        '<h3 style="margin:0 0 6px;color:#22d3ee;">🔑 Conectar con el laboratorio</h3>' +
+        '<div style="font-size:11px;color:#94a3b8;margin-bottom:16px;">Ingresa la contraseña del laboratorio para sincronizar este dispositivo. Solo se pide una vez.</div>' +
+        '<input type="password" id="fb-lab-password" autocomplete="current-password" placeholder="Contraseña del laboratorio" ' +
+        'style="width:100%;padding:12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;box-sizing:border-box;" ' +
+        'onkeydown="if(event.key===\'Enter\')fbSubmitLabPassword();">' +
+        '<div id="fb-lab-password-error" style="color:#ef4444;font-size:11px;min-height:16px;margin:8px 0;"></div>' +
+        '<button onclick="fbSubmitLabPassword()" style="width:100%;padding:12px;background:#22d3ee;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;">Conectar</button>' +
+        '</div>';
+    setTimeout(function() { var i = document.getElementById('fb-lab-password'); if (i) i.focus(); }, 100);
+}
+
+function fbSubmitLabPassword() {
+    var input = document.getElementById('fb-lab-password');
+    var errEl = document.getElementById('fb-lab-password-error');
+    var pw = input ? input.value : '';
+    if (!pw) { if (errEl) errEl.textContent = 'Escribe la contraseña.'; return; }
+    if (errEl) errEl.textContent = 'Conectando…';
+    firebase.auth().signInWithEmailAndPassword(FB_LAB_EMAIL, pw).then(function() {
+        var modal = document.getElementById('fbModal');
+        if (modal) modal.style.display = 'none';
+        showToast('✓ Dispositivo conectado al laboratorio', 'success');
+        // onAuthStateChanged (_fbWatchAuthState) continúa con pull/listeners
+    }).catch(function(err) {
+        var msgs = {
+            'auth/wrong-password': 'Contraseña incorrecta.',
+            'auth/invalid-credential': 'Contraseña incorrecta.',
+            'auth/user-not-found': 'El usuario del laboratorio no existe — crear en la consola (ver README, sección Seguridad).',
+            'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos.',
+            'auth/network-request-failed': 'Sin conexión. Verifica la red e intenta de nuevo.',
+            'auth/operation-not-allowed': 'Email/Password no está habilitado en la consola de Firebase (ver README).'
+        };
+        if (errEl) errEl.textContent = msgs[err.code] || ('Error: ' + (err.message || err.code));
+    });
 }
 
 // ── Connection Test with Retry ──
@@ -605,6 +686,16 @@ function fbRESTUrl(collection, docId) {
         '?key=' + FIREBASE_CONFIG.apiKey;
 }
 
+// [v15.6] Token de la sesión de laboratorio para el camino REST — con las
+// Security Rules cerradas, las llamadas REST sin Authorization reciben 403.
+function _fbIdTokenPromise() {
+    try {
+        var u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+        if (!u) return Promise.resolve(null);
+        return u.getIdToken().catch(function() { return null; });
+    } catch(e) { return Promise.resolve(null); }
+}
+
 // ── REST API Push (fallback when SDK transport is broken) ──
 function fbPushREST(collection, data, onDone) {
     if (typeof fetch === 'undefined') { if (onDone) onDone(false, 'fetch no disponible'); return; }
@@ -618,9 +709,12 @@ function fbPushREST(collection, data, onDone) {
         }
     };
 
+    _fbIdTokenPromise().then(function(tok) {
+    var headers = { 'Content-Type': 'application/json' };
+    if (tok) headers['Authorization'] = 'Bearer ' + tok;
     fetch(url, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
         body: JSON.stringify(body)
     }).then(function(resp) {
         if (resp.ok) {
@@ -647,6 +741,7 @@ function fbPushREST(collection, data, onDone) {
         fbQueueAdd(collection, data);
         if (onDone) onDone(false, fbSync.lastError);
     });
+    }); // _fbIdTokenPromise
 }
 
 // ── REST API Pull (fallback when SDK transport is broken) ──
@@ -655,7 +750,9 @@ function fbPullREST(collection, onDone) {
 
     var url = fbRESTUrl(collection, 'current');
 
-    fetch(url).then(function(resp) {
+    _fbIdTokenPromise().then(function(tok) {
+    var headers = tok ? { 'Authorization': 'Bearer ' + tok } : {};
+    fetch(url, { headers: headers }).then(function(resp) {
         if (resp.ok) {
             return resp.json().then(function(doc) {
                 fbQuotaRecord('read');
@@ -673,6 +770,7 @@ function fbPullREST(collection, onDone) {
         console.error('REST pull error (' + collection + '):', err);
         if (onDone) onDone(null);
     });
+    }); // _fbIdTokenPromise
 }
 
 // ── Convert JS value → Firestore REST API value format ──
@@ -1358,6 +1456,15 @@ function fbUpdateIndicator() {
             '⚠ sin datos — toca para descargar';
         el.onclick = function() { fbPullAll(true); };
         el.title = 'Este dispositivo no tiene datos del laboratorio. Toca para descargarlos.';
+        return;
+    }
+    // [v15.6] Sin sesión de laboratorio: el tap abre el prompt de contraseña
+    if (fbSync.status === 'auth') {
+        el.style.color = '#22d3ee';
+        el.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#22d3ee;margin-right:4px;"></span>' +
+            '🔑 toca para conectar';
+        el.onclick = function() { fbShowAuthPrompt(); };
+        el.title = 'Ingresa la contraseña del laboratorio para sincronizar este dispositivo (una sola vez).';
         return;
     }
     el.onclick = function() { fbShowSettings(); };
