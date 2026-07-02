@@ -459,54 +459,15 @@ let currentUnitSystem = 'SI';
 
 
 // ======================================================================
-// [M00b] THEME / DARK MODE
+// [M00b] THEME — solo tema claro unificado (v15.5)
+// El dark mode se eliminó: se auto-activaba por preferencia del sistema y se
+// parchaba con selectores frágiles sobre ~540 estilos inline. Decisión de
+// producto: un solo tema claro estable en todos los dispositivos del lab.
 // ======================================================================
 
-var _themePref = localStorage.getItem('kia_theme_pref') || 'auto';
-var _themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-
-function _themeApply(mode) {
-    var resolved = mode;
-    if (mode === 'auto') {
-        resolved = _themeMediaQuery.matches ? 'dark' : 'light';
-    }
-    document.documentElement.setAttribute('data-theme', resolved);
-    // Update meta theme-color
-    var metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) {
-        metaTheme.setAttribute('content', resolved === 'dark' ? '#0f1419' : '#05141f');
-    }
-    // Update toggle button icon
-    var btn = document.getElementById('theme-toggle-btn');
-    if (btn) {
-        var icons = { auto: '\u{1F504}', light: '\u2600\uFE0F', dark: '\u{1F319}' };
-        btn.textContent = icons[_themePref] || '\u{1F504}';
-        var labels = { auto: 'Tema: automático', light: 'Tema: claro', dark: 'Tema: oscuro' };
-        btn.title = labels[_themePref] || 'Cambiar tema';
-    }
-}
-
 function themeInit() {
-    _themePref = localStorage.getItem('kia_theme_pref') || 'auto';
-    _themeApply(_themePref);
-    // Listen for system preference changes when in auto mode
-    _themeMediaQuery.addEventListener('change', function() {
-        if (_themePref === 'auto') {
-            _themeApply('auto');
-        }
-    });
-}
-
-function themeToggle() {
-    // Cycle: auto → light → dark → auto
-    var cycle = { auto: 'light', light: 'dark', dark: 'auto' };
-    _themePref = cycle[_themePref] || 'auto';
-    localStorage.setItem('kia_theme_pref', _themePref);
-    _themeApply(_themePref);
-    var labels = { auto: 'Tema: automático (sistema)', light: 'Tema: claro', dark: 'Tema: oscuro' };
-    if (typeof showToast === 'function') {
-        showToast(labels[_themePref] || 'Tema actualizado', 'info');
-    }
+    document.documentElement.setAttribute('data-theme', 'light');
+    try { localStorage.removeItem('kia_theme_pref'); } catch(e) {}
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
