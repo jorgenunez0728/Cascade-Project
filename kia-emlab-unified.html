@@ -4200,7 +4200,6 @@ details.acc > summary {
                 <p style="color:var(--tp-dim);font-size:10px;margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;">
                     <button class="tp-btn" @click="purgeOldData('cop15', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>
-                    <button class="tp-btn" @click="purgeOldData('results', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Resultados >90 días</button>
                     <button class="tp-btn" @click="purgeOldData('testplan', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>
                     <button class="tp-btn" @click="purgeOldData('notes', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>
                 </div>
@@ -4299,9 +4298,10 @@ details.acc > summary {
                             <option value="">Todos</option>
                             <option value="cop15">COP15 Cascade</option>
                             <option value="tp">Test Plan</option>
-                            <option value="ra">Resultados</option>
                             <option value="inv">Inventario</option>
                             <option value="pn">Panel</option>
+                            <option value="cop">CoP</option>
+                            <option value="auth">Accesos</option>
                         </select>
                     </div>
                     <div style="flex:1;min-width:110px;">
@@ -4633,21 +4633,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607022115';
+var APP_BUILD = '202607022119';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607022115' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607022119' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607022115' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607022119' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -4663,7 +4663,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607022115' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607022119' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -7197,8 +7197,8 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try { tpInit(); } catch(e) { void 0; }
         try { tpUpdateBadges(); } catch(e) {}
         try { tpHookCascadeResult(); } catch(e) {}
-        // results.js es un módulo latente (fuera del build desde mayo 2026); no ensuciar la consola
-        try { if (typeof raInit === 'function') raInit(); } catch(e) { void 0; }
+        // v15.6: results.js y approvals.js se eliminaron definitivamente; limpiar sus claves residuales
+        try { ['kia_results_v1', 'kia_pa_config', 'kia_pa_queue'].forEach(function(k) { localStorage.removeItem(k); }); } catch(e) {}
 
         // ═══ Auto-plan semanal (viernes 14:00 deadline) ═══
         try {
@@ -7471,17 +7471,6 @@ function _globalCrossSearchForPalette(q) {
             }
         });
     }
-    // Results
-    if (typeof raState !== 'undefined' && raState.tests) {
-        var seen = {};
-        raState.tests.slice(-30).forEach(function(t) {
-            var desc = (t.vin||'') + ' ' + (t.testDesc||'');
-            if (desc.toUpperCase().includes(qUp) && !seen[desc]) {
-                seen[desc] = true;
-                results.push({ label: (t.vin||'?') + ' — ' + (t.testDesc||'').substring(0,30), icon: '📊', action: function(){ switchPlatform('results'); }, cat: 'Results' });
-            }
-        });
-    }
     return results.slice(0, 15);
 }
 
@@ -7593,24 +7582,6 @@ function renderLabDashboard(container) {
         }
     }
 
-    // ── Results Module ──
-    var raTests = (typeof raState !== 'undefined' && raState.tests) ? raState.tests : [];
-    var thisWeekTests = 0;
-    var weekAgo = now - 7 * 86400000;
-    var failCount = 0;
-    raTests.forEach(function(t) {
-        var tDate = t.importedAt ? new Date(t.importedAt).getTime() : 0;
-        if (tDate >= weekAgo) {
-            thisWeekTests++;
-            if (typeof raTestVerdict === 'function' && raTestVerdict(t) !== 'PASS') failCount++;
-        }
-    });
-    if (failCount > 0) {
-        alerts.push({ level: 'MEDIO', color: '#f59e0b', module: 'Resultados',
-            message: failCount + ' pruebas FAIL esta semana de ' + thisWeekTests + ' totales',
-            action: 'results' });
-    }
-
     // ── Inventory Module ──
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
     var criticalGases = invGases.filter(function(g) {
@@ -7680,13 +7651,6 @@ function renderLabDashboard(container) {
         '<div class="lab-dash-card-sub">cobertura</div>' +
         '<div class="lab-dash-card-detail">Deficit: ' + (tpAnalysis ? (tpAnalysis.totalReq - (tpAnalysis.totalDone || 0)) : '—') + ' tests</div></div>';
 
-    // Results card
-    html += '<div class="lab-dash-card" onclick="switchPlatform(\'results\')">' +
-        '<div class="lab-dash-card-header" style="color:#8b5cf6;">Resultados</div>' +
-        '<div class="lab-dash-card-metric">' + raTests.length + '</div>' +
-        '<div class="lab-dash-card-sub">pruebas total</div>' +
-        '<div class="lab-dash-card-detail">' + thisWeekTests + ' esta sem' + (failCount > 0 ? ' · ' + failCount + ' FAIL' : '') + '</div></div>';
-
     // Inventory card
     html += '<div class="lab-dash-card" onclick="switchPlatform(\'inventory\')">' +
         '<div class="lab-dash-card-header" style="color:#06b6d4;">Inventario</div>' +
@@ -7733,10 +7697,9 @@ function autoBackup() {
             timestamp: new Date().toISOString(),
             db: localStorage.getItem('kia_db_v11') || '{}',
             tpState: localStorage.getItem('kia_testplan_v1') || '{}',
-            raState: localStorage.getItem('kia_results_v1') || '{}',
             invState: localStorage.getItem('kia_lab_inventory') || '{}'
         };
-        snapshot.sizeBytes = (snapshot.db + snapshot.tpState + snapshot.raState + snapshot.invState).length * 2;
+        snapshot.sizeBytes = (snapshot.db + snapshot.tpState + snapshot.invState).length * 2;
 
         // Count vehicles for preview
         try {
@@ -7856,7 +7819,6 @@ function downloadFullBackup() {
         version: 'kia-emlab-backup-v1',
         db: JSON.parse(localStorage.getItem('kia_db_v11') || '{}'),
         tpState: JSON.parse(localStorage.getItem('kia_testplan_v1') || '{}'),
-        raState: JSON.parse(localStorage.getItem('kia_results_v1') || '{}'),
         invState: JSON.parse(localStorage.getItem('kia_lab_inventory') || '{}'),
         manualConfigs: JSON.parse(localStorage.getItem('kia_manual_configs') || '[]')
     };
@@ -7914,7 +7876,6 @@ function restoreFromBackup(snapshotId) {
                 if (!s) { showToast('Snapshot no encontrado', 'error'); return; }
                 localStorage.setItem('kia_db_v11', s.db);
                 localStorage.setItem('kia_testplan_v1', s.tpState);
-                localStorage.setItem('kia_results_v1', s.raState);
                 localStorage.setItem('kia_lab_inventory', s.invState);
 
                 showToast('Datos restaurados. Recargando...', 'success');
@@ -20446,7 +20407,6 @@ function tpExportPlanJSON() {
         var tested = (typeof tpState !== 'undefined' && tpState.testedList) ? tpState.testedList : [];
         var weekly = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
         var vehicles = (typeof db !== 'undefined' && db && db.vehicles) ? db.vehicles : [];
-        var raTests = (typeof raState !== 'undefined' && raState && raState.tests) ? raState.tests : [];
 
         // Unidades liberadas (archivadas) desde COP15
         var released = vehicles.filter(function(v) { return v.status === 'archived'; }).map(function(v) {
@@ -20579,12 +20539,7 @@ function tpExportPlanJSON() {
             planSemanal: planSemanal,
             familias: familias,
             calendario: calendario,
-            calendarioVariantes: calendarioVariantes,
-            kpis: {
-                resultadosRegistrados: raTests.length,
-                perfilesRegulacion: (typeof raState !== 'undefined' && raState && raState.profiles) ? raState.profiles.length : 0,
-                pruebasUltimos30d: raTests.filter(function(t) { var d = t.date || t.fecha; return d && (Date.now() - new Date(d).getTime()) < 30 * 864e5; }).length
-            }
+            calendarioVariantes: calendarioVariantes
         };
 
         var json = JSON.stringify(payload, null, 2);
@@ -22611,19 +22566,7 @@ function tpBuildFamilies() {
         // Get VINs from testedList
         const vins = tpState.testedList.filter(t => t.configText === cfg.desc);
 
-        // Try to get results from RA if available
-        let raResults = [];
-        if (typeof raState !== 'undefined' && raState.tests) {
-            raResults = raState.tests.filter(t => {
-                const cfgParts = cfg.desc.toLowerCase();
-                const tDesc = (t.testDesc||'').toLowerCase();
-                const tVin = (t.vin||'');
-                return vins.some(v => v.note && v.note.includes(tVin) && tVin.length > 5)
-                    || (tDesc && cfgParts.includes(tDesc));
-            });
-        }
-
-        families[key].configs.push({ ...cfg, testedN:n, required:req, deficit:Math.max(0,req-n), vins, raResults });
+        families[key].configs.push({ ...cfg, testedN:n, required:req, deficit:Math.max(0,req-n), vins });
         families[key].bodies.add(cfg.body||'');
         families[key].drvs.add(cfg.drv||'');
         families[key].rgns.add(cfg.rgn||'');
@@ -23057,19 +23000,9 @@ function tpRenderFamilies(el) {
                             vinHtml = `<div id="${_vinId}" style="display:none;padding:4px 6px 4px 20px;background:#12192b;border-top:1px solid var(--tp-border);">`;
                             c.vins.forEach(function(v) {
                                 const vin = _tpExtractVin(v.note) || (String(v.note||'').split('—')[0].trim()) || '—';
-                                // Check if this VIN has a matching RA test
-                                let raTestId = '';
-                                if (typeof raState !== 'undefined' && raState.tests && vin && vin !== '—') {
-                                    const raMatch = raState.tests.find(t => t.vin && t.vin === vin);
-                                    if (raMatch) raTestId = raMatch.id;
-                                }
-                                const vinClickable = raTestId ? `onclick="event.stopPropagation();tpGoToRADetail('${raTestId}');" style="cursor:pointer;font-family:monospace;font-size:9px;color:var(--tp-amber);text-decoration:underline;" title="Ver detalle en Results Analyzer"` : `style="font-family:monospace;font-size:9px;color:#e2e8f0;"`;
                                 vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 4px;border-bottom:1px solid rgba(255,255,255,0.06);color:#e2e8f0;">
-                                    <span ${vinClickable}>${vin}</span>
-                                    <div style="display:flex;gap:6px;align-items:center;">
-                                        <span style="font-size:9px;color:var(--tp-dim);">${v.date || '?'}</span>
-                                        ${raTestId ? '<span style="font-size:9px;color:var(--tp-blue);">📊</span>' : ''}
-                                    </div>
+                                    <span style="font-family:monospace;font-size:9px;color:#e2e8f0;">${vin}</span>
+                                    <span style="font-size:9px;color:var(--tp-dim);">${v.date || '?'}</span>
                                 </div>`;
                             });
                             vinHtml += `</div>`;
@@ -23559,59 +23492,6 @@ function tpRenderAltaSuggestionPanel(configText) {
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [M22] HOOK SUGGESTION INTO COP15 ALTA FLOW                        ║
 // ╚══════════════════════════════════════════════════════════════════════╝
-
-// ═══ CROSS-MODULE NAVIGATION ═══
-// Navigate from Test Plan to Results Analyzer Detail tab
-function tpGoToRADetail(testId) {
-    showConfirmDialog({ title: '📊 Navegar a Results Analyzer', message: '¿Deseas ver el detalle de esta prueba en Results Analyzer?', type: 'info', confirmText: 'Ir', cancelText: 'Cancelar' }).then(function(ok) {
-        if (!ok) return;
-        // Store return context so RA can offer a back button
-        window._tpReturnContext = {
-            tab: tpState.activeTab,
-            scroll: window.scrollY
-        };
-        // Set up RA to show this test
-        window._raDetailId = testId;
-        if (typeof raState !== 'undefined') {
-            raState.activeTab = 'ra-detail';
-        }
-        // Switch to Results Analyzer module
-        switchPlatform('results');
-        // Render RA with the detail tab
-        setTimeout(function() {
-            if (typeof raRender === 'function') raRender();
-            // Activate the detail tab button
-            document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
-            var tabs = document.querySelectorAll('#ra-tabs-bar .tp-tab');
-            for (var i = 0; i < tabs.length; i++) {
-                if (tabs[i].textContent.includes('Detalle')) { tabs[i].classList.add('active'); break; }
-            }
-        }, 100);
-    });
-}
-
-// Return from RA back to Test Plan at previous position
-function tpReturnFromRA() {
-    var ctx = window._tpReturnContext;
-    if (ctx && ctx.tab) {
-        tpState.activeTab = ctx.tab;
-    }
-    switchPlatform('testplan');
-    setTimeout(function() {
-        tpRender();
-        // Activate the correct tab button
-        document.querySelectorAll('#tp-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
-        var tabs = document.querySelectorAll('#tp-tabs-bar .tp-tab');
-        for (var i = 0; i < tabs.length; i++) {
-            if (tabs[i].onclick && tabs[i].onclick.toString().includes(tpState.activeTab)) {
-                tabs[i].classList.add('active');
-                break;
-            }
-        }
-        if (ctx && ctx.scroll) window.scrollTo(0, ctx.scroll);
-        window._tpReturnContext = null;
-    }, 100);
-}
 
 // ══════════════════════════════════════════════════════════════════
 // MEJORA B: SUBSTITUTION PREDICTION ENGINE
@@ -24239,7 +24119,6 @@ function pnRenderReports(el) {
         { icon: '📈', title: 'Presentación ejecutiva (Plan)', desc: 'Unidades probadas/liberadas, plan semanal, familias, calendario y KPIs — ideal para armar presentaciones.', actions: [{ label: 'JSON', fn: 'tpExportPlanJSON' }] },
         { icon: '📋', title: 'Plan semanal', desc: 'Plan de la última semana (texto para compartir).', actions: [{ label: 'Texto', fn: '_pnReportWeeklyPlan' }] },
         { icon: '📊', title: 'Análisis de brechas (Gap)', desc: 'Cobertura: requeridas vs probadas por configuración.', actions: [{ label: 'CSV', fn: 'tpExportGapCSV' }] },
-        { icon: '🧪', title: 'Resultados de emisiones', desc: 'Todos los resultados importados del analizador.', actions: [{ label: 'CSV', fn: 'raExportAll' }] },
         { icon: '📦', title: 'Inventario de gases', desc: 'Cilindros con fórmula, control, nivel y vencimiento.', actions: [{ label: 'JSON', fn: 'invExportGases' }, { label: 'Reporte', fn: 'invExportReport' }] },
         { icon: '⛽', title: 'Pronóstico semanal de gas', desc: 'Consumo y proyección de agotamiento.', actions: [{ label: 'CSV', fn: 'invExportWeeklyForecast' }] },
         { icon: '📝', title: 'Bitácora de turnos', desc: 'Registros de la bitácora del laboratorio.', actions: [{ label: 'CSV', fn: 'pnExportShiftLog' }] },
@@ -26239,7 +26118,6 @@ function panelAlpineComponent() {
             var storageKeys = [
                 { key: 'kia_db_v11', label: 'COP15 (Base de Datos)' },
                 { key: 'kia_testplan_v1', label: 'Test Plan Manager' },
-                { key: 'kia_results_v1', label: 'Results Analyzer' },
                 { key: 'kia_lab_inventory', label: 'Lab Inventory' },
                 { key: 'kia_panel_v1', label: 'Panel' },
                 { key: 'kia_chart_configs', label: 'Chart Configs' },
@@ -26414,8 +26292,6 @@ function pnRenderExecutive(el) {
     }
 
     // Cpk alerts
-    var cpkAlerts = typeof raCheckRollingCpk === 'function' ? raCheckRollingCpk() : [];
-
     // Resource utilization
     var gasUtilization = 'N/A';
     if (typeof invState !== 'undefined' && invState.gases) {
@@ -26441,24 +26317,8 @@ function pnRenderExecutive(el) {
     html += '<div class="v7-exec-bar"><div class="v7-exec-bar-fill" style="width:' + tpCoverage + '%;background:' + (tpCoverage >= 80 ? 'var(--success)' : tpCoverage >= 50 ? 'var(--warning)' : 'var(--danger)') + ';"></div></div>';
     html += '<span class="v7-exec-pct">' + tpCoverage + '%</span></div>';
 
-    var cpkStatus = cpkAlerts.length === 0 ? '🟢 Todos Cpk >= 1.33' : '🔴 ' + cpkAlerts.length + ' metrica(s) con Cpk < 1.33';
-    html += '<div class="v7-exec-metric"><span>Capacidad de Proceso</span><span>' + cpkStatus + '</span></div>';
     html += '<div class="v7-exec-metric"><span>Utilizacion de Gas</span><span>' + gasUtilization + '</span></div>';
     html += '</div></div>';
-
-    // Cpk Alert Details
-    if (cpkAlerts.length > 0) {
-        html += '<div class="tp-card" style="border-left:3px solid var(--danger);">';
-        html += '<div class="tp-card-title"><span>⚠️ Alertas de Capacidad (Rolling Cpk)</span></div>';
-        cpkAlerts.forEach(function(a) {
-            var color = a.cpk < 1.0 ? 'var(--danger)' : 'var(--warning)';
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">';
-            html += '<span>' + a.profile + ' / ' + a.metric + '</span>';
-            html += '<span style="font-weight:700;color:' + color + ';">Cpk ' + a.cpk.toFixed(2) + ' (n=' + a.n + ')</span>';
-            html += '</div>';
-        });
-        html += '</div>';
-    }
 
     // [V7-B3] Predictive Resource Planner
     html += '<div class="tp-card"><div class="tp-card-title"><span>Proyeccion de Recursos</span></div>';
@@ -29724,7 +29584,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607022115' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607022119' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

@@ -2750,8 +2750,8 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try { tpInit(); } catch(e) { console.error('tpInit error:', e); }
         try { tpUpdateBadges(); } catch(e) {}
         try { tpHookCascadeResult(); } catch(e) {}
-        // results.js es un módulo latente (fuera del build desde mayo 2026); no ensuciar la consola
-        try { if (typeof raInit === 'function') raInit(); } catch(e) { console.error('raInit error:', e); }
+        // v15.6: results.js y approvals.js se eliminaron definitivamente; limpiar sus claves residuales
+        try { ['kia_results_v1', 'kia_pa_config', 'kia_pa_queue'].forEach(function(k) { localStorage.removeItem(k); }); } catch(e) {}
 
         // ═══ Auto-plan semanal (viernes 14:00 deadline) ═══
         try {
@@ -3024,17 +3024,6 @@ function _globalCrossSearchForPalette(q) {
             }
         });
     }
-    // Results
-    if (typeof raState !== 'undefined' && raState.tests) {
-        var seen = {};
-        raState.tests.slice(-30).forEach(function(t) {
-            var desc = (t.vin||'') + ' ' + (t.testDesc||'');
-            if (desc.toUpperCase().includes(qUp) && !seen[desc]) {
-                seen[desc] = true;
-                results.push({ label: (t.vin||'?') + ' — ' + (t.testDesc||'').substring(0,30), icon: '📊', action: function(){ switchPlatform('results'); }, cat: 'Results' });
-            }
-        });
-    }
     return results.slice(0, 15);
 }
 
@@ -3146,24 +3135,6 @@ function renderLabDashboard(container) {
         }
     }
 
-    // ── Results Module ──
-    var raTests = (typeof raState !== 'undefined' && raState.tests) ? raState.tests : [];
-    var thisWeekTests = 0;
-    var weekAgo = now - 7 * 86400000;
-    var failCount = 0;
-    raTests.forEach(function(t) {
-        var tDate = t.importedAt ? new Date(t.importedAt).getTime() : 0;
-        if (tDate >= weekAgo) {
-            thisWeekTests++;
-            if (typeof raTestVerdict === 'function' && raTestVerdict(t) !== 'PASS') failCount++;
-        }
-    });
-    if (failCount > 0) {
-        alerts.push({ level: 'MEDIO', color: '#f59e0b', module: 'Resultados',
-            message: failCount + ' pruebas FAIL esta semana de ' + thisWeekTests + ' totales',
-            action: 'results' });
-    }
-
     // ── Inventory Module ──
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
     var criticalGases = invGases.filter(function(g) {
@@ -3233,13 +3204,6 @@ function renderLabDashboard(container) {
         '<div class="lab-dash-card-sub">cobertura</div>' +
         '<div class="lab-dash-card-detail">Deficit: ' + (tpAnalysis ? (tpAnalysis.totalReq - (tpAnalysis.totalDone || 0)) : '—') + ' tests</div></div>';
 
-    // Results card
-    html += '<div class="lab-dash-card" onclick="switchPlatform(\'results\')">' +
-        '<div class="lab-dash-card-header" style="color:#8b5cf6;">Resultados</div>' +
-        '<div class="lab-dash-card-metric">' + raTests.length + '</div>' +
-        '<div class="lab-dash-card-sub">pruebas total</div>' +
-        '<div class="lab-dash-card-detail">' + thisWeekTests + ' esta sem' + (failCount > 0 ? ' · ' + failCount + ' FAIL' : '') + '</div></div>';
-
     // Inventory card
     html += '<div class="lab-dash-card" onclick="switchPlatform(\'inventory\')">' +
         '<div class="lab-dash-card-header" style="color:#06b6d4;">Inventario</div>' +
@@ -3286,10 +3250,9 @@ function autoBackup() {
             timestamp: new Date().toISOString(),
             db: localStorage.getItem('kia_db_v11') || '{}',
             tpState: localStorage.getItem('kia_testplan_v1') || '{}',
-            raState: localStorage.getItem('kia_results_v1') || '{}',
             invState: localStorage.getItem('kia_lab_inventory') || '{}'
         };
-        snapshot.sizeBytes = (snapshot.db + snapshot.tpState + snapshot.raState + snapshot.invState).length * 2;
+        snapshot.sizeBytes = (snapshot.db + snapshot.tpState + snapshot.invState).length * 2;
 
         // Count vehicles for preview
         try {
@@ -3409,7 +3372,6 @@ function downloadFullBackup() {
         version: 'kia-emlab-backup-v1',
         db: JSON.parse(localStorage.getItem('kia_db_v11') || '{}'),
         tpState: JSON.parse(localStorage.getItem('kia_testplan_v1') || '{}'),
-        raState: JSON.parse(localStorage.getItem('kia_results_v1') || '{}'),
         invState: JSON.parse(localStorage.getItem('kia_lab_inventory') || '{}'),
         manualConfigs: JSON.parse(localStorage.getItem('kia_manual_configs') || '[]')
     };
@@ -3467,7 +3429,6 @@ function restoreFromBackup(snapshotId) {
                 if (!s) { showToast('Snapshot no encontrado', 'error'); return; }
                 localStorage.setItem('kia_db_v11', s.db);
                 localStorage.setItem('kia_testplan_v1', s.tpState);
-                localStorage.setItem('kia_results_v1', s.raState);
                 localStorage.setItem('kia_lab_inventory', s.invState);
 
                 showToast('Datos restaurados. Recargando...', 'success');

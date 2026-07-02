@@ -1349,7 +1349,6 @@
                 <p style="color:var(--tp-dim);font-size:10px;margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;">
                     <button class="tp-btn" @click="purgeOldData('cop15', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>
-                    <button class="tp-btn" @click="purgeOldData('results', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Resultados >90 días</button>
                     <button class="tp-btn" @click="purgeOldData('testplan', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>
                     <button class="tp-btn" @click="purgeOldData('notes', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>
                 </div>
@@ -1448,9 +1447,10 @@
                             <option value="">Todos</option>
                             <option value="cop15">COP15 Cascade</option>
                             <option value="tp">Test Plan</option>
-                            <option value="ra">Resultados</option>
                             <option value="inv">Inventario</option>
                             <option value="pn">Panel</option>
+                            <option value="cop">CoP</option>
+                            <option value="auth">Accesos</option>
                         </select>
                     </div>
                     <div style="flex:1;min-width:110px;">

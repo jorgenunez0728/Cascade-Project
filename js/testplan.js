@@ -1443,7 +1443,6 @@ function tpExportPlanJSON() {
         var tested = (typeof tpState !== 'undefined' && tpState.testedList) ? tpState.testedList : [];
         var weekly = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
         var vehicles = (typeof db !== 'undefined' && db && db.vehicles) ? db.vehicles : [];
-        var raTests = (typeof raState !== 'undefined' && raState && raState.tests) ? raState.tests : [];
 
         // Unidades liberadas (archivadas) desde COP15
         var released = vehicles.filter(function(v) { return v.status === 'archived'; }).map(function(v) {
@@ -1576,12 +1575,7 @@ function tpExportPlanJSON() {
             planSemanal: planSemanal,
             familias: familias,
             calendario: calendario,
-            calendarioVariantes: calendarioVariantes,
-            kpis: {
-                resultadosRegistrados: raTests.length,
-                perfilesRegulacion: (typeof raState !== 'undefined' && raState && raState.profiles) ? raState.profiles.length : 0,
-                pruebasUltimos30d: raTests.filter(function(t) { var d = t.date || t.fecha; return d && (Date.now() - new Date(d).getTime()) < 30 * 864e5; }).length
-            }
+            calendarioVariantes: calendarioVariantes
         };
 
         var json = JSON.stringify(payload, null, 2);
@@ -3608,19 +3602,7 @@ function tpBuildFamilies() {
         // Get VINs from testedList
         const vins = tpState.testedList.filter(t => t.configText === cfg.desc);
 
-        // Try to get results from RA if available
-        let raResults = [];
-        if (typeof raState !== 'undefined' && raState.tests) {
-            raResults = raState.tests.filter(t => {
-                const cfgParts = cfg.desc.toLowerCase();
-                const tDesc = (t.testDesc||'').toLowerCase();
-                const tVin = (t.vin||'');
-                return vins.some(v => v.note && v.note.includes(tVin) && tVin.length > 5)
-                    || (tDesc && cfgParts.includes(tDesc));
-            });
-        }
-
-        families[key].configs.push({ ...cfg, testedN:n, required:req, deficit:Math.max(0,req-n), vins, raResults });
+        families[key].configs.push({ ...cfg, testedN:n, required:req, deficit:Math.max(0,req-n), vins });
         families[key].bodies.add(cfg.body||'');
         families[key].drvs.add(cfg.drv||'');
         families[key].rgns.add(cfg.rgn||'');
@@ -4054,19 +4036,9 @@ function tpRenderFamilies(el) {
                             vinHtml = `<div id="${_vinId}" style="display:none;padding:4px 6px 4px 20px;background:#12192b;border-top:1px solid var(--tp-border);">`;
                             c.vins.forEach(function(v) {
                                 const vin = _tpExtractVin(v.note) || (String(v.note||'').split('—')[0].trim()) || '—';
-                                // Check if this VIN has a matching RA test
-                                let raTestId = '';
-                                if (typeof raState !== 'undefined' && raState.tests && vin && vin !== '—') {
-                                    const raMatch = raState.tests.find(t => t.vin && t.vin === vin);
-                                    if (raMatch) raTestId = raMatch.id;
-                                }
-                                const vinClickable = raTestId ? `onclick="event.stopPropagation();tpGoToRADetail('${raTestId}');" style="cursor:pointer;font-family:monospace;font-size:9px;color:var(--tp-amber);text-decoration:underline;" title="Ver detalle en Results Analyzer"` : `style="font-family:monospace;font-size:9px;color:#e2e8f0;"`;
                                 vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 4px;border-bottom:1px solid rgba(255,255,255,0.06);color:#e2e8f0;">
-                                    <span ${vinClickable}>${vin}</span>
-                                    <div style="display:flex;gap:6px;align-items:center;">
-                                        <span style="font-size:9px;color:var(--tp-dim);">${v.date || '?'}</span>
-                                        ${raTestId ? '<span style="font-size:9px;color:var(--tp-blue);">📊</span>' : ''}
-                                    </div>
+                                    <span style="font-family:monospace;font-size:9px;color:#e2e8f0;">${vin}</span>
+                                    <span style="font-size:9px;color:var(--tp-dim);">${v.date || '?'}</span>
                                 </div>`;
                             });
                             vinHtml += `</div>`;
@@ -4556,59 +4528,6 @@ function tpRenderAltaSuggestionPanel(configText) {
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [M22] HOOK SUGGESTION INTO COP15 ALTA FLOW                        ║
 // ╚══════════════════════════════════════════════════════════════════════╝
-
-// ═══ CROSS-MODULE NAVIGATION ═══
-// Navigate from Test Plan to Results Analyzer Detail tab
-function tpGoToRADetail(testId) {
-    showConfirmDialog({ title: '📊 Navegar a Results Analyzer', message: '¿Deseas ver el detalle de esta prueba en Results Analyzer?', type: 'info', confirmText: 'Ir', cancelText: 'Cancelar' }).then(function(ok) {
-        if (!ok) return;
-        // Store return context so RA can offer a back button
-        window._tpReturnContext = {
-            tab: tpState.activeTab,
-            scroll: window.scrollY
-        };
-        // Set up RA to show this test
-        window._raDetailId = testId;
-        if (typeof raState !== 'undefined') {
-            raState.activeTab = 'ra-detail';
-        }
-        // Switch to Results Analyzer module
-        switchPlatform('results');
-        // Render RA with the detail tab
-        setTimeout(function() {
-            if (typeof raRender === 'function') raRender();
-            // Activate the detail tab button
-            document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
-            var tabs = document.querySelectorAll('#ra-tabs-bar .tp-tab');
-            for (var i = 0; i < tabs.length; i++) {
-                if (tabs[i].textContent.includes('Detalle')) { tabs[i].classList.add('active'); break; }
-            }
-        }, 100);
-    });
-}
-
-// Return from RA back to Test Plan at previous position
-function tpReturnFromRA() {
-    var ctx = window._tpReturnContext;
-    if (ctx && ctx.tab) {
-        tpState.activeTab = ctx.tab;
-    }
-    switchPlatform('testplan');
-    setTimeout(function() {
-        tpRender();
-        // Activate the correct tab button
-        document.querySelectorAll('#tp-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
-        var tabs = document.querySelectorAll('#tp-tabs-bar .tp-tab');
-        for (var i = 0; i < tabs.length; i++) {
-            if (tabs[i].onclick && tabs[i].onclick.toString().includes(tpState.activeTab)) {
-                tabs[i].classList.add('active');
-                break;
-            }
-        }
-        if (ctx && ctx.scroll) window.scrollTo(0, ctx.scroll);
-        window._tpReturnContext = null;
-    }, 100);
-}
 
 // ══════════════════════════════════════════════════════════════════
 // MEJORA B: SUBSTITUTION PREDICTION ENGINE

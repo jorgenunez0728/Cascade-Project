@@ -124,7 +124,6 @@ function pnRenderReports(el) {
         { icon: '📈', title: 'Presentación ejecutiva (Plan)', desc: 'Unidades probadas/liberadas, plan semanal, familias, calendario y KPIs — ideal para armar presentaciones.', actions: [{ label: 'JSON', fn: 'tpExportPlanJSON' }] },
         { icon: '📋', title: 'Plan semanal', desc: 'Plan de la última semana (texto para compartir).', actions: [{ label: 'Texto', fn: '_pnReportWeeklyPlan' }] },
         { icon: '📊', title: 'Análisis de brechas (Gap)', desc: 'Cobertura: requeridas vs probadas por configuración.', actions: [{ label: 'CSV', fn: 'tpExportGapCSV' }] },
-        { icon: '🧪', title: 'Resultados de emisiones', desc: 'Todos los resultados importados del analizador.', actions: [{ label: 'CSV', fn: 'raExportAll' }] },
         { icon: '📦', title: 'Inventario de gases', desc: 'Cilindros con fórmula, control, nivel y vencimiento.', actions: [{ label: 'JSON', fn: 'invExportGases' }, { label: 'Reporte', fn: 'invExportReport' }] },
         { icon: '⛽', title: 'Pronóstico semanal de gas', desc: 'Consumo y proyección de agotamiento.', actions: [{ label: 'CSV', fn: 'invExportWeeklyForecast' }] },
         { icon: '📝', title: 'Bitácora de turnos', desc: 'Registros de la bitácora del laboratorio.', actions: [{ label: 'CSV', fn: 'pnExportShiftLog' }] },
@@ -2124,7 +2123,6 @@ function panelAlpineComponent() {
             var storageKeys = [
                 { key: 'kia_db_v11', label: 'COP15 (Base de Datos)' },
                 { key: 'kia_testplan_v1', label: 'Test Plan Manager' },
-                { key: 'kia_results_v1', label: 'Results Analyzer' },
                 { key: 'kia_lab_inventory', label: 'Lab Inventory' },
                 { key: 'kia_panel_v1', label: 'Panel' },
                 { key: 'kia_chart_configs', label: 'Chart Configs' },
@@ -2299,8 +2297,6 @@ function pnRenderExecutive(el) {
     }
 
     // Cpk alerts
-    var cpkAlerts = typeof raCheckRollingCpk === 'function' ? raCheckRollingCpk() : [];
-
     // Resource utilization
     var gasUtilization = 'N/A';
     if (typeof invState !== 'undefined' && invState.gases) {
@@ -2326,24 +2322,8 @@ function pnRenderExecutive(el) {
     html += '<div class="v7-exec-bar"><div class="v7-exec-bar-fill" style="width:' + tpCoverage + '%;background:' + (tpCoverage >= 80 ? 'var(--success)' : tpCoverage >= 50 ? 'var(--warning)' : 'var(--danger)') + ';"></div></div>';
     html += '<span class="v7-exec-pct">' + tpCoverage + '%</span></div>';
 
-    var cpkStatus = cpkAlerts.length === 0 ? '🟢 Todos Cpk >= 1.33' : '🔴 ' + cpkAlerts.length + ' metrica(s) con Cpk < 1.33';
-    html += '<div class="v7-exec-metric"><span>Capacidad de Proceso</span><span>' + cpkStatus + '</span></div>';
     html += '<div class="v7-exec-metric"><span>Utilizacion de Gas</span><span>' + gasUtilization + '</span></div>';
     html += '</div></div>';
-
-    // Cpk Alert Details
-    if (cpkAlerts.length > 0) {
-        html += '<div class="tp-card" style="border-left:3px solid var(--danger);">';
-        html += '<div class="tp-card-title"><span>⚠️ Alertas de Capacidad (Rolling Cpk)</span></div>';
-        cpkAlerts.forEach(function(a) {
-            var color = a.cpk < 1.0 ? 'var(--danger)' : 'var(--warning)';
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">';
-            html += '<span>' + a.profile + ' / ' + a.metric + '</span>';
-            html += '<span style="font-weight:700;color:' + color + ';">Cpk ' + a.cpk.toFixed(2) + ' (n=' + a.n + ')</span>';
-            html += '</div>';
-        });
-        html += '</div>';
-    }
 
     // [V7-B3] Predictive Resource Planner
     html += '<div class="tp-card"><div class="tp-card-title"><span>Proyeccion de Recursos</span></div>';
