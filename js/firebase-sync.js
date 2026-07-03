@@ -359,6 +359,7 @@ function fbInit() {
             if (!hasSession) {
                 fbSync.status = 'auth';
                 fbUpdateIndicator();
+                _fbMaybePromptAuth();
                 return;
             }
             fbTestConnectionWithRetry(2, function(ok) {
@@ -455,10 +456,11 @@ function fbInit() {
             if (hasSession) {
                 _fbAfterAuthConnected();
             } else {
-                // Sin sesión de laboratorio: la app funciona local; el indicador
-                // 🔑 ofrece conectar (contraseña una vez por dispositivo)
+                // Sin sesión de laboratorio: la app funciona local; se pide la
+                // contraseña de dispositivo (una vez) y el indicador 🔑 la re-ofrece
                 fbSync.status = 'auth';
                 fbUpdateIndicator();
+                _fbMaybePromptAuth();
                 fbCheckAppVersion(); // lectura pública, no requiere sesión
             }
         }).catch(function(chainErr) {
@@ -481,6 +483,12 @@ function fbInit() {
 // Ya NO se inicia sesión anónima: las Security Rules la rechazan. Este helper
 // solo reporta si el dispositivo tiene sesión persistida (Email/Password).
 // Sin sesión, la app sigue funcionando offline y el indicador ofrece conectar.
+// ¿La sesión es del usuario de laboratorio (Email/Password)? Las Security Rules
+// solo aceptan proveedor 'password'; una sesión anónima vieja NO cuenta.
+function _fbIsPasswordUser(u) {
+    return !!(u && !u.isAnonymous && (u.providerData || []).some(function(p) { return p && p.providerId === 'password'; }));
+}
+
 function fbEnsureAuth() {
     if (!FB_IS_HTTP_ORIGIN) {
         console.log('Firebase: Skipping auth on non-HTTP origin');
@@ -488,27 +496,44 @@ function fbEnsureAuth() {
     }
     try {
         var auth = firebase.auth();
-        if (auth.currentUser) return Promise.resolve(true);
+        var cur = auth.currentUser;
+        if (cur) {
+            if (_fbIsPasswordUser(cur)) return Promise.resolve(true);
+            // Sesión anónima vieja (build previo): las reglas la rechazan. Cerrarla
+            // para que aparezca el login de contraseña en vez de un falso "conectado".
+            console.log('Firebase: cerrando sesión anónima heredada — se pedirá la contraseña del laboratorio');
+            return auth.signOut().catch(function() {}).then(function() { return false; });
+        }
         // Esperar brevemente a que el SDK restaure la sesión persistida (IndexedDB)
         return new Promise(function(resolve) {
             var settled = false;
-            var unsub = auth.onAuthStateChanged(function(user) {
-                if (settled) return;
-                settled = true;
+            var finish = function() {
+                if (settled) return; settled = true;
                 try { unsub(); } catch(e) {}
-                resolve(!!user);
-            });
-            setTimeout(function() {
-                if (settled) return;
-                settled = true;
-                try { unsub(); } catch(e) {}
-                resolve(!!auth.currentUser);
-            }, 4000);
+                var u = auth.currentUser;
+                if (u && !_fbIsPasswordUser(u)) {
+                    auth.signOut().catch(function() {}).then(function() { resolve(false); });
+                } else {
+                    resolve(_fbIsPasswordUser(u));
+                }
+            };
+            var unsub = auth.onAuthStateChanged(function() { finish(); });
+            setTimeout(finish, 4000);
         });
     } catch(e) {
         console.warn('Firebase: Auth not available:', e.message);
         return Promise.resolve(false);
     }
+}
+
+// Sin sesión de laboratorio: mostrar el prompt de contraseña (una vez por carga)
+function _fbMaybePromptAuth() {
+    if (fbSync._authPrompted) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    fbSync._authPrompted = true;
+    setTimeout(function() {
+        if (fbSync.status === 'auth' && typeof fbShowAuthPrompt === 'function') fbShowAuthPrompt();
+    }, 600);
 }
 
 // Vigila la sesión: cuando el dispositivo inicia sesión (tras el prompt de
@@ -548,6 +573,19 @@ function fbShowAuthPrompt() {
         '<button onclick="fbSubmitLabPassword()" style="width:100%;padding:12px;background:#22d3ee;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;">Conectar</button>' +
         '</div>';
     setTimeout(function() { var i = document.getElementById('fb-lab-password'); if (i) i.focus(); }, 100);
+}
+
+// Cerrar la sesión de dispositivo y volver a pedir la contraseña del laboratorio
+function fbSwitchDeviceAccount() {
+    var go = function() {
+        fbSync.status = 'auth';
+        fbSync._authPrompted = false;
+        fbUpdateIndicator();
+        fbShowAuthPrompt();
+    };
+    try {
+        firebase.auth().signOut().catch(function() {}).then(go);
+    } catch(e) { go(); }
 }
 
 function fbSubmitLabPassword() {
@@ -1029,6 +1067,22 @@ function fbPushAll(showFeedback) {
     modules.forEach(function(m) { fbPush(m.col, m.data, onPushDone); });
 }
 
+// [v15.6.1] Refrescar la UI del Test Plan tras aplicar tpState desde el sync.
+// tpRender() por sí solo NO re-pinta una sub-pestaña ya cacheada (tab cache), así
+// que el dashboard podía quedar mostrando "No hay plan" aunque el plan sí llegó.
+// Se invalida el tab cache, se bumpea _lastSave (invalida memos y la tira de HOY)
+// y se refrescan familias/badges.
+function _fbTpUISync() {
+    try {
+        if (typeof tpState !== 'undefined' && tpState) tpState._lastSave = Date.now();
+        if (typeof tabCacheInvalidate === 'function') tabCacheInvalidate('tp');
+        if (typeof tpRender === 'function') tpRender();
+        if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies();
+        if (typeof tpUpdateBadges === 'function') tpUpdateBadges();
+        if (typeof _labOverviewGen !== 'undefined') _labOverviewGen++; // refresca HOY
+    } catch(e) { /* best-effort */ }
+}
+
 // ── [v15.6] ¿Este dispositivo está vacío? (sin datos de los módulos núcleo) ──
 // Gobierna la excepción de seed del pull, los reintentos y el guard del push.
 function _fbLocalIsEmpty() {
@@ -1151,7 +1205,7 @@ function _fbPullSeed(col, remoteData, pulled) {
             if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
         });
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
-        if (typeof tpRender === 'function') tpRender();
+        _fbTpUISync();
         pulled.push('Test Plan');
     } else if (col === 'inventory') {
         invState = remoteData;
@@ -1432,11 +1486,7 @@ function fbAutoMerge(col, parsedData, remoteSt) {
     // Refresh relevant module UI (best-effort)
     try {
         if (col === 'cop15')     { refreshAllLists(); updateProgressBar(); }
-        if (col === 'testplan')  {
-            if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies();
-            if (typeof tabCacheInvalidate === 'function') tabCacheInvalidate('tp');
-            if (typeof tpUpdateBadges === 'function') tpUpdateBadges();
-        }
+        if (col === 'testplan')  { _fbTpUISync(); }
         if (col === 'inventory') { if (typeof invRender === 'function') invRender(); }
     } catch(uiErr) { /* UI refresh is best-effort */ }
 }
@@ -1520,6 +1570,19 @@ function fbShowSettings() {
         (fbSync.lastSync ? '<div style="font-size:9px;color:#64748b;margin-top:4px;">Ultima sync: ' + fbSync.lastSync.toLocaleString('es-MX') + '</div>' : '') +
         (fbSync.lastError ? '<div style="font-size:10px;color:#ef4444;margin-top:6px;padding:6px 8px;background:rgba(239,68,68,0.1);border-radius:4px;white-space:pre-line;">' + fbSync.lastError + '</div>' : '') +
         '</div>' +
+
+        // [v15.6.1] Cuenta de dispositivo (login de laboratorio Email/Password)
+        (function() {
+            var email = null;
+            try { var u = firebase.auth().currentUser; if (u && !u.isAnonymous) email = u.email; } catch(e) {}
+            return '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:12px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<span style="font-size:11px;">Cuenta de dispositivo:</span>' +
+                '<span style="font-size:10px;font-weight:700;color:' + (email ? '#10b981' : '#f59e0b') + ';">' + (email ? escapeHtml(email) : 'No conectado') + '</span></div>' +
+                '<button onclick="fbSwitchDeviceAccount()" style="margin-top:8px;width:100%;padding:8px;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:6px;cursor:pointer;font-size:11px;">' +
+                (email ? 'Cambiar cuenta de dispositivo' : 'Conectar con la contraseña del laboratorio') + '</button>' +
+                '</div>';
+        })() +
 
         // Quota usage
         (hasConfig && fbSync.enabled ? (function() {
@@ -2118,7 +2181,7 @@ function fbMergeExecute(remoteData, analysis, choices) {
             merged.push('TestPlan: merge completo');
         }
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
-        if (typeof tpRender === 'function') tpRender();
+        _fbTpUISync();
     }
 
     // Inventory
@@ -2197,7 +2260,7 @@ function fbMergeUndo() {
             if (last.snapshot.testplan) {
                 tpState = last.snapshot.testplan;
                 localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
-                if (typeof tpRender === 'function') tpRender();
+                _fbTpUISync();
             }
             if (last.snapshot.inventory) {
                 invState = last.snapshot.inventory;
@@ -2760,7 +2823,7 @@ function fbBackupRestore(backupId, modules) {
             if (modules.testplan && d.testplan && d.testplan.data) {
                 tpState = d.testplan.data;
                 localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
-                if (typeof tpRender === 'function') tpRender();
+                _fbTpUISync();
                 restored.push('Test Plan');
             }
             if (modules.inventory && d.inventory && d.inventory.data) {
@@ -2832,7 +2895,7 @@ function fbBackupUndoRestore() {
         if (!ok) return;
 
         if (snapshot.cop15) { db = snapshot.cop15; localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
-        if (snapshot.testplan) { tpState = snapshot.testplan; localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState)); if (typeof tpRender === 'function') tpRender(); }
+        if (snapshot.testplan) { tpState = snapshot.testplan; localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState)); _fbTpUISync(); }
         if (snapshot.inventory) { invState = snapshot.inventory; localStorage.setItem('kia_lab_inventory', JSON.stringify(invState)); if (typeof invRender === 'function') invRender(); }
 
         localStorage.removeItem('kia_fb_prerestore_snapshot');
