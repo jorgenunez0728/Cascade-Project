@@ -2072,6 +2072,54 @@ function _libNormalizeVal(v) {
     return isNaN(n) ? null : Math.round(n * 1000) / 1000;
 }
 
+// Rangos plausibles por gas (mismo orden de magnitud en g/km y g/mi): un valor fuera
+// de rango casi siempre es error de dedo o dato basura del analizador. Solo advierte
+// (fila ámbar + auditoría al guardar) — nunca bloquea: el técnico decide.
+var GAS_PLAUSIBLE_BOUNDS = {
+    CO:   { min: 0,   max: 50 },
+    NOx:  { min: 0,   max: 5 },
+    THC:  { min: 0,   max: 5 },
+    NMHC: { min: 0,   max: 5 },
+    CO2:  { min: 1,   max: 1000 },
+    PM:   { min: 0,   max: 0.5 },
+    PN:   { min: 1e8, max: 1e13 }
+};
+
+function _libValueImplausible(field, val) {
+    var b = GAS_PLAUSIBLE_BOUNDS[field];
+    if (!b || val === null || val === undefined) return false;
+    return val < b.min || val > b.max;
+}
+
+// FE informativa por balance de carbono (gasolina): mpg = 8887 / (CO2_g/km × 1.609344);
+// L/100 km = CO2_g/km / 23.92. No es la FE certificada — solo referencia rápida.
+function _libFuelEconomyFromCO2(co2, unit) {
+    var gkm = _libNormalizeVal(co2);
+    if (gkm === null) return null;
+    if (/mi/i.test(unit || '')) gkm = gkm / 1.609344;
+    if (gkm < 10) return null; // sin sentido físico para balance de carbono
+    return { l100: gkm / 23.92, mpg: 8887 / (gkm * 1.609344) };
+}
+
+function _libPctOfLimitStr(val, limit) {
+    if (val === null || limit === null || limit === undefined || !(limit > 0)) return null;
+    var pct = val / limit * 100;
+    return (pct >= 100 ? Math.round(pct) : pct.toFixed(pct < 10 ? 1 : 0)) + '% del lím.';
+}
+
+// Auditoría de valores fuera de rango plausible al guardar (no bloquea la liberación).
+function _libAuditImplausibleValues(vehicle, values, who) {
+    if (!vehicle || !values) return;
+    var bad = [];
+    Object.keys(values).forEach(function(f) {
+        if (_libValueImplausible(f, _libNormalizeVal(values[f]))) bad.push(f + '=' + values[f]);
+    });
+    if (bad.length && typeof auditLog === 'function') {
+        auditLog('cop15', 'gas_fuera_de_rango', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+            'Valores fuera de rango plausible (' + who + '): ' + bad.join(', '));
+    }
+}
+
 // Round a number to `s` significant figures (default 3).
 function _libSigFig(n, s) {
     s = s || 3;
@@ -2129,18 +2177,26 @@ function _libUpdateGasStatuses(profile, containerId) {
         var statusEl = document.getElementById('lib-gas-status-' + g.field);
         if (!input || !statusEl) return;
         var val = _libNormalizeVal(input.value);
-        if (val === null) { statusEl.innerHTML = '<span style="color:#94a3b8;">—</span>'; if (g.limit !== null) allPass = false; return; }
+        var row = document.getElementById('lib-gas-row-' + g.field);
+        if (val === null) { statusEl.innerHTML = '<span style="color:#94a3b8;">—</span>'; if (row) row.style.background = ''; if (g.limit !== null) allPass = false; return; }
         anyValue = true;
+        var warn = _libValueImplausible(g.field, val);
+        var warnHtml = warn ? '<div style="color:#d97706;font-size:10px;font-weight:700;">⚠ Valor improbable</div>' : '';
         if (g.limit !== null && g.limit !== undefined) {
             var pass = val <= g.limit;
             if (!pass) allPass = false;
-            statusEl.innerHTML = pass
-                ? '<span style="color:#10b981;font-weight:700;">✓ PASA</span>'
-                : '<span style="color:#ef4444;font-weight:700;">✗ FALLA</span>';
-            var row = document.getElementById('lib-gas-row-' + g.field);
-            if (row) row.style.background = pass ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.07)';
+            var pctStr = _libPctOfLimitStr(val, g.limit);
+            var pctHtml = pctStr ? '<span style="font-weight:600;font-size:11px;"> · ' + pctStr + '</span>' : '';
+            statusEl.innerHTML = (pass
+                ? '<span style="color:#10b981;font-weight:700;">✓ PASA' + pctHtml + '</span>'
+                : '<span style="color:#ef4444;font-weight:700;">✗ FALLA' + pctHtml + '</span>') + warnHtml;
+            if (row) row.style.background = warn ? 'rgba(245,158,11,0.12)' : (pass ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.07)');
         } else {
-            statusEl.innerHTML = '<span style="color:#3b82f6;font-size:11px;">Registrado</span>';
+            var fe = g.field === 'CO2' ? _libFuelEconomyFromCO2(val, g.unit) : null;
+            statusEl.innerHTML = (fe
+                ? '<span style="color:#3b82f6;font-size:11px;">Registrado · ≈ ' + fe.l100.toFixed(1) + ' L/100 km · ' + fe.mpg.toFixed(1) + ' mpg</span>'
+                : '<span style="color:#3b82f6;font-size:11px;">Registrado</span>') + warnHtml;
+            if (row) row.style.background = warn ? 'rgba(245,158,11,0.12)' : '';
         }
     });
     return { allPass: allPass, anyValue: anyValue };
@@ -2400,6 +2456,7 @@ function submitToApproval() {
                     capturedAt: new Date().toISOString(),
                     passedLimits: true
                 };
+                _libAuditImplausibleValues(vehicle, gasValues, 'liberador');
             }
             if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
             vehicle.testData.signatures.releaser = sig;
@@ -2450,6 +2507,7 @@ function approveAndArchive() {
                         capturedAt: new Date().toISOString(),
                         matchedLiberador: true
                     };
+                    _libAuditImplausibleValues(vehicle, approverValues, 'aprobador');
                 }
                 // Aprobado ⇒ los valores coincidieron: limpiar la alarma de desacuerdo
                 if (vehicle.testData.gasResults.mismatch) delete vehicle.testData.gasResults.mismatch;
@@ -3974,17 +4032,26 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
       var gasEntries = regProfile ? regProfile.gases : Object.keys(liberadorGas.values).map(function(k){ return {field:k,label:k,unit:'',limit:null}; });
       gasEntries.forEach(function(g) {
           var val = liberadorGas.values[g.field];
-          var passStr = (g.limit !== null && g.limit !== undefined && val !== null && val !== undefined)
+          var hasVal = val !== null && val !== undefined;
+          var passStr = (g.limit !== null && g.limit !== undefined && hasVal)
               ? (parseFloat(val) <= g.limit ? 'PASA' : 'FALLA')
               : '—';
           var passClr = passStr === 'PASA' ? [16,185,129] : passStr === 'FALLA' ? [239,68,68] : [100,116,139];
           cell(ML, y, gasColW, 4.5, g.label, {font:'bold', sz:6, align:'center'});
           cell(ML+gasColW, y, gasColW, 4.5, g.unit || '', {sz:6, align:'center'});
-          cell(ML+gasColW*2, y, gasColW, 4.5, val !== null && val !== undefined ? String(val) : '—', {font:'bold', sz:7, align:'center'});
-          var limitStr = (g.limit !== null && g.limit !== undefined ? '≤ ' + g.limit + '  ' : '') + passStr;
+          cell(ML+gasColW*2, y, gasColW, 4.5, hasVal ? String(val) : '—', {font:'bold', sz:7, align:'center'});
+          var pctStr = (passStr !== '—' && typeof _libPctOfLimitStr === 'function') ? _libPctOfLimitStr(parseFloat(val), g.limit) : null;
+          var limitStr = (g.limit !== null && g.limit !== undefined ? '≤ ' + g.limit + '  ' : '') + passStr + (pctStr ? ' (' + pctStr.replace(' del lím.', '') + ')' : '');
           cell(ML+gasColW*3, y, gasColW, 4.5, limitStr, {font:'bold', sz:5.5, align:'center', color: passClr});
           y += 4.5;
       });
+      var _co2Entry = gasEntries.find(function(g) { return g.field === 'CO2'; });
+      var _feEst = _co2Entry && typeof _libFuelEconomyFromCO2 === 'function'
+          ? _libFuelEconomyFromCO2(liberadorGas.values.CO2, _co2Entry.unit) : null;
+      if (_feEst) {
+          cell(ML, y, CW, 3.5, 'FE estimada por balance de carbono (informativa, no certificada): ≈ ' + _feEst.l100.toFixed(1) + ' L/100 km · ' + _feEst.mpg.toFixed(1) + ' mpg', {sz:5, align:'center', color:[100,116,139]});
+          y += 3.5;
+      }
       y += 1;
   }
 

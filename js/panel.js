@@ -979,6 +979,16 @@ function pnGetActiveAlerts() {
         }
     }
 
+    // Alarmas SPC (cartas I-MR del CoP): proceso fuera de control estadístico.
+    // cop_validator.js carga después de panel.js — guardar con typeof.
+    if (typeof copSpcScanAlarms === 'function') {
+        try {
+            copSpcScanAlarms().forEach(function(a) {
+                alerts.push({ level: 'ALTA', color: '#ef4444', message: 'SPC: ' + a.gasLabel + ' fuera de control (' + (a.rule || '') + ') en ' + a.famLabel + ' — ver CoP → Control SPC', source: 'CoP SPC' });
+            });
+        } catch (e) {}
+    }
+
     // Sort by severity
     var order = { 'CRITICA': 0, 'ALTA': 1, 'MEDIA': 2 };
     alerts.sort(function(a, b) { return (order[a.level] || 9) - (order[b.level] || 9); });

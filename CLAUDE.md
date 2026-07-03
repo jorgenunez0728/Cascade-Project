@@ -24,7 +24,7 @@ no-login operator picker, synced change history).
 | **Plan** | Test Plan Manager (weekly plan, **🚑 Recuperación**, families, calendar, simulator, production) | `platform-testplan` |
 | **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
 | **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system) | `platform-panel` |
-| **CoP** | CoP Type 1 statistical Conformity-of-Production validator (family + VINes, live verdict) | `platform-cop` |
+| **CoP** | CoP Type 1 statistical Conformity-of-Production validator (family + VINes, live verdict) + **📈 Control SPC** (v15.7: cartas I-MR por familia×gas, Nelson, Cpk, alarmas) | `platform-cop` |
 
 Legacy platform names (`cop15`, `testplan`, `inventory`, `panel`) are aliased in
 `switchPlatform()`. Topbar (`index.html`) also has: **👤 operator picker** (`#op-picker`, no password),
@@ -54,7 +54,7 @@ js/
   panel.js              ← Dashboard, Lab Overview, Reports Center, Users, Alerts, Audit, Health (~2,610 lines)
   firebase-sync.js      ← Shared-workspace cloud sync layer (~2,900 lines)
   auth.js               ← Operator identity + PIN wall (~490 lines)
-  cop_validator.js      ← CoP Type 1 statistical validator (family + VIN matrix) (~690 lines)
+  cop_validator.js      ← CoP Type 1 statistical validator + Control SPC (I-MR/Nelson/Cpk) (~1,170 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
 kia-emlab-unified.html  ← GENERATED FILE — do not edit directly
@@ -102,7 +102,9 @@ CHANGELOG.md            ← Detailed changelog
 - **COP15 → Signatures**: `sigCaptureOpen()` releaser gate in `finishRelease()`
 - **Test Plan → Inventory**: prediction checks inventory for gas/fuel sufficiency
 - **CoP → Test Plan**: `copFamilies()` reuses the family grouping (`tpFamilyKeyForCfg`); **CoP → COP15**:
-  auto-populates VINes from `db.vehicles` of the selected family
+  auto-populates VINes from `db.vehicles` of the selected family; **CoP SPC → COP15**: I-MR charts read
+  final verified `gasResults` per released vehicle; **CoP SPC → Panel**: `copSpcScanAlarms()` feeds
+  `pnGetActiveAlerts()` (source "CoP SPC", guarded with `typeof`)
 - **Panel → All**: Lab Overview (`renderLabOverview`) + Intelligence read `db`, `tpState`, `invState`
 - **Firebase Sync → All**: pushes/pulls per-module state to `stations/KIA-EMLAB/{module}/current`
 - **App Core → All**: chart engine (`chartConfig*`), undo (`undoPush/Pop`), notes (`note*`),
@@ -155,6 +157,22 @@ CHANGELOG.md            ← Detailed changelog
   la gestiona `firebase-sync.js` (`fbEnsureAuth`/`fbShowAuthPrompt`).
 - **Change history surfaced**: topbar **🕘** → Panel `pn-audit`; more `auditLog` coverage (gas/fuel
   readings, production import, CoP save); synced (`audit` collection, merge by id).
+
+## v15.7 — Control SPC + calidad de captura
+
+Mejoras adaptadas del tablero VETS de un laboratorio hermano (comparativa completa en CHANGELOG):
+
+- **Control SPC**: sub-pestaña en la plataforma CoP (`copState.view`, `copBuildSpcHTML`,
+  `copSpcRenderCharts`). Carta I-MR por familia×gas sobre `gasResults` finales (aprobador→liberador),
+  familia = `copVehicleFamilyKey`. σ = MR̄/1.128; UCL/LCL = ±3σ; Cpk = (Límite−media)/3σ (n≥8);
+  reglas Nelson R1/R2/R3 (`copSpcFlags`); alarmas `copSpcScanAlarms()` (n≥4, CO2 excluido) — también
+  visibles en Datos → Alertas. Toggles: Zonas σ / Límite / **% del límite**. Charts:
+  `window._copSpcIChart` / `_copSpcMrChart`.
+- **Captura de liberación** (cop15.js): estado con **% del límite**; `GAS_PLAUSIBLE_BOUNDS` marca
+  valores improbables en ámbar (avisa sin bloquear, audita `gas_fuera_de_rango` al guardar);
+  **FE informativa** por balance de carbono bajo CO2 (`_libFuelEconomyFromCO2`). PDF con % y FE.
+- NO adoptado a propósito: desglose por fase/bolsa (solo valores finales verificados), tema oscuro,
+  conteo fijo CoP de 3/familia (nuestro muestreo secuencial es superior).
 
 ## Working with this project
 

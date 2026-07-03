@@ -2,6 +2,45 @@
 
 All notable changes to this project, organized by development round.
 
+## v15.7 — "Control SPC + calidad de captura" (2026-07-03)
+
+Mejoras adaptadas del tablero de emisiones VETS de un laboratorio hermano (Kia/Hyundai),
+tras comparar ambos proyectos: se adoptó lo que no teníamos y aplicaba a nuestro flujo.
+
+### Control SPC (nueva sub-pestaña en CoP)
+- La plataforma **CoP** ahora tiene 2 sub-pestañas: **📋 Validador CoP** (igual que antes) y
+  **📈 Control SPC** (`copBuildSpcHTML`, `copSpcRenderCharts` en `cop_validator.js`)
+- **Carta I-MR por familia × gas** sobre los valores finales verificados de cada liberación
+  (`gasResults.aprobador`, fallback `liberador`), ordenados por fecha de captura y agrupados
+  con la misma llave de familia del Plan (`copVehicleFamilyKey`)
+- Estadística: media; σ = MR̄/1.128; UCL/LCL = media ± 3σ; MR-UCL = 3.267·MR̄;
+  **Cpk = (Límite − media)/(3σ)** con n≥8 (semáforo: ≥1.33 verde, ≥1.0 ámbar, <1.0 rojo)
+- **Reglas de alarma (Nelson)**: R1 punto fuera de ±3σ · R2 corrimiento (8 seguidos del mismo
+  lado) · R3 tendencia (6 en fila monótonos). Umbrales: n<4 sin límites de control;
+  4–7 preliminares; ≥8 confiables
+- **Panel de alarmas retráctil** (familias con n≥4, gases con límite; CO2 se grafica para
+  vigilancia pero no alarma); cada alarma navega a su carta. Las alarmas también aparecen en
+  **Datos → Alertas** (`pnGetActiveAlerts`, fuente "CoP SPC")
+- Toggles: Zonas σ, Límite regulatorio (línea ámbar) y **% del límite** (re-escala la carta a
+  porcentaje — la tendencia gas-vs-límite del proyecto hermano)
+- Charts con Chart.js (`window._copSpcIChart` / `_copSpcMrChart`), puntos verde/ámbar/rojo
+  según reglas disparadas; ayuda en `<details>` explicando I-MR/Nelson/Cpk
+
+### Calidad de captura en Liberación (cop15.js)
+- **% del límite** junto al veredicto: "✓ PASA · 43% del lím." / "✗ FALLA · 112% del lím."
+  (antes solo booleano). También en el PDF de liberación
+- **Rangos plausibles por gas** (`GAS_PLAUSIBLE_BOUNDS`): un valor fuera de rango (error de
+  dedo / dato basura del analizador) marca la fila en ámbar "⚠ Valor improbable" — **avisa sin
+  bloquear** (el técnico decide) y deja rastro en auditoría al guardar (`gas_fuera_de_rango`)
+- **FE informativa por balance de carbono** bajo el CO2 registrado: ≈ L/100 km y mpg
+  (`mpg = 8887/(CO2_g/km × 1.609344)`; no es la FE certificada). También en el PDF
+
+### Qué NO se adoptó del proyecto hermano (y por qué)
+- Desglose por fase/bolsa del ciclo: nuestro flujo captura solo valores FINALES verificados
+  (decisión de diseño, ver comentario en cop15.js) — el juicio regulatorio no usa bolsas crudas
+- Tema oscuro: eliminado aquí en v15.5 (tema claro único)
+- Su conteo fijo de pruebas CoP (3/familia): nuestro validador secuencial R83/R154 es superior
+
 ## v15.6 — "Sync confiable + Seguridad real + Limpieza final" (2026-07-02)
 
 Tres frentes pedidos por el usuario: que **todo dispositivo vea siempre lo último**,
