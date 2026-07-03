@@ -2843,3 +2843,10 @@ details.acc > summary {
     .platform-bar .platform-tab { display: none; }
     #fb-sync-indicator { margin-left: 0; }
 }
+
+/* ===== CoP · Control SPC (v15.7) ===== */
+/* <details class="card"> de la sub-pestaña Control SPC: chevron propio, sin marker nativo */
+details.card > summary { list-style: none; user-select: none; }
+details.card > summary::-webkit-details-marker { display: none; }
+details.card > summary::after { content: '▸'; margin-left: auto; color: #64748b; font-size: 14px; }
+details.card[open] > summary::after { content: '▾'; }

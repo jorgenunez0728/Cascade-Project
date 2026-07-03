@@ -2883,6 +2883,13 @@ details.acc > summary {
     .platform-bar .platform-tab { display: none; }
     #fb-sync-indicator { margin-left: 0; }
 }
+
+/* ===== CoP · Control SPC (v15.7) ===== */
+/* <details class="card"> de la sub-pestaña Control SPC: chevron propio, sin marker nativo */
+details.card > summary { list-style: none; user-select: none; }
+details.card > summary::-webkit-details-marker { display: none; }
+details.card > summary::after { content: '▸'; margin-left: auto; color: #64748b; font-size: 14px; }
+details.card[open] > summary::after { content: '▾'; }
     </style>
 </head>
 
@@ -4634,21 +4641,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607031638';
+var APP_BUILD = '202607032123';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607031638' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607032123' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607031638' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607032123' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -4664,7 +4671,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607031638' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607032123' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -10620,6 +10627,54 @@ function _libNormalizeVal(v) {
     return isNaN(n) ? null : Math.round(n * 1000) / 1000;
 }
 
+// Rangos plausibles por gas (mismo orden de magnitud en g/km y g/mi): un valor fuera
+// de rango casi siempre es error de dedo o dato basura del analizador. Solo advierte
+// (fila ámbar + auditoría al guardar) — nunca bloquea: el técnico decide.
+var GAS_PLAUSIBLE_BOUNDS = {
+    CO:   { min: 0,   max: 50 },
+    NOx:  { min: 0,   max: 5 },
+    THC:  { min: 0,   max: 5 },
+    NMHC: { min: 0,   max: 5 },
+    CO2:  { min: 1,   max: 1000 },
+    PM:   { min: 0,   max: 0.5 },
+    PN:   { min: 1e8, max: 1e13 }
+};
+
+function _libValueImplausible(field, val) {
+    var b = GAS_PLAUSIBLE_BOUNDS[field];
+    if (!b || val === null || val === undefined) return false;
+    return val < b.min || val > b.max;
+}
+
+// FE informativa por balance de carbono (gasolina): mpg = 8887 / (CO2_g/km × 1.609344);
+// L/100 km = CO2_g/km / 23.92. No es la FE certificada — solo referencia rápida.
+function _libFuelEconomyFromCO2(co2, unit) {
+    var gkm = _libNormalizeVal(co2);
+    if (gkm === null) return null;
+    if (/mi/i.test(unit || '')) gkm = gkm / 1.609344;
+    if (gkm < 10) return null; // sin sentido físico para balance de carbono
+    return { l100: gkm / 23.92, mpg: 8887 / (gkm * 1.609344) };
+}
+
+function _libPctOfLimitStr(val, limit) {
+    if (val === null || limit === null || limit === undefined || !(limit > 0)) return null;
+    var pct = val / limit * 100;
+    return (pct >= 100 ? Math.round(pct) : pct.toFixed(pct < 10 ? 1 : 0)) + '% del lím.';
+}
+
+// Auditoría de valores fuera de rango plausible al guardar (no bloquea la liberación).
+function _libAuditImplausibleValues(vehicle, values, who) {
+    if (!vehicle || !values) return;
+    var bad = [];
+    Object.keys(values).forEach(function(f) {
+        if (_libValueImplausible(f, _libNormalizeVal(values[f]))) bad.push(f + '=' + values[f]);
+    });
+    if (bad.length && typeof auditLog === 'function') {
+        auditLog('cop15', 'gas_fuera_de_rango', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+            'Valores fuera de rango plausible (' + who + '): ' + bad.join(', '));
+    }
+}
+
 // Round a number to `s` significant figures (default 3).
 function _libSigFig(n, s) {
     s = s || 3;
@@ -10677,18 +10732,26 @@ function _libUpdateGasStatuses(profile, containerId) {
         var statusEl = document.getElementById('lib-gas-status-' + g.field);
         if (!input || !statusEl) return;
         var val = _libNormalizeVal(input.value);
-        if (val === null) { statusEl.innerHTML = '<span style="color:#94a3b8;">—</span>'; if (g.limit !== null) allPass = false; return; }
+        var row = document.getElementById('lib-gas-row-' + g.field);
+        if (val === null) { statusEl.innerHTML = '<span style="color:#94a3b8;">—</span>'; if (row) row.style.background = ''; if (g.limit !== null) allPass = false; return; }
         anyValue = true;
+        var warn = _libValueImplausible(g.field, val);
+        var warnHtml = warn ? '<div style="color:#d97706;font-size:10px;font-weight:700;">⚠ Valor improbable</div>' : '';
         if (g.limit !== null && g.limit !== undefined) {
             var pass = val <= g.limit;
             if (!pass) allPass = false;
-            statusEl.innerHTML = pass
-                ? '<span style="color:#10b981;font-weight:700;">✓ PASA</span>'
-                : '<span style="color:#ef4444;font-weight:700;">✗ FALLA</span>';
-            var row = document.getElementById('lib-gas-row-' + g.field);
-            if (row) row.style.background = pass ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.07)';
+            var pctStr = _libPctOfLimitStr(val, g.limit);
+            var pctHtml = pctStr ? '<span style="font-weight:600;font-size:11px;"> · ' + pctStr + '</span>' : '';
+            statusEl.innerHTML = (pass
+                ? '<span style="color:#10b981;font-weight:700;">✓ PASA' + pctHtml + '</span>'
+                : '<span style="color:#ef4444;font-weight:700;">✗ FALLA' + pctHtml + '</span>') + warnHtml;
+            if (row) row.style.background = warn ? 'rgba(245,158,11,0.12)' : (pass ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.07)');
         } else {
-            statusEl.innerHTML = '<span style="color:#3b82f6;font-size:11px;">Registrado</span>';
+            var fe = g.field === 'CO2' ? _libFuelEconomyFromCO2(val, g.unit) : null;
+            statusEl.innerHTML = (fe
+                ? '<span style="color:#3b82f6;font-size:11px;">Registrado · ≈ ' + fe.l100.toFixed(1) + ' L/100 km · ' + fe.mpg.toFixed(1) + ' mpg</span>'
+                : '<span style="color:#3b82f6;font-size:11px;">Registrado</span>') + warnHtml;
+            if (row) row.style.background = warn ? 'rgba(245,158,11,0.12)' : '';
         }
     });
     return { allPass: allPass, anyValue: anyValue };
@@ -10948,6 +11011,7 @@ function submitToApproval() {
                     capturedAt: new Date().toISOString(),
                     passedLimits: true
                 };
+                _libAuditImplausibleValues(vehicle, gasValues, 'liberador');
             }
             if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
             vehicle.testData.signatures.releaser = sig;
@@ -10998,6 +11062,7 @@ function approveAndArchive() {
                         capturedAt: new Date().toISOString(),
                         matchedLiberador: true
                     };
+                    _libAuditImplausibleValues(vehicle, approverValues, 'aprobador');
                 }
                 // Aprobado ⇒ los valores coincidieron: limpiar la alarma de desacuerdo
                 if (vehicle.testData.gasResults.mismatch) delete vehicle.testData.gasResults.mismatch;
@@ -12522,17 +12587,26 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
       var gasEntries = regProfile ? regProfile.gases : Object.keys(liberadorGas.values).map(function(k){ return {field:k,label:k,unit:'',limit:null}; });
       gasEntries.forEach(function(g) {
           var val = liberadorGas.values[g.field];
-          var passStr = (g.limit !== null && g.limit !== undefined && val !== null && val !== undefined)
+          var hasVal = val !== null && val !== undefined;
+          var passStr = (g.limit !== null && g.limit !== undefined && hasVal)
               ? (parseFloat(val) <= g.limit ? 'PASA' : 'FALLA')
               : '—';
           var passClr = passStr === 'PASA' ? [16,185,129] : passStr === 'FALLA' ? [239,68,68] : [100,116,139];
           cell(ML, y, gasColW, 4.5, g.label, {font:'bold', sz:6, align:'center'});
           cell(ML+gasColW, y, gasColW, 4.5, g.unit || '', {sz:6, align:'center'});
-          cell(ML+gasColW*2, y, gasColW, 4.5, val !== null && val !== undefined ? String(val) : '—', {font:'bold', sz:7, align:'center'});
-          var limitStr = (g.limit !== null && g.limit !== undefined ? '≤ ' + g.limit + '  ' : '') + passStr;
+          cell(ML+gasColW*2, y, gasColW, 4.5, hasVal ? String(val) : '—', {font:'bold', sz:7, align:'center'});
+          var pctStr = (passStr !== '—' && typeof _libPctOfLimitStr === 'function') ? _libPctOfLimitStr(parseFloat(val), g.limit) : null;
+          var limitStr = (g.limit !== null && g.limit !== undefined ? '≤ ' + g.limit + '  ' : '') + passStr + (pctStr ? ' (' + pctStr.replace(' del lím.', '') + ')' : '');
           cell(ML+gasColW*3, y, gasColW, 4.5, limitStr, {font:'bold', sz:5.5, align:'center', color: passClr});
           y += 4.5;
       });
+      var _co2Entry = gasEntries.find(function(g) { return g.field === 'CO2'; });
+      var _feEst = _co2Entry && typeof _libFuelEconomyFromCO2 === 'function'
+          ? _libFuelEconomyFromCO2(liberadorGas.values.CO2, _co2Entry.unit) : null;
+      if (_feEst) {
+          cell(ML, y, CW, 3.5, 'FE estimada por balance de carbono (informativa, no certificada): ≈ ' + _feEst.l100.toFixed(1) + ' L/100 km · ' + _feEst.mpg.toFixed(1) + ' mpg', {sz:5, align:'center', color:[100,116,139]});
+          y += 3.5;
+      }
       y += 1;
   }
 
@@ -25015,6 +25089,16 @@ function pnGetActiveAlerts() {
         }
     }
 
+    // Alarmas SPC (cartas I-MR del CoP): proceso fuera de control estadístico.
+    // cop_validator.js carga después de panel.js — guardar con typeof.
+    if (typeof copSpcScanAlarms === 'function') {
+        try {
+            copSpcScanAlarms().forEach(function(a) {
+                alerts.push({ level: 'ALTA', color: '#ef4444', message: 'SPC: ' + a.gasLabel + ' fuera de control (' + (a.rule || '') + ') en ' + a.famLabel + ' — ver CoP → Control SPC', source: 'CoP SPC' });
+            });
+        } catch (e) {}
+    }
+
     // Sort by severity
     var order = { 'CRITICA': 0, 'ALTA': 1, 'MEDIA': 2 };
     alerts.sort(function(a, b) { return (order[a.level] || 9) - (order[b.level] || 9); });
@@ -29994,7 +30078,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607031638' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607032123' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -30607,6 +30691,7 @@ var COP_FUEL_LIMITS = {
 // ─── ESTADO ───────────────────────────────────────────────────────────────────
 var COP_LS_KEY = 'kia_cop_v1';
 var copState = {
+    view:          'validator', // 'validator' | 'spc'
     regulation:    'R154',
     fuelType:      'PI',
     region:        '',      // filtro de región para el selector de familia
@@ -30618,14 +30703,16 @@ var copState = {
     showFormula:   false,
     _lastDecision: null,
     saved:         [],      // juicios guardados
+    spc:           null,    // estado de la sub-pestaña Control SPC
 };
 
 function copPersist() {
     try {
         localStorage.setItem(COP_LS_KEY, JSON.stringify({
-            regulation: copState.regulation, fuelType: copState.fuelType,
+            view: copState.view, regulation: copState.regulation, fuelType: copState.fuelType,
             region: copState.region, familyKey: copState.familyKey, familyLabel: copState.familyLabel,
-            activePolls: copState.activePolls, vehicles: copState.vehicles, saved: copState.saved
+            activePolls: copState.activePolls, vehicles: copState.vehicles, saved: copState.saved,
+            spc: copState.spc
         }));
         return true;
     } catch (e) {
@@ -30638,7 +30725,7 @@ function copLoad() {
     var raw = null;
     try { raw = JSON.parse(localStorage.getItem(COP_LS_KEY)); } catch (e) {}
     if (raw && typeof raw === 'object') {
-        ['regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved'].forEach(function(k) {
+        ['view','regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved','spc'].forEach(function(k) {
             if (raw[k] !== undefined && raw[k] !== null) copState[k] = raw[k];
         });
     }
@@ -30658,6 +30745,9 @@ function copInitState() {
         ];
     }
     if (!copState.saved) copState.saved = [];
+    if (!copState.spc || typeof copState.spc !== 'object') {
+        copState.spc = { familyKey: '', gas: '', showZones: true, showLimit: true, pctMode: false };
+    }
 }
 
 // Recargar copState desde localStorage (lo usa Firebase sync tras hacer pull/merge).
@@ -30949,6 +31039,13 @@ function copRender() {
     var container = document.getElementById('platform-cop');
     if (!container) return;
     container.innerHTML = copBuildHTML();
+    if (copState.view === 'spc') copSpcRenderCharts();
+}
+
+function copSetView(v) {
+    copState.view = v === 'spc' ? 'spc' : 'validator';
+    copPersist();
+    copRender();
 }
 
 function copRenderStats() {
@@ -31075,13 +31172,28 @@ function copBuildStatsHTML() {
     return html;
 }
 
-// ─── HTML: PÁGINA COMPLETA ────────────────────────────────────────────────────
+// ─── HTML: PÁGINA COMPLETA (sub-pestañas Validador | Control SPC) ────────────
 function copBuildHTML() {
+    var html = '<div class="container" style="padding-top:20px;padding-bottom:20px;">';
+    html += '<div style="display:flex;gap:8px;margin-bottom:16px;">';
+    [['validator', '📋 Validador CoP'], ['spc', '📈 Control SPC']].forEach(function(t) {
+        var active = (copState.view || 'validator') === t[0];
+        html += '<button onclick="copSetView(\'' + t[0] + '\')" class="btn btn-sm ' + (active ? '' : 'btn-ghost') + '" ' +
+                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') + '>' + t[1] + '</button>';
+    });
+    html += '</div>';
+    html += (copState.view === 'spc') ? copBuildSpcHTML() : copBuildValidatorHTML();
+    html += '</div>'; // container
+    return html;
+}
+
+// ─── HTML: VISTA VALIDADOR ────────────────────────────────────────────────────
+function copBuildValidatorHTML() {
     var limits = COP_FUEL_LIMITS[copState.fuelType] || COP_PI_LIMITS;
     var activeLimits = copGetActiveLimits();
     var n = copState.vehicles.length;
 
-    var html = '<div class="container" style="padding-top:20px;padding-bottom:20px;">';
+    var html = '';
 
     // ── Cabecera + Configuración ──────────────────────────────────────────────
     html += '<div class="card" style="margin-bottom:16px;">';
@@ -31279,8 +31391,423 @@ function copBuildHTML() {
             '</p>';
     html += '</div>';
 
-    html += '</div>'; // container
     return html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONTROL SPC — Carta I-MR por familia × gas (adaptado del tablero VETS del
+// laboratorio hermano). Serie = valores FINALES verificados por vehículo liberado
+// (gasResults.aprobador, fallback liberador), ordenados por fecha de captura.
+// σ estimada del rango móvil (MR̄/1.128); reglas de alarma Nelson R1/R2/R3;
+// Cpk = (Límite − media)/(3σ) con n≥8. CO2 se grafica para vigilancia pero no alarma.
+// ═══════════════════════════════════════════════════════════════════════════════
+var COP_SPC_MIN = 4;      // n mínimo para límites de control y alarmas
+var COP_SPC_RELIABLE = 8; // n para límites confiables y Cpk
+var COP_SPC_RULES = { R1: 'Fuera de ±3σ', R2: 'Corrimiento (8 de un lado)', R3: 'Tendencia (6 en fila)' };
+
+function _copSpcDate(v) {
+    var gr = v && v.testData && v.testData.gasResults;
+    if (!gr) return '';
+    var rec = (gr.aprobador && gr.aprobador.values) ? gr.aprobador
+            : (gr.liberador && gr.liberador.values) ? gr.liberador : null;
+    return (rec && rec.capturedAt) || '';
+}
+
+function _copSpcFmt(v, dec) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    if (dec !== undefined) return Number(v).toFixed(dec);
+    var a = Math.abs(v);
+    return Number(v).toFixed(a >= 100 ? 1 : a >= 1 ? 2 : 4);
+}
+
+// Familias con datos: agrupa db.vehicles con gases finales por copVehicleFamilyKey.
+// Excluye familias con Modelo/Motor/Regulación vacíos (equivale a excluir OTHER/(sin dato)).
+function copSpcFamilies() {
+    var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
+    var fams = {};
+    vehicles.forEach(function(v) {
+        var values = _copFinalGasValues(v);
+        if (!values) return;
+        var cfg = v.config || {};
+        var mod = cfg['Modelo'], eng = cfg['ENGINE CAPACITY'], reg = cfg['EMISSION REGULATION'];
+        if (!mod || !eng || !reg) return;
+        var key = copVehicleFamilyKey(v);
+        if (!fams[key]) {
+            fams[key] = {
+                key: key,
+                label: [mod, eng, cfg['TRANSMISSION'], cfg['MODEL YEAR (VIN)'], reg].filter(Boolean).join(' · '),
+                regName: (typeof _libGetVehicleRegulation === 'function') ? _libGetVehicleRegulation(v) : reg,
+                tests: []
+            };
+        }
+        fams[key].tests.push({ vin: v.vin || '(sin VIN)', date: _copSpcDate(v), values: values });
+    });
+    return Object.keys(fams).map(function(k) {
+        var f = fams[k];
+        f.tests.sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+        f.n = f.tests.length;
+        return f;
+    }).sort(function(a, b) { return (b.n - a.n) || (a.label < b.label ? -1 : 1); });
+}
+
+// Gases de la familia según su perfil de regulación: [{field,label,unit,limit}]
+function copSpcGases(fam) {
+    if (!fam) return [];
+    var prof = (typeof getRegulationProfile === 'function') ? getRegulationProfile(fam.regName) : null;
+    if (prof && prof.gases && prof.gases.length) return prof.gases;
+    // Fallback: campos presentes en los datos, sin límite conocido
+    var fields = {};
+    fam.tests.forEach(function(t) { Object.keys(t.values || {}).forEach(function(f) { fields[f] = true; }); });
+    return Object.keys(fields).map(function(f) { return { field: f, label: f, unit: '', limit: null }; });
+}
+
+// Serie temporal de un gas en una familia: [{vin,date,v}]
+function copSpcSeries(fam, gasField) {
+    var pts = [];
+    (fam ? fam.tests : []).forEach(function(t) {
+        var v = _copNum(t.values[gasField]);
+        if (v !== null) pts.push({ vin: t.vin, date: t.date, v: v });
+    });
+    return pts;
+}
+
+// Estadística I-MR: media, MR̄, σ=MR̄/1.128, UCL/LCL=media±3σ, MR-UCL=3.267·MR̄, Cpk.
+function copSpcStats(vals, limit) {
+    var n = vals.length;
+    if (!n) return null;
+    var mean = vals.reduce(function(a, b) { return a + b; }, 0) / n;
+    var mrs = [];
+    for (var i = 1; i < n; i++) mrs.push(Math.abs(vals[i] - vals[i - 1]));
+    var mrbar = mrs.length ? mrs.reduce(function(a, b) { return a + b; }, 0) / mrs.length : 0;
+    var sigma = mrbar / 1.128;
+    var lim = (limit !== null && limit !== undefined) ? limit : null;
+    var cpk = (sigma > 0 && lim !== null) ? (lim - mean) / (3 * sigma) : null;
+    return {
+        n: n, mean: mean, sigma: sigma, mrbar: mrbar,
+        ucl: mean + 3 * sigma, lcl: Math.max(0, mean - 3 * sigma), lclRaw: mean - 3 * sigma,
+        mrucl: 3.267 * mrbar, lim: lim, cpk: cpk, vals: vals, mrs: mrs
+    };
+}
+
+// Reglas de Nelson: R1 punto fuera de ±3σ · R2 8 seguidos del mismo lado ·
+// R3 6 en fila monótonos. Devuelve array de arrays de códigos por punto.
+function copSpcFlags(st) {
+    var v = st.vals;
+    var fl = v.map(function() { return []; });
+    if (st.sigma > 0 && st.n >= COP_SPC_MIN) {
+        v.forEach(function(x, i) { if (x > st.ucl || x < st.lclRaw) fl[i].push('R1'); });
+        var run = 0, side = 0, i, j, s;
+        for (i = 0; i < v.length; i++) {
+            s = v[i] > st.mean ? 1 : (v[i] < st.mean ? -1 : 0);
+            if (s !== 0 && s === side) run++; else { run = s !== 0 ? 1 : 0; side = s; }
+            if (run >= 8) for (j = i - 7; j <= i; j++) fl[j].push('R2');
+        }
+        var inc = 1, dec = 1;
+        for (i = 1; i < v.length; i++) {
+            inc = v[i] > v[i - 1] ? inc + 1 : 1;
+            dec = v[i] < v[i - 1] ? dec + 1 : 1;
+            if (inc >= 6) for (j = i - 5; j <= i; j++) fl[j].push('R3');
+            if (dec >= 6) for (j = i - 5; j <= i; j++) fl[j].push('R3');
+        }
+    }
+    return fl;
+}
+
+// Escaneo de alarmas en todas las familias con n≥4 (gases ≠ CO2). Lo consume
+// también el Panel (alertas del laboratorio).
+function copSpcScanAlarms() {
+    var out = [];
+    copSpcFamilies().filter(function(f) { return f.n >= COP_SPC_MIN; }).forEach(function(f) {
+        copSpcGases(f).forEach(function(g) {
+            if (g.field === 'CO2') return;
+            var pts = copSpcSeries(f, g.field);
+            var st = copSpcStats(pts.map(function(p) { return p.v; }), g.limit);
+            if (!st || st.n < COP_SPC_MIN) return;
+            var fl = copSpcFlags(st);
+            var idx = [];
+            fl.forEach(function(a, i) { if (a.length) idx.push(i); });
+            if (idx.length) {
+                var last = idx[idx.length - 1];
+                out.push({
+                    famKey: f.key, famLabel: f.label, gas: g.field, gasLabel: g.label,
+                    rule: fl[last][0], val: pts[last].v, date: pts[last].date, unit: g.unit || ''
+                });
+            }
+        });
+    });
+    return out;
+}
+
+// ─── SPC: manejadores ─────────────────────────────────────────────────────────
+function copSpcSelectFamily(key) { copState.spc.familyKey = key; copPersist(); copRender(); }
+function copSpcSelectGas(f) { copState.spc.gas = f; copPersist(); copRender(); }
+function copSpcToggle(opt, el) { copState.spc[opt] = !!(el && el.checked); copPersist(); copRender(); }
+function copSpcGotoAlarm(famKey, gas) {
+    copState.spc.familyKey = famKey;
+    copState.spc.gas = gas;
+    copPersist();
+    copRender();
+    var chart = document.getElementById('cop-spc-ichart-wrapper');
+    if (chart && chart.scrollIntoView) chart.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// Resuelve familia y gas seleccionados (con defaults sensatos).
+function _copSpcSelection() {
+    var fams = copSpcFamilies();
+    if (!fams.length) return { fams: fams, fam: null, gases: [], gas: null };
+    var fam = fams.find(function(f) { return f.key === copState.spc.familyKey; }) || fams[0];
+    var gases = copSpcGases(fam);
+    var gas = gases.find(function(g) { return g.field === copState.spc.gas; }) || gases[0] || null;
+    return { fams: fams, fam: fam, gases: gases, gas: gas };
+}
+
+// ─── SPC: HTML ────────────────────────────────────────────────────────────────
+function copBuildSpcHTML() {
+    var sel = _copSpcSelection();
+    var html = '';
+
+    // Panel de alarmas (retráctil)
+    var alarms = copSpcScanAlarms();
+    html += '<details class="card" style="margin-bottom:16px;" ' + (alarms.length ? 'open' : '') + '>';
+    html += '<summary style="cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:var(--weight-bold);color:var(--text);">' +
+            '🚨 Alarmas de control de proceso ' +
+            '<span class="badge ' + (alarms.length ? 'badge-danger' : 'badge-success') + '" style="padding:3px 10px;border-radius:var(--radius-sm);font-size:11px;">' +
+            (alarms.length ? alarms.length + ' alarma(s)' : 'sin alarmas') + '</span></summary>';
+    html += '<div style="margin-top:12px;">';
+    if (!alarms.length) {
+        html += '<p class="label-title" style="margin:0;">Las familias con datos suficientes (n≥' + COP_SPC_MIN + ') están bajo control estadístico.</p>';
+    } else {
+        alarms.forEach(function(a) {
+            html += '<div onclick="copSpcGotoAlarm(\'' + _copEsc(a.famKey).replace(/'/g, '&#39;') + '\',\'' + _copEsc(a.gas) + '\')" ' +
+                    'style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin-bottom:6px;cursor:pointer;' +
+                    'border:1px solid rgba(239,68,68,0.35);border-radius:var(--radius-sm);background:rgba(239,68,68,0.05);">';
+            html += '<span class="badge badge-danger" style="padding:2px 8px;border-radius:var(--radius-sm);font-size:10px;font-weight:800;">' + a.rule + '</span>';
+            html += '<b style="font-size:12px;">' + _copEsc(a.gasLabel) + '</b>';
+            html += '<span style="font-size:12px;color:var(--text);">' + _copEsc(a.famLabel) + '</span>';
+            html += '<span style="margin-left:auto;font-size:11px;color:var(--muted);">' + COP_SPC_RULES[a.rule] +
+                    ' · último ' + _copSpcFmt(a.val) + ' ' + _copEsc(a.unit) + (a.date ? ' · ' + a.date.slice(0, 10) : '') + '</span>';
+            html += '</div>';
+        });
+    }
+    html += '</div></details>';
+
+    // Selección familia + gas + toggles
+    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">📈 Carta de control I-MR por familia × gas</div>';
+    if (!sel.fams.length) {
+        html += '<p class="label-title" style="margin:0;color:var(--warning);">Aún no hay vehículos liberados con gases capturados. ' +
+                'Conforme se aprueben liberaciones con valores por gas, las familias aparecerán aquí.</p>';
+        html += '</div>';
+        return html;
+    }
+    html += '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">';
+    html += '<div style="flex:1;min-width:260px;"><p class="label-title" style="margin-bottom:6px;">Familia (' + sel.fams.length + ')</p>';
+    html += '<select onchange="copSpcSelectFamily(this.value)" style="width:100%;padding:6px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
+    sel.fams.forEach(function(f) {
+        html += '<option value="' + _copEsc(f.key) + '" ' + (sel.fam && f.key === sel.fam.key ? 'selected' : '') + '>' +
+                _copEsc(f.label) + ' (' + f.n + ' ensayo' + (f.n === 1 ? '' : 's') + ')</option>';
+    });
+    html += '</select></div>';
+    html += '<div><p class="label-title" style="margin-bottom:6px;">Gas</p><div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    sel.gases.forEach(function(g) {
+        var active = sel.gas && g.field === sel.gas.field;
+        html += '<button onclick="copSpcSelectGas(\'' + _copEsc(g.field) + '\')" class="btn btn-sm ' + (active ? '' : 'btn-ghost') + '" ' +
+                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') + '>' + _copEsc(g.label) + '</button>';
+    });
+    html += '</div></div>';
+    html += '</div>';
+
+    var hasLimit = !!(sel.gas && sel.gas.limit !== null && sel.gas.limit !== undefined);
+    html += '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:4px;">';
+    [['showZones', 'Zonas σ', true], ['showLimit', 'Límite regulatorio', hasLimit], ['pctMode', '% del límite', hasLimit]].forEach(function(t) {
+        html += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:' + (t[2] ? 'var(--text)' : 'var(--muted)') + ';cursor:pointer;">' +
+                '<input type="checkbox" onchange="copSpcToggle(\'' + t[0] + '\', this)" ' +
+                (copState.spc[t[0]] ? 'checked' : '') + (t[2] ? '' : ' disabled') + '> ' + t[1] + '</label>';
+    });
+    html += '</div>';
+
+    // Serie + estadística
+    var pts = copSpcSeries(sel.fam, sel.gas ? sel.gas.field : '');
+    var st = pts.length ? copSpcStats(pts.map(function(p) { return p.v; }), sel.gas ? sel.gas.limit : null) : null;
+    var unit = sel.gas ? (sel.gas.unit || '') : '';
+
+    if (!st) {
+        html += '<p class="label-title" style="margin-top:12px;">Sin datos para este gas en la familia seleccionada.</p>';
+        html += '</div>';
+        return html;
+    }
+
+    var noCtl = st.n < COP_SPC_MIN;
+    var prelim = st.n < COP_SPC_RELIABLE;
+    html += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--text);">';
+    html += '<span>n = <b>' + st.n + '</b></span>';
+    html += '<span>media <b>' + _copSpcFmt(st.mean) + '</b> ' + _copEsc(unit) + '</span>';
+    html += '<span>σ <b>' + _copSpcFmt(st.sigma) + '</b></span>';
+    if (noCtl) {
+        html += '<span style="color:var(--warning);">⚠ &lt;' + COP_SPC_MIN + ' ensayos: sin límites de control</span>';
+    } else {
+        html += '<span>UCL <b>' + _copSpcFmt(st.ucl) + '</b></span><span>LCL <b>' + _copSpcFmt(st.lcl) + '</b></span>';
+        if (st.cpk !== null && st.n >= COP_SPC_RELIABLE) {
+            var cpkColor = st.cpk >= 1.33 ? 'var(--success)' : st.cpk >= 1.0 ? 'var(--warning)' : 'var(--danger)';
+            html += '<span>Cpk <b style="color:' + cpkColor + ';">' + _copSpcFmt(st.cpk, 2) + '</b></span>';
+        }
+        if (prelim) html += '<span style="color:var(--warning);">límites preliminares (&lt;' + COP_SPC_RELIABLE + ')</span>';
+    }
+    html += '</div>';
+
+    html += '<div id="cop-spc-ichart-wrapper" style="margin-top:14px;height:300px;position:relative;"><canvas id="cop-spc-ichart"></canvas></div>';
+    html += '</div>'; // card carta I
+
+    // Carta MR
+    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">📉 Carta de rangos móviles (MR)</div>';
+    if (st.mrs.length < 1) {
+        html += '<p class="label-title" style="margin:0;">Se necesitan ≥2 ensayos.</p>';
+    } else {
+        html += '<div id="cop-spc-mrchart-wrapper" style="height:200px;position:relative;"><canvas id="cop-spc-mrchart"></canvas></div>';
+    }
+    html += '</div>';
+
+    // Ayuda
+    html += '<details class="card" style="margin-bottom:16px;">';
+    html += '<summary style="cursor:pointer;font-weight:var(--weight-bold);color:var(--text);">ℹ️ Cómo leer estas cartas</summary>';
+    html += '<div style="font-size:12px;color:var(--muted);line-height:1.7;margin-top:10px;">';
+    html += '<p><b>Carta de individuos (I-MR):</b> cada ensayo es una medición única por familia. La línea central es la media histórica de esa familia para el gas elegido; UCL/LCL son media ± 3σ, con σ estimada del rango móvil (MR̄/1.128). Son los <b>límites de control del proceso</b>, distintos del límite regulatorio (línea ámbar).</p>';
+    html += '<p><b>Reglas de alarma (Nelson):</b> R1 = punto fuera de ±3σ (rojo); R2 = 8 puntos seguidos del mismo lado de la media (corrimiento); R3 = 6 puntos en fila subiendo o bajando (tendencia). Cualquiera dispara la alarma de la familia.</p>';
+    html += '<p><b>Cpk:</b> capacidad del proceso frente al límite regulatorio = (Límite − media) / 3σ. Cpk ≥ 1.33 se considera capaz; &lt; 1.0 indica resultados demasiado cerca (o por encima) del límite. Se calcula con ≥ ' + COP_SPC_RELIABLE + ' ensayos.</p>';
+    html += '<p><b>Umbrales:</b> n&lt;' + COP_SPC_MIN + ' → datos insuficientes; ' + COP_SPC_MIN + '–' + (COP_SPC_RELIABLE - 1) + ' → límites preliminares; ≥' + COP_SPC_RELIABLE + ' → confiables. CO2 se grafica para vigilancia pero no genera alarmas (no tiene límite).</p>';
+    html += '</div></details>';
+
+    return html;
+}
+
+// ─── SPC: charts (Chart.js, convención del proyecto) ─────────────────────────
+function _copSpcDestroyCharts() {
+    if (window._copSpcIChart) { try { window._copSpcIChart.destroy(); } catch (e) {} window._copSpcIChart = null; }
+    if (window._copSpcMrChart) { try { window._copSpcMrChart.destroy(); } catch (e) {} window._copSpcMrChart = null; }
+}
+
+function copSpcRenderCharts() {
+    _copSpcDestroyCharts();
+    if (typeof Chart === 'undefined') return;
+    var sel = _copSpcSelection();
+    if (!sel.fam || !sel.gas) return;
+    var pts = copSpcSeries(sel.fam, sel.gas.field);
+    if (!pts.length) return;
+    var st = copSpcStats(pts.map(function(p) { return p.v; }), sel.gas.limit);
+    var flags = copSpcFlags(st);
+    var unit = sel.gas.unit || '';
+    var noCtl = st.n < COP_SPC_MIN;
+    var hasLimit = st.lim !== null;
+    var pct = !!(copState.spc.pctMode && hasLimit && st.lim > 0);
+    var scale = pct ? (100 / st.lim) : 1;
+    var dispUnit = pct ? '% del límite' : unit;
+
+    var labels = pts.map(function(p) { return p.date ? p.date.slice(0, 10) : ''; });
+    var pointColors = flags.map(function(f) {
+        return f.indexOf('R1') !== -1 ? '#ef4444' : f.length ? '#f59e0b' : '#10b981';
+    });
+    var constLine = function(v, color, dashed, label, width) {
+        return {
+            label: label, data: pts.map(function() { return v * scale; }),
+            borderColor: color, borderWidth: width || 1.4, borderDash: dashed ? [6, 4] : [],
+            pointRadius: 0, pointHitRadius: 0, fill: false, tension: 0, order: 2
+        };
+    };
+    var datasets = [{
+        label: sel.gas.label, data: pts.map(function(p) { return p.v * scale; }),
+        borderColor: 'rgba(8,145,178,0.55)', borderWidth: 1.6, tension: 0, fill: false,
+        pointBackgroundColor: pointColors, pointBorderColor: pointColors,
+        pointRadius: flags.map(function(f) { return f.length ? 5.5 : 4; }), order: 1
+    }];
+    datasets.push(constLine(st.mean, '#0891b2', false, 'media'));
+    if (!noCtl) {
+        datasets.push(constLine(st.ucl, '#ef4444', true, 'UCL'));
+        if (st.lclRaw > 0) datasets.push(constLine(st.lcl, '#ef4444', true, 'LCL'));
+        if (copState.spc.showZones && st.sigma > 0) {
+            [1, 2, -1, -2].forEach(function(k) {
+                var z = st.mean + k * st.sigma;
+                if (z > 0) datasets.push(constLine(z, 'rgba(245,158,11,0.35)', true, (k > 0 ? '+' : '') + k + 'σ', 1));
+            });
+        }
+    }
+    if (copState.spc.showLimit && hasLimit) datasets.push(constLine(st.lim, '#f59e0b', true, 'Límite', 1.8));
+
+    var iCanvas = document.getElementById('cop-spc-ichart');
+    if (iCanvas) {
+        window._copSpcIChart = new Chart(iCanvas, {
+            type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                interaction: { intersect: false, mode: 'nearest' },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        filter: function(item) { return item.datasetIndex === 0; },
+                        callbacks: {
+                            title: function(items) {
+                                var p = pts[items[0].dataIndex];
+                                return (p.date ? p.date.slice(0, 10) + ' · ' : '') + p.vin;
+                            },
+                            label: function(item) {
+                                return sel.gas.label + ' = ' + _copSpcFmt(item.parsed.y) + ' ' + dispUnit;
+                            },
+                            footer: function(items) {
+                                var f = flags[items[0].dataIndex] || [];
+                                return f.length ? '⚠ ' + f.map(function(x) { return COP_SPC_RULES[x]; }).join(', ') : 'en control';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { font: { size: 10 }, maxTicksLimit: 8 }, grid: { display: false } },
+                    y: { title: { display: !!dispUnit, text: dispUnit, font: { size: 10 } }, ticks: { font: { size: 10 } } }
+                }
+            }
+        });
+    }
+
+    // Carta MR
+    var mrCanvas = document.getElementById('cop-spc-mrchart');
+    if (mrCanvas && st.mrs.length) {
+        var mrLabels = st.mrs.map(function(_, i) { return (i + 1) + '→' + (i + 2); });
+        var mrColors = st.mrs.map(function(v) { return (!noCtl && v > st.mrucl) ? '#ef4444' : '#10b981'; });
+        var mrDatasets = [{
+            label: 'MR', data: st.mrs.map(function(v) { return v * scale; }),
+            borderColor: 'rgba(8,145,178,0.55)', borderWidth: 1.6, tension: 0, fill: false,
+            pointBackgroundColor: mrColors, pointBorderColor: mrColors, pointRadius: 4, order: 1
+        }];
+        if (!noCtl) {
+            mrDatasets.push({ label: 'MR-UCL', data: st.mrs.map(function() { return st.mrucl * scale; }),
+                borderColor: '#ef4444', borderWidth: 1.4, borderDash: [6, 4], pointRadius: 0, fill: false, tension: 0, order: 2 });
+            mrDatasets.push({ label: 'MR̄', data: st.mrs.map(function() { return st.mrbar * scale; }),
+                borderColor: '#0891b2', borderWidth: 1.2, pointRadius: 0, fill: false, tension: 0, order: 2 });
+        }
+        window._copSpcMrChart = new Chart(mrCanvas, {
+            type: 'line',
+            data: { labels: mrLabels, datasets: mrDatasets },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        filter: function(item) { return item.datasetIndex === 0; },
+                        callbacks: {
+                            label: function(item) {
+                                var over = !noCtl && st.mrs[item.dataIndex] > st.mrucl;
+                                return 'MR = ' + _copSpcFmt(item.parsed.y) + ' ' + dispUnit + (over ? ' · ⚠ salto anómalo' : '');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { font: { size: 10 }, maxTicksLimit: 10 }, grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { font: { size: 10 } } }
+                }
+            }
+        });
+    }
 }
 
 </script>
