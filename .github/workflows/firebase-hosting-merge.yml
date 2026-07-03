@@ -17,6 +17,18 @@ jobs:
       - name: Build unified HTML and assemble dist/
         run: bash deploy.sh --dry
 
+      # v15.6: desplegar las Security Rules versionadas en el repo.
+      # continue-on-error: si el service account no tiene el rol
+      # firebaserules.admin, publicar las reglas manualmente desde la consola
+      # (Firestore → Reglas → pegar firestore.rules → Publicar).
+      - name: Deploy Firestore Security Rules
+        continue-on-error: true
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json" \
+            npx --yes firebase-tools@13 deploy --only firestore:rules --project kia-emlab-test-system --non-interactive
+          rm -f "$RUNNER_TEMP/sa.json"
+
       - name: Deploy to Firebase Hosting (live)
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:

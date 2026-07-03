@@ -315,6 +315,34 @@ function escapeHtml(text) {
     return String(text == null ? '' : text).replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
+// ── [v15.5] preserveFocus: re-render sin perder el foco ni el caret ──
+// Para listas con filtro en vivo cuyo innerHTML se reconstruye en cada tecla
+// (el input necesita un id para poder re-encontrarlo tras el render).
+function preserveFocus(renderFn) {
+    var ae = document.activeElement;
+    var id = ae ? ae.id : '';
+    var selStart = null, selEnd = null;
+    if (id && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
+        try { selStart = ae.selectionStart; selEnd = ae.selectionEnd; } catch(e) {}
+    }
+    renderFn();
+    if (id) {
+        var el = document.getElementById(id);
+        if (el && el !== document.activeElement) {
+            try {
+                el.focus();
+                if (selStart !== null && el.setSelectionRange) el.setSelectionRange(selStart, selEnd);
+            } catch(e) {}
+        }
+    }
+}
+
+// ── Iniciales de avatar a partir de un nombre (tolera espacios múltiples) ──
+function authInitials(name) {
+    return String(name == null ? '' : name).trim().split(/\s+/)
+        .map(function(w) { return w[0] || ''; }).join('').substring(0, 2).toUpperCase();
+}
+
 // ── [R3-M6] safeParse — Corruption-safe localStorage parsing ──
 function safeParse(key, fallback) {
     try {
@@ -453,54 +481,110 @@ let currentUnitSystem = 'SI';
 
 
 // ======================================================================
-// [M00b] THEME / DARK MODE
+// [M00b] THEME — solo tema claro unificado (v15.5)
+// El dark mode se eliminó: se auto-activaba por preferencia del sistema y se
+// parchaba con selectores frágiles sobre ~540 estilos inline. Decisión de
+// producto: un solo tema claro estable en todos los dispositivos del lab.
 // ======================================================================
 
-var _themePref = localStorage.getItem('kia_theme_pref') || 'auto';
-var _themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+function themeInit() {
+    document.documentElement.setAttribute('data-theme', 'light');
+    try { localStorage.removeItem('kia_theme_pref'); } catch(e) {}
+}
 
-function _themeApply(mode) {
-    var resolved = mode;
-    if (mode === 'auto') {
-        resolved = _themeMediaQuery.matches ? 'dark' : 'light';
+// ======================================================================
+// [v15.5] UX unificada para los modales-contenedor legacy
+// (substitutionModal, configModal, invModal, fbModal): ESC y click en el
+// fondo cierran, y hay animación de entrada. Los sitios de apertura/cierre
+// existentes (style.display) siguen funcionando sin cambios — aquí solo se
+// observa el atributo style de cada contenedor.
+// ======================================================================
+var _MODAL_UX_IDS = ['substitutionModal', 'configModal', 'invModal', 'fbModal'];
+
+function _modalUxClose(el) {
+    // El escáner de códigos vive dentro de invModal: apagar la cámara al cerrar
+    if (el.id === 'invModal' && typeof invScanStop === 'function') { try { invScanStop(); } catch(e) {} }
+    el.style.display = 'none';
+    if (el._modalTrigger && document.contains(el._modalTrigger)) {
+        try { el._modalTrigger.focus(); } catch(e) {}
     }
-    document.documentElement.setAttribute('data-theme', resolved);
-    // Update meta theme-color
-    var metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) {
-        metaTheme.setAttribute('content', resolved === 'dark' ? '#0f1419' : '#05141f');
-    }
-    // Update toggle button icon
-    var btn = document.getElementById('theme-toggle-btn');
-    if (btn) {
-        var icons = { auto: '\u{1F504}', light: '\u2600\uFE0F', dark: '\u{1F319}' };
-        btn.textContent = icons[_themePref] || '\u{1F504}';
-        var labels = { auto: 'Tema: automático', light: 'Tema: claro', dark: 'Tema: oscuro' };
-        btn.title = labels[_themePref] || 'Cambiar tema';
+    el._modalTrigger = null;
+}
+
+// ── [v15.6] Recarga tras actualización del service worker ──
+// Recarga inmediata solo en la ventana segura (recién cargada la app y sin
+// modal abierto); en cualquier otro caso, aviso persistente con botón.
+var _appLoadedAt = Date.now();
+
+function _swSafeToReload() {
+    if (Date.now() - _appLoadedAt > 15000) return false;
+    var openModal = document.querySelector(
+        '#substitutionModal[style*="flex"], #configModal[style*="block"], ' +
+        '#invModal[style*="block"], #fbModal[style*="block"], .custom-modal-overlay');
+    return !openModal;
+}
+
+function _swPromptReload() {
+    if (_swSafeToReload()) { location.reload(); return; }
+    if (document.getElementById('sw-update-banner')) return; // ya visible
+    var bar = document.createElement('div');
+    bar.id = 'sw-update-banner';
+    bar.setAttribute('role', 'status');
+    bar.style.cssText = 'position:fixed;bottom:74px;left:50%;transform:translateX(-50%);z-index:4000;' +
+        'background:#05141f;color:#f8fafc;border:1px solid rgba(255,255,255,0.2);border-radius:12px;' +
+        'padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 12px 28px rgba(0,0,0,0.35);font-size:13px;';
+    bar.innerHTML = '⬆️ Nueva versión disponible' +
+        '<button onclick="location.reload()" style="padding:8px 14px;background:var(--kia-red,#bb162b);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;min-height:40px;">Actualizar ahora</button>' +
+        '<button onclick="document.getElementById(\'sw-update-banner\').remove()" aria-label="Cerrar" style="background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:16px;padding:4px;">✕</button>';
+    document.body.appendChild(bar);
+}
+
+// ── [v15.5] Menú "⋯" de la topbar (móvil): colapsa los controles secundarios ──
+function topbarMoreToggle() {
+    var group = document.getElementById('topbar-more-group');
+    var btn = document.getElementById('topbar-more-btn');
+    if (!group) return;
+    var open = group.classList.toggle('open');
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+        setTimeout(function() {
+            document.addEventListener('click', function _closeMore(e) {
+                if (!group.contains(e.target) && e.target !== btn) {
+                    group.classList.remove('open');
+                    if (btn) btn.setAttribute('aria-expanded', 'false');
+                    document.removeEventListener('click', _closeMore);
+                }
+            });
+        }, 0);
     }
 }
 
-function themeInit() {
-    _themePref = localStorage.getItem('kia_theme_pref') || 'auto';
-    _themeApply(_themePref);
-    // Listen for system preference changes when in auto mode
-    _themeMediaQuery.addEventListener('change', function() {
-        if (_themePref === 'auto') {
-            _themeApply('auto');
+function modalUxInit() {
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        for (var i = _MODAL_UX_IDS.length - 1; i >= 0; i--) {
+            var el = document.getElementById(_MODAL_UX_IDS[i]);
+            if (el && el.style.display && el.style.display !== 'none') {
+                _modalUxClose(el);
+                e.stopPropagation();
+                return;
+            }
         }
     });
-}
-
-function themeToggle() {
-    // Cycle: auto → light → dark → auto
-    var cycle = { auto: 'light', light: 'dark', dark: 'auto' };
-    _themePref = cycle[_themePref] || 'auto';
-    localStorage.setItem('kia_theme_pref', _themePref);
-    _themeApply(_themePref);
-    var labels = { auto: 'Tema: automático (sistema)', light: 'Tema: claro', dark: 'Tema: oscuro' };
-    if (typeof showToast === 'function') {
-        showToast(labels[_themePref] || 'Tema actualizado', 'info');
-    }
+    _MODAL_UX_IDS.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('click', function(e) {
+            if (e.target === el) _modalUxClose(el);
+        });
+        new MutationObserver(function() {
+            if (el.style.display && el.style.display !== 'none' && !el.classList.contains('modal-anim-in')) {
+                el._modalTrigger = (document.activeElement && document.activeElement !== document.body) ? document.activeElement : null;
+                el.classList.add('modal-anim-in');
+                setTimeout(function() { el.classList.remove('modal-anim-in'); }, 250);
+            }
+        }).observe(el, { attributes: true, attributeFilter: ['style'] });
+    });
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -667,26 +751,73 @@ function saveActiveVehicleContext(vehicleId, extraCtx) {
 // ======================================================================
 
     function saveDB() {
-        localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        try {
+            localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        } catch(e) {
+            console.error('saveDB: localStorage lleno', e);
+            try { showToast('⚠️ Almacenamiento lleno — no se guardó COP15. Libera espacio en Panel → Sistema.', 'error'); } catch(e2) {}
+            return false;
+        }
         // [R6] Notify Alpine components of data change
         window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'cop15' } }));
+        return true;
     }
 
 // ── [Fase 2.2] Debounced save wrapper for focusout/auto-save scenarios ──
 var _debouncedSaveDB = debounce(function() { saveDB(); }, 500);
 // ══════════════════════════════════════════════════
 // AUDIT TRAIL — Centralized mutation logging
+// [v15.5] Trail en memoria + persistencia debounced: antes cada evento hacía
+// JSON.parse+filter+stringify del arreglo completo (hasta 5000 entradas) y subía
+// TODO el arreglo a Firestore — el costo por-acción más alto de la app.
 // ══════════════════════════════════════════════════
 var AUDIT_LS_KEY = 'kia_audit_trail';
-var AUDIT_MAX = 5000;
+// 2000 ≈ ~90 días reales de historia y mantiene el documento de Firestore
+// lejos de su límite de 1MB (5000 entradas lo rozaban)
+var AUDIT_MAX = 2000;
 var AUDIT_PURGE_DAYS = 90;
+
+var _auditTrail = null;        // caché en memoria (lazy)
+var _auditDirty = false;       // hay cambios sin persistir
+
+function _auditEnsureLoaded() {
+    if (_auditTrail === null) {
+        try { _auditTrail = JSON.parse(localStorage.getItem(AUDIT_LS_KEY) || '[]'); } catch(e) { _auditTrail = []; }
+        if (!Array.isArray(_auditTrail)) _auditTrail = [];
+    }
+    return _auditTrail;
+}
+
+// Hook para el sync: tras un merge del pull que escribe localStorage directo
+function auditReloadFromStorage() { _auditTrail = null; _auditDirty = false; }
+
+function _auditPersistNow() {
+    if (!_auditDirty || _auditTrail === null) return;
+    // FIFO cap + purga >90 días (solo aquí, no en cada evento)
+    if (_auditTrail.length > AUDIT_MAX) _auditTrail = _auditTrail.slice(-AUDIT_MAX);
+    var cutoff = new Date(Date.now() - AUDIT_PURGE_DAYS * 86400000).toISOString();
+    _auditTrail = _auditTrail.filter(function(e) { return e.ts >= cutoff; });
+    try { localStorage.setItem(AUDIT_LS_KEY, JSON.stringify(_auditTrail)); _auditDirty = false; } catch(e) {}
+    // Compartir el historial entre dispositivos (fbPush ya coalesce 2s por colección)
+    try {
+        if (typeof fbPush === 'function' && typeof fbSync !== 'undefined' && fbSync.enabled
+            && typeof fbSyncModules !== 'undefined' && fbSyncModules.audit) {
+            fbPush('audit', _auditTrail);
+        }
+    } catch(e) {}
+}
+var _auditPersistDebounced = debounce(_auditPersistNow, 2500);
+
+// Flush síncrono a localStorage al ocultar/cerrar la página (el push pendiente
+// se recupera en el siguiente arranque vía fbPushAll)
+window.addEventListener('pagehide', _auditPersistNow);
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') _auditPersistNow();
+});
 
 function auditLog(module, action, entity, details) {
     var user = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
-    var trail = [];
-    try { trail = JSON.parse(localStorage.getItem(AUDIT_LS_KEY) || '[]'); } catch(e) {}
-
-    trail.push({
+    _auditEnsureLoaded().push({
         id: 'aud_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
         ts: new Date().toISOString(),
         user: user ? { name: user.name, role: user.role } : { name: 'Sistema', role: '' },
@@ -695,25 +826,12 @@ function auditLog(module, action, entity, details) {
         entity: entity || null,
         details: details || ''
     });
-
-    // FIFO cap
-    if (trail.length > AUDIT_MAX) trail = trail.slice(-AUDIT_MAX);
-    // Purge >90 days
-    var cutoff = new Date(Date.now() - AUDIT_PURGE_DAYS * 86400000).toISOString();
-    trail = trail.filter(function(e) { return e.ts >= cutoff; });
-
-    try { localStorage.setItem(AUDIT_LS_KEY, JSON.stringify(trail)); } catch(e) {}
-    // Compartir el historial entre dispositivos (espacio compartido de Firebase)
-    try {
-        if (typeof fbPush === 'function' && typeof fbSync !== 'undefined' && fbSync.enabled
-            && typeof fbSyncModules !== 'undefined' && fbSyncModules.audit) {
-            fbPush('audit', trail);
-        }
-    } catch(e) {}
+    _auditDirty = true;
+    _auditPersistDebounced();
 }
 
 function auditGetTrail() {
-    try { return JSON.parse(localStorage.getItem(AUDIT_LS_KEY) || '[]'); } catch(e) { return []; }
+    return _auditEnsureLoaded().slice();
 }
 
 function auditExportCSV() {
@@ -727,7 +845,7 @@ function auditExportCSV() {
     var blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'audit_trail_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.download = 'audit_trail_' + localToday() + '.csv';
     a.click();
 }
 
@@ -1383,6 +1501,20 @@ function nowLocalDatetimeValue() {
   return d.toISOString().slice(0,16); // "YYYY-MM-DDTHH:MM"
 }
 
+// ── Fechas de calendario en hora LOCAL (el lab opera en UTC-6: toISOString()
+//    después de ~18:00 ya es "mañana"; usar estos helpers para días calendario) ──
+function localDateStr(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function localToday() { return localDateStr(new Date()); }
+// Parse 'YYYY-MM-DD' como fecha LOCAL (new Date('YYYY-MM-DD') parsea UTC y corre el día)
+function parseLocalDate(ymd) {
+  if (ymd instanceof Date) return ymd;
+  var p = String(ymd || '').slice(0, 10).split('-');
+  return new Date(+p[0], (+p[1] || 1) - 1, +p[2] || 1);
+}
+
 
 function setAltaDatetimeIfEmpty(force = false) {
   const el = document.getElementById('reg_datetime');
@@ -1601,9 +1733,11 @@ function switchPlatform(platform, swipeDir) {
         } else {
             // Cambio de sección síncrono y fiable. (Antes usaba document.startViewTransition,
             // que de forma intermitente dejaba la sección sin cambiar — mismo problema que
-            // ya se corrigió en el motor de tabs.)
-            document.querySelectorAll('.platform-section').forEach(function(s) { s.classList.remove('active'); });
-            newSection.classList.add('active');
+            // ya se corrigió en el motor de tabs.) [v15.5] Con una entrada corta de
+            // opacity/transform vía CSS — el toggle sigue siendo síncrono.
+            document.querySelectorAll('.platform-section').forEach(function(s) { s.classList.remove('active', 'platform-enter'); });
+            newSection.classList.add('active', 'platform-enter');
+            setTimeout(function() { newSection.classList.remove('platform-enter'); }, 200);
         }
     }
 
@@ -1655,7 +1789,9 @@ function switchPlatform(platform, swipeDir) {
     // Update vehicle checklist visibility
     if (typeof vclUpdate === 'function') vclUpdate();
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Instant: el smooth-scroll competía con la animación de entrada y se
+    // percibía como un salto; el smooth queda para navegación intra-vista
+    window.scrollTo(0, 0);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -1822,7 +1958,7 @@ function dailyDashRender() {
             );
         });
         var releasedToday = (db.vehicles || []).filter(function(v) {
-            return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) === now.toISOString().slice(0,10) &&
+            return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) === localToday() &&
                 (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
         }).length;
         var testingToday = (db.vehicles || []).filter(function(v) {
@@ -2511,7 +2647,7 @@ function generateWeeklyStatusPDF(opts) {
             ? _dataUri.split(',')[1]
             : '';
     }
-    doc.save('KIA-EmLab-Semanal-' + today.toISOString().slice(0, 10) + '.pdf');
+    doc.save('KIA-EmLab-Semanal-' + localDateStr(today) + '.pdf');
     hideOverlayLoading();
     showToast('Reporte PDF semanal generado', 'success');
 }
@@ -2569,6 +2705,7 @@ function generateWeeklyStatusPDF(opts) {
     function initializeSystem() {
         // Theme init — apply before any UI renders
         try { themeInit(); } catch(e) { console.error('themeInit error:', e); }
+        try { modalUxInit(); } catch(e) { console.error('modalUxInit error:', e); }
 
         // Show local build in the topbar version pill (Firebase will call again with remote status)
         try { updateVersionDisplay(); } catch(e) { console.error('version display error:', e); }
@@ -2641,7 +2778,8 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try { tpInit(); } catch(e) { console.error('tpInit error:', e); }
         try { tpUpdateBadges(); } catch(e) {}
         try { tpHookCascadeResult(); } catch(e) {}
-        try { raInit(); } catch(e) { console.error('raInit error:', e); }
+        // v15.6: results.js y approvals.js se eliminaron definitivamente; limpiar sus claves residuales
+        try { ['kia_results_v1', 'kia_pa_config', 'kia_pa_queue'].forEach(function(k) { localStorage.removeItem(k); }); } catch(e) {}
 
         // ═══ Auto-plan semanal (viernes 14:00 deadline) ═══
         try {
@@ -2685,13 +2823,25 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(function(reg) {
                 console.log('SW registered:', reg.scope);
+                window._swReg = reg;
+                // [v15.6] Buscar actualización al arrancar y al volver a la app
+                // (throttle 5 min) — antes nadie llamaba reg.update() y los
+                // dispositivos podían quedarse en versiones viejas
+                try { reg.update(); } catch(e) {}
+                var _lastSwCheck = Date.now();
+                document.addEventListener('visibilitychange', function() {
+                    if (document.visibilityState === 'visible' && Date.now() - _lastSwCheck > 300000) {
+                        _lastSwCheck = Date.now();
+                        try { reg.update(); } catch(e) {}
+                    }
+                });
             }).catch(function(err) { console.log('SW registration skipped:', err.message); });
 
-            // [Fase 4.3] Listen for SW update notifications
+            // [Fase 4.3 → v15.6] El SW nuevo (skipWaiting+claim) avisa con SW_UPDATED:
+            // recargar de inmediato si el usuario aún no empezó a trabajar; si no,
+            // toast persistente con botón — nunca recargar a mitad de una captura
             navigator.serviceWorker.addEventListener('message', function(event) {
-                if (event.data && event.data.type === 'SW_UPDATED') {
-                    showToast('Nueva versión disponible. Recarga para actualizar.', 'info');
-                }
+                if (event.data && event.data.type === 'SW_UPDATED') _swPromptReload();
             });
         }
 
@@ -2708,9 +2858,9 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
             if (installBtn) installBtn.style.display = '';
         });
 
-        // ═══ [R3-M7] Ripple effect on buttons ═══
+        // ═══ [R3-M7] Ripple effect on buttons (v15.5: también botones TP/módulos) ═══
         document.addEventListener('click', function(e) {
-            var btn = e.target.closest('.btn-primary, .btn-secondary, .modal-btn-confirm');
+            var btn = e.target.closest('.btn-primary, .btn-secondary, .modal-btn-confirm, .tp-btn-primary');
             if (!btn || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
             _addRipple(e, btn);
         });
@@ -2914,17 +3064,6 @@ function _globalCrossSearchForPalette(q) {
             }
         });
     }
-    // Results
-    if (typeof raState !== 'undefined' && raState.tests) {
-        var seen = {};
-        raState.tests.slice(-30).forEach(function(t) {
-            var desc = (t.vin||'') + ' ' + (t.testDesc||'');
-            if (desc.toUpperCase().includes(qUp) && !seen[desc]) {
-                seen[desc] = true;
-                results.push({ label: (t.vin||'?') + ' — ' + (t.testDesc||'').substring(0,30), icon: '📊', action: function(){ switchPlatform('results'); }, cat: 'Results' });
-            }
-        });
-    }
     return results.slice(0, 15);
 }
 
@@ -3036,24 +3175,6 @@ function renderLabDashboard(container) {
         }
     }
 
-    // ── Results Module ──
-    var raTests = (typeof raState !== 'undefined' && raState.tests) ? raState.tests : [];
-    var thisWeekTests = 0;
-    var weekAgo = now - 7 * 86400000;
-    var failCount = 0;
-    raTests.forEach(function(t) {
-        var tDate = t.importedAt ? new Date(t.importedAt).getTime() : 0;
-        if (tDate >= weekAgo) {
-            thisWeekTests++;
-            if (typeof raTestVerdict === 'function' && raTestVerdict(t) !== 'PASS') failCount++;
-        }
-    });
-    if (failCount > 0) {
-        alerts.push({ level: 'MEDIO', color: '#f59e0b', module: 'Resultados',
-            message: failCount + ' pruebas FAIL esta semana de ' + thisWeekTests + ' totales',
-            action: 'results' });
-    }
-
     // ── Inventory Module ──
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
     var criticalGases = invGases.filter(function(g) {
@@ -3123,13 +3244,6 @@ function renderLabDashboard(container) {
         '<div class="lab-dash-card-sub">cobertura</div>' +
         '<div class="lab-dash-card-detail">Deficit: ' + (tpAnalysis ? (tpAnalysis.totalReq - (tpAnalysis.totalDone || 0)) : '—') + ' tests</div></div>';
 
-    // Results card
-    html += '<div class="lab-dash-card" onclick="switchPlatform(\'results\')">' +
-        '<div class="lab-dash-card-header" style="color:#8b5cf6;">Resultados</div>' +
-        '<div class="lab-dash-card-metric">' + raTests.length + '</div>' +
-        '<div class="lab-dash-card-sub">pruebas total</div>' +
-        '<div class="lab-dash-card-detail">' + thisWeekTests + ' esta sem' + (failCount > 0 ? ' · ' + failCount + ' FAIL' : '') + '</div></div>';
-
     // Inventory card
     html += '<div class="lab-dash-card" onclick="switchPlatform(\'inventory\')">' +
         '<div class="lab-dash-card-header" style="color:#06b6d4;">Inventario</div>' +
@@ -3176,10 +3290,9 @@ function autoBackup() {
             timestamp: new Date().toISOString(),
             db: localStorage.getItem('kia_db_v11') || '{}',
             tpState: localStorage.getItem('kia_testplan_v1') || '{}',
-            raState: localStorage.getItem('kia_results_v1') || '{}',
             invState: localStorage.getItem('kia_lab_inventory') || '{}'
         };
-        snapshot.sizeBytes = (snapshot.db + snapshot.tpState + snapshot.raState + snapshot.invState).length * 2;
+        snapshot.sizeBytes = (snapshot.db + snapshot.tpState + snapshot.invState).length * 2;
 
         // Count vehicles for preview
         try {
@@ -3299,7 +3412,6 @@ function downloadFullBackup() {
         version: 'kia-emlab-backup-v1',
         db: JSON.parse(localStorage.getItem('kia_db_v11') || '{}'),
         tpState: JSON.parse(localStorage.getItem('kia_testplan_v1') || '{}'),
-        raState: JSON.parse(localStorage.getItem('kia_results_v1') || '{}'),
         invState: JSON.parse(localStorage.getItem('kia_lab_inventory') || '{}'),
         manualConfigs: JSON.parse(localStorage.getItem('kia_manual_configs') || '[]')
     };
@@ -3307,7 +3419,7 @@ function downloadFullBackup() {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = 'kia-emlab-backup_' + new Date().toISOString().slice(0,10) + '.json';
+    a.download = 'kia-emlab-backup_' + localToday() + '.json';
     a.click();
     URL.revokeObjectURL(url);
     showToast('Backup completo descargado', 'success');
@@ -3357,7 +3469,6 @@ function restoreFromBackup(snapshotId) {
                 if (!s) { showToast('Snapshot no encontrado', 'error'); return; }
                 localStorage.setItem('kia_db_v11', s.db);
                 localStorage.setItem('kia_testplan_v1', s.tpState);
-                localStorage.setItem('kia_results_v1', s.raState);
                 localStorage.setItem('kia_lab_inventory', s.invState);
 
                 showToast('Datos restaurados. Recargando...', 'success');

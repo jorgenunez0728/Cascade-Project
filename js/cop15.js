@@ -2041,7 +2041,7 @@ function applyAutoAdvance(nextStatus) {
         tomorrow.setDate(tomorrow.getDate() + 1);
         if (tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
         if (tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
-        testDt.value = tomorrow.toISOString().slice(0, 16).replace('T', 'T') || tomorrow.toISOString().slice(0, 10) + 'T08:00';
+        testDt.value = localDateStr(tomorrow) + 'T08:00';
       }
     }
   }
@@ -2218,7 +2218,8 @@ function libOnApproverGasChange() {
         _libMismatchAlarmKey = null;
         if (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.mismatch) {
             delete vehicle.testData.gasResults.mismatch;
-            saveDB();
+            // Debounced: corre mientras el aprobador teclea; la aprobación final persiste directo
+            if (typeof _debouncedSaveDB === 'function') _debouncedSaveDB(); else saveDB();
             if (typeof pnUpdateBadges === 'function') pnUpdateBadges();
         }
     } else {
@@ -2236,12 +2237,13 @@ function libOnApproverGasChange() {
         if (_libMismatchAlarmKey !== alarmKey) {
             _libMismatchAlarmKey = alarmKey;
             if (typeof showToast === 'function') showToast('⚠️ Resultados no coinciden: ' + mismatches.join(', ') + '. Revise su lectura.', 'error');
+            if (typeof shakeElement === 'function') shakeElement(matchStatus);
             if (!vehicle.testData) vehicle.testData = {};
             if (!vehicle.testData.gasResults) vehicle.testData.gasResults = {};
             var approverName = '';
             try { if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) approverName = u.name; } } catch(e) {}
             vehicle.testData.gasResults.mismatch = { gases: mismatches.slice(), at: new Date().toISOString(), approver: approverName };
-            saveDB();
+            if (typeof _debouncedSaveDB === 'function') _debouncedSaveDB(); else saveDB();
             if (typeof auditLog === 'function') auditLog('cop15', 'approval_mismatch', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Desacuerdo liberador/aprobador en ' + mismatches.join(', '));
             if (typeof pnUpdateBadges === 'function') pnUpdateBadges();
         }
@@ -2463,12 +2465,16 @@ function approveAndArchive() {
                     data: { status: 'archived', approverValues: approverValues }
                 });
                 exportSingleArchivedVehicle(vehicle.id);
-                tpAutoFeedFromRelease(vehicle);
-                invLogTestUsage(vehicle);
+                // Compactar timeline al archivar: el historial completo ya quedó en el export
+                // JSON/PDF; el vehículo archivado se serializa y sube en cada save para siempre
+                if (vehicle.timeline && vehicle.timeline.length > 30) vehicle.timeline = vehicle.timeline.slice(-30);
+                // skipSave: un solo tpSave/invSave al final de la cascada (antes: 2× tpSave + invSave)
+                tpAutoFeedFromRelease(vehicle, { skipSave: true });
+                invLogTestUsage(vehicle, { skipSave: true });
                 if (!vehicle.adhoc) {
                     var exactMatch = typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function'
-                        ? tpAutoMarkWeeklyCompletionFromVehicle(vehicle)
-                        : tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                        ? tpAutoMarkWeeklyCompletionFromVehicle(vehicle, { skipSave: true })
+                        : tpAutoMarkWeeklyCompletion(vehicle.configCode, { skipSave: true });
                     if (!exactMatch && typeof tpFindFlexibleMatches === 'function') {
                         var flexMatches = tpFindFlexibleMatches(vehicle.configCode, vehicle.config);
                         if (flexMatches.length > 0) {
@@ -2494,6 +2500,8 @@ function approveAndArchive() {
                 return;
             }
             saveDB();
+            if (typeof tpSave === 'function') tpSave();
+            if (typeof invSave === 'function') invSave();
             refreshAllLists();
             updateProgressBar();
             if (typeof emitEvent === 'function') emitEvent('vehicle:released', { vehicle: vehicle, isRetest: false });
@@ -2684,8 +2692,8 @@ function showSubstitutionModal(data) {
     if (!modal) return;
 
     var html = '<div style="font-size:0.85rem;color:#475569;margin-bottom:16px;">' +
-        'El vehículo <strong style="color:#1e293b;">' + data.vin + '</strong> con configuración ' +
-        '<span style="font-family:monospace;font-size:0.75rem;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + (data.configCode.length > 50 ? data.configCode.substring(0, 48) + '..' : data.configCode) + '</span>' +
+        'El vehículo <strong style="color:#1e293b;">' + escapeHtml(data.vin) + '</strong> con configuración ' +
+        '<span style="font-family:monospace;font-size:0.75rem;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + escapeHtml(data.configCode.length > 50 ? data.configCode.substring(0, 48) + '..' : data.configCode) + '</span>' +
         ' no coincide exactamente con ninguna configuración pendiente en el plan semanal.' +
         '</div>' +
         '<div style="font-size:0.85rem;font-weight:700;color:#1e293b;margin-bottom:10px;">Configuraciones similares encontradas:</div>';
@@ -2785,7 +2793,7 @@ function closeSubstitutionModal() {
 
         bar.innerHTML = '<div class="hist-filter-bar">' +
             '<div><label>Estado</label><select onchange="window._histFilterStatus=this.value;renderHistory();">' + statusHtml + '</select></div>' +
-            '<div><label>VIN</label><input type="text" value="' + vinQ + '" oninput="window._histFilterVin=this.value;renderHistory();" placeholder="Buscar VIN..."></div>' +
+            '<div><label>VIN</label><input type="text" id="hist-filter-vin" value="' + escapeHtml(vinQ) + '" oninput="window._histFilterVin=this.value;preserveFocus(renderHistory);" placeholder="Buscar VIN..."></div>' +
             '<div><label>Año</label><select onchange="window._histFilterYear=this.value;if(!this.value){window._histFilterMonth=\'\';} renderHistory();">' + yearOpts + '</select></div>' +
             '<div><label>Mes</label><select onchange="window._histFilterMonth=this.value;renderHistory();"' + (!yearF ? ' disabled' : '') + '>' + monthOpts + '</select></div>' +
             '<div class="hist-filter-actions"><button class="btn-secondary" onclick="histFilterReset()" style="min-height:40px;font-size:0.8rem;padding:8px 14px;">Limpiar</button></div>' +
@@ -2982,7 +2990,7 @@ function _doBatchPDF(ids) {
     function next() {
         if (idx >= total) {
             overlay.remove();
-            var dateStr = new Date().toISOString().slice(0,10);
+            var dateStr = localToday();
             doc.save('COP15-F05_Batch_' + dateStr + '.pdf');
             showToast(total + ' vehículos exportados a PDF', 'success');
             return;
@@ -5191,7 +5199,7 @@ function batchAdvanceToTesting(vehicleId) {
         tomorrow.setDate(tomorrow.getDate() + 1);
         if (tomorrow.getDay() === 0) tomorrow.setDate(tomorrow.getDate() + 1);
         if (tomorrow.getDay() === 6) tomorrow.setDate(tomorrow.getDate() + 2);
-        vehicle.testData.testDatetime = tomorrow.toISOString().slice(0, 10) + 'T08:00';
+        vehicle.testData.testDatetime = localDateStr(tomorrow) + 'T08:00';
     }
 
     saveDB();
@@ -5222,7 +5230,7 @@ function batchScheduleTests() {
         if (!precondOk) return; // Only advance precond-complete vehicles
 
         var hour = 8 + (idx * 2); // 8, 10, 12, 14...
-        var dateStr = baseDate.toISOString().slice(0, 10) + 'T' + String(hour).padStart(2, '0') + ':00';
+        var dateStr = localDateStr(baseDate) + 'T' + String(hour).padStart(2, '0') + ':00';
 
         vehicle.status = 'testing';
         vehicle.testData = vehicle.testData || {};
@@ -6103,7 +6111,7 @@ function v7CheckVinDuplicate(vin) {
     var archived = (db.vehicles || []).find(function(v) { return v.vin === vin && v.status === 'archived'; });
     if (archived) {
         if (!hint) hint = _v7CreateVinHint();
-        hint.innerHTML = 'Re-test de VIN anterior? <button class="btn btn-sm btn-ghost" onclick="v7CopyArchivedConfig(\'' + vin + '\')">Copiar config</button>';
+        hint.innerHTML = 'Re-test de VIN anterior? <button class="btn btn-sm btn-ghost" onclick="v7CopyArchivedConfig(\'' + escapeHtml(vin).replace(/'/g, '&#39;') + '\')">Copiar config</button>';
         hint.className = 'v7-vin-hint info';
         return;
     }
@@ -6178,14 +6186,17 @@ function v7BatchRelease() {
                 data: { status: 'archived' }
             });
             if (typeof exportSingleArchivedVehicle === 'function') exportSingleArchivedVehicle(vehicle.id);
-            if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle);
-            if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle);
+            // Compactar timeline al archivar (el historial completo quedó en el export)
+            if (vehicle.timeline && vehicle.timeline.length > 30) vehicle.timeline = vehicle.timeline.slice(-30);
+            // skipSave: un solo tpSave/invSave al final del lote, no por vehículo
+            if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle, { skipSave: true });
+            if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle, { skipSave: true });
             // Skip weekly-plan crediting for ad-hoc vehicles.
             if (!vehicle.adhoc) {
                 if (typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function') {
-                    tpAutoMarkWeeklyCompletionFromVehicle(vehicle);
+                    tpAutoMarkWeeklyCompletionFromVehicle(vehicle, { skipSave: true });
                 } else if (typeof tpAutoMarkWeeklyCompletion === 'function') {
-                    tpAutoMarkWeeklyCompletion(vehicle.configCode);
+                    tpAutoMarkWeeklyCompletion(vehicle.configCode, { skipSave: true });
                 }
             }
             // Emit per-vehicle event so Power Automate webhook fires with each PDF + photo
@@ -6198,6 +6209,8 @@ function v7BatchRelease() {
     });
 
     saveDB();
+    if (typeof tpSave === 'function') tpSave();
+    if (typeof invSave === 'function') invSave();
     refreshAllLists();
     updateProgressBar();
 

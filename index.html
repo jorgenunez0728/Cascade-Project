@@ -67,17 +67,19 @@
     </div>
     <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size:9px;color:#475569;cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
     <div id="op-picker" style="align-self:center;display:flex;align-items:center;padding:0 4px;" title="Operador actual"></div>
-    <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
-    <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
-    <button id="theme-toggle-btn" onclick="themeToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Cambiar tema" aria-label="Cambiar tema">🔄</button>
-    <button id="immersive-toggle-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">⛶</button>
-    <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">🔍</button></div>
-    <div style="padding:4px 4px;align-self:center;position:relative;"><button onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones" aria-label="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
-    <div style="padding:4px 4px;align-self:center;"><button onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-audit');" style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;color:rgba(255,255,255,0.5);" title="Historial de cambios" aria-label="Historial de cambios">🕘</button></div>
-    <div style="padding:4px 4px;align-self:center;"><button onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación" aria-label="Tour guiado de la aplicación">?</button></div>
-    <div style="flex:1"></div>
-    <div id="app-version-info" style="padding:10px 20px; font-size:10px; color:rgba(255,255,255,0.4); align-self:center; cursor:default;" title="Versión de la app">
-        KIA EmLab v14.0
+    <div style="padding:4px 4px;align-self:center;position:relative;"><button class="topbar-icon-btn" onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones" aria-label="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
+    <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-audit');" style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;color:rgba(255,255,255,0.5);" title="Historial de cambios" aria-label="Historial de cambios">🕘</button></div>
+    <button id="topbar-more-btn" class="topbar-icon-btn" onclick="topbarMoreToggle()" title="Más opciones" aria-label="Más opciones" aria-haspopup="true" aria-expanded="false">⋯</button>
+    <div class="topbar-more-group" id="topbar-more-group">
+        <button class="topbar-icon-btn" onclick="if(typeof fbPullAll==='function')fbPullAll(true);" style="align-self:center;padding:4px 10px;font-size:12px;font-weight:700;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.7);" title="Descargar los datos más recientes del laboratorio" aria-label="Actualizar datos">🔄 Actualizar datos</button>
+        <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
+        <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
+        <button id="immersive-toggle-btn" class="topbar-icon-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">⛶</button>
+        <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary topbar-icon-btn" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">🔍</button></div>
+        <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación" aria-label="Tour guiado de la aplicación">?</button></div>
+        <div id="app-version-info" style="padding:10px 12px; font-size:10px; color:rgba(255,255,255,0.4); align-self:center; cursor:default;" title="Versión de la app">
+            KIA EmLab v14.0
+        </div>
     </div>
 </div>
 
@@ -1103,12 +1105,12 @@
 
             <!-- Operators List -->
             <div class="tp-card">
-                <div class="tp-card-title"><span>👤 Operadores (<span x-text="operators.length"></span>)</span></div>
-                <template x-if="operators.length === 0">
+                <div class="tp-card-title"><span>👤 Operadores (<span x-text="operators.filter(o => !o.deleted).length"></span>)</span></div>
+                <template x-if="operators.filter(o => !o.deleted).length === 0">
                     <div style="text-align:center;padding:20px;color:var(--tp-dim);">No hay operadores registrados.</div>
                 </template>
                 <template x-for="(op, idx) in operators" :key="op.id">
-                    <div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:8px;"
+                    <div x-show="!op.deleted" style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;border:1px solid var(--tp-border);border-radius:8px;"
                          :style="{ background: op.active ? 'var(--tp-card)' : 'rgba(100,116,139,0.05)', opacity: op.active ? '1' : '0.5' }">
                         <!-- Avatar -->
                         <div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;"
@@ -1120,8 +1122,8 @@
                                 <span style="font-size:12px;font-weight:700;color:var(--tp-text);" x-text="op.name"></span>
                                 <span style="font-size:9px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;" x-text="op.role || 'Técnico'"></span>
                                 <template x-if="!op.active"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span></template>
-                                <template x-if="op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span></template>
-                                <template x-if="!op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span></template>
+                                <template x-if="op.pinHash2 || op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span></template>
+                                <template x-if="!(op.pinHash2 || op.pinHash)"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span></template>
                             </div>
                             <div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">
                                 <span x-text="operatorStats(op.name).registered"></span> registrados |
@@ -1131,7 +1133,7 @@
                         </div>
                         <!-- Actions -->
                         <div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
-                            <button @click="setOperatorPin(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN" x-text="op.pinHash ? '🔑' : '🔒'"></button>
+                            <button @click="setOperatorPin(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN" x-text="(op.pinHash2 || op.pinHash) ? '🔑' : '🔒'"></button>
                             <button @click="editOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">✏️</button>
                             <button @click="toggleOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" x-text="op.active ? '🚫' : '✅'"></button>
                             <button @click="removeOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--tp-red);">🗑</button>
@@ -1348,7 +1350,6 @@
                 <p style="color:var(--tp-dim);font-size:10px;margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;">
                     <button class="tp-btn" @click="purgeOldData('cop15', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>
-                    <button class="tp-btn" @click="purgeOldData('results', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Resultados >90 días</button>
                     <button class="tp-btn" @click="purgeOldData('testplan', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>
                     <button class="tp-btn" @click="purgeOldData('notes', 90)" style="font-size:10px;padding:6px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>
                 </div>
@@ -1447,9 +1448,10 @@
                             <option value="">Todos</option>
                             <option value="cop15">COP15 Cascade</option>
                             <option value="tp">Test Plan</option>
-                            <option value="ra">Resultados</option>
                             <option value="inv">Inventario</option>
                             <option value="pn">Panel</option>
+                            <option value="cop">CoP</option>
+                            <option value="auth">Accesos</option>
                         </select>
                     </div>
                     <div style="flex:1;min-width:110px;">

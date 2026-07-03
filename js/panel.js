@@ -124,7 +124,6 @@ function pnRenderReports(el) {
         { icon: '📈', title: 'Presentación ejecutiva (Plan)', desc: 'Unidades probadas/liberadas, plan semanal, familias, calendario y KPIs — ideal para armar presentaciones.', actions: [{ label: 'JSON', fn: 'tpExportPlanJSON' }] },
         { icon: '📋', title: 'Plan semanal', desc: 'Plan de la última semana (texto para compartir).', actions: [{ label: 'Texto', fn: '_pnReportWeeklyPlan' }] },
         { icon: '📊', title: 'Análisis de brechas (Gap)', desc: 'Cobertura: requeridas vs probadas por configuración.', actions: [{ label: 'CSV', fn: 'tpExportGapCSV' }] },
-        { icon: '🧪', title: 'Resultados de emisiones', desc: 'Todos los resultados importados del analizador.', actions: [{ label: 'CSV', fn: 'raExportAll' }] },
         { icon: '📦', title: 'Inventario de gases', desc: 'Cilindros con fórmula, control, nivel y vencimiento.', actions: [{ label: 'JSON', fn: 'invExportGases' }, { label: 'Reporte', fn: 'invExportReport' }] },
         { icon: '⛽', title: 'Pronóstico semanal de gas', desc: 'Consumo y proyección de agotamiento.', actions: [{ label: 'CSV', fn: 'invExportWeeklyForecast' }] },
         { icon: '📝', title: 'Bitácora de turnos', desc: 'Registros de la bitácora del laboratorio.', actions: [{ label: 'CSV', fn: 'pnExportShiftLog' }] },
@@ -175,16 +174,46 @@ function _pnReportWeeklyPlan() {
 // Renders the canonical cross-module KPI strip + pipeline + weekly plan + alerts.
 // Reused by Panel (pn-dashboard) and HOY so the numbers come from ONE place.
 // opts.sections: subset of ['kpi','pipeline','plan','alerts'] (default: all).
+
+// [v15.5] Memoización: HOY y Panel re-escaneaban todos los módulos en cada
+// visita. Clave compuesta barata + contador de saves; en hit se reinyecta el
+// HTML sin recomputar ni re-animar los contadores.
+var _labOverviewCache = {};   // sectionsKey → { key, html }
+var _labOverviewGen = 0;      // se incrementa con cada 'data:saved' (saveDB/invSave)
+window.addEventListener('data:saved', function() { _labOverviewGen++; });
+
+function _labOverviewKey(sections) {
+    var vCount = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles.length : 0;
+    var tpStamp = (typeof tpState !== 'undefined' && tpState) ? (tpState._lastSave || 0) : 0;
+    var opsSig = (typeof pnState !== 'undefined' && pnState.operators)
+        ? pnState.operators.length + ':' + pnState.operators.filter(function(o) { return o.active; }).length : '0:0';
+    var gasCount = (typeof invState !== 'undefined' && invState.gases) ? invState.gases.length : 0;
+    var syncStamp = (typeof fbSync !== 'undefined' && fbSync.lastSync) ? fbSync.lastSync.getTime() : 0;
+    return [_labOverviewGen, vCount, tpStamp, opsSig, gasCount, syncStamp, localToday(), sections.join(',')].join('|');
+}
+
 function renderLabOverview(el, opts) {
     if (!el) return;
     opts = opts || {};
     var sections = opts.sections || ['kpi', 'pipeline', 'plan', 'alerts'];
     var has = function(s) { return sections.indexOf(s) !== -1; };
 
+    var sectionsKey = sections.join(',');
+    var memoKey = _labOverviewKey(sections);
+    var cached = _labOverviewCache[sectionsKey];
+    if (cached && cached.key === memoKey) {
+        el.innerHTML = cached.html;
+        // Contadores al valor final sin re-animar (los datos no cambiaron)
+        el.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
+            numEl.textContent = (parseFloat(numEl.dataset.kpiTarget) || 0) + (numEl.dataset.kpiSuffix || '');
+        });
+        return;
+    }
+
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
-    var today = new Date().toISOString().substring(0, 10);
-    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.substring(0, 10) === today; });
+    var today = localToday();
+    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) === today; });
     var byStatus = {}; activeVehicles.forEach(function(v) { byStatus[v.status] = (byStatus[v.status] || 0) + 1; });
     var pendingApproval = vehicles.filter(function(v) { return v.status === 'pending-approval'; }).length;
 
@@ -235,7 +264,7 @@ function renderLabOverview(el, opts) {
         html += '<div class="tp-bar" style="height:8px;margin-bottom:8px;"><div class="tp-bar-fill" style="width:' + tpPct + '%;background:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';"></div></div>';
         latestPlan.items.slice(0, 6).forEach(function(item) {
             var sd = item.desc.length > 50 ? item.desc.substring(0, 48) + '..' : item.desc;
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size:10px;color:' + (item.completed ? 'var(--tp-green)' : 'var(--tp-dim)') + ';' + (item.completed ? 'text-decoration:line-through;' : '') + '">' + sd + '</span><span style="font-size:10px;">' + (item.completed ? '✅' : '⏳') + '</span></div>';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size:10px;color:' + (item.completed ? 'var(--tp-green)' : 'var(--tp-dim)') + ';' + (item.completed ? 'text-decoration:line-through;' : '') + '">' + escapeHtml(sd) + '</span><span style="font-size:10px;">' + (item.completed ? '✅' : '⏳') + '</span></div>';
         });
         if (latestPlan.items.length > 6) html += '<div style="font-size:9px;color:var(--tp-dim);text-align:center;margin-top:4px;">+' + (latestPlan.items.length - 6) + ' más...</div>';
         html += '</div>';
@@ -245,12 +274,13 @@ function renderLabOverview(el, opts) {
         if (alerts.length) {
             html += '<div class="tp-card" style="border-left:3px solid var(--tp-red);"><div class="tp-card-title"><span style="color:var(--tp-red);">⚠️ Alertas Activas (' + alerts.length + ')</span></div>';
             alerts.slice(0, 5).forEach(function(a) {
-                html += '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size:9px;padding:2px 6px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:700;">' + a.level + '</span><span style="font-size:10px;color:var(--tp-text);flex:1;">' + a.message + '</span></div>';
+                html += '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size:9px;padding:2px 6px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:700;">' + a.level + '</span><span style="font-size:10px;color:var(--tp-text);flex:1;">' + escapeHtml(a.message) + '</span></div>';
             });
             html += '</div>';
         }
     }
     el.innerHTML = html;
+    _labOverviewCache[sectionsKey] = { key: memoKey, html: html };
     el.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
         var t = parseFloat(numEl.dataset.kpiTarget) || 0;
         if (typeof animateCounter === 'function') animateCounter(numEl, t, { suffix: numEl.dataset.kpiSuffix || '' });
@@ -267,7 +297,7 @@ function pnRenderDashboard(el) {
     var activeVehicles = vehicles.filter(function(v) { return v.status !== 'archived'; });
     var archivedToday = vehicles.filter(function(v) {
         if (v.status !== 'archived' || !v.archivedAt) return false;
-        return v.archivedAt.substring(0, 10) === new Date().toISOString().substring(0, 10);
+        return localDateStr(new Date(v.archivedAt)) === localToday();
     });
 
     var byStatus = {};
@@ -296,7 +326,7 @@ function pnRenderDashboard(el) {
 
     // Active operator from shift log
     var todayShifts = pnState.shiftLog.filter(function(s) {
-        return s.date === new Date().toISOString().substring(0, 10);
+        return s.date === localToday();
     });
     var currentShift = todayShifts.length > 0 ? todayShifts[todayShifts.length - 1] : null;
 
@@ -471,37 +501,40 @@ function pnRenderUsers(el) {
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddOperator()" style="padding:8px 16px;">+ Agregar</button>';
     html += '</div></div>';
 
-    // Operators list
+    // Operators list — los tombstones (deleted) permanecen en el array para el sync
+    // pero no se muestran; idx se conserva porque las acciones indexan pnState.operators.
+    var visibleCount = operators.filter(function(o) { return !o.deleted; }).length;
     html += '<div class="tp-card">';
-    html += '<div class="tp-card-title"><span>👤 Operadores (' + operators.length + ')</span></div>';
+    html += '<div class="tp-card-title"><span>👤 Operadores (' + visibleCount + ')</span></div>';
 
-    if (operators.length === 0) {
+    if (visibleCount === 0) {
         html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">No hay operadores registrados.</div>';
     } else {
         operators.forEach(function(op, idx) {
+            if (op.deleted) return;
             var stats = opStats[op.name] || { registered: 0, released: 0, active: 0 };
             html += '<div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;background:' + (op.active ? 'var(--tp-card)' : 'rgba(100,116,139,0.05)') + ';border:1px solid var(--tp-border);border-radius:8px;' + (!op.active ? 'opacity:0.5;' : '') + '">';
 
             // Avatar
-            var initials = op.name.split(' ').map(function(w) { return w[0]; }).join('').substring(0, 2).toUpperCase();
+            var initials = authInitials(op.name);
             var avatarColors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
             var aColor = avatarColors[idx % avatarColors.length];
-            html += '<div style="width:38px;height:38px;border-radius:50%;background:' + aColor + '20;color:' + aColor + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">' + initials + '</div>';
+            html += '<div style="width:38px;height:38px;border-radius:50%;background:' + aColor + '20;color:' + aColor + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">' + escapeHtml(initials) + '</div>';
 
             // Info
             html += '<div style="flex:1;min-width:0;">';
             html += '<div style="display:flex;align-items:center;gap:6px;">';
-            html += '<span style="font-size:12px;font-weight:700;color:var(--tp-text);">' + op.name + '</span>';
-            html += '<span style="font-size:9px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;">' + (op.role || 'Técnico') + '</span>';
+            html += '<span style="font-size:12px;font-weight:700;color:var(--tp-text);">' + escapeHtml(op.name) + '</span>';
+            html += '<span style="font-size:9px;padding:2px 6px;background:rgba(6,182,212,0.15);color:#06b6d4;border-radius:4px;">' + escapeHtml(op.role || 'Técnico') + '</span>';
             if (!op.active) html += '<span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Inactivo</span>';
-            html += op.pinHash ? '<span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span>' : '<span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span>';
+            html += (op.pinHash2 || op.pinHash) ? '<span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span>' : '<span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span>';
             html += '</div>';
             html += '<div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">' + stats.registered + ' registrados | ' + stats.released + ' liberados | ' + stats.active + ' activos</div>';
             html += '</div>';
 
             // Actions
             html += '<div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">';
-            html += '<button onclick="pnSetOperatorPin(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN">' + (op.pinHash ? '🔑' : '🔒') + '</button>';
+            html += '<button onclick="pnSetOperatorPin(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN">' + ((op.pinHash2 || op.pinHash) ? '🔑' : '🔒') + '</button>';
             html += '<button onclick="pnEditOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">✏️</button>';
             html += '<button onclick="pnToggleOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">' + (op.active ? '🚫' : '✅') + '</button>';
             html += '<button onclick="pnRemoveOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--tp-red);">🗑</button>';
@@ -524,21 +557,33 @@ function pnRenderUsers(el) {
 function pnAddOperator() {
     var name = document.getElementById('pn-new-op-name');
     var role = document.getElementById('pn-new-op-role');
-    if (!name || !name.value.trim()) { showToast('Ingresa un nombre', 'error'); return; }
+    if (!name || !name.value.trim()) {
+        showToast('Ingresa un nombre', 'error');
+        if (name && typeof shakeElement === 'function') shakeElement(name);
+        return;
+    }
+    // Defensa en profundidad: los renders escapan HTML, pero un nombre con <> nunca es legítimo
+    var opName = name.value.trim().replace(/\s+/g, ' ');
+    if (/[<>]/.test(opName)) {
+        showToast('El nombre no puede contener < o >', 'error');
+        if (typeof shakeElement === 'function') shakeElement(name);
+        return;
+    }
 
     var maxId = pnState.operators.reduce(function(m, o) { return Math.max(m, o.id || 0); }, 0);
     pnState.operators.push({
         id: maxId + 1,
-        name: name.value.trim(),
+        name: opName,
         role: role ? role.value : 'Técnico',
         active: true,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
     });
 
     pnSave();
     pnSyncOperators();
     pnRender();
-    showToast('Operador agregado: ' + name.value.trim(), 'success');
+    showToast('Operador agregado: ' + opName, 'success');
 }
 
 function pnEditOperator(idx) {
@@ -550,6 +595,7 @@ function pnEditOperator(idx) {
     var newRole = prompt('Rol (' + roles.join(', ') + '):', op.role || 'Técnico');
     op.name = newName.trim();
     if (newRole && roles.indexOf(newRole) !== -1) op.role = newRole;
+    op.updatedAt = new Date().toISOString();
     pnSave();
     pnSyncOperators();
     pnRender();
@@ -560,6 +606,7 @@ function pnToggleOperator(idx) {
     var op = pnState.operators[idx];
     if (!op) return;
     op.active = !op.active;
+    op.updatedAt = new Date().toISOString();
     pnSave();
     pnSyncOperators();
     pnRender();
@@ -571,7 +618,12 @@ function pnRemoveOperator(idx) {
     if (!op) return;
     showConfirmDialog({ title: '⚠️ Eliminar operador', message: '¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
-        pnState.operators.splice(idx, 1);
+        // Tombstone en lugar de splice: el borrado sobrevive al merge del sync
+        // (un splice resucitaba al operador desde cualquier remoto viejo)
+        op.active = false;
+        op.deleted = true;
+        op.deletedAt = new Date().toISOString();
+        op.updatedAt = op.deletedAt;
         pnSave();
         pnSyncOperators();
         pnRender();
@@ -579,8 +631,9 @@ function pnRemoveOperator(idx) {
     });
 }
 
+// LEGACY (v15.6): hash de 32 bits no criptográfico — solo se conserva para
+// verificar PINs viejos una última vez y re-hashearlos a pinHash2 (SHA-256).
 function pnHashPin(pin) {
-    // Simple hash for PIN (not cryptographic, but sufficient for local offline use)
     var hash = 0;
     var str = 'kia_pin_' + pin + '_salt';
     for (var i = 0; i < str.length; i++) {
@@ -589,6 +642,35 @@ function pnHashPin(pin) {
         hash = hash & hash; // Convert to 32bit integer
     }
     return 'pin_' + Math.abs(hash).toString(36);
+}
+
+// [v15.6] SHA-256 con sal aleatoria por operador (crypto.subtle, async).
+// El pinHash legacy viajaba a Firestore y era fuerza-bruteable al instante.
+function pnHashPin2(pin, salt) {
+    if (!(window.crypto && crypto.subtle)) {
+        // Solo dev en file:// — en producción (https) subtle siempre existe
+        return Promise.resolve('legacy:' + pnHashPin(pin));
+    }
+    var data = new TextEncoder().encode(salt + '|' + pin);
+    return crypto.subtle.digest('SHA-256', data).then(function(buf) {
+        return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+    });
+}
+
+function _pnRandomSalt() {
+    var bytes = new Uint8Array(16);
+    (window.crypto || {}).getRandomValues ? crypto.getRandomValues(bytes) : bytes.forEach(function(_, i) { bytes[i] = Math.floor(Math.random() * 256); });
+    return Array.from(bytes).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+// Configura pinHash2 y BORRA el hash legacy (deja de sincronizarse el hash débil)
+function _pnAssignPin(op, pin) {
+    var salt = _pnRandomSalt();
+    return pnHashPin2(pin, salt).then(function(hash) {
+        op.pinHash2 = { salt: salt, hash: hash };
+        delete op.pinHash;
+        op.updatedAt = new Date().toISOString();
+    });
 }
 
 function pnSetOperatorPin(idx) {
@@ -601,12 +683,30 @@ function pnSetOperatorPin(idx) {
         showToast('El PIN debe ser exactamente 4 digitos numericos', 'error');
         return;
     }
-    op.pinHash = pnHashPin(pin);
-    pnSave();
-    pnRender();
-    showToast('PIN configurado para ' + op.name, 'success');
+    _pnAssignPin(op, pin).then(function() {
+        pnSave();
+        pnRender();
+        showToast('PIN configurado para ' + op.name, 'success');
+    });
 }
 
+// Verificación async: usa pinHash2; si solo existe el legacy, lo verifica y
+// re-hashea automáticamente al primer login exitoso (migración transparente)
+function pnVerifyPinAsync(idx, pin) {
+    var op = pnState.operators[idx];
+    if (!op) return Promise.resolve(false);
+    if (op.pinHash2 && op.pinHash2.salt && op.pinHash2.hash) {
+        return pnHashPin2(pin, op.pinHash2.salt).then(function(h) { return h === op.pinHash2.hash; });
+    }
+    if (op.pinHash) {
+        var ok = op.pinHash === pnHashPin(pin);
+        if (!ok) return Promise.resolve(false);
+        return _pnAssignPin(op, pin).then(function() { pnSave(); return true; });
+    }
+    return Promise.resolve(false);
+}
+
+// Compat: verificación sync solo contra el hash legacy (llamadores viejos)
 function pnVerifyPin(idx, pin) {
     var op = pnState.operators[idx];
     if (!op || !op.pinHash) return false;
@@ -644,7 +744,7 @@ function pnSyncOperators() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function pnRenderShiftLog(el) {
-    var todayStr = new Date().toISOString().substring(0, 10);
+    var todayStr = localToday();
     var activeOps = pnState.operators.filter(function(o) { return o.active; }).map(function(o) { return o.name; });
 
     // Categories for log entries
@@ -764,7 +864,7 @@ function pnAddShiftEntry() {
     var now = new Date();
     pnState.shiftLog.push({
         id: 'sl_' + Date.now(),
-        date: now.toISOString().substring(0, 10),
+        date: localDateStr(now),
         time: now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
         operator: op.value,
         category: cat ? cat.value : 'Observación',
@@ -790,7 +890,7 @@ function pnDeleteShiftEntry(id) {
 }
 
 function pnExportShiftLog() {
-    var todayStr = new Date().toISOString().substring(0, 10);
+    var todayStr = localToday();
     var entries = pnState.shiftLog.filter(function(s) { return s.date === todayStr; });
     if (entries.length === 0) { showToast('Sin entradas hoy', 'error'); return; }
 
@@ -997,10 +1097,10 @@ function pnRenderIntelligence(el) {
     var weeklyData = {};
     tests.forEach(function(t) {
         if (!t.date) return;
-        var d = new Date(t.date);
+        var d = parseLocalDate(t.date); // parse local: new Date('YYYY-MM-DD') es UTC y corre el día
         var weekStart = new Date(d);
         weekStart.setDate(d.getDate() - d.getDay());
-        var wk = weekStart.toISOString().slice(0, 10);
+        var wk = localDateStr(weekStart);
         if (!weeklyData[wk]) weeklyData[wk] = { tests: 0, gasUsed: 0 };
         weeklyData[wk].tests++;
     });
@@ -1010,10 +1110,10 @@ function pnRenderIntelligence(el) {
         if (g.usageLog) {
             g.usageLog.forEach(function(log) {
                 if (!log.date) return;
-                var d = new Date(log.date);
+                var d = parseLocalDate(log.date);
                 var weekStart = new Date(d);
                 weekStart.setDate(d.getDate() - d.getDay());
-                var wk = weekStart.toISOString().slice(0, 10);
+                var wk = localDateStr(weekStart);
                 if (!weeklyData[wk]) weeklyData[wk] = { tests: 0, gasUsed: 0 };
                 weeklyData[wk].gasUsed += (log.psiUsed || 0);
             });
@@ -1569,7 +1669,7 @@ function _pnCollectCalendarEvents(year, month) {
             var depDate = new Date();
             depDate.setDate(depDate.getDate() + Math.round(daysLeft));
             if (depDate >= monthStart && depDate <= monthEnd) {
-                var dateStr = depDate.toISOString().slice(0, 10);
+                var dateStr = localDateStr(depDate);
                 events.push({
                     date: dateStr,
                     type: 'gas_depletion',
@@ -1585,13 +1685,13 @@ function _pnCollectCalendarEvents(year, month) {
     if (typeof tpState !== 'undefined' && tpState.weeklyPlans) {
         tpState.weeklyPlans.forEach(function(plan) {
             if (!plan.weekStart) return;
-            var ws = new Date(plan.weekStart);
+            var ws = parseLocalDate(plan.weekStart);
             // Show each day of the week
             for (var i = 0; i < 5; i++) {
                 var d = new Date(ws);
                 d.setDate(d.getDate() + i);
                 if (d >= monthStart && d <= monthEnd) {
-                    var dateStr = d.toISOString().slice(0, 10);
+                    var dateStr = localDateStr(d);
                     var pending = (plan.items || []).filter(function(it) { return !it.completed; }).length;
                     if (pending > 0) {
                         events.push({
@@ -1616,7 +1716,7 @@ function _pnCollectCalendarEvents(year, month) {
                 var d = new Date();
                 if (d >= monthStart && d <= monthEnd) {
                     events.push({
-                        date: d.toISOString().slice(0, 10),
+                        date: localDateStr(d),
                         type: 'release',
                         color: '#10b981',
                         label: '🏁 Listo: VIN ...' + (v.vin || '').slice(-6),
@@ -1672,8 +1772,8 @@ function _pnCalendarWeekSummary(events) {
     var weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
 
-    var weekStartStr = weekStart.toISOString().slice(0, 10);
-    var weekEndStr = weekEnd.toISOString().slice(0, 10);
+    var weekStartStr = localDateStr(weekStart);
+    var weekEndStr = localDateStr(weekEnd);
 
     var weekEvents = events.filter(function(ev) { return ev.date >= weekStartStr && ev.date <= weekEndStr; });
     if (weekEvents.length === 0) return '';
@@ -1940,7 +2040,8 @@ function panelAlpineComponent() {
                 name: this.newOpName.trim(),
                 role: this.newOpRole,
                 active: true,
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             });
             var _addedName = this.newOpName.trim();
             this.newOpName = '';
@@ -1956,6 +2057,7 @@ function panelAlpineComponent() {
             var newRole = prompt('Rol (' + this.roles.join(', ') + '):', op.role || 'Técnico');
             op.name = newName.trim();
             if (newRole && this.roles.indexOf(newRole) !== -1) op.role = newRole;
+            op.updatedAt = new Date().toISOString();
             this._syncAndSave();
             showToast('Operador actualizado', 'success');
         },
@@ -1963,6 +2065,7 @@ function panelAlpineComponent() {
             var op = this.operators[idx];
             if (!op) return;
             op.active = !op.active;
+            op.updatedAt = new Date().toISOString();
             this._syncAndSave();
             showToast(op.name + (op.active ? ' activado' : ' desactivado'), 'info');
         },
@@ -1973,7 +2076,11 @@ function panelAlpineComponent() {
             showConfirmDialog({ title: '⚠️ Eliminar operador', message: '¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
                 if (!ok) return;
                 auditLog('pn', 'operator_removed', {type:'operator', label:op.name});
-                self.operators.splice(idx, 1);
+                // Tombstone: el borrado sobrevive al merge del sync (splice resucitaba)
+                op.active = false;
+                op.deleted = true;
+                op.deletedAt = new Date().toISOString();
+                op.updatedAt = op.deletedAt;
                 self._syncAndSave();
                 showToast('Operador eliminado', 'info');
             });
@@ -1985,13 +2092,15 @@ function panelAlpineComponent() {
             if (!pin) return;
             pin = pin.trim();
             if (!/^\d{4}$/.test(pin)) { showToast('El PIN debe ser exactamente 4 dígitos numéricos', 'error'); return; }
-            op.pinHash = pnHashPin(pin);
-            this._syncAndSave();
-            showToast('PIN configurado para ' + op.name, 'success');
+            var self = this;
+            _pnAssignPin(op, pin).then(function() {   // v15.6: SHA-256 + sal (ver pnHashPin2)
+                self._syncAndSave();
+                showToast('PIN configurado para ' + op.name, 'success');
+            });
         },
 
         // ── Computed — Shift Log ──
-        todayStr: function() { return new Date().toISOString().substring(0, 10); },
+        todayStr: function() { return localToday(); },
         todayEntries: function() {
             var today = this.todayStr();
             return this.shiftLog.filter(function(s) { return s.date === today; }).slice().reverse();
@@ -2017,7 +2126,7 @@ function panelAlpineComponent() {
             var now = new Date();
             this.shiftLog.push({
                 id: 'sl_' + Date.now(),
-                date: now.toISOString().substring(0, 10),
+                date: localDateStr(now),
                 time: now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
                 operator: this.shiftOperator,
                 category: this.shiftCategory,
@@ -2062,7 +2171,6 @@ function panelAlpineComponent() {
             var storageKeys = [
                 { key: 'kia_db_v11', label: 'COP15 (Base de Datos)' },
                 { key: 'kia_testplan_v1', label: 'Test Plan Manager' },
-                { key: 'kia_results_v1', label: 'Results Analyzer' },
                 { key: 'kia_lab_inventory', label: 'Lab Inventory' },
                 { key: 'kia_panel_v1', label: 'Panel' },
                 { key: 'kia_chart_configs', label: 'Chart Configs' },
@@ -2216,14 +2324,15 @@ function panelAlpineComponent() {
 function pnRenderExecutive(el) {
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var now = new Date();
-    var todayStr = now.toISOString().slice(0,10);
-    var weekAgo = new Date(now - 7 * 86400000).toISOString().slice(0,10);
-    var monthAgo = new Date(now - 30 * 86400000).toISOString().slice(0,10);
+    var todayStr = localToday();
+    var weekAgo = localDateStr(new Date(now - 7 * 86400000));
+    var monthAgo = localDateStr(new Date(now - 30 * 86400000));
 
-    // Throughput metrics
-    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) === todayStr; }).length;
-    var archivedWeek = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= weekAgo; }).length;
-    var archivedMonth = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= monthAgo; }).length;
+    // Throughput metrics (día local del timestamp de archivado)
+    var _archDay = function(v) { return localDateStr(new Date(v.archivedAt)); };
+    var archivedToday = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) === todayStr; }).length;
+    var archivedWeek = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) >= weekAgo; }).length;
+    var archivedMonth = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) >= monthAgo; }).length;
     var activeCount = vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
 
     // Compliance scorecard
@@ -2236,8 +2345,6 @@ function pnRenderExecutive(el) {
     }
 
     // Cpk alerts
-    var cpkAlerts = typeof raCheckRollingCpk === 'function' ? raCheckRollingCpk() : [];
-
     // Resource utilization
     var gasUtilization = 'N/A';
     if (typeof invState !== 'undefined' && invState.gases) {
@@ -2263,24 +2370,8 @@ function pnRenderExecutive(el) {
     html += '<div class="v7-exec-bar"><div class="v7-exec-bar-fill" style="width:' + tpCoverage + '%;background:' + (tpCoverage >= 80 ? 'var(--success)' : tpCoverage >= 50 ? 'var(--warning)' : 'var(--danger)') + ';"></div></div>';
     html += '<span class="v7-exec-pct">' + tpCoverage + '%</span></div>';
 
-    var cpkStatus = cpkAlerts.length === 0 ? '🟢 Todos Cpk >= 1.33' : '🔴 ' + cpkAlerts.length + ' metrica(s) con Cpk < 1.33';
-    html += '<div class="v7-exec-metric"><span>Capacidad de Proceso</span><span>' + cpkStatus + '</span></div>';
     html += '<div class="v7-exec-metric"><span>Utilizacion de Gas</span><span>' + gasUtilization + '</span></div>';
     html += '</div></div>';
-
-    // Cpk Alert Details
-    if (cpkAlerts.length > 0) {
-        html += '<div class="tp-card" style="border-left:3px solid var(--danger);">';
-        html += '<div class="tp-card-title"><span>⚠️ Alertas de Capacidad (Rolling Cpk)</span></div>';
-        cpkAlerts.forEach(function(a) {
-            var color = a.cpk < 1.0 ? 'var(--danger)' : 'var(--warning)';
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">';
-            html += '<span>' + a.profile + ' / ' + a.metric + '</span>';
-            html += '<span style="font-weight:700;color:' + color + ';">Cpk ' + a.cpk.toFixed(2) + ' (n=' + a.n + ')</span>';
-            html += '</div>';
-        });
-        html += '</div>';
-    }
 
     // [V7-B3] Predictive Resource Planner
     html += '<div class="tp-card"><div class="tp-card-title"><span>Proyeccion de Recursos</span></div>';
@@ -2327,7 +2418,7 @@ function pnRenderExecutive(el) {
     // Team metrics
     html += '<div class="tp-card"><div class="tp-card-title"><span>Metricas por Operador</span></div>';
     var opStats = {};
-    vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && v.archivedAt.slice(0,10) >= weekAgo; }).forEach(function(v) {
+    vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) >= weekAgo; }).forEach(function(v) {
         var op = v.registeredBy || (v.testData && v.testData.testResponsible) || 'Desconocido';
         if (!opStats[op]) opStats[op] = 0;
         opStats[op]++;
@@ -2436,12 +2527,12 @@ function pnRenderTurnaround(el) {
     html += '<div class="tp-card"><div class="tp-card-title"><span>Throughput Diario (14 dias)</span></div>';
     var dailyCounts = {};
     for (var d = 13; d >= 0; d--) {
-        var dateStr = new Date(Date.now() - d * 86400000).toISOString().slice(0,10);
+        var dateStr = localDateStr(new Date(Date.now() - d * 86400000));
         dailyCounts[dateStr] = 0;
     }
     archived.forEach(function(v) {
         if (v.archivedAt) {
-            var ds = v.archivedAt.slice(0,10);
+            var ds = localDateStr(new Date(v.archivedAt));
             if (dailyCounts.hasOwnProperty(ds)) dailyCounts[ds]++;
         }
     });

@@ -112,10 +112,18 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════
-# [Fase 4.3] Inject build timestamp into sw.js __BUILD_VERSION__
+# [Fase 4.3 → v15.6] Service worker versionado a ARTEFACTO (sw.build.js).
+# Nunca se hace sed -i sobre el fuente: un build interrumpido dejaba el
+# timestamp pegado en sw.js, el sed dejaba de encontrar el placeholder y
+# TODOS los deploys salían con el mismo SW (los dispositivos no volvían a
+# actualizarse). El guard aborta si el placeholder se pierde.
 # ═══════════════════════════════════════════════════════════════
-echo "Updating sw.js build version to ${BUILD_TS}..."
-sed -i "s/__BUILD_VERSION__/${BUILD_TS}/g" "$DIR/sw.js"
+if ! grep -q "__BUILD_VERSION__" "$DIR/sw.js"; then
+    echo "ERROR: sw.js perdió el placeholder __BUILD_VERSION__ — restaurar antes de construir." >&2
+    exit 1
+fi
+echo "Generating sw.build.js with build version ${BUILD_TS}..."
+sed "s/__BUILD_VERSION__/${BUILD_TS}/g" "$DIR/sw.js" > "$DIR/sw.build.js"
 
 # ═══════════════════════════════════════════════════════════════
 # Inject build version into the unified HTML (replaces APP_BUILD
@@ -127,11 +135,8 @@ LINES=$(wc -l < "$DIR/$OUTPUT")
 SIZE=$(du -h "$DIR/$OUTPUT" | cut -f1)
 echo "Done! $OUTPUT — $LINES lines, $SIZE"
 
-# [R3-M1] Copy PWA files alongside unified output
-cp "$DIR/manifest.json" "$(dirname "$DIR/$OUTPUT")/" 2>/dev/null || true
-cp "$DIR/sw.js" "$(dirname "$DIR/$OUTPUT")/" 2>/dev/null || true
-
-echo "PWA files (manifest.json, sw.js) copied."
+# [R3-M1] PWA files listos (manifest.json en el repo; sw.build.js generado arriba)
+echo "PWA files (manifest.json, sw.build.js) ready."
 
 # ═══════════════════════════════════════════════════════════════
 # Publish version to Firebase so stations can detect the update.
@@ -141,7 +146,9 @@ echo "PWA files (manifest.json, sw.js) copied."
 # Match both JSON format ("apiKey":"val") and JS object literal format (apiKey: "val")
 FIREBASE_API_KEY=$(grep -oE '(apiKey: *"|"apiKey":")[^"]+' "$DIR/$OUTPUT" | head -1 | grep -oE '"[^"]+$' | tr -d '"')
 FIREBASE_PROJECT=$(grep -oE '(projectId: *"|"projectId":")[^"]+' "$DIR/$OUTPUT" | head -1 | grep -oE '"[^"]+$' | tr -d '"')
-GH_RAW_URL="https://raw.githubusercontent.com/jorgenunez0728/Cascade-Project/main/kia-emlab-unified.html"
+# v15.6: URL informativa de la app hosteada (el banner actualiza in-place con
+# fbApplyUpdate; ya no descarga el HTML crudo de GitHub)
+GH_RAW_URL="https://kia-emlab-test-system.web.app/"
 
 if [ -n "$FIREBASE_API_KEY" ] && [ -n "$FIREBASE_PROJECT" ] && [ "$FIREBASE_PROJECT" != "YOUR_PROJECT_ID" ]; then
     TS_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -158,8 +165,5 @@ else
     echo "Firebase no configurado — omitiendo publicación de versión."
 fi
 
-# ═══════════════════════════════════════════════════════════════
-# Restore sw.js placeholder so source stays build-ready
-# ═══════════════════════════════════════════════════════════════
-sed -i "s/${BUILD_TS}/__BUILD_VERSION__/g" "$DIR/sw.js"
-echo "sw.js placeholder restored for next build."
+# (v15.6: ya no hay restauración de sw.js — el fuente nunca se toca; el
+#  timestamp vive solo en el artefacto sw.build.js)

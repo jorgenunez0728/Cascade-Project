@@ -26,7 +26,16 @@ mkdir -p "$DIST"
 # Hosted as index.html so manifest's start_url=./index.html works seamlessly
 cp "$DIR/kia-emlab-unified.html" "$DIST/index.html"
 cp "$DIR/manifest.json" "$DIST/"
-cp "$DIR/sw.js" "$DIST/"
+# v15.6: el SW desplegado es el ARTEFACTO versionado (sw.build.js), nunca el
+# fuente con placeholder — si no, el SW sale byte-idéntico y los dispositivos
+# jamás reciben la actualización
+if [ ! -f "$DIR/sw.build.js" ]; then
+    echo "!! sw.build.js no existe — build.sh no corrió o falló"; exit 1
+fi
+if grep -q "__BUILD_VERSION__" "$DIR/sw.build.js"; then
+    echo "!! sw.build.js aún contiene el placeholder — build inválido"; exit 1
+fi
+cp "$DIR/sw.build.js" "$DIST/sw.js"
 cp -r "$DIR/icons" "$DIST/"
 
 echo "   dist/ contents:"

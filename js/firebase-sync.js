@@ -16,6 +16,12 @@ var FIREBASE_CONFIG = {
 
 // ── Espacio de trabajo compartido: todos los dispositivos comparten un solo dataset del lab ──
 var FB_SHARED_WORKSPACE = 'KIA-EMLAB';
+
+// [v15.6] Usuario único del laboratorio (Email/Password). La contraseña se
+// ingresa UNA vez por dispositivo; la sesión persiste en el navegador. Las
+// Security Rules solo aceptan sesiones con proveedor 'password' (firestore.rules).
+// El usuario se crea en la consola: Authentication → Users → Add user.
+var FB_LAB_EMAIL = 'laboratorio@kia-emlab-test-system.firebaseapp.com';
 // ID único de ESTE dispositivo (para distinguir ecos propios de cambios de otros en el mismo espacio)
 var FB_DEVICE_ID = (function() {
     var k = 'kia_fb_device', v = null;
@@ -29,12 +35,14 @@ var FB_SYNC_MODULES_KEY = 'kia_fb_sync_modules';
 var fbSyncModules = (function() {
     try { return JSON.parse(localStorage.getItem(FB_SYNC_MODULES_KEY)) || null; } catch(e) { return null; }
 })() || {
-    cop15: true, testplan: true, results: true, inventory: true, panel: true, approvals: true, cop: true, audit: true
+    cop15: true, testplan: true, inventory: true, panel: true, cop: true, audit: true
 };
 // Backfill new module flags for users that already have a saved fbSyncModules object
-if (typeof fbSyncModules.approvals === 'undefined') fbSyncModules.approvals = true;
 if (typeof fbSyncModules.cop === 'undefined') fbSyncModules.cop = true;
 if (typeof fbSyncModules.audit === 'undefined') fbSyncModules.audit = true;
+// v15.6: results/approvals eliminados — limpiar flags heredados de dispositivos viejos
+delete fbSyncModules.results;
+delete fbSyncModules.approvals;
 function fbSaveSyncModules() {
     localStorage.setItem(FB_SYNC_MODULES_KEY, JSON.stringify(fbSyncModules));
 }
@@ -42,7 +50,6 @@ function fbSaveSyncModules() {
 // Dependency validation for sync module toggles
 var FB_SYNC_DEPS = {
     testplan: { requires: ['cop15'], warn: 'Test Plan depende de COP15 para auto-feed de releases.' },
-    results: { recommends: ['testplan'], warn: 'Results se beneficia de Test Plan para cruce de datos.' },
     inventory: { recommends: ['testplan'], warn: 'Inventario alimenta predicciones del Test Plan.' }
 };
 
@@ -98,7 +105,7 @@ function fbQueueSave() {
 // Priority levels: 1=critical, 2=normal, 3=low
 var FB_PRIORITY_MAP = {
     'cop15': 1, 'cop15-release': 1, 'readings-anomaly': 1,
-    'testplan': 2, 'results': 2, 'inventory': 2, 'readings': 2, 'panel': 2,
+    'testplan': 2, 'inventory': 2, 'readings': 2, 'panel': 2,
     'backups': 3, 'activity': 3, 'merge-history': 3
 };
 
@@ -299,6 +306,33 @@ function fbQuotaStats() {
     };
 }
 
+// ── [v15.6] Camino conectado tras autenticación (extraído de fbInit) ──
+// Corre cuando hay sesión de laboratorio: test de conexión → pull inicial →
+// listeners → seed push (condicionado al pull) → chequeo de versión → cola.
+function _fbAfterAuthConnected() {
+    fbTestConnectionWithRetry(2, function(ok) {
+        if (!ok) return;
+        fbSync.status = 'connected';
+        fbUpdateIndicator();
+        if (fbSync.stationId) {
+            fbPullAll();
+            fbBackupCheck();
+            fbStartListening();
+            // Semilla: subir los datos locales una vez, SOLO después de que el
+            // pull inicial terminó (antes corría a los 6s aunque el pull hubiera
+            // fallado, y un dispositivo vacío podía pisar la nube)
+            if (!fbSync._seeded) {
+                fbSync._seeded = true;
+                setTimeout(function() {
+                    if (fbSync.enabled && fbSync._pullCompleted) fbPushAll();
+                }, 6000);
+            }
+        }
+        fbCheckAppVersion();
+        if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 3000);
+    });
+}
+
 // ── Initialize Firebase ──
 function fbInit() {
     if (!FIREBASE_CONFIG.apiKey || !FIREBASE_CONFIG.projectId) {
@@ -320,7 +354,13 @@ function fbInit() {
         fbSync.status = 'connecting';
         fbSync.lastError = '';
         fbUpdateIndicator();
-        (FB_IS_HTTP_ORIGIN ? fbAnonymousAuth() : Promise.resolve()).then(function() {
+        fbEnsureAuth().then(function(hasSession) {
+            _fbWatchAuthState();
+            if (!hasSession) {
+                fbSync.status = 'auth';
+                fbUpdateIndicator();
+                return;
+            }
             fbTestConnectionWithRetry(2, function(ok) {
                 if (ok) {
                     fbSync.status = 'connected';
@@ -408,36 +448,19 @@ function fbInit() {
         }
 
         persistencePromise.then(function() {
-            // Skip anonymous auth on non-HTTP origins — signInAnonymously() may hang
-            // on content:// protocol and poison the SDK internal state.
-            // Rules should be "allow read, write: if true;" which doesn't require auth.
-            if (FB_IS_HTTP_ORIGIN) {
-                return fbAnonymousAuth();
-            }
-            console.log('Firebase: Skipping anonymous auth on ' + location.protocol + ' origin');
-            return Promise.resolve();
-        }).then(function() {
+            return fbEnsureAuth();
+        }).then(function(hasSession) {
             fbSync._initialized = true;
-            // Now test connection (with retry)
-            fbTestConnectionWithRetry(2, function(ok) {
-                if (ok) {
-                    fbSync.status = 'connected';
-                    fbUpdateIndicator();
-                    if (fbSync.stationId) {
-                        fbPullAll();
-                        fbBackupCheck();
-                        fbStartListening();
-                        // Semilla: subir los datos locales al espacio compartido una vez tras el pull inicial
-                        if (!fbSync._seeded) {
-                            fbSync._seeded = true;
-                            setTimeout(function() { if (fbSync.enabled) fbPushAll(); }, 6000);
-                        }
-                    }
-                    fbCheckAppVersion();
-                    // Drain offline queue
-                    if (fbOfflineQueue.length > 0) setTimeout(fbQueueRetry, 3000);
-                }
-            });
+            _fbWatchAuthState();
+            if (hasSession) {
+                _fbAfterAuthConnected();
+            } else {
+                // Sin sesión de laboratorio: la app funciona local; el indicador
+                // 🔑 ofrece conectar (contraseña una vez por dispositivo)
+                fbSync.status = 'auth';
+                fbUpdateIndicator();
+                fbCheckAppVersion(); // lectura pública, no requiere sesión
+            }
         }).catch(function(chainErr) {
             console.error('Firebase init chain error:', chainErr);
             fbSync._initialized = true;
@@ -454,38 +477,101 @@ function fbInit() {
     }
 }
 
-// ── Anonymous Auth (for security rules that require auth) ──
-function fbAnonymousAuth() {
-    // Skip auth on non-HTTP origins — signInAnonymously() uses HTTP requests
-    // that may hang on content:// or file:// protocols, poisoning SDK state
+// ── [v15.6] Sesión de dispositivo (reemplaza al sign-in anónimo) ──
+// Ya NO se inicia sesión anónima: las Security Rules la rechazan. Este helper
+// solo reporta si el dispositivo tiene sesión persistida (Email/Password).
+// Sin sesión, la app sigue funcionando offline y el indicador ofrece conectar.
+function fbEnsureAuth() {
     if (!FB_IS_HTTP_ORIGIN) {
         console.log('Firebase: Skipping auth on non-HTTP origin');
-        return Promise.resolve();
+        return Promise.resolve(false);
     }
-
     try {
         var auth = firebase.auth();
-        if (auth.currentUser) {
-            return Promise.resolve(); // Already signed in
-        }
-        // Race against a timeout — auth should not block initialization
-        var authPromise = auth.signInAnonymously().then(function() {
-            console.log('Firebase: Anonymous auth OK');
-        }).catch(function(err) {
-            // Auth might not be enabled — that's OK if rules use "if true"
-            console.warn('Firebase: Anonymous auth failed (if rules use "if true" this is OK):', err.code || err.message);
-        });
-        var timeoutPromise = new Promise(function(resolve) {
+        if (auth.currentUser) return Promise.resolve(true);
+        // Esperar brevemente a que el SDK restaure la sesión persistida (IndexedDB)
+        return new Promise(function(resolve) {
+            var settled = false;
+            var unsub = auth.onAuthStateChanged(function(user) {
+                if (settled) return;
+                settled = true;
+                try { unsub(); } catch(e) {}
+                resolve(!!user);
+            });
             setTimeout(function() {
-                console.warn('Firebase: Anonymous auth timed out after 10s, continuing without auth');
-                resolve();
-            }, 10000);
+                if (settled) return;
+                settled = true;
+                try { unsub(); } catch(e) {}
+                resolve(!!auth.currentUser);
+            }, 4000);
         });
-        return Promise.race([authPromise, timeoutPromise]);
     } catch(e) {
         console.warn('Firebase: Auth not available:', e.message);
-        return Promise.resolve(); // Continue without auth
+        return Promise.resolve(false);
     }
+}
+
+// Vigila la sesión: cuando el dispositivo inicia sesión (tras el prompt de
+// contraseña), continúa automáticamente con el camino conectado.
+function _fbWatchAuthState() {
+    if (fbSync._authWatchActive) return;
+    try {
+        fbSync._authWatchActive = true;
+        firebase.auth().onAuthStateChanged(function(user) {
+            if (user && fbSync.status === 'auth') {
+                console.log('Firebase: sesión de laboratorio iniciada — conectando');
+                _fbAfterAuthConnected();
+            }
+        });
+    } catch(e) { fbSync._authWatchActive = false; }
+}
+
+// Prompt de contraseña del laboratorio (una vez por dispositivo)
+function fbShowAuthPrompt() {
+    var modal = document.getElementById('fbModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'fbModal';
+        modal.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;overflow-y:auto;';
+        document.body.appendChild(modal);
+    }
+    modal.style.display = 'block';
+    modal.innerHTML =
+        '<div style="max-width:380px;margin:60px auto;background:#0f172a;border-radius:14px;padding:24px;position:relative;color:#e2e8f0;">' +
+        '<button onclick="document.getElementById(\'fbModal\').style.display=\'none\'" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">✕</button>' +
+        '<h3 style="margin:0 0 6px;color:#22d3ee;">🔑 Conectar con el laboratorio</h3>' +
+        '<div style="font-size:11px;color:#94a3b8;margin-bottom:16px;">Ingresa la contraseña del laboratorio para sincronizar este dispositivo. Solo se pide una vez.</div>' +
+        '<input type="password" id="fb-lab-password" autocomplete="current-password" placeholder="Contraseña del laboratorio" ' +
+        'style="width:100%;padding:12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;box-sizing:border-box;" ' +
+        'onkeydown="if(event.key===\'Enter\')fbSubmitLabPassword();">' +
+        '<div id="fb-lab-password-error" style="color:#ef4444;font-size:11px;min-height:16px;margin:8px 0;"></div>' +
+        '<button onclick="fbSubmitLabPassword()" style="width:100%;padding:12px;background:#22d3ee;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;">Conectar</button>' +
+        '</div>';
+    setTimeout(function() { var i = document.getElementById('fb-lab-password'); if (i) i.focus(); }, 100);
+}
+
+function fbSubmitLabPassword() {
+    var input = document.getElementById('fb-lab-password');
+    var errEl = document.getElementById('fb-lab-password-error');
+    var pw = input ? input.value : '';
+    if (!pw) { if (errEl) errEl.textContent = 'Escribe la contraseña.'; return; }
+    if (errEl) errEl.textContent = 'Conectando…';
+    firebase.auth().signInWithEmailAndPassword(FB_LAB_EMAIL, pw).then(function() {
+        var modal = document.getElementById('fbModal');
+        if (modal) modal.style.display = 'none';
+        showToast('✓ Dispositivo conectado al laboratorio', 'success');
+        // onAuthStateChanged (_fbWatchAuthState) continúa con pull/listeners
+    }).catch(function(err) {
+        var msgs = {
+            'auth/wrong-password': 'Contraseña incorrecta.',
+            'auth/invalid-credential': 'Contraseña incorrecta.',
+            'auth/user-not-found': 'El usuario del laboratorio no existe — crear en la consola (ver README, sección Seguridad).',
+            'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos.',
+            'auth/network-request-failed': 'Sin conexión. Verifica la red e intenta de nuevo.',
+            'auth/operation-not-allowed': 'Email/Password no está habilitado en la consola de Firebase (ver README).'
+        };
+        if (errEl) errEl.textContent = msgs[err.code] || ('Error: ' + (err.message || err.code));
+    });
 }
 
 // ── Connection Test with Retry ──
@@ -600,6 +686,16 @@ function fbRESTUrl(collection, docId) {
         '?key=' + FIREBASE_CONFIG.apiKey;
 }
 
+// [v15.6] Token de la sesión de laboratorio para el camino REST — con las
+// Security Rules cerradas, las llamadas REST sin Authorization reciben 403.
+function _fbIdTokenPromise() {
+    try {
+        var u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+        if (!u) return Promise.resolve(null);
+        return u.getIdToken().catch(function() { return null; });
+    } catch(e) { return Promise.resolve(null); }
+}
+
 // ── REST API Push (fallback when SDK transport is broken) ──
 function fbPushREST(collection, data, onDone) {
     if (typeof fetch === 'undefined') { if (onDone) onDone(false, 'fetch no disponible'); return; }
@@ -613,9 +709,12 @@ function fbPushREST(collection, data, onDone) {
         }
     };
 
+    _fbIdTokenPromise().then(function(tok) {
+    var headers = { 'Content-Type': 'application/json' };
+    if (tok) headers['Authorization'] = 'Bearer ' + tok;
     fetch(url, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
         body: JSON.stringify(body)
     }).then(function(resp) {
         if (resp.ok) {
@@ -642,6 +741,7 @@ function fbPushREST(collection, data, onDone) {
         fbQueueAdd(collection, data);
         if (onDone) onDone(false, fbSync.lastError);
     });
+    }); // _fbIdTokenPromise
 }
 
 // ── REST API Pull (fallback when SDK transport is broken) ──
@@ -650,7 +750,9 @@ function fbPullREST(collection, onDone) {
 
     var url = fbRESTUrl(collection, 'current');
 
-    fetch(url).then(function(resp) {
+    _fbIdTokenPromise().then(function(tok) {
+    var headers = tok ? { 'Authorization': 'Bearer ' + tok } : {};
+    fetch(url, { headers: headers }).then(function(resp) {
         if (resp.ok) {
             return resp.json().then(function(doc) {
                 fbQuotaRecord('read');
@@ -668,6 +770,7 @@ function fbPullREST(collection, onDone) {
         console.error('REST pull error (' + collection + '):', err);
         if (onDone) onDone(null);
     });
+    }); // _fbIdTokenPromise
 }
 
 // ── Convert JS value → Firestore REST API value format ──
@@ -805,6 +908,15 @@ function fbPush(collection, data, onDone, opts) {
     if (!fbSync.enabled) { if (onDone) onDone(false, 'Firebase no habilitado'); return; }
     if (!fbSync.stationId) { if (onDone) onDone(false, 'No hay ID de estacion configurado'); return; }
 
+    // [v15.6] Cinturón anti-vaciado: nunca subir un módulo núcleo vacío
+    // (segunda línea de defensa; fbPushAll ya filtra, esto cubre los hooks de save)
+    if ((collection === 'cop15' || collection === 'testplan' || collection === 'inventory')
+        && typeof _fbPullLocalScore === 'function' && _fbPullLocalScore(collection) === 0) {
+        console.warn('fbPush: omitido ' + collection + ' vacío (protección de datos)');
+        if (onDone) onDone(false, 'Módulo vacío omitido');
+        return;
+    }
+
     // Rate limit check
     var quota = fbQuotaCheck('write');
     if (!quota.allowed) {
@@ -880,14 +992,20 @@ function fbPushAll(showFeedback) {
     if (!fbSync.enabled) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
     if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
 
+    // [v15.6] Guard anti-vaciado: un módulo local VACÍO nunca se sube — si el
+    // pull inicial falló, empujar {vehicles:[]} sobrescribiría los datos del
+    // laboratorio en stations/KIA-EMLAB/*/current para todos.
     var modules = [];
-    if (fbSyncModules.cop15) modules.push({col:'cop15', data:db});
-    if (fbSyncModules.testplan) modules.push({col:'testplan', data:tpState});
-    if (fbSyncModules.results) modules.push({col:'results', data:raState});
-    if (fbSyncModules.inventory) modules.push({col:'inventory', data:invState});
-    if (fbSyncModules.panel) modules.push({col:'panel', data:typeof pnState !== 'undefined' ? pnState : {}});
-    if (fbSyncModules.approvals && typeof paConfig !== 'undefined' && typeof _paShareablePayload === 'function') {
-        modules.push({col:'approvals', data: _paShareablePayload()});
+    var skippedEmpty = [];
+    if (fbSyncModules.cop15) { if (_fbPullLocalScore('cop15') > 0) modules.push({col:'cop15', data:db}); else skippedEmpty.push('cop15'); }
+    if (fbSyncModules.testplan) { if (_fbPullLocalScore('testplan') > 0) modules.push({col:'testplan', data:tpState}); else skippedEmpty.push('testplan'); }
+    if (fbSyncModules.inventory) { if (_fbPullLocalScore('inventory') > 0) modules.push({col:'inventory', data:invState}); else skippedEmpty.push('inventory'); }
+    if (fbSyncModules.panel) {
+        var _pnHasData = (typeof pnState !== 'undefined' && pnState && (pnState.operators || []).length > 0);
+        if (_pnHasData) modules.push({col:'panel', data:pnState}); else skippedEmpty.push('panel');
+    }
+    if (skippedEmpty.length && showFeedback) {
+        showToast('Módulos vacíos omitidos del envío (protección de datos): ' + skippedEmpty.join(', '), 'info');
     }
     if (fbSyncModules.cop) {
         var copRaw = null; try { copRaw = JSON.parse(localStorage.getItem('kia_cop_v1')); } catch(e) {}
@@ -911,33 +1029,68 @@ function fbPushAll(showFeedback) {
     modules.forEach(function(m) { fbPush(m.col, m.data, onPushDone); });
 }
 
+// ── [v15.6] ¿Este dispositivo está vacío? (sin datos de los módulos núcleo) ──
+// Gobierna la excepción de seed del pull, los reintentos y el guard del push.
+function _fbLocalIsEmpty() {
+    return (_fbPullLocalScore('cop15') + _fbPullLocalScore('testplan') + _fbPullLocalScore('inventory')) === 0;
+}
+
+// Reintentos del pull inicial en un dispositivo vacío: antes fallaba en
+// silencio (quota/red) y el técnico veía "Sync conectado" con 0 registros.
+var _fbSeedRetryDelays = [5000, 15000, 45000, 90000];
+function _fbScheduleSeedRetry(reason) {
+    if (!_fbLocalIsEmpty()) return;
+    var n = fbSync._seedRetries || 0;
+    if (n >= _fbSeedRetryDelays.length) {
+        if (typeof showToast === 'function') {
+            showToast('⚠️ No se pudieron descargar los datos del laboratorio. Toca el indicador de Sync para reintentar.', 'error');
+        }
+        return;
+    }
+    fbSync._seedRetries = n + 1;
+    if (typeof showToast === 'function' && n === 0) {
+        showToast('Descargando datos del laboratorio… reintentando (' + (reason || 'sin conexión') + ')', 'warning');
+    }
+    setTimeout(function() { if (_fbLocalIsEmpty()) fbPullAll(); }, _fbSeedRetryDelays[n]);
+}
+
 // ── Pull data from Firestore (rate-limited, with REST fallback) ──
 function fbPullAll(showFeedback) {
     if (!fbSync.enabled) { if (showFeedback) showToast('Firebase no esta habilitado', 'error'); return; }
     if (!fbSync.stationId) { if (showFeedback) showToast('Primero configura un ID de estacion', 'error'); return; }
 
-    // Rate limit check (5 reads: one per collection)
-    var quota = fbQuotaCheck('read');
-    if (!quota.allowed) {
-        if (showFeedback) showToast(quota.reason, 'error');
-        return;
+    // Rate limit check (una lectura por colección). EXCEPCIÓN de seed: un
+    // dispositivo vacío siempre puede intentar su primera descarga — antes el
+    // check retornaba sin feedback y el dispositivo quedaba en 0 para siempre.
+    var seedMode = _fbLocalIsEmpty();
+    if (!seedMode) {
+        var quota = fbQuotaCheck('read');
+        if (!quota.allowed) {
+            if (showFeedback) showToast(quota.reason, 'error');
+            return;
+        }
     }
 
     fbSync.status = 'syncing';
     fbUpdateIndicator();
 
-    var collections = ['cop15', 'testplan', 'results', 'inventory', 'panel', 'approvals', 'cop', 'audit'].filter(function(c) { return fbSyncModules[c]; });
+    var collections = ['cop15', 'testplan', 'inventory', 'panel', 'cop', 'audit'].filter(function(c) { return fbSyncModules[c]; });
     if (collections.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
 
     // Use REST API if SDK transport is broken
     if (fbSync._useREST) {
         var restPending = collections.length;
         var restResults = {};
+        var restAnyData = false;
         collections.forEach(function(col) {
             fbPullREST(col, function(data) {
                 restResults[col] = data;
+                if (data) restAnyData = true;
                 restPending--;
-                if (restPending === 0) fbPullApply(collections, restResults, showFeedback);
+                if (restPending === 0) {
+                    fbPullApply(collections, restResults, showFeedback);
+                    if (!restAnyData) _fbScheduleSeedRetry('REST sin datos');
+                }
             });
         });
         return;
@@ -961,10 +1114,108 @@ function fbPullAll(showFeedback) {
         fbSync.lastError = err.code === 'permission-denied' ? 'Acceso denegado. Revisa las Security Rules.' : 'Error al descargar: ' + (err.message || err.code);
         fbUpdateIndicator();
         if (showFeedback) showToast(fbSync.lastError, 'error');
+        _fbScheduleSeedRetry(err.code || 'error de red');
     });
 }
 
 // ── Apply pulled data to local state ──
+// v15.5: cop15/testplan/inventory se aplican con merge por elemento
+// (reutiliza fbMergeAnalyze/fbMergeExecute, igual que el live-sync) en lugar del
+// reemplazo por conteo: dos altas concurrentes o una edición sin cambio de conteo
+// ya no se pierden. Si el análisis falla, cae a la heurística previa por conteo.
+
+function _fbPullLocalScore(col) {
+    if (col === 'cop15') return (typeof db !== 'undefined' && db.vehicles) ? db.vehicles.length : 0;
+    if (col === 'testplan') return (typeof tpState !== 'undefined' && tpState) ? ((tpState.planData || []).length + (tpState.testedList || []).length + (tpState.weeklyPlans || []).length) : 0;
+    if (col === 'inventory') {
+        var s = 0, st = (typeof invState !== 'undefined') ? invState : null;
+        if (st && st.gases) st.gases.forEach(function(g) { s += 1 + ((g.readings && g.readings.length) || 0); });
+        if (st && st.equipment) s += st.equipment.length;
+        return s;
+    }
+    return 0;
+}
+
+// Local vacío → adoptar el remoto completo (seed inicial del dispositivo)
+function _fbPullSeed(col, remoteData, pulled) {
+    if (col === 'cop15') {
+        db = remoteData;
+        localStorage.setItem('kia_db_v11', JSON.stringify(db));
+        refreshAllLists();
+        pulled.push('COP15 (' + (db.vehicles || []).length + ' vehiculos)');
+    } else if (col === 'testplan') {
+        var prevTp = (typeof tpState !== 'undefined' && tpState) ? tpState : {};
+        tpState = remoteData;
+        // Preservar subcampos v15 locales que un remoto de código viejo no trae
+        ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks'].forEach(function(k) {
+            if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
+        });
+        localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
+        if (typeof tpRender === 'function') tpRender();
+        pulled.push('Test Plan');
+    } else if (col === 'inventory') {
+        invState = remoteData;
+        localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
+        if (typeof invRender === 'function') invRender();
+        pulled.push('Inventory');
+    }
+}
+
+function _fbPullMergeModule(col, remoteData, pulled) {
+    if (_fbPullLocalScore(col) === 0) { _fbPullSeed(col, remoteData, pulled); return; }
+
+    var synth = { cop15: null, testplan: null, inventory: null };
+    synth[col] = remoteData;
+    var analysis = fbMergeAnalyze(synth);
+    var a = analysis[col];
+    if (!a) return;
+
+    var hasWork = false;
+    if (col === 'cop15') hasWork = (a.newItems || []).length > 0 || (a.conflicts || []).length > 0;
+    else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged;
+    else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0;
+    if (!hasWork) return;
+
+    // merge_all: agrega lo nuevo y resuelve diferencias con la política existente
+    // (cop15: gana el timeline más rico + recibos PA preservados; inventory: la
+    // lectura remota propaga PSI/estado).
+    var choices = {};
+    choices[col] = 'merge_all';
+    fbMergeExecute(synth, analysis, choices);
+    pulled.push({ cop15: 'COP15', testplan: 'Test Plan', inventory: 'Inventory' }[col]);
+}
+
+// Heurística previa por conteo — solo como fallback si el merge falla
+function _fbPullAdoptByCount(col, remoteData, pulled) {
+    if (col === 'cop15') {
+        if (remoteData.vehicles && remoteData.vehicles.length >= _fbPullLocalScore('cop15')) _fbPullSeed(col, remoteData, pulled);
+    } else if (col === 'testplan') {
+        var _rTp = (remoteData.planData ? remoteData.planData.length : 0) + (remoteData.testedList ? remoteData.testedList.length : 0) + (remoteData.weeklyPlans ? remoteData.weeklyPlans.length : 0);
+        if (_rTp >= _fbPullLocalScore('testplan')) _fbPullSeed(col, remoteData, pulled);
+    } else if (col === 'inventory') {
+        var _invScoreFn = function(s) { var n = 0; if (s && s.gases) s.gases.forEach(function(g) { n += 1 + ((g.readings && g.readings.length) || 0); }); if (s && s.equipment) n += s.equipment.length; return n; };
+        if (_invScoreFn(remoteData) >= _fbPullLocalScore('inventory')) _fbPullSeed(col, remoteData, pulled);
+    }
+}
+
+// Unión de operadores por id+nombre; en colisión gana el updatedAt más reciente.
+// Los tombstones (deleted:true) sobreviven al merge para que un operador borrado
+// no resucite desde un remoto viejo.
+function _fbMergeOperators(localOps, remoteOps) {
+    var byKey = {};
+    var keyOf = function(o) { return (o.id != null ? o.id : '') + '|' + (o.name || ''); };
+    (localOps || []).forEach(function(o) { if (o) byKey[keyOf(o)] = o; });
+    (remoteOps || []).forEach(function(r) {
+        if (!r) return;
+        var k = keyOf(r), l = byKey[k];
+        if (!l) { byKey[k] = r; return; }
+        var lt = l.updatedAt || l.deletedAt || l.createdAt || '';
+        var rt = r.updatedAt || r.deletedAt || r.createdAt || '';
+        byKey[k] = (rt > lt) ? r : l;
+    });
+    return Object.keys(byKey).map(function(k) { return byKey[k]; });
+}
+
 function fbPullApply(collections, results, showFeedback) {
     var pulled = [];
 
@@ -972,55 +1223,21 @@ function fbPullApply(collections, results, showFeedback) {
         var remoteData = results[col];
         if (!remoteData) return;
 
-        if (col === 'cop15') {
-            if (remoteData.vehicles && remoteData.vehicles.length >= db.vehicles.length) {
-                db = remoteData;
-                localStorage.setItem('kia_db_v11', JSON.stringify(db));
-                refreshAllLists();
-                pulled.push('COP15 (' + db.vehicles.length + ' vehiculos)');
-            }
-        } else if (col === 'testplan') {
-            // No pisar datos locales más completos con un remoto vacío/menor
-            var _rTp = (remoteData.planData ? remoteData.planData.length : 0) + (remoteData.testedList ? remoteData.testedList.length : 0) + (remoteData.weeklyPlans ? remoteData.weeklyPlans.length : 0);
-            var _lTp = (typeof tpState !== 'undefined' && tpState) ? ((tpState.planData ? tpState.planData.length : 0) + (tpState.testedList ? tpState.testedList.length : 0) + (tpState.weeklyPlans ? tpState.weeklyPlans.length : 0)) : 0;
-            if (_rTp >= _lTp) {
-                tpState = remoteData;
-                localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
-                if (typeof tpRender === 'function') tpRender();
-                pulled.push('Test Plan');
-            }
-        } else if (col === 'results') {
-            if (remoteData.tests && remoteData.tests.length >= raState.tests.length) {
-                raState = remoteData;
-                localStorage.setItem('kia_results_v1', JSON.stringify(raState));
-                if (typeof raRender === 'function') raRender();
-                pulled.push('Results (' + raState.tests.length + ' pruebas)');
-            }
-        } else if (col === 'inventory') {
-            // Puntaje = cilindros + lecturas + equipos, para no perder capturas por un remoto menor
-            var _invScoreFn = function(s) { var n = 0; if (s && s.gases) s.gases.forEach(function(g) { n += 1 + ((g.readings && g.readings.length) || 0); }); if (s && s.equipment) n += s.equipment.length; return n; };
-            if (_invScoreFn(remoteData) >= _invScoreFn(typeof invState !== 'undefined' ? invState : {})) {
-                invState = remoteData;
-                localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
-                if (typeof invRender === 'function') invRender();
-                pulled.push('Inventory');
+        if (col === 'cop15' || col === 'testplan' || col === 'inventory') {
+            try {
+                _fbPullMergeModule(col, remoteData, pulled);
+            } catch(e) {
+                console.warn('fbPullApply: merge falló en ' + col + ', usando heurística por conteo', e);
+                _fbPullAdoptByCount(col, remoteData, pulled);
             }
         } else if (col === 'panel') {
             if (typeof pnState !== 'undefined') {
+                var _localOpsPn = (pnState.operators || []).slice();
                 Object.assign(pnState, remoteData);
+                pnState.operators = _fbMergeOperators(_localOpsPn, (remoteData && remoteData.operators) || []);
                 localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
                 if (typeof pnRender === 'function') pnRender();
                 pulled.push('Panel');
-            }
-        } else if (col === 'approvals') {
-            // Defensive: only adopt remote PA config when local has no webhookUrl yet.
-            // If the local station already has its own webhook, keep it — Smart Merge handles overrides.
-            if (typeof paConfig !== 'undefined' && typeof paApplyRemoteConfig === 'function') {
-                var localUrl = (paConfig.webhookUrl || '').trim();
-                if (!localUrl && remoteData && remoteData.webhookUrl) {
-                    var changed = paApplyRemoteConfig(remoteData);
-                    if (changed.length > 0) pulled.push('Power Automate (' + changed.length + ' campos)');
-                }
             }
         } else if (col === 'cop') {
             // Merge de juicios CoP guardados por id (no perder registros entre dispositivos)
@@ -1033,21 +1250,28 @@ function fbPullApply(collections, results, showFeedback) {
             if (typeof copSyncReload === 'function') copSyncReload();
             pulled.push('CoP');
         } else if (col === 'audit') {
-            // Merge del historial de cambios por id (no perder registros), orden cronológico, cap 1000
+            // Merge del historial de cambios por id (no perder registros), orden cronológico.
+            // Cap unificado con el local (AUDIT_MAX) — antes el pull truncaba a 1000 y encogía la historia.
             var _localAudit = []; try { _localAudit = JSON.parse(localStorage.getItem('kia_audit_trail')) || []; } catch(e) {}
             var _remoteAudit = Array.isArray(remoteData) ? remoteData : [];
             var _seenA = {}, _mergedA = [];
             _localAudit.concat(_remoteAudit).forEach(function(e) { if (e && e.id && !_seenA[e.id]) { _seenA[e.id] = true; _mergedA.push(e); } });
             _mergedA.sort(function(a, b) { return (a.ts || '') < (b.ts || '') ? -1 : (a.ts || '') > (b.ts || '') ? 1 : 0; });
-            if (_mergedA.length > 1000) _mergedA = _mergedA.slice(-1000);
+            var _auditCap = (typeof AUDIT_MAX !== 'undefined') ? AUDIT_MAX : 2000;
+            if (_mergedA.length > _auditCap) _mergedA = _mergedA.slice(-_auditCap);
             localStorage.setItem('kia_audit_trail', JSON.stringify(_mergedA));
+            if (typeof auditReloadFromStorage === 'function') auditReloadFromStorage();
             pulled.push('Historial');
         }
     });
 
     for (var ri = 0; ri < collections.length; ri++) fbQuotaRecord('read');
 
-    fbSync.lastSync = new Date();
+    // v15.6: lastSync solo cuando de verdad se aplicó algo — antes se ponía
+    // siempre y el indicador decía "Sync HH:MM" con 0 datos descargados
+    if (pulled.length > 0) fbSync.lastSync = new Date();
+    fbSync._pullCompleted = true; // el pull terminó sin error (gobierna el seed push)
+    fbSync._seedRetries = 0;
     fbSync.status = 'connected';
     fbSync.lastError = '';
     fbUpdateIndicator();
@@ -1068,16 +1292,15 @@ function fbHookSaves() {
     if (_fbHooksApplied) return;
     _fbHooksApplied = true;
 
+    // Nota: se preserva el valor de retorno (false = no se pudo persistir → no subir a la nube)
     var _origSaveDB = window.saveDB;
-    if (_origSaveDB) { window.saveDB = function() { _origSaveDB(); if (fbSyncModules.cop15) fbPush('cop15', db); }; }
+    if (_origSaveDB) { window.saveDB = function() { var ok = _origSaveDB(); if (ok !== false && fbSyncModules.cop15) fbPush('cop15', db); return ok; }; }
     var _origTpSave = window.tpSave;
-    if (_origTpSave) { window.tpSave = function() { _origTpSave(); if (fbSyncModules.testplan) fbPush('testplan', tpState); }; }
-    var _origRaSave = window.raSave;
-    if (_origRaSave) { window.raSave = function() { _origRaSave(); if (fbSyncModules.results) fbPush('results', raState); }; }
+    if (_origTpSave) { window.tpSave = function() { var ok = _origTpSave(); if (ok !== false && fbSyncModules.testplan) fbPush('testplan', tpState); return ok; }; }
     var _origInvSave = window.invSave;
-    if (_origInvSave) { window.invSave = function() { _origInvSave(); if (fbSyncModules.inventory) fbPush('inventory', invState); }; }
+    if (_origInvSave) { window.invSave = function() { var ok = _origInvSave(); if (ok !== false && fbSyncModules.inventory) fbPush('inventory', invState); return ok; }; }
     var _origPnSave = window.pnSave;
-    if (_origPnSave) { window.pnSave = function() { _origPnSave(); if (fbSyncModules.panel) fbPush('panel', pnState); }; }
+    if (_origPnSave) { window.pnSave = function() { var ok = _origPnSave(); if (ok !== false && fbSyncModules.panel) fbPush('panel', pnState); return ok; }; }
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -1092,7 +1315,7 @@ function fbStartListening() {
     if (fbSync._liveSync) return;  // Already active
 
     var _startedAt = Date.now();
-    var cols = ['cop15', 'testplan', 'results', 'inventory', 'approvals'];
+    var cols = ['cop15', 'testplan', 'inventory'];
 
     cols.forEach(function(col) {
         if (!fbSyncModules[col]) return; // Respect module enable/disable config
@@ -1160,7 +1383,7 @@ function fbHandleRemoteChange(col, docData, remoteSt) {
 
 function fbAutoMerge(col, parsedData, remoteSt) {
     // Build synthetic envelope so we can reuse fbMergeAnalyze
-    var synth = { cop15: null, testplan: null, results: null, inventory: null, approvals: null };
+    var synth = { cop15: null, testplan: null, inventory: null };
     synth[col] = parsedData;
 
     var analysis;
@@ -1174,18 +1397,25 @@ function fbAutoMerge(col, parsedData, remoteSt) {
     var conflictCnt = (a.conflicts || []).length;
     var label       = remoteSt.slice(0, 14);
 
-    if (newCount === 0 && conflictCnt === 0) return; // Nothing to do
+    // [v15.6] El plan de producción también es trabajo: un CSV re-importado en
+    // otra estación cambia planData/months/weeklyPlans sin agregar testedList —
+    // antes este return lo descartaba y las demás estaciones nunca lo recibían.
+    var planWork = col === 'testplan' && (a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged);
+
+    if (newCount === 0 && conflictCnt === 0 && !planWork) return; // Nothing to do
 
     // Conflicts: warn but do NOT auto-apply — technician must review manually
     if (conflictCnt > 0) {
         showToast('⚠️ ' + conflictCnt + ' conflicto(s) en ' + col +
             ' de ' + label + ' — revisar en Sincronización', 'warning', 8000);
-        if (newCount === 0) return;
+        if (newCount === 0 && !planWork) return;
     }
 
-    // Safe: only additive new items — apply automatically, never deletes local data
+    // Additive new items apply automatically; para testplan con cambios de plan
+    // se usa merge_all (adopta el import más nuevo por planImportDate, si no
+    // hace merge aditivo por desc — nunca borra datos locales)
     var choices = {};
-    choices[col] = 'new';
+    choices[col] = planWork ? 'merge_all' : 'new';
     try { fbMergeExecute(synth, analysis, choices); }
     catch(e) {
         console.warn('fbAutoMerge execute error (' + col + '):', e);
@@ -1193,13 +1423,20 @@ function fbAutoMerge(col, parsedData, remoteSt) {
         return;
     }
 
-    showToast('✓ Live sync: +' + newCount + ' en ' + col + ' de ' + label, 'success', 4000);
+    if (planWork) {
+        showToast('📦 Plan de producción actualizado desde otra estación', 'success', 5000);
+    } else {
+        showToast('✓ Live sync: +' + newCount + ' en ' + col + ' de ' + label, 'success', 4000);
+    }
 
     // Refresh relevant module UI (best-effort)
     try {
         if (col === 'cop15')     { refreshAllLists(); updateProgressBar(); }
-        if (col === 'testplan')  { if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies(); }
-        if (col === 'results')   { if (typeof raRender === 'function') raRender(); }
+        if (col === 'testplan')  {
+            if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies();
+            if (typeof tabCacheInvalidate === 'function') tabCacheInvalidate('tp');
+            if (typeof tpUpdateBadges === 'function') tpUpdateBadges();
+        }
         if (col === 'inventory') { if (typeof invRender === 'function') invRender(); }
     } catch(uiErr) { /* UI refresh is best-effort */ }
 }
@@ -1208,6 +1445,31 @@ function fbAutoMerge(col, parsedData, remoteSt) {
 function fbUpdateIndicator() {
     var el = document.getElementById('fb-sync-indicator');
     if (!el) return;
+
+    // [v15.6] Indicador honesto: "conectado" con el dispositivo VACÍO no es
+    // estar sincronizado — mostrar aviso ámbar y que el tap dispare la descarga
+    var emptyConnected = fbSync.status === 'connected'
+        && typeof _fbLocalIsEmpty === 'function' && _fbLocalIsEmpty();
+    if (emptyConnected) {
+        el.style.color = '#f59e0b';
+        el.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#f59e0b;margin-right:4px;animation:pulse 1s infinite;"></span>' +
+            '⚠ sin datos — toca para descargar';
+        el.onclick = function() { fbPullAll(true); };
+        el.title = 'Este dispositivo no tiene datos del laboratorio. Toca para descargarlos.';
+        return;
+    }
+    // [v15.6] Sin sesión de laboratorio: el tap abre el prompt de contraseña
+    if (fbSync.status === 'auth') {
+        el.style.color = '#22d3ee';
+        el.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#22d3ee;margin-right:4px;"></span>' +
+            '🔑 toca para conectar';
+        el.onclick = function() { fbShowAuthPrompt(); };
+        el.title = 'Ingresa la contraseña del laboratorio para sincronizar este dispositivo (una sola vez).';
+        return;
+    }
+    el.onclick = function() { fbShowSettings(); };
+    el.title = '';
+
     var colors = { off: '#475569', connecting: '#f59e0b', connected: '#10b981', syncing: '#3b82f6', error: '#ef4444' };
     var labels = { off: 'Offline', connecting: 'Conectando...', connected: fbSync._useREST ? 'REST Sync' : 'Sync', syncing: 'Syncing...', error: 'Error' };
     var color = colors[fbSync.status] || '#475569';
@@ -1305,7 +1567,7 @@ function fbShowSettings() {
         (hasConfig ? '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:12px;">' +
         '<div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:8px;">Modulos a sincronizar</div>' +
         (function() {
-            var mods = [{k:'cop15',l:'COP15 Cascade'},{k:'testplan',l:'Test Plan'},{k:'results',l:'Results'},{k:'inventory',l:'Inventario'},{k:'panel',l:'Panel'},{k:'approvals',l:'Power Automate (config webhook)'}];
+            var mods = [{k:'cop15',l:'COP15 Cascade'},{k:'testplan',l:'Test Plan'},{k:'inventory',l:'Inventario'},{k:'panel',l:'Panel'}];
             var h = '';
             mods.forEach(function(m) {
                 h += '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">' +
@@ -1443,7 +1705,7 @@ function fbMergeLoadStation(stationId, callback) {
     var quota = fbQuotaCheck('read');
     if (!quota.allowed) { showToast(quota.reason, 'error'); callback(null); return; }
 
-    var cols = ['cop15', 'testplan', 'results', 'inventory', 'approvals'];
+    var cols = ['cop15', 'testplan', 'inventory'];
 
     // REST API fallback
     if (fbSync._useREST || !fbSync.db) {
@@ -1501,7 +1763,7 @@ function fbMergeLoadStation(stationId, callback) {
 
 // ── Analyze differences between local and remote ──
 function fbMergeAnalyze(remoteData) {
-    var analysis = { cop15: null, testplan: null, results: null, inventory: null };
+    var analysis = { cop15: null, testplan: null, inventory: null };
 
     // ── COP15: compare vehicles by VIN ──
     if (remoteData.cop15 && remoteData.cop15.vehicles) {
@@ -1622,31 +1884,6 @@ function fbMergeAnalyze(remoteData) {
         };
     }
 
-    // ── Results: compare tests by VIN+testNumber ──
-    if (remoteData.results && remoteData.results.tests) {
-        var localTests = {};
-        (raState.tests || []).forEach(function(t) {
-            localTests[(t.vin || '') + '|' + (t.testNumber || '') + '|' + (t.dateStr || '')] = t;
-        });
-        var remoteTests = remoteData.results.tests || [];
-        var newResults = [], dupResults = [];
-
-        remoteTests.forEach(function(rt) {
-            var key = (rt.vin || '') + '|' + (rt.testNumber || '') + '|' + (rt.dateStr || '');
-            if (!localTests[key]) newResults.push(rt);
-            else dupResults.push(key);
-        });
-
-        analysis.results = {
-            localCount: raState.tests.length,
-            remoteCount: remoteTests.length,
-            newItems: newResults,
-            duplicates: dupResults,
-            conflicts: [],
-            remoteTs: remoteData.results_ts || null
-        };
-    }
-
     // ── Inventory: compare gases by controlNo, equipment by name ──
     if (remoteData.inventory) {
         var localGases = {};
@@ -1690,41 +1927,16 @@ function fbMergeAnalyze(remoteData) {
         };
     }
 
-    // ── Power Automate config (approvals) ──
-    if (remoteData.approvals) {
-        var local = typeof paConfig !== 'undefined' ? paConfig : null;
-        var remote = remoteData.approvals;
-        var fields = (typeof PA_SHAREABLE_FIELDS !== 'undefined') ? PA_SHAREABLE_FIELDS
-            : ['enabled', 'webhookUrl', 'triggerOnRegister', 'triggerOnRelease', 'includePdfOnRelease'];
-        var diffs = [];
-        fields.forEach(function (f) {
-            var lv = local ? local[f] : undefined;
-            var rv = remote[f];
-            if (lv !== rv) diffs.push(f);
-        });
-        var localHasUrl = !!(local && (local.webhookUrl || '').trim());
-        var remoteHasUrl = !!((remote.webhookUrl || '').trim());
-        analysis.approvals = {
-            diffs: diffs,
-            localHasUrl: localHasUrl,
-            remoteHasUrl: remoteHasUrl,
-            canAdopt: remoteHasUrl,
-            local: local,
-            remote: remote,
-            remoteTs: remoteData.approvals_ts || null
-        };
-    }
-
     return analysis;
 }
 
 // ── Execute merge for selected modules ──
 function fbMergeExecute(remoteData, analysis, choices) {
     // Save snapshot for undo BEFORE merging
+    // (v15.6: se quitó raState del snapshot — no estaba definido y crasheaba el merge manual)
     var snapshot = {
         cop15: JSON.parse(JSON.stringify(db)),
         testplan: JSON.parse(JSON.stringify(tpState)),
-        results: JSON.parse(JSON.stringify(raState)),
         inventory: JSON.parse(JSON.stringify(invState))
     };
 
@@ -1853,6 +2065,12 @@ function fbMergeExecute(remoteData, analysis, choices) {
                     if (remoteData.testplan.planImportDate) tpState.planImportDate = remoteData.testplan.planImportDate;
                     if (remoteData.testplan.lastDiff) tpState.lastDiff = remoteData.testplan.lastDiff;
                     if (remoteData.testplan.lastDiffDate) tpState.lastDiffDate = remoteData.testplan.lastDiffDate;
+                    // [v15.6] Los meses dinámicos van con el plan: las columnas de
+                    // volumen dependen de esos labels — sin esto, un CSV con un mes
+                    // nuevo llegaba a las demás estaciones con columnas desalineadas
+                    if (remoteData.testplan.months && remoteData.testplan.months.length) {
+                        tpState.months = remoteData.testplan.months;
+                    }
                 } else {
                     // Merge: add configs from remote that aren't in local
                     var localDescs = {};
@@ -1903,23 +2121,6 @@ function fbMergeExecute(remoteData, analysis, choices) {
         if (typeof tpRender === 'function') tpRender();
     }
 
-    // Results
-    if (choices.results && analysis.results) {
-        if (choices.results === 'new') {
-            analysis.results.newItems.forEach(function(t) { raState.tests.push(t); });
-            merged.push('Results: +' + analysis.results.newItems.length + ' pruebas');
-        } else if (choices.results === 'replace') {
-            raState = remoteData.results;
-            merged.push('Results: reemplazado');
-        } else if (choices.results === 'merge_all') {
-            analysis.results.newItems.forEach(function(t) { raState.tests.push(t); });
-            merged.push('Results: +' + analysis.results.newItems.length + ' pruebas nuevas');
-        }
-        localStorage.setItem('kia_results_v1', JSON.stringify(raState));
-        if (typeof raRender === 'function') raRender();
-        if (typeof raUpdateBadges === 'function') raUpdateBadges();
-    }
-
     // Inventory
     if (choices.inventory && analysis.inventory) {
         if (choices.inventory === 'new') {
@@ -1944,17 +2145,6 @@ function fbMergeExecute(remoteData, analysis, choices) {
         }
         localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
         if (typeof invRender === 'function') invRender();
-    }
-
-    // Power Automate config
-    if (choices.approvals === 'adopt' && analysis.approvals && analysis.approvals.remote &&
-        typeof paApplyRemoteConfig === 'function') {
-        var changedFields = paApplyRemoteConfig(analysis.approvals.remote);
-        if (changedFields.length > 0) {
-            merged.push('Power Automate: ' + changedFields.length + ' campo(s) actualizados (stationName conservado)');
-        } else {
-            merged.push('Power Automate: sin cambios efectivos');
-        }
     }
 
     // Record in merge history
@@ -2008,11 +2198,6 @@ function fbMergeUndo() {
                 tpState = last.snapshot.testplan;
                 localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
                 if (typeof tpRender === 'function') tpRender();
-            }
-            if (last.snapshot.results) {
-                raState = last.snapshot.results;
-                localStorage.setItem('kia_results_v1', JSON.stringify(raState));
-                if (typeof raRender === 'function') raRender();
             }
             if (last.snapshot.inventory) {
                 invState = last.snapshot.inventory;
@@ -2248,28 +2433,6 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
         html += '</div>';
     }
 
-    // ── Results ──
-    var ra = analysis.results;
-    if (ra) {
-        var hasChanges = ra.newItems.length > 0;
-        html += '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:8px;' + (hasChanges ? 'border-color:#06b6d4;' : '') + '">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-        html += '<span style="font-weight:700;font-size:12px;">Results Analyzer</span>';
-        html += '<span style="font-size:9px;color:#64748b;">Local: ' + ra.localCount + ' | Remoto: ' + ra.remoteCount + '</span></div>';
-        html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">';
-        html += '<span style="color:#10b981;font-weight:700;">+' + ra.newItems.length + ' nuevos</span>';
-        html += ' &nbsp; <span style="color:#64748b;">' + ra.duplicates.length + ' duplicados</span></div>';
-        if (hasChanges) {
-            html += '<select id="fb-merge-results" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:10px;">';
-            html += '<option value="">No fusionar</option>';
-            html += '<option value="new" selected>Solo nuevos (+' + ra.newItems.length + ')</option>';
-            html += '<option value="replace">Reemplazar todo con remoto</option></select>';
-        } else {
-            html += '<div style="font-size:10px;color:#10b981;">Sin diferencias</div>';
-        }
-        html += '</div>';
-    }
-
     // ── Inventory ──
     var inv = analysis.inventory;
     if (inv) {
@@ -2290,33 +2453,6 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
         } else {
             html += '<div style="font-size:10px;color:#10b981;">Sin diferencias</div>';
         }
-        html += '</div>';
-    }
-
-    // ── Power Automate ──
-    var pa = analysis.approvals;
-    if (pa && pa.canAdopt) {
-        var adoptDefault = pa.localHasUrl ? '' : 'adopt';
-        var borderColor = pa.localHasUrl ? '#f59e0b' : '#10b981';
-        var headline = pa.localHasUrl
-            ? 'Conflicto: local ya tiene URL distinta. Por defecto se mantiene local.'
-            : 'Adoptar config remota — local está vacía.';
-        var headlineColor = pa.localHasUrl ? '#fbbf24' : '#34d399';
-        html += '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:8px;border-color:' + borderColor + ';">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-        html += '<span style="font-weight:700;font-size:12px;">Power Automate</span>';
-        html += '<span style="font-size:9px;color:#64748b;">' + (pa.diffs.length) + ' campo(s) distintos</span></div>';
-        html += '<div style="font-size:10px;color:' + headlineColor + ';margin-bottom:6px;font-weight:600;">' + headline + '</div>';
-        html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;font-family:monospace;">URL remota: ' + _fbMaskWebhook(pa.remote.webhookUrl) + '</div>';
-        var togglesChanged = pa.diffs.filter(function (f) { return f !== 'webhookUrl'; });
-        if (togglesChanged.length > 0) {
-            html += '<div style="font-size:9px;color:#94a3b8;margin-bottom:6px;">Cambia: ' + togglesChanged.join(', ') + '</div>';
-        }
-        html += '<div style="font-size:9px;color:#64748b;margin-bottom:6px;font-style:italic;">Nombre de Estación NO se copia — cada estación conserva el suyo.</div>';
-        html += '<select id="fb-merge-approvals" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:10px;">';
-        html += '<option value=""' + (adoptDefault === '' ? ' selected' : '') + '>No fusionar</option>';
-        html += '<option value="adopt"' + (adoptDefault === 'adopt' ? ' selected' : '') + '>Adoptar config remota (excepto Nombre de Estación)</option>';
-        html += '</select>';
         html += '</div>';
     }
 
@@ -2351,12 +2487,8 @@ function fbMergeConfirmAndExecute() {
     if (s && s.value) choices.cop15 = s.value;
     s = document.getElementById('fb-merge-testplan');
     if (s && s.value) choices.testplan = s.value;
-    s = document.getElementById('fb-merge-results');
-    if (s && s.value) choices.results = s.value;
     s = document.getElementById('fb-merge-inventory');
     if (s && s.value) choices.inventory = s.value;
-    s = document.getElementById('fb-merge-approvals');
-    if (s && s.value) choices.approvals = s.value;
 
     if (Object.keys(choices).length === 0) {
         showToast('Selecciona al menos un modulo para fusionar', 'info');
@@ -2366,9 +2498,7 @@ function fbMergeConfirmAndExecute() {
     var actions = [];
     if (choices.cop15) actions.push('COP15: ' + choices.cop15);
     if (choices.testplan) actions.push('TestPlan: ' + choices.testplan);
-    if (choices.results) actions.push('Results: ' + choices.results);
     if (choices.inventory) actions.push('Inventory: ' + choices.inventory);
-    if (choices.approvals) actions.push('Power Automate: ' + choices.approvals);
 
     showConfirmDialog({ title: '🔀 Ejecutar merge', message: 'Ejecutar merge desde ' + (window._fbMergeRemoteId || '?') + '?\n\n' + actions.join('\n') + '\n\nSe guardara un snapshot para poder deshacer.', type: 'warning', confirmText: 'Ejecutar', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
@@ -2437,20 +2567,34 @@ function fbShowUpdateBanner(remoteBuild, downloadUrl, dismissKey) {
         'background:#0f172a;border:1px solid #f59e0b;border-radius:12px;padding:12px 18px;' +
         'display:flex;align-items:center;gap:12px;z-index:9999;' +
         'box-shadow:0 4px 24px rgba(0,0,0,0.6);color:#e2e8f0;font-size:13px;max-width:90vw;';
+    // [v15.6] El botón actualiza la PWA en el lugar (reg.update + reload) —
+    // el link de descarga anterior bajaba un HTML crudo de GitHub y no
+    // actualizaba la app hosteada
     banner.innerHTML =
         '<span style="font-size:20px;">🔄</span>' +
         '<span>Nueva versión disponible: <strong>' + dateStr + '</strong></span>' +
-        (downloadUrl
-            ? '<a href="' + downloadUrl + '" download="kia-emlab-unified.html"' +
-              ' style="background:#f59e0b;color:#000;padding:6px 14px;border-radius:8px;' +
-              'font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0;">' +
-              'Descargar →</a>'
-            : '') +
+        '<button onclick="fbApplyUpdate()"' +
+        ' style="background:#f59e0b;color:#000;padding:8px 14px;border:none;border-radius:8px;' +
+        'font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;min-height:40px;">' +
+        'Actualizar ahora</button>' +
         '<button onclick="localStorage.setItem(\'' + dismissKey + '\',\'1\');' +
             'document.getElementById(\'kia-update-banner\').remove();"' +
             ' style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;' +
             'padding:0 4px;flex-shrink:0;" title="Recordar después">✕</button>';
     document.body.appendChild(banner);
+}
+
+// Aplica la actualización de la PWA: revalida el SW y recarga (el HTML se
+// sirve con max-age=300 y el SW es network-first, la recarga trae el bundle nuevo)
+function fbApplyUpdate() {
+    var reload = function() { location.reload(); };
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration()
+            .then(function(reg) { return reg ? reg.update() : null; })
+            .then(reload, reload);
+    } else {
+        reload();
+    }
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -2485,10 +2629,10 @@ function fbBackupNow(callback) {
     if (!quota.allowed) { console.warn('Backup skipped (quota): ' + quota.reason); if (callback) callback(false); return; }
 
     var today = new Date().toISOString().slice(0, 10);
+    // (v15.6: se quitó raState del snapshot — no estaba definido y crasheaba el backup)
     var snapshot = {
         cop15: { vehicleCount: (db.vehicles || []).length, data: db },
         testplan: { testedCount: (tpState.testedList || []).length, data: tpState },
-        results: { testCount: (raState.tests || []).length, data: raState },
         inventory: { gasCount: (invState.gases || []).length, equipCount: (invState.equipment || []).length, data: invState },
         meta: {
             station: fbSync.stationId,
@@ -2573,7 +2717,6 @@ function fbBackupList(callback) {
                     date: d.meta ? d.meta.date : doc.id,
                     timestamp: d.meta ? d.meta.timestamp : '',
                     vehicles: d.cop15 ? d.cop15.vehicleCount : '?',
-                    tests: d.results ? d.results.testCount : '?',
                     gases: d.inventory ? d.inventory.gasCount : '?'
                 });
             });
@@ -2596,7 +2739,6 @@ function fbBackupRestore(backupId, modules) {
     var snapshot = {
         cop15: typeof safeParse === 'function' ? safeParse('kia_db_v11', null) : JSON.parse(localStorage.getItem('kia_db_v11') || 'null'),
         testplan: typeof safeParse === 'function' ? safeParse('kia_testplan_v1', null) : JSON.parse(localStorage.getItem('kia_testplan_v1') || 'null'),
-        results: typeof safeParse === 'function' ? safeParse('kia_results_v1', null) : JSON.parse(localStorage.getItem('kia_results_v1') || 'null'),
         inventory: typeof safeParse === 'function' ? safeParse('kia_lab_inventory', null) : JSON.parse(localStorage.getItem('kia_lab_inventory') || 'null')
     };
     try { localStorage.setItem('kia_fb_prerestore_snapshot', JSON.stringify(snapshot)); } catch(e) {}
@@ -2620,12 +2762,6 @@ function fbBackupRestore(backupId, modules) {
                 localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
                 if (typeof tpRender === 'function') tpRender();
                 restored.push('Test Plan');
-            }
-            if (modules.results && d.results && d.results.data) {
-                raState = d.results.data;
-                localStorage.setItem('kia_results_v1', JSON.stringify(raState));
-                if (typeof raRender === 'function') raRender();
-                restored.push('Results');
             }
             if (modules.inventory && d.inventory && d.inventory.data) {
                 invState = d.inventory.data;
@@ -2655,7 +2791,6 @@ function fbBackupRestoreSelectModules(backupId) {
     var mods = [
         { key: 'cop15', label: 'COP15 (Vehiculos)', icon: '🔬' },
         { key: 'testplan', label: 'Test Plan', icon: '📊' },
-        { key: 'results', label: 'Results Analyzer', icon: '🧪' },
         { key: 'inventory', label: 'Lab Inventory', icon: '📦' }
     ];
 
@@ -2682,7 +2817,6 @@ function fbBackupRestoreConfirm(backupId) {
     var modules = {
         cop15: document.getElementById('fb-restore-cop15') ? document.getElementById('fb-restore-cop15').checked : false,
         testplan: document.getElementById('fb-restore-testplan') ? document.getElementById('fb-restore-testplan').checked : false,
-        results: document.getElementById('fb-restore-results') ? document.getElementById('fb-restore-results').checked : false,
         inventory: document.getElementById('fb-restore-inventory') ? document.getElementById('fb-restore-inventory').checked : false
     };
     var anySelected = modules.cop15 || modules.testplan || modules.results || modules.inventory;
@@ -2699,7 +2833,6 @@ function fbBackupUndoRestore() {
 
         if (snapshot.cop15) { db = snapshot.cop15; localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
         if (snapshot.testplan) { tpState = snapshot.testplan; localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState)); if (typeof tpRender === 'function') tpRender(); }
-        if (snapshot.results) { raState = snapshot.results; localStorage.setItem('kia_results_v1', JSON.stringify(raState)); if (typeof raRender === 'function') raRender(); }
         if (snapshot.inventory) { invState = snapshot.inventory; localStorage.setItem('kia_lab_inventory', JSON.stringify(invState)); if (typeof invRender === 'function') invRender(); }
 
         localStorage.removeItem('kia_fb_prerestore_snapshot');
@@ -2725,7 +2858,7 @@ function fbBackupShowList() {
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:4px;border:1px solid #1e293b;border-radius:6px;background:#1e293b;">';
                 html += '<div>';
                 html += '<div style="font-size:11px;font-weight:700;">' + b.date + '</div>';
-                html += '<div style="font-size:9px;color:#64748b;">' + b.vehicles + ' vehiculos | ' + b.tests + ' pruebas | ' + b.gases + ' gases</div>';
+                html += '<div style="font-size:9px;color:#64748b;">' + b.vehicles + ' vehiculos | ' + b.gases + ' gases</div>';
                 html += '</div>';
                 html += '<button onclick="fbBackupRestore(\x27' + b.id + '\x27)" style="padding:5px 12px;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:10px;">Restaurar</button>';
                 html += '</div>';

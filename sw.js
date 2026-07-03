@@ -2,8 +2,11 @@
 // ║  KIA EmLab — Service Worker (PWA offline support)                  ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-// [Fase 4.3] Cache version — 202604281821 is replaced by build.sh
-var CACHE_VERSION = '202604281821';
+// [Fase 4.3] Cache version — build.sh reemplaza el placeholder en sw.build.js
+// (NUNCA editar este valor a mano ni dejar un timestamp pegado aquí: si el
+// placeholder desaparece, el SW queda byte-idéntico entre deploys y ningún
+// dispositivo vuelve a recibir actualizaciones — pasó del 28/abr al 02/jul/2026)
+var CACHE_VERSION = '__BUILD_VERSION__';
 var CACHE_NAME = 'kia-emlab-v' + CACHE_VERSION;
 
 var CDN_ASSETS = [

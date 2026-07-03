@@ -15,22 +15,34 @@ var AUTH_WEBAUTHN_LS = 'kia_webauthn_creds';
 var AUTH_OP_LS_KEY = 'kia_current_operator';
 
 // ── Initialization ──
-// Sin muro de login: se establece una sesión ligera con el operador actual (sin contraseña).
-// El "quién" solo sirve para atribución en el historial de cambios.
+// [v15.6] Muro de PIN reactivado (decisión de seguridad del usuario): sin
+// sesión válida (kia_auth_session con expiresAt vigente, 12h) la app muestra
+// el login de operadores y initializeSystem se detiene hasta autenticar.
 function authInit() {
-    var name = 'Laboratorio', role = 'Lab', id = 0;
+    // Sesión válida persistida → restaurar y continuar
     try {
-        var saved = localStorage.getItem(AUTH_OP_LS_KEY);
-        if (saved) { var o = JSON.parse(saved); if (o && o.name) { name = o.name; role = o.role || 'Técnico'; id = o.id || 0; } }
+        var saved = localStorage.getItem(AUTH_LS_KEY);
+        if (saved) {
+            var session = JSON.parse(saved);
+            if (session.expiresAt && new Date(session.expiresAt).getTime() > Date.now()) {
+                authState.currentUser = { id: session.operatorId, name: session.operatorName, role: session.role };
+                authState.sessionActive = true;
+                authState.sessionExpiry = new Date(session.expiresAt);
+                var overlay = document.getElementById('auth-overlay');
+                if (overlay) overlay.style.display = 'none';
+                authUpdateUI();
+                authFirebaseSignIn();
+                return;
+            }
+            // Sesión expirada
+            localStorage.removeItem(AUTH_LS_KEY);
+        }
     } catch(e) {}
-    authState.currentUser = { id: id, name: name, role: role };
-    authState.sessionActive = true;
-    authState.sessionExpiry = null;
-    var overlay = document.getElementById('auth-overlay');
-    if (overlay) overlay.style.display = 'none';
-    authUpdateUI();
-    authRenderOperatorPicker();
-    authFirebaseSignIn();
+
+    // Sin sesión válida → muro de login (el gate de initializeSystem corta)
+    authState.sessionActive = false;
+    authState.currentUser = null;
+    authShowLogin();
 }
 
 // ── Login Screen ──
@@ -64,13 +76,13 @@ function authShowLogin() {
         html += '</div>';
         html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">';
         operators.forEach(function(op, idx) {
-            var initials = op.name.split(' ').map(function(w) { return w[0]; }).join('').substring(0, 2).toUpperCase();
+            var initials = authInitials(op.name);
             var colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
             var c = colors[idx % colors.length];
-            html += '<button onclick="authBypassForOperator(' + op.id + ',\'' + op.name.replace(/'/g, "\\'") + '\',\'' + (op.role || 'Técnico').replace(/'/g, "\\'") + '\')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111827;border:2px solid #1e293b;border-radius:12px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'' + c + '\'" onmouseout="this.style.borderColor=\'#1e293b\'">';
-            html += '<div style="width:50px;height:50px;border-radius:50%;background:' + c + '20;color:' + c + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">' + initials + '</div>';
-            html += '<div style="color:#e2e8f0;font-size:12px;font-weight:700;">' + op.name + '</div>';
-            html += '<div style="color:#64748b;font-size:9px;">' + (op.role || 'Técnico') + '</div>';
+            html += '<button onclick="authBypassForOperator(' + idx + ')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111827;border:2px solid #1e293b;border-radius:12px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'' + c + '\'" onmouseout="this.style.borderColor=\'#1e293b\'">';
+            html += '<div style="width:50px;height:50px;border-radius:50%;background:' + c + '20;color:' + c + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">' + escapeHtml(initials) + '</div>';
+            html += '<div style="color:#e2e8f0;font-size:12px;font-weight:700;">' + escapeHtml(op.name) + '</div>';
+            html += '<div style="color:#64748b;font-size:9px;">' + escapeHtml(op.role || 'Técnico') + '</div>';
             html += '</button>';
         });
         html += '</div>';
@@ -78,14 +90,14 @@ function authShowLogin() {
         html += '<div style="color:#94a3b8;font-size:12px;text-align:center;margin-bottom:16px;">Selecciona tu usuario</div>';
         html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">';
         operators.forEach(function(op, idx) {
-            var initials = op.name.split(' ').map(function(w) { return w[0]; }).join('').substring(0, 2).toUpperCase();
+            var initials = authInitials(op.name);
             var colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
             var c = colors[idx % colors.length];
             var hasPin = !!op.pinHash;
             html += '<button onclick="authSelectOperator(' + idx + ')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111827;border:2px solid #1e293b;border-radius:12px;cursor:pointer;transition:all 0.2s;' + (!hasPin ? 'opacity:0.4;' : '') + '" ' + (!hasPin ? 'disabled title="Sin PIN configurado"' : '') + ' onmouseover="this.style.borderColor=\'' + c + '\'" onmouseout="this.style.borderColor=\'#1e293b\'">';
-            html += '<div style="width:50px;height:50px;border-radius:50%;background:' + c + '20;color:' + c + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">' + initials + '</div>';
-            html += '<div style="color:#e2e8f0;font-size:12px;font-weight:700;">' + op.name + '</div>';
-            html += '<div style="color:#64748b;font-size:9px;">' + (op.role || 'Técnico') + (hasPin ? '' : ' (sin PIN)') + '</div>';
+            html += '<div style="width:50px;height:50px;border-radius:50%;background:' + c + '20;color:' + c + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">' + escapeHtml(initials) + '</div>';
+            html += '<div style="color:#e2e8f0;font-size:12px;font-weight:700;">' + escapeHtml(op.name) + '</div>';
+            html += '<div style="color:#64748b;font-size:9px;">' + escapeHtml(op.role || 'Técnico') + (hasPin ? '' : ' (sin PIN)') + '</div>';
             html += '</button>';
         });
         html += '</div>';
@@ -114,7 +126,7 @@ function authSelectOperator(idx) {
     var webAuthnAvailable = window.PublicKeyCredential !== undefined && window.isSecureContext;
 
     var html = '<div style="margin-top:20px;padding:20px;background:#111827;border:2px solid #6366f1;border-radius:12px;text-align:center;">';
-    html += '<div style="font-size:13px;font-weight:700;color:#c4b5fd;margin-bottom:12px;">' + op.name + '</div>';
+    html += '<div style="font-size:13px;font-weight:700;color:#c4b5fd;margin-bottom:12px;">' + escapeHtml(op.name) + '</div>';
     html += '<div style="color:#94a3b8;font-size:11px;margin-bottom:14px;">Ingresa tu PIN de 4 digitos</div>';
 
     // PIN inputs
@@ -183,38 +195,75 @@ function authCheckComplete() {
     authVerifyAndLogin(pin);
 }
 
+// ── [v15.6] Lockout de PIN: 5 fallos → 60s bloqueado (persistido) ──
+var AUTH_LOCKOUT_KEY = 'kia_pin_lockout';
+var AUTH_MAX_FAILS = 5;
+var AUTH_LOCKOUT_MS = 60000;
+
+function _authLockoutGet(opId) {
+    try { return (JSON.parse(localStorage.getItem(AUTH_LOCKOUT_KEY)) || {})[opId] || { fails: 0, until: 0 }; }
+    catch(e) { return { fails: 0, until: 0 }; }
+}
+function _authLockoutSet(opId, rec) {
+    var all = {};
+    try { all = JSON.parse(localStorage.getItem(AUTH_LOCKOUT_KEY)) || {}; } catch(e) {}
+    all[opId] = rec;
+    try { localStorage.setItem(AUTH_LOCKOUT_KEY, JSON.stringify(all)); } catch(e) {}
+}
+
 function authVerifyAndLogin(pin) {
     var op = window._authSelectedOp;
     if (!op) return;
 
-    // Find the operator in the full pnState list to get the correct index
     var fullIdx = -1;
     pnState.operators.forEach(function(o, i) { if (o.id === op.id) fullIdx = i; });
     if (fullIdx === -1) return;
 
-    if (pnVerifyPin(fullIdx, pin)) {
-        authCreateSession(op);
-        // Offer biometric registration (only in secure context — no self-signed certs)
-        if (window.PublicKeyCredential && window.isSecureContext && !authHasStoredCredential(op.id)) {
-            setTimeout(function() { authOfferBiometricRegistration(op.id); }, 1500);
+    var err = document.getElementById('auth-pin-error');
+
+    // ¿Bloqueado?
+    var lock = _authLockoutGet(op.id);
+    if (lock.until && lock.until > Date.now()) {
+        var secs = Math.ceil((lock.until - Date.now()) / 1000);
+        if (err) err.textContent = 'Bloqueado por intentos fallidos. Reintenta en ' + secs + 's.';
+        return;
+    }
+
+    pnVerifyPinAsync(fullIdx, pin).then(function(ok) {
+        if (ok) {
+            _authLockoutSet(op.id, { fails: 0, until: 0 });
+            if (typeof auditLog === 'function') auditLog('auth', 'login', { type: 'operator', label: op.name });
+            authCreateSession(op);
+            if (window.PublicKeyCredential && window.isSecureContext && !authHasStoredCredential(op.id)) {
+                setTimeout(function() { authOfferBiometricRegistration(op.id); }, 1500);
+            }
+            return;
         }
-    } else {
-        var err = document.getElementById('auth-pin-error');
-        if (err) err.textContent = 'PIN incorrecto. Intenta de nuevo.';
-        // Clear inputs
+        // Fallo: contar y quizá bloquear
+        var rec = _authLockoutGet(op.id);
+        rec.fails = (rec.fails || 0) + 1;
+        if (rec.fails >= AUTH_MAX_FAILS) { rec.until = Date.now() + AUTH_LOCKOUT_MS; rec.fails = 0; }
+        _authLockoutSet(op.id, rec);
+        if (typeof auditLog === 'function') auditLog('auth', 'login_failed', { type: 'operator', label: op.name });
+
+        if (rec.until && rec.until > Date.now()) {
+            if (err) err.textContent = 'Demasiados intentos. Bloqueado 60 segundos.';
+        } else if (err) {
+            err.textContent = 'PIN incorrecto (' + rec.fails + '/' + AUTH_MAX_FAILS + '). Intenta de nuevo.';
+        }
         for (var i = 0; i < 4; i++) {
             var d = document.getElementById('auth-pin-' + i);
             if (d) { d.value = ''; d.style.borderColor = '#ef4444'; }
         }
         setTimeout(function() {
-            for (var i = 0; i < 4; i++) {
-                var d = document.getElementById('auth-pin-' + i);
-                if (d) d.style.borderColor = '#334155';
+            for (var j = 0; j < 4; j++) {
+                var e2 = document.getElementById('auth-pin-' + j);
+                if (e2) e2.style.borderColor = '#334155';
             }
             var first = document.getElementById('auth-pin-0');
             if (first) first.focus();
         }, 800);
-    }
+    });
 }
 
 // ── Session Management ──
@@ -242,18 +291,30 @@ function authCreateSession(op) {
 
     // Continue app initialization
     authUpdateUI();
+    authRenderOperatorPicker();
     if (typeof initializeSystem !== 'undefined') {
         // Re-run init now that we're authenticated
         initializeSystem();
     }
 
-    // Firebase anonymous sign-in (for security rules)
+    // Sesión de dispositivo con Firebase (Email/Password)
     authFirebaseSignIn();
 }
 
-// Sin login: "salir" simplemente vuelve al operador genérico 'Laboratorio'.
+// [v15.6] Cerrar sesión → volver al muro de login (con confirmación)
 function authSignOut() {
-    authSetOperator('Laboratorio', 'Lab', 0);
+    var doSignOut = function() {
+        var prev = authState.currentUser;
+        if (prev && typeof auditLog === 'function') auditLog('auth', 'logout', { type: 'operator', label: prev.name });
+        try { localStorage.removeItem(AUTH_LS_KEY); } catch(e) {}
+        authState.currentUser = null;
+        authState.sessionActive = false;
+        authState.sessionExpiry = null;
+        authShowLogin();
+    };
+    if (typeof showConfirmDialog === 'function') {
+        showConfirmDialog({ title: 'Cambiar usuario', message: '¿Cerrar sesión y volver a la pantalla de acceso?', type: 'info', confirmText: 'Cerrar sesión', cancelText: 'Cancelar' }).then(function(ok) { if (ok) doSignOut(); });
+    } else { doSignOut(); }
 }
 
 function authGetCurrentUser() {
@@ -281,24 +342,23 @@ function authOnPickOperator(sel) {
     authSetOperator(sel.value, op ? (op.role || 'Técnico') : 'Técnico', op ? op.id : 0);
 }
 
+// [v15.6] Con el muro de PIN reactivado, el selector sin contraseña se
+// retira: el chip muestra el usuario de la sesión y permite cambiar de
+// usuario (cierra sesión → login con PIN).
 function authRenderOperatorPicker() {
     var el = document.getElementById('op-picker');
     if (!el) return;
-    var ops = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }) : [];
     var cur = (authState.currentUser && authState.currentUser.name) || 'Laboratorio';
-    var html = '<span style="font-size:11px;margin-right:3px;" title="Operador actual">👤</span>';
-    html += '<select onchange="authOnPickOperator(this)" title="Operador actual (para el historial de cambios)" style="font-size:10px;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:2px 6px;max-width:160px;">';
-    html += '<option value="__lab__"' + (cur === 'Laboratorio' ? ' selected' : '') + '>Laboratorio</option>';
-    ops.forEach(function(o) {
-        var nm = String(o.name).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-        html += '<option value="' + nm + '"' + (cur === o.name ? ' selected' : '') + '>' + nm + '</option>';
-    });
-    html += '</select>';
-    el.innerHTML = html;
+    el.innerHTML = '<button onclick="authSignOut()" title="Cambiar de usuario (cerrar sesión)" ' +
+        'style="display:flex;align-items:center;gap:4px;font-size:11px;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:4px 8px;cursor:pointer;max-width:170px;min-height:32px;">' +
+        '<span>👤</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(cur) + '</span></button>';
 }
 
 function authBypassLogin() {
-    // For initial setup when no operators exist
+    // [v15.6] Solo para el setup inicial: si ya existe cualquier operador, el
+    // bypass de administrador queda deshabilitado (no es una puerta trasera)
+    var anyOp = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.some(function(o) { return !o.deleted; }) : false;
+    if (anyOp) { showToast('Selecciona un operador e ingresa tu PIN.', 'error'); return; }
     authState.currentUser = { id: 0, name: 'Administrador', role: 'Admin' };
     authState.sessionActive = true;
     var expiry = new Date(Date.now() + 2 * 3600000); // 2 hours for admin bypass
@@ -314,10 +374,21 @@ function authBypassLogin() {
     authFirebaseSignIn();
 }
 
-function authBypassForOperator(id, name, role) {
-    // Quick entry when PINs haven't been set yet
-    var op = { id: id, name: name, role: role };
-    authCreateSession(op);
+function authBypassForOperator(idx) {
+    // [v15.6] Entrada rápida SOLO durante el setup inicial (ningún operador
+    // tiene PIN todavía). Si ya hay algún PIN configurado, se exige PIN.
+    var operators = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }) : [];
+    var op = operators[idx];
+    if (!op) return;
+    var anyPin = operators.some(function(o) { return o.pinHash || o.pinHash2; });
+    if (anyPin) { showSelected(idx); return; }
+    if (typeof auditLog === 'function') auditLog('auth', 'login', { type: 'operator', label: op.name });
+    authCreateSession({ id: op.id, name: op.name, role: op.role || 'Técnico' });
+}
+
+// Helper: cuando el bypass no aplica, ir a la pantalla de PIN del operador
+function showSelected(idx) {
+    if (typeof authSelectOperator === 'function') authSelectOperator(idx);
 }
 
 // ── UI Updates ──
@@ -461,28 +532,10 @@ function authVerifyBiometric() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 function authFirebaseSignIn() {
-    // Anonymous sign-in to Firebase for Firestore security rules
-    if (typeof firebase === 'undefined') return;
-    if (!firebase.apps || firebase.apps.length === 0) return;
-
-    // Skip on non-HTTP origins (content://, file://) — signInAnonymously() may hang
-    // and poison the Firebase SDK internal state, causing Firestore operations to hang too
-    var proto = location.protocol;
-    if (proto !== 'http:' && proto !== 'https:') {
-        console.log('Firebase auth: Skipping on ' + proto + ' origin');
-        return;
-    }
-
-    try {
-        var auth = firebase.auth();
-        if (auth.currentUser) return; // Already signed in
-
-        auth.signInAnonymously().then(function() {
-            console.log('Firebase anonymous auth successful');
-        }).catch(function(err) {
-            console.warn('Firebase anonymous auth failed:', err);
-        });
-    } catch(e) {
-        console.warn('Firebase auth error:', e);
+    // [v15.6] Ya no hay sign-in anónimo (las Security Rules lo rechazan).
+    // La sesión del dispositivo es Email/Password y la gestiona firebase-sync
+    // (fbEnsureAuth + prompt de contraseña); aquí solo se delega.
+    if (typeof fbEnsureAuth === 'function') {
+        try { fbEnsureAuth(); } catch(e) { console.warn('authFirebaseSignIn:', e); }
     }
 }

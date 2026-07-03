@@ -303,7 +303,20 @@ if (tpState.recoveryUntil === undefined) tpState.recoveryUntil = null; // fecha 
 if (tpState.maxTiers === undefined) tpState.maxTiers = 3; // niveles de prioridad (1..10)
 if (!tpState.months || !tpState.months.length) tpState.months = TP_MONTHS.slice(); // meses de producción dinámicos
 
-function tpSave() { _tpInvalidateCache(); tpState._lastSave = Date.now(); localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState)); tabCacheInvalidate('tp'); }
+function tpSave() {
+    _tpInvalidateCache();
+    tpState._lastSave = Date.now();
+    try {
+        localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState));
+    } catch(e) {
+        console.error('tpSave: localStorage lleno', e);
+        try { showToast('⚠️ Almacenamiento lleno — no se guardó el Plan. Libera espacio en Panel → Sistema.', 'error'); } catch(e2) {}
+        tabCacheInvalidate('tp');
+        return false;
+    }
+    tabCacheInvalidate('tp');
+    return true;
+}
 
 // ── [Fase 5.3] Compact old completed plans (older than 6 months) ──
 function tpCompactOldPlans() {
@@ -460,7 +473,8 @@ function tpLoadPlanFromCSV_CONFIGURATIONS() {
 }
 
 // ── Auto-feed from COP15 releases ──
-function tpAutoFeedFromRelease(vehicle) {
+// opts.skipSave: el llamador (cascada de liberación) hace un único tpSave al final
+function tpAutoFeedFromRelease(vehicle, opts) {
     if (!vehicle || !vehicle.configCode) return;
     if (!TP_PURPOSES_VALID.includes(vehicle.purpose)) return;
     // Ad-hoc vehicles are explicitly excluded from plan accounting.
@@ -471,13 +485,13 @@ function tpAutoFeedFromRelease(vehicle) {
 
     const entry = {
         configText: vehicle.configCode,
-        date: new Date().toISOString().slice(0,10),
+        date: localToday(),
         note: `VIN: ${vehicle.vin} — Auto desde COP15`,
         source: 'cop15-release',
         purpose: vehicle.purpose,
     };
     tpState.testedList.push(entry);
-    tpSave();
+    if (!(opts && opts.skipSave)) tpSave();
     tpUpdateBadges();
     auditLog('tp', 'vehicle_tested', {type:'plan', label:vehicle.configCode}, 'VIN: ' + (vehicle.vin || ''));
 }
@@ -1185,10 +1199,11 @@ function tpRenderBurndownChart(stats) {
 }
 
 function tpISOWeekKey(d) {
-    var dt = new Date(d);
+    // parse local ('YYYY-MM-DD' con new Date() es UTC y corre el día); copiar si ya es Date
+    var dt = (d instanceof Date) ? new Date(d) : parseLocalDate(d);
     dt.setHours(0, 0, 0, 0);
     dt.setDate(dt.getDate() - (dt.getDay() || 7) + 1); // Monday
-    return dt.toISOString().slice(0, 10);
+    return localDateStr(dt);
 }
 
 // ═══ DASHBOARD CHART RENDERER ═══
@@ -1407,7 +1422,7 @@ function tpExportGapCSV() {
     var blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'gap_analysis_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.download = 'gap_analysis_' + localToday() + '.csv';
     a.click();
     showToast('CSV gap analysis exportado', 'success');
 }
@@ -1428,7 +1443,6 @@ function tpExportPlanJSON() {
         var tested = (typeof tpState !== 'undefined' && tpState.testedList) ? tpState.testedList : [];
         var weekly = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
         var vehicles = (typeof db !== 'undefined' && db && db.vehicles) ? db.vehicles : [];
-        var raTests = (typeof raState !== 'undefined' && raState && raState.tests) ? raState.tests : [];
 
         // Unidades liberadas (archivadas) desde COP15
         var released = vehicles.filter(function(v) { return v.status === 'archived'; }).map(function(v) {
@@ -1561,19 +1575,14 @@ function tpExportPlanJSON() {
             planSemanal: planSemanal,
             familias: familias,
             calendario: calendario,
-            calendarioVariantes: calendarioVariantes,
-            kpis: {
-                resultadosRegistrados: raTests.length,
-                perfilesRegulacion: (typeof raState !== 'undefined' && raState && raState.profiles) ? raState.profiles.length : 0,
-                pruebasUltimos30d: raTests.filter(function(t) { var d = t.date || t.fecha; return d && (Date.now() - new Date(d).getTime()) < 30 * 864e5; }).length
-            }
+            calendarioVariantes: calendarioVariantes
         };
 
         var json = JSON.stringify(payload, null, 2);
         var blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'kia_emlab_plan_' + new Date().toISOString().slice(0, 10) + '.json';
+        a.download = 'kia_emlab_plan_' + localToday() + '.json';
         a.click();
         setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
         showToast('Datos del Plan exportados (JSON) — ' + tested.length + ' probadas, ' + released.length + ' liberadas', 'success');
@@ -1604,7 +1613,7 @@ function tpRenderTested(el) {
             </div>
             <div style="width:130px;">
                 <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Fecha</label>
-                <input class="tp-input" type="date" id="tp-manual-date" value="${new Date().toISOString().slice(0,10)}">
+                <input class="tp-input" type="date" id="tp-manual-date" value="${localToday()}">
             </div>
             <div style="flex:1;min-width:150px;">
                 <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Nota (VIN, etc.)</label>
@@ -1734,7 +1743,8 @@ function tpImportJSON() {
             const configText = r.configCode || r.codigo_config_text || r.configText || '';
             const purpose = r.purpose || '';
             if (configText && TP_PURPOSES_VALID.includes(purpose)) {
-                tpState.testedList.push({ configText, date: r.archivedAt?.slice(0,10) || r.registeredAt?.slice(0,10) || new Date().toISOString().slice(0,10), note: `VIN: ${r.vin||'?'}`, source:'json-import', purpose });
+                const tsImp = r.archivedAt || r.registeredAt;
+                tpState.testedList.push({ configText, date: tsImp ? localDateStr(new Date(tsImp)) : localToday(), note: `VIN: ${r.vin||'?'}`, source:'json-import', purpose });
                 added++;
             }
         });
@@ -1787,7 +1797,8 @@ function tpRecoverFromCOP15() {
         // Skip if VIN already registered
         if (existingVINs[v.vin]) { skipped++; return; }
 
-        var date = (v.archivedAt || v.registeredAt || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+        var tsArch = v.archivedAt || v.registeredAt;
+        var date = tsArch ? localDateStr(new Date(tsArch)) : localToday();
         var key = v.configCode + '|' + date;
 
         // Also skip if same configText+date already exists (unlikely but safe)
@@ -1863,7 +1874,7 @@ function tpRenderRules(el) {
                             <span style="font-size:11px;">${label}</span>
                             <span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tp-amber)">${w[k]}%</span>
                         </div>
-                        <input type="range" min="0" max="100" step="5" value="${w[k]}" style="width:100%;accent-color:var(--tp-amber);" oninput="tpState.weights.${k}=+this.value;tpInvalidateCache();tpSave();_tpDebouncedRender();">
+                        <input type="range" min="0" max="100" step="5" value="${w[k]}" style="width:100%;accent-color:var(--tp-amber);" oninput="tpState.weights.${k}=+this.value;tpInvalidateCache();_tpDebouncedRender();" onchange="tpSave();">
                     </div>
                 `).join('')}
                 <div style="margin-top:8px;padding:8px;background:#161f2e;border-radius:6px;text-align:center;">
@@ -1879,7 +1890,7 @@ function tpRenderRules(el) {
                             <span style="font-size:11px;color:${tpRegionColor(r)};font-weight:600;">${r==='*'?'Otras (default)':r}</span>
                             <span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tp-amber)">${rp[r]!==undefined?rp[r]:50}</span>
                         </div>
-                        <input type="range" min="0" max="100" step="5" value="${rp[r]!==undefined?rp[r]:50}" style="width:100%;accent-color:${tpRegionColor(r)};" oninput="if(!tpState.regionPriority)tpState.regionPriority={};tpState.regionPriority['${r}']=+this.value;tpInvalidateCache();tpSave();_tpDebouncedRender();">
+                        <input type="range" min="0" max="100" step="5" value="${rp[r]!==undefined?rp[r]:50}" style="width:100%;accent-color:${tpRegionColor(r)};" oninput="if(!tpState.regionPriority)tpState.regionPriority={};tpState.regionPriority['${r}']=+this.value;tpInvalidateCache();_tpDebouncedRender();" onchange="tpSave();">
                     </div>
                 `).join('')}
             </div>
@@ -2047,7 +2058,7 @@ function tpRenderWeekly(el) {
     const _dow = _defDate.getDay();
     const _nextMon = new Date(_defDate);
     _nextMon.setDate(_defDate.getDate() + ((_dow === 0 ? 1 : _dow === 6 ? 2 : 8 - _dow)));
-    const _defDateStr = _nextMon.toISOString().slice(0, 10);
+    const _defDateStr = localDateStr(_nextMon);
     // Persisted working days or default (Mon-Fri)
     const _workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
 
@@ -2754,7 +2765,7 @@ function tpGenerateWeekly() {
     if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     const capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
-    const weekDate = document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0,10);
+    const weekDate = document.getElementById('tp-weekly-date')?.value || localToday();
     const workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
     const manualPicks = window._tpWeeklyManualPicks || [];
     const analysis = tpGetAnalysis();
@@ -2837,7 +2848,7 @@ function tpSmartGenerate() {
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
 
     var capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
-    var weekDate = document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0, 10);
+    var weekDate = document.getElementById('tp-weekly-date')?.value || localToday();
     var workDays = window._tpWorkDays || { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
 
     var analysis = tpGetAnalysis();
@@ -2947,7 +2958,7 @@ function tpGenerateMonthly(startDateStr) {
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     var capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
     var workDays = window._tpWorkDays || { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
-    var baseStr = startDateStr || document.getElementById('tp-weekly-date')?.value || new Date().toISOString().slice(0,10);
+    var baseStr = startDateStr || document.getElementById('tp-weekly-date')?.value || localToday();
     var base = new Date(baseStr + 'T12:00:00');
     var numWeeks = 4;
 
@@ -2960,7 +2971,7 @@ function tpGenerateMonthly(startDateStr) {
     var created = 0;
     for (var wk = 0; wk < numWeeks; wk++) {
         var weekDate = new Date(base.getTime()); weekDate.setDate(base.getDate() + wk * 7);
-        var weekStr = weekDate.toISOString().slice(0,10);
+        var weekStr = localDateStr(weekDate);
         var scored = analysis.map(function(a){
             var n = testedSim.get(a.desc) || 0;
             var rule = tpGetRule(a);
@@ -3056,7 +3067,7 @@ function tpShouldAutoGenerate() {
     if (daysUntilMon === 0) daysUntilMon = 7;
     var nextMon = new Date(now);
     nextMon.setDate(now.getDate() + daysUntilMon);
-    var nextMonISO = nextMon.toISOString().slice(0, 10);
+    var nextMonISO = localDateStr(nextMon);
 
     // Already accepted for that week?
     var plans = tpState.weeklyPlans || [];
@@ -3187,7 +3198,7 @@ function tpRenderWeekHistory(el) {
 }
 
 // ── Auto-mark weekly items when COP15 releases match ──
-function tpAutoMarkWeeklyCompletion(configText) {
+function tpAutoMarkWeeklyCompletion(configText, opts) {
     if (!tpState.weeklyPlans || tpState.weeklyPlans.length === 0) return false;
     // Search all weekly plans for a matching pending item
     for (const plan of tpState.weeklyPlans) {
@@ -3195,8 +3206,8 @@ function tpAutoMarkWeeklyCompletion(configText) {
         for (const item of plan.items) {
             if (!item.completed && item.desc === configText) {
                 item.completed = true;
-                item.completedDate = new Date().toISOString().slice(0,10);
-                tpSave();
+                item.completedDate = localToday();
+                if (!(opts && opts.skipSave)) tpSave();
                 console.log('TP: Auto-marked weekly item as completed:', configText);
                 return true;
             }
@@ -3208,7 +3219,7 @@ function tpAutoMarkWeeklyCompletion(configText) {
 // Prefer an explicit plan link on the vehicle when present (set by
 // cop15PreloadFromPlan). This is more reliable than matching by
 // configCode string, especially when the catalog has near-duplicates.
-function tpAutoMarkWeeklyCompletionFromVehicle(vehicle) {
+function tpAutoMarkWeeklyCompletionFromVehicle(vehicle, opts) {
     if (!vehicle || !tpState.weeklyPlans) return false;
     var link = vehicle.fromPlanItem;
     if (link && typeof link.weekIdx === 'number' && typeof link.itemIdx === 'number') {
@@ -3217,15 +3228,15 @@ function tpAutoMarkWeeklyCompletionFromVehicle(vehicle) {
             var item = plan.items[link.itemIdx];
             if (!item.completed && item.desc === link.configCode) {
                 item.completed = true;
-                item.completedDate = new Date().toISOString().slice(0,10);
-                tpSave();
+                item.completedDate = localToday();
+                if (!(opts && opts.skipSave)) tpSave();
                 console.log('TP: Auto-marked weekly item via plan link:', link.configCode);
                 return true;
             }
         }
     }
     // Fall back to the legacy description-based match
-    return tpAutoMarkWeeklyCompletion(vehicle.configCode);
+    return tpAutoMarkWeeklyCompletion(vehicle.configCode, opts);
 }
 
 // ── Flexible Substitution ──
@@ -3316,7 +3327,7 @@ function tpSubstituteItem(planIdx, itemIdx, testedConfigCode, testedVin, diffs) 
     var item = plan.items[itemIdx];
 
     item.completed = true;
-    item.completedDate = new Date().toISOString().slice(0, 10);
+    item.completedDate = localToday();
     item.substituted = true;
     item.substitution = {
         originalDesc: item.desc,
@@ -3591,19 +3602,7 @@ function tpBuildFamilies() {
         // Get VINs from testedList
         const vins = tpState.testedList.filter(t => t.configText === cfg.desc);
 
-        // Try to get results from RA if available
-        let raResults = [];
-        if (typeof raState !== 'undefined' && raState.tests) {
-            raResults = raState.tests.filter(t => {
-                const cfgParts = cfg.desc.toLowerCase();
-                const tDesc = (t.testDesc||'').toLowerCase();
-                const tVin = (t.vin||'');
-                return vins.some(v => v.note && v.note.includes(tVin) && tVin.length > 5)
-                    || (tDesc && cfgParts.includes(tDesc));
-            });
-        }
-
-        families[key].configs.push({ ...cfg, testedN:n, required:req, deficit:Math.max(0,req-n), vins, raResults });
+        families[key].configs.push({ ...cfg, testedN:n, required:req, deficit:Math.max(0,req-n), vins });
         families[key].bodies.add(cfg.body||'');
         families[key].drvs.add(cfg.drv||'');
         families[key].rgns.add(cfg.rgn||'');
@@ -3614,6 +3613,8 @@ function tpBuildFamilies() {
         if (n > 0) families[key].testedConfigs++;
     });
 
+    // maxVol izado fuera del loop: recomputarlo por familia era O(familias²)
+    const maxVol = Math.max(...Object.values(families).map(x => x.totalVol + x.totalHist), 1);
     Object.values(families).forEach(f => {
         f.bodies = [...f.bodies].filter(Boolean).sort();
         f.drvs  = [...f.drvs].filter(Boolean).sort();
@@ -3622,7 +3623,6 @@ function tpBuildFamilies() {
         f.coverage = f.totalRequired > 0 ? f.totalTested / f.totalRequired : 1;
         f.configCoverage = f.configCount > 0 ? f.testedConfigs / f.configCount : 1;
         f.deficit = Math.max(0, f.totalRequired - f.totalTested);
-        const maxVol = Math.max(...Object.values(families).map(x => x.totalVol + x.totalHist), 1);
         f.riskScore = ((1 - f.coverage) * 60) + (((f.totalVol + f.totalHist) / maxVol) * 30) + ((1 - f.configCoverage) * 10);
         f.riskLevel = f.riskScore > 60 ? 'high' : f.riskScore > 30 ? 'medium' : 'low';
 
@@ -4036,19 +4036,9 @@ function tpRenderFamilies(el) {
                             vinHtml = `<div id="${_vinId}" style="display:none;padding:4px 6px 4px 20px;background:#12192b;border-top:1px solid var(--tp-border);">`;
                             c.vins.forEach(function(v) {
                                 const vin = _tpExtractVin(v.note) || (String(v.note||'').split('—')[0].trim()) || '—';
-                                // Check if this VIN has a matching RA test
-                                let raTestId = '';
-                                if (typeof raState !== 'undefined' && raState.tests && vin && vin !== '—') {
-                                    const raMatch = raState.tests.find(t => t.vin && t.vin === vin);
-                                    if (raMatch) raTestId = raMatch.id;
-                                }
-                                const vinClickable = raTestId ? `onclick="event.stopPropagation();tpGoToRADetail('${raTestId}');" style="cursor:pointer;font-family:monospace;font-size:9px;color:var(--tp-amber);text-decoration:underline;" title="Ver detalle en Results Analyzer"` : `style="font-family:monospace;font-size:9px;color:#e2e8f0;"`;
                                 vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 4px;border-bottom:1px solid rgba(255,255,255,0.06);color:#e2e8f0;">
-                                    <span ${vinClickable}>${vin}</span>
-                                    <div style="display:flex;gap:6px;align-items:center;">
-                                        <span style="font-size:9px;color:var(--tp-dim);">${v.date || '?'}</span>
-                                        ${raTestId ? '<span style="font-size:9px;color:var(--tp-blue);">📊</span>' : ''}
-                                    </div>
+                                    <span style="font-family:monospace;font-size:9px;color:#e2e8f0;">${vin}</span>
+                                    <span style="font-size:9px;color:var(--tp-dim);">${v.date || '?'}</span>
                                 </div>`;
                             });
                             vinHtml += `</div>`;
@@ -4539,59 +4529,6 @@ function tpRenderAltaSuggestionPanel(configText) {
 // ║  [M22] HOOK SUGGESTION INTO COP15 ALTA FLOW                        ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-// ═══ CROSS-MODULE NAVIGATION ═══
-// Navigate from Test Plan to Results Analyzer Detail tab
-function tpGoToRADetail(testId) {
-    showConfirmDialog({ title: '📊 Navegar a Results Analyzer', message: '¿Deseas ver el detalle de esta prueba en Results Analyzer?', type: 'info', confirmText: 'Ir', cancelText: 'Cancelar' }).then(function(ok) {
-        if (!ok) return;
-        // Store return context so RA can offer a back button
-        window._tpReturnContext = {
-            tab: tpState.activeTab,
-            scroll: window.scrollY
-        };
-        // Set up RA to show this test
-        window._raDetailId = testId;
-        if (typeof raState !== 'undefined') {
-            raState.activeTab = 'ra-detail';
-        }
-        // Switch to Results Analyzer module
-        switchPlatform('results');
-        // Render RA with the detail tab
-        setTimeout(function() {
-            if (typeof raRender === 'function') raRender();
-            // Activate the detail tab button
-            document.querySelectorAll('#ra-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
-            var tabs = document.querySelectorAll('#ra-tabs-bar .tp-tab');
-            for (var i = 0; i < tabs.length; i++) {
-                if (tabs[i].textContent.includes('Detalle')) { tabs[i].classList.add('active'); break; }
-            }
-        }, 100);
-    });
-}
-
-// Return from RA back to Test Plan at previous position
-function tpReturnFromRA() {
-    var ctx = window._tpReturnContext;
-    if (ctx && ctx.tab) {
-        tpState.activeTab = ctx.tab;
-    }
-    switchPlatform('testplan');
-    setTimeout(function() {
-        tpRender();
-        // Activate the correct tab button
-        document.querySelectorAll('#tp-tabs-bar .tp-tab').forEach(function(b) { b.classList.remove('active'); });
-        var tabs = document.querySelectorAll('#tp-tabs-bar .tp-tab');
-        for (var i = 0; i < tabs.length; i++) {
-            if (tabs[i].onclick && tabs[i].onclick.toString().includes(tpState.activeTab)) {
-                tabs[i].classList.add('active');
-                break;
-            }
-        }
-        if (ctx && ctx.scroll) window.scrollTo(0, ctx.scroll);
-        window._tpReturnContext = null;
-    }, 100);
-}
-
 // ══════════════════════════════════════════════════════════════════
 // MEJORA B: SUBSTITUTION PREDICTION ENGINE
 // ══════════════════════════════════════════════════════════════════
@@ -4788,7 +4725,7 @@ function tpOpenContinuityModal(configDesc, currentMy) {
                 prevConfigDesc: sel.value,
                 prevMy: opt.getAttribute('data-my') || '',
                 note: note ? note.value : '',
-                markedAt: new Date().toISOString().slice(0, 10),
+                markedAt: localToday(),
                 markedBy: (typeof getCurrentUser === 'function' ? (getCurrentUser() || '') : '')
             };
             tpSave();

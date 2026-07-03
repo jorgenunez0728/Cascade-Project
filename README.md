@@ -14,7 +14,6 @@ KIA EmLab manages the complete emissions testing workflow: vehicle registration 
 |--------|------|-----------|-------------|
 | **COP15 Cascade** | `js/cop15.js` | 121 | Vehicle registration, operation tracking, cascade testing workflow, soak timer |
 | **Test Plan Manager** | `js/testplan.js` | 79 | Weekly/monthly test planning, burndown charts, family tracking, predictions |
-| **Results Analyzer** | `js/results.js` | 56 | Test results, Cpk/Ppk analysis, SPC I-charts/mR-charts, trend analysis |
 | **Lab Inventory** | `js/inventory.js` | 88 | Gas cylinders, fuel tracking, equipment management, consumption charts |
 | **Panel** | `js/panel.js` | 28 | Dashboard, user management, shift log, alerts, intelligence, system health |
 | **App Core** | `js/app.js` | 88 | Config, utilities, chart config engine, undo system, search, notes, PDF |
@@ -68,7 +67,6 @@ python3 -m http.server 8080
 - **COP15 Cascade** — Vehicle registration with VIN validation, multi-step operation workflow (register, test, release), digital signatures, cascade tree visualization
 - **Soak Timer** — Persistent countdown timer with browser notifications, survives page reloads
 - **Test Plan Manager** — Create plans by family/regulation, track completion with burndown charts, weekly predictions with inventory sufficiency checks
-- **Results Analyzer** — Import/manual entry of test results, Cpk/Ppk statistical analysis, SPC control charts (I-chart, mR-chart), compliance rate tracking
 - **Lab Inventory** — Gas cylinder PSI tracking with usage logs, fuel level monitoring, equipment management with barcode/QR scanning
 
 ### Cross-Module Intelligence (Round 4)
@@ -93,7 +91,6 @@ python3 -m http.server 8080
 |-----|--------|-------------|
 | `kia_db_v11` | COP15 | Vehicles, configurations, timeline |
 | `kia_testplan_v1` | Test Plan | Plans, records, families |
-| `kia_results_v1` | Results | Tests, profiles, limits |
 | `kia_lab_inventory` | Inventory | Gas, fuel, equipment items |
 | `kia_panel_v1` | Panel | Operators, shift log, alerts |
 | `kia_chart_configs` | Charts | All chart configuration settings |
@@ -121,7 +118,6 @@ Cascade-Project/
 │   ├── app.js                  ← Core: config, utilities, chart engine, undo, notes (~2,272 lines)
 │   ├── cop15.js                ← COP15 Cascade + Soak Timer (~4,449 lines)
 │   ├── testplan.js             ← Test Plan Manager (~3,214 lines)
-│   ├── results.js              ← Results Analyzer + Cpk/Ppk + SPC (~2,390 lines)
 │   ├── inventory.js            ← Lab Inventory (~3,127 lines)
 │   ├── panel.js                ← Dashboard, Users, Intelligence, System Health (~1,368 lines)
 │   ├── firebase-sync.js        ← Optional Firebase cloud sync (~2,501 lines)
@@ -136,12 +132,58 @@ Cascade-Project/
 
 ## Conventions for Contributors
 
-- **Function naming**: `tp*` = Test Plan, `ra*` = Results Analyzer, `inv*` = Inventory, `pn*` = Panel, `fb*` = Firebase, `note*` = Notes, `chartConfig*` = Chart system, no prefix = COP15/shared
-- **State saving**: Always call `saveDB()`, `tpSave()`, `raSave()`, `invSave()`, or `pnSave()` after mutations
-- **Rendering**: Call `refreshAllLists()`, `tpRender()`, `raRender()`, `invRender()`, or `pnRender()` to update UI
+- **Function naming**: `tp*` = Test Plan, `inv*` = Inventory, `pn*` = Panel, `cop*` = CoP validator, `fb*` = Firebase, `auth*` = operador, `note*` = Notes, `chartConfig*` = Chart system, no prefix = COP15/shared
+- **State saving**: Always call `saveDB()`, `tpSave()`, `invSave()`, `pnSave()` or `copPersist()` after mutations
+- **Rendering**: Call `refreshAllLists()`, `tpRender()`, `invRender()`, `pnRender()` or `copRender()` to update UI
 - **Dark theme** for TP/RA/Inventory/Panel, **light theme** for COP15
 - **Never edit** `kia-emlab-unified.html` — always edit source files and run `build.sh`
-- **Script load order matters**: app.js → cop15.js → inventory.js → testplan.js → results.js → panel.js → auth.js → firebase-sync.js
+- **Script load order matters**: app.js → cop15.js → inventory.js → testplan.js → panel.js → auth.js → signatures.js → firebase-sync.js → cop_validator.js
+
+## Seguridad — setup una sola vez (v15.6)
+
+Desde v15.6 los datos en la nube están protegidos por Firebase Authentication +
+Security Rules, y la app tiene muro de PIN por operador. **Antes de desplegar
+por primera vez** hay que hacer dos cosas en la consola de Firebase (proyecto
+`kia-emlab-test-system`), ~5 minutos:
+
+1. **Habilitar el usuario del laboratorio** (para el login de dispositivo):
+   - Firebase Console → **Authentication** → *Get started* (si no está iniciado)
+     → pestaña **Sign-in method** → habilitar **Email/Password**.
+   - Pestaña **Users** → **Add user** → email
+     `laboratorio@kia-emlab-test-system.firebaseapp.com` (constante `FB_LAB_EMAIL`
+     en `firebase-sync.js`; no necesita buzón real) + una **contraseña fuerte**.
+   - Reparte esa contraseña a los dispositivos del laboratorio: cada uno la
+     ingresa **una sola vez** (queda persistida en el navegador).
+
+2. **Publicar las Security Rules** (`firestore.rules`, versionadas en el repo):
+   - El workflow de CI intenta desplegarlas (`firebase deploy --only
+     firestore:rules`). Si el service account no tiene el rol
+     *Firebase Rules Admin*, el paso falla sin bloquear el deploy — en ese caso,
+     publicarlas a mano: Console → **Firestore Database** → **Reglas** → pegar el
+     contenido de `firestore.rules` → **Publicar**.
+
+**Orden de rollout (importante):** las reglas cerradas y el build con login
+viajan en el **mismo merge**. Los dispositivos con la versión vieja tendrán
+`permission-denied` hasta que se actualicen. Secuencia:
+`mergear a main → esperar el deploy → en cada dispositivo: abrir con red,
+aceptar la actualización, escribir la contraseña del laboratorio una vez, y
+entrar con el PIN de operador`.
+
+**Recuperar el celular con Historial vacío / versión vieja:** tras el deploy,
+abrir la app en el celular **con red** y dejarla ~30 s — el service worker nuevo
+se instala, purga el caché de abril, recarga y descarga los datos. Si en 2-3 min
+no cambia: cerrar todas las pestañas/la app y reabrir. Último recurso: Ajustes
+del sitio → Borrar datos (seguro: su almacenamiento local ya está vacío; la
+descarga inicial lo repuebla).
+
+**Notas de seguridad:**
+- El muro de PIN usa **SHA-256 con sal por operador** (`pinHash2`); los PIN
+  viejos (`pinHash`, hash débil) se migran automáticamente al primer login y
+  dejan de sincronizarse.
+- **5 intentos fallidos → bloqueo de 60 s** (persistido). Los accesos quedan en
+  el historial de cambios (`auditLog`: login / login_failed / logout).
+- El PIN es atribución/anti-curioso; la protección real de los datos la dan las
+  Security Rules + el login de dispositivo.
 
 ## Potential Future Improvements
 

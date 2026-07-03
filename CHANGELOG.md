@@ -2,6 +2,93 @@
 
 All notable changes to this project, organized by development round.
 
+## v15.6 — "Sync confiable + Seguridad real + Limpieza final" (2026-07-02)
+
+Tres frentes pedidos por el usuario: que **todo dispositivo vea siempre lo último**,
+**volver a tener seguridad**, y **borrar definitivamente** los módulos muertos.
+
+### Sync siempre actualizado (causa raíz del celular vacío + versión vieja)
+- **Service worker descongelado**: `sw.js` tenía `CACHE_VERSION` pegado desde el 28/abr (un build
+  interrumpido dejó el literal; `build.sh` buscaba un placeholder inexistente). El SW salía
+  byte-idéntico en cada deploy → los dispositivos nunca recibían actualizaciones. Ahora `build.sh`
+  genera el artefacto `sw.build.js` (guard que aborta si el placeholder se pierde) y `deploy.sh`
+  despliega ese artefacto versionado. **Este es el fix que recupera el celular.**
+- **Auto-actualización de la PWA**: `reg.update()` al arrancar y al volver a la app; al llegar el SW
+  nuevo, recarga en la ventana segura (<15 s, sin modal) o banner "Actualizar ahora"
+- **Pull inicial robusto**: un dispositivo vacío siempre puede descargar (excepción de quota),
+  con reintentos y feedback visible; el indicador ya no dice "conectado" con 0 datos
+- **Guard anti-vaciado**: un dispositivo vacío nunca sube `{vehicles:[]}` y pisa la nube (había un
+  push de semilla a los 6 s sin protección)
+- **CSV de producción en vivo a todas las estaciones** (pedido explícito): el live-sync ya no
+  descarta los cambios de plan; adopta `planData` + `months` del import más nuevo
+- Indicador honesto ("⚠ sin datos — toca para descargar") + botón "🔄 Actualizar datos" en el menú ⋯
+
+### Seguridad real (nube + PIN)
+- **Firebase Auth + Security Rules**: `firestore.rules` versionadas — `stations/**` solo para
+  sesiones Email/Password (antes: sign-in anónimo + sin reglas = workspace abierto a cualquiera con
+  la URL). Login de dispositivo con contraseña del laboratorio (una vez por dispositivo)
+- **Muro de PIN por operador**: SHA-256 con sal (`pinHash2`, migra los hashes de 32 bits viejos);
+  lockout de 60 s tras 5 fallos; auditoría de accesos (login/login_failed/logout)
+- Ver README → "Seguridad — setup una sola vez" para los pasos de consola y el orden de rollout
+
+### Limpieza final
+- **Eliminados definitivamente** `js/results.js` (Results Analyzer) y `js/approvals.js` (Power
+  Automate) — fuera del build desde mayo 2026. De paso se arreglaron **2 crashes latentes**
+  (`fbMergeExecute` y `fbBackupNow` usaban `raState` inexistente → el merge manual y el backup a la
+  nube crasheaban). ~3,800 líneas menos + docs actualizados.
+
+
+## v15.5 — "Pulir y Endurecer" (2026-07-02)
+
+**16 commits: corrección de bugs de fondo, performance medible y UX móvil — sin módulos nuevos.**
+Verificado end-to-end con 31 checks de Playwright/Chromium (arranque, XSS, timezone, CoP, audit, charts, modales, filtros, móvil 390×844).
+
+### Seguridad y datos
+- **XSS almacenado corregido**: nombres de operador, VIN y descripciones se escapan en todos los
+  renders (login, picker 👤, Panel→Usuarios, Lab Overview, modal de sustitución); `authBypassForOperator`
+  resuelve por índice (ya no interpola el nombre en `onclick`)
+- **Fechas en hora local** (`localToday`/`localDateStr`/`parseLocalDate`): "Liberados Hoy", bitácora,
+  KPI ejecutivo, buckets semanales y defaults de fecha ya no ruedan al día siguiente después de las
+  ~18:00 (el lab opera en UTC−6); `tpISOWeekKey` sin corrimiento UTC
+- **QuotaExceededError manejado** en `saveDB`/`tpSave`/`copPersist`: error visible en vez de fallo
+  silencioso; `copSaveJudgment` ya no reporta "guardado" cuando no persistió
+- **CoP: auto-llenado real** (`copResultValue`): gases por VIN desde los valores finales verificados
+  de liberación/aprobación (nunca bolsas crudas); `HCNOx` = THC+NOx o el combinado EURO-2; los juicios
+  se suben a la nube al guardarse (antes esperaban el ciclo completo)
+- **Sync sin pérdida de datos**: `fbPullApply` mergea por elemento (reutiliza `fbMergeAnalyze/Execute`)
+  en vez de reemplazar por conteo — dos altas concurrentes ya no se pierden; subcampos v15 de `tpState`
+  preservados; operadores con merge por id + tombstones (los borrados no resucitan); cap del audit
+  unificado (el pull ya no encoge la historia a 1000)
+
+### Performance
+- **`auditLog` en memoria** con persist/push debounced: antes cada evento re-serializaba hasta 5000
+  entradas y subía el arreglo completo a Firestore; ahora ráfagas = 1 escritura + 1 subida; flush en
+  `pagehide`; cap 2000 (lejos del límite de 1MB/documento)
+- **Cascada de liberación coalescida**: un `tpSave` + un `invSave` por liberación (antes 2×tp + 1×inv
+  por vehículo, también en batch)
+- Sliders sin serialización por tick (guardan en `change`); `tpBuildFamilies` sin O(familias²);
+  fuga del chart de pronóstico de gas corregida ("canvas already in use"); `renderLabOverview`
+  memoizado (HOY/Panel ya no re-escanean todos los módulos por visita); timeline compactado al archivar
+
+### UX / Estética
+- **Solo tema claro**: eliminadas 242 reglas de dark mode, el auto-cambio por preferencia del sistema
+  y sus parches frágiles (−44KB de CSS); font stack de sistema; tipografía mínima 11px en móvil
+- **Topbar móvil de una fila**: las 5 tabs se ocultan en <768px (la bottom-nav ya navega); controles
+  secundarios en menú ⋯; touch targets ≥44px; `:focus-visible` global de marca
+- **Modales legacy unificados**: ESC, click-fuera, animación de entrada y retorno de foco en
+  substitution/config/inv/fb (cerrar el escáner con ESC también apaga la cámara)
+- Transición corta por defecto entre plataformas (sin corte seco) + scroll instantáneo;
+  el filtro VIN del Historial ya no pierde el foco al teclear (`preserveFocus`);
+  ripple en botones TP y shake en validaciones fallidas
+- CSS deduplicado: 3 definiciones de `.skeleton` → 1, `[x-cloak]` ×2 → 1, dos `@media 1024px`
+  fusionados, view-transitions muertas eliminadas
+
+### Notas
+- `results.js` y `approvals.js` son **módulos latentes**: siguen en `js/` pero están fuera de
+  `index.html` y `build.sh` desde mayo 2026 (reemplazo del flujo PA/VETS por doble ciego). Esta
+  versión solo silencia sus efectos colaterales (error de `raInit` en consola, push de estado
+  indefinido al sync). Revivirlos o eliminarlos es una decisión de producto pendiente.
+
 ## Round 5 — (2026-03-11)
 
 **8 improvements focused on native app experience, smart UX, and operational efficiency.**
