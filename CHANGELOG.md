@@ -2,6 +2,40 @@
 
 All notable changes to this project, organized by development round.
 
+## v15.8 — "Edición retroactiva + visión anual del plan" (2026-07-05)
+
+### 📝 Completar datos retroactivos (Historial)
+El endurecimiento del PDF (v15.7 y anteriores) dejó a los vehículos archivados ANTES del cambio
+sin campos obligatorios, sin PDF y sin ninguna ruta de edición. Ahora, en Cascade → Historial:
+
+- Botón **"📝 Completar (N)"** en cada archivado incompleto (emisiones) → modal de edición
+  retroactiva agrupado por sección: **faltantes editables** (ámbar), **existentes bloqueados 🔒**
+- Modificar un valor ya guardado exige **razón escrita** (botón ✏️, mín. 5 caracteres) y
+  **firma digital** al guardar (`sigCaptureOpen`); solo llenar faltantes no pide firma
+  (se atribuye al operador actual)
+- Gases faltantes con validación en vivo (✓/✗ vs límite, % del límite, rangos plausibles);
+  firmas de Liberador/Aprobador capturables retroactivamente (quedan marcadas `retro:true`)
+- Todo queda asentado: `vehicle.timeline` ("Datos completados retroactivamente" con
+  añadidos/modificados/razones), `testData.retroSignatures[]`, y auditoría `retro_edit`
+- Botón **🕘** por vehículo: historial + control de cambios (tabla campo/antes/después/razón)
+  — primera vista de timeline disponible para archivados
+- Refactor interno: descriptor único `PDF_REQUIRED_FIELDS` alimenta `validatePdfCompleteness`
+  y el modal (salida verificada idéntica en 6 fixtures antes/después)
+- El vehículo **nunca sale de archivado** (no se re-dispara la cascada de aprobación)
+
+### 📅 Plan de pruebas — visión anual y política por región (de la comparativa con el lab hermano)
+- **Presupuesto Anual** en Plan → Dashboard: requeridas/probadas/pendiente del año vs capacidad
+  restante (semanas restantes × capacidad, respeta `weekAvailability`), barra apilada del
+  pendiente por prioridad P1..Pn y veredicto verde/ámbar/rojo ("¿alcanza el año?")
+- **Propósito por región** al iniciar prueba desde el plan: EUROPE → COP-Emisiones, resto →
+  EO-Emisiones por default (regla corporativa "COP solo Europa"); configurable en Plan → Reglas
+  ("Propósito al iniciar prueba desde el plan"); el técnico siempre puede cambiarlo en Alta
+- **P4 Legacy (Euro 2/3/4) y P5 EV (120V/220V)** como reglas default del Recovery (antes solo
+  P1–P3); `maxTiers` default 5; migración suave que respeta reglas personalizadas
+- **⏱ Última prueba por familia**: badge en Familias (verde <30d, ámbar 30–90d, rojo >90d,
+  "Nunca"); evidencia de familia ordenada **más reciente primero** con fecha destacada
+  ("ÚLTIMA", hace Nd) y CSV con el mismo orden
+
 ## v15.7 — "Control SPC + calidad de captura" (2026-07-03)
 
 Mejoras adaptadas del tablero de emisiones VETS de un laboratorio hermano (Kia/Hyundai),

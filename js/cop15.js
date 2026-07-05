@@ -2975,6 +2975,15 @@ function closeSubstitutionModal() {
                                 <button class="btn-secondary" onclick="generateCOP15PDF(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;" title="Generar PDF COP15-F05">
                                     PDF
                                 </button>
+                                ${(function(){
+                                    if (!isEmissionsPurpose(v.purpose)) return '';
+                                    var _c = validatePdfCompleteness(v);
+                                    if (_c.ok) return '';
+                                    return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding:5px 10px;font-size:0.75rem;background:#fef3c7;color:#92400e;margin-left:4px;" title="Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente">📝 Completar (' + _c.missing.length + ')</button>';
+                                })()}
+                                <button class="btn-secondary" onclick="histShowTimelineModal(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;margin-left:4px;" title="Historial y control de cambios del vehículo">
+                                    🕘
+                                </button>
                                 <button class="btn-secondary" onclick="deleteVehicleCascade(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Eliminar vehículo y todos sus datos relacionados">
                                     🗑
                                 </button>
@@ -3484,13 +3493,87 @@ const KIA_LOGO_B64 = 'data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUND
 
 // Verifica que TODO campo obligatorio del PDF tenga dato. Devuelve {ok, missing:[{label,section}]}.
 // Los campos legítimamente N/A (p.ej. velocidad/flujo en modo speed_follow) no se exigen.
+// v15.8 — Descriptor ÚNICO de los campos obligatorios del PDF de emisiones.
+// Lo consumen validatePdfCompleteness() y el modal "Completar datos" del Historial
+// (edición retroactiva). El ORDEN y los labels definen la salida del popup de faltantes
+// — no reordenar sin razón. `refId` = id del input real en index.html (el modal clona
+// tipo y opciones de ahí); `num` = parsear a número al guardar; `si` = se almacena en
+// unidades SI (el modal captura directo en SI); `when(td)` = condicional.
+var PDF_REQUIRED_FIELDS = [
+  // Recepción
+  { path: 'testData.operator',                              label: 'Operador de Recepción',              section: 'Recepción', refId: 'op_recep' },
+  { path: 'testData.odometer',                              label: 'Odómetro',                           section: 'Recepción', refId: 'op_odo', num: true },
+  { path: 'testData.datetime',                              label: 'Fecha/Hora de Recepción',            section: 'Recepción', refId: 'op_datetime' },
+  { path: 'testData.preconditioning.fuelTypeIn',            label: 'Tipo de combustible (recepción)',    section: 'Recepción', refId: 'fuel_typein' },
+  { path: 'testData.preconditioning.fuelLevelFractionIn',   label: 'Nivel de combustible (recepción)',   section: 'Recepción', refId: 'fuel_levelin' },
+  { path: 'testData.preconditioning.tankCapacityL',         label: 'Capacidad del tanque',               section: 'Recepción', refId: 'tank_capacity', num: true },
+  { path: 'testData.preconditioning.tirePressureInPsi',     label: 'Presión de llantas (recepción)',     section: 'Recepción', refId: 'tire_pressure_in', num: true },
+  { path: 'testData.preconditioning.batterySocPct',         label: 'SOC de batería',                     section: 'Recepción', refId: 'battery_soc', num: true },
+  // Preacondicionamiento
+  { path: 'testData.preconditioning.responsible',           label: 'Persona a cargo (preacond.)',        section: 'Preacondicionamiento', refId: 'precond_responsible' },
+  { path: 'testData.preconditioning.datetime',              label: 'Fecha/Hora de Preacondicionamiento', section: 'Preacondicionamiento', refId: 'precond_datetime' },
+  { path: 'testData.preconditioning.tirePressurePsi',       label: 'Presión de llantas (preacond.)',     section: 'Preacondicionamiento', refId: 'tire_pressure', num: true },
+  { path: 'testData.preconditioning.fuelTypePre',           label: 'Tipo de combustible (preacond.)',    section: 'Preacondicionamiento', refId: 'fuel_typepre' },
+  { path: 'testData.preconditioning.fuelLevelLitersPre',    label: 'Nivel de combustible (preacond.)',   section: 'Preacondicionamiento', refId: 'fuel_levelpre', num: true },
+  { path: 'testData.preconditioning.cycle',                 label: 'Ciclo de preacondicionamiento',      section: 'Preacondicionamiento', refId: 'precond_cycle' },
+  { path: 'testData.preconditioning.soakTimeH',             label: 'Tiempo de reposo (soak)',            section: 'Preacondicionamiento', refId: 'soak_time', num: true },
+  { path: 'testData.preconditioning.odoPretestKm',          label: 'Odómetro para prueba',               section: 'Preacondicionamiento', refId: 'odo_pretest', num: true },
+  { path: 'testData.preconditioning.ok',                    label: 'Cumple preacondicionamiento',        section: 'Preacondicionamiento', refId: 'precond_ok' },
+  { path: 'testData.preconditioning.dtc.pendingBefore',     label: 'DTC Pendiente (antes)',              section: 'Preacondicionamiento', refId: 'dtc_pending_before' },
+  { path: 'testData.preconditioning.dtc.confirmedBefore',   label: 'DTC Confirmado (antes)',             section: 'Preacondicionamiento', refId: 'dtc_confirmed_before' },
+  { path: 'testData.preconditioning.dtc.permanentBefore',   label: 'DTC Permanente (antes)',             section: 'Preacondicionamiento', refId: 'dtc_permanent_before' },
+  // Dinamómetro (almacenado en SI; el modal captura directo en SI)
+  { path: 'testData.etw',     label: 'ETW',        section: 'Dinamómetro', refId: 'etw', num: true, si: true, unitLabel: 'kg' },
+  { path: 'testData.targetA', label: 'Target A',   section: 'Dinamómetro', refId: 'tA',  num: true, si: true, unitLabel: 'N' },
+  { path: 'testData.dynoA',   label: 'Dyno Set A', section: 'Dinamómetro', refId: 'dA',  num: true, si: true, unitLabel: 'N' },
+  { path: 'testData.targetB', label: 'Target B',   section: 'Dinamómetro', refId: 'tB',  num: true, si: true, unitLabel: 'N/(km/h)' },
+  { path: 'testData.dynoB',   label: 'Dyno Set B', section: 'Dinamómetro', refId: 'dB',  num: true, si: true, unitLabel: 'N/(km/h)' },
+  { path: 'testData.targetC', label: 'Target C',   section: 'Dinamómetro', refId: 'tC',  num: true, si: true, unitLabel: 'N/(km/h)²' },
+  { path: 'testData.dynoC',   label: 'Dyno Set C', section: 'Dinamómetro', refId: 'dC',  num: true, si: true, unitLabel: 'N/(km/h)²' },
+  // Verificación de prueba
+  { path: 'testData.testResponsible',                       label: 'Persona a cargo de la prueba',       section: 'Verificación de Prueba', refId: 'test_responsible' },
+  { path: 'testData.testDatetime',                          label: 'Fecha/Hora de la prueba',            section: 'Verificación de Prueba', refId: 'test_datetime' },
+  { path: 'testData.testVerification.tunnel',               label: 'Túnel',                              section: 'Verificación de Prueba', refId: 'test_tunnel' },
+  { path: 'testData.testVerification.dyno',                 label: 'Dinamómetro',                        section: 'Verificación de Prueba', refId: 'test_dyno_on' },
+  { path: 'testData.testVerification.fanMode',              label: 'Modo de ventilador',                 section: 'Verificación de Prueba', refId: 'test_fan_mode' },
+  { path: 'testData.testVerification.fanSpeedKmh',          label: 'Velocidad del ventilador',           section: 'Verificación de Prueba', refId: 'test_fan_speed', num: true,
+    when: function(td) { return td.testVerification && td.testVerification.fanMode === 'speed'; } },
+  { path: 'testData.testVerification.fanFlowM3Min',         label: 'Flujo del ventilador',               section: 'Verificación de Prueba', refId: 'test_fan_flow', num: true,
+    when: function(td) { return td.testVerification && td.testVerification.fanMode === 'speed'; } },
+  { path: 'testData.testVerification.inertiaOk',            label: 'Parámetros de inercia',              section: 'Verificación de Prueba', refId: 'test_inertia_ok' },
+  { path: 'testData.testVerification.chains',               label: 'Cadenas 1 y 2',                      section: 'Verificación de Prueba', refId: 'test_chains' },
+  { path: 'testData.testVerification.slings',               label: 'Eslinga 1 y 2',                      section: 'Verificación de Prueba', refId: 'test_slings' },
+  { path: 'testData.testVerification.hood',                 label: 'Capó',                               section: 'Verificación de Prueba', refId: 'test_hood' },
+  { path: 'testData.testVerification.rearRollers',          label: 'Rodillos traseros',                  section: 'Verificación de Prueba', refId: 'test_rear_rollers' },
+  { path: 'testData.testVerification.screen',               label: 'Pantalla',                           section: 'Verificación de Prueba', refId: 'test_screen' },
+  { path: 'testData.testVerification.mexWaitCheck',         label: 'Verificación FTP75-HWY (MX)',        section: 'Verificación de Prueba', refId: 'test_mex_waitcheck' }
+];
+
+// Getter/setter por ruta punteada ('testData.preconditioning.dtc.pendingBefore').
+// El setter crea los objetos intermedios (vehículos viejos pueden no tenerlos).
+function _histGetPath(obj, path) {
+  var cur = obj;
+  var parts = path.split('.');
+  for (var i = 0; i < parts.length; i++) {
+    if (cur === null || cur === undefined) return undefined;
+    cur = cur[parts[i]];
+  }
+  return cur;
+}
+function _histSetPath(obj, path, value) {
+  var parts = path.split('.');
+  var cur = obj;
+  for (var i = 0; i < parts.length - 1; i++) {
+    if (cur[parts[i]] === null || cur[parts[i]] === undefined || typeof cur[parts[i]] !== 'object') cur[parts[i]] = {};
+    cur = cur[parts[i]];
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+
 function validatePdfCompleteness(vehicle) {
   var missing = [];
   if (!vehicle) return { ok: false, missing: missing };
   var td = vehicle.testData || {};
-  var pre = td.preconditioning || {};
-  var tv = td.testVerification || {};
-  var dtc = pre.dtc || {};
   var status = vehicle.status;
   function blank(v) { return v === null || v === undefined || String(v).trim() === ''; }
   function req(value, label, section) { if (blank(value)) missing.push({ label: label, section: section }); }
@@ -3504,53 +3587,11 @@ function validatePdfCompleteness(vehicle) {
     return { ok: missing.length === 0, missing: missing };
   }
 
-  // Recepción
-  req(td.operator, 'Operador de Recepción', 'Recepción');
-  req(td.odometer, 'Odómetro', 'Recepción');
-  req(td.datetime, 'Fecha/Hora de Recepción', 'Recepción');
-  req(pre.fuelTypeIn, 'Tipo de combustible (recepción)', 'Recepción');
-  req(pre.fuelLevelFractionIn, 'Nivel de combustible (recepción)', 'Recepción');
-  req(pre.tankCapacityL, 'Capacidad del tanque', 'Recepción');
-  req(pre.tirePressureInPsi, 'Presión de llantas (recepción)', 'Recepción');
-  req(pre.batterySocPct, 'SOC de batería', 'Recepción');
-  // Preacondicionamiento
-  req(pre.responsible, 'Persona a cargo (preacond.)', 'Preacondicionamiento');
-  req(pre.datetime, 'Fecha/Hora de Preacondicionamiento', 'Preacondicionamiento');
-  req(pre.tirePressurePsi, 'Presión de llantas (preacond.)', 'Preacondicionamiento');
-  req(pre.fuelTypePre, 'Tipo de combustible (preacond.)', 'Preacondicionamiento');
-  req(pre.fuelLevelLitersPre, 'Nivel de combustible (preacond.)', 'Preacondicionamiento');
-  req(pre.cycle, 'Ciclo de preacondicionamiento', 'Preacondicionamiento');
-  req(pre.soakTimeH, 'Tiempo de reposo (soak)', 'Preacondicionamiento');
-  req(pre.odoPretestKm, 'Odómetro para prueba', 'Preacondicionamiento');
-  req(pre.ok, 'Cumple preacondicionamiento', 'Preacondicionamiento');
-  req(dtc.pendingBefore, 'DTC Pendiente (antes)', 'Preacondicionamiento');
-  req(dtc.confirmedBefore, 'DTC Confirmado (antes)', 'Preacondicionamiento');
-  req(dtc.permanentBefore, 'DTC Permanente (antes)', 'Preacondicionamiento');
-  // Dinamómetro
-  req(td.etw, 'ETW', 'Dinamómetro');
-  req(td.targetA, 'Target A', 'Dinamómetro');
-  req(td.dynoA, 'Dyno Set A', 'Dinamómetro');
-  req(td.targetB, 'Target B', 'Dinamómetro');
-  req(td.dynoB, 'Dyno Set B', 'Dinamómetro');
-  req(td.targetC, 'Target C', 'Dinamómetro');
-  req(td.dynoC, 'Dyno Set C', 'Dinamómetro');
-  // Verificación de prueba
-  req(td.testResponsible, 'Persona a cargo de la prueba', 'Verificación de Prueba');
-  req(td.testDatetime, 'Fecha/Hora de la prueba', 'Verificación de Prueba');
-  req(tv.tunnel, 'Túnel', 'Verificación de Prueba');
-  req(tv.dyno, 'Dinamómetro', 'Verificación de Prueba');
-  req(tv.fanMode, 'Modo de ventilador', 'Verificación de Prueba');
-  if (tv.fanMode === 'speed') {
-    req(tv.fanSpeedKmh, 'Velocidad del ventilador', 'Verificación de Prueba');
-    req(tv.fanFlowM3Min, 'Flujo del ventilador', 'Verificación de Prueba');
-  }
-  req(tv.inertiaOk, 'Parámetros de inercia', 'Verificación de Prueba');
-  req(tv.chains, 'Cadenas 1 y 2', 'Verificación de Prueba');
-  req(tv.slings, 'Eslinga 1 y 2', 'Verificación de Prueba');
-  req(tv.hood, 'Capó', 'Verificación de Prueba');
-  req(tv.rearRollers, 'Rodillos traseros', 'Verificación de Prueba');
-  req(tv.screen, 'Pantalla', 'Verificación de Prueba');
-  req(tv.mexWaitCheck, 'Verificación FTP75-HWY (MX)', 'Verificación de Prueba');
+  // Campos estáticos — descriptor único (mismo orden/labels que la versión anterior)
+  PDF_REQUIRED_FIELDS.forEach(function(f) {
+    if (f.when && !f.when(td)) return;
+    req(_histGetPath(vehicle, f.path), f.label, f.section);
+  });
   // Resultados de emisiones (todos los gases con límite del perfil)
   var regName = _libGetVehicleRegulation(vehicle);
   var profile = regName ? getRegulationProfile(regName) : null;
@@ -3581,6 +3622,373 @@ function _showPdfMissingPopup(missing) {
   });
   html += '</ul></div>';
   showModal({ title: 'Faltan ' + missing.length + ' campos', message: html, type: 'warning', showCancel: false, confirmText: 'Entendido' });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// v15.8 — EDICIÓN RETROACTIVA EN HISTORIAL ("Completar datos")
+// Vehículos archivados antes de que el PDF exigiera campos nuevos no tienen esos
+// datos y no existe otra ruta de edición para status 'archived'. Este modal permite:
+// llenar FALTANTES (editables, ámbar) y, con candado, MODIFICAR existentes solo con
+// razón escrita obligatoria + firma digital al guardar. Todo queda en el timeline
+// del vehículo y en la auditoría (retro_edit). El vehículo nunca sale de archivado.
+// ═══════════════════════════════════════════════════════════════════════════════
+var _histCompleteState = null;
+
+function _histBlank(v) { return v === null || v === undefined || String(v).trim() === ''; }
+
+function _histCurrentUserName() {
+  try {
+    if (typeof authGetCurrentUser === 'function') {
+      var u = authGetCurrentUser();
+      if (u && u.name) return u.name;
+    }
+  } catch (e) {}
+  return 'Operador';
+}
+
+// Clona tipo/opciones del input real del formulario (refId) para el modal.
+function _histBuildInput(f, idx, value, disabled) {
+  var ref = f.refId ? document.getElementById(f.refId) : null;
+  var val = _histBlank(value) ? '' : String(value);
+  var common = ' id="hist-f-' + idx + '" data-idx="' + idx + '" class="form-control hist-input"' +
+               (disabled ? ' disabled' : '') + ' style="width:100%;font-size:12px;padding:5px 8px;"';
+  if (ref && ref.tagName === 'SELECT') {
+    // Quitar 'selected' heredado del form activo y anteponer opción vacía: un campo
+    // faltante debe arrancar vacío, no con la selección de otro vehículo.
+    var opts = ref.innerHTML.replace(/\sselected(="[^"]*")?/g, '');
+    return '<select' + common + ' data-value="' + escapeHtml(val) + '"><option value="">— selecciona —</option>' + opts + '</select>';
+  }
+  var type = ref ? (ref.type || 'text') : 'text';
+  if (type === 'checkbox' || type === 'radio') type = 'text';
+  var extra = type === 'number' ? ' step="any"' : '';
+  return '<input type="' + escapeHtml(type) + '"' + extra + common + ' value="' + escapeHtml(val) + '">';
+}
+
+function histOpenCompleteModal(vehicleId) {
+  var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
+  if (!vehicle) { showToast('Vehículo no encontrado', 'error'); return; }
+  var td = vehicle.testData || {};
+  _histCompleteState = { vehicleId: vehicleId, unlockReasons: {}, sigCaptured: {} };
+
+  var status = vehicle.status;
+  var needsReleaserSig = (status === 'ready-release' || status === 'pending-approval' || status === 'archived');
+  var regName = _libGetVehicleRegulation(vehicle);
+  var profile = regName ? getRegulationProfile(regName) : null;
+  var comp = validatePdfCompleteness(vehicle);
+
+  var html = '<div class="hist-complete-overlay" id="hist-complete-overlay">';
+  html += '<div class="hist-complete-box">';
+  html += '<div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--accent-cop, #0891b2);padding-bottom:10px;margin-bottom:12px;">';
+  html += '<span style="font-size:15px;font-weight:800;flex:1;">📝 Completar datos retroactivos</span>';
+  html += '<button onclick="histCloseCompleteModal()" class="btn btn-sm btn-ghost" style="font-size:14px;">✕</button></div>';
+  html += '<div style="font-size:12px;margin-bottom:4px;"><b style="font-family:monospace;">' + escapeHtml(vehicle.vin || '') + '</b> · ' + escapeHtml(vehicle.configCode || '') + ' · ' + escapeHtml((CONFIG.statusLabels && CONFIG.statusLabels[status]) || status) + '</div>';
+  html += '<div style="font-size:11px;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;margin-bottom:12px;">' +
+          'Faltan <b>' + comp.missing.length + '</b> campos para el PDF. Los campos ya guardados están 🔒 bloqueados: modificarlos exige una razón escrita y firma digital al guardar. Todo queda en el historial del vehículo y en la auditoría.</div>';
+
+  // Campos del descriptor, agrupados por sección
+  var bySection = {};
+  PDF_REQUIRED_FIELDS.forEach(function(f, idx) {
+    if (f.when && !f.when(td)) return;
+    (bySection[f.section] = bySection[f.section] || []).push({ f: f, idx: idx });
+  });
+  Object.keys(bySection).forEach(function(sec) {
+    var items = bySection[sec];
+    var missingN = items.filter(function(it) { return _histBlank(_histGetPath(vehicle, it.f.path)); }).length;
+    html += '<details class="hist-section" ' + (missingN ? 'open' : '') + '>';
+    html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">' + escapeHtml(sec) +
+            (missingN ? ' <span style="color:#d97706;font-weight:800;">· ' + missingN + ' faltante' + (missingN === 1 ? '' : 's') + '</span>' : ' <span style="color:#10b981;">✓</span>') + '</summary>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+    items.forEach(function(it) {
+      var f = it.f, idx = it.idx;
+      var cur = _histGetPath(vehicle, f.path);
+      var isMissing = _histBlank(cur);
+      var unitTag = f.unitLabel ? ' <span style="color:#64748b;font-size:10px;">(' + f.unitLabel + ')</span>' : '';
+      html += '<tr class="' + (isMissing ? 'hist-field-missing' : 'hist-field-locked') + '" id="hist-row-' + idx + '">';
+      html += '<td style="padding:5px 8px;width:42%;font-weight:600;">' + escapeHtml(f.label) + unitTag + (isMissing ? '' : ' 🔒') + '</td>';
+      html += '<td style="padding:5px 8px;">' + _histBuildInput(f, idx, cur, !isMissing);
+      if (!isMissing) {
+        html += '<div id="hist-reason-wrap-' + idx + '" style="display:none;margin-top:4px;">' +
+                '<textarea id="hist-reason-' + idx + '" data-idx="' + idx + '" placeholder="Razón del cambio (obligatoria)" oninput="_histOnReasonInput(' + idx + ')" style="width:100%;font-size:11px;padding:4px 6px;min-height:34px;border:1px solid #f59e0b;border-radius:5px;"></textarea></div>';
+      }
+      html += '</td>';
+      html += '<td style="padding:5px 8px;width:88px;text-align:center;">' +
+              (isMissing ? '<span style="font-size:10px;color:#d97706;font-weight:700;">Faltante</span>'
+                         : '<button class="btn btn-sm btn-ghost" onclick="histUnlockField(' + idx + ')" id="hist-unlock-' + idx + '" style="font-size:10px;" title="Modificar (exige razón + firma)">✏️ Modificar</button>') + '</td>';
+      html += '</tr>';
+    });
+    html += '</table></details>';
+  });
+
+  // Resultados de emisiones faltantes
+  if (profile) {
+    var libVals = (td.gasResults && td.gasResults.liberador && td.gasResults.liberador.values) || {};
+    var missingGases = profile.gases.filter(function(g) { return g.limit !== null && g.limit !== undefined && _histBlank(libVals[g.field]); });
+    if (missingGases.length) {
+      html += '<details class="hist-section" open>';
+      html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Resultados de Emisiones <span style="color:#d97706;font-weight:800;">· ' + missingGases.length + ' faltantes</span></summary>';
+      html += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;">Valores FINALES verificados del reporte oficial (los ya capturados no se muestran; ese dato está protegido por el doble ciego).</div>';
+      html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+      missingGases.forEach(function(g) {
+        html += '<tr class="hist-field-missing"><td style="padding:5px 8px;width:42%;font-weight:600;">' + escapeHtml(g.label) +
+                ' <span style="color:#64748b;font-size:10px;">(' + escapeHtml(g.unit) + ' · límite ' + g.limit + ')</span></td>';
+        html += '<td style="padding:5px 8px;"><input type="number" step="0.001" min="0" id="hist-gas-' + escapeHtml(g.field) + '" data-gfield="' + escapeHtml(g.field) + '" data-glimit="' + g.limit + '" class="form-control" oninput="histGasInput(this)" style="width:120px;font-size:12px;padding:5px 8px;"></td>';
+        html += '<td style="padding:5px 8px;width:150px;font-size:10px;" id="hist-gas-status-' + escapeHtml(g.field) + '">—</td></tr>';
+      });
+      html += '</table></details>';
+    }
+  }
+
+  // Firmas faltantes
+  var sigs = td.signatures || {};
+  var needSigR = needsReleaserSig && !(sigs.releaser && sigs.releaser.dataUrl);
+  var needSigA = status === 'archived' && !(sigs.approver && sigs.approver.dataUrl);
+  if (needSigR || needSigA) {
+    html += '<details class="hist-section" open>';
+    html += '<summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Firmas <span style="color:#d97706;font-weight:800;">· faltantes</span></summary>';
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;padding:6px 0;">';
+    if (needSigR) html += '<button class="btn btn-sm" onclick="histCaptureSig(\'releaser\')" id="hist-sig-releaser" style="background:#0891b2;color:#fff;font-size:11px;">✍️ Capturar firma del Liberador</button>';
+    if (needSigA) html += '<button class="btn btn-sm" onclick="histCaptureSig(\'approver\')" id="hist-sig-approver" style="background:#0891b2;color:#fff;font-size:11px;">✍️ Capturar firma del Aprobador</button>';
+    html += '</div><div style="font-size:10px;color:#64748b;">La firma se registra con la fecha actual (captura retroactiva, queda asentado así).</div></details>';
+  }
+
+  html += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;border-top:1px solid #e5e7eb;padding-top:10px;">';
+  html += '<button class="btn btn-ghost" onclick="histCloseCompleteModal()">Cancelar</button>';
+  html += '<button class="btn" onclick="histSaveCompleteModal()" style="background:#0891b2;color:#fff;font-weight:700;">💾 Guardar cambios</button>';
+  html += '</div>';
+  html += '</div></div>';
+
+  var wrap = document.createElement('div');
+  wrap.id = 'hist-complete-root';
+  wrap.innerHTML = html;
+  document.body.appendChild(wrap);
+  // Aplicar valores a los selects clonados (no se pueden fijar por atributo)
+  wrap.querySelectorAll('select.hist-input').forEach(function(sel) {
+    var v = sel.getAttribute('data-value');
+    if (v) sel.value = v;
+  });
+}
+
+function histCloseCompleteModal() {
+  var root = document.getElementById('hist-complete-root');
+  if (root && root.parentNode) root.parentNode.removeChild(root);
+  _histCompleteState = null;
+}
+
+function histUnlockField(idx) {
+  var wrapEl = document.getElementById('hist-reason-wrap-' + idx);
+  if (wrapEl) wrapEl.style.display = '';
+  var ta = document.getElementById('hist-reason-' + idx);
+  if (ta) ta.focus();
+}
+
+function _histOnReasonInput(idx) {
+  var ta = document.getElementById('hist-reason-' + idx);
+  var input = document.getElementById('hist-f-' + idx);
+  var hasReason = ta && String(ta.value).trim().length >= 5;
+  if (input) input.disabled = !hasReason;
+  if (ta) ta.style.borderColor = hasReason ? '#10b981' : '#f59e0b';
+}
+
+function histGasInput(input) {
+  var field = input.getAttribute('data-gfield');
+  var limit = parseFloat(input.getAttribute('data-glimit'));
+  var statusEl = document.getElementById('hist-gas-status-' + field);
+  if (!statusEl) return;
+  var val = _libNormalizeVal(input.value);
+  if (val === null) { statusEl.innerHTML = '—'; return; }
+  var pass = val <= limit;
+  var pctStr = _libPctOfLimitStr(val, limit) || '';
+  var warn = _libValueImplausible(field, val) ? ' <span style="color:#d97706;font-weight:700;">⚠ improbable</span>' : '';
+  statusEl.innerHTML = (pass ? '<span style="color:#10b981;font-weight:700;">✓ PASA</span>' : '<span style="color:#ef4444;font-weight:700;">✗ FALLA</span>') +
+                       ' <span style="color:#64748b;">' + pctStr + '</span>' + warn;
+}
+
+function histCaptureSig(which) {
+  if (typeof sigCaptureOpen !== 'function') { showToast('Módulo de firmas no disponible', 'error'); return; }
+  sigCaptureOpen({
+    title: which === 'releaser' ? 'Firma del Liberador (retroactiva)' : 'Firma del Aprobador (retroactiva)',
+    role: which === 'releaser' ? 'Liberador / Técnico' : 'Aprobador / Gerente',
+    signerName: '',
+    onSave: function(sig) {
+      if (!_histCompleteState) return;
+      _histCompleteState.sigCaptured[which] = sig;
+      var btn = document.getElementById('hist-sig-' + which);
+      if (btn) { btn.textContent = '✓ Firma capturada: ' + sig.signerName; btn.style.background = '#10b981'; }
+    },
+    onCancel: function() {}
+  });
+}
+
+function histSaveCompleteModal() {
+  if (!_histCompleteState) return;
+  var vehicle = db.vehicles.find(function(v) { return v.id == _histCompleteState.vehicleId; });
+  if (!vehicle) { histCloseCompleteModal(); return; }
+  var td = vehicle.testData || {};
+
+  var added = [], modified = [], invalid = false;
+  PDF_REQUIRED_FIELDS.forEach(function(f, idx) {
+    var input = document.getElementById('hist-f-' + idx);
+    if (!input) return;
+    var cur = _histGetPath(vehicle, f.path);
+    var isMissing = _histBlank(cur);
+    var raw = String(input.value).trim();
+    var newVal = raw === '' ? null : (f.num ? _libNormalizeVal(raw) : raw);
+    if (isMissing) {
+      if (newVal !== null && newVal !== '') added.push({ path: f.path, label: f.label, value: newVal, si: !!f.si });
+    } else if (!input.disabled) {
+      // Campo desbloqueado: solo cuenta si cambió de verdad
+      var changed = f.num ? (_libNormalizeVal(String(cur)) !== newVal) : (String(cur) !== raw);
+      if (!changed) return;
+      var ta = document.getElementById('hist-reason-' + idx);
+      var reason = ta ? String(ta.value).trim() : '';
+      if (reason.length < 5) {
+        invalid = true;
+        if (ta) ta.style.borderColor = '#ef4444';
+        var row = document.getElementById('hist-row-' + idx);
+        if (row) row.style.outline = '2px solid #ef4444';
+        return;
+      }
+      modified.push({ path: f.path, label: f.label, old: cur, value: newVal, reason: reason, si: !!f.si });
+    }
+  });
+  if (invalid) { showToast('Falta la razón del cambio en campos modificados (mín. 5 caracteres)', 'error'); return; }
+
+  var addedGases = {};
+  document.querySelectorAll('[id^="hist-gas-"][data-gfield]').forEach(function(inp) {
+    var v = _libNormalizeVal(inp.value);
+    if (v !== null) addedGases[inp.getAttribute('data-gfield')] = v;
+  });
+
+  var sigCaptured = _histCompleteState.sigCaptured || {};
+  if (!added.length && !modified.length && !Object.keys(addedGases).length && !Object.keys(sigCaptured).length) {
+    showToast('No hay cambios que guardar', 'info');
+    return;
+  }
+
+  if (modified.length > 0) {
+    // Modificar valores ya guardados exige firma digital (queda en testData.retroSignatures)
+    sigCaptureOpen({
+      title: 'Firma — modificación retroactiva (' + modified.length + ' campo' + (modified.length === 1 ? '' : 's') + ')',
+      role: 'Responsable del cambio',
+      signerName: _histCurrentUserName(),
+      onSave: function(sig) { _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, sig); },
+      onCancel: function() { showToast('Guardado cancelado — la modificación requiere firma', 'info'); }
+    });
+  } else {
+    _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, null);
+  }
+}
+
+function _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, changeSig) {
+  undoPush('cop15', 'Completar datos retroactivos: ' + (vehicle.vin || vehicle.id));
+  if (!vehicle.testData) vehicle.testData = {};
+  var userName = changeSig ? changeSig.signerName : _histCurrentUserName();
+  var nowIso = new Date().toISOString();
+
+  var wroteSi = false;
+  added.concat(modified).forEach(function(ch) {
+    _histSetPath(vehicle, ch.path, ch.value);
+    if (ch.si) wroteSi = true;
+  });
+  if (wroteSi) vehicle.testData.unitSystem = 'SI';
+
+  var gasFields = Object.keys(addedGases);
+  if (gasFields.length) {
+    if (!vehicle.testData.gasResults) vehicle.testData.gasResults = {};
+    var lib = vehicle.testData.gasResults.liberador;
+    if (!lib) {
+      lib = vehicle.testData.gasResults.liberador = { values: {}, capturedBy: userName, capturedAt: nowIso, retro: true };
+    }
+    if (!lib.values) lib.values = {};
+    lib.retroFields = (lib.retroFields || []).concat(gasFields.filter(function(f) { return lib.retroFields ? lib.retroFields.indexOf(f) === -1 : true; }));
+    gasFields.forEach(function(f) { if (_histBlank(lib.values[f])) lib.values[f] = addedGases[f]; });
+    _libAuditImplausibleValues(vehicle, addedGases, 'retroactivo');
+  }
+
+  ['releaser', 'approver'].forEach(function(which) {
+    if (sigCaptured[which]) {
+      if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
+      vehicle.testData.signatures[which] = Object.assign({}, sigCaptured[which], { retro: true });
+    }
+  });
+
+  if (changeSig) {
+    if (!vehicle.testData.retroSignatures) vehicle.testData.retroSignatures = [];
+    vehicle.testData.retroSignatures.push(changeSig);
+  }
+
+  var sigNames = Object.keys(sigCaptured);
+  vehicle.timeline = vehicle.timeline || [];
+  vehicle.timeline.push({
+    timestamp: nowIso,
+    user: userName,
+    action: 'Datos completados retroactivamente',
+    data: {
+      added: added.map(function(a) { return a.label; }).concat(gasFields.map(function(f) { return 'Resultado de ' + f; })).concat(sigNames.map(function(s) { return 'Firma ' + (s === 'releaser' ? 'Liberador' : 'Aprobador'); })),
+      modified: modified.map(function(m) { return { campo: m.label, antes: m.old, despues: m.value, razon: m.reason }; }),
+      signature: changeSig ? { signerName: changeSig.signerName, signedAt: changeSig.signedAt } : null
+    }
+  });
+  vehicle.lastModified = nowIso;
+
+  var detail = added.length + gasFields.length + ' campo(s) añadidos' +
+      (modified.length ? '; ' + modified.length + ' modificados con razón: ' + modified.map(function(m) { return m.label + ' (' + m.reason + ')'; }).join('; ') : '') +
+      (sigNames.length ? '; firmas capturadas: ' + sigNames.join(', ') : '');
+  auditLog('cop15', 'retro_edit', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, detail);
+
+  saveDB();
+  histCloseCompleteModal();
+  if (typeof renderHistory === 'function') { try { renderHistory(); } catch (e) {} }
+  if (typeof refreshAllLists === 'function') refreshAllLists();
+  var comp = validatePdfCompleteness(vehicle);
+  showToast(comp.ok ? '✓ Datos completados — el PDF ya se puede generar' : 'Guardado. Aún faltan ' + comp.missing.length + ' campos', comp.ok ? 'success' : 'info');
+}
+
+// Historial y control de cambios de un vehículo (visible también para archivados).
+function histShowTimelineModal(vehicleId) {
+  var vehicle = db.vehicles.find(function(v) { return v.id == vehicleId; });
+  if (!vehicle) return;
+  var tl = (vehicle.timeline || []).slice().reverse();
+  var html = '<div style="text-align:left;font-size:12px;max-height:380px;overflow:auto;">';
+  if (!tl.length) {
+    html += '<div style="color:#6b7280;padding:12px;text-align:center;">Sin eventos registrados.</div>';
+  } else {
+    tl.forEach(function(item) {
+      var d = new Date(item.timestamp);
+      var isRetro = item.action === 'Datos completados retroactivamente';
+      html += '<div style="border-left:3px solid ' + (isRetro ? '#f59e0b' : '#0891b2') + ';padding:6px 10px;margin-bottom:8px;background:#f8fafc;border-radius:0 6px 6px 0;">';
+      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;">' +
+              '<b>' + escapeHtml(item.action || '') + '</b>' +
+              '<span style="font-size:10px;color:#64748b;">' + d.toLocaleString('es-MX') + ' · ' + escapeHtml(item.user || '') + '</span></div>';
+      var data = item.data || {};
+      if (data.added && data.added.length) {
+        html += '<div style="font-size:10px;color:#334155;margin-top:2px;">Añadidos: ' + data.added.map(escapeHtml).join(', ') + '</div>';
+      }
+      if (data.modified && data.modified.length) {
+        html += '<table style="width:100%;font-size:10px;border-collapse:collapse;margin-top:4px;"><thead><tr>' +
+                ['Campo', 'Antes', 'Después', 'Razón'].map(function(h) { return '<th style="text-align:left;padding:2px 6px;border-bottom:1px solid #e5e7eb;color:#64748b;">' + h + '</th>'; }).join('') + '</tr></thead><tbody>';
+        data.modified.forEach(function(m) {
+          html += '<tr><td style="padding:2px 6px;font-weight:600;">' + escapeHtml(m.campo || m.path || '') + '</td>' +
+                  '<td style="padding:2px 6px;color:#ef4444;">' + escapeHtml(String(m.antes)) + '</td>' +
+                  '<td style="padding:2px 6px;color:#10b981;">' + escapeHtml(String(m.despues)) + '</td>' +
+                  '<td style="padding:2px 6px;color:#475569;">' + escapeHtml(m.razon || '') + '</td></tr>';
+        });
+        html += '</tbody></table>';
+      }
+      if (data.signature && data.signature.signerName) {
+        html += '<div style="font-size:10px;color:#92400e;margin-top:2px;">✍️ Firmado por ' + escapeHtml(data.signature.signerName) + '</div>';
+      }
+      html += '</div>';
+    });
+  }
+  html += '</div>';
+  showModal({
+    title: '🕘 Historial · ' + (vehicle.vin || ''),
+    message: html,
+    confirmText: 'Cerrar',
+    showCancel: false,
+    type: 'info'
+  });
 }
 
 function generateCOP15PDF(vehicleId, opts) {

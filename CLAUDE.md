@@ -174,6 +174,21 @@ Mejoras adaptadas del tablero VETS de un laboratorio hermano (comparativa comple
 - NO adoptado a propósito: desglose por fase/bolsa (solo valores finales verificados), tema oscuro,
   conteo fijo CoP de 3/familia (nuestro muestreo secuencial es superior).
 
+## v15.8 — Edición retroactiva + visión anual del plan
+
+- **Historial → 📝 Completar**: modal de edición retroactiva para archivados incompletos
+  (`histOpenCompleteModal` en cop15.js). Descriptor único `PDF_REQUIRED_FIELDS` (junto a
+  `validatePdfCompleteness`) alimenta validador y modal — **añadir un campo obligatorio al PDF =
+  añadir una entrada ahí** (path, label, section, refId del input de index.html, num/si/when).
+  Faltantes editables; existentes 🔒 (modificar = razón ≥5 chars + firma → `retroSignatures`);
+  timeline "Datos completados retroactivamente" + auditoría `retro_edit`. Botón 🕘 =
+  `histShowTimelineModal` (control de cambios). El vehículo nunca sale de `archived`.
+- **Plan**: tarjeta Presupuesto Anual (`tpRenderAnnualBudgetCard`); propósito por región al
+  iniciar prueba (`tpState.startPurposeByRegion`, `tpPurposeForRegion`, UI en Reglas); reglas
+  default P4 Legacy/P5 EV (`tpEnsurePriorityRuleDefaults`, maxTiers default 5); badge
+  "⏱ última prueba" por familia (`tpLastTestBadge`, `f.lastTestDate/daysSinceTest`) y evidencia
+  ordenada DESC.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

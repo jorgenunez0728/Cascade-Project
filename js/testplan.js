@@ -297,11 +297,15 @@ if (!tpState.configOverrides) tpState.configOverrides = {};
 if (tpState.weights && tpState.weights.region === undefined) tpState.weights.region = 0; // no rompe sumas de pesos viejas
 // ── [Recuperación] Estado para el Plan de Recuperación ──
 if (!tpState.priorityRules) tpState.priorityRules = tpDefaultPriorityRules();
+else tpEnsurePriorityRuleDefaults(); // v15.8: añade P4/P5 a estados persistidos (respeta personalizaciones)
 if (!tpState.weekAvailability) tpState.weekAvailability = {}; // { 'YYYY-MM-DD'(lunes): {available, capacity, workDays, note} }
 if (tpState.recoveryHorizonWeeks === undefined) tpState.recoveryHorizonWeeks = 12;
 if (tpState.recoveryUntil === undefined) tpState.recoveryUntil = null; // fecha límite de visualización 'YYYY-MM-DD'
-if (tpState.maxTiers === undefined) tpState.maxTiers = 3; // niveles de prioridad (1..10)
+if (tpState.maxTiers === undefined) tpState.maxTiers = 5; // niveles de prioridad (1..10)
 if (!tpState.months || !tpState.months.length) tpState.months = TP_MONTHS.slice(); // meses de producción dinámicos
+// v15.8: propósito precargado al iniciar prueba desde el plan, por región (regla "COP solo
+// cuando la región es Europa" del corporativo; el resto son auditorías internas). Editable en Reglas.
+if (!tpState.startPurposeByRegion) tpState.startPurposeByRegion = { 'EUROPE': 'COP-Emisiones', '*': 'EO-Emisiones' };
 
 function tpSave() {
     _tpInvalidateCache();
@@ -334,6 +338,19 @@ function tpCompactOldPlans() {
 }
 
 // ── Data helpers ──
+// Propósito precargado según región del plan (v15.8). Valida contra TP_PURPOSES_VALID.
+function tpPurposeForRegion(rgn) {
+    var map = tpState.startPurposeByRegion || {};
+    var p = map[_tpNorm(rgn)] || map['*'];
+    return (p && TP_PURPOSES_VALID.indexOf(p) !== -1) ? p : 'COP-Emisiones';
+}
+function tpSetStartPurpose(regionKey, value) {
+    if (!tpState.startPurposeByRegion) tpState.startPurposeByRegion = {};
+    tpState.startPurposeByRegion[regionKey] = value;
+    tpSave();
+    if (typeof showToast === 'function') showToast('Propósito por región actualizado', 'success');
+}
+
 function tpGetRule(cfg) {
     const r = tpState.rules;
     return r.find(x => x.region === cfg.rgn && x.regulation === cfg.reg)
@@ -811,6 +828,79 @@ function tpRenderExecSummary() {
     return html;
 }
 
+// v15.8: Presupuesto anual — pendiente del año (por prioridad) vs capacidad restante del
+// laboratorio. Adaptado del tablero del laboratorio hermano ("70 requeridas vs 120/año").
+function tpRenderAnnualBudgetCard(analysis, stats) {
+    var year = new Date().getFullYear();
+    var weekCap = parseInt(tpState.capacity, 10) || 8;
+
+    // Lunes del año: totales, y capacidad de las semanas restantes (respeta weekAvailability)
+    var mon = new Date(year, 0, 1);
+    while (mon.getDay() !== 1) mon.setDate(mon.getDate() + 1); // primer lunes del año
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var avail = tpState.weekAvailability || {};
+    var totalWeeks = 0, remainingWeeks = 0, capacityRemaining = 0;
+    while (mon.getFullYear() === year) {
+        totalWeeks++;
+        if (mon >= today || _tpMonday(today).getTime() === mon.getTime()) {
+            remainingWeeks++;
+            var av = avail[_tpFmtDate(mon)] || {};
+            if (av.available !== false) {
+                capacityRemaining += (av.capacity !== undefined && av.capacity !== null) ? av.capacity : weekCap;
+            }
+        }
+        mon = new Date(mon); mon.setDate(mon.getDate() + 7);
+    }
+    var capacityAnnual = totalWeeks * weekCap;
+
+    // Pendiente (déficit) por tier de prioridad
+    var byTier = {}, deficit = 0;
+    analysis.forEach(function(a) {
+        if (!(a.deficit > 0)) return;
+        deficit += a.deficit;
+        var t = tpClassifyTier(a) || 0; // 0 = sin prioridad
+        byTier[t] = (byTier[t] || 0) + a.deficit;
+    });
+    var tiers = Object.keys(byTier).map(Number).sort(function(x, y) { return (x || 99) - (y || 99); });
+
+    var verdict, vColor;
+    if (capacityRemaining >= deficit * 1.2) { verdict = '✓ El año alcanza con margen'; vColor = 'var(--tp-green)'; }
+    else if (capacityRemaining >= deficit)  { verdict = '⚠ Alcanza justo — sin holgura'; vColor = 'var(--tp-amber)'; }
+    else { verdict = '✗ Capacidad insuficiente para cerrar el año'; vColor = 'var(--tp-red)'; }
+
+    var maxBar = Math.max(deficit, capacityRemaining, 1);
+    var pendSegs = tiers.map(function(t) {
+        var n = byTier[t];
+        var label = t ? 'P' + t : 'Sin prioridad';
+        return '<div title="' + label + ' · ' + n + ' pruebas" style="flex:0 0 ' + (n / maxBar * 100) + '%;background:' + tpTierColor(t) + ';display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:800;overflow:hidden;white-space:nowrap;">' + (n / maxBar > 0.06 ? label + ' · ' + n : '') + '</div>';
+    }).join('');
+    var legend = tiers.map(function(t) {
+        return '<span style="font-size:9px;color:var(--tp-dim);"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + tpTierColor(t) + ';margin-right:3px;"></span>' + (t ? 'P' + t : 'Sin prioridad') + ' · ' + byTier[t] + '</span>';
+    }).join('');
+
+    return `
+    <div class="tp-card" style="border-left:3px solid ${vColor};margin-bottom:14px;">
+        <div class="tp-card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+            <span>📅 Presupuesto Anual ${year}</span>
+            <span style="font-size:11px;font-weight:800;color:${vColor};">${verdict}</span>
+        </div>
+        <div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">
+            Requeridas del año: <b style="color:var(--tp-text);">${stats.totalReq}</b> ·
+            Probadas: <b style="color:var(--tp-green);">${stats.totalT}</b> ·
+            Pendiente: <b style="color:var(--tp-red);">${deficit}</b> &nbsp;|&nbsp;
+            Capacidad restante: <b style="color:var(--tp-text);">${capacityRemaining}</b> pruebas
+            (${remainingWeeks} sem × ~${weekCap}/sem) · Capacidad anual ≈ ${capacityAnnual}
+        </div>
+        <div style="font-size:9px;color:var(--tp-dim);margin-bottom:2px;">Pendiente por prioridad</div>
+        <div style="display:flex;height:18px;border-radius:5px;overflow:hidden;background:var(--tp-bg);border:1px solid var(--tp-border);margin-bottom:6px;">${pendSegs || '<div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--tp-green);">Sin pendientes 🎉</div>'}</div>
+        <div style="font-size:9px;color:var(--tp-dim);margin-bottom:2px;">Capacidad restante del año</div>
+        <div style="display:flex;height:18px;border-radius:5px;overflow:hidden;background:var(--tp-bg);border:1px solid var(--tp-border);">
+            <div style="flex:0 0 ${capacityRemaining / maxBar * 100}%;background:var(--tp-green);opacity:0.75;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:800;">${capacityRemaining}</div>
+        </div>
+        ${legend ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;">' + legend + '</div>' : ''}
+    </div>`;
+}
+
 function tpRenderDashboard(el) {
     if (tpState.planData.length === 0) {
         el.innerHTML = `<div class="tp-card" style="text-align:center;padding:60px 20px;">
@@ -891,6 +981,8 @@ function tpRenderDashboard(el) {
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">${stats.deficit}</div><div class="tp-metric-label">Déficit</div></div>
         <div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">${stats.neverTested}</div><div class="tp-metric-label">Sin Probar (c/prod)</div></div>
     </div>
+
+    ${tpRenderAnnualBudgetCard(analysis, stats)}
 
     <!-- Status bars -->
     <div class="tp-status-bar">
@@ -1895,6 +1987,18 @@ function tpRenderRules(el) {
                 `).join('')}
             </div>
             <div class="tp-card" style="margin-top:14px;">
+                <div class="tp-card-title"><span>🎯 Propósito al iniciar prueba desde el plan</span></div>
+                <p style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Propósito precargado en Alta según la región de la config (regla corporativa: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo en Alta.</p>
+                ${[['EUROPE','🇪🇺 Europa'],['*','🌐 Resto de regiones']].map(([key,label]) => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+                        <span style="font-size:11px;font-weight:600;">${label}</span>
+                        <select class="tp-select" style="font-size:10px;max-width:170px;" onchange="tpSetStartPurpose('${key}', this.value)">
+                            ${TP_PURPOSES_VALID.map(p => `<option value="${p}" ${(tpState.startPurposeByRegion&&tpState.startPurposeByRegion[key])===p?'selected':''}>${p}</option>`).join('')}
+                        </select>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="tp-card" style="margin-top:14px;">
                 <div class="tp-card-title">
                     <span>💾 Plantillas de Reglas (${(tpState.rulePresets||[]).length}/5)</span>
                     <button class="tp-btn tp-btn-primary" onclick="tpSaveRulePreset()" style="font-size:10px;">+ Guardar Actual</button>
@@ -2271,7 +2375,7 @@ function tpStartTestFromPlan(weekIdx, itemIdx) {
         weekIdx: weekIdx,
         itemIdx: itemIdx,
         configCode: item.desc || '',
-        purpose: 'COP-Emisiones', // sensible default; user can change
+        purpose: tpPurposeForRegion(item.rgn), // default por región (COP solo Europa); el usuario puede cambiarlo
         planItem: {
             desc: item.desc,
             mod: item.mod || '', my: item.my || '', eng: item.eng || '',
@@ -2326,8 +2430,34 @@ function tpDefaultPriorityRules() {
         { id:'p3c16',  tier:3, region:'USA',    regulation:'*',          modelMatch:'CL4', engMatch:'1.6',  label:'P3 · US CL4 1.6' },
         { id:'p3c16b', tier:3, region:'USA',    regulation:'*',          modelMatch:'CL4', engMatch:'1600', label:'P3 · US CL4 1600cc' },
         { id:'p3c20',  tier:3, region:'USA',    regulation:'*',          modelMatch:'CL4', engMatch:'2.0',  label:'P3 · US CL4 2.0' },
-        { id:'p3c20b', tier:3, region:'USA',    regulation:'*',          modelMatch:'CL4', engMatch:'2000', label:'P3 · US CL4 2000cc' }
+        { id:'p3c20b', tier:3, region:'USA',    regulation:'*',          modelMatch:'CL4', engMatch:'2000', label:'P3 · US CL4 2000cc' },
+        // P4/P5 (v15.8, adaptado del esquema del laboratorio hermano). Nota: P1 EUROPE/* va
+        // antes y "primera regla gana" — un Euro-2 europeo sigue siendo P1 (COP UE manda).
+        { id:'p4e2',   tier:4, region:'*',      regulation:'EURO-2',     modelMatch:'',    engMatch:'',     label:'P4 · Legacy Euro 2' },
+        { id:'p4e3',   tier:4, region:'*',      regulation:'EURO-3',     modelMatch:'',    engMatch:'',     label:'P4 · Legacy Euro 3' },
+        { id:'p4e4',   tier:4, region:'*',      regulation:'EURO-4',     modelMatch:'',    engMatch:'',     label:'P4 · Legacy Euro 4' },
+        { id:'p5ev1',  tier:5, region:'*',      regulation:'120V',       modelMatch:'',    engMatch:'',     label:'P5 · EV/Eléctrico (120V)' },
+        { id:'p5ev2',  tier:5, region:'*',      regulation:'220V',       modelMatch:'',    engMatch:'',     label:'P5 · EV/Eléctrico (220V)' }
     ];
+}
+
+// Migración suave (v15.8): añade las reglas default P4/P5 a estados persistidos, respetando
+// personalizaciones — solo si no existe ya el id NI ninguna regla propia en ese tier.
+function tpEnsurePriorityRuleDefaults() {
+    var rules = tpState.priorityRules;
+    if (!rules || !rules.length) return;
+    var added = [];
+    tpDefaultPriorityRules().forEach(function(d) {
+        if (d.tier < 4) return;
+        if (rules.some(function(r) { return r.id === d.id; })) return;
+        if (rules.some(function(r) { return r.tier === d.tier; })) return; // tier ya personalizado
+        rules.push(d); added.push(d.label);
+    });
+    if (added.length) {
+        if (!(parseInt(tpState.maxTiers, 10) >= 5)) tpState.maxTiers = 5;
+        tpSave();
+        if (typeof auditLog === 'function') auditLog('tp', 'priority_rules_migrated', null, 'Reglas default añadidas: ' + added.join(', '));
+    }
 }
 
 function _tpNorm(s) { return (s == null ? '' : String(s)).trim().toUpperCase(); }
@@ -2336,6 +2466,20 @@ function _tpNorm(s) { return (s == null ? '' : String(s)).trim().toUpperCase(); 
 var _TP_TIER_COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#10b981', '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#64748b'];
 function tpMaxTiers() { var n = parseInt(tpState.maxTiers, 10); return (isNaN(n) || n < 1) ? 3 : Math.min(n, 10); }
 function tpTierColor(t) { return (!t || t < 1) ? '#94a3b8' : _TP_TIER_COLORS[(t - 1) % _TP_TIER_COLORS.length]; }
+
+// v15.8: badge "última prueba" de una familia (verde <30d, ámbar 30-90d, rojo >90d).
+function tpLastTestBadge(f) {
+    if (!f.lastTestDate) {
+        if (!(f.totalRequired > 0)) return '';
+        return '<span class="tp-badge" style="background:rgba(148,163,184,0.15);color:#94a3b8;font-size:9px;" title="Sin pruebas registradas">⏱ Nunca</span>';
+    }
+    var d = f.daysSinceTest;
+    var color = d < 30 ? 'var(--tp-green)' : d <= 90 ? 'var(--tp-amber)' : 'var(--tp-red)';
+    var bg = d < 30 ? 'rgba(34,197,94,0.15)' : d <= 90 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)';
+    var fecha = new Date(f.lastTestDate + 'T12:00:00').toLocaleDateString('es-MX');
+    var txt = d === 0 ? 'hoy' : 'hace ' + d + 'd';
+    return '<span class="tp-badge" style="background:' + bg + ';color:' + color + ';font-size:9px;font-weight:700;" title="Última prueba: ' + fecha + '">⏱ ' + txt + '</span>';
+}
 function tpSetMaxTiers(val) {
     var n = parseInt(val, 10);
     tpState.maxTiers = isNaN(n) ? 3 : Math.min(Math.max(n, 1), 10);
@@ -3603,6 +3747,8 @@ function tpBuildFamilies() {
         const vins = tpState.testedList.filter(t => t.configText === cfg.desc);
 
         families[key].configs.push({ ...cfg, testedN:n, required:req, deficit:Math.max(0,req-n), vins });
+        // v15.8: fecha del ensayo más reciente de la familia (ISO 'YYYY-MM-DD' → max lexicográfico)
+        vins.forEach(v => { if (v.date && v.date > (families[key].lastTestDate || '')) families[key].lastTestDate = v.date; });
         families[key].bodies.add(cfg.body||'');
         families[key].drvs.add(cfg.drv||'');
         families[key].rgns.add(cfg.rgn||'');
@@ -3625,6 +3771,8 @@ function tpBuildFamilies() {
         f.deficit = Math.max(0, f.totalRequired - f.totalTested);
         f.riskScore = ((1 - f.coverage) * 60) + (((f.totalVol + f.totalHist) / maxVol) * 30) + ((1 - f.configCoverage) * 10);
         f.riskLevel = f.riskScore > 60 ? 'high' : f.riskScore > 30 ? 'medium' : 'low';
+        // v15.8: días desde la última prueba (T12:00 evita corrimiento de zona horaria)
+        f.daysSinceTest = f.lastTestDate ? Math.floor((Date.now() - new Date(f.lastTestDate + 'T12:00:00').getTime()) / 86400000) : null;
 
         // Override manual (criticidad + deadline por familia)
         var _ov = (tpState.familyOverrides || {})[f.key] || {};
@@ -3990,6 +4138,7 @@ function tpRenderFamilies(el) {
                         ${epTag}${engTag}${_repStar}${_equivBadge}${_contBadge}${tpFamilyFlagBadge(f)}
                     </div>
                     <div style="display:flex;align-items:center;gap:4px;">
+                        ${tpLastTestBadge(f)}
                         ${_evidBtn}
                         <span style="font-size:10px;font-weight:700;color:${f.totalTested>0?'var(--tp-green)':'var(--tp-red)'};">${f.totalTested}/${f.totalRequired}</span>
                         <div class="tp-bar" style="width:40px;"><div class="tp-bar-fill" style="width:${Math.round(_fCov*100)}%;background:${rc[_fRisk]};"></div><span class="tp-bar-text" style="font-size:9px;">${Math.round(_fCov*100)}%</span></div>
@@ -4785,6 +4934,8 @@ function tpOpenFamilyEvidence(famKey) {
             });
         });
     });
+    // v15.8: más recientes primero (fechas vacías al final)
+    rows.sort(function(a, b) { return String(b.date || '').localeCompare(String(a.date || '')); });
 
     var html = '';
     html += '<div style="text-align:left;font-size:12px;max-width:720px;">';
@@ -4804,10 +4955,19 @@ function tpOpenFamilyEvidence(famKey) {
             html += '<th style="padding:5px 6px;text-align:left;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;">' + h + '</th>';
         });
         html += '</tr></thead><tbody>';
-        rows.forEach(function(r) {
-            html += '<tr style="border-bottom:1px solid #f3f4f6;">';
+        rows.forEach(function(r, idx) {
+            var isLatest = idx === 0 && r.date;
+            html += '<tr style="border-bottom:1px solid #f3f4f6;' + (isLatest ? 'background:#eff6ff;' : '') + '">';
             html += '<td style="padding:4px 6px;font-family:monospace;color:#1f2937;">' + (r.vin || '?') + (r.rep ? ' <span style="font-size:8px;color:#2563eb;font-weight:700;">REP</span>' : '') + '</td>';
-            html += '<td style="padding:4px 6px;color:#4b5563;">' + r.date + '</td>';
+            var dateCell = '—';
+            if (r.date) {
+                var _d = new Date(r.date + 'T12:00:00');
+                var _days = Math.floor((Date.now() - _d.getTime()) / 86400000);
+                dateCell = '<strong style="color:' + (isLatest ? '#1d4ed8' : '#1f2937') + ';">' + _d.toLocaleDateString('es-MX') + '</strong>' +
+                           ' <span style="font-size:8px;color:#6b7280;">' + (_days === 0 ? 'hoy' : 'hace ' + _days + 'd') + '</span>' +
+                           (isLatest ? ' <span style="font-size:8px;color:#1d4ed8;font-weight:700;">ÚLTIMA</span>' : '');
+            }
+            html += '<td style="padding:4px 6px;color:#4b5563;white-space:nowrap;" title="' + r.date + '">' + dateCell + '</td>';
             html += '<td style="padding:4px 6px;color:#4b5563;">' + (r.operator || '—') + '</td>';
             html += '<td style="padding:4px 6px;color:#4b5563;">' + (r.purpose || '—') + '</td>';
             html += '<td style="padding:4px 6px;color:#4b5563;">' + (r.status || '—') + '</td>';
@@ -4856,7 +5016,7 @@ function tpExportFamilyEvidenceCSV(famKey) {
     var families = tpBuildFamilies();
     var f = families.find(function(x) { return x.key === famKey; });
     if (!f) return;
-    var lines = ['VIN,Fecha,Operador,Proposito,Estado,Variante,ConfigCode'];
+    var entries = [];
     f.configs.forEach(function(c) {
         (c.vins || []).forEach(function(v) {
             var vin = _tpExtractVin(v.note || '');
@@ -4864,7 +5024,7 @@ function tpExportFamilyEvidenceCSV(famKey) {
             if (typeof db !== 'undefined' && db.vehicles && vin) {
                 vehicle = db.vehicles.find(function(veh) { return veh.vin === vin; });
             }
-            lines.push([
+            entries.push({ date: v.date || '', cols: [
                 vin,
                 v.date || '',
                 vehicle ? (vehicle.registeredBy || '') : '',
@@ -4872,8 +5032,14 @@ function tpExportFamilyEvidenceCSV(famKey) {
                 vehicle ? (vehicle.status || '') : '',
                 c.tire || '',
                 (vehicle && vehicle.configCode) || ''
-            ].map(function(x) { return '"' + String(x).replace(/"/g, '""') + '"'; }).join(','));
+            ]});
         });
+    });
+    // v15.8: mismo orden que la vista — más recientes primero
+    entries.sort(function(a, b) { return String(b.date).localeCompare(String(a.date)); });
+    var lines = ['VIN,Fecha,Operador,Proposito,Estado,Variante,ConfigCode'];
+    entries.forEach(function(e) {
+        lines.push(e.cols.map(function(x) { return '"' + String(x).replace(/"/g, '""') + '"'; }).join(','));
     });
     var csv = lines.join('\n');
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
