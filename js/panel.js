@@ -27,6 +27,63 @@ function pnInit() {
         });
         pnSave();
     }
+    if (!pnState.tasks) pnState.tasks = []; // v15.9: tareas manuales del tablero HOY
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// v15.9 — TAREAS MANUALES DEL TABLERO HOY (pnState.tasks, sync vía panel + merge por id)
+// {id, title, cat, assignee, due, done, doneAt, createdBy, createdAt, updatedAt, deleted}
+// ═══════════════════════════════════════════════════════════════════════════════
+function _pnCurrentUser() {
+    try {
+        if (typeof authGetCurrentUser === 'function') {
+            var u = authGetCurrentUser();
+            if (u && u.name) return u.name;
+        }
+    } catch (e) {}
+    return 'Operador';
+}
+
+function pnTaskAdd(data) {
+    if (!pnState.tasks) pnState.tasks = [];
+    var now = new Date().toISOString();
+    var task = {
+        id: 't_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        title: String(data.title || '').trim(),
+        cat: data.cat || 'manuales',
+        assignee: data.assignee || '',
+        due: data.due || '',
+        done: false, doneAt: null,
+        createdBy: _pnCurrentUser(),
+        createdAt: now, updatedAt: now, deleted: false
+    };
+    if (!task.title) { if (typeof showToast === 'function') showToast('Escribe un título para la actividad', 'warning'); return null; }
+    pnState.tasks.push(task);
+    if (typeof auditLog === 'function') auditLog('panel', 'task_add', { type: 'task', id: task.id, label: task.title }, 'Cat: ' + task.cat + (task.assignee ? ' · Resp: ' + task.assignee : '') + (task.due ? ' · Para: ' + task.due : ''));
+    pnSave();
+    if (typeof dailyDashRender === 'function' && document.getElementById('platform-today') && document.getElementById('platform-today').classList.contains('active')) dailyDashRender();
+    return task;
+}
+
+function pnTaskToggle(id) {
+    var t = (pnState.tasks || []).find(function(x) { return x.id === id; });
+    if (!t) return;
+    t.done = !t.done;
+    t.doneAt = t.done ? new Date().toISOString() : null;
+    t.updatedAt = new Date().toISOString();
+    if (typeof auditLog === 'function') auditLog('panel', t.done ? 'task_done' : 'task_reopen', { type: 'task', id: t.id, label: t.title }, t.done ? 'Completada por ' + _pnCurrentUser() : 'Reabierta');
+    pnSave();
+    if (typeof dailyDashRender === 'function' && document.getElementById('platform-today') && document.getElementById('platform-today').classList.contains('active')) dailyDashRender();
+}
+
+function pnTaskDelete(id) {
+    var t = (pnState.tasks || []).find(function(x) { return x.id === id; });
+    if (!t) return;
+    t.deleted = true; // tombstone: sobrevive al merge para no resucitar en otros dispositivos
+    t.updatedAt = new Date().toISOString();
+    if (typeof auditLog === 'function') auditLog('panel', 'task_delete', { type: 'task', id: t.id, label: t.title }, 'Eliminada por ' + _pnCurrentUser());
+    pnSave();
+    if (typeof dailyDashRender === 'function' && document.getElementById('platform-today') && document.getElementById('platform-today').classList.contains('active')) dailyDashRender();
 }
 
 function pnSave() {
@@ -401,19 +458,21 @@ function pnRenderDashboard(el) {
     }
 
     // ── Soak Timer Status ──
+    // v15.9: corregido al esquema REAL que escribe soakTimerStart ({endTime, totalMs,
+    // vehicleId, vin}) — la versión anterior leía {active, start, duration} que nunca
+    // se escribió, así que esta tarjeta jamás aparecía.
     var soakData = null;
     try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
-    if (soakData && soakData.active) {
-        var elapsed = Math.round((Date.now() - soakData.start) / 60000);
-        var remaining = Math.max(0, (soakData.duration || 720) - elapsed);
-        var hrs = Math.floor(remaining / 60);
-        var mins = remaining % 60;
-        var pct = Math.round((elapsed / (soakData.duration || 720)) * 100);
+    if (soakData && soakData.endTime && soakData.endTime > Date.now()) {
+        var remainMs = soakData.endTime - Date.now();
+        var hrs = Math.floor(remainMs / 3600000);
+        var mins = Math.floor((remainMs % 3600000) / 60000);
+        var pct = soakData.totalMs ? Math.round((1 - remainMs / soakData.totalMs) * 100) : 0;
         html += '<div class="tp-card" style="border:2px solid #8b5cf6;">';
         html += '<div class="tp-card-title"><span style="color:#8b5cf6;">🕐 Soak Timer Activo</span></div>';
         html += '<div style="text-align:center;padding:8px;">';
         html += '<div style="font-size:24px;font-weight:800;color:#8b5cf6;">' + hrs + 'h ' + mins + 'm restantes</div>';
-        html += '<div class="tp-bar" style="height:6px;margin:8px 0;"><div class="tp-bar-fill" style="width:' + Math.min(pct, 100) + '%;background:#8b5cf6;"></div></div>';
+        html += '<div class="tp-bar" style="height:6px;margin:8px 0;"><div class="tp-bar-fill" style="width:' + Math.min(Math.max(pct, 0), 100) + '%;background:#8b5cf6;"></div></div>';
         html += '<div style="font-size:9px;color:var(--tp-dim);">VIN: ' + (soakData.vin || '?') + ' | ' + pct + '% completado</div>';
         html += '</div></div>';
     }
@@ -985,6 +1044,20 @@ function pnGetActiveAlerts() {
         try {
             copSpcScanAlarms().forEach(function(a) {
                 alerts.push({ level: 'ALTA', color: '#ef4444', message: 'SPC: ' + a.gasLabel + ' fuera de control (' + (a.rule || '') + ') en ' + a.famLabel + ' — ver CoP → Control SPC', source: 'CoP SPC' });
+            });
+        } catch (e) {}
+    }
+
+    // v15.9: Consumo proyectado (modelo aprendido) — gas/gasolina insuficiente para pendientes
+    if (typeof invForecastGasNeeds === 'function') {
+        try {
+            invForecastGasNeeds().forEach(function(f) {
+                alerts.push({
+                    level: f.severidad === 'critical' ? 'CRITICA' : 'ALTA',
+                    color: f.severidad === 'critical' ? '#ef4444' : '#f59e0b',
+                    message: 'Consumo: faltarán ~' + f.deficit + ' ' + f.unit + ' de ' + f.name + ' para las ' + f.pruebasPend + ' pruebas pendientes (' + (f.scope === 'semana' ? 'esta semana' : 'plan completo') + ')',
+                    source: 'Consumo'
+                });
             });
         } catch (e) {}
     }

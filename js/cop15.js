@@ -5188,10 +5188,17 @@ function soakTimerStart() {
     document.getElementById('soak_timer_btn_start').style.display = 'none';
     document.getElementById('soak_timer_btn_stop').style.display = '';
 
-    // Save to localStorage so timer persists across page reloads
+    // Save to localStorage so timer persists across page reloads.
+    // v15.9: persistir también el vehículo dueño — el timer es un singleton global y sin
+    // esto cualquier vehículo "heredaba" el soak ajeno (getNextStep) y el modal de fin
+    // no sabía de qué VIN era.
+    var _soakVeh = (typeof activeVehicleId !== 'undefined' && typeof db !== 'undefined' && db.vehicles)
+        ? db.vehicles.find(function(v) { return v.id == activeVehicleId; }) : null;
     localStorage.setItem('kia_soak_timer', JSON.stringify({
         endTime: _soakTimer.endTime,
-        totalMs: _soakTimer.totalMs
+        totalMs: _soakTimer.totalMs,
+        vehicleId: _soakVeh ? _soakVeh.id : (typeof activeVehicleId !== 'undefined' ? activeVehicleId : null),
+        vin: _soakVeh ? (_soakVeh.vin || '') : ''
     }));
 
     if (typeof fbPostSoakStarted === 'function') fbPostSoakStarted(typeof activeVehicleId !== 'undefined' ? activeVehicleId : '', hours);
@@ -6232,18 +6239,16 @@ function getNextStep(vehicle) {
     var p = td.preconditioning || {};
     var status = vehicle.status;
 
-    // Check soak status
-    var soakDone = false;
+    // Check soak status. v15.9: el timer lleva dueño (vehicleId) — un soak de OTRO vehículo
+    // ya no marca soakDone/soakStarted a todos (bug latente del singleton global).
+    var soakDone = false, soakStarted = false;
     try {
         var soakData = JSON.parse(localStorage.getItem('kia_soak_timer'));
-        if (soakData && soakData.endTime && soakData.endTime <= Date.now()) soakDone = true;
-        if (td.soakCompleted) soakDone = true;
+        var soakMine = soakData && (!soakData.vehicleId || soakData.vehicleId == vehicle.id);
+        if (soakMine && soakData.endTime && soakData.endTime <= Date.now()) soakDone = true;
+        if (soakMine && soakData && soakData.endTime) soakStarted = true;
     } catch(e) {}
-    var soakStarted = false;
-    try {
-        var sd = JSON.parse(localStorage.getItem('kia_soak_timer'));
-        if (sd && sd.endTime) soakStarted = true;
-    } catch(e) {}
+    if (td.soakCompleted) soakDone = true;
 
     var precondComplete = p.ok === 'Si' && p.datetime && p.responsible;
     var testStarted = td.testResponsible || td.testDatetime;
@@ -6253,7 +6258,7 @@ function getNextStep(vehicle) {
     if (status === 'registered') {
         return { action: 'Iniciar Precondicionamiento', goto: 'acc-precond', icon: '🔧' };
     }
-    if (status === 'in-progress' && precondComplete && !soakStarted) {
+    if (status === 'in-progress' && precondComplete && !soakStarted && !soakDone) {
         return { action: 'Iniciar Soak Timer', goto: 'soak-section', icon: '⏱️' };
     }
     if (status === 'in-progress' && precondComplete && soakStarted && !soakDone) {
@@ -6275,6 +6280,87 @@ function getNextStep(vehicle) {
         return { action: 'Aprobar (doble ciego)', goto: 'approval-tab', icon: '🔏' };
     }
     return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// v15.9 — ETAPA "N de 8" y ETA DE LIBERACIÓN por vehículo (para el tablero HOY)
+// Secuencia canónica derivada de la misma lógica condicional de getNextStep():
+// 1 Alta · 2 Recepción · 3 Preacondicionamiento · 4 Soak · 5 Prueba · 6 Verificación ·
+// 7 Liberación (doble ciego) · 8 Aprobación/Archivo.
+// ═══════════════════════════════════════════════════════════════════════════════
+var CASCADE_STAGES = ['Alta', 'Recepción', 'Preacondicionamiento', 'Soak', 'Prueba', 'Verificación', 'Liberación', 'Aprobación'];
+
+function cascadeVehicleStage(vehicle) {
+    if (!vehicle) return null;
+    var td = vehicle.testData || {};
+    var p = td.preconditioning || {};
+    var tv = td.testVerification || {};
+    var status = vehicle.status;
+    if (status === 'archived') return { index: 8, total: 8, label: 'Archivado', done: true };
+
+    var soakDone = !!td.soakCompleted, soakStarted = false;
+    try {
+        var sd = JSON.parse(localStorage.getItem('kia_soak_timer'));
+        var mine = sd && (!sd.vehicleId || sd.vehicleId == vehicle.id);
+        if (mine && sd.endTime) { soakStarted = true; if (sd.endTime <= Date.now()) soakDone = true; }
+    } catch (e) {}
+    var recepcionOk = td.operator && td.odometer && td.datetime;
+    var precondComplete = p.ok === 'Si' && p.datetime && p.responsible;
+    var testStarted = td.testResponsible || td.testDatetime;
+    var testComplete = tv.tunnel && tv.dyno && tv.fanMode && td.testResponsible && td.testDatetime;
+
+    var idx;
+    if (status === 'pending-approval') idx = 8;
+    else if (status === 'ready-release' || (status === 'testing' && testComplete)) idx = 7;
+    else if (status === 'testing' && testStarted) idx = 6;
+    else if (status === 'testing' || (status === 'in-progress' && soakDone)) idx = 5;
+    else if (status === 'in-progress' && precondComplete && soakStarted) idx = 4;
+    else if (status === 'in-progress' || (status === 'registered' && recepcionOk)) idx = 3;
+    else idx = 2; // registered sin datos de recepción
+    return { index: idx, total: 8, label: CASCADE_STAGES[idx - 1], done: false };
+}
+
+// ETA de liberación: v.expectedReleaseAt manda (manual, auditado); si no, heurística por
+// etapa: soak activo → fin de soak + 1 día hábil; etapas 2-3 → día de prueba asignado en
+// el plan semanal + 1; etapas 5-7 → hoy/mañana. tone: ok (>mañana) / warn (hoy-mañana) / late.
+function cascadeVehicleETA(vehicle) {
+    if (!vehicle || vehicle.status === 'archived') return null;
+    var dateStr = null, source = 'auto';
+    if (vehicle.expectedReleaseAt) { dateStr = vehicle.expectedReleaseAt; source = 'manual'; }
+    else {
+        var st = cascadeVehicleStage(vehicle);
+        var d = new Date(); d.setHours(12, 0, 0, 0);
+        var addDays = function(base, n) { var x = new Date(base); x.setDate(x.getDate() + n); if (x.getDay() === 0) x.setDate(x.getDate() + 1); return x; };
+        if (st.index === 4) {
+            try {
+                var sd = JSON.parse(localStorage.getItem('kia_soak_timer'));
+                if (sd && sd.endTime && (!sd.vehicleId || sd.vehicleId == vehicle.id)) d = new Date(sd.endTime);
+            } catch (e) {}
+            d = addDays(d, 1);
+        } else if (st.index <= 3) {
+            // ¿Está en el plan semanal con día de prueba asignado?
+            var planDay = null;
+            if (typeof tpState !== 'undefined' && tpState.weeklyPlans) {
+                var plan = tpState.weeklyPlans.slice().reverse().find(function(pl) { return pl.accepted && pl.items; });
+                var item = plan && plan.items.find(function(i) { return !i.completed && i.desc && vehicle.configCode && i.desc === vehicle.configCode; });
+                if (item && item.testDay && plan.weekDate) {
+                    var dayIdx = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'].indexOf(item.testDay);
+                    if (dayIdx >= 0) {
+                        var mon = new Date(plan.weekDate + 'T12:00:00');
+                        planDay = new Date(mon); planDay.setDate(mon.getDate() + ((dayIdx + 6) % 7)); // lun=+0 … dom=+6
+                    }
+                }
+            }
+            d = planDay ? addDays(planDay, 1) : addDays(d, 2);
+        } else {
+            d = addDays(d, st.index >= 7 ? 0 : 1);
+        }
+        dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    var hoy = (typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10);
+    var manana = (function() { var x = new Date(hoy + 'T12:00:00'); x.setDate(x.getDate() + 1); return x.toISOString().slice(0, 10); })();
+    var tone = dateStr < hoy ? 'late' : dateStr <= manana ? 'warn' : 'ok';
+    return { date: dateStr, source: source, tone: tone };
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗

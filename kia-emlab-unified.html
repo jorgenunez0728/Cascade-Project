@@ -2922,6 +2922,90 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
     .hist-complete-box table, .hist-complete-box tbody, .hist-complete-box tr { display: block; width: 100%; }
     .hist-complete-box td { display: block; width: 100% !important; padding: 3px 4px !important; }
 }
+
+/* ===== HOY · Tablero de actividades estilo Monday (v15.9) ===== */
+.dash-board { margin-bottom: 14px; }
+.dash-board-header {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 8px 4px; margin-bottom: 6px;
+}
+.dash-board-title { font-size: 15px; font-weight: 800; color: var(--text, #1e293b); }
+.dash-board-toggle { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #475569; cursor: pointer; user-select: none; }
+.dash-group {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    margin-bottom: 8px; overflow: hidden;
+}
+.dash-group--vehiculos  { border-left: 4px solid var(--accent-cascade); }
+.dash-group--plan       { border-left: 4px solid var(--accent-testplan); }
+.dash-group--inventario { border-left: 4px solid var(--accent-inventory); }
+.dash-group--calidad    { border-left: 4px solid var(--accent-cop); }
+.dash-group--manuales   { border-left: 4px solid var(--accent-panel); }
+.dash-group > summary {
+    display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+    cursor: pointer; list-style: none; user-select: none; font-weight: 700; font-size: 13px;
+    background: #f8fafc;
+}
+.dash-group > summary::-webkit-details-marker { display: none; }
+.dash-group > summary::after { content: '▾'; margin-left: auto; color: #94a3b8; font-size: 12px; }
+.dash-group:not([open]) > summary::after { content: '▸'; }
+.dash-group-icon { font-size: 15px; }
+.dash-group-count { font-size: 11px; font-weight: 700; color: #d97706; background: #fef3c7; padding: 2px 8px; border-radius: 10px; }
+.dash-group-count.ok { color: #059669; background: #d1fae5; }
+.dash-row {
+    display: grid; grid-template-columns: auto 1fr; gap: 4px 10px;
+    align-items: center; padding: 8px 12px; border-top: 1px solid #f1f5f9;
+}
+.dash-row-side { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-left: 30px; }
+@media (min-width: 640px) {
+    .dash-row { grid-template-columns: auto 1fr auto; }
+    .dash-row-side { grid-column: auto; padding-left: 0; justify-content: flex-end; }
+}
+.dash-row--hecho .dash-row-title { text-decoration: line-through; color: #94a3b8; }
+.dash-row--atrasado { background: rgba(239, 68, 68, 0.04); }
+.dash-row-icon { font-size: 16px; width: 22px; text-align: center; }
+.dash-row-check { width: 17px; height: 17px; accent-color: #10b981; cursor: pointer; }
+.dash-row-title { font-size: 13px; font-weight: 600; color: #1e293b; }
+.dash-row-meta { font-size: 11px; color: #64748b; margin-top: 1px; }
+.dash-chip {
+    font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 10px; white-space: nowrap;
+}
+.dash-chip--pendiente { background: rgba(148, 163, 184, 0.18); color: #475569; }
+.dash-chip--encurso   { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; }
+.dash-chip--hecho     { background: rgba(16, 185, 129, 0.15); color: #059669; }
+.dash-chip--atrasado  { background: rgba(239, 68, 68, 0.14); color: #dc2626; }
+.dash-stepper { display: flex; align-items: center; gap: 3px; margin-top: 5px; }
+.dash-step { width: 16px; height: 5px; border-radius: 3px; background: #e2e8f0; }
+.dash-step.done { background: var(--accent-cascade); opacity: 0.45; }
+.dash-step.now { background: var(--accent-cascade); animation: dash-pulse 1.6s ease-in-out infinite; }
+@keyframes dash-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.dash-stepper-label { font-size: 10.5px; font-weight: 700; color: #64748b; margin-left: 5px; white-space: nowrap; }
+.dash-eta {
+    font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 8px;
+    cursor: pointer; white-space: nowrap; border: 1px dashed transparent;
+}
+.dash-eta:hover { border-color: currentColor; }
+.dash-eta--ok   { background: rgba(16, 185, 129, 0.1); color: #059669; }
+.dash-eta--warn { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+.dash-eta--late { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+.dash-row-action {
+    font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 7px;
+    border: 1px solid #cbd5e1; background: #fff; color: #334155; cursor: pointer; white-space: nowrap;
+}
+.dash-row-action:hover { background: #f1f5f9; }
+.dash-row-action--ghost { border-color: transparent; color: #94a3b8; }
+.dash-task-overlay {
+    position: fixed; inset: 0; z-index: 10060; background: rgba(15, 23, 42, 0.5);
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.dash-task-box {
+    background: #fff; border-radius: 12px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    width: 100%; max-width: 380px; padding: 16px;
+}
+.dash-task-field { display: block; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 8px; }
+.dash-task-field input, .dash-task-field select {
+    display: block; width: 100%; margin-top: 3px; padding: 7px 9px; font-size: 13px; font-weight: 400;
+    border: 1px solid #cbd5e1; border-radius: 7px; background: #fff; color: #1e293b; box-sizing: border-box;
+}
     </style>
 </head>
 
@@ -4673,21 +4757,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607050656';
+var APP_BUILD = '202607091852';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607050656' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607091852' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607050656' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607091852' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -4703,7 +4787,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607050656' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607091852' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -6391,59 +6475,13 @@ function dailyDashRender() {
     // ── [v15-P1] Resumen del Lab (fuente única: renderLabOverview, KPI + pipeline) ──
     html += '<div id="hoy-lab-overview" style="margin-bottom:8px;"></div>';
 
-    // ── Recordatorios de captura de lecturas (gases + combustible) ──
-    // (a) progreso de captura de hoy  (b) días desde la última captura
-    var readingReminderShown = false;
-    var rdGoTo = "dashGo('inventory','inv-readings')";
-    var rdStatus = typeof invReadingStatusToday === 'function' ? invReadingStatusToday() : { inUseTotal: 0, capturedToday: 0, daysSinceLast: null };
-
-    if (rdStatus.inUseTotal > 0 && rdStatus.capturedToday < rdStatus.inUseTotal) {
-        var rdPct = Math.round((rdStatus.capturedToday / rdStatus.inUseTotal) * 100);
-        html += '<div class="daily-dash-section">';
-        html += '<div class="daily-dash-section-title">🧪 Captura de Hoy</div>';
-        html += '<div class="daily-dash-card" onclick="' + rdGoTo + '">';
-        html += '<div class="daily-dash-card-icon" style="background:#ecfeff;color:#0891b2;">🧪</div>';
-        html += '<div class="daily-dash-card-body">';
-        html += '<div class="daily-dash-card-title">Lecturas de hoy: ' + rdStatus.capturedToday + '/' + rdStatus.inUseTotal + ' capturados</div>';
-        html += '<div class="daily-dash-week-bar"><div class="daily-dash-week-fill" style="width:' + rdPct + '%"></div></div>';
-        html += '</div>';
-        html += '<div class="daily-dash-card-action" style="background:#0891b2;color:#fff;">Capturar ›</div>';
-        html += '</div></div>';
-        readingReminderShown = true;
-    }
-
-    if (rdStatus.inUseTotal > 0 && (rdStatus.daysSinceLast === null || rdStatus.daysSinceLast >= 1)) {
-        var daysTxt = rdStatus.daysSinceLast === null ? 'Aún no hay capturas de producción' : ('Van ' + rdStatus.daysSinceLast + ' día' + (rdStatus.daysSinceLast === 1 ? '' : 's') + ' desde la última captura');
-        var daysCritical = (rdStatus.daysSinceLast === null || rdStatus.daysSinceLast >= 3);
-        html += '<div class="daily-dash-section">';
-        html += '<div class="daily-dash-section-title">📅 Datos de Producción</div>';
-        html += '<div class="daily-dash-card ' + (daysCritical ? 'alert-critical' : '') + '" onclick="' + rdGoTo + '">';
-        html += '<div class="daily-dash-card-icon" style="background:' + (daysCritical ? '#fef2f2' : '#fef3c7') + ';color:' + (daysCritical ? '#dc2626' : '#d97706') + ';">📅</div>';
-        html += '<div class="daily-dash-card-body"><div class="daily-dash-card-title">' + daysTxt + '</div>';
-        html += '<div class="daily-dash-card-meta">Toca para capturar gases y combustible</div></div>';
-        html += '<div class="daily-dash-card-action" style="background:' + (daysCritical ? '#dc2626' : '#d97706') + ';color:#fff;">Capturar ahora ›</div>';
-        html += '</div></div>';
-        readingReminderShown = true;
-    }
-
-    // ── [V7-F1] Mi Turno Card ──
+    // ── [v15.9] Mi Turno (compacto — la lista de vehículos vive ahora en el tablero) ──
     var currentOp = '';
     try {
-        if (typeof authGetCurrentUser === 'function') {
-            var u = authGetCurrentUser();
-            if (u && u.name) currentOp = u.name;
-        }
+        if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) currentOp = u.name; }
         if (!currentOp) currentOp = localStorage.getItem('kia_last_operator') || '';
     } catch(e) {}
-
     if (currentOp) {
-        var myVehicles = (db.vehicles || []).filter(function(v) {
-            return v.status !== 'archived' && (
-                v.registeredBy === currentOp ||
-                (v.testData && v.testData.testResponsible === currentOp) ||
-                (v.testData && v.testData.preconditioning && v.testData.preconditioning.responsible === currentOp)
-            );
-        });
         var releasedToday = (db.vehicles || []).filter(function(v) {
             return v.status === 'archived' && v.archivedAt && localDateStr(new Date(v.archivedAt)) === localToday() &&
                 (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
@@ -6451,165 +6489,22 @@ function dailyDashRender() {
         var testingToday = (db.vehicles || []).filter(function(v) {
             return v.status === 'testing' && (v.registeredBy === currentOp || (v.testData && v.testData.testResponsible === currentOp));
         }).length;
-
-        html += '<div class="daily-dash-section">';
-        html += '<div class="daily-dash-section-title">Mi Turno</div>';
-        html += '<div class="v7-mi-turno-card">';
+        var shiftTarget = 8;
+        var shiftPct = Math.min(100, Math.round((releasedToday / shiftTarget) * 100));
+        html += '<div class="v7-mi-turno-card" style="margin-bottom:10px;">';
         html += '<div class="v7-mi-turno-header">';
         html += '<span class="v7-mi-turno-avatar">' + currentOp.charAt(0).toUpperCase() + '</span>';
         html += '<div><div class="v7-mi-turno-name">' + currentOp + '</div>';
         html += '<div class="v7-mi-turno-stats">Hoy: ' + releasedToday + ' liberados, ' + testingToday + ' en test</div></div>';
-
-        // [V7-F3] Shift progress ring
-        var shiftTarget = 8;
-        var shiftPct = Math.min(100, Math.round((releasedToday / shiftTarget) * 100));
         html += '<div class="v7-shift-ring">' + buildProgressRing(shiftPct, 52, shiftPct >= 100 ? '#10b981' : '#3b82f6') + '</div>';
-        html += '</div>';
-
-        if (myVehicles.length > 0) {
-            html += '<div class="v7-mi-turno-vehicles">';
-            myVehicles.slice(0, 5).forEach(function(v) {
-                var vinShort = v.vin ? '...' + v.vin.slice(-4) : '';
-                var model = v.config ? (v.config.Modelo || '') : '';
-                var nextStep = typeof getNextStep === 'function' ? getNextStep(v) : null;
-                var stepLabel = nextStep ? nextStep.icon + ' ' + nextStep.action : CONFIG.statusLabels[v.status] || v.status;
-                var stepBtn = '';
-                if (nextStep) {
-                    stepBtn = '<button class="btn btn-sm btn-ghost v7-mi-turno-action" onclick="event.stopPropagation();v7GoToVehicle(' + v.id + ',\'' + (nextStep.goto || '') + '\')">' + stepLabel + '</button>';
-                } else {
-                    stepBtn = '<span class="badge-info" style="font-size:10px;">' + stepLabel + '</span>';
-                }
-                html += '<div class="v7-mi-turno-veh" onclick="v7GoToVehicle(' + v.id + ')">';
-                html += '<span class="v7-mi-turno-veh-name">' + model + ' ' + vinShort + '</span>';
-                html += stepBtn;
-                html += '</div>';
-            });
-            html += '</div>';
-        } else {
-            html += '<div style="color:var(--muted);font-size:var(--font-sm);padding:8px 0;">Sin vehiculos asignados</div>';
-        }
         html += '</div></div>';
     }
 
-    // ── Soak Timers Active ──
-    var soakData = null;
-    try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
-    var soakActive = soakData && soakData.endTime && soakData.endTime > Date.now();
-
-    if (soakActive) {
-        var remaining = soakData.endTime - Date.now();
-        var hrs = Math.floor(remaining / 3600000);
-        var mins = Math.floor((remaining % 3600000) / 60000);
-        var secs = Math.floor((remaining % 60000) / 1000);
-
-        html += '<div class="daily-dash-section">';
-        html += '<div class="daily-dash-section-title">⏱ Soak Activo</div>';
-        html += '<div class="daily-dash-card soak-active" onclick="switchPlatform(\'cop15\')">';
-        html += '<div class="daily-dash-card-icon" style="background:#fef3c7;color:#d97706;">⏱</div>';
-        html += '<div class="daily-dash-card-body">';
-        html += '<div class="daily-dash-card-title">Temporizador de Reposo</div>';
-        html += '<div class="daily-dash-card-meta">Restante: ' + hrs + 'h ' + mins + 'm ' + secs + 's</div>';
-        html += '</div>';
-        html += '<div class="daily-dash-card-badge" style="background:#fef3c7;color:#d97706;">' + hrs + ':' + String(mins).padStart(2,'0') + '</div>';
-        html += '</div></div>';
-    }
-
-    // ── Vehicles in progress ──
-    var activeVehicles = (db.vehicles || []).filter(function(v) { return v.status !== 'archived'; });
-    if (activeVehicles.length > 0) {
-        html += '<div class="daily-dash-section">';
-        html += '<div class="daily-dash-section-title">🚗 Vehículos Activos (' + activeVehicles.length + ')</div>';
-
-        activeVehicles.slice(0, 5).forEach(function(v) {
-            var statusColors = {
-                'registered': { bg: '#eff6ff', color: '#3b82f6', label: 'Registrado' },
-                'in-progress': { bg: '#fef3c7', color: '#d97706', label: 'En Progreso' },
-                'testing': { bg: '#fce7f3', color: '#db2777', label: 'En Prueba' },
-                'ready-release': { bg: '#dcfce7', color: '#16a34a', label: 'Listo' },
-                'pending-approval': { bg: '#f3e8ff', color: '#7c3aed', label: 'Pend. Aprobación' }
-            };
-            var sc = statusColors[v.status] || { bg: '#f1f5f9', color: '#64748b', label: v.status };
-            var model = v.config ? (v.config.Modelo || '') : '';
-            var vinShort = v.vin ? '...' + v.vin.slice(-4) : '';
-            var avNext = typeof getNextStep === 'function' ? getNextStep(v) : null;
-
-            html += '<div class="daily-dash-card" onclick="switchPlatform(\'cop15\');setTimeout(function(){var s=document.getElementById(\'activeVehSelect\');if(s){s.value=\'' + v.id + '\';loadVehicle();}},200);">';
-            html += '<div class="daily-dash-card-icon" style="background:' + sc.bg + ';color:' + sc.color + ';">🚗</div>';
-            html += '<div class="daily-dash-card-body">';
-            html += '<div class="daily-dash-card-title">' + model + ' ' + vinShort + '</div>';
-            html += '<div class="daily-dash-card-meta">' + (v.purpose || '') + '</div>';
-            html += '</div>';
-            if (avNext) {
-                html += '<button class="btn btn-sm btn-ghost" style="white-space:nowrap;" onclick="event.stopPropagation();v7GoToVehicle(' + v.id + ',\'' + (avNext.goto || '') + '\')">' + avNext.icon + ' ' + avNext.action + '</button>';
-            } else {
-                html += '<div class="daily-dash-card-badge" style="background:' + sc.bg + ';color:' + sc.color + ';">' + sc.label + '</div>';
-            }
-            html += '</div>';
-        });
-        if (activeVehicles.length > 5) {
-            html += '<div class="daily-dash-card-meta" style="text-align:center;padding:4px;">+ ' + (activeVehicles.length - 5) + ' más</div>';
-        }
-        html += '</div>';
-    }
-
-    // ── Inventory Alerts (deep-link a cada ítem) ──
-    var invAlerts = [];
-    if (typeof invState !== 'undefined' && invState.gases) {
-        invState.gases.forEach(function(g) {
-            if (typeof invGasExpiry === 'function') {
-                var exp = invGasExpiry(g);
-                if (exp.status === 'expired') invAlerts.push({ icon: '⚠️', text: g.formula + ' #' + g.controlNo + ' VENCIDO', type: 'critical', tab: 'inv-gases', action: 'invEditGas', id: g.id, chip: 'Reemplazar' });
-            }
-            if (typeof invGasLevel === 'function') {
-                var lvl = invGasLevel(g);
-                if (lvl.pct < 15 && lvl.pct >= 0) invAlerts.push({ icon: '📉', text: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', type: 'warning', tab: 'inv-gases', action: 'invEditGas', id: g.id, chip: 'Reponer' });
-            }
-        });
-        if (invState.equipment) {
-            invState.equipment.forEach(function(e) {
-                if (!e.nextCalDate) return;
-                var diff = Math.round((new Date(e.nextCalDate) - now) / (1000*60*60*24));
-                if (diff < 0) invAlerts.push({ icon: '🔧', text: e.name + ' calibración vencida', type: 'critical', tab: 'inv-equipment', action: 'invEditEquipment', id: e.id, chip: 'Calibrar' });
-                else if (diff <= 7) invAlerts.push({ icon: '🔧', text: e.name + ' calibra en ' + diff + ' días', type: 'warning', tab: 'inv-equipment', action: 'invEditEquipment', id: e.id, chip: 'Calibrar' });
-            });
-        }
-    }
-    if (invAlerts.length > 0) {
-        // Críticos primero
-        invAlerts.sort(function(a, b) { return (a.type === 'critical' ? 0 : 1) - (b.type === 'critical' ? 0 : 1); });
-        html += '<div class="daily-dash-section">';
-        html += '<div class="daily-dash-section-title">⚠️ Alertas de Inventario (' + invAlerts.length + ')</div>';
-        html += '<div style="max-height:340px;overflow-y:auto;">';
-        invAlerts.forEach(function(a) {
-            var goer = a.id ? "dashGo('inventory','" + a.tab + "','" + a.action + "','" + a.id + "')" : "dashGo('inventory','inv-dashboard')";
-            var chipBg = a.type === 'critical' ? '#dc2626' : '#d97706';
-            html += '<div class="daily-dash-card ' + (a.type === 'critical' ? 'alert-critical' : '') + '" onclick="' + goer + '">';
-            html += '<div class="daily-dash-card-icon" style="background:' + (a.type === 'critical' ? '#fef2f2' : '#fef3c7') + ';">' + a.icon + '</div>';
-            html += '<div class="daily-dash-card-body"><div class="daily-dash-card-title">' + a.text + '</div></div>';
-            html += '<div class="daily-dash-card-action" style="background:' + chipBg + ';color:#fff;">' + (a.chip || 'Revisar') + ' ›</div>';
-            html += '</div>';
-        });
-        html += '</div></div>';
-    }
-
-    // ── Week Progress (Test Plan) ──
-    if (typeof tpState !== 'undefined' && tpState.tests && tpState.tests.length > 0) {
-        var weekTests = tpState.tests;
-        var completed = weekTests.filter(function(t) { return t.status === 'completed'; }).length;
-        var total = weekTests.length;
-        var pct = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-        html += '<div class="daily-dash-section">';
-        html += '<div class="daily-dash-section-title">📋 Plan Semanal</div>';
-        html += '<div class="daily-dash-card" onclick="switchPlatform(\'testplan\')">';
-        html += '<div class="daily-dash-card-icon" style="background:#eef2ff;color:#4f46e5;">📋</div>';
-        html += '<div class="daily-dash-card-body">';
-        html += '<div class="daily-dash-card-title">' + completed + '/' + total + ' pruebas completadas</div>';
-        html += '<div class="daily-dash-week-bar"><div class="daily-dash-week-fill" style="width:' + pct + '%"></div></div>';
-        html += '</div>';
-        html += '<div class="daily-dash-card-badge" style="background:#eef2ff;color:#4f46e5;">' + pct + '%</div>';
-        html += '</div></div>';
-    }
+    // ── [v15.9] TABLERO DE ACTIVIDADES (estilo Monday: filas homogéneas por categoría) ──
+    // Sustituye las antiguas secciones sueltas (Captura de Hoy, Soak, Vehículos Activos,
+    // Alertas de Inventario, Plan Semanal): todo son filas del mismo formato ahora.
+    var acts = dashCollectActivities();
+    html += dashRenderBoard(acts, currentOp);
 
     // ── Quick Actions ──
     html += '<div class="daily-dash-section">';
@@ -6635,10 +6530,6 @@ function dailyDashRender() {
     html += '<div class="daily-dash-action" onclick="switchPlatform(\'panel\')"><span class="daily-dash-action-icon">⚙️</span>Panel</div>';
     html += '</div></div>';
 
-    // ── No data state ──
-    if (activeVehicles.length === 0 && !soakActive && invAlerts.length === 0 && !readingReminderShown) {
-        html += '<div class="daily-dash-empty">Sin actividad pendiente. ¡Todo en orden! 👍</div>';
-    }
 
     el.innerHTML = html;
 
@@ -6646,6 +6537,330 @@ function dailyDashRender() {
     var _hov = document.getElementById('hoy-lab-overview');
     if (_hov && typeof renderLabOverview === 'function') renderLabOverview(_hov, { sections: ['kpi', 'pipeline'] });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// v15.9 — TABLERO DE ACTIVIDADES DE HOY (estilo Monday: filas homogéneas agrupadas)
+// Modelo unificado: cada fuente (gases, plan, vehículos, alertas, consumo, tareas
+// manuales) se normaliza a {id, cat, icon, title, meta, status, progress?, assignee?,
+// urgency, checkbox?, action, stage?, eta?} y se pinta con el MISMO formato de fila.
+// ═══════════════════════════════════════════════════════════════════════════════
+var DASH_CATS = {
+    vehiculos:  { label: 'Vehículos',            icon: '🚗', accent: 'var(--accent-cascade)' },
+    plan:       { label: 'Plan de hoy',          icon: '📋', accent: 'var(--accent-testplan)' },
+    inventario: { label: 'Inventario',           icon: '📦', accent: 'var(--accent-inventory)' },
+    calidad:    { label: 'Calidad',              icon: '🔬', accent: 'var(--accent-cop)' },
+    manuales:   { label: 'Actividades manuales', icon: '📝', accent: 'var(--accent-panel)' }
+};
+var DASH_CAT_ORDER = ['vehiculos', 'plan', 'inventario', 'calidad', 'manuales'];
+var DASH_STATUS_LABEL = { pendiente: 'Pendiente', encurso: 'En curso', hecho: 'Hecho', atrasado: 'Atrasado' };
+
+function dashCollectActivities() {
+    var acts = [];
+    var hoy = localToday();
+
+    // 1) Toma de gases del día + 2) captura de producción atrasada
+    if (typeof invReadingStatusToday === 'function') {
+        var rd = invReadingStatusToday();
+        if (rd.inUseTotal > 0) {
+            var rdDone = rd.capturedToday >= rd.inUseTotal;
+            acts.push({ id: 'act-gasread', cat: 'inventario', icon: '🧪',
+                title: 'Toma de gases del día',
+                meta: rd.capturedToday + '/' + rd.inUseTotal + ' cilindros capturados',
+                status: rdDone ? 'hecho' : 'pendiente',
+                progress: { done: rd.capturedToday, total: rd.inUseTotal },
+                urgency: rdDone ? 0 : 2,
+                action: { label: 'Capturar', js: "dashGo('inventory','inv-readings')" } });
+        }
+        if (rd.inUseTotal > 0 && (rd.daysSinceLast === null || rd.daysSinceLast >= 3)) {
+            acts.push({ id: 'act-prod', cat: 'inventario', icon: '📅',
+                title: rd.daysSinceLast === null ? 'Sin capturas de producción registradas' : 'Captura de producción atrasada',
+                meta: rd.daysSinceLast === null ? '' : 'Van ' + rd.daysSinceLast + ' días desde la última',
+                status: 'atrasado', urgency: 3,
+                action: { label: 'Capturar ahora', js: "dashGo('inventory','inv-readings')" } });
+        }
+    }
+
+    // 3) Pruebas y preacondicionamientos que tocan HOY según el plan semanal aceptado
+    if (typeof tpState !== 'undefined' && tpState.weeklyPlans) {
+        var planIdx = -1;
+        for (var pi = tpState.weeklyPlans.length - 1; pi >= 0; pi--) {
+            if (tpState.weeklyPlans[pi] && tpState.weeklyPlans[pi].accepted && tpState.weeklyPlans[pi].items) { planIdx = pi; break; }
+        }
+        if (planIdx >= 0) {
+            var hoyKey = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'][new Date().getDay()];
+            tpState.weeklyPlans[planIdx].items.forEach(function(item, ii) {
+                var isTest = item.testDay === hoyKey, isPre = item.preconDay === hoyKey;
+                if (!isTest && !isPre) return;
+                acts.push({ id: 'act-plan-' + ii + (isTest ? 't' : 'p'), cat: 'plan', icon: isTest ? '🏭' : '🔧',
+                    title: (isTest ? 'Prueba' : 'Preacondicionamiento') + ': ' + ((item.mod || '') + ' ' + (item.reg || '')).trim(),
+                    meta: (item.desc || '') + (item.tier ? ' · P' + item.tier : ''),
+                    status: item.completed ? 'hecho' : 'pendiente',
+                    urgency: item.completed ? 0 : 2,
+                    checkbox: { js: 'tpToggleWeeklyItem(' + planIdx + ',' + ii + ');dailyDashRender();', checked: !!item.completed },
+                    action: { label: '▶ Iniciar', js: "switchPlatform('testplan')" } });
+            });
+        }
+    }
+
+    // 4) Vehículos activos: stepper N/8 + soak propio + ETA de liberación
+    var soakData = null;
+    try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch (e) {}
+    (db.vehicles || []).filter(function(v) { return v.status !== 'archived'; }).forEach(function(v) {
+        var st = typeof cascadeVehicleStage === 'function' ? cascadeVehicleStage(v) : null;
+        var eta = typeof cascadeVehicleETA === 'function' ? cascadeVehicleETA(v) : null;
+        var next = typeof getNextStep === 'function' ? getNextStep(v) : null;
+        var model = v.config ? (v.config.Modelo || '') : '';
+        var vinShort = v.vin ? '…' + v.vin.slice(-6) : '';
+        var status = v.status === 'registered' ? 'pendiente' : 'encurso';
+        if (eta && eta.tone === 'late') status = 'atrasado';
+        var soakTxt = '';
+        if (st && st.index === 4 && soakData && soakData.endTime > Date.now() && (!soakData.vehicleId || soakData.vehicleId == v.id)) {
+            var rem = soakData.endTime - Date.now();
+            soakTxt = '⏱ Soak: ' + Math.floor(rem / 3600000) + 'h ' + Math.floor((rem % 3600000) / 60000) + 'm restantes';
+        }
+        acts.push({ id: 'act-veh-' + v.id, cat: 'vehiculos', icon: '🚗',
+            title: ((model ? model + ' ' : '') + vinShort).trim(),
+            meta: (v.purpose || '') + (soakTxt ? ' · ' + soakTxt : ''),
+            status: status, urgency: status === 'atrasado' ? 3 : 1,
+            assignee: (v.testData && v.testData.testResponsible) || v.registeredBy || '',
+            stage: st, eta: eta, vehicleId: v.id,
+            action: next ? { label: next.icon + ' ' + next.action, js: 'v7GoToVehicle(' + v.id + ",'" + (next.goto || '') + "')" }
+                         : { label: 'Ver', js: 'v7GoToVehicle(' + v.id + ')' } });
+    });
+
+    // 5) Aprobaciones pendientes (doble ciego) → Calidad
+    (db.vehicles || []).filter(function(v) { return v.status === 'pending-approval'; }).forEach(function(v) {
+        acts.push({ id: 'act-appr-' + v.id, cat: 'calidad', icon: '🔏',
+            title: 'Aprobar liberación: ' + (v.vin ? '…' + v.vin.slice(-6) : '#' + v.id),
+            meta: 'Doble ciego pendiente', status: 'pendiente', urgency: 3,
+            action: { label: 'Aprobar', js: 'v7GoToVehicle(' + v.id + ",'approval-tab')" } });
+    });
+
+    // 6) Alertas de inventario con deep-link por ítem
+    if (typeof invState !== 'undefined' && invState.gases) {
+        invState.gases.forEach(function(g) {
+            if (typeof invGasExpiry === 'function') {
+                var exp = invGasExpiry(g);
+                if (exp.status === 'expired') acts.push({ id: 'act-gexp-' + g.id, cat: 'inventario', icon: '⚠️',
+                    title: g.formula + ' #' + g.controlNo + ' VENCIDO', meta: exp.text || '', status: 'atrasado', urgency: 3,
+                    action: { label: 'Reemplazar', js: "dashGo('inventory','inv-gases','invEditGas','" + g.id + "')" } });
+            }
+            if (typeof invGasLevel === 'function') {
+                var lvl = invGasLevel(g);
+                if (lvl.pct < 15 && lvl.pct >= 0) acts.push({ id: 'act-glvl-' + g.id, cat: 'inventario', icon: '📉',
+                    title: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', meta: 'Nivel bajo', status: 'pendiente', urgency: 2,
+                    action: { label: 'Reponer', js: "dashGo('inventory','inv-gases','invEditGas','" + g.id + "')" } });
+            }
+        });
+        (invState.equipment || []).forEach(function(e) {
+            if (!e.nextCalDate) return;
+            var diff = Math.round((new Date(e.nextCalDate) - Date.now()) / 86400000);
+            if (diff < 0) acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
+                title: e.name + ': calibración VENCIDA', meta: 'hace ' + Math.abs(diff) + ' días', status: 'atrasado', urgency: 3,
+                action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
+            else if (diff <= 7) acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
+                title: e.name + ': calibrar en ' + diff + ' días', meta: e.nextCalDate, status: 'pendiente', urgency: 2,
+                action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
+        });
+    }
+
+    // 7) Consumo proyectado insuficiente (modelo aprendido, números vivos)
+    if (typeof invForecastGasNeeds === 'function') {
+        try {
+            invForecastGasNeeds().forEach(function(f, fi) {
+                acts.push({ id: 'act-cons-' + fi, cat: 'inventario', icon: f.kind === 'fuel' ? '⛽' : '🧪',
+                    title: 'Faltarán ~' + f.deficit + ' ' + f.unit + ' de ' + f.name,
+                    meta: 'Para ' + f.pruebasPend + ' pruebas pendientes (' + (f.scope === 'semana' ? 'esta semana' : 'plan completo') + ') · disponible ' + f.disponible + ' de ' + f.requerido + ' requeridos',
+                    status: f.severidad === 'critical' ? 'atrasado' : 'pendiente',
+                    urgency: f.severidad === 'critical' ? 3 : 2,
+                    action: { label: 'Ver predicción', js: "dashGo('inventory','inv-predict')" } });
+            });
+        } catch (e) {}
+    }
+
+    // 8) Alertas cross-módulo (Panel) — sin duplicar las de inventario/consumo (ya arriba)
+    if (typeof pnGetActiveAlerts === 'function') {
+        try {
+            pnGetActiveAlerts().forEach(function(a, ai) {
+                if (a.source === 'Inventario' || a.source === 'Consumo') return;
+                var cat = a.source === 'Test Plan' ? 'plan' : a.source === 'CoP SPC' ? 'calidad' : null;
+                if (a.source === 'COP15') { if (a.level !== 'CRITICA') return; cat = 'calidad'; }
+                if (!cat) return;
+                acts.push({ id: 'act-al-' + ai, cat: cat, icon: '🚨', title: a.message, meta: a.source,
+                    status: a.level === 'CRITICA' ? 'atrasado' : 'pendiente',
+                    urgency: a.level === 'CRITICA' ? 3 : 2,
+                    action: { label: 'Revisar', js: a.source === 'Test Plan' ? "switchPlatform('testplan')" : a.source === 'CoP SPC' ? "switchPlatform('cop')" : "switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-alerts');" } });
+            });
+        } catch (e) {}
+    }
+
+    // 9) Tareas manuales (pnState.tasks, sincronizadas entre dispositivos)
+    if (typeof pnState !== 'undefined' && pnState.tasks) {
+        pnState.tasks.filter(function(t) { return !t.deleted; }).forEach(function(t) {
+            var late = !t.done && t.due && t.due < hoy;
+            acts.push({ id: 'act-task-' + t.id, cat: DASH_CATS[t.cat] ? t.cat : 'manuales', icon: '📝',
+                title: t.title,
+                meta: (t.assignee ? '👤 ' + t.assignee : '') + (t.due ? (t.assignee ? ' · ' : '') + '📅 ' + t.due : '') + (t.done && t.doneAt ? ' · ✓ ' + new Date(t.doneAt).toLocaleDateString('es-MX') : ''),
+                status: t.done ? 'hecho' : late ? 'atrasado' : 'pendiente',
+                urgency: late ? 3 : t.done ? 0 : 1,
+                assignee: t.assignee || '',
+                checkbox: { js: "pnTaskToggle('" + t.id + "')", checked: !!t.done },
+                action: { label: '🗑', js: "pnTaskDelete('" + t.id + "')", ghost: true } });
+        });
+    }
+
+    return acts;
+}
+
+function dashRenderRow(a) {
+    var h = '<div class="dash-row dash-row--' + a.status + '">';
+    if (a.checkbox) {
+        h += '<input type="checkbox" class="dash-row-check" ' + (a.checkbox.checked ? 'checked' : '') + ' onchange="' + a.checkbox.js + '">';
+    } else {
+        h += '<span class="dash-row-icon">' + a.icon + '</span>';
+    }
+    h += '<div class="dash-row-main">';
+    h += '<div class="dash-row-title">' + escapeHtml(a.title) + '</div>';
+    var metaBits = [];
+    if (a.meta) metaBits.push(escapeHtml(a.meta));
+    if (a.assignee && (!a.meta || a.meta.indexOf(a.assignee) === -1)) metaBits.push('👤 ' + escapeHtml(a.assignee));
+    if (metaBits.length) h += '<div class="dash-row-meta">' + metaBits.join(' · ') + '</div>';
+    if (a.stage) {
+        h += '<div class="dash-stepper" title="Etapa ' + a.stage.index + ' de ' + a.stage.total + ': ' + a.stage.label + '">';
+        for (var s = 1; s <= a.stage.total; s++) {
+            h += '<span class="dash-step' + (s < a.stage.index || a.stage.done ? ' done' : s === a.stage.index ? ' now' : '') + '"></span>';
+        }
+        h += '<span class="dash-stepper-label">' + a.stage.index + '/' + a.stage.total + ' · ' + a.stage.label + '</span></div>';
+    }
+    if (a.progress && a.progress.total) {
+        var ppct = Math.round((a.progress.done / a.progress.total) * 100);
+        h += '<div class="daily-dash-week-bar" style="max-width:180px;margin-top:4px;"><div class="daily-dash-week-fill" style="width:' + ppct + '%"></div></div>';
+    }
+    h += '</div>';
+    h += '<div class="dash-row-side">';
+    if (a.eta) {
+        var etaD = new Date(a.eta.date + 'T12:00:00');
+        h += '<span class="dash-eta dash-eta--' + a.eta.tone + '" onclick="dashEtaEdit(' + a.vehicleId + ', this, event)" ' +
+             'title="Liberación esperada (' + (a.eta.source === 'manual' ? 'fijada manualmente' : 'estimada') + ') — toca para fijar/cambiar">' +
+             '📅 ' + etaD.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + (a.eta.source === 'manual' ? ' ✎' : '') + '</span>';
+    }
+    h += '<span class="dash-chip dash-chip--' + a.status + '">' + (DASH_STATUS_LABEL[a.status] || a.status) + '</span>';
+    if (a.action) h += '<button class="dash-row-action' + (a.action.ghost ? ' dash-row-action--ghost' : '') + '" onclick="event.stopPropagation();' + a.action.js + '">' + a.action.label + '</button>';
+    h += '</div></div>';
+    return h;
+}
+
+function dashRenderBoard(acts, currentOp) {
+    var onlyMine = !!window._dashOnlyMine;
+    var shown = (onlyMine && currentOp)
+        ? acts.filter(function(a) { return !a.assignee || a.assignee === currentOp; })
+        : acts;
+    var pend = shown.filter(function(a) { return a.status !== 'hecho'; }).length;
+
+    var h = '<div class="dash-board">';
+    h += '<div class="dash-board-header">';
+    h += '<span class="dash-board-title">📌 Actividades de hoy</span>';
+    h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes' : 'al día ✓') + '</span>';
+    h += '<span style="flex:1"></span>';
+    if (currentOp) h += '<label class="dash-board-toggle"><input type="checkbox" ' + (onlyMine ? 'checked' : '') + ' onchange="window._dashOnlyMine=this.checked;dailyDashRender();"> Solo míos</label>';
+    h += '<button class="dash-row-action" onclick="dashTaskModalOpen()">➕ Actividad</button>';
+    h += '</div>';
+
+    DASH_CAT_ORDER.forEach(function(cat) {
+        var rows = shown.filter(function(a) { return a.cat === cat; });
+        if (!rows.length) return;
+        rows.sort(function(x, y) {
+            return ((x.status === 'hecho' ? 1 : 0) - (y.status === 'hecho' ? 1 : 0)) || (y.urgency - x.urgency);
+        });
+        var c = DASH_CATS[cat];
+        var pendN = rows.filter(function(a) { return a.status !== 'hecho'; }).length;
+        h += '<details class="dash-group dash-group--' + cat + '" open>';
+        h += '<summary><span class="dash-group-icon">' + c.icon + '</span><span class="dash-group-name">' + c.label + '</span>' +
+             '<span class="dash-group-count' + (pendN ? '' : ' ok') + '">' + (pendN ? pendN + ' pendiente' + (pendN === 1 ? '' : 's') : '✓ al día') + '</span></summary>';
+        rows.forEach(function(a) { h += dashRenderRow(a); });
+        h += '</details>';
+    });
+    if (!shown.length) h += '<div class="daily-dash-empty">Sin actividades. ¡Todo en orden! 👍</div>';
+    h += '</div>';
+    return h;
+}
+
+// ETA de liberación: fijar/cambiar manualmente desde la fila (auditado)
+function dashEtaEdit(vehicleId, el, ev) {
+    if (ev) ev.stopPropagation();
+    if (el.querySelector('input')) return;
+    var v = (db.vehicles || []).find(function(x) { return x.id == vehicleId; });
+    var cur = v && v.expectedReleaseAt ? v.expectedReleaseAt : '';
+    el.innerHTML = '📅 <input type="date" value="' + cur + '" onclick="event.stopPropagation()" ' +
+                   'onchange="dashSetExpectedRelease(' + vehicleId + ', this.value)" ' +
+                   'style="font-size:11px;border:1px solid var(--border);border-radius:4px;padding:1px 3px;">';
+    var inp = el.querySelector('input');
+    if (inp && inp.showPicker) { try { inp.showPicker(); } catch (e) {} }
+}
+
+function dashSetExpectedRelease(vehicleId, dateStr) {
+    var v = (db.vehicles || []).find(function(x) { return x.id == vehicleId; });
+    if (!v) return;
+    var prev = v.expectedReleaseAt || '(auto)';
+    if (dateStr) v.expectedReleaseAt = dateStr; else delete v.expectedReleaseAt;
+    if (typeof auditLog === 'function') auditLog('cop15', 'expected_release_set', { type: 'vehicle', id: v.id, label: v.vin }, prev + ' → ' + (dateStr || '(auto)'));
+    saveDB();
+    dailyDashRender();
+}
+
+// ── Mini-modal "➕ Actividad" (tareas manuales → pnState.tasks) ──
+function dashTaskModalOpen() {
+    if (document.getElementById('dash-task-modal')) return;
+    var ops = (typeof pnState !== 'undefined' && pnState.operators)
+        ? pnState.operators.filter(function(o) { return o.active !== false && !o.deleted; }) : [];
+    var html = '<div class="dash-task-overlay" id="dash-task-modal" onclick="if(event.target===this)dashTaskModalClose()">';
+    html += '<div class="dash-task-box">';
+    html += '<div style="font-weight:800;font-size:14px;margin-bottom:10px;">➕ Nueva actividad</div>';
+    html += '<label class="dash-task-field">Título<input type="text" id="dash-task-title" placeholder="p.ej. Pedir gas de calibración CO/N2"></label>';
+    html += '<label class="dash-task-field">Categoría<select id="dash-task-cat">' +
+            DASH_CAT_ORDER.map(function(c) { return '<option value="' + c + '"' + (c === 'manuales' ? ' selected' : '') + '>' + DASH_CATS[c].label + '</option>'; }).join('') + '</select></label>';
+    html += '<label class="dash-task-field">Responsable<select id="dash-task-assignee"><option value="">— sin asignar —</option>' +
+            ops.map(function(o) { return '<option>' + escapeHtml(o.name) + '</option>'; }).join('') + '</select></label>';
+    html += '<label class="dash-task-field">Fecha límite<input type="date" id="dash-task-due"></label>';
+    html += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">';
+    html += '<button class="btn btn-ghost" onclick="dashTaskModalClose()">Cancelar</button>';
+    html += '<button class="btn" style="background:var(--accent-cascade);color:#fff;font-weight:700;" onclick="dashTaskModalSave()">Guardar</button></div>';
+    html += '</div></div>';
+    var wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    document.body.appendChild(wrap.firstChild);
+    var t = document.getElementById('dash-task-title');
+    if (t) t.focus();
+}
+function dashTaskModalClose() { var m = document.getElementById('dash-task-modal'); if (m) m.remove(); }
+function dashTaskModalSave() {
+    if (typeof pnTaskAdd !== 'function') return;
+    var task = pnTaskAdd({
+        title: (document.getElementById('dash-task-title') || {}).value || '',
+        cat: (document.getElementById('dash-task-cat') || {}).value || 'manuales',
+        assignee: (document.getElementById('dash-task-assignee') || {}).value || '',
+        due: (document.getElementById('dash-task-due') || {}).value || ''
+    });
+    if (task) {
+        dashTaskModalClose();
+        if (typeof showToast === 'function') showToast('Actividad creada', 'success');
+        dailyDashRender();
+    }
+}
+
+// Refresco vivo del tablero: data:saved (saveDB/invSave) con debounce + tick de 60 s
+// (solo mientras HOY está visible — el countdown fino de soak vive en el badge global)
+var _dashRefreshT = null;
+window.addEventListener('data:saved', function() {
+    var sec = document.getElementById('platform-today');
+    if (!sec || !sec.classList.contains('active')) return;
+    clearTimeout(_dashRefreshT);
+    _dashRefreshT = setTimeout(function() { try { dailyDashRender(); } catch (e) {} }, 400);
+});
+setInterval(function() {
+    var sec = document.getElementById('platform-today');
+    if (sec && sec.classList.contains('active')) { try { dailyDashRender(); } catch (e) {} }
+}, 60000);
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  [M17] VEHICLE INLINE CHECKLIST                                     ║
@@ -13775,10 +13990,17 @@ function soakTimerStart() {
     document.getElementById('soak_timer_btn_start').style.display = 'none';
     document.getElementById('soak_timer_btn_stop').style.display = '';
 
-    // Save to localStorage so timer persists across page reloads
+    // Save to localStorage so timer persists across page reloads.
+    // v15.9: persistir también el vehículo dueño — el timer es un singleton global y sin
+    // esto cualquier vehículo "heredaba" el soak ajeno (getNextStep) y el modal de fin
+    // no sabía de qué VIN era.
+    var _soakVeh = (typeof activeVehicleId !== 'undefined' && typeof db !== 'undefined' && db.vehicles)
+        ? db.vehicles.find(function(v) { return v.id == activeVehicleId; }) : null;
     localStorage.setItem('kia_soak_timer', JSON.stringify({
         endTime: _soakTimer.endTime,
-        totalMs: _soakTimer.totalMs
+        totalMs: _soakTimer.totalMs,
+        vehicleId: _soakVeh ? _soakVeh.id : (typeof activeVehicleId !== 'undefined' ? activeVehicleId : null),
+        vin: _soakVeh ? (_soakVeh.vin || '') : ''
     }));
 
     if (typeof fbPostSoakStarted === 'function') fbPostSoakStarted(typeof activeVehicleId !== 'undefined' ? activeVehicleId : '', hours);
@@ -14819,18 +15041,16 @@ function getNextStep(vehicle) {
     var p = td.preconditioning || {};
     var status = vehicle.status;
 
-    // Check soak status
-    var soakDone = false;
+    // Check soak status. v15.9: el timer lleva dueño (vehicleId) — un soak de OTRO vehículo
+    // ya no marca soakDone/soakStarted a todos (bug latente del singleton global).
+    var soakDone = false, soakStarted = false;
     try {
         var soakData = JSON.parse(localStorage.getItem('kia_soak_timer'));
-        if (soakData && soakData.endTime && soakData.endTime <= Date.now()) soakDone = true;
-        if (td.soakCompleted) soakDone = true;
+        var soakMine = soakData && (!soakData.vehicleId || soakData.vehicleId == vehicle.id);
+        if (soakMine && soakData.endTime && soakData.endTime <= Date.now()) soakDone = true;
+        if (soakMine && soakData && soakData.endTime) soakStarted = true;
     } catch(e) {}
-    var soakStarted = false;
-    try {
-        var sd = JSON.parse(localStorage.getItem('kia_soak_timer'));
-        if (sd && sd.endTime) soakStarted = true;
-    } catch(e) {}
+    if (td.soakCompleted) soakDone = true;
 
     var precondComplete = p.ok === 'Si' && p.datetime && p.responsible;
     var testStarted = td.testResponsible || td.testDatetime;
@@ -14840,7 +15060,7 @@ function getNextStep(vehicle) {
     if (status === 'registered') {
         return { action: 'Iniciar Precondicionamiento', goto: 'acc-precond', icon: '🔧' };
     }
-    if (status === 'in-progress' && precondComplete && !soakStarted) {
+    if (status === 'in-progress' && precondComplete && !soakStarted && !soakDone) {
         return { action: 'Iniciar Soak Timer', goto: 'soak-section', icon: '⏱️' };
     }
     if (status === 'in-progress' && precondComplete && soakStarted && !soakDone) {
@@ -14862,6 +15082,87 @@ function getNextStep(vehicle) {
         return { action: 'Aprobar (doble ciego)', goto: 'approval-tab', icon: '🔏' };
     }
     return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// v15.9 — ETAPA "N de 8" y ETA DE LIBERACIÓN por vehículo (para el tablero HOY)
+// Secuencia canónica derivada de la misma lógica condicional de getNextStep():
+// 1 Alta · 2 Recepción · 3 Preacondicionamiento · 4 Soak · 5 Prueba · 6 Verificación ·
+// 7 Liberación (doble ciego) · 8 Aprobación/Archivo.
+// ═══════════════════════════════════════════════════════════════════════════════
+var CASCADE_STAGES = ['Alta', 'Recepción', 'Preacondicionamiento', 'Soak', 'Prueba', 'Verificación', 'Liberación', 'Aprobación'];
+
+function cascadeVehicleStage(vehicle) {
+    if (!vehicle) return null;
+    var td = vehicle.testData || {};
+    var p = td.preconditioning || {};
+    var tv = td.testVerification || {};
+    var status = vehicle.status;
+    if (status === 'archived') return { index: 8, total: 8, label: 'Archivado', done: true };
+
+    var soakDone = !!td.soakCompleted, soakStarted = false;
+    try {
+        var sd = JSON.parse(localStorage.getItem('kia_soak_timer'));
+        var mine = sd && (!sd.vehicleId || sd.vehicleId == vehicle.id);
+        if (mine && sd.endTime) { soakStarted = true; if (sd.endTime <= Date.now()) soakDone = true; }
+    } catch (e) {}
+    var recepcionOk = td.operator && td.odometer && td.datetime;
+    var precondComplete = p.ok === 'Si' && p.datetime && p.responsible;
+    var testStarted = td.testResponsible || td.testDatetime;
+    var testComplete = tv.tunnel && tv.dyno && tv.fanMode && td.testResponsible && td.testDatetime;
+
+    var idx;
+    if (status === 'pending-approval') idx = 8;
+    else if (status === 'ready-release' || (status === 'testing' && testComplete)) idx = 7;
+    else if (status === 'testing' && testStarted) idx = 6;
+    else if (status === 'testing' || (status === 'in-progress' && soakDone)) idx = 5;
+    else if (status === 'in-progress' && precondComplete && soakStarted) idx = 4;
+    else if (status === 'in-progress' || (status === 'registered' && recepcionOk)) idx = 3;
+    else idx = 2; // registered sin datos de recepción
+    return { index: idx, total: 8, label: CASCADE_STAGES[idx - 1], done: false };
+}
+
+// ETA de liberación: v.expectedReleaseAt manda (manual, auditado); si no, heurística por
+// etapa: soak activo → fin de soak + 1 día hábil; etapas 2-3 → día de prueba asignado en
+// el plan semanal + 1; etapas 5-7 → hoy/mañana. tone: ok (>mañana) / warn (hoy-mañana) / late.
+function cascadeVehicleETA(vehicle) {
+    if (!vehicle || vehicle.status === 'archived') return null;
+    var dateStr = null, source = 'auto';
+    if (vehicle.expectedReleaseAt) { dateStr = vehicle.expectedReleaseAt; source = 'manual'; }
+    else {
+        var st = cascadeVehicleStage(vehicle);
+        var d = new Date(); d.setHours(12, 0, 0, 0);
+        var addDays = function(base, n) { var x = new Date(base); x.setDate(x.getDate() + n); if (x.getDay() === 0) x.setDate(x.getDate() + 1); return x; };
+        if (st.index === 4) {
+            try {
+                var sd = JSON.parse(localStorage.getItem('kia_soak_timer'));
+                if (sd && sd.endTime && (!sd.vehicleId || sd.vehicleId == vehicle.id)) d = new Date(sd.endTime);
+            } catch (e) {}
+            d = addDays(d, 1);
+        } else if (st.index <= 3) {
+            // ¿Está en el plan semanal con día de prueba asignado?
+            var planDay = null;
+            if (typeof tpState !== 'undefined' && tpState.weeklyPlans) {
+                var plan = tpState.weeklyPlans.slice().reverse().find(function(pl) { return pl.accepted && pl.items; });
+                var item = plan && plan.items.find(function(i) { return !i.completed && i.desc && vehicle.configCode && i.desc === vehicle.configCode; });
+                if (item && item.testDay && plan.weekDate) {
+                    var dayIdx = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'].indexOf(item.testDay);
+                    if (dayIdx >= 0) {
+                        var mon = new Date(plan.weekDate + 'T12:00:00');
+                        planDay = new Date(mon); planDay.setDate(mon.getDate() + ((dayIdx + 6) % 7)); // lun=+0 … dom=+6
+                    }
+                }
+            }
+            d = planDay ? addDays(planDay, 1) : addDays(d, 2);
+        } else {
+            d = addDays(d, st.index >= 7 ? 0 : 1);
+        }
+        dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    var hoy = (typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10);
+    var manana = (function() { var x = new Date(hoy + 'T12:00:00'); x.setDate(x.getDate() + 1); return x.toISOString().slice(0, 10); })();
+    var tone = dateStr < hoy ? 'late' : dateStr <= manana ? 'warn' : 'ok';
+    return { date: dateStr, source: source, tone: tone };
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -15644,6 +15945,24 @@ function invRenderDashboard(el) {
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (eqExpired > 0 ? 'var(--tp-red)' : 'var(--tp-green)') + '">' + eqExpired + '</div><div class="tp-metric-label">Cal. vencida</div></div>';
     html += '</div>';
 
+    // v15.9: Consumo proyectado (modelo aprendido) — ¿alcanza para las pruebas pendientes?
+    var forecast = (typeof invForecastGasNeeds === 'function') ? invForecastGasNeeds() : [];
+    if (forecast.length > 0) {
+        html += '<div class="tp-card" style="border-left:3px solid ' + (forecast.some(function(f) { return f.severidad === 'critical'; }) ? 'var(--tp-red)' : 'var(--tp-amber)') + ';">';
+        html += '<div class="tp-card-title"><span>⛽ Consumo proyectado — faltantes</span>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invSwitchTab(\'inv-predict\')" style="font-size:10px;">Ver predicción</button></div>';
+        forecast.slice(0, 5).forEach(function(f) {
+            var color = f.severidad === 'critical' ? 'var(--tp-red)' : 'var(--tp-amber)';
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;">';
+            html += '<span style="font-size:13px;">' + (f.kind === 'fuel' ? '⛽' : '🧪') + '</span>';
+            html += '<div style="flex:1;"><div style="font-weight:700;font-size:11px;">' + f.name + ' <span style="font-weight:400;color:var(--tp-dim);">(' + (f.scope === 'semana' ? 'esta semana' : 'plan completo') + ')</span></div>';
+            html += '<div style="font-size:9px;color:var(--tp-dim);">Requerido ~' + f.requerido + ' ' + f.unit + ' para ' + f.pruebasPend + ' pruebas · disponible ' + f.disponible + '</div></div>';
+            html += '<div style="font-weight:800;font-size:11px;color:' + color + ';">−' + f.deficit + ' ' + f.unit + '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
     // Top 3 cilindros a reponer (menor nivel)
     var refill = gases.filter(function(g){ return g.status !== 'Empty'; })
         .map(function(g){ return { g: g, lvl: invGasLevel(g) }; })
@@ -16348,6 +16667,7 @@ function invSaveDailyCapture() {
     if (count === 0 && fuelCount === 0) { showToast('No se ingresaron capturas', 'warning'); return; }
     invState.lastReadingDate = date;
     if (typeof auditLog === 'function') auditLog('inv', 'daily_capture', {type:'reading', label:date}, count + ' gases, ' + fuelCount + ' combustibles');
+    invUpdateConsumptionModel(); // v15.9: re-aprender con la información nueva del día
     invSave(); invRender();
     if (count > 0 && typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
     showToast(count + ' lecturas de gas y ' + fuelCount + ' de combustible guardadas (' + date + ')', 'success');
@@ -17112,32 +17432,42 @@ function invLogTestUsage(vehicle, opts) {
         }
     });
 
+    // v15.9: modelo fresco ANTES de registrar esta prueba (aprende de lo anterior; esta
+    // prueba entra al aprendizaje cuando lleguen las siguientes lecturas manuales)
+    var model = invUpdateConsumptionModel();
+    var typeRates = (model.perType && model.perType[regulation]) || null;
+
     var entry = {
         date: date,
         vin: vehicle.vin || '',
         configCode: vehicle.configCode || '',
         purpose: vehicle.purpose || '',
         regulation: regulation,
+        cycle: (vehicle.testData && vehicle.testData.preconditioning && vehicle.testData.preconditioning.cycle) || '',
         timestamp: new Date().toISOString(),
         cylinders: cylinderSnapshot,
         psiSnap: psiSnapshot,
         fuelSnap: fuelSnapshot
     };
 
-    invState.usageLog.push(entry);
-
-    // [V7-A2] Auto-deduct estimated PSI from in-use cylinders
-    var PSI_PER_TEST = 50; // Estimated PSI consumed per test
+    // [V7-A2 → v15.9] Descuento de PSI APRENDIDO por tipo de prueba (regulación) y fórmula.
+    // Fallback INV_PSI_FALLBACK (50) mientras n=0. Un estimado de 0 es legítimo ("este gas
+    // no se consume en este tipo de prueba") y no genera lectura.
+    var gasDeducted = {};
     inUseCylinders.forEach(function(g) {
         if (g.readings && g.readings.length > 0) {
             var lastReading = g.readings[g.readings.length - 1];
             var currentPsi = lastReading.psi;
             if (typeof currentPsi === 'number' && currentPsi > 0) {
-                var newPsi = Math.max(0, currentPsi - PSI_PER_TEST);
+                var learned = typeRates && typeRates.gases[g.formula] && typeRates.gases[g.formula].n > 0;
+                var psiDeduct = Math.max(0, Math.round(learned ? typeRates.gases[g.formula].est : INV_PSI_FALLBACK));
+                gasDeducted[g.formula] = psiDeduct;
+                if (psiDeduct === 0) return;
+                var newPsi = Math.max(0, currentPsi - psiDeduct);
                 g.readings.push({
                     date: date,
                     psi: newPsi,
-                    note: 'Auto-deduccion por prueba VIN:' + (vehicle.vin || '').slice(-4),
+                    note: 'Auto-deducción por prueba (' + psiDeduct + ' psi ' + (learned ? 'aprendido' : 'estimado') + ') VIN:' + (vehicle.vin || '').slice(-4),
                     auto: true
                 });
                 // Alert if below 25%
@@ -17150,9 +17480,42 @@ function invLogTestUsage(vehicle, opts) {
             }
         }
     });
+    entry.gasDeducted = gasDeducted;
+
+    // v15.9: AUTO-DESCUENTO DE GASOLINA al tanque de la regulación de la prueba (el de
+    // registro más reciente con nivel > 0 — resuelve tanques duplicados orden anterior/actual).
+    var fuelDeducted = null;
+    var tankCandidates = (invState.fuelTanks || []).filter(function(t) {
+        return t.regulation === regulation && (t.currentLevel || 0) > 0;
+    });
+    if (tankCandidates.length) {
+        tankCandidates.sort(function(a, b) { return String(b.regDate || '').localeCompare(String(a.regDate || '')); });
+        var tank = tankCandidates[0];
+        var fuelLearned = typeRates && typeRates.fuelL && typeRates.fuelL.n > 0;
+        var liters = Math.round((fuelLearned ? typeRates.fuelL.est : INV_FUEL_FALLBACK_L) * 10) / 10;
+        if (liters > 0) {
+            tank.currentLevel = Math.max(0, Math.round((tank.currentLevel - liters) * 10) / 10);
+            if (!tank.readings) tank.readings = [];
+            tank.readings.push({
+                date: date,
+                level: tank.currentLevel,
+                auto: true,
+                note: 'Auto-descuento por prueba (' + liters + ' L ' + (fuelLearned ? 'aprendido' : 'estimado') + ') VIN:' + (vehicle.vin || '').slice(-4)
+            });
+            fuelDeducted = { tankId: tank.id, tankName: tank.name, liters: liters, learned: !!fuelLearned };
+            if (typeof auditLog === 'function') {
+                auditLog('inv', 'fuel_auto_deduct', { type: 'fuel', id: tank.id, label: tank.name },
+                    liters + ' L (' + (fuelLearned ? 'aprendido' : 'estimado inicial') + ') · VIN ' + (vehicle.vin || ''));
+            }
+        }
+    }
+    entry.fuelDeducted = fuelDeducted;
+
+    invState.usageLog.push(entry);
 
     // Keep log manageable
     if (invState.usageLog.length > 3000) invState.usageLog = invState.usageLog.slice(-2000);
+    if (typeof emitEvent === 'function') emitEvent('inventory:consumption', { regulation: regulation, gasDeducted: gasDeducted, fuelDeducted: fuelDeducted });
     if (!(opts && opts.skipSave)) invSave();
 }
 
@@ -17294,6 +17657,10 @@ function invTraceSearch() {
 // ══════════════════════════════════════════════════
 // ACTIVE PREDICTION ENGINE — Consumption Rate Calculator
 // ══════════════════════════════════════════════════
+// v15.9 — Fallbacks del modelo de consumo (mientras no hay aprendizaje suficiente, n=0)
+var INV_PSI_FALLBACK = 50;    // PSI/prueba (mismo valor que el descuento fijo histórico)
+var INV_FUEL_FALLBACK_L = 15; // L de gasolina/prueba
+
 function invCalcConsumptionRates() {
     var rates = { gas: {}, fuel: {}, lastCalc: new Date().toISOString(), dataPoints: 0 };
     var log = invState.usageLog || [];
@@ -17318,16 +17685,38 @@ function invCalcConsumptionRates() {
         });
         if (formulaLog.length === 0) return;
 
-        // Use primary cylinder for rate calc
+        // Use primary cylinder for rate calc.
+        // v15.9: SOLO lecturas manuales — las lecturas auto (descuento por prueba) generan
+        // drops sintéticos que envenenan el aprendizaje. Las caídas entre lecturas manuales
+        // sí reflejan consumo real aunque en medio haya lecturas auto.
         var g = gasFormulas[formula][0];
-        var readings = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+        var readings = (g.readings || []).filter(function(r) { return !r.auto; })
+            .slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+        if (readings.length < 2) return;
 
-        // Between consecutive readings, count tests by regulation
+        // EWMA en línea, cronológico. est[reg] = estimado vigente (para reparto proporcional
+        // en días con tipos mezclados); bootstrap = INV_PSI_FALLBACK.
+        var est = {};
+        var getEst = function(reg) { return est[reg] !== undefined ? est[reg] : INV_PSI_FALLBACK; };
+        var pushObs = function(reg, ppt, cnt, d1, d2) {
+            if (!rates.gas[formula]) rates.gas[formula] = {};
+            if (!rates.gas[formula][reg]) rates.gas[formula][reg] = { obs: [], ewma: 0, n: 0 };
+            var r = rates.gas[formula][reg];
+            r.obs.push({ ppt: ppt, cnt: cnt, d1: d1, d2: d2 });
+            est[reg] = (r.n === 0) ? ppt : (ALPHA * ppt + (1 - ALPHA) * est[reg]);
+            r.ewma = est[reg];
+            r.n += cnt;
+            rates.dataPoints += cnt;
+        };
+
         for (var i = 0; i < readings.length - 1; i++) {
             var d1 = readings[i].date;
             var d2 = readings[i + 1].date;
             var psiDrop = readings[i].psi - readings[i + 1].psi;
-            if (psiDrop <= 0) continue; // No consumption or refill
+            // v15.9: drop de 0 CON pruebas en medio = observación legítima de consumo cero
+            // ("este gas no se usa en este tipo de prueba") — antes se descartaba y el gas
+            // sin consumo seguía descontando el fallback de 50. Negativo = recarga, se omite.
+            if (psiDrop < 0) continue;
 
             var testsBetween = formulaLog.filter(function(l) {
                 return l.date >= d1 && l.date <= d2;
@@ -17343,46 +17732,31 @@ function invCalcConsumptionRates() {
             var totalTests = testsBetween.length;
             var regKeys = Object.keys(regCounts);
 
-            // Compute psi/test per regulation
             if (regKeys.length === 1) {
-                // Single regulation — direct measurement
-                var reg = regKeys[0];
-                var psiPerTest = psiDrop / totalTests;
-                if (!rates.gas[formula]) rates.gas[formula] = {};
-                if (!rates.gas[formula][reg]) rates.gas[formula][reg] = { obs: [], ewma: 0, n: 0 };
-                rates.gas[formula][reg].obs.push({ ppt: psiPerTest, cnt: totalTests, d1: d1, d2: d2 });
+                // Un solo tipo — medición directa
+                pushObs(regKeys[0], psiDrop / totalTests, totalTests, d1, d2);
             } else {
-                // Mixed regulations — proportional distribution
-                var psiPerTest = psiDrop / totalTests;
+                // Tipos mezclados — reparto proporcional a los estimados vigentes
+                // (la suma de las porciones cierra exactamente con el drop observado)
+                var sumW = 0;
+                regKeys.forEach(function(reg) { sumW += regCounts[reg] * getEst(reg); });
                 regKeys.forEach(function(reg) {
-                    if (!rates.gas[formula]) rates.gas[formula] = {};
-                    if (!rates.gas[formula][reg]) rates.gas[formula][reg] = { obs: [], ewma: 0, n: 0 };
-                    rates.gas[formula][reg].obs.push({ ppt: psiPerTest, cnt: regCounts[reg], d1: d1, d2: d2 });
+                    var share = sumW > 0
+                        ? psiDrop * (regCounts[reg] * getEst(reg)) / sumW
+                        : psiDrop / regKeys.length;
+                    pushObs(reg, share / regCounts[reg], regCounts[reg], d1, d2);
                 });
             }
         }
     });
 
-    // EWMA for each gas/regulation
-    Object.keys(rates.gas).forEach(function(formula) {
-        Object.keys(rates.gas[formula]).forEach(function(reg) {
-            var r = rates.gas[formula][reg];
-            if (r.obs.length === 0) return;
-            r.obs.sort(function(a, b) { return a.d1.localeCompare(b.d1); });
-            var ewma = r.obs[0].ppt;
-            for (var j = 1; j < r.obs.length; j++) {
-                ewma = ALPHA * r.obs[j].ppt + (1 - ALPHA) * ewma;
-            }
-            r.ewma = ewma;
-            r.n = r.obs.reduce(function(s, v) { return s + v.cnt; }, 0);
-            rates.dataPoints += r.n;
-        });
-    });
-
     // ── FUEL RATES: correlate fuel readings with test events ──
     (invState.fuelTanks || []).forEach(function(t) {
-        if (!t.readings || t.readings.length < 2 || !t.regulation) return;
-        var readings = t.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+        if (!t.readings || !t.regulation) return;
+        // v15.9: solo lecturas manuales (las auto del descuento por prueba no enseñan nada nuevo)
+        var readings = t.readings.filter(function(r) { return !r.auto; })
+            .slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+        if (readings.length < 2) return;
         var reg = t.regulation;
 
         // Deduplicate tests by date+vin (one release = one fuel usage)
@@ -17400,7 +17774,7 @@ function invCalcConsumptionRates() {
             var d1 = readings[i].date;
             var d2 = readings[i + 1].date;
             var levelDrop = readings[i].level - readings[i + 1].level;
-            if (levelDrop <= 0) continue;
+            if (levelDrop < 0) continue; // negativo = recarga; 0 con pruebas = consumo cero legítimo
 
             var testsBetween = uniqueTests.filter(function(l) { return l.date >= d1 && l.date <= d2; });
             if (testsBetween.length === 0) continue;
@@ -17422,6 +17796,35 @@ function invCalcConsumptionRates() {
     });
 
     return rates;
+}
+
+// v15.9 — Modelo de consumo persistido en invState.consumption. Es un CACHE DETERMINISTA
+// derivado de usageLog + readings (ambos ya sincronizados): cada dispositivo lo recomputa
+// tras capturas/pruebas/pull — nunca se mergea. Consumidores: descuento por prueba
+// (invLogTestUsage), predicción (invForecastGasNeeds), tablero HOY y alertas del Panel.
+function invUpdateConsumptionModel() {
+    var rates = invCalcConsumptionRates();
+    var perType = {};
+    Object.keys(rates.gas).forEach(function(formula) {
+        Object.keys(rates.gas[formula]).forEach(function(reg) {
+            var r = rates.gas[formula][reg];
+            if (!perType[reg]) perType[reg] = { gases: {}, fuelL: null };
+            perType[reg].gases[formula] = { est: Math.round(r.ewma * 10) / 10, n: r.n };
+        });
+    });
+    Object.keys(rates.fuel).forEach(function(reg) {
+        var r = rates.fuel[reg];
+        if (r.n === 0) return;
+        if (!perType[reg]) perType[reg] = { gases: {}, fuelL: null };
+        perType[reg].fuelL = { est: Math.round(r.ewma * 10) / 10, n: r.n, unit: r.unit || 'L', tankName: r.tankName || '' };
+    });
+    invState.consumption = {
+        perType: perType,
+        updatedAt: new Date().toISOString(),
+        dataPoints: rates.dataPoints,
+        version: 1
+    };
+    return invState.consumption;
 }
 
 // ══════════════════════════════════════════════════
@@ -19074,6 +19477,103 @@ var INV_REFERENCE_RATES = {
 // ══════════════════════════════════════════════════
 // MEJORA D: WEEKLY PLAN FORECAST
 // ══════════════════════════════════════════════════
+
+// v15.9 — Forecast normalizado para superficies (tablero HOY, tarjeta de inventario, alertas
+// del Panel): "¿alcanza el gas/gasolina para las pruebas pendientes?" en dos alcances:
+// 'semana' (plan semanal aceptado) y 'plan' (déficit total del plan de producción).
+// Números vivos: se recalcula cuando cambia el modelo de consumo, el plan o el día.
+var _invForecastCache = { key: '', data: null };
+function invForecastGasNeeds() {
+    var modelAt = (invState.consumption && invState.consumption.updatedAt) || '';
+    var planKey = '';
+    if (typeof tpState !== 'undefined' && tpState.weeklyPlans && tpState.weeklyPlans.length) {
+        var lp = tpState.weeklyPlans[tpState.weeklyPlans.length - 1];
+        planKey = (lp.weekDate || '') + ':' + (lp.items ? lp.items.filter(function(i) { return !i.completed; }).length : 0);
+    }
+    var key = modelAt + '|' + planKey + '|' + localToday();
+    if (_invForecastCache.key === key && _invForecastCache.data) return _invForecastCache.data;
+
+    if (!invState.consumption) invUpdateConsumptionModel();
+    var perType = (invState.consumption && invState.consumption.perType) || {};
+    var out = [];
+
+    // 1) Alcance SEMANA — reutiliza el forecast del plan semanal aceptado
+    var weekly = invForecastForWeeklyPlan();
+    if (weekly && weekly.items) {
+        weekly.items.forEach(function(it) {
+            if (it.recommendation !== 'AGOTADO' && it.recommendation !== 'REORDENAR') return;
+            out.push({
+                kind: it.type, scope: 'semana', name: it.name, formula: it.formula || null,
+                requerido: Math.round(it.estimatedUsage), disponible: Math.round(it.currentLevel),
+                deficit: Math.max(0, Math.round(it.estimatedUsage - it.currentLevel)),
+                pruebasPend: weekly.testCount, unit: it.unit,
+                severidad: it.recommendation === 'AGOTADO' ? 'critical' : 'warning'
+            });
+        });
+    }
+
+    // 2) Alcance PLAN — déficit total del plan de producción (tpGetAnalysis) × consumo aprendido
+    if (typeof tpGetAnalysis === 'function') {
+        var pendingByReg = {}, totalPend = 0;
+        try {
+            tpGetAnalysis().forEach(function(a) {
+                if (a.deficit > 0) {
+                    var r = a.reg || 'General';
+                    pendingByReg[r] = (pendingByReg[r] || 0) + a.deficit;
+                    totalPend += a.deficit;
+                }
+            });
+        } catch (e) {}
+        // Gas: requerido por fórmula (solo estimados aprendidos, n>0); disponible = In use + Full
+        var needByFormula = {};
+        Object.keys(pendingByReg).forEach(function(reg) {
+            var t = perType[reg];
+            if (!t) return;
+            Object.keys(t.gases).forEach(function(f) {
+                if (!(t.gases[f].n > 0)) return;
+                needByFormula[f] = (needByFormula[f] || 0) + t.gases[f].est * pendingByReg[reg];
+            });
+        });
+        Object.keys(needByFormula).forEach(function(f) {
+            var req = Math.round(needByFormula[f]);
+            if (req <= 0) return;
+            var avail = 0;
+            (invState.gases || []).forEach(function(g) {
+                if (g.formula !== f) return;
+                if (g.status === 'In use' && g.readings && g.readings.length) avail += g.readings[g.readings.length - 1].psi || 0;
+                else if (g.status === 'Full') avail += g.initialPsi || 2200;
+            });
+            if (avail >= req) return; // alcanza — sin alerta
+            out.push({
+                kind: 'gas', scope: 'plan', name: f, formula: f,
+                requerido: req, disponible: Math.round(avail), deficit: req - Math.round(avail),
+                pruebasPend: totalPend, unit: 'psi',
+                severidad: avail < req * 0.5 ? 'critical' : 'warning'
+            });
+        });
+        // Gasolina por regulación
+        Object.keys(pendingByReg).forEach(function(reg) {
+            var t = perType[reg];
+            if (!t || !t.fuelL || !(t.fuelL.n > 0)) return;
+            var req = Math.round(t.fuelL.est * pendingByReg[reg]);
+            if (req <= 0) return;
+            var avail = 0;
+            (invState.fuelTanks || []).forEach(function(tank) {
+                if (tank.regulation === reg) avail += tank.currentLevel || 0;
+            });
+            if (avail >= req) return;
+            out.push({
+                kind: 'fuel', scope: 'plan', name: 'Gasolina ' + reg, formula: null,
+                requerido: req, disponible: Math.round(avail), deficit: req - Math.round(avail),
+                pruebasPend: pendingByReg[reg], unit: t.fuelL.unit || 'L',
+                severidad: avail < req * 0.5 ? 'critical' : 'warning'
+            });
+        });
+    }
+
+    _invForecastCache = { key: key, data: out };
+    return out;
+}
 
 function invForecastForWeeklyPlan(rates) {
     // Get latest accepted weekly plan from Test Plan module
@@ -24743,6 +25243,63 @@ function pnInit() {
         });
         pnSave();
     }
+    if (!pnState.tasks) pnState.tasks = []; // v15.9: tareas manuales del tablero HOY
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// v15.9 — TAREAS MANUALES DEL TABLERO HOY (pnState.tasks, sync vía panel + merge por id)
+// {id, title, cat, assignee, due, done, doneAt, createdBy, createdAt, updatedAt, deleted}
+// ═══════════════════════════════════════════════════════════════════════════════
+function _pnCurrentUser() {
+    try {
+        if (typeof authGetCurrentUser === 'function') {
+            var u = authGetCurrentUser();
+            if (u && u.name) return u.name;
+        }
+    } catch (e) {}
+    return 'Operador';
+}
+
+function pnTaskAdd(data) {
+    if (!pnState.tasks) pnState.tasks = [];
+    var now = new Date().toISOString();
+    var task = {
+        id: 't_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        title: String(data.title || '').trim(),
+        cat: data.cat || 'manuales',
+        assignee: data.assignee || '',
+        due: data.due || '',
+        done: false, doneAt: null,
+        createdBy: _pnCurrentUser(),
+        createdAt: now, updatedAt: now, deleted: false
+    };
+    if (!task.title) { if (typeof showToast === 'function') showToast('Escribe un título para la actividad', 'warning'); return null; }
+    pnState.tasks.push(task);
+    if (typeof auditLog === 'function') auditLog('panel', 'task_add', { type: 'task', id: task.id, label: task.title }, 'Cat: ' + task.cat + (task.assignee ? ' · Resp: ' + task.assignee : '') + (task.due ? ' · Para: ' + task.due : ''));
+    pnSave();
+    if (typeof dailyDashRender === 'function' && document.getElementById('platform-today') && document.getElementById('platform-today').classList.contains('active')) dailyDashRender();
+    return task;
+}
+
+function pnTaskToggle(id) {
+    var t = (pnState.tasks || []).find(function(x) { return x.id === id; });
+    if (!t) return;
+    t.done = !t.done;
+    t.doneAt = t.done ? new Date().toISOString() : null;
+    t.updatedAt = new Date().toISOString();
+    if (typeof auditLog === 'function') auditLog('panel', t.done ? 'task_done' : 'task_reopen', { type: 'task', id: t.id, label: t.title }, t.done ? 'Completada por ' + _pnCurrentUser() : 'Reabierta');
+    pnSave();
+    if (typeof dailyDashRender === 'function' && document.getElementById('platform-today') && document.getElementById('platform-today').classList.contains('active')) dailyDashRender();
+}
+
+function pnTaskDelete(id) {
+    var t = (pnState.tasks || []).find(function(x) { return x.id === id; });
+    if (!t) return;
+    t.deleted = true; // tombstone: sobrevive al merge para no resucitar en otros dispositivos
+    t.updatedAt = new Date().toISOString();
+    if (typeof auditLog === 'function') auditLog('panel', 'task_delete', { type: 'task', id: t.id, label: t.title }, 'Eliminada por ' + _pnCurrentUser());
+    pnSave();
+    if (typeof dailyDashRender === 'function' && document.getElementById('platform-today') && document.getElementById('platform-today').classList.contains('active')) dailyDashRender();
 }
 
 function pnSave() {
@@ -25117,19 +25674,21 @@ function pnRenderDashboard(el) {
     }
 
     // ── Soak Timer Status ──
+    // v15.9: corregido al esquema REAL que escribe soakTimerStart ({endTime, totalMs,
+    // vehicleId, vin}) — la versión anterior leía {active, start, duration} que nunca
+    // se escribió, así que esta tarjeta jamás aparecía.
     var soakData = null;
     try { soakData = JSON.parse(localStorage.getItem('kia_soak_timer')); } catch(e) {}
-    if (soakData && soakData.active) {
-        var elapsed = Math.round((Date.now() - soakData.start) / 60000);
-        var remaining = Math.max(0, (soakData.duration || 720) - elapsed);
-        var hrs = Math.floor(remaining / 60);
-        var mins = remaining % 60;
-        var pct = Math.round((elapsed / (soakData.duration || 720)) * 100);
+    if (soakData && soakData.endTime && soakData.endTime > Date.now()) {
+        var remainMs = soakData.endTime - Date.now();
+        var hrs = Math.floor(remainMs / 3600000);
+        var mins = Math.floor((remainMs % 3600000) / 60000);
+        var pct = soakData.totalMs ? Math.round((1 - remainMs / soakData.totalMs) * 100) : 0;
         html += '<div class="tp-card" style="border:2px solid #8b5cf6;">';
         html += '<div class="tp-card-title"><span style="color:#8b5cf6;">🕐 Soak Timer Activo</span></div>';
         html += '<div style="text-align:center;padding:8px;">';
         html += '<div style="font-size:24px;font-weight:800;color:#8b5cf6;">' + hrs + 'h ' + mins + 'm restantes</div>';
-        html += '<div class="tp-bar" style="height:6px;margin:8px 0;"><div class="tp-bar-fill" style="width:' + Math.min(pct, 100) + '%;background:#8b5cf6;"></div></div>';
+        html += '<div class="tp-bar" style="height:6px;margin:8px 0;"><div class="tp-bar-fill" style="width:' + Math.min(Math.max(pct, 0), 100) + '%;background:#8b5cf6;"></div></div>';
         html += '<div style="font-size:9px;color:var(--tp-dim);">VIN: ' + (soakData.vin || '?') + ' | ' + pct + '% completado</div>';
         html += '</div></div>';
     }
@@ -25701,6 +26260,20 @@ function pnGetActiveAlerts() {
         try {
             copSpcScanAlarms().forEach(function(a) {
                 alerts.push({ level: 'ALTA', color: '#ef4444', message: 'SPC: ' + a.gasLabel + ' fuera de control (' + (a.rule || '') + ') en ' + a.famLabel + ' — ver CoP → Control SPC', source: 'CoP SPC' });
+            });
+        } catch (e) {}
+    }
+
+    // v15.9: Consumo proyectado (modelo aprendido) — gas/gasolina insuficiente para pendientes
+    if (typeof invForecastGasNeeds === 'function') {
+        try {
+            invForecastGasNeeds().forEach(function(f) {
+                alerts.push({
+                    level: f.severidad === 'critical' ? 'CRITICA' : 'ALTA',
+                    color: f.severidad === 'critical' ? '#ef4444' : '#f59e0b',
+                    message: 'Consumo: faltarán ~' + f.deficit + ' ' + f.unit + ' de ' + f.name + ' para las ' + f.pruebasPend + ' pruebas pendientes (' + (f.scope === 'semana' ? 'esta semana' : 'plan completo') + ')',
+                    source: 'Consumo'
+                });
             });
         } catch (e) {}
     }
@@ -29345,6 +29918,22 @@ function _fbMergeOperators(localOps, remoteOps) {
     return Object.keys(byKey).map(function(k) { return byKey[k]; });
 }
 
+// v15.9: merge de tareas manuales del tablero HOY (pnState.tasks) — misma semántica que
+// operators: clave id, gana el updatedAt más reciente, los tombstones (deleted) sobreviven.
+function _fbMergeTasks(localTasks, remoteTasks) {
+    var byId = {};
+    (localTasks || []).forEach(function(t) { if (t && t.id) byId[t.id] = t; });
+    (remoteTasks || []).forEach(function(r) {
+        if (!r || !r.id) return;
+        var l = byId[r.id];
+        if (!l) { byId[r.id] = r; return; }
+        var lt = l.updatedAt || l.createdAt || '';
+        var rt = r.updatedAt || r.createdAt || '';
+        byId[r.id] = (rt > lt) ? r : l;
+    });
+    return Object.keys(byId).map(function(k) { return byId[k]; });
+}
+
 function fbPullApply(collections, results, showFeedback) {
     var pulled = [];
 
@@ -29359,11 +29948,19 @@ function fbPullApply(collections, results, showFeedback) {
                 void 0;
                 _fbPullAdoptByCount(col, remoteData, pulled);
             }
+            // v15.9: el modelo de consumo es un cache determinista de usageLog+readings —
+            // se RECOMPUTA tras cada pull de inventario (nunca se mergea entre dispositivos)
+            if (col === 'inventory' && typeof invUpdateConsumptionModel === 'function') {
+                try { invUpdateConsumptionModel(); } catch(e2) {}
+            }
         } else if (col === 'panel') {
             if (typeof pnState !== 'undefined') {
                 var _localOpsPn = (pnState.operators || []).slice();
+                var _localTasksPn = (pnState.tasks || []).slice();
                 Object.assign(pnState, remoteData);
                 pnState.operators = _fbMergeOperators(_localOpsPn, (remoteData && remoteData.operators) || []);
+                // v15.9: tareas manuales del tablero HOY — merge por id (gana updatedAt), tombstones
+                pnState.tasks = _fbMergeTasks(_localTasksPn, (remoteData && remoteData.tasks) || []);
                 localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
                 if (typeof pnRender === 'function') pnRender();
                 pulled.push('Panel');
@@ -30684,7 +31281,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607050656' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607091852' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

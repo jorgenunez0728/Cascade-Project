@@ -2,6 +2,53 @@
 
 All notable changes to this project, organized by development round.
 
+## v15.9 — "HOY como tablero de actividades + consumo inteligente" (2026-07-09)
+
+### 📌 HOY = tracker de actividades (estilo Monday/Asana)
+La pestaña HOY dejó de ser 9 secciones con formatos distintos: ahora es UN tablero de filas
+homogéneas agrupadas por categoría (Vehículos / Plan de hoy / Inventario / Calidad / Manuales),
+cada fila con icono, título, chip de estado (Pendiente/En curso/Hecho/Atrasado), progreso,
+responsable y botón de acción con deep-link (`dashCollectActivities`/`dashRenderBoard`, app.js):
+
+- **Vehículos con etapa "N de 8"**: stepper visual (Alta → Recepción → Preacond → Soak → Prueba
+  → Verificación → Liberación → Aprobación, `cascadeVehicleStage` en cop15.js), soak restante
+  en la fila y **fecha esperada de liberación** (chip 📅 verde/ámbar/rojo): auto-estimada
+  (`cascadeVehicleETA`: fin de soak, día de prueba del plan) con **override manual auditado**
+  (`expected_release_set`) tocando el chip
+- **Plan de hoy**: las pruebas/preacondicionamientos cuyo `testDay`/`preconDay` es HOY, con
+  checkbox que marca el item del plan semanal
+- **Inventario**: toma de gases del día (X/Y con progreso), captura de producción atrasada,
+  gases vencidos/bajos y calibraciones con deep-link por ítem, y las alertas de consumo (abajo)
+- **Calidad**: aprobaciones doble-ciego pendientes, alarmas SPC, desacuerdos críticos
+- **➕ Actividad**: tareas manuales con título/categoría/responsable/fecha (`pnState.tasks`,
+  sincronizadas entre dispositivos con merge por id y tombstones — `_fbMergeTasks`);
+  checkbox para completar, auditadas (task_add/task_done/task_delete)
+- Toggle **"Solo míos"**, contadores de pendientes por grupo, refresco vivo (data:saved con
+  debounce + tick 60 s), Mi Turno compacto y Acceso Rápido se conservan
+- **Soak ligado a su vehículo**: `kia_soak_timer` ahora persiste vehicleId/vin — se corrigió el
+  bug latente donde un soak ajeno marcaba "soak listo" a TODOS los vehículos (getNextStep), y
+  la tarjeta de soak del Panel leía un esquema que nunca se escribía (jamás aparecía)
+
+### ⛽ Consumo inteligente: aprendizaje real + predicción viva
+Antes: descuento FIJO de 50 PSI/prueba a todos los cilindros y la gasolina solo se
+"fotografiaba" (nunca se descontaba). Ahora el consumo se APRENDE de la operación:
+
+- **Aprendizaje corregido** (`invCalcConsumptionRates`): solo lecturas manuales (las lecturas
+  auto del descuento envenenaban el modelo con drops sintéticos de 50); días con tipos de
+  prueba mezclados se reparten proporcional a los estimados vigentes; **drop de 0 con pruebas
+  = consumo cero legítimo** (antes se descartaba y el gas sin uso seguía descontando 50)
+- **Modelo persistido** `invState.consumption.perType[regulación] = {gases:{fórmula:{est,n}},
+  fuelL:{est,n}}` — cache determinista de usageLog+readings: cada dispositivo lo recomputa
+  (al capturar lecturas, al cerrar prueba, tras pull de sync); nunca se mergea
+- **Descuento por prueba APRENDIDO**: cada gas descuenta su estimado por tipo de prueba
+  (fallback 50 solo sin datos); estimado 0 = no descuenta. **La gasolina ahora SÍ se descuenta
+  por prueba** al tanque de la regulación (el más reciente con nivel), con lectura auto,
+  registro en usageLog (`gasDeducted`/`fuelDeducted` + `cycle`) y auditoría `fuel_auto_deduct`
+- **Predicción viva** (`invForecastGasNeeds`): "faltarán ~N psi de X para las M pruebas
+  pendientes" en dos alcances (semana del plan / plan completo, disponible = In use + Full);
+  visible como filas de alerta en HOY, tarjeta "⛽ Consumo proyectado" en Inventario y fuente
+  'Consumo' en Datos → Alertas
+
 ## v15.8 — "Edición retroactiva + visión anual del plan" (2026-07-05)
 
 ### 📝 Completar datos retroactivos (Historial)

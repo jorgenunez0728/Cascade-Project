@@ -1270,6 +1270,22 @@ function _fbMergeOperators(localOps, remoteOps) {
     return Object.keys(byKey).map(function(k) { return byKey[k]; });
 }
 
+// v15.9: merge de tareas manuales del tablero HOY (pnState.tasks) — misma semántica que
+// operators: clave id, gana el updatedAt más reciente, los tombstones (deleted) sobreviven.
+function _fbMergeTasks(localTasks, remoteTasks) {
+    var byId = {};
+    (localTasks || []).forEach(function(t) { if (t && t.id) byId[t.id] = t; });
+    (remoteTasks || []).forEach(function(r) {
+        if (!r || !r.id) return;
+        var l = byId[r.id];
+        if (!l) { byId[r.id] = r; return; }
+        var lt = l.updatedAt || l.createdAt || '';
+        var rt = r.updatedAt || r.createdAt || '';
+        byId[r.id] = (rt > lt) ? r : l;
+    });
+    return Object.keys(byId).map(function(k) { return byId[k]; });
+}
+
 function fbPullApply(collections, results, showFeedback) {
     var pulled = [];
 
@@ -1284,11 +1300,19 @@ function fbPullApply(collections, results, showFeedback) {
                 console.warn('fbPullApply: merge falló en ' + col + ', usando heurística por conteo', e);
                 _fbPullAdoptByCount(col, remoteData, pulled);
             }
+            // v15.9: el modelo de consumo es un cache determinista de usageLog+readings —
+            // se RECOMPUTA tras cada pull de inventario (nunca se mergea entre dispositivos)
+            if (col === 'inventory' && typeof invUpdateConsumptionModel === 'function') {
+                try { invUpdateConsumptionModel(); } catch(e2) {}
+            }
         } else if (col === 'panel') {
             if (typeof pnState !== 'undefined') {
                 var _localOpsPn = (pnState.operators || []).slice();
+                var _localTasksPn = (pnState.tasks || []).slice();
                 Object.assign(pnState, remoteData);
                 pnState.operators = _fbMergeOperators(_localOpsPn, (remoteData && remoteData.operators) || []);
+                // v15.9: tareas manuales del tablero HOY — merge por id (gana updatedAt), tombstones
+                pnState.tasks = _fbMergeTasks(_localTasksPn, (remoteData && remoteData.tasks) || []);
                 localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
                 if (typeof pnRender === 'function') pnRender();
                 pulled.push('Panel');
