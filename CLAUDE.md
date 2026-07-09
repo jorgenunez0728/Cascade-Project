@@ -174,6 +174,43 @@ Mejoras adaptadas del tablero VETS de un laboratorio hermano (comparativa comple
 - NO adoptado a propósito: desglose por fase/bolsa (solo valores finales verificados), tema oscuro,
   conteo fijo CoP de 3/familia (nuestro muestreo secuencial es superior).
 
+## v15.8 — Edición retroactiva + visión anual del plan
+
+- **Historial → 📝 Completar**: modal de edición retroactiva para archivados incompletos
+  (`histOpenCompleteModal` en cop15.js). Descriptor único `PDF_REQUIRED_FIELDS` (junto a
+  `validatePdfCompleteness`) alimenta validador y modal — **añadir un campo obligatorio al PDF =
+  añadir una entrada ahí** (path, label, section, refId del input de index.html, num/si/when).
+  Faltantes editables; existentes 🔒 (modificar = razón ≥5 chars + firma → `retroSignatures`);
+  timeline "Datos completados retroactivamente" + auditoría `retro_edit`. Botón 🕘 =
+  `histShowTimelineModal` (control de cambios). El vehículo nunca sale de `archived`.
+- **Plan**: tarjeta Presupuesto Anual (`tpRenderAnnualBudgetCard`); propósito por región al
+  iniciar prueba (`tpState.startPurposeByRegion`, `tpPurposeForRegion`, UI en Reglas); reglas
+  default P4 Legacy/P5 EV (`tpEnsurePriorityRuleDefaults`, maxTiers default 5); badge
+  "⏱ última prueba" por familia (`tpLastTestBadge`, `f.lastTestDate/daysSinceTest`) y evidencia
+  ordenada DESC.
+
+## v15.9 — HOY tablero de actividades + consumo inteligente
+
+- **HOY** ya no son secciones sueltas: tablero estilo Monday (`dashCollectActivities` →
+  `dashRenderBoard`/`dashRenderRow` en app.js; CSS `.dash-*`). Fuentes normalizadas: toma de
+  gases (`invReadingStatusToday`), pruebas de HOY del plan (`testDay`/`preconDay`), vehículos
+  con stepper **N/8** (`cascadeVehicleStage`/`CASCADE_STAGES`, cop15.js) + ETA
+  (`cascadeVehicleETA`, override manual `v.expectedReleaseAt` auditado via
+  `dashSetExpectedRelease`), alertas de inventario, consumo, `pnGetActiveAlerts` (sin duplicar
+  Inventario/Consumo), aprobaciones y **tareas manuales** `pnState.tasks`
+  (`pnTaskAdd/Toggle/Delete`, merge por id `_fbMergeTasks` en fbPullApply, tombstones).
+  Refresco: listener `data:saved` (debounce 400 ms) + tick 60 s solo con HOY visible.
+- **`kia_soak_timer` ahora persiste `{endTime, totalMs, vehicleId, vin}`** — getNextStep y el
+  stepper ignoran soaks ajenos; tarjeta de soak del Panel corregida al esquema real.
+- **Consumo aprendido** (inventory.js): `invCalcConsumptionRates` usa SOLO lecturas manuales
+  (`!r.auto`), reparto proporcional en días mixtos, y drop 0 con pruebas = consumo cero.
+  `invUpdateConsumptionModel()` persiste `invState.consumption` (cache determinista — se
+  recomputa, nunca se mergea; hook tras pull en firebase-sync). `invLogTestUsage` descuenta
+  el estimado aprendido por gas (fallback `INV_PSI_FALLBACK=50`) y **descuenta gasolina**
+  (`INV_FUEL_FALLBACK_L=15`, tanque por regulación más reciente, auditoría `fuel_auto_deduct`).
+  `invForecastGasNeeds()` (cacheado) alimenta HOY, la tarjeta ⛽ del dashboard de inventario y
+  la fuente 'Consumo' de `pnGetActiveAlerts`.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

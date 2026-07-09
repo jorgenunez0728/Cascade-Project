@@ -280,6 +280,24 @@ function invRenderDashboard(el) {
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (eqExpired > 0 ? 'var(--tp-red)' : 'var(--tp-green)') + '">' + eqExpired + '</div><div class="tp-metric-label">Cal. vencida</div></div>';
     html += '</div>';
 
+    // v15.9: Consumo proyectado (modelo aprendido) — ¿alcanza para las pruebas pendientes?
+    var forecast = (typeof invForecastGasNeeds === 'function') ? invForecastGasNeeds() : [];
+    if (forecast.length > 0) {
+        html += '<div class="tp-card" style="border-left:3px solid ' + (forecast.some(function(f) { return f.severidad === 'critical'; }) ? 'var(--tp-red)' : 'var(--tp-amber)') + ';">';
+        html += '<div class="tp-card-title"><span>⛽ Consumo proyectado — faltantes</span>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invSwitchTab(\'inv-predict\')" style="font-size:10px;">Ver predicción</button></div>';
+        forecast.slice(0, 5).forEach(function(f) {
+            var color = f.severidad === 'critical' ? 'var(--tp-red)' : 'var(--tp-amber)';
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;">';
+            html += '<span style="font-size:13px;">' + (f.kind === 'fuel' ? '⛽' : '🧪') + '</span>';
+            html += '<div style="flex:1;"><div style="font-weight:700;font-size:11px;">' + f.name + ' <span style="font-weight:400;color:var(--tp-dim);">(' + (f.scope === 'semana' ? 'esta semana' : 'plan completo') + ')</span></div>';
+            html += '<div style="font-size:9px;color:var(--tp-dim);">Requerido ~' + f.requerido + ' ' + f.unit + ' para ' + f.pruebasPend + ' pruebas · disponible ' + f.disponible + '</div></div>';
+            html += '<div style="font-weight:800;font-size:11px;color:' + color + ';">−' + f.deficit + ' ' + f.unit + '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
     // Top 3 cilindros a reponer (menor nivel)
     var refill = gases.filter(function(g){ return g.status !== 'Empty'; })
         .map(function(g){ return { g: g, lvl: invGasLevel(g) }; })
@@ -984,6 +1002,7 @@ function invSaveDailyCapture() {
     if (count === 0 && fuelCount === 0) { showToast('No se ingresaron capturas', 'warning'); return; }
     invState.lastReadingDate = date;
     if (typeof auditLog === 'function') auditLog('inv', 'daily_capture', {type:'reading', label:date}, count + ' gases, ' + fuelCount + ' combustibles');
+    invUpdateConsumptionModel(); // v15.9: re-aprender con la información nueva del día
     invSave(); invRender();
     if (count > 0 && typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
     showToast(count + ' lecturas de gas y ' + fuelCount + ' de combustible guardadas (' + date + ')', 'success');
@@ -1748,32 +1767,42 @@ function invLogTestUsage(vehicle, opts) {
         }
     });
 
+    // v15.9: modelo fresco ANTES de registrar esta prueba (aprende de lo anterior; esta
+    // prueba entra al aprendizaje cuando lleguen las siguientes lecturas manuales)
+    var model = invUpdateConsumptionModel();
+    var typeRates = (model.perType && model.perType[regulation]) || null;
+
     var entry = {
         date: date,
         vin: vehicle.vin || '',
         configCode: vehicle.configCode || '',
         purpose: vehicle.purpose || '',
         regulation: regulation,
+        cycle: (vehicle.testData && vehicle.testData.preconditioning && vehicle.testData.preconditioning.cycle) || '',
         timestamp: new Date().toISOString(),
         cylinders: cylinderSnapshot,
         psiSnap: psiSnapshot,
         fuelSnap: fuelSnapshot
     };
 
-    invState.usageLog.push(entry);
-
-    // [V7-A2] Auto-deduct estimated PSI from in-use cylinders
-    var PSI_PER_TEST = 50; // Estimated PSI consumed per test
+    // [V7-A2 → v15.9] Descuento de PSI APRENDIDO por tipo de prueba (regulación) y fórmula.
+    // Fallback INV_PSI_FALLBACK (50) mientras n=0. Un estimado de 0 es legítimo ("este gas
+    // no se consume en este tipo de prueba") y no genera lectura.
+    var gasDeducted = {};
     inUseCylinders.forEach(function(g) {
         if (g.readings && g.readings.length > 0) {
             var lastReading = g.readings[g.readings.length - 1];
             var currentPsi = lastReading.psi;
             if (typeof currentPsi === 'number' && currentPsi > 0) {
-                var newPsi = Math.max(0, currentPsi - PSI_PER_TEST);
+                var learned = typeRates && typeRates.gases[g.formula] && typeRates.gases[g.formula].n > 0;
+                var psiDeduct = Math.max(0, Math.round(learned ? typeRates.gases[g.formula].est : INV_PSI_FALLBACK));
+                gasDeducted[g.formula] = psiDeduct;
+                if (psiDeduct === 0) return;
+                var newPsi = Math.max(0, currentPsi - psiDeduct);
                 g.readings.push({
                     date: date,
                     psi: newPsi,
-                    note: 'Auto-deduccion por prueba VIN:' + (vehicle.vin || '').slice(-4),
+                    note: 'Auto-deducción por prueba (' + psiDeduct + ' psi ' + (learned ? 'aprendido' : 'estimado') + ') VIN:' + (vehicle.vin || '').slice(-4),
                     auto: true
                 });
                 // Alert if below 25%
@@ -1786,9 +1815,42 @@ function invLogTestUsage(vehicle, opts) {
             }
         }
     });
+    entry.gasDeducted = gasDeducted;
+
+    // v15.9: AUTO-DESCUENTO DE GASOLINA al tanque de la regulación de la prueba (el de
+    // registro más reciente con nivel > 0 — resuelve tanques duplicados orden anterior/actual).
+    var fuelDeducted = null;
+    var tankCandidates = (invState.fuelTanks || []).filter(function(t) {
+        return t.regulation === regulation && (t.currentLevel || 0) > 0;
+    });
+    if (tankCandidates.length) {
+        tankCandidates.sort(function(a, b) { return String(b.regDate || '').localeCompare(String(a.regDate || '')); });
+        var tank = tankCandidates[0];
+        var fuelLearned = typeRates && typeRates.fuelL && typeRates.fuelL.n > 0;
+        var liters = Math.round((fuelLearned ? typeRates.fuelL.est : INV_FUEL_FALLBACK_L) * 10) / 10;
+        if (liters > 0) {
+            tank.currentLevel = Math.max(0, Math.round((tank.currentLevel - liters) * 10) / 10);
+            if (!tank.readings) tank.readings = [];
+            tank.readings.push({
+                date: date,
+                level: tank.currentLevel,
+                auto: true,
+                note: 'Auto-descuento por prueba (' + liters + ' L ' + (fuelLearned ? 'aprendido' : 'estimado') + ') VIN:' + (vehicle.vin || '').slice(-4)
+            });
+            fuelDeducted = { tankId: tank.id, tankName: tank.name, liters: liters, learned: !!fuelLearned };
+            if (typeof auditLog === 'function') {
+                auditLog('inv', 'fuel_auto_deduct', { type: 'fuel', id: tank.id, label: tank.name },
+                    liters + ' L (' + (fuelLearned ? 'aprendido' : 'estimado inicial') + ') · VIN ' + (vehicle.vin || ''));
+            }
+        }
+    }
+    entry.fuelDeducted = fuelDeducted;
+
+    invState.usageLog.push(entry);
 
     // Keep log manageable
     if (invState.usageLog.length > 3000) invState.usageLog = invState.usageLog.slice(-2000);
+    if (typeof emitEvent === 'function') emitEvent('inventory:consumption', { regulation: regulation, gasDeducted: gasDeducted, fuelDeducted: fuelDeducted });
     if (!(opts && opts.skipSave)) invSave();
 }
 
@@ -1930,6 +1992,10 @@ function invTraceSearch() {
 // ══════════════════════════════════════════════════
 // ACTIVE PREDICTION ENGINE — Consumption Rate Calculator
 // ══════════════════════════════════════════════════
+// v15.9 — Fallbacks del modelo de consumo (mientras no hay aprendizaje suficiente, n=0)
+var INV_PSI_FALLBACK = 50;    // PSI/prueba (mismo valor que el descuento fijo histórico)
+var INV_FUEL_FALLBACK_L = 15; // L de gasolina/prueba
+
 function invCalcConsumptionRates() {
     var rates = { gas: {}, fuel: {}, lastCalc: new Date().toISOString(), dataPoints: 0 };
     var log = invState.usageLog || [];
@@ -1954,16 +2020,38 @@ function invCalcConsumptionRates() {
         });
         if (formulaLog.length === 0) return;
 
-        // Use primary cylinder for rate calc
+        // Use primary cylinder for rate calc.
+        // v15.9: SOLO lecturas manuales — las lecturas auto (descuento por prueba) generan
+        // drops sintéticos que envenenan el aprendizaje. Las caídas entre lecturas manuales
+        // sí reflejan consumo real aunque en medio haya lecturas auto.
         var g = gasFormulas[formula][0];
-        var readings = g.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+        var readings = (g.readings || []).filter(function(r) { return !r.auto; })
+            .slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+        if (readings.length < 2) return;
 
-        // Between consecutive readings, count tests by regulation
+        // EWMA en línea, cronológico. est[reg] = estimado vigente (para reparto proporcional
+        // en días con tipos mezclados); bootstrap = INV_PSI_FALLBACK.
+        var est = {};
+        var getEst = function(reg) { return est[reg] !== undefined ? est[reg] : INV_PSI_FALLBACK; };
+        var pushObs = function(reg, ppt, cnt, d1, d2) {
+            if (!rates.gas[formula]) rates.gas[formula] = {};
+            if (!rates.gas[formula][reg]) rates.gas[formula][reg] = { obs: [], ewma: 0, n: 0 };
+            var r = rates.gas[formula][reg];
+            r.obs.push({ ppt: ppt, cnt: cnt, d1: d1, d2: d2 });
+            est[reg] = (r.n === 0) ? ppt : (ALPHA * ppt + (1 - ALPHA) * est[reg]);
+            r.ewma = est[reg];
+            r.n += cnt;
+            rates.dataPoints += cnt;
+        };
+
         for (var i = 0; i < readings.length - 1; i++) {
             var d1 = readings[i].date;
             var d2 = readings[i + 1].date;
             var psiDrop = readings[i].psi - readings[i + 1].psi;
-            if (psiDrop <= 0) continue; // No consumption or refill
+            // v15.9: drop de 0 CON pruebas en medio = observación legítima de consumo cero
+            // ("este gas no se usa en este tipo de prueba") — antes se descartaba y el gas
+            // sin consumo seguía descontando el fallback de 50. Negativo = recarga, se omite.
+            if (psiDrop < 0) continue;
 
             var testsBetween = formulaLog.filter(function(l) {
                 return l.date >= d1 && l.date <= d2;
@@ -1979,46 +2067,31 @@ function invCalcConsumptionRates() {
             var totalTests = testsBetween.length;
             var regKeys = Object.keys(regCounts);
 
-            // Compute psi/test per regulation
             if (regKeys.length === 1) {
-                // Single regulation — direct measurement
-                var reg = regKeys[0];
-                var psiPerTest = psiDrop / totalTests;
-                if (!rates.gas[formula]) rates.gas[formula] = {};
-                if (!rates.gas[formula][reg]) rates.gas[formula][reg] = { obs: [], ewma: 0, n: 0 };
-                rates.gas[formula][reg].obs.push({ ppt: psiPerTest, cnt: totalTests, d1: d1, d2: d2 });
+                // Un solo tipo — medición directa
+                pushObs(regKeys[0], psiDrop / totalTests, totalTests, d1, d2);
             } else {
-                // Mixed regulations — proportional distribution
-                var psiPerTest = psiDrop / totalTests;
+                // Tipos mezclados — reparto proporcional a los estimados vigentes
+                // (la suma de las porciones cierra exactamente con el drop observado)
+                var sumW = 0;
+                regKeys.forEach(function(reg) { sumW += regCounts[reg] * getEst(reg); });
                 regKeys.forEach(function(reg) {
-                    if (!rates.gas[formula]) rates.gas[formula] = {};
-                    if (!rates.gas[formula][reg]) rates.gas[formula][reg] = { obs: [], ewma: 0, n: 0 };
-                    rates.gas[formula][reg].obs.push({ ppt: psiPerTest, cnt: regCounts[reg], d1: d1, d2: d2 });
+                    var share = sumW > 0
+                        ? psiDrop * (regCounts[reg] * getEst(reg)) / sumW
+                        : psiDrop / regKeys.length;
+                    pushObs(reg, share / regCounts[reg], regCounts[reg], d1, d2);
                 });
             }
         }
     });
 
-    // EWMA for each gas/regulation
-    Object.keys(rates.gas).forEach(function(formula) {
-        Object.keys(rates.gas[formula]).forEach(function(reg) {
-            var r = rates.gas[formula][reg];
-            if (r.obs.length === 0) return;
-            r.obs.sort(function(a, b) { return a.d1.localeCompare(b.d1); });
-            var ewma = r.obs[0].ppt;
-            for (var j = 1; j < r.obs.length; j++) {
-                ewma = ALPHA * r.obs[j].ppt + (1 - ALPHA) * ewma;
-            }
-            r.ewma = ewma;
-            r.n = r.obs.reduce(function(s, v) { return s + v.cnt; }, 0);
-            rates.dataPoints += r.n;
-        });
-    });
-
     // ── FUEL RATES: correlate fuel readings with test events ──
     (invState.fuelTanks || []).forEach(function(t) {
-        if (!t.readings || t.readings.length < 2 || !t.regulation) return;
-        var readings = t.readings.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+        if (!t.readings || !t.regulation) return;
+        // v15.9: solo lecturas manuales (las auto del descuento por prueba no enseñan nada nuevo)
+        var readings = t.readings.filter(function(r) { return !r.auto; })
+            .slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+        if (readings.length < 2) return;
         var reg = t.regulation;
 
         // Deduplicate tests by date+vin (one release = one fuel usage)
@@ -2036,7 +2109,7 @@ function invCalcConsumptionRates() {
             var d1 = readings[i].date;
             var d2 = readings[i + 1].date;
             var levelDrop = readings[i].level - readings[i + 1].level;
-            if (levelDrop <= 0) continue;
+            if (levelDrop < 0) continue; // negativo = recarga; 0 con pruebas = consumo cero legítimo
 
             var testsBetween = uniqueTests.filter(function(l) { return l.date >= d1 && l.date <= d2; });
             if (testsBetween.length === 0) continue;
@@ -2058,6 +2131,35 @@ function invCalcConsumptionRates() {
     });
 
     return rates;
+}
+
+// v15.9 — Modelo de consumo persistido en invState.consumption. Es un CACHE DETERMINISTA
+// derivado de usageLog + readings (ambos ya sincronizados): cada dispositivo lo recomputa
+// tras capturas/pruebas/pull — nunca se mergea. Consumidores: descuento por prueba
+// (invLogTestUsage), predicción (invForecastGasNeeds), tablero HOY y alertas del Panel.
+function invUpdateConsumptionModel() {
+    var rates = invCalcConsumptionRates();
+    var perType = {};
+    Object.keys(rates.gas).forEach(function(formula) {
+        Object.keys(rates.gas[formula]).forEach(function(reg) {
+            var r = rates.gas[formula][reg];
+            if (!perType[reg]) perType[reg] = { gases: {}, fuelL: null };
+            perType[reg].gases[formula] = { est: Math.round(r.ewma * 10) / 10, n: r.n };
+        });
+    });
+    Object.keys(rates.fuel).forEach(function(reg) {
+        var r = rates.fuel[reg];
+        if (r.n === 0) return;
+        if (!perType[reg]) perType[reg] = { gases: {}, fuelL: null };
+        perType[reg].fuelL = { est: Math.round(r.ewma * 10) / 10, n: r.n, unit: r.unit || 'L', tankName: r.tankName || '' };
+    });
+    invState.consumption = {
+        perType: perType,
+        updatedAt: new Date().toISOString(),
+        dataPoints: rates.dataPoints,
+        version: 1
+    };
+    return invState.consumption;
 }
 
 // ══════════════════════════════════════════════════
@@ -3710,6 +3812,103 @@ var INV_REFERENCE_RATES = {
 // ══════════════════════════════════════════════════
 // MEJORA D: WEEKLY PLAN FORECAST
 // ══════════════════════════════════════════════════
+
+// v15.9 — Forecast normalizado para superficies (tablero HOY, tarjeta de inventario, alertas
+// del Panel): "¿alcanza el gas/gasolina para las pruebas pendientes?" en dos alcances:
+// 'semana' (plan semanal aceptado) y 'plan' (déficit total del plan de producción).
+// Números vivos: se recalcula cuando cambia el modelo de consumo, el plan o el día.
+var _invForecastCache = { key: '', data: null };
+function invForecastGasNeeds() {
+    var modelAt = (invState.consumption && invState.consumption.updatedAt) || '';
+    var planKey = '';
+    if (typeof tpState !== 'undefined' && tpState.weeklyPlans && tpState.weeklyPlans.length) {
+        var lp = tpState.weeklyPlans[tpState.weeklyPlans.length - 1];
+        planKey = (lp.weekDate || '') + ':' + (lp.items ? lp.items.filter(function(i) { return !i.completed; }).length : 0);
+    }
+    var key = modelAt + '|' + planKey + '|' + localToday();
+    if (_invForecastCache.key === key && _invForecastCache.data) return _invForecastCache.data;
+
+    if (!invState.consumption) invUpdateConsumptionModel();
+    var perType = (invState.consumption && invState.consumption.perType) || {};
+    var out = [];
+
+    // 1) Alcance SEMANA — reutiliza el forecast del plan semanal aceptado
+    var weekly = invForecastForWeeklyPlan();
+    if (weekly && weekly.items) {
+        weekly.items.forEach(function(it) {
+            if (it.recommendation !== 'AGOTADO' && it.recommendation !== 'REORDENAR') return;
+            out.push({
+                kind: it.type, scope: 'semana', name: it.name, formula: it.formula || null,
+                requerido: Math.round(it.estimatedUsage), disponible: Math.round(it.currentLevel),
+                deficit: Math.max(0, Math.round(it.estimatedUsage - it.currentLevel)),
+                pruebasPend: weekly.testCount, unit: it.unit,
+                severidad: it.recommendation === 'AGOTADO' ? 'critical' : 'warning'
+            });
+        });
+    }
+
+    // 2) Alcance PLAN — déficit total del plan de producción (tpGetAnalysis) × consumo aprendido
+    if (typeof tpGetAnalysis === 'function') {
+        var pendingByReg = {}, totalPend = 0;
+        try {
+            tpGetAnalysis().forEach(function(a) {
+                if (a.deficit > 0) {
+                    var r = a.reg || 'General';
+                    pendingByReg[r] = (pendingByReg[r] || 0) + a.deficit;
+                    totalPend += a.deficit;
+                }
+            });
+        } catch (e) {}
+        // Gas: requerido por fórmula (solo estimados aprendidos, n>0); disponible = In use + Full
+        var needByFormula = {};
+        Object.keys(pendingByReg).forEach(function(reg) {
+            var t = perType[reg];
+            if (!t) return;
+            Object.keys(t.gases).forEach(function(f) {
+                if (!(t.gases[f].n > 0)) return;
+                needByFormula[f] = (needByFormula[f] || 0) + t.gases[f].est * pendingByReg[reg];
+            });
+        });
+        Object.keys(needByFormula).forEach(function(f) {
+            var req = Math.round(needByFormula[f]);
+            if (req <= 0) return;
+            var avail = 0;
+            (invState.gases || []).forEach(function(g) {
+                if (g.formula !== f) return;
+                if (g.status === 'In use' && g.readings && g.readings.length) avail += g.readings[g.readings.length - 1].psi || 0;
+                else if (g.status === 'Full') avail += g.initialPsi || 2200;
+            });
+            if (avail >= req) return; // alcanza — sin alerta
+            out.push({
+                kind: 'gas', scope: 'plan', name: f, formula: f,
+                requerido: req, disponible: Math.round(avail), deficit: req - Math.round(avail),
+                pruebasPend: totalPend, unit: 'psi',
+                severidad: avail < req * 0.5 ? 'critical' : 'warning'
+            });
+        });
+        // Gasolina por regulación
+        Object.keys(pendingByReg).forEach(function(reg) {
+            var t = perType[reg];
+            if (!t || !t.fuelL || !(t.fuelL.n > 0)) return;
+            var req = Math.round(t.fuelL.est * pendingByReg[reg]);
+            if (req <= 0) return;
+            var avail = 0;
+            (invState.fuelTanks || []).forEach(function(tank) {
+                if (tank.regulation === reg) avail += tank.currentLevel || 0;
+            });
+            if (avail >= req) return;
+            out.push({
+                kind: 'fuel', scope: 'plan', name: 'Gasolina ' + reg, formula: null,
+                requerido: req, disponible: Math.round(avail), deficit: req - Math.round(avail),
+                pruebasPend: pendingByReg[reg], unit: t.fuelL.unit || 'L',
+                severidad: avail < req * 0.5 ? 'critical' : 'warning'
+            });
+        });
+    }
+
+    _invForecastCache = { key: key, data: out };
+    return out;
+}
 
 function invForecastForWeeklyPlan(rates) {
     // Get latest accepted weekly plan from Test Plan module
