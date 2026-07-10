@@ -20,7 +20,7 @@ function sigCaptureOpen(opts) {
         '<div class="sig-capture-box">' +
             '<div class="sig-capture-header">' +
                 '<div class="sig-capture-title">' + (opts.title || 'Firma Digital') + '</div>' +
-                '<button type="button" class="sig-capture-close" onclick="sigCaptureCancel()">&times;</button>' +
+                '<button type="button" class="sig-capture-close" onclick="sigCaptureCancel()" aria-label="Cancelar firma">&times;</button>' +
             '</div>' +
             '<div class="sig-capture-field">' +
                 '<label>Nombre completo:</label>' +

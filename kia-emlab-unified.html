@@ -3006,6 +3006,40 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
     display: block; width: 100%; margin-top: 3px; padding: 7px 9px; font-size: 13px; font-weight: 400;
     border: 1px solid #cbd5e1; border-radius: 7px; background: #fff; color: #1e293b; box-sizing: border-box;
 }
+
+/* ===== v16.0 · Ayuda / Autoguía: banners por pestaña, botón ℹ️, menú de ayuda ===== */
+.help-banner {
+    display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px;
+    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+    padding: 8px 12px; margin-bottom: 10px; font-size: 12.5px; line-height: 1.5; color: #1e3a5f;
+}
+.help-banner-icon { font-size: 15px; line-height: 1.4; }
+.help-banner-text { flex: 1 1 220px; min-width: 0; }
+.help-banner-text b { color: #1d4ed8; }
+.help-banner-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-left: auto; }
+.help-banner-more, .help-banner-ok {
+    font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 7px; cursor: pointer;
+    white-space: nowrap; min-height: 28px;
+}
+.help-banner-more { background: #fff; border: 1px solid #93c5fd; color: #1d4ed8; }
+.help-banner-more:hover { background: #dbeafe; }
+.help-banner-ok { background: #1d4ed8; border: 1px solid #1d4ed8; color: #fff; }
+.help-banner-ok:hover { background: #1e40af; }
+.help-tab-btn {
+    background: none; border: 1px solid #cbd5e1; border-radius: 999px; cursor: pointer;
+    font-size: 12px; width: 26px; height: 26px; min-height: 26px; line-height: 1; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center; margin-left: 6px; vertical-align: middle;
+}
+.help-tab-btn:hover { background: #eff6ff; border-color: #93c5fd; }
+.help-menu-item {
+    text-align: left; font-size: 13px; font-weight: 600; padding: 10px 14px; border-radius: 8px;
+    border: 1px solid #e2e8f0; background: #f8fafc; color: #1e293b; cursor: pointer; min-height: 40px;
+}
+.help-menu-item:hover { background: #eff6ff; border-color: #93c5fd; }
+@media (max-width: 640px) {
+    .help-banner { flex-direction: column; }
+    .help-banner-actions { margin-left: 0; width: 100%; justify-content: flex-end; }
+}
     </style>
 </head>
 
@@ -3050,7 +3084,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
         <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
         <button id="immersive-toggle-btn" class="topbar-icon-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">⛶</button>
         <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary topbar-icon-btn" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">🔍</button></div>
-        <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación" aria-label="Tour guiado de la aplicación">?</button></div>
+        <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="helpMenuOpen()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Ayuda: recorridos guiados y glosario" aria-label="Menú de ayuda">?</button></div>
         <div id="app-version-info" style="padding:10px 12px; font-size:10px; color:rgba(255,255,255,0.4); align-self:center; cursor:default;" title="Versión de la app">
             KIA EmLab v14.0
         </div>
@@ -3097,6 +3131,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 
     <!-- ==================== TAB 1: ALTA ==================== -->
     <div class="tab-panel active" id="panel-alta" role="tabpanel">
+        <div id="help-banner-slot-cop15-alta"></div>
         <!-- Banner shown when this Alta was started from a weekly plan item -->
         <div id="plan-preload-banner" style="display:none;"></div>
         <div class="card">
@@ -3140,6 +3175,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
                     <div id="cascade-search-results" style="display:none;position:absolute;z-index:50;left:0;right:0;top:calc(100% + 2px);background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);max-height:280px;overflow-y:auto;"></div>
                 </div>
                 <!-- Visual Cascade Tree -->
+                <div class="cascade-tree-intro" data-help="cascade-tree-help" style="font-size:12px;font-weight:700;color:#334155;margin-bottom:8px;">🧬 Configuración del vehículo</div>
                 <div id="cascade-tree-container">
                     <div id="cascade-breadcrumb" class="cascade-breadcrumb"></div>
                     <div id="cascade-levels"></div>
@@ -3308,6 +3344,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 
     <!-- ==================== TAB 2: OPERACIÓN ==================== -->
     <div class="tab-panel" id="panel-seguimiento" role="tabpanel">
+        <div id="help-banner-slot-cop15-seguimiento"></div>
         <div class="form-group">
             <label>Seleccionar Vehículo Activo</label>
             <select id="activeVehSelect" onchange="loadVehicle()" style="background:#fff5f5; border:2px solid var(--kia-red); font-weight: bold;">
@@ -3794,6 +3831,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 
     <!-- ==================== TAB 3: LIBERACIÓN ==================== -->
     <div class="tab-panel" id="panel-liberacion" role="tabpanel">
+        <div id="help-banner-slot-cop15-liberacion"></div>
         <!-- Sub-tabs: Liberador / Aprobador -->
         <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px;">
             <button id="lib-subtab-liberador" class="tp-tab active" onclick="libSwitchSubtab('liberador')" style="flex:1;border-radius:0;font-size:12px;">
@@ -3825,7 +3863,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
                 <!-- Gas results entry for emissions vehicles -->
                 <div id="lib-gas-entry-card" style="display:none;">
                     <div class="card">
-                        <div class="card-title">⚗️ Resultados de Emisiones</div>
+                        <div class="card-title" data-help="lib-gas-help">⚗️ Resultados de Emisiones</div>
                         <div id="lib-gas-entry-content"></div>
                     </div>
                 </div>
@@ -3866,7 +3904,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
                     <div id="approvalSummary"></div>
                 </div>
                 <div class="card">
-                    <div class="card-title">⚗️ Verificación de Aprobador</div>
+                    <div class="card-title" data-help="lib-gas-help">⚗️ Verificación de Aprobador</div>
                     <p style="font-size:12px;color:#64748b;margin-bottom:12px;">Ingresa los valores de gases que mediste. <strong>No se muestran los valores del liberador</strong> para garantizar la independencia.</p>
                     <div id="appr-gas-entry-content"></div>
                     <div id="appr-match-status" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;"></div>
@@ -3883,13 +3921,15 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 
     <!-- ==================== KANBAN: COLA VISUAL ==================== -->
     <div class="tab-panel" id="panel-kanban" role="tabpanel">
+        <div id="help-banner-slot-cop15-kanban"></div>
         <div id="kanban-board"></div>
     </div>
 
     <!-- ==================== TAB 4: HISTORIAL ==================== -->
     <div class="tab-panel" id="panel-dashboard" role="tabpanel">
+        <div id="help-banner-slot-cop15-dashboard"></div>
         <div class="card">
-            <div class="card-title">📚 Historial Completo de Pruebas</div>
+            <div class="card-title" data-help="hist-filter-help">📚 Historial Completo de Pruebas</div>
             <div id="historyFilterBar"></div>
             <div id="historyList"></div>
         </div>
@@ -4059,6 +4099,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 
         <!-- ───── USERS TAB ───── -->
         <div x-show="activeTab === 'pn-users'" style="padding:12px 0;">
+            <div id="help-banner-slot-pn-users"></div>
             <!-- Add Operator Form -->
             <div class="tp-card" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.05),transparent);">
                 <div class="tp-card-title"><span>👥 Agregar Operador</span></div>
@@ -4125,6 +4166,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 
         <!-- ───── SHIFT LOG TAB ───── -->
         <div x-show="activeTab === 'pn-shift'" style="padding:12px 0;">
+            <div id="help-banner-slot-pn-shift"></div>
             <!-- Shift report buttons -->
             <div style="display:flex;gap:8px;margin-bottom:12px;">
                 <button class="tp-btn tp-btn-primary" @click="generateShiftReport()" style="font-size:11px;">🔄 Cerrar Turno</button>
@@ -4210,6 +4252,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 
         <!-- ───── ALERTS TAB ───── -->
         <div x-show="activeTab === 'pn-alerts'" style="padding:12px 0;">
+            <div id="help-banner-slot-pn-alerts"></div>
             <!-- Summary -->
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
                 <div class="tp-card" style="text-align:center;padding:14px;" :style="alertCount('CRITICA') > 0 ? 'border:2px solid #ef4444;' : ''">
@@ -4267,6 +4310,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 
         <!-- ───── SYSTEM HEALTH TAB ───── -->
         <div x-show="activeTab === 'pn-system'" style="padding:12px 0;">
+            <div id="help-banner-slot-pn-system"></div>
             <h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">💾 Monitor de Salud del Sistema</h3>
 
             <!-- Storage Breakdown -->
@@ -4355,6 +4399,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 
         <!-- ───── CALENDAR TAB ───── -->
         <div x-show="activeTab === 'pn-calendar'" style="padding:12px 0;">
+            <div id="help-banner-slot-pn-calendar"></div>
             <div class="tp-card" style="padding:16px;">
                 <!-- Header with nav -->
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -4412,6 +4457,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 
         <!-- ───── AUDIT TRAIL TAB ───── -->
         <div x-show="activeTab === 'pn-audit'" style="padding:12px 0;">
+            <div id="help-banner-slot-pn-audit"></div>
             <!-- Filters -->
             <div class="tp-card" style="margin-bottom:8px;">
                 <div class="tp-card-title"><span>🔍 Filtros de Auditoría</span></div>
@@ -4757,21 +4803,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607091852';
+var APP_BUILD = '202607100202';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607091852' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607100202' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607091852' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607100202' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -4787,7 +4833,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607091852' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607100202' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -6360,6 +6406,9 @@ function switchPlatform(platform, swipeDir) {
     // Update vehicle checklist visibility
     if (typeof vclUpdate === 'function') vclUpdate();
 
+    // v16.0: primera visita a este módulo → recorrido guiado corto (solo desktop)
+    if (typeof _tourMaybeAutoStart === 'function') _tourMaybeAutoStart(sectionId);
+
     // Instant: el smooth-scroll competía con la animación de entrada y se
     // percibía como un salto; el smooth queda para navegación intra-vista
     window.scrollTo(0, 0);
@@ -6466,6 +6515,9 @@ function dailyDashRender() {
 
     var html = '';
 
+    // v16.0: banner de ayuda de esta pestaña
+    if (typeof helpBannerHTML === 'function') html += helpBannerHTML('today');
+
     // ── Header ──
     html += '<div class="daily-dash-header">';
     html += '<div class="daily-dash-greeting">' + greeting + '</div>';
@@ -6536,6 +6588,33 @@ function dailyDashRender() {
     // [v15-P1] Render cross-module overview from the single source
     var _hov = document.getElementById('hoy-lab-overview');
     if (_hov && typeof renderLabOverview === 'function') renderLabOverview(_hov, { sections: ['kpi', 'pipeline'] });
+
+    // v16.0: banners/tooltips de ayuda (render síncrono — sin caché de pestañas de por medio)
+    _dashRegisterHelp();
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
+}
+
+// v16.0: CASCADE_TOOLTIPS se define en cop15.js, que carga DESPUÉS de app.js — hay que
+// registrar las claves de HOY en tiempo de ejecución (no al parsear), una sola vez.
+var _dashHelpRegistered = false;
+function _dashRegisterHelp() {
+    if (_dashHelpRegistered) return;
+    if (typeof CASCADE_TOOLTIPS === 'undefined') return;
+    _dashHelpRegistered = true;
+    Object.assign(CASCADE_TOOLTIPS, {
+        'dash-board-help': { title: 'Tablero de hoy', text: 'Todo lo pendiente del día agrupado por tipo: vehículos, pruebas del plan, inventario y tareas manuales. Toca cualquier fila para ir directo a resolverla.' },
+        'dash-task-title': { title: 'Título de la actividad', text: 'Describe la tarea en pocas palabras, como la escribirías en un pizarrón. Ejemplo: Pedir gas de calibración CO/N2.' },
+        'dash-task-cat': { title: 'Categoría', text: 'En qué grupo del tablero aparecerá esta tarea. Usa "Manuales" si no encaja en las categorías automáticas.' },
+        'dash-task-assignee': { title: 'Responsable', text: 'A quién se le asigna la tarea. Déjalo vacío si es para cualquiera del turno.' },
+        'dash-task-due': { title: 'Fecha límite', text: 'Cuándo debe estar lista la tarea. Se usa para marcarla urgente cuando se acerca la fecha.' }
+    });
+    if (typeof HELP_TABS !== 'undefined') {
+        HELP_TABS['today'] = { title: 'Tu día en un vistazo', text: 'Todo lo pendiente de hoy en un solo tablero: vehículos con su etapa, pruebas del plan, inventario y tareas. Toca cualquier fila para ir directo a resolverla.', tips: [
+            'El stepper N/8 muestra en qué paso del proceso va cada vehículo activo.',
+            'El chip 📅 de fecha es la liberación esperada — tócalo para fijarla manualmente.',
+            'Usa "➕ Actividad" para anotar pendientes que no vienen de otro módulo.'
+        ]};
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -6705,7 +6784,7 @@ function dashCollectActivities() {
                 urgency: late ? 3 : t.done ? 0 : 1,
                 assignee: t.assignee || '',
                 checkbox: { js: "pnTaskToggle('" + t.id + "')", checked: !!t.done },
-                action: { label: '🗑', js: "pnTaskDelete('" + t.id + "')", ghost: true } });
+                action: { label: '🗑', aria: 'Eliminar actividad: ' + t.title, js: "pnTaskDelete('" + t.id + "')", ghost: true } });
         });
     }
 
@@ -6715,7 +6794,7 @@ function dashCollectActivities() {
 function dashRenderRow(a) {
     var h = '<div class="dash-row dash-row--' + a.status + '">';
     if (a.checkbox) {
-        h += '<input type="checkbox" class="dash-row-check" ' + (a.checkbox.checked ? 'checked' : '') + ' onchange="' + a.checkbox.js + '">';
+        h += '<input type="checkbox" class="dash-row-check" aria-label="Marcar completada: ' + escapeHtml(a.title) + '" ' + (a.checkbox.checked ? 'checked' : '') + ' onchange="' + a.checkbox.js + '">';
     } else {
         h += '<span class="dash-row-icon">' + a.icon + '</span>';
     }
@@ -6740,12 +6819,13 @@ function dashRenderRow(a) {
     h += '<div class="dash-row-side">';
     if (a.eta) {
         var etaD = new Date(a.eta.date + 'T12:00:00');
-        h += '<span class="dash-eta dash-eta--' + a.eta.tone + '" onclick="dashEtaEdit(' + a.vehicleId + ', this, event)" ' +
-             'title="Liberación esperada (' + (a.eta.source === 'manual' ? 'fijada manualmente' : 'estimada') + ') — toca para fijar/cambiar">' +
+        h += '<span class="dash-eta dash-eta--' + a.eta.tone + '" role="button" tabindex="0" onclick="dashEtaEdit(' + a.vehicleId + ', this, event)" ' +
+             'title="Liberación esperada (' + (a.eta.source === 'manual' ? 'fijada manualmente' : 'estimada') + ') — toca para fijar/cambiar" ' +
+             'aria-label="Liberación esperada ' + (a.eta.source === 'manual' ? 'fijada manualmente' : 'estimada') + ', toca para cambiar">' +
              '📅 ' + etaD.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + (a.eta.source === 'manual' ? ' ✎' : '') + '</span>';
     }
     h += '<span class="dash-chip dash-chip--' + a.status + '">' + (DASH_STATUS_LABEL[a.status] || a.status) + '</span>';
-    if (a.action) h += '<button class="dash-row-action' + (a.action.ghost ? ' dash-row-action--ghost' : '') + '" onclick="event.stopPropagation();' + a.action.js + '">' + a.action.label + '</button>';
+    if (a.action) h += '<button class="dash-row-action' + (a.action.ghost ? ' dash-row-action--ghost' : '') + '" aria-label="' + escapeHtml(a.action.aria || a.action.label) + '" onclick="event.stopPropagation();' + a.action.js + '">' + a.action.label + '</button>';
     h += '</div></div>';
     return h;
 }
@@ -6758,7 +6838,7 @@ function dashRenderBoard(acts, currentOp) {
     var pend = shown.filter(function(a) { return a.status !== 'hecho'; }).length;
 
     var h = '<div class="dash-board">';
-    h += '<div class="dash-board-header">';
+    h += '<div class="dash-board-header" data-help="dash-board-help">';
     h += '<span class="dash-board-title">📌 Actividades de hoy</span>';
     h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes' : 'al día ✓') + '</span>';
     h += '<span style="flex:1"></span>';
@@ -6831,6 +6911,7 @@ function dashTaskModalOpen() {
     document.body.appendChild(wrap.firstChild);
     var t = document.getElementById('dash-task-title');
     if (t) t.focus();
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 function dashTaskModalClose() { var m = document.getElementById('dash-task-modal'); if (m) m.remove(); }
 function dashTaskModalSave() {
@@ -8235,16 +8316,80 @@ function shakeElement(el) {
 // [R3-M9] ONBOARDING TOUR
 // ══════════════════════════════════════════════════════════════════════
 
-var _tourSteps = [
-    { target: '.platform-bar', title: 'Navegación', text: 'Usa estas 4 pestañas para navegar: Hoy (resumen), Plan (plan semanal), Pruebas (COP15 + inventario) y Datos (resultados + panel).', position: 'bottom' },
-    { target: '#ptab-pruebas', title: 'Pruebas', text: 'Aquí registras vehículos, operas pruebas de emisiones, liberas resultados y gestionas consumibles del laboratorio.', position: 'bottom' },
-    { target: '#panel-alta', title: 'Registro de Vehículos', text: 'Selecciona configuración del vehículo, captura VIN y registra para iniciar el flujo COP15.', position: 'top', tab: 'alta' },
-    { target: '#ptab-plan', title: 'Plan', text: 'Gestiona el plan de pruebas semanal, prioriza configuraciones y monitorea cobertura.', position: 'bottom' },
-    { target: '#ptab-datos', title: 'Datos', text: 'Resultados de pruebas, tendencias Cpk/Ppk, panel de control, operadores y configuración del sistema.', position: 'bottom' }
-];
+// v16.0: recorridos por módulo. 'global' conserva los 5 pasos originales tal cual
+// (para no re-mostrarlo a usuarios que ya lo vieron — persistencia con alias 'kia_tour_done').
+var TOURS = {
+    global: [
+        { target: '.platform-bar', title: 'Navegación', text: 'Usa estas 5 pestañas para navegar: Hoy (resumen), Plan (plan semanal), Pruebas (COP15 + inventario), Datos (reportes + panel) y CoP (validador + Control SPC).', position: 'bottom' },
+        { target: '#ptab-pruebas', title: 'Pruebas', text: 'Aquí registras vehículos, operas pruebas de emisiones, liberas resultados y gestionas consumibles del laboratorio.', position: 'bottom' },
+        { target: '#panel-alta', title: 'Registro de Vehículos', text: 'Selecciona configuración del vehículo, captura VIN y registra para iniciar el flujo COP15.', position: 'top', tab: 'alta' },
+        { target: '#ptab-plan', title: 'Plan', text: 'Gestiona el plan de pruebas semanal, prioriza configuraciones y monitorea cobertura.', position: 'bottom' },
+        { target: '#ptab-datos', title: 'Datos', text: 'Resultados de pruebas, reportes, panel de control, operadores y configuración del sistema.', position: 'bottom' }
+    ],
+    today: [
+        { target: '.daily-dash-header', title: 'Tu día en un vistazo', text: 'Aquí ves la fecha y el resumen cruzado del laboratorio (vehículos, plan, inventario).', position: 'bottom' },
+        { target: '.dash-board-header', title: 'Tablero de actividades', text: 'Todo lo pendiente de hoy agrupado por tipo: vehículos, plan, inventario, calidad y tareas manuales.', position: 'bottom' },
+        { target: '.dash-group--vehiculos', title: 'Vehículos', text: 'Cada vehículo activo muestra su etapa (N/8) y la fecha de liberación esperada — tócala para fijarla manualmente.', position: 'top' },
+        { target: '.daily-dash-quick-actions', title: 'Acceso rápido', text: 'Atajos directos a Alta de vehículo, Inventario, Reportes y Panel.', position: 'top' }
+    ],
+    testplan: [
+        { target: '#tp-tabs-bar', title: 'Pestañas del Plan', text: 'Navega entre resumen, plan semanal, recuperación, producción, familias, reglas y más.', position: 'bottom' },
+        { target: '#tp-weekly-cap', title: 'Capacidad semanal', text: 'Define cuántas pruebas caben esta semana y usa ⚡ Generación Inteligente para repartirlas.', position: 'bottom', tab: 'tp-weekly' },
+        { target: '[data-help="tp-priority-help"]', title: 'Recuperación', text: 'Clasifica todo lo pendiente por prioridad (P1..P10) y reparte en las semanas disponibles.', position: 'top', tab: 'tp-recovery' },
+        { target: '[data-help="tp-csvimport-help"]', title: 'Producción', text: 'Importa el CSV del plan de producción — se fusiona con lo anterior, no lo borra.', position: 'top', tab: 'tp-production' }
+    ],
+    inventory: [
+        { target: '#inv-tabs-bar', title: 'Pestañas de Inventario', text: 'Navega entre resumen, cilindros, equipos, captura diaria, predicción, combustible y mapa.', position: 'bottom' },
+        { target: '[data-help="inv-readings-help"]', title: 'Captura diaria', text: 'Captura el PSI de cada cilindro en uso — de estas lecturas la plataforma APRENDE el consumo.', position: 'bottom', tab: 'inv-readings' },
+        { target: '[onclick="invShowAddGas()"]', title: 'Alta de cilindro', text: 'Registra un cilindro nuevo con su fórmula, concentración, zona y vigencia.', position: 'bottom', tab: 'inv-gases' },
+        { target: '[data-help="inv-predict-model"]', title: 'Predicción', text: 'Consumo aprendido y proyección: ¿alcanza el gas/combustible para el plan?', position: 'top', tab: 'inv-predict' }
+    ],
+    panel: [
+        { target: '#pn-tabs-bar', title: 'Pestañas de Datos', text: 'Resumen, reportes, ejecutivo, turnaround, operadores, bitácora, alertas, auditoría y más.', position: 'bottom' },
+        { target: '[data-help="pn-reports-help"]', title: 'Centro de Reportes', text: 'Un solo lugar para exportar cada CSV/PDF del laboratorio — lee la descripción de cada fila.', position: 'bottom', tab: 'pn-reports' },
+        { target: '[data-help="pn-alerts-help"]', title: 'Alertas', text: 'Todas las alertas activas de todos los módulos, incluidas las de consumo y SPC.', position: 'bottom', tab: 'pn-alerts' },
+        { target: '[data-help="pn-audit-help"]', title: 'Auditoría', text: 'El control de cambios de toda la plataforma: quién hizo qué y cuándo.', position: 'top', tab: 'pn-audit' }
+    ],
+    cop: [
+        { target: '[data-help="cop-family-help"]', title: 'Familia a evaluar', text: 'Elige región y familia — la tabla se llena con los VINes ya probados de esa familia.', position: 'bottom' },
+        { target: '[data-help="cop-verdict-help"]', title: 'Veredicto en vivo', text: 'El veredicto CONCORDANTE/NO CONCORDANTE se recalcula con cada valor capturado (mínimo 3 VINes).', position: 'top' },
+        { title: 'Control SPC', text: 'La sub-pestaña 📈 Control SPC detecta corrimientos y tendencias antes de fallar un límite regulatorio.' }
+    ],
+    cop15: [
+        { target: '.cascade-tree-intro', title: 'Alta de vehículo', text: 'Arma la configuración con la cascada (cada selección filtra las siguientes) y captura el VIN.', position: 'bottom', tab: 'alta' },
+        { target: '.tab[data-tab="seguimiento"]', title: 'Operación', text: 'Captura el flujo completo: recepción → preacondicionamiento → soak → dinamómetro → verificación.', position: 'bottom', tab: 'seguimiento' },
+        { target: '[data-help="lib-gas-help"]', title: 'Liberación doble-ciego', text: 'Liberador y Aprobador capturan los resultados por separado; si coinciden, se archiva.', position: 'top', tab: 'liberacion' },
+        { target: '[data-help="hist-filter-help"]', title: 'Historial', text: 'Vehículos archivados: genera su PDF, completa datos retroactivos y consulta su control de cambios.', position: 'top', tab: 'dashboard' }
+    ]
+};
+var _tourModule = 'global';
 var _tourCurrent = 0;
 
-function startTour() {
+function _tourStorageKey(moduleKey) { return 'kia_tour_done_' + moduleKey; }
+function _tourMarkDone(moduleKey) {
+    try {
+        localStorage.setItem(_tourStorageKey(moduleKey), '1');
+        if (moduleKey === 'global') localStorage.setItem('kia_tour_done', '1');
+    } catch (e) {}
+}
+function _tourIsDone(moduleKey) {
+    try {
+        if (moduleKey === 'global') return !!localStorage.getItem('kia_tour_done') || !!localStorage.getItem(_tourStorageKey('global'));
+        return !!localStorage.getItem(_tourStorageKey(moduleKey));
+    } catch (e) { return false; }
+}
+
+// Primera visita a un módulo (llamado desde switchPlatform) → lanza su tour corto, solo desktop.
+function _tourMaybeAutoStart(moduleKey) {
+    if (!TOURS[moduleKey] || _tourIsDone(moduleKey) || window.innerWidth < 768) return;
+    setTimeout(function() {
+        if (typeof _currentPlatform !== 'undefined' && (PLATFORM_SECTION_MAP[_currentPlatform] || _currentPlatform) !== moduleKey) return;
+        startTour(moduleKey);
+    }, 800);
+}
+
+function startTour(moduleKey) {
+    _tourModule = (moduleKey && TOURS[moduleKey]) ? moduleKey : 'global';
     _tourCurrent = 0;
     _renderTourStep();
 }
@@ -8254,21 +8399,29 @@ function _renderTourStep() {
     var old = document.getElementById('tour-overlay');
     if (old) old.remove();
 
-    if (_tourCurrent >= _tourSteps.length) {
-        localStorage.setItem('kia_tour_done', '1');
-        showToast('Tour completado. Puedes reiniciarlo con el botón ?', 'success');
+    var steps = TOURS[_tourModule] || TOURS.global;
+
+    if (_tourCurrent >= steps.length) {
+        _tourMarkDone(_tourModule);
+        showToast('Recorrido completado. Puedes reiniciarlo con el botón ?', 'success');
         return;
     }
 
-    var step = _tourSteps[_tourCurrent];
+    var step = steps[_tourCurrent];
 
     // Navigate to correct tab if needed
     if (step.tab) {
-        var tabEl = document.querySelector('.tab[data-tab="' + step.tab + '"]');
+        var tabEl = document.querySelector('.tab[data-tab="' + step.tab + '"]') || document.querySelector('.tp-tab[onclick*="' + step.tab + '"]');
         if (tabEl) tabEl.click();
     }
 
-    var targetEl = document.querySelector(step.target);
+    // Si el target del paso no existe en el DOM (dato vacío, tab distinta, etc.), no lo rompas: sáltalo.
+    if (step.target && !document.querySelector(step.target)) {
+        _tourCurrent++;
+        _renderTourStep();
+        return;
+    }
+    var targetEl = step.target ? document.querySelector(step.target) : null;
     var overlay = document.createElement('div');
     overlay.id = 'tour-overlay';
     overlay.className = 'tour-overlay';
@@ -8278,11 +8431,11 @@ function _renderTourStep() {
     tooltip.innerHTML = '<div class="tour-title">' + escapeHtml(step.title) + '</div>' +
         '<div class="tour-text">' + escapeHtml(step.text) + '</div>' +
         '<div class="tour-footer">' +
-        '<span class="tour-progress">Paso ' + (_tourCurrent + 1) + ' de ' + _tourSteps.length + '</span>' +
+        '<span class="tour-progress">Paso ' + (_tourCurrent + 1) + ' de ' + steps.length + '</span>' +
         '<div class="tour-actions">' +
         (_tourCurrent > 0 ? '<button class="tour-btn" onclick="_tourPrev()">Anterior</button>' : '') +
         '<button class="tour-btn" onclick="_tourSkip()">Saltar</button>' +
-        '<button class="tour-btn tour-btn-primary" onclick="_tourNext()">' + (_tourCurrent === _tourSteps.length - 1 ? 'Finalizar' : 'Siguiente') + '</button>' +
+        '<button class="tour-btn tour-btn-primary" onclick="_tourNext()">' + (_tourCurrent === steps.length - 1 ? 'Finalizar' : 'Siguiente') + '</button>' +
         '</div></div>';
 
     overlay.appendChild(tooltip);
@@ -8326,8 +8479,8 @@ function _tourSkip() {
     _cleanTourHighlight();
     var old = document.getElementById('tour-overlay');
     if (old) old.remove();
-    localStorage.setItem('kia_tour_done', '1');
-    showToast('Tour saltado. Reinicia con el botón ?', 'info');
+    _tourMarkDone(_tourModule);
+    showToast('Recorrido saltado. Reinicia con el botón ?', 'info');
 }
 
 function _cleanTourHighlight() {
@@ -8335,6 +8488,162 @@ function _cleanTourHighlight() {
         el.classList.remove('tour-highlight');
         el.style.zIndex = '';
     });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v16.0] AYUDA / AUTOGUÍA — banners por pestaña, glosario, menú de ayuda
+// Cada módulo (testplan.js/inventory.js/panel.js/cop_validator.js) agrega sus
+// claves a HELP_TABS con Object.assign al final de su archivo (cargan después
+// de app.js). Este módulo (app.js) registra las suyas (today) dentro de
+// dailyDashRender con guard idempotente — ver _helpTodayRegistered más abajo.
+// ══════════════════════════════════════════════════════════════════════
+
+var HELP_TABS = {};
+
+function helpDismissed() {
+    try { return JSON.parse(localStorage.getItem('kia_help_dismissed')) || {}; } catch (e) { return {}; }
+}
+function helpDismiss(tabId) {
+    var d = helpDismissed();
+    d[tabId] = 1;
+    try { localStorage.setItem('kia_help_dismissed', JSON.stringify(d)); } catch (e) {}
+    var el = document.getElementById('help-banner-' + tabId);
+    if (el) el.remove();
+}
+
+/** Banner corto y descartable para una pestaña. Devuelve '' si no hay contenido o ya se descartó — úsalo prepend en el HTML de cada render de pestaña. */
+function helpBannerHTML(tabId) {
+    var h = HELP_TABS[tabId];
+    if (!h || helpDismissed()[tabId]) return '';
+    return '<div class="help-banner" id="help-banner-' + tabId + '">' +
+        '<span class="help-banner-icon" aria-hidden="true">💡</span>' +
+        '<span class="help-banner-text"><b>' + escapeHtml(h.title) + ':</b> ' + escapeHtml(h.text) + '</span>' +
+        '<span class="help-banner-actions">' +
+        '<button type="button" class="help-banner-more" onclick="helpShowTab(\'' + tabId + '\')">Ver más</button>' +
+        '<button type="button" class="help-banner-ok" onclick="helpDismiss(\'' + tabId + '\')" aria-label="Cerrar ayuda de esta pestaña">Entendido ✓</button>' +
+        '</span></div>';
+}
+
+/** Botón ℹ️ para poner junto al título de una pestaña: reabre la ayuda aunque el banner ya se haya descartado. */
+function helpTabButtonHTML(tabId) {
+    if (!HELP_TABS[tabId]) return '';
+    return '<button type="button" class="help-tab-btn" onclick="helpShowTab(\'' + tabId + '\')" aria-label="Ayuda de esta pestaña" title="Ayuda de esta pestaña">ℹ️</button>';
+}
+
+/**
+ * v16.0 — Inserta el banner de ayuda como PRIMER elemento del contenedor cacheado de una
+ * pestaña (tp-, inv-, pn- no-Alpine), sin tener que tocar cada función de render:
+ * tabCacheSwitch() posee y reemplaza por completo el innerHTML de "<tabId>-cached" en cada
+ * re-render, así que el banner se re-inserta aquí después. Idempotente (no duplica) y
+ * respeta kia_help_dismissed (helpBannerHTML devuelve '' si el usuario ya lo cerró).
+ */
+function helpInjectBannerIntoCachedTab(moduleId, tabId) {
+    if (typeof helpBannerHTML !== 'function') return;
+    var target = document.getElementById(tabId + '-cached');
+    if (!target || target.querySelector('#help-banner-' + tabId)) return;
+    var html = helpBannerHTML(tabId);
+    if (html) target.insertAdjacentHTML('afterbegin', html);
+}
+
+/** Versión diferida (doble RAF) — usar tras tpRender()/invRender()/pnRender(), que pueden
+ *  posponer el render real de la pestaña vía tabCacheSwitch(). */
+function helpInjectBannerDeferred(moduleId, tabId) {
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+            helpInjectBannerIntoCachedTab(moduleId, tabId);
+        });
+    });
+}
+
+function _helpCloseModal() {
+    document.querySelectorAll('.custom-modal-overlay').forEach(function(o) { if (o.parentNode) o.parentNode.removeChild(o); });
+}
+
+/** Modal completo de ayuda de una pestaña (título + texto + tips accionables). */
+function helpShowTab(tabId) {
+    var h = HELP_TABS[tabId];
+    if (!h) { showToast('Sin ayuda registrada para esta sección', 'info'); return; }
+    var html = '<div style="text-align:left;font-size:13px;line-height:1.6;">' + escapeHtml(h.text) + '</div>';
+    if (h.tips && h.tips.length) {
+        html += '<ul style="text-align:left;margin:10px 0 0;padding-left:18px;font-size:12.5px;line-height:1.6;">' +
+            h.tips.map(function(t) { return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul>';
+    }
+    html += '<div style="margin-top:14px;text-align:left;border-top:1px solid var(--border);padding-top:10px;">' +
+        '<button type="button" class="help-banner-more" onclick="helpShowGlossary()">📖 Ver glosario del laboratorio</button></div>';
+    showModal({ title: '💡 ' + h.title, message: html, showCancel: false, confirmText: 'Entendido', type: 'info' });
+}
+
+// ── Glosario del laboratorio (v16.0 · C5) ──
+var HELP_GLOSSARY = [
+    { term: 'Soak', def: 'Tiempo de reposo térmico del vehículo en la cámara climatizada antes de la prueba, para que el motor y los fluidos lleguen a una temperatura estable y controlada (mínimo 12h estándar).' },
+    { term: 'Preacondicionamiento', def: 'Conjunto de pasos previos a la prueba (ciclo de manejo, verificación de combustible/llantas/DTCs) que aseguran que el vehículo llega en condiciones válidas para medir emisiones.' },
+    { term: 'Doble ciego', def: 'El Liberador captura los resultados de gases y firma; después el Aprobador los vuelve a capturar SIN ver los del Liberador. Si coinciden, se libera; si no, se marca desacuerdo y se revisa.' },
+    { term: 'CoP (Conformity of Production)', def: 'Conformidad de Producción: validación estadística de que los vehículos que salen de línea siguen cumpliendo los límites de emisión certificados, usando muestreo secuencial de varios VINes de la misma familia.' },
+    { term: 'Quality Audit', def: 'Auditoría de calidad interna (no regulatoria): verificación periódica de una familia fuera del esquema CoP, aplicable según la política del laboratorio por región.' },
+    { term: 'VIN', def: 'Número de Identificación Vehicular: 17 caracteres alfanuméricos únicos por vehículo. No usa las letras I, O ni Q (se confunden con 1 y 0).' },
+    { term: 'ETW', def: 'Estimated Test Weight — Peso Estimado de Prueba: la masa que el dinamómetro simula para reproducir la inercia real del vehículo durante el ciclo.' },
+    { term: 'Target / Dyno Set (A, B, C)', def: 'Coeficientes de resistencia al avance del coast-down (A = fuerza constante, B = proporcional a la velocidad, C = proporcional al cuadrado de la velocidad). Target = valor teórico calculado; Dyno Set = valor configurado en el dinamómetro. Deben coincidir para que la prueba sea válida.' },
+    { term: 'Bin / LimitSet', def: 'Nombre del conjunto de límites regulatorios que aplica a una prueba (ej. "EURO-5", "SULEV 30"). Define qué gases se miden y cuánto pueden emitir como máximo.' },
+    { term: '% del límite', def: 'El valor medido de un gas expresado como porcentaje de su límite regulatorio. 100% = justo en el límite; por encima de 100% = FALLA.' },
+    { term: 'FE por balance de carbono', def: 'Estimación informativa (NO certificada) del rendimiento de combustible calculada a partir del CO₂ medido, usando la relación de balance de carbono del combustible.' },
+    { term: 'I-MR (carta de control)', def: 'Carta estadística de Individuos y Rango Móvil: grafica cada resultado en el tiempo junto a la media y los límites de control (±3σ), para detectar si el proceso se sale de su comportamiento normal.' },
+    { term: 'Reglas de Nelson (R1/R2/R3)', def: 'Reglas de alarma sobre la carta I-MR: R1 = un punto fuera de ±3σ; R2 = 8 puntos seguidos del mismo lado de la media (corrimiento); R3 = 6 puntos seguidos subiendo o bajando (tendencia). Cualquiera enciende la alarma de esa familia.' },
+    { term: 'Cpk', def: 'Índice de capacidad del proceso frente al límite regulatorio: (Límite − media) / 3σ. Cpk ≥ 1.33 = proceso capaz; Cpk < 1.0 = resultados peligrosamente cerca del límite.' },
+    { term: 'UCL / LCL', def: 'Límite de Control Superior / Inferior de una carta de control (media ± 3σ). NO son el límite regulatorio — son el rango normal de variación del propio proceso del laboratorio.' },
+    { term: 'σ (sigma)', def: 'Desviación estándar del proceso, estimada a partir del rango móvil entre ensayos consecutivos (σ = MR̄ / 1.128). Mide qué tan dispersos están los resultados.' },
+    { term: 'Familia de emisiones', def: 'Agrupación de configuraciones de vehículo que comparten Modelo, Motor, Transmisión, Año modelo y Regulación — se prueban y analizan juntas porque su comportamiento de emisiones es equivalente.' },
+    { term: 'Déficit / ratio por 1000', def: 'Cuántas pruebas exige una configuración según su volumen de producción (ratio de pruebas por cada 1000 unidades fabricadas). Déficit = pruebas requeridas menos las ya realizadas.' },
+    { term: 'Tier / Prioridad (P1..P5)', def: 'Nivel de urgencia asignado a cada configuración pendiente en el Plan de Recuperación. P1 = más urgente (ej. COP Europa), hasta P5 (ej. eléctricos) — se atienden en ese orden según la capacidad disponible.' },
+    { term: 'PSI', def: 'Libras por pulgada cuadrada — unidad de presión con la que se mide el contenido de los cilindros de gas de calibración.' },
+    { term: 'DTC', def: 'Diagnostic Trouble Code — Código de Falla Diagnóstica almacenado en la computadora del vehículo (ECU). Un vehículo con DTCs confirmados o permanentes no es apto para la prueba de emisiones.' },
+    { term: 'Carta de captura diaria', def: 'El registro diario de PSI de cada cilindro de gas en uso y del nivel de los tanques de combustible. La plataforma usa estas lecturas para aprender cuánto consume cada tipo de prueba y predecir si el inventario alcanza.' }
+];
+
+function helpShowGlossary() {
+    var html = '<div style="text-align:left;">' +
+        '<input type="text" id="help-glossary-search" placeholder="Buscar término…" oninput="helpFilterGlossary(this.value)" ' +
+        'style="width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;box-sizing:border-box;">' +
+        '<div id="help-glossary-list" style="max-height:360px;overflow-y:auto;"></div></div>';
+    showModal({ title: '📖 Glosario del laboratorio', message: html, showCancel: false, confirmText: 'Cerrar', type: 'info' });
+    helpFilterGlossary('');
+    setTimeout(function() { var i = document.getElementById('help-glossary-search'); if (i) i.focus(); }, 60);
+}
+function helpFilterGlossary(q) {
+    var list = document.getElementById('help-glossary-list');
+    if (!list) return;
+    var qn = (q || '').toLowerCase().trim();
+    var items = HELP_GLOSSARY.filter(function(g) {
+        return !qn || g.term.toLowerCase().indexOf(qn) !== -1 || g.def.toLowerCase().indexOf(qn) !== -1;
+    });
+    if (!items.length) { list.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:10px 0;">Sin resultados. Prueba con otra palabra.</div>'; return; }
+    list.innerHTML = items.map(function(g) {
+        return '<div style="padding:8px 0;border-bottom:1px solid var(--border);">' +
+            '<div style="font-weight:700;font-size:13px;">' + escapeHtml(g.term) + '</div>' +
+            '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + escapeHtml(g.def) + '</div></div>';
+    }).join('');
+}
+
+/** Lanza un tour (o avisa por toast si estamos en móvil, donde el overlay del tour se oculta por CSS). */
+function helpStartTourFromMenu(moduleKey) {
+    _helpCloseModal();
+    if (window.innerWidth < 768) {
+        showToast('El recorrido guiado funciona mejor en pantalla grande (tablet/PC). Usa los banners 💡 y los botones ? de cada pestaña.', 'info');
+        return;
+    }
+    if (typeof startTour === 'function') startTour(moduleKey);
+}
+
+/** Menú del botón ? del topbar: tour de este módulo, tour general, glosario. */
+function helpMenuOpen() {
+    var moduleKey = (typeof PLATFORM_SECTION_MAP !== 'undefined') ? (PLATFORM_SECTION_MAP[_currentPlatform] || _currentPlatform) : 'today';
+    var moduleLabels = { today: 'Hoy', testplan: 'Plan', cop15: 'Pruebas', inventory: 'Inventario', panel: 'Datos', cop: 'CoP' };
+    var moduleLabel = moduleLabels[moduleKey] || moduleKey;
+    var html = '<div style="display:flex;flex-direction:column;gap:8px;text-align:left;">' +
+        '<button type="button" class="help-menu-item" onclick="helpStartTourFromMenu(\'' + moduleKey + '\')">🧭 Recorrido guiado de ' + escapeHtml(moduleLabel) + '</button>' +
+        '<button type="button" class="help-menu-item" onclick="helpStartTourFromMenu(\'global\')">🗺️ Recorrido general de la plataforma</button>' +
+        '<button type="button" class="help-menu-item" onclick="_helpCloseModal();helpShowGlossary()">📖 Glosario del laboratorio</button>' +
+        '</div>';
+    showModal({ title: '❓ Ayuda', message: html, showCancel: false, confirmText: 'Cerrar', type: 'info' });
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -9518,6 +9827,11 @@ function initCascadeTree() {
         updateProgressBar();
         // Re-inject tooltips for the new tab
         cascadeInjectTooltips();
+        // v16.0: banner de ayuda de esta pestaña (slot estático, ver index.html panel-*)
+        if (typeof helpBannerHTML === 'function') {
+            var _hSlot = document.getElementById('help-banner-slot-cop15-' + tab.dataset.tab);
+            if (_hSlot) _hSlot.innerHTML = helpBannerHTML('cop15-' + tab.dataset.tab);
+        }
     }
 
     // Setup real-time field validation for Alta form
@@ -9565,6 +9879,12 @@ function initCascadeTree() {
 
     // Inject field help tooltips (CASCADE_TOOLTIPS may not be ready yet)
     try { cascadeInjectTooltips(); } catch(e) {}
+
+    // v16.0: banner de ayuda del tab activo por defecto (Alta) — el resto se puebla al hacer clic
+    try {
+        var _hSlot0 = document.getElementById('help-banner-slot-cop15-alta');
+        if (_hSlot0 && typeof helpBannerHTML === 'function') _hSlot0.innerHTML = helpBannerHTML('cop15-alta');
+    } catch (e) {}
 
     function toggleMode() {
         const isExternal = document.getElementById('modeToggle').checked;
@@ -10111,6 +10431,9 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
 
   // Update vehicle inline checklist
   if (typeof vclUpdate === 'function') vclUpdate();
+
+  // v16.0: re-inyectar tooltips de ayuda (acordeones/campos recién poblados)
+  if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 
@@ -11186,6 +11509,7 @@ function loadRelease() {
 
     _renderUsedCylinders(vehicle);
     renderTimeline(vehicle);
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function loadApproval() {
@@ -11224,6 +11548,7 @@ function loadApproval() {
 
     _libRenderGasEntry('appr-gas-entry-content', profile, {}, 'libOnApproverGasChange()');
     if (btn) btn.disabled = true;
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function submitToApproval() {
@@ -11781,12 +12106,12 @@ function closeSubstitutionModal() {
                                     if (!isEmissionsPurpose(v.purpose)) return '';
                                     var _c = validatePdfCompleteness(v);
                                     if (_c.ok) return '';
-                                    return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding:5px 10px;font-size:0.75rem;background:#fef3c7;color:#92400e;margin-left:4px;" title="Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente">📝 Completar (' + _c.missing.length + ')</button>';
+                                    return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding:5px 10px;font-size:0.75rem;background:#fef3c7;color:#92400e;margin-left:4px;" title="Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente" aria-label="Completar datos retroactivos (' + _c.missing.length + ' campos)">📝 Completar (' + _c.missing.length + ')</button>';
                                 })()}
-                                <button class="btn-secondary" onclick="histShowTimelineModal(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;margin-left:4px;" title="Historial y control de cambios del vehículo">
+                                <button class="btn-secondary" onclick="histShowTimelineModal(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;margin-left:4px;" title="Historial y control de cambios del vehículo" aria-label="Ver historial y control de cambios">
                                     🕘
                                 </button>
-                                <button class="btn-secondary" onclick="deleteVehicleCascade(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Eliminar vehículo y todos sus datos relacionados">
+                                <button class="btn-secondary" onclick="deleteVehicleCascade(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Eliminar vehículo y todos sus datos relacionados" aria-label="Eliminar vehículo y todos sus datos relacionados">
                                     🗑
                                 </button>
                             </td>
@@ -12481,8 +12806,8 @@ function histOpenCompleteModal(vehicleId) {
   var html = '<div class="hist-complete-overlay" id="hist-complete-overlay">';
   html += '<div class="hist-complete-box">';
   html += '<div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--accent-cop, #0891b2);padding-bottom:10px;margin-bottom:12px;">';
-  html += '<span style="font-size:15px;font-weight:800;flex:1;">📝 Completar datos retroactivos</span>';
-  html += '<button onclick="histCloseCompleteModal()" class="btn btn-sm btn-ghost" style="font-size:14px;">✕</button></div>';
+  html += '<span style="font-size:15px;font-weight:800;flex:1;" data-help="hist-retro-help">📝 Completar datos retroactivos</span>';
+  html += '<button onclick="histCloseCompleteModal()" class="btn btn-sm btn-ghost" aria-label="Cerrar" style="font-size:14px;">✕</button></div>';
   html += '<div style="font-size:12px;margin-bottom:4px;"><b style="font-family:monospace;">' + escapeHtml(vehicle.vin || '') + '</b> · ' + escapeHtml(vehicle.configCode || '') + ' · ' + escapeHtml((CONFIG.statusLabels && CONFIG.statusLabels[status]) || status) + '</div>';
   html += '<div style="font-size:11px;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;margin-bottom:12px;">' +
           'Faltan <b>' + comp.missing.length + '</b> campos para el PDF. Los campos ya guardados están 🔒 bloqueados: modificarlos exige una razón escrita y firma digital al guardar. Todo queda en el historial del vehículo y en la auditoría.</div>';
@@ -12568,6 +12893,7 @@ function histOpenCompleteModal(vehicleId) {
     var v = sel.getAttribute('data-value');
     if (v) sel.value = v;
   });
+  if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function histCloseCompleteModal() {
@@ -13615,7 +13941,7 @@ function renderManualConfigsList() {
         html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #dbeafe;font-size:10px;">' +
             '<span style="flex:1;font-family:monospace;color:#1e40af;word-break:break-all;">' + code + '</span>' +
             '<button onclick="openManualConfigForm(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Editar">✏️</button>' +
-            '<button onclick="deleteManualConfig(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Eliminar">🗑️</button>' +
+            '<button onclick="deleteManualConfig(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Eliminar" aria-label="Eliminar configuración">🗑️</button>' +
             '</div>';
     });
     html += '</div>';
@@ -14955,10 +15281,117 @@ var CASCADE_TOOLTIPS = {
     soak_timer_hours: {
         title: 'Duraci\u00f3n del Temporizador de Reposo',
         text: 'Tiempo de reposo t\u00e9rmico (soak). 12h = est\u00e1ndar m\u00ednimo, 16h = recomendado para climas fr\u00edos, 24-36h = pruebas especiales o normativas estrictas.'
-    }
+    },
+
+    // \u2500\u2500 v16.0: huecos de ayuda cubiertos (Alta, Recepci\u00f3n, Preacondicionamiento,
+    // Verificaci\u00f3n, Simple, selects de veh\u00edculo, estado, historial, gases) \u2500\u2500
+    'cascade-tree-help': {
+        title: 'Configuraci\u00f3n del veh\u00edculo',
+        text: 'Arma la configuraci\u00f3n completando cada nivel EN ORDEN (empieza por el Modelo). Cada opci\u00f3n que eliges filtra las siguientes \u2014 as\u00ed nunca puedes armar una combinaci\u00f3n que no exista en el cat\u00e1logo. Toca "cambiar" en un nivel ya completado para regresar a \u00e9l. Tambi\u00e9n puedes usar el buscador de arriba si ya sabes qu\u00e9 configuraci\u00f3n necesitas.'
+    },
+    cfg_model: { title: 'Modelo', text: 'Primer nivel de la configuraci\u00f3n del veh\u00edculo. Elegir el modelo filtra las opciones de a\u00f1o, motor, transmisi\u00f3n, etc. que aparecen despu\u00e9s.' },
+    cfg_year: { title: 'A\u00f1o modelo', text: 'A\u00f1o modelo del veh\u00edculo (tal como aparece en el VIN), filtrado seg\u00fan el modelo ya elegido.' },
+    cfg_engine: { title: 'Motor', text: 'Cilindrada/motor del veh\u00edculo, filtrado seg\u00fan modelo y a\u00f1o ya elegidos.' },
+    cfg_transmission: { title: 'Transmisi\u00f3n', text: 'Tipo de transmisi\u00f3n (manual, autom\u00e1tica, DCT\u2026) disponible para la configuraci\u00f3n elegida hasta ahora.' },
+    cfg_regulation: { title: 'Regulaci\u00f3n de emisiones', text: 'Norma a la que se probar\u00e1 el veh\u00edculo (EURO-5, SULEV 30, PRE-EURO 7\u2026). Define qu\u00e9 gases y l\u00edmites aplican despu\u00e9s, en la Liberaci\u00f3n.' },
+    cfg_envpkg: { title: 'Environment Package', text: 'Paquete ambiental/de hibridaci\u00f3n del veh\u00edculo (si aplica). "0" significa que esta configuraci\u00f3n no tiene paquete especial.' },
+    cfg_region: { title: 'Regi\u00f3n', text: 'Mercado de destino del veh\u00edculo (M\u00e9xico, USA, Europa\u2026). Afecta qu\u00e9 reglas de plan y prioridad se le aplican.' },
+    cfg_tires: { title: 'Llantas', text: 'Medida de llanta de la configuraci\u00f3n (afecta el coast-down / resistencia al rodamiento del dinam\u00f3metro).' },
+    cfg_body: { title: 'Carrocer\u00eda', text: 'Tipo de carrocer\u00eda (4DR, 5DR, WGN\u2026) de la configuraci\u00f3n.' },
+    cfg_drive: { title: 'Drive Type', text: 'Tipo de tracci\u00f3n del veh\u00edculo (delantera, trasera, integral).' },
+    cfg_enginepkg: { title: 'Engine Package', text: 'Paquete de motor espec\u00edfico de la configuraci\u00f3n (si aplica).' },
+
+    reg_operator: { title: 'Operador de Registro', text: 'Qui\u00e9n est\u00e1 dando de alta este veh\u00edculo en la plataforma. Elige tu nombre de la lista \u2014 si no aparece, pide que te agreguen en Datos \u2192 Operadores.' },
+    reg_datetime: { title: 'Fecha/Hora de Alta', text: 'Momento en que se registra el veh\u00edculo. Se llena autom\u00e1ticamente con la hora actual; solo c\u00e1mbiala si est\u00e1s capturando un registro atrasado.' },
+
+    op_recep: { title: 'Operador de Recepci\u00f3n', text: 'Qui\u00e9n recibi\u00f3 f\u00edsicamente el veh\u00edculo en el laboratorio. Puede ser distinto del operador que dio de alta.' },
+    op_odo: { title: 'Od\u00f3metro', text: 'Kilometraje del veh\u00edculo al recibirlo, en km, tal como marca el tablero. Ejemplo: 15234. Se usa para comparar contra el od\u00f3metro pre-prueba.' },
+    op_datetime: { title: 'Fecha/Hora de Recepci\u00f3n', text: 'Momento en que el veh\u00edculo entr\u00f3 f\u00edsicamente al laboratorio.' },
+    fuel_typein: { title: 'Tipo de combustible (recepci\u00f3n)', text: 'Combustible con el que lleg\u00f3 el veh\u00edculo (lo que trae puesto, no el de prueba). Elige la opci\u00f3n que coincida con lo que indique la etiqueta o el tanquero.' },
+    tank_capacity: { title: 'Capacidad del tanque', text: 'Capacidad total del tanque de combustible del veh\u00edculo, en litros. Ejemplo: 50. Se usa junto con el nivel para calcular litros disponibles.' },
+    op_notes: { title: 'Observaciones de Recepci\u00f3n', text: 'Cualquier condici\u00f3n relevante del veh\u00edculo al recibirlo: da\u00f1os visibles, ruidos, advertencias en el tablero, etc. D\u00e9jalo vac\u00edo si no hay nada que anotar.' },
+
+    precond_responsible: { title: 'Persona a cargo (Preacondicionamiento)', text: 'Operador responsable de preparar el veh\u00edculo antes de la prueba (ciclo de manejo, verificaci\u00f3n de niveles y DTCs).' },
+    precond_datetime: { title: 'Fecha/Hora de Preacondicionamiento', text: 'Momento en que se realiz\u00f3 el preacondicionamiento del veh\u00edculo.' },
+    tire_pressure: { title: 'Presi\u00f3n de llantas (preacondicionamiento)', text: 'Presi\u00f3n en PSI verificada justo antes de la prueba (puede diferir de la presi\u00f3n de recepci\u00f3n). Ejemplo: 33.' },
+    odo_pretest: { title: 'Od\u00f3metro para prueba', text: 'Kilometraje del veh\u00edculo justo antes de iniciar la prueba de emisiones (despu\u00e9s del preacondicionamiento). Debe ser igual o mayor al od\u00f3metro de recepci\u00f3n.' },
+
+    test_responsible: { title: 'Persona a cargo de la prueba', text: 'Operador que ejecuta y supervisa la prueba de emisiones en el dinam\u00f3metro.' },
+    test_datetime: { title: 'Fecha/Hora de la prueba', text: 'Momento en que se corri\u00f3 la prueba de emisiones en el dinam\u00f3metro.' },
+    test_dyno_on: { title: 'Dinam\u00f3metro (encendido/apagado)', text: 'Confirma si el dinam\u00f3metro estuvo encendido durante la corrida. Debe estar "Encendido" para una prueba v\u00e1lida.' },
+    test_fan_mode: { title: 'Modo de ventilador', text: '"Velocidad" = defines t\u00fa la velocidad del aire de enfriamiento en km/h. "Speed Follow" = el ventilador sigue autom\u00e1ticamente la velocidad simulada del veh\u00edculo. Elige el que use tu protocolo de prueba.' },
+    test_verify_notes: { title: 'Comentarios (Verificaci\u00f3n en Prueba)', text: 'Cualquier observaci\u00f3n durante la corrida: interrupciones, ajustes, incidencias. D\u00e9jalo vac\u00edo si todo sali\u00f3 seg\u00fan lo esperado.' },
+
+    simple_operator: { title: 'Operador', text: 'Qui\u00e9n realiz\u00f3 este registro simple (para prop\u00f3sitos que no requieren el protocolo completo de emisiones, como Correlaci\u00f3n o Investigaci\u00f3n).' },
+    simple_datetime: { title: 'Fecha/Hora', text: 'Momento del registro.' },
+    simple_notes: { title: 'Comentarios / Observaciones', text: 'Notas generales sobre este registro. D\u00e9jalo vac\u00edo si no aplica.' },
+
+    op_status: { title: 'Estado del veh\u00edculo', text: 'Etapa actual del veh\u00edculo en el flujo del laboratorio. C\u00e1mbiala manualmente solo si necesitas corregir el flujo autom\u00e1tico \u2014 normalmente avanza sola conforme completas cada bloque.' },
+    activeVehSelect: { title: 'Veh\u00edculo activo', text: 'Elige el veh\u00edculo con el que vas a trabajar en esta pesta\u00f1a. Solo aparecen veh\u00edculos que a\u00fan no se han archivado.' },
+    releaseVehSelect: { title: 'Veh\u00edculo a liberar', text: 'Elige el veh\u00edculo listo para captura de resultados. Como Liberador, t\u00fa registras el primer juego de valores de gases.' },
+    approvalVehSelect: { title: 'Veh\u00edculo pendiente de aprobaci\u00f3n', text: 'Elige el veh\u00edculo que vas a verificar como Aprobador. NO ver\u00e1s los valores que captur\u00f3 el Liberador \u2014 as\u00ed se garantiza el doble ciego.' },
+    'hist-filter-help': { title: 'Filtros de Historial', text: 'Filtra los veh\u00edculos archivados por estado, VIN, a\u00f1o o mes para encontrar uno espec\u00edfico r\u00e1pidamente.' },
+    'lib-gas-help': { title: 'Resultados de Emisiones', text: 'Captura los valores FINALES verificados del reporte oficial (no lecturas crudas del analizador). El estado muestra \u2713/\u2717 contra el l\u00edmite regulatorio y el % del l\u00edmite; si un valor se sale del rango plausible se marca en \u00e1mbar (puedes guardarlo igual, queda registrado en auditor\u00eda).' },
+    'hist-retro-help': { title: 'Completar datos retroactivos', text: 'Este veh\u00edculo ya est\u00e1 archivado y le faltan campos que el PDF exige. Los campos vac\u00edos (en \u00e1mbar) los puedes llenar libremente. Los que ya tienen valor est\u00e1n bloqueados \ud83d\udd12: para cambiarlos debes escribir la raz\u00f3n del cambio y firmar \u2014 todo queda en el control de cambios (\ud83d\udd58).' }
 };
 
-/** Inject ? help buttons next to labels of fields that have tooltips */
+// v16.0 — Banners de ayuda de las pestañas de COP15/Cascade (HELP_TABS vive en app.js,
+// que carga antes que este archivo, así que ya existe cuando se ejecuta esta línea).
+if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'cop15-alta': {
+        title: 'Alta de vehículo',
+        text: 'Registra un vehículo nuevo: elige el propósito, arma la configuración con la cascada (cada selección filtra las siguientes) y captura el VIN de 17 caracteres.',
+        tips: [
+            'Empieza siempre por el Propósito — determina si verás el flujo completo de emisiones o el formato simple.',
+            'En la cascada, avanza en orden: Modelo → Año → Motor → … Si te equivocas, toca "cambiar" en el nivel que quieras corregir.',
+            '¿Ya sabes la configuración exacta? Usa el buscador 🔎 arriba de la cascada en vez de ir nivel por nivel.',
+            'El VIN se pone en mayúsculas solo y no acepta I, O ni Q — si el escáner marca error, revisa que no los tenga.'
+        ]
+    },
+    'cop15-seguimiento': {
+        title: 'Operación',
+        text: 'Aquí capturas el flujo completo del vehículo activo: recepción → preacondicionamiento → soak → dinamómetro → verificación. Abre cada acordeón en orden y GUARDA AVANCE al terminar cada bloque.',
+        tips: [
+            'Selecciona primero el vehículo en el selector rojo de arriba.',
+            'Los acordeones se abren de uno en uno — al abrir el siguiente se cierra el anterior automáticamente.',
+            'El botón 💾 GUARDAR AVANCE no cambia el estado del vehículo por sí solo: usa el selector "Estado" cuando termines cada etapa.',
+            'El temporizador de Soak sigue corriendo aunque cambies de pestaña o cierres el navegador — se reanuda solo.'
+        ]
+    },
+    'cop15-liberacion': {
+        title: 'Liberación doble-ciego',
+        text: 'El Liberador captura los resultados finales de gases y firma; después el Aprobador los captura DE NUEVO sin verlos — si coinciden a 3 cifras, se archiva. Así se evitan errores de dedo.',
+        tips: [
+            'Como Liberador: captura los valores FINALES verificados del reporte, no lecturas crudas.',
+            'Como Aprobador: no podrás ver lo que capturó el Liberador — es intencional, garantiza independencia.',
+            'Si los valores no coinciden, la plataforma marca desacuerdo y hay que revisar antes de continuar.',
+            'El botón 📄 Generar PDF se bloquea si faltan campos obligatorios — usa 📝 Completar en Historial para vehículos ya archivados.'
+        ]
+    },
+    'cop15-kanban': {
+        title: 'Cola de vehículos',
+        text: 'Vista rápida de todos los vehículos activos por estado. Toca cualquiera para abrirlo directo en Operación.',
+        tips: ['Útil para ver de un vistazo cuántos vehículos hay en cada etapa del flujo sin entrar uno por uno.']
+    },
+    'cop15-dashboard': {
+        title: 'Historial',
+        text: 'Vehículos archivados: genera su PDF COP15-F05, completa datos retroactivos (📝) si el PDF pide campos que no existían antes, y consulta su control de cambios (🕘).',
+        tips: [
+            'Usa los filtros para encontrar un VIN o rango de fechas específico.',
+            'El botón "📝 Completar (N)" solo aparece si al vehículo le faltan campos para el PDF.',
+            'El botón 🕘 muestra el historial completo de cambios del vehículo, incluidas ediciones retroactivas con su razón y firma.'
+        ]
+    }
+});
+
+
+/**
+ * Inject ? help buttons next to labels of fields that have tooltips, y también en
+ * cualquier elemento con data-help="clave" (v16.0 — registro global de ayuda: cada
+ * módulo agrega sus claves a CASCADE_TOOLTIPS y llama cascadeInjectTooltips() tras
+ * renderizar). Idempotente: siempre borra y re-inyecta, así que es seguro llamarla
+ * después de cualquier innerHTML total.
+ */
 function cascadeInjectTooltips() {
     // Guard: CASCADE_TOOLTIPS may not be initialized yet during script load
     if (typeof CASCADE_TOOLTIPS === 'undefined' || !CASCADE_TOOLTIPS) return;
@@ -14966,6 +15399,7 @@ function cascadeInjectTooltips() {
     // Remove existing tooltip buttons first
     document.querySelectorAll('.cascade-help-btn').forEach(function(btn) { btn.remove(); });
 
+    // Modo 1: campos de formulario con <label for="id"> (o label dentro de .form-group)
     Object.keys(CASCADE_TOOLTIPS).forEach(function(fieldId) {
         var field = document.getElementById(fieldId);
         if (!field) return;
@@ -14993,6 +15427,42 @@ function cascadeInjectTooltips() {
             cascadeShowTooltip(fieldId);
         };
         label.appendChild(btn);
+    });
+
+    // Modo 2 (v16.0): cualquier elemento con data-help="clave" (títulos de tarjeta,
+    // encabezados de sección, controles sin <label> — usado por HTML generado
+    // dinámicamente en Test Plan/Inventario/Panel/CoP/HOY). El botón se agrega
+    // DENTRO del elemento, al final de su texto.
+    document.querySelectorAll('[data-help]').forEach(function(el) {
+        var key = el.getAttribute('data-help');
+        if (!key || !CASCADE_TOOLTIPS[key]) return;
+        if (el.querySelector(':scope > .cascade-help-btn')) return; // no doble-inyección
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'cascade-help-btn';
+        btn.textContent = '?';
+        btn.setAttribute('aria-label', 'Ayuda: ' + CASCADE_TOOLTIPS[key].title);
+        btn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            cascadeShowTooltip(key);
+        };
+        el.appendChild(btn);
+    });
+}
+
+/**
+ * v16.0 — Versión "diferida" de cascadeInjectTooltips(), para usar tras renders que
+ * pasan por tabCacheSwitch() (app.js): ese motor de caché de pestañas puede posponer
+ * el renderFn real a un requestAnimationFrame (skeleton → render), así que inyectar
+ * de inmediato a veces encontraría el DOM todavía sin poblar. Doble RAF asegura que
+ * corremos DESPUÉS de cualquier render diferido de ese frame.
+ */
+function cascadeInjectTooltipsDeferred() {
+    if (typeof cascadeInjectTooltips !== 'function') return;
+    requestAnimationFrame(function() {
+        requestAnimationFrame(cascadeInjectTooltips);
     });
 }
 
@@ -15822,6 +16292,9 @@ function invRender() {
     var tab = invState.activeTab;
     var renderer = _invGetRenderer(tab);
     if (renderer) tabCacheSwitch('inv', tab, renderer);
+    // v16.0: banners/tooltips de ayuda — tabCacheSwitch puede diferir el render real a un RAF
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+    if (typeof helpInjectBannerDeferred === 'function') helpInjectBannerDeferred('inv', tab);
 }
 
 function invUpdateBadges() {
@@ -16057,7 +16530,7 @@ function invRenderGases(el) {
     var filtered = filterZone === 'ALL' ? gases : gases.filter(function(g){ return g.zone && g.zone.startsWith(filterZone); });
 
     var _invGasCompact = getViewMode('inv-gases') === 'compact';
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Gestion de Cilindros (' + gases.length + ')</span>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-gases-help"><span>Gestion de Cilindros (' + gases.length + ')</span>';
     html += '<div style="display:flex;gap:5px;align-items:center;">' + renderViewModeToggle('inv-gases', false);
     html += '<button class="tp-btn tp-btn-primary" onclick="invShowAddGas()" style="font-size:10px;">+ Nuevo Cilindro</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invExportGases()" style="font-size:10px;">Exportar</button>';
@@ -16089,9 +16562,9 @@ function invRenderGases(el) {
             html += '<div style="display:flex;gap:6px;align-items:center;">';
             html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + exp.color + '20;color:' + exp.color + ';border:1px solid ' + exp.color + '30;">' + exp.text + '</span>';
             html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + lvl.color + '20;color:' + lvl.color + ';">' + lvl.text + '</span>';
-            html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGas(\'' + g.id + '\')" style="font-size:9px;">\u270F</button>';
-            if (g.readings && g.readings.length >= 2) html += '<button class="tp-btn tp-btn-ghost" onclick="invShowTrendChart(\'' + g.id + '\')" style="font-size:9px;" title="Tendencia">&#x1F4C8;</button>';
-            html += '<button class="tp-btn tp-btn-ghost" onclick="invShowBarcode(\'' + g.id + '\')" style="font-size:9px;">\u{1F4CB}</button>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGas(\'' + g.id + '\')" style="font-size:9px;" title="Editar" aria-label="Editar cilindro">\u270F</button>';
+            if (g.readings && g.readings.length >= 2) html += '<button class="tp-btn tp-btn-ghost" onclick="invShowTrendChart(\'' + g.id + '\')" style="font-size:9px;" title="Tendencia" aria-label="Ver tendencia de consumo">&#x1F4C8;</button>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="invShowBarcode(\'' + g.id + '\')" style="font-size:9px;" title="C\u00F3digo de barras" aria-label="Ver c\u00F3digo de barras">\u{1F4CB}</button>';
             html += '</div></div>';
         });
         html += '</div>';
@@ -16152,6 +16625,7 @@ function invShowAddGas(editId) {
 
     if (g) { invUpdateConcOpts(); document.getElementById('inv-g-conc').value = g.concNominal || ''; }
     else { invUpdateConcOpts(); }
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function invEditGas(id) { invShowAddGas(id); }
@@ -16580,7 +17054,7 @@ function invShowZone(zoneId) {
 function invRenderReadings(el) {
     var gases = invState.gases.filter(function(g){ return g.status !== 'Empty'; });
     var html = invRenderAnomalyBanner();
-    html += '<div class="tp-card"><div class="tp-card-title"><span>Captura Diaria — Gases (psi)</span>';
+    html += '<div class="tp-card"><div class="tp-card-title" data-help="inv-readings-help"><span>Captura Diaria — Gases (psi)</span>';
     html += '<div style="display:flex;gap:6px;">';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invStartReadingRound()" style="font-size:10px;border-color:#10b981;color:#10b981;">🔄 Ronda</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size:10px;border-color:#8b5cf6;color:#8b5cf6;">📷 Escanear</button>';
@@ -16588,7 +17062,9 @@ function invRenderReadings(el) {
     html += '</div></div>';
     html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Registra la presion (psi) de cada cilindro en uso y los niveles de combustible. Un solo botón guarda todo.</div>';
 
-    if (gases.length === 0) {
+    if (invState.gases.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Aún no hay cilindros registrados. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-gases\')" style="font-size:10px;margin-left:6px;">🔴 Dar de alta un cilindro →</button></div>';
+    } else if (gases.length === 0) {
         html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin cilindros en uso.</div>';
     } else {
         html += '<div style="max-height:500px;overflow-y:auto;">';
@@ -16612,7 +17088,7 @@ function invRenderReadings(el) {
 
     // ── Fuel tanks capture (unified daily capture) ──
     var tanks = invState.fuelTanks || [];
-    html += '<div class="tp-card"><div class="tp-card-title"><span>⛽ Captura Diaria — Combustible</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title" data-help="inv-readings-fuel-help"><span>⛽ Captura Diaria — Combustible</span></div>';
     if (tanks.length === 0) {
         html += '<div style="text-align:center;padding:15px;color:var(--tp-dim);">Sin tanques configurados.</div>';
     } else {
@@ -16927,7 +17403,7 @@ function invQuickReadSave(gasId) {
 // ══════════════════════════════════════════════════
 function invRenderEquipment(el) {
     var equip = invState.equipment;
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Equipos y Calibraciones (' + equip.length + ')</span>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-equipment-help"><span>Equipos y Calibraciones (' + equip.length + ')</span>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invAddEquipment()" style="font-size:10px;">+ Agregar</button></div>';
 
     if (equip.length === 0) {
@@ -16944,7 +17420,7 @@ function invRenderEquipment(el) {
             html += '<div style="font-size:9px;color:var(--tp-dim);">S/N: ' + (e.serialNo||'?') + ' | ' + (e.type||'') + ' | ' + (e.location||'') + '</div></div>';
             html += '<div style="display:flex;gap:6px;align-items:center;">';
             html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + clr + '20;color:' + clr + ';">' + statusTxt + '</span>';
-            html += '<button class="tp-btn tp-btn-ghost" onclick="invEditEquipment(\'' + e.id + '\')" style="font-size:9px;">\u270F</button>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="invEditEquipment(\'' + e.id + '\')" style="font-size:9px;" title="Editar" aria-label="Editar equipo">\u270F</button>';
             html += '</div></div>';
         });
     }
@@ -16980,6 +17456,7 @@ function invAddEquipment(editId) {
         (isEdit ? '<button onclick="showConfirm(\'Eliminar equipo?\',function(){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function invSaveEquipment(editId) {
@@ -17063,9 +17540,12 @@ function invRenderPredict(el) {
     var confidenceClr = rates.dataPoints >= 20 ? '#10b981' : rates.dataPoints >= 5 ? '#f59e0b' : '#ef4444';
 
     html += '<div class="tp-card" style="border-left:3px solid ' + (hasAdaptiveData ? '#8b5cf6' : 'var(--tp-border)') + ';">';
-    html += '<div class="tp-card-title"><span>Prediccion Activa de Consumo</span>';
+    html += '<div class="tp-card-title" data-help="inv-predict-model"><span>Prediccion Activa de Consumo</span>';
     html += '<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:' + confidenceClr + '20;color:' + confidenceClr + ';border:1px solid ' + confidenceClr + '30;">Confianza: ' + confidenceLabel + ' (' + rates.dataPoints + ' pts)</span></div>';
     html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Modelo adaptativo: aprende del consumo real por regulacion. Se actualiza con cada lectura y liberacion de vehiculo.</div>';
+    if (!hasAdaptiveData) {
+        html += '<div style="text-align:center;padding:14px;color:var(--tp-dim);font-size:11px;">Aun no hay suficientes lecturas para predecir. La prediccion aprende de tus capturas diarias reales. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-readings\')" style="font-size:10px;margin-left:6px;">📏 Ir a Capturar →</button></div>';
+    }
 
     // Regulation test count badges
     var regKeys = Object.keys(regTestCounts);
@@ -17834,7 +18314,7 @@ function invRenderFuel(el) {
     if (!invState.fuelTanks) invState.fuelTanks = [];
     var tanks = invState.fuelTanks;
 
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Combustible de Referencia</span>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-fuel-help"><span>Combustible de Referencia</span>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invAddFuelTank()" style="font-size:10px;">+ Agregar Tambo</button></div>';
 
     if (tanks.length === 0) {
@@ -17849,8 +18329,8 @@ function invRenderFuel(el) {
             html += '<div style="font-size:9px;color:var(--tp-dim);">' + (t.fuelType||'') + ' | ' + (t.octane||'') + ' | ' + (t.supplier||'') + '</div></div>';
             html += '<div style="display:flex;gap:6px;align-items:center;">';
             html += '<span style="font-size:10px;font-weight:700;color:' + clr + ';">' + t.currentLevel + '/' + t.capacity + ' ' + (t.unit||'L') + ' (' + pct + '%)</span>';
-            html += '<button class="tp-btn tp-btn-ghost" onclick="invEditFuelTank(\x27' + t.id + '\x27)" style="font-size:9px;">\u270F</button>';
-            html += '<button class="tp-btn tp-btn-ghost" onclick="invFuelReading(\x27' + t.id + '\x27)" style="font-size:9px;">\u{1F4CF}</button>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="invEditFuelTank(\x27' + t.id + '\x27)" style="font-size:9px;" title="Editar" aria-label="Editar tanque">\u270F</button>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="invFuelReading(\x27' + t.id + '\x27)" style="font-size:9px;" title="Registrar lectura" aria-label="Registrar lectura de nivel">\u{1F4CF}</button>';
             html += '</div></div>';
             // Progress bar
             html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:8px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + clr + ';"></div></div>';
@@ -17891,6 +18371,7 @@ function invAddFuelTank(editId) {
         (isEdit ? '<button onclick="showConfirm(\'Eliminar tanque?\',function(){invState.fuelTanks=invState.fuelTanks.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function invSaveFuelTank(editId) {
@@ -17976,7 +18457,7 @@ function invRenderReport(el) {
     var fmt = function(d){ return d.toLocaleDateString('en-US',{month:'long',day:'numeric'}); };
     var weekLabel = fmt(monday) + ' - ' + fmt(friday) + ', ' + today.getFullYear();
 
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Reporte Semanal de Consumibles</span>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-report-help"><span>Reporte Semanal de Consumibles</span>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invExportReport()" style="font-size:10px;">Copiar HTML</button></div>';
     html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Semana: ' + weekLabel + '</div>';
 
@@ -18195,7 +18676,7 @@ function invRenderFloorPlan(el) {
     var html = '<div class="inv-floorplan-container">';
 
     // Toolbar
-    html += '<div class="inv-floorplan-toolbar">';
+    html += '<div class="inv-floorplan-toolbar" data-help="inv-zonemap-help">';
     if (_invUndoStack.length > 0) {
         html += '<button onclick="invUndoLastMove()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;">↶ Deshacer (' + _invUndoStack.length + ')</button>';
     }
@@ -18849,7 +19330,7 @@ function invUndoLastMove() {
 function invRenderCharts(el) {
     var chartType = window._invChartType || 'gas_psi';
 
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Graficas de Consumo</span></div>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-charts-help"><span>Graficas de Consumo</span></div>';
     html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">';
     html += '<button class="tp-btn ' + (chartType === 'gas_psi' ? 'tp-btn-primary' : 'tp-btn-ghost') +
         '" onclick="window._invChartType=\'gas_psi\';invRender();" style="font-size:10px;">PSI por Cilindro</button>';
@@ -18977,8 +19458,8 @@ function invRenderConfig(el) {
         html += '<div style="font-weight:800;font-size:14px;width:30px;text-align:center;color:var(--tp-amber);">' + z.id + '</div>';
         html += '<div style="flex:1;min-width:120px;"><div style="font-size:11px;font-weight:600;">' + z.label + '</div><div style="font-size:9px;color:var(--tp-dim);">' + z.slots + ' slots | ' + z.type + ' | ' + occupied + ' ocupados</div></div>';
         html += '<div style="display:flex;gap:4px;">';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="invEditZone(' + idx + ')" style="font-size:9px;">\u270F</button>';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="invDeleteZone(' + idx + ')" style="font-size:9px;color:var(--tp-red);">\u2715</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invEditZone(' + idx + ')" style="font-size:9px;" title="Editar" aria-label="Editar zona">\u270F</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invDeleteZone(' + idx + ')" style="font-size:9px;color:var(--tp-red);" title="Eliminar" aria-label="Eliminar zona">\u2715</button>';
         html += '</div></div>';
     });
     html += '</div>';
@@ -18990,8 +19471,8 @@ function invRenderConfig(el) {
         html += '<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;margin-bottom:2px;border:1px solid var(--tp-border);border-radius:5px;background:var(--tp-card);">';
         html += '<div style="flex:1;font-size:10px;"><strong>' + gt.formula + '</strong> — ' + gt.name + '</div>';
         html += '<div style="font-size:9px;color:var(--tp-dim);">' + gt.concs.join(', ') + '</div>';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGasType(' + idx + ')" style="font-size:9px;">\u270F</button>';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="invDeleteGasType(' + idx + ')" style="font-size:9px;color:var(--tp-red);">\u2715</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGasType(' + idx + ')" style="font-size:9px;" title="Editar" aria-label="Editar tipo de gas">\u270F</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invDeleteGasType(' + idx + ')" style="font-size:9px;color:var(--tp-red);" title="Eliminar" aria-label="Eliminar tipo de gas">\u2715</button>';
         html += '</div>';
     });
     html += '</div>';
@@ -20016,6 +20497,78 @@ function _invRoundSparkline(data) {
         '</svg>';
 }
 
+// ══════════════════════════════════════════════════
+// v16.0: Ayuda — banners de pestaña y tooltips de campo
+// ══════════════════════════════════════════════════
+if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'inv-dashboard': { title: 'Inventario — resumen', text: 'Estado de cilindros y equipos: vencidos, niveles bajos y consumo proyectado contra las pruebas pendientes.', tips: [
+        'Los focos rojo/ámbar indican vencimientos o niveles críticos — atiéndelos primero.',
+        'La tarjeta ⛽ de consumo proyectado usa el modelo aprendido de Predicción.',
+        '"Ver Resumen del Lab" te lleva al panel cruzado con Test Plan y HOY.'
+    ]},
+    'inv-gases': { title: 'Cilindros', text: 'Alta y gestión de cilindros de gas de calibración: fórmula, concentración, presión inicial, lote y vencimiento.', tips: [
+        'Usa "+ Nuevo Cilindro" y llena Tipo de Gas, Zona/Posición y Vigencia como mínimo.',
+        'El código de zona (ej. A03) marca su ubicación física en el Mapa.',
+        'Exporta/Importa en JSON para respaldar o mover el catálogo entre dispositivos.'
+    ]},
+    'inv-equipment': { title: 'Equipos', text: 'Equipos del laboratorio y sus fechas de calibración — la plataforma avisa 30/7 días antes de vencer.', tips: [
+        'Captura "Próxima Cal." al dar de alta; el color de la tarjeta avisa cuando se acerca.',
+        'Al cambiar "Última Cal." se registra automáticamente en el historial de calibraciones.',
+        'La Trazabilidad y el No. de Certificado son evidencia para auditorías.'
+    ]},
+    'inv-readings': { title: 'Captura diaria', text: 'Captura una vez al día el PSI de cada cilindro en uso y el nivel de los tanques. De estas lecturas la plataforma APRENDE cuánto consume cada tipo de prueba — sin capturas no hay predicción.', tips: [
+        'Captura todos los cilindros "En uso" cada día, aunque el valor no haya cambiado.',
+        'Las lecturas manuales (no automáticas) son las que alimentan el modelo de consumo.',
+        'Revisa la sección ⛽ Combustible para registrar también el nivel de los tambos.'
+    ]},
+    'inv-predict': { title: 'Predicción', text: 'Consumo aprendido por tipo de prueba y proyección: ¿alcanza el gas/gasolina para el plan? Los números se actualizan con cada lectura y cada prueba.', tips: [
+        'La confianza (Alta/Media/Baja) depende de cuántas lecturas manuales hay acumuladas.',
+        'Si dice "Sin datos", ve a Captura Diaria y registra unos días de lecturas reales.',
+        'Las pruebas pendientes vienen del Plan; el pronóstico se recalcula automático.'
+    ]},
+    'inv-fuel': { title: 'Combustible', text: 'Tanques de gasolina por regulación. Cada prueba descuenta automáticamente los litros aprendidos del tanque correspondiente.', tips: [
+        'Cada tambo se asocia a una Regulación; el descuento automático usa esa relación.',
+        'Registra el nivel real de vez en cuando con el botón 📏 para corregir desviaciones.',
+        'El color de la barra indica nivel crítico (rojo) / bajo (ámbar) / normal (verde).'
+    ]},
+    'inv-zonemap': { title: 'Mapa', text: 'Ubicación física de cilindros por zona, con lectura rápida desde el plano.', tips: [
+        'Usa "✎ Editar Mapa" para acomodar el layout real de tu cuarto de gases.',
+        'Toca un cilindro en el plano para ver su detalle rápido.',
+        'El botón ↶ Deshacer revierte el último movimiento si te equivocas.'
+    ]},
+    'inv-charts': { title: 'Gráficas', text: 'Tendencia de consumo de PSI por cilindro y de nivel de combustible, para detectar fugas o consumo anormal.', tips: [
+        'Cambia entre PSI por Cilindro, Combustible y Comparar Gases con los botones superiores.',
+        'Una caída más rápida de lo normal puede indicar una fuga — revisa el cilindro físicamente.'
+    ]},
+    'inv-config': { title: 'Configuración', text: 'Define el layout de zonas del cuarto de gases y el catálogo de tipos de gas disponibles.', tips: [
+        'Cada zona necesita un ID único, nombre, número de slots y tipo.',
+        'Los Tipos de Gas definidos aquí alimentan el selector de "Nuevo Cilindro".'
+    ]},
+    'inv-report': { title: 'Reporte semanal', text: 'Genera un reporte de consumo de combustible y gases listo para copiar y compartir por correo.', tips: [
+        'Usa "Copiar HTML" y pégalo directo en tu cliente de correo.',
+        'Cubre la semana actual (lunes a viernes) automáticamente.'
+    ]},
+    'inv-trace': { title: 'Trazabilidad', text: 'Busca qué cilindro o lote de gas se usó en qué prueba/VIN — útil para auditorías de calidad.', tips: [
+        'Busca por Cilindro, No. de Lote o VIN según lo que tengas a la mano.',
+        'El resultado muestra todas las pruebas donde ese gas/lote fue usado.'
+    ]}
+});
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'inv-g-type': { title: 'Tipo de gas', text: 'Selecciona el gas de calibración del cilindro (ej. CO 2.5% Bal N2). Define qué concentraciones nominales estarán disponibles.' },
+    'inv-g-conc': { title: 'Concentración nominal', text: 'Concentración certificada del cilindro según su etiqueta/certificado (ej. 2.005%). Se llena según el Tipo de Gas elegido.' },
+    'inv-g-valid': { title: 'Vigencia', text: 'Fecha de vencimiento del certificado del cilindro. La plataforma avisa cuando se acerca o ya venció.' },
+    'inv-g-zone': { title: 'Zona + posición', text: 'Dónde vive físicamente el cilindro en el cuarto de gases (ej. A03). Las posiciones ocupadas no se pueden repetir.' },
+    'inv-eq-nextcal': { title: 'Próxima calibración', text: 'Fecha en la que el equipo debe recalibrarse. La plataforma avisa 30 y 7 días antes de vencer.' },
+    'inv-predict-model': { title: 'Modelo de predicción', text: 'Aprende de tus capturas diarias reales (no de lecturas automáticas). Entre más lecturas manuales captures, más confiable es la proyección de cuánto gas/combustible te queda.' },
+    'inv-gases-help': { title: 'Cilindros de gas', text: 'Catálogo de cilindros de calibración: alta, edición, vencimientos y nivel actual por cilindro.' },
+    'inv-equipment-help': { title: 'Equipos de laboratorio', text: 'Analizadores, dinamómetro, CVS y demás equipos con su fecha de calibración.' },
+    'inv-fuel-help': { title: 'Tanques de combustible', text: 'Tambos de gasolina/diesel de referencia por regulación; se descuentan automáticamente al liberar una prueba.' },
+    'inv-report-help': { title: 'Reporte semanal', text: 'Resumen de consumo de la semana en curso, listo para copiar y enviar por correo.' },
+    'inv-charts-help': { title: 'Gráficas de consumo', text: 'Tendencia histórica de PSI y nivel de combustible por cilindro/tanque.' },
+    'inv-zonemap-help': { title: 'Mapa del cuarto de gases', text: 'Plano físico de las zonas; edítalo para reflejar el acomodo real de los cilindros.' },
+    'inv-readings-fuel-help': { title: 'Captura de combustible', text: 'Registra el nivel actual de cada tambo de combustible. Estas lecturas alimentan el descuento automático por prueba.' }
+});
+
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Test Plan Manager Module                              ║
@@ -20736,6 +21289,9 @@ function tpRender() {
     var tab = tpState.activeTab;
     var renderer = _tpGetRenderer(tab);
     if (renderer) tabCacheSwitch('tp', tab, renderer);
+    // v16.0: banners/tooltips de ayuda — tabCacheSwitch puede diferir el render real a un RAF
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+    if (typeof helpInjectBannerDeferred === 'function') helpInjectBannerDeferred('tp', tab);
 }
 
 // ── Color helpers ──
@@ -21949,7 +22505,7 @@ function tpRenderRules(el) {
     el.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr;gap:14px;">
         <div class="tp-card">
-            <div class="tp-card-title">
+            <div class="tp-card-title" data-help="tp-ratio-help">
                 <span>⚙️ Reglas de Ratio</span>
                 <div style="display:flex;gap:6px;">
                     <button class="tp-btn tp-btn-primary" onclick="tpAddRule()">+ Nueva</button>
@@ -21977,7 +22533,7 @@ function tpRenderRules(el) {
         </div>
         <div>
             <div class="tp-card">
-                <div class="tp-card-title"><span>⚖️ Pesos de Priorización</span></div>
+                <div class="tp-card-title" data-help="tp-weights-help"><span>⚖️ Pesos de Priorización</span></div>
                 <p style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Peso relativo de cada factor. Deben sumar 100.</p>
                 ${[['volume','📦 Volumen de Producción'],['compliance','📊 Cumplimiento (déficit)'],['region','🌍 Importancia de Región'],['newConfig','🆕 Config Nueva'],['urgency','⏰ Urgencia (prod. próxima)']].map(([k,label]) => `
                     <div style="margin-bottom:10px;">
@@ -21993,7 +22549,7 @@ function tpRenderRules(el) {
                 </div>
             </div>
             <div class="tp-card" style="margin-top:14px;">
-                <div class="tp-card-title"><span>🌍 Prioridad por Región</span></div>
+                <div class="tp-card-title" data-help="tp-region-priority-help"><span>🌍 Prioridad por Región</span></div>
                 <p style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Importancia relativa de cada mercado (0-100). Europa más alto por SOP. Pesa según el factor "Importancia de Región" de arriba.</p>
                 ${regions.filter(r=>r!=='*').concat(['*']).map(r => `
                     <div style="margin-bottom:8px;">
@@ -22006,7 +22562,7 @@ function tpRenderRules(el) {
                 `).join('')}
             </div>
             <div class="tp-card" style="margin-top:14px;">
-                <div class="tp-card-title"><span>🎯 Propósito al iniciar prueba desde el plan</span></div>
+                <div class="tp-card-title" data-help="tp-purpose-region-help"><span>🎯 Propósito al iniciar prueba desde el plan</span></div>
                 <p style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Propósito precargado en Alta según la región de la config (regla corporativa: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo en Alta.</p>
                 ${[['EUROPE','🇪🇺 Europa'],['*','🌐 Resto de regiones']].map(([key,label]) => `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
@@ -22834,7 +23390,7 @@ function tpRenderRecovery(el) {
     html += '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-calendar\')" style="font-size:12px;">🗓️ Ver Calendario</button></div>';
 
     // Weekly availability
-    html += '<div class="tp-card"><div class="tp-card-title"><span>📆 Disponibilidad de la celda por semana</span><span style="font-size:10px;color:var(--tp-dim);font-weight:400;">' + R.weeks.length + ' semanas</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title" data-help="tp-availability-help"><span>📆 Disponibilidad de la celda por semana</span><span style="font-size:10px;color:var(--tp-dim);font-weight:400;">' + R.weeks.length + ' semanas</span></div>';
     var _endYear = new Date().getFullYear() + '-12-31';
     html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:10px;">';
     html += '<label style="color:var(--tp-dim);">📅 Planear hasta: <input type="date" value="' + (tpState.recoveryUntil || '') + '" onchange="tpSetRecoveryUntil(this.value)" style="background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;"></label>';
@@ -22860,7 +23416,7 @@ function tpRenderRecovery(el) {
     html += '</div>';
 
     // Priority rules
-    html += '<div class="tp-card"><div class="tp-card-title"><span>🎯 Reglas de Prioridad (editables)</span><span style="display:flex;align-items:center;gap:6px;"><label style="font-size:9px;color:var(--tp-dim);font-weight:400;">Niveles: <input type="number" min="1" max="10" value="' + tpMaxTiers() + '" onchange="tpSetMaxTiers(this.value)" style="width:42px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;"></label><button class="tp-btn tp-btn-ghost" onclick="tpResetPriorityRules()" style="font-size:9px;">Restaurar default</button></span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title" data-help="tp-priority-help"><span>🎯 Reglas de Prioridad (editables)</span><span style="display:flex;align-items:center;gap:6px;"><label style="font-size:9px;color:var(--tp-dim);font-weight:400;">Niveles: <input type="number" min="1" max="10" value="' + tpMaxTiers() + '" onchange="tpSetMaxTiers(this.value)" style="width:42px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;"></label><button class="tp-btn tp-btn-ghost" onclick="tpResetPriorityRules()" style="font-size:9px;">Restaurar default</button></span></div>';
     html += '<p style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Se evalúan de arriba a abajo; la primera coincidencia asigna la prioridad. Cada filtro es un menú que se va acotando con lo ya seleccionado (estilo Cascade); "Todas" = comodín. Puedes definir hasta 10 niveles (P1 = más alta).</p>';
     html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:10px;"><tr style="color:var(--tp-dim);text-align:left;"><th>P</th><th>Familia</th><th>Región</th><th>Regulación</th><th>Modelo</th><th>Cilindrada</th><th>Body</th><th>Manejo</th><th></th></tr>';
     (tpState.priorityRules || []).forEach(function(r) {
@@ -23512,7 +24068,7 @@ function tpRenderProduction(el) {
 
     el.innerHTML = `
     <div class="tp-card">
-        <div class="tp-card-title">
+        <div class="tp-card-title" data-help="tp-csvimport-help">
             <span>📥 Importar Plan de Producción (CSV)</span>
             ${tpState.planImportDate ? `<span style="font-size:10px;color:var(--tp-dim);">Última importación: ${new Date(tpState.planImportDate).toLocaleDateString('es-MX')}</span>` : ''}
         </div>
@@ -25213,6 +25769,106 @@ function tpRenderCoverageHeatmap() {
 
 
 
+// ══════════════════════════════════════════════════════════════════════
+// v16.0 — Banners de ayuda de las pestañas de Test Plan (HELP_TABS vive en
+// app.js, que carga primero, así que ya existe cuando se ejecuta esta línea).
+// ══════════════════════════════════════════════════════════════════════
+if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'tp-dashboard': {
+        title: 'Plan — resumen',
+        text: 'Cobertura del plan de producción: cuántas pruebas exige el año, cuántas van y el presupuesto anual. Rojo = configuraciones críticas sin probar.',
+        tips: [
+            'Si no ves datos, ve primero a 🏭 Producción para importar el CSV del plan.',
+            'La tarjeta "Presupuesto Anual" te dice si la capacidad del laboratorio alcanza para lo que falta del año.',
+            'Toca cualquier barra o segmento de las gráficas para filtrar la tabla de configuraciones.'
+        ]
+    },
+    'tp-weekly': {
+        title: 'Plan semanal',
+        text: 'Genera el plan de la semana: define capacidad y fecha, y usa ⚡ Generación Inteligente (valida inventario). Marca cada prueba al completarla.',
+        tips: [
+            'La Generación Inteligente reparte la capacidad priorizando lo más urgente y verifica que haya gas/gasolina suficiente antes de asignar.',
+            'Puedes generar un mes completo de una vez con 📅 Generar Mes.',
+            'Marca las pruebas como completadas conforme se liberan — así el sistema sabe qué falta.'
+        ]
+    },
+    'tp-recovery': {
+        title: 'Recuperación',
+        text: 'Clasifica TODO lo pendiente por prioridad (P1 Europa COP → P5 EV), reparte en las semanas disponibles y avisa qué no alcanza. Marca semanas no disponibles y define "planear hasta".',
+        tips: [
+            'Marca como "no disponible" las semanas con paro/mantenimiento para que el reparto no cuente con esa capacidad.',
+            'El indicador de riesgo de fecha límite (deadline) te avisa si algo urgente no va a alcanzar a tiempo con la capacidad actual.',
+            'Puedes materializar el resultado directamente en planes semanales reales desde aquí.'
+        ]
+    },
+    'tp-production': {
+        title: 'Producción',
+        text: 'Importa aquí el CSV del plan de producción (se FUSIONA con lo anterior, no lo borra). De estos volúmenes salen las pruebas requeridas.',
+        tips: [
+            'El import es acumulativo: puedes volver a importar un CSV actualizado sin perder los meses ya cargados.',
+            'Cada fila del CSV se agrupa en una "configuración" según Modelo, Motor, Transmisión, Regulación, etc.'
+        ]
+    },
+    'tp-tested': {
+        title: 'Probados',
+        text: 'Registro manual de pruebas ya realizadas que no pasaron por el flujo normal de la plataforma (por ejemplo, capturadas antes de usar el sistema).',
+        tips: ['Úsalo solo para poner al día el histórico — las pruebas nuevas deben registrarse desde Pruebas → Alta.']
+    },
+    'tp-families': {
+        title: 'Familias',
+        text: 'Agrupación por familia de emisiones: cobertura, evidencia de VINes (📋) y hace cuánto no se prueba cada familia (⏱).',
+        tips: [
+            'Una familia agrupa configuraciones con el mismo Modelo, Motor, Transmisión, Año y Regulación — se consideran equivalentes para efectos de prueba.',
+            'El botón 📋 muestra los VINes probados de esa familia, ordenados del más reciente al más antiguo.',
+            'El badge ⏱ se pone en rojo si la familia lleva más de 90 días sin probarse.'
+        ]
+    },
+    'tp-planactual': {
+        title: 'Plan actual',
+        text: 'Vista consolidada del plan vigente: qué se ha decidido probar y en qué orden.'
+    },
+    'tp-planhistory': {
+        title: 'Historial de planes',
+        text: 'Planes semanales anteriores, para consultar qué se planeó y qué tanto se cumplió en semanas pasadas.'
+    },
+    'tp-rules': {
+        title: 'Reglas',
+        text: 'Cuántas pruebas por cada 1000 unidades según región/regulación, pesos de priorización y el propósito precargado por región (COP solo Europa).',
+        tips: [
+            'Las reglas más específicas (región + regulación exacta) tienen prioridad sobre las genéricas (*).',
+            'Los pesos de priorización deben sumar 100 — el sistema te avisa si no cuadran.',
+            'El propósito por región define qué se precarga en Alta al iniciar una prueba desde el plan (editable aquí).'
+        ]
+    },
+    'tp-simulator': {
+        title: 'Simulador',
+        text: '"¿Qué pasa si corro N pruebas/semana?" — proyecta cuándo llegas a 100% de cobertura con distintas capacidades. Útil para pedir recursos.',
+        tips: ['Compara varios escenarios de capacidad (4, 8, 12, 20 pruebas/semana) para justificar una solicitud de más turnos o dinamómetros.']
+    },
+    'tp-calendar': {
+        title: 'Calendario',
+        text: 'Las pruebas planificadas y ejecutadas por día del mes, en un vistazo mensual.'
+    },
+    'tp-weekhistory': {
+        title: 'Historial semanal',
+        text: 'Bitácora de los planes semanales generados y aceptados, semana por semana.'
+    }
+});
+
+// v16.0 — Tooltips de campo/control para Test Plan (registro global CASCADE_TOOLTIPS,
+// definido en cop15.js que carga antes que este archivo).
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'tp-weekly-date': { title: 'Semana del', text: 'Lunes de la semana para la que vas a generar el plan. Por default toma el próximo lunes.' },
+    'tp-weekly-cap': { title: 'Capacidad', text: 'Cuántas pruebas puede correr el laboratorio esta semana (default 8). El generador no planeará más que esto — ajústalo si hay festivos o mantenimiento.' },
+    'tp-ratio-help': { title: 'Reglas de Ratio', text: 'Define cuántas pruebas exige cada configuración por cada 1000 unidades producidas, según región y regulación. Las reglas más específicas (región+regulación exacta) ganan sobre las genéricas ("Todas"). Esto es lo que alimenta el déficit y el plan.' },
+    'tp-weights-help': { title: 'Pesos de Priorización', text: 'Qué tanto pesa cada factor (volumen, cumplimiento, región, config nueva, urgencia) al decidir qué probar primero. Deben sumar 100 — el sistema te avisa si no cuadran.' },
+    'tp-region-priority-help': { title: 'Prioridad por Región', text: 'Qué tan importante es cada mercado (0-100) al calcular la urgencia de una configuración. Europa suele ir más alto por fechas de arranque de producción (SOP).' },
+    'tp-purpose-region-help': { title: 'Propósito por región', text: 'Qué propósito se precarga automáticamente en Alta cuando inicias una prueba desde el plan, según la región de la configuración (regla: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo manualmente en Alta.' },
+    'tp-csvimport-help': { title: 'Importar Plan de Producción', text: 'El CSV se FUSIONA con lo que ya tenías cargado — no borra meses anteriores, solo agrega o actualiza los que vengan en el archivo nuevo. Columnas esperadas: codigo_config, Modelo, Motor, Regulación, Región, etc. y una columna por mes (ej. Feb-26).' },
+    'tp-availability-help': { title: 'Disponibilidad por semana', text: 'Marca "No disponible" las semanas de mantenimiento/paro del dinamómetro (no cuentan capacidad). "Cap" = número de pruebas que caben esa semana; "días" = cuántos días de la semana asistes. La capacidad real es pruebas/semana, no pruebas/día — puedes correr más de una por día.' },
+    'tp-priority-help': { title: 'Reglas de Prioridad', text: 'Se evalúan de arriba a abajo — la PRIMERA regla que coincide asigna la prioridad (P1 = más urgente). Cada columna es un filtro que se va acotando en cascada; "Todas" es comodín. "Niveles" define cuántas prioridades (P1..P10) existen.' }
+});
+
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║  KIA EmLab — Panel Module (Dashboard, Users, Shift Log, Alerts)    ║
@@ -25318,6 +25974,12 @@ function pnSwitchTab(tabId) {
         b.classList.toggle('active', b.getAttribute('onclick').indexOf(tabId) !== -1);
     });
     pnRender();
+    // v16.0: banner de ayuda de pestañas Alpine — su contenido vive en un x-show estático
+    // que NO pasa por tabCacheSwitch/pnRender, así que se pinta en un slot propio aquí.
+    if (_pnAlpineTabs[tabId] && typeof helpBannerHTML === 'function') {
+        var slot = document.getElementById('help-banner-slot-' + tabId);
+        if (slot) slot.innerHTML = helpBannerHTML(tabId);
+    }
     // Notify Alpine components of tab switch
     window.dispatchEvent(new CustomEvent('pn:tab-switch', { detail: { tab: tabId } }));
 }
@@ -25349,7 +26011,7 @@ function _pnAlpineTabRenderer(el) {
 /** Fallback renderer for Audit Trail tab (when Alpine is unavailable) */
 function pnRenderAuditTrail(el) {
     var trail = (typeof auditGetTrail === 'function') ? auditGetTrail().reverse() : [];
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>🔍 Auditoría (' + trail.length + ' registros)</span>' +
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-audit-help"><span>🔍 Auditoría (' + trail.length + ' registros)</span>' +
         '<button onclick="if(typeof auditExportCSV===\'function\')auditExportCSV()" class="tp-btn tp-btn-ghost" style="font-size:10px;">📤 Exportar CSV</button></div>';
     if (trail.length === 0) {
         html += '<div style="text-align:center;padding:20px;color:#475569;">Sin registros de auditoría.</div>';
@@ -25375,6 +26037,11 @@ function pnRender() {
     if (renderer) tabCacheSwitch('pn', tab, renderer);
     // Notify Alpine to refresh reactive data
     window.dispatchEvent(new CustomEvent('pn:refresh'));
+    // v16.0: banners/tooltips de ayuda — tabCacheSwitch puede diferir el render real a un RAF.
+    // Las pestañas Alpine (_pnAlpineTabs) usan su propio slot estático (ver pnSwitchTab) —
+    // su "-cached" queda vacío (_pnAlpineTabRenderer), así que se excluyen aquí para no duplicar.
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+    if (!_pnAlpineTabs[tab] && typeof helpInjectBannerDeferred === 'function') helpInjectBannerDeferred('pn', tab);
 }
 
 function pnUpdateBadges() {
@@ -25404,7 +26071,7 @@ function pnRenderReports(el) {
         { icon: '🔍', title: 'Auditoría', desc: 'Traza de acciones de usuarios.', actions: [{ label: 'CSV', fn: 'auditExportCSV' }] },
         { icon: '📄', title: 'Estado semanal', desc: 'Reporte ejecutivo cross-módulo en PDF.', actions: [{ label: 'PDF', fn: 'generateWeeklyStatusPDF' }] }
     ];
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>📤 Centro de Reportes</span></div>'
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-reports-help"><span>📤 Centro de Reportes</span></div>'
         + '<div style="font-size:11px;color:var(--tp-dim);margin-bottom:6px;">Un solo lugar para exportar. Cada reporte usa los datos actuales del sistema.</div>';
     reports.forEach(function(r) {
         html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;">';
@@ -25767,7 +26434,7 @@ function pnRenderUsers(el) {
 
     // Add operator form
     html += '<div class="tp-card" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.05),transparent);">';
-    html += '<div class="tp-card-title"><span>👥 Agregar Operador</span></div>';
+    html += '<div class="tp-card-title" data-help="pn-users-help"><span>👥 Agregar Operador</span></div>';
     html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">';
     html += '<div style="flex:1;min-width:150px;"><label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Nombre completo</label>';
     html += '<input type="text" id="pn-new-op-name" placeholder="Nombre Apellido" class="tp-input" style="width:100%;"></div>';
@@ -26037,7 +26704,7 @@ function pnRenderShiftLog(el) {
 
     // New entry form
     html += '<div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">';
-    html += '<div class="tp-card-title"><span>📝 Nueva Entrada de Bitácora</span></div>';
+    html += '<div class="tp-card-title" data-help="pn-shift-help"><span>📝 Nueva Entrada de Bitácora</span></div>';
 
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">';
     html += '<div><label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Operador</label>';
@@ -26295,7 +26962,7 @@ function pnRenderAlerts(el) {
     var high = alerts.filter(function(a) { return a.level === 'ALTA'; }).length;
     var medium = alerts.filter(function(a) { return a.level === 'MEDIA'; }).length;
 
-    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">';
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;" data-help="pn-alerts-help">';
     html += '<div class="tp-card" style="text-align:center;padding:14px;' + (critical > 0 ? 'border:2px solid #ef4444;' : '') + '">';
     html += '<div style="font-size:28px;font-weight:800;color:#ef4444;">' + critical + '</div>';
     html += '<div style="font-size:9px;color:var(--tp-dim);">Criticas</div></div>';
@@ -27663,7 +28330,7 @@ function pnRenderExecutive(el) {
     html += '</div>';
 
     // Compliance Scorecard
-    html += '<div class="tp-card"><div class="tp-card-title"><span>Compliance Scorecard</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title" data-help="pn-executive-help"><span>Compliance Scorecard</span></div>';
     html += '<div class="v7-exec-compliance">';
     html += '<div class="v7-exec-metric"><span>Cobertura Plan de Pruebas</span>';
     html += '<div class="v7-exec-bar"><div class="v7-exec-bar-fill" style="width:' + tpCoverage + '%;background:' + (tpCoverage >= 80 ? 'var(--success)' : tpCoverage >= 50 ? 'var(--warning)' : 'var(--danger)') + ';"></div></div>';
@@ -27797,7 +28464,7 @@ function pnRenderTurnaround(el) {
     }
 
     var html = '';
-    html += '<div class="tp-card"><div class="tp-card-title"><span>Tiempo Promedio por Etapa</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title" data-help="pn-turnaround-help"><span>Tiempo Promedio por Etapa</span></div>';
     html += '<div style="font-size:var(--font-xs);color:var(--muted);margin-bottom:12px;">Basado en ultimos ' + Math.min(100, archived.length) + ' vehiculos archivados</div>';
 
     var stages = [
@@ -28002,6 +28669,68 @@ function pnRegAddGasRow() {
         '<td style="padding:2px;"><button onclick="this.closest(\'tr\').remove()" class="tp-btn" style="padding:2px 6px;font-size:10px;color:#ef4444;">✕</button></td>';
     tbody.appendChild(tr);
 }
+
+// ══════════════════════════════════════════════════
+// v16.0: Ayuda — banners de pestaña y tooltips de campo
+// ══════════════════════════════════════════════════
+if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'pn-dashboard': { title: 'Datos — resumen', text: 'El resumen cruzado del laboratorio (mismo que ve HOY): estado de vehículos, plan semanal, inventario y alertas en un vistazo.', tips: [
+        'Es el mismo contenido que el tablero de HOY, aquí en formato de tarjetas del Panel.',
+        'Las anomalías de gas y el estado de Firebase Sync se muestran solo si aplican.'
+    ]},
+    'pn-reports': { title: 'Reportes', text: 'Centro de exportación: cada botón genera un CSV/PDF distinto (gap de cobertura, pronóstico de gas, bitácora, alertas, auditoría). Lee la descripción de cada fila para saber qué incluye.', tips: [
+        'Cada tarjeta ya explica qué exporta antes de que pulses el botón.',
+        'Los reportes usan siempre los datos actuales — no hay que "generar" nada antes.',
+        'El "Estado semanal" en PDF es el más completo para compartir con jefatura.'
+    ]},
+    'pn-executive': { title: 'Ejecutivo', text: 'Scorecard de cumplimiento y proyección de recursos — vista para reportar hacia arriba.', tips: [
+        'El Compliance Scorecard resume % de cobertura contra el plan de producción.',
+        'Métricas por Operador te dice quién ha registrado/liberado más pruebas.'
+    ]},
+    'pn-turnaround': { title: 'Turnaround', text: 'Cuánto tarda un vehículo en cada etapa del proceso y el throughput diario del laboratorio.', tips: [
+        'Tiempos altos en una etapa señalan dónde se está atorando el flujo.',
+        'El throughput de 14 días ayuda a detectar tendencias de productividad.'
+    ]},
+    'pn-users': { title: 'Operadores', text: 'Alta y gestión de operadores del laboratorio: nombre, rol y estadísticas de pruebas por persona.', tips: [
+        'Agrega operadores antes de que aparezcan en el picker 👤 del topbar.',
+        'Las estadísticas (registrados/liberados/activos) se calculan automáticamente.'
+    ]},
+    'pn-shift': { title: 'Bitácora de turno', text: 'Registro de actividades, incidencias y observaciones del turno. Úsala para dejar constancia de lo que pasó en tu turno.', tips: [
+        'Usa "🔄 Cerrar Turno" al final del día para generar el reporte de entrega.',
+        'Cada entrada queda con operador, categoría y hora — es evidencia auditable.'
+    ]},
+    'pn-alerts': { title: 'Alertas', text: 'Todas las alertas activas de todos los módulos, ordenadas por severidad, incluidas las de consumo y las alarmas SPC.', tips: [
+        '"✅ Sin Alertas" significa que el laboratorio opera con normalidad.',
+        'Las alertas se agrupan por origen (COP15, Inventario, Test Plan, CoP SPC).'
+    ]},
+    'pn-intelligence': { title: 'Inteligencia', text: 'Correlaciones automáticas entre módulos (consumo vs volumen de pruebas) para detectar patrones que no se ven a simple vista.', tips: [
+        'Es informativo: no requiere captura, solo lectura de tendencias cruzadas.'
+    ]},
+    'pn-system': { title: 'Sistema', text: 'Salud técnica de la plataforma: versión instalada, uso de almacenamiento local y estado de sincronización.', tips: [
+        'Si el almacenamiento local se acerca al límite (~5MB), aquí lo verás primero.',
+        'Sirve para diagnosticar por qué un dispositivo no sincroniza.'
+    ]},
+    'pn-calendar': { title: 'Calendario', text: 'Las pruebas planificadas/ejecutadas por día del mes, para tener visión rápida de la carga de trabajo.', tips: [
+        'Usa ← Hoy → para navegar entre meses.'
+    ]},
+    'pn-audit': { title: 'Auditoría', text: 'El control de cambios de TODA la plataforma: quién hizo qué y cuándo. Exportable a CSV.', tips: [
+        'Cada acción importante (guardar, liberar, editar retroactivo) queda registrada aquí.',
+        'Usa los filtros para buscar por módulo, operador o tipo de acción.'
+    ]},
+    'pn-regulations': { title: 'Regulaciones', text: 'Catálogo de regulaciones de emisiones y sus gases/límites — la fuente que usan CoP y Liberación para validar resultados.', tips: [
+        'Agrega una fila de gas por cada contaminante que la regulación limita.',
+        'Estos límites son los que se comparan contra los resultados capturados en Liberación.'
+    ]}
+});
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'pn-reports-help': { title: 'Centro de Reportes', text: 'Un solo lugar para exportar todos los reportes del laboratorio; cada botón usa los datos actuales del sistema.' },
+    'pn-executive-help': { title: 'Compliance Scorecard', text: 'Porcentaje de cumplimiento del plan de producción, con proyección de recursos necesarios para cerrar la brecha.' },
+    'pn-turnaround-help': { title: 'Tiempo por etapa', text: 'Promedio de días/horas que un vehículo pasa en cada etapa del proceso (recepción, preacondicionamiento, prueba, liberación).' },
+    'pn-users-help': { title: 'Alta de operador', text: 'Registra el nombre y rol de un técnico del laboratorio para que pueda ser elegido en el picker de operador.' },
+    'pn-shift-help': { title: 'Bitácora', text: 'Registra aquí eventos de tu turno: inicio, incidencias, mantenimiento, calibraciones y observaciones.' },
+    'pn-alerts-help': { title: 'Resumen de alertas', text: 'Conteo de alertas Críticas / Altas / Medias activas ahora mismo en todo el laboratorio.' },
+    'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' }
+});
 
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -28569,7 +29298,7 @@ function sigCaptureOpen(opts) {
         '<div class="sig-capture-box">' +
             '<div class="sig-capture-header">' +
                 '<div class="sig-capture-title">' + (opts.title || 'Firma Digital') + '</div>' +
-                '<button type="button" class="sig-capture-close" onclick="sigCaptureCancel()">&times;</button>' +
+                '<button type="button" class="sig-capture-close" onclick="sigCaptureCancel()" aria-label="Cancelar firma">&times;</button>' +
             '</div>' +
             '<div class="sig-capture-field">' +
                 '<label>Nombre completo:</label>' +
@@ -31281,7 +32010,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607091852' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607100202' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -32243,6 +32972,8 @@ function copRender() {
     if (!container) return;
     container.innerHTML = copBuildHTML();
     if (copState.view === 'spc') copSpcRenderCharts();
+    // v16.0: banners/tooltips de ayuda (render síncrono — sin caché de pestañas de por medio)
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function copSetView(v) {
@@ -32352,7 +33083,7 @@ function copBuildStatsHTML() {
 
         html += '<div class="card" style="margin-bottom:16px;border-color:' + _copDecBorderColor(overallDecision) +
                 ';background:' + _copDecBgColor(overallDecision) + ';display:flex;align-items:center;gap:16px;flex-wrap:wrap;">';
-        html += '<p class="label-title" style="margin:0;white-space:nowrap;">CONCORDANCIA DE FAMILIA</p>';
+        html += '<p class="label-title" data-help="cop-verdict-help" style="margin:0;white-space:nowrap;">CONCORDANCIA DE FAMILIA</p>';
         html += '<span class="' + _copDecClass(overallDecision) +
                 '" style="padding:8px 20px;border-radius:var(--radius-md);font-size:15px;font-weight:800;letter-spacing:0.04em;">' +
                 decLabel + '</span>';
@@ -32400,7 +33131,7 @@ function copBuildValidatorHTML() {
 
     // ── Cabecera + Configuración ──────────────────────────────────────────────
     html += '<div class="card" style="margin-bottom:16px;">';
-    html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">📋 CoP Emissions Validator</div>';
+    html += '<div class="card-title" data-help="cop-validator-help" style="border-bottom-color:var(--accent-cop);">📋 CoP Emissions Validator</div>';
     html += '<p class="label-title" style="margin-bottom:18px;">' +
             'Conformidad de Producción · Tipo 1 · Appendix 2 · Muestreo secuencial σ desconocida · Euro 6 · ' +
             copState.regulation + ' (' + (copState.regulation === 'R154' ? 'WLTP' : 'NEDC') + ')</p>';
@@ -32452,7 +33183,7 @@ function copBuildValidatorHTML() {
 
     // ── Selección de familia (filtrable por región) ───────────────────────────
     html += '<div class="card" style="margin-bottom:16px;">';
-    html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">👪 Familia a evaluar</div>';
+    html += '<div class="card-title" data-help="cop-family-help" style="border-bottom-color:var(--accent-cop);">👪 Familia a evaluar</div>';
     html += '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">';
     var _copRegs = copRegions();
     html += '<div><p class="label-title" style="margin-bottom:6px;">Región</p>';
@@ -32468,7 +33199,8 @@ function copBuildValidatorHTML() {
     html += '</select></div>';
     html += '</div>';
     if (!copPlanData().length) {
-        html += '<p class="label-title" style="margin-top:10px;color:var(--warning);">Importa el plan de producción (Plan → Producción) para listar familias.</p>';
+        html += '<p class="label-title" style="margin-top:10px;color:var(--warning);">Importa el plan de producción para listar familias. ' +
+                '<button onclick="switchPlatform(\'testplan\');if(typeof tpSwitchTab===\'function\')tpSwitchTab(\'tp-production\');" class="btn btn-sm btn-ghost" style="font-size:10px;margin-left:6px;">📥 Ir a Producción →</button></p>';
     } else if (copState.familyLabel) {
         html += '<p class="label-title" style="margin-top:10px;color:var(--accent-cop);">Evaluando: ' + _copEsc(copState.familyLabel) + '</p>';
     }
@@ -32772,7 +33504,7 @@ function copBuildSpcHTML() {
     // Panel de alarmas (retráctil)
     var alarms = copSpcScanAlarms();
     html += '<details class="card" style="margin-bottom:16px;" ' + (alarms.length ? 'open' : '') + '>';
-    html += '<summary style="cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:var(--weight-bold);color:var(--text);">' +
+    html += '<summary data-help="cop-spc-alarms-help" style="cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:var(--weight-bold);color:var(--text);">' +
             '🚨 Alarmas de control de proceso ' +
             '<span class="badge ' + (alarms.length ? 'badge-danger' : 'badge-success') + '" style="padding:3px 10px;border-radius:var(--radius-sm);font-size:11px;">' +
             (alarms.length ? alarms.length + ' alarma(s)' : 'sin alarmas') + '</span></summary>';
@@ -32782,6 +33514,7 @@ function copBuildSpcHTML() {
     } else {
         alarms.forEach(function(a) {
             html += '<div onclick="copSpcGotoAlarm(\'' + _copEsc(a.famKey).replace(/'/g, '&#39;') + '\',\'' + _copEsc(a.gas) + '\')" ' +
+                    'role="button" tabindex="0" aria-label="Ver carta de ' + _copEsc(a.gasLabel) + ' de ' + _copEsc(a.famLabel) + '" ' +
                     'style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin-bottom:6px;cursor:pointer;' +
                     'border:1px solid rgba(239,68,68,0.35);border-radius:var(--radius-sm);background:rgba(239,68,68,0.05);">';
             html += '<span class="badge badge-danger" style="padding:2px 8px;border-radius:var(--radius-sm);font-size:10px;font-weight:800;">' + a.rule + '</span>';
@@ -32796,10 +33529,11 @@ function copBuildSpcHTML() {
 
     // Selección familia + gas + toggles
     html += '<div class="card" style="margin-bottom:16px;">';
-    html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">📈 Carta de control I-MR por familia × gas</div>';
+    html += '<div class="card-title" data-help="cop-spc-help" style="border-bottom-color:var(--accent-cop);">📈 Carta de control I-MR por familia × gas</div>';
     if (!sel.fams.length) {
         html += '<p class="label-title" style="margin:0;color:var(--warning);">Aún no hay vehículos liberados con gases capturados. ' +
-                'Conforme se aprueben liberaciones con valores por gas, las familias aparecerán aquí.</p>';
+                'Conforme se aprueben liberaciones con valores por gas, las familias aparecerán aquí. ' +
+                '<button onclick="switchPlatform(\'cop15\');setTimeout(function(){var t=document.querySelector(\'.tab[data-tab=liberacion]\');if(t)t.click();},150);" class="btn btn-sm btn-ghost" style="font-size:10px;margin-left:6px;">🔬 Ir a Liberación →</button></p>';
         html += '</div>';
         return html;
     }
@@ -33012,6 +33746,29 @@ function copSpcRenderCharts() {
         });
     }
 }
+
+// ══════════════════════════════════════════════════
+// v16.0: Ayuda — banners de pestaña y tooltips de campo
+// ══════════════════════════════════════════════════
+if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'cop-validator': { title: 'Validador CoP', text: 'Valida la conformidad de producción de una familia: elige región y familia, la tabla se llena con los VINes ya probados, y el veredicto CONCORDANTE se calcula en vivo (muestreo secuencial, mínimo 3 VINes).', tips: [
+        'Los VINes en azul se autollenaron desde vehículos ya probados; captura/edita los gases que falten.',
+        'Necesitas al menos 3 VINes con valor por contaminante para obtener un veredicto.',
+        'Guarda el juicio con 💾 para dejar constancia auditable de la evaluación.'
+    ]},
+    'cop-spc': { title: 'Control SPC', text: 'Carta de control I-MR por familia y gas: detecta corrimientos y tendencias (reglas de Nelson) ANTES de fallar un límite. Cpk = margen del proceso contra el límite.', tips: [
+        'Las alarmas se disparan con datos de ≥4 ensayos por familia/gas.',
+        'Un punto rojo = fuera de ±3σ (R1); ámbar = corrimiento o tendencia (R2/R3).',
+        'Cpk ≥ 1.33 es un proceso capaz; < 1.0 significa que los resultados están muy cerca del límite.'
+    ]}
+});
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'cop-validator-help': { title: 'Validador CoP Tipo 1', text: 'Evalúa si una familia de vehículos es CONCORDANTE con el límite regulatorio, usando muestreo secuencial (Appendix 2 / R83-R154). No requiere un número fijo de VINes: sigue agregando hasta que el estadístico U cruce A(n) o B(n).' },
+    'cop-family-help': { title: 'Familia a evaluar', text: 'Elige primero la región (opcional, filtra la lista) y luego la familia de emisiones. Las familias vienen del plan de producción importado en Plan → Producción.' },
+    'cop-verdict-help': { title: 'Concordancia de familia', text: 'PASS = la familia es CONCORDANTE con el límite (puedes dejar de ensayar); FAIL = NO CONCORDANTE (algún contaminante superó B(n)); CONTINUAR = aún faltan datos para decidir, agrega más VINes.' },
+    'cop-spc-alarms-help': { title: 'Alarmas de control', text: 'Lista las combinaciones familia×gas que dispararon una regla de Nelson (R1/R2/R3) con los datos más recientes. Toca una alarma para ir directo a su carta.' },
+    'cop-spc-help': { title: 'Selección de carta', text: 'Elige la familia y el gas para ver su carta de control I-MR. Los toggles cambian qué líneas de referencia se muestran (zonas σ, límite regulatorio, % del límite).' }
+});
 
 </script>
 

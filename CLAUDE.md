@@ -211,6 +211,48 @@ Mejoras adaptadas del tablero VETS de un laboratorio hermano (comparativa comple
   `invForecastGasNeeds()` (cacheado) alimenta HOY, la tarjeta ⛽ del dashboard de inventario y
   la fuente 'Consumo' de `pnGetActiveAlerts`.
 
+## v16.0 — Plataforma autoguiada (ayuda total + accesibilidad)
+
+Inflexión de accesibilidad: cualquier persona nueva debe entender cada pantalla y campo sin que
+alguien le explique. Cuatro piezas, todas en archivos existentes (sin JS nuevo):
+
+- **`CASCADE_TOOLTIPS`** (registro global, definido en cop15.js) ahora cubre los 7 módulos.
+  Cada archivo (testplan.js/inventory.js/panel.js/cop_validator.js) agrega sus claves con
+  `Object.assign(CASCADE_TOOLTIPS, {...})` al final del archivo (cargan después de cop15.js).
+  `app.js` (HOY) carga ANTES de cop15.js, así que sus claves se registran en tiempo de
+  ejecución vía `_dashRegisterHelp()` (guard idempotente) dentro de `dailyDashRender`, no al
+  parsear. `cascadeInjectTooltips()` tiene dos modos: (1) el original, busca `label[for=id]` o
+  el `<label>` del `.form-group`/contenedor padre de un campo; (2) nuevo, escanea
+  `[data-help="clave"]` para títulos de tarjeta/encabezados sin campo asociado. Idempotente
+  (borra todos los `.cascade-help-btn` antes de re-inyectar) — se llama al final de cada
+  render/switch de pestaña (`tpSwitchTab`, `invSwitchTab`, `pnSwitchTab`, `copRender`,
+  `dailyDashRender`, `loadVehicle`, `loadRelease`, y en modales que se inyectan vía innerHTML
+  directo como `invShowAddGas`/`invAddEquipment`/`dashTaskModalOpen`).
+- **Banners por pestaña** (`HELP_TABS` en app.js + `helpBannerHTML(tabId)`/`helpDismiss(tabId)`):
+  franja descartable con "Ver más" (modal `helpShowTab`) y "Entendido ✓"; dismissal persiste
+  por dispositivo en `localStorage['kia_help_dismissed']`. Tres mecanismos de inyección según
+  la arquitectura de render de cada módulo: tabs cacheadas por `tabCacheSwitch` (tp-*/inv-*/pn-*
+  no-Alpine) usan `helpInjectBannerDeferred(moduleId, tab)` (doble `requestAnimationFrame`,
+  porque `tabCacheSwitch` puede diferir el render real); los 6 tabs Alpine del Panel
+  (`_pnAlpineTabs`) usan un slot estático `#help-banner-slot-<tabId>` poblado desde
+  `pnSwitchTab`; COP15 (tabs por classList, no cacheadas) usa slots estáticos
+  `#help-banner-slot-cop15-<tab>` poblados en el handler de click de `.tab`. HOY antepone el
+  banner directo al string HTML en `dailyDashRender`.
+- **Tours por módulo** (`TOURS` en app.js, reemplaza el `_tourSteps` único): `TOURS.global` (el
+  tour original de 5 pasos) + `TOURS.today/testplan/inventory/panel/cop/cop15`. `startTour(moduleKey)`
+  fija `_tourModule` y persiste por módulo en `kia_tour_done_<module>` (`kia_tour_done` se
+  mantiene como alias de `global`). Si el `target` de un paso no existe en el DOM, `_renderTourStep`
+  lo salta automáticamente (no rompe). Disparo de primera visita por módulo:
+  `_tourMaybeAutoStart(sectionId)` desde `switchPlatform`, solo desktop (`innerWidth>=768`),
+  con `setTimeout` 800ms. El botón **?** del topbar abre `helpMenuOpen()` (tour de este módulo /
+  tour general / glosario) en vez de lanzar el tour directo.
+- **Glosario** (`HELP_GLOSSARY` + `helpShowGlossary()`/`helpFilterGlossary(q)` en app.js): ~22
+  términos del laboratorio, modal con buscador simple.
+
+**Regla para nuevo código:** toda pestaña nueva agrega una entrada a `HELP_TABS`; todo campo de
+captura no trivial agrega una entrada a `CASCADE_TOOLTIPS` (con `data-help="clave"` en su
+título/label si no tiene `<label for>` propio). Ver ejemplos ya escritos en cada módulo.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

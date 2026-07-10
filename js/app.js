@@ -1789,6 +1789,9 @@ function switchPlatform(platform, swipeDir) {
     // Update vehicle checklist visibility
     if (typeof vclUpdate === 'function') vclUpdate();
 
+    // v16.0: primera visita a este módulo → recorrido guiado corto (solo desktop)
+    if (typeof _tourMaybeAutoStart === 'function') _tourMaybeAutoStart(sectionId);
+
     // Instant: el smooth-scroll competía con la animación de entrada y se
     // percibía como un salto; el smooth queda para navegación intra-vista
     window.scrollTo(0, 0);
@@ -1895,6 +1898,9 @@ function dailyDashRender() {
 
     var html = '';
 
+    // v16.0: banner de ayuda de esta pestaña
+    if (typeof helpBannerHTML === 'function') html += helpBannerHTML('today');
+
     // ── Header ──
     html += '<div class="daily-dash-header">';
     html += '<div class="daily-dash-greeting">' + greeting + '</div>';
@@ -1965,6 +1971,33 @@ function dailyDashRender() {
     // [v15-P1] Render cross-module overview from the single source
     var _hov = document.getElementById('hoy-lab-overview');
     if (_hov && typeof renderLabOverview === 'function') renderLabOverview(_hov, { sections: ['kpi', 'pipeline'] });
+
+    // v16.0: banners/tooltips de ayuda (render síncrono — sin caché de pestañas de por medio)
+    _dashRegisterHelp();
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
+}
+
+// v16.0: CASCADE_TOOLTIPS se define en cop15.js, que carga DESPUÉS de app.js — hay que
+// registrar las claves de HOY en tiempo de ejecución (no al parsear), una sola vez.
+var _dashHelpRegistered = false;
+function _dashRegisterHelp() {
+    if (_dashHelpRegistered) return;
+    if (typeof CASCADE_TOOLTIPS === 'undefined') return;
+    _dashHelpRegistered = true;
+    Object.assign(CASCADE_TOOLTIPS, {
+        'dash-board-help': { title: 'Tablero de hoy', text: 'Todo lo pendiente del día agrupado por tipo: vehículos, pruebas del plan, inventario y tareas manuales. Toca cualquier fila para ir directo a resolverla.' },
+        'dash-task-title': { title: 'Título de la actividad', text: 'Describe la tarea en pocas palabras, como la escribirías en un pizarrón. Ejemplo: Pedir gas de calibración CO/N2.' },
+        'dash-task-cat': { title: 'Categoría', text: 'En qué grupo del tablero aparecerá esta tarea. Usa "Manuales" si no encaja en las categorías automáticas.' },
+        'dash-task-assignee': { title: 'Responsable', text: 'A quién se le asigna la tarea. Déjalo vacío si es para cualquiera del turno.' },
+        'dash-task-due': { title: 'Fecha límite', text: 'Cuándo debe estar lista la tarea. Se usa para marcarla urgente cuando se acerca la fecha.' }
+    });
+    if (typeof HELP_TABS !== 'undefined') {
+        HELP_TABS['today'] = { title: 'Tu día en un vistazo', text: 'Todo lo pendiente de hoy en un solo tablero: vehículos con su etapa, pruebas del plan, inventario y tareas. Toca cualquier fila para ir directo a resolverla.', tips: [
+            'El stepper N/8 muestra en qué paso del proceso va cada vehículo activo.',
+            'El chip 📅 de fecha es la liberación esperada — tócalo para fijarla manualmente.',
+            'Usa "➕ Actividad" para anotar pendientes que no vienen de otro módulo.'
+        ]};
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2134,7 +2167,7 @@ function dashCollectActivities() {
                 urgency: late ? 3 : t.done ? 0 : 1,
                 assignee: t.assignee || '',
                 checkbox: { js: "pnTaskToggle('" + t.id + "')", checked: !!t.done },
-                action: { label: '🗑', js: "pnTaskDelete('" + t.id + "')", ghost: true } });
+                action: { label: '🗑', aria: 'Eliminar actividad: ' + t.title, js: "pnTaskDelete('" + t.id + "')", ghost: true } });
         });
     }
 
@@ -2144,7 +2177,7 @@ function dashCollectActivities() {
 function dashRenderRow(a) {
     var h = '<div class="dash-row dash-row--' + a.status + '">';
     if (a.checkbox) {
-        h += '<input type="checkbox" class="dash-row-check" ' + (a.checkbox.checked ? 'checked' : '') + ' onchange="' + a.checkbox.js + '">';
+        h += '<input type="checkbox" class="dash-row-check" aria-label="Marcar completada: ' + escapeHtml(a.title) + '" ' + (a.checkbox.checked ? 'checked' : '') + ' onchange="' + a.checkbox.js + '">';
     } else {
         h += '<span class="dash-row-icon">' + a.icon + '</span>';
     }
@@ -2169,12 +2202,13 @@ function dashRenderRow(a) {
     h += '<div class="dash-row-side">';
     if (a.eta) {
         var etaD = new Date(a.eta.date + 'T12:00:00');
-        h += '<span class="dash-eta dash-eta--' + a.eta.tone + '" onclick="dashEtaEdit(' + a.vehicleId + ', this, event)" ' +
-             'title="Liberación esperada (' + (a.eta.source === 'manual' ? 'fijada manualmente' : 'estimada') + ') — toca para fijar/cambiar">' +
+        h += '<span class="dash-eta dash-eta--' + a.eta.tone + '" role="button" tabindex="0" onclick="dashEtaEdit(' + a.vehicleId + ', this, event)" ' +
+             'title="Liberación esperada (' + (a.eta.source === 'manual' ? 'fijada manualmente' : 'estimada') + ') — toca para fijar/cambiar" ' +
+             'aria-label="Liberación esperada ' + (a.eta.source === 'manual' ? 'fijada manualmente' : 'estimada') + ', toca para cambiar">' +
              '📅 ' + etaD.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + (a.eta.source === 'manual' ? ' ✎' : '') + '</span>';
     }
     h += '<span class="dash-chip dash-chip--' + a.status + '">' + (DASH_STATUS_LABEL[a.status] || a.status) + '</span>';
-    if (a.action) h += '<button class="dash-row-action' + (a.action.ghost ? ' dash-row-action--ghost' : '') + '" onclick="event.stopPropagation();' + a.action.js + '">' + a.action.label + '</button>';
+    if (a.action) h += '<button class="dash-row-action' + (a.action.ghost ? ' dash-row-action--ghost' : '') + '" aria-label="' + escapeHtml(a.action.aria || a.action.label) + '" onclick="event.stopPropagation();' + a.action.js + '">' + a.action.label + '</button>';
     h += '</div></div>';
     return h;
 }
@@ -2187,7 +2221,7 @@ function dashRenderBoard(acts, currentOp) {
     var pend = shown.filter(function(a) { return a.status !== 'hecho'; }).length;
 
     var h = '<div class="dash-board">';
-    h += '<div class="dash-board-header">';
+    h += '<div class="dash-board-header" data-help="dash-board-help">';
     h += '<span class="dash-board-title">📌 Actividades de hoy</span>';
     h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes' : 'al día ✓') + '</span>';
     h += '<span style="flex:1"></span>';
@@ -2260,6 +2294,7 @@ function dashTaskModalOpen() {
     document.body.appendChild(wrap.firstChild);
     var t = document.getElementById('dash-task-title');
     if (t) t.focus();
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 function dashTaskModalClose() { var m = document.getElementById('dash-task-modal'); if (m) m.remove(); }
 function dashTaskModalSave() {
@@ -3664,16 +3699,80 @@ function shakeElement(el) {
 // [R3-M9] ONBOARDING TOUR
 // ══════════════════════════════════════════════════════════════════════
 
-var _tourSteps = [
-    { target: '.platform-bar', title: 'Navegación', text: 'Usa estas 4 pestañas para navegar: Hoy (resumen), Plan (plan semanal), Pruebas (COP15 + inventario) y Datos (resultados + panel).', position: 'bottom' },
-    { target: '#ptab-pruebas', title: 'Pruebas', text: 'Aquí registras vehículos, operas pruebas de emisiones, liberas resultados y gestionas consumibles del laboratorio.', position: 'bottom' },
-    { target: '#panel-alta', title: 'Registro de Vehículos', text: 'Selecciona configuración del vehículo, captura VIN y registra para iniciar el flujo COP15.', position: 'top', tab: 'alta' },
-    { target: '#ptab-plan', title: 'Plan', text: 'Gestiona el plan de pruebas semanal, prioriza configuraciones y monitorea cobertura.', position: 'bottom' },
-    { target: '#ptab-datos', title: 'Datos', text: 'Resultados de pruebas, tendencias Cpk/Ppk, panel de control, operadores y configuración del sistema.', position: 'bottom' }
-];
+// v16.0: recorridos por módulo. 'global' conserva los 5 pasos originales tal cual
+// (para no re-mostrarlo a usuarios que ya lo vieron — persistencia con alias 'kia_tour_done').
+var TOURS = {
+    global: [
+        { target: '.platform-bar', title: 'Navegación', text: 'Usa estas 5 pestañas para navegar: Hoy (resumen), Plan (plan semanal), Pruebas (COP15 + inventario), Datos (reportes + panel) y CoP (validador + Control SPC).', position: 'bottom' },
+        { target: '#ptab-pruebas', title: 'Pruebas', text: 'Aquí registras vehículos, operas pruebas de emisiones, liberas resultados y gestionas consumibles del laboratorio.', position: 'bottom' },
+        { target: '#panel-alta', title: 'Registro de Vehículos', text: 'Selecciona configuración del vehículo, captura VIN y registra para iniciar el flujo COP15.', position: 'top', tab: 'alta' },
+        { target: '#ptab-plan', title: 'Plan', text: 'Gestiona el plan de pruebas semanal, prioriza configuraciones y monitorea cobertura.', position: 'bottom' },
+        { target: '#ptab-datos', title: 'Datos', text: 'Resultados de pruebas, reportes, panel de control, operadores y configuración del sistema.', position: 'bottom' }
+    ],
+    today: [
+        { target: '.daily-dash-header', title: 'Tu día en un vistazo', text: 'Aquí ves la fecha y el resumen cruzado del laboratorio (vehículos, plan, inventario).', position: 'bottom' },
+        { target: '.dash-board-header', title: 'Tablero de actividades', text: 'Todo lo pendiente de hoy agrupado por tipo: vehículos, plan, inventario, calidad y tareas manuales.', position: 'bottom' },
+        { target: '.dash-group--vehiculos', title: 'Vehículos', text: 'Cada vehículo activo muestra su etapa (N/8) y la fecha de liberación esperada — tócala para fijarla manualmente.', position: 'top' },
+        { target: '.daily-dash-quick-actions', title: 'Acceso rápido', text: 'Atajos directos a Alta de vehículo, Inventario, Reportes y Panel.', position: 'top' }
+    ],
+    testplan: [
+        { target: '#tp-tabs-bar', title: 'Pestañas del Plan', text: 'Navega entre resumen, plan semanal, recuperación, producción, familias, reglas y más.', position: 'bottom' },
+        { target: '#tp-weekly-cap', title: 'Capacidad semanal', text: 'Define cuántas pruebas caben esta semana y usa ⚡ Generación Inteligente para repartirlas.', position: 'bottom', tab: 'tp-weekly' },
+        { target: '[data-help="tp-priority-help"]', title: 'Recuperación', text: 'Clasifica todo lo pendiente por prioridad (P1..P10) y reparte en las semanas disponibles.', position: 'top', tab: 'tp-recovery' },
+        { target: '[data-help="tp-csvimport-help"]', title: 'Producción', text: 'Importa el CSV del plan de producción — se fusiona con lo anterior, no lo borra.', position: 'top', tab: 'tp-production' }
+    ],
+    inventory: [
+        { target: '#inv-tabs-bar', title: 'Pestañas de Inventario', text: 'Navega entre resumen, cilindros, equipos, captura diaria, predicción, combustible y mapa.', position: 'bottom' },
+        { target: '[data-help="inv-readings-help"]', title: 'Captura diaria', text: 'Captura el PSI de cada cilindro en uso — de estas lecturas la plataforma APRENDE el consumo.', position: 'bottom', tab: 'inv-readings' },
+        { target: '[onclick="invShowAddGas()"]', title: 'Alta de cilindro', text: 'Registra un cilindro nuevo con su fórmula, concentración, zona y vigencia.', position: 'bottom', tab: 'inv-gases' },
+        { target: '[data-help="inv-predict-model"]', title: 'Predicción', text: 'Consumo aprendido y proyección: ¿alcanza el gas/combustible para el plan?', position: 'top', tab: 'inv-predict' }
+    ],
+    panel: [
+        { target: '#pn-tabs-bar', title: 'Pestañas de Datos', text: 'Resumen, reportes, ejecutivo, turnaround, operadores, bitácora, alertas, auditoría y más.', position: 'bottom' },
+        { target: '[data-help="pn-reports-help"]', title: 'Centro de Reportes', text: 'Un solo lugar para exportar cada CSV/PDF del laboratorio — lee la descripción de cada fila.', position: 'bottom', tab: 'pn-reports' },
+        { target: '[data-help="pn-alerts-help"]', title: 'Alertas', text: 'Todas las alertas activas de todos los módulos, incluidas las de consumo y SPC.', position: 'bottom', tab: 'pn-alerts' },
+        { target: '[data-help="pn-audit-help"]', title: 'Auditoría', text: 'El control de cambios de toda la plataforma: quién hizo qué y cuándo.', position: 'top', tab: 'pn-audit' }
+    ],
+    cop: [
+        { target: '[data-help="cop-family-help"]', title: 'Familia a evaluar', text: 'Elige región y familia — la tabla se llena con los VINes ya probados de esa familia.', position: 'bottom' },
+        { target: '[data-help="cop-verdict-help"]', title: 'Veredicto en vivo', text: 'El veredicto CONCORDANTE/NO CONCORDANTE se recalcula con cada valor capturado (mínimo 3 VINes).', position: 'top' },
+        { title: 'Control SPC', text: 'La sub-pestaña 📈 Control SPC detecta corrimientos y tendencias antes de fallar un límite regulatorio.' }
+    ],
+    cop15: [
+        { target: '.cascade-tree-intro', title: 'Alta de vehículo', text: 'Arma la configuración con la cascada (cada selección filtra las siguientes) y captura el VIN.', position: 'bottom', tab: 'alta' },
+        { target: '.tab[data-tab="seguimiento"]', title: 'Operación', text: 'Captura el flujo completo: recepción → preacondicionamiento → soak → dinamómetro → verificación.', position: 'bottom', tab: 'seguimiento' },
+        { target: '[data-help="lib-gas-help"]', title: 'Liberación doble-ciego', text: 'Liberador y Aprobador capturan los resultados por separado; si coinciden, se archiva.', position: 'top', tab: 'liberacion' },
+        { target: '[data-help="hist-filter-help"]', title: 'Historial', text: 'Vehículos archivados: genera su PDF, completa datos retroactivos y consulta su control de cambios.', position: 'top', tab: 'dashboard' }
+    ]
+};
+var _tourModule = 'global';
 var _tourCurrent = 0;
 
-function startTour() {
+function _tourStorageKey(moduleKey) { return 'kia_tour_done_' + moduleKey; }
+function _tourMarkDone(moduleKey) {
+    try {
+        localStorage.setItem(_tourStorageKey(moduleKey), '1');
+        if (moduleKey === 'global') localStorage.setItem('kia_tour_done', '1');
+    } catch (e) {}
+}
+function _tourIsDone(moduleKey) {
+    try {
+        if (moduleKey === 'global') return !!localStorage.getItem('kia_tour_done') || !!localStorage.getItem(_tourStorageKey('global'));
+        return !!localStorage.getItem(_tourStorageKey(moduleKey));
+    } catch (e) { return false; }
+}
+
+// Primera visita a un módulo (llamado desde switchPlatform) → lanza su tour corto, solo desktop.
+function _tourMaybeAutoStart(moduleKey) {
+    if (!TOURS[moduleKey] || _tourIsDone(moduleKey) || window.innerWidth < 768) return;
+    setTimeout(function() {
+        if (typeof _currentPlatform !== 'undefined' && (PLATFORM_SECTION_MAP[_currentPlatform] || _currentPlatform) !== moduleKey) return;
+        startTour(moduleKey);
+    }, 800);
+}
+
+function startTour(moduleKey) {
+    _tourModule = (moduleKey && TOURS[moduleKey]) ? moduleKey : 'global';
     _tourCurrent = 0;
     _renderTourStep();
 }
@@ -3683,21 +3782,29 @@ function _renderTourStep() {
     var old = document.getElementById('tour-overlay');
     if (old) old.remove();
 
-    if (_tourCurrent >= _tourSteps.length) {
-        localStorage.setItem('kia_tour_done', '1');
-        showToast('Tour completado. Puedes reiniciarlo con el botón ?', 'success');
+    var steps = TOURS[_tourModule] || TOURS.global;
+
+    if (_tourCurrent >= steps.length) {
+        _tourMarkDone(_tourModule);
+        showToast('Recorrido completado. Puedes reiniciarlo con el botón ?', 'success');
         return;
     }
 
-    var step = _tourSteps[_tourCurrent];
+    var step = steps[_tourCurrent];
 
     // Navigate to correct tab if needed
     if (step.tab) {
-        var tabEl = document.querySelector('.tab[data-tab="' + step.tab + '"]');
+        var tabEl = document.querySelector('.tab[data-tab="' + step.tab + '"]') || document.querySelector('.tp-tab[onclick*="' + step.tab + '"]');
         if (tabEl) tabEl.click();
     }
 
-    var targetEl = document.querySelector(step.target);
+    // Si el target del paso no existe en el DOM (dato vacío, tab distinta, etc.), no lo rompas: sáltalo.
+    if (step.target && !document.querySelector(step.target)) {
+        _tourCurrent++;
+        _renderTourStep();
+        return;
+    }
+    var targetEl = step.target ? document.querySelector(step.target) : null;
     var overlay = document.createElement('div');
     overlay.id = 'tour-overlay';
     overlay.className = 'tour-overlay';
@@ -3707,11 +3814,11 @@ function _renderTourStep() {
     tooltip.innerHTML = '<div class="tour-title">' + escapeHtml(step.title) + '</div>' +
         '<div class="tour-text">' + escapeHtml(step.text) + '</div>' +
         '<div class="tour-footer">' +
-        '<span class="tour-progress">Paso ' + (_tourCurrent + 1) + ' de ' + _tourSteps.length + '</span>' +
+        '<span class="tour-progress">Paso ' + (_tourCurrent + 1) + ' de ' + steps.length + '</span>' +
         '<div class="tour-actions">' +
         (_tourCurrent > 0 ? '<button class="tour-btn" onclick="_tourPrev()">Anterior</button>' : '') +
         '<button class="tour-btn" onclick="_tourSkip()">Saltar</button>' +
-        '<button class="tour-btn tour-btn-primary" onclick="_tourNext()">' + (_tourCurrent === _tourSteps.length - 1 ? 'Finalizar' : 'Siguiente') + '</button>' +
+        '<button class="tour-btn tour-btn-primary" onclick="_tourNext()">' + (_tourCurrent === steps.length - 1 ? 'Finalizar' : 'Siguiente') + '</button>' +
         '</div></div>';
 
     overlay.appendChild(tooltip);
@@ -3755,8 +3862,8 @@ function _tourSkip() {
     _cleanTourHighlight();
     var old = document.getElementById('tour-overlay');
     if (old) old.remove();
-    localStorage.setItem('kia_tour_done', '1');
-    showToast('Tour saltado. Reinicia con el botón ?', 'info');
+    _tourMarkDone(_tourModule);
+    showToast('Recorrido saltado. Reinicia con el botón ?', 'info');
 }
 
 function _cleanTourHighlight() {
@@ -3764,6 +3871,162 @@ function _cleanTourHighlight() {
         el.classList.remove('tour-highlight');
         el.style.zIndex = '';
     });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v16.0] AYUDA / AUTOGUÍA — banners por pestaña, glosario, menú de ayuda
+// Cada módulo (testplan.js/inventory.js/panel.js/cop_validator.js) agrega sus
+// claves a HELP_TABS con Object.assign al final de su archivo (cargan después
+// de app.js). Este módulo (app.js) registra las suyas (today) dentro de
+// dailyDashRender con guard idempotente — ver _helpTodayRegistered más abajo.
+// ══════════════════════════════════════════════════════════════════════
+
+var HELP_TABS = {};
+
+function helpDismissed() {
+    try { return JSON.parse(localStorage.getItem('kia_help_dismissed')) || {}; } catch (e) { return {}; }
+}
+function helpDismiss(tabId) {
+    var d = helpDismissed();
+    d[tabId] = 1;
+    try { localStorage.setItem('kia_help_dismissed', JSON.stringify(d)); } catch (e) {}
+    var el = document.getElementById('help-banner-' + tabId);
+    if (el) el.remove();
+}
+
+/** Banner corto y descartable para una pestaña. Devuelve '' si no hay contenido o ya se descartó — úsalo prepend en el HTML de cada render de pestaña. */
+function helpBannerHTML(tabId) {
+    var h = HELP_TABS[tabId];
+    if (!h || helpDismissed()[tabId]) return '';
+    return '<div class="help-banner" id="help-banner-' + tabId + '">' +
+        '<span class="help-banner-icon" aria-hidden="true">💡</span>' +
+        '<span class="help-banner-text"><b>' + escapeHtml(h.title) + ':</b> ' + escapeHtml(h.text) + '</span>' +
+        '<span class="help-banner-actions">' +
+        '<button type="button" class="help-banner-more" onclick="helpShowTab(\'' + tabId + '\')">Ver más</button>' +
+        '<button type="button" class="help-banner-ok" onclick="helpDismiss(\'' + tabId + '\')" aria-label="Cerrar ayuda de esta pestaña">Entendido ✓</button>' +
+        '</span></div>';
+}
+
+/** Botón ℹ️ para poner junto al título de una pestaña: reabre la ayuda aunque el banner ya se haya descartado. */
+function helpTabButtonHTML(tabId) {
+    if (!HELP_TABS[tabId]) return '';
+    return '<button type="button" class="help-tab-btn" onclick="helpShowTab(\'' + tabId + '\')" aria-label="Ayuda de esta pestaña" title="Ayuda de esta pestaña">ℹ️</button>';
+}
+
+/**
+ * v16.0 — Inserta el banner de ayuda como PRIMER elemento del contenedor cacheado de una
+ * pestaña (tp-, inv-, pn- no-Alpine), sin tener que tocar cada función de render:
+ * tabCacheSwitch() posee y reemplaza por completo el innerHTML de "<tabId>-cached" en cada
+ * re-render, así que el banner se re-inserta aquí después. Idempotente (no duplica) y
+ * respeta kia_help_dismissed (helpBannerHTML devuelve '' si el usuario ya lo cerró).
+ */
+function helpInjectBannerIntoCachedTab(moduleId, tabId) {
+    if (typeof helpBannerHTML !== 'function') return;
+    var target = document.getElementById(tabId + '-cached');
+    if (!target || target.querySelector('#help-banner-' + tabId)) return;
+    var html = helpBannerHTML(tabId);
+    if (html) target.insertAdjacentHTML('afterbegin', html);
+}
+
+/** Versión diferida (doble RAF) — usar tras tpRender()/invRender()/pnRender(), que pueden
+ *  posponer el render real de la pestaña vía tabCacheSwitch(). */
+function helpInjectBannerDeferred(moduleId, tabId) {
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+            helpInjectBannerIntoCachedTab(moduleId, tabId);
+        });
+    });
+}
+
+function _helpCloseModal() {
+    document.querySelectorAll('.custom-modal-overlay').forEach(function(o) { if (o.parentNode) o.parentNode.removeChild(o); });
+}
+
+/** Modal completo de ayuda de una pestaña (título + texto + tips accionables). */
+function helpShowTab(tabId) {
+    var h = HELP_TABS[tabId];
+    if (!h) { showToast('Sin ayuda registrada para esta sección', 'info'); return; }
+    var html = '<div style="text-align:left;font-size:13px;line-height:1.6;">' + escapeHtml(h.text) + '</div>';
+    if (h.tips && h.tips.length) {
+        html += '<ul style="text-align:left;margin:10px 0 0;padding-left:18px;font-size:12.5px;line-height:1.6;">' +
+            h.tips.map(function(t) { return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul>';
+    }
+    html += '<div style="margin-top:14px;text-align:left;border-top:1px solid var(--border);padding-top:10px;">' +
+        '<button type="button" class="help-banner-more" onclick="helpShowGlossary()">📖 Ver glosario del laboratorio</button></div>';
+    showModal({ title: '💡 ' + h.title, message: html, showCancel: false, confirmText: 'Entendido', type: 'info' });
+}
+
+// ── Glosario del laboratorio (v16.0 · C5) ──
+var HELP_GLOSSARY = [
+    { term: 'Soak', def: 'Tiempo de reposo térmico del vehículo en la cámara climatizada antes de la prueba, para que el motor y los fluidos lleguen a una temperatura estable y controlada (mínimo 12h estándar).' },
+    { term: 'Preacondicionamiento', def: 'Conjunto de pasos previos a la prueba (ciclo de manejo, verificación de combustible/llantas/DTCs) que aseguran que el vehículo llega en condiciones válidas para medir emisiones.' },
+    { term: 'Doble ciego', def: 'El Liberador captura los resultados de gases y firma; después el Aprobador los vuelve a capturar SIN ver los del Liberador. Si coinciden, se libera; si no, se marca desacuerdo y se revisa.' },
+    { term: 'CoP (Conformity of Production)', def: 'Conformidad de Producción: validación estadística de que los vehículos que salen de línea siguen cumpliendo los límites de emisión certificados, usando muestreo secuencial de varios VINes de la misma familia.' },
+    { term: 'Quality Audit', def: 'Auditoría de calidad interna (no regulatoria): verificación periódica de una familia fuera del esquema CoP, aplicable según la política del laboratorio por región.' },
+    { term: 'VIN', def: 'Número de Identificación Vehicular: 17 caracteres alfanuméricos únicos por vehículo. No usa las letras I, O ni Q (se confunden con 1 y 0).' },
+    { term: 'ETW', def: 'Estimated Test Weight — Peso Estimado de Prueba: la masa que el dinamómetro simula para reproducir la inercia real del vehículo durante el ciclo.' },
+    { term: 'Target / Dyno Set (A, B, C)', def: 'Coeficientes de resistencia al avance del coast-down (A = fuerza constante, B = proporcional a la velocidad, C = proporcional al cuadrado de la velocidad). Target = valor teórico calculado; Dyno Set = valor configurado en el dinamómetro. Deben coincidir para que la prueba sea válida.' },
+    { term: 'Bin / LimitSet', def: 'Nombre del conjunto de límites regulatorios que aplica a una prueba (ej. "EURO-5", "SULEV 30"). Define qué gases se miden y cuánto pueden emitir como máximo.' },
+    { term: '% del límite', def: 'El valor medido de un gas expresado como porcentaje de su límite regulatorio. 100% = justo en el límite; por encima de 100% = FALLA.' },
+    { term: 'FE por balance de carbono', def: 'Estimación informativa (NO certificada) del rendimiento de combustible calculada a partir del CO₂ medido, usando la relación de balance de carbono del combustible.' },
+    { term: 'I-MR (carta de control)', def: 'Carta estadística de Individuos y Rango Móvil: grafica cada resultado en el tiempo junto a la media y los límites de control (±3σ), para detectar si el proceso se sale de su comportamiento normal.' },
+    { term: 'Reglas de Nelson (R1/R2/R3)', def: 'Reglas de alarma sobre la carta I-MR: R1 = un punto fuera de ±3σ; R2 = 8 puntos seguidos del mismo lado de la media (corrimiento); R3 = 6 puntos seguidos subiendo o bajando (tendencia). Cualquiera enciende la alarma de esa familia.' },
+    { term: 'Cpk', def: 'Índice de capacidad del proceso frente al límite regulatorio: (Límite − media) / 3σ. Cpk ≥ 1.33 = proceso capaz; Cpk < 1.0 = resultados peligrosamente cerca del límite.' },
+    { term: 'UCL / LCL', def: 'Límite de Control Superior / Inferior de una carta de control (media ± 3σ). NO son el límite regulatorio — son el rango normal de variación del propio proceso del laboratorio.' },
+    { term: 'σ (sigma)', def: 'Desviación estándar del proceso, estimada a partir del rango móvil entre ensayos consecutivos (σ = MR̄ / 1.128). Mide qué tan dispersos están los resultados.' },
+    { term: 'Familia de emisiones', def: 'Agrupación de configuraciones de vehículo que comparten Modelo, Motor, Transmisión, Año modelo y Regulación — se prueban y analizan juntas porque su comportamiento de emisiones es equivalente.' },
+    { term: 'Déficit / ratio por 1000', def: 'Cuántas pruebas exige una configuración según su volumen de producción (ratio de pruebas por cada 1000 unidades fabricadas). Déficit = pruebas requeridas menos las ya realizadas.' },
+    { term: 'Tier / Prioridad (P1..P5)', def: 'Nivel de urgencia asignado a cada configuración pendiente en el Plan de Recuperación. P1 = más urgente (ej. COP Europa), hasta P5 (ej. eléctricos) — se atienden en ese orden según la capacidad disponible.' },
+    { term: 'PSI', def: 'Libras por pulgada cuadrada — unidad de presión con la que se mide el contenido de los cilindros de gas de calibración.' },
+    { term: 'DTC', def: 'Diagnostic Trouble Code — Código de Falla Diagnóstica almacenado en la computadora del vehículo (ECU). Un vehículo con DTCs confirmados o permanentes no es apto para la prueba de emisiones.' },
+    { term: 'Carta de captura diaria', def: 'El registro diario de PSI de cada cilindro de gas en uso y del nivel de los tanques de combustible. La plataforma usa estas lecturas para aprender cuánto consume cada tipo de prueba y predecir si el inventario alcanza.' }
+];
+
+function helpShowGlossary() {
+    var html = '<div style="text-align:left;">' +
+        '<input type="text" id="help-glossary-search" placeholder="Buscar término…" oninput="helpFilterGlossary(this.value)" ' +
+        'style="width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;box-sizing:border-box;">' +
+        '<div id="help-glossary-list" style="max-height:360px;overflow-y:auto;"></div></div>';
+    showModal({ title: '📖 Glosario del laboratorio', message: html, showCancel: false, confirmText: 'Cerrar', type: 'info' });
+    helpFilterGlossary('');
+    setTimeout(function() { var i = document.getElementById('help-glossary-search'); if (i) i.focus(); }, 60);
+}
+function helpFilterGlossary(q) {
+    var list = document.getElementById('help-glossary-list');
+    if (!list) return;
+    var qn = (q || '').toLowerCase().trim();
+    var items = HELP_GLOSSARY.filter(function(g) {
+        return !qn || g.term.toLowerCase().indexOf(qn) !== -1 || g.def.toLowerCase().indexOf(qn) !== -1;
+    });
+    if (!items.length) { list.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:10px 0;">Sin resultados. Prueba con otra palabra.</div>'; return; }
+    list.innerHTML = items.map(function(g) {
+        return '<div style="padding:8px 0;border-bottom:1px solid var(--border);">' +
+            '<div style="font-weight:700;font-size:13px;">' + escapeHtml(g.term) + '</div>' +
+            '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + escapeHtml(g.def) + '</div></div>';
+    }).join('');
+}
+
+/** Lanza un tour (o avisa por toast si estamos en móvil, donde el overlay del tour se oculta por CSS). */
+function helpStartTourFromMenu(moduleKey) {
+    _helpCloseModal();
+    if (window.innerWidth < 768) {
+        showToast('El recorrido guiado funciona mejor en pantalla grande (tablet/PC). Usa los banners 💡 y los botones ? de cada pestaña.', 'info');
+        return;
+    }
+    if (typeof startTour === 'function') startTour(moduleKey);
+}
+
+/** Menú del botón ? del topbar: tour de este módulo, tour general, glosario. */
+function helpMenuOpen() {
+    var moduleKey = (typeof PLATFORM_SECTION_MAP !== 'undefined') ? (PLATFORM_SECTION_MAP[_currentPlatform] || _currentPlatform) : 'today';
+    var moduleLabels = { today: 'Hoy', testplan: 'Plan', cop15: 'Pruebas', inventory: 'Inventario', panel: 'Datos', cop: 'CoP' };
+    var moduleLabel = moduleLabels[moduleKey] || moduleKey;
+    var html = '<div style="display:flex;flex-direction:column;gap:8px;text-align:left;">' +
+        '<button type="button" class="help-menu-item" onclick="helpStartTourFromMenu(\'' + moduleKey + '\')">🧭 Recorrido guiado de ' + escapeHtml(moduleLabel) + '</button>' +
+        '<button type="button" class="help-menu-item" onclick="helpStartTourFromMenu(\'global\')">🗺️ Recorrido general de la plataforma</button>' +
+        '<button type="button" class="help-menu-item" onclick="_helpCloseModal();helpShowGlossary()">📖 Glosario del laboratorio</button>' +
+        '</div>';
+    showModal({ title: '❓ Ayuda', message: html, showCancel: false, confirmText: 'Cerrar', type: 'info' });
 }
 
 // ══════════════════════════════════════════════════════════════════════

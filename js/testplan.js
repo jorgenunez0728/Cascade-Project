@@ -717,6 +717,9 @@ function tpRender() {
     var tab = tpState.activeTab;
     var renderer = _tpGetRenderer(tab);
     if (renderer) tabCacheSwitch('tp', tab, renderer);
+    // v16.0: banners/tooltips de ayuda — tabCacheSwitch puede diferir el render real a un RAF
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+    if (typeof helpInjectBannerDeferred === 'function') helpInjectBannerDeferred('tp', tab);
 }
 
 // ── Color helpers ──
@@ -1930,7 +1933,7 @@ function tpRenderRules(el) {
     el.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr;gap:14px;">
         <div class="tp-card">
-            <div class="tp-card-title">
+            <div class="tp-card-title" data-help="tp-ratio-help">
                 <span>⚙️ Reglas de Ratio</span>
                 <div style="display:flex;gap:6px;">
                     <button class="tp-btn tp-btn-primary" onclick="tpAddRule()">+ Nueva</button>
@@ -1958,7 +1961,7 @@ function tpRenderRules(el) {
         </div>
         <div>
             <div class="tp-card">
-                <div class="tp-card-title"><span>⚖️ Pesos de Priorización</span></div>
+                <div class="tp-card-title" data-help="tp-weights-help"><span>⚖️ Pesos de Priorización</span></div>
                 <p style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Peso relativo de cada factor. Deben sumar 100.</p>
                 ${[['volume','📦 Volumen de Producción'],['compliance','📊 Cumplimiento (déficit)'],['region','🌍 Importancia de Región'],['newConfig','🆕 Config Nueva'],['urgency','⏰ Urgencia (prod. próxima)']].map(([k,label]) => `
                     <div style="margin-bottom:10px;">
@@ -1974,7 +1977,7 @@ function tpRenderRules(el) {
                 </div>
             </div>
             <div class="tp-card" style="margin-top:14px;">
-                <div class="tp-card-title"><span>🌍 Prioridad por Región</span></div>
+                <div class="tp-card-title" data-help="tp-region-priority-help"><span>🌍 Prioridad por Región</span></div>
                 <p style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Importancia relativa de cada mercado (0-100). Europa más alto por SOP. Pesa según el factor "Importancia de Región" de arriba.</p>
                 ${regions.filter(r=>r!=='*').concat(['*']).map(r => `
                     <div style="margin-bottom:8px;">
@@ -1987,7 +1990,7 @@ function tpRenderRules(el) {
                 `).join('')}
             </div>
             <div class="tp-card" style="margin-top:14px;">
-                <div class="tp-card-title"><span>🎯 Propósito al iniciar prueba desde el plan</span></div>
+                <div class="tp-card-title" data-help="tp-purpose-region-help"><span>🎯 Propósito al iniciar prueba desde el plan</span></div>
                 <p style="font-size:10px;color:var(--tp-dim);margin-bottom:10px;">Propósito precargado en Alta según la región de la config (regla corporativa: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo en Alta.</p>
                 ${[['EUROPE','🇪🇺 Europa'],['*','🌐 Resto de regiones']].map(([key,label]) => `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
@@ -2815,7 +2818,7 @@ function tpRenderRecovery(el) {
     html += '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-calendar\')" style="font-size:12px;">🗓️ Ver Calendario</button></div>';
 
     // Weekly availability
-    html += '<div class="tp-card"><div class="tp-card-title"><span>📆 Disponibilidad de la celda por semana</span><span style="font-size:10px;color:var(--tp-dim);font-weight:400;">' + R.weeks.length + ' semanas</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title" data-help="tp-availability-help"><span>📆 Disponibilidad de la celda por semana</span><span style="font-size:10px;color:var(--tp-dim);font-weight:400;">' + R.weeks.length + ' semanas</span></div>';
     var _endYear = new Date().getFullYear() + '-12-31';
     html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:10px;">';
     html += '<label style="color:var(--tp-dim);">📅 Planear hasta: <input type="date" value="' + (tpState.recoveryUntil || '') + '" onchange="tpSetRecoveryUntil(this.value)" style="background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;"></label>';
@@ -2841,7 +2844,7 @@ function tpRenderRecovery(el) {
     html += '</div>';
 
     // Priority rules
-    html += '<div class="tp-card"><div class="tp-card-title"><span>🎯 Reglas de Prioridad (editables)</span><span style="display:flex;align-items:center;gap:6px;"><label style="font-size:9px;color:var(--tp-dim);font-weight:400;">Niveles: <input type="number" min="1" max="10" value="' + tpMaxTiers() + '" onchange="tpSetMaxTiers(this.value)" style="width:42px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;"></label><button class="tp-btn tp-btn-ghost" onclick="tpResetPriorityRules()" style="font-size:9px;">Restaurar default</button></span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title" data-help="tp-priority-help"><span>🎯 Reglas de Prioridad (editables)</span><span style="display:flex;align-items:center;gap:6px;"><label style="font-size:9px;color:var(--tp-dim);font-weight:400;">Niveles: <input type="number" min="1" max="10" value="' + tpMaxTiers() + '" onchange="tpSetMaxTiers(this.value)" style="width:42px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:4px;color:var(--tp-text);padding:2px 4px;"></label><button class="tp-btn tp-btn-ghost" onclick="tpResetPriorityRules()" style="font-size:9px;">Restaurar default</button></span></div>';
     html += '<p style="font-size:9px;color:var(--tp-dim);margin-bottom:8px;">Se evalúan de arriba a abajo; la primera coincidencia asigna la prioridad. Cada filtro es un menú que se va acotando con lo ya seleccionado (estilo Cascade); "Todas" = comodín. Puedes definir hasta 10 niveles (P1 = más alta).</p>';
     html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:10px;"><tr style="color:var(--tp-dim);text-align:left;"><th>P</th><th>Familia</th><th>Región</th><th>Regulación</th><th>Modelo</th><th>Cilindrada</th><th>Body</th><th>Manejo</th><th></th></tr>';
     (tpState.priorityRules || []).forEach(function(r) {
@@ -3493,7 +3496,7 @@ function tpRenderProduction(el) {
 
     el.innerHTML = `
     <div class="tp-card">
-        <div class="tp-card-title">
+        <div class="tp-card-title" data-help="tp-csvimport-help">
             <span>📥 Importar Plan de Producción (CSV)</span>
             ${tpState.planImportDate ? `<span style="font-size:10px;color:var(--tp-dim);">Última importación: ${new Date(tpState.planImportDate).toLocaleDateString('es-MX')}</span>` : ''}
         </div>
@@ -5193,3 +5196,103 @@ function tpRenderCoverageHeatmap() {
 }
 
 
+
+// ══════════════════════════════════════════════════════════════════════
+// v16.0 — Banners de ayuda de las pestañas de Test Plan (HELP_TABS vive en
+// app.js, que carga primero, así que ya existe cuando se ejecuta esta línea).
+// ══════════════════════════════════════════════════════════════════════
+if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'tp-dashboard': {
+        title: 'Plan — resumen',
+        text: 'Cobertura del plan de producción: cuántas pruebas exige el año, cuántas van y el presupuesto anual. Rojo = configuraciones críticas sin probar.',
+        tips: [
+            'Si no ves datos, ve primero a 🏭 Producción para importar el CSV del plan.',
+            'La tarjeta "Presupuesto Anual" te dice si la capacidad del laboratorio alcanza para lo que falta del año.',
+            'Toca cualquier barra o segmento de las gráficas para filtrar la tabla de configuraciones.'
+        ]
+    },
+    'tp-weekly': {
+        title: 'Plan semanal',
+        text: 'Genera el plan de la semana: define capacidad y fecha, y usa ⚡ Generación Inteligente (valida inventario). Marca cada prueba al completarla.',
+        tips: [
+            'La Generación Inteligente reparte la capacidad priorizando lo más urgente y verifica que haya gas/gasolina suficiente antes de asignar.',
+            'Puedes generar un mes completo de una vez con 📅 Generar Mes.',
+            'Marca las pruebas como completadas conforme se liberan — así el sistema sabe qué falta.'
+        ]
+    },
+    'tp-recovery': {
+        title: 'Recuperación',
+        text: 'Clasifica TODO lo pendiente por prioridad (P1 Europa COP → P5 EV), reparte en las semanas disponibles y avisa qué no alcanza. Marca semanas no disponibles y define "planear hasta".',
+        tips: [
+            'Marca como "no disponible" las semanas con paro/mantenimiento para que el reparto no cuente con esa capacidad.',
+            'El indicador de riesgo de fecha límite (deadline) te avisa si algo urgente no va a alcanzar a tiempo con la capacidad actual.',
+            'Puedes materializar el resultado directamente en planes semanales reales desde aquí.'
+        ]
+    },
+    'tp-production': {
+        title: 'Producción',
+        text: 'Importa aquí el CSV del plan de producción (se FUSIONA con lo anterior, no lo borra). De estos volúmenes salen las pruebas requeridas.',
+        tips: [
+            'El import es acumulativo: puedes volver a importar un CSV actualizado sin perder los meses ya cargados.',
+            'Cada fila del CSV se agrupa en una "configuración" según Modelo, Motor, Transmisión, Regulación, etc.'
+        ]
+    },
+    'tp-tested': {
+        title: 'Probados',
+        text: 'Registro manual de pruebas ya realizadas que no pasaron por el flujo normal de la plataforma (por ejemplo, capturadas antes de usar el sistema).',
+        tips: ['Úsalo solo para poner al día el histórico — las pruebas nuevas deben registrarse desde Pruebas → Alta.']
+    },
+    'tp-families': {
+        title: 'Familias',
+        text: 'Agrupación por familia de emisiones: cobertura, evidencia de VINes (📋) y hace cuánto no se prueba cada familia (⏱).',
+        tips: [
+            'Una familia agrupa configuraciones con el mismo Modelo, Motor, Transmisión, Año y Regulación — se consideran equivalentes para efectos de prueba.',
+            'El botón 📋 muestra los VINes probados de esa familia, ordenados del más reciente al más antiguo.',
+            'El badge ⏱ se pone en rojo si la familia lleva más de 90 días sin probarse.'
+        ]
+    },
+    'tp-planactual': {
+        title: 'Plan actual',
+        text: 'Vista consolidada del plan vigente: qué se ha decidido probar y en qué orden.'
+    },
+    'tp-planhistory': {
+        title: 'Historial de planes',
+        text: 'Planes semanales anteriores, para consultar qué se planeó y qué tanto se cumplió en semanas pasadas.'
+    },
+    'tp-rules': {
+        title: 'Reglas',
+        text: 'Cuántas pruebas por cada 1000 unidades según región/regulación, pesos de priorización y el propósito precargado por región (COP solo Europa).',
+        tips: [
+            'Las reglas más específicas (región + regulación exacta) tienen prioridad sobre las genéricas (*).',
+            'Los pesos de priorización deben sumar 100 — el sistema te avisa si no cuadran.',
+            'El propósito por región define qué se precarga en Alta al iniciar una prueba desde el plan (editable aquí).'
+        ]
+    },
+    'tp-simulator': {
+        title: 'Simulador',
+        text: '"¿Qué pasa si corro N pruebas/semana?" — proyecta cuándo llegas a 100% de cobertura con distintas capacidades. Útil para pedir recursos.',
+        tips: ['Compara varios escenarios de capacidad (4, 8, 12, 20 pruebas/semana) para justificar una solicitud de más turnos o dinamómetros.']
+    },
+    'tp-calendar': {
+        title: 'Calendario',
+        text: 'Las pruebas planificadas y ejecutadas por día del mes, en un vistazo mensual.'
+    },
+    'tp-weekhistory': {
+        title: 'Historial semanal',
+        text: 'Bitácora de los planes semanales generados y aceptados, semana por semana.'
+    }
+});
+
+// v16.0 — Tooltips de campo/control para Test Plan (registro global CASCADE_TOOLTIPS,
+// definido en cop15.js que carga antes que este archivo).
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'tp-weekly-date': { title: 'Semana del', text: 'Lunes de la semana para la que vas a generar el plan. Por default toma el próximo lunes.' },
+    'tp-weekly-cap': { title: 'Capacidad', text: 'Cuántas pruebas puede correr el laboratorio esta semana (default 8). El generador no planeará más que esto — ajústalo si hay festivos o mantenimiento.' },
+    'tp-ratio-help': { title: 'Reglas de Ratio', text: 'Define cuántas pruebas exige cada configuración por cada 1000 unidades producidas, según región y regulación. Las reglas más específicas (región+regulación exacta) ganan sobre las genéricas ("Todas"). Esto es lo que alimenta el déficit y el plan.' },
+    'tp-weights-help': { title: 'Pesos de Priorización', text: 'Qué tanto pesa cada factor (volumen, cumplimiento, región, config nueva, urgencia) al decidir qué probar primero. Deben sumar 100 — el sistema te avisa si no cuadran.' },
+    'tp-region-priority-help': { title: 'Prioridad por Región', text: 'Qué tan importante es cada mercado (0-100) al calcular la urgencia de una configuración. Europa suele ir más alto por fechas de arranque de producción (SOP).' },
+    'tp-purpose-region-help': { title: 'Propósito por región', text: 'Qué propósito se precarga automáticamente en Alta cuando inicias una prueba desde el plan, según la región de la configuración (regla: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo manualmente en Alta.' },
+    'tp-csvimport-help': { title: 'Importar Plan de Producción', text: 'El CSV se FUSIONA con lo que ya tenías cargado — no borra meses anteriores, solo agrega o actualiza los que vengan en el archivo nuevo. Columnas esperadas: codigo_config, Modelo, Motor, Regulación, Región, etc. y una columna por mes (ej. Feb-26).' },
+    'tp-availability-help': { title: 'Disponibilidad por semana', text: 'Marca "No disponible" las semanas de mantenimiento/paro del dinamómetro (no cuentan capacidad). "Cap" = número de pruebas que caben esa semana; "días" = cuántos días de la semana asistes. La capacidad real es pruebas/semana, no pruebas/día — puedes correr más de una por día.' },
+    'tp-priority-help': { title: 'Reglas de Prioridad', text: 'Se evalúan de arriba a abajo — la PRIMERA regla que coincide asigna la prioridad (P1 = más urgente). Cada columna es un filtro que se va acotando en cascada; "Todas" es comodín. "Niveles" define cuántas prioridades (P1..P10) existen.' }
+});

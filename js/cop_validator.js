@@ -402,6 +402,8 @@ function copRender() {
     if (!container) return;
     container.innerHTML = copBuildHTML();
     if (copState.view === 'spc') copSpcRenderCharts();
+    // v16.0: banners/tooltips de ayuda (render síncrono — sin caché de pestañas de por medio)
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function copSetView(v) {
@@ -511,7 +513,7 @@ function copBuildStatsHTML() {
 
         html += '<div class="card" style="margin-bottom:16px;border-color:' + _copDecBorderColor(overallDecision) +
                 ';background:' + _copDecBgColor(overallDecision) + ';display:flex;align-items:center;gap:16px;flex-wrap:wrap;">';
-        html += '<p class="label-title" style="margin:0;white-space:nowrap;">CONCORDANCIA DE FAMILIA</p>';
+        html += '<p class="label-title" data-help="cop-verdict-help" style="margin:0;white-space:nowrap;">CONCORDANCIA DE FAMILIA</p>';
         html += '<span class="' + _copDecClass(overallDecision) +
                 '" style="padding:8px 20px;border-radius:var(--radius-md);font-size:15px;font-weight:800;letter-spacing:0.04em;">' +
                 decLabel + '</span>';
@@ -559,7 +561,7 @@ function copBuildValidatorHTML() {
 
     // ── Cabecera + Configuración ──────────────────────────────────────────────
     html += '<div class="card" style="margin-bottom:16px;">';
-    html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">📋 CoP Emissions Validator</div>';
+    html += '<div class="card-title" data-help="cop-validator-help" style="border-bottom-color:var(--accent-cop);">📋 CoP Emissions Validator</div>';
     html += '<p class="label-title" style="margin-bottom:18px;">' +
             'Conformidad de Producción · Tipo 1 · Appendix 2 · Muestreo secuencial σ desconocida · Euro 6 · ' +
             copState.regulation + ' (' + (copState.regulation === 'R154' ? 'WLTP' : 'NEDC') + ')</p>';
@@ -611,7 +613,7 @@ function copBuildValidatorHTML() {
 
     // ── Selección de familia (filtrable por región) ───────────────────────────
     html += '<div class="card" style="margin-bottom:16px;">';
-    html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">👪 Familia a evaluar</div>';
+    html += '<div class="card-title" data-help="cop-family-help" style="border-bottom-color:var(--accent-cop);">👪 Familia a evaluar</div>';
     html += '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">';
     var _copRegs = copRegions();
     html += '<div><p class="label-title" style="margin-bottom:6px;">Región</p>';
@@ -627,7 +629,8 @@ function copBuildValidatorHTML() {
     html += '</select></div>';
     html += '</div>';
     if (!copPlanData().length) {
-        html += '<p class="label-title" style="margin-top:10px;color:var(--warning);">Importa el plan de producción (Plan → Producción) para listar familias.</p>';
+        html += '<p class="label-title" style="margin-top:10px;color:var(--warning);">Importa el plan de producción para listar familias. ' +
+                '<button onclick="switchPlatform(\'testplan\');if(typeof tpSwitchTab===\'function\')tpSwitchTab(\'tp-production\');" class="btn btn-sm btn-ghost" style="font-size:10px;margin-left:6px;">📥 Ir a Producción →</button></p>';
     } else if (copState.familyLabel) {
         html += '<p class="label-title" style="margin-top:10px;color:var(--accent-cop);">Evaluando: ' + _copEsc(copState.familyLabel) + '</p>';
     }
@@ -931,7 +934,7 @@ function copBuildSpcHTML() {
     // Panel de alarmas (retráctil)
     var alarms = copSpcScanAlarms();
     html += '<details class="card" style="margin-bottom:16px;" ' + (alarms.length ? 'open' : '') + '>';
-    html += '<summary style="cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:var(--weight-bold);color:var(--text);">' +
+    html += '<summary data-help="cop-spc-alarms-help" style="cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:var(--weight-bold);color:var(--text);">' +
             '🚨 Alarmas de control de proceso ' +
             '<span class="badge ' + (alarms.length ? 'badge-danger' : 'badge-success') + '" style="padding:3px 10px;border-radius:var(--radius-sm);font-size:11px;">' +
             (alarms.length ? alarms.length + ' alarma(s)' : 'sin alarmas') + '</span></summary>';
@@ -941,6 +944,7 @@ function copBuildSpcHTML() {
     } else {
         alarms.forEach(function(a) {
             html += '<div onclick="copSpcGotoAlarm(\'' + _copEsc(a.famKey).replace(/'/g, '&#39;') + '\',\'' + _copEsc(a.gas) + '\')" ' +
+                    'role="button" tabindex="0" aria-label="Ver carta de ' + _copEsc(a.gasLabel) + ' de ' + _copEsc(a.famLabel) + '" ' +
                     'style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin-bottom:6px;cursor:pointer;' +
                     'border:1px solid rgba(239,68,68,0.35);border-radius:var(--radius-sm);background:rgba(239,68,68,0.05);">';
             html += '<span class="badge badge-danger" style="padding:2px 8px;border-radius:var(--radius-sm);font-size:10px;font-weight:800;">' + a.rule + '</span>';
@@ -955,10 +959,11 @@ function copBuildSpcHTML() {
 
     // Selección familia + gas + toggles
     html += '<div class="card" style="margin-bottom:16px;">';
-    html += '<div class="card-title" style="border-bottom-color:var(--accent-cop);">📈 Carta de control I-MR por familia × gas</div>';
+    html += '<div class="card-title" data-help="cop-spc-help" style="border-bottom-color:var(--accent-cop);">📈 Carta de control I-MR por familia × gas</div>';
     if (!sel.fams.length) {
         html += '<p class="label-title" style="margin:0;color:var(--warning);">Aún no hay vehículos liberados con gases capturados. ' +
-                'Conforme se aprueben liberaciones con valores por gas, las familias aparecerán aquí.</p>';
+                'Conforme se aprueben liberaciones con valores por gas, las familias aparecerán aquí. ' +
+                '<button onclick="switchPlatform(\'cop15\');setTimeout(function(){var t=document.querySelector(\'.tab[data-tab=liberacion]\');if(t)t.click();},150);" class="btn btn-sm btn-ghost" style="font-size:10px;margin-left:6px;">🔬 Ir a Liberación →</button></p>';
         html += '</div>';
         return html;
     }
@@ -1171,3 +1176,26 @@ function copSpcRenderCharts() {
         });
     }
 }
+
+// ══════════════════════════════════════════════════
+// v16.0: Ayuda — banners de pestaña y tooltips de campo
+// ══════════════════════════════════════════════════
+if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'cop-validator': { title: 'Validador CoP', text: 'Valida la conformidad de producción de una familia: elige región y familia, la tabla se llena con los VINes ya probados, y el veredicto CONCORDANTE se calcula en vivo (muestreo secuencial, mínimo 3 VINes).', tips: [
+        'Los VINes en azul se autollenaron desde vehículos ya probados; captura/edita los gases que falten.',
+        'Necesitas al menos 3 VINes con valor por contaminante para obtener un veredicto.',
+        'Guarda el juicio con 💾 para dejar constancia auditable de la evaluación.'
+    ]},
+    'cop-spc': { title: 'Control SPC', text: 'Carta de control I-MR por familia y gas: detecta corrimientos y tendencias (reglas de Nelson) ANTES de fallar un límite. Cpk = margen del proceso contra el límite.', tips: [
+        'Las alarmas se disparan con datos de ≥4 ensayos por familia/gas.',
+        'Un punto rojo = fuera de ±3σ (R1); ámbar = corrimiento o tendencia (R2/R3).',
+        'Cpk ≥ 1.33 es un proceso capaz; < 1.0 significa que los resultados están muy cerca del límite.'
+    ]}
+});
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'cop-validator-help': { title: 'Validador CoP Tipo 1', text: 'Evalúa si una familia de vehículos es CONCORDANTE con el límite regulatorio, usando muestreo secuencial (Appendix 2 / R83-R154). No requiere un número fijo de VINes: sigue agregando hasta que el estadístico U cruce A(n) o B(n).' },
+    'cop-family-help': { title: 'Familia a evaluar', text: 'Elige primero la región (opcional, filtra la lista) y luego la familia de emisiones. Las familias vienen del plan de producción importado en Plan → Producción.' },
+    'cop-verdict-help': { title: 'Concordancia de familia', text: 'PASS = la familia es CONCORDANTE con el límite (puedes dejar de ensayar); FAIL = NO CONCORDANTE (algún contaminante superó B(n)); CONTINUAR = aún faltan datos para decidir, agrega más VINes.' },
+    'cop-spc-alarms-help': { title: 'Alarmas de control', text: 'Lista las combinaciones familia×gas que dispararon una regla de Nelson (R1/R2/R3) con los datos más recientes. Toca una alarma para ir directo a su carta.' },
+    'cop-spc-help': { title: 'Selección de carta', text: 'Elige la familia y el gas para ver su carta de control I-MR. Los toggles cambian qué líneas de referencia se muestran (zonas σ, límite regulatorio, % del límite).' }
+});
