@@ -76,7 +76,7 @@
         <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size:10px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
         <button id="immersive-toggle-btn" class="topbar-icon-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">⛶</button>
         <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary topbar-icon-btn" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">🔍</button></div>
-        <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="startTour()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Tour guiado de la aplicación" aria-label="Tour guiado de la aplicación">?</button></div>
+        <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="helpMenuOpen()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Ayuda: recorridos guiados y glosario" aria-label="Menú de ayuda">?</button></div>
         <div id="app-version-info" style="padding:10px 12px; font-size:10px; color:rgba(255,255,255,0.4); align-self:center; cursor:default;" title="Versión de la app">
             KIA EmLab v14.0
         </div>
@@ -123,6 +123,7 @@
 
     <!-- ==================== TAB 1: ALTA ==================== -->
     <div class="tab-panel active" id="panel-alta" role="tabpanel">
+        <div id="help-banner-slot-cop15-alta"></div>
         <!-- Banner shown when this Alta was started from a weekly plan item -->
         <div id="plan-preload-banner" style="display:none;"></div>
         <div class="card">
@@ -166,6 +167,7 @@
                     <div id="cascade-search-results" style="display:none;position:absolute;z-index:50;left:0;right:0;top:calc(100% + 2px);background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);max-height:280px;overflow-y:auto;"></div>
                 </div>
                 <!-- Visual Cascade Tree -->
+                <div class="cascade-tree-intro" data-help="cascade-tree-help" style="font-size:12px;font-weight:700;color:#334155;margin-bottom:8px;">🧬 Configuración del vehículo</div>
                 <div id="cascade-tree-container">
                     <div id="cascade-breadcrumb" class="cascade-breadcrumb"></div>
                     <div id="cascade-levels"></div>
@@ -334,6 +336,7 @@
 
     <!-- ==================== TAB 2: OPERACIÓN ==================== -->
     <div class="tab-panel" id="panel-seguimiento" role="tabpanel">
+        <div id="help-banner-slot-cop15-seguimiento"></div>
         <div class="form-group">
             <label>Seleccionar Vehículo Activo</label>
             <select id="activeVehSelect" onchange="loadVehicle()" style="background:#fff5f5; border:2px solid var(--kia-red); font-weight: bold;">
@@ -820,6 +823,7 @@
 
     <!-- ==================== TAB 3: LIBERACIÓN ==================== -->
     <div class="tab-panel" id="panel-liberacion" role="tabpanel">
+        <div id="help-banner-slot-cop15-liberacion"></div>
         <!-- Sub-tabs: Liberador / Aprobador -->
         <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px;">
             <button id="lib-subtab-liberador" class="tp-tab active" onclick="libSwitchSubtab('liberador')" style="flex:1;border-radius:0;font-size:12px;">
@@ -851,7 +855,7 @@
                 <!-- Gas results entry for emissions vehicles -->
                 <div id="lib-gas-entry-card" style="display:none;">
                     <div class="card">
-                        <div class="card-title">⚗️ Resultados de Emisiones</div>
+                        <div class="card-title" data-help="lib-gas-help">⚗️ Resultados de Emisiones</div>
                         <div id="lib-gas-entry-content"></div>
                     </div>
                 </div>
@@ -892,7 +896,7 @@
                     <div id="approvalSummary"></div>
                 </div>
                 <div class="card">
-                    <div class="card-title">⚗️ Verificación de Aprobador</div>
+                    <div class="card-title" data-help="lib-gas-help">⚗️ Verificación de Aprobador</div>
                     <p style="font-size:12px;color:#64748b;margin-bottom:12px;">Ingresa los valores de gases que mediste. <strong>No se muestran los valores del liberador</strong> para garantizar la independencia.</p>
                     <div id="appr-gas-entry-content"></div>
                     <div id="appr-match-status" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;"></div>
@@ -909,13 +913,15 @@
 
     <!-- ==================== KANBAN: COLA VISUAL ==================== -->
     <div class="tab-panel" id="panel-kanban" role="tabpanel">
+        <div id="help-banner-slot-cop15-kanban"></div>
         <div id="kanban-board"></div>
     </div>
 
     <!-- ==================== TAB 4: HISTORIAL ==================== -->
     <div class="tab-panel" id="panel-dashboard" role="tabpanel">
+        <div id="help-banner-slot-cop15-dashboard"></div>
         <div class="card">
-            <div class="card-title">📚 Historial Completo de Pruebas</div>
+            <div class="card-title" data-help="hist-filter-help">📚 Historial Completo de Pruebas</div>
             <div id="historyFilterBar"></div>
             <div id="historyList"></div>
         </div>
@@ -1085,6 +1091,7 @@
 
         <!-- ───── USERS TAB ───── -->
         <div x-show="activeTab === 'pn-users'" style="padding:12px 0;">
+            <div id="help-banner-slot-pn-users"></div>
             <!-- Add Operator Form -->
             <div class="tp-card" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.05),transparent);">
                 <div class="tp-card-title"><span>👥 Agregar Operador</span></div>
@@ -1151,6 +1158,7 @@
 
         <!-- ───── SHIFT LOG TAB ───── -->
         <div x-show="activeTab === 'pn-shift'" style="padding:12px 0;">
+            <div id="help-banner-slot-pn-shift"></div>
             <!-- Shift report buttons -->
             <div style="display:flex;gap:8px;margin-bottom:12px;">
                 <button class="tp-btn tp-btn-primary" @click="generateShiftReport()" style="font-size:11px;">🔄 Cerrar Turno</button>
@@ -1236,6 +1244,7 @@
 
         <!-- ───── ALERTS TAB ───── -->
         <div x-show="activeTab === 'pn-alerts'" style="padding:12px 0;">
+            <div id="help-banner-slot-pn-alerts"></div>
             <!-- Summary -->
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
                 <div class="tp-card" style="text-align:center;padding:14px;" :style="alertCount('CRITICA') > 0 ? 'border:2px solid #ef4444;' : ''">
@@ -1293,6 +1302,7 @@
 
         <!-- ───── SYSTEM HEALTH TAB ───── -->
         <div x-show="activeTab === 'pn-system'" style="padding:12px 0;">
+            <div id="help-banner-slot-pn-system"></div>
             <h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">💾 Monitor de Salud del Sistema</h3>
 
             <!-- Storage Breakdown -->
@@ -1381,6 +1391,7 @@
 
         <!-- ───── CALENDAR TAB ───── -->
         <div x-show="activeTab === 'pn-calendar'" style="padding:12px 0;">
+            <div id="help-banner-slot-pn-calendar"></div>
             <div class="tp-card" style="padding:16px;">
                 <!-- Header with nav -->
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -1438,6 +1449,7 @@
 
         <!-- ───── AUDIT TRAIL TAB ───── -->
         <div x-show="activeTab === 'pn-audit'" style="padding:12px 0;">
+            <div id="help-banner-slot-pn-audit"></div>
             <!-- Filters -->
             <div class="tp-card" style="margin-bottom:8px;">
                 <div class="tp-card-title"><span>🔍 Filtros de Auditoría</span></div>

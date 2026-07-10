@@ -102,6 +102,12 @@ function pnSwitchTab(tabId) {
         b.classList.toggle('active', b.getAttribute('onclick').indexOf(tabId) !== -1);
     });
     pnRender();
+    // v16.0: banner de ayuda de pestañas Alpine — su contenido vive en un x-show estático
+    // que NO pasa por tabCacheSwitch/pnRender, así que se pinta en un slot propio aquí.
+    if (_pnAlpineTabs[tabId] && typeof helpBannerHTML === 'function') {
+        var slot = document.getElementById('help-banner-slot-' + tabId);
+        if (slot) slot.innerHTML = helpBannerHTML(tabId);
+    }
     // Notify Alpine components of tab switch
     window.dispatchEvent(new CustomEvent('pn:tab-switch', { detail: { tab: tabId } }));
 }
@@ -133,7 +139,7 @@ function _pnAlpineTabRenderer(el) {
 /** Fallback renderer for Audit Trail tab (when Alpine is unavailable) */
 function pnRenderAuditTrail(el) {
     var trail = (typeof auditGetTrail === 'function') ? auditGetTrail().reverse() : [];
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>🔍 Auditoría (' + trail.length + ' registros)</span>' +
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-audit-help"><span>🔍 Auditoría (' + trail.length + ' registros)</span>' +
         '<button onclick="if(typeof auditExportCSV===\'function\')auditExportCSV()" class="tp-btn tp-btn-ghost" style="font-size:10px;">📤 Exportar CSV</button></div>';
     if (trail.length === 0) {
         html += '<div style="text-align:center;padding:20px;color:#475569;">Sin registros de auditoría.</div>';
@@ -159,6 +165,11 @@ function pnRender() {
     if (renderer) tabCacheSwitch('pn', tab, renderer);
     // Notify Alpine to refresh reactive data
     window.dispatchEvent(new CustomEvent('pn:refresh'));
+    // v16.0: banners/tooltips de ayuda — tabCacheSwitch puede diferir el render real a un RAF.
+    // Las pestañas Alpine (_pnAlpineTabs) usan su propio slot estático (ver pnSwitchTab) —
+    // su "-cached" queda vacío (_pnAlpineTabRenderer), así que se excluyen aquí para no duplicar.
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+    if (!_pnAlpineTabs[tab] && typeof helpInjectBannerDeferred === 'function') helpInjectBannerDeferred('pn', tab);
 }
 
 function pnUpdateBadges() {
@@ -188,7 +199,7 @@ function pnRenderReports(el) {
         { icon: '🔍', title: 'Auditoría', desc: 'Traza de acciones de usuarios.', actions: [{ label: 'CSV', fn: 'auditExportCSV' }] },
         { icon: '📄', title: 'Estado semanal', desc: 'Reporte ejecutivo cross-módulo en PDF.', actions: [{ label: 'PDF', fn: 'generateWeeklyStatusPDF' }] }
     ];
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>📤 Centro de Reportes</span></div>'
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-reports-help"><span>📤 Centro de Reportes</span></div>'
         + '<div style="font-size:11px;color:var(--tp-dim);margin-bottom:6px;">Un solo lugar para exportar. Cada reporte usa los datos actuales del sistema.</div>';
     reports.forEach(function(r) {
         html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;">';
@@ -551,7 +562,7 @@ function pnRenderUsers(el) {
 
     // Add operator form
     html += '<div class="tp-card" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.05),transparent);">';
-    html += '<div class="tp-card-title"><span>👥 Agregar Operador</span></div>';
+    html += '<div class="tp-card-title" data-help="pn-users-help"><span>👥 Agregar Operador</span></div>';
     html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">';
     html += '<div style="flex:1;min-width:150px;"><label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Nombre completo</label>';
     html += '<input type="text" id="pn-new-op-name" placeholder="Nombre Apellido" class="tp-input" style="width:100%;"></div>';
@@ -821,7 +832,7 @@ function pnRenderShiftLog(el) {
 
     // New entry form
     html += '<div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">';
-    html += '<div class="tp-card-title"><span>📝 Nueva Entrada de Bitácora</span></div>';
+    html += '<div class="tp-card-title" data-help="pn-shift-help"><span>📝 Nueva Entrada de Bitácora</span></div>';
 
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">';
     html += '<div><label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Operador</label>';
@@ -1079,7 +1090,7 @@ function pnRenderAlerts(el) {
     var high = alerts.filter(function(a) { return a.level === 'ALTA'; }).length;
     var medium = alerts.filter(function(a) { return a.level === 'MEDIA'; }).length;
 
-    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">';
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;" data-help="pn-alerts-help">';
     html += '<div class="tp-card" style="text-align:center;padding:14px;' + (critical > 0 ? 'border:2px solid #ef4444;' : '') + '">';
     html += '<div style="font-size:28px;font-weight:800;color:#ef4444;">' + critical + '</div>';
     html += '<div style="font-size:9px;color:var(--tp-dim);">Criticas</div></div>';
@@ -2447,7 +2458,7 @@ function pnRenderExecutive(el) {
     html += '</div>';
 
     // Compliance Scorecard
-    html += '<div class="tp-card"><div class="tp-card-title"><span>Compliance Scorecard</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title" data-help="pn-executive-help"><span>Compliance Scorecard</span></div>';
     html += '<div class="v7-exec-compliance">';
     html += '<div class="v7-exec-metric"><span>Cobertura Plan de Pruebas</span>';
     html += '<div class="v7-exec-bar"><div class="v7-exec-bar-fill" style="width:' + tpCoverage + '%;background:' + (tpCoverage >= 80 ? 'var(--success)' : tpCoverage >= 50 ? 'var(--warning)' : 'var(--danger)') + ';"></div></div>';
@@ -2581,7 +2592,7 @@ function pnRenderTurnaround(el) {
     }
 
     var html = '';
-    html += '<div class="tp-card"><div class="tp-card-title"><span>Tiempo Promedio por Etapa</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title" data-help="pn-turnaround-help"><span>Tiempo Promedio por Etapa</span></div>';
     html += '<div style="font-size:var(--font-xs);color:var(--muted);margin-bottom:12px;">Basado en ultimos ' + Math.min(100, archived.length) + ' vehiculos archivados</div>';
 
     var stages = [
@@ -2786,3 +2797,65 @@ function pnRegAddGasRow() {
         '<td style="padding:2px;"><button onclick="this.closest(\'tr\').remove()" class="tp-btn" style="padding:2px 6px;font-size:10px;color:#ef4444;">✕</button></td>';
     tbody.appendChild(tr);
 }
+
+// ══════════════════════════════════════════════════
+// v16.0: Ayuda — banners de pestaña y tooltips de campo
+// ══════════════════════════════════════════════════
+if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'pn-dashboard': { title: 'Datos — resumen', text: 'El resumen cruzado del laboratorio (mismo que ve HOY): estado de vehículos, plan semanal, inventario y alertas en un vistazo.', tips: [
+        'Es el mismo contenido que el tablero de HOY, aquí en formato de tarjetas del Panel.',
+        'Las anomalías de gas y el estado de Firebase Sync se muestran solo si aplican.'
+    ]},
+    'pn-reports': { title: 'Reportes', text: 'Centro de exportación: cada botón genera un CSV/PDF distinto (gap de cobertura, pronóstico de gas, bitácora, alertas, auditoría). Lee la descripción de cada fila para saber qué incluye.', tips: [
+        'Cada tarjeta ya explica qué exporta antes de que pulses el botón.',
+        'Los reportes usan siempre los datos actuales — no hay que "generar" nada antes.',
+        'El "Estado semanal" en PDF es el más completo para compartir con jefatura.'
+    ]},
+    'pn-executive': { title: 'Ejecutivo', text: 'Scorecard de cumplimiento y proyección de recursos — vista para reportar hacia arriba.', tips: [
+        'El Compliance Scorecard resume % de cobertura contra el plan de producción.',
+        'Métricas por Operador te dice quién ha registrado/liberado más pruebas.'
+    ]},
+    'pn-turnaround': { title: 'Turnaround', text: 'Cuánto tarda un vehículo en cada etapa del proceso y el throughput diario del laboratorio.', tips: [
+        'Tiempos altos en una etapa señalan dónde se está atorando el flujo.',
+        'El throughput de 14 días ayuda a detectar tendencias de productividad.'
+    ]},
+    'pn-users': { title: 'Operadores', text: 'Alta y gestión de operadores del laboratorio: nombre, rol y estadísticas de pruebas por persona.', tips: [
+        'Agrega operadores antes de que aparezcan en el picker 👤 del topbar.',
+        'Las estadísticas (registrados/liberados/activos) se calculan automáticamente.'
+    ]},
+    'pn-shift': { title: 'Bitácora de turno', text: 'Registro de actividades, incidencias y observaciones del turno. Úsala para dejar constancia de lo que pasó en tu turno.', tips: [
+        'Usa "🔄 Cerrar Turno" al final del día para generar el reporte de entrega.',
+        'Cada entrada queda con operador, categoría y hora — es evidencia auditable.'
+    ]},
+    'pn-alerts': { title: 'Alertas', text: 'Todas las alertas activas de todos los módulos, ordenadas por severidad, incluidas las de consumo y las alarmas SPC.', tips: [
+        '"✅ Sin Alertas" significa que el laboratorio opera con normalidad.',
+        'Las alertas se agrupan por origen (COP15, Inventario, Test Plan, CoP SPC).'
+    ]},
+    'pn-intelligence': { title: 'Inteligencia', text: 'Correlaciones automáticas entre módulos (consumo vs volumen de pruebas) para detectar patrones que no se ven a simple vista.', tips: [
+        'Es informativo: no requiere captura, solo lectura de tendencias cruzadas.'
+    ]},
+    'pn-system': { title: 'Sistema', text: 'Salud técnica de la plataforma: versión instalada, uso de almacenamiento local y estado de sincronización.', tips: [
+        'Si el almacenamiento local se acerca al límite (~5MB), aquí lo verás primero.',
+        'Sirve para diagnosticar por qué un dispositivo no sincroniza.'
+    ]},
+    'pn-calendar': { title: 'Calendario', text: 'Las pruebas planificadas/ejecutadas por día del mes, para tener visión rápida de la carga de trabajo.', tips: [
+        'Usa ← Hoy → para navegar entre meses.'
+    ]},
+    'pn-audit': { title: 'Auditoría', text: 'El control de cambios de TODA la plataforma: quién hizo qué y cuándo. Exportable a CSV.', tips: [
+        'Cada acción importante (guardar, liberar, editar retroactivo) queda registrada aquí.',
+        'Usa los filtros para buscar por módulo, operador o tipo de acción.'
+    ]},
+    'pn-regulations': { title: 'Regulaciones', text: 'Catálogo de regulaciones de emisiones y sus gases/límites — la fuente que usan CoP y Liberación para validar resultados.', tips: [
+        'Agrega una fila de gas por cada contaminante que la regulación limita.',
+        'Estos límites son los que se comparan contra los resultados capturados en Liberación.'
+    ]}
+});
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'pn-reports-help': { title: 'Centro de Reportes', text: 'Un solo lugar para exportar todos los reportes del laboratorio; cada botón usa los datos actuales del sistema.' },
+    'pn-executive-help': { title: 'Compliance Scorecard', text: 'Porcentaje de cumplimiento del plan de producción, con proyección de recursos necesarios para cerrar la brecha.' },
+    'pn-turnaround-help': { title: 'Tiempo por etapa', text: 'Promedio de días/horas que un vehículo pasa en cada etapa del proceso (recepción, preacondicionamiento, prueba, liberación).' },
+    'pn-users-help': { title: 'Alta de operador', text: 'Registra el nombre y rol de un técnico del laboratorio para que pueda ser elegido en el picker de operador.' },
+    'pn-shift-help': { title: 'Bitácora', text: 'Registra aquí eventos de tu turno: inicio, incidencias, mantenimiento, calibraciones y observaciones.' },
+    'pn-alerts-help': { title: 'Resumen de alertas', text: 'Conteo de alertas Críticas / Altas / Medias activas ahora mismo en todo el laboratorio.' },
+    'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' }
+});

@@ -2,6 +2,32 @@
 
 All notable changes to this project, organized by development round.
 
+## v16.0 — "Plataforma autoguiada" (2026-07-10)
+
+Inflexión total de accesibilidad: cualquier persona nueva debe llegar a cualquier pantalla y
+saber qué es, qué hacer y qué capturar, sin depender de que alguien le explique.
+
+- **Tooltips de campo completos**: `CASCADE_TOOLTIPS` (antes solo COP15, 36 campos) ahora cubre
+  los 7 módulos — decenas de campos nuevos en Alta/Operación/Liberación/Historial (COP15), plan
+  semanal/recuperación/reglas/producción (Test Plan), cilindros/equipos/predicción/combustible
+  (Inventario), reportes/operadores/bitácora/alertas/auditoría (Panel), validador/Control SPC
+  (CoP) y el tablero de actividades (HOY). Nuevo modo de inyección vía `[data-help="clave"]`
+  para títulos y encabezados sin campo de formulario asociado.
+- **Banners por pestaña**: cada pestaña de cada módulo (~40 en total) explica en 1-2 líneas qué
+  se hace ahí y el primer paso, con "Ver más" (tips accionables) y "Entendido ✓" (descartable
+  por dispositivo, releíble desde el botón ℹ️/menú de ayuda).
+- **Recorridos guiados por módulo**: el tour único de 5 pasos se volvió `TOURS` — un recorrido
+  corto y específico por módulo (Hoy, Plan, Inventario, Datos, CoP, Pruebas) que se lanza solo
+  la primera vez que visitas cada uno (solo escritorio) y se puede relanzar desde el botón ?.
+- **Glosario del laboratorio**: ~22 términos (Soak, CoP, ETW, I-MR, Reglas de Nelson, Cpk, PSI,
+  DTC, etc.) con buscador, accesible desde el menú de ayuda y desde cualquier banner.
+- **Estados vacíos guiados**: predicción de inventario sin lecturas, CoP sin plan de producción
+  o sin liberaciones, ahora explican por qué están vacíos y ofrecen un botón directo a la
+  sección que los llena.
+- **Accesibilidad ligera**: `aria-label` en los botones de icono principales (editar/eliminar de
+  cilindros, equipos, tanques, zonas; acciones del tablero de HOY; chip de ETA; alarmas SPC;
+  firma digital) y checkboxes del tablero.
+
 ## v15.9 — "HOY como tablero de actividades + consumo inteligente" (2026-07-09)
 
 ### 📌 HOY = tracker de actividades (estilo Monday/Asana)

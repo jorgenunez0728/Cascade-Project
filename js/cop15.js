@@ -716,6 +716,11 @@ function initCascadeTree() {
         updateProgressBar();
         // Re-inject tooltips for the new tab
         cascadeInjectTooltips();
+        // v16.0: banner de ayuda de esta pestaña (slot estático, ver index.html panel-*)
+        if (typeof helpBannerHTML === 'function') {
+            var _hSlot = document.getElementById('help-banner-slot-cop15-' + tab.dataset.tab);
+            if (_hSlot) _hSlot.innerHTML = helpBannerHTML('cop15-' + tab.dataset.tab);
+        }
     }
 
     // Setup real-time field validation for Alta form
@@ -763,6 +768,12 @@ function initCascadeTree() {
 
     // Inject field help tooltips (CASCADE_TOOLTIPS may not be ready yet)
     try { cascadeInjectTooltips(); } catch(e) {}
+
+    // v16.0: banner de ayuda del tab activo por defecto (Alta) — el resto se puebla al hacer clic
+    try {
+        var _hSlot0 = document.getElementById('help-banner-slot-cop15-alta');
+        if (_hSlot0 && typeof helpBannerHTML === 'function') _hSlot0.innerHTML = helpBannerHTML('cop15-alta');
+    } catch (e) {}
 
     function toggleMode() {
         const isExternal = document.getElementById('modeToggle').checked;
@@ -1309,6 +1320,9 @@ document.getElementById('precond_responsible').value = p.responsible ?? '';
 
   // Update vehicle inline checklist
   if (typeof vclUpdate === 'function') vclUpdate();
+
+  // v16.0: re-inyectar tooltips de ayuda (acordeones/campos recién poblados)
+  if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 
@@ -2384,6 +2398,7 @@ function loadRelease() {
 
     _renderUsedCylinders(vehicle);
     renderTimeline(vehicle);
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function loadApproval() {
@@ -2422,6 +2437,7 @@ function loadApproval() {
 
     _libRenderGasEntry('appr-gas-entry-content', profile, {}, 'libOnApproverGasChange()');
     if (btn) btn.disabled = true;
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function submitToApproval() {
@@ -2979,12 +2995,12 @@ function closeSubstitutionModal() {
                                     if (!isEmissionsPurpose(v.purpose)) return '';
                                     var _c = validatePdfCompleteness(v);
                                     if (_c.ok) return '';
-                                    return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding:5px 10px;font-size:0.75rem;background:#fef3c7;color:#92400e;margin-left:4px;" title="Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente">📝 Completar (' + _c.missing.length + ')</button>';
+                                    return '<button class="btn-secondary" onclick="histOpenCompleteModal(' + parseInt(v.id) + ')" style="padding:5px 10px;font-size:0.75rem;background:#fef3c7;color:#92400e;margin-left:4px;" title="Faltan ' + _c.missing.length + ' campos para el PDF — completar retroactivamente" aria-label="Completar datos retroactivos (' + _c.missing.length + ' campos)">📝 Completar (' + _c.missing.length + ')</button>';
                                 })()}
-                                <button class="btn-secondary" onclick="histShowTimelineModal(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;margin-left:4px;" title="Historial y control de cambios del vehículo">
+                                <button class="btn-secondary" onclick="histShowTimelineModal(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;margin-left:4px;" title="Historial y control de cambios del vehículo" aria-label="Ver historial y control de cambios">
                                     🕘
                                 </button>
-                                <button class="btn-secondary" onclick="deleteVehicleCascade(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Eliminar vehículo y todos sus datos relacionados">
+                                <button class="btn-secondary" onclick="deleteVehicleCascade(${parseInt(v.id)})" style="padding:5px 10px;font-size:0.75rem;background:#7f1d1d;color:#fca5a5;margin-left:4px;" title="Eliminar vehículo y todos sus datos relacionados" aria-label="Eliminar vehículo y todos sus datos relacionados">
                                     🗑
                                 </button>
                             </td>
@@ -3679,8 +3695,8 @@ function histOpenCompleteModal(vehicleId) {
   var html = '<div class="hist-complete-overlay" id="hist-complete-overlay">';
   html += '<div class="hist-complete-box">';
   html += '<div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--accent-cop, #0891b2);padding-bottom:10px;margin-bottom:12px;">';
-  html += '<span style="font-size:15px;font-weight:800;flex:1;">📝 Completar datos retroactivos</span>';
-  html += '<button onclick="histCloseCompleteModal()" class="btn btn-sm btn-ghost" style="font-size:14px;">✕</button></div>';
+  html += '<span style="font-size:15px;font-weight:800;flex:1;" data-help="hist-retro-help">📝 Completar datos retroactivos</span>';
+  html += '<button onclick="histCloseCompleteModal()" class="btn btn-sm btn-ghost" aria-label="Cerrar" style="font-size:14px;">✕</button></div>';
   html += '<div style="font-size:12px;margin-bottom:4px;"><b style="font-family:monospace;">' + escapeHtml(vehicle.vin || '') + '</b> · ' + escapeHtml(vehicle.configCode || '') + ' · ' + escapeHtml((CONFIG.statusLabels && CONFIG.statusLabels[status]) || status) + '</div>';
   html += '<div style="font-size:11px;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;margin-bottom:12px;">' +
           'Faltan <b>' + comp.missing.length + '</b> campos para el PDF. Los campos ya guardados están 🔒 bloqueados: modificarlos exige una razón escrita y firma digital al guardar. Todo queda en el historial del vehículo y en la auditoría.</div>';
@@ -3766,6 +3782,7 @@ function histOpenCompleteModal(vehicleId) {
     var v = sel.getAttribute('data-value');
     if (v) sel.value = v;
   });
+  if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function histCloseCompleteModal() {
@@ -4813,7 +4830,7 @@ function renderManualConfigsList() {
         html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #dbeafe;font-size:10px;">' +
             '<span style="flex:1;font-family:monospace;color:#1e40af;word-break:break-all;">' + code + '</span>' +
             '<button onclick="openManualConfigForm(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Editar">✏️</button>' +
-            '<button onclick="deleteManualConfig(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Eliminar">🗑️</button>' +
+            '<button onclick="deleteManualConfig(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:12px;" title="Eliminar" aria-label="Eliminar configuración">🗑️</button>' +
             '</div>';
     });
     html += '</div>';
@@ -6153,10 +6170,117 @@ var CASCADE_TOOLTIPS = {
     soak_timer_hours: {
         title: 'Duraci\u00f3n del Temporizador de Reposo',
         text: 'Tiempo de reposo t\u00e9rmico (soak). 12h = est\u00e1ndar m\u00ednimo, 16h = recomendado para climas fr\u00edos, 24-36h = pruebas especiales o normativas estrictas.'
-    }
+    },
+
+    // \u2500\u2500 v16.0: huecos de ayuda cubiertos (Alta, Recepci\u00f3n, Preacondicionamiento,
+    // Verificaci\u00f3n, Simple, selects de veh\u00edculo, estado, historial, gases) \u2500\u2500
+    'cascade-tree-help': {
+        title: 'Configuraci\u00f3n del veh\u00edculo',
+        text: 'Arma la configuraci\u00f3n completando cada nivel EN ORDEN (empieza por el Modelo). Cada opci\u00f3n que eliges filtra las siguientes \u2014 as\u00ed nunca puedes armar una combinaci\u00f3n que no exista en el cat\u00e1logo. Toca "cambiar" en un nivel ya completado para regresar a \u00e9l. Tambi\u00e9n puedes usar el buscador de arriba si ya sabes qu\u00e9 configuraci\u00f3n necesitas.'
+    },
+    cfg_model: { title: 'Modelo', text: 'Primer nivel de la configuraci\u00f3n del veh\u00edculo. Elegir el modelo filtra las opciones de a\u00f1o, motor, transmisi\u00f3n, etc. que aparecen despu\u00e9s.' },
+    cfg_year: { title: 'A\u00f1o modelo', text: 'A\u00f1o modelo del veh\u00edculo (tal como aparece en el VIN), filtrado seg\u00fan el modelo ya elegido.' },
+    cfg_engine: { title: 'Motor', text: 'Cilindrada/motor del veh\u00edculo, filtrado seg\u00fan modelo y a\u00f1o ya elegidos.' },
+    cfg_transmission: { title: 'Transmisi\u00f3n', text: 'Tipo de transmisi\u00f3n (manual, autom\u00e1tica, DCT\u2026) disponible para la configuraci\u00f3n elegida hasta ahora.' },
+    cfg_regulation: { title: 'Regulaci\u00f3n de emisiones', text: 'Norma a la que se probar\u00e1 el veh\u00edculo (EURO-5, SULEV 30, PRE-EURO 7\u2026). Define qu\u00e9 gases y l\u00edmites aplican despu\u00e9s, en la Liberaci\u00f3n.' },
+    cfg_envpkg: { title: 'Environment Package', text: 'Paquete ambiental/de hibridaci\u00f3n del veh\u00edculo (si aplica). "0" significa que esta configuraci\u00f3n no tiene paquete especial.' },
+    cfg_region: { title: 'Regi\u00f3n', text: 'Mercado de destino del veh\u00edculo (M\u00e9xico, USA, Europa\u2026). Afecta qu\u00e9 reglas de plan y prioridad se le aplican.' },
+    cfg_tires: { title: 'Llantas', text: 'Medida de llanta de la configuraci\u00f3n (afecta el coast-down / resistencia al rodamiento del dinam\u00f3metro).' },
+    cfg_body: { title: 'Carrocer\u00eda', text: 'Tipo de carrocer\u00eda (4DR, 5DR, WGN\u2026) de la configuraci\u00f3n.' },
+    cfg_drive: { title: 'Drive Type', text: 'Tipo de tracci\u00f3n del veh\u00edculo (delantera, trasera, integral).' },
+    cfg_enginepkg: { title: 'Engine Package', text: 'Paquete de motor espec\u00edfico de la configuraci\u00f3n (si aplica).' },
+
+    reg_operator: { title: 'Operador de Registro', text: 'Qui\u00e9n est\u00e1 dando de alta este veh\u00edculo en la plataforma. Elige tu nombre de la lista \u2014 si no aparece, pide que te agreguen en Datos \u2192 Operadores.' },
+    reg_datetime: { title: 'Fecha/Hora de Alta', text: 'Momento en que se registra el veh\u00edculo. Se llena autom\u00e1ticamente con la hora actual; solo c\u00e1mbiala si est\u00e1s capturando un registro atrasado.' },
+
+    op_recep: { title: 'Operador de Recepci\u00f3n', text: 'Qui\u00e9n recibi\u00f3 f\u00edsicamente el veh\u00edculo en el laboratorio. Puede ser distinto del operador que dio de alta.' },
+    op_odo: { title: 'Od\u00f3metro', text: 'Kilometraje del veh\u00edculo al recibirlo, en km, tal como marca el tablero. Ejemplo: 15234. Se usa para comparar contra el od\u00f3metro pre-prueba.' },
+    op_datetime: { title: 'Fecha/Hora de Recepci\u00f3n', text: 'Momento en que el veh\u00edculo entr\u00f3 f\u00edsicamente al laboratorio.' },
+    fuel_typein: { title: 'Tipo de combustible (recepci\u00f3n)', text: 'Combustible con el que lleg\u00f3 el veh\u00edculo (lo que trae puesto, no el de prueba). Elige la opci\u00f3n que coincida con lo que indique la etiqueta o el tanquero.' },
+    tank_capacity: { title: 'Capacidad del tanque', text: 'Capacidad total del tanque de combustible del veh\u00edculo, en litros. Ejemplo: 50. Se usa junto con el nivel para calcular litros disponibles.' },
+    op_notes: { title: 'Observaciones de Recepci\u00f3n', text: 'Cualquier condici\u00f3n relevante del veh\u00edculo al recibirlo: da\u00f1os visibles, ruidos, advertencias en el tablero, etc. D\u00e9jalo vac\u00edo si no hay nada que anotar.' },
+
+    precond_responsible: { title: 'Persona a cargo (Preacondicionamiento)', text: 'Operador responsable de preparar el veh\u00edculo antes de la prueba (ciclo de manejo, verificaci\u00f3n de niveles y DTCs).' },
+    precond_datetime: { title: 'Fecha/Hora de Preacondicionamiento', text: 'Momento en que se realiz\u00f3 el preacondicionamiento del veh\u00edculo.' },
+    tire_pressure: { title: 'Presi\u00f3n de llantas (preacondicionamiento)', text: 'Presi\u00f3n en PSI verificada justo antes de la prueba (puede diferir de la presi\u00f3n de recepci\u00f3n). Ejemplo: 33.' },
+    odo_pretest: { title: 'Od\u00f3metro para prueba', text: 'Kilometraje del veh\u00edculo justo antes de iniciar la prueba de emisiones (despu\u00e9s del preacondicionamiento). Debe ser igual o mayor al od\u00f3metro de recepci\u00f3n.' },
+
+    test_responsible: { title: 'Persona a cargo de la prueba', text: 'Operador que ejecuta y supervisa la prueba de emisiones en el dinam\u00f3metro.' },
+    test_datetime: { title: 'Fecha/Hora de la prueba', text: 'Momento en que se corri\u00f3 la prueba de emisiones en el dinam\u00f3metro.' },
+    test_dyno_on: { title: 'Dinam\u00f3metro (encendido/apagado)', text: 'Confirma si el dinam\u00f3metro estuvo encendido durante la corrida. Debe estar "Encendido" para una prueba v\u00e1lida.' },
+    test_fan_mode: { title: 'Modo de ventilador', text: '"Velocidad" = defines t\u00fa la velocidad del aire de enfriamiento en km/h. "Speed Follow" = el ventilador sigue autom\u00e1ticamente la velocidad simulada del veh\u00edculo. Elige el que use tu protocolo de prueba.' },
+    test_verify_notes: { title: 'Comentarios (Verificaci\u00f3n en Prueba)', text: 'Cualquier observaci\u00f3n durante la corrida: interrupciones, ajustes, incidencias. D\u00e9jalo vac\u00edo si todo sali\u00f3 seg\u00fan lo esperado.' },
+
+    simple_operator: { title: 'Operador', text: 'Qui\u00e9n realiz\u00f3 este registro simple (para prop\u00f3sitos que no requieren el protocolo completo de emisiones, como Correlaci\u00f3n o Investigaci\u00f3n).' },
+    simple_datetime: { title: 'Fecha/Hora', text: 'Momento del registro.' },
+    simple_notes: { title: 'Comentarios / Observaciones', text: 'Notas generales sobre este registro. D\u00e9jalo vac\u00edo si no aplica.' },
+
+    op_status: { title: 'Estado del veh\u00edculo', text: 'Etapa actual del veh\u00edculo en el flujo del laboratorio. C\u00e1mbiala manualmente solo si necesitas corregir el flujo autom\u00e1tico \u2014 normalmente avanza sola conforme completas cada bloque.' },
+    activeVehSelect: { title: 'Veh\u00edculo activo', text: 'Elige el veh\u00edculo con el que vas a trabajar en esta pesta\u00f1a. Solo aparecen veh\u00edculos que a\u00fan no se han archivado.' },
+    releaseVehSelect: { title: 'Veh\u00edculo a liberar', text: 'Elige el veh\u00edculo listo para captura de resultados. Como Liberador, t\u00fa registras el primer juego de valores de gases.' },
+    approvalVehSelect: { title: 'Veh\u00edculo pendiente de aprobaci\u00f3n', text: 'Elige el veh\u00edculo que vas a verificar como Aprobador. NO ver\u00e1s los valores que captur\u00f3 el Liberador \u2014 as\u00ed se garantiza el doble ciego.' },
+    'hist-filter-help': { title: 'Filtros de Historial', text: 'Filtra los veh\u00edculos archivados por estado, VIN, a\u00f1o o mes para encontrar uno espec\u00edfico r\u00e1pidamente.' },
+    'lib-gas-help': { title: 'Resultados de Emisiones', text: 'Captura los valores FINALES verificados del reporte oficial (no lecturas crudas del analizador). El estado muestra \u2713/\u2717 contra el l\u00edmite regulatorio y el % del l\u00edmite; si un valor se sale del rango plausible se marca en \u00e1mbar (puedes guardarlo igual, queda registrado en auditor\u00eda).' },
+    'hist-retro-help': { title: 'Completar datos retroactivos', text: 'Este veh\u00edculo ya est\u00e1 archivado y le faltan campos que el PDF exige. Los campos vac\u00edos (en \u00e1mbar) los puedes llenar libremente. Los que ya tienen valor est\u00e1n bloqueados \ud83d\udd12: para cambiarlos debes escribir la raz\u00f3n del cambio y firmar \u2014 todo queda en el control de cambios (\ud83d\udd58).' }
 };
 
-/** Inject ? help buttons next to labels of fields that have tooltips */
+// v16.0 — Banners de ayuda de las pestañas de COP15/Cascade (HELP_TABS vive en app.js,
+// que carga antes que este archivo, así que ya existe cuando se ejecuta esta línea).
+if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'cop15-alta': {
+        title: 'Alta de vehículo',
+        text: 'Registra un vehículo nuevo: elige el propósito, arma la configuración con la cascada (cada selección filtra las siguientes) y captura el VIN de 17 caracteres.',
+        tips: [
+            'Empieza siempre por el Propósito — determina si verás el flujo completo de emisiones o el formato simple.',
+            'En la cascada, avanza en orden: Modelo → Año → Motor → … Si te equivocas, toca "cambiar" en el nivel que quieras corregir.',
+            '¿Ya sabes la configuración exacta? Usa el buscador 🔎 arriba de la cascada en vez de ir nivel por nivel.',
+            'El VIN se pone en mayúsculas solo y no acepta I, O ni Q — si el escáner marca error, revisa que no los tenga.'
+        ]
+    },
+    'cop15-seguimiento': {
+        title: 'Operación',
+        text: 'Aquí capturas el flujo completo del vehículo activo: recepción → preacondicionamiento → soak → dinamómetro → verificación. Abre cada acordeón en orden y GUARDA AVANCE al terminar cada bloque.',
+        tips: [
+            'Selecciona primero el vehículo en el selector rojo de arriba.',
+            'Los acordeones se abren de uno en uno — al abrir el siguiente se cierra el anterior automáticamente.',
+            'El botón 💾 GUARDAR AVANCE no cambia el estado del vehículo por sí solo: usa el selector "Estado" cuando termines cada etapa.',
+            'El temporizador de Soak sigue corriendo aunque cambies de pestaña o cierres el navegador — se reanuda solo.'
+        ]
+    },
+    'cop15-liberacion': {
+        title: 'Liberación doble-ciego',
+        text: 'El Liberador captura los resultados finales de gases y firma; después el Aprobador los captura DE NUEVO sin verlos — si coinciden a 3 cifras, se archiva. Así se evitan errores de dedo.',
+        tips: [
+            'Como Liberador: captura los valores FINALES verificados del reporte, no lecturas crudas.',
+            'Como Aprobador: no podrás ver lo que capturó el Liberador — es intencional, garantiza independencia.',
+            'Si los valores no coinciden, la plataforma marca desacuerdo y hay que revisar antes de continuar.',
+            'El botón 📄 Generar PDF se bloquea si faltan campos obligatorios — usa 📝 Completar en Historial para vehículos ya archivados.'
+        ]
+    },
+    'cop15-kanban': {
+        title: 'Cola de vehículos',
+        text: 'Vista rápida de todos los vehículos activos por estado. Toca cualquiera para abrirlo directo en Operación.',
+        tips: ['Útil para ver de un vistazo cuántos vehículos hay en cada etapa del flujo sin entrar uno por uno.']
+    },
+    'cop15-dashboard': {
+        title: 'Historial',
+        text: 'Vehículos archivados: genera su PDF COP15-F05, completa datos retroactivos (📝) si el PDF pide campos que no existían antes, y consulta su control de cambios (🕘).',
+        tips: [
+            'Usa los filtros para encontrar un VIN o rango de fechas específico.',
+            'El botón "📝 Completar (N)" solo aparece si al vehículo le faltan campos para el PDF.',
+            'El botón 🕘 muestra el historial completo de cambios del vehículo, incluidas ediciones retroactivas con su razón y firma.'
+        ]
+    }
+});
+
+
+/**
+ * Inject ? help buttons next to labels of fields that have tooltips, y también en
+ * cualquier elemento con data-help="clave" (v16.0 — registro global de ayuda: cada
+ * módulo agrega sus claves a CASCADE_TOOLTIPS y llama cascadeInjectTooltips() tras
+ * renderizar). Idempotente: siempre borra y re-inyecta, así que es seguro llamarla
+ * después de cualquier innerHTML total.
+ */
 function cascadeInjectTooltips() {
     // Guard: CASCADE_TOOLTIPS may not be initialized yet during script load
     if (typeof CASCADE_TOOLTIPS === 'undefined' || !CASCADE_TOOLTIPS) return;
@@ -6164,6 +6288,7 @@ function cascadeInjectTooltips() {
     // Remove existing tooltip buttons first
     document.querySelectorAll('.cascade-help-btn').forEach(function(btn) { btn.remove(); });
 
+    // Modo 1: campos de formulario con <label for="id"> (o label dentro de .form-group)
     Object.keys(CASCADE_TOOLTIPS).forEach(function(fieldId) {
         var field = document.getElementById(fieldId);
         if (!field) return;
@@ -6191,6 +6316,42 @@ function cascadeInjectTooltips() {
             cascadeShowTooltip(fieldId);
         };
         label.appendChild(btn);
+    });
+
+    // Modo 2 (v16.0): cualquier elemento con data-help="clave" (títulos de tarjeta,
+    // encabezados de sección, controles sin <label> — usado por HTML generado
+    // dinámicamente en Test Plan/Inventario/Panel/CoP/HOY). El botón se agrega
+    // DENTRO del elemento, al final de su texto.
+    document.querySelectorAll('[data-help]').forEach(function(el) {
+        var key = el.getAttribute('data-help');
+        if (!key || !CASCADE_TOOLTIPS[key]) return;
+        if (el.querySelector(':scope > .cascade-help-btn')) return; // no doble-inyección
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'cascade-help-btn';
+        btn.textContent = '?';
+        btn.setAttribute('aria-label', 'Ayuda: ' + CASCADE_TOOLTIPS[key].title);
+        btn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            cascadeShowTooltip(key);
+        };
+        el.appendChild(btn);
+    });
+}
+
+/**
+ * v16.0 — Versión "diferida" de cascadeInjectTooltips(), para usar tras renders que
+ * pasan por tabCacheSwitch() (app.js): ese motor de caché de pestañas puede posponer
+ * el renderFn real a un requestAnimationFrame (skeleton → render), así que inyectar
+ * de inmediato a veces encontraría el DOM todavía sin poblar. Doble RAF asegura que
+ * corremos DESPUÉS de cualquier render diferido de ese frame.
+ */
+function cascadeInjectTooltipsDeferred() {
+    if (typeof cascadeInjectTooltips !== 'function') return;
+    requestAnimationFrame(function() {
+        requestAnimationFrame(cascadeInjectTooltips);
     });
 }
 

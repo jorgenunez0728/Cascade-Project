@@ -157,6 +157,9 @@ function invRender() {
     var tab = invState.activeTab;
     var renderer = _invGetRenderer(tab);
     if (renderer) tabCacheSwitch('inv', tab, renderer);
+    // v16.0: banners/tooltips de ayuda — tabCacheSwitch puede diferir el render real a un RAF
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+    if (typeof helpInjectBannerDeferred === 'function') helpInjectBannerDeferred('inv', tab);
 }
 
 function invUpdateBadges() {
@@ -392,7 +395,7 @@ function invRenderGases(el) {
     var filtered = filterZone === 'ALL' ? gases : gases.filter(function(g){ return g.zone && g.zone.startsWith(filterZone); });
 
     var _invGasCompact = getViewMode('inv-gases') === 'compact';
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Gestion de Cilindros (' + gases.length + ')</span>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-gases-help"><span>Gestion de Cilindros (' + gases.length + ')</span>';
     html += '<div style="display:flex;gap:5px;align-items:center;">' + renderViewModeToggle('inv-gases', false);
     html += '<button class="tp-btn tp-btn-primary" onclick="invShowAddGas()" style="font-size:10px;">+ Nuevo Cilindro</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invExportGases()" style="font-size:10px;">Exportar</button>';
@@ -424,9 +427,9 @@ function invRenderGases(el) {
             html += '<div style="display:flex;gap:6px;align-items:center;">';
             html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + exp.color + '20;color:' + exp.color + ';border:1px solid ' + exp.color + '30;">' + exp.text + '</span>';
             html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + lvl.color + '20;color:' + lvl.color + ';">' + lvl.text + '</span>';
-            html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGas(\'' + g.id + '\')" style="font-size:9px;">\u270F</button>';
-            if (g.readings && g.readings.length >= 2) html += '<button class="tp-btn tp-btn-ghost" onclick="invShowTrendChart(\'' + g.id + '\')" style="font-size:9px;" title="Tendencia">&#x1F4C8;</button>';
-            html += '<button class="tp-btn tp-btn-ghost" onclick="invShowBarcode(\'' + g.id + '\')" style="font-size:9px;">\u{1F4CB}</button>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGas(\'' + g.id + '\')" style="font-size:9px;" title="Editar" aria-label="Editar cilindro">\u270F</button>';
+            if (g.readings && g.readings.length >= 2) html += '<button class="tp-btn tp-btn-ghost" onclick="invShowTrendChart(\'' + g.id + '\')" style="font-size:9px;" title="Tendencia" aria-label="Ver tendencia de consumo">&#x1F4C8;</button>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="invShowBarcode(\'' + g.id + '\')" style="font-size:9px;" title="C\u00F3digo de barras" aria-label="Ver c\u00F3digo de barras">\u{1F4CB}</button>';
             html += '</div></div>';
         });
         html += '</div>';
@@ -487,6 +490,7 @@ function invShowAddGas(editId) {
 
     if (g) { invUpdateConcOpts(); document.getElementById('inv-g-conc').value = g.concNominal || ''; }
     else { invUpdateConcOpts(); }
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function invEditGas(id) { invShowAddGas(id); }
@@ -915,7 +919,7 @@ function invShowZone(zoneId) {
 function invRenderReadings(el) {
     var gases = invState.gases.filter(function(g){ return g.status !== 'Empty'; });
     var html = invRenderAnomalyBanner();
-    html += '<div class="tp-card"><div class="tp-card-title"><span>Captura Diaria — Gases (psi)</span>';
+    html += '<div class="tp-card"><div class="tp-card-title" data-help="inv-readings-help"><span>Captura Diaria — Gases (psi)</span>';
     html += '<div style="display:flex;gap:6px;">';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invStartReadingRound()" style="font-size:10px;border-color:#10b981;color:#10b981;">🔄 Ronda</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size:10px;border-color:#8b5cf6;color:#8b5cf6;">📷 Escanear</button>';
@@ -923,7 +927,9 @@ function invRenderReadings(el) {
     html += '</div></div>';
     html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Registra la presion (psi) de cada cilindro en uso y los niveles de combustible. Un solo botón guarda todo.</div>';
 
-    if (gases.length === 0) {
+    if (invState.gases.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Aún no hay cilindros registrados. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-gases\')" style="font-size:10px;margin-left:6px;">🔴 Dar de alta un cilindro →</button></div>';
+    } else if (gases.length === 0) {
         html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin cilindros en uso.</div>';
     } else {
         html += '<div style="max-height:500px;overflow-y:auto;">';
@@ -947,7 +953,7 @@ function invRenderReadings(el) {
 
     // ── Fuel tanks capture (unified daily capture) ──
     var tanks = invState.fuelTanks || [];
-    html += '<div class="tp-card"><div class="tp-card-title"><span>⛽ Captura Diaria — Combustible</span></div>';
+    html += '<div class="tp-card"><div class="tp-card-title" data-help="inv-readings-fuel-help"><span>⛽ Captura Diaria — Combustible</span></div>';
     if (tanks.length === 0) {
         html += '<div style="text-align:center;padding:15px;color:var(--tp-dim);">Sin tanques configurados.</div>';
     } else {
@@ -1262,7 +1268,7 @@ function invQuickReadSave(gasId) {
 // ══════════════════════════════════════════════════
 function invRenderEquipment(el) {
     var equip = invState.equipment;
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Equipos y Calibraciones (' + equip.length + ')</span>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-equipment-help"><span>Equipos y Calibraciones (' + equip.length + ')</span>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invAddEquipment()" style="font-size:10px;">+ Agregar</button></div>';
 
     if (equip.length === 0) {
@@ -1279,7 +1285,7 @@ function invRenderEquipment(el) {
             html += '<div style="font-size:9px;color:var(--tp-dim);">S/N: ' + (e.serialNo||'?') + ' | ' + (e.type||'') + ' | ' + (e.location||'') + '</div></div>';
             html += '<div style="display:flex;gap:6px;align-items:center;">';
             html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + clr + '20;color:' + clr + ';">' + statusTxt + '</span>';
-            html += '<button class="tp-btn tp-btn-ghost" onclick="invEditEquipment(\'' + e.id + '\')" style="font-size:9px;">\u270F</button>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="invEditEquipment(\'' + e.id + '\')" style="font-size:9px;" title="Editar" aria-label="Editar equipo">\u270F</button>';
             html += '</div></div>';
         });
     }
@@ -1315,6 +1321,7 @@ function invAddEquipment(editId) {
         (isEdit ? '<button onclick="showConfirm(\'Eliminar equipo?\',function(){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function invSaveEquipment(editId) {
@@ -1398,9 +1405,12 @@ function invRenderPredict(el) {
     var confidenceClr = rates.dataPoints >= 20 ? '#10b981' : rates.dataPoints >= 5 ? '#f59e0b' : '#ef4444';
 
     html += '<div class="tp-card" style="border-left:3px solid ' + (hasAdaptiveData ? '#8b5cf6' : 'var(--tp-border)') + ';">';
-    html += '<div class="tp-card-title"><span>Prediccion Activa de Consumo</span>';
+    html += '<div class="tp-card-title" data-help="inv-predict-model"><span>Prediccion Activa de Consumo</span>';
     html += '<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:' + confidenceClr + '20;color:' + confidenceClr + ';border:1px solid ' + confidenceClr + '30;">Confianza: ' + confidenceLabel + ' (' + rates.dataPoints + ' pts)</span></div>';
     html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Modelo adaptativo: aprende del consumo real por regulacion. Se actualiza con cada lectura y liberacion de vehiculo.</div>';
+    if (!hasAdaptiveData) {
+        html += '<div style="text-align:center;padding:14px;color:var(--tp-dim);font-size:11px;">Aun no hay suficientes lecturas para predecir. La prediccion aprende de tus capturas diarias reales. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-readings\')" style="font-size:10px;margin-left:6px;">📏 Ir a Capturar →</button></div>';
+    }
 
     // Regulation test count badges
     var regKeys = Object.keys(regTestCounts);
@@ -2169,7 +2179,7 @@ function invRenderFuel(el) {
     if (!invState.fuelTanks) invState.fuelTanks = [];
     var tanks = invState.fuelTanks;
 
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Combustible de Referencia</span>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-fuel-help"><span>Combustible de Referencia</span>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invAddFuelTank()" style="font-size:10px;">+ Agregar Tambo</button></div>';
 
     if (tanks.length === 0) {
@@ -2184,8 +2194,8 @@ function invRenderFuel(el) {
             html += '<div style="font-size:9px;color:var(--tp-dim);">' + (t.fuelType||'') + ' | ' + (t.octane||'') + ' | ' + (t.supplier||'') + '</div></div>';
             html += '<div style="display:flex;gap:6px;align-items:center;">';
             html += '<span style="font-size:10px;font-weight:700;color:' + clr + ';">' + t.currentLevel + '/' + t.capacity + ' ' + (t.unit||'L') + ' (' + pct + '%)</span>';
-            html += '<button class="tp-btn tp-btn-ghost" onclick="invEditFuelTank(\x27' + t.id + '\x27)" style="font-size:9px;">\u270F</button>';
-            html += '<button class="tp-btn tp-btn-ghost" onclick="invFuelReading(\x27' + t.id + '\x27)" style="font-size:9px;">\u{1F4CF}</button>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="invEditFuelTank(\x27' + t.id + '\x27)" style="font-size:9px;" title="Editar" aria-label="Editar tanque">\u270F</button>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="invFuelReading(\x27' + t.id + '\x27)" style="font-size:9px;" title="Registrar lectura" aria-label="Registrar lectura de nivel">\u{1F4CF}</button>';
             html += '</div></div>';
             // Progress bar
             html += '<div class="tp-bar" style="width:100%;margin-top:4px;height:8px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + clr + ';"></div></div>';
@@ -2226,6 +2236,7 @@ function invAddFuelTank(editId) {
         (isEdit ? '<button onclick="showConfirm(\'Eliminar tanque?\',function(){invState.fuelTanks=invState.fuelTanks.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function invSaveFuelTank(editId) {
@@ -2311,7 +2322,7 @@ function invRenderReport(el) {
     var fmt = function(d){ return d.toLocaleDateString('en-US',{month:'long',day:'numeric'}); };
     var weekLabel = fmt(monday) + ' - ' + fmt(friday) + ', ' + today.getFullYear();
 
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Reporte Semanal de Consumibles</span>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-report-help"><span>Reporte Semanal de Consumibles</span>';
     html += '<button class="tp-btn tp-btn-primary" onclick="invExportReport()" style="font-size:10px;">Copiar HTML</button></div>';
     html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Semana: ' + weekLabel + '</div>';
 
@@ -2530,7 +2541,7 @@ function invRenderFloorPlan(el) {
     var html = '<div class="inv-floorplan-container">';
 
     // Toolbar
-    html += '<div class="inv-floorplan-toolbar">';
+    html += '<div class="inv-floorplan-toolbar" data-help="inv-zonemap-help">';
     if (_invUndoStack.length > 0) {
         html += '<button onclick="invUndoLastMove()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;">↶ Deshacer (' + _invUndoStack.length + ')</button>';
     }
@@ -3184,7 +3195,7 @@ function invUndoLastMove() {
 function invRenderCharts(el) {
     var chartType = window._invChartType || 'gas_psi';
 
-    var html = '<div class="tp-card"><div class="tp-card-title"><span>Graficas de Consumo</span></div>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-charts-help"><span>Graficas de Consumo</span></div>';
     html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">';
     html += '<button class="tp-btn ' + (chartType === 'gas_psi' ? 'tp-btn-primary' : 'tp-btn-ghost') +
         '" onclick="window._invChartType=\'gas_psi\';invRender();" style="font-size:10px;">PSI por Cilindro</button>';
@@ -3312,8 +3323,8 @@ function invRenderConfig(el) {
         html += '<div style="font-weight:800;font-size:14px;width:30px;text-align:center;color:var(--tp-amber);">' + z.id + '</div>';
         html += '<div style="flex:1;min-width:120px;"><div style="font-size:11px;font-weight:600;">' + z.label + '</div><div style="font-size:9px;color:var(--tp-dim);">' + z.slots + ' slots | ' + z.type + ' | ' + occupied + ' ocupados</div></div>';
         html += '<div style="display:flex;gap:4px;">';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="invEditZone(' + idx + ')" style="font-size:9px;">\u270F</button>';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="invDeleteZone(' + idx + ')" style="font-size:9px;color:var(--tp-red);">\u2715</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invEditZone(' + idx + ')" style="font-size:9px;" title="Editar" aria-label="Editar zona">\u270F</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invDeleteZone(' + idx + ')" style="font-size:9px;color:var(--tp-red);" title="Eliminar" aria-label="Eliminar zona">\u2715</button>';
         html += '</div></div>';
     });
     html += '</div>';
@@ -3325,8 +3336,8 @@ function invRenderConfig(el) {
         html += '<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;margin-bottom:2px;border:1px solid var(--tp-border);border-radius:5px;background:var(--tp-card);">';
         html += '<div style="flex:1;font-size:10px;"><strong>' + gt.formula + '</strong> — ' + gt.name + '</div>';
         html += '<div style="font-size:9px;color:var(--tp-dim);">' + gt.concs.join(', ') + '</div>';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGasType(' + idx + ')" style="font-size:9px;">\u270F</button>';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="invDeleteGasType(' + idx + ')" style="font-size:9px;color:var(--tp-red);">\u2715</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGasType(' + idx + ')" style="font-size:9px;" title="Editar" aria-label="Editar tipo de gas">\u270F</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invDeleteGasType(' + idx + ')" style="font-size:9px;color:var(--tp-red);" title="Eliminar" aria-label="Eliminar tipo de gas">\u2715</button>';
         html += '</div>';
     });
     html += '</div>';
@@ -4350,3 +4361,75 @@ function _invRoundSparkline(data) {
         '<polyline points="' + points + '" fill="none" stroke="var(--tp-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
         '</svg>';
 }
+
+// ══════════════════════════════════════════════════
+// v16.0: Ayuda — banners de pestaña y tooltips de campo
+// ══════════════════════════════════════════════════
+if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'inv-dashboard': { title: 'Inventario — resumen', text: 'Estado de cilindros y equipos: vencidos, niveles bajos y consumo proyectado contra las pruebas pendientes.', tips: [
+        'Los focos rojo/ámbar indican vencimientos o niveles críticos — atiéndelos primero.',
+        'La tarjeta ⛽ de consumo proyectado usa el modelo aprendido de Predicción.',
+        '"Ver Resumen del Lab" te lleva al panel cruzado con Test Plan y HOY.'
+    ]},
+    'inv-gases': { title: 'Cilindros', text: 'Alta y gestión de cilindros de gas de calibración: fórmula, concentración, presión inicial, lote y vencimiento.', tips: [
+        'Usa "+ Nuevo Cilindro" y llena Tipo de Gas, Zona/Posición y Vigencia como mínimo.',
+        'El código de zona (ej. A03) marca su ubicación física en el Mapa.',
+        'Exporta/Importa en JSON para respaldar o mover el catálogo entre dispositivos.'
+    ]},
+    'inv-equipment': { title: 'Equipos', text: 'Equipos del laboratorio y sus fechas de calibración — la plataforma avisa 30/7 días antes de vencer.', tips: [
+        'Captura "Próxima Cal." al dar de alta; el color de la tarjeta avisa cuando se acerca.',
+        'Al cambiar "Última Cal." se registra automáticamente en el historial de calibraciones.',
+        'La Trazabilidad y el No. de Certificado son evidencia para auditorías.'
+    ]},
+    'inv-readings': { title: 'Captura diaria', text: 'Captura una vez al día el PSI de cada cilindro en uso y el nivel de los tanques. De estas lecturas la plataforma APRENDE cuánto consume cada tipo de prueba — sin capturas no hay predicción.', tips: [
+        'Captura todos los cilindros "En uso" cada día, aunque el valor no haya cambiado.',
+        'Las lecturas manuales (no automáticas) son las que alimentan el modelo de consumo.',
+        'Revisa la sección ⛽ Combustible para registrar también el nivel de los tambos.'
+    ]},
+    'inv-predict': { title: 'Predicción', text: 'Consumo aprendido por tipo de prueba y proyección: ¿alcanza el gas/gasolina para el plan? Los números se actualizan con cada lectura y cada prueba.', tips: [
+        'La confianza (Alta/Media/Baja) depende de cuántas lecturas manuales hay acumuladas.',
+        'Si dice "Sin datos", ve a Captura Diaria y registra unos días de lecturas reales.',
+        'Las pruebas pendientes vienen del Plan; el pronóstico se recalcula automático.'
+    ]},
+    'inv-fuel': { title: 'Combustible', text: 'Tanques de gasolina por regulación. Cada prueba descuenta automáticamente los litros aprendidos del tanque correspondiente.', tips: [
+        'Cada tambo se asocia a una Regulación; el descuento automático usa esa relación.',
+        'Registra el nivel real de vez en cuando con el botón 📏 para corregir desviaciones.',
+        'El color de la barra indica nivel crítico (rojo) / bajo (ámbar) / normal (verde).'
+    ]},
+    'inv-zonemap': { title: 'Mapa', text: 'Ubicación física de cilindros por zona, con lectura rápida desde el plano.', tips: [
+        'Usa "✎ Editar Mapa" para acomodar el layout real de tu cuarto de gases.',
+        'Toca un cilindro en el plano para ver su detalle rápido.',
+        'El botón ↶ Deshacer revierte el último movimiento si te equivocas.'
+    ]},
+    'inv-charts': { title: 'Gráficas', text: 'Tendencia de consumo de PSI por cilindro y de nivel de combustible, para detectar fugas o consumo anormal.', tips: [
+        'Cambia entre PSI por Cilindro, Combustible y Comparar Gases con los botones superiores.',
+        'Una caída más rápida de lo normal puede indicar una fuga — revisa el cilindro físicamente.'
+    ]},
+    'inv-config': { title: 'Configuración', text: 'Define el layout de zonas del cuarto de gases y el catálogo de tipos de gas disponibles.', tips: [
+        'Cada zona necesita un ID único, nombre, número de slots y tipo.',
+        'Los Tipos de Gas definidos aquí alimentan el selector de "Nuevo Cilindro".'
+    ]},
+    'inv-report': { title: 'Reporte semanal', text: 'Genera un reporte de consumo de combustible y gases listo para copiar y compartir por correo.', tips: [
+        'Usa "Copiar HTML" y pégalo directo en tu cliente de correo.',
+        'Cubre la semana actual (lunes a viernes) automáticamente.'
+    ]},
+    'inv-trace': { title: 'Trazabilidad', text: 'Busca qué cilindro o lote de gas se usó en qué prueba/VIN — útil para auditorías de calidad.', tips: [
+        'Busca por Cilindro, No. de Lote o VIN según lo que tengas a la mano.',
+        'El resultado muestra todas las pruebas donde ese gas/lote fue usado.'
+    ]}
+});
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'inv-g-type': { title: 'Tipo de gas', text: 'Selecciona el gas de calibración del cilindro (ej. CO 2.5% Bal N2). Define qué concentraciones nominales estarán disponibles.' },
+    'inv-g-conc': { title: 'Concentración nominal', text: 'Concentración certificada del cilindro según su etiqueta/certificado (ej. 2.005%). Se llena según el Tipo de Gas elegido.' },
+    'inv-g-valid': { title: 'Vigencia', text: 'Fecha de vencimiento del certificado del cilindro. La plataforma avisa cuando se acerca o ya venció.' },
+    'inv-g-zone': { title: 'Zona + posición', text: 'Dónde vive físicamente el cilindro en el cuarto de gases (ej. A03). Las posiciones ocupadas no se pueden repetir.' },
+    'inv-eq-nextcal': { title: 'Próxima calibración', text: 'Fecha en la que el equipo debe recalibrarse. La plataforma avisa 30 y 7 días antes de vencer.' },
+    'inv-predict-model': { title: 'Modelo de predicción', text: 'Aprende de tus capturas diarias reales (no de lecturas automáticas). Entre más lecturas manuales captures, más confiable es la proyección de cuánto gas/combustible te queda.' },
+    'inv-gases-help': { title: 'Cilindros de gas', text: 'Catálogo de cilindros de calibración: alta, edición, vencimientos y nivel actual por cilindro.' },
+    'inv-equipment-help': { title: 'Equipos de laboratorio', text: 'Analizadores, dinamómetro, CVS y demás equipos con su fecha de calibración.' },
+    'inv-fuel-help': { title: 'Tanques de combustible', text: 'Tambos de gasolina/diesel de referencia por regulación; se descuentan automáticamente al liberar una prueba.' },
+    'inv-report-help': { title: 'Reporte semanal', text: 'Resumen de consumo de la semana en curso, listo para copiar y enviar por correo.' },
+    'inv-charts-help': { title: 'Gráficas de consumo', text: 'Tendencia histórica de PSI y nivel de combustible por cilindro/tanque.' },
+    'inv-zonemap-help': { title: 'Mapa del cuarto de gases', text: 'Plano físico de las zonas; edítalo para reflejar el acomodo real de los cilindros.' },
+    'inv-readings-fuel-help': { title: 'Captura de combustible', text: 'Registra el nivel actual de cada tambo de combustible. Estas lecturas alimentan el descuento automático por prueba.' }
+});
