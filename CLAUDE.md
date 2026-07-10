@@ -211,6 +211,15 @@ Mejoras adaptadas del tablero VETS de un laboratorio hermano (comparativa comple
   `invForecastGasNeeds()` (cacheado) alimenta HOY, la tarjeta ⛽ del dashboard de inventario y
   la fuente 'Consumo' de `pnGetActiveAlerts`.
 
+## ⏳ Trabajo pendiente: v16.0 — Plataforma autoguiada
+
+**`PLAN_v16_AUTOGUIA.md`** (raíz del repo) contiene el plan de implementación COMPLETO y listo
+para ejecutar: framework de ayuda (extensión de `CASCADE_TOOLTIPS` + `data-help`, banners
+descartables `HELP_TABS`/`kia_help_dismissed`, tours por módulo `TOURS`, glosario), el contenido
+redactado, los pitfalls del repo y la receta de verificación con Playwright. Si te piden
+"ejecutar el plan de autoguía" o "v16", ese archivo es la fuente de verdad — síguelo en orden y
+elimínalo del repo (y esta sección) en el commit final cuando esté implementado.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).
