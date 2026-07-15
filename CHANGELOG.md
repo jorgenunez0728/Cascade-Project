@@ -2,6 +2,25 @@
 
 All notable changes to this project, organized by development round.
 
+## v16.1 — "Fix cascada EV" (2026-07-15)
+
+El SV1m (eléctrico) no se podía dar de alta: su "regulación" es el voltaje de carga
+(220V/120V), sin perfil de límites, y la cascada **ocultaba** los chips de regulaciones sin
+perfil — imposible completar la configuración (mismo problema latente: BRAZIL L8 del CL4).
+
+- **Regulaciones sin perfil ahora seleccionables** en la cascada de Alta: los EVs
+  (220V/120V/EV, detectados por `_isEVRegulation`) aparecen con ⚡ y sin tono de advertencia;
+  el resto con ⚠ y aviso de configurar el perfil antes de liberar emisiones (link directo a
+  Datos → Regulaciones).
+- **Resultado EV-consciente**: al completar una configuración eléctrica, el mensaje dice
+  "⚡ Vehículo eléctrico — sin emisiones de escape" en vez del warning de perfil faltante.
+- **Autorelleno de regulación vacía** (`_normalizeRegulation`): si en el catálogo (embebido o
+  importado) o en el CSV del plan de producción la celda viene vacía, se rellena `EV` cuando
+  el motor es eléctrico (capacidad en KW) o `N/A` visible si no — la cascada ya no se atora
+  con datos incompletos y las claves de familia no divergen entre catálogo y plan.
+- Los valores `220V`/`120V` existentes NO se renombran (los usan las reglas P5 EV del plan y
+  el agrupamiento por familias).
+
 ## v16.0 — "Plataforma autoguiada" (2026-07-10)
 
 Inflexión total de accesibilidad: cualquier persona nueva debe llegar a cualquier pantalla y

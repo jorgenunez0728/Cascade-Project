@@ -276,7 +276,10 @@ título/label si no tiene `<label for>` propio). Ver ejemplos ya escritos en cad
   Las **Security Rules** (`firestore.rules`) son la protección real de los datos; el PIN es atribución
   fuerte. Ver README → "Seguridad — setup una sola vez". WebAuthn queda como acceso rápido opcional.
 - **CDN deps**: signature_pad, jsPDF, Chart.js 4.4.7 (+zoom), JsBarcode, html5-qrcode, Firebase SDK.
-- `CSV_CONFIGURATIONS` in `app.js` holds the embedded vehicle configuration catalog.
+- `CSV_CONFIGURATIONS` in `app.js` holds the embedded vehicle configuration catalog. **v16.1**:
+  regulaciones sin perfil son SELECCIONABLES en la cascada (⚡ EVs `220V`/`120V`/`EV` vía
+  `_isEVRegulation`, ⚠ resto); celda de regulación vacía se autorrellena (`_normalizeRegulation`
+  en cop15.js, reutilizada por `tpImportPlanCSV`): motor en KW → `EV`, si no → `N/A`.
 - **Soak Timer** persists via `kia_soak_timer` + Notification API. **Command Palette** `Ctrl+K`.
   **Undo** `Ctrl+Z` (max 10 snapshots). **PWA** installable.
 
