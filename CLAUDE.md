@@ -95,6 +95,20 @@ CHANGELOG.md            ← Detailed changelog
 **`tpState` sub-fields added in v15:** `months` (dynamic production month labels), `priorityRules`
 (editable P1..P10 classification for Recovery), `weekAvailability`, `maxTiers`, `recoveryUntil`.
 
+**v16.2 — cobertura y reglas:** `tpGetRule(cfg)` normaliza región/regulación (trim + mayúsculas)
+al buscar coincidencia y devuelve `_matchType` ('exacta'|'region'|'comodín'|'default') — nunca
+comparar `cfg.rgn`/`cfg.reg` con `===` directo contra `tpState.rules`, siempre pasar por
+`tpGetRule`. **`tpCoverageSummary()` es LA única definición de cobertura** en toda la
+plataforma (% de configs vigentes con REQ cumplido — vigente = `required > 0`); todo consumidor
+nuevo debe llamarla (guard `typeof`) en vez de recalcular su propio %. Config por config
+(`tpState.planData[i]`) admite `c.paused`/`c.pausedDecided` (3+ meses sin volumen planeado,
+`tpIsDormant(cfg)`) — pausada = `required` 0, fuera de la cobertura; ambos flags se preservan
+al re-importar el CSV (`tpImportPlanCSV`). **`tpGetAnalysis()` devuelve un ARRAY** por
+configuración (`{...cfg, testedN, required, deficit, compliance, status, score, ruleInfo}`) —
+nunca un objeto agregado con `.totalReq`/`.coveragePct` (ese bug dejaba "HOY" en 0%/NaN
+permanentemente). `tpSave()` invalida el cache de `tpGetAnalysis()` además del de familias;
+los merges/seeds de Firebase sync pasan por `_fbTpUISync()`, que hace lo mismo.
+
 ## Cross-Module Dependencies
 
 - **COP15 → Test Plan**: `tpAutoFeedFromRelease()`, `tpAutoMarkWeeklyCompletion()`

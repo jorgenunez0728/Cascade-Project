@@ -2717,6 +2717,12 @@ function generateWeeklyStatusPDF(opts) {
         y = addRow('Pruebas requeridas', totalReq, y);
         y = addRow('Probadas', totalTested, y, [16, 185, 129]);
         y = addRow('Déficit', deficit, y, deficit > 0 ? [239, 68, 68] : [16, 185, 129]);
+        // v16.2: misma definición de cobertura que el badge del Plan y la tarjeta HOY
+        // (% de configs vigentes al día) — antes cada superficie mostraba un número distinto.
+        if (typeof tpCoverageSummary === 'function') {
+            var cov = tpCoverageSummary();
+            y = addRow('Cobertura (configs al día)', cov.pct + '%', y, cov.pct >= 80 ? [16, 185, 129] : cov.pct >= 50 ? [245, 158, 11] : [239, 68, 68]);
+        }
 
         // Active weekly plan completion
         var plans = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
@@ -3323,20 +3329,22 @@ function renderLabDashboard(container) {
     }
 
     // ── Test Plan Module ──
-    var tpAnalysis = null;
-    if (typeof tpGetAnalysis === 'function') {
-        try { tpAnalysis = tpGetAnalysis(); } catch(e) {}
+    // v16.2: tpGetAnalysis() devuelve un ARRAY por config (no un objeto agregado) — esto
+    // leía .totalReq/.totalDone/.coveragePct que nunca existieron, así que la cobertura
+    // aquí siempre daba 0% y el déficit "NaN tests". tpCoverageSummary() es LA fuente de
+    // verdad de cobertura en toda la plataforma (mismo % que el badge del Plan).
+    var tpCov = null;
+    if (typeof tpCoverageSummary === 'function') {
+        try { tpCov = tpCoverageSummary(); } catch(e) {}
     }
-    if (tpAnalysis && tpAnalysis.totalReq > 0) {
-        var deficit = tpAnalysis.totalReq - (tpAnalysis.totalDone || 0);
-        var coverage = tpAnalysis.coveragePct || 0;
-        if (coverage < 50) {
+    if (tpCov && tpCov.vigentes > 0) {
+        if (tpCov.pct < 50) {
             alerts.push({ level: 'CRITICO', color: '#ef4444', module: 'Test Plan',
-                message: 'Cobertura al ' + coverage + '%. Deficit: ' + deficit + ' tests',
+                message: 'Cobertura al ' + tpCov.pct + '%. Deficit: ' + tpCov.deficit + ' tests',
                 action: 'testplan' });
-        } else if (coverage < 80) {
+        } else if (tpCov.pct < 80) {
             alerts.push({ level: 'MEDIO', color: '#f59e0b', module: 'Test Plan',
-                message: 'Cobertura al ' + coverage + '%. Deficit: ' + deficit + ' tests',
+                message: 'Cobertura al ' + tpCov.pct + '%. Deficit: ' + tpCov.deficit + ' tests',
                 action: 'testplan' });
         }
     }
@@ -3406,9 +3414,9 @@ function renderLabDashboard(container) {
     // Test Plan card
     html += '<div class="lab-dash-card" onclick="switchPlatform(\'testplan\')">' +
         '<div class="lab-dash-card-header" style="color:#f59e0b;">Test Plan</div>' +
-        '<div class="lab-dash-card-metric">' + (tpAnalysis ? (tpAnalysis.coveragePct || 0) : '—') + '%</div>' +
-        '<div class="lab-dash-card-sub">cobertura</div>' +
-        '<div class="lab-dash-card-detail">Deficit: ' + (tpAnalysis ? (tpAnalysis.totalReq - (tpAnalysis.totalDone || 0)) : '—') + ' tests</div></div>';
+        '<div class="lab-dash-card-metric">' + (tpCov ? tpCov.pct : '—') + '%</div>' +
+        '<div class="lab-dash-card-sub">configs al día</div>' +
+        '<div class="lab-dash-card-detail">Deficit: ' + (tpCov ? tpCov.deficit : '—') + ' tests</div></div>';
 
     // Inventory card
     html += '<div class="lab-dash-card" onclick="switchPlatform(\'inventory\')">' +
