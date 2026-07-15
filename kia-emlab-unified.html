@@ -4803,21 +4803,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607100202';
+var APP_BUILD = '202607151445';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607100202' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607151445' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607100202' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607151445' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -4833,7 +4833,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607100202' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607151445' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -9169,21 +9169,49 @@ function setupUnsavedTracking() {
 // [M02] FILTRO CASCADA]
 // ======================================================================
 
+    // [v16.1] ¿La "regulación" es en realidad un vehículo eléctrico? Los EVs del catálogo
+    // usan el voltaje de carga (220V/120V) como valor de EMISSION REGULATION — no es una
+    // norma de emisiones y no requiere perfil de límites.
+    function _isEVRegulation(name) {
+        if (!name) return false;
+        var n = String(name).trim().toUpperCase();
+        return /^\d+\s*V$/.test(n) || n === 'EV';
+    }
+
+    // [v16.1] Autorelleno cuando la celda EMISSION REGULATION viene VACÍA en el CSV
+    // (típico de EVs en el archivo fuente): motor en KW = eléctrico → 'EV'; si no,
+    // 'N/A' visible para que el operador vea qué configuración necesita dato. Con los
+    // chips sin perfil ya seleccionables, ninguno de los dos atora la cascada.
+    function _normalizeRegulation(regValue, engineCapacity) {
+        var reg = (regValue || '').trim();
+        if (reg !== '') return reg;
+        return /KW/i.test(engineCapacity || '') ? 'EV' : 'N/A';
+    }
+
     function parseCSV() {
         // Check for user-imported CSV first, fall back to embedded
         const customCSV = localStorage.getItem('kia_config_csv_raw');
         const csvSource = customCSV || CSV_CONFIGURATIONS;
         const lines = csvSource.trim().split('\n');
         const headers = lines[0].split(',');
-        
+
         allConfigurations = [];
+        let autoFilledRegs = 0;
         for(let i = 1; i < lines.length; i++) {
             const values = lines[i].split(',');
             const config = {};
             headers.forEach((header, index) => {
                 config[header] = values[index] || '';
             });
+            // [v16.1] Celda (o columna) de regulación vacía → autorellenar (EV si el motor es eléctrico)
+            if (!config['EMISSION REGULATION'] && config['Modelo']) {
+                config['EMISSION REGULATION'] = _normalizeRegulation('', config['ENGINE CAPACITY']);
+                autoFilledRegs++;
+            }
             allConfigurations.push(config);
+        }
+        if (autoFilledRegs > 0) {
+            void 0;
         }
 
 setAltaDatetimeIfEmpty(true);
@@ -9280,7 +9308,12 @@ setAltaDatetimeIfEmpty(true);
             const config = filtered[0];
             const _regName = config['EMISSION REGULATION'] || '';
             const _hasProfile = (typeof getRegulationProfile === 'function') ? !!getRegulationProfile(_regName) : true;
-            const _regHint = (_regName && !_hasProfile) ? `
+            // [v16.1] EV (220V/120V/EV): informativo, no advertencia — un eléctrico no
+            // tiene emisiones de escape y no requiere perfil de límites.
+            const _regHint = (_regName && _isEVRegulation(_regName)) ? `
+                <div style="margin-top:10px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#047857;">
+                    ⚡ Vehículo eléctrico (<strong>${escapeHtml(_regName)}</strong>) — sin emisiones de escape; no aplica captura de gases ni perfil de límites.
+                </div>` : (_regName && !_hasProfile) ? `
                 <div style="margin-top:10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#b45309;">
                     ⚠️ La regulación <strong>${escapeHtml(_regName)}</strong> no tiene perfil de límites configurado. Será necesario para liberar emisiones.
                     <button onclick="switchPlatform('panel');setTimeout(function(){if(typeof pnSwitchTab==='function')pnSwitchTab('pn-regulations');},150);" style="margin-left:6px;background:#b45309;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">⚗️ Configurar</button>
@@ -9504,8 +9537,13 @@ function renderCascadeTree() {
                             escaped + ' <span class="chip-count">(' + opt.count + ')</span></button>';
                     });
                 } else {
-                    if (withProfile.length === 0) {
-                        html += '<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:8px;">⚠️ Ninguna regulación disponible tiene perfil configurado. ' +
+                    // [v16.1] Los sin-perfil ya NO se ocultan: se separan en EVs (⚡, sin tono
+                    // de advertencia — un eléctrico no requiere perfil de límites) y resto
+                    // (⚠, seleccionable pero avisando que falta perfil para liberar emisiones).
+                    var evOpts = withoutProfile.filter(function(o){ return _isEVRegulation(o.value); });
+                    var noProfileOpts = withoutProfile.filter(function(o){ return !_isEVRegulation(o.value); });
+                    if (withProfile.length === 0 && evOpts.length === 0 && noProfileOpts.length > 0) {
+                        html += '<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:8px;">⚠️ Ninguna regulación disponible tiene perfil configurado — puedes seleccionarla igual, pero configúralo antes de liberar emisiones. ' +
                             '<button onclick="switchPlatform(\'panel\');setTimeout(function(){pnSwitchTab(\'pn-regulations\');},200);" style="background:none;border:none;color:#2563eb;text-decoration:underline;cursor:pointer;font-size:12px;padding:0;">Configurar →</button></div>';
                     }
                     withProfile.forEach(function(opt) {
@@ -9514,8 +9552,20 @@ function renderCascadeTree() {
                         html += '<button class="cascade-chip" onclick="selectCascadeChip(\'' + field + '\',\'' + escapedAttr + '\')">' +
                             escaped + ' <span class="chip-count">(' + opt.count + ')</span></button>';
                     });
-                    if (withoutProfile.length > 0) {
-                        html += '<div style="font-size:11px;color:#94a3b8;margin-top:6px;">' + withoutProfile.length + ' regulación(es) sin perfil (ocultas). ' +
+                    evOpts.forEach(function(opt) {
+                        var escaped = opt.value.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;');
+                        var escapedAttr = opt.value.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+                        html += '<button class="cascade-chip" onclick="selectCascadeChip(\'' + field + '\',\'' + escapedAttr + '\')" title="Vehículo eléctrico — sin emisiones de escape (no requiere perfil de límites)">⚡ ' +
+                            escaped + ' <span class="chip-count">(' + opt.count + ')</span></button>';
+                    });
+                    noProfileOpts.forEach(function(opt) {
+                        var escaped = opt.value.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;');
+                        var escapedAttr = opt.value.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+                        html += '<button class="cascade-chip" style="opacity:0.6;border-style:dashed;" onclick="selectCascadeChip(\'' + field + '\',\'' + escapedAttr + '\')" title="Sin perfil de límites — configúralo en Datos → Regulaciones antes de liberar emisiones">⚠ ' +
+                            escaped + ' <span class="chip-count">(' + opt.count + ')</span></button>';
+                    });
+                    if (noProfileOpts.length > 0) {
+                        html += '<div style="font-size:11px;color:#94a3b8;margin-top:6px;">Las regulaciones con ⚠ no tienen perfil de límites (necesario para liberar emisiones). ' +
                             '<button onclick="switchPlatform(\'panel\');setTimeout(function(){pnSwitchTab(\'pn-regulations\');},200);" style="background:none;border:none;color:#2563eb;text-decoration:underline;cursor:pointer;font-size:11px;padding:0;">Configurar →</button></div>';
                     }
                 }
@@ -21123,7 +21173,10 @@ function tpImportPlanCSV(csvText) {
             my: cols[idxMY] || '',
             tx: cols[idxTX] || '',
             ep: cols[idxEP] || '',
-            reg: cols[idxReg] || '',
+            // v16.1: celda de regulación vacía (típico EV) → misma normalización que el
+            // catálogo (parseCSV en cop15.js), para que las claves de familia no diverjan.
+            // Solo si la columna existe en el header — un CSV sin la columna se queda en ''.
+            reg: (idxReg >= 0 && typeof _normalizeRegulation === 'function') ? _normalizeRegulation(cols[idxReg], idxEng >= 0 ? cols[idxEng] : '') : (cols[idxReg] || ''),
             drv: cols[idxDrv] || '',
             eng: cols[idxEng] || '',
             tire: cols[idxTire] || '',
@@ -32010,7 +32063,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607100202' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607151445' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

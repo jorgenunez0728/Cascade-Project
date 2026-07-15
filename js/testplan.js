@@ -551,7 +551,10 @@ function tpImportPlanCSV(csvText) {
             my: cols[idxMY] || '',
             tx: cols[idxTX] || '',
             ep: cols[idxEP] || '',
-            reg: cols[idxReg] || '',
+            // v16.1: celda de regulación vacía (típico EV) → misma normalización que el
+            // catálogo (parseCSV en cop15.js), para que las claves de familia no diverjan.
+            // Solo si la columna existe en el header — un CSV sin la columna se queda en ''.
+            reg: (idxReg >= 0 && typeof _normalizeRegulation === 'function') ? _normalizeRegulation(cols[idxReg], idxEng >= 0 ? cols[idxEng] : '') : (cols[idxReg] || ''),
             drv: cols[idxDrv] || '',
             eng: cols[idxEng] || '',
             tire: cols[idxTire] || '',
