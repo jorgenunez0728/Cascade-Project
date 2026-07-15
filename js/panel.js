@@ -1172,7 +1172,9 @@ function pnRenderIntelligence(el) {
     html += '<p style="color:var(--tp-dim);font-size:11px;margin:0 0 16px 0;">Correlaciones automáticas entre módulos para detectar patrones.</p>';
 
     // Gather data from all modules
-    var tests = [];
+    // v16.2: 'tests' leía un array que nunca se poblaba (siempre []) — la fuente viva de
+    // pruebas registradas es tpState.testedList (mismo campo que usa el resto del Plan).
+    var tests = (typeof tpState !== 'undefined' && tpState.testedList) ? tpState.testedList : [];
     var gasItems = [];
     var fuelItems = [];
     if (typeof invState !== 'undefined' && invState.items) {
@@ -1181,7 +1183,8 @@ function pnRenderIntelligence(el) {
             else if (it.type === 'fuel') fuelItems.push(it);
         });
     }
-    var tpPlans = (typeof tpState !== 'undefined' && tpState.plans) ? tpState.plans : [];
+    // v16.2: tpState.plans/.records nunca existió en testplan.js (planData/weeklyPlans/
+    // testedList son los campos vivos) — esta correlación siempre estuvo vacía.
     var cop15Vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
 
     // ── Correlation 1: Gas Consumption vs Test Volume (weekly) ──
@@ -1234,6 +1237,8 @@ function pnRenderIntelligence(el) {
         }
     });
 
+    // Nota: testedList no registra qué cilindro de gas se usó por prueba (gasType), así que
+    // esta correlación queda sin datos hasta que ese vínculo se capture en algún módulo.
     tests.forEach(function(t) {
         if (!t.date || !t.gasType) return;
         var gasDate = gasDateMap[t.gasType];
@@ -1253,21 +1258,24 @@ function pnRenderIntelligence(el) {
     html += '</div>';
 
     // ── Correlation 3: Plan Velocity vs Pipeline Load ──
+    // v16.2: tpState.plans/.records nunca existió (leía siempre []) — la fuente viva de
+    // planes semanales es tpState.weeklyPlans[].items[].completed.
     html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
-    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">🚀 Velocidad del Plan vs Carga del Pipeline</h4>';
+    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">🚀 Velocidad del Plan Semanal vs Carga Pendiente</h4>';
 
+    var tpWeeklyPlans = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
     var velocityData = [];
-    tpPlans.forEach(function(plan) {
-        if (!plan.records || !plan.families) return;
-        var totalFamilies = plan.families.length;
-        var completedRecords = plan.records.filter(function(r) { return r.status === 'completed'; }).length;
-        var pendingRecords = plan.records.filter(function(r) { return r.status !== 'completed'; }).length;
-        var velocity = totalFamilies > 0 ? Math.round((completedRecords / totalFamilies) * 100) : 0;
+    tpWeeklyPlans.slice(-8).forEach(function(plan) {
+        var items = plan.items || [];
+        if (!items.length) return;
+        var completedItems = items.filter(function(i) { return i.completed; }).length;
+        var pendingItems = items.length - completedItems;
+        var velocity = Math.round((completedItems / items.length) * 100);
         velocityData.push({
-            name: plan.name || ('Plan ' + plan.id),
+            name: plan.weekDate || plan.date || ('Semana ' + (velocityData.length + 1)),
             velocity: velocity,
-            pipeline: pendingRecords,
-            completed: completedRecords
+            pipeline: pendingItems,
+            completed: completedItems
         });
     });
 
@@ -1286,7 +1294,6 @@ function pnRenderIntelligence(el) {
     var totalTests = tests.length;
     var totalGas = gasItems.length;
     var totalVehicles = cop15Vehicles.length;
-    var totalPlans = tpPlans.length;
     var failRate = totalTests > 0 ? ((tests.filter(function(t) { return t.result === 'FAIL' || t.status === 'fail'; }).length / totalTests) * 100).toFixed(1) : '0.0';
 
     html += '<div style="text-align:center;padding:8px;background:rgba(59,130,246,0.1);border-radius:6px;"><div style="font-size:18px;font-weight:700;color:#3b82f6;">' + totalTests + '</div><div style="font-size:9px;color:var(--tp-dim);">Pruebas Totales</div></div>';
@@ -1503,22 +1510,18 @@ function pnRenderSystemHealth(el) {
         agingData.push({ label: 'COP15 Vehículos', module: 'cop15', d30: cop30, d60: cop60, d90: cop90, total: db.vehicles.length });
     }
 
-    // TP records aging
-    if (typeof tpState !== 'undefined' && tpState.plans) {
-        var tp30 = 0, tp60 = 0, tp90 = 0, tpTotal = 0;
-        tpState.plans.forEach(function(p) {
-            if (!p.records) return;
-            p.records.forEach(function(r) {
-                tpTotal++;
-                var ts = r.completedAt || r.createdAt;
-                if (!ts) return;
-                var age = (now - new Date(ts).getTime()) / 86400000;
-                if (age > 90) tp90++;
-                else if (age > 60) tp60++;
-                else if (age > 30) tp30++;
-            });
+    // TP records aging — v16.2: tpState.plans/.records nunca existió; testedList es el
+    // registro vivo de pruebas realizadas.
+    if (typeof tpState !== 'undefined' && tpState.testedList) {
+        var tp30 = 0, tp60 = 0, tp90 = 0, tpTotal = tpState.testedList.length;
+        tpState.testedList.forEach(function(r) {
+            if (!r.date) return;
+            var age = (now - new Date(r.date + 'T12:00:00').getTime()) / 86400000;
+            if (age > 90) tp90++;
+            else if (age > 60) tp60++;
+            else if (age > 30) tp30++;
         });
-        agingData.push({ label: 'Test Plan (Registros)', module: 'testplan', d30: tp30, d60: tp60, d90: tp90, total: tpTotal });
+        agingData.push({ label: 'Test Plan (Pruebas registradas)', module: 'testplan', d30: tp30, d60: tp60, d90: tp90, total: tpTotal });
     }
 
     if (agingData.length > 0) {
@@ -1607,17 +1610,14 @@ function pnPurgeOldData(module, maxDays) {
             });
             count = before - db.vehicles.length;
             if (count > 0) saveDB();
-        } else if (module === 'testplan' && typeof tpState !== 'undefined' && tpState.plans) {
-            tpState.plans.forEach(function(p) {
-                if (!p.records) return;
-                var before3 = p.records.length;
-                p.records = p.records.filter(function(r) {
-                    var ts = r.completedAt || r.createdAt;
-                    return !ts || new Date(ts).getTime() >= cutoff;
-                });
-                count += before3 - p.records.length;
-            });
-            if (count > 0 && typeof tpSave === 'function') tpSave();
+        } else if (module === 'testplan') {
+            // v16.2: tpState.plans/.records nunca existió — este purgado siempre fue un
+            // no-op silencioso. NO se conecta a testedList aquí a propósito: esos registros
+            // alimentan el conteo "Probadas" y la cobertura de cada configuración (borrarlos
+            // por antigüedad resetearía el cumplimiento de configs viejas). Si se necesita
+            // purgar historial de Test Plan, debe ser una acción explícita y aparte.
+            if (typeof showToast === 'function') showToast('Test Plan no tiene datos purgables por antigüedad de esta forma — el historial de pruebas alimenta la cobertura.', 'info');
+            return;
         } else if (module === 'notes') {
             try {
                 var notes = JSON.parse(localStorage.getItem('kia_entity_notes') || '{}');
@@ -2309,18 +2309,15 @@ function panelAlpineComponent() {
                 });
                 data.push({ label: 'COP15 Vehículos', total: db.vehicles.length, d30: c30, d60: c60, d90: c90 });
             }
-            if (typeof tpState !== 'undefined' && tpState.plans) {
-                var t30 = 0, t60 = 0, t90 = 0, tTotal = 0;
-                tpState.plans.forEach(function(p) {
-                    if (!p.records) return;
-                    p.records.forEach(function(r) {
-                        tTotal++;
-                        var ts = r.completedAt || r.createdAt; if (!ts) return;
-                        var age = (now - new Date(ts).getTime()) / 86400000;
-                        if (age > 90) t90++; else if (age > 60) t60++; else if (age > 30) t30++;
-                    });
+            // v16.2: tpState.plans/.records nunca existió; testedList es el registro vivo.
+            if (typeof tpState !== 'undefined' && tpState.testedList) {
+                var t30 = 0, t60 = 0, t90 = 0, tTotal = tpState.testedList.length;
+                tpState.testedList.forEach(function(r) {
+                    if (!r.date) return;
+                    var age = (now - new Date(r.date + 'T12:00:00').getTime()) / 86400000;
+                    if (age > 90) t90++; else if (age > 60) t60++; else if (age > 30) t30++;
                 });
-                data.push({ label: 'Test Plan (Registros)', total: tTotal, d30: t30, d60: t60, d90: t90 });
+                data.push({ label: 'Test Plan (Pruebas registradas)', total: tTotal, d30: t30, d60: t60, d90: t90 });
             }
             return data;
         },
@@ -2429,13 +2426,19 @@ function pnRenderExecutive(el) {
     var archivedMonth = vehicles.filter(function(v) { return v.status === 'archived' && v.archivedAt && _archDay(v) >= monthAgo; }).length;
     var activeCount = vehicles.filter(function(v) { return v.status !== 'archived'; }).length;
 
-    // Compliance scorecard
-    var tpCoverage = 0;
+    // v16.2: Compliance scorecard — misma definición de cobertura que el badge del Plan y
+    // la tarjeta HOY (% de configs vigentes al día vía tpCoverageSummary). Antes esta
+    // pantalla calculaba su propio % por familias (tpBuildFamilies), que casi nunca
+    // coincidía con el badge del Plan — se conserva como métrica secundaria de "volumen".
+    var tpCoverage = 0, tpVolCoverage = null;
+    if (typeof tpCoverageSummary === 'function') {
+        tpCoverage = tpCoverageSummary().pct;
+    }
     if (typeof tpState !== 'undefined' && typeof tpBuildFamilies === 'function') {
         var families = tpBuildFamilies();
         var totalReq = 0, totalTested = 0;
         families.forEach(function(f) { totalReq += f.totalRequired; totalTested += f.totalTested; });
-        tpCoverage = totalReq > 0 ? Math.round((totalTested / totalReq) * 100) : 100;
+        tpVolCoverage = totalReq > 0 ? Math.round((totalTested / totalReq) * 100) : 100;
     }
 
     // Cpk alerts
@@ -2460,9 +2463,10 @@ function pnRenderExecutive(el) {
     // Compliance Scorecard
     html += '<div class="tp-card"><div class="tp-card-title" data-help="pn-executive-help"><span>Compliance Scorecard</span></div>';
     html += '<div class="v7-exec-compliance">';
-    html += '<div class="v7-exec-metric"><span>Cobertura Plan de Pruebas</span>';
+    html += '<div class="v7-exec-metric"><span>Cobertura Plan de Pruebas (configs al día)</span>';
     html += '<div class="v7-exec-bar"><div class="v7-exec-bar-fill" style="width:' + tpCoverage + '%;background:' + (tpCoverage >= 80 ? 'var(--success)' : tpCoverage >= 50 ? 'var(--warning)' : 'var(--danger)') + ';"></div></div>';
     html += '<span class="v7-exec-pct">' + tpCoverage + '%</span></div>';
+    if (tpVolCoverage !== null) html += '<div class="v7-exec-metric"><span style="opacity:0.7;">Pruebas cumplidas (por volumen)</span><span style="opacity:0.7;">' + tpVolCoverage + '%</span></div>';
 
     html += '<div class="v7-exec-metric"><span>Utilizacion de Gas</span><span>' + gasUtilization + '</span></div>';
     html += '</div></div>';

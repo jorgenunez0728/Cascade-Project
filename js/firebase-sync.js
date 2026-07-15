@@ -1075,6 +1075,10 @@ function fbPushAll(showFeedback) {
 function _fbTpUISync() {
     try {
         if (typeof tpState !== 'undefined' && tpState) tpState._lastSave = Date.now();
+        // v16.2: los merges/seeds de sync escriben tpState directo a localStorage sin pasar
+        // por tpSave() — invalidar aquí también, o el análisis (REQ/déficit/cobertura) queda
+        // obsoleto tras un pull remoto de reglas o volúmenes.
+        if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
         if (typeof tabCacheInvalidate === 'function') tabCacheInvalidate('tp');
         if (typeof tpRender === 'function') tpRender();
         if (typeof tpRefreshFamilies === 'function') tpRefreshFamilies();

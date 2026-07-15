@@ -171,6 +171,15 @@ function tpRenderPlanHistory(el) {
         html += '<div class="tp-metric"><div class="tp-metric-val" style="color:#ef4444">' + diff.volDown.length + '</div><div class="tp-metric-label">Vol -</div></div>';
         html += '</div>';
 
+        if (diff.monthsDetected) {
+            html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:6px;padding:6px 8px;background:var(--tp-bg);border-radius:6px;">';
+            html += '📅 Meses detectados en el CSV: ' + (diff.monthsDetected.length ? diff.monthsDetected.join(', ') : '<span style="color:var(--tp-amber);">ninguno</span>');
+            if (diff.unrecognizedCols && diff.unrecognizedCols.length > 0) {
+                html += '<br>⚠ Columnas no reconocidas (ni campo conocido ni formato de mes): ' + diff.unrecognizedCols.join(', ');
+            }
+            html += '</div>';
+        }
+
         if (diff.volUp.length > 0) {
             html += '<div style="margin-bottom:6px;"><div style="font-size:10px;font-weight:700;color:#10b981;margin-bottom:3px;">\u{1F4C8} Subieron volumen</div>';
             diff.volUp.slice(0,20).forEach(function(d) {
@@ -231,15 +240,35 @@ const TP_MONTHS = ['Feb-26','Mar-26','Apr-26','May-26','Jun-26','Jul-26']; // se
 
 // ── Meses de producción dinámicos (etiquetas 'MMM-YY') ──
 var _TP_MON_ABBR = { jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12,
-                     ene:1,abr:4,ago:8,dic:12 };
+                     ene:1,abr:4,ago:8,dic:12,
+                     enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,setiembre:9,octubre:10,noviembre:11,diciembre:12,
+                     january:1,february:2,march:3,april:4,june:6,july:7,august:8,september:9,october:10,november:11,december:12 };
 var _TP_MON_NAMES = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+// v16.2: formatos más tolerantes — antes solo "Feb-26" (3-4 letras + guión opcional + 2
+// dígitos); ahora también espacio como separador, nombre completo (Agosto/August), año de
+// 4 dígitos (Ago-2026) y formato ISO "2026-08" — para que un CSV con encabezados de mes en
+// otro formato SÍ se reconozca en vez de desaparecer silenciosamente de tpMonths().
 function _tpParseMonthLabel(label) {
-    var m = /^([A-Za-z]{3,4})-?(\d{2})$/.exec((label == null ? '' : String(label)).trim());
-    if (!m) return null;
-    var mo = _TP_MON_ABBR[m[1].toLowerCase()];
-    if (!mo) return null;
-    var yy = parseInt(m[2], 10);
-    return { mo: mo, yy: yy, key: yy * 12 + mo };
+    var s = (label == null ? '' : String(label)).trim();
+    var m = /^([A-Za-z]{3,10})[-\s]?(\d{2}|\d{4})$/.exec(s);
+    if (m) {
+        var word = m[1].toLowerCase();
+        var mo = _TP_MON_ABBR[word] || _TP_MON_ABBR[word.slice(0, 4)] || _TP_MON_ABBR[word.slice(0, 3)];
+        if (mo) {
+            var yy = parseInt(m[2], 10);
+            if (yy > 99) yy = yy % 100;
+            return { mo: mo, yy: yy, key: yy * 12 + mo };
+        }
+    }
+    var iso = /^(\d{4})[-\/](\d{1,2})$/.exec(s);
+    if (iso) {
+        var moN = parseInt(iso[2], 10);
+        if (moN >= 1 && moN <= 12) {
+            var yy2 = parseInt(iso[1], 10) % 100;
+            return { mo: moN, yy: yy2, key: yy2 * 12 + moN };
+        }
+    }
+    return null;
 }
 function _tpIsMonthLabel(label) { return !!_tpParseMonthLabel(label); }
 function _tpCanonMonth(label) {
@@ -253,6 +282,14 @@ function _tpSortMonths(labels) {
     });
 }
 function tpMonths() { return (tpState.months && tpState.months.length) ? tpState.months : TP_MONTHS; }
+
+// v16.2: ¿lleva 3+ meses seguidos (los más recientes) sin volumen planeado? cfg.m está
+// alineado posicionalmente con tpMonths() (ya ordenado cronológicamente en el import).
+function tpIsDormant(cfg) {
+    if (!cfg || !cfg.m || cfg.m.length < 3 || tpMonths().length < 3) return false;
+    return cfg.m.slice(-3).every(function(v) { return !v; });
+}
+
 const TP_LS_KEY = 'kia_testplan_v1';
 
 let tpState = safeParse(TP_LS_KEY, null) || {
@@ -309,6 +346,10 @@ if (!tpState.startPurposeByRegion) tpState.startPurposeByRegion = { 'EUROPE': 'C
 
 function tpSave() {
     _tpInvalidateCache();
+    tpInvalidateCache(); // v16.2: tpSave() ahora invalida TAMBIÉN el cache de tpGetAnalysis()
+                          // (antes solo invalidaba el de familias) — editar una regla, un
+                          // volumen o pausar una config sin cambiar el conteo de configs/
+                          // probadas dejaba el análisis (REQ/déficit/cobertura) obsoleto.
     tpState._lastSave = Date.now();
     try {
         localStorage.setItem(TP_LS_KEY, JSON.stringify(tpState));
@@ -351,17 +392,59 @@ function tpSetStartPurpose(regionKey, value) {
     if (typeof showToast === 'function') showToast('Propósito por región actualizado', 'success');
 }
 
+// v16.2: matching normalizado (trim + mayúsculas) — antes una regla con espacios o minúsculas
+// nunca matcheaba y TODO caía silenciosamente a la regla comodín '*'. Ahora además se marca
+// qué tipo de match ocurrió (_matchType), para poder mostrarlo en la UI (gap, Reglas).
 function tpGetRule(cfg) {
     const r = tpState.rules;
-    return r.find(x => x.region === cfg.rgn && x.regulation === cfg.reg)
-        || r.find(x => x.region === cfg.rgn && x.regulation === '*')
-        || r.find(x => x.region === '*')
-        || {ratio:1,per:1000};
+    const rgn = _tpNorm(cfg.rgn), reg = _tpNorm(cfg.reg);
+    let rule = r.find(x => _tpNorm(x.region) === rgn && _tpNorm(x.regulation) === reg);
+    if (rule) return Object.assign({}, rule, { _matchType: 'exacta' });
+    rule = r.find(x => _tpNorm(x.region) === rgn && x.regulation === '*');
+    if (rule) return Object.assign({}, rule, { _matchType: 'region' });
+    rule = r.find(x => x.region === '*');
+    if (rule) return Object.assign({}, rule, { _matchType: 'comodín' });
+    return { ratio: 1, per: 1000, label: 'Sin regla (1/1000 por defecto)', _matchType: 'default' };
 }
 
 function tpCalcRequired(cfg, rule) {
     const vol = cfg.total + cfg.hist;
+    if (vol === 0) return 0; // v16.2: sin volumen no exige piso mínimo de 1 prueba
     return Math.max(1, Math.ceil((vol * rule.ratio) / rule.per));
+}
+
+// v16.2: pausar/reactivar una configuración dormant (3+ meses seguidos en 0). Pausada =
+// required 0 y fuera del denominador de cobertura (tpCoverageSummary). "Confirmar activa"
+// no pausa nada — solo marca que ya se revisó, para no volver a preguntar.
+function tpPauseConfig(desc) {
+    var cfg = tpState.planData.find(c => c.desc === desc);
+    if (!cfg) return;
+    if (typeof undoPush === 'function') undoPush('testplan', 'Pausar configuración');
+    cfg.paused = true;
+    cfg.pausedDecided = true;
+    tpSave();
+    if (typeof auditLog === 'function') auditLog('testplan', 'config_paused', { type: 'config', label: desc }, '3+ meses sin producción planeada');
+    tpRender();
+    if (typeof showToast === 'function') showToast('Configuración pausada — ya no exige pruebas', 'success', null, undoPop);
+}
+function tpResumeConfig(desc) {
+    var cfg = tpState.planData.find(c => c.desc === desc);
+    if (!cfg) return;
+    if (typeof undoPush === 'function') undoPush('testplan', 'Reactivar configuración');
+    cfg.paused = false;
+    cfg.pausedDecided = false;
+    tpSave();
+    if (typeof auditLog === 'function') auditLog('testplan', 'config_resumed', { type: 'config', label: desc }, '');
+    tpRender();
+    if (typeof showToast === 'function') showToast('Configuración reactivada', 'success', null, undoPop);
+}
+function tpConfirmDormantActive(desc) {
+    var cfg = tpState.planData.find(c => c.desc === desc);
+    if (!cfg) return;
+    cfg.pausedDecided = true;
+    tpSave();
+    if (typeof auditLog === 'function') auditLog('testplan', 'config_dormant_confirmed', { type: 'config', label: desc }, 'Sigue contabilizando pese a 3+ meses en 0');
+    tpRender();
 }
 
 // Replica la clave de familia usada en tpBuildFamilies() para un config suelto.
@@ -394,7 +477,7 @@ function tpFamilyOverrideFor(cfg) {
 
 function tpPriorityScore(cfg, testedN) {
     const rule = tpGetRule(cfg);
-    const req = tpCalcRequired(cfg, rule);
+    const req = cfg.paused ? 0 : tpCalcRequired(cfg, rule); // v16.2: pausada no exige
     const w = tpState.weights;
     const maxVol = Math.max(...tpState.planData.map(c => c.total + c.hist), 1);
     const volScore = ((cfg.total + cfg.hist) / maxVol) * 100;
@@ -455,11 +538,14 @@ function tpGetAnalysis() {
     var result = tpState.planData.map(cfg => {
         const rule = tpGetRule(cfg);
         const n = tpState.testedList.filter(t => t.configText === cfg.desc).length;
-        const req = tpCalcRequired(cfg, rule);
+        const req = cfg.paused ? 0 : tpCalcRequired(cfg, rule); // v16.2: pausada = no exige
         const comp = req > 0 ? Math.min(n / req, 1) : 1;
         const st = comp >= 1 ? 'ok' : comp >= 0.5 ? 'warn' : 'crit';
         const sc = tpPriorityScore(cfg, n);
-        return { ...cfg, testedN: n, required: req, deficit: Math.max(0, req - n), compliance: comp, status: st, score: sc };
+        // v16.2: cuánto volumen entra al cálculo y qué regla se usó — para transparencia total
+        const ruleInfo = { label: rule.label || '(sin nombre)', matchType: rule._matchType, ratio: rule.ratio, per: rule.per,
+            vol: cfg.total + cfg.hist, formula: '(' + cfg.total.toLocaleString() + ' plan + ' + cfg.hist.toLocaleString() + ' hist) × ' + rule.ratio + '/' + rule.per.toLocaleString() };
+        return { ...cfg, testedN: n, required: req, deficit: Math.max(0, req - n), compliance: comp, status: st, score: sc, ruleInfo: ruleInfo };
     }).sort((a, b) => b.score - a.score);
 
     _tpAnalysisCache = { key: cacheKey, data: result };
@@ -467,6 +553,27 @@ function tpGetAnalysis() {
 }
 
 function tpInvalidateCache() { _tpAnalysisCache = { key: '', data: null }; }
+
+// v16.2: LA definición única de "cobertura" en toda la plataforma — % de configuraciones
+// vigentes (con volumen > 0, sin pausar) cuyo REQ ya está cumplido. Antes cada pantalla
+// (badge del Plan, HOY, Ejecutivo, PDF) calculaba su propio número por su cuenta y no
+// coincidían entre sí; ahora todas llaman a este único helper.
+function tpCoverageSummary() {
+    var analysis = tpGetAnalysis();
+    var vigentes = analysis.filter(function(a) { return a.required > 0; }); // paused/sin-vol ya vienen con required=0
+    var ok = vigentes.filter(function(a) { return a.status === 'ok'; }).length;
+    var totalReq = analysis.reduce(function(s, a) { return s + a.required; }, 0);
+    var totalTested = analysis.reduce(function(s, a) { return s + a.testedN; }, 0);
+    var deficit = analysis.reduce(function(s, a) { return s + a.deficit; }, 0);
+    return {
+        vigentes: vigentes.length,
+        ok: ok,
+        pct: vigentes.length > 0 ? Math.round((ok / vigentes.length) * 100) : 0,
+        totalReq: totalReq,
+        totalTested: totalTested,
+        deficit: deficit
+    };
+}
 
 // ── Init: load plan from embedded CSV data ──
 function tpInit() {
@@ -567,9 +674,17 @@ function tpImportPlanCSV(csvText) {
         });
     }
 
+    // v16.2: feedback de qué columnas se reconocieron como mes y cuáles no — responde
+    // directamente "no veo los meses que esperaba" (o el CSV no los trae, o su encabezado
+    // no calza con ningún formato reconocido por _tpIsMonthLabel).
+    const _tpKnownIdx = new Set([idxId, idxDesc, idxMod, idxMY, idxTX, idxEP, idxReg, idxDrv, idxEng, idxTire, idxRgn, idxBody, idxEngPkg, idxHist, idxTotalCalc].filter(i => i >= 0));
+    const _tpMonthIdx = new Set(csvMonths.map(mc => mc.idx));
+    const monthsDetected = csvMonths.map(mc => mc.label);
+    const unrecognizedCols = header.filter((h, ci) => h && !_tpKnownIdx.has(ci) && !_tpMonthIdx.has(ci));
+
     // ── Compare with existing plan ──
     const oldData = tpState.planData || [];
-    const diff = { added:[], removed:[], volUp:[], volDown:[], unchanged:0 };
+    const diff = { added:[], removed:[], volUp:[], volDown:[], unchanged:0, monthsDetected: monthsDetected, unrecognizedCols: unrecognizedCols };
     const oldMap = {};
     oldData.forEach(c => { oldMap[c.desc] = c; });
     const newMap = {};
@@ -577,6 +692,12 @@ function tpImportPlanCSV(csvText) {
 
     newData.forEach(c => {
         const old = oldMap[c.desc];
+        // v16.2: preservar flags de pausado/dormant-decidido a través del re-import — si no,
+        // cada CSV nuevo "resucitaba" configs que el operador ya había marcado como pausadas.
+        if (old) {
+            if (old.paused) c.paused = true;
+            if (old.pausedDecided) c.pausedDecided = true;
+        }
         if (!old) { diff.added.push(c); }
         else if (c.total !== old.total) {
             if (c.total > old.total) diff.volUp.push({ desc:c.desc, oldVol:old.total, newVol:c.total });
@@ -657,16 +778,16 @@ function tpUpdateBadges() {
     const n = tpState.planData.length;
     const t = tpState.testedList.length;
     const r = tpState.rules.length;
-    document.getElementById('tp-configs-badge').textContent = n + ' configs';
+    const pausedN = tpState.planData.filter(c => c.paused).length;
+    document.getElementById('tp-configs-badge').textContent = n + ' configs' + (pausedN > 0 ? ' (' + pausedN + ' pausadas)' : '');
     document.getElementById('tp-tested-badge').textContent = t + ' probadas';
     document.getElementById('tp-rules-badge').textContent = r + ' reglas';
 
-    // Coverage badge on platform bar
+    // v16.2: badge de cobertura — LA fuente de verdad es tpCoverageSummary() (% de configs
+    // vigentes al día); antes se calculaba localmente aquí y de otra forma en HOY/Ejecutivo.
     if (n > 0) {
-        const analysis = tpGetAnalysis();
-        const ok = analysis.filter(a => a.status === 'ok').length;
-        const pct = Math.round((ok / n) * 100);
-        document.getElementById('tp-coverage-badge').textContent = pct + '% cobertura';
+        const cov = tpCoverageSummary();
+        document.getElementById('tp-coverage-badge').textContent = cov.pct + '% cobertura';
     }
 
     // COP15 badge
@@ -789,7 +910,7 @@ function tpRenderExecSummary() {
     html += '<div class="tp-card-title"><span style="font-size:14px;">📸 Resumen Ejecutivo — Foto del Plan</span></div>';
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:8px;margin:8px 0;">';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">'+deficit+'</div><div class="tp-metric-label">Pruebas pendientes</div></div>';
-    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:'+(covPct>=80?'var(--tp-green)':covPct>=40?'var(--tp-amber)':'var(--tp-red)')+'">'+covPct+'%</div><div class="tp-metric-label">Cobertura global</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:'+(covPct>=80?'var(--tp-green)':covPct>=40?'var(--tp-amber)':'var(--tp-red)')+'">'+covPct+'%</div><div class="tp-metric-label" title="Pruebas realizadas ÷ pruebas requeridas (por volumen) — no confundir con el % de configs al día del badge">Pruebas cumplidas</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-red)">'+highRisk+'</div><div class="tp-metric-label">Familias riesgo alto</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">'+critFams+'</div><div class="tp-metric-label">Críticas/Altas</div></div>';
     html += '<div class="tp-metric"><div class="tp-metric-val" style="color:var(--tp-amber)">'+dueSoon+'</div><div class="tp-metric-label">Deadline ≤14d</div></div>';
@@ -1461,14 +1582,19 @@ function tpRenderDashTable() {
         <thead><tr>
             <th></th><th>Config Text</th><th>Mod</th><th>Región</th><th>Reg.</th><th>Motor</th><th>TX</th>
             <th style="text-align:right">Vol.Plan</th><th style="text-align:right">Hist</th>
-            <th style="text-align:right">Req.</th><th style="text-align:right">Prob.</th><th style="text-align:right">Déf.</th>
+            <th style="text-align:right" data-help="tp-req-help">Req.</th><th style="text-align:right">Prob.</th><th style="text-align:right">Déf.</th>
             <th>Score</th><th>Estado</th>
         </tr></thead>
         <tbody>
-            ${filtered.slice(0,80).map(a => `
-                <tr>
+            ${filtered.slice(0,80).map(a => {
+                var noRule = a.reg && a.rgn && (a.ruleInfo.matchType === 'comodín' || a.ruleInfo.matchType === 'default');
+                var reqTitle = a.ruleInfo.formula + ' = ' + a.required + ' · Regla: ' + a.ruleInfo.label + ' (' + a.ruleInfo.matchType + ')';
+                var dormant = !a.paused && !a.pausedDecided && tpIsDormant(a);
+                var descAttr = a.desc.replace(/'/g, "\\'");
+                return `
+                <tr style="${a.paused ? 'opacity:0.55;' : ''}">
                     <td><span class="tp-dot" style="background:${tpStatusColor[a.status]}"></span></td>
-                    <td style="font-size:9px;color:var(--tp-amber);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${a.desc}">${a.desc}</td>
+                    <td style="font-size:9px;color:var(--tp-amber);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${a.desc}">${a.desc}${a.paused ? ` <span title="Pausada — no exige pruebas ni cuenta en cobertura. Toca para reactivar." style="cursor:pointer;" onclick="tpResumeConfig('${descAttr}')">⏸</span>` : ''}</td>
                     <td>${a.mod}</td>
                     <td><span class="tp-badge" style="background:${tpRegionColor(a.rgn)}20;color:${tpRegionColor(a.rgn)};border:1px solid ${tpRegionColor(a.rgn)}40;font-size:9px;">${a.rgn}</span></td>
                     <td style="font-size:10px">${a.reg}</td>
@@ -1476,17 +1602,28 @@ function tpRenderDashTable() {
                     <td style="font-size:10px">${a.tx}</td>
                     <td style="text-align:right;font-family:monospace">${a.total.toLocaleString()}</td>
                     <td style="text-align:right;font-family:monospace;color:var(--tp-dim)">${a.hist.toLocaleString()}</td>
-                    <td style="text-align:right;font-weight:700">${a.required}</td>
+                    <td style="text-align:right;font-weight:700;cursor:help;" title="${escapeHtml(reqTitle)}">${a.required}${noRule ? ' <span style="color:var(--tp-amber);" title="No hay regla específica para ' + escapeHtml(a.rgn) + ' / ' + escapeHtml(a.reg) + ' — se usó la regla \'' + escapeHtml(a.ruleInfo.label) + '\'">●</span>' : ''}</td>
                     <td style="text-align:right;color:var(--tp-green);font-weight:700">${a.testedN}</td>
                     <td style="text-align:right;color:${a.deficit>0?'var(--tp-red)':'var(--tp-green)'};font-weight:700">${a.deficit}</td>
                     <td><div class="tp-bar" style="width:55px"><div class="tp-bar-fill" style="width:${Math.min(a.score,100)}%;background:${tpStatusColor[a.status]}"></div><span class="tp-bar-text">${a.score.toFixed(0)}</span></div></td>
                     <td><span class="tp-badge" style="background:${tpStatusColor[a.status]}20;color:${tpStatusColor[a.status]};border:1px solid ${tpStatusColor[a.status]}40;font-size:9px;">${tpStatusLabel[a.status]}</span></td>
                 </tr>
-            `).join('')}
+                ${dormant ? `
+                <tr>
+                    <td colspan="14" style="background:rgba(245,158,11,0.08);padding:5px 10px;">
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:10px;" data-help="tp-dormant-help">
+                            <span>😴 3+ meses sin producción — ¿seguir contabilizando esta configuración?</span>
+                            <button class="tp-btn tp-btn-ghost" style="font-size:10px;" onclick="tpConfirmDormantActive('${descAttr}')">Sí, seguir</button>
+                            <button class="tp-btn tp-btn-ghost" style="font-size:10px;color:var(--tp-red);" onclick="tpPauseConfig('${descAttr}')">⏸ Pausar</button>
+                        </div>
+                    </td>
+                </tr>` : ''}
+            `;}).join('')}
         </tbody>
     </table>
     ${filtered.length > 80 ? `<div style="padding:8px;text-align:center;color:var(--tp-dim);font-size:10px;">Mostrando 80 de ${filtered.length}</div>` : ''}
     `;
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
 }
 
 function tpFixPlan() {
@@ -1933,6 +2070,16 @@ function tpRenderRules(el) {
     const wTotal = w.volume + w.compliance + (w.region||0) + w.newConfig + w.urgency;
     const rp = tpState.regionPriority || {};
 
+    // v16.2: cuántas configs resuelve cada regla (matching normalizado) — y cuáles no
+    // encontraron una regla específica (cayeron en la comodín o en el default 1/1000).
+    const _tpRuleUsage = {};
+    const _tpNoSpecificRule = [];
+    tpState.planData.forEach(function(c) {
+        var rr = tpGetRule(c);
+        _tpRuleUsage[rr.label] = (_tpRuleUsage[rr.label] || 0) + 1;
+        if (c.reg && c.rgn && (rr._matchType === 'comodín' || rr._matchType === 'default')) _tpNoSpecificRule.push(c);
+    });
+
     el.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr;gap:14px;">
         <div class="tp-card">
@@ -1946,7 +2093,7 @@ function tpRenderRules(el) {
             <p style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">Cuántas pruebas por cada N unidades. Reglas específicas (región+regulación) tienen prioridad sobre genéricas (*).</p>
             <div style="max-height:380px;overflow-y:auto;">
                 <table class="tp-table">
-                    <thead><tr><th>Región</th><th>Regulación</th><th>Ratio</th><th>Por</th><th>Label</th><th></th></tr></thead>
+                    <thead><tr><th>Región</th><th>Regulación</th><th>Ratio</th><th>Por</th><th>Label</th><th title="Configs vigentes cuyo REQ usa esta regla">Aplica a</th><th></th></tr></thead>
                     <tbody>
                         ${tpState.rules.map((r,i) => `
                             <tr>
@@ -1955,12 +2102,21 @@ function tpRenderRules(el) {
                                 <td><input class="tp-input" type="number" min="1" value="${r.ratio}" style="width:45px;text-align:center;" onchange="tpState.rules[${i}].ratio=+this.value;tpSave();"></td>
                                 <td><input class="tp-input" type="number" min="100" step="100" value="${r.per}" style="width:55px;text-align:center;" onchange="tpState.rules[${i}].per=+this.value;tpSave();"></td>
                                 <td><input class="tp-input" value="${r.label}" style="font-size:10px;" onchange="tpState.rules[${i}].label=this.value;tpSave();"></td>
+                                <td style="text-align:center;font-size:10px;font-family:monospace;color:var(--tp-dim);">${_tpRuleUsage[r.label] || 0}</td>
                                 <td><button onclick="tpState.rules.splice(${i},1);tpSave();tpRender();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;">×</button></td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
             </div>
+            ${_tpNoSpecificRule.length > 0 ? `
+            <details style="margin-top:8px;">
+                <summary style="cursor:pointer;font-size:11px;color:var(--tp-amber);font-weight:700;">⚠ ${_tpNoSpecificRule.length} config(s) sin regla específica (usan la regla comodín/default)</summary>
+                <div style="max-height:160px;overflow-y:auto;margin-top:6px;font-size:10px;">
+                    ${_tpNoSpecificRule.slice(0,50).map(c => `<div style="padding:3px 0;border-bottom:1px solid var(--tp-border);"><span style="color:var(--tp-dim);">${escapeHtml(c.rgn)} / ${escapeHtml(c.reg)}</span> — ${escapeHtml(c.desc)}</div>`).join('')}
+                    ${_tpNoSpecificRule.length > 50 ? `<div style="padding:4px 0;color:var(--tp-dim);">… y ${_tpNoSpecificRule.length - 50} más</div>` : ''}
+                </div>
+            </details>` : ''}
         </div>
         <div>
             <div class="tp-card">
@@ -3564,7 +3720,7 @@ function tpRenderProduction(el) {
                         </div>`).join('')}
                     </div>`;
                 }
-                return `<div class="tp-chart-bar" style="height:${chartH}px;">
+                return `<div style="overflow-x:auto;"><div class="tp-chart-bar" style="height:${chartH}px;min-width:${tpMonths().length*46}px;">
                     ${tpMonths().map((m,i) => `
                         <div class="tp-chart-col">
                             <div class="tp-chart-value">${totals[i].toLocaleString()}</div>
@@ -3572,7 +3728,7 @@ function tpRenderProduction(el) {
                             <div class="tp-chart-label">${m}</div>
                         </div>
                     `).join('')}
-                </div>`;
+                </div></div>`;
             }
             // Group by region or model
             const gMap = {};
@@ -3607,17 +3763,23 @@ function tpRenderProduction(el) {
     </div>
 
     <div class="tp-card">
-        <div class="tp-card-title"><span>📋 Detalle (${plan.length} configs)</span></div>
-        <div style="max-height:400px;overflow-y:auto;">
+        <div class="tp-card-title"><span>📋 Detalle (${plan.length} configs)</span>
+            <span style="font-size:9px;color:var(--tp-dim);font-weight:400;">${tpMonths().length} mes(es) cargados: ${tpMonths()[0]} — ${tpMonths()[tpMonths().length-1]}</span>
+        </div>
+        <div style="max-height:400px;overflow:auto;">
             <table class="tp-table">
                 <thead><tr>
                     <th>Config Text</th><th>Mod</th><th>MY</th><th>Reg</th><th>Rgn</th><th>Motor</th><th>TX</th><th>Body</th>
                     <th style="text-align:right">Hist</th>
                     ${tpMonths().map(m => `<th style="text-align:right">${m}</th>`).join('')}
-                    <th style="text-align:right">Total</th>
+                    <th style="text-align:right" title="Total anual (columna Total_Calc del CSV) — puede no coincidir con la suma de los meses visibles si el CSV trae el total sin desglose mensual">Total</th>
                 </tr></thead>
                 <tbody>
-                    ${plan.sort((a,b)=>b.total-a.total).slice(0,100).map(c => `
+                    ${plan.sort((a,b)=>b.total-a.total).slice(0,100).map(c => {
+                        const mSum = (c.m || []).reduce((s,v) => s + (v||0), 0);
+                        const mismatch = c.total !== mSum;
+                        const totalTitle = mismatch ? `Total_Calc del CSV = ${c.total.toLocaleString()}; los meses visibles suman ${mSum.toLocaleString()}` : '';
+                        return `
                         <tr>
                             <td style="font-size:9px;color:var(--tp-amber);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${c.desc}">${c.desc}</td>
                             <td>${c.mod}</td><td style="color:var(--tp-dim)">${c.my}</td>
@@ -3625,9 +3787,9 @@ function tpRenderProduction(el) {
                             <td style="font-size:9px">${c.eng}</td><td>${c.tx}</td><td>${c.body}</td>
                             <td style="text-align:right;font-family:monospace;color:var(--tp-dim)">${c.hist.toLocaleString()}</td>
                             ${c.m.map(v => `<td style="text-align:right;font-family:monospace;color:${v===0?'var(--tp-dim)':'var(--tp-text)'}">${v>0?v.toLocaleString():'—'}</td>`).join('')}
-                            <td style="text-align:right;font-weight:700;font-family:monospace;color:var(--tp-amber)">${c.total.toLocaleString()}</td>
+                            <td style="text-align:right;font-weight:700;font-family:monospace;color:var(--tp-amber);${mismatch?'cursor:help;':''}" ${mismatch?`title="${totalTitle}"`:''}>${c.total.toLocaleString()}${mismatch ? ' ⚠' : ''}</td>
                         </tr>
-                    `).join('')}
+                    `;}).join('')}
                 </tbody>
             </table>
             ${plan.length > 100 ? `<div style="padding:8px;text-align:center;color:var(--tp-dim);font-size:10px;">Mostrando 100 de ${plan.length}</div>` : ''}
@@ -3743,11 +3905,11 @@ function tpBuildFamilies() {
     tpState.planData.forEach(cfg => {
         const key = `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}`;
         if (!families[key]) {
-            families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgns:new Set(), drvs:new Set(), bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, testedConfigs:0, totalTested:0, totalRequired:0 };
+            families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgns:new Set(), drvs:new Set(), bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, testedConfigs:0, totalTested:0, totalRequired:0, pausedCount:0, dormantCount:0 };
         }
         const rule = tpGetRule(cfg);
         const n = tpState.testedList.filter(t => t.configText === cfg.desc).length;
-        const req = tpCalcRequired(cfg, rule);
+        const req = cfg.paused ? 0 : tpCalcRequired(cfg, rule); // v16.2: pausada no exige
 
         // Get VINs from testedList
         const vins = tpState.testedList.filter(t => t.configText === cfg.desc);
@@ -3763,6 +3925,8 @@ function tpBuildFamilies() {
         families[key].totalRequired += req;
         families[key].totalTested += n;
         if (n > 0) families[key].testedConfigs++;
+        if (cfg.paused) families[key].pausedCount++;
+        else if (typeof tpIsDormant === 'function' && tpIsDormant(cfg)) families[key].dormantCount++;
     });
 
     // maxVol izado fuera del loop: recomputarlo por familia era O(familias²)
@@ -4144,6 +4308,7 @@ function tpRenderFamilies(el) {
                         ${epTag}${engTag}${_repStar}${_equivBadge}${_contBadge}${tpFamilyFlagBadge(f)}
                     </div>
                     <div style="display:flex;align-items:center;gap:4px;">
+                        ${(f.pausedCount > 0 || f.dormantCount > 0) ? `<span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);font-size:9px;" title="${f.pausedCount} pausada(s) que ya no exigen pruebas, ${f.dormantCount} dormida(s) sin decisión (3+ meses en 0)">${f.pausedCount > 0 ? '⏸' + f.pausedCount : ''}${f.dormantCount > 0 ? ' 😴' + f.dormantCount : ''}</span>` : ''}
                         ${tpLastTestBadge(f)}
                         ${_evidBtn}
                         <span style="font-size:10px;font-weight:700;color:${f.totalTested>0?'var(--tp-green)':'var(--tp-red)'};">${f.totalTested}/${f.totalRequired}</span>
@@ -5297,5 +5462,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'tp-purpose-region-help': { title: 'Propósito por región', text: 'Qué propósito se precarga automáticamente en Alta cuando inicias una prueba desde el plan, según la región de la configuración (regla: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo manualmente en Alta.' },
     'tp-csvimport-help': { title: 'Importar Plan de Producción', text: 'El CSV se FUSIONA con lo que ya tenías cargado — no borra meses anteriores, solo agrega o actualiza los que vengan en el archivo nuevo. Columnas esperadas: codigo_config, Modelo, Motor, Regulación, Región, etc. y una columna por mes (ej. Feb-26).' },
     'tp-availability-help': { title: 'Disponibilidad por semana', text: 'Marca "No disponible" las semanas de mantenimiento/paro del dinamómetro (no cuentan capacidad). "Cap" = número de pruebas que caben esa semana; "días" = cuántos días de la semana asistes. La capacidad real es pruebas/semana, no pruebas/día — puedes correr más de una por día.' },
-    'tp-priority-help': { title: 'Reglas de Prioridad', text: 'Se evalúan de arriba a abajo — la PRIMERA regla que coincide asigna la prioridad (P1 = más urgente). Cada columna es un filtro que se va acotando en cascada; "Todas" es comodín. "Niveles" define cuántas prioridades (P1..P10) existen.' }
+    'tp-priority-help': { title: 'Reglas de Prioridad', text: 'Se evalúan de arriba a abajo — la PRIMERA regla que coincide asigna la prioridad (P1 = más urgente). Cada columna es un filtro que se va acotando en cascada; "Todas" es comodín. "Niveles" define cuántas prioridades (P1..P10) existen.' },
+    'tp-req-help': { title: 'Pruebas requeridas (Req.)', text: 'Se calcula así: (Vol.Plan + Hist) × ratio / por, según la regla de Reglas → Ratio que coincida con la región y regulación de esta configuración. Toca el número de cualquier fila para ver la fórmula exacta y qué regla se usó. Un punto ámbar ● significa que no hay regla específica para esa región/regulación — se usó una regla comodín.' },
+    'tp-dormant-help': { title: 'Configuración inactiva', text: 'Lleva 3 o más meses seguidos sin volumen planeado. Puedes marcarla "Pausada" (deja de exigir pruebas y de contar en cobertura) o confirmar que sigue vigente.' }
 });

@@ -2,6 +2,53 @@
 
 All notable changes to this project, organized by development round.
 
+## v16.2 — "Conteos correctos" (2026-07-15)
+
+El usuario reportó que en Análisis de Gap el volumen de prueba requerido (REQ) no
+correspondía entre configuraciones parecidas. La causa: `tpGetRule` comparaba región y
+regulación con igualdad estricta (sin trim ni mayúsculas/minúsculas) — cualquier
+inconsistencia de captura hacía que TODAS las reglas específicas fallaran en silencio y el
+cálculo cayera a la regla comodín. Se aprovechó para una auditoría general de variables del
+Plan de Pruebas y sus consumidores cross-módulo.
+
+- **Fix del bug reportado**: `tpGetRule` normaliza región/regulación (trim + mayúsculas) al
+  buscar coincidencia; ahora expone qué regla se usó y de qué tipo (exacta/región/comodín/
+  default). La celda REQ del Análisis de Gap muestra la fórmula completa al pasar el mouse
+  y un punto ámbar ● cuando no hay regla específica para esa región/regulación. La pestaña
+  Reglas muestra "aplica a N configs" por regla y una lista de configs sin regla específica.
+- **Bug crítico corregido — HOY mostraba "0% cobertura" y "Deficit: NaN tests" siempre**:
+  `renderLabDashboard` (tarjeta de riesgo de HOY/Panel) leía `tpGetAnalysis()` como si fuera
+  un objeto agregado (`.totalReq`, `.totalDone`, `.coveragePct`) cuando en realidad es un
+  arreglo por configuración — esos campos nunca existieron. La alerta de cobertura del plan
+  nunca se disparaba.
+- **Una sola definición de cobertura en toda la plataforma** (`tpCoverageSummary()`: %
+  de configuraciones vigentes con su REQ cumplido): antes el badge del Plan, Datos →
+  Ejecutivo y HOY calculaban 3 números distintos que nunca coincidían entre sí. El
+  % por volumen de pruebas se conserva como métrica secundaria, etiquetado "pruebas
+  cumplidas" para no confundirlo con la cobertura de configuraciones.
+- **Configuraciones sin volumen ya no exigen una prueba mínima** ni cuentan en la
+  cobertura (antes `max(1, …)` forzaba 1 prueba incluso con volumen 0, arrastrando el %
+  con configuraciones retiradas).
+- **Configuraciones "dormidas"** (3+ meses seguidos sin volumen planeado): aparecen en el
+  Análisis de Gap con un chip "¿seguir contabilizando?" — Pausar (deja de exigir pruebas)
+  o Confirmar activa. Familias muestra cuántas configs pausadas/dormidas tiene cada una.
+  Los flags se preservan al re-importar el CSV.
+- **Producción**: la tabla de Detalle ahora tiene scroll horizontal (antes los meses después
+  de julio quedaban recortados sin aviso) y muestra cuántos meses hay cargados; la celda
+  TOTAL marca con ⚠ cuando el Total_Calc del CSV no coincide con la suma de los meses
+  visibles (sin perder el dato — solo avisando). El parser de encabezados de mes ahora
+  acepta más formatos (espacio en vez de guión, nombre completo, año de 4 dígitos, ISO
+  "2026-08") y el diff de importación lista qué meses se detectaron y qué columnas no se
+  reconocieron.
+- **panel.js leía campos muertos** (`tpState.plans`/`.records`, que nunca existieron en
+  testplan.js): la correlación "Consumo de Gas vs Volumen de Pruebas", "Velocidad del Plan"
+  y los reportes de antigüedad de datos del Plan siempre estuvieron vacíos — ahora leen
+  `testedList`/`weeklyPlans`, las fuentes vivas.
+- **Cache de análisis**: `tpSave()` ahora invalida también el cache de `tpGetAnalysis()`
+  (antes solo el de familias) — editar una regla o pausar una configuración sin cambiar el
+  conteo de configs/probadas dejaba el análisis obsoleto. Los merges/seeds de sincronización
+  también invalidan correctamente.
+
 ## v16.1 — "Fix cascada EV" (2026-07-15)
 
 El SV1m (eléctrico) no se podía dar de alta: su "regulación" es el voltaje de carga
