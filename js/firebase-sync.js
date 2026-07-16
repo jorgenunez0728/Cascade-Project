@@ -3193,3 +3193,144 @@ function fbPostSyncPush() {
 function fbPostSyncPull() {
     fbActivityPost('sync_pull', '');
 }
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  [v16.3] ALMACÉN DE ARCHIVOS — Firebase Storage (Panel → Archivos)   ║
+// ║  Espacio compartido de ~5MB para subir un documento (zip, pdf, ...) ║
+// ║  desde un dispositivo y bajarlo desde otro. Los BYTES viven en      ║
+// ║  Storage (stations/{ws}/files/{fileId}_{nombre}); los METADATOS     ║
+// ║  (nombre, tamaño, quién y cuándo) viven en Firestore                ║
+// ║  (stations/{ws}/files/{fileId}) para poder listar y sumar la cuota  ║
+// ║  sin tener que golpear Storage. Requiere storage.rules desplegado.  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+var FB_FILES_MAX_BYTES = 5 * 1024 * 1024; // 5MB — presupuesto TOTAL del almacén compartido
+var _fbFilesUnsub = null;
+
+// ¿Está todo listo para usar el almacén? (sync habilitado, sesión de laboratorio, SDK de Storage cargado)
+function fbFilesEnsureReady() {
+    if (!fbSync.enabled || !fbSync.db) return { ok: false, reason: 'Conecta este dispositivo a Firebase primero (indicador de sincronización, arriba).' };
+    var u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    if (!_fbIsPasswordUser(u)) return { ok: false, reason: 'Sesión del laboratorio requerida — vuelve a iniciar sesión con la contraseña del dispositivo.' };
+    if (typeof firebase === 'undefined' || typeof firebase.storage !== 'function') return { ok: false, reason: 'El SDK de Firebase Storage no cargó (revisa tu conexión y recarga la página).' };
+    return { ok: true };
+}
+
+function _fbFilesCollection() {
+    return fbSync.db.collection('stations').doc(fbSync.stationId).collection('files');
+}
+
+function _fbFilesId() {
+    return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+// Nombre de archivo seguro para usarlo como parte de la ruta de Storage.
+function _fbFilesSafeName(name) {
+    return String(name || 'archivo').replace(/[^A-Za-z0-9_.\-]/g, '_').slice(-120);
+}
+
+// Lista los archivos del almacén (ordenados del más reciente al más viejo) + bytes totales usados.
+function fbFilesList(callback) {
+    var ready = fbFilesEnsureReady();
+    if (!ready.ok) { callback([], 0, ready.reason); return; }
+    var quota = fbQuotaCheck('read');
+    if (!quota.allowed) { callback([], 0, quota.reason); return; }
+
+    _fbFilesCollection().orderBy('uploadedAt', 'desc').limit(100).get()
+        .then(function(snap) {
+            fbQuotaRecord('read');
+            var list = [];
+            var total = 0;
+            snap.forEach(function(doc) {
+                var d = doc.data();
+                list.push({ id: doc.id, name: d.name, size: d.size || 0, contentType: d.contentType || '',
+                    storagePath: d.storagePath, uploadedBy: d.uploadedBy || '?', uploadedAt: d.uploadedAt || '' });
+                total += d.size || 0;
+            });
+            callback(list, total, null);
+        })
+        .catch(function(err) {
+            console.error('fbFilesList error:', err);
+            callback([], 0, 'Error al listar archivos: ' + err.message);
+        });
+}
+
+// Suscribe a cambios en vivo del almacén (otro dispositivo sube/borra → se refleja aquí).
+// Llamar fbFilesUnsubscribe() al salir de la pestaña para no dejar el listener corriendo.
+function fbFilesSubscribe(onChange) {
+    fbFilesUnsubscribe();
+    var ready = fbFilesEnsureReady();
+    if (!ready.ok) return;
+    try {
+        _fbFilesUnsub = _fbFilesCollection().orderBy('uploadedAt', 'desc').limit(100)
+            .onSnapshot(function() { onChange(); }, function(err) { console.warn('fbFilesSubscribe error:', err.message); });
+    } catch (e) { console.warn('fbFilesSubscribe:', e.message); }
+}
+function fbFilesUnsubscribe() {
+    if (_fbFilesUnsub) { try { _fbFilesUnsub(); } catch (e) {} _fbFilesUnsub = null; }
+}
+
+// Sube un archivo (objeto File del input) respetando la cuota total de 5MB.
+// onProgress(pct 0-100) se llama durante la subida; onDone(ok, errorMsgOrNull).
+function fbFilesUpload(file, onProgress, onDone) {
+    var ready = fbFilesEnsureReady();
+    if (!ready.ok) { onDone(false, ready.reason); return; }
+    if (file.size > FB_FILES_MAX_BYTES) { onDone(false, 'El archivo (' + Math.round(file.size / 1024) + 'KB) supera el presupuesto total del almacén (5MB).'); return; }
+
+    fbFilesList(function(list, totalBytes, listErr) {
+        if (listErr) { onDone(false, listErr); return; }
+        if (totalBytes + file.size > FB_FILES_MAX_BYTES) {
+            var freeKB = Math.max(0, Math.round((FB_FILES_MAX_BYTES - totalBytes) / 1024));
+            onDone(false, 'No hay espacio suficiente — quedan ' + freeKB + 'KB libres de 5MB. Borra algún archivo primero.');
+            return;
+        }
+        var quota = fbQuotaCheck('write');
+        if (!quota.allowed) { onDone(false, quota.reason); return; }
+
+        var fileId = _fbFilesId();
+        var storagePath = 'stations/' + fbSync.stationId + '/files/' + fileId + '_' + _fbFilesSafeName(file.name);
+        var uploaderName = (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : 'Desconocido';
+
+        var task = firebase.storage().ref(storagePath).put(file, { contentType: file.type || 'application/octet-stream' });
+        task.on('state_changed', function(snap) {
+            if (onProgress) onProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
+        }, function(err) {
+            console.error('fbFilesUpload error:', err);
+            onDone(false, 'Error al subir: ' + err.message);
+        }, function() {
+            _fbFilesCollection().doc(fileId).set({
+                name: file.name, size: file.size, contentType: file.type || '',
+                storagePath: storagePath, uploadedBy: uploaderName, uploadedAt: new Date().toISOString(), deviceId: FB_DEVICE_ID
+            }).then(function() {
+                fbQuotaRecord('write');
+                if (typeof auditLog === 'function') auditLog('panel', 'file_uploaded', { type: 'file', label: file.name }, Math.round(file.size / 1024) + 'KB');
+                onDone(true, null);
+            }).catch(function(err) {
+                console.error('fbFilesUpload metadata error:', err);
+                onDone(false, 'Se subió el archivo pero falló el registro: ' + err.message);
+            });
+        });
+    });
+}
+
+// Borra un archivo (bytes en Storage + metadata en Firestore). Irreversible.
+function fbFilesDelete(fileId, storagePath, fileName, onDone) {
+    var ready = fbFilesEnsureReady();
+    if (!ready.ok) { onDone(false, ready.reason); return; }
+
+    var deleteStorageObject = storagePath
+        ? firebase.storage().ref(storagePath).delete().catch(function(err) {
+            if (err.code !== 'storage/object-not-found') throw err; // ya no estaba — seguir con el metadata igual
+        })
+        : Promise.resolve();
+
+    deleteStorageObject.then(function() {
+        return _fbFilesCollection().doc(fileId).delete();
+    }).then(function() {
+        if (typeof auditLog === 'function') auditLog('panel', 'file_deleted', { type: 'file', label: fileName || fileId }, '');
+        onDone(true, null);
+    }).catch(function(err) {
+        console.error('fbFilesDelete error:', err);
+        onDone(false, 'Error al borrar: ' + err.message);
+    });
+}

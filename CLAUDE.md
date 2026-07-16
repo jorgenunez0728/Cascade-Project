@@ -23,7 +23,7 @@ no-login operator picker, synced change history).
 | **Hoy** | Daily dashboard (incl. shared Lab Overview strip), quick actions | `platform-today` |
 | **Plan** | Test Plan Manager (weekly plan, **🚑 Recuperación**, families, calendar, simulator, production) | `platform-testplan` |
 | **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
-| **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system) | `platform-panel` |
+| **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system, **☁️ Archivos**) | `platform-panel` |
 | **CoP** | CoP Type 1 statistical Conformity-of-Production validator (family + VINes, live verdict) + **📈 Control SPC** (v15.7: cartas I-MR por familia×gas, Nelson, Cpk, alarmas) | `platform-cop` |
 
 Legacy platform names (`cop15`, `testplan`, `inventory`, `panel`) are aliased in
@@ -108,6 +108,19 @@ configuración (`{...cfg, testedN, required, deficit, compliance, status, score,
 nunca un objeto agregado con `.totalReq`/`.coveragePct` (ese bug dejaba "HOY" en 0%/NaN
 permanentemente). `tpSave()` invalida el cache de `tpGetAnalysis()` además del de familias;
 los merges/seeds de Firebase sync pasan por `_fbTpUISync()`, que hace lo mismo.
+
+**v16.3 — Almacén de Archivos:** pestaña `pn-files` (Datos → ⋯ Más → ☁️ Archivos) — espacio
+compartido de 5MB TOTAL (todo el laboratorio) para subir/bajar un documento entre
+dispositivos. Bytes en Firebase Storage (`stations/KIA-EMLAB/files/{id}_{nombre}`, requiere
+el SDK `firebase-storage-compat.js`, agregado en v16.3 — antes no se cargaba); metadatos
+(nombre/tamaño/quién/cuándo) en Firestore (`stations/KIA-EMLAB/files/{id}`, reutiliza
+`isLabUser()` de `firestore.rules` — no se tocaron esas reglas). Helpers en
+`firebase-sync.js`: `fbFilesEnsureReady/List/Subscribe/Unsubscribe/Upload/Delete`; UI en
+`panel.js`: `pnRenderFiles`/`pnFiles*`. La cuota de 5MB se controla en el cliente (suma de
+metadatos antes de subir) — `storage.rules` (nuevo archivo) solo respalda con un tope de
+5MB por archivo individual. **`storage.rules` requiere despliegue manual** (`firebase
+deploy --only storage`) — Claude Code no puede desplegar reglas de Firebase; hasta que
+alguien con acceso al proyecto lo corra, Storage puede rechazar todo por default-deny.
 
 ## Cross-Module Dependencies
 
