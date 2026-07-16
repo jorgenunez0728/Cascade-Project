@@ -18,7 +18,8 @@ var CDN_ASSETS = [
     'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
     'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js',
-    'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js'
+    'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js',
+    'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js'
 ];
 
 // Install: precache CDN assets

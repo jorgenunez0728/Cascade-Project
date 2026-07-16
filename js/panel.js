@@ -91,12 +91,15 @@ function pnSave() {
     tabCacheInvalidate('pn'); // Mark all tabs dirty on data change
 }
 
-var _pnTabs = ['pn-dashboard','pn-reports','pn-executive','pn-turnaround','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit','pn-regulations'];
+var _pnTabs = ['pn-dashboard','pn-reports','pn-executive','pn-turnaround','pn-users','pn-shift','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit','pn-regulations','pn-files'];
 
 // Tabs managed by Alpine reactive templates (no innerHTML needed)
 var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true, 'pn-audit': true };
 
 function pnSwitchTab(tabId) {
+    // v16.3: apagar el listener en vivo del Almacén al salir de esa pestaña — no dejarlo
+    // corriendo de fondo mientras el operador ve otra sección del Panel.
+    if (pnState.activeTab === 'pn-files' && tabId !== 'pn-files' && typeof fbFilesUnsubscribe === 'function') fbFilesUnsubscribe();
     pnState.activeTab = tabId;
     document.querySelectorAll('#pn-tabs-bar .tp-tab').forEach(function(b) {
         b.classList.toggle('active', b.getAttribute('onclick').indexOf(tabId) !== -1);
@@ -128,6 +131,7 @@ function _pnGetRenderer(tabId) {
     if (tabId === 'pn-calendar') return pnRenderCalendar;
     if (tabId === 'pn-audit') return pnRenderAuditTrail;
     if (tabId === 'pn-regulations') return pnRenderRegulations;
+    if (tabId === 'pn-files') return pnRenderFiles;
     return null;
 }
 
@@ -2802,6 +2806,164 @@ function pnRegAddGasRow() {
     tbody.appendChild(tr);
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [v16.3] ALMACÉN DE ARCHIVOS — subir/bajar un documento entre dispositivos
+// vía Firebase Storage (~5MB compartidos de todo el laboratorio).
+// ══════════════════════════════════════════════════════════════════════
+
+var PN_FILES_ACCEPT = '.zip,.pdf,.xls,.xlsx,.csv,.doc,.docx,.png,.jpg,.jpeg';
+
+function pnRenderFiles(el) {
+    var ready = (typeof fbFilesEnsureReady === 'function') ? fbFilesEnsureReady() : { ok: false, reason: 'Módulo de sincronización no disponible.' };
+
+    var html = '<div class="tp-card">';
+    html += '<div class="tp-card-title" data-help="pn-files-help"><span>☁️ Almacén de Archivos</span>';
+    if (ready.ok) html += '<button class="tp-btn tp-btn-primary" onclick="document.getElementById(\'pn-files-input\').click()" style="font-size:11px;">📤 Subir archivo</button>';
+    html += '</div>';
+    html += '<input type="file" id="pn-files-input" accept="' + PN_FILES_ACCEPT + '" style="display:none;" onchange="pnFilesHandleUpload(event)">';
+
+    if (!ready.ok) {
+        html += '<div style="text-align:center;padding:24px;color:var(--tp-dim);">';
+        html += '<div style="font-size:32px;margin-bottom:8px;">☁️</div>';
+        html += '<div style="font-size:12px;">' + escapeHtml(ready.reason) + '</div>';
+        html += '</div>';
+        html += '</div>';
+        el.innerHTML = html;
+        return;
+    }
+
+    html += '<div id="pn-files-progress" style="display:none;margin-bottom:10px;">';
+    html += '<div style="font-size:10px;color:var(--tp-dim);margin-bottom:3px;">Subiendo… <span id="pn-files-progress-pct">0%</span></div>';
+    html += '<div class="tp-bar" style="width:100%;height:8px;"><div class="tp-bar-fill" id="pn-files-progress-fill" style="width:0%;background:var(--tp-blue);"></div></div>';
+    html += '</div>';
+
+    html += '<div id="pn-files-quota" style="margin-bottom:12px;"></div>';
+    html += '<div id="pn-files-list">' + pnFilesLoadingHTML() + '</div>';
+    html += '</div>';
+    el.innerHTML = html;
+
+    pnFilesRefresh();
+    if (typeof fbFilesSubscribe === 'function') fbFilesSubscribe(pnFilesRefresh);
+}
+
+function pnFilesLoadingHTML() {
+    return '<div style="text-align:center;padding:16px;color:var(--tp-dim);font-size:11px;">Cargando…</div>';
+}
+
+function pnFilesRefresh() {
+    var listEl = document.getElementById('pn-files-list');
+    var quotaEl = document.getElementById('pn-files-quota');
+    if (!listEl || typeof fbFilesList !== 'function') return;
+
+    fbFilesList(function(files, totalBytes, err) {
+        listEl = document.getElementById('pn-files-list'); // puede haberse re-renderizado el tab mientras tanto
+        quotaEl = document.getElementById('pn-files-quota');
+        if (!listEl) return;
+
+        if (err) {
+            listEl.innerHTML = '<div style="text-align:center;padding:16px;color:var(--tp-red);font-size:11px;">' + escapeHtml(err) + '</div>';
+            return;
+        }
+
+        if (quotaEl) {
+            var maxBytes = (typeof FB_FILES_MAX_BYTES !== 'undefined') ? FB_FILES_MAX_BYTES : (5 * 1024 * 1024);
+            var pct = Math.min(100, Math.round((totalBytes / maxBytes) * 100));
+            var barColor = pct > 90 ? 'var(--tp-red)' : pct > 70 ? 'var(--tp-amber)' : 'var(--tp-green)';
+            quotaEl.innerHTML = '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--tp-dim);margin-bottom:3px;">' +
+                '<span>' + _pnFormatBytes(totalBytes) + ' de ' + _pnFormatBytes(maxBytes) + ' usados</span><span>' + pct + '%</span></div>' +
+                '<div class="tp-bar" style="width:100%;height:8px;"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + barColor + ';"></div></div>';
+        }
+
+        if (files.length === 0) {
+            listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin archivos todavía. Sube el primero con el botón de arriba.</div>';
+            return;
+        }
+
+        var rows = files.map(function(f) {
+            var when = f.uploadedAt ? new Date(f.uploadedAt).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+            return '<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;">' +
+                '<div style="font-size:20px;">' + pnFilesIcon(f.name) + '</div>' +
+                '<div style="flex:1;min-width:160px;">' +
+                '<div style="font-size:12px;font-weight:700;color:var(--tp-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(f.name) + '</div>' +
+                '<div style="font-size:9px;color:var(--tp-dim);">' + _pnFormatBytes(f.size) + ' · ' + escapeHtml(f.uploadedBy) + ' · ' + when + '</div>' +
+                '</div>' +
+                '<button class="tp-btn tp-btn-ghost" onclick="pnFilesDownload(\'' + f.id + '\')" style="font-size:10px;" title="Descargar" aria-label="Descargar ' + escapeHtml(f.name) + '">⬇️</button>' +
+                '<button class="tp-btn tp-btn-ghost" onclick="pnFilesConfirmDelete(\'' + f.id + '\',\'' + escapeHtml(f.name).replace(/'/g, "\\'") + '\')" style="font-size:10px;color:var(--tp-red);" title="Eliminar" aria-label="Eliminar ' + escapeHtml(f.name) + '">🗑</button>' +
+                '</div>';
+        }).join('');
+        listEl.innerHTML = rows;
+        window._pnFilesCache = files; // usado por descarga/borrado para no volver a consultar
+    });
+}
+
+function pnFilesIcon(name) {
+    var ext = (name || '').split('.').pop().toLowerCase();
+    if (ext === 'zip' || ext === 'rar' || ext === '7z') return '🗜️';
+    if (ext === 'pdf') return '📕';
+    if (ext === 'xls' || ext === 'xlsx' || ext === 'csv') return '📊';
+    if (ext === 'doc' || ext === 'docx') return '📄';
+    if (ext === 'png' || ext === 'jpg' || ext === 'jpeg') return '🖼️';
+    return '📁';
+}
+
+function pnFilesHandleUpload(ev) {
+    var input = ev.target;
+    var file = input.files && input.files[0];
+    input.value = ''; // permite re-seleccionar el mismo archivo después
+    if (!file) return;
+
+    var ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (PN_FILES_ACCEPT.indexOf(ext) === -1) {
+        showToast('Formato no permitido. Aceptados: ' + PN_FILES_ACCEPT, 'error');
+        return;
+    }
+
+    var progressWrap = document.getElementById('pn-files-progress');
+    var progressFill = document.getElementById('pn-files-progress-fill');
+    var progressPct = document.getElementById('pn-files-progress-pct');
+    if (progressWrap) progressWrap.style.display = '';
+
+    fbFilesUpload(file, function(pct) {
+        if (progressFill) progressFill.style.width = pct + '%';
+        if (progressPct) progressPct.textContent = pct + '%';
+    }, function(ok, err) {
+        if (progressWrap) progressWrap.style.display = 'none';
+        if (ok) {
+            showToast('Archivo subido: ' + file.name, 'success');
+            pnFilesRefresh();
+        } else {
+            showToast(err || 'Error al subir el archivo', 'error');
+        }
+    });
+}
+
+function pnFilesDownload(fileId) {
+    var f = (window._pnFilesCache || []).find(function(x) { return x.id === fileId; });
+    if (!f || !f.storagePath) { showToast('Archivo no encontrado', 'error'); return; }
+    firebase.storage().ref(f.storagePath).getDownloadURL().then(function(url) {
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = f.name;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }).catch(function(err) {
+        showToast('Error al descargar: ' + err.message, 'error');
+    });
+}
+
+function pnFilesConfirmDelete(fileId, fileName) {
+    showConfirm('¿Eliminar "' + fileName + '" del almacén compartido? Esta acción es irreversible.', function() {
+        var f = (window._pnFilesCache || []).find(function(x) { return x.id === fileId; });
+        fbFilesDelete(fileId, f ? f.storagePath : null, fileName, function(ok, err) {
+            if (ok) { showToast('Archivo eliminado', 'success'); pnFilesRefresh(); }
+            else showToast(err || 'Error al eliminar', 'error');
+        });
+    }, { title: 'Eliminar archivo', type: 'danger', confirmText: 'Eliminar' });
+}
+
 // ══════════════════════════════════════════════════
 // v16.0: Ayuda — banners de pestaña y tooltips de campo
 // ══════════════════════════════════════════════════
@@ -2852,6 +3014,12 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     'pn-regulations': { title: 'Regulaciones', text: 'Catálogo de regulaciones de emisiones y sus gases/límites — la fuente que usan CoP y Liberación para validar resultados.', tips: [
         'Agrega una fila de gas por cada contaminante que la regulación limita.',
         'Estos límites son los que se comparan contra los resultados capturados en Liberación.'
+    ]},
+    'pn-files': { title: 'Almacén de Archivos', text: 'Un espacio compartido de 5MB para subir un documento desde este dispositivo y bajarlo desde otro — útil para pasar un .zip, PDF u hoja de cálculo sin depender de USB o correo.', tips: [
+        'Formatos aceptados: .zip, .pdf, .xls/.xlsx/.csv, .doc/.docx, imágenes.',
+        'El presupuesto de 5MB es compartido por TODO el laboratorio — borra lo que ya no necesites.',
+        'La lista se actualiza sola cuando alguien más sube o borra un archivo desde otro dispositivo.',
+        'Requiere que este dispositivo esté conectado a Firebase (indicador de sincronización arriba).'
     ]}
 });
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
@@ -2861,5 +3029,6 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-users-help': { title: 'Alta de operador', text: 'Registra el nombre y rol de un técnico del laboratorio para que pueda ser elegido en el picker de operador.' },
     'pn-shift-help': { title: 'Bitácora', text: 'Registra aquí eventos de tu turno: inicio, incidencias, mantenimiento, calibraciones y observaciones.' },
     'pn-alerts-help': { title: 'Resumen de alertas', text: 'Conteo de alertas Críticas / Altas / Medias activas ahora mismo en todo el laboratorio.' },
-    'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' }
+    'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
+    'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' }
 });

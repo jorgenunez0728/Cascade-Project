@@ -1,0 +1,23 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Almacén de archivos compartido del laboratorio (Panel → Archivos).
+    // Mismo criterio de sesión que firestore.rules (isLabUser): un solo usuario
+    // Email/Password del laboratorio, sin sesiones anónimas.
+    match /stations/{station}/files/{fileName} {
+      allow read: if request.auth != null
+          && request.auth.token.firebase.sign_in_provider == 'password';
+      // 5MB es el presupuesto TOTAL del almacén (se controla en el cliente sumando
+      // los metadatos de Firestore antes de subir); aquí solo se limita el tamaño
+      // de un archivo individual como respaldo de la regla de negocio.
+      allow create, update: if request.auth != null
+          && request.auth.token.firebase.sign_in_provider == 'password'
+          && request.resource.size < 5 * 1024 * 1024;
+      allow delete: if request.auth != null
+          && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
