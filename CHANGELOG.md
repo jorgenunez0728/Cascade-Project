@@ -8,25 +8,26 @@ Nueva pestaña **Datos → ⋯ Más → ☁️ Archivos**: un espacio compartido
 laboratorio, no por dispositivo) para subir un documento desde un equipo y bajarlo desde
 otro — pensado para pasar un .zip, PDF u hoja de cálculo sin depender de USB/correo.
 
-- **Almacenamiento**: los bytes viven en Firebase Storage
-  (`stations/KIA-EMLAB/files/{id}_{nombre}`); los metadatos (nombre, tamaño, quién y
-  cuándo) en una colección de Firestore (`stations/KIA-EMLAB/files/{id}`) reutilizando el
-  mismo criterio de sesión que el resto de la sincronización — no hizo falta tocar
-  `firestore.rules`. Nuevo `storage.rules` (solo usuario de laboratorio Email/Password,
-  tope de 5MB por archivo individual como respaldo del límite de negocio).
-- **Cuota de 5MB total**: se controla en el cliente sumando los tamaños de los metadatos
-  antes de subir (`fbFilesUpload`); si no alcanza, avisa cuántos KB quedan libres. Barra de
-  cuota con color según % usado.
+- **Almacenamiento — solo Firestore, sin Firebase Storage**: el archivo se convierte a
+  base64 y se parte en fragmentos de <1MB guardados en una subcolección
+  (`stations/KIA-EMLAB/files/{id}/chunks/{i}`); el metadato (nombre, tamaño, quién, cuándo,
+  N° de fragmentos) vive en `stations/KIA-EMLAB/files/{id}`. Se descartó Firebase Storage a
+  propósito: Google exige el plan de pago "Blaze" (con tarjeta) para usarlo, aunque no
+  cobre bajo la cuota gratis. Firestore ya lo usa el resto de la app en el plan gratis
+  "Spark" (sin tarjeta) — el Almacén reutiliza esa misma base de datos y las mismas reglas
+  de sesión (`firestore.rules`, sin cambios), así que **no hay nada que desplegar
+  manualmente**: queda activo en cuanto se publica el código.
+- **Cuota de 5MB total** (tamaño real del archivo, no el base64 inflado): se controla en el
+  cliente sumando los tamaños de los metadatos antes de subir (`fbFilesUpload`); si no
+  alcanza, avisa cuántos KB quedan libres. Barra de cuota con color según % usado.
 - **Formatos aceptados**: .zip, .pdf, .xls/.xlsx, .csv, .doc/.docx, .png, .jpg/.jpeg —
   validado del lado del cliente antes de intentar subir.
 - **Lista en vivo**: `fbFilesSubscribe`/`onSnapshot` refleja subidas/borrados de otros
-  dispositivos sin recargar; se desconecta al salir de la pestaña. Descargar y eliminar
-  (con confirmación) por archivo; cada subida/borrado queda en `auditLog`.
-- **Nuevo en el SDK**: `firebase-storage-compat.js` (antes no se cargaba en ningún lugar del
-  repo). **Pendiente de despliegue manual**: `storage.rules` y `firebase.json` ya están en
-  el repo, pero las reglas de Storage NO quedan activas en el proyecto de Firebase hasta
-  correr `firebase deploy --only storage` — sin ese paso, Storage rechazará todo por
-  default-deny (o usará las reglas que tenga hoy el bucket).
+  dispositivos sin recargar; se desconecta al salir de la pestaña. Descargar reconstruye
+  los fragmentos en un Blob local (`fbFilesDownload`); eliminar (con confirmación) borra
+  metadato + todos sus fragmentos. Cada subida/borrado queda en `auditLog`.
+- Probado con un archivo real de 1.76MB (caso de uso: carpeta de instalación del programa
+  J1699 comprimida) — se parte en 4 fragmentos y se reconstruye byte a byte sin pérdida.
 
 ## v16.2 — "Conteos correctos" (2026-07-15)
 

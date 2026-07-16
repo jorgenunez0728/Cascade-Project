@@ -3195,24 +3195,26 @@ function fbPostSyncPull() {
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
-// ║  [v16.3] ALMACÉN DE ARCHIVOS — Firebase Storage (Panel → Archivos)   ║
+// ║  [v16.3] ALMACÉN DE ARCHIVOS — solo Firestore (Panel → Archivos)     ║
 // ║  Espacio compartido de ~5MB para subir un documento (zip, pdf, ...) ║
-// ║  desde un dispositivo y bajarlo desde otro. Los BYTES viven en      ║
-// ║  Storage (stations/{ws}/files/{fileId}_{nombre}); los METADATOS     ║
-// ║  (nombre, tamaño, quién y cuándo) viven en Firestore                ║
-// ║  (stations/{ws}/files/{fileId}) para poder listar y sumar la cuota  ║
-// ║  sin tener que golpear Storage. Requiere storage.rules desplegado.  ║
+// ║  desde un dispositivo y bajarlo desde otro, SIN Firebase Storage    ║
+// ║  (evita el plan de pago Blaze). El archivo se convierte a base64 y  ║
+// ║  se parte en fragmentos <1MB en una subcolección                    ║
+// ║  (stations/{ws}/files/{fileId}/chunks/{i}); el METADATO             ║
+// ║  (nombre, tamaño, quién, cuándo, N° de fragmentos) vive en          ║
+// ║  stations/{ws}/files/{fileId}. Cabe en el plan gratis "Spark" —     ║
+// ║  misma base de datos y mismas reglas que ya usa el resto de la app. ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-var FB_FILES_MAX_BYTES = 5 * 1024 * 1024; // 5MB — presupuesto TOTAL del almacén compartido
+var FB_FILES_MAX_BYTES = 5 * 1024 * 1024; // 5MB — presupuesto TOTAL del almacén (tamaño real del archivo, sin contar el overhead de base64)
+var FB_FILES_CHUNK_CHARS = 700 * 1024; // ~700KB de texto base64 por fragmento — margen bajo el límite de 1MiB/documento de Firestore
 var _fbFilesUnsub = null;
 
-// ¿Está todo listo para usar el almacén? (sync habilitado, sesión de laboratorio, SDK de Storage cargado)
+// ¿Está todo listo para usar el almacén? (sync habilitado, sesión de laboratorio)
 function fbFilesEnsureReady() {
     if (!fbSync.enabled || !fbSync.db) return { ok: false, reason: 'Conecta este dispositivo a Firebase primero (indicador de sincronización, arriba).' };
     var u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
     if (!_fbIsPasswordUser(u)) return { ok: false, reason: 'Sesión del laboratorio requerida — vuelve a iniciar sesión con la contraseña del dispositivo.' };
-    if (typeof firebase === 'undefined' || typeof firebase.storage !== 'function') return { ok: false, reason: 'El SDK de Firebase Storage no cargó (revisa tu conexión y recarga la página).' };
     return { ok: true };
 }
 
@@ -3222,11 +3224,6 @@ function _fbFilesCollection() {
 
 function _fbFilesId() {
     return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
-}
-
-// Nombre de archivo seguro para usarlo como parte de la ruta de Storage.
-function _fbFilesSafeName(name) {
-    return String(name || 'archivo').replace(/[^A-Za-z0-9_.\-]/g, '_').slice(-120);
 }
 
 // Lista los archivos del almacén (ordenados del más reciente al más viejo) + bytes totales usados.
@@ -3244,7 +3241,7 @@ function fbFilesList(callback) {
             snap.forEach(function(doc) {
                 var d = doc.data();
                 list.push({ id: doc.id, name: d.name, size: d.size || 0, contentType: d.contentType || '',
-                    storagePath: d.storagePath, uploadedBy: d.uploadedBy || '?', uploadedAt: d.uploadedAt || '' });
+                    chunkCount: d.chunkCount || 0, uploadedBy: d.uploadedBy || '?', uploadedAt: d.uploadedAt || '' });
                 total += d.size || 0;
             });
             callback(list, total, null);
@@ -3270,7 +3267,20 @@ function fbFilesUnsubscribe() {
     if (_fbFilesUnsub) { try { _fbFilesUnsub(); } catch (e) {} _fbFilesUnsub = null; }
 }
 
+// Lee un File como base64 puro (sin el prefijo "data:<mime>;base64,").
+function _fbFilesReadAsBase64(file, onDone, onError) {
+    var reader = new FileReader();
+    reader.onload = function() {
+        var result = reader.result || '';
+        var comma = result.indexOf(',');
+        onDone(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = function() { onError(reader.error ? reader.error.message : 'No se pudo leer el archivo'); };
+    reader.readAsDataURL(file);
+}
+
 // Sube un archivo (objeto File del input) respetando la cuota total de 5MB.
+// El contenido se parte en fragmentos base64 guardados como documentos de Firestore.
 // onProgress(pct 0-100) se llama durante la subida; onDone(ok, errorMsgOrNull).
 function fbFilesUpload(file, onProgress, onDone) {
     var ready = fbFilesEnsureReady();
@@ -3287,50 +3297,102 @@ function fbFilesUpload(file, onProgress, onDone) {
         var quota = fbQuotaCheck('write');
         if (!quota.allowed) { onDone(false, quota.reason); return; }
 
-        var fileId = _fbFilesId();
-        var storagePath = 'stations/' + fbSync.stationId + '/files/' + fileId + '_' + _fbFilesSafeName(file.name);
-        var uploaderName = (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : 'Desconocido';
+        _fbFilesReadAsBase64(file, function(b64) {
+            var chunks = [];
+            for (var i = 0; i < b64.length; i += FB_FILES_CHUNK_CHARS) chunks.push(b64.slice(i, i + FB_FILES_CHUNK_CHARS));
 
-        var task = firebase.storage().ref(storagePath).put(file, { contentType: file.type || 'application/octet-stream' });
-        task.on('state_changed', function(snap) {
-            if (onProgress) onProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
-        }, function(err) {
-            console.error('fbFilesUpload error:', err);
-            onDone(false, 'Error al subir: ' + err.message);
-        }, function() {
-            _fbFilesCollection().doc(fileId).set({
-                name: file.name, size: file.size, contentType: file.type || '',
-                storagePath: storagePath, uploadedBy: uploaderName, uploadedAt: new Date().toISOString(), deviceId: FB_DEVICE_ID
-            }).then(function() {
-                fbQuotaRecord('write');
-                if (typeof auditLog === 'function') auditLog('panel', 'file_uploaded', { type: 'file', label: file.name }, Math.round(file.size / 1024) + 'KB');
-                onDone(true, null);
-            }).catch(function(err) {
-                console.error('fbFilesUpload metadata error:', err);
-                onDone(false, 'Se subió el archivo pero falló el registro: ' + err.message);
+            var fileId = _fbFilesId();
+            var col = _fbFilesCollection();
+            var uploaderName = (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : 'Desconocido';
+            var doneCount = 0;
+            var failed = false;
+
+            var writeMetadata = function() {
+                col.doc(fileId).set({
+                    name: file.name, size: file.size, contentType: file.type || '',
+                    chunkCount: chunks.length, uploadedBy: uploaderName, uploadedAt: new Date().toISOString(), deviceId: FB_DEVICE_ID
+                }).then(function() {
+                    fbQuotaRecord('write');
+                    if (onProgress) onProgress(100);
+                    if (typeof auditLog === 'function') auditLog('panel', 'file_uploaded', { type: 'file', label: file.name }, Math.round(file.size / 1024) + 'KB');
+                    onDone(true, null);
+                }).catch(function(err) {
+                    console.error('fbFilesUpload metadata error:', err);
+                    onDone(false, 'Se subieron los datos pero falló el registro: ' + err.message);
+                });
+            };
+
+            if (chunks.length === 0) { writeMetadata(); return; } // archivo de 0 bytes — sin fragmentos que subir
+
+            chunks.forEach(function(chunkData, i) {
+                col.doc(fileId).collection('chunks').doc(String(i)).set({ data: chunkData })
+                    .then(function() {
+                        if (failed) return;
+                        fbQuotaRecord('write');
+                        doneCount++;
+                        if (onProgress) onProgress(Math.round((doneCount / chunks.length) * 95)); // último 5% para el doc de metadata
+                        if (doneCount === chunks.length) writeMetadata();
+                    })
+                    .catch(function(err) {
+                        if (failed) return;
+                        failed = true;
+                        console.error('fbFilesUpload chunk error:', err);
+                        onDone(false, 'Error al subir: ' + err.message);
+                    });
             });
-        });
+        }, function(err) { onDone(false, 'Error al leer el archivo: ' + err); });
     });
 }
 
-// Borra un archivo (bytes en Storage + metadata en Firestore). Irreversible.
-function fbFilesDelete(fileId, storagePath, fileName, onDone) {
+// Borra un archivo (todos sus fragmentos + metadata). Irreversible. `meta` es el objeto
+// devuelto por fbFilesList (necesita chunkCount para saber cuántos fragmentos borrar).
+function fbFilesDelete(fileId, meta, fileName, onDone) {
     var ready = fbFilesEnsureReady();
     if (!ready.ok) { onDone(false, ready.reason); return; }
 
-    var deleteStorageObject = storagePath
-        ? firebase.storage().ref(storagePath).delete().catch(function(err) {
-            if (err.code !== 'storage/object-not-found') throw err; // ya no estaba — seguir con el metadata igual
-        })
-        : Promise.resolve();
+    var col = _fbFilesCollection();
+    var chunkCount = (meta && meta.chunkCount) || 0;
+    var deletes = [];
+    for (var i = 0; i < chunkCount; i++) deletes.push(col.doc(fileId).collection('chunks').doc(String(i)).delete());
 
-    deleteStorageObject.then(function() {
-        return _fbFilesCollection().doc(fileId).delete();
+    Promise.all(deletes).then(function() {
+        return col.doc(fileId).delete();
     }).then(function() {
         if (typeof auditLog === 'function') auditLog('panel', 'file_deleted', { type: 'file', label: fileName || fileId }, '');
         onDone(true, null);
     }).catch(function(err) {
         console.error('fbFilesDelete error:', err);
         onDone(false, 'Error al borrar: ' + err.message);
+    });
+}
+
+// Descarga un archivo: junta sus fragmentos, decodifica base64 → Blob → URL temporal.
+// `meta` es el objeto de fbFilesList (necesita chunkCount y contentType).
+// onDone(ok, errorMsgOrNull, blobUrlOrNull) — el llamador debe revocar la URL cuando termine.
+function fbFilesDownload(fileId, meta, onDone) {
+    var ready = fbFilesEnsureReady();
+    if (!ready.ok) { onDone(false, ready.reason); return; }
+    var chunkCount = (meta && meta.chunkCount) || 0;
+    if (chunkCount === 0) { onDone(false, 'Este archivo no tiene contenido guardado.'); return; }
+
+    var col = _fbFilesCollection();
+    var reads = [];
+    for (var i = 0; i < chunkCount; i++) reads.push(col.doc(fileId).collection('chunks').doc(String(i)).get());
+
+    Promise.all(reads).then(function(snaps) {
+        for (var i = 0; i < snaps.length; i++) fbQuotaRecord('read');
+        try {
+            var b64 = snaps.map(function(s) { return s.data().data; }).join('');
+            var binary = atob(b64);
+            var bytes = new Uint8Array(binary.length);
+            for (var j = 0; j < binary.length; j++) bytes[j] = binary.charCodeAt(j);
+            var blob = new Blob([bytes], { type: (meta && meta.contentType) || 'application/octet-stream' });
+            onDone(true, null, URL.createObjectURL(blob));
+        } catch (e) {
+            onDone(false, 'Error al reconstruir el archivo: ' + e.message);
+        }
+    }).catch(function(err) {
+        console.error('fbFilesDownload error:', err);
+        onDone(false, 'Error al descargar: ' + err.message);
     });
 }

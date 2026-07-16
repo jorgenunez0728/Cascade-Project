@@ -2808,7 +2808,7 @@ function pnRegAddGasRow() {
 
 // ══════════════════════════════════════════════════════════════════════
 // [v16.3] ALMACÉN DE ARCHIVOS — subir/bajar un documento entre dispositivos
-// vía Firebase Storage (~5MB compartidos de todo el laboratorio).
+// vía Firestore (~5MB compartidos de todo el laboratorio, sin Firebase Storage).
 // ══════════════════════════════════════════════════════════════════════
 
 var PN_FILES_ACCEPT = '.zip,.pdf,.xls,.xlsx,.csv,.doc,.docx,.png,.jpg,.jpeg';
@@ -2939,25 +2939,24 @@ function pnFilesHandleUpload(ev) {
 
 function pnFilesDownload(fileId) {
     var f = (window._pnFilesCache || []).find(function(x) { return x.id === fileId; });
-    if (!f || !f.storagePath) { showToast('Archivo no encontrado', 'error'); return; }
-    firebase.storage().ref(f.storagePath).getDownloadURL().then(function(url) {
+    if (!f) { showToast('Archivo no encontrado', 'error'); return; }
+    showToast('Preparando descarga…', 'info');
+    fbFilesDownload(fileId, f, function(ok, err, url) {
+        if (!ok) { showToast(err || 'Error al descargar', 'error'); return; }
         var a = document.createElement('a');
         a.href = url;
         a.download = f.name;
-        a.target = '_blank';
-        a.rel = 'noopener';
         document.body.appendChild(a);
         a.click();
         a.remove();
-    }).catch(function(err) {
-        showToast('Error al descargar: ' + err.message, 'error');
+        setTimeout(function() { URL.revokeObjectURL(url); }, 30000);
     });
 }
 
 function pnFilesConfirmDelete(fileId, fileName) {
     showConfirm('¿Eliminar "' + fileName + '" del almacén compartido? Esta acción es irreversible.', function() {
         var f = (window._pnFilesCache || []).find(function(x) { return x.id === fileId; });
-        fbFilesDelete(fileId, f ? f.storagePath : null, fileName, function(ok, err) {
+        fbFilesDelete(fileId, f, fileName, function(ok, err) {
             if (ok) { showToast('Archivo eliminado', 'success'); pnFilesRefresh(); }
             else showToast(err || 'Error al eliminar', 'error');
         });
