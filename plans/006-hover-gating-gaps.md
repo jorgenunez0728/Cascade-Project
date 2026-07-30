@@ -1,6 +1,6 @@
 # 006 — Close remaining ungated hover-transform gaps
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: ab531df
 - **Severity**: HIGH
 - **Category**: Accessibility

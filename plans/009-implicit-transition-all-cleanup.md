@@ -1,6 +1,6 @@
 # 009 — Replace implicit `transition: all` on progress bar, toggles, and login screen
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: ab531df
 - **Severity**: MEDIUM
 - **Category**: Performance

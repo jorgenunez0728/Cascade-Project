@@ -1,6 +1,6 @@
 # 003 — Debounce the Kanban search box
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: ab531df
 - **Severity**: HIGH
 - **Category**: Purpose & frequency / Interruptibility

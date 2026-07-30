@@ -1,6 +1,6 @@
 # 005 — Throttle floor-plan zone drag/resize re-renders to one per frame
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: ab531df
 - **Severity**: HIGH
 - **Category**: Performance

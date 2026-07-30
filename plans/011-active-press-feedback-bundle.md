@@ -1,6 +1,6 @@
 # 011 — Add `:active` press feedback to four touch-first controls
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: ab531df
 - **Severity**: MEDIUM
 - **Category**: Physicality & origin

@@ -1,6 +1,6 @@
 # 008 — Mask the splash-screen crossfade over live content
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: ab531df
 - **Severity**: MEDIUM
 - **Category**: Cohesion & tokens

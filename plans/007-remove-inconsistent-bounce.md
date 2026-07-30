@@ -1,6 +1,6 @@
 # 007 — Remove inconsistent bounce curve from 3 components
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: ab531df
 - **Severity**: MEDIUM
 - **Category**: Cohesion & tokens

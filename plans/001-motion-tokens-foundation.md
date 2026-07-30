@@ -1,6 +1,6 @@
 # 001 — Introduce shared easing/duration motion tokens
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: ab531df
 - **Severity**: MEDIUM
 - **Category**: Easing & duration / Cohesion & tokens

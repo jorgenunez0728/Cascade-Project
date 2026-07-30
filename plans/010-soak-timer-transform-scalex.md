@@ -1,6 +1,6 @@
 # 010 — Switch soak timer bar from animated `width` to `transform: scaleX()`
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: ab531df
 - **Severity**: MEDIUM
 - **Category**: Performance

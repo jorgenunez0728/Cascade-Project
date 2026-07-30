@@ -1,6 +1,6 @@
 # 002 — Stop VIN field from shaking on every keystroke
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: ab531df
 - **Severity**: HIGH
 - **Category**: Purpose & frequency / Interruptibility

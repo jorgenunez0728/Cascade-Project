@@ -1,6 +1,6 @@
 # 004 — Stop HOY/Lab Overview KPI counters and card grid from re-animating on unrelated saves
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: ab531df
 - **Severity**: HIGH
 - **Category**: Interruptibility
