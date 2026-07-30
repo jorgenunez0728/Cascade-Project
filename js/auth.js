@@ -12,7 +12,73 @@ var AUTH_LS_KEY = 'kia_auth_session';
 var AUTH_SESSION_HOURS = 12;
 var AUTH_WEBAUTHN_LS = 'kia_webauthn_creds';
 
-var AUTH_OP_LS_KEY = 'kia_current_operator';
+// ══════════════════════════════════════════════════════════════════════
+// [Fase 2] PERMISOS POR ROL
+// ══════════════════════════════════════════════════════════════════════
+// IMPORTANTE — alcance real de esto: la app corre 100% en el cliente con una
+// sola cuenta Firebase compartida, así que esto es un control de FLUJO DE
+// TRABAJO (evitar errores y exigir doble par de ojos), NO una frontera de
+// seguridad. Quien abra la consola del navegador puede saltárselo. Sirve para
+// el uso normal del laboratorio y para dejar rastro auditable de los intentos.
+var AUTH_ROLE_PERMS = {
+    'Practicante': ['test.register', 'test.operate'],
+    'Técnico':     ['test.register', 'test.operate', 'test.release',
+                    'inventory.manage', 'audit.view'],
+    'Ingeniero':   ['test.register', 'test.operate', 'test.release',
+                    'inventory.manage', 'audit.view', 'audit.export',
+                    'cop.judge', 'plan.manage', 'users.view'],
+    'Supervisor':  ['test.register', 'test.operate', 'test.release', 'test.approve',
+                    'test.retro_edit', 'inventory.manage', 'audit.view', 'audit.export',
+                    'cop.judge', 'plan.manage', 'users.view', 'users.manage',
+                    'users.pin', 'data.sync_admin'],
+    'Coordinador': ['*']
+};
+
+/**
+ * ¿La sesión actual tiene este permiso? Devuelve false sin sesión.
+ * USAR SÓLO PARA OCULTAR UI. La comprobación real es authRequire().
+ */
+function authCan(perm) {
+    var u = authGetCurrentUser();
+    if (!u) return false;
+    var list = AUTH_ROLE_PERMS[u.role] || [];
+    return list.indexOf('*') !== -1 || list.indexOf(perm) !== -1;
+}
+
+/**
+ * Comprobación real: llamar al INICIO de cada handler privilegiado.
+ * Nunca confiar en que el botón esté oculto — ocultar es UX, esto es el candado.
+ */
+function authRequire(perm, label) {
+    if (authCan(perm)) return true;
+    var u = authGetCurrentUser();
+    var role = u ? (u.role || '—') : 'sin sesión';
+    if (typeof showToast === 'function') {
+        showToast('Tu rol (' + role + ') no permite: ' + (label || perm), 'error');
+    }
+    if (typeof auditLog === 'function') {
+        auditLog('auth', 'permission_denied', { type: 'perm', label: perm }, label || '');
+    }
+    return false;
+}
+
+/**
+ * Doble par de ojos: quien aprueba no puede ser quien liberó.
+ * Compara el ID DE SESIÓN grabado en la firma, nunca el nombre escrito —
+ * el nombre es texto libre y bastaría con teclear otro para burlar la regla.
+ * Devuelve { ok: bool, reason: 'perm'|'self'|null }.
+ */
+function authCanApproveVehicle(vehicle) {
+    if (!authCan('test.approve')) return { ok: false, reason: 'perm' };
+    var u = authGetCurrentUser();
+    var sigs = (vehicle && vehicle.testData && vehicle.testData.signatures) || {};
+    var rel = sigs.releaser || {};
+    if (u && rel.sessionUserId != null && String(rel.sessionUserId) === String(u.id)) {
+        return { ok: false, reason: 'self' };
+    }
+    return { ok: true, reason: null };
+}
+
 
 /**
  * ¿Este operador tiene PIN configurado? Debe mirar AMBOS campos: `pinHash` es
@@ -29,6 +95,74 @@ function _authHasPin(op) {
 // [v15.6] Muro de PIN reactivado (decisión de seguridad del usuario): sin
 // sesión válida (kia_auth_session con expiresAt vigente, 12h) la app muestra
 // el login de operadores y initializeSystem se detiene hasta autenticar.
+
+// ── [Fase 2] Vigilancia de sesión: expiración e inactividad ──
+var AUTH_IDLE_MS = 45 * 60000;      // 45 min sin actividad → pedir PIN de nuevo
+var AUTH_CHECK_MS = 60000;          // frecuencia de revisión
+var _authLastActivity = Date.now();
+var _authWatchTimer = null;
+
+/** Operador vivo y activo en el roster, o null. */
+function _authFindOperator(id) {
+    var ops = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators : [];
+    for (var i = 0; i < ops.length; i++) {
+        if (String(ops[i].id) === String(id)) {
+            if (ops[i].deleted || ops[i].active === false) return null;
+            return ops[i];
+        }
+    }
+    return null;
+}
+
+/** Marca actividad del usuario (throttled: basta con precisión de segundos). */
+function authTouch() { _authLastActivity = Date.now(); }
+
+/**
+ * Revisa expiración, baja del operador, cambio de rol e inactividad.
+ * La inactividad NO cierra sesión: vuelve a pedir el PIN del mismo operador,
+ * para no perder el formulario en curso ni re-ejecutar initializeSystem().
+ */
+function authSessionCheck() {
+    if (!authState.sessionActive || !authState.currentUser) return;
+
+    if (authState.sessionExpiry && authState.sessionExpiry.getTime() <= Date.now()) {
+        _authForceLogin('Tu sesión expiró. Ingresa tu PIN de nuevo.');
+        return;
+    }
+    var live = _authFindOperator(authState.currentUser.id);
+    if (!live) {
+        if (typeof auditLog === 'function') auditLog('auth', 'session_revoked', { type: 'operator', label: authState.currentUser.name }, 'Operador dado de baja o inactivo');
+        _authForceLogin('Tu usuario fue dado de baja. Contacta a un supervisor.');
+        return;
+    }
+    // Rol siempre fresco desde el roster (una degradación surte efecto de inmediato)
+    if ((live.role || 'Técnico') !== authState.currentUser.role) {
+        authState.currentUser.role = live.role || 'Técnico';
+        if (typeof auditLog === 'function') auditLog('auth', 'role_refreshed', { type: 'operator', label: live.name }, 'Nuevo rol: ' + authState.currentUser.role);
+    }
+    if (Date.now() - _authLastActivity > AUTH_IDLE_MS) {
+        _authForceLogin('Sesión bloqueada por inactividad. Ingresa tu PIN.');
+    }
+}
+
+function _authForceLogin(msg) {
+    authState.sessionActive = false;
+    try { localStorage.removeItem(AUTH_LS_KEY); } catch(e) {}
+    if (typeof showToast === 'function') showToast(msg, 'info');
+    authShowLogin();
+}
+
+function _authStartSessionWatch() {
+    if (_authWatchTimer) return;   // idempotente: authInit puede correr más de una vez
+    _authLastActivity = Date.now();
+    _authWatchTimer = setInterval(authSessionCheck, AUTH_CHECK_MS);
+    ['pointerdown', 'keydown'].forEach(function(ev) {
+        document.addEventListener(ev, authTouch, { passive: true });
+    });
+    document.addEventListener('visibilitychange', function() { if (!document.hidden) authSessionCheck(); });
+    window.addEventListener('focus', authSessionCheck);
+}
+
 function authInit() {
     // Sesión válida persistida → restaurar y continuar
     try {
@@ -36,13 +170,29 @@ function authInit() {
         if (saved) {
             var session = JSON.parse(saved);
             if (session.expiresAt && new Date(session.expiresAt).getTime() > Date.now()) {
-                authState.currentUser = { id: session.operatorId, name: session.operatorName, role: session.role };
+                // [Fase 2] El operador debe seguir existiendo y estar activo: antes la
+                // sesión se restauraba del blob local sin comprobar nada, así que dar de
+                // baja a alguien en otro dispositivo no lo sacaba del suyo.
+                var _live = _authFindOperator(session.operatorId);
+                if (!_live) {
+                    localStorage.removeItem(AUTH_LS_KEY);
+                    if (typeof auditLog === 'function') auditLog('auth', 'session_revoked', { type: 'operator', label: session.operatorName }, 'Operador dado de baja o inactivo');
+                    authState.sessionActive = false;
+                    authState.currentUser = null;
+                    authShowLogin();
+                    if (typeof showToast === 'function') showToast('Tu usuario fue dado de baja. Contacta a un supervisor.', 'error');
+                    return;
+                }
+                // El rol se relee del roster, no del blob: antes quedaba congelado hasta
+                // el próximo login, así que una degradación de permisos no surtía efecto.
+                authState.currentUser = { id: _live.id, name: _live.name, role: _live.role || 'Técnico' };
                 authState.sessionActive = true;
                 authState.sessionExpiry = new Date(session.expiresAt);
                 var overlay = document.getElementById('auth-overlay');
                 if (overlay) overlay.style.display = 'none';
                 authUpdateUI();
                 authFirebaseSignIn();
+                _authStartSessionWatch();
                 return;
             }
             // Sesión expirada
@@ -221,9 +371,18 @@ var AUTH_LOCKOUT_KEY = 'kia_pin_lockout';
 var AUTH_MAX_FAILS = 5;
 var AUTH_LOCKOUT_MS = 60000;
 
+var AUTH_BRUTEFORCE_STRIKES = 15;
+
+/** Duración del bloqueo según intentos fallidos ACUMULADOS (escalonado). */
+function _authLockoutDelay(strikes) {
+    if (strikes >= 15) return 30 * 60000;  // 30 min
+    if (strikes >= 10) return 5 * 60000;   // 5 min
+    return AUTH_LOCKOUT_MS;                // 60 s
+}
+
 function _authLockoutGet(opId) {
-    try { return (JSON.parse(localStorage.getItem(AUTH_LOCKOUT_KEY)) || {})[opId] || { fails: 0, until: 0 }; }
-    catch(e) { return { fails: 0, until: 0 }; }
+    try { return (JSON.parse(localStorage.getItem(AUTH_LOCKOUT_KEY)) || {})[opId] || { fails: 0, until: 0, strikes: 0 }; }
+    catch(e) { return { fails: 0, until: 0, strikes: 0 }; }
 }
 function _authLockoutSet(opId, rec) {
     var all = {};
@@ -252,7 +411,7 @@ function authVerifyAndLogin(pin) {
 
     pnVerifyPinAsync(fullIdx, pin).then(function(ok) {
         if (ok) {
-            _authLockoutSet(op.id, { fails: 0, until: 0 });
+            _authLockoutSet(op.id, { fails: 0, until: 0, strikes: 0 });
             if (typeof auditLog === 'function') auditLog('auth', 'login', { type: 'operator', label: op.name });
             authCreateSession(op);
             if (window.PublicKeyCredential && window.isSecureContext && !authHasStoredCredential(op.id)) {
@@ -260,15 +419,31 @@ function authVerifyAndLogin(pin) {
             }
             return;
         }
-        // Fallo: contar y quizá bloquear
+        // Fallo: contar y quizá bloquear.
+        // [Fase 2] `strikes` es acumulativo y NO se reinicia al bloquear — antes se
+        // ponía fails=0 junto con `until`, así que tras los 60 s el atacante recuperaba
+        // 5 intentos frescos indefinidamente y podía recorrer los 10 000 PINs posibles.
+        // Sólo un login correcto limpia el contador.
         var rec = _authLockoutGet(op.id);
         rec.fails = (rec.fails || 0) + 1;
-        if (rec.fails >= AUTH_MAX_FAILS) { rec.until = Date.now() + AUTH_LOCKOUT_MS; rec.fails = 0; }
+        rec.strikes = (rec.strikes || 0) + 1;
+        if (rec.fails >= AUTH_MAX_FAILS) {
+            rec.until = Date.now() + _authLockoutDelay(rec.strikes);
+            rec.fails = 0;
+        }
         _authLockoutSet(op.id, rec);
-        if (typeof auditLog === 'function') auditLog('auth', 'login_failed', { type: 'operator', label: op.name });
+        if (typeof auditLog === 'function') {
+            auditLog('auth', 'login_failed', { type: 'operator', label: op.name }, 'Intentos acumulados: ' + rec.strikes);
+            if (rec.strikes >= AUTH_BRUTEFORCE_STRIKES) {
+                auditLog('auth', 'login_bruteforce_suspected', { type: 'operator', label: op.name }, rec.strikes + ' intentos fallidos acumulados');
+            }
+        }
 
         if (rec.until && rec.until > Date.now()) {
-            if (err) err.textContent = 'Demasiados intentos. Bloqueado 60 segundos.';
+            var mins = Math.round((rec.until - Date.now()) / 60000);
+            if (err) err.textContent = mins >= 1
+                ? ('Demasiados intentos. Bloqueado ' + mins + ' min.')
+                : 'Demasiados intentos. Bloqueado 60 segundos.';
         } else if (err) {
             err.textContent = 'PIN incorrecto (' + rec.fails + '/' + AUTH_MAX_FAILS + '). Intenta de nuevo.';
         }
@@ -302,6 +477,7 @@ function authCreateSession(op) {
     authState.currentUser = { id: op.id, name: op.name, role: op.role || 'Técnico' };
     authState.sessionActive = true;
     authState.sessionExpiry = expiry;
+    _authStartSessionWatch();
 
     // Hide overlay
     var overlay = document.getElementById('auth-overlay');
@@ -338,30 +514,25 @@ function authSignOut() {
     } else { doSignOut(); }
 }
 
+/**
+ * Usuario de la sesión actual, o `null` si no hay sesión.
+ * Antes fabricaba {id:0, name:'Laboratorio'} como efecto secundario de un getter,
+ * que es como aparecían filas fantasma "Laboratorio" en la auditoría: acciones sin
+ * sesión quedaban atribuidas a un usuario inventado en vez de fallar visiblemente.
+ */
 function authGetCurrentUser() {
-    if (!authState.currentUser) authState.currentUser = { id: 0, name: 'Laboratorio', role: 'Lab' };
-    return authState.currentUser;
+    return (authState && authState.sessionActive) ? authState.currentUser : null;
 }
 
-// ── Selector de operador (sin contraseña) — para atribución en el historial ──
-function authSetOperator(name, role, id) {
-    name = name || 'Laboratorio';
-    authState.currentUser = { id: id || 0, name: name, role: role || (name === 'Laboratorio' ? 'Lab' : 'Técnico') };
-    authState.sessionActive = true;
-    try { localStorage.setItem(AUTH_OP_LS_KEY, JSON.stringify(authState.currentUser)); } catch(e) {}
-    authUpdateUI();
-    authRenderOperatorPicker();
-    if (typeof showToast === 'function') showToast('Operador: ' + name, 'info');
+/** Nombre del usuario de sesión para atribución en texto. */
+function authGetCurrentUserName(fallback) {
+    var u = authGetCurrentUser();
+    return (u && u.name) ? u.name : (fallback || 'Sistema');
 }
 
-function authOnPickOperator(sel) {
-    if (!sel) return;
-    if (sel.value === '__lab__') { authSetOperator('Laboratorio', 'Lab', 0); return; }
-    var ops = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators : [];
-    var op = null;
-    for (var i = 0; i < ops.length; i++) { if (ops[i].name === sel.value) { op = ops[i]; break; } }
-    authSetOperator(sel.value, op ? (op.role || 'Técnico') : 'Técnico', op ? op.id : 0);
-}
+// [Fase 2] authSetOperator / authOnPickOperator eliminados: restos del selector de
+// operador sin contraseña previo al muro de PIN (v15.6). authSetOperator activaba
+// sesión sin credencial y seguía siendo invocable desde la consola.
 
 // [v15.6] Con el muro de PIN reactivado, el selector sin contraseña se
 // retira: el chip muestra el usuario de la sesión y permite cambiar de

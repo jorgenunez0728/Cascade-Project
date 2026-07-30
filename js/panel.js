@@ -2158,8 +2158,15 @@ function panelAlpineComponent() {
         },
 
         // ── Methods — Users ──
+        // [Fase 2] Expuesto para ocultar controles según el rol: x-show="can('users.manage')".
+        // Ocultar es sólo UX — el candado real es el authRequire() al inicio de cada método.
+        can: function(perm) { return (typeof authCan === 'function') ? authCan(perm) : true; },
+
         addOperator: function() {
+            if (typeof authRequire === 'function' && !authRequire('users.manage', 'agregar operadores')) return;
             if (!this.newOpName || !this.newOpName.trim()) { showToast('Ingresa un nombre', 'error'); return; }
+            // Paridad con la validación que tenía la versión imperativa (pnAddOperator)
+            if (/[<>]/.test(this.newOpName)) { showToast('El nombre no puede contener < o >', 'error'); return; }
             var maxId = this.operators.reduce(function(m, o) { return Math.max(m, o.id || 0); }, 0);
             this.operators.push({
                 id: maxId + 1,
@@ -2176,6 +2183,7 @@ function panelAlpineComponent() {
             showToast('Operador agregado', 'success');
         },
         editOperator: function(idx) {
+            if (typeof authRequire === 'function' && !authRequire('users.manage', 'editar operadores')) return;
             var op = this.operators[idx];
             if (!op) return;
             var newName = prompt('Nombre:', op.name);
@@ -2188,6 +2196,7 @@ function panelAlpineComponent() {
             showToast('Operador actualizado', 'success');
         },
         toggleOperator: function(idx) {
+            if (typeof authRequire === 'function' && !authRequire('users.manage', 'activar/desactivar operadores')) return;
             var op = this.operators[idx];
             if (!op) return;
             op.active = !op.active;
@@ -2196,6 +2205,7 @@ function panelAlpineComponent() {
             showToast(op.name + (op.active ? ' activado' : ' desactivado'), 'info');
         },
         removeOperator: function(idx) {
+            if (typeof authRequire === 'function' && !authRequire('users.manage', 'eliminar operadores')) return;
             var self = this;
             var op = this.operators[idx];
             if (!op) return;
@@ -2212,6 +2222,7 @@ function panelAlpineComponent() {
             });
         },
         setOperatorPin: function(idx) {
+            if (typeof authRequire === 'function' && !authRequire('users.pin', 'asignar o resetear PINs')) return;
             var op = this.operators[idx];
             if (!op) return;
             var pin = prompt('PIN de 4 dígitos para ' + op.name + ':');

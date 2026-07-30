@@ -78,6 +78,17 @@ function sigCaptureConfirm() {
         signedAt: new Date().toISOString(),
         dataUrl: _sigPadInstance.toDataURL('image/png')
     };
+    // [Fase 2] Identidad de la SESIÓN junto al nombre escrito. `signerName` es texto
+    // libre, así que no sirve para reglas de control; estos campos sí. Es lo que hace
+    // posible el doble par de ojos (authCanApproveVehicle) y deja evidencia cuando
+    // alguien firma con un nombre distinto al de su sesión.
+    var _sessUser = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
+    if (_sessUser) {
+        result.sessionUserId = _sessUser.id;
+        result.sessionUserName = _sessUser.name;
+        result.sessionUserRole = _sessUser.role;
+    }
+    if (typeof FB_DEVICE_ID !== 'undefined') result.deviceId = FB_DEVICE_ID;
     var cb = _sigCaptureOpts && _sigCaptureOpts.onSave;
     sigCaptureDismiss();
     if (cb) cb(result);
