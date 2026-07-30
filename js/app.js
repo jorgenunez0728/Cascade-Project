@@ -1728,8 +1728,8 @@ function switchPlatform(platform, swipeDir) {
             setTimeout(function() {
                 oldSection.classList.remove('active', exitClass);
                 newSection.classList.add('active', enterClass);
-                setTimeout(function() { newSection.classList.remove(enterClass); }, 260);
-            }, 240);
+                setTimeout(function() { newSection.classList.remove(enterClass); }, 150);
+            }, 110);
         } else {
             // Cambio de sección síncrono y fiable. (Antes usaba document.startViewTransition,
             // que de forma intermitente dejaba la sección sin cambiar — mismo problema que
@@ -3030,13 +3030,6 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
             if (installBtn) installBtn.style.display = '';
         });
 
-        // ═══ [R3-M7] Ripple effect on buttons (v15.5: también botones TP/módulos) ═══
-        document.addEventListener('click', function(e) {
-            var btn = e.target.closest('.btn-primary, .btn-secondary, .modal-btn-confirm, .tp-btn-primary');
-            if (!btn || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-            _addRipple(e, btn);
-        });
-
         // ═══ [R3-M9] Onboarding tour — first visit ═══
         if (!localStorage.getItem('kia_tour_done')) {
             setTimeout(function() { if (typeof startTour === 'function') startTour(); }, 1500);
@@ -3680,22 +3673,8 @@ function pwaInstall() {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// [R3-M7] MICRO-INTERACTIONS — Ripple, Confetti, Shake
+// [R3-M7] MICRO-INTERACTIONS — Shake
 // ══════════════════════════════════════════════════════════════════════
-
-function _addRipple(e, btn) {
-    var rect = btn.getBoundingClientRect();
-    var ripple = document.createElement('span');
-    ripple.className = 'ripple-effect';
-    var size = Math.max(rect.width, rect.height);
-    ripple.style.width = ripple.style.height = size + 'px';
-    ripple.style.left = (e.clientX - rect.left - size/2) + 'px';
-    ripple.style.top = (e.clientY - rect.top - size/2) + 'px';
-    btn.style.position = 'relative';
-    btn.style.overflow = 'hidden';
-    btn.appendChild(ripple);
-    setTimeout(function() { ripple.remove(); }, 500);
-}
 
 function shakeElement(el) {
     if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
