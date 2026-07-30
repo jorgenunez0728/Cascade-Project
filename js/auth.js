@@ -14,6 +14,17 @@ var AUTH_WEBAUTHN_LS = 'kia_webauthn_creds';
 
 var AUTH_OP_LS_KEY = 'kia_current_operator';
 
+/**
+ * ¿Este operador tiene PIN configurado? Debe mirar AMBOS campos: `pinHash` es
+ * el formato legacy y `_pnAssignPin` (panel.js) lo BORRA al migrar a `pinHash2`.
+ * Revisar sólo `pinHash` fue la causa de dos bugs: el aviso permanente y falso
+ * de "Ningun operador tiene PIN configurado", y el bloqueo total de los
+ * operadores ya migrados cuando quedaba uno con PIN legacy.
+ */
+function _authHasPin(op) {
+    return !!(op && (op.pinHash2 || op.pinHash));
+}
+
 // ── Initialization ──
 // [v15.6] Muro de PIN reactivado (decisión de seguridad del usuario): sin
 // sesión válida (kia_auth_session con expiresAt vigente, 12h) la app muestra
@@ -55,7 +66,7 @@ function authShowLogin() {
     var operators = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }) : [];
 
     // If no operators with PINs, allow bypass for initial setup
-    var hasAnyPin = operators.some(function(o) { return o.pinHash; });
+    var hasAnyPin = operators.some(function(o) { return _authHasPin(o); });
 
     var html = '<div style="width:100%;max-width:420px;margin:auto;padding:20px;">';
     html += '<div style="text-align:center;margin-bottom:30px;">';
@@ -69,6 +80,16 @@ function authShowLogin() {
         html += '<div style="font-size:13px;margin-bottom:12px;">No hay operadores configurados.</div>';
         html += '<div style="font-size:11px;color:#64748b;margin-bottom:16px;">Accede como administrador para configurar operadores y PINs en Panel > Usuarios.</div>';
         html += '<button onclick="authBypassLogin()" style="padding:12px 24px;background:#6366f1;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;">Entrar como Admin</button>';
+        html += '</div>';
+    } else if (!hasAnyPin && operators.every(function(o) { return o.provisional; })) {
+        // Dispositivo que nunca ha sincronizado: los operadores que se ven son
+        // marcadores sembrados desde CONFIG, no cuentas reales. No ofrecerlos —
+        // pedir la contraseña del laboratorio para bajar el roster verdadero.
+        html += '<div style="text-align:center;padding:20px;color:#93c5fd;font-size:11px;margin-bottom:16px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:8px;">';
+        html += 'Este dispositivo todavía no se ha conectado al laboratorio.<br>Ingresa la contraseña del laboratorio para descargar los operadores y sus PINs.';
+        html += '</div>';
+        html += '<div style="text-align:center;">';
+        html += '<button onclick="_authShowConnectFirst()" style="padding:12px 24px;background:#2563eb;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;">Conectar este dispositivo</button>';
         html += '</div>';
     } else if (!hasAnyPin) {
         html += '<div style="text-align:center;padding:20px;color:#f59e0b;font-size:11px;margin-bottom:16px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:8px;">';
@@ -93,7 +114,7 @@ function authShowLogin() {
             var initials = authInitials(op.name);
             var colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
             var c = colors[idx % colors.length];
-            var hasPin = !!op.pinHash;
+            var hasPin = _authHasPin(op);
             html += '<button onclick="authSelectOperator(' + idx + ')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111827;border:2px solid #1e293b;border-radius:12px;cursor:pointer;transition:border-color 0.2s;' + (!hasPin ? 'opacity:0.4;' : '') + '" ' + (!hasPin ? 'disabled title="Sin PIN configurado"' : '') + ' onmouseover="this.style.borderColor=\'' + c + '\'" onmouseout="this.style.borderColor=\'#1e293b\'">';
             html += '<div style="width:50px;height:50px;border-radius:50%;background:' + c + '20;color:' + c + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">' + escapeHtml(initials) + '</div>';
             html += '<div style="color:#e2e8f0;font-size:12px;font-weight:700;">' + escapeHtml(op.name) + '</div>';
@@ -145,7 +166,7 @@ function authSelectOperator(idx) {
         html += '<button onclick="authVerifyBiometric()" style="width:100%;padding:12px;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:10px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;">';
         html += '<span style="font-size:20px;">👆</span> Usar huella digital';
         html += '</button>';
-    } else if (webAuthnAvailable && !hasBiometric && op.pinHash) {
+    } else if (webAuthnAvailable && !hasBiometric && _authHasPin(op)) {
         html += '<div style="font-size:9px;color:#475569;margin-bottom:8px;">Tip: Despues de ingresar tu PIN, podras registrar tu huella digital.</div>';
     }
 
@@ -380,10 +401,32 @@ function authBypassForOperator(idx) {
     var operators = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }) : [];
     var op = operators[idx];
     if (!op) return;
-    var anyPin = operators.some(function(o) { return o.pinHash || o.pinHash2; });
+    var anyPin = operators.some(function(o) { return _authHasPin(o); });
     if (anyPin) { showSelected(idx); return; }
+    // Un operador `provisional` fue sembrado localmente por pnInit en un dispositivo
+    // que nunca ha sincronizado — no es una cuenta real y no puede abrir sesión sin
+    // credencial. Antes, esto entregaba una sesión completa de 12 h en cualquier
+    // navegador nuevo con sólo tocar un nombre, antes de que la nube entregara el
+    // roster real con PINs. Hay que conectar el dispositivo primero.
+    if (op.provisional) {
+        if (typeof auditLog === 'function') auditLog('auth', 'login_blocked_provisional', { type: 'operator', label: op.name });
+        _authShowConnectFirst();
+        return;
+    }
     if (typeof auditLog === 'function') auditLog('auth', 'login', { type: 'operator', label: op.name });
     authCreateSession({ id: op.id, name: op.name, role: op.role || 'Técnico' });
+}
+
+/**
+ * Este dispositivo nunca ha sincronizado y sólo tiene operadores sembrados.
+ * Pedir la contraseña del laboratorio para bajar el roster real antes de entrar.
+ */
+function _authShowConnectFirst() {
+    if (typeof showToast === 'function') {
+        showToast('Este dispositivo aún no se ha conectado al laboratorio. Ingresa la contraseña del laboratorio para descargar los operadores.', 'error');
+    }
+    if (typeof fbShowAuthPrompt === 'function') fbShowAuthPrompt();
+    else if (typeof showToast === 'function') showToast('Sin conexión configurada. Contacta al administrador del laboratorio.', 'error');
 }
 
 // Helper: cuando el bypass no aplica, ir a la pantalla de PIN del operador

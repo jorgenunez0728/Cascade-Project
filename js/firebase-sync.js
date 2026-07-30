@@ -1267,6 +1267,10 @@ function _fbMergeOperators(localOps, remoteOps) {
         if (!r) return;
         var k = keyOf(r), l = byKey[k];
         if (!l) { byKey[k] = r; return; }
+        // Un operador local `provisional` es un marcador sembrado por pnInit en un
+        // dispositivo nuevo; su createdAt es "ahora" y por fecha le ganaría al registro
+        // real de la nube, descartando sus PINs. Siempre pierde contra el remoto.
+        if (l.provisional && !r.provisional) { byKey[k] = r; return; }
         var lt = l.updatedAt || l.deletedAt || l.createdAt || '';
         var rt = r.updatedAt || r.deletedAt || r.createdAt || '';
         byKey[k] = (rt > lt) ? r : l;
