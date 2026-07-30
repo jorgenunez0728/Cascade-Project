@@ -100,9 +100,6 @@
             margin-bottom: var(--space-lg); box-shadow: var(--shadow-sm);
             transition: box-shadow 0.25s ease, transform 0.25s ease;
         }
-        .card:hover, .tp-card:hover, .daily-dash-card:hover, .lab-dash-card:hover {
-            box-shadow: var(--shadow-md); transform: translateY(-1px);
-        }
         .card-compact { padding: var(--space-md); }
         /* ═══ Unified Title Hierarchy ═══ */
         .card-title, .tp-card-title {
@@ -755,7 +752,6 @@ body{ overflow-x: hidden; }
     border: 1px solid var(--border); box-shadow: var(--shadow-md);
     transition: box-shadow 0.25s, transform 0.25s;
 }
-.tp-metric:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
 .tp-metric-val { font-size: var(--font-xl); font-weight: var(--weight-black); font-family: 'Courier New', monospace; color: var(--text); }
 .tp-metric-label { font-size: var(--font-xs); color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.08em; }
 
@@ -832,7 +828,7 @@ body{ overflow-x: hidden; }
 .toast {
     padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 600;
     box-shadow: 0 4px 20px rgba(0,0,0,0.25); pointer-events: auto;
-    animation: toastIn 0.3s ease;
+    animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     display: flex; align-items: center; gap: 8px; max-width: 420px;
     position: relative; overflow: hidden;
 }
@@ -1156,7 +1152,6 @@ button:focus-visible { outline-offset: 1px; }
 }
 .bottom-nav-item .bnav-icon { font-size: 20px; line-height: 1; transition: transform 0.2s; }
 .bottom-nav-item:hover { color: #475569; }
-.bottom-nav-item:hover .bnav-icon { transform: translateY(-1px); }
 .bottom-nav-item.active { color: var(--kia-red); }
 .bottom-nav-item.active .bnav-icon { transform: translateY(-2px) scale(1.1); }
 .bottom-nav-item.active::before {
@@ -1171,15 +1166,16 @@ button:focus-visible { outline-offset: 1px; }
     min-width: 14px; text-align: center;
 }
 
-/* Swipe transition */
-.platform-section.swipe-exit-left { animation: swipeOutLeft 0.25s ease forwards; }
-.platform-section.swipe-exit-right { animation: swipeOutRight 0.25s ease forwards; }
-.platform-section.swipe-enter-left { animation: swipeInLeft 0.25s ease forwards; }
-.platform-section.swipe-enter-right { animation: swipeInRight 0.25s ease forwards; }
-@keyframes swipeOutLeft { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(-40px); } }
-@keyframes swipeOutRight { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(40px); } }
-@keyframes swipeInLeft { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
-@keyframes swipeInRight { from { opacity:0; transform:translateX(-40px); } to { opacity:1; transform:translateX(0); } }
+/* Swipe transition — exit is quick (leaving), enter uses a strong decelerate curve;
+   combined sequential time stays under the 300ms UI budget (root-tab nav is used constantly) */
+.platform-section.swipe-exit-left { animation: swipeOutLeft 0.11s cubic-bezier(0.4,0,1,1) forwards; }
+.platform-section.swipe-exit-right { animation: swipeOutRight 0.11s cubic-bezier(0.4,0,1,1) forwards; }
+.platform-section.swipe-enter-left { animation: swipeInLeft 0.15s cubic-bezier(0,0,0.2,1) forwards; }
+.platform-section.swipe-enter-right { animation: swipeInRight 0.15s cubic-bezier(0,0,0.2,1) forwards; }
+@keyframes swipeOutLeft { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(-24px); } }
+@keyframes swipeOutRight { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(24px); } }
+@keyframes swipeInLeft { from { opacity:0; transform:translateX(24px); } to { opacity:1; transform:translateX(0); } }
+@keyframes swipeInRight { from { opacity:0; transform:translateX(-24px); } to { opacity:1; transform:translateX(0); } }
 @keyframes slideUp { from { opacity:0; transform:translate(-50%,20px); } to { opacity:1; transform:translate(-50%,0); } }
 
 /* ═══ Soak Floating Badge ═══ */
@@ -1226,7 +1222,7 @@ button:focus-visible { outline-offset: 1px; }
 .lab-dash-alert-mod { font-size: var(--fs-2xs, 11px); font-weight: 700; color: #64748b; min-width: 65px; }
 .lab-dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
 .lab-dash-card { background: #fff; border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; box-shadow: var(--shadow-sm); }
-.lab-dash-card:hover { border-color: #cbd5e1; box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.lab-dash-card:hover { border-color: #cbd5e1; }
 .lab-dash-card-header { font-size: var(--fs-2xs, 11px); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: #64748b; }
 .lab-dash-card-metric { font-size: 28px; font-weight: 800; color: #0f172a; }
 .lab-dash-card-sub { font-size: var(--fs-2xs, 11px); color: #94a3b8; margin-bottom: 4px; }
@@ -1304,27 +1300,33 @@ button:focus-visible { outline-offset: 1px; }
 /* ══════════════════════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
+        /* Kill decorative movement (keyframe animations) outright, but keep a short
+           transition so state feedback (status colors, opacity fades) isn't a hard snap. */
         animation-duration: 0.01ms !important;
-        transition-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
+        transition-duration: 120ms !important;
     }
 }
 
 /* ══════════════════════════════════════════════════════════════════════ */
-/* [R3-M7] MICRO-INTERACTIONS — Ripple, Confetti, Shake, Skeleton      */
+/* [R3-M2] ACCESSIBILITY — Hover gating (touch is primary input here)   */
 /* ══════════════════════════════════════════════════════════════════════ */
+@media (hover: hover) and (pointer: fine) {
+    .card:hover, .tp-card:hover, .daily-dash-card:hover, .lab-dash-card:hover {
+        box-shadow: var(--shadow-md); transform: translateY(-1px);
+    }
+    .tp-metric:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+    .bottom-nav-item:hover .bnav-icon { transform: translateY(-1px); }
+    .vcl-toggle:hover { transform: scale(1.1); }
+    .interactive-hover:hover { transform: translateY(-1px); }
+    .inv-cylinder:hover { stroke-width: 3; transform: scale(1.15); transform-origin: center; }
+    .fab:hover { transform: scale(1.08); box-shadow: var(--shadow-xl); }
+    .v7-config-chip:hover, .v7-fav-chip:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+}
 
-/* Ripple effect */
-.ripple-effect {
-    position: absolute; border-radius: 50%;
-    background: rgba(255,255,255,0.35);
-    animation: rippleExpand 0.45s ease-out forwards;
-    pointer-events: none;
-}
-@keyframes rippleExpand {
-    0% { transform: scale(0); opacity: 1; }
-    100% { transform: scale(2.5); opacity: 0; }
-}
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [R3-M7] MICRO-INTERACTIONS — Confetti, Shake, Skeleton              */
+/* ══════════════════════════════════════════════════════════════════════ */
 
 /* Error shake */
 .field-shake { animation: fieldShake 0.35s ease-in-out; }
@@ -1475,7 +1477,7 @@ button:focus-visible { outline-offset: 1px; }
     overflow: hidden;
 }
 @keyframes animSlideOutRight {
-    to { opacity: 0; transform: translateX(40px); max-height: 0; padding: 0; margin: 0; border-width: 0; }
+    to { opacity: 0; transform: translateX(40px); }
 }
 
 /* ── Card elevation on hover ── */
@@ -1891,7 +1893,6 @@ button:focus-visible { outline-offset: 1px; }
     font-size: 16px; font-weight: 800;
     transition: transform 0.2s, box-shadow 0.2s;
 }
-.vcl-toggle:hover { transform: scale(1.1); }
 .vcl-toggle .vcl-badge {
     position: absolute; top: -4px; right: -4px;
     min-width: 18px; height: 18px; border-radius: 9px;
@@ -2191,8 +2192,8 @@ details.acc:not([open]) > div:not(summary) {
     animation: none;
 }
 @keyframes accordionOpen {
-    from { opacity: 0; max-height: 0; transform: translateY(-4px); }
-    to { opacity: 1; max-height: 2000px; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 details.acc > summary {
     scroll-behavior: smooth;
@@ -2210,13 +2211,12 @@ details.acc > summary {
     padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md);
     background: transparent; border: 1px solid var(--border); color: var(--muted);
     font-size: var(--font-sm); font-weight: var(--weight-semibold);
-    cursor: pointer; transition: all 0.2s; margin-bottom: var(--space-md);
+    cursor: pointer; transition: background-color 0.2s, color 0.2s; margin-bottom: var(--space-md);
 }
 .detail-back-btn:hover { background: rgba(0,0,0,0.04); color: var(--text); }
 
 /* Interactive elements global hover */
 .interactive-hover { transition: transform 0.15s ease, box-shadow 0.25s ease; }
-.interactive-hover:hover { transform: translateY(-1px); }
 .interactive-hover:active { transform: scale(0.98); }
 
 /* ══════════════════════════════════════════════════════════════════════ */
@@ -2239,7 +2239,7 @@ details.acc > summary {
     background: var(--glass-bg); backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border); font-size: var(--font-sm);
     font-weight: var(--weight-bold); color: var(--text); cursor: pointer;
-    box-shadow: var(--shadow-sm); transition: all 0.2s;
+    box-shadow: var(--shadow-sm); transition: box-shadow 0.2s, background-color 0.2s, color 0.2s, border-color 0.2s;
 }
 .inv-floorplan-toolbar button:hover { box-shadow: var(--shadow-md); }
 .inv-floorplan-toolbar button.active { background: var(--kia-red); color: #fff; border-color: var(--kia-red); }
@@ -2262,7 +2262,6 @@ details.acc > summary {
     stroke-width: 2; cursor: pointer;
     transition: transform 0.15s ease, stroke-width 0.15s;
 }
-.inv-cylinder:hover { stroke-width: 3; transform: scale(1.15); transform-origin: center; }
 .inv-cylinder.cyl-ok { fill: #10b981; stroke: #059669; }
 .inv-cylinder.cyl-mid { fill: #f59e0b; stroke: #d97706; }
 .inv-cylinder.cyl-low { fill: #ef4444; stroke: #dc2626; }
@@ -2338,7 +2337,6 @@ details.acc > summary {
     box-shadow: var(--shadow-lg); cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
 }
-.fab:hover { transform: scale(1.08); box-shadow: var(--shadow-xl); }
 .fab:active { transform: scale(0.95); box-shadow: var(--shadow-pressed); }
 
 /* Slide-in detail panel */
@@ -2509,7 +2507,6 @@ details.acc > summary {
     transition: box-shadow 0.2s, transform 0.15s; max-width: 220px;
     text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
 }
-.v7-config-chip:hover, .v7-fav-chip:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .v7-config-count { color: var(--muted); font-weight: 400; }
 
 /* ── VIN Hint (E4) ── */
