@@ -1131,7 +1131,7 @@ function showConfirmDialog(opts) {
         function close(result) {
             if (overlay.parentNode) {
                 overlay.style.opacity = '0';
-                overlay.style.transition = 'opacity 0.15s ease';
+                overlay.style.transition = 'opacity 0.15s var(--ease-out)';
                 setTimeout(function() {
                     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
                 }, 150);
@@ -3678,6 +3678,8 @@ function pwaInstall() {
 
 function shakeElement(el) {
     if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    el.classList.remove('field-shake');
+    void el.offsetWidth; // force reflow so re-adding the class restarts the keyframe
     el.classList.add('field-shake');
     setTimeout(function() { el.classList.remove('field-shake'); }, 400);
 }

@@ -2447,6 +2447,7 @@ function invExportReport() {
 
 var _invFloorPlanEditMode = false;
 var _invFloorPlanDrag = { active: false, zoneId: null, offsetX: 0, offsetY: 0, resizing: false, handle: '' };
+var _invFloorPlanRenderPending = false;
 var _invCylTooltipEl = null;
 
 function _invDefaultZoneLayout(zones) {
@@ -2921,8 +2922,14 @@ function _invFloorPlanBindEditDrag(container) {
             lay.x = Math.max(0, svgPt.x - _invFloorPlanDrag.offsetX);
             lay.y = Math.max(0, svgPt.y - _invFloorPlanDrag.offsetY);
         }
-        // Live re-render
-        invRender();
+        // Coalesce rapid pointermove events into at most one re-render per frame.
+        if (!_invFloorPlanRenderPending) {
+            _invFloorPlanRenderPending = true;
+            requestAnimationFrame(function() {
+                _invFloorPlanRenderPending = false;
+                invRender();
+            });
+        }
     }
 
     function onPointerUp() {
