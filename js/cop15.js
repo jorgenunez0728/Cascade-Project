@@ -2498,6 +2498,7 @@ function loadApproval() {
 }
 
 function submitToApproval() {
+    if (typeof authRequire === 'function' && !authRequire('test.release', 'enviar a aprobación')) return;
     if (!activeVehicleId) { showToast('No hay vehículo seleccionado', 'error'); return; }
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle || vehicle.status !== 'ready-release') return;
@@ -2556,6 +2557,22 @@ function approveAndArchive() {
     if (!activeVehicleId) { showToast('No hay vehículo seleccionado', 'error'); return; }
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle || vehicle.status !== 'pending-approval') return;
+
+    // [Fase 2] Doble par de ojos: rol con permiso Y distinto de quien liberó.
+    if (typeof authCanApproveVehicle === 'function') {
+        var _gate = authCanApproveVehicle(vehicle);
+        if (!_gate.ok) {
+            if (_gate.reason === 'self') {
+                showToast('No puedes aprobar una prueba que tú mismo liberaste. Debe aprobarla otra persona.', 'error');
+                if (typeof auditLog === 'function') {
+                    auditLog('cop15', 'approval_blocked_self', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Intento de auto-aprobación');
+                }
+            } else {
+                if (typeof authRequire === 'function') authRequire('test.approve', 'aprobar y archivar');
+            }
+            return;
+        }
+    }
 
     var isEm = isEmissionsPurpose(vehicle.purpose);
     var regName = _libGetVehicleRegulation(vehicle);
@@ -3894,6 +3911,7 @@ function histCaptureSig(which) {
 }
 
 function histSaveCompleteModal() {
+  if (typeof authRequire === 'function' && !authRequire('test.retro_edit', 'edición retroactiva de un archivado')) return;
   if (!_histCompleteState) return;
   var vehicle = db.vehicles.find(function(v) { return v.id == _histCompleteState.vehicleId; });
   if (!vehicle) { histCloseCompleteModal(); return; }
