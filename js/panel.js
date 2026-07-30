@@ -351,15 +351,26 @@ function renderLabOverview(el, opts) {
             html += '</div>';
         }
     }
+    var prevCached = _labOverviewCache[sectionsKey];
+    var contentUnchanged = !!(prevCached && prevCached.html === html);
     el.innerHTML = html;
     _labOverviewCache[sectionsKey] = { key: memoKey, html: html };
-    el.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
-        var t = parseFloat(numEl.dataset.kpiTarget) || 0;
-        if (typeof animateCounter === 'function') animateCounter(numEl, t, { suffix: numEl.dataset.kpiSuffix || '' });
-        else numEl.textContent = t + (numEl.dataset.kpiSuffix || '');
-    });
-    var grid = el.querySelector('.pn-lab-kpi-grid');
-    if (grid && typeof animateStaggerChildren === 'function') animateStaggerChildren(grid, '.tp-card', 60);
+    if (contentUnchanged) {
+        // Same visual content as last render (only the memo key changed, e.g. an
+        // unrelated save elsewhere bumped _labOverviewGen) — set final values,
+        // don't replay the count-up/stagger animations.
+        el.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
+            numEl.textContent = (parseFloat(numEl.dataset.kpiTarget) || 0) + (numEl.dataset.kpiSuffix || '');
+        });
+    } else {
+        el.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
+            var t = parseFloat(numEl.dataset.kpiTarget) || 0;
+            if (typeof animateCounter === 'function') animateCounter(numEl, t, { suffix: numEl.dataset.kpiSuffix || '' });
+            else numEl.textContent = t + (numEl.dataset.kpiSuffix || '');
+        });
+        var grid = el.querySelector('.pn-lab-kpi-grid');
+        if (grid && typeof animateStaggerChildren === 'function') animateStaggerChildren(grid, '.tp-card', 60);
+    }
 }
 
 

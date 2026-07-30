@@ -783,12 +783,19 @@ function initCascadeTree() {
             vinInput.addEventListener('input', function() {
                 // [V7-E4] VIN Smart Input: auto-uppercase, strip spaces/dashes
                 vinInput.value = vinInput.value.toUpperCase().replace(/[\s\-]/g, '');
-                validateField(vinInput, {
-                    required: true,
-                    exactLength: 17,
-                    pattern: /^[A-HJ-NPR-Z0-9]{17}$/,
-                    patternMsg: '17 caracteres alfanuméricos (sin I, O, Q)'
-                });
+                // Only judge/shake once the user has typed a full 17-char VIN (or cleared
+                // the field back to valid/empty) — mid-typing lengths are not an error.
+                if (vinInput.value.length === 0 || vinInput.value.length === 17) {
+                    validateField(vinInput, {
+                        required: true,
+                        exactLength: 17,
+                        pattern: /^[A-HJ-NPR-Z0-9]{17}$/,
+                        patternMsg: '17 caracteres alfanuméricos (sin I, O, Q)'
+                    });
+                } else {
+                    // Clear any stale valid/error state while mid-typing, but don't shake.
+                    vinInput.classList.remove('field-valid', 'field-error', 'field-missing');
+                }
                 // [V7-E4] Check duplicates
                 if (vinInput.value.length === 17) v7CheckVinDuplicate(vinInput.value);
             });
@@ -2044,13 +2051,13 @@ function checkAutoAdvance(vehicle) {
 
   var toast = document.createElement('div');
   toast.className = 'auto-advance-toast';
-  toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;background:#1e293b;color:#f8fafc;padding:12px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.3);display:flex;align-items:center;gap:10px;font-size:12px;max-width:90vw;animation:slideUp 0.3s ease;border:1px solid #334155;';
+  toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;background:#1e293b;color:#f8fafc;padding:12px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.3);display:flex;align-items:center;gap:10px;font-size:12px;max-width:90vw;animation:slideUp 0.3s var(--ease-out);border:1px solid #334155;';
 
   var icon = status === 'testing' ? '🏁' : '⚡';
   var html = '<span>' + icon + ' ' + suggestion + '</span>';
   if (nextStatus) {
-    html += '<button onclick="applyAutoAdvance(\'' + nextStatus + '\')" style="background:#10b981;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Si</button>';
-    html += '<button onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;">No</button>';
+    html += '<button class="auto-advance-btn" onclick="applyAutoAdvance(\'' + nextStatus + '\')" style="background:#10b981;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Si</button>';
+    html += '<button class="auto-advance-btn" onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;">No</button>';
   } else {
     html += '<button onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;">OK</button>';
   }
@@ -5299,7 +5306,7 @@ function soakTimerReset() {
     document.getElementById('soak_timer_display').style.color = '#64748b';
     document.getElementById('soak_timer_status').textContent = 'Sin iniciar';
     document.getElementById('soak_timer_status').style.color = '#64748b';
-    document.getElementById('soak_timer_bar').style.width = '0%';
+    document.getElementById('soak_timer_bar').style.transform = 'scaleX(0)';
     document.getElementById('soak_timer_bar').style.background = '#10b981';
     document.getElementById('soak_timer_eta').textContent = '';
     document.getElementById('soak_timer_btn_start').style.display = '';
@@ -5321,7 +5328,7 @@ function soakTimerTick() {
         document.getElementById('soak_timer_display').style.color = '#10b981';
         document.getElementById('soak_timer_status').textContent = 'SOAK COMPLETADO - Listo para prueba';
         document.getElementById('soak_timer_status').style.color = '#10b981';
-        document.getElementById('soak_timer_bar').style.width = '100%';
+        document.getElementById('soak_timer_bar').style.transform = 'scaleX(1)';
         document.getElementById('soak_timer_bar').style.background = '#10b981';
         document.getElementById('soak_timer_btn_start').style.display = '';
         document.getElementById('soak_timer_btn_stop').style.display = 'none';
@@ -5377,7 +5384,7 @@ function soakTimerTick() {
     document.getElementById('soak_timer_display').style.color = textColor;
     document.getElementById('soak_timer_status').textContent = 'En curso...';
     document.getElementById('soak_timer_status').style.color = textColor;
-    document.getElementById('soak_timer_bar').style.width = pct.toFixed(1) + '%';
+    document.getElementById('soak_timer_bar').style.transform = 'scaleX(' + (pct / 100).toFixed(4) + ')';
     document.getElementById('soak_timer_bar').style.background = barColor;
 
     var eta = new Date(_soakTimer.endTime);
@@ -5404,7 +5411,7 @@ function soakTimerRestore() {
             document.getElementById('soak_timer_display').style.color = '#10b981';
             document.getElementById('soak_timer_status').textContent = 'SOAK COMPLETADO (termino mientras la app estaba cerrada)';
             document.getElementById('soak_timer_status').style.color = '#10b981';
-            document.getElementById('soak_timer_bar').style.width = '100%';
+            document.getElementById('soak_timer_bar').style.transform = 'scaleX(1)';
         }
     } catch(e) { localStorage.removeItem('kia_soak_timer'); }
 }
@@ -5415,6 +5422,7 @@ function soakTimerRestore() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 var _kanbanFilters = { search: '', sort: 'newest', operator: '' };
+var _kanbanDebouncedRender = debounce(renderKanban, 250);
 
 function kanbanApplyFilters(vehicles) {
     var f = _kanbanFilters;
@@ -5486,7 +5494,7 @@ function renderKanban() {
 
     // Search + Sort + Filter bar
     html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">';
-    html += '<input type="text" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;renderKanban();" style="flex:1 1 140px;min-width:0;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">';
+    html += '<input type="text" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;_kanbanDebouncedRender();" style="flex:1 1 140px;min-width:0;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">';
     html += '<select onchange="_kanbanFilters.sort=this.value;renderKanban();" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;background:#fff;">';
     html += '<option value="newest"' + (_kanbanFilters.sort==='newest'?' selected':'') + '>Mas reciente</option>';
     html += '<option value="oldest"' + (_kanbanFilters.sort==='oldest'?' selected':'') + '>Mas antiguo</option>';

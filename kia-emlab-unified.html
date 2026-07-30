@@ -91,6 +91,15 @@
             /* ═══ Glass Effect ═══ */
             --glass-bg: rgba(255,255,255,0.72); --glass-border: rgba(255,255,255,0.35);
             --glass-blur: blur(12px);
+
+            /* ═══ Motion tokens ═══ */
+            --ease-out: cubic-bezier(0.23, 1, 0.32, 1);        /* strong ease-out for UI entrances/exits */
+            --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);    /* strong ease-in-out for on-screen movement */
+            --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);     /* iOS-like drawer/sheet curve */
+
+            --dur-fast: 150ms;    /* button press feedback, small popovers */
+            --dur-base: 200ms;    /* dropdowns, tooltips, standard entrances */
+            --dur-slow: 300ms;    /* modals, drawers */
         }
         * { margin:0; padding:0; box-sizing:border-box; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; }
         body { background: var(--bg); color: var(--text); padding-bottom: 70px; }
@@ -124,7 +133,7 @@
         
         /* Progress Bar */
         .progress-container { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background: #ccc; z-index: 1000; }
-        .progress-bar { height: 100%; background: var(--kia-red); width: 0%; transition: 0.3s; }
+        .progress-bar { height: 100%; background: var(--kia-red); width: 0%; transition: width 0.3s; }
 
         /* Tabs */
         .tabs { display: flex; gap: 5px; margin-bottom: 20px; overflow-x: auto; }
@@ -193,12 +202,12 @@
 
         /* Toggle & Modals */
         .toggle-wrapper { display: flex; align-items: center; justify-content: center; gap: 15px; background: #f8fafc; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
-        .mode-label { font-weight: bold; color: #94a3b8; cursor: pointer; transition: 0.2s; }
+        .mode-label { font-weight: bold; color: #94a3b8; cursor: pointer; transition: color 0.2s; }
         .mode-label.active { color: var(--kia-red); }
         .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top:0; left:0; right:0; bottom:0; background: #cbd5e1; border-radius: 34px; transition: .4s; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; transition: .4s; border-radius: 50%; }
+        .slider { position: absolute; cursor: pointer; top:0; left:0; right:0; bottom:0; background: #cbd5e1; border-radius: 34px; transition: background-color .4s; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; transition: transform .4s; border-radius: 50%; }
         input:checked + .slider { background: var(--kia-red); }
         input:checked + .slider:before { transform: translateX(26px); }
 
@@ -888,17 +897,21 @@ body{ overflow-x: hidden; }
 @keyframes toastIn { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
 @keyframes toastOut { from { opacity:1; } to { opacity:0; transform:translateY(-10px); } }
 
+/* Auto-advance status toast Sí/No buttons (cop15.js) — press feedback */
+.auto-advance-btn { transition: transform 0.15s var(--ease-out); }
+.auto-advance-btn:active { transform: scale(0.97); }
+
 /* ═══ Custom Modal System ═══ */
 .custom-modal-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999;
     background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center;
-    animation: modalFadeIn 0.25s ease; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    animation: modalFadeIn 0.25s var(--ease-out); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
 }
 .custom-modal-box {
     background: var(--glass-bg); border: 1px solid var(--glass-border);
     border-radius: var(--radius-xl); padding: var(--space-2xl);
     min-width: 300px; max-width: 90vw; max-height: 80vh;
-    box-shadow: var(--shadow-xl); animation: modalSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: var(--shadow-xl); animation: modalSlideIn 0.3s var(--ease-out);
     backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
 }
 .custom-modal-box.modal-light {
@@ -918,8 +931,9 @@ body{ overflow-x: hidden; }
 }
 .custom-modal-actions button {
     padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
-    border: none; cursor: pointer; min-width: 80px; transition: background-color 0.15s, opacity 0.15s;
+    border: none; cursor: pointer; min-width: 80px; transition: background-color 0.15s, opacity 0.15s, transform 0.15s var(--ease-out);
 }
+.custom-modal-actions button:active { transform: scale(0.97); }
 .modal-btn-cancel {
     background: #f1f5f9; color: #475569;
 }
@@ -950,8 +964,9 @@ body{ overflow-x: hidden; }
 }
 .view-mode-toggle button {
     padding: 4px 8px; border: none; border-radius: 6px; cursor: pointer;
-    background: transparent; color: #64748b; font-size: var(--fs-2xs, 11px); transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+    background: transparent; color: #64748b; font-size: var(--fs-2xs, 11px); transition: background-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s var(--ease-out);
 }
+.view-mode-toggle button:active { transform: scale(0.97); }
 .view-mode-toggle button.active { background: #fff; font-weight: 700; color: #0f172a; box-shadow: var(--shadow-sm); }
 .view-mode-toggle.light { background: #f1f5f9; border-color: #e2e8f0; }
 .view-mode-toggle.light button.active { background: #fff; }
@@ -994,7 +1009,7 @@ button:focus-visible { outline-offset: 1px; }
     position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9998;
     background: rgba(0,0,0,0.4); display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 12px;
-    backdrop-filter: blur(2px); animation: modalFadeIn 0.2s ease;
+    backdrop-filter: blur(2px); animation: modalFadeIn 0.2s var(--ease-out);
 }
 .loading-overlay-spinner { width: 40px; height: 40px; border-width: 3px; }
 .loading-overlay-text { color: #fff; font-size: 14px; font-weight: 600; }
@@ -1197,7 +1212,7 @@ button:focus-visible { outline-offset: 1px; }
 .bottom-nav-item.active::before {
     content: ''; position: absolute; top: -1px; left: 25%; right: 25%;
     height: 3px; background: var(--kia-red); border-radius: 0 0 3px 3px;
-    animation: pillSlideIn 0.3s ease;
+    animation: pillSlideIn 0.3s var(--ease-out);
 }
 @keyframes pillSlideIn { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .bottom-nav-item .bnav-badge {
@@ -1261,8 +1276,9 @@ button:focus-visible { outline-offset: 1px; }
 .lab-dash-alert-badge { font-size: var(--fs-2xs, 11px); font-weight: 800; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
 .lab-dash-alert-mod { font-size: var(--fs-2xs, 11px); font-weight: 700; color: #64748b; min-width: 65px; }
 .lab-dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
-.lab-dash-card { background: #fff; border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; box-shadow: var(--shadow-sm); }
+.lab-dash-card { background: #fff; border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s var(--ease-out); box-shadow: var(--shadow-sm); }
 .lab-dash-card:hover { border-color: #cbd5e1; }
+.lab-dash-card:active { transform: scale(0.97); }
 .lab-dash-card-header { font-size: var(--fs-2xs, 11px); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: #64748b; }
 .lab-dash-card-metric { font-size: 28px; font-weight: 800; color: #0f172a; }
 .lab-dash-card-sub { font-size: var(--fs-2xs, 11px); color: #94a3b8; margin-bottom: 4px; }
@@ -1362,6 +1378,8 @@ button:focus-visible { outline-offset: 1px; }
     .inv-cylinder:hover { stroke-width: 3; transform: scale(1.15); transform-origin: center; }
     .fab:hover { transform: scale(1.08); box-shadow: var(--shadow-xl); }
     .v7-config-chip:hover, .v7-fav-chip:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .cascade-help-btn:hover { background: var(--accent-cascade, #bb162b); color: #fff; transform: scale(1.15); }
+    .anim-card-hover:hover { transform: translateY(-2px) scale(1.008); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
 }
 
 /* ══════════════════════════════════════════════════════════════════════ */
@@ -1524,10 +1542,6 @@ button:focus-visible { outline-offset: 1px; }
 .anim-card-hover {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.anim-card-hover:hover {
-    transform: translateY(-2px) scale(1.008);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-}
 
 /* ── Status badge transition ── */
 .anim-status-badge {
@@ -1638,7 +1652,7 @@ button:focus-visible { outline-offset: 1px; }
     background: linear-gradient(135deg, #05141f 0%, #0a1628 50%, #0f1d30 100%);
     display: flex; align-items: center; justify-content: center;
     flex-direction: column;
-    animation: splashFadeIn 0.3s ease;
+    animation: splashFadeIn 0.3s var(--ease-out);
 }
 .splash-content {
     text-align: center;
@@ -1673,8 +1687,8 @@ button:focus-visible { outline-offset: 1px; }
     to { opacity: 1; }
 }
 @keyframes splashFadeOut {
-    from { opacity: 1; }
-    to { opacity: 0; pointer-events: none; }
+    from { opacity: 1; filter: blur(0); }
+    to { opacity: 0; filter: blur(6px); pointer-events: none; }
 }
 @keyframes splashLogoPulse {
     0%, 100% { opacity: 1; }
@@ -1731,7 +1745,7 @@ button:focus-visible { outline-offset: 1px; }
     background: #eff6ff; color: #2563eb;
     border: 1px solid #bfdbfe;
     font-size: 11px; font-weight: 600;
-    animation: animFadeInUp 0.3s ease;
+    animation: animFadeInUp 0.3s var(--ease-out);
 }
 
 /* ══════════════════════════════════════════════════════════════════════ */
@@ -1761,7 +1775,7 @@ button:focus-visible { outline-offset: 1px; }
     background: rgba(15,23,42,0.5);
     display: flex; align-items: center; justify-content: center;
     backdrop-filter: blur(12px);
-    animation: animFadeInUp 0.3s ease;
+    animation: animFadeInUp 0.3s var(--ease-out);
 }
 .reading-round-card {
     background: #fff; border: 1px solid #e2e8f0;
@@ -1858,9 +1872,6 @@ button:focus-visible { outline-offset: 1px; }
     display: flex; align-items: center; gap: 12px;
     cursor: pointer; transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
 }
-.daily-dash-card:hover {
-    box-shadow: var(--shadow-md); transform: translateY(-1px);
-}
 .daily-dash-card-icon {
     width: 36px; height: 36px; border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
@@ -1948,7 +1959,7 @@ button:focus-visible { outline-offset: 1px; }
     box-shadow: var(--shadow-xl);
     border: 1px solid #e2e8f0;
     overflow: hidden;
-    animation: modalFadeIn 0.2s ease;
+    animation: modalFadeIn 0.2s var(--ease-out);
 }
 .vcl-panel-header {
     padding: 12px 14px; display: flex; align-items: center; gap: 8px;
@@ -2006,15 +2017,11 @@ button:focus-visible { outline-offset: 1px; }
     transition: background-color 0.15s, color 0.15s, transform 0.15s;
     font-family: sans-serif;
 }
-.cascade-help-btn:hover {
-    background: var(--accent-cascade, #bb162b); color: #fff;
-    transform: scale(1.15);
-}
 .cascade-tooltip-overlay {
     position: fixed; inset: 0; z-index: 9998;
     background: rgba(15,23,42,0.4);
     backdrop-filter: blur(2px);
-    animation: modalFadeIn 0.15s ease;
+    animation: modalFadeIn 0.15s var(--ease-out);
 }
 .cascade-tooltip-popup {
     position: fixed; z-index: 9999;
@@ -2022,7 +2029,7 @@ button:focus-visible { outline-offset: 1px; }
     max-width: 340px; width: calc(100% - 32px);
     background: #fff; border-radius: 14px;
     box-shadow: var(--shadow-xl);
-    padding: 20px; animation: modalFadeIn 0.2s ease;
+    padding: 20px; animation: modalFadeIn 0.2s var(--ease-out);
 }
 .cascade-tooltip-title {
     font-size: 13px; font-weight: 800; color: #0f172a;
@@ -2099,8 +2106,8 @@ html { scroll-behavior: smooth; }
 /* ══════════════════════════════════════════════════════════════════════ */
 
 /* Smooth tab content transitions (equal durations, no overlap frame) */
-.tab-content-enter { animation: tabFadeIn 0.2s ease both; }
-.tab-content-exit { animation: tabFadeOut 0.2s ease both; }
+.tab-content-enter { animation: tabFadeIn 0.2s var(--ease-out) both; }
+.tab-content-exit { animation: tabFadeOut 0.2s var(--ease-out) both; }
 
 /* ── Power Automate — Today dashboard card ── */
 .pa-today-card {
@@ -2169,7 +2176,7 @@ html { scroll-behavior: smooth; }
     border: 1px solid #bfdbfe;
     border-left: 4px solid #3b82f6;
     border-radius: 8px;
-    animation: tabFadeIn 0.25s ease both;
+    animation: tabFadeIn 0.25s var(--ease-out) both;
 }
 .plan-preload-banner-inner {
     display: flex;
@@ -2225,7 +2232,7 @@ details.acc { scroll-margin-top: 60px; }
 details.acc > .acc-body,
 details.acc > div:not(summary) {
     overflow: hidden;
-    animation: accordionOpen 0.3s ease;
+    animation: accordionOpen 0.3s var(--ease-out);
 }
 details.acc:not([open]) > .acc-body,
 details.acc:not([open]) > div:not(summary) {
@@ -2240,8 +2247,8 @@ details.acc > summary {
 }
 
 /* Drill-down navigation */
-.drill-down-enter { animation: drillIn 0.25s ease both; }
-.drill-down-exit { animation: drillOut 0.2s ease both; }
+.drill-down-enter { animation: drillIn 0.25s var(--ease-out) both; }
+.drill-down-exit { animation: drillOut 0.2s var(--ease-out) both; }
 @keyframes drillIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes drillOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-20px); } }
 
@@ -2315,7 +2322,7 @@ details.acc > summary {
     border: 1px solid var(--glass-border); border-radius: var(--radius-md);
     padding: var(--space-sm) var(--space-md); box-shadow: var(--shadow-lg);
     font-size: var(--font-sm); min-width: 180px;
-    animation: tooltipFadeIn 0.15s ease;
+    animation: tooltipFadeIn 0.15s var(--ease-out);
 }
 @keyframes tooltipFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .inv-cylinder-tooltip .cyl-formula { font-weight: var(--weight-black); color: var(--text); font-size: var(--font-base); }
@@ -2460,7 +2467,7 @@ details.acc > summary {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
     box-shadow: var(--shadow-xl); padding: 14px 20px; z-index: 10000;
     display: flex; align-items: center; gap: 12px;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+    transition: transform 0.3s var(--ease-out), opacity 0.3s var(--ease-out);
     opacity: 0;
 }
 .v7-resume-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
@@ -2473,7 +2480,7 @@ details.acc > summary {
     border-radius: var(--radius-md); padding: 8px 14px; margin-bottom: 12px;
     font-size: var(--font-sm); color: var(--info);
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    animation: v7SlideDown 0.3s ease;
+    animation: v7SlideDown 0.3s var(--ease-out);
 }
 
 /* ── Next Step Floating Banner (D2) ── */
@@ -2502,7 +2509,7 @@ details.acc > summary {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.85);
     background: var(--surface); border-radius: var(--radius-xl); padding: 32px;
     z-index: 10001; box-shadow: var(--shadow-xl); text-align: center;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+    transition: transform 0.3s var(--ease-out), opacity 0.3s var(--ease-out);
     opacity: 0; max-width: 360px; width: 90%;
 }
 .v7-soak-modal.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
@@ -2812,7 +2819,7 @@ details.acc > summary {
 .empty-state .empty-icon { font-size: 28px; margin-bottom: 8px; display: block; }
 
 /* [v15.5] Animación de entrada para los modales-contenedor legacy */
-.modal-anim-in { animation: modalFadeIn 0.2s ease; }
+.modal-anim-in { animation: modalFadeIn 0.2s var(--ease-out); }
 
 /* [v15.5] Entrada por defecto entre plataformas (sin swipe): fade+lift corto,
    solo opacity/transform — barato en móvil */
@@ -3519,7 +3526,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
       </div>
     </div>
     <div id="soak_timer_bar_wrap" style="margin-top:10px;height:6px;background:#1e293b;border-radius:3px;overflow:hidden;">
-      <div id="soak_timer_bar" style="height:100%;width:0%;background:#10b981;border-radius:3px;transition:width 1s linear;"></div>
+      <div id="soak_timer_bar" style="height:100%;width:100%;transform:scaleX(0);transform-origin:left;background:#10b981;border-radius:3px;transition:transform 1s linear;"></div>
     </div>
     <div id="soak_timer_eta" style="font-size:9px;color:#64748b;margin-top:4px;text-align:right;"></div>
   </div>
@@ -4801,21 +4808,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607301952';
+var APP_BUILD = '202607302119';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607301952' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607302119' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607301952' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607302119' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -4831,7 +4838,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607301952' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607302119' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -5746,7 +5753,7 @@ function showConfirmDialog(opts) {
         function close(result) {
             if (overlay.parentNode) {
                 overlay.style.opacity = '0';
-                overlay.style.transition = 'opacity 0.15s ease';
+                overlay.style.transition = 'opacity 0.15s var(--ease-out)';
                 setTimeout(function() {
                     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
                 }, 150);
@@ -8293,6 +8300,8 @@ function pwaInstall() {
 
 function shakeElement(el) {
     if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    el.classList.remove('field-shake');
+    void el.offsetWidth; // force reflow so re-adding the class restarts the keyframe
     el.classList.add('field-shake');
     setTimeout(function() { el.classList.remove('field-shake'); }, 400);
 }
@@ -9879,12 +9888,19 @@ function initCascadeTree() {
             vinInput.addEventListener('input', function() {
                 // [V7-E4] VIN Smart Input: auto-uppercase, strip spaces/dashes
                 vinInput.value = vinInput.value.toUpperCase().replace(/[\s\-]/g, '');
-                validateField(vinInput, {
-                    required: true,
-                    exactLength: 17,
-                    pattern: /^[A-HJ-NPR-Z0-9]{17}$/,
-                    patternMsg: '17 caracteres alfanuméricos (sin I, O, Q)'
-                });
+                // Only judge/shake once the user has typed a full 17-char VIN (or cleared
+                // the field back to valid/empty) — mid-typing lengths are not an error.
+                if (vinInput.value.length === 0 || vinInput.value.length === 17) {
+                    validateField(vinInput, {
+                        required: true,
+                        exactLength: 17,
+                        pattern: /^[A-HJ-NPR-Z0-9]{17}$/,
+                        patternMsg: '17 caracteres alfanuméricos (sin I, O, Q)'
+                    });
+                } else {
+                    // Clear any stale valid/error state while mid-typing, but don't shake.
+                    vinInput.classList.remove('field-valid', 'field-error', 'field-missing');
+                }
                 // [V7-E4] Check duplicates
                 if (vinInput.value.length === 17) v7CheckVinDuplicate(vinInput.value);
             });
@@ -11140,13 +11156,13 @@ function checkAutoAdvance(vehicle) {
 
   var toast = document.createElement('div');
   toast.className = 'auto-advance-toast';
-  toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;background:#1e293b;color:#f8fafc;padding:12px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.3);display:flex;align-items:center;gap:10px;font-size:12px;max-width:90vw;animation:slideUp 0.3s ease;border:1px solid #334155;';
+  toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;background:#1e293b;color:#f8fafc;padding:12px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.3);display:flex;align-items:center;gap:10px;font-size:12px;max-width:90vw;animation:slideUp 0.3s var(--ease-out);border:1px solid #334155;';
 
   var icon = status === 'testing' ? '🏁' : '⚡';
   var html = '<span>' + icon + ' ' + suggestion + '</span>';
   if (nextStatus) {
-    html += '<button onclick="applyAutoAdvance(\'' + nextStatus + '\')" style="background:#10b981;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Si</button>';
-    html += '<button onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;">No</button>';
+    html += '<button class="auto-advance-btn" onclick="applyAutoAdvance(\'' + nextStatus + '\')" style="background:#10b981;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Si</button>';
+    html += '<button class="auto-advance-btn" onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;">No</button>';
   } else {
     html += '<button onclick="this.parentElement.remove()" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;">OK</button>';
   }
@@ -14395,7 +14411,7 @@ function soakTimerReset() {
     document.getElementById('soak_timer_display').style.color = '#64748b';
     document.getElementById('soak_timer_status').textContent = 'Sin iniciar';
     document.getElementById('soak_timer_status').style.color = '#64748b';
-    document.getElementById('soak_timer_bar').style.width = '0%';
+    document.getElementById('soak_timer_bar').style.transform = 'scaleX(0)';
     document.getElementById('soak_timer_bar').style.background = '#10b981';
     document.getElementById('soak_timer_eta').textContent = '';
     document.getElementById('soak_timer_btn_start').style.display = '';
@@ -14417,7 +14433,7 @@ function soakTimerTick() {
         document.getElementById('soak_timer_display').style.color = '#10b981';
         document.getElementById('soak_timer_status').textContent = 'SOAK COMPLETADO - Listo para prueba';
         document.getElementById('soak_timer_status').style.color = '#10b981';
-        document.getElementById('soak_timer_bar').style.width = '100%';
+        document.getElementById('soak_timer_bar').style.transform = 'scaleX(1)';
         document.getElementById('soak_timer_bar').style.background = '#10b981';
         document.getElementById('soak_timer_btn_start').style.display = '';
         document.getElementById('soak_timer_btn_stop').style.display = 'none';
@@ -14473,7 +14489,7 @@ function soakTimerTick() {
     document.getElementById('soak_timer_display').style.color = textColor;
     document.getElementById('soak_timer_status').textContent = 'En curso...';
     document.getElementById('soak_timer_status').style.color = textColor;
-    document.getElementById('soak_timer_bar').style.width = pct.toFixed(1) + '%';
+    document.getElementById('soak_timer_bar').style.transform = 'scaleX(' + (pct / 100).toFixed(4) + ')';
     document.getElementById('soak_timer_bar').style.background = barColor;
 
     var eta = new Date(_soakTimer.endTime);
@@ -14500,7 +14516,7 @@ function soakTimerRestore() {
             document.getElementById('soak_timer_display').style.color = '#10b981';
             document.getElementById('soak_timer_status').textContent = 'SOAK COMPLETADO (termino mientras la app estaba cerrada)';
             document.getElementById('soak_timer_status').style.color = '#10b981';
-            document.getElementById('soak_timer_bar').style.width = '100%';
+            document.getElementById('soak_timer_bar').style.transform = 'scaleX(1)';
         }
     } catch(e) { localStorage.removeItem('kia_soak_timer'); }
 }
@@ -14511,6 +14527,7 @@ function soakTimerRestore() {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 var _kanbanFilters = { search: '', sort: 'newest', operator: '' };
+var _kanbanDebouncedRender = debounce(renderKanban, 250);
 
 function kanbanApplyFilters(vehicles) {
     var f = _kanbanFilters;
@@ -14582,7 +14599,7 @@ function renderKanban() {
 
     // Search + Sort + Filter bar
     html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">';
-    html += '<input type="text" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;renderKanban();" style="flex:1 1 140px;min-width:0;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">';
+    html += '<input type="text" placeholder="Buscar VIN, modelo, operador..." value="' + (_kanbanFilters.search || '') + '" oninput="_kanbanFilters.search=this.value;_kanbanDebouncedRender();" style="flex:1 1 140px;min-width:0;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">';
     html += '<select onchange="_kanbanFilters.sort=this.value;renderKanban();" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;background:#fff;">';
     html += '<option value="newest"' + (_kanbanFilters.sort==='newest'?' selected':'') + '>Mas reciente</option>';
     html += '<option value="oldest"' + (_kanbanFilters.sort==='oldest'?' selected':'') + '>Mas antiguo</option>';
@@ -18617,6 +18634,7 @@ function invExportReport() {
 
 var _invFloorPlanEditMode = false;
 var _invFloorPlanDrag = { active: false, zoneId: null, offsetX: 0, offsetY: 0, resizing: false, handle: '' };
+var _invFloorPlanRenderPending = false;
 var _invCylTooltipEl = null;
 
 function _invDefaultZoneLayout(zones) {
@@ -19091,8 +19109,14 @@ function _invFloorPlanBindEditDrag(container) {
             lay.x = Math.max(0, svgPt.x - _invFloorPlanDrag.offsetX);
             lay.y = Math.max(0, svgPt.y - _invFloorPlanDrag.offsetY);
         }
-        // Live re-render
-        invRender();
+        // Coalesce rapid pointermove events into at most one re-render per frame.
+        if (!_invFloorPlanRenderPending) {
+            _invFloorPlanRenderPending = true;
+            requestAnimationFrame(function() {
+                _invFloorPlanRenderPending = false;
+                invRender();
+            });
+        }
     }
 
     function onPointerUp() {
@@ -26428,15 +26452,26 @@ function renderLabOverview(el, opts) {
             html += '</div>';
         }
     }
+    var prevCached = _labOverviewCache[sectionsKey];
+    var contentUnchanged = !!(prevCached && prevCached.html === html);
     el.innerHTML = html;
     _labOverviewCache[sectionsKey] = { key: memoKey, html: html };
-    el.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
-        var t = parseFloat(numEl.dataset.kpiTarget) || 0;
-        if (typeof animateCounter === 'function') animateCounter(numEl, t, { suffix: numEl.dataset.kpiSuffix || '' });
-        else numEl.textContent = t + (numEl.dataset.kpiSuffix || '');
-    });
-    var grid = el.querySelector('.pn-lab-kpi-grid');
-    if (grid && typeof animateStaggerChildren === 'function') animateStaggerChildren(grid, '.tp-card', 60);
+    if (contentUnchanged) {
+        // Same visual content as last render (only the memo key changed, e.g. an
+        // unrelated save elsewhere bumped _labOverviewGen) — set final values,
+        // don't replay the count-up/stagger animations.
+        el.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
+            numEl.textContent = (parseFloat(numEl.dataset.kpiTarget) || 0) + (numEl.dataset.kpiSuffix || '');
+        });
+    } else {
+        el.querySelectorAll('.pn-kpi-num[data-kpi-target]').forEach(function(numEl) {
+            var t = parseFloat(numEl.dataset.kpiTarget) || 0;
+            if (typeof animateCounter === 'function') animateCounter(numEl, t, { suffix: numEl.dataset.kpiSuffix || '' });
+            else numEl.textContent = t + (numEl.dataset.kpiSuffix || '');
+        });
+        var grid = el.querySelector('.pn-lab-kpi-grid');
+        if (grid && typeof animateStaggerChildren === 'function') animateStaggerChildren(grid, '.tp-card', 60);
+    }
 }
 
 
@@ -29191,7 +29226,7 @@ function authShowLogin() {
             var initials = authInitials(op.name);
             var colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
             var c = colors[idx % colors.length];
-            html += '<button onclick="authBypassForOperator(' + idx + ')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111827;border:2px solid #1e293b;border-radius:12px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor=\'' + c + '\'" onmouseout="this.style.borderColor=\'#1e293b\'">';
+            html += '<button onclick="authBypassForOperator(' + idx + ')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111827;border:2px solid #1e293b;border-radius:12px;cursor:pointer;transition:border-color 0.2s;" onmouseover="this.style.borderColor=\'' + c + '\'" onmouseout="this.style.borderColor=\'#1e293b\'">';
             html += '<div style="width:50px;height:50px;border-radius:50%;background:' + c + '20;color:' + c + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">' + escapeHtml(initials) + '</div>';
             html += '<div style="color:#e2e8f0;font-size:12px;font-weight:700;">' + escapeHtml(op.name) + '</div>';
             html += '<div style="color:#64748b;font-size:9px;">' + escapeHtml(op.role || 'Técnico') + '</div>';
@@ -29206,7 +29241,7 @@ function authShowLogin() {
             var colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
             var c = colors[idx % colors.length];
             var hasPin = !!op.pinHash;
-            html += '<button onclick="authSelectOperator(' + idx + ')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111827;border:2px solid #1e293b;border-radius:12px;cursor:pointer;transition:all 0.2s;' + (!hasPin ? 'opacity:0.4;' : '') + '" ' + (!hasPin ? 'disabled title="Sin PIN configurado"' : '') + ' onmouseover="this.style.borderColor=\'' + c + '\'" onmouseout="this.style.borderColor=\'#1e293b\'">';
+            html += '<button onclick="authSelectOperator(' + idx + ')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111827;border:2px solid #1e293b;border-radius:12px;cursor:pointer;transition:border-color 0.2s;' + (!hasPin ? 'opacity:0.4;' : '') + '" ' + (!hasPin ? 'disabled title="Sin PIN configurado"' : '') + ' onmouseover="this.style.borderColor=\'' + c + '\'" onmouseout="this.style.borderColor=\'#1e293b\'">';
             html += '<div style="width:50px;height:50px;border-radius:50%;background:' + c + '20;color:' + c + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">' + escapeHtml(initials) + '</div>';
             html += '<div style="color:#e2e8f0;font-size:12px;font-weight:700;">' + escapeHtml(op.name) + '</div>';
             html += '<div style="color:#64748b;font-size:9px;">' + escapeHtml(op.role || 'Técnico') + (hasPin ? '' : ' (sin PIN)') + '</div>';
@@ -32391,7 +32426,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607301952' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607302119' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
