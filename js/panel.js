@@ -20,10 +20,14 @@ function pnInit() {
         }
     } catch(e) {}
 
-    // Sync operators from CONFIG if pnState.operators is empty
+    // Sync operators from CONFIG if pnState.operators is empty.
+    // `provisional: true` marca que son marcadores de posición sembrados localmente,
+    // NO cuentas reales: (1) no permiten entrar sin credencial (ver authBypassForOperator),
+    // y (2) siempre pierden el merge contra el roster real de la nube, porque su
+    // createdAt es "ahora" y le ganaría por fecha al registro real que sí trae PINs.
     if (pnState.operators.length === 0 && CONFIG && CONFIG.operators) {
         pnState.operators = CONFIG.operators.map(function(name, i) {
-            return { id: i + 1, name: name, role: 'Técnico', active: true, createdAt: new Date().toISOString() };
+            return { id: i + 1, name: name, role: 'Técnico', active: true, provisional: true, createdAt: new Date().toISOString() };
         });
         pnSave();
     }
@@ -533,20 +537,33 @@ function pnRenderDashboard(el) {
 
     el.innerHTML = html;
 
-// [v15-P1] Render cross-module overview from single source
-    var _ovEl = document.getElementById('pn-lab-overview');
-    if (_ovEl) renderLabOverview(_ovEl);
+    // Cada sub-sección se aísla: el error boundary de tabCacheSwitch reemplaza el
+    // innerHTML de TODA la pestaña, así que sin esto un fallo en una sola tarjeta
+    // borra el dashboard completo. Con el try/catch el error queda contenido en su
+    // propio contenedor y el resto del panel sigue usable.
+    _pnSafeRender('pn-lab-overview', function(elx) { renderLabOverview(elx); });
+    _pnSafeRender('labDashContainer', function(elx) {
+        if (typeof renderLabDashboard === 'function') renderLabDashboard(elx);
+    });
+    // Backup health async (needs IndexedDB)
+    _pnSafeRender('backupHealthContainer', function(elx) {
+        if (typeof renderBackupStatus === 'function') renderBackupStatus(elx);
+    });
+}
 
-    // Render lab dashboard
-    var labEl = document.getElementById('labDashContainer');
-    if (labEl && typeof renderLabDashboard === 'function') {
-        renderLabDashboard(labEl);
-    }
-
-    // Render backup health async (needs IndexedDB)
-    var backupEl = document.getElementById('backupHealthContainer');
-    if (backupEl && typeof renderBackupStatus === 'function') {
-        renderBackupStatus(backupEl);
+/**
+ * Renderiza una sub-sección del panel dentro de su propio try/catch.
+ * Reutiliza _tabRenderError (app.js) para pintar el error sólo en ese contenedor.
+ */
+function _pnSafeRender(containerId, renderFn) {
+    var elx = document.getElementById(containerId);
+    if (!elx) return;
+    try {
+        renderFn(elx);
+    } catch (err) {
+        if (typeof _tabRenderError === 'function') _tabRenderError(elx, err);
+        else elx.innerHTML = '<div style="color:#ef4444;font-size:11px;">Error: ' + String(err && err.message || err) + '</div>';
+        if (typeof console !== 'undefined' && console.error) console.error('panel section "' + containerId + '" failed:', err);
     }
 }
 

@@ -3298,6 +3298,10 @@ function renderLabDashboard(container) {
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var active = vehicles.filter(function(v) { return v.status !== 'archived'; });
     var now = Date.now();
+    // Ventana rodante de 7 días como timestamp: las comparaciones de abajo usan
+    // .getTime() y aritmética sobre este valor, así que debe ser numérico (no la
+    // fecha-string que usa pnRenderExecutive).
+    var weekAgo = now - 7 * 86400000;
 
     // Find oldest stalled vehicle
     var oldest = null;
