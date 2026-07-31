@@ -1205,7 +1205,11 @@ function _fbPullSeed(col, remoteData, pulled) {
         var prevTp = (typeof tpState !== 'undefined' && tpState) ? tpState : {};
         tpState = remoteData;
         // Preservar subcampos v15 locales que un remoto de código viejo no trae
-        ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks'].forEach(function(k) {
+        // (v16.4 suma la capacidad real y el backlog: sin esto, sincronizar contra una copia
+        // en la nube escrita por una versión anterior borraba en silencio los vehículos por
+        // par configurados y las configuraciones ya descartadas de la cola).
+        ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks',
+         'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed'].forEach(function(k) {
             if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
         });
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));

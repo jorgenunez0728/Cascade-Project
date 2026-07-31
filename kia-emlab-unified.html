@@ -858,15 +858,21 @@ body{ overflow-x: hidden; }
 .tp-status-segment { border-radius:10px; padding:8px 12px; cursor:pointer; text-align:center; transition:background-color .2s, color .2s, box-shadow .2s; }
 .tp-plan-fixed { background:var(--tp-green); color:#fff; padding:8px 16px; border-radius:10px; font-weight:700; font-size:12px; text-align:center; margin-bottom:14px; box-shadow: 0 2px 8px rgba(16,185,129,0.25); }
 
-/* Chart bars */
-.tp-chart-bar { display:flex; align-items:flex-end; gap:6px; height:200px; padding:10px 0; }
-.tp-chart-col { display:flex; flex-direction:column; align-items:center; gap:2px; flex:1; min-width:0; }
-.tp-chart-fill { width:100%; border-radius:4px 4px 0 0; transition:height .3s; min-height:2px; }
+/* Chart bars
+   La cadena de alturas tiene que quedar DEFINIDA de arriba a abajo: .tp-chart-bar tiene
+   altura fija, .tp-chart-col se estira a esa altura y .tp-chart-group toma el sobrante
+   con flex. Sin eso, el height:% de .tp-chart-fill se resuelve contra una altura
+   indefinida, colapsa a su min-height y todas las barras salen planas. Por eso el
+   contenedor NO puede usar align-items:flex-end (no estira) y la pista NO puede
+   depender de height:100% (su padre tendría altura auto). */
+.tp-chart-bar { display:flex; align-items:stretch; gap:6px; height:200px; padding:10px 0; }
+.tp-chart-col { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:2px; flex:1; min-width:0; height:100%; }
+.tp-chart-fill { width:100%; border-radius:4px 4px 0 0; transition:height var(--dur-base, .3s) var(--ease-out, ease); min-height:2px; }
 .tp-chart-label { font-size: var(--fs-2xs, 11px); color:var(--tp-dim); text-align:center; word-break:break-word; }
 .tp-chart-value { font-size: var(--fs-2xs, 11px); font-weight:700; color:var(--tp-text); }
-.tp-chart-group { display:flex; align-items:flex-end; gap:2px; width:100%; height:100%; }
-.tp-chart-group .tp-chart-fill { flex:1; }
-.tp-chart-group { display:flex; align-items:flex-end; gap:2px; width:100%; height:100%; }
+/* Pista de dibujo: el % de las barras se mide contra ESTO, no contra la columna
+   entera (que además incluye el valor y la etiqueta). */
+.tp-chart-group { display:flex; align-items:flex-end; gap:2px; width:100%; flex:1 1 0; min-height:0; }
 .tp-chart-group .tp-chart-fill { flex:1; }
 
 /* ═══ Toast Notification System ═══ */
@@ -5290,21 +5296,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607310252';
+var APP_BUILD = '202607310704';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607310252' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607310704' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607310252' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607310704' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5320,7 +5326,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607310252' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607310704' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -21489,6 +21495,16 @@ if (!tpState.months || !tpState.months.length) tpState.months = TP_MONTHS.slice(
 // v15.8: propósito precargado al iniciar prueba desde el plan, por región (regla "COP solo
 // cuando la región es Europa" del corporativo; el resto son auditorías internas). Editable en Reglas.
 if (!tpState.startPurposeByRegion) tpState.startPurposeByRegion = { 'EUROPE': 'COP-Emisiones', '*': 'EO-Emisiones' };
+// v16.4 — Capacidad real y backlog.
+// vehiclesPerSlot arranca en 1 a propósito: 1 por par es lo único que la app afirmaba hasta
+// ahora, y no corresponde inventar un dato físico del laboratorio. Se configura una vez en
+// Plan → Semanal y viaja por sync a todos los dispositivos.
+if (tpState.vehiclesPerSlot === undefined) tpState.vehiclesPerSlot = 1;
+// Empuje por antigüedad: una config postergada N semanas sube de puntaje para que el backlog
+// no se estanque. Va como boost FUERA del promedio ponderado (ver tpPriorityScore).
+if (!tpState.agingBoost) tpState.agingBoost = { perWeek: 6, max: 30 };
+// { [configDesc]: {at, by, reason} } — sacadas de la cola sin tocar el déficit ni la cobertura.
+if (!tpState.carryoverDismissed) tpState.carryoverDismissed = {};
 
 function tpSave() {
     _tpInvalidateCache();
@@ -21637,7 +21653,10 @@ function tpPriorityScore(cfg, testedN) {
     const wReg = w.region || 0;
     const base = (volScore * w.volume + compScore * w.compliance + newScore * w.newConfig + urgScore * w.urgency + regScore * wReg) / 100;
     const ov = tpFamilyOverrideFor(cfg);
-    return base + (ov ? ov.boost : 0);
+    // v16.4: + empuje por antigüedad, para que lo que lleva semanas postergado suba solo y el
+    // backlog no se estanque al fondo de la lista para siempre.
+    const aging = typeof tpAgingBoost === 'function' ? tpAgingBoost(cfg.desc) : 0;
+    return base + (ov ? ov.boost : 0) + aging;
 }
 
 // Texto "por qué se priorizó" — para transparencia en plan y resumen ejecutivo.
@@ -21654,6 +21673,8 @@ function tpScoreReason(cfg, testedN) {
     else if (cfg.rgn) parts.push(cfg.rgn);
     if ((testedN || 0) === 0) parts.push('0 probadas');
     if (cfg.hist === 0 && cfg.total > 0) parts.push('config nueva');
+    var age = typeof tpCarryoverAge === 'function' ? tpCarryoverAge(cfg.desc) : 0;
+    if (age > 0) parts.push('🔄 ' + age + ' sem postergada');
     return parts.join(' · ');
 }
 
@@ -21698,7 +21719,13 @@ function tpGetAnalysis() {
     return result;
 }
 
-function tpInvalidateCache() { _tpAnalysisCache = { key: '', data: null }; }
+function tpInvalidateCache() {
+    _tpAnalysisCache = { key: '', data: null };
+    // v16.4: el backlog se deriva del análisis, así que comparte su ciclo de invalidación
+    // (incluido el pull de Firebase, que entra por _fbTpUISync → tpInvalidateCache).
+    if (typeof tpBacklogInvalidate === 'function') tpBacklogInvalidate();
+    _tpAgesCache = { key: '', data: null };
+}
 
 // v16.2: LA definición única de "cobertura" en toda la plataforma — % de configuraciones
 // vigentes (con volumen > 0, sin pausar) cuyo REQ ya está cumplido. Antes cada pantalla
@@ -23398,31 +23425,196 @@ function tpBuildTestSlots(workDays) {
     return slots;
 }
 
+// v16.4 — LA definición única de "cuántas pruebas caben en una semana".
+// La capacidad física son los pares preacon→prueba disponibles por los vehículos que caben
+// en cada par; el campo de capacidad del formulario NO puede pasarse de aquí. Antes eran dos
+// números sin relación (el campo arrancaba en 8, los pares eran 4), y planear el doble de lo
+// que cabe generaba carryover garantizado cada semana aunque todo saliera perfecto.
+function tpWeekCapacity(workDays) {
+    var slots = tpBuildTestSlots(workDays || {}).length;
+    var perSlot = Math.max(1, parseInt(tpState.vehiclesPerSlot, 10) || 1);
+    return { slots: slots, perSlot: perSlot, max: slots * perSlot };
+}
+
+function tpSetVehiclesPerSlot(val) {
+    var n = Math.max(1, Math.min(10, parseInt(val, 10) || 1));
+    var prev = tpState.vehiclesPerSlot;
+    if (n === prev) return;
+    tpState.vehiclesPerSlot = n;
+    tpSave(); tpRender();
+    if (typeof auditLog === 'function') auditLog('tp', 'capacity_changed', { type: 'plan', label: 'vehículos por par' }, prev + ' → ' + n);
+}
+
 function tpBuildSchedulePreview(workDays) {
     const slots = tpBuildTestSlots(workDays);
     if (slots.length === 0) return '<span style="color:var(--tp-red);">No hay pares preacon/prueba posibles con estos dias.</span>';
+    const cap = tpWeekCapacity(workDays);
     let html = '<span style="font-weight:700;">Pares disponibles:</span> ';
     html += slots.map(s => `<span style="padding:1px 5px;background:rgba(59,130,246,0.1);border-radius:3px;margin:0 2px;">Preacon ${s.preconLabel} → Prueba ${s.testLabel}</span>`).join(' ');
-    // Count max testable vehicles
-    html += `<br><span style="font-weight:700;">Maximo pruebas posibles:</span> ${slots.length} vehiculos (1 por par)`;
+    html += `<br><span style="font-weight:700;">Maximo pruebas posibles:</span> ${cap.slots} par(es) × ${cap.perSlot} veh/par = <b style="color:var(--tp-blue);">${cap.max}</b> prueba(s)`;
     return html;
 }
 
-function tpLoadCarryoverPicks() {
-    const plans = tpState.weeklyPlans || [];
-    const lastAccepted = [...plans].reverse().find(p => p.accepted);
-    if (!lastAccepted) { showToast('No hay plan aceptado previo', 'warning'); return; }
-    const pending = lastAccepted.items.filter(i => !i.completed && i.status !== 'completed');
-    window._tpWeeklyManualPicks = window._tpWeeklyManualPicks || [];
-    let added = 0;
-    pending.forEach(i => {
-        if (!window._tpWeeklyManualPicks.includes(i.desc)) {
-            window._tpWeeklyManualPicks.push(i.desc);
-            added++;
+// ══════════════════════════════════════════════════════════════════════
+// BACKLOG — lo que se viene arrastrando, con antigüedad
+// ══════════════════════════════════════════════════════════════════════
+// No hay estado paralelo: tpState.weekHistory ya archiva cada semana aceptada con sus items y
+// su status, así que la antigüedad se DERIVA de ahí. Antes el "carryover" se leía solo del
+// último plan aceptado, lo cual lo hacía a la vez inflado (se inyectaba entero, sin importar
+// la capacidad) y con fugas (tpSmartGenerate tiraba el excedente en silencio).
+var _tpBacklogCache = { key: '', data: null };
+
+function tpBacklogInvalidate() { _tpBacklogCache = { key: '', data: null }; }
+
+// Semanas consecutivas que una config lleva pendiente, contando hacia atrás desde la semana
+// aceptada más reciente y CORTANDO en la primera donde aparece completada.
+function _tpBuildCarryAges() {
+    var ages = {};
+    var hist = (tpState.weekHistory || []).slice();
+    // weekHistory se agrega en orden de aceptación; recorrer del más reciente al más viejo.
+    for (var w = hist.length - 1; w >= 0; w--) {
+        var items = hist[w].items || [];
+        for (var i = 0; i < items.length; i++) {
+            var it = items[i];
+            if (!it || !it.desc) continue;
+            if (ages[it.desc] && ages[it.desc]._closed) continue;
+            if (it.completed) { ages[it.desc] = ages[it.desc] || { weeks: 0 }; ages[it.desc]._closed = true; continue; }
+            if (!ages[it.desc]) ages[it.desc] = { weeks: 0, firstSeenWeek: null };
+            ages[it.desc].weeks++;
+            ages[it.desc].firstSeenWeek = hist[w].weekDate || hist[w].acceptedDate || null;
         }
+    }
+    return ages;
+}
+
+// Antigüedad en semanas de una config (0 si no viene arrastrada). O(1) tras el primer cálculo:
+// tpPriorityScore se llama en bucles sobre todo planData.
+function tpCarryoverAge(desc) {
+    var ages = _tpBacklogAges();
+    var a = ages[desc];
+    return a && !a._closed ? a.weeks : 0;
+}
+
+var _tpAgesCache = { key: '', data: null };
+function _tpBacklogAges() {
+    var key = String(tpState._lastSave || 0) + ':' + ((tpState.weekHistory || []).length);
+    if (_tpAgesCache.key === key && _tpAgesCache.data) return _tpAgesCache.data;
+    _tpAgesCache = { key: key, data: _tpBuildCarryAges() };
+    return _tpAgesCache.data;
+}
+
+// Empuje por antigüedad. Mismo patrón que el boost de tpFamilyOverrideFor: se suma FUERA del
+// promedio ponderado, porque tpState.weights suma 100 y se divide entre 100 — meter un peso
+// más ahí diluiría los otros cuatro en vez de agregar señal.
+function tpAgingBoost(desc) {
+    var age = tpCarryoverAge(desc);
+    if (!age) return 0;
+    var cfgB = tpState.agingBoost || { perWeek: 6, max: 30 };
+    return Math.min(age * (cfgB.perWeek || 0), cfgB.max || 0);
+}
+
+// El backlog vigente: configs arrastradas que TODAVÍA tienen déficit y no fueron descartadas.
+// Si una config se probó por otra vía, deja de arrastrarse sola (sin déficit no hay backlog).
+function tpBacklog() {
+    var key = String(tpState._lastSave || 0) + ':' + ((tpState.weekHistory || []).length) + ':' + Object.keys(tpState.carryoverDismissed || {}).length;
+    if (_tpBacklogCache.key === key && _tpBacklogCache.data) return _tpBacklogCache.data;
+
+    var ages = _tpBacklogAges();
+    var dismissed = tpState.carryoverDismissed || {};
+    var analysis = tpGetAnalysis();
+    var byDesc = {};
+    analysis.forEach(function(a) { byDesc[a.desc] = a; });
+
+    var out = [];
+    Object.keys(ages).forEach(function(desc) {
+        var a = ages[desc];
+        if (!a || a._closed || !a.weeks) return;
+        if (dismissed[desc]) return;
+        var cfg = byDesc[desc];
+        if (!cfg || cfg.deficit <= 0) return;   // ya cubierta: no se arrastra
+        out.push({
+            desc: desc, cfg: cfg, weeksCarried: a.weeks, firstSeenWeek: a.firstSeenWeek,
+            deficit: cfg.deficit, score: cfg.score
+        });
     });
+    out.sort(function(x, y) { return y.score - x.score; });
+    _tpBacklogCache = { key: key, data: out };
+    return out;
+}
+
+// Sacar de la cola SIN tocar la cobertura: el déficit sigue ahí y la config volverá a
+// proponerse por prioridad cuando toque. Descartar no es haber probado.
+function tpDismissCarryover(desc, opts) {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'descartar del backlog')) return;
+    var run = function() {
+        if (!tpState.carryoverDismissed) tpState.carryoverDismissed = {};
+        tpState.carryoverDismissed[desc] = {
+            at: new Date().toISOString(),
+            by: (typeof authGetCurrentUserName === 'function' ? authGetCurrentUserName('') : ''),
+            reason: (opts && opts.reason) || ''
+        };
+        tpBacklogInvalidate();
+        tpSave(); tpRender();
+        if (typeof auditLog === 'function') auditLog('tp', 'carryover_dismissed', { type: 'plan', label: desc }, 'Sacada de la cola de pendientes (el déficit y la cobertura no cambian)');
+        showToast('Sacada de la cola. Sigue contando como déficit.', 'info');
+    };
+    if (opts && opts.skipConfirm) { run(); return; }
+    showConfirm(
+        'Se deja de arrastrar semana a semana.\n\nOJO: esto NO cuenta como probada — el déficit y la cobertura no cambian. Podrás restaurarla desde "Descartadas".',
+        run,
+        { title: '✕ Sacar de la cola', type: 'warning', confirmText: 'Sacar de la cola' }
+    );
+}
+
+function tpRestoreCarryover(desc) {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'restaurar en el backlog')) return;
+    if (tpState.carryoverDismissed) delete tpState.carryoverDismissed[desc];
+    tpBacklogInvalidate();
+    tpSave(); tpRender();
+    if (typeof auditLog === 'function') auditLog('tp', 'carryover_restored', { type: 'plan', label: desc }, 'Devuelta a la cola de pendientes');
+    showToast('Devuelta a la cola.', 'success');
+}
+
+function tpClearCarryover() {
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'limpiar el backlog')) return;
+    var list = tpBacklog();
+    if (!list.length) { showToast('La cola ya está vacía', 'info'); return; }
+    showConfirm(
+        'Se sacan de la cola ' + list.length + ' configuracion(es).\n\nOJO: NO cuentan como probadas — el déficit y la cobertura quedan igual. Quedan en "Descartadas" y se pueden restaurar.',
+        function() {
+            if (!tpState.carryoverDismissed) tpState.carryoverDismissed = {};
+            var stamp = new Date().toISOString();
+            var who = (typeof authGetCurrentUserName === 'function' ? authGetCurrentUserName('') : '');
+            list.forEach(function(b) { tpState.carryoverDismissed[b.desc] = { at: stamp, by: who, reason: 'limpieza masiva' }; });
+            tpBacklogInvalidate();
+            tpSave(); tpRender();
+            if (typeof auditLog === 'function') auditLog('tp', 'carryover_cleared', { type: 'plan', label: list.length + ' configs' }, 'Limpieza de la cola de pendientes (el déficit y la cobertura no cambian)');
+            showToast(list.length + ' sacadas de la cola. La cobertura no cambió.', 'success');
+        },
+        { title: '🧹 Limpiar la cola', type: 'warning', confirmText: 'Limpiar' }
+    );
+}
+
+// Agrega al plan solo lo que CABE, en orden de puntaje (que ya incluye la antigüedad).
+// Antes esto volcaba los pendientes completos a las obligatorias, y como las obligatorias no
+// respetaban la capacidad, un clic producía semanas de 33 pruebas para 4 huecos reales.
+function tpLoadCarryoverPicks() {
+    var backlog = tpBacklog();
+    if (!backlog.length) { showToast('No hay pendientes arrastrados', 'info'); return; }
+    var workDays = window._tpWorkDays || { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
+    var cap = tpWeekCapacity(workDays);
+    window._tpWeeklyManualPicks = window._tpWeeklyManualPicks || [];
+    var room = Math.max(0, cap.max - window._tpWeeklyManualPicks.length);
+    if (room === 0) { showToast('Ya llenaste la capacidad de la semana (' + cap.max + ')', 'warning'); return; }
+    var added = 0;
+    for (var i = 0; i < backlog.length && added < room; i++) {
+        if (window._tpWeeklyManualPicks.includes(backlog[i].desc)) continue;
+        window._tpWeeklyManualPicks.push(backlog[i].desc);
+        added++;
+    }
     tpRender();
-    showToast(added + ' items de carryover incluidos como obligatorias.', 'info');
+    var left = backlog.length - added;
+    showToast(added + ' incluidas' + (left > 0 ? ' · ' + left + ' siguen en la cola (no caben esta semana)' : ''), 'info');
 }
 
 // Assign precon/test days to items, randomizing the order
@@ -23435,13 +23627,25 @@ function tpAssignSchedule(items, workDays) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    // Assign cyclically through available slots
+    // v16.4: repartir respetando cuántos vehículos caben por par. Antes se ciclaba con
+    // slots[i % slots.length], que con 33 items y 4 pares metía 8 vehículos en el mismo par
+    // — un calendario que ya nacía imposible. Lo que no cabe se queda SIN día asignado y
+    // visible como tal, en vez de fingir que está programado.
+    const perSlot = Math.max(1, parseInt(tpState.vehiclesPerSlot, 10) || 1);
     shuffled.forEach((item, i) => {
-        const slot = slots[i % slots.length];
+        const slotIdx = Math.floor(i / perSlot);
+        const slot = slots[slotIdx];
+        if (!slot) {
+            item.preconDay = null; item.testDay = null;
+            item.preconLabel = null; item.testLabel = null;
+            item.unscheduled = true;
+            return;
+        }
         item.preconDay = slot.precon;
         item.testDay = slot.test;
         item.preconLabel = slot.preconLabel;
         item.testLabel = slot.testLabel;
+        item.unscheduled = false;
     });
     return shuffled;
 }
@@ -23461,10 +23665,10 @@ function tpRenderWeekly(el) {
     const suggestedSet = new Set(suggested.map(s => s.desc));
     const restConfigs = allConfigs.filter(c => !suggestedSet.has(c));
 
-    // Detect carryover items from last accepted week
-    const lastAccepted = [...plans].reverse().find(p => p.accepted);
-    const carryoverItems = lastAccepted ? lastAccepted.items.filter(i => !i.completed && i.status !== 'completed') : [];
-    const carryoverDescs = carryoverItems.map(i => i.desc);
+    // v16.4: el backlog ya no es "los pendientes del último plan aceptado" (una ventana de una
+    // semana, que además perdía el excedente) sino la cola real con antigüedad.
+    const backlog = tpBacklog();
+    const dismissedList = Object.keys(tpState.carryoverDismissed || {});
     // Default week start to next Monday
     const _defDate = new Date();
     const _dow = _defDate.getDay();
@@ -23473,6 +23677,8 @@ function tpRenderWeekly(el) {
     const _defDateStr = localDateStr(_nextMon);
     // Persisted working days or default (Mon-Fri)
     const _workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
+    const _cap = tpWeekCapacity(_workDays);
+    const _room = Math.max(0, _cap.max - manualPicks.length);
 
     el.innerHTML = `
     <div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">
@@ -23485,8 +23691,12 @@ function tpRenderWeekly(el) {
                 <input type="date" id="tp-weekly-date" value="${window._tpWeekDate || _defDateStr}" class="tp-select" style="width:150px;font-size:11px;" onchange="window._tpWeekDate=this.value;">
             </div>
             <div>
-                <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Capacidad</label>
-                <input type="number" id="tp-weekly-cap" value="${window._tpWeekCap || 8}" min="1" max="20" class="tp-select" style="width:65px;text-align:center;" onchange="window._tpWeekCap=parseInt(this.value);">
+                <label for="tp-weekly-cap" style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Capacidad</label>
+                <input type="number" id="tp-weekly-cap" value="${Math.min(window._tpWeekCap || _cap.max, _cap.max)}" min="1" max="${_cap.max}" class="tp-select" style="width:65px;text-align:center;" onchange="window._tpWeekCap=parseInt(this.value);tpRender();">
+            </div>
+            <div>
+                <label for="tp-veh-per-slot" style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Veh. por par</label>
+                <input type="number" id="tp-veh-per-slot" value="${_cap.perSlot}" min="1" max="10" class="tp-select" style="width:65px;text-align:center;" onchange="tpSetVehiclesPerSlot(this.value);">
             </div>
             <button class="tp-btn tp-btn-primary" onclick="tpGenerateWeekly()" style="font-size:12px;padding:8px 14px;background:var(--tp-amber);color:#000;font-weight:700;">🚀 Generar</button>
             <button class="tp-btn tp-btn-primary" onclick="tpSmartGenerate()" style="font-size:12px;padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;" title="Genera plan optimo con validacion de inventario y carryover automatico">⚡ Smart</button>
@@ -23511,23 +23721,48 @@ function tpRenderWeekly(el) {
             </div>
         </div>
 
-        ${carryoverItems.length > 0 ? `
+        ${backlog.length > 0 ? `
         <div style="padding:8px 10px;background:rgba(139,92,246,0.05);border-radius:8px;border:1px solid rgba(139,92,246,0.3);margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <div style="font-size:10px;font-weight:700;color:#8b5cf6;">🔄 Carryover (${carryoverItems.length} pendientes de semana anterior)</div>
-                <button class="tp-btn tp-btn-primary" onclick="tpLoadCarryoverPicks()" style="font-size:9px;background:#8b5cf6;">Incluir todos</button>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;flex-wrap:wrap;gap:4px;">
+                <div style="font-size:10px;font-weight:700;color:#8b5cf6;" data-help="tpBacklog">🔄 Pendientes de semanas anteriores (${backlog.length})</div>
+                <div style="display:flex;gap:4px;">
+                    <button class="tp-btn tp-btn-primary" onclick="tpLoadCarryoverPicks()" style="font-size:9px;background:#8b5cf6;" ${_room === 0 ? 'disabled' : ''}>Incluir las que quepan (${_room})</button>
+                    ${typeof authCan === 'function' && authCan('plan.manage') ? '<button class="tp-btn tp-btn-ghost" onclick="tpClearCarryover()" style="font-size:9px;color:var(--tp-red);" title="Sacarlas de la cola sin tocar la cobertura">🧹 Limpiar</button>' : ''}
+                </div>
             </div>
+            <p style="font-size:9px;color:var(--tp-dim);margin:0 0 6px;">Caben <b>${_cap.max}</b> pruebas esta semana (${_cap.slots} par(es) × ${_cap.perSlot}). Lo que no entra se queda en la cola y sube de prioridad cada semana que pasa.</p>
             <div style="display:flex;flex-direction:column;gap:3px;">
-            ${carryoverItems.map(c => {
-                const isAlreadyPicked = manualPicks.includes(c.desc);
+            ${backlog.slice(0, window._tpBacklogExpanded ? backlog.length : 8).map(b => {
+                const c = b.cfg;
+                const isAlreadyPicked = manualPicks.includes(b.desc);
+                const esc = b.desc.replace(/'/g,"\\'");
                 return `<div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.2);border-radius:5px;flex-wrap:wrap;opacity:${isAlreadyPicked?0.5:1};">
-                    <span style="font-size:9px;color:#8b5cf6;flex-shrink:0;">🔄</span>
+                    <span style="font-size:9px;color:#8b5cf6;flex-shrink:0;" title="Semanas arrastrada">🔄 ${b.weeksCarried} sem</span>
                     ${tpConfigBadges(c,{fontSize:'8px'})}
-                    ${isAlreadyPicked ? '<span style="font-size:9px;color:var(--tp-green);margin-left:auto;">incluido</span>' : `<button onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${c.desc.replace(/'/g,"\\'")}'))window._tpWeeklyManualPicks.push('${c.desc.replace(/'/g,"\\'")}');tpRender();" style="background:none;border:none;color:#8b5cf6;cursor:pointer;font-size:10px;margin-left:auto;">+</button>`}
+                    <span style="margin-left:auto;display:flex;gap:4px;align-items:center;flex-shrink:0;">
+                    ${isAlreadyPicked ? '<span style="font-size:9px;color:var(--tp-green);">incluido</span>' : `<button onclick="if(!window._tpWeeklyManualPicks)window._tpWeeklyManualPicks=[];if(!window._tpWeeklyManualPicks.includes('${esc}'))window._tpWeeklyManualPicks.push('${esc}');tpRender();" style="background:none;border:none;color:#8b5cf6;cursor:pointer;font-size:12px;" title="Agregar a esta semana">+</button>`}
+                    ${typeof authCan === 'function' && authCan('plan.manage') ? `<button onclick="tpDismissCarryover('${esc}')" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:11px;" title="Sacar de la cola (no cuenta como probada)">✕</button>` : ''}
+                    </span>
                 </div>`;
             }).join('')}
             </div>
+            ${backlog.length > 8 ? `<button class="tp-btn tp-btn-ghost" onclick="window._tpBacklogExpanded=${window._tpBacklogExpanded?'false':'true'};tpRender();" style="font-size:9px;margin-top:5px;width:100%;">${window._tpBacklogExpanded ? 'Ver menos' : 'Ver las ' + backlog.length + ' →'}</button>` : ''}
         </div>` : ''}
+        ${dismissedList.length > 0 ? `
+        <details style="margin-bottom:12px;">
+            <summary style="font-size:10px;color:var(--tp-dim);cursor:pointer;padding:4px 0;">Descartadas (${dismissedList.length}) — siguen contando como déficit</summary>
+            <div style="display:flex;flex-direction:column;gap:3px;margin-top:4px;">
+            ${dismissedList.map(d => {
+                const info = tpState.carryoverDismissed[d] || {};
+                const esc = d.replace(/'/g,"\\'");
+                return `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--tp-card);border:1px solid var(--tp-border);border-radius:5px;flex-wrap:wrap;">
+                    <span style="font-size:9px;color:var(--tp-text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">${d}</span>
+                    <span style="font-size:8px;color:var(--tp-dim);">${info.by || '?'}${info.at ? ' · ' + new Date(info.at).toLocaleDateString('es-MX') : ''}</span>
+                    ${typeof authCan === 'function' && authCan('plan.manage') ? `<button onclick="tpRestoreCarryover('${esc}')" style="background:none;border:none;color:var(--tp-blue);cursor:pointer;font-size:9px;">restaurar</button>` : ''}
+                </div>`;
+            }).join('')}
+            </div>
+        </details>` : ''}
         <div style="padding:10px;background:var(--tp-card);border-radius:8px;border:1px solid var(--tp-border);">
             <div style="font-size:10px;font-weight:700;color:var(--tp-amber);margin-bottom:5px;">📌 Pruebas obligatorias</div>
             ${suggested.length > 0 ? `
@@ -24213,61 +24448,113 @@ function tpRenderRecovery(el) {
     el.innerHTML = html;
 }
 
-function tpGenerateWeekly() {
-    if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
-    if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
-    const capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
-    const weekDate = document.getElementById('tp-weekly-date')?.value || localToday();
-    const workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
-    const manualPicks = window._tpWeeklyManualPicks || [];
-    const analysis = tpGetAnalysis();
-    const pool = analysis.filter(c => c.deficit > 0).sort((a,b) => b.score - a.score);
-    const testedCopy = [...tpState.testedList];
-    const items = [];
-    const used = new Set();
+// ══════════════════════════════════════════════════════════════════════
+// SELECCIÓN DE LA SEMANA — una sola implementación
+// ══════════════════════════════════════════════════════════════════════
+// tpGenerateWeekly y tpSmartGenerate duplicaban ~60 líneas de selección y divergían
+// justo en el bug: una metía TODAS las obligatorias sin mirar la capacidad (de ahí las
+// semanas de 33 pruebas para 4 huecos), la otra topaba el carryover pero tiraba el
+// excedente en silencio. Ahora las dos entran por aquí y el tope se respeta siempre;
+// lo que no cabe se REPORTA en vez de perderse.
+function _tpMakeItem(cfg, testedCopy, flags) {
+    var rule = tpGetRule(cfg);
+    var n = testedCopy.filter(function(t) { return t.configText === cfg.desc; }).length;
+    var req = tpCalcRequired(cfg, rule);
+    var sc = tpPriorityScore(cfg, n);
+    return {
+        desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg, eng: cfg.eng,
+        tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body, ep: cfg.ep, engpkg: cfg.engpkg,
+        tire: cfg.tire, required: req, deficit: Math.max(0, req - n), score: sc,
+        completed: false, completedDate: null,
+        manual: !!(flags && flags.manual), carriedOver: !!(flags && flags.carriedOver),
+        _scoreDetail: tpBuildScoreDetail(cfg, n, req, sc)
+    };
+}
 
-    // Check if any carryover items are in manual picks
-    const lastAccepted = [...(tpState.weeklyPlans || [])].reverse().find(p => p.accepted);
-    const carryoverDescs = lastAccepted ? new Set(lastAccepted.items.filter(i => !i.completed).map(i => i.desc)) : new Set();
+function tpSelectWeeklyItems(opts) {
+    opts = opts || {};
+    var workDays = opts.workDays || { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
+    var capReal = tpWeekCapacity(workDays);
+    // El tope duro es la capacidad física; el campo del formulario solo puede pedir MENOS.
+    var capacity = Math.max(1, Math.min(parseInt(opts.capacity, 10) || capReal.max, capReal.max));
+    var manualPicks = opts.manualPicks || [];
+    var testedCopy = tpState.testedList.slice();
+    var items = [], used = new Set(), overflowManual = [], skippedInv = [];
 
-    manualPicks.forEach(pick => {
-        const cfg = tpState.planData.find(c => c.desc === pick);
-        if (cfg && !used.has(cfg.desc)) {
-            const rule = tpGetRule(cfg);
-            const n = testedCopy.filter(t => t.configText === cfg.desc).length;
-            const req = tpCalcRequired(cfg, rule);
-            const isCarryover = carryoverDescs.has(cfg.desc);
-            const _sc = tpPriorityScore(cfg,n);
-            items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:req, deficit:Math.max(0,req-n), score:_sc, completed:false, completedDate:null, manual:true, carriedOver:isCarryover, _scoreDetail: tpBuildScoreDetail(cfg, n, req, _sc) });
-            testedCopy.push({ configText:cfg.desc, date:'Manual', source:'plan' });
-            used.add(cfg.desc);
+    var backlogDescs = new Set(tpBacklog().map(function(b) { return b.desc; }));
+    var byDesc = {};
+    tpState.planData.forEach(function(c) { byDesc[c.desc] = c; });
+
+    function take(cfg, flags) {
+        if (!cfg || used.has(cfg.desc)) return false;
+        if (items.length >= capacity) return false;
+        if (opts.checkInventory) {
+            var chk = tpCheckInventoryForConfig(cfg);
+            if (!chk.ok) { skippedInv.push({ desc: cfg.desc, reason: chk.reason }); return false; }
+        }
+        items.push(_tpMakeItem(cfg, testedCopy, flags));
+        testedCopy.push({ configText: cfg.desc, date: 'Plan', source: 'plan' });
+        used.add(cfg.desc);
+        return true;
+    }
+
+    // 1) Obligatorias — primero, pero SIN saltarse el tope.
+    manualPicks.forEach(function(pick) {
+        var cfg = byDesc[pick];
+        if (!cfg) return;
+        if (items.length >= capacity) { overflowManual.push(pick); return; }
+        if (!take(cfg, { manual: true, carriedOver: backlogDescs.has(pick) })) {
+            if (!used.has(pick)) overflowManual.push(pick);
         }
     });
 
-    for (const cfg of pool) {
-        if (items.length >= capacity) break;
-        if (used.has(cfg.desc)) continue;
-        items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:cfg.required, deficit:cfg.deficit, score:cfg.score, completed:false, completedDate:null, manual:false, carriedOver:false, _scoreDetail: tpBuildScoreDetail(cfg, cfg.testedN, cfg.required, cfg.score) });
-        used.add(cfg.desc);
+    // 2) Backlog por puntaje (el puntaje ya trae el empuje por antigüedad).
+    tpBacklog().forEach(function(b) {
+        if (items.length >= capacity) return;
+        take(byDesc[b.desc], { carriedOver: true });
+    });
+
+    // 3) Resto del déficit por puntaje.
+    var pool = tpGetAnalysis().filter(function(c) { return c.deficit > 0; })
+                              .sort(function(a, b) { return b.score - a.score; });
+    for (var i = 0; i < pool.length && items.length < capacity; i++) {
+        take(byDesc[pool[i].desc], {});
     }
 
-    if (items.length === 0) { showToast('Sin configuraciones pendientes', 'info'); return; }
+    return { items: items, overflowManual: overflowManual, skippedInv: skippedInv, capacity: capacity, capReal: capReal };
+}
+
+function tpGenerateWeekly() {
+    if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
+    if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
+    const weekDate = document.getElementById('tp-weekly-date')?.value || localToday();
+    const workDays = window._tpWorkDays || {dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false};
+    const R = tpSelectWeeklyItems({
+        capacity: parseInt(document.getElementById('tp-weekly-cap')?.value, 10) || 0,
+        workDays: workDays,
+        manualPicks: window._tpWeeklyManualPicks || []
+    });
+
+    if (R.items.length === 0) { showToast('Sin configuraciones pendientes', 'info'); return; }
 
     // Assign precon/test schedule with randomization
-    const scheduled = tpAssignSchedule(items, workDays);
+    const scheduled = tpAssignSchedule(R.items, workDays);
 
     tpState.weeklyPlans.push({
         id: Date.now(),
         created: new Date().toISOString(),
         weekDate: weekDate,
         workDays: JSON.parse(JSON.stringify(workDays)),
-        capacity,
+        capacity: R.capacity,
         items: scheduled,
         accepted: false
     });
     window._tpWeeklyManualPicks = [];
     tpSave(); tpRender(); tpUpdateBadges();
     if (typeof fbPostPlanGenerated === 'function') fbPostPlanGenerated(scheduled.length);
+    if (R.overflowManual.length) {
+        showToast('⚠️ ' + R.overflowManual.length + ' obligatoria(s) no caben en la semana (tope ' + R.capacity + ') — siguen en la cola.', 'warning');
+    }
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -24299,71 +24586,18 @@ function tpSmartGenerate() {
     if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
 
-    var capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
     var weekDate = document.getElementById('tp-weekly-date')?.value || localToday();
     var workDays = window._tpWorkDays || { dom: false, lun: true, mar: true, mie: true, jue: true, vie: true, sab: false };
 
-    var analysis = tpGetAnalysis();
-    var pool = analysis.filter(function(c) { return c.deficit > 0; }).sort(function(a, b) { return b.score - a.score; });
-    var testedCopy = tpState.testedList.slice();
-    var items = [];
-    var used = new Set();
-    var skippedInv = [];
-
-    // Auto-include carryover from last accepted plan
-    var lastAccepted = tpState.weeklyPlans.slice().reverse().find(function(p) { return p.accepted; });
-    if (lastAccepted) {
-        lastAccepted.items.filter(function(i) { return !i.completed; }).forEach(function(i) {
-            if (items.length >= capacity || used.has(i.desc)) return;
-            var cfg = tpState.planData.find(function(c) { return c.desc === i.desc; });
-            if (!cfg) return;
-            var invCheck = tpCheckInventoryForConfig(cfg);
-            if (!invCheck.ok) { skippedInv.push({ desc: i.desc, reason: invCheck.reason }); return; }
-            var rule = tpGetRule(cfg);
-            var n = testedCopy.filter(function(t) { return t.configText === cfg.desc; }).length;
-            var req = tpCalcRequired(cfg, rule);
-            items.push({
-                desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg,
-                eng: cfg.eng, tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body,
-                ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire,
-                required: req, deficit: Math.max(0, req - n),
-                score: tpPriorityScore(cfg, n), completed: false, completedDate: null,
-                manual: false, carriedOver: true,
-                _scoreDetail: tpBuildScoreDetail(cfg, n, req, tpPriorityScore(cfg, n))
-            });
-            testedCopy.push({ configText: cfg.desc, date: 'Smart', source: 'plan' });
-            used.add(cfg.desc);
-        });
-    }
-
-    // Fill remaining capacity from highest-priority configs
-    for (var i = 0; i < pool.length && items.length < capacity; i++) {
-        var cfg = pool[i];
-        if (used.has(cfg.desc)) continue;
-
-        // Check inventory
-        var invCheck = tpCheckInventoryForConfig(cfg);
-        if (!invCheck.ok) {
-            skippedInv.push({ desc: cfg.desc, reason: invCheck.reason });
-            continue;
-        }
-
-        // Find last tested date for transparency
-        var _lastTested = '';
-        for (var _lt = tpState.testedList.length - 1; _lt >= 0; _lt--) {
-            if (tpState.testedList[_lt].configText === cfg.desc) { _lastTested = tpState.testedList[_lt].date || ''; break; }
-        }
-        items.push({
-            desc: cfg.desc, id: cfg.id, mod: cfg.mod, rgn: cfg.rgn, reg: cfg.reg,
-            eng: cfg.eng, tx: cfg.tx, my: cfg.my, drv: cfg.drv, body: cfg.body,
-            ep: cfg.ep, engpkg: cfg.engpkg, tire: cfg.tire,
-            required: cfg.required, deficit: cfg.deficit, score: cfg.score,
-            completed: false, completedDate: null, manual: false, carriedOver: false,
-            _scoreDetail: { deficit: cfg.deficit, score: cfg.score, lastTested: _lastTested,
-                reason: tpScoreReason(cfg, cfg.testedN) }
-        });
-        used.add(cfg.desc);
-    }
+    // Misma selección que el generador normal (backlog por antigüedad + déficit por puntaje,
+    // topada a la capacidad real); lo único propio del modo Smart es el filtro de inventario.
+    var R = tpSelectWeeklyItems({
+        capacity: parseInt(document.getElementById('tp-weekly-cap')?.value, 10) || 0,
+        workDays: workDays,
+        manualPicks: window._tpWeeklyManualPicks || [],
+        checkInventory: true
+    });
+    var items = R.items, skippedInv = R.skippedInv;
 
     if (items.length === 0) { showToast('Sin configuraciones pendientes con inventario disponible', 'info'); return; }
 
@@ -24375,7 +24609,7 @@ function tpSmartGenerate() {
         created: new Date().toISOString(),
         weekDate: weekDate,
         workDays: JSON.parse(JSON.stringify(workDays)),
-        capacity: capacity,
+        capacity: R.capacity,
         items: scheduled,
         accepted: false,
         smartGenerated: true,
@@ -24408,8 +24642,11 @@ function tpSmartGenerate() {
 function tpGenerateMonthly(startDateStr) {
     if (tpState.planData.length === 0) { showToast('Importa el plan primero', 'warning'); return; }
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
-    var capacity = parseInt(document.getElementById('tp-weekly-cap')?.value) || 8;
     var workDays = window._tpWorkDays || { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
+    // v16.4: el mes conserva su propia simulación (el déficit baja semana a semana), pero el
+    // tope por semana es el mismo de siempre — la capacidad física, no el número del campo.
+    var _capReal = tpWeekCapacity(workDays);
+    var capacity = Math.max(1, Math.min(parseInt(document.getElementById('tp-weekly-cap')?.value, 10) || _capReal.max, _capReal.max));
     var baseStr = startDateStr || document.getElementById('tp-weekly-date')?.value || localToday();
     var base = new Date(baseStr + 'T12:00:00');
     var numWeeks = 4;
@@ -24870,7 +25107,9 @@ function tpRenderProduction(el) {
                     ${tpMonths().map((m,i) => `
                         <div class="tp-chart-col">
                             <div class="tp-chart-value">${totals[i].toLocaleString()}</div>
-                            <div class="tp-chart-fill" style="height:${Math.min(100,(totals[i]/maxT)*100)}%;background:var(--tp-blue);"></div>
+                            <div class="tp-chart-group">
+                                <div class="tp-chart-fill" style="height:${Math.min(100,(totals[i]/maxT)*100)}%;background:var(--tp-blue);"></div>
+                            </div>
                             <div class="tp-chart-label">${m}</div>
                         </div>
                     `).join('')}
@@ -24900,7 +25139,9 @@ function tpRenderProduction(el) {
                 ${gData.map(([k,v]) => `
                     <div class="tp-chart-col">
                         <div class="tp-chart-value">${v.toLocaleString()}</div>
-                        <div class="tp-chart-fill" style="height:${Math.min(100,(v/maxG)*100)}%;background:var(--tp-blue);"></div>
+                        <div class="tp-chart-group">
+                            <div class="tp-chart-fill" style="height:${Math.min(100,(v/maxG)*100)}%;background:var(--tp-blue);"></div>
+                        </div>
                         <div class="tp-chart-label">${k.length>6?k.slice(0,5)+'..':k}</div>
                     </div>
                 `).join('')}
@@ -26601,7 +26842,9 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
 // definido en cop15.js que carga antes que este archivo).
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'tp-weekly-date': { title: 'Semana del', text: 'Lunes de la semana para la que vas a generar el plan. Por default toma el próximo lunes.' },
-    'tp-weekly-cap': { title: 'Capacidad', text: 'Cuántas pruebas puede correr el laboratorio esta semana (default 8). El generador no planeará más que esto — ajústalo si hay festivos o mantenimiento.' },
+    'tp-weekly-cap': { title: 'Capacidad', text: 'Cuántas pruebas vas a planear esta semana. No puede pasar del máximo físico (pares preacon→prueba × vehículos por par); bájala si hay festivos o mantenimiento.' },
+    'tp-veh-per-slot': { title: 'Vehículos por par', text: 'Cuántos vehículos puedes preacondicionar y probar en el MISMO par de días (lun→mar, mar→mie, …). Depende de cuántas celdas o áreas de soak tiene el laboratorio. La capacidad máxima de la semana es pares × este número. Se comparte con todos los dispositivos.' },
+    'tpBacklog': { title: 'Pendientes de semanas anteriores', text: 'Configuraciones que ya se planearon antes y siguen sin probarse. Cada semana que pasa suben de prioridad para que no se queden al fondo. Solo entra a la semana lo que cabe en la capacidad — el resto se queda en la cola. "✕" la saca de la cola pero NO cuenta como probada: el déficit y la cobertura no cambian, y puedes restaurarla desde "Descartadas".' },
     'tp-ratio-help': { title: 'Reglas de Ratio', text: 'Define cuántas pruebas exige cada configuración por cada 1000 unidades producidas, según región y regulación. Las reglas más específicas (región+regulación exacta) ganan sobre las genéricas ("Todas"). Esto es lo que alimenta el déficit y el plan.' },
     'tp-weights-help': { title: 'Pesos de Priorización', text: 'Qué tanto pesa cada factor (volumen, cumplimiento, región, config nueva, urgencia) al decidir qué probar primero. Deben sumar 100 — el sistema te avisa si no cuadran.' },
     'tp-region-priority-help': { title: 'Prioridad por Región', text: 'Qué tan importante es cada mercado (0-100) al calcular la urgencia de una configuración. Europa suele ir más alto por fechas de arranque de producción (SOP).' },
@@ -32667,7 +32910,11 @@ function _fbPullSeed(col, remoteData, pulled) {
         var prevTp = (typeof tpState !== 'undefined' && tpState) ? tpState : {};
         tpState = remoteData;
         // Preservar subcampos v15 locales que un remoto de código viejo no trae
-        ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks'].forEach(function(k) {
+        // (v16.4 suma la capacidad real y el backlog: sin esto, sincronizar contra una copia
+        // en la nube escrita por una versión anterior borraba en silencio los vehículos por
+        // par configurados y las configuraciones ya descartadas de la cola).
+        ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks',
+         'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed'].forEach(function(k) {
             if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
         });
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
@@ -34170,7 +34417,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607310252' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607310704' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
