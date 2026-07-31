@@ -2227,6 +2227,58 @@ details.acc > summary {
 .interactive-hover:active { transform: scale(0.98); }
 
 /* ══════════════════════════════════════════════════════════════════════ */
+/* [Fase 3] MATRIZ DE COMPETENCIAS (Panel → Usuarios → Matriz)          */
+/* ══════════════════════════════════════════════════════════════════════ */
+/* La matriz es la única vista que legítimamente necesita scroll horizontal
+   (habilidades × operadores). Primera columna fija para no perder la
+   referencia de qué habilidad se está mirando al desplazar. */
+.pn-matrix-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--tp-border);
+    border-radius: var(--radius-md);
+}
+.pn-matrix { border-collapse: collapse; width: 100%; font-size: var(--fs-2xs, 11px); }
+.pn-matrix th, .pn-matrix td { padding: 4px 6px; text-align: center; }
+.pn-matrix thead th {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--surface); border-bottom: 2px solid var(--tp-border);
+    font-weight: 800; color: var(--tp-dim); font-size: 10px;
+}
+/* La especificidad importa: `.pn-matrix td` es (0,1,1) y le ganaría a una clase
+   suelta (0,1,0), así que estas reglas se califican con el elemento. */
+.pn-matrix th.pn-matrix-corner,
+.pn-matrix td.pn-matrix-skill {
+    position: sticky; left: 0; z-index: 1;
+    background: var(--surface);
+    text-align: left; width: 1%; min-width: 160px; max-width: 220px;
+    border-right: 1px solid var(--tp-border);
+}
+.pn-matrix th.pn-matrix-corner { z-index: 3; text-align: left; }
+.pn-matrix td.pn-matrix-skill { color: var(--tp-text); font-weight: 600; }
+.pn-matrix-cov { font-size: 9px; font-weight: 500; margin-top: 1px; }
+.pn-matrix tr.pn-matrix-group td {
+    text-align: left; font-size: 9px; font-weight: 800; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--tp-dim);
+    background: var(--bg); padding: 5px 6px;
+}
+.pn-matrix-cell {
+    width: 30px; height: 28px; border: none; border-radius: var(--radius-sm);
+    font-size: 11px; font-weight: 800; cursor: pointer; position: relative;
+    transition: transform 0.15s var(--ease-out);
+}
+.pn-matrix-cell:active { transform: scale(0.9); }
+.pn-matrix-cell:disabled { cursor: default; }
+.pn-matrix-mini {
+    border: none; background: transparent; cursor: pointer;
+    font-size: 10px; line-height: 1; padding: 1px 3px; border-radius: 4px;
+    color: var(--tp-dim);
+}
+.pn-matrix-mini:active { background: rgba(100,116,139,0.18); }
+.pn-matrix-warn { position: absolute; top: -1px; right: 2px; font-size: 9px; color: #ef4444; font-weight: 900; }
+.pn-matrix-soon { position: absolute; top: -1px; right: 3px; font-size: 12px; color: #f59e0b; line-height: 1; }
+
+/* ══════════════════════════════════════════════════════════════════════ */
 /* [TIER 4] INVENTORY FLOOR PLAN MAP                                     */
 /* ══════════════════════════════════════════════════════════════════════ */
 

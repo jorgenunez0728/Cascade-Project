@@ -26,11 +26,11 @@ var AUTH_ROLE_PERMS = {
                     'inventory.manage', 'audit.view'],
     'Ingeniero':   ['test.register', 'test.operate', 'test.release',
                     'inventory.manage', 'audit.view', 'audit.export',
-                    'cop.judge', 'plan.manage', 'users.view'],
+                    'cop.judge', 'plan.manage', 'users.view', 'users.skills'],
     'Supervisor':  ['test.register', 'test.operate', 'test.release', 'test.approve',
                     'test.retro_edit', 'inventory.manage', 'audit.view', 'audit.export',
                     'cop.judge', 'plan.manage', 'users.view', 'users.manage',
-                    'users.pin', 'data.sync_admin'],
+                    'users.pin', 'users.skills', 'data.sync_admin'],
     'Coordinador': ['*']
 };
 
@@ -42,7 +42,41 @@ function authCan(perm) {
     var u = authGetCurrentUser();
     if (!u) return false;
     var list = AUTH_ROLE_PERMS[u.role] || [];
-    return list.indexOf('*') !== -1 || list.indexOf(perm) !== -1;
+    if (list.indexOf('*') !== -1 || list.indexOf(perm) !== -1) return true;
+    return _authSkillGrants(u.id, perm);
+}
+
+// [Fase 3] Habilidades certificadas que otorgan permisos por sí solas.
+// Esto es lo que hace que la matriz de competencias sea funcional y no decorativa:
+// un Técnico certificado como Aprobador CoP gana test.approve sin cambiar de rol, y
+// LO PIERDE SOLO cuando la certificación vence — que es exactamente para lo que
+// sirve una matriz de competencias en un laboratorio acreditado.
+//
+// [Fase 3.5] El mapa dejó de ser estático: `grants`/`minLvl` viven en el catálogo
+// editable (pnState.skillCatalog). Consecuencia a tener presente: quien puede editar
+// el catálogo puede alterar quién aprueba pruebas — por eso editarlo exige
+// users.manage (Supervisor/Coordinador) y queda auditado.
+// Semilla por defecto: cop_appr → test.approve (nivel 3), release → test.release (2).
+function _authSkillGrants(opId, perm) {
+    if (typeof pnState === 'undefined' || !pnState.operators) return false;
+    if (typeof pnSkillOf !== 'function' || typeof pnSkillExpired !== 'function') return false;
+    if (typeof pnCatalog !== 'function') return false;
+    var op = null;
+    for (var i = 0; i < pnState.operators.length; i++) {
+        if (String(pnState.operators[i].id) === String(opId)) { op = pnState.operators[i]; break; }
+    }
+    if (!op) return false;
+    var cat = pnCatalog();
+    for (var k = 0; k < cat.length; k++) {
+        var sk = cat[k];
+        if (sk.archived) continue;              // archivada → deja de otorgar
+        if (!sk.grants || sk.grants !== perm) continue;
+        var entry = pnSkillOf(op, sk.id);
+        if ((entry.lvl || 0) < (sk.minLvl || 2)) continue;
+        if (pnSkillExpired(entry)) continue;    // certificación vencida → ya no otorga
+        return true;
+    }
+    return false;
 }
 
 /**

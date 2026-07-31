@@ -25,7 +25,9 @@
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
 
     <!-- Alpine.js — lightweight reactivity for UI -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+    <!-- Alpine local (no CDN): la app es offline-first y 6 pestañas del Panel
+         dependen de él. Ver vendor/alpine.min.js para el porqué. -->
+    <script defer src="vendor/alpine.min.js"></script>
 
     <!-- Firebase (optional cloud sync — app works 100% offline without it) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -1093,8 +1095,273 @@
         <!-- ───── USERS TAB ───── -->
         <div x-show="activeTab === 'pn-users'" style="padding:12px 0;">
             <div id="help-banner-slot-pn-users"></div>
+
+            <!-- [Fase 3] Selector de vista: Operadores / Matriz de habilidades -->
+            <div class="view-mode-toggle" style="margin-bottom:10px;" x-show="usersView !== 'profile'">
+                <button :class="usersView === 'list' ? 'active' : ''" @click="usersView = 'list'">👤 Operadores</button>
+                <button :class="usersView === 'matrix' ? 'active' : ''" @click="usersView = 'matrix'">🎓 Matriz</button>
+            </div>
+
+            <!-- ═══ VISTA: MATRIZ DE HABILIDADES ═══ -->
+            <div x-show="usersView === 'matrix'">
+                <div class="tp-card">
+                    <div class="tp-card-title"><span data-help="pn-skill-matrix">🎓 Matriz de competencias</span></div>
+                    <div style="font-size:10px;color:var(--tp-dim);margin-bottom:8px;">
+                        Toca una celda para cambiar el nivel. La fila <b>Cobertura</b> cuenta operadores activos con nivel ≥ Autónomo y certificación vigente.
+                    </div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;align-items:center;">
+                        <template x-for="lv in skillLevels" :key="lv.lvl">
+                            <span style="font-size:9px;padding:2px 8px;border-radius:10px;"
+                                  :style="{ background: lv.color, color: lv.text }" x-text="lv.lvl + ' · ' + lv.name"></span>
+                        </template>
+                        <button class="tp-btn tp-btn-ghost" x-show="can('users.manage')" @click="showColCfg = !showColCfg"
+                                style="font-size:10px;margin-left:auto;">⚙️ Columnas</button>
+                    </div>
+
+                    <!-- Configuración de columnas (operadores visibles y orden) -->
+                    <div x-show="showColCfg" style="border:1px solid var(--tp-border);border-radius:8px;padding:8px;margin-bottom:10px;background:var(--bg);">
+                        <div style="font-size:10px;font-weight:800;color:var(--tp-dim);margin-bottom:6px;">COLUMNAS — mostrar / ocultar y reordenar</div>
+                        <template x-for="op in allOpsForCfg()" :key="'cfg_' + op.id">
+                            <div style="display:flex;align-items:center;gap:6px;padding:3px 0;">
+                                <input type="checkbox" :checked="!colHidden(op.id)" @change="toggleCol(op.id)" style="cursor:pointer;">
+                                <span style="flex:1;font-size:11px;" :style="{ opacity: colHidden(op.id) ? 0.45 : 1 }" x-text="op.name"></span>
+                                <button class="tp-btn tp-btn-ghost" @click="moveCol(op.id, -1)" style="font-size:10px;padding:2px 6px;">↑</button>
+                                <button class="tp-btn tp-btn-ghost" @click="moveCol(op.id, 1)" style="font-size:10px;padding:2px 6px;">↓</button>
+                            </div>
+                        </template>
+                        <div style="font-size:9px;color:var(--tp-dim);margin-top:4px;">Ocultar una columna no da de baja al operador ni toca sus certificaciones.</div>
+                    </div>
+
+                    <!-- Alta de habilidad (nueva fila) -->
+                    <div x-show="can('users.manage')" style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;">
+                        <div style="flex:1;min-width:130px;">
+                            <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Nueva habilidad</label>
+                            <input type="text" x-model.trim="newSkillName" class="tp-input" style="width:100%;" placeholder="Nombre" @keydown.enter="addSkill()">
+                        </div>
+                        <div style="min-width:120px;">
+                            <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Grupo</label>
+                            <input type="text" x-model.trim="newSkillGroup" class="tp-input" style="width:100%;" placeholder="Grupo" list="pn-skill-groups">
+                            <datalist id="pn-skill-groups">
+                                <template x-for="g in groupsList()" :key="'dl_' + g"><option :value="g"></option></template>
+                            </datalist>
+                        </div>
+                        <button class="tp-btn tp-btn-primary" @click="addSkill()" style="padding:8px 14px;">+ Agregar</button>
+                    </div>
+                    <div class="pn-matrix-wrap">
+                        <table class="pn-matrix">
+                            <thead>
+                                <tr>
+                                    <th class="pn-matrix-corner">Habilidad</th>
+                                    <template x-for="op in cols" :key="op.id">
+                                        <th><span x-text="avatarInitials(op.name)" :title="op.name"></span></th>
+                                    </template>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="row in skillRows" :key="row.key">
+                                    <tr :class="row.kind === 'group' ? 'pn-matrix-group' : ''">
+                                        <template x-if="row.kind === 'group'">
+                                            <td :colspan="1 + cols.length">
+                                                <span x-text="row.label"></span>
+                                                <span x-show="can('users.manage')" style="float:right;">
+                                                    <button class="pn-matrix-mini" @click="moveGroup(row.label, -1)" title="Subir grupo">↑</button>
+                                                    <button class="pn-matrix-mini" @click="moveGroup(row.label, 1)" title="Bajar grupo">↓</button>
+                                                </span>
+                                            </td>
+                                        </template>
+                                        <template x-if="row.kind === 'skill'">
+                                            <td class="pn-matrix-skill">
+                                                <div style="display:flex;align-items:center;gap:4px;">
+                                                    <span style="flex:1;" x-text="row.skill.name"></span>
+                                                    <span x-show="row.skill.critical" title="Habilidad crítica" style="color:var(--tp-red);">*</span>
+                                                    <span x-show="can('users.manage')" style="display:flex;gap:1px;">
+                                                        <button class="pn-matrix-mini" @click="moveSkill(row.skill.id, -1)" title="Subir">↑</button>
+                                                        <button class="pn-matrix-mini" @click="moveSkill(row.skill.id, 1)" title="Bajar">↓</button>
+                                                        <button class="pn-matrix-mini" @click="editSkillId = (editSkillId === row.skill.id ? null : row.skill.id)" title="Editar">✏️</button>
+                                                        <button class="pn-matrix-mini" @click="archiveSkill(row.skill.id)" title="Archivar (conserva certificaciones)">📥</button>
+                                                    </span>
+                                                </div>
+                                                <div class="pn-matrix-cov"
+                                                     :style="{ color: skillCoverage(row.skill.id) === 0 ? 'var(--tp-red)' : 'var(--tp-dim)' }">
+                                                    Cobertura: <b x-text="skillCoverage(row.skill.id)"></b>
+                                                </div>
+                                                <!-- Editor inline de la fila -->
+                                                <div x-show="editSkillId === row.skill.id" style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--tp-border);">
+                                                    <input type="text" class="tp-input" style="width:100%;font-size:10px;padding:3px 5px;margin-bottom:3px;"
+                                                           :value="row.skill.name" @change="renameSkill(row.skill.id, $event.target.value)" placeholder="Nombre">
+                                                    <input type="text" class="tp-input" style="width:100%;font-size:10px;padding:3px 5px;margin-bottom:3px;"
+                                                           :value="row.skill.group" @change="setSkillGroup(row.skill.id, $event.target.value)" placeholder="Grupo" list="pn-skill-groups">
+                                                    <label style="font-size:9px;color:var(--tp-dim);display:flex;align-items:center;gap:4px;margin-bottom:3px;">
+                                                        <input type="checkbox" :checked="row.skill.critical" @change="setSkillCritical(row.skill.id, $event.target.checked)"> Crítica
+                                                    </label>
+                                                    <label style="font-size:9px;color:var(--tp-dim);display:block;">
+                                                        Recertificar cada (meses, 0 = nunca)
+                                                        <input type="number" min="0" class="tp-input" style="width:100%;font-size:10px;padding:3px 5px;"
+                                                               :value="row.skill.recertMonths || 0" @change="setSkillRecert(row.skill.id, $event.target.value)">
+                                                    </label>
+                                                </div>
+                                            </td>
+                                        </template>
+                                        <!-- Sin `x-if` alrededor: Alpine inserta el <template x-for> anidado
+                                             pero NO inicializa su directiva, y las celdas nunca se generan.
+                                             La condición va dentro del propio bucle. -->
+                                        <template x-for="op in (row.kind === 'skill' ? cols : [])" :key="op.id">
+                                                <td>
+                                                    <button class="pn-matrix-cell"
+                                                            @click="cycleSkill(op.id, row.skill.id)"
+                                                            :style="{ background: skillLevelMeta(skillEntry(op, row.skill.id).lvl).color, color: skillLevelMeta(skillEntry(op, row.skill.id).lvl).text }"
+                                                            :title="op.name + ' — ' + row.skill.name + ': ' + skillLevelMeta(skillEntry(op, row.skill.id).lvl).name + (skillExpired(op, row.skill.id) ? ' (VENCIDA)' : (skillSoon(op, row.skill.id) ? ' (por vencer)' : ''))">
+                                                        <span x-text="skillEntry(op, row.skill.id).lvl || '·'"></span>
+                                                        <span x-show="skillExpired(op, row.skill.id)" class="pn-matrix-warn">!</span>
+                                                        <span x-show="!skillExpired(op, row.skill.id) && skillSoon(op, row.skill.id)" class="pn-matrix-soon">•</span>
+                                                    </button>
+                                                </td>
+                                        </template>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- ═══ Sección "Anteriores": habilidades archivadas ═══ -->
+                    <div x-show="archivedCount() > 0" style="margin-top:10px;">
+                        <button class="tp-btn tp-btn-ghost" @click="showArchived = !showArchived"
+                                style="font-size:10px;width:100%;text-align:left;">
+                            <span x-text="showArchived ? '▾' : '▸'"></span>
+                            📥 Anteriores (<span x-text="archivedCount()"></span> archivadas — las certificaciones se conservan)
+                        </button>
+                        <div x-show="showArchived" style="margin-top:6px;" class="pn-matrix-wrap">
+                            <table class="pn-matrix">
+                                <thead>
+                                    <tr>
+                                        <th class="pn-matrix-corner">Habilidad archivada</th>
+                                        <template x-for="op in cols" :key="'a_' + op.id">
+                                            <th><span x-text="avatarInitials(op.name)" :title="op.name"></span></th>
+                                        </template>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="row in archRows" :key="'ar_' + row.key">
+                                        <tr :class="row.kind === 'group' ? 'pn-matrix-group' : ''">
+                                            <template x-if="row.kind === 'group'">
+                                                <td :colspan="1 + cols.length" x-text="row.label"></td>
+                                            </template>
+                                            <template x-if="row.kind === 'skill'">
+                                                <td class="pn-matrix-skill" style="opacity:0.75;">
+                                                    <div style="display:flex;align-items:center;gap:4px;">
+                                                        <span style="flex:1;" x-text="row.skill.name"></span>
+                                                        <button x-show="can('users.manage')" class="pn-matrix-mini" @click="restoreSkill(row.skill.id)" title="Reactivar con su historial">↩️</button>
+                                                    </div>
+                                                    <div class="pn-matrix-cov" x-show="row.skill.archivedAt">
+                                                        Archivada <span x-text="(row.skill.archivedAt || '').slice(0,10)"></span>
+                                                    </div>
+                                                </td>
+                                            </template>
+                                            <template x-for="op in (row.kind === 'skill' ? cols : [])" :key="'ac_' + op.id">
+                                                <td>
+                                                    <span class="pn-matrix-cell" style="display:inline-flex;align-items:center;justify-content:center;opacity:0.6;"
+                                                          :style="{ background: skillLevelMeta(skillEntry(op, row.skill.id).lvl).color, color: skillLevelMeta(skillEntry(op, row.skill.id).lvl).text }"
+                                                          x-text="skillEntry(op, row.skill.id).lvl || '·'"></span>
+                                                </td>
+                                            </template>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div style="font-size:9px;color:var(--tp-dim);margin-top:8px;">
+                        <span style="color:var(--tp-red);">*</span> crítica ·
+                        <span class="pn-matrix-warn">!</span> certificación vencida ·
+                        <span class="pn-matrix-soon">•</span> vence en ≤30 días
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ VISTA: PERFIL DE OPERADOR ═══ -->
+            <div x-show="usersView === 'profile'">
+                <template x-if="profileOp()">
+                    <div>
+                        <button class="tp-btn tp-btn-ghost" @click="closeProfile()" style="font-size:11px;margin-bottom:10px;">← Volver a operadores</button>
+                        <div class="tp-card">
+                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                                <div style="width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;background:rgba(59,130,246,0.15);color:#3b82f6;"
+                                     x-text="avatarInitials(profileOp().name)"></div>
+                                <div>
+                                    <div style="font-size:15px;font-weight:800;color:var(--tp-text);" x-text="profileOp().name"></div>
+                                    <div style="font-size:10px;color:var(--tp-dim);">
+                                        <span x-text="profileOp().role || 'Técnico'"></span> ·
+                                        <span x-text="levelName(profileOp().level)"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
+                                <div>
+                                    <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Nivel</label>
+                                    <select class="tp-select" style="width:100%;" :disabled="!can('users.manage')"
+                                            @change="saveProfile(profileOp().id, 'level', $event.target.value)">
+                                        <template x-for="lv in levels" :key="lv.id">
+                                            <option :value="lv.id" :selected="profileOp().level === lv.id" x-text="lv.name + ' — ' + lv.desc"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Núm. de empleado</label>
+                                    <input type="text" class="tp-input" style="width:100%;" :value="profileOp().employeeId || ''" :disabled="!can('users.manage')"
+                                           @change="saveProfile(profileOp().id, 'employeeId', $event.target.value)">
+                                </div>
+                                <div>
+                                    <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Fecha de ingreso</label>
+                                    <input type="date" class="tp-input" style="width:100%;" :value="profileOp().hiredAt || ''" :disabled="!can('users.manage')"
+                                           @change="saveProfile(profileOp().id, 'hiredAt', $event.target.value)">
+                                </div>
+                            </div>
+                            <div style="margin-top:8px;">
+                                <label style="font-size:10px;color:var(--tp-dim);display:block;margin-bottom:3px;">Notas</label>
+                                <textarea class="tp-input" style="width:100%;min-height:52px;" :disabled="!can('users.manage')"
+                                          @change="saveProfile(profileOp().id, 'notes', $event.target.value)" x-text="profileOp().notes || ''"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="tp-card">
+                            <div class="tp-card-title"><span>🎓 Competencias</span></div>
+                            <template x-for="grp in skillCatalog" :key="grp.group">
+                                <div style="margin-bottom:10px;">
+                                    <div style="font-size:10px;font-weight:800;color:var(--tp-dim);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;" x-text="grp.group"></div>
+                                    <template x-for="sk in grp.items" :key="sk.id">
+                                        <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--tp-border);">
+                                            <div style="flex:1;min-width:0;">
+                                                <div style="font-size:11px;color:var(--tp-text);">
+                                                    <span x-text="sk.name"></span>
+                                                    <span x-show="sk.critical" style="color:var(--tp-red);">*</span>
+                                                </div>
+                                                <div style="font-size:9px;color:var(--tp-dim);" x-show="skillEntry(profileOp(), sk.id).certifiedAt">
+                                                    Certificó: <span x-text="skillEntry(profileOp(), sk.id).certifiedBy || '—'"></span>
+                                                    <span x-show="skillEntry(profileOp(), sk.id).expiresAt">
+                                                        · vence <span x-text="(skillEntry(profileOp(), sk.id).expiresAt || '').slice(0,10)"></span>
+                                                    </span>
+                                                    <span x-show="skillExpired(profileOp(), sk.id)" style="color:var(--tp-red);font-weight:700;"> VENCIDA</span>
+                                                </div>
+                                            </div>
+                                            <select class="tp-select" style="font-size:10px;padding:3px 6px;" :disabled="!can('users.skills')"
+                                                    @change="setSkillLevel(profileOp().id, sk.id, $event.target.value)">
+                                                <template x-for="lv in skillLevels" :key="lv.lvl">
+                                                    <option :value="lv.lvl" :selected="(skillEntry(profileOp(), sk.id).lvl || 0) === lv.lvl" x-text="lv.name"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- ═══ VISTA: LISTA DE OPERADORES ═══ -->
+            <div x-show="usersView === 'list'">
             <!-- Add Operator Form -->
-            <div class="tp-card" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.05),transparent);">
+            <div class="tp-card" x-show="can('users.manage')" style="border:2px solid var(--tp-blue);background:linear-gradient(135deg,rgba(59,130,246,0.05),transparent);">
                 <div class="tp-card-title"><span>👥 Agregar Operador</span></div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
                     <div style="flex:1;min-width:150px;">
@@ -1133,6 +1400,19 @@
                                 <template x-if="op.pinHash2 || op.pinHash"><span style="font-size:9px;padding:2px 6px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:4px;">PIN ✓</span></template>
                                 <template x-if="!(op.pinHash2 || op.pinHash)"><span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;">Sin PIN</span></template>
                             </div>
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px;">
+                                <span style="font-size:9px;padding:2px 6px;background:rgba(139,92,246,0.15);color:#8b5cf6;border-radius:4px;" x-text="levelName(op.level)"></span>
+                                <span style="font-size:9px;padding:2px 6px;background:rgba(100,116,139,0.12);color:var(--tp-dim);border-radius:4px;"
+                                      x-text="skillSummary(op).have + '/' + skillSummary(op).total + ' habilidades'"></span>
+                                <template x-if="skillSummary(op).expired > 0">
+                                    <span style="font-size:9px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;font-weight:700;"
+                                          x-text="skillSummary(op).expired + ' vencida(s)'"></span>
+                                </template>
+                                <template x-if="skillSummary(op).expired === 0 && skillSummary(op).soon > 0">
+                                    <span style="font-size:9px;padding:2px 6px;background:rgba(245,158,11,0.15);color:#f59e0b;border-radius:4px;"
+                                          x-text="skillSummary(op).soon + ' por vencer'"></span>
+                                </template>
+                            </div>
                             <div style="font-size:9px;color:var(--tp-dim);margin-top:2px;">
                                 <span x-text="operatorStats(op.name).registered"></span> registrados |
                                 <span x-text="operatorStats(op.name).released"></span> liberados |
@@ -1141,10 +1421,11 @@
                         </div>
                         <!-- Actions -->
                         <div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
-                            <button @click="setOperatorPin(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN" x-text="(op.pinHash2 || op.pinHash) ? '🔑' : '🔒'"></button>
-                            <button @click="editOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">✏️</button>
-                            <button @click="toggleOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" x-text="op.active ? '🚫' : '✅'"></button>
-                            <button @click="removeOperator(idx)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--tp-red);">🗑</button>
+                            <button @click="openProfile(op.id)" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Ver perfil y competencias">👤</button>
+                            <button @click="setOperatorPin(idx)" x-show="can('users.pin')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" title="Configurar PIN" x-text="(op.pinHash2 || op.pinHash) ? '🔑' : '🔒'"></button>
+                            <button @click="editOperator(idx)" x-show="can('users.manage')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;">✏️</button>
+                            <button @click="toggleOperator(idx)" x-show="can('users.manage')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;" x-text="op.active ? '🚫' : '✅'"></button>
+                            <button @click="removeOperator(idx)" x-show="can('users.manage')" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--tp-red);">🗑</button>
                         </div>
                     </div>
                 </template>
@@ -1155,6 +1436,7 @@
                 <div style="font-size:9px;color:var(--tp-dim);">Los operadores se sincronizan automaticamente con los dropdowns de COP15.</div>
                 <button class="tp-btn tp-btn-ghost" @click="syncOperators()" style="font-size:10px;margin-top:6px;">🔄 Sincronizar Dropdowns Ahora</button>
             </div>
+            </div><!-- /vista lista -->
         </div>
 
         <!-- ───── SHIFT LOG TAB ───── -->

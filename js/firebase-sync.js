@@ -1262,6 +1262,10 @@ function _fbPullAdoptByCount(col, remoteData, pulled) {
 function _fbMergeOperators(localOps, remoteOps) {
     var byKey = {};
     var keyOf = function(o) { return (o.id != null ? o.id : '') + '|' + (o.name || ''); };
+    // Gana el más reciente en ese campo de fecha
+    var newerBy = function(a, b, field) {
+        return ((b && b[field]) || '') > ((a && a[field]) || '') ? b : a;
+    };
     (localOps || []).forEach(function(o) { if (o) byKey[keyOf(o)] = o; });
     (remoteOps || []).forEach(function(r) {
         if (!r) return;
@@ -1271,11 +1275,71 @@ function _fbMergeOperators(localOps, remoteOps) {
         // dispositivo nuevo; su createdAt es "ahora" y por fecha le ganaría al registro
         // real de la nube, descartando sus PINs. Siempre pierde contra el remoto.
         if (l.provisional && !r.provisional) { byKey[k] = r; return; }
+
+        // [Fase 3] Merge POR SECCIONES en vez de "gana el registro más nuevo entero".
+        // Con LWW sobre el objeto completo, certificar una habilidad en la tablet y
+        // editar el teléfono del mismo operador en el celular hacía que uno de los dos
+        // cambios desapareciera. Cada sección lleva su propia marca de tiempo.
         var lt = l.updatedAt || l.deletedAt || l.createdAt || '';
         var rt = r.updatedAt || r.deletedAt || r.createdAt || '';
-        byKey[k] = (rt > lt) ? r : l;
+        var base = (rt > lt) ? r : l;                 // identidad: nombre, rol, activo
+        var m = Object.assign({}, base);
+
+        var sk = newerBy(l, r, 'skillsUpdatedAt');    // competencias
+        m.skills = sk.skills || {};
+        m.skillsUpdatedAt = sk.skillsUpdatedAt || '';
+
+        var pr = newerBy(l, r, 'profileUpdatedAt');   // perfil
+        ['employeeId', 'email', 'phone', 'shift', 'area', 'notes', 'hiredAt', 'level'].forEach(function(f) {
+            if (pr[f] !== undefined) m[f] = pr[f];
+        });
+        m.profileUpdatedAt = pr.profileUpdatedAt || '';
+
+        // Credenciales: nunca las pierde el local (el remoto puede venir sin ellas)
+        if (l.pinHash2 || l.pinHash) {
+            m.pinHash2 = l.pinHash2 || r.pinHash2;
+            m.pinHash = l.pinHash || r.pinHash;
+        }
+        // Tombstone pegajoso: si cualquiera de los dos lo marcó borrado, sigue borrado
+        if (l.deleted || r.deleted) {
+            m.deleted = true;
+            m.active = false;
+            m.deletedAt = (l.deletedAt || '') > (r.deletedAt || '') ? l.deletedAt : r.deletedAt;
+        }
+        byKey[k] = m;
     });
     return Object.keys(byKey).map(function(k) { return byKey[k]; });
+}
+
+// [Fase 3.5] Merge del catálogo editable de habilidades (pnState.skillCatalog).
+// Clave: id. Gana el updatedAt más reciente. `archived` es PEGAJOSO: si cualquiera
+// de los dos lados la archivó, sigue archivada salvo que el otro lado la haya
+// restaurado más tarde — así una habilidad retirada no reaparece desde un remoto
+// viejo, que es el mismo criterio que usamos con los tombstones de operadores.
+function _fbMergeSkillCatalog(localCat, remoteCat) {
+    var byId = {};
+    (localCat || []).forEach(function(s) { if (s && s.id) byId[s.id] = s; });
+    (remoteCat || []).forEach(function(r) {
+        if (!r || !r.id) return;
+        var l = byId[r.id];
+        if (!l) { byId[r.id] = r; return; }
+        var lt = l.updatedAt || '', rt = r.updatedAt || '';
+        var winner = (rt > lt) ? r : l;
+        var m = Object.assign({}, winner);
+        if (l.archived || r.archived) {
+            // el lado que archivó más tarde manda; restaurar exige un updatedAt posterior
+            var archSide = (l.archived && r.archived)
+                ? (((l.archivedAt || '') > (r.archivedAt || '')) ? l : r)
+                : (l.archived ? l : r);
+            var liveSide = (archSide === l) ? r : l;
+            if (!(!liveSide.archived && (liveSide.updatedAt || '') > (archSide.archivedAt || ''))) {
+                m.archived = true;
+                m.archivedAt = archSide.archivedAt || '';
+            }
+        }
+        byId[r.id] = m;
+    });
+    return Object.keys(byId).map(function(k) { return byId[k]; });
 }
 
 // v15.9: merge de tareas manuales del tablero HOY (pnState.tasks) — misma semántica que
@@ -1317,10 +1381,13 @@ function fbPullApply(collections, results, showFeedback) {
             if (typeof pnState !== 'undefined') {
                 var _localOpsPn = (pnState.operators || []).slice();
                 var _localTasksPn = (pnState.tasks || []).slice();
+                var _localCatPn = (pnState.skillCatalog || []).slice();
                 Object.assign(pnState, remoteData);
                 pnState.operators = _fbMergeOperators(_localOpsPn, (remoteData && remoteData.operators) || []);
                 // v15.9: tareas manuales del tablero HOY — merge por id (gana updatedAt), tombstones
                 pnState.tasks = _fbMergeTasks(_localTasksPn, (remoteData && remoteData.tasks) || []);
+                // [Fase 3.5] catálogo editable de habilidades — merge por id, archived pegajoso
+                pnState.skillCatalog = _fbMergeSkillCatalog(_localCatPn, (remoteData && remoteData.skillCatalog) || []);
                 localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
                 if (typeof pnRender === 'function') pnRender();
                 pulled.push('Panel');
