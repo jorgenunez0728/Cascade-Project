@@ -136,6 +136,44 @@ function _authPinLenFor(op) {
     return 4;
 }
 
+var AUTH_AVATAR_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+
+/**
+ * [Fase 5] Color del avatar derivado del ID, no del índice del arreglo.
+ * Con el índice, el color de una persona cambiaba al dar de alta o baja a
+ * alguien más — y en una tablet a un brazo de distancia la gente busca su
+ * tarjeta por color antes que por nombre.
+ */
+function _authAvatarColor(op) {
+    var s = String((op && op.id) != null ? op.id : (op && op.name) || '');
+    var h = 0;
+    for (var i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
+    return AUTH_AVATAR_COLORS[Math.abs(h) % AUTH_AVATAR_COLORS.length];
+}
+
+/** Saludo según la hora, mismo criterio que usa el tablero HOY. */
+function _authGreeting() {
+    var h = new Date().getHours();
+    if (h < 12) return 'Buenos días';
+    if (h < 19) return 'Buenas tardes';
+    return 'Buenas noches';
+}
+
+/** Tarjeta de operador para la rejilla de acceso. */
+function _authOpCard(op, idx, handler, disabled) {
+    var c = _authAvatarColor(op);
+    var isLast = false;
+    try { isLast = localStorage.getItem('kia_last_operator') === op.name; } catch (e) {}
+    var h = '<button class="auth-op" ' + (disabled ? 'disabled title="Sin PIN configurado"' : '') +
+            ' onclick="' + handler + '(' + idx + ')">';
+    h += '<div class="auth-op-avatar" style="background:' + c + '1f;color:' + c + ';">' + escapeHtml(authInitials(op.name)) + '</div>';
+    h += '<div class="auth-op-name">' + escapeHtml(op.name) + '</div>';
+    h += '<div class="auth-op-role">' + escapeHtml(op.role || 'Técnico') + (disabled ? ' · sin PIN' : '') + '</div>';
+    if (isLast && !disabled) h += '<div class="auth-op-badge">Último</div>';
+    h += '</button>';
+    return h;
+}
+
 // ── Initialization ──
 // [v15.6] Muro de PIN reactivado (decisión de seguridad del usuario): sin
 // sesión válida (kia_auth_session con expiresAt vigente, 12h) la app muestra
@@ -257,65 +295,55 @@ function authShowLogin() {
     if (!overlay) return;
     overlay.style.display = 'flex';
 
-    // Get operators from Panel module
-    var operators = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }) : [];
-
-    // If no operators with PINs, allow bypass for initial setup
+    var operators = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active && !o.deleted; }) : [];
     var hasAnyPin = operators.some(function(o) { return _authHasPin(o); });
 
-    var html = '<div style="width:100%;max-width:420px;margin:auto;padding:20px;">';
-    html += '<div style="text-align:center;margin-bottom:30px;">';
-    html += '<div style="font-size:36px;margin-bottom:8px;">🔬</div>';
-    html += '<h1 style="color:#c4b5fd;font-size:20px;font-weight:800;margin:0;">KIA EmLab</h1>';
-    html += '<div style="color:#64748b;font-size:11px;margin-top:4px;">Laboratorio de Emisiones</div>';
+    // El último operador que usó este dispositivo va primero: en un turno, la
+    // mayoría de los accesos son de la misma persona que ya estaba trabajando.
+    var lastName = '';
+    try { lastName = localStorage.getItem('kia_last_operator') || ''; } catch (e) {}
+    var ordered = operators.slice();
+    if (lastName) {
+        ordered.sort(function(a, b) {
+            return (b.name === lastName ? 1 : 0) - (a.name === lastName ? 1 : 0);
+        });
+    }
+    // El handler indexa el arreglo FILTRADO por `active`, así que se traduce el
+    // índice reordenado al original para no seleccionar a la persona equivocada.
+    var origIndex = function(op) {
+        for (var i = 0; i < operators.length; i++) { if (operators[i] === op) return i; }
+        return -1;
+    };
+
+    var html = '<div class="auth-shell">';
+    html += '<div class="auth-brand">';
+    html += '<div class="auth-brand-mark">🔬</div>';
+    html += '<h1 class="auth-brand-name">KIA EmLab</h1>';
+    html += '<div class="auth-brand-sub">Laboratorio de Emisiones</div>';
     html += '</div>';
 
     if (operators.length === 0) {
-        html += '<div style="text-align:center;padding:30px;color:#94a3b8;">';
-        html += '<div style="font-size:13px;margin-bottom:12px;">No hay operadores configurados.</div>';
-        html += '<div style="font-size:11px;color:#64748b;margin-bottom:16px;">Accede como administrador para configurar operadores y PINs en Panel > Usuarios.</div>';
-        html += '<button onclick="authBypassLogin()" style="padding:12px 24px;background:#6366f1;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;">Entrar como Admin</button>';
+        html += '<div class="auth-notice auth-notice--info">';
+        html += 'No hay operadores configurados.<br>Accede como administrador para darlos de alta en Panel → Usuarios.';
         html += '</div>';
+        html += '<div class="auth-actions"><button class="auth-btn auth-btn--secondary" onclick="authBypassLogin()">Entrar como administrador</button></div>';
     } else if (!hasAnyPin && operators.every(function(o) { return o.provisional; })) {
-        // Dispositivo que nunca ha sincronizado: los operadores que se ven son
-        // marcadores sembrados desde CONFIG, no cuentas reales. No ofrecerlos —
-        // pedir la contraseña del laboratorio para bajar el roster verdadero.
-        html += '<div style="text-align:center;padding:20px;color:#93c5fd;font-size:11px;margin-bottom:16px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:8px;">';
+        // Dispositivo que nunca ha sincronizado: lo que se ve son marcadores
+        // sembrados localmente, no cuentas reales. No ofrecerlos.
+        html += '<div class="auth-notice auth-notice--info">';
         html += 'Este dispositivo todavía no se ha conectado al laboratorio.<br>Ingresa la contraseña del laboratorio para descargar los operadores y sus PINs.';
         html += '</div>';
-        html += '<div style="text-align:center;">';
-        html += '<button onclick="_authShowConnectFirst()" style="padding:12px 24px;background:#2563eb;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;">Conectar este dispositivo</button>';
-        html += '</div>';
+        html += '<div class="auth-actions"><button class="auth-btn auth-btn--secondary" onclick="_authShowConnectFirst()">Conectar este dispositivo</button></div>';
     } else if (!hasAnyPin) {
-        html += '<div style="text-align:center;padding:20px;color:#f59e0b;font-size:11px;margin-bottom:16px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:8px;">';
-        html += 'Ningun operador tiene PIN configurado. Ve a Panel > Usuarios para asignar PINs.';
-        html += '</div>';
-        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">';
-        operators.forEach(function(op, idx) {
-            var initials = authInitials(op.name);
-            var colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
-            var c = colors[idx % colors.length];
-            html += '<button onclick="authBypassForOperator(' + idx + ')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111827;border:2px solid #1e293b;border-radius:12px;cursor:pointer;transition:border-color 0.2s;" onmouseover="this.style.borderColor=\'' + c + '\'" onmouseout="this.style.borderColor=\'#1e293b\'">';
-            html += '<div style="width:50px;height:50px;border-radius:50%;background:' + c + '20;color:' + c + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">' + escapeHtml(initials) + '</div>';
-            html += '<div style="color:#e2e8f0;font-size:12px;font-weight:700;">' + escapeHtml(op.name) + '</div>';
-            html += '<div style="color:#64748b;font-size:9px;">' + escapeHtml(op.role || 'Técnico') + '</div>';
-            html += '</button>';
-        });
+        html += '<div class="auth-notice auth-notice--warn">Ningún operador tiene PIN configurado. Ve a Panel → Usuarios para asignarlos.</div>';
+        html += '<div class="auth-op-grid">';
+        ordered.forEach(function(op) { html += _authOpCard(op, origIndex(op), 'authBypassForOperator', false); });
         html += '</div>';
     } else {
-        html += '<div style="color:#94a3b8;font-size:12px;text-align:center;margin-bottom:16px;">Selecciona tu usuario</div>';
-        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">';
-        operators.forEach(function(op, idx) {
-            var initials = authInitials(op.name);
-            var colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
-            var c = colors[idx % colors.length];
-            var hasPin = _authHasPin(op);
-            html += '<button onclick="authSelectOperator(' + idx + ')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111827;border:2px solid #1e293b;border-radius:12px;cursor:pointer;transition:border-color 0.2s;' + (!hasPin ? 'opacity:0.4;' : '') + '" ' + (!hasPin ? 'disabled title="Sin PIN configurado"' : '') + ' onmouseover="this.style.borderColor=\'' + c + '\'" onmouseout="this.style.borderColor=\'#1e293b\'">';
-            html += '<div style="width:50px;height:50px;border-radius:50%;background:' + c + '20;color:' + c + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">' + escapeHtml(initials) + '</div>';
-            html += '<div style="color:#e2e8f0;font-size:12px;font-weight:700;">' + escapeHtml(op.name) + '</div>';
-            html += '<div style="color:#64748b;font-size:9px;">' + escapeHtml(op.role || 'Técnico') + (hasPin ? '' : ' (sin PIN)') + '</div>';
-            html += '</button>';
-        });
+        html += '<div class="auth-greeting">' + _authGreeting() + '</div>';
+        html += '<div class="auth-hint">Selecciona tu usuario para continuar</div>';
+        html += '<div class="auth-op-grid">';
+        ordered.forEach(function(op) { html += _authOpCard(op, origIndex(op), 'authSelectOperator', !_authHasPin(op)); });
         html += '</div>';
     }
 
@@ -328,7 +356,7 @@ function authShowLogin() {
 
 // ── Operator selected → show PIN entry ──
 function authSelectOperator(idx) {
-    var operators = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }) : [];
+    var operators = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active && !o.deleted; }) : [];
     var op = operators[idx];
     if (!op) return;
 
@@ -342,56 +370,101 @@ function authSelectOperator(idx) {
     var webAuthnAvailable = window.PublicKeyCredential !== undefined && window.isSecureContext;
 
     // [Fase 4] La longitud del PIN depende del operador: los roles que aprueban
-    // pruebas o administran usuarios usan 6 dígitos. Se lee de `op.pinLen` (lo
-    // graba _pnAssignPin) y si no está, se deduce del rol — así los PINs viejos
-    // de 4 dígitos siguen funcionando hasta que se reasignen.
+    // pruebas o administran usuarios usan 6 dígitos. Se lee de `op.pinLen` y si
+    // no está, se deduce del rol — así los PINs viejos de 4 dígitos siguen
+    // funcionando hasta que se reasignen.
     var pinLen = _authPinLenFor(op);
-    var html = '<div style="margin-top:20px;padding:20px;background:#111827;border:2px solid #6366f1;border-radius:12px;text-align:center;">';
-    html += '<div style="font-size:13px;font-weight:700;color:#c4b5fd;margin-bottom:12px;">' + escapeHtml(op.name) + '</div>';
-    html += '<div style="color:#94a3b8;font-size:11px;margin-bottom:14px;">Ingresa tu PIN de ' + pinLen + ' dígitos</div>';
+    var c = _authAvatarColor(op);
 
-    // PIN inputs
-    html += '<div style="display:flex;justify-content:center;gap:' + (pinLen > 4 ? '7' : '10') + 'px;margin-bottom:16px;">';
+    var html = '<div class="auth-pin-panel' + (pinLen > 4 ? ' auth-pin-6' : '') + '" style="margin-top:' + 'var(--space-lg)' + ';">';
+    html += '<div class="auth-op-avatar" style="margin:0 auto var(--space-sm);background:' + c + '1f;color:' + c + ';">' + escapeHtml(authInitials(op.name)) + '</div>';
+    html += '<div class="auth-pin-who">' + escapeHtml(op.name) + '</div>';
+    html += '<div class="auth-pin-sub">Ingresa tu PIN de ' + pinLen + ' dígitos</div>';
+
+    html += '<div class="auth-pin-dots">';
     for (var i = 0; i < pinLen; i++) {
-        html += '<input type="tel" maxlength="1" class="auth-pin-digit" id="auth-pin-' + i + '" ';
-        html += 'style="width:' + (pinLen > 4 ? '40' : '48') + 'px;height:56px;text-align:center;font-size:24px;font-weight:800;background:#0a0f1a;border:2px solid #334155;border-radius:10px;color:#e2e8f0;outline:none;" ';
-        html += 'oninput="authPinInput(' + i + ')" onkeydown="authPinKeydown(event,' + i + ')" onfocus="this.select()">';
+        html += '<input type="password" inputmode="none" maxlength="1" class="auth-pin-digit" id="auth-pin-' + i + '" ';
+        html += 'oninput="authPinInput(' + i + ')" onkeydown="authPinKeydown(event,' + i + ')" onfocus="this.select()" ';
+        html += 'aria-label="Dígito ' + (i + 1) + ' de ' + pinLen + '">';
     }
     html += '</div>';
 
-    html += '<div id="auth-pin-error" style="color:#ef4444;font-size:11px;margin-bottom:10px;min-height:16px;"></div>';
+    html += '<div id="auth-pin-error" class="auth-pin-error"></div>';
 
-    // Biometric button
+    // Teclado en pantalla: en tablet el teclado del sistema tapa los campos, y
+    // los técnicos trabajan con guantes. `readonly` en los inputs evita que se
+    // abra el teclado nativo sin perder el foco ni la navegación por teclado.
+    html += '<div class="auth-keypad">';
+    ['1','2','3','4','5','6','7','8','9'].forEach(function(k) {
+        html += '<button type="button" class="auth-key" onclick="authKeyPress(\'' + k + '\')">' + k + '</button>';
+    });
+    html += '<button type="button" class="auth-key auth-key--ghost" onclick="authShowLogin()" title="Cambiar usuario">←</button>';
+    html += '<button type="button" class="auth-key" onclick="authKeyPress(\'0\')">0</button>';
+    html += '<button type="button" class="auth-key auth-key--wide" onclick="authKeyBackspace()" title="Borrar">⌫</button>';
+    html += '</div>';
+
+    html += '<div class="auth-actions">';
     if (webAuthnAvailable && hasBiometric) {
-        html += '<button onclick="authVerifyBiometric()" style="width:100%;padding:12px;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:10px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;">';
-        html += '<span style="font-size:20px;">👆</span> Usar huella digital';
-        html += '</button>';
+        html += '<button class="auth-btn auth-btn--ghost" onclick="authVerifyBiometric()">👆 Usar huella digital</button>';
     } else if (webAuthnAvailable && !hasBiometric && _authHasPin(op)) {
-        html += '<div style="font-size:9px;color:#475569;margin-bottom:8px;">Tip: Despues de ingresar tu PIN, podras registrar tu huella digital.</div>';
+        html += '<div style="font-size:var(--font-xs);color:var(--muted);">Tras ingresar tu PIN podrás registrar tu huella.</div>';
     }
-
-    html += '<button onclick="authShowLogin()" style="padding:8px 16px;background:none;color:#64748b;border:1px solid #334155;border-radius:8px;cursor:pointer;font-size:11px;">← Cambiar usuario</button>';
+    html += '<button class="auth-btn auth-btn--ghost" onclick="authShowLogin()">← Cambiar usuario</button>';
+    html += '</div>';
     html += '</div>';
 
     area.innerHTML = html;
 
-    // Focus first input
     setTimeout(function() {
         var first = document.getElementById('auth-pin-0');
         if (first) first.focus();
     }, 100);
 }
 
+/** Escribe un dígito desde el teclado en pantalla en el primer hueco libre. */
+function authKeyPress(digit) {
+    var need = _authPinLenFor(window._authSelectedOp);
+    for (var i = 0; i < need; i++) {
+        var el = document.getElementById('auth-pin-' + i);
+        if (el && !el.value) {
+            el.value = digit;
+            el.classList.add('filled');
+            var next = document.getElementById('auth-pin-' + (i + 1));
+            if (next) next.focus();
+            authCheckComplete();
+            return;
+        }
+    }
+}
+
+/** Borra el último dígito capturado. */
+function authKeyBackspace() {
+    var need = _authPinLenFor(window._authSelectedOp);
+    for (var i = need - 1; i >= 0; i--) {
+        var el = document.getElementById('auth-pin-' + i);
+        if (el && el.value) {
+            el.value = '';
+            el.classList.remove('filled');
+            el.focus();
+            return;
+        }
+    }
+}
+
 function authPinInput(idx) {
     var input = document.getElementById('auth-pin-' + idx);
     if (!input) return;
-    // Only allow digits
+    // Sólo dígitos
     input.value = input.value.replace(/\D/g, '');
-    if (input.value.length === 1 && idx < 3) {
+    input.classList.toggle('filled', !!input.value);
+    input.classList.remove('error');
+    // El límite depende del PIN del operador (4 o 6): antes estaba fijo en 3 y
+    // con 6 dígitos el foco dejaba de avanzar a partir del cuarto.
+    var last = _authPinLenFor(window._authSelectedOp) - 1;
+    if (input.value.length === 1 && idx < last) {
         var next = document.getElementById('auth-pin-' + (idx + 1));
         if (next) next.focus();
     }
-    // Check if all 4 digits entered
     authCheckComplete();
 }
 
@@ -400,7 +473,7 @@ function authPinKeydown(e, idx) {
         var current = document.getElementById('auth-pin-' + idx);
         if (current && current.value === '') {
             var prev = document.getElementById('auth-pin-' + (idx - 1));
-            if (prev) { prev.focus(); prev.value = ''; }
+            if (prev) { prev.focus(); prev.value = ''; prev.classList.remove('filled'); }
         }
     }
 }
@@ -456,7 +529,7 @@ function authVerifyAndLogin(pin) {
     var lock = _authLockoutGet(op.id);
     if (lock.until && lock.until > Date.now()) {
         var secs = Math.ceil((lock.until - Date.now()) / 1000);
-        if (err) err.textContent = 'Bloqueado por intentos fallidos. Reintenta en ' + secs + 's.';
+        if (err) { err.textContent = 'Bloqueado por intentos fallidos. Reintenta en ' + secs + ' s.'; err.classList.add('lock'); }
         return;
     }
 
@@ -492,21 +565,23 @@ function authVerifyAndLogin(pin) {
 
         if (rec.until && rec.until > Date.now()) {
             var mins = Math.round((rec.until - Date.now()) / 60000);
+            if (err) err.classList.add('lock');
             if (err) err.textContent = mins >= 1
                 ? ('Demasiados intentos. Bloqueado ' + mins + ' min.')
                 : 'Demasiados intentos. Bloqueado 60 segundos.';
         } else if (err) {
+            err.classList.remove('lock');
             err.textContent = 'PIN incorrecto (' + rec.fails + '/' + AUTH_MAX_FAILS + '). Intenta de nuevo.';
         }
         var _need = _authPinLenFor(op);
         for (var i = 0; i < _need; i++) {
             var d = document.getElementById('auth-pin-' + i);
-            if (d) { d.value = ''; d.style.borderColor = '#ef4444'; }
+            if (d) { d.value = ''; d.classList.remove('filled'); d.classList.add('error'); }
         }
         setTimeout(function() {
             for (var j = 0; j < _need; j++) {
                 var e2 = document.getElementById('auth-pin-' + j);
-                if (e2) e2.style.borderColor = '#334155';
+                if (e2) e2.classList.remove('error');
             }
             var first = document.getElementById('auth-pin-0');
             if (first) first.focus();
