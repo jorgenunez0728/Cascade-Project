@@ -49,8 +49,9 @@ cat > "$DIR/$OUTPUT" <<'HEADER'
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
 
-    <!-- Alpine.js — lightweight reactivity for UI -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+    <!-- Alpine.js se incrusta al FINAL del body (ver ALPINE_INLINE_PLACEHOLDER):
+         no puede ir aquí porque su build de CDN no espera al DOM por sí mismo
+         (depende del atributo defer) y en el bundle correría antes del body. -->
 
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -81,6 +82,11 @@ done
 
 echo "</script>" >> "$DIR/$OUTPUT"
 echo "" >> "$DIR/$OUTPUT"
+# Marcador: Alpine se inyecta aquí DESPUÉS del strip de console.* (ver más abajo).
+# Va al final del body para replicar la semántica de `defer` — su build de CDN no
+# espera al DOM por sí mismo — y después de los scripts de la app, que registran
+# el listener `alpine:init` del que depende panelAlpineComponent.
+echo "<!--ALPINE_INLINE_PLACEHOLDER-->" >> "$DIR/$OUTPUT"
 echo "</body>" >> "$DIR/$OUTPUT"
 echo "</html>" >> "$DIR/$OUTPUT"
 
@@ -94,6 +100,28 @@ echo "</html>" >> "$DIR/$OUTPUT"
 echo "Stripping console.log/warn/error from production build..."
 # Replace with void 0 instead of deleting to avoid breaking if-without-braces patterns
 perl -0777 -i -pe 's/console\.(log|warn|error)\s*\((?:[^()]*|\((?:[^()]*|\([^()]*\))*\))*\)\s*;?/void 0;/gs' "$DIR/$OUTPUT"
+
+# ═══════════════════════════════════════════════════════════════
+# Inyectar Alpine (vendorizado) — DESPUÉS del strip de console.*
+# El strip corre sobre todo el archivo con una regex; aplicarlo a código
+# minificado de terceros puede romperlo (p. ej. `x?console.warn(a):b`
+# quedaría como `x?void 0;:b`, que es un error de sintaxis).
+# ═══════════════════════════════════════════════════════════════
+echo "Inlining vendor/alpine.min.js (after console strip)..."
+python3 - "$DIR/$OUTPUT" "$DIR/vendor/alpine.min.js" <<'PYEOF'
+import sys
+out_path, alpine_path = sys.argv[1], sys.argv[2]
+with open(alpine_path, encoding='utf-8') as f:
+    alpine = f.read()
+with open(out_path, encoding='utf-8') as f:
+    html = f.read()
+marker = '<!--ALPINE_INLINE_PLACEHOLDER-->'
+if marker not in html:
+    sys.exit('ERROR: marcador de Alpine no encontrado en el bundle')
+html = html.replace(marker, '<script>\n' + alpine + '\n</script>')
+with open(out_path, 'w', encoding='utf-8') as f:
+    f.write(html)
+PYEOF
 
 # ═══════════════════════════════════════════════════════════════
 # [Fase 4.1] Optional minification with terser

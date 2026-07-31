@@ -11,6 +11,414 @@ var pnState = {
 
 var PN_LS_KEY = 'kia_panel_v1';
 
+// ══════════════════════════════════════════════════════════════════════
+// [Fase 3] PERFILES DE OPERADOR — nivel y matriz de habilidades
+// ══════════════════════════════════════════════════════════════════════
+
+// Nivel de seniority. Es una etiqueta humana para turnos y reportes: NO otorga
+// permisos (eso lo hacen el rol y las habilidades certificadas). Dos sistemas de
+// autoridad solapados es justo como esto se pudre.
+var PN_LEVELS = [
+    { id: 'L1', name: 'Aprendiz',        desc: 'Trabaja siempre bajo supervisión' },
+    { id: 'L2', name: 'Operador',        desc: 'Autónomo en lo que tiene certificado' },
+    { id: 'L3', name: 'Especialista',    desc: 'Autónomo, diagnostica y revisa datos de otros' },
+    { id: 'L4', name: 'Líder técnico',   desc: 'Puede certificar a otros' }
+];
+
+// Niveles de dominio por habilidad. 0 no se almacena (ausencia = sin capacitación),
+// para que el documento de Firestore no crezca con ceros.
+var PN_SKILL_LEVELS = [
+    { lvl: 0, name: 'Sin capacitación', color: '#e2e8f0', text: '#94a3b8' },
+    { lvl: 1, name: 'En entrenamiento', color: '#fef3c7', text: '#b45309' },
+    { lvl: 2, name: 'Autónomo',         color: '#d1fae5', text: '#047857' },
+    { lvl: 3, name: 'Puede certificar', color: '#dbeafe', text: '#1d4ed8' }
+];
+
+// Catálogo estático: vive en el código, no en los datos. Así se versiona con el
+// build, no puede divergir entre dispositivos y no infla el documento sincronizado.
+// Sólo las evaluaciones por operador son datos.
+//   critical      → se vigila la cobertura del laboratorio
+//   recertMonths  → vence y hay que recertificar (hallazgo típico de ISO 17025)
+//   grants/minLvl → certificar esta habilidad otorga ese permiso (ver _authSkillGrants)
+//
+// [Fase 3.5] Esto es ahora sólo la SEMILLA. El catálogo vivo es editable por el
+// laboratorio y se sincroniza: pnState.skillCatalog (plano) + pnState.skillGroups.
+// Se siembra desde aquí una única vez en pnMigrateOperators (opsSchema 3).
+var PN_SKILL_CATALOG_SEED = [
+    { group: 'Ciclos de prueba', items: [
+        { id: 'ftp75', name: 'FTP-75', critical: true },
+        { id: 'hwfet', name: 'HWFET' },
+        { id: 'us06',  name: 'US06' },
+        { id: 'sc03',  name: 'SC03' },
+        { id: 'wltp',  name: 'WLTP', critical: true },
+        { id: 'nedc',  name: 'NEDC' }
+    ]},
+    { group: 'Equipo', items: [
+        { id: 'dyno',      name: 'Dinamómetro de chasis', critical: true, recertMonths: 12 },
+        { id: 'cvs',       name: 'CVS / bolsas' },
+        { id: 'soak',      name: 'Cámara de soak' },
+        { id: 'shed',      name: 'SHED / evaporativas' },
+        { id: 'ev_charge', name: 'Carga EV 120/220V' }
+    ]},
+    { group: 'Analítica', items: [
+        { id: 'gas_cal',  name: 'Calibración de analizadores', critical: true, recertMonths: 12 },
+        { id: 'gas_read', name: 'Lectura e interpretación de gases' },
+        { id: 'pm_weigh', name: 'Pesaje de filtros / PM' }
+    ]},
+    { group: 'Calidad y regulación', items: [
+        { id: 'release',  name: 'Liberador de prueba', grants: 'test.release', minLvl: 2 },
+        { id: 'cop_appr', name: 'Aprobador CoP', critical: true, recertMonths: 24, grants: 'test.approve', minLvl: 3 },
+        { id: 'nom044',   name: 'NOM-044 / EPA Tier 3' },
+        { id: 'iso17025', name: 'Documentación ISO 17025' }
+    ]}
+];
+
+// ── [Fase 3.5] Catálogo editable: capa de datos ──
+// pnState.skillCatalog: lista PLANA de {id, name, group, critical, recertMonths,
+//   grants, minLvl, order, archived, archivedAt, updatedAt}
+// pnState.skillGroups: orden de los grupos (array de strings)
+// pnState.matrixCols:  {hidden:[opIds], order:[opIds]} — disposición de columnas
+
+/** Catálogo vivo (plano). Cae a la semilla si aún no se ha migrado. */
+function pnCatalog() {
+    if (pnState.skillCatalog && pnState.skillCatalog.length) return pnState.skillCatalog;
+    return _pnSeedCatalogFlat();
+}
+
+function _pnSeedCatalogFlat() {
+    var out = [], i = 0;
+    PN_SKILL_CATALOG_SEED.forEach(function(g) {
+        g.items.forEach(function(s) {
+            out.push(Object.assign({ group: g.group, order: i++, archived: false }, s));
+        });
+    });
+    return out;
+}
+
+/** Orden de grupos: el guardado, o el de la semilla. */
+function pnGroupOrder() {
+    if (pnState.skillGroups && pnState.skillGroups.length) return pnState.skillGroups.slice();
+    return PN_SKILL_CATALOG_SEED.map(function(g) { return g.group; });
+}
+
+/** Habilidades activas (no archivadas), ordenadas por grupo y `order`. */
+function pnSkillsFlat() {
+    return pnCatalog().filter(function(s) { return !s.archived; }).sort(_pnSkillSort);
+}
+
+/** Habilidades archivadas — se muestran en la sección "Anteriores". */
+function pnSkillsArchived() {
+    return pnCatalog().filter(function(s) { return !!s.archived; }).sort(_pnSkillSort);
+}
+
+function _pnSkillSort(a, b) {
+    var go = pnGroupOrder();
+    var ga = go.indexOf(a.group), gb = go.indexOf(b.group);
+    if (ga === -1) ga = 999;
+    if (gb === -1) gb = 999;
+    if (ga !== gb) return ga - gb;
+    return (a.order || 0) - (b.order || 0);
+}
+
+/**
+ * Filas de la matriz ya aplanadas: encabezados de grupo y habilidades en una sola
+ * lista. Se hace aquí y no con x-for anidados porque anidar <tbody> dentro de
+ * <tbody> es HTML inválido y el navegador lo reacomoda, rompiendo la alineación
+ * de las columnas.
+ * @param {boolean} archived - true para las filas de la sección "Anteriores".
+ */
+function pnSkillRows(archived) {
+    var list = archived ? pnSkillsArchived() : pnSkillsFlat();
+    var rows = [], lastGroup = null;
+    list.forEach(function(s) {
+        if (s.group !== lastGroup) {
+            rows.push({ kind: 'group', key: 'g_' + (archived ? 'arch_' : '') + s.group, label: s.group });
+            lastGroup = s.group;
+        }
+        rows.push({ kind: 'skill', key: s.id, skill: s });
+    });
+    return rows;
+}
+
+/** Definición de una habilidad por id (incluye archivadas), o null. */
+function pnSkillDef(skillId) {
+    var all = pnCatalog();
+    for (var i = 0; i < all.length; i++) { if (all[i].id === skillId) return all[i]; }
+    return null;
+}
+
+// ── CRUD del catálogo (requiere users.manage; ver nota de seguridad) ──
+// NOTA: una habilidad puede otorgar permisos (`grants`), así que quien edita el
+// catálogo puede alterar quién aprueba pruebas. Por eso va al mismo nivel que
+// administrar usuarios y todo cambio queda auditado.
+
+function _pnCatalogEnsure() {
+    if (!pnState.skillCatalog || !pnState.skillCatalog.length) {
+        pnState.skillCatalog = _pnSeedCatalogFlat();
+    }
+    if (!pnState.skillGroups || !pnState.skillGroups.length) {
+        pnState.skillGroups = PN_SKILL_CATALOG_SEED.map(function(g) { return g.group; });
+    }
+    return pnState.skillCatalog;
+}
+
+function _pnSlugId(name) {
+    var base = String(name || '').toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 24) || 'hab';
+    var all = pnCatalog(), id = base, n = 2;
+    while (all.some(function(s) { return s.id === id; })) { id = base + '_' + (n++); }
+    return id;
+}
+
+/** Alta de habilidad. Devuelve el id nuevo o null. */
+function pnSkillAdd(name, group, opts) {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'editar el catálogo de habilidades')) return null;
+    name = String(name || '').trim();
+    if (!name) { if (typeof showToast === 'function') showToast('Escribe un nombre para la habilidad', 'error'); return null; }
+    if (/[<>]/.test(name)) { if (typeof showToast === 'function') showToast('El nombre no puede contener < o >', 'error'); return null; }
+    var cat = _pnCatalogEnsure();
+    group = String(group || '').trim() || 'General';
+    var maxOrder = cat.reduce(function(m, s) { return s.group === group ? Math.max(m, s.order || 0) : m; }, -1);
+    var skill = {
+        id: _pnSlugId(name), name: name, group: group,
+        critical: !!(opts && opts.critical),
+        recertMonths: (opts && opts.recertMonths) ? parseInt(opts.recertMonths, 10) : 0,
+        grants: (opts && opts.grants) || '', minLvl: (opts && opts.minLvl) || 2,
+        order: maxOrder + 1, archived: false, updatedAt: new Date().toISOString()
+    };
+    cat.push(skill);
+    if (pnState.skillGroups.indexOf(group) === -1) pnState.skillGroups.push(group);
+    pnSave();
+    if (typeof auditLog === 'function') auditLog('pn', 'skill_added', { type: 'skill', id: skill.id, label: name }, 'Grupo: ' + group);
+    return skill.id;
+}
+
+/** Edición de habilidad (nombre, grupo, crítica, recertificación, permiso). */
+function pnSkillUpdate(skillId, patch) {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'editar el catálogo de habilidades')) return false;
+    var cat = _pnCatalogEnsure(), sk = null;
+    for (var i = 0; i < cat.length; i++) { if (cat[i].id === skillId) { sk = cat[i]; break; } }
+    if (!sk || !patch) return false;
+    if (patch.name !== undefined) {
+        var nm = String(patch.name).trim();
+        if (!nm || /[<>]/.test(nm)) { if (typeof showToast === 'function') showToast('Nombre inválido', 'error'); return false; }
+        sk.name = nm;
+    }
+    if (patch.group !== undefined) {
+        sk.group = String(patch.group).trim() || 'General';
+        if (pnState.skillGroups.indexOf(sk.group) === -1) pnState.skillGroups.push(sk.group);
+    }
+    if (patch.critical !== undefined) sk.critical = !!patch.critical;
+    if (patch.recertMonths !== undefined) sk.recertMonths = parseInt(patch.recertMonths, 10) || 0;
+    if (patch.grants !== undefined) sk.grants = patch.grants || '';
+    if (patch.minLvl !== undefined) sk.minLvl = parseInt(patch.minLvl, 10) || 2;
+    if (patch.order !== undefined) sk.order = parseInt(patch.order, 10) || 0;
+    sk.updatedAt = new Date().toISOString();
+    pnSave();
+    if (typeof auditLog === 'function') auditLog('pn', 'skill_updated', { type: 'skill', id: sk.id, label: sk.name });
+    return true;
+}
+
+/**
+ * Archiva (no borra) una habilidad. Las certificaciones de los operadores quedan
+ * INTACTAS: en un laboratorio acreditado, borrar un registro de competencia sin
+ * rastro es justo lo que no debe poder hacerse. Reactivarla la devuelve completa.
+ */
+function pnSkillArchive(skillId, archived) {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'archivar habilidades')) return false;
+    var cat = _pnCatalogEnsure(), sk = null;
+    for (var i = 0; i < cat.length; i++) { if (cat[i].id === skillId) { sk = cat[i]; break; } }
+    if (!sk) return false;
+    sk.archived = (archived === undefined) ? true : !!archived;
+    sk.archivedAt = sk.archived ? new Date().toISOString() : '';
+    sk.updatedAt = new Date().toISOString();
+    pnSave();
+    if (typeof auditLog === 'function') {
+        auditLog('pn', sk.archived ? 'skill_archived' : 'skill_restored',
+                 { type: 'skill', id: sk.id, label: sk.name },
+                 'Las certificaciones se conservan');
+    }
+    return true;
+}
+
+/** Mueve una habilidad dentro de su grupo (dir -1 arriba, +1 abajo). */
+function pnSkillMove(skillId, dir) {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'reordenar habilidades')) return false;
+    var sk = pnSkillDef(skillId);
+    if (!sk) return false;
+    var siblings = pnCatalog().filter(function(s) { return s.group === sk.group && !s.archived; }).sort(_pnSkillSort);
+    var idx = siblings.findIndex(function(s) { return s.id === skillId; });
+    var swapWith = siblings[idx + (dir < 0 ? -1 : 1)];
+    if (!swapWith) return false;
+    var tmp = sk.order || 0;
+    sk.order = swapWith.order || 0;
+    swapWith.order = tmp;
+    sk.updatedAt = swapWith.updatedAt = new Date().toISOString();
+    pnSave();
+    return true;
+}
+
+/** Mueve un grupo completo en el orden (dir -1 arriba, +1 abajo). */
+function pnGroupMove(group, dir) {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'reordenar grupos')) return false;
+    _pnCatalogEnsure();
+    var g = pnState.skillGroups, i = g.indexOf(group), j = i + (dir < 0 ? -1 : 1);
+    if (i === -1 || j < 0 || j >= g.length) return false;
+    var t = g[i]; g[i] = g[j]; g[j] = t;
+    pnSave();
+    return true;
+}
+
+// ── Columnas de la matriz (operadores visibles y su orden) ──
+function pnMatrixCols() {
+    if (!pnState.matrixCols) pnState.matrixCols = { hidden: [], order: [] };
+    return pnState.matrixCols;
+}
+
+/** Operadores que se muestran como columnas, en el orden configurado. */
+function pnMatrixOperators() {
+    var mc = pnMatrixCols();
+    var ops = (pnState.operators || []).filter(function(o) {
+        return o.active && !o.deleted && mc.hidden.indexOf(String(o.id)) === -1;
+    });
+    if (mc.order && mc.order.length) {
+        ops.sort(function(a, b) {
+            var ia = mc.order.indexOf(String(a.id)), ib = mc.order.indexOf(String(b.id));
+            if (ia === -1) ia = 999;
+            if (ib === -1) ib = 999;
+            return ia - ib;
+        });
+    }
+    return ops;
+}
+
+function pnMatrixToggleCol(opId) {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'ocultar columnas')) return false;
+    var mc = pnMatrixCols(), id = String(opId), i = mc.hidden.indexOf(id);
+    if (i === -1) mc.hidden.push(id); else mc.hidden.splice(i, 1);
+    pnSave();
+    return true;
+}
+
+function pnMatrixMoveCol(opId, dir) {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'reordenar columnas')) return false;
+    var mc = pnMatrixCols();
+    if (!mc.order || !mc.order.length) {
+        mc.order = pnMatrixOperators().map(function(o) { return String(o.id); });
+    }
+    var id = String(opId), i = mc.order.indexOf(id), j = i + (dir < 0 ? -1 : 1);
+    if (i === -1 || j < 0 || j >= mc.order.length) return false;
+    var t = mc.order[i]; mc.order[i] = mc.order[j]; mc.order[j] = t;
+    pnSave();
+    return true;
+}
+
+/** Evaluación de un operador en una habilidad: {lvl, certifiedBy, certifiedAt, expiresAt}. */
+function pnSkillOf(op, skillId) {
+    if (!op || !op.skills) return { lvl: 0 };
+    var e = op.skills[skillId];
+    if (!e) return { lvl: 0 };
+    if (typeof e === 'number') return { lvl: e };   // tolera un formato plano antiguo
+    return e;
+}
+
+/** ¿La certificación venció? Sólo aplica a habilidades con recertMonths. */
+function pnSkillExpired(entry) {
+    return !!(entry && entry.expiresAt && entry.expiresAt < new Date().toISOString());
+}
+
+/** ¿Vence dentro de N días (por defecto 30)? */
+function pnSkillExpiringSoon(entry, days) {
+    if (!entry || !entry.expiresAt || pnSkillExpired(entry)) return false;
+    var limit = new Date(Date.now() + (days || 30) * 86400000).toISOString();
+    return entry.expiresAt <= limit;
+}
+
+/** Resumen de habilidades de un operador para las tarjetas de la lista. */
+function pnSkillSummary(op) {
+    var total = pnSkillsFlat().length, have = 0, expired = 0, soon = 0;
+    pnSkillsFlat().forEach(function(s) {
+        var e = pnSkillOf(op, s.id);
+        if ((e.lvl || 0) > 0) have++;
+        if (pnSkillExpired(e)) expired++;
+        else if (pnSkillExpiringSoon(e)) soon++;
+    });
+    return { total: total, have: have, expired: expired, soon: soon };
+}
+
+/**
+ * Cobertura del laboratorio en una habilidad: cuántos operadores activos la tienen
+ * en nivel ≥2 y vigente. Responde "¿quién puede correr FTP-75 mañana?", que es la
+ * pregunta que hace que la matriz se mantenga al día en vez de llenarse una vez.
+ */
+function pnSkillCoverage(skillId) {
+    var ops = (pnState.operators || []).filter(function(o) { return o.active && !o.deleted; });
+    var n = 0;
+    ops.forEach(function(o) {
+        var e = pnSkillOf(o, skillId);
+        if ((e.lvl || 0) >= 2 && !pnSkillExpired(e)) n++;
+    });
+    return n;
+}
+
+/** Asigna/actualiza una habilidad. Calcula el vencimiento desde recertMonths. */
+function pnOpSetSkill(opId, skillId, lvl, meta) {
+    var ops = pnState.operators || [];
+    var op = null;
+    for (var i = 0; i < ops.length; i++) { if (String(ops[i].id) === String(opId)) { op = ops[i]; break; } }
+    if (!op) return false;
+    var def = pnSkillDef(skillId);
+    if (!def) return false;
+    if (!op.skills) op.skills = {};
+    lvl = Math.max(0, Math.min(3, parseInt(lvl, 10) || 0));
+
+    if (lvl === 0) {
+        delete op.skills[skillId];   // ausencia = sin capacitación, no guardamos ceros
+    } else {
+        var now = new Date();
+        var entry = {
+            lvl: lvl,
+            certifiedBy: (meta && meta.certifiedBy) || (typeof authGetCurrentUserName === 'function' ? authGetCurrentUserName('') : ''),
+            certifiedAt: (meta && meta.certifiedAt) || now.toISOString()
+        };
+        if (def.recertMonths) {
+            var exp = new Date(entry.certifiedAt);
+            exp.setMonth(exp.getMonth() + def.recertMonths);
+            entry.expiresAt = exp.toISOString();
+        }
+        op.skills[skillId] = entry;
+    }
+    // Marca de sección: el merge compara skillsUpdatedAt por separado, para que
+    // certificar en la tablet y editar el perfil en el teléfono no se pisen.
+    op.skillsUpdatedAt = new Date().toISOString();
+    op.updatedAt = op.skillsUpdatedAt;
+    pnSave();
+    if (typeof auditLog === 'function') {
+        auditLog('pn', 'operator_skill_set', { type: 'operator', id: op.id, label: op.name },
+                 def.name + ' → nivel ' + lvl);
+    }
+    return true;
+}
+
+/** Actualiza campos de perfil (no credenciales, no habilidades). */
+function pnOpUpdateProfile(opId, patch) {
+    var ops = pnState.operators || [];
+    var op = null;
+    for (var i = 0; i < ops.length; i++) { if (String(ops[i].id) === String(opId)) { op = ops[i]; break; } }
+    if (!op || !patch) return false;
+    ['employeeId', 'email', 'phone', 'shift', 'area', 'notes', 'hiredAt', 'level'].forEach(function(f) {
+        if (patch[f] !== undefined) op[f] = patch[f];
+    });
+    op.profileUpdatedAt = new Date().toISOString();
+    op.updatedAt = op.profileUpdatedAt;
+    pnSave();
+    if (typeof auditLog === 'function') {
+        auditLog('pn', 'operator_profile_updated', { type: 'operator', id: op.id, label: op.name });
+    }
+    return true;
+}
+
 function pnInit() {
     try {
         var saved = localStorage.getItem(PN_LS_KEY);
@@ -32,6 +440,41 @@ function pnInit() {
         pnSave();
     }
     if (!pnState.tasks) pnState.tasks = []; // v15.9: tareas manuales del tablero HOY
+    pnMigrateOperators();
+}
+
+/**
+ * [Fase 3] Migración de esquema del roster. Sólo AÑADE campos, nunca borra, y es
+ * idempotente — puede correr en cada arranque sin efecto tras la primera vez.
+ */
+function pnMigrateOperators() {
+    // [Fase 3.5] Esquema 3: siembra del catálogo editable. Se hace antes del
+    // early-return para que instalaciones que ya migraron al 2 también lo reciban.
+    if (!pnState.opsSchema || pnState.opsSchema < 3) {
+        if (!pnState.skillCatalog || !pnState.skillCatalog.length) {
+            pnState.skillCatalog = _pnSeedCatalogFlat();
+        }
+        if (!pnState.skillGroups || !pnState.skillGroups.length) {
+            pnState.skillGroups = PN_SKILL_CATALOG_SEED.map(function(g) { return g.group; });
+        }
+        if (!pnState.matrixCols) pnState.matrixCols = { hidden: [], order: [] };
+    }
+    if (pnState.opsSchema >= 2) { pnState.opsSchema = 3; pnSave(); return; }
+    (pnState.operators || []).forEach(function(op) {
+        if (!op) return;
+        if (!op.skills) op.skills = {};
+        if (!op.level) op.level = (op.role === 'Practicante') ? 'L1' : 'L2';
+        if (!op.updatedAt) op.updatedAt = op.createdAt || new Date().toISOString();
+        if (op.profileUpdatedAt === undefined) op.profileUpdatedAt = '';
+        if (op.skillsUpdatedAt === undefined) op.skillsUpdatedAt = '';
+        if (op.employeeId === undefined) op.employeeId = '';
+        if (op.notes === undefined) op.notes = '';
+        if (op.hiredAt === undefined) op.hiredAt = '';
+    });
+    // Resto del selector de operador previo al muro de PIN (Fase 2 borró quien lo escribía)
+    try { localStorage.removeItem('kia_current_operator'); } catch(e) {}
+    pnState.opsSchema = 3;
+    pnSave();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2081,6 +2524,23 @@ function panelAlpineComponent() {
         newOpName: '',
         newOpRole: 'Técnico',
         roles: ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practicante'],
+        // [Fase 3] Perfiles y matriz de habilidades
+        usersView: 'list',        // 'list' | 'profile' | 'matrix'
+        profileOpId: null,        // operador abierto en la vista de perfil
+        skillLevels: PN_SKILL_LEVELS,
+        levels: PN_LEVELS,
+        // Estas tres son PROPIEDADES, no funciones, a propósito: con x-for sobre una
+        // llamada a función Alpine reevalúa y reconstruye el subárbol, y los
+        // <template x-if> anidados dentro de cada <tr> quedaban sin inicializar
+        // (filas generadas, celdas vacías). Se refrescan con _bump().
+        skillRows: pnSkillRows(false),
+        archRows: pnSkillRows(true),
+        cols: [],
+        showArchived: false,      // sección "Anteriores", colapsada por defecto
+        showColCfg: false,        // panel de configuración de columnas
+        newSkillName: '',
+        newSkillGroup: '',
+        editSkillId: null,
 
         // Form state — Shift Log
         shiftOperator: '',
@@ -2115,21 +2575,28 @@ function panelAlpineComponent() {
             // Auto-select current user for shift log
             var authUser = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
             if (authUser) this.shiftOperator = authUser.name;
+            // [Fase 3.5] Vistas derivadas de la matriz. Alpine puede inicializar ANTES
+            // de que pnInit() cargue el roster desde localStorage (`operators` llega
+            // vacío), así que además de sembrar aquí, se refresca en cada pn:refresh,
+            // cambio de pestaña y data:saved. Sin esto la matriz queda sin columnas.
+            this._bump();
 
             // Listen for tab switches and refreshes from legacy code
             window.addEventListener('pn:tab-switch', function(e) {
                 self.activeTab = e.detail.tab;
+                self._bump();
             });
             window.addEventListener('pn:refresh', function() {
                 // Re-sync from pnState (in case legacy code modified it)
                 self.operators = pnState.operators;
                 self.shiftLog = pnState.shiftLog;
                 self.shiftReports = pnState.shiftReports || [];
+                self._bump();
             });
             // [R6] Listen for cross-module data changes (COP15, Inventory, etc.)
             window.addEventListener('data:saved', function() {
                 // Force Alpine to re-evaluate computed properties (alerts, calendar, etc.)
-                self.operators = self.operators;
+                self._bump();
             });
         },
 
@@ -2161,6 +2628,95 @@ function panelAlpineComponent() {
         // [Fase 2] Expuesto para ocultar controles según el rol: x-show="can('users.manage')".
         // Ocultar es sólo UX — el candado real es el authRequire() al inicio de cada método.
         can: function(perm) { return (typeof authCan === 'function') ? authCan(perm) : true; },
+
+        // ── [Fase 3] Perfiles y matriz de habilidades ──
+        openProfile: function(opId) { this.profileOpId = opId; this.usersView = 'profile'; },
+        closeProfile: function() { this.profileOpId = null; this.usersView = 'list'; },
+        profileOp: function() {
+            var id = this.profileOpId;
+            if (id == null) return null;
+            for (var i = 0; i < this.operators.length; i++) {
+                if (String(this.operators[i].id) === String(id)) return this.operators[i];
+            }
+            return null;
+        },
+        archivedCount: function() { return pnSkillsArchived().length; },
+        allOpsForCfg: function() {
+            return (this.operators || []).filter(function(o) { return o.active && !o.deleted; });
+        },
+        colHidden: function(opId) { return pnMatrixCols().hidden.indexOf(String(opId)) !== -1; },
+        groupsList: function() { return pnGroupOrder(); },
+        skillCatalogFlat: function() { return pnSkillsFlat(); },
+
+        addSkill: function() {
+            var id = pnSkillAdd(this.newSkillName, this.newSkillGroup || 'General');
+            if (id) { this.newSkillName = ''; this._bump(); showToast('Habilidad agregada', 'success'); }
+        },
+        renameSkill: function(skillId, name) { if (pnSkillUpdate(skillId, { name: name })) this._bump(); },
+        setSkillGroup: function(skillId, group) { if (pnSkillUpdate(skillId, { group: group })) this._bump(); },
+        setSkillCritical: function(skillId, v) { if (pnSkillUpdate(skillId, { critical: v })) this._bump(); },
+        setSkillRecert: function(skillId, months) { if (pnSkillUpdate(skillId, { recertMonths: months })) this._bump(); },
+        archiveSkill: function(skillId) {
+            var self = this;
+            var sk = pnSkillDef(skillId);
+            if (!sk) return;
+            showConfirmDialog({
+                title: 'Archivar habilidad',
+                message: '¿Archivar "' + sk.name + '"? Sale de la matriz activa pero TODAS las certificaciones se conservan y podrás reactivarla con su historial.',
+                type: 'warning', confirmText: 'Archivar', cancelText: 'Cancelar'
+            }).then(function(ok) {
+                if (!ok) return;
+                if (pnSkillArchive(skillId, true)) { self._bump(); showToast('Habilidad archivada (certificaciones conservadas)', 'info'); }
+            });
+        },
+        restoreSkill: function(skillId) {
+            if (pnSkillArchive(skillId, false)) { this._bump(); showToast('Habilidad reactivada con su historial', 'success'); }
+        },
+        moveSkill: function(skillId, dir) { if (pnSkillMove(skillId, dir)) this._bump(); },
+        moveGroup: function(group, dir) { if (pnGroupMove(group, dir)) this._bump(); },
+        toggleCol: function(opId) { if (pnMatrixToggleCol(opId)) this._bump(); },
+        moveCol: function(opId, dir) { if (pnMatrixMoveCol(opId, dir)) this._bump(); },
+        /** Refresca las vistas derivadas tras mutar pnState fuera de la reactividad de Alpine. */
+        _bump: function() {
+            this.skillRows = pnSkillRows(false);
+            this.archRows = pnSkillRows(true);
+            this.cols = pnMatrixOperators();
+            this.operators = pnState.operators.slice();
+        },
+
+        skillEntry: function(op, skillId) { return pnSkillOf(op, skillId); },
+        skillLevelMeta: function(lvl) { return PN_SKILL_LEVELS[Math.max(0, Math.min(3, lvl || 0))]; },
+        skillSummary: function(op) { return pnSkillSummary(op); },
+        skillExpired: function(op, skillId) { return pnSkillExpired(pnSkillOf(op, skillId)); },
+        skillSoon: function(op, skillId) { return pnSkillExpiringSoon(pnSkillOf(op, skillId)); },
+        skillCoverage: function(skillId) { return pnSkillCoverage(skillId); },
+        levelName: function(levelId) {
+            for (var i = 0; i < PN_LEVELS.length; i++) { if (PN_LEVELS[i].id === levelId) return PN_LEVELS[i].name; }
+            return 'Operador';
+        },
+        /** Ciclo 0→1→2→3→0 al tocar una celda de la matriz. */
+        cycleSkill: function(opId, skillId) {
+            if (typeof authRequire === 'function' && !authRequire('users.skills', 'certificar habilidades')) return;
+            var op = null;
+            for (var i = 0; i < this.operators.length; i++) {
+                if (String(this.operators[i].id) === String(opId)) { op = this.operators[i]; break; }
+            }
+            if (!op) return;
+            var cur = pnSkillOf(op, skillId).lvl || 0;
+            pnOpSetSkill(opId, skillId, (cur + 1) % 4);
+            this.operators = pnState.operators;   // refresca la vista de Alpine
+        },
+        setSkillLevel: function(opId, skillId, lvl) {
+            if (typeof authRequire === 'function' && !authRequire('users.skills', 'certificar habilidades')) return;
+            pnOpSetSkill(opId, skillId, parseInt(lvl, 10));
+            this.operators = pnState.operators;
+        },
+        saveProfile: function(opId, field, value) {
+            if (typeof authRequire === 'function' && !authRequire('users.manage', 'editar el perfil')) return;
+            var patch = {}; patch[field] = value;
+            pnOpUpdateProfile(opId, patch);
+            this.operators = pnState.operators;
+        },
 
         addOperator: function() {
             if (typeof authRequire === 'function' && !authRequire('users.manage', 'agregar operadores')) return;
@@ -3068,5 +3624,6 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-shift-help': { title: 'Bitácora', text: 'Registra aquí eventos de tu turno: inicio, incidencias, mantenimiento, calibraciones y observaciones.' },
     'pn-alerts-help': { title: 'Resumen de alertas', text: 'Conteo de alertas Críticas / Altas / Medias activas ahora mismo en todo el laboratorio.' },
     'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
-    'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' }
+    'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
+    'pn-skill-matrix': { title: 'Matriz de competencias', text: 'Quién está capacitado para qué. Los niveles son: 1 en entrenamiento (supervisado), 2 autónomo, 3 puede certificar a otros. Las habilidades con recertificación (dinamómetro, calibración de analizadores, aprobador CoP) vencen solas y se marcan en rojo. La fila Cobertura te dice cuántos operadores activos pueden hacer esa prueba hoy — si marca 0 en una habilidad crítica, el laboratorio no puede cubrirla.' }
 });
