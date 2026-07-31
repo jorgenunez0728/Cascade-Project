@@ -125,6 +125,17 @@ function _authHasPin(op) {
     return !!(op && (op.pinHash2 || op.pinHash));
 }
 
+/**
+ * [Fase 4] Longitud del PIN de este operador. Prioriza `pinLen` (grabado al
+ * asignarlo) para no romper a quien conserva un PIN de 4 dígitos aunque su rol
+ * ya exija 6; sólo al reasignarlo se aplica el mínimo del rol.
+ */
+function _authPinLenFor(op) {
+    if (op && op.pinLen) return op.pinLen;
+    if (typeof pnPinLenForRole === 'function' && op) return pnPinLenForRole(op.role || 'Técnico');
+    return 4;
+}
+
 // ── Initialization ──
 // [v15.6] Muro de PIN reactivado (decisión de seguridad del usuario): sin
 // sesión válida (kia_auth_session con expiresAt vigente, 12h) la app muestra
@@ -330,15 +341,20 @@ function authSelectOperator(idx) {
     var hasBiometric = authHasStoredCredential(op.id);
     var webAuthnAvailable = window.PublicKeyCredential !== undefined && window.isSecureContext;
 
+    // [Fase 4] La longitud del PIN depende del operador: los roles que aprueban
+    // pruebas o administran usuarios usan 6 dígitos. Se lee de `op.pinLen` (lo
+    // graba _pnAssignPin) y si no está, se deduce del rol — así los PINs viejos
+    // de 4 dígitos siguen funcionando hasta que se reasignen.
+    var pinLen = _authPinLenFor(op);
     var html = '<div style="margin-top:20px;padding:20px;background:#111827;border:2px solid #6366f1;border-radius:12px;text-align:center;">';
     html += '<div style="font-size:13px;font-weight:700;color:#c4b5fd;margin-bottom:12px;">' + escapeHtml(op.name) + '</div>';
-    html += '<div style="color:#94a3b8;font-size:11px;margin-bottom:14px;">Ingresa tu PIN de 4 digitos</div>';
+    html += '<div style="color:#94a3b8;font-size:11px;margin-bottom:14px;">Ingresa tu PIN de ' + pinLen + ' dígitos</div>';
 
     // PIN inputs
-    html += '<div style="display:flex;justify-content:center;gap:10px;margin-bottom:16px;">';
-    for (var i = 0; i < 4; i++) {
+    html += '<div style="display:flex;justify-content:center;gap:' + (pinLen > 4 ? '7' : '10') + 'px;margin-bottom:16px;">';
+    for (var i = 0; i < pinLen; i++) {
         html += '<input type="tel" maxlength="1" class="auth-pin-digit" id="auth-pin-' + i + '" ';
-        html += 'style="width:48px;height:56px;text-align:center;font-size:24px;font-weight:800;background:#0a0f1a;border:2px solid #334155;border-radius:10px;color:#e2e8f0;outline:none;" ';
+        html += 'style="width:' + (pinLen > 4 ? '40' : '48') + 'px;height:56px;text-align:center;font-size:24px;font-weight:800;background:#0a0f1a;border:2px solid #334155;border-radius:10px;color:#e2e8f0;outline:none;" ';
         html += 'oninput="authPinInput(' + i + ')" onkeydown="authPinKeydown(event,' + i + ')" onfocus="this.select()">';
     }
     html += '</div>';
@@ -390,13 +406,14 @@ function authPinKeydown(e, idx) {
 }
 
 function authCheckComplete() {
+    var need = _authPinLenFor(window._authSelectedOp);
     var pin = '';
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < need; i++) {
         var d = document.getElementById('auth-pin-' + i);
         if (!d || d.value.length !== 1) return;
         pin += d.value;
     }
-    // All 4 digits entered — verify
+    // Todos los dígitos capturados — verificar
     authVerifyAndLogin(pin);
 }
 
@@ -481,12 +498,13 @@ function authVerifyAndLogin(pin) {
         } else if (err) {
             err.textContent = 'PIN incorrecto (' + rec.fails + '/' + AUTH_MAX_FAILS + '). Intenta de nuevo.';
         }
-        for (var i = 0; i < 4; i++) {
+        var _need = _authPinLenFor(op);
+        for (var i = 0; i < _need; i++) {
             var d = document.getElementById('auth-pin-' + i);
             if (d) { d.value = ''; d.style.borderColor = '#ef4444'; }
         }
         setTimeout(function() {
-            for (var j = 0; j < 4; j++) {
+            for (var j = 0; j < _need; j++) {
                 var e2 = document.getElementById('auth-pin-' + j);
                 if (e2) e2.style.borderColor = '#334155';
             }
@@ -765,7 +783,34 @@ function authVerifyBiometric() {
     };
 
     navigator.credentials.get(getOptions).then(function(assertion) {
-        // Biometric verified — create session
+        // ─────────────────────────────────────────────────────────────────
+        // QUÉ ES Y QUÉ NO ES ESTO (leer antes de tocarlo):
+        // NO verificamos la firma de la aserción: no hay servidor que emita ni
+        // valide el challenge, así que el mismo cliente lo genera y lo comprueba
+        // — eso no demuestra nada frente a quien controla el navegador.
+        // Lo que SÍ hace, y por eso se conserva: el autenticador de la plataforma
+        // verifica la biometría del usuario (userVerification:'required') y sólo
+        // responde si el credencial es el que registró ESTE operador en ESTE
+        // dispositivo. Es un gesto de desbloqueo del dispositivo, equivalente a
+        // un PIN recordado. NO es un segundo factor.
+        // Lo mínimo que sí podemos comprobar en cliente, y que antes no se hacía:
+        // que la aserción corresponda al credencial almacenado del operador.
+        // Sin esto, cualquier resolución de credentials.get() abría la sesión.
+        // ─────────────────────────────────────────────────────────────────
+        var okId = false;
+        try {
+            var got = new Uint8Array(assertion.rawId);
+            okId = got.length === credentialId.length &&
+                   got.every(function(b, i) { return b === credentialId[i]; });
+        } catch (e) { okId = false; }
+
+        if (!okId) {
+            if (typeof auditLog === 'function') auditLog('auth', 'webauthn_mismatch', { type: 'operator', label: op.name });
+            var e1 = document.getElementById('auth-pin-error');
+            if (e1) e1.textContent = 'La huella no corresponde a este operador. Usa tu PIN.';
+            return;
+        }
+        if (typeof auditLog === 'function') auditLog('auth', 'login', { type: 'operator', label: op.name }, 'Desbloqueo biométrico del dispositivo');
         authCreateSession(op);
     }).catch(function(err) {
         console.warn('WebAuthn verification failed:', err);
