@@ -22,9 +22,21 @@ function sigCaptureOpen(opts) {
                 '<div class="sig-capture-title">' + (opts.title || 'Firma Digital') + '</div>' +
                 '<button type="button" class="sig-capture-close" onclick="sigCaptureCancel()" aria-label="Cancelar firma">&times;</button>' +
             '</div>' +
+            // [Fase 4] El nombre se precarga desde la SESIÓN y queda bloqueado.
+            // Antes era texto libre: cualquiera podía firmar con el nombre de otro,
+            // y una bitácora cuyo "quién" es un campo editable no es una bitácora.
+            // "Firmar por otra persona" sigue siendo posible, pero explícito, con
+            // permiso de supervisor y registrando quién lo hizo (signedOnBehalfBy).
             '<div class="sig-capture-field">' +
                 '<label>Nombre completo:</label>' +
-                '<input type="text" id="sig-signer-name" class="sig-input" value="' + (opts.signerName || '') + '" placeholder="Escribe tu nombre" autocomplete="name">' +
+                '<input type="text" id="sig-signer-name" class="sig-input" value="' + (opts.signerName || '') + '"' +
+                    (opts.lockName ? ' readonly style="background:#f1f5f9;cursor:not-allowed;"' : '') +
+                    ' placeholder="Escribe tu nombre" autocomplete="name">' +
+                (opts.lockName
+                    ? '<button type="button" id="sig-onbehalf-btn" onclick="sigUnlockName()" ' +
+                      'style="margin-top:6px;background:none;border:none;color:#2563eb;font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">' +
+                      'Firmar por otra persona…</button>'
+                    : '') +
             '</div>' +
             '<div class="sig-capture-field">' +
                 '<label>Rol:</label>' +
@@ -60,6 +72,28 @@ function sigCaptureClear() {
     if (_sigPadInstance) _sigPadInstance.clear();
 }
 
+/**
+ * [Fase 4] Desbloquea el nombre para firmar en representación de otra persona.
+ * Es un caso real (capturar datos de un compañero que está dentro de la celda),
+ * pero deja de ser invisible: exige permiso de supervisor, marca la firma con
+ * `signedOnBehalfBy` y queda en la auditoría.
+ */
+function sigUnlockName() {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'firmar en representación de otra persona')) return;
+    var el = document.getElementById('sig-signer-name');
+    if (!el) return;
+    el.readOnly = false;
+    el.style.background = '';
+    el.style.cursor = '';
+    el.value = '';
+    el.focus();
+    _sigOnBehalf = true;
+    var btn = document.getElementById('sig-onbehalf-btn');
+    if (btn) btn.textContent = '⚠ Firmando por otra persona — quedará registrado';
+    if (typeof showToast === 'function') showToast('Escribe el nombre de quien firma. Quedará registrado que lo capturaste tú.', 'warning');
+}
+var _sigOnBehalf = false;
+
 function sigCaptureConfirm() {
     if (!_sigPadInstance || _sigPadInstance.isEmpty()) {
         if (typeof showToast === 'function') showToast('Por favor firme antes de continuar', 'warning');
@@ -89,6 +123,16 @@ function sigCaptureConfirm() {
         result.sessionUserRole = _sessUser.role;
     }
     if (typeof FB_DEVICE_ID !== 'undefined') result.deviceId = FB_DEVICE_ID;
+    // [Fase 4] Firma en representación de otro: queda explícito quién la capturó.
+    if (_sigOnBehalf && _sessUser && name !== _sessUser.name) {
+        result.signedOnBehalfBy = _sessUser.name;
+        result.signedOnBehalfById = _sessUser.id;
+        if (typeof auditLog === 'function') {
+            auditLog('cop15', 'signature_on_behalf', { type: 'signature', label: name },
+                     'Capturada por ' + _sessUser.name + ' en representación de ' + name);
+        }
+    }
+    _sigOnBehalf = false;
     var cb = _sigCaptureOpts && _sigCaptureOpts.onSave;
     sigCaptureDismiss();
     if (cb) cb(result);

@@ -1175,7 +1175,14 @@ setAltaDatetimeIfEmpty(true);
             adhoc: isAdhoc,
             fromPlanItem: planLink,
             status: 'registered',
+            // El dropdown se conserva: es asignación de trabajo (a quién se le
+            // atribuye la prueba), no identidad. Junto a él se graba la identidad
+            // REAL de la sesión, inmutable, para que la bitácora no dependa de un
+            // campo que el usuario puede cambiar.
             registeredBy: document.getElementById('reg_operator').value,
+            registeredSessionUser: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '',
+            registeredSessionUserId: (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().id : null,
+            registeredDeviceId: (typeof FB_DEVICE_ID !== 'undefined') ? FB_DEVICE_ID : '',
             registeredAt: registeredAtIso,
             timeline: [
                 {
@@ -2518,7 +2525,8 @@ function submitToApproval() {
     sigCaptureOpen({
         title: 'Firma del Liberador',
         role: 'Liberador / Técnico',
-        signerName: '',
+        signerName: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '',
+        lockName: true,
         onSave: function(sig) {
             undoPush('cop15', 'Enviar a Aprobación: ' + vehicle.vin);
             if (!vehicle.testData) vehicle.testData = {};
@@ -2582,7 +2590,8 @@ function approveAndArchive() {
     sigCaptureOpen({
         title: 'Firma del Aprobador',
         role: 'Aprobador / Gerente',
-        signerName: '',
+        signerName: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '',
+        lockName: true,
         onSave: function(sig) {
             undoPush('cop15', 'Aprobar y Archivar: ' + vehicle.vin);
             var prevStatus = vehicle.status;
@@ -3899,7 +3908,8 @@ function histCaptureSig(which) {
   sigCaptureOpen({
     title: which === 'releaser' ? 'Firma del Liberador (retroactiva)' : 'Firma del Aprobador (retroactiva)',
     role: which === 'releaser' ? 'Liberador / Técnico' : 'Aprobador / Gerente',
-    signerName: '',
+    signerName: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '',
+    lockName: true,
     onSave: function(sig) {
       if (!_histCompleteState) return;
       _histCompleteState.sigCaptured[which] = sig;
@@ -3963,6 +3973,7 @@ function histSaveCompleteModal() {
       title: 'Firma — modificación retroactiva (' + modified.length + ' campo' + (modified.length === 1 ? '' : 's') + ')',
       role: 'Responsable del cambio',
       signerName: _histCurrentUserName(),
+      lockName: true,
       onSave: function(sig) { _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, sig); },
       onCancel: function() { showToast('Guardado cancelado — la modificación requiere firma', 'info'); }
     });

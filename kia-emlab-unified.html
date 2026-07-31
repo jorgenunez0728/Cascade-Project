@@ -5141,21 +5141,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607310223';
+var APP_BUILD = '202607310242';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607310223' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202607310242' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607310223' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202607310242' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5171,7 +5171,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607310223' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202607310242' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -10617,7 +10617,14 @@ setAltaDatetimeIfEmpty(true);
             adhoc: isAdhoc,
             fromPlanItem: planLink,
             status: 'registered',
+            // El dropdown se conserva: es asignación de trabajo (a quién se le
+            // atribuye la prueba), no identidad. Junto a él se graba la identidad
+            // REAL de la sesión, inmutable, para que la bitácora no dependa de un
+            // campo que el usuario puede cambiar.
             registeredBy: document.getElementById('reg_operator').value,
+            registeredSessionUser: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '',
+            registeredSessionUserId: (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().id : null,
+            registeredDeviceId: (typeof FB_DEVICE_ID !== 'undefined') ? FB_DEVICE_ID : '',
             registeredAt: registeredAtIso,
             timeline: [
                 {
@@ -11960,7 +11967,8 @@ function submitToApproval() {
     sigCaptureOpen({
         title: 'Firma del Liberador',
         role: 'Liberador / Técnico',
-        signerName: '',
+        signerName: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '',
+        lockName: true,
         onSave: function(sig) {
             undoPush('cop15', 'Enviar a Aprobación: ' + vehicle.vin);
             if (!vehicle.testData) vehicle.testData = {};
@@ -12024,7 +12032,8 @@ function approveAndArchive() {
     sigCaptureOpen({
         title: 'Firma del Aprobador',
         role: 'Aprobador / Gerente',
-        signerName: '',
+        signerName: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '',
+        lockName: true,
         onSave: function(sig) {
             undoPush('cop15', 'Aprobar y Archivar: ' + vehicle.vin);
             var prevStatus = vehicle.status;
@@ -13341,7 +13350,8 @@ function histCaptureSig(which) {
   sigCaptureOpen({
     title: which === 'releaser' ? 'Firma del Liberador (retroactiva)' : 'Firma del Aprobador (retroactiva)',
     role: which === 'releaser' ? 'Liberador / Técnico' : 'Aprobador / Gerente',
-    signerName: '',
+    signerName: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '',
+    lockName: true,
     onSave: function(sig) {
       if (!_histCompleteState) return;
       _histCompleteState.sigCaptured[which] = sig;
@@ -13405,6 +13415,7 @@ function histSaveCompleteModal() {
       title: 'Firma — modificación retroactiva (' + modified.length + ' campo' + (modified.length === 1 ? '' : 's') + ')',
       role: 'Responsable del cambio',
       signerName: _histCurrentUserName(),
+      lockName: true,
       onSave: function(sig) { _histApplyRetro(vehicle, added, modified, addedGases, sigCaptured, sig); },
       onCancel: function() { showToast('Guardado cancelado — la modificación requiere firma', 'info'); }
     });
@@ -26857,6 +26868,105 @@ function pnOpSetSkill(opId, skillId, lvl, meta) {
     return true;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [Fase 4] CAPA ÚNICA DE MUTACIÓN DE OPERADORES (pnOp*)
+// ══════════════════════════════════════════════════════════════════════
+// Existen DOS vistas de Usuarios: la de Alpine y `pnRenderUsers`, que NO es
+// código muerto — es la que se usa cuando Alpine no está disponible. Antes cada
+// una tenía su propia copia de la lógica y ya habían divergido (una validaba
+// <> en los nombres, la otra no; una auditaba, la otra no).
+// Ahora toda mutación pasa por aquí: una sola validación, un solo permiso, una
+// sola entrada de auditoría. Las vistas sólo pintan.
+
+function pnOpFind(opId) {
+    var ops = pnState.operators || [];
+    for (var i = 0; i < ops.length; i++) {
+        if (String(ops[i].id) === String(opId)) return ops[i];
+    }
+    return null;
+}
+
+function _pnOpAfterChange() {
+    pnSave();
+    if (typeof pnSyncOperators === 'function') pnSyncOperators();
+    if (typeof pnRender === 'function') pnRender();
+    window.dispatchEvent(new CustomEvent('pn:refresh'));
+}
+
+/** Alta de operador. Devuelve el id nuevo o null. */
+function pnOpAdd(name, role) {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'agregar operadores')) return null;
+    name = String(name || '').trim().replace(/\s+/g, ' ');
+    if (!name) { showToast('Ingresa un nombre', 'error'); return null; }
+    // Defensa en profundidad: los renders escapan HTML, pero un nombre con <> nunca es legítimo
+    if (/[<>]/.test(name)) { showToast('El nombre no puede contener < o >', 'error'); return null; }
+    var maxId = (pnState.operators || []).reduce(function(m, o) { return Math.max(m, o.id || 0); }, 0);
+    var op = {
+        id: maxId + 1, name: name, role: role || 'Técnico', active: true,
+        level: (role === 'Practicante') ? 'L1' : 'L2', skills: {},
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+    };
+    pnState.operators.push(op);
+    _pnOpAfterChange();
+    if (typeof auditLog === 'function') auditLog('pn', 'operator_added', { type: 'operator', id: op.id, label: name }, 'Rol: ' + op.role);
+    return op.id;
+}
+
+/** Edita nombre y/o rol. */
+function pnOpUpdate(opId, patch) {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'editar operadores')) return false;
+    var op = pnOpFind(opId);
+    if (!op || !patch) return false;
+    if (patch.name !== undefined) {
+        var nm = String(patch.name).trim().replace(/\s+/g, ' ');
+        if (!nm) { showToast('El nombre no puede quedar vacío', 'error'); return false; }
+        if (/[<>]/.test(nm)) { showToast('El nombre no puede contener < o >', 'error'); return false; }
+        op.name = nm;
+    }
+    if (patch.role !== undefined && PN_ROLES.indexOf(patch.role) !== -1) op.role = patch.role;
+    op.updatedAt = new Date().toISOString();
+    _pnOpAfterChange();
+    if (typeof auditLog === 'function') auditLog('pn', 'operator_updated', { type: 'operator', id: op.id, label: op.name }, 'Rol: ' + op.role);
+    return true;
+}
+
+/** Activa o desactiva un operador. */
+function pnOpSetActive(opId, active) {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'activar/desactivar operadores')) return false;
+    var op = pnOpFind(opId);
+    if (!op) return false;
+    op.active = (active === undefined) ? !op.active : !!active;
+    op.updatedAt = new Date().toISOString();
+    _pnOpAfterChange();
+    if (typeof auditLog === 'function') auditLog('pn', op.active ? 'operator_activated' : 'operator_deactivated', { type: 'operator', id: op.id, label: op.name });
+    showToast(op.name + (op.active ? ' activado' : ' desactivado'), 'info');
+    return true;
+}
+
+/** Baja lógica (tombstone): el borrado debe sobrevivir al merge del sync. */
+function pnOpDelete(opId) {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'eliminar operadores')) return Promise.resolve(false);
+    var op = pnOpFind(opId);
+    if (!op) return Promise.resolve(false);
+    return showConfirmDialog({
+        title: '⚠️ Eliminar operador',
+        message: '¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.',
+        type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar'
+    }).then(function(ok) {
+        if (!ok) return false;
+        if (typeof auditLog === 'function') auditLog('pn', 'operator_removed', { type: 'operator', id: op.id, label: op.name });
+        op.active = false;
+        op.deleted = true;
+        op.deletedAt = new Date().toISOString();
+        op.updatedAt = op.deletedAt;
+        _pnOpAfterChange();
+        showToast('Operador eliminado', 'info');
+        return true;
+    });
+}
+
+var PN_ROLES = ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practicante'];
+
 /** Actualiza campos de perfil (no credenciales, no habilidades). */
 function pnOpUpdateProfile(opId, patch) {
     var ops = pnState.operators || [];
@@ -27556,80 +27666,35 @@ function pnRenderUsers(el) {
 }
 
 function pnAddOperator() {
+    // Vista de respaldo (sin Alpine): delega en la capa única pnOp*.
     var name = document.getElementById('pn-new-op-name');
     var role = document.getElementById('pn-new-op-role');
-    if (!name || !name.value.trim()) {
-        showToast('Ingresa un nombre', 'error');
-        if (name && typeof shakeElement === 'function') shakeElement(name);
-        return;
-    }
-    // Defensa en profundidad: los renders escapan HTML, pero un nombre con <> nunca es legítimo
-    var opName = name.value.trim().replace(/\s+/g, ' ');
-    if (/[<>]/.test(opName)) {
-        showToast('El nombre no puede contener < o >', 'error');
-        if (typeof shakeElement === 'function') shakeElement(name);
-        return;
-    }
-
-    var maxId = pnState.operators.reduce(function(m, o) { return Math.max(m, o.id || 0); }, 0);
-    pnState.operators.push({
-        id: maxId + 1,
-        name: opName,
-        role: role ? role.value : 'Técnico',
-        active: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-    });
-
-    pnSave();
-    pnSyncOperators();
-    pnRender();
-    showToast('Operador agregado: ' + opName, 'success');
+    if (!name) return;
+    var id = pnOpAdd(name.value, role ? role.value : 'Técnico');
+    if (!id) { if (typeof shakeElement === 'function') shakeElement(name); return; }
+    name.value = '';
+    showToast('Operador agregado', 'success');
 }
 
 function pnEditOperator(idx) {
     var op = pnState.operators[idx];
     if (!op) return;
     var newName = prompt('Nombre:', op.name);
-    if (!newName || !newName.trim()) return;
-    var roles = ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practicante'];
-    var newRole = prompt('Rol (' + roles.join(', ') + '):', op.role || 'Técnico');
-    op.name = newName.trim();
-    if (newRole && roles.indexOf(newRole) !== -1) op.role = newRole;
-    op.updatedAt = new Date().toISOString();
-    pnSave();
-    pnSyncOperators();
-    pnRender();
-    showToast('Operador actualizado', 'success');
+    if (newName === null) return;
+    var newRole = prompt('Rol (' + PN_ROLES.join(', ') + '):', op.role || 'Técnico');
+    if (pnOpUpdate(op.id, { name: newName, role: newRole || undefined })) {
+        showToast('Operador actualizado', 'success');
+    }
 }
 
 function pnToggleOperator(idx) {
     var op = pnState.operators[idx];
-    if (!op) return;
-    op.active = !op.active;
-    op.updatedAt = new Date().toISOString();
-    pnSave();
-    pnSyncOperators();
-    pnRender();
-    showToast(op.name + (op.active ? ' activado' : ' desactivado'), 'info');
+    if (op) pnOpSetActive(op.id);
 }
 
 function pnRemoveOperator(idx) {
     var op = pnState.operators[idx];
-    if (!op) return;
-    showConfirmDialog({ title: '⚠️ Eliminar operador', message: '¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
-        if (!ok) return;
-        // Tombstone en lugar de splice: el borrado sobrevive al merge del sync
-        // (un splice resucitaba al operador desde cualquier remoto viejo)
-        op.active = false;
-        op.deleted = true;
-        op.deletedAt = new Date().toISOString();
-        op.updatedAt = op.deletedAt;
-        pnSave();
-        pnSyncOperators();
-        pnRender();
-        showToast('Operador eliminado', 'info');
-    });
+    if (op) pnOpDelete(op.id);
 }
 
 // LEGACY (v15.6): hash de 32 bits no criptográfico — solo se conserva para
@@ -27654,8 +27719,69 @@ function pnHashPin2(pin, salt) {
     }
     var data = new TextEncoder().encode(salt + '|' + pin);
     return crypto.subtle.digest('SHA-256', data).then(function(buf) {
-        return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+        return _pnBufToHex(buf);
     });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [Fase 4] PIN v3 — PBKDF2-SHA256
+// ══════════════════════════════════════════════════════════════════════
+// ALCANCE REAL, para que nadie asuma de más: los hashes se sincronizan a un
+// documento de Firestore legible por cualquiera que tenga la contraseña
+// compartida del laboratorio. Con un espacio de 10^6 (6 dígitos), PBKDF2 no
+// vuelve secreto el PIN — sube el costo de romperlo de milisegundos a horas.
+// Es una reducción de riesgo, NO confidencialidad. El PIN sigue siendo
+// identidad y atribución, no una barrera criptográfica.
+// No dejan de sincronizarse a propósito: sin sincronizar, un operador sólo
+// podría entrar en el dispositivo donde se le puso el PIN, y en un laboratorio
+// de tablets compartidas eso no funciona.
+var PN_PIN_KDF_ITER = 210000;
+var PN_PIN_LEN_DEFAULT = 4;
+var PN_PIN_LEN_PRIVILEGED = 6;
+
+function _pnBufToHex(buf) {
+    return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+/** Hash v3: PBKDF2-SHA256. Devuelve hex. */
+function pnHashPin3(pin, salt, iter) {
+    if (!(window.crypto && crypto.subtle && crypto.subtle.importKey)) {
+        return Promise.resolve('legacy:' + pnHashPin(pin));
+    }
+    iter = iter || PN_PIN_KDF_ITER;
+    var enc = new TextEncoder();
+    return crypto.subtle.importKey('raw', enc.encode(pin), { name: 'PBKDF2' }, false, ['deriveBits'])
+        .then(function(key) {
+            return crypto.subtle.deriveBits({
+                name: 'PBKDF2', salt: enc.encode(salt), iterations: iter, hash: 'SHA-256'
+            }, key, 256);
+        })
+        .then(_pnBufToHex);
+}
+
+/**
+ * ¿Este rol necesita PIN de 6 dígitos? Los que pueden administrar usuarios o
+ * aprobar pruebas sí — son las dos facultades con las que más daño se hace.
+ */
+function pnPinLenForRole(role) {
+    var perms = (typeof AUTH_ROLE_PERMS !== 'undefined' && AUTH_ROLE_PERMS[role]) ? AUTH_ROLE_PERMS[role] : [];
+    var privileged = perms.indexOf('*') !== -1 ||
+                     perms.indexOf('users.manage') !== -1 ||
+                     perms.indexOf('test.approve') !== -1;
+    return privileged ? PN_PIN_LEN_PRIVILEGED : PN_PIN_LEN_DEFAULT;
+}
+
+/** PINs rechazados por triviales, independientemente de la longitud. */
+function pnPinIsWeak(pin) {
+    if (/^(\d)\1+$/.test(pin)) return 'Todos los dígitos iguales';
+    var asc = true, desc = true;
+    for (var i = 1; i < pin.length; i++) {
+        if (+pin[i] !== +pin[i - 1] + 1) asc = false;
+        if (+pin[i] !== +pin[i - 1] - 1) desc = false;
+    }
+    if (asc || desc) return 'Secuencia consecutiva';
+    if (pin === '1234' || pin === '0000' || pin === '123456' || pin === '111111') return 'PIN demasiado común';
+    return null;
 }
 
 function _pnRandomSalt() {
@@ -27665,41 +27791,105 @@ function _pnRandomSalt() {
 }
 
 // Configura pinHash2 y BORRA el hash legacy (deja de sincronizarse el hash débil)
+/**
+ * Asigna PIN con el formato actual (v3, PBKDF2). Reutiliza el campo `pinHash2`
+ * a propósito: así el merge, la UI y todo lo que ya lee ese campo siguen
+ * funcionando sin cambios. La versión se distingue por `kdf`/`v`.
+ */
 function _pnAssignPin(op, pin) {
     var salt = _pnRandomSalt();
-    return pnHashPin2(pin, salt).then(function(hash) {
-        op.pinHash2 = { salt: salt, hash: hash };
+    return pnHashPin3(pin, salt, PN_PIN_KDF_ITER).then(function(hash) {
+        op.pinHash2 = { salt: salt, hash: hash, kdf: 'PBKDF2-SHA256', iter: PN_PIN_KDF_ITER, v: 3 };
+        op.pinLen = String(pin).length;
+        op.pinSetAt = new Date().toISOString();
         delete op.pinHash;
-        op.updatedAt = new Date().toISOString();
+        op.updatedAt = op.pinSetAt;
+    });
+}
+
+/**
+ * [Fase 4] Diálogo de PIN con confirmación, en vez de prompt().
+ * El prompt() nativo muestra el PIN EN CLARO sobre una tablet compartida, no
+ * permite enmascarar ni confirmar, y está bloqueado en algunos contextos PWA.
+ * Devuelve Promise<string|null>.
+ */
+function pnPromptPin(op) {
+    var need = pnPinLenForRole(op.role || 'Técnico');
+    return new Promise(function(resolve) {
+        var msg =
+            '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">' +
+            'PIN de <b>' + need + ' dígitos</b> para <b>' + escapeHtml(op.name) + '</b>' +
+            (need === PN_PIN_LEN_PRIVILEGED
+                ? '<br><span style="font-size:11px;">Su rol (' + escapeHtml(op.role || 'Técnico') + ') puede aprobar pruebas o administrar usuarios, por eso se exigen ' + need + ' dígitos.</span>'
+                : '') +
+            '</div>' +
+            '<input id="_pn_pin1" type="password" inputmode="numeric" autocomplete="new-password" maxlength="' + need + '" ' +
+            'placeholder="Nuevo PIN" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:16px;letter-spacing:4px;text-align:center;">' +
+            '<input id="_pn_pin2" type="password" inputmode="numeric" autocomplete="new-password" maxlength="' + need + '" ' +
+            'placeholder="Confirmar PIN" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;font-size:16px;letter-spacing:4px;text-align:center;">' +
+            '<div id="_pn_pin_err" style="color:var(--danger);font-size:11px;min-height:14px;margin-top:6px;"></div>';
+
+        showModal({
+            title: 'Configurar PIN', message: msg, type: 'info',
+            confirmText: 'Guardar PIN', cancelText: 'Cancelar',
+            onConfirm: function() {
+                var a = (document.getElementById('_pn_pin1') || {}).value || '';
+                var b = (document.getElementById('_pn_pin2') || {}).value || '';
+                a = a.trim(); b = b.trim();
+                var re = new RegExp('^\\d{' + need + '}$');
+                if (!re.test(a)) { showToast('El PIN debe ser exactamente ' + need + ' dígitos numéricos', 'error'); return resolve(null); }
+                if (a !== b) { showToast('Los PINs no coinciden', 'error'); return resolve(null); }
+                var weak = pnPinIsWeak(a);
+                if (weak) { showToast('PIN inseguro: ' + weak + '. Elige otro.', 'error'); return resolve(null); }
+                resolve(a);
+            },
+            onCancel: function() { resolve(null); }
+        });
+        setTimeout(function() { var el = document.getElementById('_pn_pin1'); if (el) el.focus(); }, 60);
     });
 }
 
 function pnSetOperatorPin(idx) {
+    if (typeof authRequire === 'function' && !authRequire('users.pin', 'asignar o resetear PINs')) return;
     var op = pnState.operators[idx];
     if (!op) return;
-    var pin = prompt('PIN de 4 digitos para ' + op.name + ':');
-    if (!pin) return;
-    pin = pin.trim();
-    if (!/^\d{4}$/.test(pin)) {
-        showToast('El PIN debe ser exactamente 4 digitos numericos', 'error');
-        return;
-    }
-    _pnAssignPin(op, pin).then(function() {
-        pnSave();
-        pnRender();
-        showToast('PIN configurado para ' + op.name, 'success');
+    pnPromptPin(op).then(function(pin) {
+        if (!pin) return;
+        return _pnAssignPin(op, pin).then(function() {
+            pnSave();
+            pnRender();
+            if (typeof auditLog === 'function') auditLog('pn', 'operator_pin_set', { type: 'operator', id: op.id, label: op.name }, pin.length + ' dígitos');
+            showToast('PIN configurado para ' + op.name, 'success');
+        });
     });
 }
 
 // Verificación async: usa pinHash2; si solo existe el legacy, lo verifica y
 // re-hashea automáticamente al primer login exitoso (migración transparente)
+/**
+ * Verifica el PIN contra CUALQUIERA de los tres formatos y, al acertar con uno
+ * viejo, lo re-hashea al actual. La migración es progresiva y nadie queda
+ * bloqueado: quien tenía PIN legacy o v2 entra igual y queda migrado a v3 en su
+ * siguiente acceso. Mismo patrón que ya usaba la migración legacy→v2.
+ */
 function pnVerifyPinAsync(idx, pin) {
     var op = pnState.operators[idx];
     if (!op) return Promise.resolve(false);
-    if (op.pinHash2 && op.pinHash2.salt && op.pinHash2.hash) {
-        return pnHashPin2(pin, op.pinHash2.salt).then(function(h) { return h === op.pinHash2.hash; });
+    var h2 = op.pinHash2;
+    if (h2 && h2.salt && h2.hash) {
+        // v3 (PBKDF2) — formato actual, nada que migrar
+        if (h2.kdf === 'PBKDF2-SHA256' || h2.v === 3) {
+            return pnHashPin3(pin, h2.salt, h2.iter || PN_PIN_KDF_ITER)
+                .then(function(h) { return h === h2.hash; });
+        }
+        // v2 (SHA-256 de una ronda) — verifica y migra a v3
+        return pnHashPin2(pin, h2.salt).then(function(h) {
+            if (h !== h2.hash) return false;
+            return _pnAssignPin(op, pin).then(function() { pnSave(); return true; });
+        });
     }
     if (op.pinHash) {
+        // legacy (hash no criptográfico) — verifica y migra a v3
         var ok = op.pinHash === pnHashPin(pin);
         if (!ok) return Promise.resolve(false);
         return _pnAssignPin(op, pin).then(function() { pnSave(); return true; });
@@ -29174,77 +29364,48 @@ function panelAlpineComponent() {
             this.operators = pnState.operators;
         },
 
+        // Delegan en la capa única pnOp* (validación, permiso y auditoría allí)
         addOperator: function() {
-            if (typeof authRequire === 'function' && !authRequire('users.manage', 'agregar operadores')) return;
-            if (!this.newOpName || !this.newOpName.trim()) { showToast('Ingresa un nombre', 'error'); return; }
-            // Paridad con la validación que tenía la versión imperativa (pnAddOperator)
-            if (/[<>]/.test(this.newOpName)) { showToast('El nombre no puede contener < o >', 'error'); return; }
-            var maxId = this.operators.reduce(function(m, o) { return Math.max(m, o.id || 0); }, 0);
-            this.operators.push({
-                id: maxId + 1,
-                name: this.newOpName.trim(),
-                role: this.newOpRole,
-                active: true,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            });
-            var _addedName = this.newOpName.trim();
+            var id = pnOpAdd(this.newOpName, this.newOpRole);
+            if (!id) return;
             this.newOpName = '';
             this._syncAndSave();
-            auditLog('pn', 'operator_added', {type:'operator', label:_addedName}, 'Rol: ' + this.newOpRole);
             showToast('Operador agregado', 'success');
         },
         editOperator: function(idx) {
-            if (typeof authRequire === 'function' && !authRequire('users.manage', 'editar operadores')) return;
             var op = this.operators[idx];
             if (!op) return;
             var newName = prompt('Nombre:', op.name);
-            if (!newName || !newName.trim()) return;
+            if (newName === null) return;
             var newRole = prompt('Rol (' + this.roles.join(', ') + '):', op.role || 'Técnico');
-            op.name = newName.trim();
-            if (newRole && this.roles.indexOf(newRole) !== -1) op.role = newRole;
-            op.updatedAt = new Date().toISOString();
-            this._syncAndSave();
-            showToast('Operador actualizado', 'success');
+            if (pnOpUpdate(op.id, { name: newName, role: newRole || undefined })) {
+                this._syncAndSave();
+                showToast('Operador actualizado', 'success');
+            }
         },
         toggleOperator: function(idx) {
-            if (typeof authRequire === 'function' && !authRequire('users.manage', 'activar/desactivar operadores')) return;
             var op = this.operators[idx];
-            if (!op) return;
-            op.active = !op.active;
-            op.updatedAt = new Date().toISOString();
-            this._syncAndSave();
-            showToast(op.name + (op.active ? ' activado' : ' desactivado'), 'info');
+            if (op && pnOpSetActive(op.id)) this._syncAndSave();
         },
         removeOperator: function(idx) {
-            if (typeof authRequire === 'function' && !authRequire('users.manage', 'eliminar operadores')) return;
             var self = this;
             var op = this.operators[idx];
             if (!op) return;
-            showConfirmDialog({ title: '⚠️ Eliminar operador', message: '¿Eliminar a ' + op.name + '? Los registros existentes no se afectan.', type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar' }).then(function(ok) {
-                if (!ok) return;
-                auditLog('pn', 'operator_removed', {type:'operator', label:op.name});
-                // Tombstone: el borrado sobrevive al merge del sync (splice resucitaba)
-                op.active = false;
-                op.deleted = true;
-                op.deletedAt = new Date().toISOString();
-                op.updatedAt = op.deletedAt;
-                self._syncAndSave();
-                showToast('Operador eliminado', 'info');
-            });
+            pnOpDelete(op.id).then(function(ok) { if (ok) self._syncAndSave(); });
         },
         setOperatorPin: function(idx) {
             if (typeof authRequire === 'function' && !authRequire('users.pin', 'asignar o resetear PINs')) return;
             var op = this.operators[idx];
             if (!op) return;
-            var pin = prompt('PIN de 4 dígitos para ' + op.name + ':');
-            if (!pin) return;
-            pin = pin.trim();
-            if (!/^\d{4}$/.test(pin)) { showToast('El PIN debe ser exactamente 4 dígitos numéricos', 'error'); return; }
             var self = this;
-            _pnAssignPin(op, pin).then(function() {   // v15.6: SHA-256 + sal (ver pnHashPin2)
-                self._syncAndSave();
-                showToast('PIN configurado para ' + op.name, 'success');
+            // [Fase 4] Modal con confirmación y enmascarado en vez de prompt()
+            pnPromptPin(op).then(function(pin) {
+                if (!pin) return;
+                return _pnAssignPin(op, pin).then(function() {   // v3: PBKDF2 (ver pnHashPin3)
+                    self._syncAndSave();
+                    if (typeof auditLog === 'function') auditLog('pn', 'operator_pin_set', { type: 'operator', id: op.id, label: op.name }, pin.length + ' dígitos');
+                    showToast('PIN configurado para ' + op.name, 'success');
+                });
             });
         },
 
@@ -30212,6 +30373,17 @@ function _authHasPin(op) {
     return !!(op && (op.pinHash2 || op.pinHash));
 }
 
+/**
+ * [Fase 4] Longitud del PIN de este operador. Prioriza `pinLen` (grabado al
+ * asignarlo) para no romper a quien conserva un PIN de 4 dígitos aunque su rol
+ * ya exija 6; sólo al reasignarlo se aplica el mínimo del rol.
+ */
+function _authPinLenFor(op) {
+    if (op && op.pinLen) return op.pinLen;
+    if (typeof pnPinLenForRole === 'function' && op) return pnPinLenForRole(op.role || 'Técnico');
+    return 4;
+}
+
 // ── Initialization ──
 // [v15.6] Muro de PIN reactivado (decisión de seguridad del usuario): sin
 // sesión válida (kia_auth_session con expiresAt vigente, 12h) la app muestra
@@ -30417,15 +30589,20 @@ function authSelectOperator(idx) {
     var hasBiometric = authHasStoredCredential(op.id);
     var webAuthnAvailable = window.PublicKeyCredential !== undefined && window.isSecureContext;
 
+    // [Fase 4] La longitud del PIN depende del operador: los roles que aprueban
+    // pruebas o administran usuarios usan 6 dígitos. Se lee de `op.pinLen` (lo
+    // graba _pnAssignPin) y si no está, se deduce del rol — así los PINs viejos
+    // de 4 dígitos siguen funcionando hasta que se reasignen.
+    var pinLen = _authPinLenFor(op);
     var html = '<div style="margin-top:20px;padding:20px;background:#111827;border:2px solid #6366f1;border-radius:12px;text-align:center;">';
     html += '<div style="font-size:13px;font-weight:700;color:#c4b5fd;margin-bottom:12px;">' + escapeHtml(op.name) + '</div>';
-    html += '<div style="color:#94a3b8;font-size:11px;margin-bottom:14px;">Ingresa tu PIN de 4 digitos</div>';
+    html += '<div style="color:#94a3b8;font-size:11px;margin-bottom:14px;">Ingresa tu PIN de ' + pinLen + ' dígitos</div>';
 
     // PIN inputs
-    html += '<div style="display:flex;justify-content:center;gap:10px;margin-bottom:16px;">';
-    for (var i = 0; i < 4; i++) {
+    html += '<div style="display:flex;justify-content:center;gap:' + (pinLen > 4 ? '7' : '10') + 'px;margin-bottom:16px;">';
+    for (var i = 0; i < pinLen; i++) {
         html += '<input type="tel" maxlength="1" class="auth-pin-digit" id="auth-pin-' + i + '" ';
-        html += 'style="width:48px;height:56px;text-align:center;font-size:24px;font-weight:800;background:#0a0f1a;border:2px solid #334155;border-radius:10px;color:#e2e8f0;outline:none;" ';
+        html += 'style="width:' + (pinLen > 4 ? '40' : '48') + 'px;height:56px;text-align:center;font-size:24px;font-weight:800;background:#0a0f1a;border:2px solid #334155;border-radius:10px;color:#e2e8f0;outline:none;" ';
         html += 'oninput="authPinInput(' + i + ')" onkeydown="authPinKeydown(event,' + i + ')" onfocus="this.select()">';
     }
     html += '</div>';
@@ -30477,13 +30654,14 @@ function authPinKeydown(e, idx) {
 }
 
 function authCheckComplete() {
+    var need = _authPinLenFor(window._authSelectedOp);
     var pin = '';
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < need; i++) {
         var d = document.getElementById('auth-pin-' + i);
         if (!d || d.value.length !== 1) return;
         pin += d.value;
     }
-    // All 4 digits entered — verify
+    // Todos los dígitos capturados — verificar
     authVerifyAndLogin(pin);
 }
 
@@ -30568,12 +30746,13 @@ function authVerifyAndLogin(pin) {
         } else if (err) {
             err.textContent = 'PIN incorrecto (' + rec.fails + '/' + AUTH_MAX_FAILS + '). Intenta de nuevo.';
         }
-        for (var i = 0; i < 4; i++) {
+        var _need = _authPinLenFor(op);
+        for (var i = 0; i < _need; i++) {
             var d = document.getElementById('auth-pin-' + i);
             if (d) { d.value = ''; d.style.borderColor = '#ef4444'; }
         }
         setTimeout(function() {
-            for (var j = 0; j < 4; j++) {
+            for (var j = 0; j < _need; j++) {
                 var e2 = document.getElementById('auth-pin-' + j);
                 if (e2) e2.style.borderColor = '#334155';
             }
@@ -30852,7 +31031,34 @@ function authVerifyBiometric() {
     };
 
     navigator.credentials.get(getOptions).then(function(assertion) {
-        // Biometric verified — create session
+        // ─────────────────────────────────────────────────────────────────
+        // QUÉ ES Y QUÉ NO ES ESTO (leer antes de tocarlo):
+        // NO verificamos la firma de la aserción: no hay servidor que emita ni
+        // valide el challenge, así que el mismo cliente lo genera y lo comprueba
+        // — eso no demuestra nada frente a quien controla el navegador.
+        // Lo que SÍ hace, y por eso se conserva: el autenticador de la plataforma
+        // verifica la biometría del usuario (userVerification:'required') y sólo
+        // responde si el credencial es el que registró ESTE operador en ESTE
+        // dispositivo. Es un gesto de desbloqueo del dispositivo, equivalente a
+        // un PIN recordado. NO es un segundo factor.
+        // Lo mínimo que sí podemos comprobar en cliente, y que antes no se hacía:
+        // que la aserción corresponda al credencial almacenado del operador.
+        // Sin esto, cualquier resolución de credentials.get() abría la sesión.
+        // ─────────────────────────────────────────────────────────────────
+        var okId = false;
+        try {
+            var got = new Uint8Array(assertion.rawId);
+            okId = got.length === credentialId.length &&
+                   got.every(function(b, i) { return b === credentialId[i]; });
+        } catch (e) { okId = false; }
+
+        if (!okId) {
+            if (typeof auditLog === 'function') auditLog('auth', 'webauthn_mismatch', { type: 'operator', label: op.name });
+            var e1 = document.getElementById('auth-pin-error');
+            if (e1) e1.textContent = 'La huella no corresponde a este operador. Usa tu PIN.';
+            return;
+        }
+        if (typeof auditLog === 'function') auditLog('auth', 'login', { type: 'operator', label: op.name }, 'Desbloqueo biométrico del dispositivo');
         authCreateSession(op);
     }).catch(function(err) {
         void 0;
@@ -30900,9 +31106,21 @@ function sigCaptureOpen(opts) {
                 '<div class="sig-capture-title">' + (opts.title || 'Firma Digital') + '</div>' +
                 '<button type="button" class="sig-capture-close" onclick="sigCaptureCancel()" aria-label="Cancelar firma">&times;</button>' +
             '</div>' +
+            // [Fase 4] El nombre se precarga desde la SESIÓN y queda bloqueado.
+            // Antes era texto libre: cualquiera podía firmar con el nombre de otro,
+            // y una bitácora cuyo "quién" es un campo editable no es una bitácora.
+            // "Firmar por otra persona" sigue siendo posible, pero explícito, con
+            // permiso de supervisor y registrando quién lo hizo (signedOnBehalfBy).
             '<div class="sig-capture-field">' +
                 '<label>Nombre completo:</label>' +
-                '<input type="text" id="sig-signer-name" class="sig-input" value="' + (opts.signerName || '') + '" placeholder="Escribe tu nombre" autocomplete="name">' +
+                '<input type="text" id="sig-signer-name" class="sig-input" value="' + (opts.signerName || '') + '"' +
+                    (opts.lockName ? ' readonly style="background:#f1f5f9;cursor:not-allowed;"' : '') +
+                    ' placeholder="Escribe tu nombre" autocomplete="name">' +
+                (opts.lockName
+                    ? '<button type="button" id="sig-onbehalf-btn" onclick="sigUnlockName()" ' +
+                      'style="margin-top:6px;background:none;border:none;color:#2563eb;font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">' +
+                      'Firmar por otra persona…</button>'
+                    : '') +
             '</div>' +
             '<div class="sig-capture-field">' +
                 '<label>Rol:</label>' +
@@ -30938,6 +31156,28 @@ function sigCaptureClear() {
     if (_sigPadInstance) _sigPadInstance.clear();
 }
 
+/**
+ * [Fase 4] Desbloquea el nombre para firmar en representación de otra persona.
+ * Es un caso real (capturar datos de un compañero que está dentro de la celda),
+ * pero deja de ser invisible: exige permiso de supervisor, marca la firma con
+ * `signedOnBehalfBy` y queda en la auditoría.
+ */
+function sigUnlockName() {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'firmar en representación de otra persona')) return;
+    var el = document.getElementById('sig-signer-name');
+    if (!el) return;
+    el.readOnly = false;
+    el.style.background = '';
+    el.style.cursor = '';
+    el.value = '';
+    el.focus();
+    _sigOnBehalf = true;
+    var btn = document.getElementById('sig-onbehalf-btn');
+    if (btn) btn.textContent = '⚠ Firmando por otra persona — quedará registrado';
+    if (typeof showToast === 'function') showToast('Escribe el nombre de quien firma. Quedará registrado que lo capturaste tú.', 'warning');
+}
+var _sigOnBehalf = false;
+
 function sigCaptureConfirm() {
     if (!_sigPadInstance || _sigPadInstance.isEmpty()) {
         if (typeof showToast === 'function') showToast('Por favor firme antes de continuar', 'warning');
@@ -30967,6 +31207,16 @@ function sigCaptureConfirm() {
         result.sessionUserRole = _sessUser.role;
     }
     if (typeof FB_DEVICE_ID !== 'undefined') result.deviceId = FB_DEVICE_ID;
+    // [Fase 4] Firma en representación de otro: queda explícito quién la capturó.
+    if (_sigOnBehalf && _sessUser && name !== _sessUser.name) {
+        result.signedOnBehalfBy = _sessUser.name;
+        result.signedOnBehalfById = _sessUser.id;
+        if (typeof auditLog === 'function') {
+            auditLog('cop15', 'signature_on_behalf', { type: 'signature', label: name },
+                     'Capturada por ' + _sessUser.name + ' en representación de ' + name);
+        }
+    }
+    _sigOnBehalf = false;
     var cb = _sigCaptureOpts && _sigCaptureOpts.onSave;
     sigCaptureDismiss();
     if (cb) cb(result);
@@ -33696,7 +33946,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607310223' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202607310242' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
