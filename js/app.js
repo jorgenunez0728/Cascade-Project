@@ -2114,16 +2114,38 @@ function dashCollectActivities() {
                     action: { label: 'Reponer', js: "dashGo('inventory','inv-gases','invEditGas','" + g.id + "')" } });
             }
         });
-        (invState.equipment || []).forEach(function(e) {
-            if (!e.nextCalDate) return;
-            var diff = Math.round((new Date(e.nextCalDate) - Date.now()) / 86400000);
-            if (diff < 0) acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
-                title: e.name + ': calibración VENCIDA', meta: 'hace ' + Math.abs(diff) + ' días', status: 'atrasado', urgency: 3,
-                action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
-            else if (diff <= 7) acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
-                title: e.name + ': calibrar en ' + diff + ' días', meta: e.nextCalDate, status: 'pendiente', urgency: 2,
-                action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
-        });
+        if (typeof invCalStatus === 'function') {
+            (invState.equipment || []).forEach(function(e) {
+                var st = invCalStatus(e);
+                if (st.code === 'vencido') acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
+                    title: e.name + ': calibración VENCIDA', meta: 'hace ' + Math.abs(st.days) + ' días', status: 'atrasado', urgency: 3,
+                    action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
+                else if (st.code === 'porvencer') acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
+                    title: e.name + ': calibrar en ' + st.days + ' días', meta: e.nextCalDate, status: 'pendiente', urgency: st.days <= 7 ? 2 : 1,
+                    action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
+            });
+        }
+        // v16.4: mantenimiento preventivo (COP15-F11) — vencidos y programados para esta semana
+        if (typeof invMaintOverdue === 'function') {
+            invMaintOverdue().forEach(function(o) {
+                acts.push({ id: 'act-mtto-' + o.act.id, cat: 'inventario', icon: '🛠️',
+                    title: (o.asset ? o.asset.name + ': ' : '') + o.act.desc + ' — vencido',
+                    meta: 'Desde semana ' + o.lastWeek + ' (' + o.count + ' semana' + (o.count > 1 ? 's' : '') + ' sin registrar)',
+                    status: 'atrasado', urgency: 3,
+                    checkbox: { js: "invMaintMarkDone('" + o.act.id + "');dailyDashRender();", checked: false },
+                    action: { label: 'Ver', js: "dashGo('inventory','inv-maint')" } });
+            });
+        }
+        if (typeof invMaintDueThisWeek === 'function') {
+            invMaintDueThisWeek().forEach(function(d) {
+                acts.push({ id: 'act-mtto-week-' + d.act.id, cat: 'inventario', icon: '🛠️',
+                    title: (d.asset ? d.asset.name + ': ' : '') + d.act.desc,
+                    meta: 'Mantenimiento de esta semana · ' + (d.act.responsible || ''),
+                    status: 'pendiente', urgency: 2,
+                    checkbox: { js: "invMaintMarkDone('" + d.act.id + "');dailyDashRender();", checked: false },
+                    action: { label: 'Ver', js: "dashGo('inventory','inv-maint')" } });
+            });
+        }
     }
 
     // 7) Consumo proyectado insuficiente (modelo aprendido, números vivos)
@@ -2144,7 +2166,7 @@ function dashCollectActivities() {
     if (typeof pnGetActiveAlerts === 'function') {
         try {
             pnGetActiveAlerts().forEach(function(a, ai) {
-                if (a.source === 'Inventario' || a.source === 'Consumo') return;
+                if (a.source === 'Inventario' || a.source === 'Consumo' || a.source === 'Mantenimiento') return;
                 var cat = a.source === 'Test Plan' ? 'plan' : a.source === 'CoP SPC' ? 'calidad' : null;
                 if (a.source === 'COP15') { if (a.level !== 'CRITICA') return; cat = 'calidad'; }
                 if (!cat) return;
@@ -3718,6 +3740,8 @@ var TOURS = {
         { target: '#inv-tabs-bar', title: 'Pestañas de Inventario', text: 'Navega entre resumen, cilindros, equipos, captura diaria, predicción, combustible y mapa.', position: 'bottom' },
         { target: '[data-help="inv-readings-help"]', title: 'Captura diaria', text: 'Captura el PSI de cada cilindro en uso — de estas lecturas la plataforma APRENDE el consumo.', position: 'bottom', tab: 'inv-readings' },
         { target: '[onclick="invShowAddGas()"]', title: 'Alta de cilindro', text: 'Registra un cilindro nuevo con su fórmula, concentración, zona y vigencia.', position: 'bottom', tab: 'inv-gases' },
+        { target: '[data-help="inv-equipment-help"]', title: 'Equipos y Calibración', text: 'Semáforo de calibración por instrumento. El botón "✅ Calibrado" registra la calibración en dos toques — fecha y certificado — y calcula sola la próxima fecha.', position: 'bottom', tab: 'inv-equipment' },
+        { target: '[data-help="inv-maint-help"]', title: 'Mantenimiento', text: 'Vencidos y de esta semana arriba, con "✔ Hecho" de un toque. El Plan Maestro de 52 semanas queda plegado abajo para consulta.', position: 'bottom', tab: 'inv-maint' },
         { target: '[data-help="inv-predict-model"]', title: 'Predicción', text: 'Consumo aprendido y proyección: ¿alcanza el gas/combustible para el plan?', position: 'top', tab: 'inv-predict' }
     ],
     panel: [
@@ -3972,7 +3996,13 @@ var HELP_GLOSSARY = [
     { term: 'Tier / Prioridad (P1..P5)', def: 'Nivel de urgencia asignado a cada configuración pendiente en el Plan de Recuperación. P1 = más urgente (ej. COP Europa), hasta P5 (ej. eléctricos) — se atienden en ese orden según la capacidad disponible.' },
     { term: 'PSI', def: 'Libras por pulgada cuadrada — unidad de presión con la que se mide el contenido de los cilindros de gas de calibración.' },
     { term: 'DTC', def: 'Diagnostic Trouble Code — Código de Falla Diagnóstica almacenado en la computadora del vehículo (ECU). Un vehículo con DTCs confirmados o permanentes no es apto para la prueba de emisiones.' },
-    { term: 'Carta de captura diaria', def: 'El registro diario de PSI de cada cilindro de gas en uso y del nivel de los tanques de combustible. La plataforma usa estas lecturas para aprender cuánto consume cada tipo de prueba y predecir si el inventario alcanza.' }
+    { term: 'Carta de captura diaria', def: 'El registro diario de PSI de cada cilindro de gas en uso y del nivel de los tanques de combustible. La plataforma usa estas lecturas para aprender cuánto consume cada tipo de prueba y predecir si el inventario alcanza.' },
+    { term: 'Trazabilidad (calibración)', def: 'Organismo de acreditación que respalda el certificado de calibración de un instrumento (ej. EMA, ANAB, NVLAP) — evidencia de que la medición es confiable y auditable.' },
+    { term: 'EMA / ANAB / NVLAP', def: 'Organismos de acreditación de laboratorios de calibración: EMA (México), ANAB y NVLAP (Estados Unidos). Un certificado con su sello es trazable internacionalmente.' },
+    { term: 'Calibración Interna vs Externa', def: 'Interna: la realiza el propio laboratorio con sus patrones. Externa: la realiza un proveedor certificado fuera del laboratorio (en sitio o en sus instalaciones).' },
+    { term: 'NO OPERABLE', def: 'Estatus que debe asignarse a un equipo crítico cuya calibración está vencida — no debe usarse para pruebas hasta recalibrarse (COP15-F11).' },
+    { term: 'Crítico NMX', def: 'Marca si un instrumento es crítico para la validez de la prueba bajo la normatividad mexicana (NMX) — si vence su calibración, dispara el aviso de NO OPERABLE.' },
+    { term: 'Semana del Plan Maestro', def: 'Numeración simple 1-52 del año (similar a WEEKNUM de Excel) usada para programar y dar seguimiento al mantenimiento preventivo — no es la semana ISO 8601.' }
 ];
 
 function helpShowGlossary() {

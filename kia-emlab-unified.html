@@ -4250,10 +4250,11 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
             <button class="tp-tab active" role="tab" aria-selected="true" onclick="invSwitchTab('inv-dashboard')">📊 Dashboard</button>
             <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-readings')">📏 Captura</button>
             <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-gases')">🔴 Gases</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-equipment')">🔧 Equipos</button>
+            <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-maint')">🛠️ Mtto</button>
             <div class="tp-tab-more-wrap">
                 <button type="button" class="tp-tab tp-tab-more-btn" aria-haspopup="true" onclick="toggleTabMore(this)" title="Más secciones">⋯ Más</button>
                 <div class="tp-tab-more-menu" role="menu">
-                    <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-equipment');this.closest('.tp-tab-more-wrap').classList.remove('open')">🔧 Equipos</button>
                     <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-predict');this.closest('.tp-tab-more-wrap').classList.remove('open')">🔮 Predicción</button>
                     <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-fuel');this.closest('.tp-tab-more-wrap').classList.remove('open')">⛽ Combustible</button>
                     <button class="tp-tab" role="tab" aria-selected="false" onclick="invSwitchTab('inv-zonemap');this.closest('.tp-tab-more-wrap').classList.remove('open')">🗺️ Mapa</button>
@@ -5296,21 +5297,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202607310704';
+var APP_BUILD = '202608051541';
 
 // Human-facing app version label (semantic). Update on meaningful releases.
 var APP_VERSION = '14.0';
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202607310704' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608051541' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202607310704' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608051541' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5326,7 +5327,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202607310704' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608051541' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -7224,16 +7225,38 @@ function dashCollectActivities() {
                     action: { label: 'Reponer', js: "dashGo('inventory','inv-gases','invEditGas','" + g.id + "')" } });
             }
         });
-        (invState.equipment || []).forEach(function(e) {
-            if (!e.nextCalDate) return;
-            var diff = Math.round((new Date(e.nextCalDate) - Date.now()) / 86400000);
-            if (diff < 0) acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
-                title: e.name + ': calibración VENCIDA', meta: 'hace ' + Math.abs(diff) + ' días', status: 'atrasado', urgency: 3,
-                action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
-            else if (diff <= 7) acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
-                title: e.name + ': calibrar en ' + diff + ' días', meta: e.nextCalDate, status: 'pendiente', urgency: 2,
-                action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
-        });
+        if (typeof invCalStatus === 'function') {
+            (invState.equipment || []).forEach(function(e) {
+                var st = invCalStatus(e);
+                if (st.code === 'vencido') acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
+                    title: e.name + ': calibración VENCIDA', meta: 'hace ' + Math.abs(st.days) + ' días', status: 'atrasado', urgency: 3,
+                    action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
+                else if (st.code === 'porvencer') acts.push({ id: 'act-cal-' + e.id, cat: 'inventario', icon: '🔧',
+                    title: e.name + ': calibrar en ' + st.days + ' días', meta: e.nextCalDate, status: 'pendiente', urgency: st.days <= 7 ? 2 : 1,
+                    action: { label: 'Calibrar', js: "dashGo('inventory','inv-equipment','invEditEquipment','" + e.id + "')" } });
+            });
+        }
+        // v16.4: mantenimiento preventivo (COP15-F11) — vencidos y programados para esta semana
+        if (typeof invMaintOverdue === 'function') {
+            invMaintOverdue().forEach(function(o) {
+                acts.push({ id: 'act-mtto-' + o.act.id, cat: 'inventario', icon: '🛠️',
+                    title: (o.asset ? o.asset.name + ': ' : '') + o.act.desc + ' — vencido',
+                    meta: 'Desde semana ' + o.lastWeek + ' (' + o.count + ' semana' + (o.count > 1 ? 's' : '') + ' sin registrar)',
+                    status: 'atrasado', urgency: 3,
+                    checkbox: { js: "invMaintMarkDone('" + o.act.id + "');dailyDashRender();", checked: false },
+                    action: { label: 'Ver', js: "dashGo('inventory','inv-maint')" } });
+            });
+        }
+        if (typeof invMaintDueThisWeek === 'function') {
+            invMaintDueThisWeek().forEach(function(d) {
+                acts.push({ id: 'act-mtto-week-' + d.act.id, cat: 'inventario', icon: '🛠️',
+                    title: (d.asset ? d.asset.name + ': ' : '') + d.act.desc,
+                    meta: 'Mantenimiento de esta semana · ' + (d.act.responsible || ''),
+                    status: 'pendiente', urgency: 2,
+                    checkbox: { js: "invMaintMarkDone('" + d.act.id + "');dailyDashRender();", checked: false },
+                    action: { label: 'Ver', js: "dashGo('inventory','inv-maint')" } });
+            });
+        }
     }
 
     // 7) Consumo proyectado insuficiente (modelo aprendido, números vivos)
@@ -7254,7 +7277,7 @@ function dashCollectActivities() {
     if (typeof pnGetActiveAlerts === 'function') {
         try {
             pnGetActiveAlerts().forEach(function(a, ai) {
-                if (a.source === 'Inventario' || a.source === 'Consumo') return;
+                if (a.source === 'Inventario' || a.source === 'Consumo' || a.source === 'Mantenimiento') return;
                 var cat = a.source === 'Test Plan' ? 'plan' : a.source === 'CoP SPC' ? 'calidad' : null;
                 if (a.source === 'COP15') { if (a.level !== 'CRITICA') return; cat = 'calidad'; }
                 if (!cat) return;
@@ -8828,6 +8851,8 @@ var TOURS = {
         { target: '#inv-tabs-bar', title: 'Pestañas de Inventario', text: 'Navega entre resumen, cilindros, equipos, captura diaria, predicción, combustible y mapa.', position: 'bottom' },
         { target: '[data-help="inv-readings-help"]', title: 'Captura diaria', text: 'Captura el PSI de cada cilindro en uso — de estas lecturas la plataforma APRENDE el consumo.', position: 'bottom', tab: 'inv-readings' },
         { target: '[onclick="invShowAddGas()"]', title: 'Alta de cilindro', text: 'Registra un cilindro nuevo con su fórmula, concentración, zona y vigencia.', position: 'bottom', tab: 'inv-gases' },
+        { target: '[data-help="inv-equipment-help"]', title: 'Equipos y Calibración', text: 'Semáforo de calibración por instrumento. El botón "✅ Calibrado" registra la calibración en dos toques — fecha y certificado — y calcula sola la próxima fecha.', position: 'bottom', tab: 'inv-equipment' },
+        { target: '[data-help="inv-maint-help"]', title: 'Mantenimiento', text: 'Vencidos y de esta semana arriba, con "✔ Hecho" de un toque. El Plan Maestro de 52 semanas queda plegado abajo para consulta.', position: 'bottom', tab: 'inv-maint' },
         { target: '[data-help="inv-predict-model"]', title: 'Predicción', text: 'Consumo aprendido y proyección: ¿alcanza el gas/combustible para el plan?', position: 'top', tab: 'inv-predict' }
     ],
     panel: [
@@ -9082,7 +9107,13 @@ var HELP_GLOSSARY = [
     { term: 'Tier / Prioridad (P1..P5)', def: 'Nivel de urgencia asignado a cada configuración pendiente en el Plan de Recuperación. P1 = más urgente (ej. COP Europa), hasta P5 (ej. eléctricos) — se atienden en ese orden según la capacidad disponible.' },
     { term: 'PSI', def: 'Libras por pulgada cuadrada — unidad de presión con la que se mide el contenido de los cilindros de gas de calibración.' },
     { term: 'DTC', def: 'Diagnostic Trouble Code — Código de Falla Diagnóstica almacenado en la computadora del vehículo (ECU). Un vehículo con DTCs confirmados o permanentes no es apto para la prueba de emisiones.' },
-    { term: 'Carta de captura diaria', def: 'El registro diario de PSI de cada cilindro de gas en uso y del nivel de los tanques de combustible. La plataforma usa estas lecturas para aprender cuánto consume cada tipo de prueba y predecir si el inventario alcanza.' }
+    { term: 'Carta de captura diaria', def: 'El registro diario de PSI de cada cilindro de gas en uso y del nivel de los tanques de combustible. La plataforma usa estas lecturas para aprender cuánto consume cada tipo de prueba y predecir si el inventario alcanza.' },
+    { term: 'Trazabilidad (calibración)', def: 'Organismo de acreditación que respalda el certificado de calibración de un instrumento (ej. EMA, ANAB, NVLAP) — evidencia de que la medición es confiable y auditable.' },
+    { term: 'EMA / ANAB / NVLAP', def: 'Organismos de acreditación de laboratorios de calibración: EMA (México), ANAB y NVLAP (Estados Unidos). Un certificado con su sello es trazable internacionalmente.' },
+    { term: 'Calibración Interna vs Externa', def: 'Interna: la realiza el propio laboratorio con sus patrones. Externa: la realiza un proveedor certificado fuera del laboratorio (en sitio o en sus instalaciones).' },
+    { term: 'NO OPERABLE', def: 'Estatus que debe asignarse a un equipo crítico cuya calibración está vencida — no debe usarse para pruebas hasta recalibrarse (COP15-F11).' },
+    { term: 'Crítico NMX', def: 'Marca si un instrumento es crítico para la validez de la prueba bajo la normatividad mexicana (NMX) — si vence su calibración, dispara el aviso de NO OPERABLE.' },
+    { term: 'Semana del Plan Maestro', def: 'Numeración simple 1-52 del año (similar a WEEKNUM de Excel) usada para programar y dar seguimiento al mantenimiento preventivo — no es la semana ISO 8601.' }
 ];
 
 function helpShowGlossary() {
@@ -16744,8 +16775,20 @@ let invState = safeParse(INV_LS_KEY, null) || {
     ],
     activeTab: 'inv-dashboard',
     usageLog: [], // {date, gasId, psiUsed, testsRun, regulation}
-    fuelTanks: [] // {id, name, fuelType, octane, supplier, capacity, currentLevel, unit, readings}
+    fuelTanks: [], // {id, name, fuelType, octane, supplier, capacity, currentLevel, unit, readings}
+    // ── COP15-F11 Plan Maestro de Mantenimiento y Calibración (v16.4) ──
+    assets: [],          // {id:'E-001', name, lab, brand, model, serialNo, status, notes, blocksTesting}
+    maintActivities: [], // {id:'A-01', assetId, desc, freq, startWeek, responsible, active}
+    maintLog: [],        // {id, date, assetId, activityId, by, hours, comments, createdAt}
+    f11Seed: 0            // guard de migración (=3 cuando ya se aplicó la rev 03 del F11)
 };
+
+// Listas cerradas del formato COP15-F11 (hoja "Listas")
+var INV_CAL_FREQ_DAYS = { Semestral: 182, Anual: 365, Bianual: 730 };
+var INV_MTTO_FREQ_WEEKS = { Semanal: 1, Quincenal: 2, Mensual: 4, Bimestral: 8, Trimestral: 13, Semestral: 26, Anual: 52 };
+var INV_LABS = ['Emisiones', 'Materiales', 'Calibración'];
+var INV_CAL_PLACES = ['En sitio', 'Externo Nacional', 'Externo USA'];
+var INV_CAL_TYPES = ['Interna', 'Externa'];
 
 // Drag-and-drop state for zone map
 var _invDrag = { active:false, gasId:null, sourceCode:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false };
@@ -16802,9 +16845,281 @@ function invPreloadData() {
         void 0;
     }
     invSave();
+    _invMigrateF11();
 }
 
-var _invTabs = ['inv-dashboard','inv-gases','inv-equipment','inv-readings','inv-predict','inv-fuel','inv-zonemap','inv-charts','inv-config','inv-report','inv-trace'];
+// ══════════════════════════════════════════════════
+// COP15-F11 — Plan Maestro de Mantenimiento y Calibración (v16.4)
+// Seeds de la rev. 03 del formato oficial + migración única e idempotente.
+// ══════════════════════════════════════════════════
+var INV_ASSETS_SEED_F11 = [{"id": "E-001", "name": "HVAC", "lab": "Emisiones", "brand": "Kimo", "model": "Varios (ver Calibración)", "serialNo": "2F150708994", "status": "Activo", "notes": "", "blocksTesting": false}, {"id": "E-002", "name": "VETS", "lab": "Emisiones", "brand": "Vaisala", "model": "INDIGO520", "serialNo": "Varios", "status": "Activo", "notes": "", "blocksTesting": false}, {"id": "E-003", "name": "Clean Cham", "lab": "Emisiones", "brand": "Shynyei", "model": "Varios (ver Calibración)", "serialNo": "Varios", "status": "Activo", "notes": "", "blocksTesting": true}, {"id": "E-004", "name": "CFO", "lab": "Emisiones", "brand": "Horiba", "model": "5102514973", "serialNo": "7005035500", "status": "Activo", "notes": "", "blocksTesting": false}, {"id": "E-005", "name": "CPC-100", "lab": "Emisiones", "brand": "Horiba", "model": "CPC-100", "serialNo": "C100152302", "status": "Activo", "notes": "", "blocksTesting": false}, {"id": "E-006", "name": "Rack", "lab": "Emisiones", "brand": "Horiba", "model": "Rack con venturi", "serialNo": "69161", "status": "Activo", "notes": "", "blocksTesting": false}, {"id": "E-007", "name": "Venturi", "lab": "Emisiones", "brand": "Horiba", "model": "cilindro venturi", "serialNo": "69015", "status": "Activo", "notes": "", "blocksTesting": false}, {"id": "E-008", "name": "GDC", "lab": "Emisiones", "brand": "Horiba", "model": "ONE", "serialNo": "S2001362117000020", "status": "Activo", "notes": "", "blocksTesting": false}, {"id": "E-009", "name": "Bubbler", "lab": "Emisiones", "brand": "Horiba", "model": "Heated Bubler", "serialNo": "8001005048", "status": "Activo", "notes": "", "blocksTesting": false}, {"id": "E-010", "name": "RMT1-TS", "lab": "Emisiones", "brand": "", "model": "S1-8", "serialNo": "", "status": "Activo", "notes": "", "blocksTesting": false}, {"id": "E-011", "name": "Manometer 1", "lab": "Emisiones", "brand": "ManoStar", "model": "WO801", "serialNo": "", "status": "Activo", "notes": "", "blocksTesting": false}, {"id": "E-012", "name": "Manometer 2", "lab": "Emisiones", "brand": "ManoStar", "model": "WO81", "serialNo": "", "status": "Activo", "notes": "", "blocksTesting": false}, {"id": "E-013", "name": "Dynamometer", "lab": "Emisiones", "brand": "A&G", "model": "Varios (ver Calibración)", "serialNo": "Varios", "status": "Activo", "notes": "", "blocksTesting": true}, {"id": "E-014", "name": "Laboratorio", "lab": "Emisiones", "brand": "FLUKE", "model": "Varios (ver Calibración)", "serialNo": "Varios", "status": "Activo", "notes": "", "blocksTesting": false}];
+var INV_CAL_SEED_F11 = [{"f11Id": "C-001", "assetId": "E-001", "name": "Thermometer HVAC", "type": "Thermometer", "magnitude": "Thermometer", "brand": "Kimo", "model": "TH210-B0SP", "serialNo": "2F150708994", "kmmId": "", "requiresCal": "No", "calType": "", "calFreq": "", "calLab": "", "traceability": "", "calPlace": "", "lastCalDate": "", "nextCalDate": "", "calCertNo": "", "rangeMax": "-20…+80°C", "rangeUse": "0…+50°C", "maxError": "± 0.25°C", "location": "Emission Room", "critical": "No", "comments": ""}, {"f11Id": "C-002", "assetId": "E-001", "name": "Humidity sensor HVAC", "type": "Humidity sensor", "magnitude": "Humidity sensor", "brand": "Kimo", "model": "TH210-B0SP", "serialNo": "2F150708994", "kmmId": "", "requiresCal": "No", "calType": "", "calFreq": "", "calLab": "", "traceability": "", "calPlace": "", "lastCalDate": "", "nextCalDate": "", "calCertNo": "", "rangeMax": "0…100%HR", "rangeUse": "0…100%HR", "maxError": "± 1.5 %RH", "location": "Emission Room", "critical": "No", "comments": ""}, {"f11Id": "C-003", "assetId": "E-001", "name": "Thermometer HVAC", "type": "Thermometer", "magnitude": "Thermometer", "brand": "Kimo", "model": "TH210B0SP", "serialNo": "", "kmmId": "TH-0033", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "METROLAB", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-02-21", "nextCalDate": "2026-02-21", "calCertNo": "T-2199-2023", "rangeMax": "-20…+80°C", "rangeUse": "0…+50°C", "maxError": "± 0.25°C", "location": "Soaking Room", "critical": "Si", "comments": ""}, {"f11Id": "C-004", "assetId": "E-001", "name": "Humidity sensor HVAC", "type": "Humidity sensor", "magnitude": "Humidity sensor", "brand": "Kimo", "model": "TH210B0SP", "serialNo": "", "kmmId": "TH-0033", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "METROLAB", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-02-21", "nextCalDate": "2026-02-21", "calCertNo": "H-0438-2023", "rangeMax": "0…100%HR", "rangeUse": "0…100%HR", "maxError": "± 1.5 %RH", "location": "Soaking Room", "critical": "Si", "comments": ""}, {"f11Id": "C-005", "assetId": "E-002", "name": "Barometer VETS", "type": "Barometer", "magnitude": "Barometer", "brand": "Vaisala", "model": "INDIGO520", "serialNo": "W4831243", "kmmId": "TH-0043-03", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "Vaisala", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calCertNo": "", "rangeMax": "0-20 mA / 0-10 V", "rangeUse": "95%", "maxError": "±0.004 mA /± 0.0002 V", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-006", "assetId": "E-002", "name": "Thermometer VETS", "type": "Thermometer", "magnitude": "Thermometer", "brand": "Vaisala", "model": "INDIGO520", "serialNo": "W3850023", "kmmId": "TH-0043-02", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "Vaisala", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calCertNo": "", "rangeMax": "500-1100hPa", "rangeUse": "95%", "maxError": "± 0.7hPa", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-007", "assetId": "E-002", "name": "Humidity sensor VETS", "type": "Humidity sensor", "magnitude": "Humidity sensor", "brand": "Vaisala", "model": "INDIGO520", "serialNo": "W4754750", "kmmId": "TH-0043-01", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "Vaisala", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calCertNo": "", "rangeMax": "0-100%HR/20°C", "rangeUse": "95%", "maxError": "± 0.5 %RH/0.10°C", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-008", "assetId": "E-002", "name": "Barometer VETS", "type": "Barometer", "magnitude": "Barometer", "brand": "Vaisala", "model": "INDIGO520", "serialNo": "W4831244", "kmmId": "TH-0044-03", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "Vaisala", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calCertNo": "", "rangeMax": "0-20 mA / 0-10 V", "rangeUse": "95%", "maxError": "±0.004 mA /± 0.0002 V", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-009", "assetId": "E-002", "name": "Thermometer VETS", "type": "Thermometer", "magnitude": "Thermometer", "brand": "Vaisala", "model": "INDIGO520", "serialNo": "W3850033", "kmmId": "TH-0044-02", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "Vaisala", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calCertNo": "", "rangeMax": "500-1100hPa", "rangeUse": "95%", "maxError": "± 0.7hPa", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-010", "assetId": "E-002", "name": "Humidity sensor VETS", "type": "Humidity sensor", "magnitude": "Humidity sensor", "brand": "Vaisala", "model": "INDIGO520", "serialNo": "W4917201", "kmmId": "TH-0044-01", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "Vaisala", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calCertNo": "", "rangeMax": "0-100%HR/20°C", "rangeUse": "95%", "maxError": "± 0.5 %RH/0.10°C", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-011", "assetId": "E-003", "name": "Humidity sensor Clean Cham", "type": "Humidity sensor", "magnitude": "Humidity sensor", "brand": "Shynyei", "model": "DewStar S-BS-4C", "serialNo": "", "kmmId": "", "requiresCal": "Si", "calType": "", "calFreq": "Anual", "calLab": "TECHMASTER", "traceability": "ANAB", "calPlace": "En sitio", "lastCalDate": "2018-03-16", "nextCalDate": "2019-03-16", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "No", "comments": ""}, {"f11Id": "C-012", "assetId": "E-003", "name": "Barometer Clean Cham", "type": "Barometer", "magnitude": "Barometer", "brand": "Vaisala", "model": "PTB330", "serialNo": "L2540408", "kmmId": "", "requiresCal": "No", "calType": "", "calFreq": "", "calLab": "", "traceability": "", "calPlace": "", "lastCalDate": "", "nextCalDate": "", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "No", "comments": ""}, {"f11Id": "C-013", "assetId": "E-003", "name": "Thermometer Clean Cham", "type": "Thermometer", "magnitude": "Thermometer", "brand": "Horiba", "model": "TH-0027 Clean Chamber", "serialNo": "K-150019C", "kmmId": "", "requiresCal": "Si", "calType": "", "calFreq": "Anual", "calLab": "CALMET", "traceability": "ILAC - MRA", "calPlace": "", "lastCalDate": "2017-11-17", "nextCalDate": "2018-11-17", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "No", "comments": ""}, {"f11Id": "C-014", "assetId": "E-003", "name": "Humidity sensor Clean Cham", "type": "Humidity sensor", "magnitude": "Humidity sensor", "brand": "Horiba", "model": "TH-0027 Clean Chamber", "serialNo": "K-150019C", "kmmId": "", "requiresCal": "No", "calType": "", "calFreq": "", "calLab": "", "traceability": "", "calPlace": "", "lastCalDate": "", "nextCalDate": "", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "No", "comments": ""}, {"f11Id": "C-015", "assetId": "E-003", "name": "Barometer Clean Cham", "type": "Barometer", "magnitude": "Barometer", "brand": "Horiba", "model": "TH-0027 Clean Chamber", "serialNo": "K-150019C", "kmmId": "", "requiresCal": "No", "calType": "", "calFreq": "", "calLab": "", "traceability": "", "calPlace": "", "lastCalDate": "", "nextCalDate": "", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "No", "comments": ""}, {"f11Id": "C-016", "assetId": "E-003", "name": "Bascula Digital Clean Cham", "type": "Bascula Digital", "magnitude": "Bascula Digital", "brand": "Mettler Toledo", "model": "XP2U", "serialNo": "B8601948655", "kmmId": "", "requiresCal": "Si", "calType": "Interna", "calFreq": "Anual", "calLab": "KIA Cal Lab", "traceability": "OIML", "calPlace": "En sitio", "lastCalDate": "2018-04-18", "nextCalDate": "2019-04-18", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "No", "comments": ""}, {"f11Id": "C-017", "assetId": "E-004", "name": "Propane injection CFO", "type": "Propane injection", "magnitude": "Propane injection", "brand": "Horiba", "model": "5102514973", "serialNo": "7005035500", "kmmId": "PR-018", "requiresCal": "Si", "calType": "Externa", "calFreq": "Bianual", "calLab": "Horiba USA", "traceability": "ANAB", "calPlace": "Externo USA", "lastCalDate": "2024-05-31", "nextCalDate": "2026-05-31", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "Si", "comments": "EN CALIBRACION"}, {"f11Id": "C-018", "assetId": "E-005", "name": "Particle counter CPC-100", "type": "Particle counter", "magnitude": "Particle counter", "brand": "Horiba", "model": "CPC-100", "serialNo": "C100152302", "kmmId": "", "requiresCal": "Si", "calType": "", "calFreq": "", "calLab": "Horiba USA", "traceability": "TSI", "calPlace": "Externo USA", "lastCalDate": "", "nextCalDate": "", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "No", "comments": ""}, {"f11Id": "C-019", "assetId": "E-006", "name": "Subsonic venturi Rack", "type": "Subsonic venturi", "magnitude": "Subsonic venturi", "brand": "Horiba", "model": "Rack con venturi", "serialNo": "69161", "kmmId": "", "requiresCal": "Si", "calType": "", "calFreq": "Bianual", "calLab": "Horiba USA", "traceability": "NVLAP", "calPlace": "", "lastCalDate": "2022-05-05", "nextCalDate": "2024-05-04", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "No", "comments": ""}, {"f11Id": "C-020", "assetId": "E-007", "name": "Subsonic venturi Venturi", "type": "Subsonic venturi", "magnitude": "Subsonic venturi", "brand": "Horiba", "model": "cilindro venturi", "serialNo": "69015", "kmmId": "", "requiresCal": "Si", "calType": "", "calFreq": "Bianual", "calLab": "Horiba USA", "traceability": "NVLAP", "calPlace": "", "lastCalDate": "2022-05-20", "nextCalDate": "2024-05-19", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "No", "comments": ""}, {"f11Id": "C-021", "assetId": "E-008", "name": "Gas Divider GDC", "type": "Gas Divider", "magnitude": "Gas Divider", "brand": "Horiba", "model": "ONE", "serialNo": "S2001362117000020", "kmmId": "OT-0038", "requiresCal": "Si", "calType": "Externa", "calFreq": "Bianual", "calLab": "Horiba USA", "traceability": "ANAB", "calPlace": "Externo USA", "lastCalDate": "2024-11-19", "nextCalDate": "2026-11-19", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "Si", "comments": "EN CALIBRACION"}, {"f11Id": "C-022", "assetId": "E-009", "name": "Heater bubbler Bubbler", "type": "Heater bubbler", "magnitude": "Heater bubbler", "brand": "Horiba", "model": "Heated Bubler", "serialNo": "8001005048", "kmmId": "", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "Horiba USA", "traceability": "NIST", "calPlace": "Externo USA", "lastCalDate": "2024-06-19", "nextCalDate": "2025-06-19", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "No", "comments": ""}, {"f11Id": "C-023", "assetId": "E-010", "name": "Thermocouple RMT1-TS", "type": "Thermocouple", "magnitude": "Thermocouple", "brand": "", "model": "S1-8", "serialNo": "", "kmmId": "TH-0036", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "En sitio", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "20 - 30°C", "rangeUse": "20 °C", "maxError": "0.01", "location": "Emission Room RMT1", "critical": "Si", "comments": ""}, {"f11Id": "C-024", "assetId": "E-011", "name": "RMT1 Manometer 1", "type": "RMT1", "magnitude": "RMT1", "brand": "ManoStar", "model": "WO801", "serialNo": "", "kmmId": "PR-0017", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "En sitio", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "50 - 500 Pa", "rangeUse": "70 kPa", "maxError": "1", "location": "Emission Room RMT1", "critical": "Si", "comments": ""}, {"f11Id": "C-025", "assetId": "E-012", "name": "CVS Out Manometer 2", "type": "CVS Out", "magnitude": "CVS Out", "brand": "ManoStar", "model": "WO81", "serialNo": "", "kmmId": "PR-0016", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "En sitio", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "3 - 30kPa", "rangeUse": "30 Kpa", "maxError": "1", "location": "Emission Room CVS", "critical": "Si", "comments": ""}, {"f11Id": "C-026", "assetId": "E-013", "name": "Cooling Fan Dynamometer", "type": "Cooling Fan", "magnitude": "Cooling Fan", "brand": "A&G", "model": "HS185KR209", "serialNo": "15F-496E13-001BFT", "kmmId": "", "requiresCal": "Si", "calType": "", "calFreq": "", "calLab": "CALMET", "traceability": "ILAC * MRA", "calPlace": "En sitio", "lastCalDate": "", "nextCalDate": "", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "No", "comments": ""}, {"f11Id": "C-027", "assetId": "E-013", "name": "Death Weight Dynamometer", "type": "Death Weight", "magnitude": "Death Weight", "brand": "A&G", "model": "CDE4200-002", "serialNo": "", "kmmId": "", "requiresCal": "Si", "calType": "Interna", "calFreq": "Anual", "calLab": "Emissions Lab", "traceability": "T-EMA", "calPlace": "En sitio", "lastCalDate": "2025-03-01", "nextCalDate": "2026-03-01", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-028", "assetId": "E-013", "name": "Roller diameter Dynamometer", "type": "Roller diameter", "magnitude": "Roller diameter", "brand": "A&G", "model": "CDE 4200-002 Front", "serialNo": "", "kmmId": "OT-0032", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "En sitio", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room Dyno", "critical": "Si", "comments": ""}, {"f11Id": "C-029", "assetId": "E-013", "name": "Roller diameter Dynamometer", "type": "Roller diameter", "magnitude": "Roller diameter", "brand": "A&G", "model": "CDE 4200-002 Rear", "serialNo": "", "kmmId": "", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "En sitio", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room Dyno", "critical": "", "comments": ""}, {"f11Id": "C-030", "assetId": "E-013", "name": "Arm Dynamometer", "type": "Arm", "magnitude": "Arm", "brand": "A&G", "model": "CDE4200-002", "serialNo": "", "kmmId": "", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "En sitio", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-031", "assetId": "E-013", "name": "Mass 1 Dynamometer", "type": "Mass 1", "magnitude": "Mass 1", "brand": "A&G", "model": "", "serialNo": "1", "kmmId": "WE-0016-01", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calCertNo": "", "rangeMax": "22.8kg 50 lb", "rangeUse": "22.8kg", "maxError": "+0.01g", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-032", "assetId": "E-013", "name": "Mass 2 Dynamometer", "type": "Mass 2", "magnitude": "Mass 2", "brand": "A&G", "model": "", "serialNo": "2", "kmmId": "WE-0016-02", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calCertNo": "", "rangeMax": "22.8kg 50 lb", "rangeUse": "22.8kg", "maxError": "+0.01g", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-033", "assetId": "E-013", "name": "Mass 3 Dynamometer", "type": "Mass 3", "magnitude": "Mass 3", "brand": "A&G", "model": "", "serialNo": "3", "kmmId": "WE-0016-03", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calCertNo": "", "rangeMax": "22.8kg 50 lb", "rangeUse": "22.8kg", "maxError": "+0.01g", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-034", "assetId": "E-013", "name": "Mass 4 Dynamometer", "type": "Mass 4", "magnitude": "Mass 4", "brand": "A&G", "model": "", "serialNo": "4", "kmmId": "WE-0016-04", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calCertNo": "", "rangeMax": "22.8kg 50 lb", "rangeUse": "22.8kg", "maxError": "+0.01g", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-035", "assetId": "E-013", "name": "Mass 5 Dynamometer", "type": "Mass 5", "magnitude": "Mass 5", "brand": "A&G", "model": "", "serialNo": "5", "kmmId": "WE-0016-05", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calCertNo": "", "rangeMax": "22.8kg 50 lb", "rangeUse": "22.8kg", "maxError": "+0.01g", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-036", "assetId": "E-013", "name": "Mass 6 Dynamometer", "type": "Mass 6", "magnitude": "Mass 6", "brand": "A&G", "model": "", "serialNo": "6", "kmmId": "WE-0016-06", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calCertNo": "", "rangeMax": "22.8kg 50 lb", "rangeUse": "22.8kg", "maxError": "+0.01g", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-037", "assetId": "E-013", "name": "Mass 7 Dynamometer", "type": "Mass 7", "magnitude": "Mass 7", "brand": "A&G", "model": "", "serialNo": "7", "kmmId": "WE-0016-07", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calCertNo": "", "rangeMax": "22.8kg 50 lb", "rangeUse": "22.8kg", "maxError": "+0.01g", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-038", "assetId": "E-013", "name": "Mass 8 Dynamometer", "type": "Mass 8", "magnitude": "Mass 8", "brand": "A&G", "model": "", "serialNo": "8", "kmmId": "WE-0016-08", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calCertNo": "", "rangeMax": "22.8kg 50 lb", "rangeUse": "22.8kg", "maxError": "+0.01g", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-039", "assetId": "E-013", "name": "Mass 9 Dynamometer", "type": "Mass 9", "magnitude": "Mass 9", "brand": "A&G", "model": "", "serialNo": "9", "kmmId": "WE-0016-09", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calCertNo": "", "rangeMax": "22.8kg 50 lb", "rangeUse": "22.8kg", "maxError": "+0.01g", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-040", "assetId": "E-013", "name": "Mass 10 Dynamometer", "type": "Mass 10", "magnitude": "Mass 10", "brand": "A&G", "model": "", "serialNo": "10", "kmmId": "WE-0016-10", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calCertNo": "", "rangeMax": "22.8kg 50 lb", "rangeUse": "22.8kg", "maxError": "+0.01g", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-041", "assetId": "E-013", "name": "D center to load cell Dynamometer", "type": "D center to load cell", "magnitude": "D center to load cell", "brand": "A&G", "model": "CDE 4200-002 Front", "serialNo": "", "kmmId": "", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-042", "assetId": "E-013", "name": "D center to load cell Dynamometer", "type": "D center to load cell", "magnitude": "D center to load cell", "brand": "A&G", "model": "CDE 4200-002 Rear", "serialNo": "", "kmmId": "", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-043", "assetId": "E-013", "name": "Angular speed Dynamometer", "type": "Angular speed", "magnitude": "Angular speed", "brand": "A&G", "model": "CDE 4200-002 Front", "serialNo": "", "kmmId": "OT-0037", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-044", "assetId": "E-013", "name": "Angular speed Dynamometer", "type": "Angular speed", "magnitude": "Angular speed", "brand": "A&G", "model": "CDE 4200-002 Rear", "serialNo": "", "kmmId": "", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-045", "assetId": "E-013", "name": "Torque Dynamometer", "type": "Torque", "magnitude": "Torque", "brand": "A&G", "model": "CDE 4200-002 Front", "serialNo": "", "kmmId": "", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-046", "assetId": "E-013", "name": "Torque Dynamometer", "type": "Torque", "magnitude": "Torque", "brand": "A&G", "model": "CDE 4200-002 Rear", "serialNo": "", "kmmId": "", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Emission Room", "critical": "Si", "comments": ""}, {"f11Id": "C-047", "assetId": "E-014", "name": "Thermometer Laboratorio", "type": "Thermometer", "magnitude": "Thermometer", "brand": "FLUKE", "model": "52 II", "serialNo": "30850092WS", "kmmId": "TH-0020", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Control Room", "critical": "Si", "comments": ""}, {"f11Id": "C-048", "assetId": "E-014", "name": "Pressure gauge Laboratorio", "type": "Pressure gauge", "magnitude": "Pressure gauge", "brand": "GRIPPER", "model": "SA-1U1A1E1J2", "serialNo": "PS 055 497", "kmmId": "PR-0002", "requiresCal": "Si", "calType": "Externa", "calFreq": "Anual", "calLab": "CIDESI", "traceability": "EMA", "calPlace": "Externo Nacional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Inspection Room", "critical": "Si", "comments": ""}, {"f11Id": "C-049", "assetId": "E-014", "name": "Thermometer Laboratorio", "type": "Thermometer", "magnitude": "Thermometer", "brand": "TRUPER", "model": "METE-500", "serialNo": "", "kmmId": "", "requiresCal": "No", "calType": "", "calFreq": "", "calLab": "", "traceability": "", "calPlace": "", "lastCalDate": "", "nextCalDate": "", "calCertNo": "", "rangeMax": "", "rangeUse": "", "maxError": "", "location": "Control Room", "critical": "No", "comments": ""}];
+var INV_MTTO_ACT_SEED_F11 = [{"id": "A-01", "assetId": "E-013", "desc": "Limpieza (soplado)", "freq": "Mensual", "startWeek": 2, "responsible": "Técnico", "active": true}, {"id": "A-02", "assetId": "E-001", "desc": "Inspección general de filtros", "freq": "Trimestral", "startWeek": 1, "responsible": "Técnico", "active": true}, {"id": "A-03", "assetId": "E-003", "desc": "Reemplazo (componentes)", "freq": "Semestral", "startWeek": 26, "responsible": "General", "active": true}];
+// invState.equipment[].id (legado) -> f11Id (C-xxx) de los 31 instrumentos ya capturados
+var INV_F11_LEGACY_MAP = {"eq_th0033": "C-003", "eq_th004303": "C-005", "eq_th004302": "C-006", "eq_th004301": "C-007", "eq_th004402": "C-009", "eq_th004401": "C-010", "eq_pr018": "C-017", "eq_ot0038": "C-021", "eq_bubbler": "C-022", "eq_th0036": "C-023", "eq_pr0017": "C-024", "eq_pr0016": "C-025", "eq_dyno_dw": "C-027", "eq_dyno_roller_f": "C-028", "eq_dyno_roller_r": "C-029", "eq_dyno_arm": "C-030", "eq_dyno_torque_f": "C-045", "eq_dyno_torque_r": "C-046", "eq_th0020": "C-047", "eq_pr0002": "C-048", "eq_mass_01": "C-031", "eq_mass_02": "C-032", "eq_mass_03": "C-033", "eq_mass_04": "C-034", "eq_mass_05": "C-035", "eq_mass_06": "C-036", "eq_mass_07": "C-037", "eq_mass_08": "C-038", "eq_mass_09": "C-039", "eq_mass_10": "C-040", "eq_dyno_speed_f": "C-043"};
+
+function _invMigrateF11() {
+    if (invState.f11Seed >= 3) return;
+    var linked = 0, created = 0;
+
+    if (!invState.assets || invState.assets.length === 0) {
+        invState.assets = JSON.parse(JSON.stringify(INV_ASSETS_SEED_F11));
+    }
+
+    var f11ByLegacy = {};
+    Object.keys(INV_F11_LEGACY_MAP).forEach(function(lid) { f11ByLegacy[INV_F11_LEGACY_MAP[lid]] = lid; });
+
+    var byF11Id = {}, byKmm = {}, bySerial = {};
+    invState.equipment.forEach(function(eq) {
+        if (eq.f11Id) byF11Id[eq.f11Id] = eq;
+        if (eq.kmmId) byKmm[eq.kmmId] = eq;
+        if (eq.serialNo && eq.serialNo !== 'N/A' && eq.serialNo !== '-' && eq.serialNo !== 'Varios') bySerial[eq.serialNo] = eq;
+    });
+
+    INV_CAL_SEED_F11.forEach(function(seed) {
+        var legacyId = f11ByLegacy[seed.f11Id];
+        var target = byF11Id[seed.f11Id]
+            || (legacyId ? invState.equipment.find(function(e) { return e.id === legacyId; }) : null)
+            || (seed.kmmId ? byKmm[seed.kmmId] : null)
+            || (seed.serialNo ? bySerial[seed.serialNo] : null);
+
+        if (target) {
+            // Consumir el objetivo de los mapas de respaldo: dos filas de Calibración pueden
+            // compartir KMM ID/serie (un mismo instrumento físico mide dos magnitudes, p.ej.
+            // TH-0033 = termómetro + higrómetro) — sin esto, la segunda fila reclamaría de
+            // nuevo el mismo equipo ya enlazado en vez de darse de alta como registro propio.
+            if (target.kmmId && byKmm[target.kmmId] === target) delete byKmm[target.kmmId];
+            if (target.serialNo && bySerial[target.serialNo] === target) delete bySerial[target.serialNo];
+            target.f11Id = seed.f11Id;
+            if (!target.assetId) target.assetId = seed.assetId;
+            Object.keys(seed).forEach(function(k) {
+                if (k === 'f11Id' || k === 'assetId') return;
+                if (target[k] === undefined || target[k] === null || target[k] === '') target[k] = seed[k];
+            });
+            if (!target.calHistory) target.calHistory = [];
+            byF11Id[seed.f11Id] = target;
+            linked++;
+        } else {
+            var neu = JSON.parse(JSON.stringify(seed));
+            neu.id = 'eq_f11_' + seed.f11Id.toLowerCase().replace('-', '');
+            neu.status = 'active';
+            neu.calHistory = [];
+            invState.equipment.push(neu);
+            created++;
+        }
+    });
+
+    if (!invState.maintActivities || invState.maintActivities.length === 0) {
+        invState.maintActivities = JSON.parse(JSON.stringify(INV_MTTO_ACT_SEED_F11));
+    }
+
+    invState.f11Seed = 3;
+    invSave();
+    if (typeof auditLog === 'function') auditLog('inv', 'f11_migrado', { type: 'equipment', label: 'COP15-F11 rev03' }, linked + ' enlazados, ' + created + ' nuevos');
+    void 0;
+}
+
+// ══════════════════════════════════════════════════
+// COP15-F11 — Derivadas de calibración y mantenimiento (una sola definición cada una)
+// ══════════════════════════════════════════════════
+
+// Estatus de calibración de un instrumento — semáforo del F11 (umbral 60 días).
+function invCalStatus(eq) {
+    if (!eq) return { code: 'noaplica', days: null, color: '#94a3b8', label: 'N/A' };
+    if (eq.requiresCal === 'No') return { code: 'noaplica', days: null, color: '#94a3b8', label: 'No aplica' };
+    if (!eq.nextCalDate) return { code: 'sinregistro', days: null, color: '#64748b', label: 'Sin registro' };
+    var days = Math.round((new Date(eq.nextCalDate + 'T00:00:00') - new Date(localToday() + 'T00:00:00')) / 86400000);
+    if (days < 0) return { code: 'vencido', days: days, color: '#ef4444', label: 'Vencido ' + Math.abs(days) + 'd' };
+    if (days <= 60) return { code: 'porvencer', days: days, color: '#f59e0b', label: 'Vence en ' + days + 'd' };
+    return { code: 'vigente', days: days, color: '#10b981', label: 'Vigente ' + days + 'd' };
+}
+
+// Próxima fecha de calibración a partir de la última y la frecuencia (hoja Listas).
+function invCalNextDate(lastISO, freq) {
+    if (!lastISO) return '';
+    var days = INV_CAL_FREQ_DAYS[freq] || 365;
+    var d = new Date(lastISO + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// Réplica viva de la hoja Dashboard del F11 (sección Calibración).
+function invCalSummary() {
+    var total = invState.equipment.length, requiere = 0, vigentes = 0, porVencer = 0, vencidos = 0, sinRegistro = 0;
+    invState.equipment.forEach(function(eq) {
+        if (eq.requiresCal === 'No') return;
+        requiere++;
+        var st = invCalStatus(eq);
+        if (st.code === 'vigente') vigentes++;
+        else if (st.code === 'porvencer') porVencer++;
+        else if (st.code === 'vencido') vencidos++;
+        else if (st.code === 'sinregistro') sinRegistro++;
+    });
+    var pct = requiere > 0 ? Math.round((vigentes / requiere) * 1000) / 10 : 0;
+    return { total: total, requiere: requiere, vigentes: vigentes, porVencer: porVencer, vencidos: vencidos, sinRegistro: sinRegistro, pct: pct };
+}
+
+// Semana del año (1-52), partición simple estilo Excel WEEKNUM (semana 1 = la que contiene el 1-ene).
+// Límite conocido: el lunes de la semana 1 puede caer en diciembre del año anterior (p.ej. si el
+// 1-ene es jueves); invWeekOfYear sobre esa fecha usará el año calendario de diciembre, no el de la
+// matriz. Afecta como mucho la última semana de diciembre / primera de enero — sin impacto el resto del año.
+function invWeekOfYear(dateISO) {
+    var d = new Date(dateISO + 'T00:00:00');
+    var year = d.getFullYear();
+    var jan1 = new Date(year, 0, 1);
+    var jan1MonOffset = (jan1.getDay() + 6) % 7; // 0 = jan1 es lunes
+    var daysSinceJan1 = Math.round((d - jan1) / 86400000);
+    var week = Math.floor((daysSinceJan1 + jan1MonOffset) / 7) + 1;
+    if (week < 1) week = 1;
+    if (week > 52) week = 52;
+    return week;
+}
+// Lunes (ISO date string) de la semana N de un año, inverso de invWeekOfYear.
+function invMondayOfWeek(year, week) {
+    var jan1 = new Date(year, 0, 1);
+    var jan1MonOffset = (jan1.getDay() + 6) % 7;
+    var firstMonday = new Date(year, 0, 1 - jan1MonOffset);
+    var monday = new Date(firstMonday);
+    monday.setDate(firstMonday.getDate() + (week - 1) * 7);
+    return monday.getFullYear() + '-' + String(monday.getMonth() + 1).padStart(2, '0') + '-' + String(monday.getDate()).padStart(2, '0');
+}
+
+// Semanas planeadas (1-52) de una actividad de mantenimiento según su frecuencia.
+function invMaintWeeksFor(act, year) {
+    var weeks = [];
+    var freqW = INV_MTTO_FREQ_WEEKS[act.freq] || 4;
+    var w = act.startWeek || 1;
+    while (w <= 52) { weeks.push(w); w += freqW; }
+    return weeks;
+}
+
+// Matriz de 52 semanas del Plan Maestro — SIEMPRE calculada, nunca guardada.
+function invMaintMatrix(year) {
+    var acts = (invState.maintActivities || []).filter(function(a) { return a.active !== false; });
+    var log = invState.maintLog || [];
+    var curYear = new Date().getFullYear();
+    var curWeek = invWeekOfYear(localToday());
+    return acts.map(function(act) {
+        var asset = (invState.assets || []).find(function(a) { return a.id === act.assetId; });
+        var plannedWeeks = invMaintWeeksFor(act, year);
+        var doneWeeks = {};
+        log.forEach(function(l) {
+            if (l.activityId === act.id && l.date && l.date.slice(0, 4) === String(year)) doneWeeks[invWeekOfYear(l.date)] = true;
+        });
+        var weeks = [];
+        for (var n = 1; n <= 52; n++) {
+            var planned = plannedWeeks.indexOf(n) >= 0;
+            var done = !!doneWeeks[n];
+            var overdue = planned && !done && (year < curYear || (year === curYear && n < curWeek));
+            weeks.push({ n: n, planned: planned, done: done, overdue: overdue });
+        }
+        return { act: act, asset: asset, weeks: weeks };
+    });
+}
+
+// Cumplimiento de mantenimiento — réplica viva de la hoja Dashboard del F11.
+function invMaintCompliance(year) {
+    var matrix = invMaintMatrix(year);
+    var planned = 0, doneOnWeek = 0, byAsset = {};
+    matrix.forEach(function(row) {
+        var assetName = row.asset ? row.asset.name : (row.act.assetId || '?');
+        if (!byAsset[assetName]) byAsset[assetName] = { name: assetName, plan: 0, real: 0 };
+        row.weeks.forEach(function(w) {
+            if (w.planned) { planned++; byAsset[assetName].plan++; }
+            if (w.planned && w.done) { doneOnWeek++; byAsset[assetName].real++; }
+        });
+    });
+    var logged = (invState.maintLog || []).filter(function(l) { return l.date && l.date.slice(0, 4) === String(year); }).length;
+    var pct = planned > 0 ? Math.round((doneOnWeek / planned) * 1000) / 10 : 0;
+    var byAssetArr = Object.keys(byAsset).map(function(k) {
+        var b = byAsset[k];
+        b.pct = b.plan > 0 ? Math.round((b.real / b.plan) * 1000) / 10 : null;
+        return b;
+    });
+    return { planned: planned, doneOnWeek: doneOnWeek, logged: logged, pct: pct, byAsset: byAssetArr };
+}
+
+// Mantenimientos programados para la semana actual y aún no marcados.
+function invMaintDueThisWeek() {
+    var year = new Date().getFullYear();
+    var curWeek = invWeekOfYear(localToday());
+    var matrix = invMaintMatrix(year);
+    var result = [];
+    matrix.forEach(function(row) {
+        var wk = row.weeks[curWeek - 1];
+        if (wk && wk.planned && !wk.done) result.push({ act: row.act, asset: row.asset, week: curWeek });
+    });
+    return result;
+}
+
+// Actividades con semanas planeadas ya pasadas y sin registrar (una fila por actividad).
+function invMaintOverdue() {
+    var year = new Date().getFullYear();
+    var matrix = invMaintMatrix(year);
+    var result = [];
+    matrix.forEach(function(row) {
+        var overdueWeeks = row.weeks.filter(function(w) { return w.overdue; }).map(function(w) { return w.n; });
+        if (overdueWeeks.length > 0) {
+            result.push({ act: row.act, asset: row.asset, weeks: overdueWeeks, count: overdueWeeks.length, lastWeek: overdueWeeks[overdueWeeks.length - 1] });
+        }
+    });
+    return result;
+}
+
+// Actividades planeadas para la semana de un lunes dado (integración con Plan → Disponibilidad).
+function invMaintPlannedForWeek(mondayISO) {
+    var d = new Date(mondayISO + 'T00:00:00');
+    var year = d.getFullYear();
+    var week = invWeekOfYear(mondayISO);
+    var matrix = invMaintMatrix(year);
+    var result = [];
+    matrix.forEach(function(row) {
+        var wk = row.weeks[week - 1];
+        if (wk && wk.planned) result.push({ act: row.act, asset: row.asset, week: week });
+    });
+    return result;
+}
+
+// Registrar un mantenimiento ejecutado — un toque desde HOY, Mantenimiento o el Plan Maestro.
+function invMaintMarkDone(activityId, opts) {
+    opts = opts || {};
+    var act = (invState.maintActivities || []).find(function(a) { return a.id === activityId; });
+    if (!act) { if (typeof showToast === 'function') showToast('Actividad no encontrada', 'error'); return null; }
+    var by = opts.by || ((typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || 'Laboratorio');
+    var entry = {
+        id: invGenId(), date: opts.date || localToday(), assetId: act.assetId, activityId: activityId,
+        by: by, hours: opts.hours || null, comments: opts.comments || '', createdAt: new Date().toISOString()
+    };
+    invState.maintLog.push(entry);
+    invSave();
+    if (typeof auditLog === 'function') auditLog('inv', 'mtto_ejecutado', { type: 'maintenance', id: activityId, label: act.desc }, by + (entry.comments ? ' — ' + entry.comments : ''));
+    if (typeof showToast === 'function') showToast('Mantenimiento registrado', 'success');
+    return entry;
+}
+
+// Registrar una calibración — dos toques: fecha + certificado; calcula la próxima fecha sola.
+function invCalRegister(eqId, opts) {
+    opts = opts || {};
+    var eq = invState.equipment.find(function(e) { return e.id === eqId; });
+    if (!eq) { if (typeof showToast === 'function') showToast('Instrumento no encontrado', 'error'); return null; }
+    var date = opts.date || localToday();
+    var certNo = opts.certNo || '';
+    var provider = opts.provider || eq.calLab || '';
+    eq.lastCalDate = date;
+    eq.calCertNo = certNo;
+    if (provider) eq.calLab = provider;
+    eq.nextCalDate = invCalNextDate(date, eq.calFreq);
+    if (!eq.calHistory) eq.calHistory = [];
+    eq.calHistory.push({ date: date, certNo: certNo, provider: provider, by: (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || 'Laboratorio', at: new Date().toISOString() });
+    invSave();
+    if (typeof auditLog === 'function') auditLog('inv', 'calibracion_registrada', { type: 'equipment', id: eqId, label: eq.name }, 'Cert: ' + (certNo || '-') + ' · próxima: ' + eq.nextCalDate);
+    if (typeof fbPostCalibration === 'function') fbPostCalibration(eq.name);
+    if (typeof showToast === 'function') showToast('Calibración registrada', 'success');
+    return eq;
+}
+
+
+var _invTabs = ['inv-dashboard','inv-gases','inv-equipment','inv-maint','inv-readings','inv-predict','inv-fuel','inv-zonemap','inv-charts','inv-config','inv-report','inv-trace'];
 
 function invSwitchTab(tabId) {
     invState.activeTab = tabId;
@@ -16847,6 +17162,7 @@ function _invGetRenderer(tabId) {
     if (tabId === 'inv-dashboard') return invRenderDashboard;
     if (tabId === 'inv-gases') return invRenderGases;
     if (tabId === 'inv-equipment') return invRenderEquipment;
+    if (tabId === 'inv-maint') return invRenderMaint;
     if (tabId === 'inv-readings') return invRenderReadings;
     if (tabId === 'inv-predict') return invRenderPredict;
     if (tabId === 'inv-fuel') return invRenderFuel;
@@ -17972,101 +18288,527 @@ function invQuickReadSave(gasId) {
 }
 
 // ══════════════════════════════════════════════════
-// EQUIPMENT
+// EQUIPMENT — Equipos y Calibración (COP15-F11, v16.4)
 // ══════════════════════════════════════════════════
 function invRenderEquipment(el) {
     var equip = invState.equipment;
-    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-equipment-help"><span>Equipos y Calibraciones (' + equip.length + ')</span>';
-    html += '<button class="tp-btn tp-btn-primary" onclick="invAddEquipment()" style="font-size:10px;">+ Agregar</button></div>';
+    var assets = invState.assets || [];
+    var summary = invCalSummary();
+    var filter = window._invEqFilter || 'all';
+    var search = (window._invEqSearch || '').toLowerCase();
 
-    if (equip.length === 0) {
-        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin equipos. Agrega analizadores, dinamometro, CVS, etc.</div>';
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-equipment-help"><span>🔧 Equipos y Calibración (' + equip.length + ')</span>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="invAddEquipment()" style="font-size:10px;">+ Instrumento</button></div>';
+
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap:6px;margin-bottom:10px;">';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:#10b981">' + summary.vigentes + '</div><div class="tp-metric-label">Vigentes</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:#f59e0b">' + summary.porVencer + '</div><div class="tp-metric-label">Por vencer ≤60d</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:#ef4444">' + summary.vencidos + '</div><div class="tp-metric-label">VENCIDOS</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:#64748b">' + summary.sinRegistro + '</div><div class="tp-metric-label">Sin registro</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (summary.pct >= 80 ? '#10b981' : summary.pct >= 50 ? '#f59e0b' : '#ef4444') + '">' + summary.pct + '%</div><div class="tp-metric-label">% Vigencia</div></div>';
+    html += '</div>';
+
+    var criticalOverdue = equip.filter(function(e) { return e.critical === 'Si' && invCalStatus(e).code === 'vencido'; });
+    if (criticalOverdue.length > 0) {
+        html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;margin-bottom:10px;">';
+        html += '<div style="font-weight:800;color:#b91c1c;font-size:11px;margin-bottom:4px;">⚠️ ' + criticalOverdue.length + ' instrumento(s) CRÍTICO(S) con calibración vencida — identificar como NO OPERABLE</div>';
+        criticalOverdue.forEach(function(e) {
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:10px;color:#7f1d1d;">' +
+                '<span>' + escapeHtml(e.name) + '</span>' +
+                '<button class="tp-btn tp-btn-danger" onclick="invShowCalRegisterModal(\'' + e.id + '\')" style="font-size:9px;padding:3px 8px;">Calibrar</button></div>';
+        });
+        html += '</div>';
+    }
+
+    html += '<div style="margin-bottom:8px;"><input type="text" placeholder="Buscar instrumento, KMM, equipo..." value="' + escapeHtml(window._invEqSearch || '') + '" oninput="window._invEqSearch=this.value;_invDebouncedRender();" style="width:100%;padding:6px 8px;border:1px solid var(--tp-border);border-radius:6px;font-size:11px;"></div>';
+
+    var chips = [['all', 'Todos'], ['vencido', '🔴 Vencidos'], ['porvencer', '🟠 Por vencer'], ['vigente', '🟢 Vigentes'], ['noaplica', '⚪ No aplica']];
+    html += '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">';
+    chips.forEach(function(c) {
+        var active = filter === c[0];
+        html += '<button class="tp-btn ' + (active ? 'tp-btn-primary' : 'tp-btn-ghost') + '" onclick="window._invEqFilter=\'' + c[0] + '\';_invDebouncedRender();" style="font-size:9px;padding:4px 8px;">' + c[1] + '</button>';
+    });
+    html += '</div>';
+
+    var byAsset = {}, noAsset = [];
+    equip.forEach(function(e) {
+        var hay = (e.name + ' ' + (e.kmmId || '') + ' ' + (e.model || '') + ' ' + (e.serialNo || '') + ' ' + (e.magnitude || '')).toLowerCase();
+        if (search && hay.indexOf(search) < 0) return;
+        var st = invCalStatus(e).code;
+        if (filter !== 'all' && st !== filter) return;
+        var asset = assets.find(function(a) { return a.id === e.assetId; });
+        if (!asset) { noAsset.push(e); return; }
+        if (!byAsset[asset.id]) byAsset[asset.id] = { asset: asset, items: [] };
+        byAsset[asset.id].items.push(e);
+    });
+    var groups = assets.map(function(a) { return byAsset[a.id]; }).filter(Boolean);
+    if (noAsset.length > 0) groups.push({ asset: null, items: noAsset });
+
+    if (groups.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin instrumentos que coincidan.</div>';
     } else {
-        equip.forEach(function(e) {
-            var now = new Date();
-            var nextCal = e.nextCalDate ? new Date(e.nextCalDate) : null;
-            var daysLeft = nextCal ? Math.round((nextCal - now)/(1000*60*60*24)) : null;
-            var clr = daysLeft === null ? '#94a3b8' : daysLeft < 0 ? '#ef4444' : daysLeft < 30 ? '#f59e0b' : '#10b981';
-            var statusTxt = daysLeft === null ? 'Sin fecha' : daysLeft < 0 ? 'Vencido ' + Math.abs(daysLeft) + 'd' : 'Vigente ' + daysLeft + 'd';
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;border-left:3px solid ' + clr + ';background:var(--tp-card);flex-wrap:wrap;gap:4px;">';
-            html += '<div style="flex:1;min-width:140px;"><div style="font-weight:700;font-size:11px;">' + e.name + '</div>';
-            html += '<div style="font-size:9px;color:var(--tp-dim);">S/N: ' + (e.serialNo||'?') + ' | ' + (e.type||'') + ' | ' + (e.location||'') + '</div></div>';
-            html += '<div style="display:flex;gap:6px;align-items:center;">';
-            html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + clr + '20;color:' + clr + ';">' + statusTxt + '</span>';
-            html += '<button class="tp-btn tp-btn-ghost" onclick="invEditEquipment(\'' + e.id + '\')" style="font-size:9px;" title="Editar" aria-label="Editar equipo">\u270F</button>';
-            html += '</div></div>';
+        var order = { vencido: 4, sinregistro: 3, porvencer: 2, vigente: 1, noaplica: 0 };
+        var colorOf = { vencido: '#ef4444', sinregistro: '#64748b', porvencer: '#f59e0b', vigente: '#10b981', noaplica: '#94a3b8' };
+        groups.forEach(function(g) {
+            var worst = 'noaplica';
+            g.items.forEach(function(e) { var c = invCalStatus(e).code; if (order[c] > order[worst]) worst = c; });
+            var okCount = g.items.filter(function(e) { return invCalStatus(e).code === 'vigente'; }).length;
+            var openAttr = (worst === 'vencido' || worst === 'sinregistro') ? ' open' : '';
+            html += '<details' + openAttr + ' style="margin-bottom:8px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;">';
+            html += '<summary style="cursor:pointer;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;background:var(--tp-card);border-left:4px solid ' + colorOf[worst] + ';list-style:none;">';
+            html += '<span style="font-weight:700;font-size:12px;">' + (g.asset ? escapeHtml(g.asset.name) : 'Sin equipo padre') + '</span>';
+            html += '<span style="display:flex;gap:6px;align-items:center;">';
+            html += '<span style="font-size:9px;color:var(--tp-dim);">' + okCount + '/' + g.items.length + ' vigentes</span>';
+            if (g.asset) html += '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();event.preventDefault();invAddAsset(\'' + g.asset.id + '\')" style="font-size:9px;" title="Editar equipo" aria-label="Editar equipo padre">✏️</button>';
+            html += '</span></summary>';
+            html += '<div style="padding:6px 8px;">';
+            g.items.forEach(function(e) {
+                var st = invCalStatus(e);
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 6px;margin-bottom:3px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;gap:4px;">';
+                html += '<div style="flex:1;min-width:150px;"><div style="font-weight:600;font-size:11px;">' + escapeHtml(e.magnitude || e.type || e.name) + '</div>';
+                html += '<div style="font-size:9px;color:var(--tp-dim);">' + (e.kmmId ? 'KMM ' + escapeHtml(e.kmmId) + ' · ' : '') + (e.nextCalDate ? 'próxima ' + e.nextCalDate : 'sin fecha') + '</div></div>';
+                html += '<div style="display:flex;gap:5px;align-items:center;">';
+                html += '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:' + st.color + '20;color:' + st.color + ';">' + st.label + '</span>';
+                if (e.requiresCal !== 'No') html += '<button class="tp-btn tp-btn-primary" onclick="invShowCalRegisterModal(\'' + e.id + '\')" style="font-size:9px;padding:4px 8px;">✅ Calibrado</button>';
+                html += '<button class="tp-btn tp-btn-ghost" onclick="invEditEquipment(\'' + e.id + '\')" style="font-size:9px;" title="Editar" aria-label="Editar instrumento">✏️</button>';
+                html += '</div></div>';
+            });
+            html += '</div></details>';
         });
     }
     html += '</div>';
     el.innerHTML = html;
 }
 
-function invAddEquipment(editId) {
-    var e = editId ? invState.equipment.find(function(x){return x.id===editId;}) : null;
-    var isEdit = !!e;
-    var v = function(f,d){ return e ? (e[f]||'') : (d||''); };
+// ── Modal mínimo de calibración diaria: fecha + certificado + proveedor ──
+function invShowCalRegisterModal(eqId) {
+    var eq = invState.equipment.find(function(e) { return e.id === eqId; });
+    if (!eq) return;
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:500px;margin:30px auto;background:#fff;border-radius:14px;padding:20px;position:relative;max-height:90vh;overflow-y:auto;">' +
-        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
-        '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Equipo' : 'Nuevo Equipo') + '</h3>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div style="grid-column:1/-1;"><label style="font-size:11px;color:#475569;font-weight:600;">Nombre *</label><input id="inv-eq-name" value="' + v('name') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Tipo</label><input id="inv-eq-type" value="' + v('type') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Marca</label><input id="inv-eq-brand" value="' + v('brand') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Modelo</label><input id="inv-eq-model" value="' + v('model') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Serie</label><input id="inv-eq-serial" value="' + v('serialNo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">KMM ID</label><input id="inv-eq-kmmid" value="' + v('kmmId') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Ubicacion</label><input id="inv-eq-loc" value="' + v('location') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Trazabilidad</label><input id="inv-eq-trace" value="' + v('traceability','EMA') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Lab Calibracion</label><input id="inv-eq-callab" value="' + v('calLab') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Ultima Cal.</label><input id="inv-eq-lastcal" type="date" value="' + v('lastCalDate') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Proxima Cal.</label><input id="inv-eq-nextcal" type="date" value="' + v('nextCalDate') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Certificado</label><input id="inv-eq-cert" value="' + v('calCertNo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+    modal.innerHTML = '<div style="max-width:380px;margin:60px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">✕</button>' +
+        '<h3 style="margin:0 0 4px;color:#0f172a;">✅ Calibración realizada</h3>' +
+        '<div style="font-size:11px;color:#64748b;margin-bottom:14px;">' + escapeHtml(eq.name) + (eq.magnitude ? ' — ' + escapeHtml(eq.magnitude) : '') + '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha</label><input id="inv-calreg-date" type="date" value="' + localToday() + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. de Certificado</label><input id="inv-calreg-cert" value="" placeholder="Ej. T-2199-2026" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Proveedor</label><input id="inv-calreg-prov" value="' + escapeHtml(eq.calLab || '') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
-        '<button onclick="invSaveEquipment(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar equipo?\',function(){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        '<button onclick="invSaveCalRegister(\x27' + eqId + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '</div></div>';
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
+}
+
+function invSaveCalRegister(eqId) {
+    var date = document.getElementById('inv-calreg-date').value;
+    var certNo = document.getElementById('inv-calreg-cert').value.trim();
+    var provider = document.getElementById('inv-calreg-prov').value.trim();
+    if (!date) { showToast('Fecha requerida', 'error'); return; }
+    invCalRegister(eqId, { date: date, certNo: certNo, provider: provider });
+    document.getElementById('invModal').style.display = 'none';
+    invRender(); invUpdateBadges();
+}
+
+// Recalcula "Próxima Cal." al cambiar fecha/frecuencia — sigue siendo editable a mano después.
+function invEqRecalcNext() {
+    var last = document.getElementById('inv-eq-lastcal');
+    var freq = document.getElementById('inv-eq-freq');
+    var next = document.getElementById('inv-eq-nextcal');
+    if (!last || !freq || !next || !last.value) return;
+    next.value = invCalNextDate(last.value, freq.value);
+}
+
+function invAddEquipment(editId) {
+    var e = editId ? invState.equipment.find(function(x) { return x.id === editId; }) : null;
+    var isEdit = !!e;
+    var v = function(f, d) { return e ? (e[f] != null && e[f] !== '' ? e[f] : (d || '')) : (d || ''); };
+    var assets = invState.assets || [];
+    var assetOpts = '<option value="">— sin equipo padre —</option>' + assets.map(function(a) {
+        return '<option value="' + a.id + '" ' + (v('assetId') === a.id ? 'selected' : '') + '>' + escapeHtml(a.name) + '</option>';
+    }).join('');
+    var freqOpts = Object.keys(INV_CAL_FREQ_DAYS).map(function(f) {
+        return '<option value="' + f + '" ' + (v('calFreq', 'Anual') === f ? 'selected' : '') + '>' + f + '</option>';
+    }).join('');
+    var reqOpts = ['Si', 'No'].map(function(o) { return '<option value="' + o + '" ' + (v('requiresCal', 'Si') === o ? 'selected' : '') + '>' + (o === 'Si' ? 'Sí' : 'No') + '</option>'; }).join('');
+    var typeOpts = '<option value=""></option>' + INV_CAL_TYPES.map(function(o) { return '<option value="' + o + '" ' + (v('calType') === o ? 'selected' : '') + '>' + o + '</option>'; }).join('');
+    var placeOpts = '<option value=""></option>' + INV_CAL_PLACES.map(function(o) { return '<option value="' + o + '" ' + (v('calPlace') === o ? 'selected' : '') + '>' + o + '</option>'; }).join('');
+    var critOpts = ['No', 'Si'].map(function(o) { return '<option value="' + o + '" ' + (v('critical', 'No') === o ? 'selected' : '') + '>' + (o === 'Si' ? 'Sí' : 'No') + '</option>'; }).join('');
+    var inpStyle = 'width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;';
+    var lblStyle = 'font-size:11px;color:#475569;font-weight:600;';
+
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+    modal.innerHTML = '<div style="max-width:560px;margin:24px auto;background:#fff;border-radius:14px;padding:20px;position:relative;max-height:92vh;overflow-y:auto;">' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">✕</button>' +
+        '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Instrumento' : 'Nuevo Instrumento') + '</h3>' +
+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">Nombre *</label><input id="inv-eq-name" value="' + escapeHtml(v('name')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Equipo padre</label><select id="inv-eq-asset" style="' + inpStyle + '">' + assetOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '" data-help="inv-eq-magnitude">Magnitud</label><input id="inv-eq-magnitude" value="' + escapeHtml(v('magnitude')) + '" placeholder="Ej. Thermometer" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Marca</label><input id="inv-eq-brand" value="' + escapeHtml(v('brand')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Modelo</label><input id="inv-eq-model" value="' + escapeHtml(v('model')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">No. Serie</label><input id="inv-eq-serial" value="' + escapeHtml(v('serialNo')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">KMM ID</label><input id="inv-eq-kmmid" value="' + escapeHtml(v('kmmId')) + '" style="' + inpStyle + '"></div>' +
+        '</div>' +
+
+        '<details style="margin-top:10px;"><summary data-help="inv-eq-calsection" style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">📏 Calibración</summary>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:6px;">' +
+        '<div><label style="' + lblStyle + '" data-help="inv-eq-requires">¿Requiere calibración?</label><select id="inv-eq-requires" style="' + inpStyle + '">' + reqOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '" data-help="inv-eq-caltype">Tipo</label><select id="inv-eq-caltype" style="' + inpStyle + '">' + typeOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '" data-help="inv-eq-freq">Frecuencia</label><select id="inv-eq-freq" onchange="invEqRecalcNext()" style="' + inpStyle + '">' + freqOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '">Proveedor</label><input id="inv-eq-callab" value="' + escapeHtml(v('calLab')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '" data-help="inv-eq-trace">Trazabilidad</label><input id="inv-eq-trace" value="' + escapeHtml(v('traceability', 'EMA')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '" data-help="inv-eq-place">Lugar</label><select id="inv-eq-place" style="' + inpStyle + '">' + placeOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '">Última Cal.</label><input id="inv-eq-lastcal" type="date" value="' + v('lastCalDate') + '" onchange="invEqRecalcNext()" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Próxima Cal.</label><input id="inv-eq-nextcal" type="date" value="' + v('nextCalDate') + '" style="' + inpStyle + '"></div>' +
+        '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">No. Certificado</label><input id="inv-eq-cert" value="' + escapeHtml(v('calCertNo')) + '" style="' + inpStyle + '"></div>' +
+        '</div></details>' +
+
+        '<details style="margin-top:8px;"><summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">🔬 Metrología</summary>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:6px;">' +
+        '<div><label style="' + lblStyle + '">Rango máximo</label><input id="inv-eq-rangemax" value="' + escapeHtml(v('rangeMax')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Rango de uso</label><input id="inv-eq-rangeuse" value="' + escapeHtml(v('rangeUse')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '" data-help="inv-eq-maxerror">Error máx. permitido</label><input id="inv-eq-maxerror" value="' + escapeHtml(v('maxError')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Ubicación física</label><input id="inv-eq-loc" value="' + escapeHtml(v('location')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '" data-help="inv-eq-critical">Crítico NMX</label><select id="inv-eq-critical" style="' + inpStyle + '">' + critOpts + '</select></div>' +
+        '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">Comentarios</label><input id="inv-eq-comments" value="' + escapeHtml(v('comments')) + '" style="' + inpStyle + '"></div>' +
+        '</div></details>' +
+
+        '<div style="display:flex;gap:8px;margin-top:14px;">' +
+        '<button onclick="invSaveEquipment(\x27' + (editId || '') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar instrumento?\',function(){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
 function invSaveEquipment(editId) {
+    var magnitude = document.getElementById('inv-eq-magnitude').value.trim();
     var obj = {
         name: document.getElementById('inv-eq-name').value.trim(),
-        type: document.getElementById('inv-eq-type').value.trim(),
+        assetId: document.getElementById('inv-eq-asset').value,
+        magnitude: magnitude,
+        type: magnitude,
         brand: document.getElementById('inv-eq-brand').value.trim(),
         model: document.getElementById('inv-eq-model').value.trim(),
         serialNo: document.getElementById('inv-eq-serial').value.trim(),
         kmmId: document.getElementById('inv-eq-kmmid').value.trim(),
-        location: document.getElementById('inv-eq-loc').value.trim(),
-        traceability: document.getElementById('inv-eq-trace').value.trim(),
+        requiresCal: document.getElementById('inv-eq-requires').value,
+        calType: document.getElementById('inv-eq-caltype').value,
+        calFreq: document.getElementById('inv-eq-freq').value,
         calLab: document.getElementById('inv-eq-callab').value.trim(),
+        traceability: document.getElementById('inv-eq-trace').value.trim(),
+        calPlace: document.getElementById('inv-eq-place').value,
         lastCalDate: document.getElementById('inv-eq-lastcal').value,
         nextCalDate: document.getElementById('inv-eq-nextcal').value,
-        calCertNo: document.getElementById('inv-eq-cert').value.trim()
+        calCertNo: document.getElementById('inv-eq-cert').value.trim(),
+        rangeMax: document.getElementById('inv-eq-rangemax').value.trim(),
+        rangeUse: document.getElementById('inv-eq-rangeuse').value.trim(),
+        maxError: document.getElementById('inv-eq-maxerror').value.trim(),
+        location: document.getElementById('inv-eq-loc').value.trim(),
+        critical: document.getElementById('inv-eq-critical').value,
+        comments: document.getElementById('inv-eq-comments').value.trim()
     };
     if (!obj.name) { showToast('Nombre requerido', 'error'); return; }
     if (editId) {
-        var e = invState.equipment.find(function(x){return x.id===editId;});
+        var e = invState.equipment.find(function(x) { return x.id === editId; });
         if (e) {
             var oldCalDate = e.lastCalDate;
             Object.assign(e, obj);
             if (obj.lastCalDate && obj.lastCalDate !== oldCalDate && typeof fbPostCalibration === 'function') fbPostCalibration(obj.name);
-            auditLog('inv', 'equipment_modified', {type:'equipment', id:editId, label:obj.name}, 'S/N: ' + (obj.serialNo || ''));
+            auditLog('inv', 'equipment_modified', { type: 'equipment', id: editId, label: obj.name }, 'S/N: ' + (obj.serialNo || ''));
         }
     } else {
         obj.id = invGenId();
         obj.status = 'active';
+        obj.calHistory = [];
         invState.equipment.push(obj);
-        auditLog('inv', 'equipment_created', {type:'equipment', id:obj.id, label:obj.name}, 'S/N: ' + (obj.serialNo || ''));
+        auditLog('inv', 'equipment_created', { type: 'equipment', id: obj.id, label: obj.name }, 'S/N: ' + (obj.serialNo || ''));
     }
     invSave(); invRender(); invUpdateBadges();
     document.getElementById('invModal').style.display = 'none';
 }
 
 function invEditEquipment(id) { invAddEquipment(id); }
+
+// ── Registro de equipos padre (sección 4.4 del plan): se administra desde la tarjeta de grupo ──
+function invAddAsset(editId) {
+    var a = editId ? (invState.assets || []).find(function(x) { return x.id === editId; }) : null;
+    var isEdit = !!a;
+    var v = function(f, d) { return a ? (a[f] != null && a[f] !== '' ? a[f] : (d || '')) : (d || ''); };
+    var labOpts = INV_LABS.map(function(l) { return '<option value="' + l + '" ' + (v('lab', 'Emisiones') === l ? 'selected' : '') + '>' + l + '</option>'; }).join('');
+    var statusOpts = ['Activo', 'Inactivo', 'Fuera de servicio'].map(function(s) { return '<option value="' + s + '" ' + (v('status', 'Activo') === s ? 'selected' : '') + '>' + s + '</option>'; }).join('');
+    var inpStyle = 'width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;';
+    var lblStyle = 'font-size:11px;color:#475569;font-weight:600;';
+
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+    modal.innerHTML = '<div style="max-width:420px;margin:50px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">✕</button>' +
+        '<h3 style="margin:0 0 12px;">' + (isEdit ? 'Editar Equipo' : 'Nuevo Equipo') + '</h3>' +
+        '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        '<div><label style="' + lblStyle + '">Nombre *</label><input id="inv-asset-name" value="' + escapeHtml(v('name')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Laboratorio</label><select id="inv-asset-lab" style="' + inpStyle + '">' + labOpts + '</select></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label style="' + lblStyle + '">Marca</label><input id="inv-asset-brand" value="' + escapeHtml(v('brand')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Modelo</label><input id="inv-asset-model" value="' + escapeHtml(v('model')) + '" style="' + inpStyle + '"></div></div>' +
+        '<div><label style="' + lblStyle + '">No. Serie</label><input id="inv-asset-serial" value="' + escapeHtml(v('serialNo')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Estatus</label><select id="inv-asset-status" style="' + inpStyle + '">' + statusOpts + '</select></div>' +
+        '<div><label style="font-size:11px;color:#475569;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="inv-asset-blocks" ' + (v('blocksTesting') ? 'checked' : '') + '> Si está en mantenimiento, bloquea pruebas</label></div>' +
+        '<div><label style="' + lblStyle + '">Notas</label><input id="inv-asset-notes" value="' + escapeHtml(v('notes')) + '" style="' + inpStyle + '"></div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px;">' +
+        '<button onclick="invSaveAsset(\x27' + (editId || '') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar equipo? Sus instrumentos quedaran sin equipo padre.\',function(){invState.assets=invState.assets.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '</div></div>';
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
+}
+
+function invSaveAsset(editId) {
+    var obj = {
+        name: document.getElementById('inv-asset-name').value.trim(),
+        lab: document.getElementById('inv-asset-lab').value,
+        brand: document.getElementById('inv-asset-brand').value.trim(),
+        model: document.getElementById('inv-asset-model').value.trim(),
+        serialNo: document.getElementById('inv-asset-serial').value.trim(),
+        status: document.getElementById('inv-asset-status').value,
+        blocksTesting: document.getElementById('inv-asset-blocks').checked,
+        notes: document.getElementById('inv-asset-notes').value.trim(),
+        updatedAt: new Date().toISOString()
+    };
+    if (!obj.name) { showToast('Nombre requerido', 'error'); return; }
+    if (editId) {
+        var a = (invState.assets || []).find(function(x) { return x.id === editId; });
+        if (a) { Object.assign(a, obj); auditLog('inv', 'asset_modified', { type: 'asset', id: editId, label: obj.name }, ''); }
+    } else {
+        obj.id = invGenId();
+        invState.assets.push(obj);
+        auditLog('inv', 'asset_created', { type: 'asset', id: obj.id, label: obj.name }, '');
+    }
+    invSave(); invRender();
+    document.getElementById('invModal').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════
+// MANTENIMIENTO — Plan Maestro 52 semanas (COP15-F11, v16.4)
+// ══════════════════════════════════════════════════
+function invRenderMaint(el) {
+    var year = window._invMaintYear || new Date().getFullYear();
+    var overdue = invMaintOverdue();
+    var dueThisWeek = invMaintDueThisWeek();
+    var compliance = invMaintCompliance(year);
+    var curWeek = invWeekOfYear(localToday());
+
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-maint-help"><span>🛠️ Mantenimiento</span>'
+        + '<button class="tp-btn tp-btn-ghost" onclick="invImportF11()" style="font-size:10px;" title="Actualizar en bloque desde el CSV de Calibración del formato COP15-F11">📥 Importar F11</button></div>'
+        + '<input type="file" id="inv-f11-import-file" accept=".csv" style="display:none;" onchange="invHandleF11Import(event)"></div>';
+
+    if (overdue.length > 0) {
+        html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;margin-bottom:10px;">';
+        html += '<div style="font-weight:800;color:#b91c1c;font-size:11px;margin-bottom:6px;">⚠️ ' + overdue.length + ' mantenimiento(s) vencido(s)</div>';
+        overdue.forEach(function(o) {
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #fecaca;flex-wrap:wrap;gap:4px;">';
+            html += '<div><div style="font-size:11px;font-weight:700;">' + escapeHtml(o.asset ? o.asset.name : '?') + ' — ' + escapeHtml(o.act.desc) + '</div>';
+            html += '<div style="font-size:9px;color:#7f1d1d;">Vencido desde semana ' + o.lastWeek + ' (' + o.count + ' semana' + (o.count > 1 ? 's' : '') + ' sin registrar)</div></div>';
+            html += '<button class="tp-btn tp-btn-danger" onclick="invMaintMarkDone(\'' + o.act.id + '\');invRender();" style="font-size:9px;padding:4px 10px;">✔ Hecho</button>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    html += '<div class="tp-card" style="margin-bottom:10px;"><div class="tp-card-title"><span>📅 Semana ' + curWeek + ' · ' + dueThisWeek.length + ' programado(s)</span></div>';
+    if (dueThisWeek.length === 0) {
+        html += '<div style="text-align:center;padding:10px;color:var(--tp-dim);font-size:11px;">Sin mantenimientos programados esta semana.</div>';
+    } else {
+        dueThisWeek.forEach(function(d) {
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 4px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;gap:4px;">';
+            html += '<div><div style="font-size:11px;font-weight:700;">' + escapeHtml(d.asset ? d.asset.name : '?') + ' — ' + escapeHtml(d.act.desc) + '</div>';
+            html += '<div style="font-size:9px;color:var(--tp-dim);">' + escapeHtml(d.act.responsible || '') + '</div></div>';
+            html += '<div style="display:flex;gap:5px;">';
+            html += '<button class="tp-btn tp-btn-primary" onclick="invMaintMarkDone(\'' + d.act.id + '\');invRender();" style="font-size:9px;padding:4px 10px;">✔ Hecho</button>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="invShowMaintDetailModal(\'' + d.act.id + '\')" style="font-size:9px;">…con detalle</button>';
+            html += '</div></div>';
+        });
+    }
+    html += '</div>';
+
+    html += '<div class="tp-card" style="margin-bottom:10px;"><div class="tp-card-title" data-help="inv-maint-compliance-help"><span>📊 Cumplimiento ' + year + '</span></div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap:6px;margin-bottom:8px;">';
+    html += '<div class="tp-metric"><div class="tp-metric-val">' + compliance.planned + '</div><div class="tp-metric-label">Planeados</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:#10b981">' + compliance.doneOnWeek + '</div><div class="tp-metric-label">En semana</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val">' + compliance.logged + '</div><div class="tp-metric-label">Registros (año)</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (compliance.pct >= 80 ? '#10b981' : compliance.pct >= 50 ? '#f59e0b' : '#ef4444') + '">' + compliance.pct + '%</div><div class="tp-metric-label">% Cumplimiento</div></div>';
+    html += '</div>';
+    if (compliance.byAsset.length > 0) {
+        html += '<div style="overflow-x:auto;"><table style="width:100%;font-size:10px;border-collapse:collapse;"><thead><tr style="text-align:left;color:var(--tp-dim);"><th style="padding:4px;">Equipo</th><th style="padding:4px;">Plan</th><th style="padding:4px;">Real</th><th style="padding:4px;">%</th></tr></thead><tbody>';
+        compliance.byAsset.forEach(function(b) {
+            html += '<tr style="border-top:1px solid var(--tp-border);"><td style="padding:4px;">' + escapeHtml(b.name) + '</td><td style="padding:4px;">' + b.plan + '</td><td style="padding:4px;">' + b.real + '</td><td style="padding:4px;">' + (b.pct !== null ? b.pct + '%' : '—') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+    }
+    html += '</div>';
+
+    var matrix = invMaintMatrix(year);
+    var monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    html += '<details style="margin-bottom:10px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;"><summary data-help="inv-maint-plan-help" style="cursor:pointer;padding:8px 10px;background:var(--tp-card);font-weight:700;font-size:12px;">🗓️ Plan Maestro — 52 semanas</summary>';
+    html += '<div style="padding:8px;">';
+    html += '<div style="margin-bottom:8px;"><label style="font-size:10px;color:var(--tp-dim);">Año: </label><select onchange="window._invMaintYear=parseInt(this.value);invRender();" style="padding:4px 8px;border:1px solid var(--tp-border);border-radius:6px;font-size:11px;">';
+    for (var yy = year - 1; yy <= year + 1; yy++) html += '<option value="' + yy + '" ' + (yy === year ? 'selected' : '') + '>' + yy + '</option>';
+    html += '</select></div>';
+    if (matrix.length === 0) {
+        html += '<div style="text-align:center;padding:14px;color:var(--tp-dim);font-size:11px;">Sin actividades activas. Agrega el catálogo abajo.</div>';
+    } else {
+        html += '<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-size:9px;min-width:900px;">';
+        html += '<tr><td style="min-width:130px;position:sticky;left:0;background:var(--tp-bg);"></td>';
+        var wk = 1;
+        while (wk <= 52) {
+            var mon = new Date(invMondayOfWeek(year, wk) + 'T00:00:00').getMonth();
+            var span = 0, w2 = wk;
+            while (w2 <= 52 && new Date(invMondayOfWeek(year, w2) + 'T00:00:00').getMonth() === mon) { span++; w2++; }
+            html += '<td colspan="' + span + '" style="text-align:center;padding:2px;color:var(--tp-dim);text-transform:uppercase;">' + monthNames[mon] + '</td>';
+            wk = w2;
+        }
+        html += '</tr><tr><td style="position:sticky;left:0;background:var(--tp-bg);"></td>';
+        for (var n = 1; n <= 52; n++) {
+            html += '<td style="text-align:center;padding:1px;color:var(--tp-dim);' + (n === curWeek ? 'background:rgba(15,118,110,0.15);font-weight:800;' : '') + '">' + n + '</td>';
+        }
+        html += '</tr>';
+        matrix.forEach(function(row) {
+            html += '<tr><td style="position:sticky;left:0;background:var(--tp-card);padding:3px 6px;white-space:nowrap;font-weight:600;border-top:1px solid var(--tp-border);">' + escapeHtml(row.asset ? row.asset.name : '?') + '<div style="font-weight:400;color:var(--tp-dim);">' + escapeHtml(row.act.desc) + '</div></td>';
+            row.weeks.forEach(function(w) {
+                var cell = w.done ? '✓' : (w.planned ? 'P' : '');
+                var bg = w.overdue ? 'background:#fecaca;' : (w.done ? 'background:#d1fae5;' : '');
+                var clickable = w.planned && !w.done;
+                html += '<td style="text-align:center;padding:1px;border-top:1px solid var(--tp-border);' + bg + (w.n === curWeek ? 'outline:1px solid #0f766e;' : '') + (clickable ? 'cursor:pointer;' : '') + '"' + (clickable ? ' onclick="invMaintMarkDone(\'' + row.act.id + '\',{date:\'' + invMondayOfWeek(year, w.n) + '\'});invRender();" title="Marcar hecho"' : '') + '>' + cell + '</td>';
+            });
+            html += '</tr>';
+        });
+        html += '</table></div>';
+    }
+    html += '</div></details>';
+
+    html += '<details style="margin-bottom:10px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;"><summary data-help="inv-maint-catalog-help" style="cursor:pointer;padding:8px 10px;background:var(--tp-card);font-weight:700;font-size:12px;">🔧 Catálogo de actividades (' + (invState.maintActivities || []).length + ')</summary>';
+    html += '<div style="padding:8px;">';
+    html += '<div style="text-align:right;margin-bottom:6px;"><button class="tp-btn tp-btn-primary" onclick="invAddMaintActivity()" style="font-size:10px;">+ Actividad</button></div>';
+    (invState.maintActivities || []).forEach(function(a) {
+        var asset = (invState.assets || []).find(function(x) { return x.id === a.assetId; });
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 4px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;gap:4px;' + (a.active === false ? 'opacity:0.5;' : '') + '">';
+        html += '<div><div style="font-size:11px;font-weight:700;">' + escapeHtml(asset ? asset.name : '?') + ' — ' + escapeHtml(a.desc) + '</div>';
+        html += '<div style="font-size:9px;color:var(--tp-dim);">' + a.freq + ' · desde sem ' + a.startWeek + ' · ' + escapeHtml(a.responsible || '') + (a.active === false ? ' · INACTIVA' : '') + '</div></div>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invAddMaintActivity(\'' + a.id + '\')" style="font-size:9px;">✏️</button>';
+        html += '</div>';
+    });
+    html += '</div></details>';
+
+    var log = (invState.maintLog || []).slice().sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 50);
+    html += '<details style="border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;"><summary style="cursor:pointer;padding:8px 10px;background:var(--tp-card);font-weight:700;font-size:12px;">📋 Historial (' + (invState.maintLog || []).length + ')</summary>';
+    html += '<div style="padding:8px;">';
+    if (log.length === 0) {
+        html += '<div style="text-align:center;padding:10px;color:var(--tp-dim);font-size:11px;">Sin mantenimientos registrados.</div>';
+    } else {
+        log.forEach(function(l) {
+            var act = (invState.maintActivities || []).find(function(a) { return a.id === l.activityId; });
+            var asset = act ? (invState.assets || []).find(function(x) { return x.id === act.assetId; }) : null;
+            html += '<div style="display:flex;justify-content:space-between;padding:5px 4px;border-bottom:1px solid var(--tp-border);font-size:10px;flex-wrap:wrap;gap:4px;">';
+            html += '<div>' + l.date + ' — ' + escapeHtml(asset ? asset.name : '?') + ' — ' + escapeHtml(act ? act.desc : '?') + '</div>';
+            html += '<div style="color:var(--tp-dim);">' + escapeHtml(l.by || '') + (l.hours ? ' · ' + l.hours + 'h' : '') + '</div>';
+            html += '</div>';
+        });
+    }
+    html += '</div></details>';
+
+    el.innerHTML = html;
+}
+
+function invShowMaintDetailModal(activityId) {
+    var act = (invState.maintActivities || []).find(function(a) { return a.id === activityId; });
+    if (!act) return;
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+    modal.innerHTML = '<div style="max-width:380px;margin:60px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">✕</button>' +
+        '<h3 style="margin:0 0 4px;">✔ Registrar mantenimiento</h3>' +
+        '<div style="font-size:11px;color:#64748b;margin-bottom:14px;">' + escapeHtml(act.desc) + '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha</label><input id="inv-mdet-date" type="date" value="' + localToday() + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Horas</label><input id="inv-mdet-hours" type="number" step="0.5" min="0" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Comentarios</label><input id="inv-mdet-comments" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px;">' +
+        '<button onclick="invSaveMaintDetail(\x27' + activityId + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '</div></div>';
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
+}
+
+function invSaveMaintDetail(activityId) {
+    var date = document.getElementById('inv-mdet-date').value;
+    var hours = parseFloat(document.getElementById('inv-mdet-hours').value) || null;
+    var comments = document.getElementById('inv-mdet-comments').value.trim();
+    invMaintMarkDone(activityId, { date: date, hours: hours, comments: comments });
+    document.getElementById('invModal').style.display = 'none';
+    invRender();
+}
+
+function invAddMaintActivity(editId) {
+    var a = editId ? (invState.maintActivities || []).find(function(x) { return x.id === editId; }) : null;
+    var isEdit = !!a;
+    var v = function(f, d) { return a ? (a[f] != null ? a[f] : (d != null ? d : '')) : (d != null ? d : ''); };
+    var assets = invState.assets || [];
+    var assetOpts = assets.map(function(x) { return '<option value="' + x.id + '" ' + (v('assetId') === x.id ? 'selected' : '') + '>' + escapeHtml(x.name) + '</option>'; }).join('');
+    var freqOpts = Object.keys(INV_MTTO_FREQ_WEEKS).map(function(f) { return '<option value="' + f + '" ' + (v('freq', 'Mensual') === f ? 'selected' : '') + '>' + f + '</option>'; }).join('');
+    var inpStyle = 'width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;';
+    var lblStyle = 'font-size:11px;color:#475569;font-weight:600;';
+
+    var modal = document.getElementById('invModal');
+    modal.style.display = 'block';
+    modal.innerHTML = '<div style="max-width:420px;margin:50px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">✕</button>' +
+        '<h3 style="margin:0 0 12px;">' + (isEdit ? 'Editar Actividad' : 'Nueva Actividad') + '</h3>' +
+        '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        '<div><label style="' + lblStyle + '">Equipo *</label><select id="inv-mact-asset" style="' + inpStyle + '">' + assetOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '">Descripción *</label><input id="inv-mact-desc" value="' + escapeHtml(v('desc')) + '" style="' + inpStyle + '"></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        '<div><label style="' + lblStyle + '" data-help="inv-mtto-freq">Frecuencia</label><select id="inv-mact-freq" style="' + inpStyle + '">' + freqOpts + '</select></div>' +
+        '<div><label style="' + lblStyle + '" data-help="inv-mtto-startweek">Semana inicio (1-52)</label><input id="inv-mact-startweek" type="number" min="1" max="52" value="' + v('startWeek', 1) + '" style="' + inpStyle + '"></div>' +
+        '</div>' +
+        '<div><label style="' + lblStyle + '">Responsable</label><input id="inv-mact-resp" value="' + escapeHtml(v('responsible')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="font-size:11px;color:#475569;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="inv-mact-active" ' + (v('active', true) !== false ? 'checked' : '') + '> Activa</label></div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px;">' +
+        '<button onclick="invSaveMaintActivity(\x27' + (editId || '') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
+        (isEdit ? '<button onclick="showConfirm(\'Eliminar actividad?\',function(){invState.maintActivities=invState.maintActivities.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
+        '</div></div>';
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
+}
+
+function invSaveMaintActivity(editId) {
+    var obj = {
+        assetId: document.getElementById('inv-mact-asset').value,
+        desc: document.getElementById('inv-mact-desc').value.trim(),
+        freq: document.getElementById('inv-mact-freq').value,
+        startWeek: Math.max(1, Math.min(52, parseInt(document.getElementById('inv-mact-startweek').value) || 1)),
+        responsible: document.getElementById('inv-mact-resp').value.trim(),
+        active: document.getElementById('inv-mact-active').checked,
+        updatedAt: new Date().toISOString()
+    };
+    if (!obj.desc) { showToast('Descripción requerida', 'error'); return; }
+    if (editId) {
+        var a = (invState.maintActivities || []).find(function(x) { return x.id === editId; });
+        if (a) { Object.assign(a, obj); auditLog('inv', 'mtto_actividad_modificada', { type: 'maintenance', id: editId, label: obj.desc }, ''); }
+    } else {
+        obj.id = 'A-' + invGenId();
+        invState.maintActivities.push(obj);
+        auditLog('inv', 'mtto_actividad_creada', { type: 'maintenance', id: obj.id, label: obj.desc }, '');
+    }
+    invSave(); invRender();
+    document.getElementById('invModal').style.display = 'none';
+}
 
 // ══════════════════════════════════════════════════
 // PREDICTIONS
@@ -20758,6 +21500,208 @@ function invExportWeeklyForecast() {
     showToast('Forecast exportado', 'success');
 }
 
+// ══════════════════════════════════════════════════
+// COP15-F11 — Exportación CSV/PDF e importación en bloque (v16.4)
+// ══════════════════════════════════════════════════
+function _invCsvCell(v) {
+    var s = (v === null || v === undefined) ? '' : String(v);
+    if (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+}
+function _invDownloadCsv(csv, filename) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }));
+    a.download = filename;
+    a.click();
+    if (typeof showToast === 'function') showToast('Exportado: ' + filename, 'success');
+}
+function _invParseCsvLine(line) {
+    var result = [], cur = '', inQuotes = false;
+    for (var i = 0; i < line.length; i++) {
+        var c = line[i];
+        if (inQuotes) {
+            if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = false; } }
+            else cur += c;
+        } else {
+            if (c === '"') inQuotes = true;
+            else if (c === ',') { result.push(cur); cur = ''; }
+            else cur += c;
+        }
+    }
+    result.push(cur);
+    return result;
+}
+
+function invExportF11Equipos() {
+    var csv = 'ID,Equipo,Laboratorio,Marca,Modelo,No. Serie,Estatus,¿Requiere calibración? (auto),Cal. vencidas (auto),Notas\n';
+    (invState.assets || []).forEach(function(a) {
+        var instrs = invState.equipment.filter(function(e) { return e.assetId === a.id; });
+        var requiere = instrs.some(function(e) { return e.requiresCal !== 'No'; }) ? 'Sí' : 'No';
+        var vencidas = instrs.filter(function(e) { return invCalStatus(e).code === 'vencido'; }).length;
+        csv += [a.id, a.name, a.lab, a.brand, a.model, a.serialNo, a.status, requiere, vencidas, a.notes || ''].map(_invCsvCell).join(',') + '\n';
+    });
+    _invDownloadCsv(csv, 'COP15-F11_Equipos_' + localToday() + '.csv');
+}
+
+function invExportF11Calibracion() {
+    var csv = 'No.,Equipo,Laboratorio (auto),Marca,Descripción / Magnitud calibrada,Modelo,No. Serie,ID KMM,¿Requiere calibración?,Tipo,Frecuencia,Proveedor (¿quién calibra?),Trazabilidad,Lugar,Última calibración,Próxima calibración (auto),Estatus (auto),No. Certificado,Rango máximo,Rango de uso,Error máx. permitido,Ubicación física,Crítico NMX,Certificado PDF / Comentarios\n';
+    invState.equipment.forEach(function(e, i) {
+        var asset = (invState.assets || []).find(function(a) { return a.id === e.assetId; });
+        var st = invCalStatus(e);
+        var statusLabel = { noaplica: 'NO APLICA', sinregistro: 'SIN REGISTRO', vencido: 'VENCIDO', porvencer: 'POR VENCER', vigente: 'VIGENTE' }[st.code];
+        csv += [
+            e.f11Id || ('E' + (i + 1)), asset ? asset.name : '', asset ? asset.lab : '', e.brand || '', e.magnitude || e.type || '', e.model || '', e.serialNo || '',
+            e.kmmId || '', e.requiresCal === 'Si' ? 'Sí' : 'No', e.calType || '', e.calFreq || '', e.calLab || '', e.traceability || '', e.calPlace || '',
+            e.lastCalDate || '', e.nextCalDate || '', statusLabel, e.calCertNo || '', e.rangeMax || '', e.rangeUse || '', e.maxError || '', e.location || '',
+            e.critical === 'Si' ? 'Sí' : 'No', e.comments || ''
+        ].map(_invCsvCell).join(',') + '\n';
+    });
+    _invDownloadCsv(csv, 'COP15-F11_Calibracion_' + localToday() + '.csv');
+}
+
+function invExportF11Actividades() {
+    var csv = 'ID Act.,Equipo,Actividad,Frecuencia,Semana inicio (1-52),Responsable\n';
+    (invState.maintActivities || []).forEach(function(a) {
+        var asset = (invState.assets || []).find(function(x) { return x.id === a.assetId; });
+        csv += [a.id, asset ? asset.name : '', a.desc, a.freq, a.startWeek, a.responsible || ''].map(_invCsvCell).join(',') + '\n';
+    });
+    _invDownloadCsv(csv, 'COP15-F11_Actividades_' + localToday() + '.csv');
+}
+
+function invExportF11Historial() {
+    var csv = 'Fecha,Equipo,Actividad,Realizado por,Horas,Comentarios,Semana (auto),Año (auto)\n';
+    (invState.maintLog || []).forEach(function(l) {
+        var act = (invState.maintActivities || []).find(function(a) { return a.id === l.activityId; });
+        var asset = act ? (invState.assets || []).find(function(x) { return x.id === act.assetId; }) : null;
+        var week = l.date ? invWeekOfYear(l.date) : '';
+        var year = l.date ? l.date.slice(0, 4) : '';
+        csv += [l.date, asset ? asset.name : '', act ? act.desc : '', l.by || '', l.hours || '', l.comments || '', week, year].map(_invCsvCell).join(',') + '\n';
+    });
+    _invDownloadCsv(csv, 'COP15-F11_Historial_' + localToday() + '.csv');
+}
+
+// Actualización en bloque desde el CSV de Calibración (mismo formato del exportador) —
+// solo actualiza fecha/certificado/proveedor de instrumentos existentes; pide confirmación antes de escribir.
+function invImportF11CSV(csvText) {
+    var lines = csvText.trim().split('\n');
+    if (lines.length < 2) { showToast('CSV vacío', 'error'); return; }
+    var header = _invParseCsvLine(lines[0]);
+    var idx = {};
+    header.forEach(function(h, i) { idx[h.trim()] = i; });
+    if (idx['No.'] === undefined) { showToast('CSV sin columna "No." (ID del F11)', 'error'); return; }
+
+    var updates = [], news = 0, unchanged = 0;
+    for (var i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        var cols = _invParseCsvLine(lines[i]);
+        var f11Id = cols[idx['No.']];
+        if (!f11Id) continue;
+        var target = invState.equipment.find(function(e) { return e.f11Id === f11Id; })
+            || (idx['ID KMM'] !== undefined && cols[idx['ID KMM']] ? invState.equipment.find(function(e) { return e.kmmId && e.kmmId === cols[idx['ID KMM']]; }) : null)
+            || (idx['No. Serie'] !== undefined && cols[idx['No. Serie']] ? invState.equipment.find(function(e) { return e.serialNo && e.serialNo === cols[idx['No. Serie']]; }) : null);
+        var row = {
+            lastCalDate: idx['Última calibración'] !== undefined ? cols[idx['Última calibración']] : '',
+            calCertNo: idx['No. Certificado'] !== undefined ? cols[idx['No. Certificado']] : '',
+            calLab: idx['Proveedor (¿quién calibra?)'] !== undefined ? cols[idx['Proveedor (¿quién calibra?)']] : ''
+        };
+        if (target) {
+            var changed = (row.lastCalDate && row.lastCalDate !== target.lastCalDate) || (row.calCertNo && row.calCertNo !== target.calCertNo);
+            if (changed) updates.push({ target: target, row: row }); else unchanged++;
+        } else {
+            news++;
+        }
+    }
+
+    if (updates.length === 0 && news === 0) { showToast('Sin cambios respecto al CSV (' + unchanged + ' sin cambio)', 'info'); return; }
+
+    showConfirmDialog({
+        title: 'Importar COP15-F11',
+        message: updates.length + ' actualizados, ' + news + ' nuevos (se omiten — usa "+ Instrumento" para altas), ' + unchanged + ' sin cambio. ¿Aplicar?',
+        type: 'info', confirmText: 'Aplicar'
+    }).then(function(ok) {
+        if (!ok) return;
+        if (typeof undoPush === 'function') undoPush('inventory', 'Importar F11');
+        updates.forEach(function(u) {
+            var t = u.target, r = u.row;
+            if (r.lastCalDate) t.lastCalDate = r.lastCalDate;
+            if (r.calCertNo) t.calCertNo = r.calCertNo;
+            if (r.calLab) t.calLab = r.calLab;
+            if (r.lastCalDate) t.nextCalDate = invCalNextDate(r.lastCalDate, t.calFreq);
+            if (!t.calHistory) t.calHistory = [];
+            if (r.lastCalDate) t.calHistory.push({ date: r.lastCalDate, certNo: r.calCertNo || '', provider: r.calLab || t.calLab || '', by: 'Importación CSV', at: new Date().toISOString() });
+        });
+        invSave(); invRender(); invUpdateBadges();
+        if (typeof auditLog === 'function') auditLog('inv', 'f11_importado', { type: 'equipment', label: 'COP15-F11' }, updates.length + ' actualizados');
+        showToast('Importados ' + updates.length + ' cambios', 'success');
+    });
+}
+
+function invImportF11() { document.getElementById('inv-f11-import-file').click(); }
+function invHandleF11Import(event) {
+    var f = event.target.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function(e) { invImportF11CSV(e.target.result); };
+    r.readAsText(f);
+    event.target.value = '';
+}
+
+// Plan Maestro (52 semanas) + Dashboard de cumplimiento en PDF, formato COP15-F11.
+function invMaintPlanPDF(opts) {
+    if (typeof window.jspdf === 'undefined') {
+        if (!(opts && opts.silent) && typeof showToast === 'function') showToast('jsPDF no esta disponible. Verifica la conexion CDN.', 'error');
+        return;
+    }
+    var year = window._invMaintYear || new Date().getFullYear();
+    if (!(opts && opts.silent) && typeof showOverlayLoading === 'function') showOverlayLoading('Generando PDF del Plan Maestro...');
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+    var W = doc.internal.pageSize.getWidth();
+    var ML = 10, MR = 10, CW = W - ML - MR;
+    var y = 12;
+
+    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+    doc.text('PLAN MAESTRO DE MANTENIMIENTO Y CALIBRACIÓN — ' + year, ML, y);
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    doc.text('Código: COP15-F11 · Revisión: 03 · Generado: ' + localToday(), ML, y + 5);
+    y += 12;
+
+    var comp = invMaintCompliance(year);
+    var calSum = invCalSummary();
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+    doc.text('Mantenimiento: ' + comp.planned + ' planeados · ' + comp.doneOnWeek + ' en semana · ' + comp.pct + '% cumplimiento', ML, y);
+    doc.text('Calibración: ' + calSum.vigentes + ' vigentes · ' + calSum.vencidos + ' vencidos · ' + calSum.sinRegistro + ' sin registro · ' + calSum.pct + '% vigencia', ML, y + 5);
+    y += 12;
+
+    var matrix = invMaintMatrix(year);
+    var curWeek = (year === new Date().getFullYear()) ? invWeekOfYear(localToday()) : -1;
+    var labelW = 55, cellW = (CW - labelW) / 52;
+    doc.setFontSize(6);
+    matrix.forEach(function(row, ri) {
+        if (y > 190) { doc.addPage(); y = 15; }
+        var asset = row.asset ? row.asset.name : '?';
+        doc.setFont('helvetica', 'bold');
+        doc.text((asset + ' - ' + row.act.desc).substring(0, 40), ML, y + 3);
+        var x = ML + labelW;
+        row.weeks.forEach(function(w) {
+            if (w.n === curWeek) { doc.setFillColor(220, 240, 235); doc.rect(x, y, cellW, 5, 'F'); }
+            if (w.overdue) doc.setTextColor(220, 38, 38);
+            else if (w.done) doc.setTextColor(16, 185, 129);
+            else doc.setTextColor(60, 60, 60);
+            doc.setFont('helvetica', 'normal');
+            var cell = w.done ? '✓' : (w.planned ? 'P' : '');
+            if (cell) doc.text(cell, x + cellW / 2, y + 3.5, { align: 'center' });
+            x += cellW;
+        });
+        doc.setTextColor(0, 0, 0);
+        y += 6;
+    });
+
+    doc.save('Plan_Maestro_COP15-F11_' + year + '_' + localToday() + '.pdf');
+    if (!(opts && opts.silent) && typeof hideOverlayLoading === 'function') hideOverlayLoading();
+    if (!(opts && opts.silent) && typeof showToast === 'function') showToast('PDF generado', 'success');
+}
+
+
 // Also integrate forecast warning into tpSmartGenerate via global hook
 function invGetPlanImpactWarning(planItems) {
     if (!planItems || planItems.length === 0) return '';
@@ -21091,10 +22035,15 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         'El código de zona (ej. A03) marca su ubicación física en el Mapa.',
         'Exporta/Importa en JSON para respaldar o mover el catálogo entre dispositivos.'
     ]},
-    'inv-equipment': { title: 'Equipos', text: 'Equipos del laboratorio y sus fechas de calibración — la plataforma avisa 30/7 días antes de vencer.', tips: [
-        'Captura "Próxima Cal." al dar de alta; el color de la tarjeta avisa cuando se acerca.',
-        'Al cambiar "Última Cal." se registra automáticamente en el historial de calibraciones.',
-        'La Trazabilidad y el No. de Certificado son evidencia para auditorías.'
+    'inv-equipment': { title: 'Equipos y Calibración (COP15-F11)', text: 'Instrumentos del laboratorio agrupados por equipo padre, con semáforo de calibración (60 días para "por vencer"). Un crítico vencido debe identificarse como NO OPERABLE.', tips: [
+        'Botón "✅ Calibrado" en cada instrumento: solo pide fecha, certificado y proveedor — la próxima fecha se calcula sola.',
+        'Los filtros 🔴🟠🟢⚪ arriba muestran solo lo que necesita atención.',
+        'El ✏️ del encabezado de cada grupo edita el equipo padre (laboratorio, marca, si bloquea pruebas).'
+    ]},
+    'inv-maint': { title: 'Mantenimiento (COP15-F11)', text: 'Plan Maestro de mantenimiento preventivo: vencidos y programados de la semana arriba, la matriz de 52 semanas y el catálogo de actividades abajo, plegados.', tips: [
+        '"✔ Hecho" registra el mantenimiento con un toque (fecha de hoy y tu usuario); "…con detalle" agrega horas y comentarios.',
+        'La matriz de 52 semanas es de solo consulta — tócala en una celda planeada para marcarla hecha directamente ahí.',
+        '"📥 Importar F11" actualiza calibraciones en bloque desde el CSV oficial exportado por la plataforma.'
     ]},
     'inv-readings': { title: 'Captura diaria', text: 'Captura una vez al día el PSI de cada cilindro en uso y el nivel de los tanques. De estas lecturas la plataforma APRENDE cuánto consume cada tipo de prueba — sin capturas no hay predicción.', tips: [
         'Captura todos los cilindros "En uso" cada día, aunque el valor no haya cambiado.',
@@ -21141,7 +22090,22 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'inv-eq-nextcal': { title: 'Próxima calibración', text: 'Fecha en la que el equipo debe recalibrarse. La plataforma avisa 30 y 7 días antes de vencer.' },
     'inv-predict-model': { title: 'Modelo de predicción', text: 'Aprende de tus capturas diarias reales (no de lecturas automáticas). Entre más lecturas manuales captures, más confiable es la proyección de cuánto gas/combustible te queda.' },
     'inv-gases-help': { title: 'Cilindros de gas', text: 'Catálogo de cilindros de calibración: alta, edición, vencimientos y nivel actual por cilindro.' },
-    'inv-equipment-help': { title: 'Equipos de laboratorio', text: 'Analizadores, dinamómetro, CVS y demás equipos con su fecha de calibración.' },
+    'inv-equipment-help': { title: 'Equipos y calibración', text: 'Instrumentos del laboratorio agrupados por equipo padre (analizadores, dinamómetro, CVS…) con su semáforo de calibración según el formato COP15-F11.' },
+    'inv-eq-magnitude': { title: 'Magnitud', text: 'Qué mide este instrumento (ej. Thermometer, Humidity sensor, Mass). Un mismo equipo físico puede tener varias filas si mide varias magnitudes.' },
+    'inv-eq-requires': { title: '¿Requiere calibración?', text: 'Si es "No", el instrumento queda fuera del semáforo y de los porcentajes de cumplimiento (ej. una referencia fija que no se calibra).' },
+    'inv-eq-caltype': { title: 'Tipo de calibración', text: 'Interna: la hace el propio laboratorio. Externa: la realiza un proveedor certificado.' },
+    'inv-eq-freq': { title: 'Frecuencia de calibración', text: 'Cada cuánto se recalibra este instrumento (Semestral/Anual/Bianual). Al cambiarla se recalcula la próxima fecha.' },
+    'inv-eq-trace': { title: 'Trazabilidad', text: 'Organismo que respalda la calibración (ej. EMA, ANAB, NVLAP) — evidencia de que el certificado es válido.' },
+    'inv-eq-place': { title: 'Lugar de calibración', text: 'Dónde se realiza: en sitio (en el laboratorio), externo nacional o externo en EUA.' },
+    'inv-eq-maxerror': { title: 'Error máximo permitido', text: 'Tolerancia del instrumento según su certificado (ej. ± 0.25°C). Referencia metrológica, no se calcula automáticamente.' },
+    'inv-eq-critical': { title: 'Crítico NMX', text: 'Marca si el instrumento es crítico para la validez de la prueba bajo la norma. Si está vencido, dispara el aviso de NO OPERABLE.' },
+    'inv-eq-calsection': { title: 'Datos de calibración', text: 'Frecuencia, proveedor, trazabilidad y fechas — lo que alimenta el semáforo y las alertas.' },
+    'inv-mtto-freq': { title: 'Frecuencia de mantenimiento', text: 'Cada cuánto se repite esta actividad (Semanal a Anual). Define las semanas "P" en el Plan Maestro.' },
+    'inv-mtto-startweek': { title: 'Semana de inicio', text: 'Semana del año (1-52) en la que arranca el ciclo; a partir de ahí se repite según la frecuencia.' },
+    'inv-maint-plan-help': { title: 'Plan Maestro 52 semanas', text: 'Matriz automática: "P" = semana planeada, "✓" = ejecutada, rojo = planeada y vencida. Toca una celda planeada para marcarla hecha.' },
+    'inv-maint-compliance-help': { title: 'Cumplimiento', text: '% de mantenimientos ejecutados en su semana planeada, por equipo y global — el mismo cálculo que el Dashboard del formato oficial.' },
+    'inv-maint-catalog-help': { title: 'Catálogo de actividades', text: 'Qué se mantiene, cada cuánto y quién lo hace. Cambios aquí regeneran el Plan Maestro automáticamente.' },
+    'inv-maint-help': { title: 'Mantenimiento preventivo', text: 'Vencidos y de esta semana arriba para atender de un toque; el Plan Maestro de 52 semanas y el catálogo quedan plegados abajo para consulta.' },
     'inv-fuel-help': { title: 'Tanques de combustible', text: 'Tambos de gasolina/diesel de referencia por regulación; se descuentan automáticamente al liberar una prueba.' },
     'inv-report-help': { title: 'Reporte semanal', text: 'Resumen de consumo de la semana en curso, listo para copiar y enviar por correo.' },
     'inv-charts-help': { title: 'Gráficas de consumo', text: 'Tendencia histórica de PSI y nivel de combustible por cilindro/tanque.' },
@@ -24379,7 +25343,18 @@ function tpRenderRecovery(el) {
             var on = w.workDays[d];
             html += '<label style="font-size:9px;padding:2px 6px;border:1px solid var(--tp-border);border-radius:5px;cursor:pointer;background:' + (on ? 'rgba(59,130,246,0.12)' : 'transparent') + ';"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="tpSetWeekDay(\'' + w.monday + '\',\'' + d + '\',this.checked)" style="accent-color:var(--tp-blue);transform:scale(0.8);"> ' + dayLabels[d] + '</label>';
         });
-        html += '</div></div>';
+        html += '</div>';
+        // v16.4: aviso de mantenimiento programado (COP15-F11) sobre equipos que bloquean pruebas — solo avisa, no bloquea solo.
+        if (w.available && typeof invMaintPlannedForWeek === 'function') {
+            var mtto = invMaintPlannedForWeek(w.monday).filter(function(m) { return m.asset && m.asset.blocksTesting; });
+            if (mtto.length > 0) {
+                html += '<div style="margin-top:6px;padding:6px 8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">';
+                html += '<span style="font-size:9px;color:#92400e;">🛠️ Mantenimiento programado: ' + mtto.map(function(m) { return escapeHtml(m.asset.name + ' — ' + m.act.desc); }).join(', ') + '</span>';
+                html += '<button class="tp-btn tp-btn-ghost" onclick="_tpEnsureWeekAv(\'' + w.monday + '\').available=false;tpSave();tpRender();" style="font-size:9px;">Marcar no disponible</button>';
+                html += '</div>';
+            }
+        }
+        html += '</div>';
     });
     html += '</div>';
 
@@ -27606,7 +28581,12 @@ function pnRenderReports(el) {
         { icon: '📝', title: 'Bitácora de turnos', desc: 'Registros de la bitácora del laboratorio.', actions: [{ label: 'CSV', fn: 'pnExportShiftLog' }] },
         { icon: '🔔', title: 'Alertas', desc: 'Alertas activas del sistema.', actions: [{ label: 'CSV', fn: 'pnExportAlerts' }] },
         { icon: '🔍', title: 'Auditoría', desc: 'Traza de acciones de usuarios.', actions: [{ label: 'CSV', fn: 'auditExportCSV' }] },
-        { icon: '📄', title: 'Estado semanal', desc: 'Reporte ejecutivo cross-módulo en PDF.', actions: [{ label: 'PDF', fn: 'generateWeeklyStatusPDF' }] }
+        { icon: '📄', title: 'Estado semanal', desc: 'Reporte ejecutivo cross-módulo en PDF.', actions: [{ label: 'PDF', fn: 'generateWeeklyStatusPDF' }] },
+        { icon: '🔧', title: 'F11 — Equipos', desc: 'Registro de equipos padre (formato COP15-F11).', actions: [{ label: 'CSV', fn: 'invExportF11Equipos' }] },
+        { icon: '📏', title: 'F11 — Calibración', desc: 'Plan anual de calibración por instrumento y magnitud (formato COP15-F11).', actions: [{ label: 'CSV', fn: 'invExportF11Calibracion' }] },
+        { icon: '🛠️', title: 'F11 — Actividades', desc: 'Catálogo de actividades de mantenimiento preventivo (formato COP15-F11).', actions: [{ label: 'CSV', fn: 'invExportF11Actividades' }] },
+        { icon: '📋', title: 'F11 — Historial de mantenimiento', desc: 'Mantenimientos ejecutados (formato COP15-F11).', actions: [{ label: 'CSV', fn: 'invExportF11Historial' }] },
+        { icon: '🗓️', title: 'F11 — Plan Maestro', desc: 'Matriz de 52 semanas + cumplimiento, lista para firmar.', actions: [{ label: 'PDF', fn: 'invMaintPlanPDF' }] }
     ];
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-reports-help"><span>📤 Centro de Reportes</span></div>'
         + '<div style="font-size:11px;color:var(--tp-dim);margin-bottom:6px;">Un solo lugar para exportar. Cada reporte usa los datos actuales del sistema.</div>';
@@ -27721,6 +28701,12 @@ function renderLabOverview(el, opts) {
                 + '<div style="font-size:9px;color:var(--tp-dim);">' + k.label + '</div></div>';
         });
         html += '</div>';
+        // v16.4: línea compacta de calibración/mantenimiento (COP15-F11) — cross-módulo
+        if (typeof invCalSummary === 'function' && typeof invMaintOverdue === 'function') {
+            var calSum = invCalSummary();
+            var mttoOverdue = invMaintOverdue().length;
+            html += '<div style="font-size:10px;color:var(--tp-dim);margin:-6px 0 12px;padding:0 2px;">🔧 Calibración ' + calSum.pct + '% vigente · ' + calSum.vencidos + ' vencidos · ' + mttoOverdue + ' mtto pendientes</div>';
+        }
     }
     if (has('pipeline')) {
         var pipeline = [
@@ -28539,19 +29525,29 @@ function pnGetActiveAlerts() {
         }
     });
 
-    // Check equipment calibrations due
+    // Check equipment calibrations due — v16.4: invCalStatus() es LA definición (antes leía el
+    // campo inexistente eq.nextCalibration, así que esta alerta nunca se disparó; el campo real
+    // es eq.nextCalDate).
     var invEquip = (typeof invState !== 'undefined' && invState.equipment) ? invState.equipment : [];
-    invEquip.forEach(function(eq) {
-        if (!eq.nextCalibration) return;
-        var daysUntil = Math.ceil((new Date(eq.nextCalibration).getTime() - now) / 86400000);
-        if (daysUntil < 0) {
-            alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Calibracion de ' + eq.name + ' VENCIDA hace ' + Math.abs(daysUntil) + ' dias', source: 'Inventario' });
-        } else if (daysUntil <= 7) {
-            alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Calibracion de ' + eq.name + ' vence en ' + daysUntil + ' dias', source: 'Inventario' });
-        } else if (daysUntil <= 30) {
-            alerts.push({ level: 'MEDIA', color: '#06b6d4', message: 'Calibracion de ' + eq.name + ' vence en ' + daysUntil + ' dias', source: 'Inventario' });
-        }
-    });
+    if (typeof invCalStatus === 'function') {
+        invEquip.forEach(function(eq) {
+            var st = invCalStatus(eq);
+            if (st.code === 'vencido') {
+                alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Calibracion de ' + eq.name + ' VENCIDA hace ' + Math.abs(st.days) + ' dias', source: 'Inventario' });
+            } else if (st.code === 'porvencer' && st.days <= 7) {
+                alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Calibracion de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
+            } else if (st.code === 'porvencer') {
+                alerts.push({ level: 'MEDIA', color: '#06b6d4', message: 'Calibracion de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
+            }
+        });
+    }
+
+    // v16.4: mantenimiento preventivo (COP15-F11) vencido
+    if (typeof invMaintOverdue === 'function') {
+        invMaintOverdue().forEach(function(o) {
+            alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Mantenimiento de ' + (o.asset ? o.asset.name : '?') + ' (' + o.act.desc + ') vencido desde semana ' + o.lastWeek, source: 'Mantenimiento' });
+        });
+    }
 
     // Check test plan coverage
     if (typeof tpState !== 'undefined' && tpState.weeklyPlans && tpState.weeklyPlans.length > 0) {
@@ -32894,6 +33890,9 @@ function _fbPullLocalScore(col) {
         var s = 0, st = (typeof invState !== 'undefined') ? invState : null;
         if (st && st.gases) st.gases.forEach(function(g) { s += 1 + ((g.readings && g.readings.length) || 0); });
         if (st && st.equipment) s += st.equipment.length;
+        if (st && st.assets) s += st.assets.length;
+        if (st && st.maintActivities) s += st.maintActivities.length;
+        if (st && st.maintLog) s += st.maintLog.length;
         return s;
     }
     return 0;
@@ -32940,7 +33939,9 @@ function _fbPullMergeModule(col, remoteData, pulled) {
     var hasWork = false;
     if (col === 'cop15') hasWork = (a.newItems || []).length > 0 || (a.conflicts || []).length > 0;
     else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged;
-    else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0;
+    else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
+        (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
+        (a.newMaintActivities || []).length > 0 || (a.maintActivityUpdates || []).length > 0 || (a.newMaintLog || []).length > 0;
     if (!hasWork) return;
 
     // merge_all: agrega lo nuevo y resuelve diferencias con la política existente
@@ -32960,7 +33961,7 @@ function _fbPullAdoptByCount(col, remoteData, pulled) {
         var _rTp = (remoteData.planData ? remoteData.planData.length : 0) + (remoteData.testedList ? remoteData.testedList.length : 0) + (remoteData.weeklyPlans ? remoteData.weeklyPlans.length : 0);
         if (_rTp >= _fbPullLocalScore('testplan')) _fbPullSeed(col, remoteData, pulled);
     } else if (col === 'inventory') {
-        var _invScoreFn = function(s) { var n = 0; if (s && s.gases) s.gases.forEach(function(g) { n += 1 + ((g.readings && g.readings.length) || 0); }); if (s && s.equipment) n += s.equipment.length; return n; };
+        var _invScoreFn = function(s) { var n = 0; if (s && s.gases) s.gases.forEach(function(g) { n += 1 + ((g.readings && g.readings.length) || 0); }); if (s && s.equipment) n += s.equipment.length; if (s && s.assets) n += s.assets.length; if (s && s.maintActivities) n += s.maintActivities.length; if (s && s.maintLog) n += s.maintLog.length; return n; };
         if (_invScoreFn(remoteData) >= _fbPullLocalScore('inventory')) _fbPullSeed(col, remoteData, pulled);
     }
 }
@@ -33776,13 +34777,44 @@ function fbMergeAnalyze(remoteData) {
         var localEquip = {};
         ((invState.equipment || []).forEach(function(e) { localEquip[e.serialNo || e.name] = e; }));
         var remoteEquip = remoteData.inventory.equipment || [];
-        var newEquip = [], dupEquip = [];
+        var newEquip = [], dupEquip = [], equipConflicts = [];
 
         remoteEquip.forEach(function(re) {
             var key = re.serialNo || re.name;
-            if (!localEquip[key]) newEquip.push(re);
+            var le = localEquip[key];
+            if (!le) { newEquip.push(re); return; }
+            // v16.4: detectar cambios de calibración en instrumentos ya existentes (antes solo
+            // se detectaban altas nuevas — una calibración registrada en otro dispositivo nunca
+            // se traía de vuelta).
+            var isDiff = le.lastCalDate !== re.lastCalDate || le.nextCalDate !== re.nextCalDate || ((le.calHistory || []).length !== (re.calHistory || []).length);
+            if (isDiff) equipConflicts.push({ key: key, local: le, remote: re });
             else dupEquip.push(key);
         });
+
+        // v16.4: COP15-F11 — equipos padre, catálogo de mantenimiento y su historial de ejecución
+        var localAssets = {};
+        (invState.assets || []).forEach(function(a) { localAssets[a.id] = a; });
+        var remoteAssets = remoteData.inventory.assets || [];
+        var newAssets = [], assetUpdates = [];
+        remoteAssets.forEach(function(ra) {
+            var la = localAssets[ra.id];
+            if (!la) { newAssets.push(ra); return; }
+            if ((ra.updatedAt || '') > (la.updatedAt || '')) assetUpdates.push(ra);
+        });
+
+        var localActs = {};
+        (invState.maintActivities || []).forEach(function(a) { localActs[a.id] = a; });
+        var remoteActs = remoteData.inventory.maintActivities || [];
+        var newMaintActivities = [], maintActivityUpdates = [];
+        remoteActs.forEach(function(ra) {
+            var la = localActs[ra.id];
+            if (!la) { newMaintActivities.push(ra); return; }
+            if ((ra.updatedAt || '') > (la.updatedAt || '')) maintActivityUpdates.push(ra);
+        });
+
+        var localLogIds = {};
+        (invState.maintLog || []).forEach(function(l) { if (l && l.id) localLogIds[l.id] = true; });
+        var newMaintLog = (remoteData.inventory.maintLog || []).filter(function(l) { return l && l.id && !localLogIds[l.id]; });
 
         analysis.inventory = {
             localGasCount: (invState.gases || []).length,
@@ -33794,6 +34826,12 @@ function fbMergeAnalyze(remoteData) {
             remoteEquipCount: remoteEquip.length,
             newEquip: newEquip,
             dupEquip: dupEquip,
+            equipConflicts: equipConflicts,
+            newAssets: newAssets,
+            assetUpdates: assetUpdates,
+            newMaintActivities: newMaintActivities,
+            maintActivityUpdates: maintActivityUpdates,
+            newMaintLog: newMaintLog,
             remoteTs: remoteData.inventory_ts || null
         };
     }
@@ -33994,11 +35032,31 @@ function fbMergeExecute(remoteData, analysis, choices) {
 
     // Inventory
     if (choices.inventory && analysis.inventory) {
+        if (!invState.assets) invState.assets = [];
+        if (!invState.maintActivities) invState.maintActivities = [];
+        if (!invState.maintLog) invState.maintLog = [];
+        // Fusiona el historial de calibración de un instrumento ya existente en ambos lados
+        // (unión por fecha+certificado) y se queda con los campos del lado calibrado más recientemente.
+        function _fbMergeEquipConflict(c) {
+            var idx = invState.equipment.findIndex(function(e) { return (e.serialNo || e.name) === c.key; });
+            if (idx < 0) return;
+            var newerSide = (c.local.lastCalDate || '') >= (c.remote.lastCalDate || '') ? c.local : c.remote;
+            var mergedEq = Object.assign({}, c.local, newerSide);
+            var histByKey = {};
+            (c.local.calHistory || []).forEach(function(h) { histByKey[h.date + '|' + h.certNo] = h; });
+            (c.remote.calHistory || []).forEach(function(h) { histByKey[h.date + '|' + h.certNo] = h; });
+            mergedEq.calHistory = Object.keys(histByKey).map(function(k) { return histByKey[k]; }).sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
+            invState.equipment[idx] = mergedEq;
+        }
+
         if (choices.inventory === 'new') {
             if (!invState.gases) invState.gases = [];
             if (!invState.equipment) invState.equipment = [];
             analysis.inventory.newGases.forEach(function(g) { invState.gases.push(g); });
             analysis.inventory.newEquip.forEach(function(e) { invState.equipment.push(e); });
+            analysis.inventory.newAssets.forEach(function(a) { invState.assets.push(a); });
+            analysis.inventory.newMaintActivities.forEach(function(a) { invState.maintActivities.push(a); });
+            analysis.inventory.newMaintLog.forEach(function(l) { invState.maintLog.push(l); });
             merged.push('Inventory: +' + analysis.inventory.newGases.length + ' gases, +' + analysis.inventory.newEquip.length + ' equipos');
         } else if (choices.inventory === 'replace') {
             invState = remoteData.inventory;
@@ -34012,6 +35070,18 @@ function fbMergeExecute(remoteData, analysis, choices) {
                 var idx = invState.gases.findIndex(function(g) { return (g.controlNo || g.name) === c.key; });
                 if (idx >= 0) invState.gases[idx] = c.remote;
             });
+            analysis.inventory.equipConflicts.forEach(_fbMergeEquipConflict);
+            analysis.inventory.newAssets.forEach(function(a) { invState.assets.push(a); });
+            analysis.inventory.assetUpdates.forEach(function(a) {
+                var idx = invState.assets.findIndex(function(x) { return x.id === a.id; });
+                if (idx >= 0) invState.assets[idx] = a;
+            });
+            analysis.inventory.newMaintActivities.forEach(function(a) { invState.maintActivities.push(a); });
+            analysis.inventory.maintActivityUpdates.forEach(function(a) {
+                var idx = invState.maintActivities.findIndex(function(x) { return x.id === a.id; });
+                if (idx >= 0) invState.maintActivities[idx] = a;
+            });
+            analysis.inventory.newMaintLog.forEach(function(l) { invState.maintLog.push(l); });
             merged.push('Inventory: merge completo');
         }
         localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
@@ -34307,14 +35377,17 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
     // ── Inventory ──
     var inv = analysis.inventory;
     if (inv) {
-        var hasChanges = inv.newGases.length > 0 || inv.newEquip.length > 0 || inv.gasConflicts.length > 0;
+        var hasChanges = inv.newGases.length > 0 || inv.newEquip.length > 0 || inv.gasConflicts.length > 0 ||
+            inv.equipConflicts.length > 0 || inv.newAssets.length > 0 || inv.assetUpdates.length > 0 ||
+            inv.newMaintActivities.length > 0 || inv.maintActivityUpdates.length > 0 || inv.newMaintLog.length > 0;
         html += '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:8px;' + (hasChanges ? 'border-color:#10b981;' : '') + '">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
         html += '<span style="font-weight:700;font-size:12px;">Inventory</span>';
         html += '<span style="font-size:9px;color:#64748b;">Gases L:' + inv.localGasCount + '/R:' + inv.remoteGasCount + ' Eq L:' + inv.localEquipCount + '/R:' + inv.remoteEquipCount + '</span></div>';
         html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">';
         html += '<span style="color:#10b981;font-weight:700;">+' + inv.newGases.length + ' gases, +' + inv.newEquip.length + ' equipos</span>';
-        html += ' &nbsp; <span style="color:' + (inv.gasConflicts.length > 0 ? '#ef4444' : '#64748b') + ';">' + inv.gasConflicts.length + ' conflictos gas</span></div>';
+        html += ' &nbsp; <span style="color:' + (inv.gasConflicts.length > 0 || inv.equipConflicts.length > 0 ? '#ef4444' : '#64748b') + ';">' + inv.gasConflicts.length + ' conflictos gas, ' + inv.equipConflicts.length + ' cal. actualizadas</span></div>';
+        html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">🛠️ COP15-F11: +' + inv.newAssets.length + ' equipos, +' + inv.newMaintActivities.length + ' actividades, +' + inv.newMaintLog.length + ' mantenimientos registrados</div>';
         if (hasChanges) {
             html += '<select id="fb-merge-inventory" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:10px;">';
             html += '<option value="">No fusionar</option>';
@@ -34417,7 +35490,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202607310704' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608051541' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

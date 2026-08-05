@@ -747,7 +747,12 @@ function pnRenderReports(el) {
         { icon: '📝', title: 'Bitácora de turnos', desc: 'Registros de la bitácora del laboratorio.', actions: [{ label: 'CSV', fn: 'pnExportShiftLog' }] },
         { icon: '🔔', title: 'Alertas', desc: 'Alertas activas del sistema.', actions: [{ label: 'CSV', fn: 'pnExportAlerts' }] },
         { icon: '🔍', title: 'Auditoría', desc: 'Traza de acciones de usuarios.', actions: [{ label: 'CSV', fn: 'auditExportCSV' }] },
-        { icon: '📄', title: 'Estado semanal', desc: 'Reporte ejecutivo cross-módulo en PDF.', actions: [{ label: 'PDF', fn: 'generateWeeklyStatusPDF' }] }
+        { icon: '📄', title: 'Estado semanal', desc: 'Reporte ejecutivo cross-módulo en PDF.', actions: [{ label: 'PDF', fn: 'generateWeeklyStatusPDF' }] },
+        { icon: '🔧', title: 'F11 — Equipos', desc: 'Registro de equipos padre (formato COP15-F11).', actions: [{ label: 'CSV', fn: 'invExportF11Equipos' }] },
+        { icon: '📏', title: 'F11 — Calibración', desc: 'Plan anual de calibración por instrumento y magnitud (formato COP15-F11).', actions: [{ label: 'CSV', fn: 'invExportF11Calibracion' }] },
+        { icon: '🛠️', title: 'F11 — Actividades', desc: 'Catálogo de actividades de mantenimiento preventivo (formato COP15-F11).', actions: [{ label: 'CSV', fn: 'invExportF11Actividades' }] },
+        { icon: '📋', title: 'F11 — Historial de mantenimiento', desc: 'Mantenimientos ejecutados (formato COP15-F11).', actions: [{ label: 'CSV', fn: 'invExportF11Historial' }] },
+        { icon: '🗓️', title: 'F11 — Plan Maestro', desc: 'Matriz de 52 semanas + cumplimiento, lista para firmar.', actions: [{ label: 'PDF', fn: 'invMaintPlanPDF' }] }
     ];
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-reports-help"><span>📤 Centro de Reportes</span></div>'
         + '<div style="font-size:11px;color:var(--tp-dim);margin-bottom:6px;">Un solo lugar para exportar. Cada reporte usa los datos actuales del sistema.</div>';
@@ -862,6 +867,12 @@ function renderLabOverview(el, opts) {
                 + '<div style="font-size:9px;color:var(--tp-dim);">' + k.label + '</div></div>';
         });
         html += '</div>';
+        // v16.4: línea compacta de calibración/mantenimiento (COP15-F11) — cross-módulo
+        if (typeof invCalSummary === 'function' && typeof invMaintOverdue === 'function') {
+            var calSum = invCalSummary();
+            var mttoOverdue = invMaintOverdue().length;
+            html += '<div style="font-size:10px;color:var(--tp-dim);margin:-6px 0 12px;padding:0 2px;">🔧 Calibración ' + calSum.pct + '% vigente · ' + calSum.vencidos + ' vencidos · ' + mttoOverdue + ' mtto pendientes</div>';
+        }
     }
     if (has('pipeline')) {
         var pipeline = [
@@ -1680,19 +1691,29 @@ function pnGetActiveAlerts() {
         }
     });
 
-    // Check equipment calibrations due
+    // Check equipment calibrations due — v16.4: invCalStatus() es LA definición (antes leía el
+    // campo inexistente eq.nextCalibration, así que esta alerta nunca se disparó; el campo real
+    // es eq.nextCalDate).
     var invEquip = (typeof invState !== 'undefined' && invState.equipment) ? invState.equipment : [];
-    invEquip.forEach(function(eq) {
-        if (!eq.nextCalibration) return;
-        var daysUntil = Math.ceil((new Date(eq.nextCalibration).getTime() - now) / 86400000);
-        if (daysUntil < 0) {
-            alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Calibracion de ' + eq.name + ' VENCIDA hace ' + Math.abs(daysUntil) + ' dias', source: 'Inventario' });
-        } else if (daysUntil <= 7) {
-            alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Calibracion de ' + eq.name + ' vence en ' + daysUntil + ' dias', source: 'Inventario' });
-        } else if (daysUntil <= 30) {
-            alerts.push({ level: 'MEDIA', color: '#06b6d4', message: 'Calibracion de ' + eq.name + ' vence en ' + daysUntil + ' dias', source: 'Inventario' });
-        }
-    });
+    if (typeof invCalStatus === 'function') {
+        invEquip.forEach(function(eq) {
+            var st = invCalStatus(eq);
+            if (st.code === 'vencido') {
+                alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Calibracion de ' + eq.name + ' VENCIDA hace ' + Math.abs(st.days) + ' dias', source: 'Inventario' });
+            } else if (st.code === 'porvencer' && st.days <= 7) {
+                alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Calibracion de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
+            } else if (st.code === 'porvencer') {
+                alerts.push({ level: 'MEDIA', color: '#06b6d4', message: 'Calibracion de ' + eq.name + ' vence en ' + st.days + ' dias', source: 'Inventario' });
+            }
+        });
+    }
+
+    // v16.4: mantenimiento preventivo (COP15-F11) vencido
+    if (typeof invMaintOverdue === 'function') {
+        invMaintOverdue().forEach(function(o) {
+            alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Mantenimiento de ' + (o.asset ? o.asset.name : '?') + ' (' + o.act.desc + ') vencido desde semana ' + o.lastWeek, source: 'Mantenimiento' });
+        });
+    }
 
     // Check test plan coverage
     if (typeof tpState !== 'undefined' && tpState.weeklyPlans && tpState.weeklyPlans.length > 0) {
