@@ -1189,6 +1189,9 @@ function _fbPullLocalScore(col) {
         var s = 0, st = (typeof invState !== 'undefined') ? invState : null;
         if (st && st.gases) st.gases.forEach(function(g) { s += 1 + ((g.readings && g.readings.length) || 0); });
         if (st && st.equipment) s += st.equipment.length;
+        if (st && st.assets) s += st.assets.length;
+        if (st && st.maintActivities) s += st.maintActivities.length;
+        if (st && st.maintLog) s += st.maintLog.length;
         return s;
     }
     return 0;
@@ -1235,7 +1238,9 @@ function _fbPullMergeModule(col, remoteData, pulled) {
     var hasWork = false;
     if (col === 'cop15') hasWork = (a.newItems || []).length > 0 || (a.conflicts || []).length > 0;
     else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged;
-    else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0;
+    else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
+        (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
+        (a.newMaintActivities || []).length > 0 || (a.maintActivityUpdates || []).length > 0 || (a.newMaintLog || []).length > 0;
     if (!hasWork) return;
 
     // merge_all: agrega lo nuevo y resuelve diferencias con la política existente
@@ -1255,7 +1260,7 @@ function _fbPullAdoptByCount(col, remoteData, pulled) {
         var _rTp = (remoteData.planData ? remoteData.planData.length : 0) + (remoteData.testedList ? remoteData.testedList.length : 0) + (remoteData.weeklyPlans ? remoteData.weeklyPlans.length : 0);
         if (_rTp >= _fbPullLocalScore('testplan')) _fbPullSeed(col, remoteData, pulled);
     } else if (col === 'inventory') {
-        var _invScoreFn = function(s) { var n = 0; if (s && s.gases) s.gases.forEach(function(g) { n += 1 + ((g.readings && g.readings.length) || 0); }); if (s && s.equipment) n += s.equipment.length; return n; };
+        var _invScoreFn = function(s) { var n = 0; if (s && s.gases) s.gases.forEach(function(g) { n += 1 + ((g.readings && g.readings.length) || 0); }); if (s && s.equipment) n += s.equipment.length; if (s && s.assets) n += s.assets.length; if (s && s.maintActivities) n += s.maintActivities.length; if (s && s.maintLog) n += s.maintLog.length; return n; };
         if (_invScoreFn(remoteData) >= _fbPullLocalScore('inventory')) _fbPullSeed(col, remoteData, pulled);
     }
 }
@@ -2071,13 +2076,44 @@ function fbMergeAnalyze(remoteData) {
         var localEquip = {};
         ((invState.equipment || []).forEach(function(e) { localEquip[e.serialNo || e.name] = e; }));
         var remoteEquip = remoteData.inventory.equipment || [];
-        var newEquip = [], dupEquip = [];
+        var newEquip = [], dupEquip = [], equipConflicts = [];
 
         remoteEquip.forEach(function(re) {
             var key = re.serialNo || re.name;
-            if (!localEquip[key]) newEquip.push(re);
+            var le = localEquip[key];
+            if (!le) { newEquip.push(re); return; }
+            // v16.4: detectar cambios de calibración en instrumentos ya existentes (antes solo
+            // se detectaban altas nuevas — una calibración registrada en otro dispositivo nunca
+            // se traía de vuelta).
+            var isDiff = le.lastCalDate !== re.lastCalDate || le.nextCalDate !== re.nextCalDate || ((le.calHistory || []).length !== (re.calHistory || []).length);
+            if (isDiff) equipConflicts.push({ key: key, local: le, remote: re });
             else dupEquip.push(key);
         });
+
+        // v16.4: COP15-F11 — equipos padre, catálogo de mantenimiento y su historial de ejecución
+        var localAssets = {};
+        (invState.assets || []).forEach(function(a) { localAssets[a.id] = a; });
+        var remoteAssets = remoteData.inventory.assets || [];
+        var newAssets = [], assetUpdates = [];
+        remoteAssets.forEach(function(ra) {
+            var la = localAssets[ra.id];
+            if (!la) { newAssets.push(ra); return; }
+            if ((ra.updatedAt || '') > (la.updatedAt || '')) assetUpdates.push(ra);
+        });
+
+        var localActs = {};
+        (invState.maintActivities || []).forEach(function(a) { localActs[a.id] = a; });
+        var remoteActs = remoteData.inventory.maintActivities || [];
+        var newMaintActivities = [], maintActivityUpdates = [];
+        remoteActs.forEach(function(ra) {
+            var la = localActs[ra.id];
+            if (!la) { newMaintActivities.push(ra); return; }
+            if ((ra.updatedAt || '') > (la.updatedAt || '')) maintActivityUpdates.push(ra);
+        });
+
+        var localLogIds = {};
+        (invState.maintLog || []).forEach(function(l) { if (l && l.id) localLogIds[l.id] = true; });
+        var newMaintLog = (remoteData.inventory.maintLog || []).filter(function(l) { return l && l.id && !localLogIds[l.id]; });
 
         analysis.inventory = {
             localGasCount: (invState.gases || []).length,
@@ -2089,6 +2125,12 @@ function fbMergeAnalyze(remoteData) {
             remoteEquipCount: remoteEquip.length,
             newEquip: newEquip,
             dupEquip: dupEquip,
+            equipConflicts: equipConflicts,
+            newAssets: newAssets,
+            assetUpdates: assetUpdates,
+            newMaintActivities: newMaintActivities,
+            maintActivityUpdates: maintActivityUpdates,
+            newMaintLog: newMaintLog,
             remoteTs: remoteData.inventory_ts || null
         };
     }
@@ -2289,11 +2331,31 @@ function fbMergeExecute(remoteData, analysis, choices) {
 
     // Inventory
     if (choices.inventory && analysis.inventory) {
+        if (!invState.assets) invState.assets = [];
+        if (!invState.maintActivities) invState.maintActivities = [];
+        if (!invState.maintLog) invState.maintLog = [];
+        // Fusiona el historial de calibración de un instrumento ya existente en ambos lados
+        // (unión por fecha+certificado) y se queda con los campos del lado calibrado más recientemente.
+        function _fbMergeEquipConflict(c) {
+            var idx = invState.equipment.findIndex(function(e) { return (e.serialNo || e.name) === c.key; });
+            if (idx < 0) return;
+            var newerSide = (c.local.lastCalDate || '') >= (c.remote.lastCalDate || '') ? c.local : c.remote;
+            var mergedEq = Object.assign({}, c.local, newerSide);
+            var histByKey = {};
+            (c.local.calHistory || []).forEach(function(h) { histByKey[h.date + '|' + h.certNo] = h; });
+            (c.remote.calHistory || []).forEach(function(h) { histByKey[h.date + '|' + h.certNo] = h; });
+            mergedEq.calHistory = Object.keys(histByKey).map(function(k) { return histByKey[k]; }).sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
+            invState.equipment[idx] = mergedEq;
+        }
+
         if (choices.inventory === 'new') {
             if (!invState.gases) invState.gases = [];
             if (!invState.equipment) invState.equipment = [];
             analysis.inventory.newGases.forEach(function(g) { invState.gases.push(g); });
             analysis.inventory.newEquip.forEach(function(e) { invState.equipment.push(e); });
+            analysis.inventory.newAssets.forEach(function(a) { invState.assets.push(a); });
+            analysis.inventory.newMaintActivities.forEach(function(a) { invState.maintActivities.push(a); });
+            analysis.inventory.newMaintLog.forEach(function(l) { invState.maintLog.push(l); });
             merged.push('Inventory: +' + analysis.inventory.newGases.length + ' gases, +' + analysis.inventory.newEquip.length + ' equipos');
         } else if (choices.inventory === 'replace') {
             invState = remoteData.inventory;
@@ -2307,6 +2369,18 @@ function fbMergeExecute(remoteData, analysis, choices) {
                 var idx = invState.gases.findIndex(function(g) { return (g.controlNo || g.name) === c.key; });
                 if (idx >= 0) invState.gases[idx] = c.remote;
             });
+            analysis.inventory.equipConflicts.forEach(_fbMergeEquipConflict);
+            analysis.inventory.newAssets.forEach(function(a) { invState.assets.push(a); });
+            analysis.inventory.assetUpdates.forEach(function(a) {
+                var idx = invState.assets.findIndex(function(x) { return x.id === a.id; });
+                if (idx >= 0) invState.assets[idx] = a;
+            });
+            analysis.inventory.newMaintActivities.forEach(function(a) { invState.maintActivities.push(a); });
+            analysis.inventory.maintActivityUpdates.forEach(function(a) {
+                var idx = invState.maintActivities.findIndex(function(x) { return x.id === a.id; });
+                if (idx >= 0) invState.maintActivities[idx] = a;
+            });
+            analysis.inventory.newMaintLog.forEach(function(l) { invState.maintLog.push(l); });
             merged.push('Inventory: merge completo');
         }
         localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
@@ -2602,14 +2676,17 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
     // ── Inventory ──
     var inv = analysis.inventory;
     if (inv) {
-        var hasChanges = inv.newGases.length > 0 || inv.newEquip.length > 0 || inv.gasConflicts.length > 0;
+        var hasChanges = inv.newGases.length > 0 || inv.newEquip.length > 0 || inv.gasConflicts.length > 0 ||
+            inv.equipConflicts.length > 0 || inv.newAssets.length > 0 || inv.assetUpdates.length > 0 ||
+            inv.newMaintActivities.length > 0 || inv.maintActivityUpdates.length > 0 || inv.newMaintLog.length > 0;
         html += '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:8px;' + (hasChanges ? 'border-color:#10b981;' : '') + '">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
         html += '<span style="font-weight:700;font-size:12px;">Inventory</span>';
         html += '<span style="font-size:9px;color:#64748b;">Gases L:' + inv.localGasCount + '/R:' + inv.remoteGasCount + ' Eq L:' + inv.localEquipCount + '/R:' + inv.remoteEquipCount + '</span></div>';
         html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">';
         html += '<span style="color:#10b981;font-weight:700;">+' + inv.newGases.length + ' gases, +' + inv.newEquip.length + ' equipos</span>';
-        html += ' &nbsp; <span style="color:' + (inv.gasConflicts.length > 0 ? '#ef4444' : '#64748b') + ';">' + inv.gasConflicts.length + ' conflictos gas</span></div>';
+        html += ' &nbsp; <span style="color:' + (inv.gasConflicts.length > 0 || inv.equipConflicts.length > 0 ? '#ef4444' : '#64748b') + ';">' + inv.gasConflicts.length + ' conflictos gas, ' + inv.equipConflicts.length + ' cal. actualizadas</span></div>';
+        html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">🛠️ COP15-F11: +' + inv.newAssets.length + ' equipos, +' + inv.newMaintActivities.length + ' actividades, +' + inv.newMaintLog.length + ' mantenimientos registrados</div>';
         if (hasChanges) {
             html += '<select id="fb-merge-inventory" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:10px;">';
             html += '<option value="">No fusionar</option>';

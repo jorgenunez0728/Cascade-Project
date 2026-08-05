@@ -3227,7 +3227,18 @@ function tpRenderRecovery(el) {
             var on = w.workDays[d];
             html += '<label style="font-size:9px;padding:2px 6px;border:1px solid var(--tp-border);border-radius:5px;cursor:pointer;background:' + (on ? 'rgba(59,130,246,0.12)' : 'transparent') + ';"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="tpSetWeekDay(\'' + w.monday + '\',\'' + d + '\',this.checked)" style="accent-color:var(--tp-blue);transform:scale(0.8);"> ' + dayLabels[d] + '</label>';
         });
-        html += '</div></div>';
+        html += '</div>';
+        // v16.4: aviso de mantenimiento programado (COP15-F11) sobre equipos que bloquean pruebas — solo avisa, no bloquea solo.
+        if (w.available && typeof invMaintPlannedForWeek === 'function') {
+            var mtto = invMaintPlannedForWeek(w.monday).filter(function(m) { return m.asset && m.asset.blocksTesting; });
+            if (mtto.length > 0) {
+                html += '<div style="margin-top:6px;padding:6px 8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">';
+                html += '<span style="font-size:9px;color:#92400e;">🛠️ Mantenimiento programado: ' + mtto.map(function(m) { return escapeHtml(m.asset.name + ' — ' + m.act.desc); }).join(', ') + '</span>';
+                html += '<button class="tp-btn tp-btn-ghost" onclick="_tpEnsureWeekAv(\'' + w.monday + '\').available=false;tpSave();tpRender();" style="font-size:9px;">Marcar no disponible</button>';
+                html += '</div>';
+            }
+        }
+        html += '</div>';
     });
     html += '</div>';
 
