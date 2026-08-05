@@ -50,7 +50,7 @@ js/
   app.js                ← Config, utils, chart engine, undo, notes, PDF, audit log, bootstrap (~3,990 lines)
   cop15.js              ← COP15 Cascade module + Soak Timer + Field Tooltips (~6,290 lines)
   testplan.js           ← Test Plan Manager + Recovery Plan + dynamic months (~5,090 lines)
-  inventory.js          ← Lab Inventory + SVG Floor Plan Map (~4,150 lines)
+  inventory.js          ← Lab Inventory + Zone Map grid (~5,000 lines)
   panel.js              ← Dashboard, Lab Overview, Reports Center, Users, Alerts, Audit, Health (~2,610 lines)
   firebase-sync.js      ← Shared-workspace cloud sync layer (~2,900 lines)
   auth.js               ← Operator identity + PIN wall (~490 lines)
@@ -326,6 +326,28 @@ calibración) dentro de Consumibles — sin módulo nuevo, reusa `invState`/`inv
   Actividades/Historial`) + PDF del Plan Maestro (`invMaintPlanPDF`), todo en el Centro de
   Reportes. **Importación** `invImportF11CSV` actualiza calibraciones en bloque (empata por
   `f11Id` → KMM → serie), con resumen y confirmación antes de escribir.
+
+## v16.5 — Mapa como retícula + menos campos + sin espacio muerto
+
+- **El mapa del cuarto de gases ya NO es un plano SVG editable.** `invRenderZoneMap()`
+  (`js/inventory.js`) pinta una retícula responsiva (`.inv-zonemap-grid`): cada zona es una
+  tarjeta que crece según su número de slots — sin cajas de tamaño fijo, sin `invState.zoneLayout`
+  (se borra una sola vez en `invPreloadData`). El arrastrar-y-soltar de cilindros sigue siendo
+  `invInitZoneDrag()`/`invDropCylinder()`/`invUndoLastMove()` — **no se reescribió**, solo se
+  reconectó emitiendo botones `.inv-zone-slot` (antes ese motor estaba huérfano). `_invCylColor(gas)`
+  sigue siendo la única definición del semáforo de un cilindro (nivel + vencimiento).
+- **Formularios cortos con autollenado**: patrón `<details>Más detalles</details>` en Cilindro
+  (`invShowAddGas`), Instrumento (`invAddEquipment`), Actividad de mantenimiento
+  (`invAddMaintActivity`) y Zona (`invShowZoneModal`) — solo 2-4 campos visibles, el resto sigue
+  ahí pero plegado. Helpers de autollenado: `_invNextFreeSlot()`, `_invLastGasTraceSupplier()`,
+  `_invLastInstrumentOfAsset(assetId)` + `invEqAutofillFromAsset()`, `_invNextFreeZoneId()`. Los
+  `save*` no cambiaron — siguen leyendo por `getElementById`, que sigue existiendo aunque el campo
+  esté dentro de un `<details>` cerrado.
+- **`--content-max` (styles.css)** centraliza el ancho máximo de contenido (1400px) que antes solo
+  tenía `.tp-main`; `.daily-dash` (HOY) ahora también lo respeta — antes no tenía `max-width` y en
+  pantallas anchas se estiraba de borde a borde. `.dash-group` (HOY) y `.inv-row-list-2col`
+  (listas de una fila por elemento en Consumibles) pasan a 2 columnas en `min-width:1024px` en vez
+  de dejar el ancho sobrante vacío.
 
 ## Working with this project
 

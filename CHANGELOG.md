@@ -2,6 +2,33 @@
 
 All notable changes to this project, organized by development round.
 
+## v16.5 — "Mapa como retícula + menos campos + sin espacio muerto" (2026-08-05)
+
+El usuario mandó capturas de la plataforma corriendo en PC: el mapa del cuarto de gases se veía
+roto (zonas de 2 slots ocupando la misma caja que zonas de 14) y el tablero de HOY tenía un vacío
+blanco enorme en el centro de la pantalla. Overhaul dirigido a esos dos problemas más una pasada de
+"menos campos que llenar" en los formularios de captura.
+
+- **Mapa del cuarto de gases — de plano SVG editable a retícula responsiva**: se eliminaron ~510
+  líneas de edición manual (arrastrar/redimensionar zonas, zoom, leyenda) que asignaban una caja
+  fija de 200×180 a **toda** zona sin importar su número de slots — la causa real de las cajas
+  vacías. `invRenderZoneMap()` reemplaza a `invRenderFloorPlan()`: cada tarjeta de zona
+  (`.inv-zonemap-grid`) crece solo lo que necesitan sus slots, con objetivos táctiles reales
+  (≥44px) en vez de círculos SVG de radio 12. **Hallazgo:** el sistema de arrastrar-y-soltar
+  cilindros (`invInitZoneDrag`/`invDropCylinder`/`invUndoLastMove`) ya existía completo y probado,
+  pero estaba huérfano — operaba sobre `.inv-zone-slot`, una clase que ningún render emitía desde
+  que el mapa pasó a SVG. La retícula nueva lo reactiva sin escribir arrastre otra vez.
+- **Formularios más cortos**: Cilindro, Instrumento (F11), Actividad de mantenimiento y Zona
+  ahora muestran solo 2-4 campos esenciales; el resto vive en "Más detalles" (nada se perdió) con
+  autollenado — zona = primera posición libre, trazabilidad/proveedor = del último cilindro dado
+  de alta, marca/proveedor/frecuencia de un instrumento = heredados del último capturado del mismo
+  equipo padre, semana de una actividad = la semana actual, ID de zona = siguiente letra libre.
+- **Cero espacio muerto en pantallas anchas**: `.daily-dash` (HOY) no tenía `max-width` — a
+  diferencia de `.tp-main`, que sí estaba topado a 1400px — así que en una laptop el tablero se
+  estiraba de borde a borde dejando un vacío entre el título y los botones. Nueva variable
+  `--content-max` centraliza ese ancho; el tablero de HOY y las listas de una-fila-por-elemento
+  (cilindros) pasan a 2 columnas en pantallas ≥1024px en vez de dejar el ancho sobrante vacío.
+
 ## v16.4 — "Plan Maestro de Mantenimiento y Calibración (COP15-F11)" (2026-08-05)
 
 El laboratorio formalizó el control de mantenimiento preventivo y calibración de equipos en
