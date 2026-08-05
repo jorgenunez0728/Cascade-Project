@@ -133,6 +133,11 @@ en el cliente sumando metadatos antes de subir.
   auto-populates VINes from `db.vehicles` of the selected family; **CoP SPC → COP15**: I-MR charts read
   final verified `gasResults` per released vehicle; **CoP SPC → Panel**: `copSpcScanAlarms()` feeds
   `pnGetActiveAlerts()` (source "CoP SPC", guarded with `typeof`)
+- **Inventory (Mantenimiento) → Test Plan**: `invMaintPlannedForWeek()` warns (never blocks)
+  `tpRenderAvailability` when a `blocksTesting` asset has preventive maintenance scheduled
+  that week; **Inventory → Panel/HOY**: `invCalStatus()`/`invMaintOverdue()`/
+  `invMaintDueThisWeek()` feed `pnGetActiveAlerts()` (source "Mantenimiento") and
+  `dashCollectActivities()`, guarded with `typeof`
 - **Panel → All**: Lab Overview (`renderLabOverview`) + Intelligence read `db`, `tpState`, `invState`
 - **Firebase Sync → All**: pushes/pulls per-module state to `stations/KIA-EMLAB/{module}/current`
 - **App Core → All**: chart engine (`chartConfig*`), undo (`undoPush/Pop`), notes (`note*`),
@@ -280,6 +285,47 @@ alguien le explique. Cuatro piezas, todas en archivos existentes (sin JS nuevo):
 **Regla para nuevo código:** toda pestaña nueva agrega una entrada a `HELP_TABS`; todo campo de
 captura no trivial agrega una entrada a `CASCADE_TOOLTIPS` (con `data-help="clave"` en su
 título/label si no tiene `<label for>` propio). Ver ejemplos ya escritos en cada módulo.
+
+## v16.4 — Plan Maestro de Mantenimiento y Calibración (COP15-F11)
+
+Integración del formato oficial **COP15-F11 rev. 03** (Excel de mantenimiento preventivo y
+calibración) dentro de Consumibles — sin módulo nuevo, reusa `invState`/`invSave`/sync.
+
+- **Estado** (`js/inventory.js`): `invState.assets` (14 equipos padre), `invState.equipment`
+  (instrumentos — ya existía, ahora con los campos F11: `f11Id`, `assetId`, `requiresCal`,
+  `calType`, `calPlace`, `rangeMax`, `rangeUse`, `maxError`, `comments`, `calHistory[]`),
+  `invState.maintActivities` (catálogo de mantenimiento preventivo), `invState.maintLog`
+  (historial de ejecución), `invState.f11Seed` (guard de migración). Listas cerradas:
+  `INV_CAL_FREQ_DAYS`, `INV_MTTO_FREQ_WEEKS`, `INV_LABS`, `INV_CAL_PLACES`, `INV_CAL_TYPES`.
+- **Migración `_invMigrateF11()`**: una sola vez por dispositivo (`f11Seed>=3`), fusiona los
+  49 instrumentos del F11 con los 31 ya capturados por `f11Id` → `INV_F11_LEGACY_MAP` → KMM
+  ID → serie; solo rellena campos vacíos (lo capturado en la app gana), da de alta los
+  faltantes. Idempotente — corre tras cada `invPreloadData()`.
+- **`invCalStatus(eq)` es LA definición** del semáforo de calibración (umbral 60 días,
+  colores/labels vigente/porvencer/vencido/sinregistro/noaplica) — todo consumidor nuevo
+  debe llamarla en vez de leer `nextCalDate` directo. `invCalSummary()` es LA definición del
+  resumen (réplica de la hoja Dashboard del F11). `invMaintMatrix(year)`/`invMaintCompliance(year)`
+  son LA definición del Plan Maestro de 52 semanas y su cumplimiento — se calculan en cada
+  render, nunca se guardan. `invWeekOfYear`/`invMondayOfWeek`: partición simple de semana
+  1-52 (no ISO 8601 estricto — el lunes de la semana 1 puede caer en diciembre del año
+  anterior; sin impacto salvo la última semana de diciembre / primera de enero).
+- **UI**: `Pruebas → Consumibles → 🔧 Equipos` (barra principal, ya no en "⋯ Más") rediseñada
+  con semáforo/tiles/filtros/agrupado por equipo padre y botón **"✅ Calibrado"** (2 campos:
+  fecha + certificado). Pestaña nueva **🛠️ Mtto**: vencidos/esta semana arriba con
+  **"✔ Hecho"** de un toque, Plan Maestro y catálogo plegados (`<details>`) abajo.
+- **Cross-módulo**: HOY (`dashCollectActivities`) muestra calibraciones/mantenimientos
+  vencidos y de la semana con check de un toque. `pnGetActiveAlerts` — **bug corregido**:
+  leía el campo inexistente `eq.nextCalibration` (nunca `eq.nextCalDate`), la alerta de
+  calibración vencida nunca se había disparado. Plan → Disponibilidad avisa (no bloquea
+  solo) cuando una semana tiene mantenimiento programado de un `asset.blocksTesting`.
+- **Sync** (`firebase-sync.js`): `assets`/`maintActivities` mergean por id con `updatedAt`
+  (gana el más reciente); `maintLog` es append-only (unión por id); `equipment[].calHistory`
+  se une por fecha+certificado — antes una calibración de otro dispositivo no se mergeaba
+  con el `equipment` local (solo se detectaban altas nuevas, nunca ediciones).
+- **Exportación**: 4 CSV con encabezados exactos del Excel (`invExportF11Equipos/Calibracion/
+  Actividades/Historial`) + PDF del Plan Maestro (`invMaintPlanPDF`), todo en el Centro de
+  Reportes. **Importación** `invImportF11CSV` actualiza calibraciones en bloque (empata por
+  `f11Id` → KMM → serie), con resumen y confirmación antes de escribir.
 
 ## Working with this project
 

@@ -2,6 +2,46 @@
 
 All notable changes to this project, organized by development round.
 
+## v16.4 — "Plan Maestro de Mantenimiento y Calibración (COP15-F11)" (2026-08-05)
+
+El laboratorio formalizó el control de mantenimiento preventivo y calibración de equipos en
+el formato oficial **COP15-F11 rev. 03** (Excel). Esta ronda integra ese formato completo a
+la plataforma — vive dentro de Consumibles, sin módulo nuevo — para que se consulte y
+actualice desde el mismo lugar donde ya vivía la calibración, con la menor interacción
+posible: calibrar es dos toques (fecha + certificado), registrar un mantenimiento es un
+toque (✔ Hecho).
+
+- **Equipos y Calibración** (`Pruebas → Consumibles → 🔧 Equipos`, ahora en la barra
+  principal): rediseñada con semáforo de 60 días (verde/ámbar/rojo/sin registro/no aplica),
+  tiles de resumen, banner de instrumentos críticos vencidos ("identificar como NO
+  OPERABLE"), filtros y agrupado por equipo padre. Botón **"✅ Calibrado"** por instrumento:
+  fecha + certificado + proveedor, la próxima fecha se calcula sola (`invCalRegister`,
+  `invCalStatus`, `invCalSummary` — únicas definiciones del semáforo y el resumen).
+- **Migración de los 31 instrumentos existentes**: `_invMigrateF11()` fusiona los 49
+  instrumentos del F11 con los 31 ya capturados en la plataforma por KMM ID → serie →
+  nombre, **sin perder nada** (rellena solo campos vacíos; lo capturado en la app gana) y
+  da de alta los 18 faltantes. Corre una sola vez por dispositivo (`invState.f11Seed`),
+  idempotente. Se conservó el registro de equipos padre (14, `invState.assets`).
+- **🛠️ Mantenimiento** (pestaña nueva junto a Equipos): vencidos y programados de esta
+  semana arriba con `✔ Hecho` de un toque; Plan Maestro de 52 semanas y catálogo de
+  actividades plegados abajo para consulta (`invMaintMatrix`, `invMaintCompliance` —
+  reproduce exacto el Dashboard del Excel, validado: 19 mantenimientos planeados/año con
+  las 3 actividades reales del catálogo).
+- **Integraciones**: HOY muestra calibraciones y mantenimientos vencidos/de la semana con
+  check de un toque; Panel → Alertas ahora sí dispara alertas de calibración vencida (bug
+  corregido: leía el campo inexistente `eq.nextCalibration`, nunca `eq.nextCalDate` — la
+  alerta jamás se había disparado) y suma mantenimiento vencido; Lab Overview resume
+  % de vigencia; Plan → Disponibilidad avisa (no bloquea solo) cuando una semana tiene
+  mantenimiento programado de un equipo que detiene pruebas (`asset.blocksTesting`).
+- **Sincronización**: `assets`/`maintActivities`/`maintLog` se fusionan por id (gana el más
+  reciente vía `updatedAt`, el historial es append-only) en vez de reemplazarse; el
+  historial de calibración de un instrumento (`calHistory`) se une por fecha+certificado —
+  antes una calibración registrada en otro dispositivo simplemente no se traía de vuelta.
+- **Exportación/importación**: 4 CSV con los encabezados exactos del Excel oficial
+  (Equipos/Calibración/Actividades/Historial) + PDF del Plan Maestro, todos desde el Centro
+  de Reportes; **"📥 Importar F11"** actualiza calibraciones en bloque desde ese mismo CSV
+  (empata por ID del F11 → KMM → serie, resumen y confirmación antes de escribir).
+
 ## v16.3 — "Almacén de Archivos" (2026-07-16)
 
 Nueva pestaña **Datos → ⋯ Más → ☁️ Archivos**: un espacio compartido de 5MB (todo el
