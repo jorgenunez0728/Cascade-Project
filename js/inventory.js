@@ -105,6 +105,8 @@ function invPreloadData() {
         invState.equipment = [{"id": "eq_th0033", "name": "Termohigrometro HVAC", "type": "Thermometer/Humidity", "serialNo": "N/A", "kmmId": "TH-0033", "brand": "Kimo", "model": "TH210B0SP", "traceability": "EMA", "calLab": "METROLAB", "location": "HVAC Room", "magnitude": "Temperature/Humidity", "lastCalDate": "2025-02-21", "nextCalDate": "2026-02-21", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004301", "name": "Sensor Hum/Temp VETS 1", "type": "Humidity sensor", "serialNo": "W4754750", "kmmId": "TH-0043-01", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Hum y Temp", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004302", "name": "Barometro VETS 1", "type": "Barometer", "serialNo": "W3850023", "kmmId": "TH-0043-02", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Presion", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004303", "name": "Transmisor VETS 1", "type": "Barometer", "serialNo": "W4831243", "kmmId": "TH-0043-03", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Transmisor corriente", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004401", "name": "Sensor Hum/Temp VETS 2", "type": "Humidity sensor", "serialNo": "W4917201", "kmmId": "TH-0044-01", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Hum y Temp", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th004402", "name": "Barometro VETS 2", "type": "Thermometer", "serialNo": "W3850033", "kmmId": "TH-0044-02", "brand": "Vaisala", "model": "INDIGO520", "traceability": "EMA", "calLab": "Vaisala", "location": "VETS", "magnitude": "Presion", "lastCalDate": "2025-05-01", "nextCalDate": "2026-05-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr018", "name": "Propane Injection CFO", "type": "Propane injection", "serialNo": "7005035500", "kmmId": "PR-018", "brand": "Horiba", "model": "5102514973", "traceability": "ANAB", "calLab": "Horiba USA", "location": "CFO", "magnitude": "Flux", "lastCalDate": "2024-05-31", "nextCalDate": "2025-05-31", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_ot0038", "name": "Gas Divider", "type": "Gas Divider", "serialNo": "S2001362117000020", "kmmId": "OT-0038", "brand": "Horiba", "model": "ONE", "traceability": "ANAB", "calLab": "Horiba USA", "location": "GDC", "magnitude": "Flux", "lastCalDate": "2024-11-19", "nextCalDate": "2025-11-19", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_bubbler", "name": "Heater Bubbler", "type": "Heater bubbler", "serialNo": "8001005048", "kmmId": "", "brand": "Horiba", "model": "Heated Bubler", "traceability": "NIST", "calLab": "Horiba USA", "location": "Emission Room", "magnitude": "", "lastCalDate": "2024-06-19", "nextCalDate": "2025-06-19", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th0036", "name": "Termopar RMT1", "type": "Thermocouple", "serialNo": "N/A", "kmmId": "TH-0036", "brand": "N/A", "model": "S1-8", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room RMT1", "magnitude": "Temperature", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr0017", "name": "Manometro RMT1", "type": "Pressure gauge", "serialNo": "N/A", "kmmId": "PR-0017", "brand": "ManoStar", "model": "WO801", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room RMT1", "magnitude": "Abs Pressure", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr0016", "name": "Manometro CVS Out", "type": "Pressure gauge", "serialNo": "N/A", "kmmId": "PR-0016", "brand": "ManoStar", "model": "WO81", "traceability": "EMA", "calLab": "CIDESI", "location": "CVS", "magnitude": "Abs Pressure", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_dw", "name": "Dinamometro Dead Weight", "type": "Dead Weight", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE4200-002", "traceability": "T-EMA", "calLab": "Emissions Lab", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-03-01", "nextCalDate": "2026-03-01", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_roller_f", "name": "Dyno Roller Diameter Front", "type": "Roller diameter", "serialNo": "-", "kmmId": "OT-0032", "brand": "A&G", "model": "CDE 4200-002 Front", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room Dyno", "magnitude": "Dimensional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_roller_r", "name": "Dyno Roller Diameter Rear", "type": "Roller diameter", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE 4200-002 Rear", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room Dyno", "magnitude": "Dimensional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_arm", "name": "Dyno Arm", "type": "Arm", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE4200-002", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Dimensional", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_speed_f", "name": "Dyno Angular Speed Front", "type": "Angular speed", "serialNo": "-", "kmmId": "OT-0037", "brand": "A&G", "model": "CDE 4200-002 Front", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Tachometer", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_torque_f", "name": "Dyno Torque Front", "type": "Torque", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE 4200-002 Front", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Torque", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_dyno_torque_r", "name": "Dyno Torque Rear", "type": "Torque", "serialNo": "-", "kmmId": "", "brand": "A&G", "model": "CDE 4200-002 Rear", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Torque", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_th0020", "name": "Termometro FLUKE Lab", "type": "Thermometer", "serialNo": "30850092WS", "kmmId": "TH-0020", "brand": "FLUKE", "model": "52 II", "traceability": "EMA", "calLab": "CIDESI", "location": "Control Room", "magnitude": "Electrical", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_pr0002", "name": "Manometro Inspeccion", "type": "Pressure gauge", "serialNo": "PS 055 497", "kmmId": "PR-0002", "brand": "GRIPPER", "model": "SA-1U1A1E1J2", "traceability": "EMA", "calLab": "CIDESI", "location": "Inspection Room", "magnitude": "Pressure", "lastCalDate": "2025-10-07", "nextCalDate": "2026-10-07", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_01", "name": "Dyno Mass 1", "type": "Mass", "serialNo": "1", "kmmId": "WE-0016-01", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_02", "name": "Dyno Mass 2", "type": "Mass", "serialNo": "2", "kmmId": "WE-0016-02", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_03", "name": "Dyno Mass 3", "type": "Mass", "serialNo": "3", "kmmId": "WE-0016-03", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_04", "name": "Dyno Mass 4", "type": "Mass", "serialNo": "4", "kmmId": "WE-0016-04", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_05", "name": "Dyno Mass 5", "type": "Mass", "serialNo": "5", "kmmId": "WE-0016-05", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_06", "name": "Dyno Mass 6", "type": "Mass", "serialNo": "6", "kmmId": "WE-0016-06", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_07", "name": "Dyno Mass 7", "type": "Mass", "serialNo": "7", "kmmId": "WE-0016-07", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_08", "name": "Dyno Mass 8", "type": "Mass", "serialNo": "8", "kmmId": "WE-0016-08", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_09", "name": "Dyno Mass 9", "type": "Mass", "serialNo": "9", "kmmId": "WE-0016-09", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}, {"id": "eq_mass_10", "name": "Dyno Mass 10", "type": "Mass", "serialNo": "10", "kmmId": "WE-0016-10", "brand": "A&G", "model": "-", "traceability": "EMA", "calLab": "CIDESI", "location": "Emission Room", "magnitude": "Mass", "lastCalDate": "2025-09-18", "nextCalDate": "2026-09-18", "calFreq": "Anual", "critical": "Si"}];
         console.log('INV: Preloaded ' + invState.equipment.length + ' equipment');
     }
+    // v16.5: el mapa dejó de ser un plano SVG editable — el layout manual ya no se usa
+    if (invState.zoneLayout) delete invState.zoneLayout;
     invSave();
     _invMigrateF11();
 }
@@ -427,7 +429,7 @@ function _invGetRenderer(tabId) {
     if (tabId === 'inv-readings') return invRenderReadings;
     if (tabId === 'inv-predict') return invRenderPredict;
     if (tabId === 'inv-fuel') return invRenderFuel;
-    if (tabId === 'inv-zonemap') return invRenderFloorPlan;
+    if (tabId === 'inv-zonemap') return invRenderZoneMap;
     if (tabId === 'inv-charts') return invRenderCharts;
     if (tabId === 'inv-config') return invRenderConfig;
     if (tabId === 'inv-report') return invRenderReport;
@@ -492,6 +494,24 @@ function invAutoControlNo() {
     var today = localToday().replace(/-/g,'');
     var todayCount = invState.gases.filter(function(g){ return g.controlNo && g.controlNo.startsWith(today); }).length;
     return today + '-' + String(todayCount + 1).padStart(2,'0');
+}
+
+// v16.5: autollenado — primera posición libre (menor interacción al dar de alta un cilindro)
+function _invNextFreeSlot() {
+    for (var zi = 0; zi < invState.zones.length; zi++) {
+        var z = invState.zones[zi];
+        for (var i = 1; i <= z.slots; i++) {
+            var code = z.id + (i < 10 ? '0' : '') + i;
+            if (!invState.gases.some(function(g) { return g.zone === code; })) return code;
+        }
+    }
+    return '';
+}
+// v16.5: autollenado — trazabilidad/proveedor del último cilindro dado de alta
+function _invLastGasTraceSupplier() {
+    if (!invState.gases.length) return { traceability: 'EPA', supplier: '' };
+    var last = invState.gases[invState.gases.length - 1];
+    return { traceability: last.traceability || 'EPA', supplier: last.supplier || '' };
 }
 
 // Gas status helpers
@@ -696,7 +716,7 @@ function invRenderGases(el) {
     if (filtered.length === 0) {
         html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Sin cilindros' + (filterZone !== 'ALL' ? ' en zona ' + filterZone : '') + '</div>';
     } else {
-        html += '<div class="' + (_invGasCompact ? 'list-compact' : '') + '" style="max-height:500px;overflow-y:auto;">';
+        html += '<div class="inv-row-list-2col ' + (_invGasCompact ? 'list-compact' : '') + '" style="max-height:500px;overflow-y:auto;">';
         filtered.sort(function(a,b){ return (a.zone||'').localeCompare(b.zone||''); }).forEach(function(g) {
             var exp = invGasExpiry(g);
             var lvl = invGasLevel(g);
@@ -730,13 +750,18 @@ function invShowAddGas(editId) {
     var g = editId ? invState.gases.find(function(x){return x.id===editId;}) : null;
     var isEdit = !!g;
     var title = isEdit ? 'Modificar Cilindro' : 'Nuevo Cilindro';
+    var nextFree = isEdit ? '' : _invNextFreeSlot();
+    var lastTS = isEdit ? { traceability: g.traceability, supplier: g.supplier } : _invLastGasTraceSupplier();
+    var inpStyle = 'width:100%;padding:9px;border:1px solid #e2e8f0;border-radius:6px;';
+    var lblStyle = 'font-size:11px;color:#475569;font-weight:600;';
 
     var zoneOpts = invState.zones.map(function(z) {
         var opts = '';
         for (var i = 1; i <= z.slots; i++) {
             var code = z.id + (i<10?'0':'') + i;
             var occupied = invState.gases.some(function(x){ return x.zone === code && (!isEdit || x.id !== g.id); });
-            opts += '<option value="' + code + '" ' + (g && g.zone===code?'selected':'') + ' ' + (occupied?'disabled':'') + '>' + code + (occupied?' (ocupado)':'') + '</option>';
+            var selected = g ? g.zone === code : code === nextFree;
+            opts += '<option value="' + code + '" ' + (selected?'selected':'') + ' ' + (occupied?'disabled':'') + '>' + code + (occupied?' (ocupado)':'') + '</option>';
         }
         return opts;
     }).join('');
@@ -747,25 +772,27 @@ function invShowAddGas(editId) {
 
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:500px;margin:30px auto;background:#fff;border-radius:14px;padding:20px;position:relative;max-height:90vh;overflow-y:auto;">' +
+    modal.innerHTML = '<div style="max-width:460px;margin:30px auto;background:#fff;border-radius:14px;padding:20px;position:relative;max-height:90vh;overflow-y:auto;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;">' + title + '</h3>' +
+        '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        '<div><label style="' + lblStyle + '">Tipo de Gas *</label><select id="inv-g-type" onchange="invUpdateConcOpts()" style="' + inpStyle + '"><option value="">Seleccionar\u2026</option>' + gasTypeOpts + '</select></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div style="grid-column:1/-1;"><label style="font-size:11px;color:#475569;font-weight:600;">No. Control * <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size:9px;background:#0f766e;color:#fff;border:none;border-radius:4px;padding:1px 6px;cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div style="grid-column:1/-1;"><label style="font-size:11px;color:#475569;font-weight:600;">Tipo de Gas *</label><select id="inv-g-type" onchange="invUpdateConcOpts()" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + gasTypeOpts + '</select></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Conc. Nominal</label><select id="inv-g-conc" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></select></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Vigencia</label><input id="inv-g-valid" type="date" value="' + (g?g.validUntil:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Zona + Posicion *</label><select id="inv-g-zone" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option value="">Seleccionar...</option>' + zoneOpts + '</select></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Estatus</label><select id="inv-g-status" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.status==='Stock'?'selected':'') + '>Stock</option><option ' + (g&&g.status==='In use'?'selected':'') + '>In use</option><option ' + (g&&g.status==='Empty'?'selected':'') + '>Empty</option><option ' + (g&&g.status==='Spare'?'selected':'') + '>Spare</option></select></div>' +
+        '<div><label style="' + lblStyle + '">Conc. Nominal</label><select id="inv-g-conc" style="' + inpStyle + '"></select></div>' +
+        '<div><label style="' + lblStyle + '">Zona + Posici\u00f3n *</label><select id="inv-g-zone" style="' + inpStyle + '"><option value="">Seleccionar\u2026</option>' + zoneOpts + '</select></div>' +
         '</div>' +
-        '<details style="margin-top:10px;"><summary style="font-size:11px;color:#475569;font-weight:700;cursor:pointer;padding:6px 0;">Avanzado (cilindro, lote, trazabilidad...)</summary>' +
+        '<div><label style="' + lblStyle + '">Vigencia</label><input id="inv-g-valid" type="date" value="' + (g?g.validUntil:'') + '" style="' + inpStyle + '"></div>' +
+        '</div>' +
+        '<details style="margin-top:10px;"><summary style="font-size:11px;color:#475569;font-weight:700;cursor:pointer;padding:6px 0;">M\u00e1s detalles (control, estatus, lote, trazabilidad\u2026)</summary>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Trazabilidad</label><select id="inv-g-trace" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"><option ' + (g&&g.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (g&&g.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (g&&g.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:localToday()) + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Proveedor</label><input id="inv-g-supplier" value="' + (g?g.supplier||'':'') + '" placeholder="Nombre del proveedor" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">No. Control <button onclick="document.getElementById(\x27inv-g-control\x27).value=invAutoControlNo()" style="font-size:9px;background:#0f766e;color:#fff;border:none;border-radius:4px;padding:1px 6px;cursor:pointer;">Auto-ID</button></label><input id="inv-g-control" value="' + (g?g.controlNo:invAutoControlNo()) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Estatus</label><select id="inv-g-status" style="' + inpStyle + '"><option ' + (g&&g.status==='Stock'?'selected':'') + '>Stock</option><option ' + ((g&&g.status==='In use')||!isEdit?'selected':'') + '>In use</option><option ' + (g&&g.status==='Empty'?'selected':'') + '>Empty</option><option ' + (g&&g.status==='Spare'?'selected':'') + '>Spare</option></select></div>' +
+        '<div><label style="' + lblStyle + '">No. Cilindro</label><input id="inv-g-cylinder" value="' + (g?g.cylinderNo:'') + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Trazabilidad</label><select id="inv-g-trace" style="' + inpStyle + '"><option ' + (lastTS.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (lastTS.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (lastTS.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
+        '<div><label style="' + lblStyle + '">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:localToday()) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Proveedor</label><input id="inv-g-supplier" value="' + (g ? (g.supplier||'') : (lastTS.supplier||'')) + '" placeholder="Nombre del proveedor" style="' + inpStyle + '"></div>' +
         '</div></details>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveGas(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
@@ -1682,6 +1709,28 @@ function invEqRecalcNext() {
     next.value = invCalNextDate(last.value, freq.value);
 }
 
+// v16.5: último instrumento capturado del mismo equipo padre — fuente del autollenado
+function _invLastInstrumentOfAsset(assetId) {
+    if (!assetId) return null;
+    var matches = invState.equipment.filter(function(e) { return e.assetId === assetId; });
+    return matches.length ? matches[matches.length - 1] : null;
+}
+// Al elegir el equipo padre, hereda marca/proveedor/trazabilidad/lugar/frecuencia del último
+// instrumento capturado de ese mismo equipo — menos que teclear en instrumentos que se repiten.
+function invEqAutofillFromAsset() {
+    var assetSel = document.getElementById('inv-eq-asset');
+    if (!assetSel) return;
+    var last = _invLastInstrumentOfAsset(assetSel.value);
+    if (!last) return;
+    var setVal = function(id, val) { var el = document.getElementById(id); if (el && val) el.value = val; };
+    setVal('inv-eq-brand', last.brand);
+    setVal('inv-eq-model', last.model);
+    setVal('inv-eq-callab', last.calLab);
+    setVal('inv-eq-trace', last.traceability);
+    setVal('inv-eq-place', last.calPlace);
+    setVal('inv-eq-freq', last.calFreq);
+}
+
 function invAddEquipment(editId) {
     var e = editId ? invState.equipment.find(function(x) { return x.id === editId; }) : null;
     var isEdit = !!e;
@@ -1706,17 +1755,21 @@ function invAddEquipment(editId) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">✕</button>' +
         '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Instrumento' : 'Nuevo Instrumento') + '</h3>' +
 
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">Nombre *</label><input id="inv-eq-name" value="' + escapeHtml(v('name')) + '" style="' + inpStyle + '"></div>' +
-        '<div><label style="' + lblStyle + '">Equipo padre</label><select id="inv-eq-asset" style="' + inpStyle + '">' + assetOpts + '</select></div>' +
+        '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        '<div><label style="' + lblStyle + '">Nombre *</label><input id="inv-eq-name" value="' + escapeHtml(v('name')) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Equipo padre</label><select id="inv-eq-asset" onchange="invEqAutofillFromAsset()" style="' + inpStyle + '">' + assetOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '" data-help="inv-eq-magnitude">Magnitud</label><input id="inv-eq-magnitude" value="' + escapeHtml(v('magnitude')) + '" placeholder="Ej. Thermometer" style="' + inpStyle + '"></div>' +
+        '</div>' +
+
+        '<details style="margin-top:10px;"><summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">🏷️ Identificación</summary>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:6px;">' +
         '<div><label style="' + lblStyle + '">Marca</label><input id="inv-eq-brand" value="' + escapeHtml(v('brand')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Modelo</label><input id="inv-eq-model" value="' + escapeHtml(v('model')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">No. Serie</label><input id="inv-eq-serial" value="' + escapeHtml(v('serialNo')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">KMM ID</label><input id="inv-eq-kmmid" value="' + escapeHtml(v('kmmId')) + '" style="' + inpStyle + '"></div>' +
-        '</div>' +
+        '</div></details>' +
 
-        '<details style="margin-top:10px;"><summary data-help="inv-eq-calsection" style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">📏 Calibración</summary>' +
+        '<details style="margin-top:8px;"><summary data-help="inv-eq-calsection" style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">📏 Calibración</summary>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:6px;">' +
         '<div><label style="' + lblStyle + '" data-help="inv-eq-requires">¿Requiere calibración?</label><select id="inv-eq-requires" style="' + inpStyle + '">' + reqOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '" data-help="inv-eq-caltype">Tipo</label><select id="inv-eq-caltype" style="' + inpStyle + '">' + typeOpts + '</select></div>' +
@@ -2033,13 +2086,14 @@ function invAddMaintActivity(editId) {
         '<div style="display:flex;flex-direction:column;gap:10px;">' +
         '<div><label style="' + lblStyle + '">Equipo *</label><select id="inv-mact-asset" style="' + inpStyle + '">' + assetOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '">Descripción *</label><input id="inv-mact-desc" value="' + escapeHtml(v('desc')) + '" style="' + inpStyle + '"></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
         '<div><label style="' + lblStyle + '" data-help="inv-mtto-freq">Frecuencia</label><select id="inv-mact-freq" style="' + inpStyle + '">' + freqOpts + '</select></div>' +
-        '<div><label style="' + lblStyle + '" data-help="inv-mtto-startweek">Semana inicio (1-52)</label><input id="inv-mact-startweek" type="number" min="1" max="52" value="' + v('startWeek', 1) + '" style="' + inpStyle + '"></div>' +
         '</div>' +
-        '<div><label style="' + lblStyle + '">Responsable</label><input id="inv-mact-resp" value="' + escapeHtml(v('responsible')) + '" style="' + inpStyle + '"></div>' +
+        '<details style="margin-top:10px;"><summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0;">Más detalles (semana, responsable…)</summary>' +
+        '<div style="display:flex;flex-direction:column;gap:10px;padding-top:6px;">' +
+        '<div><label style="' + lblStyle + '" data-help="inv-mtto-startweek">Semana inicio (1-52)</label><input id="inv-mact-startweek" type="number" min="1" max="52" value="' + v('startWeek', isEdit ? 1 : invWeekOfYear(localToday())) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Responsable</label><input id="inv-mact-resp" value="' + escapeHtml(v('responsible', (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || '')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="font-size:11px;color:#475569;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="inv-mact-active" ' + (v('active', true) !== false ? 'checked' : '') + '> Activa</label></div>' +
-        '</div>' +
+        '</div></details>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveMaintActivity(\x27' + (editId || '') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
         (isEdit ? '<button onclick="showConfirm(\'Eliminar actividad?\',function(){invState.maintActivities=invState.maintActivities.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
@@ -3156,75 +3210,15 @@ function invExportReport() {
 // SVG FLOOR PLAN — Interactive Zone Map
 // ══════════════════════════════════════════════════
 
-var _invFloorPlanEditMode = false;
-var _invFloorPlanDrag = { active: false, zoneId: null, offsetX: 0, offsetY: 0, resizing: false, handle: '' };
-var _invFloorPlanRenderPending = false;
-var _invCylTooltipEl = null;
-
-function _invDefaultZoneLayout(zones) {
-    var layout = {};
-    var cols = 3;
-    var padX = 40, padY = 30;
-    var gapX = 20, gapY = 20;
-    var zoneW = 200, zoneH = 180;
-    zones.forEach(function(z, i) {
-        var col = i % cols;
-        var row = Math.floor(i / cols);
-        layout[z.id] = {
-            x: padX + col * (zoneW + gapX),
-            y: padY + row * (zoneH + gapY),
-            w: zoneW,
-            h: zoneH
-        };
-    });
-    return layout;
-}
-
-function _invEnsureZoneLayout() {
-    if (!invState.zoneLayout) {
-        invState.zoneLayout = _invDefaultZoneLayout(invState.zones);
-    }
-    // Ensure all zones have layout entries
-    invState.zones.forEach(function(z) {
-        if (!invState.zoneLayout[z.id]) {
-            var existing = Object.keys(invState.zoneLayout);
-            var maxY = 30;
-            existing.forEach(function(k) {
-                var bottom = invState.zoneLayout[k].y + invState.zoneLayout[k].h;
-                if (bottom > maxY) maxY = bottom;
-            });
-            invState.zoneLayout[z.id] = { x: 40, y: maxY + 20, w: 200, h: 180 };
-        }
-    });
-}
-
-function _invCalcViewBox() {
-    _invEnsureZoneLayout();
-    var maxX = 0, maxY = 0;
-    invState.zones.forEach(function(z) {
-        var lay = invState.zoneLayout[z.id];
-        if (!lay) return;
-        var right = lay.x + lay.w + 40;
-        var bottom = lay.y + lay.h + 40;
-        if (right > maxX) maxX = right;
-        if (bottom > maxY) maxY = bottom;
-    });
-    return '0 0 ' + Math.max(maxX, 400) + ' ' + Math.max(maxY, 300);
-}
-
-function _invHeaderPath(x, y, w, h, r) {
-    // Rounded top-left and top-right, flat bottom — for zone header strip
-    var r2 = Math.min(r, h, w / 2);
-    return 'M' + (x + r2) + ' ' + y +
-           ' H' + (x + w - r2) +
-           ' Q' + (x + w) + ' ' + y + ' ' + (x + w) + ' ' + (y + r2) +
-           ' V' + (y + h) +
-           ' H' + x +
-           ' V' + (y + r2) +
-           ' Q' + x + ' ' + y + ' ' + (x + r2) + ' ' + y +
-           ' Z';
-}
-
+// ══════════════════════════════════════════════════
+// ZONE MAP — retícula responsiva (v16.5)
+// Reemplaza el plano SVG editable: cada tarjeta de zona crece solo lo que
+// necesitan sus slots (una zona de 2 no ocupa lo mismo que una de 14), sin
+// espacio muerto y con objetivos táctiles de tamaño real (≥44px). El
+// arrastre de cilindros (invInitZoneDrag/invDropCylinder/invUndoLastMove,
+// más abajo) es el mismo motor que ya existía — solo dejó de tener quien
+// emitiera `.inv-zone-slot` desde que el mapa pasó a SVG.
+// ══════════════════════════════════════════════════
 function _invCylColor(gas) {
     var expiry = invGasExpiry(gas);
     if (expiry.status === 'expired') return 'expired';
@@ -3234,440 +3228,52 @@ function _invCylColor(gas) {
     return 'low';
 }
 
-function _invCylFillColor(status) {
-    if (status === 'ok') return '#10b981';
-    if (status === 'mid') return '#f59e0b';
-    if (status === 'low') return '#ef4444';
-    if (status === 'expired') return '#ef4444';
-    return 'none';
-}
+function invRenderZoneMap(el) {
+    var search = (window._invZoneMapSearch || '').toLowerCase();
 
-function invRenderFloorPlan(el) {
-    _invEnsureZoneLayout();
-    var gases = invState.gases;
-    var viewBox = _invCalcViewBox();
-    var vbParts = viewBox.split(' ');
-    var svgW = parseInt(vbParts[2], 10);
-    var svgH = parseInt(vbParts[3], 10);
-
-    var html = '<div class="inv-floorplan-container">';
-
-    // Toolbar
-    html += '<div class="inv-floorplan-toolbar" data-help="inv-zonemap-help">';
+    var html = '<div class="inv-zonemap-toolbar" data-help="inv-zonemap-help">';
+    html += '<input type="text" placeholder="Buscar cilindro, fórmula, zona…" value="' + escapeHtml(window._invZoneMapSearch || '') + '" oninput="window._invZoneMapSearch=this.value;_invDebouncedRender();" style="flex:1;min-width:140px;padding:8px 10px;border:1px solid var(--tp-border);border-radius:8px;font-size:12px;">';
     if (_invUndoStack.length > 0) {
-        html += '<button onclick="invUndoLastMove()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;">↶ Deshacer (' + _invUndoStack.length + ')</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="invUndoLastMove()" style="font-size:11px;white-space:nowrap;">↶ Deshacer (' + _invUndoStack.length + ')</button>';
     }
-    html += '<button onclick="_invToggleFloorPlanEdit()" class="tp-btn ' + (_invFloorPlanEditMode ? 'tp-btn-warn' : 'tp-btn-ghost') + '" style="font-size:10px;padding:4px 10px;">' +
-        (_invFloorPlanEditMode ? '✓ Guardar' : '✎ Editar Mapa') + '</button>';
-    if (_invFloorPlanEditMode) {
-        html += '<button onclick="_invResetZoneLayout()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;">↻ Reset</button>';
-    }
-    html += '<button onclick="_invZoomToFit()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;">⊞ Ajustar</button>';
-    html += '<button onclick="_invToggleLegend()" class="tp-btn tp-btn-ghost" style="font-size:10px;padding:4px 10px;">◉ Leyenda</button>';
     html += '</div>';
 
-    // SVG
-    html += '<svg class="inv-floorplan-svg" id="inv-floorplan-svg" viewBox="' + viewBox + '" preserveAspectRatio="xMidYMid meet">';
-
-    // Defs: grid pattern, cross-hatch for expired
-    html += '<defs>';
-    html += '<pattern id="inv-grid-pattern" width="20" height="20" patternUnits="userSpaceOnUse">';
-    html += '<path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e2e8f0" stroke-width="0.5"/>';
-    html += '</pattern>';
-    html += '<pattern id="inv-cross-pattern" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">';
-    html += '<line x1="0" y1="0" x2="0" y2="6" stroke="#ef4444" stroke-width="1.5"/>';
-    html += '</pattern>';
-    html += '</defs>';
-
-    // Background grid
-    html += '<rect width="' + svgW + '" height="' + svgH + '" fill="url(#inv-grid-pattern)"/>';
-
-    // Render each zone
+    html += '<div class="inv-zonemap-grid">';
     invState.zones.forEach(function(z) {
-        var lay = invState.zoneLayout[z.id];
-        if (!lay) return;
-        var zGases = gases.filter(function(g) { return g.zone && g.zone.startsWith(z.id); });
-        var capPct = z.slots > 0 ? Math.round((zGases.length / z.slots) * 100) : 0;
-        // Capacity palette: green <=50, amber <=80, red >80
-        var capStroke = capPct > 80 ? '#dc2626' : capPct > 50 ? '#d97706' : '#059669';
-        var capHeader = capPct > 80 ? '#dc2626' : capPct > 50 ? '#d97706' : '#059669';
-        var capTint   = capPct > 80 ? 'rgba(239,68,68,0.06)' : capPct > 50 ? 'rgba(245,158,11,0.06)' : 'rgba(16,185,129,0.05)';
+        var zGases = invState.gases.filter(function(g) { return g.zone && g.zone.startsWith(z.id); });
+        var occPct = z.slots > 0 ? Math.round((zGases.length / z.slots) * 100) : 0;
+        var tone = occPct > 80 ? 'danger' : occPct > 50 ? 'warn' : 'ok';
 
-        var headerH = 26;
-        var rCorner = 10;
-
-        // Zone group
-        html += '<g class="inv-zone-group" data-zone-id="' + z.id + '">';
-
-        // Main zone rectangle — capacity-colored border, CSS-driven fill
-        var editClass = _invFloorPlanEditMode ? ' editing' : '';
-        var strokeW = _invFloorPlanEditMode ? 2 : (capPct > 80 ? 2.5 : 1.8);
-        var dashAttr = _invFloorPlanEditMode ? ';stroke-dasharray:6 3' : '';
-        html += '<rect class="inv-zone-shape' + editClass + '" x="' + lay.x + '" y="' + lay.y + '" width="' + lay.w + '" height="' + lay.h + '" rx="' + rCorner + '" ry="' + rCorner + '" ' +
-            'style="stroke:' + capStroke + ';stroke-width:' + strokeW + dashAttr + '" ' +
-            'data-zone-id="' + z.id + '"/>';
-
-        // Subtle capacity tint overlay (transparent to clicks)
-        html += '<rect x="' + lay.x + '" y="' + lay.y + '" width="' + lay.w + '" height="' + lay.h + '" rx="' + rCorner + '" ry="' + rCorner + '" fill="' + capTint + '" pointer-events="none"/>';
-
-        // Header bar (rounded top, flat bottom) — capacity color
-        var headerPath = _invHeaderPath(lay.x, lay.y, lay.w, headerH, rCorner);
-        html += '<path d="' + headerPath + '" fill="' + capHeader + '" pointer-events="none"/>';
-
-        // Zone label (white on colored header, left-aligned)
-        var labelText = z.id + '  ' + z.label;
-        html += '<text x="' + (lay.x + 12) + '" y="' + (lay.y + 17) + '" font-size="12" font-weight="800" fill="#fff" text-anchor="start" pointer-events="none" style="letter-spacing:0.3px;">' +
-            _invEscAttr(labelText) + '</text>';
-
-        // Capacity badge on right of header
-        html += '<text x="' + (lay.x + lay.w - 10) + '" y="' + (lay.y + 17) + '" font-size="11" font-weight="700" fill="#fff" text-anchor="end" pointer-events="none">' +
-            zGases.length + '/' + z.slots + '  ·  ' + capPct + '%</text>';
-
-        // Zone type sub-line (just below header, inside the tinted area)
-        html += '<text x="' + (lay.x + 12) + '" y="' + (lay.y + headerH + 12) + '" font-size="9" font-weight="600" fill="' + capHeader + '" text-anchor="start" pointer-events="none" style="letter-spacing:0.2px;text-transform:uppercase;">' +
-            _invEscAttr(z.type || '') + '</text>';
-
-        // Clip cylinders within the zone content area so they never overflow
-        var clipId = 'inv-clip-' + z.id;
-        var clipY = lay.y + headerH + 16;
-        var clipH = Math.max(0, lay.h - headerH - 16);
-        html += '<defs><clipPath id="' + clipId + '"><rect x="' + (lay.x + 2) + '" y="' + clipY + '" width="' + (lay.w - 4) + '" height="' + clipH + '" rx="' + Math.max(0, rCorner - 2) + '" ry="' + Math.max(0, rCorner - 2) + '"/></clipPath></defs>';
-
-        // Cylinder grid inside zone (clipped)
-        html += '<g clip-path="url(#' + clipId + ')">';
-        var cylRadius = 12;
-        var cylGap = 6;
-        var cylDiam = cylRadius * 2 + cylGap;
-        var startX = lay.x + 14;
-        var startY = clipY + 6;
-        var maxCols = Math.max(1, Math.floor((lay.w - 28) / cylDiam));
-        var maxRows = Math.max(1, Math.floor((clipH - 12) / cylDiam));
-        var visibleSlots = maxCols * maxRows;
-        var overflowN = z.slots - visibleSlots;
-
-        var renderMax = Math.min(z.slots, visibleSlots);
-        for (var s = 1; s <= renderMax; s++) {
+        html += '<div class="inv-zone-card inv-zone-card--' + tone + '">';
+        html += '<div class="inv-zone-card-header"><span>' + escapeHtml(z.id) + ' · ' + escapeHtml(z.label) + '</span><span>' + zGases.length + '/' + z.slots + ' · ' + occPct + '%</span></div>';
+        if (z.type) html += '<div class="inv-zone-card-type">' + escapeHtml(z.type) + '</div>';
+        html += '<div class="inv-zone-slots">';
+        for (var s = 1; s <= z.slots; s++) {
             var code = z.id + (s < 10 ? '0' : '') + s;
-            var col = (s - 1) % maxCols;
-            var row = Math.floor((s - 1) / maxCols);
-            var cx = startX + col * cylDiam + cylRadius;
-            var cy = startY + row * cylDiam + cylRadius;
             var slotGas = zGases.find(function(g) { return g.zone === code; });
-
             if (slotGas) {
-                var cylStatus = _invCylColor(slotGas);
-                var fillColor = _invCylFillColor(cylStatus);
+                var hay = (slotGas.formula + ' ' + (slotGas.controlNo || '') + ' ' + code).toLowerCase();
+                var isMatch = !!search && hay.indexOf(search) >= 0;
+                var isDim = !!search && !isMatch;
+                var status = _invCylColor(slotGas);
                 var lvl = invGasLevel(slotGas);
-                var cssClass = 'inv-cylinder cyl-' + cylStatus;
-
-                html += '<g class="' + cssClass + '" data-zone-code="' + code + '" data-gas-id="' + slotGas.id + '" ' +
-                    'data-tooltip-formula="' + _invEscAttr(slotGas.formula) + '" ' +
-                    'data-tooltip-conc="' + _invEscAttr(slotGas.concNominal || '') + '" ' +
-                    'data-tooltip-level="' + lvl.pct + '%" ' +
-                    'style="cursor:pointer;">';
-                html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="' + fillColor + '" stroke="' + fillColor + '" stroke-width="1.5" opacity="0.92"/>';
-
-                if (cylStatus === 'expired') {
-                    html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="url(#inv-cross-pattern)" stroke="#ef4444" stroke-width="1.5"/>';
-                }
-
-                // Formula label inside cylinder — 3 chars max to fit radius 12
-                var shortLabel = slotGas.formula.split('/')[0];
-                if (shortLabel.length > 3) shortLabel = shortLabel.substring(0, 3);
-                var labelFs = shortLabel.length <= 2 ? 10 : 9;
-                html += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" font-size="' + labelFs + '" font-weight="700" fill="#fff" pointer-events="none">' + _invEscAttr(shortLabel) + '</text>';
-
-                html += '</g>';
+                html += '<button type="button" class="inv-zone-slot inv-zone-slot--' + status + (isMatch ? ' inv-zone-slot--match' : '') + (isDim ? ' inv-zone-slot--dim' : '') + '" data-zone-code="' + code + '" data-gas-id="' + slotGas.id + '" title="' + escapeHtml(slotGas.formula) + (slotGas.concNominal ? ' ' + escapeHtml(slotGas.concNominal) : '') + ' — ' + lvl.pct + '%">';
+                html += '<span class="inv-zone-slot-formula">' + escapeHtml(slotGas.formula.split('/')[0]) + '</span>';
+                html += '<span class="inv-zone-slot-meta">' + lvl.pct + '%</span>';
+                html += '</button>';
             } else {
-                // Empty slot — dashed circle
-                html += '<g class="inv-cylinder cyl-empty" data-zone-code="' + code + '" style="cursor:pointer;">';
-                html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + cylRadius + '" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 2"/>';
-                html += '<text x="' + cx + '" y="' + (cy + 1) + '" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#94a3b8" pointer-events="none">' + s + '</text>';
-                html += '</g>';
+                html += '<button type="button" class="inv-zone-slot inv-zone-slot--empty" data-zone-code="' + code + '">' + s + '</button>';
             }
         }
-        html += '</g>'; // close clipped cylinder group
-
-        // Overflow badge if zone is too small to show all slots
-        if (overflowN > 0) {
-            var badgeX = lay.x + lay.w - 38;
-            var badgeY = lay.y + lay.h - 18;
-            html += '<rect x="' + badgeX + '" y="' + badgeY + '" width="32" height="14" rx="7" ry="7" fill="#334155" opacity="0.85" pointer-events="none"/>';
-            html += '<text x="' + (badgeX + 16) + '" y="' + (badgeY + 10) + '" font-size="9" font-weight="700" fill="#fff" text-anchor="middle" pointer-events="none">+' + overflowN + '</text>';
-        }
-
-        // Resize handles in edit mode (4 corners + 4 mid-sides)
-        if (_invFloorPlanEditMode) {
-            var handles = [
-                { hx: lay.x + lay.w, hy: lay.y + lay.h, cursor: 'nwse-resize', handle: 'se' },
-                { hx: lay.x + lay.w, hy: lay.y,         cursor: 'nesw-resize', handle: 'ne' },
-                { hx: lay.x,         hy: lay.y + lay.h, cursor: 'nesw-resize', handle: 'sw' },
-                { hx: lay.x,         hy: lay.y,         cursor: 'nwse-resize', handle: 'nw' },
-                { hx: lay.x + lay.w / 2, hy: lay.y,         cursor: 'ns-resize', handle: 'n' },
-                { hx: lay.x + lay.w / 2, hy: lay.y + lay.h, cursor: 'ns-resize', handle: 's' },
-                { hx: lay.x,             hy: lay.y + lay.h / 2, cursor: 'ew-resize', handle: 'w' },
-                { hx: lay.x + lay.w,     hy: lay.y + lay.h / 2, cursor: 'ew-resize', handle: 'e' }
-            ];
-            handles.forEach(function(h) {
-                html += '<rect class="inv-resize-handle" x="' + (h.hx - 5) + '" y="' + (h.hy - 5) + '" width="10" height="10" rx="2" ' +
-                    'fill="#3b82f6" stroke="#fff" stroke-width="1" style="cursor:' + h.cursor + ';" ' +
-                    'data-zone-id="' + z.id + '" data-handle="' + h.handle + '"/>';
-            });
-        }
-
-        html += '</g>';
+        html += '</div></div>';
     });
-
-    html += '</svg>';
-
-    // Tooltip element (hidden by default)
-    html += '<div class="inv-cylinder-tooltip" id="inv-cyl-tooltip" style="display:none;">';
-    html += '<div class="cyl-formula"></div>';
-    html += '<div class="cyl-detail"></div>';
-    html += '<div class="cyl-level-bar"><div class="cyl-level-fill"></div></div>';
-    html += '</div>';
-
-    // Legend (hidden by default)
-    html += '<div class="inv-map-legend" id="inv-map-legend" style="display:none;">';
-    html += '<div class="inv-map-legend-item"><span class="inv-map-legend-dot" style="background:#10b981;"></span> &gt;50%</div>';
-    html += '<div class="inv-map-legend-item"><span class="inv-map-legend-dot" style="background:#f59e0b;"></span> 25-50%</div>';
-    html += '<div class="inv-map-legend-item"><span class="inv-map-legend-dot" style="background:#ef4444;"></span> &lt;25%</div>';
-    html += '<div class="inv-map-legend-item"><span class="inv-map-legend-dot" style="background:none;border:1px dashed #94a3b8;"></span> Vacio</div>';
-    html += '<div class="inv-map-legend-item"><span class="inv-map-legend-dot" style="background:#ef4444;background-image:repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(255,255,255,0.5) 2px,rgba(255,255,255,0.5) 4px);"></span> Vencido</div>';
-    html += '</div>';
-
-    // Compass
-    html += '<div class="inv-map-compass">N</div>';
-
     html += '</div>';
 
     el.innerHTML = html;
-
-    // Attach interaction handlers
-    _invFloorPlanBindCylinders(el);
-    if (_invFloorPlanEditMode) {
-        _invFloorPlanBindEditDrag(el);
-    }
+    invInitZoneDrag(el);
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 
-function _invEscAttr(str) {
-    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function _invToggleFloorPlanEdit() {
-    if (_invFloorPlanEditMode) {
-        // Saving — persist layout
-        _invFloorPlanEditMode = false;
-        invSave();
-        showToast('Mapa guardado', 'success');
-    } else {
-        _invFloorPlanEditMode = true;
-    }
-    invRender();
-}
-
-function _invResetZoneLayout() {
-    invState.zoneLayout = _invDefaultZoneLayout(invState.zones);
-    invSave();
-    invRender();
-    showToast('Layout restaurado', 'info');
-}
-
-function _invZoomToFit() {
-    var svg = document.getElementById('inv-floorplan-svg');
-    if (!svg) return;
-    svg.setAttribute('viewBox', _invCalcViewBox());
-}
-
-function _invToggleLegend() {
-    var legend = document.getElementById('inv-map-legend');
-    if (!legend) return;
-    legend.style.display = legend.style.display === 'none' ? 'flex' : 'none';
-}
-
-function _invFloorPlanBindCylinders(container) {
-    var svg = container.querySelector('.inv-floorplan-svg');
-    if (!svg) return;
-
-    var cylinders = svg.querySelectorAll('.inv-cylinder');
-    var tooltip = document.getElementById('inv-cyl-tooltip');
-
-    function showTooltipAt(cylEl, clientX, clientY) {
-        if (!tooltip) return;
-        var formula = cylEl.getAttribute('data-tooltip-formula');
-        var conc = cylEl.getAttribute('data-tooltip-conc');
-        var level = cylEl.getAttribute('data-tooltip-level');
-        if (!formula) { tooltip.style.display = 'none'; return; }
-
-        tooltip.querySelector('.cyl-formula').textContent = formula;
-        tooltip.querySelector('.cyl-detail').textContent = (conc ? conc + ' — ' : '') + level;
-        var fillBar = tooltip.querySelector('.cyl-level-fill');
-        var pct = parseInt(level, 10) || 0;
-        fillBar.style.width = pct + '%';
-        fillBar.style.background = pct > 50 ? '#10b981' : pct > 25 ? '#f59e0b' : '#ef4444';
-
-        tooltip.style.display = 'block';
-        // Position near cursor
-        var contRect = container.getBoundingClientRect();
-        var tx = clientX - contRect.left + 12;
-        var ty = clientY - contRect.top - 40;
-        if (tx + 150 > contRect.width) tx = clientX - contRect.left - 160;
-        if (ty < 0) ty = clientY - contRect.top + 16;
-        tooltip.style.left = tx + 'px';
-        tooltip.style.top = ty + 'px';
-    }
-
-    function hideTooltip() {
-        if (tooltip) tooltip.style.display = 'none';
-    }
-
-    cylinders.forEach(function(cyl) {
-        // Hover tooltip (mouse)
-        cyl.addEventListener('mouseenter', function(e) {
-            showTooltipAt(cyl, e.clientX, e.clientY);
-        });
-        cyl.addEventListener('mousemove', function(e) {
-            showTooltipAt(cyl, e.clientX, e.clientY);
-        });
-        cyl.addEventListener('mouseleave', function() {
-            hideTooltip();
-        });
-
-        // Touch: show tooltip briefly, then open detail on tap
-        cyl.addEventListener('touchstart', function(e) {
-            if (_invFloorPlanEditMode) return;
-            var touch = e.touches[0];
-            showTooltipAt(cyl, touch.clientX, touch.clientY);
-        }, { passive: true });
-
-        // Click/tap to show detail
-        cyl.addEventListener('click', function(e) {
-            if (_invFloorPlanEditMode) return;
-            hideTooltip();
-            var code = cyl.getAttribute('data-zone-code');
-            if (code) invShowZoneSlotDetail(code);
-        });
-    });
-
-    // Hide tooltip when touching outside
-    container.addEventListener('touchend', function() {
-        setTimeout(hideTooltip, 1500);
-    }, { passive: true });
-}
-
-function _invFloorPlanBindEditDrag(container) {
-    var svg = container.querySelector('.inv-floorplan-svg');
-    if (!svg) return;
-
-    function getSvgPoint(clientX, clientY) {
-        var pt = svg.createSVGPoint();
-        pt.x = clientX;
-        pt.y = clientY;
-        var ctm = svg.getScreenCTM();
-        if (ctm) {
-            var inv = ctm.inverse();
-            return pt.matrixTransform(inv);
-        }
-        return pt;
-    }
-
-    function onPointerDown(e) {
-        var target = e.target;
-        // Check resize handles first
-        if (target.classList.contains('inv-resize-handle')) {
-            var zoneId = target.getAttribute('data-zone-id');
-            var handle = target.getAttribute('data-handle');
-            var svgPt = getSvgPoint(e.clientX || e.touches[0].clientX, e.clientY || e.touches[0].clientY);
-            _invFloorPlanDrag = { active: true, zoneId: zoneId, resizing: true, handle: handle, startX: svgPt.x, startY: svgPt.y,
-                origLayout: JSON.parse(JSON.stringify(invState.zoneLayout[zoneId])) };
-            e.preventDefault();
-            return;
-        }
-        // Check zone shapes
-        var zoneShape = target.closest('.inv-zone-shape') || (target.classList.contains('inv-zone-shape') ? target : null);
-        if (!zoneShape) {
-            // Also allow dragging from label/sublabel
-            var group = target.closest('.inv-zone-group');
-            if (group) {
-                var zId = group.getAttribute('data-zone-id');
-                if (zId) zoneShape = group.querySelector('.inv-zone-shape');
-            }
-        }
-        if (zoneShape) {
-            var zoneId = zoneShape.getAttribute('data-zone-id');
-            var svgPt = getSvgPoint(e.clientX || e.touches[0].clientX, e.clientY || e.touches[0].clientY);
-            var lay = invState.zoneLayout[zoneId];
-            _invFloorPlanDrag = { active: true, zoneId: zoneId, resizing: false, handle: '',
-                offsetX: svgPt.x - lay.x, offsetY: svgPt.y - lay.y,
-                origLayout: JSON.parse(JSON.stringify(lay)) };
-            e.preventDefault();
-        }
-    }
-
-    function onPointerMove(e) {
-        if (!_invFloorPlanDrag.active) return;
-        e.preventDefault();
-        var clientX = e.clientX !== undefined ? e.clientX : e.touches[0].clientX;
-        var clientY = e.clientY !== undefined ? e.clientY : e.touches[0].clientY;
-        var svgPt = getSvgPoint(clientX, clientY);
-        var lay = invState.zoneLayout[_invFloorPlanDrag.zoneId];
-        var orig = _invFloorPlanDrag.origLayout;
-
-        if (_invFloorPlanDrag.resizing) {
-            var dx = svgPt.x - _invFloorPlanDrag.startX;
-            var dy = svgPt.y - _invFloorPlanDrag.startY;
-            var h = _invFloorPlanDrag.handle;
-            if (h === 'se') {
-                lay.w = Math.max(100, orig.w + dx);
-                lay.h = Math.max(80, orig.h + dy);
-            } else if (h === 'ne') {
-                lay.w = Math.max(100, orig.w + dx);
-                var newH = orig.h - dy;
-                if (newH >= 80) { lay.h = newH; lay.y = orig.y + dy; }
-            } else if (h === 'sw') {
-                var newW = orig.w - dx;
-                if (newW >= 100) { lay.w = newW; lay.x = orig.x + dx; }
-                lay.h = Math.max(80, orig.h + dy);
-            }
-        } else {
-            lay.x = Math.max(0, svgPt.x - _invFloorPlanDrag.offsetX);
-            lay.y = Math.max(0, svgPt.y - _invFloorPlanDrag.offsetY);
-        }
-        // Coalesce rapid pointermove events into at most one re-render per frame.
-        if (!_invFloorPlanRenderPending) {
-            _invFloorPlanRenderPending = true;
-            requestAnimationFrame(function() {
-                _invFloorPlanRenderPending = false;
-                invRender();
-            });
-        }
-    }
-
-    function onPointerUp() {
-        if (_invFloorPlanDrag.active) {
-            _invFloorPlanDrag.active = false;
-        }
-    }
-
-    // Clean up previous listeners
-    if (window._invFloorPlanEditCleanup) window._invFloorPlanEditCleanup();
-
-    svg.addEventListener('mousedown', onPointerDown);
-    svg.addEventListener('touchstart', onPointerDown, { passive: false });
-    document.addEventListener('mousemove', onPointerMove);
-    document.addEventListener('touchmove', onPointerMove, { passive: false });
-    document.addEventListener('mouseup', onPointerUp);
-    document.addEventListener('touchend', onPointerUp, { passive: true });
-
-    window._invFloorPlanEditCleanup = function() {
-        svg.removeEventListener('mousedown', onPointerDown);
-        svg.removeEventListener('touchstart', onPointerDown);
-        document.removeEventListener('mousemove', onPointerMove);
-        document.removeEventListener('touchmove', onPointerMove);
-        document.removeEventListener('mouseup', onPointerUp);
-        document.removeEventListener('touchend', onPointerUp);
-    };
-}
 
 // ══════════════════════════════════════════════════
 // LEGACY ZONE MAP (fallback)
@@ -4086,6 +3692,17 @@ function invEditZone(idx) {
     invShowZoneModal(idx);
 }
 
+// v16.5: siguiente letra libre para el ID de zona \u2014 se precarga, sigue siendo editable
+function _invNextFreeZoneId() {
+    var used = {};
+    invState.zones.forEach(function(z) { used[z.id] = true; });
+    for (var c = 65; c <= 90; c++) {
+        var letter = String.fromCharCode(c);
+        if (!used[letter]) return letter;
+    }
+    return '';
+}
+
 function invShowZoneModal(idx) {
     var z = (idx !== null && idx !== undefined) ? invState.zones[idx] : null;
     var isEdit = !!z;
@@ -4096,16 +3713,17 @@ function invShowZoneModal(idx) {
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;color:#0f172a;">' + (isEdit ? 'Editar Zona ' + v('id') : 'Nueva Zona') + '</h3>' +
         '<div style="display:grid;gap:10px;">' +
-        (!isEdit ? '<div><label style="font-size:11px;color:#475569;font-weight:600;">ID (1-2 caracteres, ej: I, J)</label><input id="inv-zone-id" maxlength="2" value="" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;font-size:16px;text-transform:uppercase;"></div>' : '') +
+        (!isEdit ? '<div><label style="font-size:11px;color:#475569;font-weight:600;">ID</label><input id="inv-zone-id" maxlength="2" value="' + _invNextFreeZoneId() + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;font-size:16px;text-transform:uppercase;"></div>' : '') +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Nombre</label><input id="inv-zone-label" value="' + v('label', 'Zona') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size:11px;color:#475569;font-weight:600;">Cantidad de slots</label><input id="inv-zone-slots" type="number" value="' + v('slots', '10') + '" min="1" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size:11px;color:#475569;font-weight:600;">Tipo</label><select id="inv-zone-type" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
+        '</div>' +
+        '<details style="margin-top:10px;"><summary style="font-size:11px;color:#475569;font-weight:700;cursor:pointer;padding:6px 0;">M\u00e1s detalles (tipo de zona)</summary>' +
+        '<div style="padding-top:6px;"><select id="inv-zone-type" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;">' +
         '<option value="online"' + (v('type')==='online'?' selected':'') + '>Online</option>' +
         '<option value="offline"' + (v('type','offline')==='offline'?' selected':'') + '>Offline</option>' +
         '<option value="special"' + (v('type')==='special'?' selected':'') + '>Special</option>' +
         '<option value="fuel"' + (v('type')==='fuel'?' selected':'') + '>Fuel</option>' +
-        '</select></div>' +
-        '</div>' +
+        '</select></div></details>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveZoneModal(' + (isEdit ? idx : -1) + ')" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
@@ -5321,9 +4939,9 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         'Registra el nivel real de vez en cuando con el botón 📏 para corregir desviaciones.',
         'El color de la barra indica nivel crítico (rojo) / bajo (ámbar) / normal (verde).'
     ]},
-    'inv-zonemap': { title: 'Mapa', text: 'Ubicación física de cilindros por zona, con lectura rápida desde el plano.', tips: [
-        'Usa "✎ Editar Mapa" para acomodar el layout real de tu cuarto de gases.',
-        'Toca un cilindro en el plano para ver su detalle rápido.',
+    'inv-zonemap': { title: 'Mapa', text: 'Cilindros agrupados por zona, coloreados por nivel/vencimiento — toca uno para ver su detalle.', tips: [
+        'Mantén presionado un cilindro y arrástralo a otra posición para reubicarlo (touch o mouse).',
+        'Toca un cilindro para ver su detalle rápido; toca una posición vacía para ver que está libre.',
         'El botón ↶ Deshacer revierte el último movimiento si te equivocas.'
     ]},
     'inv-charts': { title: 'Gráficas', text: 'Tendencia de consumo de PSI por cilindro y de nivel de combustible, para detectar fugas o consumo anormal.', tips: [
@@ -5370,6 +4988,6 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'inv-fuel-help': { title: 'Tanques de combustible', text: 'Tambos de gasolina/diesel de referencia por regulación; se descuentan automáticamente al liberar una prueba.' },
     'inv-report-help': { title: 'Reporte semanal', text: 'Resumen de consumo de la semana en curso, listo para copiar y enviar por correo.' },
     'inv-charts-help': { title: 'Gráficas de consumo', text: 'Tendencia histórica de PSI y nivel de combustible por cilindro/tanque.' },
-    'inv-zonemap-help': { title: 'Mapa del cuarto de gases', text: 'Plano físico de las zonas; edítalo para reflejar el acomodo real de los cilindros.' },
+    'inv-zonemap-help': { title: 'Mapa del cuarto de gases', text: 'Cada tarjeta es una zona; arrastra un cilindro entre posiciones para reubicarlo.' },
     'inv-readings-fuel-help': { title: 'Captura de combustible', text: 'Registra el nivel actual de cada tambo de combustible. Estas lecturas alimentan el descuento automático por prueba.' }
 });

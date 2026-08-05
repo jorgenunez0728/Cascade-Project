@@ -40,6 +40,9 @@
             /* ═══ Border Radius ═══ */
             --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-xl: 18px; --radius-full: 9999px;
 
+            /* ═══ Layout (v16.5) — ancho máximo coherente en todas las pantallas ═══ */
+            --content-max: 1400px;
+
             /* ═══ Neumorphic Shadows (Light) ═══ */
             --shadow-sm: 2px 2px 5px rgba(0,0,0,0.05), -2px -2px 5px rgba(255,255,255,0.8);
             --shadow-md: 4px 4px 10px rgba(0,0,0,0.06), -3px -3px 8px rgba(255,255,255,0.85);
@@ -749,7 +752,7 @@ body{ overflow-x: hidden; }
 #platform-inventory .tp-tab-more-wrap:has(.tp-tab.active) > .tp-tab-more-btn { background: var(--accent-inventory); }
 #platform-panel .tp-tab-more-wrap:has(.tp-tab.active) > .tp-tab-more-btn { background: var(--accent-panel); }
 .tp-tabs { position: relative; }
-.tp-main { padding: var(--space-xl) var(--space-2xl); max-width: 1400px; margin: 0 auto; }
+.tp-main { padding: var(--space-xl) var(--space-2xl); max-width: var(--content-max); margin: 0 auto; }
 
 /* Cards — covered by unified .card system above; .tp-card-title extended for justify */
 .tp-card-title { justify-content: space-between; }
@@ -1341,7 +1344,7 @@ button:focus-visible { outline-offset: 1px; }
     .bottom-nav-item:hover .bnav-icon { transform: translateY(-1px); }
     .vcl-toggle:hover { transform: scale(1.1); }
     .interactive-hover:hover { transform: translateY(-1px); }
-    .inv-cylinder:hover { stroke-width: 3; transform: scale(1.15); transform-origin: center; }
+    .inv-zone-slot:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
     .fab:hover { transform: scale(1.08); box-shadow: var(--shadow-xl); }
     .v7-config-chip:hover, .v7-fav-chip:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
     .cascade-help-btn:hover { background: var(--accent-cascade, #bb162b); color: #fff; transform: scale(1.15); }
@@ -1814,7 +1817,7 @@ button:focus-visible { outline-offset: 1px; }
 /* DAILY DASHBOARD (Vista Hoy)                                          */
 /* ══════════════════════════════════════════════════════════════════════ */
 
-.daily-dash { padding: 16px; }
+.daily-dash { padding: 16px; max-width: var(--content-max); margin: 0 auto; }
 .daily-dash-header {
     margin-bottom: 16px;
 }
@@ -2434,92 +2437,60 @@ details.acc > summary {
 .pn-matrix-soon { position: absolute; top: -1px; right: 3px; font-size: 12px; color: #f59e0b; line-height: 1; }
 
 /* ══════════════════════════════════════════════════════════════════════ */
-/* [TIER 4] INVENTORY FLOOR PLAN MAP                                     */
+/* [TIER 4] INVENTORY ZONE MAP — retícula responsiva (v16.5)             */
+/* Cada tarjeta de zona crece solo lo que necesitan sus slots — sin cajas */
+/* de tamaño fijo, sin espacio muerto. Objetivos táctiles reales (≥44px). */
 /* ══════════════════════════════════════════════════════════════════════ */
 
-.inv-floorplan-container {
-    position: relative; width: 100%; min-height: 500px;
-    background: var(--bg); border: 1px solid var(--border);
-    border-radius: var(--radius-lg); overflow: hidden;
-    box-shadow: var(--shadow-inset); touch-action: none;
-}
-.inv-floorplan-svg { width: 100%; height: 100%; }
-.inv-floorplan-toolbar {
-    position: absolute; top: var(--space-sm); right: var(--space-sm);
-    display: flex; gap: var(--space-xs); z-index: 10;
-}
-.inv-floorplan-toolbar button {
-    padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md);
-    background: var(--glass-bg); backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border); font-size: var(--font-sm);
-    font-weight: var(--weight-bold); color: var(--text); cursor: pointer;
-    box-shadow: var(--shadow-sm); transition: box-shadow 0.2s, background-color 0.2s, color 0.2s, border-color 0.2s;
-}
-.inv-floorplan-toolbar button:hover { box-shadow: var(--shadow-md); }
-.inv-floorplan-toolbar button.active { background: var(--kia-red); color: #fff; border-color: var(--kia-red); }
+.inv-zonemap-toolbar { display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap; margin-bottom: var(--space-md); }
 
-/* Zone shapes */
-.inv-zone-shape {
-    fill: #ffffff; transition: fill 0.2s, stroke-width 0.15s;
-    cursor: pointer;
+.inv-zonemap-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: var(--space-md);
 }
-.inv-zone-shape:hover { fill: #f8fafc; filter: brightness(0.98); }
-.inv-zone-shape.editing { cursor: move; }
-.inv-zone-shape.drag-over { fill: rgba(59,130,246,0.1); }
 
-/* Zone labels (anchored by JS x coords; fill driven inline so it works on colored headers) */
-.inv-zone-label { font-size: 12px; font-weight: 800; pointer-events: none; }
-.inv-zone-sublabel { font-size: var(--fs-2xs, 11px); font-weight: 600; pointer-events: none; }
-
-/* Cylinder circles */
-.inv-cylinder {
-    stroke-width: 2; cursor: pointer;
-    transition: transform 0.15s ease, stroke-width 0.15s;
+.inv-zone-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm);
 }
-.inv-cylinder.cyl-ok { fill: #10b981; stroke: #059669; }
-.inv-cylinder.cyl-mid { fill: #f59e0b; stroke: #d97706; }
-.inv-cylinder.cyl-low { fill: #ef4444; stroke: #dc2626; }
-.inv-cylinder.cyl-empty { fill: none; stroke: #94a3b8; stroke-dasharray: 3 3; }
-.inv-cylinder.cyl-expired { fill: #fecaca; stroke: #ef4444; stroke-dasharray: 5 2; }
-
-/* Cylinder tooltip */
-.inv-cylinder-tooltip {
-    position: absolute; z-index: 3100; pointer-events: none;
-    background: var(--glass-bg); backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border); border-radius: var(--radius-md);
-    padding: var(--space-sm) var(--space-md); box-shadow: var(--shadow-lg);
-    font-size: var(--font-sm); min-width: 180px;
-    animation: tooltipFadeIn 0.15s var(--ease-out);
+.inv-zone-card-header {
+    display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md); font-size: 12px; font-weight: 800; color: #fff;
 }
-@keyframes tooltipFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-.inv-cylinder-tooltip .cyl-formula { font-weight: var(--weight-black); color: var(--text); font-size: var(--font-base); }
-.inv-cylinder-tooltip .cyl-detail { color: var(--muted); margin-top: 2px; }
-.inv-cylinder-tooltip .cyl-level-bar { height: 4px; border-radius: 2px; background: #e2e8f0; margin-top: var(--space-xs); overflow: hidden; }
-.inv-cylinder-tooltip .cyl-level-fill { height: 100%; border-radius: 2px; }
-
-/* Resize handles (edit mode) */
-.inv-resize-handle {
-    fill: var(--kia-red); stroke: #fff; stroke-width: 2;
-    cursor: nwse-resize; r: 6; opacity: 0;
-    transition: opacity 0.2s;
+.inv-zone-card--ok .inv-zone-card-header { background: #059669; }
+.inv-zone-card--warn .inv-zone-card-header { background: #d97706; }
+.inv-zone-card--danger .inv-zone-card-header { background: #dc2626; }
+.inv-zone-card-type {
+    padding: 4px var(--space-md) 0; font-size: 9px; font-weight: 700; letter-spacing: 0.3px;
+    text-transform: uppercase; color: var(--muted);
 }
-.inv-zone-shape.editing ~ .inv-resize-handle { opacity: 1; }
 
-/* Legend */
-.inv-map-legend {
-    position: absolute; bottom: var(--space-sm); left: var(--space-sm);
-    display: flex; gap: var(--space-md); padding: var(--space-sm) var(--space-md);
-    background: var(--glass-bg); backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border); border-radius: var(--radius-md);
-    font-size: var(--font-xs); font-weight: var(--weight-semibold);
+.inv-zone-slots {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+    gap: 6px; padding: var(--space-sm) var(--space-md) var(--space-md);
 }
-.inv-map-legend-item { display: flex; align-items: center; gap: var(--space-xs); }
-.inv-map-legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.inv-zone-slot {
+    min-height: 44px; min-width: 44px; border-radius: var(--radius-md);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1px; cursor: pointer; font-family: inherit; padding: 4px 2px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.inv-zone-slot-formula { font-size: 10px; font-weight: 800; line-height: 1.1; }
+.inv-zone-slot-meta { font-size: 8.5px; font-weight: 600; opacity: 0.85; line-height: 1.1; }
+.inv-zone-slot--ok       { background: rgba(16,185,129,0.14); border: 1.5px solid #10b981; color: #047857; }
+.inv-zone-slot--mid      { background: rgba(245,158,11,0.16); border: 1.5px solid #f59e0b; color: #b45309; }
+.inv-zone-slot--low      { background: rgba(239,68,68,0.16); border: 1.5px solid #ef4444; color: #b91c1c; }
+.inv-zone-slot--expired  { background: rgba(239,68,68,0.22); border: 1.5px dashed #ef4444; color: #991b1b; }
+.inv-zone-slot--empty    { background: transparent; border: 1.5px dashed var(--border); color: var(--muted); font-size: 11px; font-weight: 700; }
+.inv-zone-slot--match    { outline: 2px solid #2563eb; outline-offset: 1px; }
+.inv-zone-slot--dim      { opacity: 0.3; }
+.inv-zone-slot.drag-ready { transform: scale(1.05); }
 
-/* Compass */
-.inv-map-compass {
-    position: absolute; top: var(--space-sm); left: var(--space-sm);
-    width: 36px; height: 36px; opacity: 0.5;
+/* v16.5: listas de una fila por elemento (cilindros, etc.) — 2 columnas en pantallas anchas
+   en vez de estirar cada fila de borde a borde. */
+@media (min-width: 1024px) {
+    .inv-row-list-2col { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 4px 10px; }
+    .inv-row-list-2col > div { margin-bottom: 0 !important; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════ */
@@ -3130,6 +3101,14 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 @media (min-width: 640px) {
     .dash-row { grid-template-columns: auto 1fr auto; }
     .dash-row-side { grid-column: auto; padding-left: 0; justify-content: flex-end; }
+}
+/* v16.5: en pantallas anchas, las actividades se acomodan en 2 columnas en vez de
+   dejar el ancho sobrante vacío — cada fila conserva su propio grid interno.
+   Nota: <details> no permite hacer grid directo de su contenido (el navegador lo
+   envuelve internamente), por eso el grid vive en .dash-group-rows, no en <details>. */
+@media (min-width: 1024px) {
+    .dash-group-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); align-content: start; }
+    .dash-group-rows > .dash-row { border-left: 1px solid #f1f5f9; }
 }
 .dash-row--hecho .dash-row-title { text-decoration: line-through; color: #94a3b8; }
 .dash-row--atrasado { background: rgba(239, 68, 68, 0.04); }

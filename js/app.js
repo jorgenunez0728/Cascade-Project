@@ -2262,8 +2262,11 @@ function dashRenderBoard(acts, currentOp) {
         h += '<details class="dash-group dash-group--' + cat + '" open>';
         h += '<summary><span class="dash-group-icon">' + c.icon + '</span><span class="dash-group-name">' + c.label + '</span>' +
              '<span class="dash-group-count' + (pendN ? '' : ' ok') + '">' + (pendN ? pendN + ' pendiente' + (pendN === 1 ? '' : 's') : '✓ al día') + '</span></summary>';
+        // v16.5: <details> no aplica display:grid a su contenido (el navegador lo envuelve
+        // internamente) — el grid de 2 columnas en desktop necesita un contenedor propio.
+        h += '<div class="dash-group-rows">';
         rows.forEach(function(a) { h += dashRenderRow(a); });
-        h += '</details>';
+        h += '</div></details>';
     });
     if (!shown.length) h += '<div class="daily-dash-empty">Sin actividades. ¡Todo en orden! 👍</div>';
     h += '</div>';
