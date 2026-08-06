@@ -2211,6 +2211,7 @@ function dashCollectActivities() {
                 acts.push({ id: 'act-mtto-' + o.act.id, cat: 'inventario', icon: '🛠️',
                     title: (o.asset ? o.asset.name + ': ' : '') + o.act.desc + ' — vencido',
                     meta: 'Desde semana ' + o.lastWeek + ' (' + o.count + ' semana' + (o.count > 1 ? 's' : '') + ' sin registrar)',
+                    assignee: (o.act && o.act.responsible) || '',
                     status: 'atrasado', urgency: 3,
                     checkbox: { js: "invMaintMarkDone('" + o.act.id + "');dailyDashRender();", checked: false },
                     action: { label: 'Ver', js: "dashGo('inventory','inv-maint')" } });
@@ -2221,6 +2222,7 @@ function dashCollectActivities() {
                 acts.push({ id: 'act-mtto-week-' + d.act.id, cat: 'inventario', icon: '🛠️',
                     title: (d.asset ? d.asset.name + ': ' : '') + d.act.desc,
                     meta: 'Mantenimiento de esta semana · ' + (d.act.responsible || ''),
+                    assignee: d.act.responsible || '',
                     status: 'pendiente', urgency: 2,
                     checkbox: { js: "invMaintMarkDone('" + d.act.id + "');dailyDashRender();", checked: false },
                     action: { label: 'Ver', js: "dashGo('inventory','inv-maint')" } });
@@ -2234,6 +2236,10 @@ function dashCollectActivities() {
             acts.push({ id: 'act-proj-' + o.step.id, cat: 'proyectos', icon: o.blocked ? '🚧' : '🗂️',
                 title: o.project.name + ': ' + o.step.title,
                 meta: (o.blocked ? 'Bloqueado' + (o.step.roadblock ? ' — ' + o.step.roadblock : '') : 'Vencido (' + o.step.targetDate + ')') + (o.step.responsible ? ' · 👤 ' + o.step.responsible : ''),
+                // v16.8: sin assignee, el filtro "Solo míos" dejaba pasar TODOS los
+                // pasos (la condición es `!a.assignee || a.assignee === currentOp`),
+                // así que mostraba los de los demás. Mismo bug en mantenimiento.
+                assignee: o.step.responsible || '',
                 status: 'atrasado', urgency: 3,
                 checkbox: o.blocked ? undefined : { js: "pnProjectStepDone('" + o.project.id + "','" + o.step.id + "');dailyDashRender();", checked: false },
                 action: { label: 'Ver', js: "window._pnSelectedProject='" + o.project.id + "';dashGo('panel','pn-projects')" } });
@@ -2244,6 +2250,7 @@ function dashCollectActivities() {
             acts.push({ id: 'act-proj-week-' + d.step.id, cat: 'proyectos', icon: '🗂️',
                 title: d.project.name + ': ' + d.step.title,
                 meta: 'Esta semana (' + d.step.targetDate + ')' + (d.step.responsible ? ' · 👤 ' + d.step.responsible : ''),
+                assignee: d.step.responsible || '',
                 status: 'pendiente', urgency: 2,
                 checkbox: { js: "pnProjectStepDone('" + d.project.id + "','" + d.step.id + "');dailyDashRender();", checked: false },
                 action: { label: 'Ver', js: "window._pnSelectedProject='" + d.project.id + "';dashGo('panel','pn-projects')" } });
@@ -2291,6 +2298,10 @@ function dashCollectActivities() {
                 urgency: late ? 3 : t.done ? 0 : 1,
                 assignee: t.assignee || '',
                 checkbox: { js: "pnTaskToggle('" + t.id + "')", checked: !!t.done },
+                // v16.8: promover una tarea suelta a paso de un proyecto (solo si
+                // hay proyectos activos y la tarea sigue abierta)
+                action2: (!t.done && typeof pnProjectPickerOptions === 'function' && pnProjectPickerOptions(''))
+                    ? { label: '🗂️', aria: 'Mover a un proyecto: ' + t.title, js: "pnPromoteTaskToProject('" + t.id + "')", ghost: true } : null,
                 action: { label: '🗑', aria: 'Eliminar actividad: ' + t.title, js: "pnTaskDelete('" + t.id + "')", ghost: true } });
         });
     }
@@ -2332,6 +2343,8 @@ function dashRenderRow(a) {
              '📅 ' + etaD.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + (a.eta.source === 'manual' ? ' ✎' : '') + '</span>';
     }
     h += '<span class="dash-chip dash-chip--' + a.status + '">' + (DASH_STATUS_LABEL[a.status] || a.status) + '</span>';
+    // v16.8: action2 = acción secundaria opcional (hoy: mover una tarea a un proyecto)
+    if (a.action2) h += '<button class="dash-row-action' + (a.action2.ghost ? ' dash-row-action--ghost' : '') + '" title="' + escapeHtml(a.action2.aria || a.action2.label) + '" aria-label="' + escapeHtml(a.action2.aria || a.action2.label) + '" onclick="event.stopPropagation();' + a.action2.js + '">' + a.action2.label + '</button>';
     if (a.action) h += '<button class="dash-row-action' + (a.action.ghost ? ' dash-row-action--ghost' : '') + '" aria-label="' + escapeHtml(a.action.aria || a.action.label) + '" onclick="event.stopPropagation();' + a.action.js + '">' + a.action.label + '</button>';
     h += '</div></div>';
     return h;
@@ -2407,7 +2420,16 @@ function dashTaskModalOpen() {
     html += '<div class="dash-task-box">';
     html += '<div style="font-weight:800;font-size:14px;margin-bottom:10px;">➕ Nueva actividad</div>';
     html += '<label class="dash-task-field">Título<input type="text" id="dash-task-title" placeholder="p.ej. Pedir gas de calibración CO/N2"></label>';
-    html += '<label class="dash-task-field">Categoría<select id="dash-task-cat">' +
+    // v16.8: si el pendiente pertenece a un proyecto, nace ahí en vez de quedar
+    // como tarea suelta — es lo que pidió el usuario ("doy de alta algo nuevo
+    // desde HOY y se registra en el proyecto"). Sin proyectos activos, ni se muestra.
+    var projOpts = (typeof pnProjectPickerOptions === 'function') ? pnProjectPickerOptions('') : '';
+    if (projOpts) {
+        html += '<label class="dash-task-field" data-help="dash-task-project">Proyecto' +
+                '<select id="dash-task-project" onchange="dashTaskProjectChanged()">' +
+                '<option value="">— ninguno (tarea suelta) —</option>' + projOpts + '</select></label>';
+    }
+    html += '<label class="dash-task-field" id="dash-task-cat-wrap">Categoría<select id="dash-task-cat">' +
             DASH_CAT_ORDER.map(function(c) { return '<option value="' + c + '"' + (c === 'manuales' ? ' selected' : '') + '>' + DASH_CATS[c].label + '</option>'; }).join('') + '</select></label>';
     html += '<label class="dash-task-field">Responsable<select id="dash-task-assignee"><option value="">— sin asignar —</option>' +
             ops.map(function(o) { return '<option>' + escapeHtml(o.name) + '</option>'; }).join('') + '</select></label>';
@@ -2424,13 +2446,37 @@ function dashTaskModalOpen() {
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
 }
 function dashTaskModalClose() { var m = document.getElementById('dash-task-modal'); if (m) m.remove(); }
+
+// Al elegir proyecto, la categoría deja de aplicar (el paso vive en el
+// proyecto, no en una categoría del tablero) — se oculta para no confundir.
+function dashTaskProjectChanged() {
+    var sel = document.getElementById('dash-task-project');
+    var wrap = document.getElementById('dash-task-cat-wrap');
+    if (wrap) wrap.style.display = (sel && sel.value) ? 'none' : '';
+}
+
 function dashTaskModalSave() {
+    var title = (document.getElementById('dash-task-title') || {}).value || '';
+    var assignee = (document.getElementById('dash-task-assignee') || {}).value || '';
+    var due = (document.getElementById('dash-task-due') || {}).value || '';
+    var projectId = (document.getElementById('dash-task-project') || {}).value || '';
+
+    // v16.8: con proyecto elegido, el pendiente nace como paso del proyecto.
+    if (projectId && typeof pnProjectStepAddQuick === 'function') {
+        var step = pnProjectStepAddQuick(projectId, { title: title, responsible: assignee, targetDate: due });
+        if (!step) { if (typeof showToast === 'function') showToast('Escribe un título para la actividad', 'warning'); return; }
+        dashTaskModalClose();
+        if (typeof showToast === 'function') showToast('Registrada en el proyecto', 'success');
+        dailyDashRender();
+        return;
+    }
+
     if (typeof pnTaskAdd !== 'function') return;
     var task = pnTaskAdd({
-        title: (document.getElementById('dash-task-title') || {}).value || '',
+        title: title,
         cat: (document.getElementById('dash-task-cat') || {}).value || 'manuales',
-        assignee: (document.getElementById('dash-task-assignee') || {}).value || '',
-        due: (document.getElementById('dash-task-due') || {}).value || ''
+        assignee: assignee,
+        due: due
     });
     if (task) {
         dashTaskModalClose();

@@ -802,6 +802,72 @@ function pnExportPortfolioCSV() {
     showToast('Portafolio exportado', 'success');
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// PUENTE CON HOY (v16.8) — conectar, no fusionar
+// ══════════════════════════════════════════════════════════════════════
+// HOY responde "¿qué hago hoy?" (feed de triaje, horizonte de hoy) y
+// Proyectos "¿cómo va esta iniciativa?" (workspace, horizonte de meses).
+// Se mantienen separados a propósito — Monday mismo separa "My Work" de
+// "Boards" — pero se acaba la duplicación: lo que pertenece a un proyecto
+// puede nacer ahí desde HOY, y una tarea suelta se puede promover después.
+
+// Alta rápida de un paso desde fuera del módulo (el modal ➕ Actividad de HOY).
+function pnProjectStepAddQuick(projectId, data) {
+    var p = (pnState.projects || []).find(function(x) { return x.id === projectId; });
+    if (!p) return null;
+    var now = new Date().toISOString();
+    var step = {
+        id: invGenId(), seq: ((p.steps || []).length + 1),
+        title: String(data.title || '').trim(),
+        responsible: data.responsible || '', status: 'pendiente',
+        targetDate: data.targetDate || '', doneDate: '', roadblock: '', phase: '',
+        startDate: '', isMilestone: false, baselineTarget: '', dependsOn: [],
+        createdAt: now, updatedAt: now
+    };
+    if (!step.title) return null;
+    p.steps = p.steps || [];
+    p.steps.push(step);
+    p.updatedAt = now;
+    pnSave();
+    if (typeof auditLog === 'function') auditLog('panel', 'proyecto_paso_creado', { type: 'project', id: p.id, label: p.name }, step.title + ' (desde HOY)');
+    return step;
+}
+
+// Opciones de proyecto para un <select> — usado por el modal de HOY.
+function pnProjectPickerOptions(selectedId) {
+    return (pnState.projects || [])
+        .filter(function(p) { return !p.archived && p.status === 'activo'; })
+        .map(function(p) { return '<option value="' + p.id + '"' + (p.id === selectedId ? ' selected' : '') + '>' + escapeHtml(p.name) + '</option>'; })
+        .join('');
+}
+
+// Promover una tarea suelta de HOY a paso de un proyecto: se crea el paso y
+// la tarea se marca con tombstone (no se borra en duro, para que el merge
+// entre dispositivos no la resucite).
+function pnPromoteTaskToProject(taskId) {
+    var t = (pnState.tasks || []).find(function(x) { return x.id === taskId; });
+    if (!t) return;
+    var opts = pnProjectPickerOptions('');
+    if (!opts) { showToast('No hay proyectos activos. Crea uno en Datos → Proyectos.', 'warning'); return; }
+    showModal({
+        title: 'Mover a un proyecto', type: 'info', confirmText: 'Mover',
+        message: '<div style="text-align:left;">La actividad <strong>' + escapeHtml(t.title) + '</strong> dejará de ser una tarea suelta y pasará a ser un paso del proyecto que elijas.' +
+            '<div style="margin-top:10px;"><select id="pn-promote-target" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;">' + opts + '</select></div></div>',
+        onConfirm: function() {
+            var pid = (document.getElementById('pn-promote-target') || {}).value;
+            if (!pid) return;
+            var step = pnProjectStepAddQuick(pid, { title: t.title, responsible: t.assignee, targetDate: t.due });
+            if (!step) { showToast('No se pudo crear el paso', 'error'); return; }
+            t.deleted = true;
+            t.updatedAt = new Date().toISOString();
+            pnSave();
+            if (typeof auditLog === 'function') auditLog('panel', 'task_promoted', { type: 'task', id: t.id, label: t.title }, 'Movida al proyecto ' + pid);
+            showToast('Movida al proyecto', 'success');
+            if (typeof dailyDashRender === 'function') dailyDashRender();
+        }
+    });
+}
+
 // ── CRUD: Proyecto ──
 function pnAddProject(editId) {
     var p = editId ? (pnState.projects || []).find(function(x) { return x.id === editId; }) : null;
