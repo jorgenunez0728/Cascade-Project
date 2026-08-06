@@ -2,6 +2,36 @@
 
 All notable changes to this project, organized by development round.
 
+## v16.7 — "Versión siempre visible + historial completo" (2026-08-06)
+
+El usuario reportó que 🗂️ Proyectos (recién agregado en v16.6) no le aparecía, y de paso pidió que
+el indicador de versión de la esquina fuera más visible y de verdad se actualizara, y que Datos
+tuviera un historial de qué trajo cada versión — "que venga todo el histórico" — para saber
+siempre exactamente en cuál está parado.
+
+- **`APP_VERSION` estaba congelado en `'14.0'`** desde hacía varias rondas — nadie lo actualizaba
+  en cada release, así que el pill del topbar nunca reflejó la versión real (v16.x) por la que ya
+  iba la plataforma. Corregido a `16.7`; regla nueva documentada en "Working with this project"
+  para no volver a olvidarlo.
+- **Pill de versión del topbar rediseñado**: antes era texto de 10px con 40% de opacidad, casi
+  invisible, y solo reaccionaba a un click si había una actualización pendiente. Ahora es un chip
+  con borde y fondo (`.app-version-pill`), **siempre clickeable** — sin actualización pendiente
+  lleva directo al historial completo (Datos → Sistema); con una pendiente, prioriza abrirla.
+- **Nuevo "🗂️ Historial de Versiones"** en Datos → Sistema (`APP_VERSION_HISTORY` en `app.js`):
+  lista TODAS las rondas de mejoras desde la fundación de la plataforma hasta la actual (marcada
+  "ACTUAL" y expandida por default), cada una con fecha y 1-4 bullets de qué trajo — resumen
+  curado de `CHANGELOG.md`. Estático, no depende de la reactividad de Alpine; expuesto al
+  componente (`appVersion`/`versionHistory`/`appVersionInfo()`) en vez de referenciar los
+  globales sueltos en el template, siguiendo el patrón del resto de `panelAlpineComponent()`.
+- **Hallazgo real, fuera del código**: al revisar por qué 🗂️ Proyectos no aparecía en el
+  dispositivo del usuario, se encontró que ningún workflow de GitHub Actions (`firebase-hosting-
+  merge.yml`, el que despliega a producción en cada merge a `main`) corrió desde el merge de la
+  ronda v16.5 (2026-08-05 21:16) — ni siquiera el workflow de preview de PRs se disparó para el
+  PR de v16.6/v16.7 pese a múltiples pushes/merges. El código está correcto y mergeado a `main`;
+  el bloqueo está en GitHub Actions (cuota/facturación o Actions deshabilitado a nivel repositorio
+  u organización) — requiere revisión manual en la configuración de GitHub, fuera del alcance de
+  este cambio de código.
+
 ## v16.6 — "Seguimiento de Proyectos (bitácora + timeline + Gantt)" (2026-08-06)
 
 El usuario mandó tres capturas: Plan → Familias con franjas negras dentro de tarjetas blancas, un

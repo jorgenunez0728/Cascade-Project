@@ -188,8 +188,88 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,1
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
 var APP_BUILD = '__BUILD_VERSION__';
 
-// Human-facing app version label (semantic). Update on meaningful releases.
-var APP_VERSION = '14.0';
+// Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
+// con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
+var APP_VERSION = '16.7';
+
+// v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
+// CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
+var APP_VERSION_HISTORY = [
+    { version: '16.7', date: '6 ago 2026', title: 'Versión siempre visible + historial completo', bullets: [
+        'APP_VERSION estaba pegado en "14.0" desde hace varias rondas — el pill del topbar nunca reflejó en qué versión real estaba parado el laboratorio. Corregido y con una regla para no volver a congelarse.',
+        'El pill de versión (menú ⋯ del topbar) ahora es un chip visible y SIEMPRE clickeable — antes era texto casi invisible (10px, apenas gris) y solo reaccionaba si había una actualización pendiente.',
+        'Nuevo "🗂️ Historial de Versiones" en Datos → Sistema: todo lo que se ha agregado, ronda por ronda, con la actual siempre marcada.'
+    ]},
+    { version: '16.6', date: '6 ago 2026', title: 'Seguimiento de Proyectos', bullets: [
+        'Nuevo módulo Proyectos (Datos → ⋯ Más → 🗂️ Proyectos): bitácora con tabla, línea de tiempo y Gantt para reparaciones o proyectos de inversión — no solo mantenimiento.',
+        'Arreglada la vista de Plan → Familias (se veía con franjas negras y letra diminuta).',
+        'Las alertas y el calendario de Datos ahora se actualizan solos, sin tener que recargar la página.'
+    ]},
+    { version: '16.5', date: '5 ago 2026', title: 'Mapa como retícula + menos campos', bullets: [
+        'El mapa del cuarto de gases ya no es un plano roto — ahora es una retícula que se ajusta sola al tamaño de cada zona.',
+        'Formularios más cortos (Cilindro, Instrumento, Mantenimiento, Zona) con autollenado.',
+        'Sin espacio muerto en pantallas anchas (HOY, listas de cilindros).'
+    ]},
+    { version: '16.4', date: '5 ago 2026', title: 'Plan Maestro de Mantenimiento (COP15-F11)', bullets: [
+        'Integración completa del formato oficial COP15-F11: calibración y mantenimiento preventivo de los 49 instrumentos.',
+        'Pestaña 🛠️ Mtto nueva en Consumibles: vencidos y de esta semana con un toque.',
+        'Exportación/importación de los 4 CSV oficiales + PDF del Plan Maestro.'
+    ]},
+    { version: '16.3', date: '16 jul 2026', title: 'Almacén de Archivos', bullets: [
+        'Datos → ☁️ Archivos: sube y baja un documento (.zip, .pdf, .xlsx…) compartido entre todos los dispositivos, 5MB.'
+    ]},
+    { version: '16.2', date: '15 jul 2026', title: 'Conteos correctos', bullets: [
+        'Corregido un bug que hacía fallar en silencio el cálculo de REQ (volumen requerido) entre configuraciones parecidas.',
+        'HOY ya no se queda pegado en "0% cobertura" permanentemente.',
+        'Una sola definición de cobertura en toda la plataforma.'
+    ]},
+    { version: '16.1', date: '15 jul 2026', title: 'Fix cascada EV', bullets: [
+        'Los vehículos eléctricos (SV1m) ya se pueden dar de alta — la cascada ocultaba su regulación (voltaje de carga).'
+    ]},
+    { version: '16.0', date: '10 jul 2026', title: 'Plataforma autoguiada', bullets: [
+        'Tooltips de ayuda (?) en los 7 módulos, banners por pestaña y recorridos guiados.',
+        'Glosario del laboratorio con buscador.'
+    ]},
+    { version: '15.9', date: '9 jul 2026', title: 'HOY como tablero de actividades', bullets: [
+        'HOY se rediseñó como un tablero único (estilo Monday) con vehículos, plan, inventario y calidad.',
+        'El consumo de gas y gasolina ahora se APRENDE de la operación real, ya no es un descuento fijo.'
+    ]},
+    { version: '15.8', date: '5 jul 2026', title: 'Edición retroactiva', bullets: [
+        'Historial → "📝 Completar": edita datos faltantes de vehículos archivados antes del cambio, con firma y auditoría.',
+        'Presupuesto Anual y vista de todo el año en el Plan.'
+    ]},
+    { version: '15.7', date: '3 jul 2026', title: 'Control SPC', bullets: [
+        'Nueva sub-pestaña CoP → 📈 Control SPC: cartas I-MR, Cpk y alarmas estadísticas por familia y gas.',
+        '% del límite y aviso de valores improbables en Liberación.'
+    ]},
+    { version: '15.6', date: '2 jul 2026', title: 'Sync confiable + Seguridad real', bullets: [
+        'Arreglado el bug que dejaba dispositivos con datos viejos sin actualizar (service worker congelado).',
+        'Firebase Auth + PIN por operador, con bloqueo tras 5 intentos fallidos.',
+        'Eliminados los módulos muertos (Results Analyzer, Power Automate).'
+    ]},
+    { version: '15.5', date: '2 jul 2026', title: 'Pulir y Endurecer', bullets: [
+        '16 arreglos de fondo: seguridad (XSS), fechas en hora local, sincronización sin pérdida de datos.',
+        'Tema oscuro eliminado (un solo tema claro), topbar móvil optimizado.'
+    ]},
+    { version: 'Ronda 5', date: '11 mar 2026', title: 'Experiencia de app nativa', bullets: [
+        'Modo pantalla completa, autoguardado silencioso, formularios inteligentes, calendario unificado, plantillas rápidas.'
+    ]},
+    { version: 'Ronda 4', date: '11 mar 2026', title: 'Gráficas e inteligencia cruzada', bullets: [
+        'Motor de configuración de gráficas, deshacer (Ctrl+Z), reportes PDF con gráficas, búsqueda cruzada, panel de Inteligencia.'
+    ]},
+    { version: 'Ronda 3', date: '2026', title: 'PWA y accesibilidad', bullets: [
+        'App instalable, accesibilidad, seguridad, impresión optimizada, recorrido de bienvenida.'
+    ]},
+    { version: 'Ronda 2', date: '2026', title: 'Estadística y predicción', bullets: [
+        'Cartas de control estadístico (SPC), predicción semanal, árbol visual COP15, códigos de barras/QR.'
+    ]},
+    { version: 'Ronda 1', date: '2026', title: 'Primeras mejoras de uso diario', bullets: [
+        'Portapapeles, tablero kanban, temporizador de soak, paleta de comandos (Ctrl+K).'
+    ]},
+    { version: 'Fundación', date: '2026', title: 'Base de la plataforma', bullets: [
+        'Registro de vehículos COP15, plan de pruebas, inventario de laboratorio, sincronización con Firebase.'
+    ]}
+];
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
@@ -229,34 +309,33 @@ function getAppVersionInfo() {
 // Update the topbar version pill. status: 'uptodate' | 'outdated' | undefined.
 // remoteBuild + downloadUrl are passed in when status === 'outdated' so the user
 // can click straight to the new build.
+// v16.6: el pill SIEMPRE es clickeable — sin actualización pendiente, lleva al historial de
+// versiones completo (Datos → Sistema); con actualización pendiente, prioriza abrir la nueva
+// build. Antes el pill era casi invisible (10px, opacidad 0.4) y solo clickeaba si había
+// actualización — el usuario nunca sabía en qué versión estaba parado.
 function updateVersionDisplay(status, remoteBuild, downloadUrl) {
     var el = document.getElementById('app-version-info');
     if (!el) return;
     var info = getAppVersionInfo();
     var dateLabel = info.publishedES ? ('Publicada ' + info.publishedES) : 'dev';
     var statusBadge = '';
-    var color = 'rgba(255,255,255,0.4)';
-    var clickable = '';
-    var title = info.publishedES ? ('Versión ' + info.version + ' · Publicada ' + info.publishedES) : 'Versión de desarrollo (sin build)';
+    var title = info.publishedES ? ('Versión ' + info.version + ' · Publicada ' + info.publishedES + ' · toca para ver el historial completo') : 'Versión de desarrollo (sin build) · toca para ver el historial completo';
+    var onclickJs = "switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-system');";
+    el.classList.remove('app-version-pill--outdated', 'app-version-pill--uptodate');
     if (status === 'outdated' && remoteBuild) {
-        statusBadge = ' <span style="background:#f59e0b;color:#000;padding:1px 6px;border-radius:8px;font-weight:700;margin-left:4px;">Actualizar</span>';
-        color = '#fbbf24';
-        title = 'Versión ' + info.version + ' (' + dateLabel + ') · Disponible: ' + (formatBuildDateES(remoteBuild) || formatBuildLabel(remoteBuild));
+        statusBadge = ' <span class="app-version-pill-badge">Actualizar</span>';
+        el.classList.add('app-version-pill--outdated');
+        title = 'Versión ' + info.version + ' (' + dateLabel + ') · Disponible: ' + (formatBuildDateES(remoteBuild) || formatBuildLabel(remoteBuild)) + ' · toca para actualizar';
         if (downloadUrl) {
-            clickable = ' onclick="window.open(\'' + downloadUrl.replace(/'/g, "\\'") + '\',\'_blank\')" style="cursor:pointer;"';
+            onclickJs = "window.open('" + downloadUrl.replace(/'/g, "\\'") + "','_blank')";
         }
     } else if (status === 'uptodate') {
-        statusBadge = ' <span style="color:#10b981;margin-left:4px;">●</span>';
+        statusBadge = ' <span class="app-version-pill-dot">●</span>';
+        el.classList.add('app-version-pill--uptodate');
     }
-    el.style.color = color;
-    el.style.cursor = clickable ? 'pointer' : 'default';
     el.title = title;
-    el.innerHTML = 'KIA EmLab v' + info.version + ' · 📅 ' + dateLabel + statusBadge;
-    if (clickable) {
-        el.setAttribute('onclick', clickable.match(/onclick="([^"]+)"/)[1]);
-    } else {
-        el.removeAttribute('onclick');
-    }
+    el.innerHTML = '<strong>KIA EmLab v' + info.version + '</strong> · 📅 ' + dateLabel + statusBadge;
+    el.setAttribute('onclick', onclickJs);
 }
 
 let allConfigurations = [];

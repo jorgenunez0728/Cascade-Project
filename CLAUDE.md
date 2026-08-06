@@ -401,6 +401,10 @@ calibración) dentro de Consumibles — sin módulo nuevo, reusa `invState`/`inv
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).
+- **Cada ronda que se documenta en `CHANGELOG.md` también actualiza `APP_VERSION` y agrega una
+  entrada al PRINCIPIO de `APP_VERSION_HISTORY` (ambos en `js/app.js`)** — si no, el pill de
+  versión del topbar y el historial de Datos → Sistema quedan desincronizados del changelog real
+  (pasó entre v14 y v16.6: `APP_VERSION` quedó pegado en `'14.0'` varias rondas).
 - New function: add to the right module file; global scope makes it cross-available.
 - Saving state: `tpSave()`, `invSave()`, `pnSave()`, `saveDB()`, `copPersist()`.
 - Rendering: `tpRender()`, `invRender()`, `pnRender()`, `copRender()`, `refreshAllLists()`.
