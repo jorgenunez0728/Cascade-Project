@@ -2572,6 +2572,85 @@ details.acc > summary {
 .pn-proj-timeline-text { font-size: 12px; color: var(--tp-text); }
 .pn-proj-timeline-meta { font-size: 9px; color: var(--tp-dim); margin-top: 2px; }
 
+/* Kanban de pasos (v16.8) — columnas por estatus, arrastrable */
+.pn-kanban {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 10px; align-items: start;
+}
+.pn-kanban-col {
+    background: var(--tp-dark); border: 1px solid var(--tp-border);
+    border-radius: var(--radius-lg); padding: 8px; min-height: 90px;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+.pn-kanban-col--over { border-color: #3b82f6; background: rgba(59,130,246,0.08); }
+.pn-kanban-colhead {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; font-weight: 800; padding: 2px 4px 8px; color: var(--tp-text);
+}
+.pn-kanban-count {
+    background: var(--surface); border: 1px solid var(--tp-border); border-radius: 10px;
+    padding: 0 7px; font-size: 10px;
+}
+.pn-kanban-col--pendiente  .pn-kanban-colhead { border-bottom: 2px solid #94a3b8; }
+.pn-kanban-col--encurso    .pn-kanban-colhead { border-bottom: 2px solid #3b82f6; }
+.pn-kanban-col--completado .pn-kanban-colhead { border-bottom: 2px solid #10b981; }
+.pn-kanban-col--bloqueado  .pn-kanban-colhead { border-bottom: 2px solid #ef4444; }
+.pn-kanban-cards { display: flex; flex-direction: column; gap: 7px; padding-top: 8px; }
+.pn-kanban-card {
+    background: var(--surface); border: 1px solid var(--tp-border); border-radius: var(--radius-md);
+    padding: 8px 9px; box-shadow: var(--shadow-sm); cursor: grab; touch-action: manipulation;
+}
+.pn-kanban-card--late { border-left: 3px solid #ef4444; }
+.pn-kanban-card--dragging { opacity: 0.35; }
+.pn-kanban-ghost { position: fixed; z-index: 10000; pointer-events: none; opacity: 0.9; transform: rotate(-2deg); }
+.pn-kanban-card-title { font-size: 12px; font-weight: 700; line-height: 1.3; }
+.pn-kanban-card-meta { font-size: 10px; color: var(--tp-dim); margin-top: 3px; }
+.pn-kanban-card-risk { font-size: 10px; color: #b45309; margin-top: 3px; font-weight: 700; }
+.pn-kanban-card-block { font-size: 10px; color: #b91c1c; margin-top: 3px; }
+.pn-kanban-card-actions { display: flex; gap: 5px; align-items: center; margin-top: 6px; }
+.pn-kanban-card-actions select {
+    flex: 1; min-width: 0; font-size: 10px; padding: 3px 5px;
+    border: 1px solid var(--tp-border); border-radius: var(--radius-sm); background: var(--surface);
+}
+.pn-kanban-empty { font-size: 10px; color: var(--tp-dim); text-align: center; padding: 10px 0; }
+.pn-kanban-hint { font-size: 10px; color: var(--tp-dim); margin-top: 8px; text-align: center; }
+
+/* Carga por responsable (v16.8) */
+.pn-workload-scope { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.pn-workload { display: flex; flex-direction: column; gap: 8px; }
+.pn-workload-row {
+    display: grid; grid-template-columns: minmax(110px, 160px) 1fr; gap: 8px 10px; align-items: center;
+}
+.pn-workload-name { font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pn-workload-bar {
+    display: flex; height: 16px; border-radius: 8px; overflow: hidden;
+    background: var(--tp-dark); border: 1px solid var(--tp-border);
+}
+.pn-workload-seg { display: block; height: 100%; min-width: 3px; }
+.pn-workload-seg--overdue { background: #ef4444; }
+.pn-workload-seg--blocked { background: #f59e0b; }
+.pn-workload-seg--open    { background: #3b82f6; }
+.pn-workload-seg--done    { background: #10b981; }
+.pn-workload-nums { grid-column: 2; font-size: 10px; color: var(--tp-dim); margin-top: -4px; }
+.pn-workload-red { color: #b91c1c; }
+.pn-workload-amber { color: #b45309; }
+
+/* Curva S (v16.8) */
+.pn-scurve-head { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.pn-scurve-ok { color: #047857; }
+.pn-scurve-bad { color: #b91c1c; }
+#pn-proj-scurve-wrapper { position: relative; height: 300px; }
+
+/* Portafolio (v16.8) */
+.pn-portfolio-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 6px; margin-bottom: 10px; }
+.pn-portfolio-kpi { text-align: center; padding: 9px 6px; background: var(--tp-dark); border: 1px solid var(--tp-border); border-radius: var(--radius-md); }
+.pn-portfolio-kpi-n { font-size: 20px; font-weight: 800; }
+.pn-portfolio-kpi-l { font-size: 9px; color: var(--tp-dim); }
+.pn-portfolio-row { cursor: pointer; }
+.pn-portfolio-row:hover { background: rgba(59,130,246,0.06); }
+.pn-portfolio-bad { color: #b91c1c; font-weight: 800; }
+.pn-portfolio-table td:first-child { font-size: 14px; text-align: center; }
+
 /* Importador de Excel/CSV/pegado (v16.8) */
 .pn-import-overlay {
     position: fixed; inset: 0; background: rgba(15,23,42,0.55); z-index: 9000;

@@ -2613,6 +2613,85 @@ details.acc > summary {
 .pn-proj-timeline-text { font-size: 12px; color: var(--tp-text); }
 .pn-proj-timeline-meta { font-size: 9px; color: var(--tp-dim); margin-top: 2px; }
 
+/* Kanban de pasos (v16.8) — columnas por estatus, arrastrable */
+.pn-kanban {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 10px; align-items: start;
+}
+.pn-kanban-col {
+    background: var(--tp-dark); border: 1px solid var(--tp-border);
+    border-radius: var(--radius-lg); padding: 8px; min-height: 90px;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+.pn-kanban-col--over { border-color: #3b82f6; background: rgba(59,130,246,0.08); }
+.pn-kanban-colhead {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; font-weight: 800; padding: 2px 4px 8px; color: var(--tp-text);
+}
+.pn-kanban-count {
+    background: var(--surface); border: 1px solid var(--tp-border); border-radius: 10px;
+    padding: 0 7px; font-size: 10px;
+}
+.pn-kanban-col--pendiente  .pn-kanban-colhead { border-bottom: 2px solid #94a3b8; }
+.pn-kanban-col--encurso    .pn-kanban-colhead { border-bottom: 2px solid #3b82f6; }
+.pn-kanban-col--completado .pn-kanban-colhead { border-bottom: 2px solid #10b981; }
+.pn-kanban-col--bloqueado  .pn-kanban-colhead { border-bottom: 2px solid #ef4444; }
+.pn-kanban-cards { display: flex; flex-direction: column; gap: 7px; padding-top: 8px; }
+.pn-kanban-card {
+    background: var(--surface); border: 1px solid var(--tp-border); border-radius: var(--radius-md);
+    padding: 8px 9px; box-shadow: var(--shadow-sm); cursor: grab; touch-action: manipulation;
+}
+.pn-kanban-card--late { border-left: 3px solid #ef4444; }
+.pn-kanban-card--dragging { opacity: 0.35; }
+.pn-kanban-ghost { position: fixed; z-index: 10000; pointer-events: none; opacity: 0.9; transform: rotate(-2deg); }
+.pn-kanban-card-title { font-size: 12px; font-weight: 700; line-height: 1.3; }
+.pn-kanban-card-meta { font-size: 10px; color: var(--tp-dim); margin-top: 3px; }
+.pn-kanban-card-risk { font-size: 10px; color: #b45309; margin-top: 3px; font-weight: 700; }
+.pn-kanban-card-block { font-size: 10px; color: #b91c1c; margin-top: 3px; }
+.pn-kanban-card-actions { display: flex; gap: 5px; align-items: center; margin-top: 6px; }
+.pn-kanban-card-actions select {
+    flex: 1; min-width: 0; font-size: 10px; padding: 3px 5px;
+    border: 1px solid var(--tp-border); border-radius: var(--radius-sm); background: var(--surface);
+}
+.pn-kanban-empty { font-size: 10px; color: var(--tp-dim); text-align: center; padding: 10px 0; }
+.pn-kanban-hint { font-size: 10px; color: var(--tp-dim); margin-top: 8px; text-align: center; }
+
+/* Carga por responsable (v16.8) */
+.pn-workload-scope { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.pn-workload { display: flex; flex-direction: column; gap: 8px; }
+.pn-workload-row {
+    display: grid; grid-template-columns: minmax(110px, 160px) 1fr; gap: 8px 10px; align-items: center;
+}
+.pn-workload-name { font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pn-workload-bar {
+    display: flex; height: 16px; border-radius: 8px; overflow: hidden;
+    background: var(--tp-dark); border: 1px solid var(--tp-border);
+}
+.pn-workload-seg { display: block; height: 100%; min-width: 3px; }
+.pn-workload-seg--overdue { background: #ef4444; }
+.pn-workload-seg--blocked { background: #f59e0b; }
+.pn-workload-seg--open    { background: #3b82f6; }
+.pn-workload-seg--done    { background: #10b981; }
+.pn-workload-nums { grid-column: 2; font-size: 10px; color: var(--tp-dim); margin-top: -4px; }
+.pn-workload-red { color: #b91c1c; }
+.pn-workload-amber { color: #b45309; }
+
+/* Curva S (v16.8) */
+.pn-scurve-head { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.pn-scurve-ok { color: #047857; }
+.pn-scurve-bad { color: #b91c1c; }
+#pn-proj-scurve-wrapper { position: relative; height: 300px; }
+
+/* Portafolio (v16.8) */
+.pn-portfolio-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 6px; margin-bottom: 10px; }
+.pn-portfolio-kpi { text-align: center; padding: 9px 6px; background: var(--tp-dark); border: 1px solid var(--tp-border); border-radius: var(--radius-md); }
+.pn-portfolio-kpi-n { font-size: 20px; font-weight: 800; }
+.pn-portfolio-kpi-l { font-size: 9px; color: var(--tp-dim); }
+.pn-portfolio-row { cursor: pointer; }
+.pn-portfolio-row:hover { background: rgba(59,130,246,0.06); }
+.pn-portfolio-bad { color: #b91c1c; font-weight: 800; }
+.pn-portfolio-table td:first-child { font-size: 14px; text-align: center; }
+
 /* Importador de Excel/CSV/pegado (v16.8) */
 .pn-import-overlay {
     position: fixed; inset: 0; background: rgba(15,23,42,0.55); z-index: 9000;
@@ -5481,7 +5560,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608062345';
+var APP_BUILD = '202608062349';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
@@ -5568,14 +5647,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608062345' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608062349' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608062345' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608062349' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5591,7 +5670,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608062345' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608062349' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -31770,15 +31849,26 @@ function pnRenderProjects(el) {
 
 function _pnRenderProjectGrid(el) {
     var showArchived = !!window._pnProjShowArchived;
+    var portfolio = window._pnGridView === 'portfolio';
     var projects = (pnState.projects || []).filter(function(p) { return showArchived ? true : !p.archived; });
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-projects-help"><span>🗂️ Proyectos (' + projects.length + ')</span>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen()" style="font-size:10px;">📥 Importar Excel</button>';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProject()" style="font-size:10px;">+ Proyecto</button></div>';
     html += '<div style="font-size:11px;color:var(--tp-dim);margin-bottom:8px;">Da seguimiento a reparaciones, proyectos de inversión o cualquier iniciativa: pasos, fechas, responsables y una línea de tiempo con lo que va pasando.</div>';
+    // Tarjetas (día a día) vs Portafolio (la vista para reportar hacia arriba)
+    html += '<div class="pn-proj-viewtabs">';
+    html += '<button class="pn-proj-viewtab' + (!portfolio ? ' active' : '') + '" onclick="window._pnGridView=\'cards\';_pnProjNav();">🗃️ Tarjetas</button>';
+    html += '<button class="pn-proj-viewtab' + (portfolio ? ' active' : '') + '" onclick="window._pnGridView=\'portfolio\';_pnProjNav();">📊 Portafolio</button>';
+    html += '</div>';
     if (projects.length === 0) {
         html += '<div style="text-align:center;padding:24px;color:var(--tp-dim);">Sin proyectos todavía.</div>';
     }
     html += '</div>';
+    if (portfolio && projects.length > 0) {
+        html += _pnPortfolioHTML();
+        el.innerHTML = html;
+        return;
+    }
     if (projects.length > 0) {
         html += '<div class="pn-proj-grid">';
         projects.forEach(function(p) {
@@ -31832,17 +31922,30 @@ function _pnRenderProjectDetail(el, p) {
     html += '</div>';
 
     html += '<div class="pn-proj-viewtabs">';
-    [['table', '📋 Tabla'], ['timeline', '🕒 Línea de tiempo'], ['gantt', '📊 Gantt']].forEach(function(v) {
+    [['table', '📋 Tabla'], ['kanban', '📌 Kanban'], ['timeline', '🕒 Línea de tiempo'],
+     ['gantt', '📊 Gantt'], ['scurve', '📈 Curva S'], ['workload', '👥 Carga']].forEach(function(v) {
         html += '<button class="pn-proj-viewtab' + (view === v[0] ? ' active' : '') + '" onclick="window._pnProjectView=\'' + v[0] + '\';_pnProjNav();">' + v[1] + '</button>';
     });
     html += '</div>';
 
     if (view === 'timeline') html += _pnProjectTimelineHTML(p);
     else if (view === 'gantt') html += _pnProjectGanttHTML(p);
+    else if (view === 'kanban') html += _pnProjectKanbanHTML(p);
+    else if (view === 'scurve') html += _pnProjectSCurveHTML(p);
+    else if (view === 'workload') html += _pnProjectWorkloadHTML(p);
     else html += _pnProjectTableHTML(p);
 
     html += '</div>';
     el.innerHTML = html;
+
+    // Chart.js y el arrastre necesitan el DOM ya pintado. La curva se destruye
+    // al salir de la vista para no dejar el canvas ocupado ("already in use").
+    if (view !== 'scurve' && window._pnProjSCurveChart) {
+        try { window._pnProjSCurveChart.destroy(); } catch (e) {}
+        window._pnProjSCurveChart = null;
+    }
+    if (view === 'scurve') setTimeout(pnProjSCurveRender, 30);
+    if (view === 'kanban') setTimeout(function() { pnKanbanInitDrag(document.getElementById('pn-kanban-' + p.id), p.id); }, 30);
 }
 
 function _pnProjectTableHTML(p) {
@@ -32011,6 +32114,382 @@ function _pnProjectGanttHTML(p) {
     html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjectBaselineSet(\'' + p.id + '\')" style="font-size:11px;" data-help="pn-proj-baseline">' + (hasBaseline ? '🔄 Volver a fijar línea base' : '📌 Fijar línea base') + '</button>';
     html += '</div>';
     return html;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// VISTAS DE PROJECT MANAGER (v16.8): Kanban · Carga · Curva S · Portafolio
+// ══════════════════════════════════════════════════════════════════════
+
+// ── 📌 Kanban por estatus ──
+// Mueve pasos entre columnas. El arrastre reusa el mismo gesto táctil del
+// mapa de gases (pulsación larga + fantasma) para que funcione en tablet;
+// además cada tarjeta trae un <select> de estatus, que es el camino
+// accesible y el que sirve con teclado o si el arrastre falla.
+function _pnProjectKanbanHTML(p) {
+    var steps = (p.steps || []).slice().sort(function(a, b) { return (a.seq || 0) - (b.seq || 0); });
+    if (!steps.length) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin pasos. Agrega uno en la pestaña Tabla.</div>';
+    var today = localToday();
+    var cpm = pnProjectCPM(p);
+
+    var html = '<div class="pn-kanban" id="pn-kanban-' + p.id + '">';
+    Object.keys(PN_STEP_STATUS).forEach(function(k) {
+        var col = steps.filter(function(s) { return s.status === k; });
+        html += '<div class="pn-kanban-col pn-kanban-col--' + k + '" data-status="' + k + '">';
+        html += '<div class="pn-kanban-colhead"><span>' + PN_STEP_STATUS[k] + '</span><span class="pn-kanban-count">' + col.length + '</span></div>';
+        html += '<div class="pn-kanban-cards">';
+        col.forEach(function(s) {
+            var late = s.status !== 'completado' && s.targetDate && s.targetDate < today;
+            var ci = cpm.info[s.id] || {};
+            html += '<div class="pn-kanban-card' + (late ? ' pn-kanban-card--late' : '') + '" data-step-id="' + s.id + '" data-status="' + k + '">';
+            html += '<div class="pn-kanban-card-title">' + (s.isMilestone ? '◆ ' : '') + escapeHtml(s.title) + '</div>';
+            var bits = [];
+            if (s.responsible) bits.push('👤 ' + escapeHtml(s.responsible));
+            if (s.targetDate) bits.push((late ? '⚠ ' : '📅 ') + s.targetDate);
+            if (bits.length) html += '<div class="pn-kanban-card-meta">' + bits.join(' · ') + '</div>';
+            if (ci.atRisk) html += '<div class="pn-kanban-card-risk" title="' + escapeHtml(ci.risk || '') + '">⏳ En riesgo</div>';
+            if (s.roadblock) html += '<div class="pn-kanban-card-block">🚧 ' + escapeHtml(s.roadblock.slice(0, 60)) + '</div>';
+            html += '<div class="pn-kanban-card-actions">';
+            html += '<select aria-label="Cambiar estatus de ' + escapeHtml(s.title) + '" onchange="pnProjectStepSetStatus(\'' + p.id + '\',\'' + s.id + '\',this.value)">';
+            Object.keys(PN_STEP_STATUS).forEach(function(o) {
+                html += '<option value="' + o + '"' + (o === k ? ' selected' : '') + '>' + PN_STEP_STATUS[o] + '</option>';
+            });
+            html += '</select>';
+            html += '<button class="tp-btn tp-btn-ghost" title="Editar" aria-label="Editar ' + escapeHtml(s.title) + '" onclick="pnAddProjectStep(\'' + p.id + '\',\'' + s.id + '\')">✏️</button>';
+            html += '</div></div>';
+        });
+        if (!col.length) html += '<div class="pn-kanban-empty">— vacío —</div>';
+        html += '</div></div>';
+    });
+    html += '</div>';
+    html += '<div class="pn-kanban-hint">Arrastra una tarjeta a otra columna, o usa el menú de estatus de cada una.</div>';
+    return html;
+}
+
+// Cambio de estatus desde Kanban (menú o arrastre). Mantiene la fecha de
+// cumplimiento coherente: al completar la pone si falta; al reabrir la quita.
+function pnProjectStepSetStatus(projectId, stepId, status) {
+    var p = (pnState.projects || []).find(function(x) { return x.id === projectId; });
+    if (!p) return;
+    var s = (p.steps || []).find(function(x) { return x.id === stepId; });
+    if (!s || !PN_STEP_STATUS[status] || s.status === status) return;
+    var prev = s.status;
+    s.status = status;
+    if (status === 'completado' && !s.doneDate) s.doneDate = localToday();
+    if (status !== 'completado') s.doneDate = '';
+    s.updatedAt = new Date().toISOString();
+    p.updatedAt = s.updatedAt;
+    pnSave();
+    if (typeof auditLog === 'function') auditLog('panel', 'proyecto_paso_estatus', { type: 'project', id: p.id, label: p.name }, s.title + ': ' + (PN_STEP_STATUS[prev] || prev) + ' → ' + PN_STEP_STATUS[status]);
+    _pnProjNav();
+}
+
+// Arrastre del Kanban — mismo gesto que invInitZoneDrag (pulsación larga +
+// fantasma) para que sirva igual con ratón y con dedo en tablet.
+var _pnKanDrag = { active: false, stepId: null, ghost: null, timer: null, projectId: null };
+function pnKanbanInitDrag(container, projectId) {
+    if (!container || container._pnDragBound) return;
+    container._pnDragBound = true;
+    var LONG_PRESS = 320, MOVE_CANCEL = 14;
+
+    function pt(e) {
+        if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        if (e.changedTouches && e.changedTouches[0]) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+    }
+    function cleanup() {
+        if (_pnKanDrag.timer) { clearTimeout(_pnKanDrag.timer); _pnKanDrag.timer = null; }
+        if (_pnKanDrag.ghost) { _pnKanDrag.ghost.remove(); _pnKanDrag.ghost = null; }
+        container.querySelectorAll('.pn-kanban-col').forEach(function(c) { c.classList.remove('pn-kanban-col--over'); });
+        container.querySelectorAll('.pn-kanban-card').forEach(function(c) { c.classList.remove('pn-kanban-card--dragging'); });
+        container.style.touchAction = '';
+        _pnKanDrag.active = false; _pnKanDrag.stepId = null;
+    }
+    function start(card, p0) {
+        _pnKanDrag.active = true;
+        _pnKanDrag.stepId = card.getAttribute('data-step-id');
+        _pnKanDrag.projectId = projectId;
+        if (navigator.vibrate) { try { navigator.vibrate(40); } catch (e) {} }
+        card.classList.add('pn-kanban-card--dragging');
+        var g = card.cloneNode(true);
+        g.className = 'pn-kanban-card pn-kanban-ghost';
+        g.style.width = card.offsetWidth + 'px';
+        g.style.left = (p0.x - card.offsetWidth / 2) + 'px';
+        g.style.top = (p0.y - 20) + 'px';
+        document.body.appendChild(g);
+        _pnKanDrag.ghost = g;
+        container.style.touchAction = 'none';
+    }
+
+    container.addEventListener('pointerdown', function(e) {
+        var card = e.target.closest('.pn-kanban-card');
+        if (!card || e.target.closest('select') || e.target.closest('button')) return;
+        var p0 = pt(e), moved = false;
+        var onMove = function(ev) {
+            var p1 = pt(ev);
+            if (!_pnKanDrag.active) {
+                if (Math.abs(p1.x - p0.x) > MOVE_CANCEL || Math.abs(p1.y - p0.y) > MOVE_CANCEL) { moved = true; cleanup(); }
+                return;
+            }
+            ev.preventDefault();
+            if (_pnKanDrag.ghost) {
+                _pnKanDrag.ghost.style.left = (p1.x - _pnKanDrag.ghost.offsetWidth / 2) + 'px';
+                _pnKanDrag.ghost.style.top = (p1.y - 20) + 'px';
+            }
+            var el = document.elementFromPoint(p1.x, p1.y);
+            var col = el && el.closest ? el.closest('.pn-kanban-col') : null;
+            container.querySelectorAll('.pn-kanban-col').forEach(function(c) { c.classList.toggle('pn-kanban-col--over', c === col); });
+        };
+        var onUp = function(ev) {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            document.removeEventListener('pointercancel', onUp);
+            if (!_pnKanDrag.active) { cleanup(); return; }
+            var p1 = pt(ev);
+            if (_pnKanDrag.ghost) _pnKanDrag.ghost.style.display = 'none';
+            var el = document.elementFromPoint(p1.x, p1.y);
+            var col = el && el.closest ? el.closest('.pn-kanban-col') : null;
+            var stepId = _pnKanDrag.stepId, target = col && col.getAttribute('data-status');
+            cleanup();
+            if (stepId && target) pnProjectStepSetStatus(projectId, stepId, target);
+        };
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+        document.addEventListener('pointercancel', onUp);
+        _pnKanDrag.timer = setTimeout(function() { if (!moved) start(card, p0); }, LONG_PRESS);
+    });
+}
+
+// ── 👥 Carga por responsable ──
+// Quién trae más encima y quién está frenado. Alcance: un proyecto o todos.
+// Es LA definición de carga — cualquier consumidor nuevo debe llamarla.
+function pnProjectWorkload(projects) {
+    var today = localToday();
+    var by = {};
+    (projects || []).forEach(function(p) {
+        if (p.archived) return;
+        (p.steps || []).forEach(function(s) {
+            var who = (s.responsible || '').trim() || '— sin asignar —';
+            if (!by[who]) by[who] = { name: who, open: 0, overdue: 0, blocked: 0, done: 0, next: null };
+            var e = by[who];
+            if (s.status === 'completado') { e.done++; return; }
+            e.open++;
+            if (s.status === 'bloqueado') e.blocked++;
+            if (s.targetDate && s.targetDate < today) e.overdue++;
+            if (s.targetDate && (!e.next || s.targetDate < e.next)) e.next = s.targetDate;
+        });
+    });
+    return Object.keys(by).map(function(k) { return by[k]; })
+        .sort(function(a, b) { return (b.overdue - a.overdue) || (b.open - a.open) || a.name.localeCompare(b.name); });
+}
+
+function _pnProjectWorkloadHTML(p) {
+    var all = !!window._pnWorkloadAll;
+    var rows = pnProjectWorkload(all ? (pnState.projects || []) : [p]);
+    var max = rows.reduce(function(m, r) { return Math.max(m, r.open + r.done); }, 0) || 1;
+
+    var html = '<div class="pn-workload-scope">';
+    html += '<button class="pn-proj-viewtab' + (!all ? ' active' : '') + '" onclick="window._pnWorkloadAll=false;_pnProjNav();">Solo este proyecto</button>';
+    html += '<button class="pn-proj-viewtab' + (all ? ' active' : '') + '" onclick="window._pnWorkloadAll=true;_pnProjNav();">Todos los proyectos</button>';
+    html += '</div>';
+    if (!rows.length) return html + '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin pasos que repartir todavía.</div>';
+
+    html += '<div class="pn-workload" data-help="pn-proj-workload">';
+    rows.forEach(function(r) {
+        var total = r.open + r.done;
+        html += '<div class="pn-workload-row">';
+        html += '<div class="pn-workload-name">' + escapeHtml(r.name) + '</div>';
+        html += '<div class="pn-workload-bar" title="' + r.open + ' abiertos · ' + r.done + ' completados">';
+        var seg = function(n, cls, t) { return n ? '<span class="pn-workload-seg pn-workload-seg--' + cls + '" style="width:' + (n / max * 100) + '%;" title="' + t + '"></span>' : ''; };
+        html += seg(r.overdue, 'overdue', r.overdue + ' vencidos');
+        html += seg(r.blocked, 'blocked', r.blocked + ' bloqueados');
+        html += seg(Math.max(0, r.open - r.overdue - r.blocked), 'open', 'abiertos a tiempo');
+        html += seg(r.done, 'done', r.done + ' completados');
+        html += '</div>';
+        html += '<div class="pn-workload-nums">' + r.open + ' abiert' + (r.open === 1 ? 'o' : 'os');
+        if (r.overdue) html += ' · <b class="pn-workload-red">' + r.overdue + ' vencid' + (r.overdue === 1 ? 'o' : 'os') + '</b>';
+        if (r.blocked) html += ' · <b class="pn-workload-amber">' + r.blocked + ' bloquead' + (r.blocked === 1 ? 'o' : 'os') + '</b>';
+        if (r.next) html += ' · próx. ' + r.next;
+        html += '</div></div>';
+    });
+    html += '</div>';
+    html += '<div class="pn-gantt-legend">' +
+        '<span><span class="pn-gantt-swatch" style="background:#ef4444;"></span>Vencidos</span>' +
+        '<span><span class="pn-gantt-swatch" style="background:#f59e0b;"></span>Bloqueados</span>' +
+        '<span><span class="pn-gantt-swatch" style="background:#3b82f6;"></span>Abiertos a tiempo</span>' +
+        '<span><span class="pn-gantt-swatch" style="background:#10b981;"></span>Completados</span></div>';
+    return html;
+}
+
+// ── 📈 Curva S (avance planeado vs real) ──
+// Acumulado de pasos comprometidos (línea base si existe, si no la fecha
+// objetivo) contra acumulado de pasos realmente completados, por semana.
+// Es el gráfico clásico para demostrar si el proyecto va adelantado o
+// atrasado, y con qué pendiente.
+function pnProjectSCurve(p) {
+    var steps = (p.steps || []).filter(function(s) { return s.baselineTarget || s.targetDate || s.doneDate; });
+    if (!steps.length) return null;
+    var days = [];
+    steps.forEach(function(s) {
+        [s.baselineTarget || s.targetDate, s.doneDate].forEach(function(d) {
+            var n = _pnDayNum(d); if (n !== null) days.push(n);
+        });
+    });
+    if (!days.length) return null;
+    var todayN = _pnDayNum(localToday());
+    days.push(todayN);
+    var minN = Math.min.apply(null, days), maxN = Math.max.apply(null, days);
+    function weekEnd(n) { return Math.floor((n + 3) / 7) * 7 + 3; }   // domingo de esa semana
+    var labels = [], planned = [], actual = [];
+    var total = steps.length;
+    for (var wEnd = weekEnd(minN); wEnd <= weekEnd(maxN); wEnd += 7) {
+        var d = new Date(wEnd * 86400000);
+        labels.push((d.getUTCMonth() + 1) + '/' + d.getUTCDate());
+        var pl = 0, ac = 0, anyAfterToday = wEnd > todayN;
+        steps.forEach(function(s) {
+            var pt2 = _pnDayNum(s.baselineTarget || s.targetDate);
+            if (pt2 !== null && pt2 <= wEnd) pl++;
+            var at = _pnDayNum(s.doneDate);
+            if (at !== null && at <= wEnd) ac++;
+        });
+        planned.push(Math.round(pl / total * 100));
+        // la línea real se corta en HOY: proyectar sería inventar avance
+        actual.push(anyAfterToday ? null : Math.round(ac / total * 100));
+    }
+    return { labels: labels, planned: planned, actual: actual, total: total };
+}
+
+function _pnProjectSCurveHTML(p) {
+    var data = pnProjectSCurve(p);
+    if (!data) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Hace falta al menos un paso con fecha objetivo para dibujar la curva.</div>';
+    var idxNow = data.actual.reduce(function(acc, v, i) { return v === null ? acc : i; }, 0);
+    var planNow = data.planned[idxNow] || 0, realNow = data.actual[idxNow] || 0;
+    var diff = realNow - planNow;
+    var verdict = diff >= 0
+        ? '<span class="pn-scurve-ok">Va ' + diff + ' puntos ARRIBA del plan</span>'
+        : '<span class="pn-scurve-bad">Va ' + Math.abs(diff) + ' puntos ABAJO del plan</span>';
+
+    var html = '<div class="pn-scurve-head" data-help="pn-proj-scurve">Avance comprometido vs real · ' + data.total + ' pasos — ' + verdict + '</div>';
+    html += '<div id="pn-proj-scurve-wrapper"><canvas id="pn-proj-scurve"></canvas></div>';
+    if (typeof chartConfigBuildPanel === 'function') {
+        html += chartConfigBuildPanel('pn_proj_scurve', '_pnProjSCurveChart', { rerenderFn: 'pnProjSCurveRender' });
+    }
+    return html;
+}
+
+// Dibuja/redibuja la curva. Destruye la instancia previa antes de crear la
+// nueva — si no, Chart.js truena con "canvas is already in use" al volver a
+// entrar a la vista.
+function pnProjSCurveRender() {
+    var cv = document.getElementById('pn-proj-scurve');
+    if (!cv || typeof Chart === 'undefined') return;
+    var p = (pnState.projects || []).find(function(x) { return x.id === window._pnSelectedProject; });
+    if (!p) return;
+    var data = pnProjectSCurve(p);
+    if (!data) return;
+    if (window._pnProjSCurveChart) { try { window._pnProjSCurveChart.destroy(); } catch (e) {} window._pnProjSCurveChart = null; }
+    window._pnProjSCurveChart = new Chart(cv.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: [
+                { label: 'Comprometido', data: data.planned, borderColor: '#94a3b8', backgroundColor: 'rgba(148,163,184,0.12)',
+                  borderDash: [6, 4], fill: true, tension: 0.25, pointRadius: 2 },
+                { label: 'Real', data: data.actual, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.15)',
+                  fill: true, tension: 0.25, pointRadius: 3, spanGaps: false }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: { y: { min: 0, max: 100, ticks: { callback: function(v) { return v + '%'; } } } },
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+    if (typeof chartConfigApply === 'function') { try { chartConfigApply('pn_proj_scurve', window._pnProjSCurveChart); } catch (e) {} }
+}
+
+// ── 🗂️ Portafolio (todos los proyectos) ──
+// La vista para reportar hacia arriba: una fila por proyecto con semáforo.
+// pnPortfolioRows es LA definición del estado de salud de un proyecto.
+function pnPortfolioRows() {
+    var today = localToday();
+    return (pnState.projects || []).filter(function(p) { return !p.archived; }).map(function(p) {
+        var prog = pnProjectProgress(p);
+        var cpm = pnProjectCPM(p);
+        var atRisk = Object.keys(cpm.info).filter(function(k) { return cpm.info[k].atRisk; }).length;
+        var ms = (p.steps || []).filter(function(s) { return s.isMilestone && s.status !== 'completado' && s.targetDate; })
+            .sort(function(a, b) { return a.targetDate.localeCompare(b.targetDate); });
+        var nextMs = ms[0] || null;
+        // Semáforo: rojo si hay vencidos o bloqueados; ámbar si hay pasos en
+        // riesgo, un ciclo de dependencias o un hito dentro de 7 días.
+        var health = 'ok';
+        if (prog.overdueN > 0 || prog.blockedN > 0) health = 'red';
+        else if (atRisk > 0 || cpm.cycle.length) health = 'amber';
+        else if (nextMs) {
+            var d = Math.round((new Date(nextMs.targetDate + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000);
+            if (d <= 7) health = 'amber';
+        }
+        if (p.status === 'cerrado' || prog.pct === 100) health = 'done';
+        var asset = (p.assetId && typeof invState !== 'undefined') ? (invState.assets || []).find(function(a) { return a.id === p.assetId; }) : null;
+        return { project: p, prog: prog, health: health, atRisk: atRisk, cycle: cpm.cycle.length, nextMs: nextMs, asset: asset };
+    }).sort(function(a, b) {
+        var rank = { red: 0, amber: 1, ok: 2, done: 3 };
+        return (rank[a.health] - rank[b.health]) || (b.prog.overdueN - a.prog.overdueN) || a.project.name.localeCompare(b.project.name);
+    });
+}
+
+var PN_HEALTH = {
+    red:   { dot: '🔴', label: 'Atención' },
+    amber: { dot: '🟡', label: 'En riesgo' },
+    ok:    { dot: '🟢', label: 'En tiempo' },
+    done:  { dot: '✅', label: 'Terminado' }
+};
+
+function _pnPortfolioHTML() {
+    var rows = pnPortfolioRows();
+    var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-proj-portfolio"><span>🗂️ Portafolio — ' + rows.length + ' proyecto' + (rows.length === 1 ? '' : 's') + ' activo' + (rows.length === 1 ? '' : 's') + '</span>' +
+        '<button class="tp-btn tp-btn-ghost" onclick="pnExportPortfolioCSV()" style="font-size:10px;">📤 CSV</button></div>';
+    if (!rows.length) { return html + '<div style="text-align:center;padding:24px;color:var(--tp-dim);">Sin proyectos activos.</div></div>'; }
+
+    var counts = { red: 0, amber: 0, ok: 0, done: 0 };
+    rows.forEach(function(r) { counts[r.health]++; });
+    html += '<div class="pn-portfolio-kpis">';
+    ['red', 'amber', 'ok', 'done'].forEach(function(k) {
+        html += '<div class="pn-portfolio-kpi"><div class="pn-portfolio-kpi-n">' + counts[k] + '</div><div class="pn-portfolio-kpi-l">' + PN_HEALTH[k].dot + ' ' + PN_HEALTH[k].label + '</div></div>';
+    });
+    html += '</div>';
+
+    html += '<div style="overflow-x:auto;"><table class="pn-proj-table pn-portfolio-table"><thead><tr>' +
+        '<th>Estado</th><th>Proyecto</th><th>Responsable</th><th>Avance</th><th>Vencidos</th><th>Bloqueados</th><th>Próximo hito</th></tr></thead><tbody>';
+    rows.forEach(function(r) {
+        var p = r.project;
+        html += '<tr class="pn-portfolio-row" onclick="window._pnSelectedProject=\'' + p.id + '\';window._pnProjectView=\'table\';_pnProjNav();">';
+        html += '<td title="' + PN_HEALTH[r.health].label + '">' + PN_HEALTH[r.health].dot + '</td>';
+        html += '<td><strong>' + escapeHtml(p.name) + '</strong>' + (r.asset ? '<div style="font-size:9px;color:var(--tp-dim);">🔧 ' + escapeHtml(r.asset.name) + '</div>' : '') + '</td>';
+        html += '<td>' + escapeHtml(p.owner || '—') + '</td>';
+        html += '<td style="min-width:110px;"><div class="tp-bar" style="height:14px;"><div class="tp-bar-fill" style="width:' + r.prog.pct + '%;background:' + (r.prog.pct === 100 ? 'var(--tp-green)' : 'var(--tp-blue)') + ';"></div><span class="tp-bar-text" style="line-height:14px;font-size:9px;">' + r.prog.done + '/' + r.prog.total + '</span></div></td>';
+        html += '<td' + (r.prog.overdueN ? ' class="pn-portfolio-bad"' : '') + '>' + (r.prog.overdueN || '—') + '</td>';
+        html += '<td' + (r.prog.blockedN ? ' class="pn-portfolio-bad"' : '') + '>' + (r.prog.blockedN || '—') + '</td>';
+        html += '<td>' + (r.nextMs ? '◆ ' + escapeHtml(r.nextMs.title) + '<div style="font-size:9px;color:var(--tp-dim);">' + r.nextMs.targetDate + '</div>' : '—') + '</td>';
+        html += '</tr>';
+    });
+    html += '</tbody></table></div></div>';
+    return html;
+}
+
+function pnExportPortfolioCSV() {
+    var rows = pnPortfolioRows();
+    if (!rows.length) { showToast('Sin proyectos activos para exportar', 'warning'); return; }
+    var csv = 'Estado,Proyecto,Responsable,Equipo,Pasos hechos,Pasos totales,% Avance,Vencidos,Bloqueados,En riesgo,Proximo hito,Fecha del hito\n';
+    rows.forEach(function(r) {
+        csv += [PN_HEALTH[r.health].label, r.project.name, r.project.owner || '', r.asset ? r.asset.name : '',
+                r.prog.done, r.prog.total, r.prog.pct + '%', r.prog.overdueN, r.prog.blockedN, r.atRisk,
+                r.nextMs ? r.nextMs.title : '', r.nextMs ? r.nextMs.targetDate : ''].map(_pnProjCsvEsc).join(',') + '\n';
+    });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }));
+    a.download = 'Portafolio_Proyectos_' + localToday() + '.csv';
+    a.click();
+    showToast('Portafolio exportado', 'success');
 }
 
 // ── CRUD: Proyecto ──
@@ -36871,7 +37350,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608062345' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608062349' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
