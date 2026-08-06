@@ -2011,9 +2011,10 @@ var DASH_CATS = {
     plan:       { label: 'Plan de hoy',          icon: '📋', accent: 'var(--accent-testplan)' },
     inventario: { label: 'Inventario',           icon: '📦', accent: 'var(--accent-inventory)' },
     calidad:    { label: 'Calidad',              icon: '🔬', accent: 'var(--accent-cop)' },
+    proyectos:  { label: 'Proyectos',            icon: '🗂️', accent: 'var(--accent-panel)' },
     manuales:   { label: 'Actividades manuales', icon: '📝', accent: 'var(--accent-panel)' }
 };
-var DASH_CAT_ORDER = ['vehiculos', 'plan', 'inventario', 'calidad', 'manuales'];
+var DASH_CAT_ORDER = ['vehiculos', 'plan', 'inventario', 'calidad', 'proyectos', 'manuales'];
 var DASH_STATUS_LABEL = { pendiente: 'Pendiente', encurso: 'En curso', hecho: 'Hecho', atrasado: 'Atrasado' };
 
 function dashCollectActivities() {
@@ -2148,6 +2149,28 @@ function dashCollectActivities() {
         }
     }
 
+    // 6b) v16.6: pasos de proyectos vencidos y de esta semana (Proyectos, en Datos)
+    if (typeof pnProjectsOverdueSteps === 'function') {
+        pnProjectsOverdueSteps().forEach(function(o) {
+            acts.push({ id: 'act-proj-' + o.step.id, cat: 'proyectos', icon: o.blocked ? '🚧' : '🗂️',
+                title: o.project.name + ': ' + o.step.title,
+                meta: (o.blocked ? 'Bloqueado' + (o.step.roadblock ? ' — ' + o.step.roadblock : '') : 'Vencido (' + o.step.targetDate + ')') + (o.step.responsible ? ' · 👤 ' + o.step.responsible : ''),
+                status: 'atrasado', urgency: 3,
+                checkbox: o.blocked ? undefined : { js: "pnProjectStepDone('" + o.project.id + "','" + o.step.id + "');dailyDashRender();", checked: false },
+                action: { label: 'Ver', js: "window._pnSelectedProject='" + o.project.id + "';dashGo('panel','pn-projects')" } });
+        });
+    }
+    if (typeof pnProjectsDueThisWeek === 'function') {
+        pnProjectsDueThisWeek().forEach(function(d) {
+            acts.push({ id: 'act-proj-week-' + d.step.id, cat: 'proyectos', icon: '🗂️',
+                title: d.project.name + ': ' + d.step.title,
+                meta: 'Esta semana (' + d.step.targetDate + ')' + (d.step.responsible ? ' · 👤 ' + d.step.responsible : ''),
+                status: 'pendiente', urgency: 2,
+                checkbox: { js: "pnProjectStepDone('" + d.project.id + "','" + d.step.id + "');dailyDashRender();", checked: false },
+                action: { label: 'Ver', js: "window._pnSelectedProject='" + d.project.id + "';dashGo('panel','pn-projects')" } });
+        });
+    }
+
     // 7) Consumo proyectado insuficiente (modelo aprendido, números vivos)
     if (typeof invForecastGasNeeds === 'function') {
         try {
@@ -2166,7 +2189,7 @@ function dashCollectActivities() {
     if (typeof pnGetActiveAlerts === 'function') {
         try {
             pnGetActiveAlerts().forEach(function(a, ai) {
-                if (a.source === 'Inventario' || a.source === 'Consumo' || a.source === 'Mantenimiento') return;
+                if (a.source === 'Inventario' || a.source === 'Consumo' || a.source === 'Mantenimiento' || a.source === 'Proyectos') return;
                 var cat = a.source === 'Test Plan' ? 'plan' : a.source === 'CoP SPC' ? 'calidad' : null;
                 if (a.source === 'COP15') { if (a.level !== 'CRITICA') return; cat = 'calidad'; }
                 if (!cat) return;
@@ -3751,6 +3774,7 @@ var TOURS = {
         { target: '#pn-tabs-bar', title: 'Pestañas de Datos', text: 'Resumen, reportes, ejecutivo, turnaround, operadores, bitácora, alertas, auditoría y más.', position: 'bottom' },
         { target: '[data-help="pn-reports-help"]', title: 'Centro de Reportes', text: 'Un solo lugar para exportar cada CSV/PDF del laboratorio — lee la descripción de cada fila.', position: 'bottom', tab: 'pn-reports' },
         { target: '[data-help="pn-alerts-help"]', title: 'Alertas', text: 'Todas las alertas activas de todos los módulos, incluidas las de consumo y SPC.', position: 'bottom', tab: 'pn-alerts' },
+        { target: '[data-help="pn-projects-help"]', title: 'Proyectos', text: 'Da seguimiento a reparaciones o proyectos de inversión: pasos, responsables, fechas y una línea de tiempo — como un tablero de Loop, pero adentro del laboratorio.', position: 'bottom', tab: 'pn-projects' },
         { target: '[data-help="pn-audit-help"]', title: 'Auditoría', text: 'El control de cambios de toda la plataforma: quién hizo qué y cuándo.', position: 'top', tab: 'pn-audit' }
     ],
     cop: [
