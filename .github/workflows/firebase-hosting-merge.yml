@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+  # v16.7: escape hatch manual — el trigger normal (push a main) dejó de disparar el 5 de
+  # agosto por una interrupción general de GitHub Actions (githubstatus.com, "Incident with
+  # Actions" — runners recibiendo jobs inválidos). No es config/billing del repo (revisado y
+  # correcto). workflow_dispatch permite forzar el deploy desde la pestaña Actions → este
+  # workflow → "Run workflow" sin depender de que el push-trigger se recupere solo.
+  workflow_dispatch: {}
 
 jobs:
   build_and_deploy:
