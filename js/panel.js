@@ -2749,13 +2749,6 @@ function panelAlpineComponent() {
         // Alpine SÍ los registre como dependencia; _bump() y el listener de 'data:saved' la avanzan.
         _dataVersion: 0,
 
-        // v16.7: historial de versiones (Datos → Sistema) — copiados al x-data en vez de referenciar
-        // los globales directo en el template, siguiendo el mismo patrón que el resto de este
-        // componente (nunca globales sueltos en x-text/x-for).
-        appVersion: APP_VERSION,
-        versionHistory: APP_VERSION_HISTORY,
-        appVersionInfo: function() { return getAppVersionInfo(); },
-
         // Form state — Users
         newOpName: '',
         newOpRole: 'Técnico',
@@ -4315,8 +4308,7 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     'pn-intelligence': { title: 'Inteligencia', text: 'Correlaciones automáticas entre módulos (consumo vs volumen de pruebas) para detectar patrones que no se ven a simple vista.', tips: [
         'Es informativo: no requiere captura, solo lectura de tendencias cruzadas.'
     ]},
-    'pn-system': { title: 'Sistema', text: 'Salud técnica de la plataforma: versión instalada con su historial completo, uso de almacenamiento local y estado de sincronización.', tips: [
-        'El "🗂️ Historial de Versiones" arriba lista todo lo agregado, ronda por ronda — la más reciente siempre marcada ACTUAL.',
+    'pn-system': { title: 'Sistema', text: 'Salud técnica de la plataforma: versión instalada, uso de almacenamiento local y estado de sincronización.', tips: [
         'Si el almacenamiento local se acerca al límite (~5MB), aquí lo verás primero.',
         'Sirve para diagnosticar por qué un dispositivo no sincroniza.'
     ]},
@@ -4356,6 +4348,5 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-skill-matrix': { title: 'Matriz de competencias', text: 'Quién está capacitado para qué. Los niveles son: 1 en entrenamiento (supervisado), 2 autónomo, 3 puede certificar a otros. Las habilidades con recertificación (dinamómetro, calibración de analizadores, aprobador CoP) vencen solas y se marcan en rojo. La fila Cobertura te dice cuántos operadores activos pueden hacer esa prueba hoy — si marca 0 en una habilidad crítica, el laboratorio no puede cubrirla.' },
     'pn-projects-help': { title: 'Proyectos', text: 'Registra reparaciones, proyectos de inversión o cualquier iniciativa con pasos y fechas. La retícula muestra el avance de todos; entra a uno para ver su tabla, línea de tiempo y Gantt.' },
     'pn-proj-phase': { title: 'Fase', text: 'Etiqueta libre para agrupar pasos en el Gantt (ej. "Diagnóstico", "Refacciones", "Instalación"). Opcional — si la dejas vacía, el paso solo muestra su título.' },
-    'pn-proj-roadblock': { title: 'Obstáculo / comentario', text: 'Qué está deteniendo este paso (ej. "esperando refacción de proveedor"). Si el paso está en estatus Bloqueado y tiene un obstáculo escrito, sale en Alertas hasta que se resuelva.' },
-    'pn-version-history-help': { title: 'Historial de versiones', text: 'Todas las rondas de mejoras de la plataforma, empezando por la más reciente (marcada ACTUAL). Toca el nombre de una versión para ver qué trajo. El pill "KIA EmLab vX.X" del menú ⋯ del topbar también trae aquí.' }
+    'pn-proj-roadblock': { title: 'Obstáculo / comentario', text: 'Qué está deteniendo este paso (ej. "esperando refacción de proveedor"). Si el paso está en estatus Bloqueado y tiene un obstáculo escrito, sale en Alertas hasta que se resuelva.' }
 });

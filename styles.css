@@ -1443,23 +1443,6 @@ button:focus-visible { outline-offset: 1px; }
 }
 #pwa-install-btn:hover { background: #059669; }
 
-/* v16.6: pill de versión — antes casi invisible (10px, opacidad 0.4) y sin indicar que se
-   puede tocar para ver el historial completo. Ahora es un chip con borde, siempre clickeable. */
-.app-version-pill {
-    padding: 6px 12px; font-size: 12px; font-weight: 600; color: #e2e8f0;
-    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
-    border-radius: 8px; cursor: pointer; white-space: nowrap; transition: background 0.15s ease;
-}
-.app-version-pill:hover { background: rgba(255,255,255,0.16); }
-.app-version-pill strong { font-weight: 800; }
-.app-version-pill-dot { color: #10b981; margin-left: 4px; }
-.app-version-pill-badge {
-    background: #f59e0b; color: #000; padding: 1px 7px; border-radius: 8px;
-    font-weight: 800; margin-left: 6px; font-size: 11px;
-}
-.app-version-pill--outdated { border-color: #f59e0b; background: rgba(245,158,11,0.15); color: #fbbf24; }
-.app-version-pill--uptodate { border-color: rgba(16,185,129,0.35); }
-
 /* ══════════════════════════════════════════════════════════════════════ */
 /* [R4-M1] Chart Configuration Panel                                    */
 /* ══════════════════════════════════════════════════════════════════════ */
