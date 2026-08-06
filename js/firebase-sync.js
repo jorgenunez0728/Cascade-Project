@@ -1367,6 +1367,42 @@ function _fbMergeTasks(localTasks, remoteTasks) {
     return Object.keys(byId).map(function(k) { return byId[k]; });
 }
 
+// v16.6: merge de proyectos (pnState.projects) — mismo patrón que _fbMergeTasks para el
+// proyecto en sí (id, gana updatedAt), pero además hay que mergear POR ID lo que vive
+// DENTRO de cada proyecto (steps[] y log[]): dos técnicos editando pasos distintos del
+// mismo proyecto en dispositivos distintos no deben pisarse entre sí.
+function _fbMergeProjectSubArray(localArr, remoteArr) {
+    var byId = {};
+    (localArr || []).forEach(function(x) { if (x && x.id) byId[x.id] = x; });
+    (remoteArr || []).forEach(function(r) {
+        if (!r || !r.id) return;
+        var l = byId[r.id];
+        if (!l) { byId[r.id] = r; return; }
+        var lt = l.updatedAt || l.createdAt || l.at || '';
+        var rt = r.updatedAt || r.createdAt || r.at || '';
+        byId[r.id] = (rt > lt) ? r : l;
+    });
+    return Object.keys(byId).map(function(k) { return byId[k]; });
+}
+function _fbMergeProjects(localProjects, remoteProjects) {
+    var byId = {};
+    (localProjects || []).forEach(function(p) { if (p && p.id) byId[p.id] = p; });
+    (remoteProjects || []).forEach(function(r) {
+        if (!r || !r.id) return;
+        var l = byId[r.id];
+        if (!l) { byId[r.id] = r; return; }
+        var lt = l.updatedAt || l.createdAt || '';
+        var rt = r.updatedAt || r.createdAt || '';
+        var winner = (rt > lt) ? r : l;
+        var other = (winner === r) ? l : r;
+        var m = Object.assign({}, winner);
+        m.steps = _fbMergeProjectSubArray(other.steps, winner.steps);
+        m.log = _fbMergeProjectSubArray(other.log, winner.log);
+        byId[r.id] = m;
+    });
+    return Object.keys(byId).map(function(k) { return byId[k]; });
+}
+
 function fbPullApply(collections, results, showFeedback) {
     var pulled = [];
 
@@ -1391,12 +1427,15 @@ function fbPullApply(collections, results, showFeedback) {
                 var _localOpsPn = (pnState.operators || []).slice();
                 var _localTasksPn = (pnState.tasks || []).slice();
                 var _localCatPn = (pnState.skillCatalog || []).slice();
+                var _localProjectsPn = (pnState.projects || []).slice();
                 Object.assign(pnState, remoteData);
                 pnState.operators = _fbMergeOperators(_localOpsPn, (remoteData && remoteData.operators) || []);
                 // v15.9: tareas manuales del tablero HOY — merge por id (gana updatedAt), tombstones
                 pnState.tasks = _fbMergeTasks(_localTasksPn, (remoteData && remoteData.tasks) || []);
                 // [Fase 3.5] catálogo editable de habilidades — merge por id, archived pegajoso
                 pnState.skillCatalog = _fbMergeSkillCatalog(_localCatPn, (remoteData && remoteData.skillCatalog) || []);
+                // v16.6: proyectos — merge por id, y dentro de cada uno steps[]/log[] también por id
+                pnState.projects = _fbMergeProjects(_localProjectsPn, (remoteData && remoteData.projects) || []);
                 localStorage.setItem(PN_LS_KEY, JSON.stringify(pnState));
                 if (typeof pnRender === 'function') pnRender();
                 pulled.push('Panel');

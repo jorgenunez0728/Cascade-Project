@@ -7,7 +7,14 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 // ── [Fase 2.1] Debounced render wrapper for search/filter inputs ──
-var _invDebouncedRender = debounce(invRender, 250);
+// v16.6: invalida la pestaña activa antes de renderizar — tabCacheSwitch solo
+// vuelve a llamar al renderFn si dirty[tab] está marcado; sin esto, un filtro o
+// búsqueda cambiaba el estado pero la pestaña ya renderizada se quedaba igual
+// hasta cambiar de pestaña y regresar (bug real, encontrado con pruebas en navegador).
+var _invDebouncedRender = debounce(function() {
+    if (typeof tabCacheInvalidate === 'function') tabCacheInvalidate('inv', invState.activeTab);
+    invRender();
+}, 250);
 
 const INV_LS_KEY = 'kia_lab_inventory';
 let invState = safeParse(INV_LS_KEY, null) || {
@@ -1920,6 +1927,24 @@ function invRenderMaint(el) {
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="inv-maint-help"><span>🛠️ Mantenimiento</span>'
         + '<button class="tp-btn tp-btn-ghost" onclick="invImportF11()" style="font-size:10px;" title="Actualizar en bloque desde el CSV de Calibración del formato COP15-F11">📥 Importar F11</button></div>'
         + '<input type="file" id="inv-f11-import-file" accept=".csv" style="display:none;" onchange="invHandleF11Import(event)"></div>';
+
+    // v16.6: banner de proyecto abierto ligado a un equipo (ej. "Reparación del Dinamómetro")
+    if (typeof pnActiveProjectForAsset === 'function') {
+        var linkedProjects = (invState.assets || []).map(function(a) {
+            return { asset: a, project: pnActiveProjectForAsset(a.id) };
+        }).filter(function(x) { return x.project; });
+        if (linkedProjects.length > 0) {
+            html += '<div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:8px 10px;margin-bottom:10px;">';
+            linkedProjects.forEach(function(x) {
+                var prog = typeof pnProjectProgress === 'function' ? pnProjectProgress(x.project) : { done: 0, total: 0, pct: 0 };
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;padding:3px 0;">';
+                html += '<span style="font-size:11px;"><b>' + escapeHtml(x.asset.name) + '</b>: 🗂️ Proyecto abierto — ' + escapeHtml(x.project.name) + ' (' + prog.done + '/' + prog.total + ' pasos, ' + prog.pct + '%)</span>';
+                html += '<button class="tp-btn tp-btn-ghost" onclick="window._pnSelectedProject=\'' + x.project.id + '\';dashGo(\'panel\',\'pn-projects\')" style="font-size:10px;">Ver →</button>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+    }
 
     if (overdue.length > 0) {
         html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;margin-bottom:10px;">';

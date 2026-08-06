@@ -2494,6 +2494,74 @@ details.acc > summary {
 }
 
 /* ══════════════════════════════════════════════════════════════════════ */
+/* PROYECTOS — seguimiento general: retícula, tabla, timeline, Gantt (v16.6) */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+.pn-proj-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--space-md);
+}
+.pn-proj-card {
+    background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--border);
+    border-radius: var(--radius-lg); padding: var(--space-md); box-shadow: var(--shadow-sm);
+    cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.pn-proj-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.pn-proj-card--ok     { border-left-color: #10b981; }
+.pn-proj-card--warn   { border-left-color: #f59e0b; }
+.pn-proj-card--danger { border-left-color: #ef4444; }
+.pn-proj-card--archived { opacity: 0.55; }
+.pn-proj-card-header { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: var(--tp-text); margin-bottom: 4px; }
+.pn-proj-card-asset { font-size: 10px; color: var(--tp-dim); margin-bottom: 4px; }
+.pn-proj-card-meta { font-size: 10px; color: var(--tp-dim); }
+.pn-proj-card-flags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+
+.pn-proj-status { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 20px; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.3px; }
+.pn-proj-status--activo  { background: rgba(16,185,129,0.14); color: #047857; }
+.pn-proj-status--pausado { background: rgba(245,158,11,0.16); color: #b45309; }
+.pn-proj-status--cerrado { background: rgba(100,116,139,0.16); color: #475569; }
+
+.pn-proj-viewtabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; border-bottom: 1px solid var(--tp-border); }
+.pn-proj-viewtab {
+    background: none; border: none; border-bottom: 2px solid transparent; padding: 8px 10px;
+    font-size: 11px; font-weight: 700; color: var(--tp-dim); cursor: pointer; font-family: inherit;
+}
+.pn-proj-viewtab.active { color: var(--accent-panel); border-bottom-color: var(--accent-panel); }
+
+/* Tabla tipo Loop: Paso · Responsable · Estatus · Fecha objetivo · Cumplimiento · Obstáculo */
+.pn-proj-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.pn-proj-table th { text-align: left; padding: 6px 8px; color: var(--tp-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--tp-border); white-space: nowrap; }
+.pn-proj-table td { padding: 7px 8px; border-bottom: 1px solid var(--tp-border); vertical-align: top; }
+.pn-proj-row--done td { color: var(--tp-dim); }
+.pn-proj-row--overdue td:first-child { border-left: 3px solid #ef4444; }
+
+.pn-proj-step-status { font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 20px; white-space: nowrap; }
+.pn-proj-step-status--pendiente  { background: rgba(100,116,139,0.16); color: #475569; }
+.pn-proj-step-status--encurso    { background: rgba(59,130,246,0.16); color: #1d4ed8; }
+.pn-proj-step-status--completado { background: rgba(16,185,129,0.14); color: #047857; }
+.pn-proj-step-status--bloqueado  { background: rgba(239,68,68,0.16); color: #b91c1c; }
+
+/* Línea de tiempo vertical — feed de log[] + eventos de pasos */
+.pn-proj-timeline { position: relative; padding-left: 4px; }
+.pn-proj-timeline-item { display: flex; gap: 10px; padding-bottom: 14px; position: relative; }
+.pn-proj-timeline-item:not(:last-child)::before {
+    content: ''; position: absolute; left: 13px; top: 26px; bottom: -4px; width: 2px; background: var(--tp-border);
+}
+.pn-proj-timeline-dot {
+    width: 26px; height: 26px; border-radius: 50%; background: var(--tp-card); border: 1px solid var(--tp-border);
+    display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0;
+}
+.pn-proj-timeline-content { flex: 1; padding-top: 2px; }
+.pn-proj-timeline-text { font-size: 12px; color: var(--tp-text); }
+.pn-proj-timeline-meta { font-size: 9px; color: var(--tp-dim); margin-top: 2px; }
+
+/* Gantt semanal — mismo patrón de colspan que el Plan Maestro de 52 semanas */
+.pn-proj-gantt-label { min-width: 130px; max-width: 160px; position: sticky; left: 0; background: var(--tp-card); padding: 3px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; border-top: 1px solid var(--tp-border); }
+.pn-proj-gantt-head { text-align: center; padding: 2px; color: var(--tp-dim); }
+.pn-proj-gantt-cell { text-align: center; padding: 2px 1px; border-top: 1px solid var(--tp-border); height: 20px; }
+.pn-proj-gantt-bar { height: 14px; border-radius: 4px; }
+
+/* ══════════════════════════════════════════════════════════════════════ */
 /* [TIER 5] GLASS + NEUMORPHISM POLISH                                   */
 /* ══════════════════════════════════════════════════════════════════════ */
 

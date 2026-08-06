@@ -1428,8 +1428,8 @@ function tpRenderBurndownChart(stats) {
                 responsive: true, maintainAspectRatio: false,
                 plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } },
                 scales: {
-                    x: { ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                    y: { title: { display: true, text: 'Deficit', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' }, min: 0 }
+                    x: { ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45 }, grid: { color: 'rgba(15,23,42,0.08)' } },
+                    y: { title: { display: true, text: 'Deficit', color: '#64748b', font: { size: 9 } }, ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(15,23,42,0.08)' }, min: 0 }
                 }
             }
         });
@@ -4479,7 +4479,7 @@ function tpRenderFamilies(el) {
             <span style="font-size:10px;font-weight:700;color:var(--tp-text);letter-spacing:0.03em;">CUMPLIMIENTO DE FAMILIAS</span>
             <span style="font-size:15px;font-weight:800;color:${_covPct>=80?'var(--tp-green)':_covPct>=40?'var(--tp-amber)':'var(--tp-red)'};">${_coveredCount}/${_totalFams} <span style="font-size:10px;font-weight:600;">(${_covPct}%)</span></span>
         </div>
-        <div style="height:9px;border-radius:5px;background:rgba(255,255,255,0.06);overflow:hidden;display:flex;gap:1px;">
+        <div style="height:9px;border-radius:5px;background:var(--tp-border);overflow:hidden;display:flex;gap:1px;">
             <div style="width:${_dirPct}%;background:var(--tp-green);transition:width 0.4s;" title="Directas: ${_directCount}"></div>
             <div style="width:${_parPct}%;background:var(--tp-amber);transition:width 0.4s;" title="Parciales: ${_partialCount}"></div>
             <div style="width:${_eqPct}%;background:#38bdf8;transition:width 0.4s;" title="Equivalencia: ${_equivCount}"></div>
@@ -4561,23 +4561,23 @@ function tpRenderFamilies(el) {
                         <div class="tp-bar" style="width:40px;"><div class="tp-bar-fill" style="width:${Math.round(_fCov*100)}%;background:${rc[_fRisk]};"></div><span class="tp-bar-text" style="font-size:9px;">${Math.round(_fCov*100)}%</span></div>
                     </div>
                 </summary>
-                <div style="padding:6px 8px;background:#0f1826;border-top:1px solid var(--tp-border);">
+                <div style="padding:6px 8px;background:var(--tp-dark);border-top:1px solid var(--tp-border);">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 6px;margin-bottom:6px;background:rgba(245,158,11,0.05);border:1px dashed rgba(245,158,11,0.3);border-radius:5px;">
-                        <span style="font-size:9px;font-weight:700;color:var(--tp-amber);">⚑ Prioridad</span>
-                        <label style="font-size:9px;color:var(--tp-dim);display:flex;align-items:center;gap:3px;">Criticidad
-                            <select class="tp-select" style="font-size:9px;padding:2px 4px;" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','criticality',this.value);">
+                        <span style="font-size:11px;font-weight:700;color:var(--tp-amber);">⚑ Prioridad</span>
+                        <label style="font-size:11px;color:var(--tp-dim);display:flex;align-items:center;gap:3px;">Criticidad
+                            <select class="tp-select" style="font-size:11px;padding:2px 4px;" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','criticality',this.value);">
                                 <option value="normal" ${f.criticality==='normal'?'selected':''}>Normal</option>
                                 <option value="high" ${f.criticality==='high'?'selected':''}>Alto</option>
                                 <option value="critical" ${f.criticality==='critical'?'selected':''}>Crítico</option>
                             </select>
                         </label>
-                        <label style="font-size:9px;color:var(--tp-dim);display:flex;align-items:center;gap:3px;">Deadline familia
-                            <input type="date" value="${f.familyDeadline||''}" class="tp-select" style="font-size:9px;padding:2px 4px;" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline',this.value);">
+                        <label style="font-size:11px;color:var(--tp-dim);display:flex;align-items:center;gap:3px;">Deadline familia
+                            <input type="date" value="${f.familyDeadline||''}" class="tp-select" style="font-size:11px;padding:2px 4px;" onchange="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline',this.value);">
                         </label>
-                        ${f.familyDeadline?`<button class="tp-btn tp-btn-ghost" onclick="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline','');" style="font-size:8px;padding:1px 5px;color:var(--tp-red);">Quitar deadline</button>`:''}
-                        <span style="font-size:8px;color:var(--tp-dim);font-style:italic;">· o pon un deadline por variante abajo ↓</span>
+                        ${f.familyDeadline?`<button class="tp-btn tp-btn-ghost" onclick="tpSetFamilyOverride('${f.key.replace(/'/g,"\\'")}','deadline','');" style="font-size:11px;padding:1px 5px;color:var(--tp-red);">Quitar deadline</button>`:''}
+                        <span style="font-size:11px;color:var(--tp-dim);font-style:italic;">· o pon un deadline por variante abajo ↓</span>
                     </div>
-                    ${diffs.length > 0 ? `<div style="font-size:9px;color:var(--tp-dim);margin-bottom:4px;letter-spacing:0.02em;">Variantes por: <span style="color:var(--tp-text);font-weight:600;">${diffs.map(d=>d.label).join(' · ')}</span></div>` : ''}
+                    ${diffs.length > 0 ? `<div style="font-size:11px;color:var(--tp-dim);margin-bottom:4px;letter-spacing:0.02em;">Variantes por: <span style="color:var(--tp-text);font-weight:600;">${diffs.map(d=>d.label).join(' · ')}</span></div>` : ''}
                     ${f.configs.sort((a,b)=>b.total-a.total).map((c, _ci) => {
                         let badges = '';
                         if (diffs.length > 0) {
@@ -4588,23 +4588,23 @@ function tpRenderFamilies(el) {
                                 const _fldColors = {tire:'#38bdf8',ep:'#fb923c',engpkg:'#a855f7',drv:'#ec4899',rgn:'#f97316'};
                                 const _bodyColors = {'4DR':'#3b82f6','5DR':'#8b5cf6','WGN':'#14b8a6','WGN LONG':'#10b981','2DR':'#f59e0b'};
                                 const _c = d.field === 'body' ? (_bodyColors[v] || '#64748b') : (_fldColors[d.field] || '#888');
-                                return `<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:${_c}22;color:${_c};border:1px solid ${_c}44;">${v}</span>`;
+                                return `<span style="font-size:11px;padding:1px 5px;border-radius:4px;background:${_c}22;color:${_c};border:1px solid ${_c}44;">${v}</span>`;
                             }).join(' ');
                         } else {
                             // Single config - show tire as identifier
                             const tire = c.tire || c.desc.match(/\d{3}\/\d{2}\s*R\d+/)?.[0] || '';
-                            if (tire) badges = `<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:#38bdf815;color:#38bdf8;border:1px solid #38bdf830;">${tire}</span>`;
+                            if (tire) badges = `<span style="font-size:11px;padding:1px 5px;border-radius:4px;background:#38bdf815;color:#38bdf8;border:1px solid #38bdf830;">${tire}</span>`;
                         }
                         // Build VIN sublist for tested configs
                         let vinHtml = '';
                         if (c.testedN > 0 && c.vins && c.vins.length > 0) {
                             var _vinId = 'tp-vins-' + fi + '-' + _ci;
-                            vinHtml = `<div id="${_vinId}" style="display:none;padding:4px 6px 4px 20px;background:#12192b;border-top:1px solid var(--tp-border);">`;
+                            vinHtml = `<div id="${_vinId}" style="display:none;padding:4px 6px 4px 20px;background:var(--tp-dark);border-top:1px solid var(--tp-border);">`;
                             c.vins.forEach(function(v) {
                                 const vin = _tpExtractVin(v.note) || (String(v.note||'').split('—')[0].trim()) || '—';
-                                vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 4px;border-bottom:1px solid rgba(255,255,255,0.06);color:#e2e8f0;">
-                                    <span style="font-family:monospace;font-size:9px;color:#e2e8f0;">${vin}</span>
-                                    <span style="font-size:9px;color:var(--tp-dim);">${v.date || '?'}</span>
+                                vinHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 4px;border-bottom:1px solid var(--tp-border);color:var(--tp-text);">
+                                    <span style="font-family:monospace;font-size:11px;color:var(--tp-text);">${vin}</span>
+                                    <span style="font-size:11px;color:var(--tp-dim);">${v.date || '?'}</span>
                                 </div>`;
                             });
                             vinHtml += `</div>`;
@@ -4615,10 +4615,10 @@ function tpRenderFamilies(el) {
                         else if (c.coveredByRep && window._tpAuditView) { _dotColor = 'var(--tp-blue)'; _dotTitle = 'Cubierta por representativa (' + (f.representative && f.representative.tire || '') + ')'; }
                         else if (c.testedN > 0) { _dotColor = 'var(--tp-amber)'; _dotTitle = 'Parcial'; }
                         else { _dotColor = 'var(--tp-red)'; _dotTitle = 'Sin pruebas'; }
-                        var _repBadge = c.isRepresentative && window._tpAuditView ? '<span style="font-size:8px;color:var(--tp-blue);font-weight:700;" title="Representativa (mayor volumen)">REP</span>' : '';
+                        var _repBadge = c.isRepresentative && window._tpAuditView ? '<span style="font-size:11px;color:var(--tp-blue);font-weight:700;" title="Representativa (mayor volumen)">REP</span>' : '';
                         var _isAutoCont = c.coveredByContinuity && c.coveredByContinuity.auto;
-                        var _contTag = c.coveredByContinuity ? '<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(132,204,22,0.2);color:#84cc16;' + (_isAutoCont ? 'border:1px dashed #84cc16;' : '') + '" title="' + (c.coveredByContinuity.note || 'Carry-over sin cambios de emisiones') + '">' + (_isAutoCont ? 'AUTO ' : '') + 'CONT ' + c.coveredByContinuity.prevMy + '</span>' : '';
-                        var _contBtn = (c.testedN === 0) ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpOpenContinuityModal(' + JSON.stringify(c.desc).replace(/"/g, '&quot;') + ',' + JSON.stringify(c.my || '').replace(/"/g, '&quot;') + ');" style="font-size:8px;padding:1px 5px;" title="Marcar continuidad técnica vs MY previo">↪</button>' : '';
+                        var _contTag = c.coveredByContinuity ? '<span style="font-size:11px;padding:1px 4px;border-radius:3px;background:rgba(132,204,22,0.2);color:#84cc16;' + (_isAutoCont ? 'border:1px dashed #84cc16;' : '') + '" title="' + (c.coveredByContinuity.note || 'Carry-over sin cambios de emisiones') + '">' + (_isAutoCont ? 'AUTO ' : '') + 'CONT ' + c.coveredByContinuity.prevMy + '</span>' : '';
+                        var _contBtn = (c.testedN === 0) ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpOpenContinuityModal(' + JSON.stringify(c.desc).replace(/"/g, '&quot;') + ',' + JSON.stringify(c.my || '').replace(/"/g, '&quot;') + ');" style="font-size:11px;padding:1px 5px;" title="Marcar continuidad técnica vs MY previo">↪</button>' : '';
                         // Deadline particular por variante
                         var _descArg = JSON.stringify(c.desc).replace(/"/g, '&quot;');
                         var _cDeadBadge = '';
@@ -4626,24 +4626,24 @@ function tpRenderFamilies(el) {
                             var _cd = c.daysToDeadline;
                             var _cc = _cd < 7 ? '#ef4444' : _cd < 14 ? '#f59e0b' : '#06b6d4';
                             var _ct = _cd < 0 ? 'vencido' : _cd + 'd';
-                            _cDeadBadge = '<span style="font-size:8px;font-weight:700;color:' + _cc + ';" title="Deadline ' + c.overrideDeadline + '">⏰' + _ct + '</span>';
+                            _cDeadBadge = '<span style="font-size:11px;font-weight:700;color:' + _cc + ';" title="Deadline ' + c.overrideDeadline + '">⏰' + _ct + '</span>';
                         }
-                        var _cDeadCtrl = '<input type="date" value="' + (c.overrideDeadline || '') + '" class="tp-select" title="Deadline de esta variante" onclick="event.stopPropagation();" onchange="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',this.value);" style="font-size:8px;padding:0 2px;width:104px;">'
-                            + (c.overrideDeadline ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',&quot;&quot;);" style="font-size:8px;padding:0 4px;color:var(--tp-red);" title="Quitar deadline de variante">✕</button>' : '');
+                        var _cDeadCtrl = '<input type="date" value="' + (c.overrideDeadline || '') + '" class="tp-select" title="Deadline de esta variante" onclick="event.stopPropagation();" onchange="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',this.value);" style="font-size:11px;padding:2px 4px;width:132px;">'
+                            + (c.overrideDeadline ? '<button class="tp-btn tp-btn-ghost" onclick="event.stopPropagation();tpSetConfigOverride(' + _descArg + ',&quot;&quot;);" style="font-size:11px;padding:0 4px;color:var(--tp-red);" title="Quitar deadline de variante">✕</button>' : '');
                         const clickable = c.testedN > 0 ? `onclick="var el=document.getElementById('tp-vins-${fi}-${_ci}');if(el)el.style.display=el.style.display==='none'?'block':'none';" style="cursor:pointer;"` : '';
                         return `
                         <div style="margin-bottom:2px;border:1px solid var(--tp-border);border-radius:4px;background:var(--tp-card);overflow:hidden;">
-                            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;font-size:9px;" ${clickable}>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;font-size:11px;flex-wrap:wrap;gap:4px;" ${clickable}>
                                 <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap;">
                                     <span class="tp-dot" style="background:${_dotColor};" title="${_dotTitle}"></span>${_repBadge}${_contTag}
                                     ${badges}
-                                    ${c.testedN > 0 ? '<span style="font-size:9px;color:var(--tp-dim);">▼</span>' : ''}
+                                    ${c.testedN > 0 ? '<span style="font-size:11px;color:var(--tp-dim);">▼</span>' : ''}
                                 </div>
-                                <div style="display:flex;gap:4px;align-items:center;">
+                                <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
                                     ${_cDeadBadge}${_cDeadCtrl}
                                     ${_contBtn}
-                                    <span style="font-size:9px;font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
-                                    <span style="font-size:9px;color:var(--tp-dim);">${c.total.toLocaleString()}</span>
+                                    <span style="font-size:11px;font-weight:700;color:${c.testedN>=c.required?'var(--tp-green)':'var(--tp-red)'};">${c.testedN}/${c.required}</span>
+                                    <span style="font-size:11px;color:var(--tp-dim);">${c.total.toLocaleString()}</span>
                                 </div>
                             </div>
                             ${vinHtml}
