@@ -23,7 +23,7 @@ no-login operator picker, synced change history).
 | **Hoy** | Daily dashboard (incl. shared Lab Overview strip), quick actions | `platform-today` |
 | **Plan** | Test Plan Manager (weekly plan, **🚑 Recuperación**, families, calendar, simulator, production) | `platform-testplan` |
 | **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
-| **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system, **☁️ Archivos**) | `platform-panel` |
+| **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system, **☁️ Archivos**, **🗂️ Proyectos**) | `platform-panel` |
 | **CoP** | CoP Type 1 statistical Conformity-of-Production validator (family + VINes, live verdict) + **📈 Control SPC** (v15.7: cartas I-MR por familia×gas, Nelson, Cpk, alarmas) | `platform-cop` |
 
 Legacy platform names (`cop15`, `testplan`, `inventory`, `panel`) are aliased in
@@ -51,7 +51,7 @@ js/
   cop15.js              ← COP15 Cascade module + Soak Timer + Field Tooltips (~6,290 lines)
   testplan.js           ← Test Plan Manager + Recovery Plan + dynamic months (~5,090 lines)
   inventory.js          ← Lab Inventory + Zone Map grid (~5,000 lines)
-  panel.js              ← Dashboard, Lab Overview, Reports Center, Users, Alerts, Audit, Health (~2,610 lines)
+  panel.js              ← Dashboard, Lab Overview, Reports Center, Users, Alerts, Audit, Health, Proyectos (~4,350 lines)
   firebase-sync.js      ← Shared-workspace cloud sync layer (~2,900 lines)
   auth.js               ← Operator identity + PIN wall (~490 lines)
   cop_validator.js      ← CoP Type 1 statistical validator + Control SPC (I-MR/Nelson/Cpk) (~1,170 lines)
@@ -138,6 +138,10 @@ en el cliente sumando metadatos antes de subir.
   that week; **Inventory → Panel/HOY**: `invCalStatus()`/`invMaintOverdue()`/
   `invMaintDueThisWeek()` feed `pnGetActiveAlerts()` (source "Mantenimiento") and
   `dashCollectActivities()`, guarded with `typeof`
+- **Panel (Proyectos) → Inventory/Panel/HOY**: `pnActiveProjectForAsset()` feeds a banner in
+  `invRenderMaint` (guarded with `typeof`); `pnProjectsOverdueSteps()`/`pnProjectMilestones()`
+  feed `pnGetActiveAlerts()` (source "Proyectos"), `dashCollectActivities()` (category
+  `proyectos`) and `_pnCollectCalendarEvents()`
 - **Panel → All**: Lab Overview (`renderLabOverview`) + Intelligence read `db`, `tpState`, `invState`
 - **Firebase Sync → All**: pushes/pulls per-module state to `stations/KIA-EMLAB/{module}/current`
 - **App Core → All**: chart engine (`chartConfig*`), undo (`undoPush/Pop`), notes (`note*`),
@@ -348,6 +352,51 @@ calibración) dentro de Consumibles — sin módulo nuevo, reusa `invState`/`inv
   pantallas anchas se estiraba de borde a borde. `.dash-group` (HOY) y `.inv-row-list-2col`
   (listas de una fila por elemento en Consumibles) pasan a 2 columnas en `min-width:1024px` en vez
   de dejar el ancho sobrante vacío.
+
+## v16.6 — Seguimiento de Proyectos (bitácora + timeline + Gantt)
+
+- **Nuevo módulo Proyectos** (`js/panel.js`, pestaña `pn-projects`, Datos → ⋯ Más → 🗂️
+  Proyectos): seguimiento general (reparaciones, proyectos de inversión, cualquier iniciativa)
+  con pasos/responsables/fechas — **no solo mantenimiento**. `pnState.projects[]` =
+  `{id, name, desc, assetId, owner, status, steps[], log[]}`. `steps[]` son las filas capturadas
+  (tabla tipo Loop: Paso/Responsable/Estatus/Fecha objetivo/Cumplimiento/Obstáculo); `log[]` son
+  notas libres. **La línea de tiempo NUNCA se guarda** — `pnProjectTimeline(p)` la deriva
+  mezclando `log[]` con los cambios de estado de los pasos, sorteados desc — mismo patrón que
+  `v.timeline`/`g.timeline`. `pnProjectProgress(p)` es LA definición de avance/vencidos/bloqueados
+  de un proyecto — todo consumidor nuevo debe llamarla. Sin proyecto seleccionado
+  (`window._pnSelectedProject`): retícula de tarjetas (`.pn-proj-grid`, patrón de
+  `.inv-zonemap-grid` de v16.5). Con uno seleccionado: 📋 Tabla / 🕒 Línea de tiempo / 📊 Gantt
+  (semanal, mismo patrón de colspan que el Plan Maestro de 52 semanas de v16.4). Navegación
+  interna vía `_pnProjNav()` (invalida `tabCacheSwitch` + `pnRender()`) — necesario porque
+  `pn-projects` usa el render clásico (no está en `_pnAlpineTabs`), y moverse dentro de la MISMA
+  pestaña (retícula→detalle, cambiar de vista) no dispara un cambio de pestaña real.
+- **Integraciones**: proyecto ligado a un equipo del F11 (`assetId`) → banner "🗂️ Proyecto
+  abierto" en Consumibles → Mtto (`invRenderMaint`, guardado con `typeof pnActiveProjectForAsset`).
+  Hitos (pasos con fecha objetivo) en Datos → Calendario (`pnProjectMilestones`, sumado en
+  `_pnCollectCalendarEvents`). Pasos vencidos/bloqueados de proyectos activos → HOY (categoría
+  nueva `proyectos` en `DASH_CATS`/`DASH_CAT_ORDER`, checkbox de un toque → `pnProjectStepDone`) y
+  → Alertas (`pnGetActiveAlerts`, fuente `'Proyectos'`) — con el filtro anti-duplicado del punto 8
+  de `dashCollectActivities` excluyendo `'Proyectos'` para no repetirlas en HOY.
+- **Arreglo de reactividad Alpine (Datos)**: las pestañas de Datos sobre Alpine (Alertas,
+  Calendario, Usuarios, Bitácora, Sistema, Auditoría — `_pnAlpineTabs`) leen
+  `pnGetActiveAlerts()`/`_pnCollectCalendarEvents()`, funciones planas que tocan el `pnState`
+  global fuera de la reactividad de Alpine — sin una prop reactiva de por medio, Alpine nunca
+  detectaba que debían reevaluarse (bug preexistente que afectaba a TODAS las fuentes de alerta,
+  no solo Proyectos — confirmado con Mantenimiento). `panelAlpineComponent()` ahora tiene
+  `_dataVersion` (se lee, sin usarse, dentro de `activeAlerts()`/`calendarEvents()` para que
+  Alpine SÍ las trackee); `_bump()` la avanza; `pnSave()` ahora dispara `data:saved` (como ya
+  hacen `saveDB()`/`invSave()`) — el listener que llama `_bump()` en `data:saved` ya existía,
+  solo faltaba emitirse desde `pnSave()`.
+- **Sync** (`firebase-sync.js`): `_fbMergeProjects` mergea proyectos por id (gana `updatedAt`) y,
+  dentro de cada proyecto, `steps[]`/`log[]` también por id vía `_fbMergeProjectSubArray` — dos
+  técnicos editando pasos distintos del mismo proyecto en dispositivos distintos no se pisan.
+- **Exportación**: `pnExportProjectCSV`/`pnExportAllProjectsCSV`, encabezados idénticos al
+  tablero de Loop del usuario (`Step,Responsible,Status,Target Date,Completion Date,
+  Roadblock/Comments`), en el Centro de Reportes.
+- **Arreglo Plan → Familias** (`js/testplan.js`, `tpRenderFamilies`): restos hardcodeados del
+  tema oscuro eliminado en v15.5 (`#0f1826`/`#12192b`/`#e2e8f0`/`rgba(255,255,255,0.0x)`)
+  pintaban franjas negras dentro de tarjetas blancas — reemplazados por `var(--tp-dark)`/
+  `var(--tp-text)`/`var(--tp-border)`; fuentes de 8-9px subidas al mínimo del proyecto (11px).
 
 ## Working with this project
 

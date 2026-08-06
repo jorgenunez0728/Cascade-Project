@@ -2,6 +2,54 @@
 
 All notable changes to this project, organized by development round.
 
+## v16.6 — "Seguimiento de Proyectos (bitácora + timeline + Gantt)" (2026-08-06)
+
+El usuario mandó tres capturas: Plan → Familias con franjas negras dentro de tarjetas blancas, un
+tablero de Microsoft Loop ("Emission Cell Upgrade Monitoring") que usa **fuera de la plataforma**
+para dar seguimiento a proyectos de inversión, y un Gantt de ejemplo. Pidió traer ese seguimiento
+adentro — no solo mantenimiento, seguimiento general (reparaciones, proyectos de inversión,
+cualquier iniciativa) — y de paso arreglar la vista rota.
+
+- **Arreglo de Plan → Familias** (`js/testplan.js`): las franjas negras eran restos hardcodeados
+  del tema oscuro eliminado en v15.5 (`#0f1826`/`#12192b`/`#e2e8f0`/`rgba(255,255,255,0.0x)`) que
+  sobrevivieron en `tpRenderFamilias` y en la rejilla de la gráfica de déficit — reemplazados por
+  las variables de tema (`var(--tp-dark)`, `var(--tp-text)`, `var(--tp-border)`). De paso: todo el
+  bloque usaba `font-size:8px`/`9px`, por debajo del mínimo propio de la plataforma (`--fs-2xs:
+  11px`); subido a 11px con `flex-wrap` para que la fila de variante no desborde.
+- **Nuevo módulo Proyectos** (`js/panel.js`, pestaña `pn-projects` en Datos → ⋯ Más): seguimiento
+  general con pasos, responsables, fechas y una bitácora — igual que el tablero de Loop del
+  usuario, pero adentro. `pnState.projects[]` (`{..., steps[], log[]}`); `steps[]` son las filas
+  capturadas (tabla tipo Loop: Paso/Responsable/Estatus/Fecha objetivo/Cumplimiento/Obstáculo);
+  `log[]` son notas libres. **La línea de tiempo nunca se guarda** — se deriva mezclando `log[]`
+  con los cambios de estado de los pasos (`pnProjectTimeline`), el mismo patrón que
+  `v.timeline`/`g.timeline` en otros módulos. Retícula de tarjetas con progreso al entrar sin
+  proyecto seleccionado; con uno seleccionado, tres vistas: 📋 Tabla, 🕒 Línea de tiempo (con caja
+  para agregar notas) y 📊 Gantt semanal (mismo patrón de colspan que el Plan Maestro de 52
+  semanas de v16.4). Alta de proyecto/paso con formulario corto (3 campos + "Más detalles"),
+  patrón de v16.5.
+- **Integraciones**: un proyecto puede ligarse a un equipo del F11 — banner "🗂️ Proyecto abierto"
+  en Consumibles → Mtto (`invRenderMaint`). Los hitos (pasos con fecha objetivo) aparecen en
+  Datos → Calendario (`pnProjectMilestones`). Pasos vencidos/bloqueados de proyectos activos
+  entran a HOY (categoría nueva "Proyectos" en `DASH_CATS`, con check de un toque para completar)
+  y a Alertas (`pnGetActiveAlerts`, fuente "Proyectos"), sin duplicarse entre ambos.
+- **Hallazgo y arreglo de reactividad en Alpine (Datos)**: las pestañas de Datos que corren sobre
+  Alpine (Alertas, Calendario, Usuarios, Bitácora, Sistema, Auditoría) leen `pnGetActiveAlerts()`/
+  `_pnCollectCalendarEvents()` — funciones planas que tocan el `pnState` global, fuera de la
+  reactividad de Alpine. Sin una propiedad reactiva de por medio, Alpine nunca detectaba que debía
+  reevaluar esas vistas: un paso de Proyectos recién bloqueado (o, se confirmó, cualquier alerta
+  nueva de Inventario/Mantenimiento) no aparecía en Alertas hasta recargar la página por completo,
+  incluso cambiando de pestaña y regresando. `pnSave()` nunca disparaba el evento `data:saved` que
+  el propio componente Alpine ya escuchaba (sí lo hacen `saveDB()` e `invSave()`) — conectado, más
+  una `_dataVersion` reactiva que `activeAlerts()`/`calendarEvents()` leen para quedar bajo el
+  radar de Alpine y `_bump()` avanza. Corrige la staleness para TODAS las fuentes de alerta, no
+  solo Proyectos.
+- **Sincronización** (`js/firebase-sync.js`): `_fbMergeProjects` mergea proyectos por id
+  (gana `updatedAt`) y, dentro de cada proyecto, `steps[]`/`log[]` también por id — dos técnicos
+  editando pasos distintos del mismo proyecto en dispositivos distintos no se pisan.
+- **Exportación**: `pnExportProjectCSV`/`pnExportAllProjectsCSV` con encabezados idénticos al
+  tablero de Loop (`Step,Responsible,Status,Target Date,Completion Date,Roadblock/Comments`),
+  registrado en el Centro de Reportes.
+
 ## v16.5 — "Mapa como retícula + menos campos + sin espacio muerto" (2026-08-05)
 
 El usuario mandó capturas de la plataforma corriendo en PC: el mapa del cuarto de gases se veía
