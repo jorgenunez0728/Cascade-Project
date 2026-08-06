@@ -148,6 +148,7 @@ function _pnRenderProjectGrid(el) {
     var showArchived = !!window._pnProjShowArchived;
     var projects = (pnState.projects || []).filter(function(p) { return showArchived ? true : !p.archived; });
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-projects-help"><span>🗂️ Proyectos (' + projects.length + ')</span>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen()" style="font-size:10px;">📥 Importar Excel</button>';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProject()" style="font-size:10px;">+ Proyecto</button></div>';
     html += '<div style="font-size:11px;color:var(--tp-dim);margin-bottom:8px;">Da seguimiento a reparaciones, proyectos de inversión o cualquier iniciativa: pasos, fechas, responsables y una línea de tiempo con lo que va pasando.</div>';
     if (projects.length === 0) {
@@ -246,6 +247,7 @@ function _pnProjectTableHTML(p) {
     html += '</tbody></table></div>';
     html += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProjectStep(\'' + p.id + '\');" style="font-size:11px;">+ Paso</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen(\'' + p.id + '\')" style="font-size:11px;">📥 Importar Excel</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportProjectCSV(\'' + p.id + '\')" style="font-size:11px;">📤 Exportar CSV</button>';
     html += '</div>';
     return html;
@@ -524,6 +526,543 @@ function pnExportAllProjectsCSV() {
     a.download = 'Proyectos_' + localToday() + '.csv';
     a.click();
     showToast('Exportado', 'success');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// IMPORTADOR (v16.8) — Excel / CSV / pegar, SIN formato obligatorio
+// ══════════════════════════════════════════════════════════════════════
+// No se exige una plantilla: lo único que se pide es una fila de
+// encabezados. El importador la detecta, adivina qué columna es qué con un
+// diccionario de sinónimos ES+EN, y muestra una vista previa donde
+// cualquier columna se puede reasignar a mano antes de escribir nada.
+//
+// Tres entradas al mismo flujo:
+//   📄 Archivo  .xlsx/.xls (SheetJS con carga diferida) y .csv (sin librería)
+//   📋 Pegar    lo que copias de Excel/Loop llega como TSV — cero librería
+//
+// SheetJS se inyecta SOLO al abrir el importador (_pnProjLoadXLSX): la app
+// arranca igual de rápido y sigue siendo offline-first; si no hay internet,
+// Pegar y .csv siguen funcionando.
+
+// Campo interno → etiqueta + sinónimos reconocidos (ES/EN, sin acentos ni
+// puntuación al comparar). Agregar un sinónimo aquí es todo lo que hace
+// falta para que un tablero nuevo se detecte solo.
+var PN_IMPORT_FIELDS = {
+    title:       { label: 'Paso / Tarea',        required: true,  syn: ['step','steps','paso','pasos','tarea','tareas','task','tasks','actividad','actividades','activity','descripcion','description','desc','item','concepto','nombre','name','titulo','title','que','accion'] },
+    responsible: { label: 'Responsable',         required: false, syn: ['responsible','responsable','responsables','owner','dueno','asignado','asignada','assignee','assigned to','assigned','quien','encargado','persona','lead','a cargo'] },
+    status:      { label: 'Estatus',             required: false, syn: ['status','estatus','estado','progreso','progress','situacion','avance','etapa actual'] },
+    targetDate:  { label: 'Fecha objetivo',      required: false, syn: ['target date','target','fecha objetivo','fecha meta','fecha compromiso','due','due date','vencimiento','deadline','fecha limite','limite','end','end date','fin','fecha fin','fecha de entrega','entrega'] },
+    doneDate:    { label: 'Fecha cumplimiento',  required: false, syn: ['completion date','completion','fecha cumplimiento','cumplimiento','completado','completada','done','done date','fecha real','fecha termino','terminado','actual','actual date','fecha completado'] },
+    roadblock:   { label: 'Obstáculo / notas',   required: false, syn: ['roadblock','roadblocks','obstaculo','obstaculos','comentarios','comentario','comments','notas','nota','notes','bloqueo','impedimento','observaciones','remarks','issues','riesgo','roadblock comments'] },
+    phase:       { label: 'Fase',                required: false, syn: ['phase','fase','etapa','grupo','group','categoria','category','bloque','stage','seccion','area'] },
+    startDate:   { label: 'Fecha inicio',        required: false, syn: ['start','start date','fecha inicio','inicio','begin','desde','fecha de inicio'] }
+};
+var PN_IMPORT_LS_MAP = 'kia_proj_import_map';   // recuerda el mapeo por dispositivo
+
+// Normaliza una llave para comparar: minúsculas, sin acentos, sin puntuación,
+// espacios colapsados. "Roadblock / Comments" y "roadblock comments" empatan.
+function _pnNormKey(s) {
+    return String(s == null ? '' : s)
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Texto libre de estatus → una de las 4 claves de PN_STEP_STATUS.
+// Acepta español, inglés, símbolos y porcentajes ("100%" = completado).
+function _pnNormStatus(raw) {
+    var s = _pnNormKey(raw);
+    if (!s) return 'pendiente';
+    // Las negaciones van PRIMERO: "not started" / "sin iniciar" / "no completado"
+    // contienen las mismas raíces que los estados positivos y, sin este corte,
+    // "Not started" (un estatus muy común en tableros en inglés) se leía como
+    // "En curso" porque la palabra "started" empataba.
+    if (/^(not |no |sin |pendient|nuevo|new|todo|to do|backlog|abiert|open)/.test(s)) return 'pendiente';
+    if (/^0\s*%?$/.test(s)) return 'pendiente';
+    if (/^100\b/.test(s) || /complet|done|termin|finaliz|cerrad|listo|entregad|^ok$|^si$|^yes$|closed/.test(s)) return 'completado';
+    if (/bloque|block|stuck|detenid|atorad|pausad|on hold|riesgo|at risk|impedid/.test(s)) return 'bloqueado';
+    if (/curso|progres|proceso|wip|doing|activ|trabaj|iniciad|ongoing|started|working/.test(s)) return 'encurso';
+    return 'pendiente';
+}
+
+function _pnPad2(n) { return (n < 10 ? '0' : '') + n; }
+
+// ¿Las fechas d/m/a vienen como día/mes (México, default) o mes/día (EUA)?
+// Se decide con los DATOS, no con una suposición: si algún primer número
+// pasa de 12 solo puede ser día; si algún segundo número pasa de 12, es mm/dd.
+// Si la muestra es ambigua (todos ≤12) se queda en dd/mm y la vista previa
+// deja voltearlo con un clic, mostrando ejemplos reales.
+function _pnProjDetectDMY(values) {
+    var firstGt12 = false, secondGt12 = false;
+    (values || []).forEach(function(v) {
+        var m = String(v == null ? '' : v).trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+        if (!m) return;
+        if (+m[1] > 12) firstGt12 = true;
+        if (+m[2] > 12) secondGt12 = true;
+    });
+    if (firstGt12 && !secondGt12) return true;
+    if (secondGt12 && !firstGt12) return false;
+    return true;
+}
+
+// Cualquier representación de fecha → 'YYYY-MM-DD' ('' si no se entiende).
+// Nunca pasa por `new Date(y,m,d)` en las rutas con regex: se arma la cadena
+// con los números tal cual, así no hay corrimiento de zona horaria.
+function _pnNormDate(v, dmy) {
+    if (v == null || v === '') return '';
+    if (v instanceof Date && !isNaN(v.getTime())) {
+        return v.getFullYear() + '-' + _pnPad2(v.getMonth() + 1) + '-' + _pnPad2(v.getDate());
+    }
+    // Serial de Excel (días desde 1899-12-30) por si llega crudo
+    if (typeof v === 'number' && v > 20000 && v < 80000) {
+        var d = new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86400000);
+        return d.getUTCFullYear() + '-' + _pnPad2(d.getUTCMonth() + 1) + '-' + _pnPad2(d.getUTCDate());
+    }
+    var s = String(v).trim();
+    if (!s) return '';
+    var m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);              // ISO / yyyy-mm-dd
+    if (m) return m[1] + '-' + _pnPad2(+m[2]) + '-' + _pnPad2(+m[3]);
+    m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);           // d/m/a ó m/d/a
+    if (m) {
+        var a = +m[1], b = +m[2], yr = +m[3];
+        if (yr < 100) yr += 2000;
+        var day, mon;
+        if (a > 12) { day = a; mon = b; }            // inequívoco
+        else if (b > 12) { day = b; mon = a; }       // inequívoco
+        else { day = dmy ? a : b; mon = dmy ? b : a; }
+        if (mon < 1 || mon > 12 || day < 1 || day > 31) return '';
+        return yr + '-' + _pnPad2(mon) + '-' + _pnPad2(day);
+    }
+    var parsed = new Date(s);                                             // "15 Aug 2026", "Aug 15, 2026"
+    if (!isNaN(parsed.getTime())) {
+        return parsed.getFullYear() + '-' + _pnPad2(parsed.getMonth() + 1) + '-' + _pnPad2(parsed.getDate());
+    }
+    return '';
+}
+
+// SheetJS bajo demanda. Se resuelve con false si no se pudo cargar (sin
+// internet) — el modal entonces ofrece Pegar/CSV, que no lo necesitan.
+var PN_XLSX_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+function _pnProjLoadXLSX(cb) {
+    if (window.XLSX) { cb(true); return; }
+    if (window._pnXlsxLoading) { window._pnXlsxLoading.push(cb); return; }
+    window._pnXlsxLoading = [cb];
+    var done = function(ok) {
+        var q = window._pnXlsxLoading || []; window._pnXlsxLoading = null;
+        q.forEach(function(f) { try { f(ok); } catch (e) {} });
+    };
+    var s = document.createElement('script');
+    s.src = PN_XLSX_CDN;
+    s.onload = function() { done(!!window.XLSX); };
+    s.onerror = function() { done(false); };
+    document.head.appendChild(s);
+}
+
+// Texto pegado o .csv → retícula 2D. Detecta el separador solo: si la primera
+// línea trae tabuladores es TSV (lo que entrega el portapapeles de Excel),
+// si no se parsea como CSV con comillas (reusa la misma lógica de comillas
+// que _invParseCsvLine del F11).
+function _pnProjParseDelimited(text) {
+    var t = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    if (!t.trim()) return [];
+    var firstLine = t.split('\n')[0];
+    if (firstLine.indexOf('\t') !== -1) {
+        return t.split('\n').map(function(l) { return l.split('\t'); });
+    }
+    var rows = [], cur = '', row = [], inQ = false;
+    for (var i = 0; i < t.length; i++) {
+        var c = t[i];
+        if (inQ) {
+            if (c === '"') { if (t[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+            else cur += c;
+        } else if (c === '"') { inQ = true; }
+        else if (c === ',') { row.push(cur); cur = ''; }
+        else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+        else cur += c;
+    }
+    row.push(cur); rows.push(row);
+    return rows;
+}
+
+// Primera fila que parece encabezado: ≥2 celdas con texto y, de preferencia,
+// al menos un sinónimo conocido. Si nada empata, se toma la primera fila con
+// contenido (y el usuario puede corregir el mapeo de todos modos).
+function _pnProjDetectHeader(grid) {
+    var best = -1;
+    for (var i = 0; i < Math.min(grid.length, 12); i++) {
+        var cells = (grid[i] || []).filter(function(c) { return String(c == null ? '' : c).trim() !== ''; });
+        if (cells.length < 2) continue;
+        if (best === -1) best = i;
+        var hit = cells.some(function(c) {
+            var k = _pnNormKey(c);
+            return Object.keys(PN_IMPORT_FIELDS).some(function(f) { return PN_IMPORT_FIELDS[f].syn.indexOf(k) !== -1; });
+        });
+        if (hit) return i;
+    }
+    return best === -1 ? 0 : best;
+}
+
+// Encabezados → { campo: índiceDeColumna }. Empate exacto primero; si no,
+// "contiene" (para "Fecha objetivo (compromiso)"). Una columna no se asigna
+// dos veces, y el primer campo de PN_IMPORT_FIELDS gana en caso de empate.
+function _pnProjAutoMap(headers) {
+    var map = {}, used = {};
+    var keys = (headers || []).map(_pnNormKey);
+    Object.keys(PN_IMPORT_FIELDS).forEach(function(f) {
+        var syn = PN_IMPORT_FIELDS[f].syn;
+        for (var i = 0; i < keys.length; i++) {
+            if (used[i] || !keys[i]) continue;
+            if (syn.indexOf(keys[i]) !== -1) { map[f] = i; used[i] = true; return; }
+        }
+        for (var j = 0; j < keys.length; j++) {
+            if (used[j] || !keys[j]) continue;
+            for (var s = 0; s < syn.length; s++) {
+                if (syn[s].length >= 4 && (keys[j].indexOf(syn[s]) !== -1 || syn[s].indexOf(keys[j]) !== -1)) {
+                    map[f] = j; used[j] = true; return;
+                }
+            }
+        }
+    });
+    return map;
+}
+
+// Retícula + mapeo → pasos normalizados, listos para crear o fusionar.
+function _pnProjRowsToSteps(grid, headerRow, map, dmy) {
+    var out = [];
+    for (var i = headerRow + 1; i < grid.length; i++) {
+        var r = grid[i] || [];
+        var get = function(f) { return map[f] === undefined ? '' : String(r[map[f]] == null ? '' : r[map[f]]).trim(); };
+        var title = get('title');
+        if (!title) continue;                                  // sin título no hay paso
+        var status = map.status === undefined ? '' : _pnNormStatus(get('status'));
+        var doneDate = _pnNormDate(get('doneDate'), dmy);
+        if (!status) status = doneDate ? 'completado' : 'pendiente';
+        if (status === 'completado' && !doneDate) doneDate = '';
+        out.push({
+            title: title,
+            responsible: get('responsible'),
+            status: status,
+            targetDate: _pnNormDate(get('targetDate'), dmy),
+            doneDate: doneDate,
+            roadblock: get('roadblock'),
+            phase: get('phase'),
+            startDate: _pnNormDate(get('startDate'), dmy)
+        });
+    }
+    return out;
+}
+
+// ── UI del importador ──
+// Estado efímero de la sesión de importación (nunca se persiste).
+// { grid, headerRow, map, dmy, targetProjectId, sourceName, sheetNames, sheetIdx }
+var _pnImport = null;
+
+function pnProjImportOpen(projectId) {
+    _pnImport = { grid: null, headerRow: 0, map: {}, dmy: true, targetProjectId: projectId || '', sourceName: '', sheetNames: [], sheetIdx: 0 };
+    _pnProjImportRender();
+}
+function pnProjImportClose() {
+    var m = document.getElementById('pn-import-overlay');
+    if (m) m.remove();
+    _pnImport = null;
+}
+
+function _pnProjImportRender() {
+    var old = document.getElementById('pn-import-overlay');
+    if (old) old.remove();
+    var body = _pnImport && _pnImport.grid ? _pnProjImportStep2HTML() : _pnProjImportStep1HTML();
+    var html = '<div class="pn-import-overlay" id="pn-import-overlay" onclick="if(event.target===this)pnProjImportClose()">' +
+        '<div class="pn-import-box">' +
+        '<div class="pn-import-head"><span>📥 Importar pasos desde Excel</span>' +
+        '<button class="pn-import-x" onclick="pnProjImportClose()" aria-label="Cerrar">✕</button></div>' +
+        '<div class="pn-import-body">' + body + '</div>' +
+        '</div></div>';
+    var wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    document.body.appendChild(wrap.firstChild);
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
+}
+
+function _pnProjImportStep1HTML() {
+    return '<p class="pn-import-lead" data-help="pn-import-help">Trae tu lista tal como la tienes. ' +
+        '<strong>No hace falta un formato especial</strong> — solo que la tabla traiga una fila de encabezados. ' +
+        'Yo detecto qué columna es cuál y te dejo corregirlo antes de guardar nada.</p>' +
+        '<div class="pn-import-sources">' +
+        '<div class="pn-import-source">' +
+        '<div class="pn-import-source-title">📄 Desde un archivo</div>' +
+        '<div class="pn-import-source-desc">Excel (.xlsx, .xls) o .csv. El Excel se lee tal cual, sin convertir nada.</div>' +
+        '<input type="file" id="pn-import-file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="pnProjImportFile(event)">' +
+        '<button class="tp-btn tp-btn-primary" onclick="document.getElementById(\'pn-import-file\').click()">Elegir archivo…</button>' +
+        '</div>' +
+        '<div class="pn-import-source">' +
+        '<div class="pn-import-source-title">📋 Pegar</div>' +
+        '<div class="pn-import-source-desc">Copia las filas en Excel o Loop (Ctrl+C) y pégalas aquí. Funciona sin internet.</div>' +
+        '<textarea id="pn-import-paste" class="pn-import-paste" placeholder="Pega aquí la tabla…"></textarea>' +
+        '<button class="tp-btn tp-btn-primary" onclick="pnProjImportPaste()">Leer lo pegado</button>' +
+        '</div></div>';
+}
+
+function pnProjImportFile(ev) {
+    var f = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!f) return;
+    var ext = (f.name.split('.').pop() || '').toLowerCase();
+    _pnImport.sourceName = f.name.replace(/\.[^.]+$/, '');
+    if (ext === 'csv') {
+        var r = new FileReader();
+        r.onload = function(e) { _pnProjImportGrid(_pnProjParseDelimited(e.target.result)); };
+        r.readAsText(f);
+        return;
+    }
+    showToast('Leyendo Excel…', 'info');
+    _pnProjLoadXLSX(function(ok) {
+        if (!ok) {
+            showModal({
+                title: 'No se pudo leer el Excel', type: 'warning', showCancel: false,
+                message: 'Para abrir archivos .xlsx hace falta descargar una librería una sola vez, y este dispositivo no tiene conexión en este momento.<br><br>' +
+                         'Mientras tanto tienes dos caminos que <strong>sí funcionan sin internet</strong>:<br>' +
+                         '• Copia las filas en Excel y usa <strong>📋 Pegar</strong>.<br>' +
+                         '• En Excel: <em>Archivo → Guardar como → CSV</em> e importa ese archivo.'
+            });
+            return;
+        }
+        var r2 = new FileReader();
+        r2.onload = function(e) {
+            try {
+                // raw:false → cada celda llega como el TEXTO que se ve en Excel, así las
+                // fechas no dependen de la zona horaria ni del serial interno.
+                var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                _pnImport.sheetNames = wb.SheetNames || [];
+                _pnImport.sheetIdx = 0;
+                _pnImport._wb = wb;
+                _pnProjImportSheet(0);
+            } catch (err) {
+                showToast('No se pudo leer el archivo: ' + err.message, 'error');
+            }
+        };
+        r2.readAsArrayBuffer(f);
+    });
+}
+
+function _pnProjImportSheet(idx) {
+    var wb = _pnImport && _pnImport._wb;
+    if (!wb) return;
+    _pnImport.sheetIdx = idx;
+    var ws = wb.Sheets[wb.SheetNames[idx]];
+    var grid = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '', blankrows: false });
+    _pnProjImportGrid(grid);
+}
+function pnProjImportSheetPick(idx) { _pnProjImportSheet(parseInt(idx, 10) || 0); }
+
+function pnProjImportPaste() {
+    var ta = document.getElementById('pn-import-paste');
+    var txt = ta ? ta.value : '';
+    if (!txt.trim()) { showToast('Pega primero la tabla', 'warning'); return; }
+    _pnImport.sourceName = _pnImport.sourceName || 'Pegado';
+    _pnProjImportGrid(_pnProjParseDelimited(txt));
+}
+
+// Retícula lista → detectar encabezado, auto-mapear (o reusar el mapeo
+// recordado si los encabezados son los mismos) y pasar a la vista previa.
+function _pnProjImportGrid(grid) {
+    grid = (grid || []).filter(function(r) {
+        return (r || []).some(function(c) { return String(c == null ? '' : c).trim() !== ''; });
+    });
+    if (grid.length < 2) { showToast('No encontré filas con datos (hace falta encabezado + al menos una fila)', 'error'); return; }
+    _pnImport.grid = grid;
+    _pnImport.headerRow = _pnProjDetectHeader(grid);
+    var headers = grid[_pnImport.headerRow] || [];
+    var remembered = null;
+    try {
+        var saved = JSON.parse(localStorage.getItem(PN_IMPORT_LS_MAP) || 'null');
+        if (saved && saved.sig === headers.map(_pnNormKey).join('|')) remembered = saved.map;
+    } catch (e) {}
+    _pnImport.map = remembered || _pnProjAutoMap(headers);
+    // Muestra de fechas para decidir dd/mm vs mm/dd con los datos reales
+    var sample = [];
+    ['targetDate', 'doneDate', 'startDate'].forEach(function(f) {
+        if (_pnImport.map[f] === undefined) return;
+        for (var i = _pnImport.headerRow + 1; i < Math.min(grid.length, _pnImport.headerRow + 40); i++) {
+            sample.push((grid[i] || [])[_pnImport.map[f]]);
+        }
+    });
+    _pnImport.dmy = _pnProjDetectDMY(sample);
+    _pnProjImportRender();
+}
+
+function _pnProjImportStep2HTML() {
+    var st = _pnImport, grid = st.grid;
+    var headers = grid[st.headerRow] || [];
+    var steps = _pnProjRowsToSteps(grid, st.headerRow, st.map, st.dmy);
+    var fieldKeys = Object.keys(PN_IMPORT_FIELDS);
+
+    var h = '';
+    if (st.sheetNames.length > 1) {
+        h += '<div class="pn-import-row"><label>Hoja del libro</label><select onchange="pnProjImportSheetPick(this.value)">' +
+            st.sheetNames.map(function(n, i) { return '<option value="' + i + '"' + (i === st.sheetIdx ? ' selected' : '') + '>' + escapeHtml(n) + '</option>'; }).join('') +
+            '</select></div>';
+    }
+
+    h += '<div class="pn-import-row"><label>Fila de encabezados</label><select onchange="pnProjImportSetHeader(this.value)">';
+    for (var i = 0; i < Math.min(grid.length, 12); i++) {
+        var prev = (grid[i] || []).slice(0, 4).map(function(c) { return String(c == null ? '' : c).trim(); }).filter(Boolean).join(' · ');
+        h += '<option value="' + i + '"' + (i === st.headerRow ? ' selected' : '') + '>Fila ' + (i + 1) + ': ' + escapeHtml(prev.slice(0, 60)) + '</option>';
+    }
+    h += '</select></div>';
+
+    // Mapeo: una fila por campo, con las columnas del archivo como opciones.
+    h += '<div class="pn-import-maptitle" data-help="pn-import-map-help">Cómo se van a leer las columnas <span>(corrige lo que haga falta)</span></div>';
+    h += '<div class="pn-import-map">';
+    fieldKeys.forEach(function(f) {
+        var fd = PN_IMPORT_FIELDS[f];
+        var cur = st.map[f];
+        h += '<div class="pn-import-mapitem' + (cur === undefined ? ' pn-import-mapitem--off' : '') + '">';
+        h += '<span class="pn-import-maplabel">' + fd.label + (fd.required ? ' *' : '') + '</span>';
+        h += '<select onchange="pnProjImportSetMap(\'' + f + '\',this.value)">';
+        h += '<option value="">— no importar —</option>';
+        headers.forEach(function(hd, ci) {
+            var lbl = String(hd == null ? '' : hd).trim() || ('Columna ' + (ci + 1));
+            h += '<option value="' + ci + '"' + (cur === ci ? ' selected' : '') + '>' + escapeHtml(lbl.slice(0, 40)) + '</option>';
+        });
+        h += '</select></div>';
+    });
+    h += '</div>';
+
+    // Interruptor dd/mm ↔ mm/dd con un ejemplo real del archivo
+    var dateSample = '';
+    if (st.map.targetDate !== undefined) {
+        for (var r = st.headerRow + 1; r < grid.length && !dateSample; r++) {
+            var raw = String(((grid[r] || [])[st.map.targetDate]) || '').trim();
+            if (/^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/.test(raw)) dateSample = raw;
+        }
+    }
+    if (dateSample) {
+        h += '<div class="pn-import-daterow" data-help="pn-import-date-help">Fechas: <strong>' + escapeHtml(dateSample) + '</strong> se está leyendo como <strong>' +
+            _pnNormDate(dateSample, st.dmy) + '</strong> (' + (st.dmy ? 'día/mes/año' : 'mes/día/año') + ') ' +
+            '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportToggleDMY()">Cambiar a ' + (st.dmy ? 'mes/día/año' : 'día/mes/año') + '</button></div>';
+    }
+
+    // Vista previa de lo que se va a guardar (no del archivo crudo)
+    h += '<div class="pn-import-maptitle">Vista previa — ' + steps.length + ' paso' + (steps.length === 1 ? '' : 's') + ' detectado' + (steps.length === 1 ? '' : 's') + '</div>';
+    h += '<div class="pn-import-preview"><table class="pn-proj-table"><thead><tr>' +
+        '<th>Paso</th><th>Responsable</th><th>Estatus</th><th>Objetivo</th><th>Cumplimiento</th><th>Fase</th><th>Obstáculo</th></tr></thead><tbody>';
+    if (!steps.length) {
+        h += '<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--tp-dim);">Ninguna fila tiene "' + PN_IMPORT_FIELDS.title.label + '". Revisa el mapeo de arriba.</td></tr>';
+    }
+    steps.slice(0, 8).forEach(function(s) {
+        h += '<tr><td>' + escapeHtml(s.title) + '</td><td>' + escapeHtml(s.responsible || '—') + '</td>' +
+            '<td><span class="pn-proj-step-status pn-proj-step-status--' + s.status + '">' + PN_STEP_STATUS[s.status] + '</span></td>' +
+            '<td>' + (s.targetDate || '—') + '</td><td>' + (s.doneDate || '—') + '</td>' +
+            '<td>' + escapeHtml(s.phase || '—') + '</td><td>' + escapeHtml((s.roadblock || '').slice(0, 40)) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    if (steps.length > 8) h += '<div class="pn-import-more">…y ' + (steps.length - 8) + ' más</div>';
+
+    // Destino
+    var actives = (pnState.projects || []).filter(function(p) { return !p.archived; });
+    h += '<div class="pn-import-row"><label>¿A dónde van?</label><select id="pn-import-target">';
+    h += '<option value="">➕ Proyecto nuevo: "' + escapeHtml(st.sourceName || 'Importado') + '"</option>';
+    actives.forEach(function(p) {
+        h += '<option value="' + p.id + '"' + (st.targetProjectId === p.id ? ' selected' : '') + '>Agregar a: ' + escapeHtml(p.name) + '</option>';
+    });
+    h += '</select></div>';
+
+    h += '<div class="pn-import-actions">' +
+        '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportBack()">← Elegir otro origen</button>' +
+        '<button class="tp-btn tp-btn-primary" onclick="pnProjImportApply()"' + (steps.length ? '' : ' disabled') + '>Importar ' + steps.length + ' paso' + (steps.length === 1 ? '' : 's') + '</button>' +
+        '</div>';
+    return h;
+}
+
+function pnProjImportSetHeader(i) {
+    _pnImport.headerRow = parseInt(i, 10) || 0;
+    _pnImport.map = _pnProjAutoMap(_pnImport.grid[_pnImport.headerRow] || []);
+    _pnProjImportRender();
+}
+function pnProjImportSetMap(field, colIdx) {
+    if (colIdx === '') delete _pnImport.map[field];
+    else {
+        var ci = parseInt(colIdx, 10);
+        // una columna no puede alimentar dos campos a la vez
+        Object.keys(_pnImport.map).forEach(function(f) { if (f !== field && _pnImport.map[f] === ci) delete _pnImport.map[f]; });
+        _pnImport.map[field] = ci;
+    }
+    _pnProjImportRender();
+}
+function pnProjImportToggleDMY() { _pnImport.dmy = !_pnImport.dmy; _pnProjImportRender(); }
+function pnProjImportBack() { _pnImport.grid = null; _pnProjImportRender(); }
+
+// Escribe: crea proyecto nuevo o fusiona en uno existente.
+// Fusionar empata por título de paso (normalizado): si ya existe, ACTUALIZA
+// los campos que traiga el archivo; si no, agrega. Reimportar el mismo
+// archivo no duplica.
+function pnProjImportApply() {
+    var st = _pnImport;
+    if (!st || !st.grid) return;
+    var steps = _pnProjRowsToSteps(st.grid, st.headerRow, st.map, st.dmy);
+    if (!steps.length) { showToast('No hay pasos que importar', 'warning'); return; }
+    var targetId = (document.getElementById('pn-import-target') || {}).value || '';
+    var target = targetId ? (pnState.projects || []).find(function(p) { return p.id === targetId; }) : null;
+
+    var adds = steps.length, updates = 0;
+    if (target) {
+        var byTitle = {};
+        (target.steps || []).forEach(function(s) { byTitle[_pnNormKey(s.title)] = s; });
+        adds = 0;
+        steps.forEach(function(s) { if (byTitle[_pnNormKey(s.title)]) updates++; else adds++; });
+    }
+
+    var msg = target
+        ? 'En <strong>' + escapeHtml(target.name) + '</strong>: <strong>' + adds + '</strong> paso(s) nuevo(s) y <strong>' + updates + '</strong> actualizado(s) (se empatan por el nombre del paso, no se duplican).'
+        : 'Se creará el proyecto <strong>' + escapeHtml(st.sourceName || 'Importado') + '</strong> con <strong>' + adds + '</strong> paso(s).';
+
+    showConfirmDialog({ title: 'Confirmar importación', message: msg, type: 'info', confirmText: 'Importar' }).then(function(ok) {
+        if (!ok) return;
+        if (typeof undoPush === 'function') undoPush('panel', 'Importar proyecto');
+        var now = new Date().toISOString();
+        var proj = target;
+        if (!proj) {
+            proj = { id: invGenId(), name: st.sourceName || 'Importado', desc: 'Importado desde ' + (st.sourceName || 'archivo'),
+                     assetId: '', owner: '', status: 'activo', createdAt: now, updatedAt: now, archived: false, steps: [], log: [] };
+            if (!pnState.projects) pnState.projects = [];
+            pnState.projects.push(proj);
+        }
+        var byT = {};
+        (proj.steps || []).forEach(function(s) { byT[_pnNormKey(s.title)] = s; });
+        steps.forEach(function(row, i) {
+            var ex = byT[_pnNormKey(row.title)];
+            if (ex) {
+                ['responsible', 'status', 'targetDate', 'doneDate', 'roadblock', 'phase', 'startDate'].forEach(function(k) {
+                    if (row[k]) ex[k] = row[k];
+                });
+                ex.updatedAt = now;
+            } else {
+                proj.steps.push({
+                    id: invGenId(), seq: (proj.steps.length + 1), title: row.title,
+                    responsible: row.responsible, status: row.status, targetDate: row.targetDate,
+                    doneDate: row.doneDate, roadblock: row.roadblock, phase: row.phase,
+                    startDate: row.startDate || '', isMilestone: false, baselineTarget: '', dependsOn: [],
+                    createdAt: now, updatedAt: now
+                });
+            }
+        });
+        proj.updatedAt = now;
+        // Recordar el mapeo para que el próximo import del mismo tablero sea un clic
+        try {
+            localStorage.setItem(PN_IMPORT_LS_MAP, JSON.stringify({
+                sig: (st.grid[st.headerRow] || []).map(_pnNormKey).join('|'), map: st.map
+            }));
+        } catch (e) {}
+        pnSave();
+        if (typeof auditLog === 'function') auditLog('panel', 'proyecto_importado', { type: 'project', id: proj.id, label: proj.name }, adds + ' nuevos, ' + updates + ' actualizados');
+        window._pnSelectedProject = proj.id;
+        window._pnProjectView = 'table';
+        pnProjImportClose();
+        showToast('Importados ' + adds + ' pasos' + (updates ? ' (' + updates + ' actualizados)' : ''), 'success');
+        _pnProjNav();
+    });
 }
 
 // ══════════════════════════════════════════════════

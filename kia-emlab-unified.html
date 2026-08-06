@@ -2613,6 +2613,65 @@ details.acc > summary {
 .pn-proj-timeline-text { font-size: 12px; color: var(--tp-text); }
 .pn-proj-timeline-meta { font-size: 9px; color: var(--tp-dim); margin-top: 2px; }
 
+/* Importador de Excel/CSV/pegado (v16.8) */
+.pn-import-overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.55); z-index: 9000;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.pn-import-box {
+    background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+    width: min(920px, 100%); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+}
+.pn-import-head {
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+    border-bottom: 1px solid var(--tp-border); font-weight: 800; font-size: 14px;
+}
+.pn-import-x {
+    margin-left: auto; background: none; border: none; font-size: 18px; cursor: pointer;
+    color: var(--tp-dim); line-height: 1; padding: 4px 8px; min-height: 44px; min-width: 44px;
+}
+.pn-import-body { padding: 14px 16px 18px; overflow-y: auto; }
+.pn-import-lead { font-size: 12px; color: var(--tp-dim); margin: 0 0 14px; line-height: 1.5; }
+.pn-import-sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.pn-import-source {
+    border: 1px solid var(--tp-border); border-radius: var(--radius-lg); padding: 14px;
+    display: flex; flex-direction: column; gap: 8px;
+}
+.pn-import-source-title { font-weight: 800; font-size: 13px; }
+.pn-import-source-desc { font-size: 11px; color: var(--tp-dim); flex: 1; line-height: 1.45; }
+.pn-import-paste {
+    width: 100%; min-height: 90px; box-sizing: border-box; padding: 8px;
+    border: 1px solid var(--tp-border); border-radius: var(--radius-md);
+    font-family: 'Courier New', monospace; font-size: 11px; resize: vertical;
+}
+.pn-import-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.pn-import-row label { font-size: 11px; font-weight: 700; color: var(--tp-dim); min-width: 130px; }
+.pn-import-row select {
+    flex: 1; min-width: 180px; padding: 7px 9px; border: 1px solid var(--tp-border);
+    border-radius: var(--radius-md); font-size: 12px; background: var(--surface);
+}
+.pn-import-maptitle { font-size: 12px; font-weight: 800; margin: 14px 0 8px; }
+.pn-import-maptitle span { font-weight: 400; color: var(--tp-dim); font-size: 11px; }
+.pn-import-map { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
+.pn-import-mapitem {
+    display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--tp-border);
+    border-left: 3px solid #10b981; border-radius: var(--radius-md); padding: 7px 9px;
+}
+.pn-import-mapitem--off { border-left-color: var(--tp-border); opacity: 0.6; }
+.pn-import-maplabel { font-size: 11px; font-weight: 700; }
+.pn-import-mapitem select {
+    padding: 5px 7px; border: 1px solid var(--tp-border); border-radius: var(--radius-sm);
+    font-size: 11px; background: var(--surface); max-width: 100%;
+}
+.pn-import-daterow {
+    margin: 12px 0; padding: 9px 11px; background: rgba(245,158,11,0.10);
+    border: 1px solid rgba(245,158,11,0.30); border-radius: var(--radius-md);
+    font-size: 11px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.pn-import-preview { overflow-x: auto; border: 1px solid var(--tp-border); border-radius: var(--radius-md); }
+.pn-import-more { font-size: 11px; color: var(--tp-dim); padding: 6px 2px; }
+.pn-import-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+
 /* Gantt semanal — mismo patrón de colspan que el Plan Maestro de 52 semanas */
 .pn-proj-gantt-label { min-width: 130px; max-width: 160px; position: sticky; left: 0; background: var(--tp-card); padding: 3px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; border-top: 1px solid var(--tp-border); }
 .pn-proj-gantt-head { text-align: center; padding: 2px; color: var(--tp-dim); }
@@ -5390,7 +5449,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608061949';
+var APP_BUILD = '202608062340';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
@@ -5477,14 +5536,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608061949' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608062340' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608061949' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608062340' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5500,7 +5559,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608061949' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608062340' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -28356,7 +28415,9 @@ function _pnGetRenderer(tabId) {
     if (tabId === 'pn-intelligence') return pnRenderIntelligence;
     if (tabId === 'pn-system') return pnRenderSystemHealth;
     if (tabId === 'pn-calendar') return pnRenderCalendar;
-    if (tabId === 'pn-projects') return pnRenderProjects;
+    // v16.8: Proyectos vive en js/projects.js, que carga DESPUÉS de este archivo — guardar con
+    // typeof para que un fallo de carga de ese módulo no rompa el resto del Panel.
+    if (tabId === 'pn-projects') return (typeof pnRenderProjects === 'function') ? pnRenderProjects : null;
     if (tabId === 'pn-audit') return pnRenderAuditTrail;
     if (tabId === 'pn-regulations') return pnRenderRegulations;
     if (tabId === 'pn-files') return pnRenderFiles;
@@ -31442,14 +31503,103 @@ function pnFilesConfirmDelete(fileId, fileName) {
     }, { title: 'Eliminar archivo', type: 'danger', confirmText: 'Eliminar' });
 }
 
-// ══════════════════════════════════════════════════════════════════════
-// PROYECTOS — seguimiento general (v16.6)
-// No es solo mantenimiento: reparaciones, proyectos de inversión, cualquier
-// iniciativa con pasos, responsables y fechas. steps[] son las filas capturadas
-// (tabla tipo Loop); log[] son notas libres. La línea de tiempo NUNCA se
-// guarda — se deriva mezclando log[] con los cambios de estado de los pasos
-// (pnProjectTimeline), igual que v.timeline/g.timeline en otros módulos.
-// ══════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════
+// v16.0: Ayuda — banners de pestaña y tooltips de campo
+// ══════════════════════════════════════════════════
+if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'pn-dashboard': { title: 'Datos — resumen', text: 'El resumen cruzado del laboratorio (mismo que ve HOY): estado de vehículos, plan semanal, inventario y alertas en un vistazo.', tips: [
+        'Es el mismo contenido que el tablero de HOY, aquí en formato de tarjetas del Panel.',
+        'Las anomalías de gas y el estado de Firebase Sync se muestran solo si aplican.'
+    ]},
+    'pn-reports': { title: 'Reportes', text: 'Centro de exportación: cada botón genera un CSV/PDF distinto (gap de cobertura, pronóstico de gas, bitácora, alertas, auditoría). Lee la descripción de cada fila para saber qué incluye.', tips: [
+        'Cada tarjeta ya explica qué exporta antes de que pulses el botón.',
+        'Los reportes usan siempre los datos actuales — no hay que "generar" nada antes.',
+        'El "Estado semanal" en PDF es el más completo para compartir con jefatura.'
+    ]},
+    'pn-executive': { title: 'Ejecutivo', text: 'Scorecard de cumplimiento y proyección de recursos — vista para reportar hacia arriba.', tips: [
+        'El Compliance Scorecard resume % de cobertura contra el plan de producción.',
+        'Métricas por Operador te dice quién ha registrado/liberado más pruebas.'
+    ]},
+    'pn-turnaround': { title: 'Turnaround', text: 'Cuánto tarda un vehículo en cada etapa del proceso y el throughput diario del laboratorio.', tips: [
+        'Tiempos altos en una etapa señalan dónde se está atorando el flujo.',
+        'El throughput de 14 días ayuda a detectar tendencias de productividad.'
+    ]},
+    'pn-users': { title: 'Operadores', text: 'Alta y gestión de operadores del laboratorio: nombre, rol y estadísticas de pruebas por persona.', tips: [
+        'Agrega operadores antes de que aparezcan en el picker 👤 del topbar.',
+        'Las estadísticas (registrados/liberados/activos) se calculan automáticamente.'
+    ]},
+    'pn-shift': { title: 'Bitácora de turno', text: 'Registro de actividades, incidencias y observaciones del turno. Úsala para dejar constancia de lo que pasó en tu turno.', tips: [
+        'Usa "🔄 Cerrar Turno" al final del día para generar el reporte de entrega.',
+        'Cada entrada queda con operador, categoría y hora — es evidencia auditable.'
+    ]},
+    'pn-alerts': { title: 'Alertas', text: 'Todas las alertas activas de todos los módulos, ordenadas por severidad, incluidas las de consumo y las alarmas SPC.', tips: [
+        '"✅ Sin Alertas" significa que el laboratorio opera con normalidad.',
+        'Las alertas se agrupan por origen (COP15, Inventario, Test Plan, CoP SPC).'
+    ]},
+    'pn-intelligence': { title: 'Inteligencia', text: 'Correlaciones automáticas entre módulos (consumo vs volumen de pruebas) para detectar patrones que no se ven a simple vista.', tips: [
+        'Es informativo: no requiere captura, solo lectura de tendencias cruzadas.'
+    ]},
+    'pn-system': { title: 'Sistema', text: 'Salud técnica de la plataforma: versión instalada con su historial completo, uso de almacenamiento local y estado de sincronización.', tips: [
+        'El "🗂️ Historial de Versiones" arriba lista todo lo agregado, ronda por ronda — la más reciente siempre marcada ACTUAL.',
+        'Si el almacenamiento local se acerca al límite (~5MB), aquí lo verás primero.',
+        'Sirve para diagnosticar por qué un dispositivo no sincroniza.'
+    ]},
+    'pn-calendar': { title: 'Calendario', text: 'Las pruebas planificadas/ejecutadas por día del mes, para tener visión rápida de la carga de trabajo.', tips: [
+        'Usa ← Hoy → para navegar entre meses.'
+    ]},
+    'pn-audit': { title: 'Auditoría', text: 'El control de cambios de TODA la plataforma: quién hizo qué y cuándo. Exportable a CSV.', tips: [
+        'Cada acción importante (guardar, liberar, editar retroactivo) queda registrada aquí.',
+        'Usa los filtros para buscar por módulo, operador o tipo de acción.'
+    ]},
+    'pn-regulations': { title: 'Regulaciones', text: 'Catálogo de regulaciones de emisiones y sus gases/límites — la fuente que usan CoP y Liberación para validar resultados.', tips: [
+        'Agrega una fila de gas por cada contaminante que la regulación limita.',
+        'Estos límites son los que se comparan contra los resultados capturados en Liberación.'
+    ]},
+    'pn-files': { title: 'Almacén de Archivos', text: 'Un espacio compartido de 5MB para subir un documento desde este dispositivo y bajarlo desde otro — útil para pasar un .zip, PDF u hoja de cálculo sin depender de USB o correo.', tips: [
+        'Formatos aceptados: .zip, .pdf, .xls/.xlsx/.csv, .doc/.docx, imágenes.',
+        'El presupuesto de 5MB es compartido por TODO el laboratorio — borra lo que ya no necesites.',
+        'La lista se actualiza sola cuando alguien más sube o borra un archivo desde otro dispositivo.',
+        'Requiere que este dispositivo esté conectado a Firebase (indicador de sincronización arriba).'
+    ]}
+});
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'pn-reports-help': { title: 'Centro de Reportes', text: 'Un solo lugar para exportar todos los reportes del laboratorio; cada botón usa los datos actuales del sistema.' },
+    'pn-executive-help': { title: 'Compliance Scorecard', text: 'Porcentaje de cumplimiento del plan de producción, con proyección de recursos necesarios para cerrar la brecha.' },
+    'pn-turnaround-help': { title: 'Tiempo por etapa', text: 'Promedio de días/horas que un vehículo pasa en cada etapa del proceso (recepción, preacondicionamiento, prueba, liberación).' },
+    'pn-users-help': { title: 'Alta de operador', text: 'Registra el nombre y rol de un técnico del laboratorio para que pueda ser elegido en el picker de operador.' },
+    'pn-shift-help': { title: 'Bitácora', text: 'Registra aquí eventos de tu turno: inicio, incidencias, mantenimiento, calibraciones y observaciones.' },
+    'pn-alerts-help': { title: 'Resumen de alertas', text: 'Conteo de alertas Críticas / Altas / Medias activas ahora mismo en todo el laboratorio.' },
+    'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
+    'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
+    'pn-skill-matrix': { title: 'Matriz de competencias', text: 'Quién está capacitado para qué. Los niveles son: 1 en entrenamiento (supervisado), 2 autónomo, 3 puede certificar a otros. Las habilidades con recertificación (dinamómetro, calibración de analizadores, aprobador CoP) vencen solas y se marcan en rojo. La fila Cobertura te dice cuántos operadores activos pueden hacer esa prueba hoy — si marca 0 en una habilidad crítica, el laboratorio no puede cubrirla.' },
+    'pn-version-history-help': { title: 'Historial de versiones', text: 'Todas las rondas de mejoras de la plataforma, empezando por la más reciente (marcada ACTUAL). Toca el nombre de una versión para ver qué trajo. El pill "KIA EmLab vX.X" del menú ⋯ del topbar también trae aquí.' }
+});
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  PROYECTOS — seguimiento general de iniciativas (módulo propio)      ║
+// ║                                                                      ║
+// ║  v16.6: nació dentro de panel.js.                                    ║
+// ║  v16.8: extraído a su propio archivo (la convención del proyecto es   ║
+// ║  un módulo = un archivo) al sumarle importador de Excel, Kanban,      ║
+// ║  Carga por responsable, Curva S, Portafolio, hitos, línea base y      ║
+// ║  ruta crítica.                                                        ║
+// ║                                                                      ║
+// ║  NO es solo mantenimiento: reparaciones, proyectos de inversión o     ║
+// ║  cualquier iniciativa con pasos, responsables y fechas.               ║
+// ║                                                                      ║
+// ║  Estado: pnState.projects[] (vive en panel.js / kia_panel_v1, se      ║
+// ║  guarda con pnSave() y se sincroniza en la colección `panel`).        ║
+// ║  steps[] son las filas capturadas (tabla tipo Loop); log[] son notas  ║
+// ║  libres. La línea de tiempo NUNCA se guarda — se deriva mezclando     ║
+// ║  log[] con los cambios de estado de los pasos (pnProjectTimeline),    ║
+// ║  igual que v.timeline/g.timeline en otros módulos.                    ║
+// ║                                                                      ║
+// ║  Carga DESPUÉS de panel.js (usa pnState/pnSave/pnRender) — ver el      ║
+// ║  orden en index.html y build.sh.                                      ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
 
 var PN_PROJECT_STATUS = { activo: 'Activo', pausado: 'Pausado', cerrado: 'Cerrado' };
 var PN_STEP_STATUS = { pendiente: 'Pendiente', encurso: 'En curso', completado: 'Completado', bloqueado: 'Bloqueado' };
@@ -31577,6 +31727,7 @@ function _pnRenderProjectGrid(el) {
     var showArchived = !!window._pnProjShowArchived;
     var projects = (pnState.projects || []).filter(function(p) { return showArchived ? true : !p.archived; });
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-projects-help"><span>🗂️ Proyectos (' + projects.length + ')</span>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen()" style="font-size:10px;">📥 Importar Excel</button>';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProject()" style="font-size:10px;">+ Proyecto</button></div>';
     html += '<div style="font-size:11px;color:var(--tp-dim);margin-bottom:8px;">Da seguimiento a reparaciones, proyectos de inversión o cualquier iniciativa: pasos, fechas, responsables y una línea de tiempo con lo que va pasando.</div>';
     if (projects.length === 0) {
@@ -31675,6 +31826,7 @@ function _pnProjectTableHTML(p) {
     html += '</tbody></table></div>';
     html += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProjectStep(\'' + p.id + '\');" style="font-size:11px;">+ Paso</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen(\'' + p.id + '\')" style="font-size:11px;">📥 Importar Excel</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportProjectCSV(\'' + p.id + '\')" style="font-size:11px;">📤 Exportar CSV</button>';
     html += '</div>';
     return html;
@@ -31955,64 +32107,549 @@ function pnExportAllProjectsCSV() {
     showToast('Exportado', 'success');
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// IMPORTADOR (v16.8) — Excel / CSV / pegar, SIN formato obligatorio
+// ══════════════════════════════════════════════════════════════════════
+// No se exige una plantilla: lo único que se pide es una fila de
+// encabezados. El importador la detecta, adivina qué columna es qué con un
+// diccionario de sinónimos ES+EN, y muestra una vista previa donde
+// cualquier columna se puede reasignar a mano antes de escribir nada.
+//
+// Tres entradas al mismo flujo:
+//   📄 Archivo  .xlsx/.xls (SheetJS con carga diferida) y .csv (sin librería)
+//   📋 Pegar    lo que copias de Excel/Loop llega como TSV — cero librería
+//
+// SheetJS se inyecta SOLO al abrir el importador (_pnProjLoadXLSX): la app
+// arranca igual de rápido y sigue siendo offline-first; si no hay internet,
+// Pegar y .csv siguen funcionando.
+
+// Campo interno → etiqueta + sinónimos reconocidos (ES/EN, sin acentos ni
+// puntuación al comparar). Agregar un sinónimo aquí es todo lo que hace
+// falta para que un tablero nuevo se detecte solo.
+var PN_IMPORT_FIELDS = {
+    title:       { label: 'Paso / Tarea',        required: true,  syn: ['step','steps','paso','pasos','tarea','tareas','task','tasks','actividad','actividades','activity','descripcion','description','desc','item','concepto','nombre','name','titulo','title','que','accion'] },
+    responsible: { label: 'Responsable',         required: false, syn: ['responsible','responsable','responsables','owner','dueno','asignado','asignada','assignee','assigned to','assigned','quien','encargado','persona','lead','a cargo'] },
+    status:      { label: 'Estatus',             required: false, syn: ['status','estatus','estado','progreso','progress','situacion','avance','etapa actual'] },
+    targetDate:  { label: 'Fecha objetivo',      required: false, syn: ['target date','target','fecha objetivo','fecha meta','fecha compromiso','due','due date','vencimiento','deadline','fecha limite','limite','end','end date','fin','fecha fin','fecha de entrega','entrega'] },
+    doneDate:    { label: 'Fecha cumplimiento',  required: false, syn: ['completion date','completion','fecha cumplimiento','cumplimiento','completado','completada','done','done date','fecha real','fecha termino','terminado','actual','actual date','fecha completado'] },
+    roadblock:   { label: 'Obstáculo / notas',   required: false, syn: ['roadblock','roadblocks','obstaculo','obstaculos','comentarios','comentario','comments','notas','nota','notes','bloqueo','impedimento','observaciones','remarks','issues','riesgo','roadblock comments'] },
+    phase:       { label: 'Fase',                required: false, syn: ['phase','fase','etapa','grupo','group','categoria','category','bloque','stage','seccion','area'] },
+    startDate:   { label: 'Fecha inicio',        required: false, syn: ['start','start date','fecha inicio','inicio','begin','desde','fecha de inicio'] }
+};
+var PN_IMPORT_LS_MAP = 'kia_proj_import_map';   // recuerda el mapeo por dispositivo
+
+// Normaliza una llave para comparar: minúsculas, sin acentos, sin puntuación,
+// espacios colapsados. "Roadblock / Comments" y "roadblock comments" empatan.
+function _pnNormKey(s) {
+    return String(s == null ? '' : s)
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Texto libre de estatus → una de las 4 claves de PN_STEP_STATUS.
+// Acepta español, inglés, símbolos y porcentajes ("100%" = completado).
+function _pnNormStatus(raw) {
+    var s = _pnNormKey(raw);
+    if (!s) return 'pendiente';
+    // Las negaciones van PRIMERO: "not started" / "sin iniciar" / "no completado"
+    // contienen las mismas raíces que los estados positivos y, sin este corte,
+    // "Not started" (un estatus muy común en tableros en inglés) se leía como
+    // "En curso" porque la palabra "started" empataba.
+    if (/^(not |no |sin |pendient|nuevo|new|todo|to do|backlog|abiert|open)/.test(s)) return 'pendiente';
+    if (/^0\s*%?$/.test(s)) return 'pendiente';
+    if (/^100\b/.test(s) || /complet|done|termin|finaliz|cerrad|listo|entregad|^ok$|^si$|^yes$|closed/.test(s)) return 'completado';
+    if (/bloque|block|stuck|detenid|atorad|pausad|on hold|riesgo|at risk|impedid/.test(s)) return 'bloqueado';
+    if (/curso|progres|proceso|wip|doing|activ|trabaj|iniciad|ongoing|started|working/.test(s)) return 'encurso';
+    return 'pendiente';
+}
+
+function _pnPad2(n) { return (n < 10 ? '0' : '') + n; }
+
+// ¿Las fechas d/m/a vienen como día/mes (México, default) o mes/día (EUA)?
+// Se decide con los DATOS, no con una suposición: si algún primer número
+// pasa de 12 solo puede ser día; si algún segundo número pasa de 12, es mm/dd.
+// Si la muestra es ambigua (todos ≤12) se queda en dd/mm y la vista previa
+// deja voltearlo con un clic, mostrando ejemplos reales.
+function _pnProjDetectDMY(values) {
+    var firstGt12 = false, secondGt12 = false;
+    (values || []).forEach(function(v) {
+        var m = String(v == null ? '' : v).trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+        if (!m) return;
+        if (+m[1] > 12) firstGt12 = true;
+        if (+m[2] > 12) secondGt12 = true;
+    });
+    if (firstGt12 && !secondGt12) return true;
+    if (secondGt12 && !firstGt12) return false;
+    return true;
+}
+
+// Cualquier representación de fecha → 'YYYY-MM-DD' ('' si no se entiende).
+// Nunca pasa por `new Date(y,m,d)` en las rutas con regex: se arma la cadena
+// con los números tal cual, así no hay corrimiento de zona horaria.
+function _pnNormDate(v, dmy) {
+    if (v == null || v === '') return '';
+    if (v instanceof Date && !isNaN(v.getTime())) {
+        return v.getFullYear() + '-' + _pnPad2(v.getMonth() + 1) + '-' + _pnPad2(v.getDate());
+    }
+    // Serial de Excel (días desde 1899-12-30) por si llega crudo
+    if (typeof v === 'number' && v > 20000 && v < 80000) {
+        var d = new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86400000);
+        return d.getUTCFullYear() + '-' + _pnPad2(d.getUTCMonth() + 1) + '-' + _pnPad2(d.getUTCDate());
+    }
+    var s = String(v).trim();
+    if (!s) return '';
+    var m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);              // ISO / yyyy-mm-dd
+    if (m) return m[1] + '-' + _pnPad2(+m[2]) + '-' + _pnPad2(+m[3]);
+    m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);           // d/m/a ó m/d/a
+    if (m) {
+        var a = +m[1], b = +m[2], yr = +m[3];
+        if (yr < 100) yr += 2000;
+        var day, mon;
+        if (a > 12) { day = a; mon = b; }            // inequívoco
+        else if (b > 12) { day = b; mon = a; }       // inequívoco
+        else { day = dmy ? a : b; mon = dmy ? b : a; }
+        if (mon < 1 || mon > 12 || day < 1 || day > 31) return '';
+        return yr + '-' + _pnPad2(mon) + '-' + _pnPad2(day);
+    }
+    var parsed = new Date(s);                                             // "15 Aug 2026", "Aug 15, 2026"
+    if (!isNaN(parsed.getTime())) {
+        return parsed.getFullYear() + '-' + _pnPad2(parsed.getMonth() + 1) + '-' + _pnPad2(parsed.getDate());
+    }
+    return '';
+}
+
+// SheetJS bajo demanda. Se resuelve con false si no se pudo cargar (sin
+// internet) — el modal entonces ofrece Pegar/CSV, que no lo necesitan.
+var PN_XLSX_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+function _pnProjLoadXLSX(cb) {
+    if (window.XLSX) { cb(true); return; }
+    if (window._pnXlsxLoading) { window._pnXlsxLoading.push(cb); return; }
+    window._pnXlsxLoading = [cb];
+    var done = function(ok) {
+        var q = window._pnXlsxLoading || []; window._pnXlsxLoading = null;
+        q.forEach(function(f) { try { f(ok); } catch (e) {} });
+    };
+    var s = document.createElement('script');
+    s.src = PN_XLSX_CDN;
+    s.onload = function() { done(!!window.XLSX); };
+    s.onerror = function() { done(false); };
+    document.head.appendChild(s);
+}
+
+// Texto pegado o .csv → retícula 2D. Detecta el separador solo: si la primera
+// línea trae tabuladores es TSV (lo que entrega el portapapeles de Excel),
+// si no se parsea como CSV con comillas (reusa la misma lógica de comillas
+// que _invParseCsvLine del F11).
+function _pnProjParseDelimited(text) {
+    var t = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    if (!t.trim()) return [];
+    var firstLine = t.split('\n')[0];
+    if (firstLine.indexOf('\t') !== -1) {
+        return t.split('\n').map(function(l) { return l.split('\t'); });
+    }
+    var rows = [], cur = '', row = [], inQ = false;
+    for (var i = 0; i < t.length; i++) {
+        var c = t[i];
+        if (inQ) {
+            if (c === '"') { if (t[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+            else cur += c;
+        } else if (c === '"') { inQ = true; }
+        else if (c === ',') { row.push(cur); cur = ''; }
+        else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+        else cur += c;
+    }
+    row.push(cur); rows.push(row);
+    return rows;
+}
+
+// Primera fila que parece encabezado: ≥2 celdas con texto y, de preferencia,
+// al menos un sinónimo conocido. Si nada empata, se toma la primera fila con
+// contenido (y el usuario puede corregir el mapeo de todos modos).
+function _pnProjDetectHeader(grid) {
+    var best = -1;
+    for (var i = 0; i < Math.min(grid.length, 12); i++) {
+        var cells = (grid[i] || []).filter(function(c) { return String(c == null ? '' : c).trim() !== ''; });
+        if (cells.length < 2) continue;
+        if (best === -1) best = i;
+        var hit = cells.some(function(c) {
+            var k = _pnNormKey(c);
+            return Object.keys(PN_IMPORT_FIELDS).some(function(f) { return PN_IMPORT_FIELDS[f].syn.indexOf(k) !== -1; });
+        });
+        if (hit) return i;
+    }
+    return best === -1 ? 0 : best;
+}
+
+// Encabezados → { campo: índiceDeColumna }. Empate exacto primero; si no,
+// "contiene" (para "Fecha objetivo (compromiso)"). Una columna no se asigna
+// dos veces, y el primer campo de PN_IMPORT_FIELDS gana en caso de empate.
+function _pnProjAutoMap(headers) {
+    var map = {}, used = {};
+    var keys = (headers || []).map(_pnNormKey);
+    Object.keys(PN_IMPORT_FIELDS).forEach(function(f) {
+        var syn = PN_IMPORT_FIELDS[f].syn;
+        for (var i = 0; i < keys.length; i++) {
+            if (used[i] || !keys[i]) continue;
+            if (syn.indexOf(keys[i]) !== -1) { map[f] = i; used[i] = true; return; }
+        }
+        for (var j = 0; j < keys.length; j++) {
+            if (used[j] || !keys[j]) continue;
+            for (var s = 0; s < syn.length; s++) {
+                if (syn[s].length >= 4 && (keys[j].indexOf(syn[s]) !== -1 || syn[s].indexOf(keys[j]) !== -1)) {
+                    map[f] = j; used[j] = true; return;
+                }
+            }
+        }
+    });
+    return map;
+}
+
+// Retícula + mapeo → pasos normalizados, listos para crear o fusionar.
+function _pnProjRowsToSteps(grid, headerRow, map, dmy) {
+    var out = [];
+    for (var i = headerRow + 1; i < grid.length; i++) {
+        var r = grid[i] || [];
+        var get = function(f) { return map[f] === undefined ? '' : String(r[map[f]] == null ? '' : r[map[f]]).trim(); };
+        var title = get('title');
+        if (!title) continue;                                  // sin título no hay paso
+        var status = map.status === undefined ? '' : _pnNormStatus(get('status'));
+        var doneDate = _pnNormDate(get('doneDate'), dmy);
+        if (!status) status = doneDate ? 'completado' : 'pendiente';
+        if (status === 'completado' && !doneDate) doneDate = '';
+        out.push({
+            title: title,
+            responsible: get('responsible'),
+            status: status,
+            targetDate: _pnNormDate(get('targetDate'), dmy),
+            doneDate: doneDate,
+            roadblock: get('roadblock'),
+            phase: get('phase'),
+            startDate: _pnNormDate(get('startDate'), dmy)
+        });
+    }
+    return out;
+}
+
+// ── UI del importador ──
+// Estado efímero de la sesión de importación (nunca se persiste).
+// { grid, headerRow, map, dmy, targetProjectId, sourceName, sheetNames, sheetIdx }
+var _pnImport = null;
+
+function pnProjImportOpen(projectId) {
+    _pnImport = { grid: null, headerRow: 0, map: {}, dmy: true, targetProjectId: projectId || '', sourceName: '', sheetNames: [], sheetIdx: 0 };
+    _pnProjImportRender();
+}
+function pnProjImportClose() {
+    var m = document.getElementById('pn-import-overlay');
+    if (m) m.remove();
+    _pnImport = null;
+}
+
+function _pnProjImportRender() {
+    var old = document.getElementById('pn-import-overlay');
+    if (old) old.remove();
+    var body = _pnImport && _pnImport.grid ? _pnProjImportStep2HTML() : _pnProjImportStep1HTML();
+    var html = '<div class="pn-import-overlay" id="pn-import-overlay" onclick="if(event.target===this)pnProjImportClose()">' +
+        '<div class="pn-import-box">' +
+        '<div class="pn-import-head"><span>📥 Importar pasos desde Excel</span>' +
+        '<button class="pn-import-x" onclick="pnProjImportClose()" aria-label="Cerrar">✕</button></div>' +
+        '<div class="pn-import-body">' + body + '</div>' +
+        '</div></div>';
+    var wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    document.body.appendChild(wrap.firstChild);
+    if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
+}
+
+function _pnProjImportStep1HTML() {
+    return '<p class="pn-import-lead" data-help="pn-import-help">Trae tu lista tal como la tienes. ' +
+        '<strong>No hace falta un formato especial</strong> — solo que la tabla traiga una fila de encabezados. ' +
+        'Yo detecto qué columna es cuál y te dejo corregirlo antes de guardar nada.</p>' +
+        '<div class="pn-import-sources">' +
+        '<div class="pn-import-source">' +
+        '<div class="pn-import-source-title">📄 Desde un archivo</div>' +
+        '<div class="pn-import-source-desc">Excel (.xlsx, .xls) o .csv. El Excel se lee tal cual, sin convertir nada.</div>' +
+        '<input type="file" id="pn-import-file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="pnProjImportFile(event)">' +
+        '<button class="tp-btn tp-btn-primary" onclick="document.getElementById(\'pn-import-file\').click()">Elegir archivo…</button>' +
+        '</div>' +
+        '<div class="pn-import-source">' +
+        '<div class="pn-import-source-title">📋 Pegar</div>' +
+        '<div class="pn-import-source-desc">Copia las filas en Excel o Loop (Ctrl+C) y pégalas aquí. Funciona sin internet.</div>' +
+        '<textarea id="pn-import-paste" class="pn-import-paste" placeholder="Pega aquí la tabla…"></textarea>' +
+        '<button class="tp-btn tp-btn-primary" onclick="pnProjImportPaste()">Leer lo pegado</button>' +
+        '</div></div>';
+}
+
+function pnProjImportFile(ev) {
+    var f = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!f) return;
+    var ext = (f.name.split('.').pop() || '').toLowerCase();
+    _pnImport.sourceName = f.name.replace(/\.[^.]+$/, '');
+    if (ext === 'csv') {
+        var r = new FileReader();
+        r.onload = function(e) { _pnProjImportGrid(_pnProjParseDelimited(e.target.result)); };
+        r.readAsText(f);
+        return;
+    }
+    showToast('Leyendo Excel…', 'info');
+    _pnProjLoadXLSX(function(ok) {
+        if (!ok) {
+            showModal({
+                title: 'No se pudo leer el Excel', type: 'warning', showCancel: false,
+                message: 'Para abrir archivos .xlsx hace falta descargar una librería una sola vez, y este dispositivo no tiene conexión en este momento.<br><br>' +
+                         'Mientras tanto tienes dos caminos que <strong>sí funcionan sin internet</strong>:<br>' +
+                         '• Copia las filas en Excel y usa <strong>📋 Pegar</strong>.<br>' +
+                         '• En Excel: <em>Archivo → Guardar como → CSV</em> e importa ese archivo.'
+            });
+            return;
+        }
+        var r2 = new FileReader();
+        r2.onload = function(e) {
+            try {
+                // raw:false → cada celda llega como el TEXTO que se ve en Excel, así las
+                // fechas no dependen de la zona horaria ni del serial interno.
+                var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                _pnImport.sheetNames = wb.SheetNames || [];
+                _pnImport.sheetIdx = 0;
+                _pnImport._wb = wb;
+                _pnProjImportSheet(0);
+            } catch (err) {
+                showToast('No se pudo leer el archivo: ' + err.message, 'error');
+            }
+        };
+        r2.readAsArrayBuffer(f);
+    });
+}
+
+function _pnProjImportSheet(idx) {
+    var wb = _pnImport && _pnImport._wb;
+    if (!wb) return;
+    _pnImport.sheetIdx = idx;
+    var ws = wb.Sheets[wb.SheetNames[idx]];
+    var grid = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '', blankrows: false });
+    _pnProjImportGrid(grid);
+}
+function pnProjImportSheetPick(idx) { _pnProjImportSheet(parseInt(idx, 10) || 0); }
+
+function pnProjImportPaste() {
+    var ta = document.getElementById('pn-import-paste');
+    var txt = ta ? ta.value : '';
+    if (!txt.trim()) { showToast('Pega primero la tabla', 'warning'); return; }
+    _pnImport.sourceName = _pnImport.sourceName || 'Pegado';
+    _pnProjImportGrid(_pnProjParseDelimited(txt));
+}
+
+// Retícula lista → detectar encabezado, auto-mapear (o reusar el mapeo
+// recordado si los encabezados son los mismos) y pasar a la vista previa.
+function _pnProjImportGrid(grid) {
+    grid = (grid || []).filter(function(r) {
+        return (r || []).some(function(c) { return String(c == null ? '' : c).trim() !== ''; });
+    });
+    if (grid.length < 2) { showToast('No encontré filas con datos (hace falta encabezado + al menos una fila)', 'error'); return; }
+    _pnImport.grid = grid;
+    _pnImport.headerRow = _pnProjDetectHeader(grid);
+    var headers = grid[_pnImport.headerRow] || [];
+    var remembered = null;
+    try {
+        var saved = JSON.parse(localStorage.getItem(PN_IMPORT_LS_MAP) || 'null');
+        if (saved && saved.sig === headers.map(_pnNormKey).join('|')) remembered = saved.map;
+    } catch (e) {}
+    _pnImport.map = remembered || _pnProjAutoMap(headers);
+    // Muestra de fechas para decidir dd/mm vs mm/dd con los datos reales
+    var sample = [];
+    ['targetDate', 'doneDate', 'startDate'].forEach(function(f) {
+        if (_pnImport.map[f] === undefined) return;
+        for (var i = _pnImport.headerRow + 1; i < Math.min(grid.length, _pnImport.headerRow + 40); i++) {
+            sample.push((grid[i] || [])[_pnImport.map[f]]);
+        }
+    });
+    _pnImport.dmy = _pnProjDetectDMY(sample);
+    _pnProjImportRender();
+}
+
+function _pnProjImportStep2HTML() {
+    var st = _pnImport, grid = st.grid;
+    var headers = grid[st.headerRow] || [];
+    var steps = _pnProjRowsToSteps(grid, st.headerRow, st.map, st.dmy);
+    var fieldKeys = Object.keys(PN_IMPORT_FIELDS);
+
+    var h = '';
+    if (st.sheetNames.length > 1) {
+        h += '<div class="pn-import-row"><label>Hoja del libro</label><select onchange="pnProjImportSheetPick(this.value)">' +
+            st.sheetNames.map(function(n, i) { return '<option value="' + i + '"' + (i === st.sheetIdx ? ' selected' : '') + '>' + escapeHtml(n) + '</option>'; }).join('') +
+            '</select></div>';
+    }
+
+    h += '<div class="pn-import-row"><label>Fila de encabezados</label><select onchange="pnProjImportSetHeader(this.value)">';
+    for (var i = 0; i < Math.min(grid.length, 12); i++) {
+        var prev = (grid[i] || []).slice(0, 4).map(function(c) { return String(c == null ? '' : c).trim(); }).filter(Boolean).join(' · ');
+        h += '<option value="' + i + '"' + (i === st.headerRow ? ' selected' : '') + '>Fila ' + (i + 1) + ': ' + escapeHtml(prev.slice(0, 60)) + '</option>';
+    }
+    h += '</select></div>';
+
+    // Mapeo: una fila por campo, con las columnas del archivo como opciones.
+    h += '<div class="pn-import-maptitle" data-help="pn-import-map-help">Cómo se van a leer las columnas <span>(corrige lo que haga falta)</span></div>';
+    h += '<div class="pn-import-map">';
+    fieldKeys.forEach(function(f) {
+        var fd = PN_IMPORT_FIELDS[f];
+        var cur = st.map[f];
+        h += '<div class="pn-import-mapitem' + (cur === undefined ? ' pn-import-mapitem--off' : '') + '">';
+        h += '<span class="pn-import-maplabel">' + fd.label + (fd.required ? ' *' : '') + '</span>';
+        h += '<select onchange="pnProjImportSetMap(\'' + f + '\',this.value)">';
+        h += '<option value="">— no importar —</option>';
+        headers.forEach(function(hd, ci) {
+            var lbl = String(hd == null ? '' : hd).trim() || ('Columna ' + (ci + 1));
+            h += '<option value="' + ci + '"' + (cur === ci ? ' selected' : '') + '>' + escapeHtml(lbl.slice(0, 40)) + '</option>';
+        });
+        h += '</select></div>';
+    });
+    h += '</div>';
+
+    // Interruptor dd/mm ↔ mm/dd con un ejemplo real del archivo
+    var dateSample = '';
+    if (st.map.targetDate !== undefined) {
+        for (var r = st.headerRow + 1; r < grid.length && !dateSample; r++) {
+            var raw = String(((grid[r] || [])[st.map.targetDate]) || '').trim();
+            if (/^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/.test(raw)) dateSample = raw;
+        }
+    }
+    if (dateSample) {
+        h += '<div class="pn-import-daterow" data-help="pn-import-date-help">Fechas: <strong>' + escapeHtml(dateSample) + '</strong> se está leyendo como <strong>' +
+            _pnNormDate(dateSample, st.dmy) + '</strong> (' + (st.dmy ? 'día/mes/año' : 'mes/día/año') + ') ' +
+            '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportToggleDMY()">Cambiar a ' + (st.dmy ? 'mes/día/año' : 'día/mes/año') + '</button></div>';
+    }
+
+    // Vista previa de lo que se va a guardar (no del archivo crudo)
+    h += '<div class="pn-import-maptitle">Vista previa — ' + steps.length + ' paso' + (steps.length === 1 ? '' : 's') + ' detectado' + (steps.length === 1 ? '' : 's') + '</div>';
+    h += '<div class="pn-import-preview"><table class="pn-proj-table"><thead><tr>' +
+        '<th>Paso</th><th>Responsable</th><th>Estatus</th><th>Objetivo</th><th>Cumplimiento</th><th>Fase</th><th>Obstáculo</th></tr></thead><tbody>';
+    if (!steps.length) {
+        h += '<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--tp-dim);">Ninguna fila tiene "' + PN_IMPORT_FIELDS.title.label + '". Revisa el mapeo de arriba.</td></tr>';
+    }
+    steps.slice(0, 8).forEach(function(s) {
+        h += '<tr><td>' + escapeHtml(s.title) + '</td><td>' + escapeHtml(s.responsible || '—') + '</td>' +
+            '<td><span class="pn-proj-step-status pn-proj-step-status--' + s.status + '">' + PN_STEP_STATUS[s.status] + '</span></td>' +
+            '<td>' + (s.targetDate || '—') + '</td><td>' + (s.doneDate || '—') + '</td>' +
+            '<td>' + escapeHtml(s.phase || '—') + '</td><td>' + escapeHtml((s.roadblock || '').slice(0, 40)) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    if (steps.length > 8) h += '<div class="pn-import-more">…y ' + (steps.length - 8) + ' más</div>';
+
+    // Destino
+    var actives = (pnState.projects || []).filter(function(p) { return !p.archived; });
+    h += '<div class="pn-import-row"><label>¿A dónde van?</label><select id="pn-import-target">';
+    h += '<option value="">➕ Proyecto nuevo: "' + escapeHtml(st.sourceName || 'Importado') + '"</option>';
+    actives.forEach(function(p) {
+        h += '<option value="' + p.id + '"' + (st.targetProjectId === p.id ? ' selected' : '') + '>Agregar a: ' + escapeHtml(p.name) + '</option>';
+    });
+    h += '</select></div>';
+
+    h += '<div class="pn-import-actions">' +
+        '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportBack()">← Elegir otro origen</button>' +
+        '<button class="tp-btn tp-btn-primary" onclick="pnProjImportApply()"' + (steps.length ? '' : ' disabled') + '>Importar ' + steps.length + ' paso' + (steps.length === 1 ? '' : 's') + '</button>' +
+        '</div>';
+    return h;
+}
+
+function pnProjImportSetHeader(i) {
+    _pnImport.headerRow = parseInt(i, 10) || 0;
+    _pnImport.map = _pnProjAutoMap(_pnImport.grid[_pnImport.headerRow] || []);
+    _pnProjImportRender();
+}
+function pnProjImportSetMap(field, colIdx) {
+    if (colIdx === '') delete _pnImport.map[field];
+    else {
+        var ci = parseInt(colIdx, 10);
+        // una columna no puede alimentar dos campos a la vez
+        Object.keys(_pnImport.map).forEach(function(f) { if (f !== field && _pnImport.map[f] === ci) delete _pnImport.map[f]; });
+        _pnImport.map[field] = ci;
+    }
+    _pnProjImportRender();
+}
+function pnProjImportToggleDMY() { _pnImport.dmy = !_pnImport.dmy; _pnProjImportRender(); }
+function pnProjImportBack() { _pnImport.grid = null; _pnProjImportRender(); }
+
+// Escribe: crea proyecto nuevo o fusiona en uno existente.
+// Fusionar empata por título de paso (normalizado): si ya existe, ACTUALIZA
+// los campos que traiga el archivo; si no, agrega. Reimportar el mismo
+// archivo no duplica.
+function pnProjImportApply() {
+    var st = _pnImport;
+    if (!st || !st.grid) return;
+    var steps = _pnProjRowsToSteps(st.grid, st.headerRow, st.map, st.dmy);
+    if (!steps.length) { showToast('No hay pasos que importar', 'warning'); return; }
+    var targetId = (document.getElementById('pn-import-target') || {}).value || '';
+    var target = targetId ? (pnState.projects || []).find(function(p) { return p.id === targetId; }) : null;
+
+    var adds = steps.length, updates = 0;
+    if (target) {
+        var byTitle = {};
+        (target.steps || []).forEach(function(s) { byTitle[_pnNormKey(s.title)] = s; });
+        adds = 0;
+        steps.forEach(function(s) { if (byTitle[_pnNormKey(s.title)]) updates++; else adds++; });
+    }
+
+    var msg = target
+        ? 'En <strong>' + escapeHtml(target.name) + '</strong>: <strong>' + adds + '</strong> paso(s) nuevo(s) y <strong>' + updates + '</strong> actualizado(s) (se empatan por el nombre del paso, no se duplican).'
+        : 'Se creará el proyecto <strong>' + escapeHtml(st.sourceName || 'Importado') + '</strong> con <strong>' + adds + '</strong> paso(s).';
+
+    showConfirmDialog({ title: 'Confirmar importación', message: msg, type: 'info', confirmText: 'Importar' }).then(function(ok) {
+        if (!ok) return;
+        if (typeof undoPush === 'function') undoPush('panel', 'Importar proyecto');
+        var now = new Date().toISOString();
+        var proj = target;
+        if (!proj) {
+            proj = { id: invGenId(), name: st.sourceName || 'Importado', desc: 'Importado desde ' + (st.sourceName || 'archivo'),
+                     assetId: '', owner: '', status: 'activo', createdAt: now, updatedAt: now, archived: false, steps: [], log: [] };
+            if (!pnState.projects) pnState.projects = [];
+            pnState.projects.push(proj);
+        }
+        var byT = {};
+        (proj.steps || []).forEach(function(s) { byT[_pnNormKey(s.title)] = s; });
+        steps.forEach(function(row, i) {
+            var ex = byT[_pnNormKey(row.title)];
+            if (ex) {
+                ['responsible', 'status', 'targetDate', 'doneDate', 'roadblock', 'phase', 'startDate'].forEach(function(k) {
+                    if (row[k]) ex[k] = row[k];
+                });
+                ex.updatedAt = now;
+            } else {
+                proj.steps.push({
+                    id: invGenId(), seq: (proj.steps.length + 1), title: row.title,
+                    responsible: row.responsible, status: row.status, targetDate: row.targetDate,
+                    doneDate: row.doneDate, roadblock: row.roadblock, phase: row.phase,
+                    startDate: row.startDate || '', isMilestone: false, baselineTarget: '', dependsOn: [],
+                    createdAt: now, updatedAt: now
+                });
+            }
+        });
+        proj.updatedAt = now;
+        // Recordar el mapeo para que el próximo import del mismo tablero sea un clic
+        try {
+            localStorage.setItem(PN_IMPORT_LS_MAP, JSON.stringify({
+                sig: (st.grid[st.headerRow] || []).map(_pnNormKey).join('|'), map: st.map
+            }));
+        } catch (e) {}
+        pnSave();
+        if (typeof auditLog === 'function') auditLog('panel', 'proyecto_importado', { type: 'project', id: proj.id, label: proj.name }, adds + ' nuevos, ' + updates + ' actualizados');
+        window._pnSelectedProject = proj.id;
+        window._pnProjectView = 'table';
+        pnProjImportClose();
+        showToast('Importados ' + adds + ' pasos' + (updates ? ' (' + updates + ' actualizados)' : ''), 'success');
+        _pnProjNav();
+    });
+}
+
 // ══════════════════════════════════════════════════
-// v16.0: Ayuda — banners de pestaña y tooltips de campo
+// v16.0: Ayuda — banner de pestaña y tooltips de campo
+// (viven aquí, con el módulo; projects.js carga después de cop15.js,
+//  que es donde se define CASCADE_TOOLTIPS)
 // ══════════════════════════════════════════════════
 if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
-    'pn-dashboard': { title: 'Datos — resumen', text: 'El resumen cruzado del laboratorio (mismo que ve HOY): estado de vehículos, plan semanal, inventario y alertas en un vistazo.', tips: [
-        'Es el mismo contenido que el tablero de HOY, aquí en formato de tarjetas del Panel.',
-        'Las anomalías de gas y el estado de Firebase Sync se muestran solo si aplican.'
-    ]},
-    'pn-reports': { title: 'Reportes', text: 'Centro de exportación: cada botón genera un CSV/PDF distinto (gap de cobertura, pronóstico de gas, bitácora, alertas, auditoría). Lee la descripción de cada fila para saber qué incluye.', tips: [
-        'Cada tarjeta ya explica qué exporta antes de que pulses el botón.',
-        'Los reportes usan siempre los datos actuales — no hay que "generar" nada antes.',
-        'El "Estado semanal" en PDF es el más completo para compartir con jefatura.'
-    ]},
-    'pn-executive': { title: 'Ejecutivo', text: 'Scorecard de cumplimiento y proyección de recursos — vista para reportar hacia arriba.', tips: [
-        'El Compliance Scorecard resume % de cobertura contra el plan de producción.',
-        'Métricas por Operador te dice quién ha registrado/liberado más pruebas.'
-    ]},
-    'pn-turnaround': { title: 'Turnaround', text: 'Cuánto tarda un vehículo en cada etapa del proceso y el throughput diario del laboratorio.', tips: [
-        'Tiempos altos en una etapa señalan dónde se está atorando el flujo.',
-        'El throughput de 14 días ayuda a detectar tendencias de productividad.'
-    ]},
-    'pn-users': { title: 'Operadores', text: 'Alta y gestión de operadores del laboratorio: nombre, rol y estadísticas de pruebas por persona.', tips: [
-        'Agrega operadores antes de que aparezcan en el picker 👤 del topbar.',
-        'Las estadísticas (registrados/liberados/activos) se calculan automáticamente.'
-    ]},
-    'pn-shift': { title: 'Bitácora de turno', text: 'Registro de actividades, incidencias y observaciones del turno. Úsala para dejar constancia de lo que pasó en tu turno.', tips: [
-        'Usa "🔄 Cerrar Turno" al final del día para generar el reporte de entrega.',
-        'Cada entrada queda con operador, categoría y hora — es evidencia auditable.'
-    ]},
-    'pn-alerts': { title: 'Alertas', text: 'Todas las alertas activas de todos los módulos, ordenadas por severidad, incluidas las de consumo y las alarmas SPC.', tips: [
-        '"✅ Sin Alertas" significa que el laboratorio opera con normalidad.',
-        'Las alertas se agrupan por origen (COP15, Inventario, Test Plan, CoP SPC).'
-    ]},
-    'pn-intelligence': { title: 'Inteligencia', text: 'Correlaciones automáticas entre módulos (consumo vs volumen de pruebas) para detectar patrones que no se ven a simple vista.', tips: [
-        'Es informativo: no requiere captura, solo lectura de tendencias cruzadas.'
-    ]},
-    'pn-system': { title: 'Sistema', text: 'Salud técnica de la plataforma: versión instalada con su historial completo, uso de almacenamiento local y estado de sincronización.', tips: [
-        'El "🗂️ Historial de Versiones" arriba lista todo lo agregado, ronda por ronda — la más reciente siempre marcada ACTUAL.',
-        'Si el almacenamiento local se acerca al límite (~5MB), aquí lo verás primero.',
-        'Sirve para diagnosticar por qué un dispositivo no sincroniza.'
-    ]},
-    'pn-calendar': { title: 'Calendario', text: 'Las pruebas planificadas/ejecutadas por día del mes, para tener visión rápida de la carga de trabajo.', tips: [
-        'Usa ← Hoy → para navegar entre meses.'
-    ]},
-    'pn-audit': { title: 'Auditoría', text: 'El control de cambios de TODA la plataforma: quién hizo qué y cuándo. Exportable a CSV.', tips: [
-        'Cada acción importante (guardar, liberar, editar retroactivo) queda registrada aquí.',
-        'Usa los filtros para buscar por módulo, operador o tipo de acción.'
-    ]},
-    'pn-regulations': { title: 'Regulaciones', text: 'Catálogo de regulaciones de emisiones y sus gases/límites — la fuente que usan CoP y Liberación para validar resultados.', tips: [
-        'Agrega una fila de gas por cada contaminante que la regulación limita.',
-        'Estos límites son los que se comparan contra los resultados capturados en Liberación.'
-    ]},
-    'pn-files': { title: 'Almacén de Archivos', text: 'Un espacio compartido de 5MB para subir un documento desde este dispositivo y bajarlo desde otro — útil para pasar un .zip, PDF u hoja de cálculo sin depender de USB o correo.', tips: [
-        'Formatos aceptados: .zip, .pdf, .xls/.xlsx/.csv, .doc/.docx, imágenes.',
-        'El presupuesto de 5MB es compartido por TODO el laboratorio — borra lo que ya no necesites.',
-        'La lista se actualiza sola cuando alguien más sube o borra un archivo desde otro dispositivo.',
-        'Requiere que este dispositivo esté conectado a Firebase (indicador de sincronización arriba).'
-    ]},
     'pn-projects': { title: 'Proyectos', text: 'Seguimiento general de reparaciones, proyectos de inversión o cualquier iniciativa con pasos, responsables y fechas — no solo mantenimiento. Cada proyecto tiene una tabla de pasos, una línea de tiempo y un Gantt.', tips: [
         'Liga un proyecto a un equipo (ej. Dinamómetro) para que aparezca como banner en Consumibles → Mtto.',
         'La línea de tiempo mezcla tus notas libres con los cambios de estatus de los pasos, en orden.',
@@ -32021,19 +32658,9 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     ]}
 });
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
-    'pn-reports-help': { title: 'Centro de Reportes', text: 'Un solo lugar para exportar todos los reportes del laboratorio; cada botón usa los datos actuales del sistema.' },
-    'pn-executive-help': { title: 'Compliance Scorecard', text: 'Porcentaje de cumplimiento del plan de producción, con proyección de recursos necesarios para cerrar la brecha.' },
-    'pn-turnaround-help': { title: 'Tiempo por etapa', text: 'Promedio de días/horas que un vehículo pasa en cada etapa del proceso (recepción, preacondicionamiento, prueba, liberación).' },
-    'pn-users-help': { title: 'Alta de operador', text: 'Registra el nombre y rol de un técnico del laboratorio para que pueda ser elegido en el picker de operador.' },
-    'pn-shift-help': { title: 'Bitácora', text: 'Registra aquí eventos de tu turno: inicio, incidencias, mantenimiento, calibraciones y observaciones.' },
-    'pn-alerts-help': { title: 'Resumen de alertas', text: 'Conteo de alertas Críticas / Altas / Medias activas ahora mismo en todo el laboratorio.' },
-    'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
-    'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
-    'pn-skill-matrix': { title: 'Matriz de competencias', text: 'Quién está capacitado para qué. Los niveles son: 1 en entrenamiento (supervisado), 2 autónomo, 3 puede certificar a otros. Las habilidades con recertificación (dinamómetro, calibración de analizadores, aprobador CoP) vencen solas y se marcan en rojo. La fila Cobertura te dice cuántos operadores activos pueden hacer esa prueba hoy — si marca 0 en una habilidad crítica, el laboratorio no puede cubrirla.' },
     'pn-projects-help': { title: 'Proyectos', text: 'Registra reparaciones, proyectos de inversión o cualquier iniciativa con pasos y fechas. La retícula muestra el avance de todos; entra a uno para ver su tabla, línea de tiempo y Gantt.' },
     'pn-proj-phase': { title: 'Fase', text: 'Etiqueta libre para agrupar pasos en el Gantt (ej. "Diagnóstico", "Refacciones", "Instalación"). Opcional — si la dejas vacía, el paso solo muestra su título.' },
-    'pn-proj-roadblock': { title: 'Obstáculo / comentario', text: 'Qué está deteniendo este paso (ej. "esperando refacción de proveedor"). Si el paso está en estatus Bloqueado y tiene un obstáculo escrito, sale en Alertas hasta que se resuelva.' },
-    'pn-version-history-help': { title: 'Historial de versiones', text: 'Todas las rondas de mejoras de la plataforma, empezando por la más reciente (marcada ACTUAL). Toca el nombre de una versión para ver qué trajo. El pill "KIA EmLab vX.X" del menú ⋯ del topbar también trae aquí.' }
+    'pn-proj-roadblock': { title: 'Obstáculo / comentario', text: 'Qué está deteniendo este paso (ej. "esperando refacción de proveedor"). Si el paso está en estatus Bloqueado y tiene un obstáculo escrito, sale en Alertas hasta que se resuelva.' }
 });
 
 
@@ -35932,7 +36559,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608061949' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608062340' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
