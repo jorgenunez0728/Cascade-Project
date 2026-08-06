@@ -2677,6 +2677,38 @@ details.acc > summary {
 .pn-proj-gantt-head { text-align: center; padding: 2px; color: var(--tp-dim); }
 .pn-proj-gantt-cell { text-align: center; padding: 2px 1px; border-top: 1px solid var(--tp-border); height: 20px; }
 .pn-proj-gantt-bar { height: 14px; border-radius: 4px; }
+.pn-proj-gantt { border-collapse: collapse; font-size: 9px; }
+.pn-gantt-scroll { overflow-x: auto; }
+.pn-proj-gantt-head--today { background: rgba(15,118,110,0.15); font-weight: 800; color: var(--tp-text); }
+.pn-gantt-cell--today { background: rgba(15,118,110,0.06); }
+.pn-gantt-bar--crit { outline: 2px solid #b91c1c; outline-offset: 1px; }
+.pn-gantt-milestone { font-size: 15px; line-height: 14px; text-align: center; }
+.pn-gantt-row--milestone .pn-proj-gantt-label { font-weight: 800; }
+.pn-gantt-row--baseline .pn-proj-gantt-label { color: var(--tp-dim); font-weight: 400; font-style: italic; padding-left: 14px; }
+.pn-gantt-baseline {
+    height: 7px; border-radius: 3px; background: repeating-linear-gradient(
+        45deg, rgba(100,116,139,0.45), rgba(100,116,139,0.45) 4px, transparent 4px, transparent 8px);
+    border: 1px dashed rgba(100,116,139,0.6);
+}
+.pn-gantt-tag {
+    display: inline-block; margin-left: 5px; padding: 0 5px; border-radius: 7px;
+    font-size: 8.5px; font-weight: 800; vertical-align: middle;
+}
+.pn-gantt-tag--crit { background: rgba(185,28,28,0.14); color: #b91c1c; }
+.pn-gantt-tag--risk { background: rgba(245,158,11,0.18); color: #b45309; }
+.pn-gantt-warn {
+    background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.32);
+    border-radius: var(--radius-md); padding: 9px 11px; font-size: 11px; margin-bottom: 10px;
+}
+.pn-gantt-legend {
+    display: flex; gap: 12px; margin-top: 8px; font-size: 9px;
+    color: var(--tp-dim); flex-wrap: wrap; align-items: center;
+}
+.pn-gantt-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.pn-gantt-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.pn-gantt-swatch--crit { background: transparent; outline: 2px solid #b91c1c; outline-offset: -2px; }
+.pn-gantt-swatch--base { background: repeating-linear-gradient(45deg, rgba(100,116,139,0.5), rgba(100,116,139,0.5) 3px, transparent 3px, transparent 6px); border: 1px dashed rgba(100,116,139,0.6); }
+.pn-gantt-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 
 /* ══════════════════════════════════════════════════════════════════════ */
 /* [TIER 5] GLASS + NEUMORPHISM POLISH                                   */
@@ -5449,7 +5481,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608062340';
+var APP_BUILD = '202608062345';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
@@ -5536,14 +5568,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608062340' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608062345' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608062340' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608062345' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5559,7 +5591,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608062340' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608062345' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -31639,6 +31671,19 @@ function pnProjectTimeline(p) {
         if (s.status === 'bloqueado' && s.roadblock) {
             events.push({ at: s.updatedAt || s.createdAt || new Date().toISOString(), kind: 'blocked', text: 'Bloqueado: ' + s.title + ' — ' + s.roadblock, by: s.responsible, id: 'st_' + s.id + '_b' });
         }
+        // v16.8: recorrer una fecha ya no desaparece de la bitácora. El evento se
+        // DERIVA comparando la línea base con la fecha vigente — coherente con la
+        // regla del módulo: la línea de tiempo nunca se guarda.
+        if (s.baselineTarget && s.targetDate && s.baselineTarget !== s.targetDate) {
+            var late = s.targetDate > s.baselineTarget;
+            var dias = Math.abs(Math.round((new Date(s.targetDate + 'T00:00:00') - new Date(s.baselineTarget + 'T00:00:00')) / 86400000));
+            events.push({
+                at: s.updatedAt || s.createdAt || new Date().toISOString(), kind: 'moved',
+                text: 'Fecha ' + (late ? 'recorrida' : 'adelantada') + ' ' + dias + ' día' + (dias === 1 ? '' : 's') +
+                      ': ' + s.title + ' (comprometida ' + s.baselineTarget + ' → ' + s.targetDate + ')',
+                by: s.responsible, id: 'st_' + s.id + '_m'
+            });
+        }
     });
     events.sort(function(a, b) { return (b.at || '').localeCompare(a.at || ''); });
     return events;
@@ -31843,7 +31888,7 @@ function _pnProjectTimelineHTML(p) {
         html += '<div style="text-align:center;padding:16px;color:var(--tp-dim);font-size:11px;">Sin eventos todavía — agrega una nota o un paso.</div>';
     }
     events.forEach(function(ev) {
-        var icon = ev.kind === 'done' ? '✅' : ev.kind === 'blocked' ? '🚧' : ev.kind === 'created' ? '➕' : '📝';
+        var icon = ev.kind === 'done' ? '✅' : ev.kind === 'blocked' ? '🚧' : ev.kind === 'created' ? '➕' : ev.kind === 'moved' ? '📅' : '📝';
         html += '<div class="pn-proj-timeline-item">';
         html += '<div class="pn-proj-timeline-dot">' + icon + '</div>';
         html += '<div class="pn-proj-timeline-content">';
@@ -31859,57 +31904,111 @@ function _pnProjectGanttHTML(p) {
     var steps = (p.steps || []).slice().sort(function(a, b) { return (a.seq || 0) - (b.seq || 0); });
     if (steps.length === 0) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin pasos. Agrega uno en la pestaña Tabla.</div>';
 
-    var dates = [];
+    var cpm = pnProjectCPM(p);
+    var hasBaseline = steps.some(function(s) { return s.baselineTarget; });
+
+    // Rango: todo lo capturado (inicio, objetivo, cumplimiento y línea base) + hoy
+    var days = [];
     steps.forEach(function(s) {
-        if (s.createdAt) dates.push(s.createdAt.slice(0, 10));
-        if (s.targetDate) dates.push(s.targetDate);
-        if (s.doneDate) dates.push(s.doneDate);
+        [s.startDate, s.targetDate, s.doneDate, s.baselineTarget].forEach(function(d) {
+            var n = _pnDayNum(d); if (n !== null) days.push(n);
+        });
     });
-    if (dates.length === 0) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin fechas capturadas todavía.</div>';
-    dates.sort();
-    var minD = new Date(dates[0] + 'T00:00:00');
-    var maxD = new Date(dates[dates.length - 1] + 'T00:00:00');
-    var todayD = new Date(localToday() + 'T00:00:00');
-    if (todayD > maxD) maxD = todayD;
+    if (!days.length) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin fechas capturadas todavía.</div>';
+    var todayN = _pnDayNum(localToday());
+    days.push(todayN);
+    var minN = Math.min.apply(null, days), maxN = Math.max.apply(null, days);
 
-    function monday(d) { var wd = (d.getDay() + 6) % 7; var m = new Date(d); m.setDate(d.getDate() - wd); return m; }
-    var startW = monday(minD);
-    var endW = monday(maxD);
-    var nWeeks = Math.max(1, Math.round((endW - startW) / (7 * 86400000)) + 1);
-    nWeeks = Math.min(nWeeks, 60);
+    // Semanas (lunes). El día 0 del epoch fue jueves, de ahí el +3 para alinear.
+    function weekOf(n) { return Math.floor((n + 3) / 7); }
+    var startW = weekOf(minN), endW = weekOf(maxN);
+    var nWeeks = Math.min(Math.max(1, endW - startW + 1), 80);
+    var todayCol = weekOf(todayN) - startW;
 
-    var html = '<div style="overflow-x:auto;"><table class="pn-proj-gantt" style="border-collapse:collapse;font-size:9px;min-width:' + (160 + nWeeks * 26) + 'px;">';
+    function colOf(n) { return Math.max(0, Math.min(nWeeks - 1, weekOf(n) - startW)); }
+
+    var html = '';
+    if (cpm.cycle.length) {
+        html += '<div class="pn-gantt-warn">⚠️ Hay dependencias en círculo (' + cpm.cycle.length + ' paso(s) se esperan entre sí). ' +
+            'No se puede calcular la ruta crítica hasta romper el círculo — edita esos pasos y quita una de las dependencias.</div>';
+    }
+
+    html += '<div class="pn-gantt-scroll"><table class="pn-proj-gantt" style="min-width:' + (170 + nWeeks * 26) + 'px;">';
     html += '<tr><td class="pn-proj-gantt-label"></td>';
-    var w;
-    for (w = 0; w < nWeeks; w++) {
-        var wd = new Date(startW); wd.setDate(startW.getDate() + w * 7);
-        html += '<td class="pn-proj-gantt-head">' + (wd.getMonth() + 1) + '/' + wd.getDate() + '</td>';
+    for (var w = 0; w < nWeeks; w++) {
+        var mondayN = (startW + w) * 7 - 3;
+        var d = new Date(mondayN * 86400000);
+        html += '<td class="pn-proj-gantt-head' + (w === todayCol ? ' pn-proj-gantt-head--today' : '') + '">' + (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + '</td>';
     }
     html += '</tr>';
+
     steps.forEach(function(s) {
-        var sStart = s.createdAt ? new Date(s.createdAt.slice(0, 10) + 'T00:00:00') : (s.targetDate ? new Date(s.targetDate + 'T00:00:00') : minD);
-        var sEnd = s.doneDate ? new Date(s.doneDate + 'T00:00:00') : (s.targetDate ? new Date(s.targetDate + 'T00:00:00') : todayD);
-        if (sEnd < sStart) sEnd = sStart;
-        var startIdx = Math.max(0, Math.min(nWeeks - 1, Math.round((monday(sStart) - startW) / (7 * 86400000))));
-        var endIdx = Math.max(startIdx, Math.min(nWeeks - 1, Math.round((monday(sEnd) - startW) / (7 * 86400000))));
-        var span = endIdx - startIdx + 1;
+        var ci = cpm.info[s.id] || {};
+        var endN = _pnDayNum(s.doneDate) !== null ? _pnDayNum(s.doneDate)
+                 : (_pnDayNum(s.targetDate) !== null ? _pnDayNum(s.targetDate) : todayN);
+        var startN = _pnDayNum(s.startDate) !== null ? _pnDayNum(s.startDate) : endN;
+        if (startN > endN) startN = endN;
+        var a = colOf(startN), b = colOf(endN), span = b - a + 1;
         var color = s.status === 'completado' ? '#10b981' : s.status === 'bloqueado' ? '#ef4444' : s.status === 'encurso' ? '#3b82f6' : '#94a3b8';
-        html += '<tr><td class="pn-proj-gantt-label" title="' + escapeHtml(s.title) + '">' + escapeHtml(s.title) + '</td>';
-        var w2;
-        for (w2 = 0; w2 < nWeeks; w2++) {
-            if (w2 < startIdx || w2 > endIdx) { html += '<td class="pn-proj-gantt-cell"></td>'; continue; }
-            if (w2 === startIdx) {
-                html += '<td class="pn-proj-gantt-cell" colspan="' + span + '"><div class="pn-proj-gantt-bar" style="background:' + color + ';" title="' + escapeHtml(s.title) + (s.targetDate ? ' (' + s.targetDate + ')' : '') + '"></div></td>';
-                w2 = endIdx;
+
+        var label = (s.isMilestone ? '◆ ' : '') + escapeHtml(s.title);
+        var tags = '';
+        if (ci.critical && !cpm.cycle.length) tags += '<span class="pn-gantt-tag pn-gantt-tag--crit" title="Ruta crítica: si este paso se atrasa, todo el proyecto se atrasa">crítico</span>';
+        if (ci.atRisk) tags += '<span class="pn-gantt-tag pn-gantt-tag--risk" title="' + escapeHtml(ci.risk || '') + '">en riesgo</span>';
+        html += '<tr class="' + (s.isMilestone ? 'pn-gantt-row--milestone' : '') + '"><td class="pn-proj-gantt-label" title="' + escapeHtml(s.title) + (ci.risk ? ' — en riesgo: ' + escapeHtml(ci.risk) : '') + '">' + label + tags + '</td>';
+
+        // Barra real (y, debajo, la línea base si la fecha se movió)
+        var bl = _pnDayNum(s.baselineTarget);
+        var blA = null, blSpan = 0;
+        if (bl !== null && s.baselineTarget !== s.targetDate) {
+            var blStart = _pnDayNum(s.startDate) !== null ? _pnDayNum(s.startDate) : bl;
+            if (blStart > bl) blStart = bl;
+            blA = colOf(blStart); blSpan = colOf(bl) - blA + 1;
+        }
+        for (var w2 = 0; w2 < nWeeks; w2++) {
+            var isToday = (w2 === todayCol);
+            if (w2 === a) {
+                var barTitle = escapeHtml(s.title) + (s.targetDate ? ' · objetivo ' + s.targetDate : '') + (s.doneDate ? ' · hecho ' + s.doneDate : '');
+                var inner = s.isMilestone
+                    ? '<div class="pn-gantt-milestone" style="color:' + color + ';" title="' + barTitle + '">◆</div>'
+                    : '<div class="pn-proj-gantt-bar' + (ci.critical && !cpm.cycle.length ? ' pn-gantt-bar--crit' : '') + '" style="background:' + color + ';" title="' + barTitle + '"></div>';
+                html += '<td class="pn-proj-gantt-cell' + (isToday ? ' pn-gantt-cell--today' : '') + '" colspan="' + span + '">' + inner + '</td>';
+                w2 = b;
+            } else if (blA !== null && w2 === blA && (blA + blSpan - 1 < a || blA > b)) {
+                // línea base que no se traslapa con la barra real: se dibuja en su propia celda
+                html += '<td class="pn-proj-gantt-cell' + (isToday ? ' pn-gantt-cell--today' : '') + '" colspan="' + blSpan + '"><div class="pn-gantt-baseline" title="Comprometido originalmente: ' + s.baselineTarget + '"></div></td>';
+                w2 = blA + blSpan - 1;
+            } else {
+                html += '<td class="pn-proj-gantt-cell' + (isToday ? ' pn-gantt-cell--today' : '') + '"></td>';
             }
         }
         html += '</tr>';
+
+        // Fila fantasma con el plan original cuando SÍ se traslapa (así se ve el corrimiento)
+        if (blA !== null && !(blA + blSpan - 1 < a || blA > b)) {
+            html += '<tr class="pn-gantt-row--baseline"><td class="pn-proj-gantt-label">↳ comprometido</td>';
+            for (var w3 = 0; w3 < nWeeks; w3++) {
+                if (w3 === blA) {
+                    html += '<td class="pn-proj-gantt-cell" colspan="' + blSpan + '"><div class="pn-gantt-baseline" title="Comprometido originalmente: ' + s.baselineTarget + '"></div></td>';
+                    w3 = blA + blSpan - 1;
+                } else html += '<td class="pn-proj-gantt-cell"></td>';
+            }
+            html += '</tr>';
+        }
     });
     html += '</table></div>';
-    html += '<div style="display:flex;gap:12px;margin-top:8px;font-size:9px;color:var(--tp-dim);flex-wrap:wrap;">';
+
+    html += '<div class="pn-gantt-legend">';
     [['Pendiente', '#94a3b8'], ['En curso', '#3b82f6'], ['Completado', '#10b981'], ['Bloqueado', '#ef4444']].forEach(function(l) {
-        html += '<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:' + l[1] + ';display:inline-block;"></span>' + l[0] + '</span>';
+        html += '<span><span class="pn-gantt-swatch" style="background:' + l[1] + ';"></span>' + l[0] + '</span>';
     });
+    html += '<span><span class="pn-gantt-swatch pn-gantt-swatch--crit"></span>Ruta crítica</span>';
+    if (hasBaseline) html += '<span><span class="pn-gantt-swatch pn-gantt-swatch--base"></span>Comprometido (línea base)</span>';
+    html += '<span>◆ Hito</span>';
+    html += '</div>';
+
+    html += '<div class="pn-gantt-actions">';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjectBaselineSet(\'' + p.id + '\')" style="font-size:11px;" data-help="pn-proj-baseline">' + (hasBaseline ? '🔄 Volver a fijar línea base' : '📌 Fijar línea base') + '</button>';
     html += '</div>';
     return html;
 }
@@ -31982,6 +32081,21 @@ function pnDeleteProjectPrompt(id) {
     }, { title: 'Eliminar proyecto', type: 'danger', confirmText: 'Eliminar' });
 }
 
+// Todo lo que depende de stepId, directa o indirectamente ({id: true}).
+// Se usa para no ofrecer como dependencia algo que crearía un círculo.
+function _pnProjDescendants(p, stepId) {
+    var out = {}, stack = [stepId], guard = 0;
+    var steps = p.steps || [];
+    while (stack.length && guard++ < 5000) {
+        var cur = stack.pop();
+        steps.forEach(function(x) {
+            if (out[x.id] || x.id === stepId) return;
+            if ((x.dependsOn || []).indexOf(cur) !== -1) { out[x.id] = true; stack.push(x.id); }
+        });
+    }
+    return out;
+}
+
 // ── CRUD: Paso ──
 function pnAddProjectStep(projectId, stepId) {
     var p = (pnState.projects || []).find(function(x) { return x.id === projectId; });
@@ -31995,6 +32109,22 @@ function pnAddProjectStep(projectId, stepId) {
     var fieldStyle = 'width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;';
     var lblStyle = 'font-size:11px;color:#475569;font-weight:600;';
 
+    // Dependencias: solo se ofrecen los pasos que NO crean un ciclo. Los que
+    // dependen (directa o indirectamente) de este paso quedan fuera de la lista,
+    // así el ciclo se evita en la captura y no hay que rescatarlo después.
+    var depsHTML = '';
+    var others = (p.steps || []).filter(function(x) { return !s || x.id !== s.id; });
+    if (others.length) {
+        var blocked = s ? _pnProjDescendants(p, s.id) : {};
+        var cur = (s && s.dependsOn) || [];
+        var opts = others.filter(function(x) { return !blocked[x.id]; }).map(function(x) {
+            return '<option value="' + x.id + '"' + (cur.indexOf(x.id) !== -1 ? ' selected' : '') + '>' + escapeHtml(x.title.slice(0, 60)) + '</option>';
+        }).join('');
+        depsHTML = '<div><label style="' + lblStyle + '" data-help="pn-proj-depends">Depende de (Ctrl+clic para varios)</label>' +
+            '<select id="pn-step-deps" multiple size="' + Math.min(5, Math.max(2, others.length)) + '" style="' + fieldStyle + 'height:auto;">' + opts + '</select>' +
+            '<div style="font-size:10px;color:var(--tp-dim);margin-top:3px;">Este paso no puede empezar hasta que los seleccionados terminen. Solo se listan los que no crean un círculo.</div></div>';
+    }
+
     var msg = '<div style="display:flex;flex-direction:column;gap:10px;text-align:left;">' +
         '<div><label style="' + lblStyle + '">Paso *</label><input id="pn-step-title" value="' + escapeHtml(s ? s.title : '') + '" style="' + fieldStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Responsable</label><input id="pn-step-resp" value="' + escapeHtml(s ? (s.responsible || '') : defaultResp) + '" style="' + fieldStyle + '"></div>' +
@@ -32002,11 +32132,19 @@ function pnAddProjectStep(projectId, stepId) {
         '<div><label style="' + lblStyle + '">Estatus</label><select id="pn-step-status" style="' + fieldStyle + '">' + statusOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '">Fecha objetivo</label><input type="date" id="pn-step-target" value="' + (s ? (s.targetDate || '') : '') + '" style="' + fieldStyle + '"></div>' +
         '</div>' +
-        '<details><summary style="cursor:pointer;font-size:11px;font-weight:700;color:#475569;padding:4px 0;">Más detalles (fase, obstáculo, fecha de cumplimiento)</summary>' +
+        '<details><summary style="cursor:pointer;font-size:11px;font-weight:700;color:#475569;padding:4px 0;">Más detalles (fase, obstáculo, inicio, hito, dependencias)</summary>' +
         '<div style="display:flex;flex-direction:column;gap:10px;padding-top:8px;">' +
         '<div><label style="' + lblStyle + '" data-help="pn-proj-phase">Fase (para el Gantt)</label><input id="pn-step-phase" value="' + escapeHtml(s ? (s.phase || '') : '') + '" style="' + fieldStyle + '"></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        '<div><label style="' + lblStyle + '" data-help="pn-proj-start">Fecha de inicio</label><input type="date" id="pn-step-start" value="' + (s ? (s.startDate || '') : '') + '" style="' + fieldStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Fecha de cumplimiento</label><input type="date" id="pn-step-done" value="' + (s ? (s.doneDate || '') : '') + '" style="' + fieldStyle + '"></div>' +
+        '</div>' +
         '<div><label style="' + lblStyle + '" data-help="pn-proj-roadblock">Obstáculo / comentario</label><input id="pn-step-roadblock" value="' + escapeHtml(s ? (s.roadblock || '') : '') + '" style="' + fieldStyle + '"></div>' +
+        '<label style="' + lblStyle + 'display:flex;align-items:center;gap:8px;cursor:pointer;" data-help="pn-proj-milestone">' +
+        '<input type="checkbox" id="pn-step-milestone" ' + (s && s.isMilestone ? 'checked' : '') + '> ◆ Es un hito (entregable clave del proyecto)</label>' +
+        depsHTML +
+        (s && s.baselineTarget ? '<div style="font-size:11px;color:var(--tp-dim);">📅 Comprometido originalmente: <strong>' + s.baselineTarget + '</strong>' +
+            (s.targetDate && s.targetDate !== s.baselineTarget ? ' · hoy va para ' + s.targetDate : ' · sin cambios') + '</div>' : '') +
         '</div></details>' +
         (isEdit ? '<button type="button" onclick="pnDeleteProjectStepPrompt(\'' + projectId + '\',\'' + stepId + '\')" style="align-self:flex-start;background:none;border:none;color:#ef4444;font-size:11px;cursor:pointer;padding:2px 0;">🗑️ Eliminar paso</button>' : '') +
         '</div>';
@@ -32023,15 +32161,28 @@ function pnAddProjectStep(projectId, stepId) {
             var phase = (document.getElementById('pn-step-phase').value || '').trim();
             var doneDate = document.getElementById('pn-step-done').value || '';
             var roadblock = (document.getElementById('pn-step-roadblock').value || '').trim();
+            var startDate = (document.getElementById('pn-step-start') || {}).value || '';
+            var isMilestone = !!(document.getElementById('pn-step-milestone') || {}).checked;
+            var depsEl = document.getElementById('pn-step-deps');
+            var dependsOn = depsEl ? Array.prototype.slice.call(depsEl.selectedOptions).map(function(o) { return o.value; }) : (s ? (s.dependsOn || []) : []);
             var now = new Date().toISOString();
             if (status === 'completado' && !doneDate) doneDate = localToday();
+            if (startDate && targetDate && startDate > targetDate) { showToast('La fecha de inicio no puede ser posterior a la objetivo', 'error'); return; }
             if (isEdit) {
+                var movedFrom = (s.baselineTarget && s.targetDate !== targetDate) ? s.targetDate : null;
                 s.title = title; s.responsible = responsible; s.status = status; s.targetDate = targetDate;
                 s.phase = phase; s.doneDate = doneDate; s.roadblock = roadblock; s.updatedAt = now;
+                s.startDate = startDate; s.isMilestone = isMilestone; s.dependsOn = dependsOn;
+                // Mover una fecha con línea base fijada es una decisión, no un typo:
+                // queda en la auditoría además de derivarse en la línea de tiempo.
+                if (movedFrom && typeof auditLog === 'function') {
+                    auditLog('panel', 'proyecto_fecha_movida', { type: 'project', id: p.id, label: p.name },
+                        title + ': ' + movedFrom + ' → ' + (targetDate || '(sin fecha)') + ' (comprometida ' + s.baselineTarget + ')');
+                }
             } else {
                 p.steps = p.steps || [];
                 var seq = p.steps.length + 1;
-                p.steps.push({ id: invGenId(), seq: seq, title: title, responsible: responsible, status: status, targetDate: targetDate, doneDate: doneDate, roadblock: roadblock, phase: phase, createdAt: now, updatedAt: now });
+                p.steps.push({ id: invGenId(), seq: seq, title: title, responsible: responsible, status: status, targetDate: targetDate, doneDate: doneDate, roadblock: roadblock, phase: phase, startDate: startDate, isMilestone: isMilestone, baselineTarget: '', dependsOn: dependsOn, createdAt: now, updatedAt: now });
             }
             p.updatedAt = now;
             pnSave();
@@ -32331,6 +32482,167 @@ function _pnProjRowsToSteps(grid, headerRow, map, dmy) {
         });
     }
     return out;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// HITOS, LÍNEA BASE Y RUTA CRÍTICA (v16.8)
+// ══════════════════════════════════════════════════════════════════════
+// Campos nuevos del paso, TODOS opcionales y retrocompatibles (un proyecto
+// de v16.6 sigue funcionando sin tocarlo):
+//   isMilestone    ◆ hito — se resalta en el Gantt y en el Portafolio
+//   baselineTarget fecha comprometida originalmente + baselineAt (cuándo)
+//   startDate      inicio planeado (si falta, se deriva de targetDate)
+//   durationDays   duración explícita (si falta, se deriva de las fechas)
+//   dependsOn[]    ids de los pasos que deben terminar antes que éste
+
+function _pnDayNum(iso) {
+    if (!iso) return null;
+    var t = new Date(iso + 'T00:00:00').getTime();
+    return isNaN(t) ? null : Math.round(t / 86400000);
+}
+function _pnDayISO(n) {
+    var d = new Date(n * 86400000);
+    return d.getUTCFullYear() + '-' + _pnPad2(d.getUTCMonth() + 1) + '-' + _pnPad2(d.getUTCDate());
+}
+
+// Duración en días de un paso. Explícita > derivada de fechas > 1 día.
+function pnStepDuration(s) {
+    if (s.durationDays && +s.durationDays > 0) return Math.max(1, Math.round(+s.durationDays));
+    var a = _pnDayNum(s.startDate), b = _pnDayNum(s.doneDate || s.targetDate);
+    if (a !== null && b !== null && b >= a) return Math.max(1, b - a + 1);
+    return 1;
+}
+
+// Método de la Ruta Crítica sobre los pasos del proyecto.
+//
+// A diferencia de un MS Project puro, NO reprograma las fechas capturadas:
+// el laboratorio las trae de su Excel y reescribirlas sería pelearse con su
+// dato. Se usan como ancla y las dependencias sirven para (1) calcular
+// holgura y marcar la ruta crítica, y (2) avisar qué pasos están en riesgo
+// porque aquello de lo que dependen no va a estar a tiempo.
+//
+// Devuelve { info: {stepId: {es,ef,ls,lf,slack,critical,atRisk,risk}}, cycle:[ids], order:[ids] }.
+// Un ciclo (A depende de B y B de A) NO cuelga la vista: se reporta y esos
+// pasos quedan fuera del cálculo.
+function pnProjectCPM(p) {
+    var steps = (p.steps || []).slice();
+    var byId = {};
+    steps.forEach(function(s) { byId[s.id] = s; });
+
+    var preds = {}, succs = {}, indeg = {};
+    steps.forEach(function(s) {
+        // se ignoran las dependencias que apuntan a pasos borrados o a sí mismas
+        preds[s.id] = (s.dependsOn || []).filter(function(d) { return byId[d] && d !== s.id; });
+        succs[s.id] = [];
+        indeg[s.id] = preds[s.id].length;
+    });
+    steps.forEach(function(s) { preds[s.id].forEach(function(d) { succs[d].push(s.id); }); });
+
+    // Orden topológico (Kahn). Si no salen todos, hay ciclo.
+    var queue = steps.filter(function(s) { return indeg[s.id] === 0; }).map(function(s) { return s.id; });
+    var ind = {}; Object.keys(indeg).forEach(function(k) { ind[k] = indeg[k]; });
+    var order = [];
+    while (queue.length) {
+        var id = queue.shift();
+        order.push(id);
+        succs[id].forEach(function(n) { if (--ind[n] === 0) queue.push(n); });
+    }
+    var cycle = order.length === steps.length ? [] : steps.filter(function(s) { return order.indexOf(s.id) === -1; }).map(function(s) { return s.id; });
+
+    var info = {};
+    if (!steps.length) return { info: info, cycle: cycle, order: order };
+
+    // Ancla de cada paso: su inicio capturado, o el objetivo menos su duración.
+    var anchors = [];
+    steps.forEach(function(s) {
+        var a = _pnDayNum(s.startDate);
+        if (a === null) {
+            var t = _pnDayNum(s.targetDate);
+            a = t === null ? null : t - pnStepDuration(s) + 1;
+        }
+        if (a !== null) anchors.push(a);
+    });
+    var projStart = anchors.length ? Math.min.apply(null, anchors) : _pnDayNum(localToday());
+
+    function anchorOf(s) {
+        var a = _pnDayNum(s.startDate);
+        if (a !== null) return a;
+        var t = _pnDayNum(s.targetDate);
+        return t === null ? projStart : t - pnStepDuration(s) + 1;
+    }
+
+    // Pasada hacia adelante
+    order.forEach(function(id) {
+        var s = byId[id], dur = pnStepDuration(s);
+        var es = anchorOf(s);
+        preds[id].forEach(function(d) {
+            if (info[d]) es = Math.max(es, info[d].ef + 1);
+        });
+        info[id] = { es: es, ef: es + dur - 1, dur: dur };
+    });
+    var projEnd = order.length ? Math.max.apply(null, order.map(function(id) { return info[id].ef; })) : projStart;
+
+    // Pasada hacia atrás
+    order.slice().reverse().forEach(function(id) {
+        var lf = projEnd;
+        succs[id].forEach(function(n) { if (info[n]) lf = Math.min(lf, info[n].ls - 1); });
+        info[id].lf = lf;
+        info[id].ls = lf - info[id].dur + 1;
+        info[id].slack = info[id].ls - info[id].es;
+        info[id].critical = info[id].slack <= 0;
+    });
+
+    // Riesgo: algo de lo que depende no va a estar a tiempo. Se explica en
+    // palabras, no en holgura — es lo que un técnico puede accionar.
+    var today = localToday();
+    order.forEach(function(id) {
+        var s = byId[id];
+        if (s.status === 'completado') return;
+        var causes = [];
+        preds[id].forEach(function(d) {
+            var pr = byId[d];
+            if (!pr || pr.status === 'completado') return;
+            if (pr.status === 'bloqueado') causes.push('“' + pr.title + '” está bloqueado');
+            else if (pr.targetDate && pr.targetDate < today) causes.push('“' + pr.title + '” ya venció');
+            else if (pr.targetDate && s.targetDate && pr.targetDate >= s.targetDate) causes.push('“' + pr.title + '” termina hasta el ' + pr.targetDate);
+        });
+        if (causes.length) { info[id].atRisk = true; info[id].risk = causes.join(' · '); }
+    });
+
+    return { info: info, cycle: cycle, order: order, projStart: projStart, projEnd: projEnd };
+}
+
+// Congela la línea base: guarda la fecha objetivo actual de cada paso como
+// "lo comprometido". A partir de ahí, mover una fecha deja rastro visible en
+// el Gantt y en la línea de tiempo en vez de desaparecer.
+function pnProjectBaselineSet(projectId) {
+    var p = (pnState.projects || []).find(function(x) { return x.id === projectId; });
+    if (!p) return;
+    var withDates = (p.steps || []).filter(function(s) { return s.targetDate; }).length;
+    if (!withDates) { showToast('Ningún paso tiene fecha objetivo todavía', 'warning'); return; }
+    var already = (p.steps || []).some(function(s) { return s.baselineTarget; });
+    showConfirmDialog({
+        title: already ? 'Volver a fijar la línea base' : 'Fijar línea base',
+        message: (already
+            ? 'Ya hay una línea base guardada. Volver a fijarla <strong>reemplaza el compromiso original</strong> por las fechas de hoy y se pierde el retraso acumulado que hoy se ve en el Gantt.<br><br>'
+            : 'Se guardará la fecha objetivo actual de los ' + withDates + ' paso(s) como el <strong>compromiso original</strong>.<br><br>') +
+            'A partir de ahí, si alguien recorre una fecha, el Gantt sigue dibujando el plan original debajo del real y la línea de tiempo lo registra.',
+        type: already ? 'warning' : 'info', confirmText: already ? 'Reemplazar' : 'Fijar'
+    }).then(function(ok) {
+        if (!ok) return;
+        if (typeof undoPush === 'function') undoPush('panel', 'Fijar línea base');
+        var now = new Date().toISOString();
+        (p.steps || []).forEach(function(s) {
+            if (!s.targetDate) return;
+            s.baselineTarget = s.targetDate;
+            s.baselineAt = now;
+        });
+        p.updatedAt = now;
+        pnSave();
+        if (typeof auditLog === 'function') auditLog('panel', 'proyecto_linea_base', { type: 'project', id: p.id, label: p.name }, withDates + ' pasos');
+        showToast('Línea base fijada', 'success');
+        _pnProjNav();
+    });
 }
 
 // ── UI del importador ──
@@ -36559,7 +36871,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608062340' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608062345' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
