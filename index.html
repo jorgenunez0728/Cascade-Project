@@ -79,8 +79,8 @@
         <button id="immersive-toggle-btn" class="topbar-icon-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">⛶</button>
         <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary topbar-icon-btn" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">🔍</button></div>
         <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="helpMenuOpen()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Ayuda: recorridos guiados y glosario" aria-label="Menú de ayuda">?</button></div>
-        <div id="app-version-info" style="padding:10px 12px; font-size:10px; color:rgba(255,255,255,0.4); align-self:center; cursor:default;" title="Versión de la app">
-            KIA EmLab v14.0
+        <div id="app-version-info" class="app-version-pill" style="align-self:center;" title="Versión de la app">
+            <strong>KIA EmLab v16.7</strong>
         </div>
     </div>
 </div>
@@ -1589,6 +1589,34 @@
         <div x-show="activeTab === 'pn-system'" style="padding:12px 0;">
             <div id="help-banner-slot-pn-system"></div>
             <h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">💾 Monitor de Salud del Sistema</h3>
+
+            <!-- v16.6: Historial de versiones — para que siempre se sepa exactamente qué versión
+                 se está viendo y qué trajo cada una. APP_VERSION_HISTORY (app.js) es estático,
+                 no necesita pasar por la reactividad de Alpine. -->
+            <div class="tp-card" style="margin-bottom:12px;padding:12px;" data-help="pn-version-history-help">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">🗂️ Historial de Versiones</h4>
+                <p style="color:var(--tp-dim);font-size:10px;margin:0 0 10px 0;">
+                    Estás viendo la versión <strong x-text="'v' + appVersion"></strong>
+                    <span x-show="appVersionInfo().publishedES">· Publicada <span x-text="appVersionInfo().publishedES"></span></span>
+                    <span x-show="!appVersionInfo().publishedES">· desarrollo (sin build)</span>.
+                    Todo lo que se ha agregado, versión por versión:
+                </p>
+                <template x-for="(v, vi) in versionHistory" :key="v.version + vi">
+                    <details :open="vi === 0" style="border:1px solid var(--tp-border);border-radius:8px;margin-bottom:6px;overflow:hidden;">
+                        <summary style="cursor:pointer;padding:8px 10px;background:var(--tp-card);font-size:11px;display:flex;align-items:center;gap:8px;">
+                            <span style="font-weight:800;color:var(--tp-text);" x-text="/^\d/.test(v.version) ? 'v' + v.version : v.version"></span>
+                            <span style="color:var(--tp-dim);flex:1;" x-text="v.title"></span>
+                            <span style="color:var(--tp-dim);font-size:10px;" x-text="v.date"></span>
+                            <span x-show="vi === 0" style="background:rgba(16,185,129,0.15);color:#10b981;padding:1px 7px;border-radius:8px;font-size:9px;font-weight:800;">ACTUAL</span>
+                        </summary>
+                        <ul style="margin:0;padding:8px 10px 10px 24px;font-size:10.5px;color:var(--tp-dim);line-height:1.5;">
+                            <template x-for="(b, bi) in v.bullets" :key="bi">
+                                <li x-text="b"></li>
+                            </template>
+                        </ul>
+                    </details>
+                </template>
+            </div>
 
             <!-- Storage Breakdown -->
             <div class="tp-card" style="margin-bottom:12px;padding:12px;">
