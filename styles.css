@@ -3239,10 +3239,15 @@ details.acc > summary {
     padding: 4px 10px; cursor: pointer; line-height: 1;
 }
 
-@media (max-width: 768px) {
-    .platform-bar { position: sticky; }
+/* v16.8: el grupo "⋯ Más" se colapsa hasta 1400px, no solo en móvil.
+   Antes el corte estaba en 768px, así que entre 769px y ~1400px la barra
+   (5 pestañas + sync + operador + 🔔 🕘 + TODO el grupo expandido + el pill de
+   versión) no cabía y provocaba scroll horizontal DE PÁGINA — medido: 536px de
+   desbordamiento a 820px, que es justo un iPad en vertical, y el laboratorio
+   trabaja con tablets. En una pantalla ancha (≥1401px) no cambia nada. */
+@media (max-width: 1400px) {
     #topbar-more-btn { display: flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: center; }
-    /* En móvil el grupo se vuelve un dropdown anclado a la barra */
+    /* El grupo se vuelve un dropdown anclado a la barra */
     .topbar-more-group {
         display: none;
         position: absolute;
@@ -3259,6 +3264,10 @@ details.acc > summary {
     }
     .topbar-more-group.open { display: flex; }
     .topbar-more-group > * { align-self: stretch !important; }
+}
+
+@media (max-width: 768px) {
+    .platform-bar { position: sticky; }
     /* Touch targets ≥44px en toda la barra en móvil */
     .platform-bar button, .topbar-more-group button { min-height: 44px; min-width: 44px; }
     #op-picker select { min-height: 38px; }
@@ -3275,8 +3284,13 @@ details.acc > summary {
 }
 
 /* [v15.5] En móvil la bottom-nav (siempre visible) ya cubre la navegación:
-   ocultar las tabs de la topbar libera una fila completa de pantalla */
-@media (max-width: 768px) {
+   ocultar las tabs de la topbar libera una fila completa de pantalla.
+   [v16.8] El corte sube de 768px a 1024px: la bottom-nav es `position:fixed`
+   sin media query, o sea que en tablet se veían las DOS navegaciones a la vez
+   y además las 5 pestañas no cabían — a 820px (iPad en vertical, y el
+   laboratorio trabaja con tablets) la barra pedía 981px y sacaba scroll
+   horizontal de página. En escritorio (≥1025px) no cambia nada. */
+@media (max-width: 1024px) {
     .platform-bar .platform-tab { display: none; }
     #fb-sync-indicator { margin-left: 0; }
 }

@@ -285,7 +285,8 @@ function _pnProjectTableHTML(p) {
     html += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">';
     html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProjectStep(\'' + p.id + '\');" style="font-size:11px;">+ Paso</button>';
     html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen(\'' + p.id + '\')" style="font-size:11px;">📥 Importar Excel</button>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportProjectCSV(\'' + p.id + '\')" style="font-size:11px;">📤 Exportar CSV</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportProjectCSV(\'' + p.id + '\')" style="font-size:11px;">📤 CSV</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjectPDF(\'' + p.id + '\')" style="font-size:11px;">📄 PDF</button>';
     html += '</div>';
     return html;
 }
@@ -1087,9 +1088,17 @@ function pnExportProjectCSV(projectId) {
     var p = (pnState.projects || []).find(function(x) { return x.id === pid; });
     if (!p) { showToast('Selecciona un proyecto primero', 'warning'); return; }
     var steps = (p.steps || []).slice().sort(function(a, b) { return (a.seq || 0) - (b.seq || 0); });
-    var csv = 'Step,Responsible,Status,Target Date,Completion Date,Roadblock/Comments\n';
+    var titleById = {};
+    steps.forEach(function(s) { titleById[s.id] = s.title; });
+    // Las 6 primeras columnas son EXACTAMENTE las del tablero de Loop del
+    // usuario, para que el archivo se pueda pegar de vuelta allá sin tocarlo.
+    // Lo de v16.8 va después, para no romper ese contrato.
+    var csv = 'Step,Responsible,Status,Target Date,Completion Date,Roadblock/Comments,Phase,Milestone,Baseline Target,Start Date,Depends On\n';
     steps.forEach(function(s) {
-        csv += [s.title, s.responsible || '', PN_STEP_STATUS[s.status] || s.status, s.targetDate || '', s.doneDate || '', s.roadblock || ''].map(_pnProjCsvEsc).join(',') + '\n';
+        var deps = (s.dependsOn || []).map(function(d) { return titleById[d] || ''; }).filter(Boolean).join(' | ');
+        csv += [s.title, s.responsible || '', PN_STEP_STATUS[s.status] || s.status, s.targetDate || '', s.doneDate || '',
+                s.roadblock || '', s.phase || '', s.isMilestone ? 'Sí' : '', s.baselineTarget || '', s.startDate || '', deps]
+               .map(_pnProjCsvEsc).join(',') + '\n';
     });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }));
@@ -1811,21 +1820,131 @@ function pnProjImportApply() {
     });
 }
 
+
+// ── PDF de una carilla por proyecto ──
+// El entregable para jefatura: métricas, hitos, la curva S y la tabla de
+// pasos. La gráfica se embebe con toBase64Image(), el mismo patrón que ya
+// usa generateWeeklyStatusPDF para las gráficas del reporte semanal.
+function pnProjectPDF(projectId) {
+    if (typeof window.jspdf === 'undefined') { showToast('jsPDF no está disponible. Verifica la conexión CDN.', 'error'); return; }
+    var pid = projectId || window._pnSelectedProject;
+    var p = (pnState.projects || []).find(function(x) { return x.id === pid; });
+    if (!p) { showToast('Selecciona un proyecto primero', 'warning'); return; }
+
+    var prog = pnProjectProgress(p);
+    var cpm = pnProjectCPM(p);
+    var doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+    var W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+    var ML = 14, CW = W - ML * 2, y = 16;
+
+    doc.setFontSize(15); doc.setFont('helvetica', 'bold');
+    doc.text(p.name, ML, y); y += 6;
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(100);
+    var head = [];
+    if (p.owner) head.push('Responsable: ' + p.owner);
+    var asset = (p.assetId && typeof invState !== 'undefined') ? (invState.assets || []).find(function(a) { return a.id === p.assetId; }) : null;
+    if (asset) head.push('Equipo: ' + asset.name);
+    head.push('Estatus: ' + (PN_PROJECT_STATUS[p.status] || p.status));
+    head.push('Generado: ' + localToday());
+    doc.text(head.join('   ·   '), ML, y); y += 8;
+    doc.setTextColor(0);
+
+    // Métricas
+    var mets = [['Avance', prog.pct + '%'], ['Pasos', prog.done + '/' + prog.total],
+                ['Vencidos', String(prog.overdueN)], ['Bloqueados', String(prog.blockedN)]];
+    var bw = CW / mets.length;
+    mets.forEach(function(m, i) {
+        var x = ML + i * bw;
+        doc.setDrawColor(220); doc.rect(x, y, bw - 2, 14);
+        doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.text(m[1], x + (bw - 2) / 2, y + 6, { align: 'center' });
+        doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(110);
+        doc.text(m[0].toUpperCase(), x + (bw - 2) / 2, y + 11, { align: 'center' });
+        doc.setTextColor(0);
+    });
+    y += 20;
+
+    // Curva S si está dibujada en pantalla
+    if (window._pnProjSCurveChart) {
+        try {
+            var img = window._pnProjSCurveChart.toBase64Image();
+            doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+            doc.text('Avance comprometido vs real', ML, y); y += 4;
+            doc.addImage(img, 'PNG', ML, y, CW, 55); y += 60;
+        } catch (e) {}
+    }
+
+    // Hitos
+    var ms = (p.steps || []).filter(function(s) { return s.isMilestone; });
+    if (ms.length) {
+        doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.text('Hitos', ML, y); y += 5;
+        doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+        ms.forEach(function(s) {
+            doc.text('◆ ' + s.title + '  —  ' + (s.targetDate || 's/f') + '  ' + (PN_STEP_STATUS[s.status] || ''), ML + 2, y);
+            y += 4.5;
+        });
+        y += 3;
+    }
+
+    // Tabla de pasos
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.text('Pasos', ML, y); y += 5;
+    var cols = [[ML, 72, 'Paso'], [ML + 74, 28, 'Responsable'], [ML + 103, 20, 'Estatus'], [ML + 124, 22, 'Objetivo'], [ML + 147, 35, 'Obstáculo']];
+    doc.setFontSize(7); doc.setFillColor(240); doc.rect(ML, y - 3.5, CW, 5, 'F');
+    cols.forEach(function(c) { doc.text(c[2], c[0], y); });
+    y += 4;
+    doc.setFont('helvetica', 'normal');
+    var today = localToday();
+    (p.steps || []).slice().sort(function(a, b) { return (a.seq || 0) - (b.seq || 0); }).forEach(function(s) {
+        if (y > H - 18) { doc.addPage(); y = 18; }
+        var late = s.status !== 'completado' && s.targetDate && s.targetDate < today;
+        if (late) doc.setTextColor(185, 28, 28);
+        var ci = cpm.info[s.id] || {};
+        var t = (s.isMilestone ? '◆ ' : '') + s.title + (ci.critical && !cpm.cycle.length ? ' *' : '');
+        doc.text(doc.splitTextToSize(t, 72)[0] || '', cols[0][0], y);
+        doc.text(doc.splitTextToSize(s.responsible || '—', 28)[0] || '', cols[1][0], y);
+        doc.text(PN_STEP_STATUS[s.status] || s.status, cols[2][0], y);
+        doc.text(s.targetDate || '—', cols[3][0], y);
+        doc.text(doc.splitTextToSize(s.roadblock || '', 35)[0] || '', cols[4][0], y);
+        doc.setTextColor(0);
+        y += 4.2;
+    });
+
+    if (!cpm.cycle.length && Object.keys(cpm.info).some(function(k) { return cpm.info[k].critical; })) {
+        y += 4; doc.setFontSize(7); doc.setTextColor(110);
+        doc.text('* Ruta crítica: si ese paso se atrasa, el proyecto entero se atrasa.', ML, y);
+        doc.setTextColor(0);
+    }
+
+    doc.save('Proyecto_' + p.name.replace(/[^a-z0-9]+/gi, '_') + '_' + localToday() + '.pdf');
+    showToast('PDF generado', 'success');
+}
+
 // ══════════════════════════════════════════════════
 // v16.0: Ayuda — banner de pestaña y tooltips de campo
 // (viven aquí, con el módulo; projects.js carga después de cop15.js,
 //  que es donde se define CASCADE_TOOLTIPS)
 // ══════════════════════════════════════════════════
 if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
-    'pn-projects': { title: 'Proyectos', text: 'Seguimiento general de reparaciones, proyectos de inversión o cualquier iniciativa con pasos, responsables y fechas — no solo mantenimiento. Cada proyecto tiene una tabla de pasos, una línea de tiempo y un Gantt.', tips: [
+    'pn-projects': { title: 'Proyectos', text: 'Seguimiento general de reparaciones, proyectos de inversión o cualquier iniciativa con pasos, responsables y fechas — no solo mantenimiento. Cada proyecto tiene 6 vistas: Tabla, Kanban, Línea de tiempo, Gantt, Curva S y Carga.', tips: [
+        '📥 Importar Excel trae tu lista tal como la tienes: no hace falta un formato especial, solo una fila de encabezados.',
+        'Fija la línea base cuando el plan esté acordado: a partir de ahí los retrasos quedan documentados en el Gantt.',
+        'Marca los entregables clave como hito (◆) — el Portafolio muestra el próximo hito de cada proyecto.',
         'Liga un proyecto a un equipo (ej. Dinamómetro) para que aparezca como banner en Consumibles → Mtto.',
-        'La línea de tiempo mezcla tus notas libres con los cambios de estatus de los pasos, en orden.',
         'Un paso vencido o bloqueado aparece en HOY y en Alertas hasta que se resuelva.',
-        'Exporta un proyecto a CSV con las mismas columnas que un tablero tipo Loop (Step/Responsible/Status/...).'
+        'Desde HOY puedes dar de alta un pendiente directo en un proyecto con el selector del modal ➕ Actividad.'
     ]}
 });
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-projects-help': { title: 'Proyectos', text: 'Registra reparaciones, proyectos de inversión o cualquier iniciativa con pasos y fechas. La retícula muestra el avance de todos; entra a uno para ver su tabla, línea de tiempo y Gantt.' },
     'pn-proj-phase': { title: 'Fase', text: 'Etiqueta libre para agrupar pasos en el Gantt (ej. "Diagnóstico", "Refacciones", "Instalación"). Opcional — si la dejas vacía, el paso solo muestra su título.' },
-    'pn-proj-roadblock': { title: 'Obstáculo / comentario', text: 'Qué está deteniendo este paso (ej. "esperando refacción de proveedor"). Si el paso está en estatus Bloqueado y tiene un obstáculo escrito, sale en Alertas hasta que se resuelva.' }
+    'pn-proj-roadblock': { title: 'Obstáculo / comentario', text: 'Qué está deteniendo este paso (ej. "esperando refacción de proveedor"). Si el paso está en estatus Bloqueado y tiene un obstáculo escrito, sale en Alertas hasta que se resuelva.' },
+    'pn-import-help': { title: 'Importar desde Excel', text: 'Trae tu lista tal como la tienes: no hace falta una plantilla ni un orden de columnas específico, solo que la tabla traiga una fila de encabezados. Puedes subir un .xlsx/.xls/.csv o pegar directo lo que copiaste de Excel o Loop.' },
+    'pn-import-map-help': { title: 'Mapeo de columnas', text: 'Se adivina qué columna es cuál por su encabezado (en español o inglés). Revisa y corrige con los menús: cada campo puede apuntar a cualquier columna, o quedar en "no importar". Solo "Paso / Tarea" es obligatorio. El mapeo se recuerda para la próxima vez.' },
+    'pn-import-date-help': { title: 'Día/mes vs mes/día', text: 'Se decide con los datos: si algún número pasa de 12 no hay ambigüedad. Cuando todas las fechas son ambiguas (ej. 01/02/2026) se asume día/mes/año, como se usa en México — el ejemplo de arriba te dice cómo se está leyendo y el botón lo cambia.' },
+    'pn-proj-start': { title: 'Fecha de inicio', text: 'Cuándo arranca el paso. Sirve para que el Gantt dibuje una barra de la duración real (en vez de una marca de un día) y para calcular la ruta crítica. Es opcional.' },
+    'pn-proj-milestone': { title: 'Hito', text: 'Un entregable clave del proyecto (una entrega, una autorización, un arranque). En el Gantt se dibuja como ◆ en vez de barra, y el Portafolio muestra el próximo hito de cada proyecto.' },
+    'pn-proj-depends': { title: 'Dependencias', text: 'Los pasos que deben terminar antes que éste. Con eso se calcula la ruta crítica (lo que empuja la fecha final del proyecto) y se avisa cuando un paso está en riesgo porque aquello de lo que depende va tarde o está bloqueado. La lista solo ofrece pasos que no crean un círculo.' },
+    'pn-proj-baseline': { title: 'Línea base', text: 'Congela las fechas objetivo de hoy como "lo comprometido". A partir de ahí, si alguien recorre una fecha, el Gantt sigue dibujando el plan original debajo del real y la línea de tiempo lo registra — el retraso queda documentado en vez de desaparecer.' },
+    'pn-proj-workload': { title: 'Carga por responsable', text: 'Cuántos pasos abiertos trae cada persona y cuántos van vencidos o bloqueados. Ordenado por quien tiene más vencidos: el primero de la lista suele ser el cuello de botella.' },
+    'pn-proj-scurve': { title: 'Curva S', text: 'Compara el avance comprometido (acumulado de fechas objetivo, o de la línea base si está fijada) contra el real (acumulado de pasos completados). La línea real se corta en hoy a propósito: proyectarla sería inventar avance.' },
+    'pn-proj-portfolio': { title: 'Portafolio', text: 'Todos los proyectos activos en una tabla con semáforo, para reportar hacia arriba. Rojo = tiene pasos vencidos o bloqueados; amarillo = hay pasos en riesgo o un hito dentro de 7 días; verde = en tiempo. Toca una fila para entrar al proyecto.' }
 });

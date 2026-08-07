@@ -190,11 +190,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '16.7';
+var APP_VERSION = '16.8';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '16.8', date: '6 ago 2026', title: 'Proyectos como Project Manager completo', bullets: [
+        'Importar desde Excel: sube tu .xlsx/.csv o pega la tabla y los pasos se cargan solos. NO hace falta un formato especial — se detectan las columnas y puedes corregirlas antes de guardar. Reimportar el mismo archivo actualiza, no duplica.',
+        'Cuatro vistas nuevas: 📌 Kanban (arrastra entre estatus), 👥 Carga por responsable (quién es el cuello de botella), 📈 Curva S (avance comprometido vs real) y 🗂️ Portafolio (todos los proyectos con semáforo, para reportar a jefatura).',
+        'Hitos (◆), línea base y dependencias con ruta crítica en el Gantt: el retraso queda documentado en vez de desaparecer cuando alguien recorre una fecha.',
+        'Desde HOY puedes dar de alta un pendiente directo en un proyecto, y mover una tarea suelta a uno con un toque.',
+        'Arreglado: el filtro "Solo míos" de HOY no filtraba los pasos de proyecto ni los mantenimientos — mostraba los de todos.'
+    ]},
     { version: '16.7', date: '6 ago 2026', title: 'Versión siempre visible + historial completo', bullets: [
         'APP_VERSION estaba pegado en "14.0" desde hace varias rondas — el pill del topbar nunca reflejó en qué versión real estaba parado el laboratorio. Corregido y con una regla para no volver a congelarse.',
         'El pill de versión (menú ⋯ del topbar) ahora es un chip visible y SIEMPRE clickeable — antes era texto casi invisible (10px, apenas gris) y solo reaccionaba si había una actualización pendiente.',
@@ -2068,6 +2075,7 @@ function _dashRegisterHelp() {
         'dash-task-title': { title: 'Título de la actividad', text: 'Describe la tarea en pocas palabras, como la escribirías en un pizarrón. Ejemplo: Pedir gas de calibración CO/N2.' },
         'dash-task-cat': { title: 'Categoría', text: 'En qué grupo del tablero aparecerá esta tarea. Usa "Manuales" si no encaja en las categorías automáticas.' },
         'dash-task-assignee': { title: 'Responsable', text: 'A quién se le asigna la tarea. Déjalo vacío si es para cualquiera del turno.' },
+        'dash-task-project': { title: 'Proyecto', text: 'Si el pendiente pertenece a un proyecto (una reparación, un proyecto de inversión), elígelo aquí y se registra como un paso de ese proyecto en vez de quedar como tarea suelta. Aparecerá en su tabla, su Gantt y su línea de tiempo.' },
         'dash-task-due': { title: 'Fecha límite', text: 'Cuándo debe estar lista la tarea. Se usa para marcarla urgente cuando se acerca la fecha.' }
     });
     if (typeof HELP_TABS !== 'undefined') {

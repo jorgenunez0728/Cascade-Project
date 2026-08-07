@@ -761,7 +761,9 @@ function pnRenderReports(el) {
         { icon: '🛠️', title: 'F11 — Actividades', desc: 'Catálogo de actividades de mantenimiento preventivo (formato COP15-F11).', actions: [{ label: 'CSV', fn: 'invExportF11Actividades' }] },
         { icon: '📋', title: 'F11 — Historial de mantenimiento', desc: 'Mantenimientos ejecutados (formato COP15-F11).', actions: [{ label: 'CSV', fn: 'invExportF11Historial' }] },
         { icon: '🗓️', title: 'F11 — Plan Maestro', desc: 'Matriz de 52 semanas + cumplimiento, lista para firmar.', actions: [{ label: 'PDF', fn: 'invMaintPlanPDF' }] },
-        { icon: '🗂️', title: 'Proyectos', desc: 'Pasos de todos los proyectos (Step/Responsible/Status/Target Date/Completion Date/Roadblock), formato compatible con tablero tipo Loop.', actions: [{ label: 'CSV', fn: 'pnExportAllProjectsCSV' }] }
+        { icon: '🗂️', title: 'Proyectos', desc: 'Pasos de todos los proyectos (Step/Responsible/Status/Target Date/Completion Date/Roadblock), formato compatible con tablero tipo Loop.', actions: [{ label: 'CSV', fn: 'pnExportAllProjectsCSV' }] },
+        { icon: '📊', title: 'Portafolio de Proyectos', desc: 'Un renglón por proyecto activo con semáforo, avance, vencidos, bloqueados y próximo hito — para reportar a jefatura.', actions: [{ label: 'CSV', fn: 'pnExportPortfolioCSV' }] },
+        { icon: '📄', title: 'Proyecto (detalle)', desc: 'Una carilla del proyecto abierto: métricas, hitos, curva S y la tabla de pasos. Abre primero el proyecto en Datos → Proyectos.', actions: [{ label: 'PDF', fn: 'pnProjectPDF' }] }
     ];
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-reports-help"><span>📤 Centro de Reportes</span></div>'
         + '<div style="font-size:11px;color:var(--tp-dim);margin-bottom:6px;">Un solo lugar para exportar. Cada reporte usa los datos actuales del sistema.</div>';
