@@ -2572,11 +2572,181 @@ details.acc > summary {
 .pn-proj-timeline-text { font-size: 12px; color: var(--tp-text); }
 .pn-proj-timeline-meta { font-size: 9px; color: var(--tp-dim); margin-top: 2px; }
 
+/* Kanban de pasos (v16.8) — columnas por estatus, arrastrable */
+.pn-kanban {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 10px; align-items: start;
+}
+.pn-kanban-col {
+    background: var(--tp-dark); border: 1px solid var(--tp-border);
+    border-radius: var(--radius-lg); padding: 8px; min-height: 90px;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+.pn-kanban-col--over { border-color: #3b82f6; background: rgba(59,130,246,0.08); }
+.pn-kanban-colhead {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; font-weight: 800; padding: 2px 4px 8px; color: var(--tp-text);
+}
+.pn-kanban-count {
+    background: var(--surface); border: 1px solid var(--tp-border); border-radius: 10px;
+    padding: 0 7px; font-size: 10px;
+}
+.pn-kanban-col--pendiente  .pn-kanban-colhead { border-bottom: 2px solid #94a3b8; }
+.pn-kanban-col--encurso    .pn-kanban-colhead { border-bottom: 2px solid #3b82f6; }
+.pn-kanban-col--completado .pn-kanban-colhead { border-bottom: 2px solid #10b981; }
+.pn-kanban-col--bloqueado  .pn-kanban-colhead { border-bottom: 2px solid #ef4444; }
+.pn-kanban-cards { display: flex; flex-direction: column; gap: 7px; padding-top: 8px; }
+.pn-kanban-card {
+    background: var(--surface); border: 1px solid var(--tp-border); border-radius: var(--radius-md);
+    padding: 8px 9px; box-shadow: var(--shadow-sm); cursor: grab; touch-action: manipulation;
+}
+.pn-kanban-card--late { border-left: 3px solid #ef4444; }
+.pn-kanban-card--dragging { opacity: 0.35; }
+.pn-kanban-ghost { position: fixed; z-index: 10000; pointer-events: none; opacity: 0.9; transform: rotate(-2deg); }
+.pn-kanban-card-title { font-size: 12px; font-weight: 700; line-height: 1.3; }
+.pn-kanban-card-meta { font-size: 10px; color: var(--tp-dim); margin-top: 3px; }
+.pn-kanban-card-risk { font-size: 10px; color: #b45309; margin-top: 3px; font-weight: 700; }
+.pn-kanban-card-block { font-size: 10px; color: #b91c1c; margin-top: 3px; }
+.pn-kanban-card-actions { display: flex; gap: 5px; align-items: center; margin-top: 6px; }
+.pn-kanban-card-actions select {
+    flex: 1; min-width: 0; font-size: 10px; padding: 3px 5px;
+    border: 1px solid var(--tp-border); border-radius: var(--radius-sm); background: var(--surface);
+}
+.pn-kanban-empty { font-size: 10px; color: var(--tp-dim); text-align: center; padding: 10px 0; }
+.pn-kanban-hint { font-size: 10px; color: var(--tp-dim); margin-top: 8px; text-align: center; }
+
+/* Carga por responsable (v16.8) */
+.pn-workload-scope { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.pn-workload { display: flex; flex-direction: column; gap: 8px; }
+.pn-workload-row {
+    display: grid; grid-template-columns: minmax(110px, 160px) 1fr; gap: 8px 10px; align-items: center;
+}
+.pn-workload-name { font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pn-workload-bar {
+    display: flex; height: 16px; border-radius: 8px; overflow: hidden;
+    background: var(--tp-dark); border: 1px solid var(--tp-border);
+}
+.pn-workload-seg { display: block; height: 100%; min-width: 3px; }
+.pn-workload-seg--overdue { background: #ef4444; }
+.pn-workload-seg--blocked { background: #f59e0b; }
+.pn-workload-seg--open    { background: #3b82f6; }
+.pn-workload-seg--done    { background: #10b981; }
+.pn-workload-nums { grid-column: 2; font-size: 10px; color: var(--tp-dim); margin-top: -4px; }
+.pn-workload-red { color: #b91c1c; }
+.pn-workload-amber { color: #b45309; }
+
+/* Curva S (v16.8) */
+.pn-scurve-head { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.pn-scurve-ok { color: #047857; }
+.pn-scurve-bad { color: #b91c1c; }
+#pn-proj-scurve-wrapper { position: relative; height: 300px; }
+
+/* Portafolio (v16.8) */
+.pn-portfolio-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 6px; margin-bottom: 10px; }
+.pn-portfolio-kpi { text-align: center; padding: 9px 6px; background: var(--tp-dark); border: 1px solid var(--tp-border); border-radius: var(--radius-md); }
+.pn-portfolio-kpi-n { font-size: 20px; font-weight: 800; }
+.pn-portfolio-kpi-l { font-size: 9px; color: var(--tp-dim); }
+.pn-portfolio-row { cursor: pointer; }
+.pn-portfolio-row:hover { background: rgba(59,130,246,0.06); }
+.pn-portfolio-bad { color: #b91c1c; font-weight: 800; }
+.pn-portfolio-table td:first-child { font-size: 14px; text-align: center; }
+
+/* Importador de Excel/CSV/pegado (v16.8) */
+.pn-import-overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.55); z-index: 9000;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.pn-import-box {
+    background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+    width: min(920px, 100%); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+}
+.pn-import-head {
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+    border-bottom: 1px solid var(--tp-border); font-weight: 800; font-size: 14px;
+}
+.pn-import-x {
+    margin-left: auto; background: none; border: none; font-size: 18px; cursor: pointer;
+    color: var(--tp-dim); line-height: 1; padding: 4px 8px; min-height: 44px; min-width: 44px;
+}
+.pn-import-body { padding: 14px 16px 18px; overflow-y: auto; }
+.pn-import-lead { font-size: 12px; color: var(--tp-dim); margin: 0 0 14px; line-height: 1.5; }
+.pn-import-sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.pn-import-source {
+    border: 1px solid var(--tp-border); border-radius: var(--radius-lg); padding: 14px;
+    display: flex; flex-direction: column; gap: 8px;
+}
+.pn-import-source-title { font-weight: 800; font-size: 13px; }
+.pn-import-source-desc { font-size: 11px; color: var(--tp-dim); flex: 1; line-height: 1.45; }
+.pn-import-paste {
+    width: 100%; min-height: 90px; box-sizing: border-box; padding: 8px;
+    border: 1px solid var(--tp-border); border-radius: var(--radius-md);
+    font-family: 'Courier New', monospace; font-size: 11px; resize: vertical;
+}
+.pn-import-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.pn-import-row label { font-size: 11px; font-weight: 700; color: var(--tp-dim); min-width: 130px; }
+.pn-import-row select {
+    flex: 1; min-width: 180px; padding: 7px 9px; border: 1px solid var(--tp-border);
+    border-radius: var(--radius-md); font-size: 12px; background: var(--surface);
+}
+.pn-import-maptitle { font-size: 12px; font-weight: 800; margin: 14px 0 8px; }
+.pn-import-maptitle span { font-weight: 400; color: var(--tp-dim); font-size: 11px; }
+.pn-import-map { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
+.pn-import-mapitem {
+    display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--tp-border);
+    border-left: 3px solid #10b981; border-radius: var(--radius-md); padding: 7px 9px;
+}
+.pn-import-mapitem--off { border-left-color: var(--tp-border); opacity: 0.6; }
+.pn-import-maplabel { font-size: 11px; font-weight: 700; }
+.pn-import-mapitem select {
+    padding: 5px 7px; border: 1px solid var(--tp-border); border-radius: var(--radius-sm);
+    font-size: 11px; background: var(--surface); max-width: 100%;
+}
+.pn-import-daterow {
+    margin: 12px 0; padding: 9px 11px; background: rgba(245,158,11,0.10);
+    border: 1px solid rgba(245,158,11,0.30); border-radius: var(--radius-md);
+    font-size: 11px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.pn-import-preview { overflow-x: auto; border: 1px solid var(--tp-border); border-radius: var(--radius-md); }
+.pn-import-more { font-size: 11px; color: var(--tp-dim); padding: 6px 2px; }
+.pn-import-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+
 /* Gantt semanal — mismo patrón de colspan que el Plan Maestro de 52 semanas */
 .pn-proj-gantt-label { min-width: 130px; max-width: 160px; position: sticky; left: 0; background: var(--tp-card); padding: 3px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; border-top: 1px solid var(--tp-border); }
 .pn-proj-gantt-head { text-align: center; padding: 2px; color: var(--tp-dim); }
 .pn-proj-gantt-cell { text-align: center; padding: 2px 1px; border-top: 1px solid var(--tp-border); height: 20px; }
 .pn-proj-gantt-bar { height: 14px; border-radius: 4px; }
+.pn-proj-gantt { border-collapse: collapse; font-size: 9px; }
+.pn-gantt-scroll { overflow-x: auto; }
+.pn-proj-gantt-head--today { background: rgba(15,118,110,0.15); font-weight: 800; color: var(--tp-text); }
+.pn-gantt-cell--today { background: rgba(15,118,110,0.06); }
+.pn-gantt-bar--crit { outline: 2px solid #b91c1c; outline-offset: 1px; }
+.pn-gantt-milestone { font-size: 15px; line-height: 14px; text-align: center; }
+.pn-gantt-row--milestone .pn-proj-gantt-label { font-weight: 800; }
+.pn-gantt-row--baseline .pn-proj-gantt-label { color: var(--tp-dim); font-weight: 400; font-style: italic; padding-left: 14px; }
+.pn-gantt-baseline {
+    height: 7px; border-radius: 3px; background: repeating-linear-gradient(
+        45deg, rgba(100,116,139,0.45), rgba(100,116,139,0.45) 4px, transparent 4px, transparent 8px);
+    border: 1px dashed rgba(100,116,139,0.6);
+}
+.pn-gantt-tag {
+    display: inline-block; margin-left: 5px; padding: 0 5px; border-radius: 7px;
+    font-size: 8.5px; font-weight: 800; vertical-align: middle;
+}
+.pn-gantt-tag--crit { background: rgba(185,28,28,0.14); color: #b91c1c; }
+.pn-gantt-tag--risk { background: rgba(245,158,11,0.18); color: #b45309; }
+.pn-gantt-warn {
+    background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.32);
+    border-radius: var(--radius-md); padding: 9px 11px; font-size: 11px; margin-bottom: 10px;
+}
+.pn-gantt-legend {
+    display: flex; gap: 12px; margin-top: 8px; font-size: 9px;
+    color: var(--tp-dim); flex-wrap: wrap; align-items: center;
+}
+.pn-gantt-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.pn-gantt-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.pn-gantt-swatch--crit { background: transparent; outline: 2px solid #b91c1c; outline-offset: -2px; }
+.pn-gantt-swatch--base { background: repeating-linear-gradient(45deg, rgba(100,116,139,0.5), rgba(100,116,139,0.5) 3px, transparent 3px, transparent 6px); border: 1px dashed rgba(100,116,139,0.6); }
+.pn-gantt-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 
 /* ══════════════════════════════════════════════════════════════════════ */
 /* [TIER 5] GLASS + NEUMORPHISM POLISH                                   */
@@ -3069,10 +3239,15 @@ details.acc > summary {
     padding: 4px 10px; cursor: pointer; line-height: 1;
 }
 
-@media (max-width: 768px) {
-    .platform-bar { position: sticky; }
+/* v16.8: el grupo "⋯ Más" se colapsa hasta 1400px, no solo en móvil.
+   Antes el corte estaba en 768px, así que entre 769px y ~1400px la barra
+   (5 pestañas + sync + operador + 🔔 🕘 + TODO el grupo expandido + el pill de
+   versión) no cabía y provocaba scroll horizontal DE PÁGINA — medido: 536px de
+   desbordamiento a 820px, que es justo un iPad en vertical, y el laboratorio
+   trabaja con tablets. En una pantalla ancha (≥1401px) no cambia nada. */
+@media (max-width: 1400px) {
     #topbar-more-btn { display: flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: center; }
-    /* En móvil el grupo se vuelve un dropdown anclado a la barra */
+    /* El grupo se vuelve un dropdown anclado a la barra */
     .topbar-more-group {
         display: none;
         position: absolute;
@@ -3089,6 +3264,10 @@ details.acc > summary {
     }
     .topbar-more-group.open { display: flex; }
     .topbar-more-group > * { align-self: stretch !important; }
+}
+
+@media (max-width: 768px) {
+    .platform-bar { position: sticky; }
     /* Touch targets ≥44px en toda la barra en móvil */
     .platform-bar button, .topbar-more-group button { min-height: 44px; min-width: 44px; }
     #op-picker select { min-height: 38px; }
@@ -3105,8 +3284,13 @@ details.acc > summary {
 }
 
 /* [v15.5] En móvil la bottom-nav (siempre visible) ya cubre la navegación:
-   ocultar las tabs de la topbar libera una fila completa de pantalla */
-@media (max-width: 768px) {
+   ocultar las tabs de la topbar libera una fila completa de pantalla.
+   [v16.8] El corte sube de 768px a 1024px: la bottom-nav es `position:fixed`
+   sin media query, o sea que en tablet se veían las DOS navegaciones a la vez
+   y además las 5 pestañas no cabían — a 820px (iPad en vertical, y el
+   laboratorio trabaja con tablets) la barra pedía 981px y sacaba scroll
+   horizontal de página. En escritorio (≥1025px) no cambia nada. */
+@media (max-width: 1024px) {
     .platform-bar .platform-tab { display: none; }
     #fb-sync-indicator { margin-left: 0; }
 }

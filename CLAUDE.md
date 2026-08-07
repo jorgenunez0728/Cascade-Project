@@ -51,7 +51,8 @@ js/
   cop15.js              ← COP15 Cascade module + Soak Timer + Field Tooltips (~6,290 lines)
   testplan.js           ← Test Plan Manager + Recovery Plan + dynamic months (~5,090 lines)
   inventory.js          ← Lab Inventory + Zone Map grid (~5,000 lines)
-  panel.js              ← Dashboard, Lab Overview, Reports Center, Users, Alerts, Audit, Health, Proyectos (~4,350 lines)
+  panel.js              ← Dashboard, Lab Overview, Reports Center, Users, Alerts, Audit, Health (~3,840 lines)
+  projects.js           ← Proyectos: importador Excel, 6 vistas, CPM/línea base (~1,900 lines)
   firebase-sync.js      ← Shared-workspace cloud sync layer (~2,900 lines)
   auth.js               ← Operator identity + PIN wall (~490 lines)
   cop_validator.js      ← CoP Type 1 statistical validator + Control SPC (I-MR/Nelson/Cpk) (~1,170 lines)
@@ -73,6 +74,7 @@ CHANGELOG.md            ← Detailed changelog
 | Lab Inventory | `js/inventory.js` | `inv` | `invState` | `kia_lab_inventory` |
 | Panel | `js/panel.js` | `pn` | `pnState` | `kia_panel_v1` |
 | CoP Validator | `js/cop_validator.js` | `cop` | `copState` | `kia_cop_v1` |
+| Proyectos | `js/projects.js` | `pnProject*` | `pnState.projects` (vive en panel) | — (dentro de `kia_panel_v1`) |
 | Auth / Operator | `js/auth.js` | `auth` | `authState` (lightweight) | `kia_current_operator` |
 | Signatures | `js/signatures.js` | `sig` | overlay-based | — (in `vehicle.testData.signatures`) |
 | Firebase Sync | `js/firebase-sync.js` | `fb` | `fbSync`, queue | `kia_firebase_queue` |
@@ -149,14 +151,15 @@ en el cliente sumando metadatos antes de subir.
 
 ## Script Load Order (matters!)
 
-`app.js` → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → `auth.js` → `signatures.js` →
-`firebase-sync.js` → `cop_validator.js` (last; reuses `tpFamilyKeyForCfg`/`tpState` — guard with
-`typeof`). `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
+`app.js` → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` (last; reuses `tpFamilyKeyForCfg`/`tpState`
+— guard with `typeof`). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
+justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
 
 ## Conventions
 
 - All functions use global scope (no ES modules) — intentional for single-file offline compatibility
-- Function naming: `tp*`=Test Plan, `inv*`=Inventory, `pn*`=Panel, `cop*`=CoP validator,
+- Function naming: `tp*`=Test Plan, `inv*`=Inventory, `pn*`=Panel, `pnProject*`/`pnProj*`=Proyectos, `cop*`=CoP validator,
   `fb*`=Firebase sync, `auth*`=operator, `note*`=Entity Notes, `chartConfig*`=Chart, `undo*`=Undo,
   `cascade*`=Cascade tooltips, no prefix = COP15/shared
 - State stored in localStorage as JSON; TP/Inventory/Panel/CoP render HTML dynamically via JS
@@ -397,6 +400,46 @@ calibración) dentro de Consumibles — sin módulo nuevo, reusa `invState`/`inv
   tema oscuro eliminado en v15.5 (`#0f1826`/`#12192b`/`#e2e8f0`/`rgba(255,255,255,0.0x)`)
   pintaban franjas negras dentro de tarjetas blancas — reemplazados por `var(--tp-dark)`/
   `var(--tp-text)`/`var(--tp-border)`; fuentes de 8-9px subidas al mínimo del proyecto (11px).
+
+## v16.8 — Proyectos como Project Manager completo (`js/projects.js`)
+
+El módulo salió de `panel.js` a **su propio archivo** (convención: un módulo = un archivo). Los
+puntos de registro se quedaron en `panel.js` (`_pnTabs`, `_pnGetRenderer` —ahora con guarda
+`typeof`—, la fila del Centro de Reportes, la rama de `pnGetActiveAlerts`, la llamada en
+`_pnCollectCalendarEvents` y `pnState.projects = []` en `pnInit()`).
+
+- **Importador (`pnProjImportOpen`)** — `.xlsx`/`.xls`/`.csv` y pegado TSV. **No hay formato
+  obligatorio**, solo se pide una fila de encabezados: `_pnProjDetectHeader` la ubica y
+  `_pnProjAutoMap` mapea con los sinónimos de **`PN_IMPORT_FIELDS`** (agregar un sinónimo ahí es
+  todo lo que hace falta para que un tablero nuevo se detecte solo). **SheetJS se carga diferido**
+  (`_pnProjLoadXLSX`, `PN_XLSX_CDN`) al abrir el importador — nunca en el arranque; sin red, Pegar
+  y CSV siguen funcionando. `_pnNormStatus` evalúa **negaciones primero** ("Not started" ≠ started)
+  y `_pnNormDate` arma la cadena desde los números (nunca `new Date(y,m,d)`) para no correr la zona
+  horaria; `_pnProjDetectDMY` decide dd/mm vs mm/dd **con los datos**. Fusionar empata por título
+  de paso, así que reimportar actualiza en vez de duplicar.
+- **6 vistas de detalle** (`window._pnProjectView`): `table`, `kanban`, `timeline`, `gantt`,
+  `scurve`, `workload` — más `window._pnGridView='portfolio'` a nivel retícula. **Definiciones
+  únicas** (todo consumidor nuevo debe llamarlas, no recalcular): `pnProjectProgress`,
+  `pnProjectWorkload`, `pnProjectSCurve`, `pnPortfolioRows` (salud RAG), `pnProjectCPM`.
+- **`pnProjectCPM(p)`** — pasada adelante/atrás con orden topológico. **No reprograma** las fechas
+  capturadas: las usa como ancla y devuelve `{info:{stepId:{es,ef,ls,lf,slack,critical,atRisk,risk}},
+  cycle, order}`. Un **ciclo se detecta y se reporta**, nunca cuelga; `_pnProjDescendants` evita
+  que se capture uno desde el modal.
+- **Campos nuevos del paso**, todos opcionales/retrocompatibles: `isMilestone`, `baselineTarget` +
+  `baselineAt`, `startDate`, `durationDays`, `dependsOn[]`. La **línea de tiempo sigue sin
+  guardarse**: el evento "fecha recorrida" se DERIVA comparando `baselineTarget` con `targetDate`.
+- **Gráfica**: `window._pnProjSCurveChart` + wrapper `#pn-proj-scurve-wrapper` +
+  `chartConfigBuildPanel('pn_proj_scurve', …)`. `_pnRenderProjectDetail` **destruye la instancia al
+  salir de la vista** — sin eso Chart.js truena con "canvas is already in use" al volver.
+- **Puente con HOY (conectar, no fusionar)**: `pnProjectStepAddQuick` y `pnProjectPickerOptions`
+  alimentan el selector de proyecto del modal ➕ Actividad (`dashTaskModalOpen`/`dashTaskModalSave`
+  en `app.js`); `pnPromoteTaskToProject` mueve una tarea suelta a un proyecto dejando tombstone.
+  **`dashCollectActivities` ahora pasa `assignee`** en pasos de proyecto y mantenimientos — sin eso
+  el filtro "Solo míos" (`!a.assignee || a.assignee === currentOp`) los dejaba pasar siempre.
+  `dashRenderRow` admite `action2` (acción secundaria opcional en la fila).
+- **Sync**: sin cambios — `_fbMergeProjectSubArray` mergea `steps[]`/`log[]` por id quedándose con
+  el objeto ganador completo, así que los campos nuevos (incluido `dependsOn`) viajan solos.
+  Verificado con un merge A/B real.
 
 ## Working with this project
 

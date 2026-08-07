@@ -2,6 +2,87 @@
 
 All notable changes to this project, organized by development round.
 
+## v16.8 — "Proyectos como Project Manager completo" (2026-08-06)
+
+El usuario pidió tres cosas sobre el módulo de Proyectos (v16.6): poder **cargar sus listas desde
+Excel** para no recapturar los tableros que ya tiene, **todas las visualizaciones de un Project
+Manager** que faltaran, y opinión sobre **fusionar Proyectos con el tablero tipo Monday de HOY**.
+Pregunta explícita: *"¿es necesario que todas tengan un formato en específico?"* → **no**.
+
+### Importar desde Excel, CSV o pegando — sin formato obligatorio
+Lo único que se pide es una fila de encabezados. El importador la detecta, adivina qué columna es
+cuál con un diccionario de sinónimos ES+EN (`PN_IMPORT_FIELDS`) y muestra una **vista previa donde
+cualquier columna se puede reasignar** antes de escribir nada.
+
+- **Tres entradas al mismo flujo**: 📄 archivo `.xlsx`/`.xls`/`.csv` y 📋 pegar (lo que copias de
+  Excel/Loop llega como TSV). **SheetJS se inyecta solo al abrir el importador**, nunca en el
+  arranque: la app sigue cargando igual de rápido y offline-first, y si el CDN no responde el modal
+  lo explica y ofrece Pegar/CSV, que no necesitan librería.
+- **Fechas**: se decide día/mes vs mes/día **con los datos** (si algún número pasa de 12 no hay
+  ambigüedad) y se puede voltear con un clic viendo un ejemplo real del archivo. Las rutas con
+  regex arman la cadena desde los números, sin pasar por `new Date()`, así no hay corrimiento de
+  zona horaria.
+- **Fusionar en un proyecto existente empata por nombre de paso**: reimportar el mismo archivo
+  actualiza, no duplica. El mapeo se recuerda por dispositivo.
+- Bug corregido en el camino: **"Not started"** —un estatus muy común en tableros en inglés— se
+  leía como "En curso" porque "started" empataba con la regla de en-curso. Las negaciones se
+  evalúan primero.
+
+### Cuatro vistas nuevas (el detalle pasa de 3 a 6, más una cross-proyecto)
+- **📌 Kanban** por estatus, con arrastre (mismo gesto táctil del mapa de gases, sirve en tablet) y
+  menú de estatus por tarjeta como camino accesible.
+- **👥 Carga por responsable**: barras de vencidos/bloqueados/abiertos/completados, por proyecto o
+  por todos. Responde quién es el cuello de botella.
+- **📈 Curva S**: acumulado comprometido vs real por semana, con veredicto en palabras ("va 20
+  puntos ABAJO del plan"). La línea real **se corta en hoy** — proyectarla sería inventar avance.
+- **🗂️ Portafolio**: una fila por proyecto con semáforo, avance, vencidos, bloqueados y próximo
+  hito. La vista para reportar hacia arriba; exportable a CSV.
+
+### Hitos, línea base y ruta crítica
+Campos nuevos del paso, todos opcionales y retrocompatibles: `isMilestone`, `baselineTarget`,
+`startDate`, `durationDays`, `dependsOn[]`.
+
+- `pnProjectCPM` hace pasada hacia adelante y hacia atrás (ES/EF/LS/LF/holgura). **No reprograma
+  las fechas capturadas** — el laboratorio las trae de su Excel y reescribirlas sería pelearse con
+  su dato: se usan como ancla, y las dependencias sirven para marcar la ruta crítica y avisar qué
+  pasos están **en riesgo en palabras accionables** ("Refacciones está bloqueado").
+- Un **ciclo de dependencias no cuelga la vista**: se detecta (Kahn), se reporta y esos pasos
+  quedan fuera del cálculo. Además el modal ya no ofrece como dependencia nada que cerraría el
+  círculo, así se evita desde la captura.
+- **Línea base**: congela lo comprometido; el Gantt dibuja el plan original debajo del real, y
+  mover una fecha genera evento de línea de tiempo (derivado, no guardado) y queda en auditoría.
+
+### HOY + Proyectos: conectar, no fusionar
+HOY responde "¿qué hago hoy?" (feed de triaje) y Proyectos "¿cómo va esta iniciativa?" (workspace
+de meses) — Monday mismo separa "My Work" de "Boards". Se mantienen separados, pero:
+
+- El modal **➕ Actividad de HOY gana un selector de proyecto**: al elegir uno, el pendiente **nace
+  como paso de ese proyecto** en vez de quedar como tarea suelta (lo que pidió el usuario).
+- Una tarea suelta se puede **mover a un proyecto** con la acción 🗂️ de su fila (con tombstone,
+  para que el merge entre dispositivos no la resucite).
+- **Bug preexistente corregido**: los pasos de proyecto y los mantenimientos no traían `assignee`,
+  y como el filtro es `!a.assignee || a.assignee === currentOp`, **"Solo míos" los dejaba pasar
+  siempre** — mostraba los pendientes de los demás.
+
+### Scroll horizontal en tablet (bug preexistente encontrado al verificar)
+Midiendo el desbordamiento a 390/820/1920px salió que **a 820px —un iPad en vertical, y el
+laboratorio trabaja con tablets— la página tenía 536px de scroll horizontal**, sin relación con
+Proyectos: la barra superior pedía 981px y no cabía.
+
+- El grupo **⋯ Más** solo se colapsaba en `max-width: 768px`; entre 769px y ~1400px se dibujaba
+  expandido completo. El corte sube a **1400px** (en pantalla ancha no cambia nada).
+- La **bottom-nav es `position:fixed` sin media query**, o sea que siempre está — pero las 5
+  pestañas de la topbar solo se ocultaban por debajo de 768px, así que en tablet se veían las **dos
+  navegaciones a la vez** y encima no cabían. El corte de esa regla sube de 768px a **1024px**,
+  siguiendo la razón que ya estaba escrita en v15.5.
+- Resultado verificado a 390 / 600 / 820 / 1024 / 1366 / 1440 / 1920 px: **0px de desbordamiento de
+  página** en las 6 vistas del proyecto, el Portafolio y HOY. El Gantt y el Kanban scrollean dentro
+  de su propio contenedor, como debe ser.
+
+### Organización
+El módulo se extrajo de `panel.js` a **`js/projects.js`** (convención del proyecto: un módulo, un
+archivo). `panel.js` bajó de 4,361 a 3,840 líneas y conserva solo los puntos de registro.
+
 ## v16.7 — "Versión siempre visible + historial completo" (2026-08-06)
 
 El usuario reportó que 🗂️ Proyectos (recién agregado en v16.6) no le aparecía, y de paso pidió que
