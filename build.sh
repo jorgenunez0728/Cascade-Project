@@ -22,11 +22,11 @@ cat > "$DIR/$OUTPUT" <<'HEADER'
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kia EmLab — Plataforma Integrada v14.0</title>
+    <title>Kia EmLab — Plataforma Integrada</title>
 
     <!-- [R3-M1] PWA Meta -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#05141f">
+    <meta name="theme-color" content="#0b1a24">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="EmLab">

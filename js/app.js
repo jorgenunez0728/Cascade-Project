@@ -190,11 +190,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '16.8';
+var APP_VERSION = '17.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.0', date: '14 ago 2026', title: 'Fundación de accesibilidad (Fase 1)', bullets: [
+        'Primera fase de un overhaul de interfaz hacia un sistema propio inspirado en GOV.UK: contraste AA real en todos los colores de estado, tipografía mínima de 12px, un solo foco de teclado visible en toda la app (antes había tres reglas compitiendo entre sí, y varias pantallas lo suprimían del todo).',
+        'Las 5 pestañas raíz y la barra inferior ahora son botones navegables por teclado (antes eran divs con onclick, invisibles para quien no usa mouse); un solo landmark principal en vez de seis "main" duplicados; enlace para saltar al contenido.',
+        'Se quitó el efecto glass/neumorfismo de la barra superior y las pestañas — bordes planos, sombras sutiles.',
+        'Nuevos tokens de color con texto y relleno separados (antes el mismo verde/ámbar/rojo se usaba como texto Y como fondo, y en ambos casos fallaba el contraste mínimo); nuevos helpers compartidos (a11yTablist, a11yDialog, a11yAnnounce, tokenColor) para que los 7 módulos no reinventen cada patrón.',
+        'Fase 1 = fundación (styles.css, index.html, helpers). La migración módulo por módulo (HOY, Pruebas, Consumibles, Plan, Datos, Proyectos, CoP) sigue en rondas siguientes.'
+    ]},
     { version: '16.8', date: '6 ago 2026', title: 'Proyectos como Project Manager completo', bullets: [
         'Importar desde Excel: sube tu .xlsx/.csv o pega la tabla y los pasos se cargan solos. NO hace falta un formato especial — se detectan las columnas y puedes corregirlas antes de guardar. Reimportar el mismo archivo actualiza, no duplica.',
         'Cuatro vistas nuevas: 📌 Kanban (arrastra entre estatus), 👥 Carga por responsable (quién es el cuello de botella), 📈 Curva S (avance comprometido vs real) y 🗂️ Portafolio (todos los proyectos con semáforo, para reportar a jefatura).',
@@ -1831,11 +1838,14 @@ function switchPlatform(platform, swipeDir) {
     document.querySelectorAll('.platform-tab').forEach(function(t) { t.classList.remove('active'); });
     var ptabEl = document.getElementById('ptab-' + tabGroup);
     if (ptabEl) ptabEl.classList.add('active');
+    if (typeof a11yTablistSync === 'function') {
+        a11yTablistSync(document.getElementById('platformBar'), ptabEl);
+    }
 
     // Update bottom nav — highlight the root tab group
-    document.querySelectorAll('.bottom-nav-item').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.bottom-nav-item').forEach(function(b) { b.classList.remove('active'); b.removeAttribute('aria-current'); });
     var bnavEl = document.getElementById('bnav-' + tabGroup);
-    if (bnavEl) bnavEl.classList.add('active');
+    if (bnavEl) { bnavEl.classList.add('active'); bnavEl.setAttribute('aria-current', 'page'); }
 
     // Hide floating action bar when leaving COP15
     if (sectionId !== 'cop15' && typeof toggleActionBar === 'function') toggleActionBar(false);
@@ -3055,10 +3065,122 @@ function generateWeeklyStatusPDF(opts) {
     }, { passive: true });
 })();
 
+// ═══════════════════════════════════════════════════════════════
+// [v17.0] Accessibility helpers — compartidos por los 7 módulos.
+// Ver CLAUDE.md / plan v17.0 para el porqué de cada uno.
+// ═══════════════════════════════════════════════════════════════
+
+// Cablea navegación por teclado (flechas/Home/End) en un grupo role="tab".
+// Idempotente: se puede llamar en cada render sin duplicar listeners.
+function a11yTablist(container) {
+    if (!container || container._a11yWired) return;
+    container._a11yWired = true;
+    if (!container.getAttribute('role')) container.setAttribute('role', 'tablist');
+    var tabs = function () {
+        return Array.prototype.slice.call(container.querySelectorAll('[role="tab"]'))
+            .filter(function (t) { return t.offsetParent !== null; });
+    };
+    var focusTab = function (list, i) {
+        var t = list[(i + list.length) % list.length];
+        if (t) { t.focus(); t.click(); }
+    };
+    container.addEventListener('keydown', function (e) {
+        var list = tabs(), i = list.indexOf(document.activeElement);
+        if (i < 0) return;
+        var k = e.key;
+        if (k === 'ArrowRight' || k === 'ArrowDown') { e.preventDefault(); focusTab(list, i + 1); }
+        else if (k === 'ArrowLeft' || k === 'ArrowUp') { e.preventDefault(); focusTab(list, i - 1); }
+        else if (k === 'Home') { e.preventDefault(); focusTab(list, 0); }
+        else if (k === 'End') { e.preventDefault(); focusTab(list, list.length - 1); }
+    });
+}
+
+// Marca cuál tab está activa (aria-selected + tabindex roving). Llamar al
+// final de cada switch de pestaña, junto con el toggle de la clase .active.
+function a11yTablistSync(container, activeEl) {
+    if (!container) return;
+    container.querySelectorAll('[role="tab"]').forEach(function (t) {
+        var on = (t === activeEl);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.setAttribute('tabindex', on ? '0' : '-1');
+    });
+}
+
+// Trampa de foco + Escape + devolución de foco al abridor. Devuelve una
+// función de cierre que el llamador debe invocar al cerrar el modal.
+function a11yDialog(el, opts) {
+    opts = opts || {};
+    var opener = document.activeElement;
+    el.setAttribute('role', opts.alert ? 'alertdialog' : 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    if (opts.labelId) el.setAttribute('aria-labelledby', opts.labelId);
+
+    var SEL = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),' +
+              'textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+    var focusable = function () {
+        return Array.prototype.slice.call(el.querySelectorAll(SEL))
+            .filter(function (n) { return n.offsetParent !== null; });
+    };
+    var onKey = function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+        if (e.key !== 'Tab') return;
+        var list = focusable(); if (!list.length) return;
+        var first = list[0], last = list[list.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    function close() {
+        document.removeEventListener('keydown', onKey, true);
+        if (opts.onClose) opts.onClose();
+        if (opener && opener.focus) opener.focus();
+    }
+    document.addEventListener('keydown', onKey, true);
+    var init = focusable();
+    if (init.length) init[0].focus(); else el.focus();
+    return close;
+}
+
+// Anuncia un mensaje a lectores de pantalla vía una región aria-live única
+// (reutilizada, no crea una nueva por cada llamada).
+function a11yAnnounce(msg, assertive) {
+    var id = 'a11y-live-' + (assertive ? 'assertive' : 'polite');
+    var r = document.getElementById(id);
+    if (!r) {
+        r = document.createElement('div');
+        r.id = id; r.className = 'sr-only';
+        r.setAttribute('role', assertive ? 'alert' : 'status');
+        r.setAttribute('aria-live', assertive ? 'assertive' : 'polite');
+        document.body.appendChild(r);
+    }
+    r.textContent = '';
+    setTimeout(function () { r.textContent = msg; }, 50);
+}
+
+// Puente de color para contextos donde var(--token) no funciona: Chart.js
+// (backgroundColor/borderColor) y jsPDF (setFillColor/setTextColor, que
+// exigen componentes RGB numéricos). Sin esto, migrar el CSS dejaría
+// gráficos y PDFs con la paleta vieja.
+var _tokenCache = {};
+function tokenColor(name) {
+    if (_tokenCache[name]) return _tokenCache[name];
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return (_tokenCache[name] = v || '#000000');
+}
+function tokenRGB(name) {
+    var h = tokenColor(name).replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function tokenAlpha(name, a) {
+    var c = tokenRGB(name);
+    return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
+}
+
     function initializeSystem() {
         // Theme init — apply before any UI renders
         try { themeInit(); } catch(e) { console.error('themeInit error:', e); }
         try { modalUxInit(); } catch(e) { console.error('modalUxInit error:', e); }
+        try { a11yTablist(document.getElementById('platformBar')); } catch(e) { console.error('a11yTablist error:', e); }
 
         // Show local build in the topbar version pill (Firebase will call again with remote status)
         try { updateVersionDisplay(); } catch(e) { console.error('version display error:', e); }
