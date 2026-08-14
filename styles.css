@@ -1300,20 +1300,20 @@ body{ overflow-x: hidden; }
 .kanban-search-match { background: rgba(245,158,11,0.3); border-radius: 2px; }
 
 /* ═══ [R2] Lab Status Dashboard ═══ */
-.lab-dash { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-top: 8px; box-shadow: var(--shadow-sm); }
+.lab-dash { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-top: 8px; box-shadow: var(--shadow-sm); }
 .lab-dash-alerts { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
-.lab-dash-alert { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9; }
-.lab-dash-alert:hover { background: #f1f5f9; }
+.lab-dash-alert { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surface-alt); border-radius: 8px; border: 1px solid var(--border); }
+.lab-dash-alert:hover { background: var(--surface-alt); border-color: var(--border-strong); }
 .lab-dash-alert-badge { font-size: var(--fs-xs); font-weight: 800; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
-.lab-dash-alert-mod { font-size: var(--fs-xs); font-weight: 700; color: #64748b; min-width: 65px; }
+.lab-dash-alert-mod { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); min-width: 65px; }
 .lab-dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
-.lab-dash-card { background: #fff; border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s var(--ease-out); box-shadow: var(--shadow-sm); }
-.lab-dash-card:hover { border-color: #cbd5e1; }
+.lab-dash-card { background: var(--surface); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; border: 1px solid var(--border); transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s var(--ease-out); box-shadow: var(--shadow-sm); }
+.lab-dash-card:hover { border-color: var(--border-strong); }
 .lab-dash-card:active { transform: scale(0.97); }
-.lab-dash-card-header { font-size: var(--fs-xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: #64748b; }
-.lab-dash-card-metric { font-size: 28px; font-weight: 800; color: #0f172a; }
-.lab-dash-card-sub { font-size: var(--fs-xs); color: #94a3b8; margin-bottom: 4px; }
-.lab-dash-card-detail { font-size: var(--fs-xs); color: #64748b; }
+.lab-dash-card-header { font-size: var(--fs-xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: var(--muted); }
+.lab-dash-card-metric { font-size: 28px; font-weight: 800; color: var(--text); }
+.lab-dash-card-sub { font-size: var(--fs-xs); color: var(--muted); margin-bottom: 4px; }
+.lab-dash-card-detail { font-size: var(--fs-xs); color: var(--muted); }
 
 /* ═══ [R2] Drag-Drop Import Zone ═══ */
 .ra-drop-zone { border: 2px dashed #cbd5e1; border-radius: 14px; padding: 30px 20px; text-align: center; cursor: pointer; transition: border-color 0.2s, background-color 0.2s, transform 0.2s; background: #f8fafc; }
@@ -1323,8 +1323,8 @@ body{ overflow-x: hidden; }
 .ra-drop-text { font-size: 13px; font-weight: 700; color: #64748b; }
 
 /* ═══ [R2] Backup Dashboard ═══ */
-.backup-dashboard { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-top: 8px; box-shadow: var(--shadow-sm); }
-.backup-card { background: #f8fafc; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; color: #0f172a; border: 1px solid #f1f5f9; }
+.backup-dashboard { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-top: 8px; box-shadow: var(--shadow-sm); }
+.backup-card { background: var(--surface-alt); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; color: var(--text); border: 1px solid var(--border); }
 
 /* ═══ [R2] Manual Config Form ═══ */
 .mcf-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

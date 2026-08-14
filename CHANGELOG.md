@@ -2,6 +2,36 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.1 — Accesibilidad módulo HOY — Fase 2 de overhaul UI (2026-08-14)
+
+Primer módulo migrado sobre la fundación de v17.0, en el orden acordado (HOY primero, por ser la
+pantalla más vista). Alcance: `js/app.js` — dashboard diario, "Lab Status" consolidado, backup,
+buscador global, centro de notificaciones, panel de configuración de gráficos.
+
+### Bugs de contraste reales encontrados (no solo teóricos)
+Migrar los estilos inline a tokens obligó a revisar cada color en su contexto real, y salieron tres
+fallos que el sistema previo nunca había expuesto porque nadie los había medido:
+- **Encabezados "🏭 Lab Status" y "💾 Backup & Almacenamiento"**: `#c4b5fd` (lavanda) sobre fondo
+  blanco — **1.85:1**. Resabio de un tema oscuro que ya no existe en la app (v15.5 lo eliminó por
+  completo, pero estos dos colores nunca se migraron).
+- **Texto de mensaje en las alertas del Lab Status**: `#e2e8f0` sobre fondo casi blanco —
+  **1.18:1**, prácticamente invisible. Mismo origen.
+- **Fechas y pie del buscador global de VIN**: `#475569` sobre fondo `#1e293b` (el propio buscador
+  SÍ es un componente oscuro, correcto) — pero ese gris quedaba en **1.93:1** sobre su propio fondo
+  oscuro. Corregido al mismo tono claro que ya usa el resto del componente (6.9:1).
+
+### Teclado y foco
+- Nuevo helper compartido `a11yClickables()` (patrón idéntico a `cascadeInjectTooltips` — barrido
+  idempotente tras cada render): hace alcanzables por Tab los `<div onclick>` de tarjetas y filas de
+  alerta, con un listener delegado único que activa Enter/Espacio. Se reutilizará en los 6 módulos
+  siguientes en vez de reescribir esta lógica por módulo.
+- El modal "➕ Nueva actividad" de HOY usa ahora `a11yDialog` (trampa de foco, Escape, devuelve el
+  foco al botón que lo abrió). El buscador global de VIN y el centro de notificaciones cierran con
+  Escape. `showModal()` (usado por los menús de ayuda) ya tenía trampa de foco y `role="dialog"`
+  correctos desde antes — no hizo falta tocarlo.
+- 11 campos sin etiqueta (`aria-label` agregado): sliders de configuración de gráficos, buscador del
+  glosario, campo de nota rápida, fecha de liberación estimada.
+
 ## v17.0 — "Fundación de accesibilidad" — Fase 1 de overhaul UI (2026-08-14)
 
 Punto de partida: se pidió llevar toda la interfaz (no solo los gráficos) a un nivel de limpieza y
