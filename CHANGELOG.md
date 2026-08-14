@@ -2,6 +2,73 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.0 — "Fundación de accesibilidad" — Fase 1 de overhaul UI (2026-08-14)
+
+Punto de partida: se pidió llevar toda la interfaz (no solo los gráficos) a un nivel de limpieza y
+cumplimiento de accesibilidad inspirado en GOV.UK, conservando la identidad de marca KIA. Medición
+inicial del código: 839 declaraciones de texto por debajo de 12px, 3 408 estilos inline con hex fijo,
+4 `label for=` contra 93 campos de formulario, 553 `onclick` (muchos en `<div>`, inalcanzables por
+teclado), y los cuatro colores de estado (`--success`, `--warning`, `--danger`, `#94a3b8`) fallando
+contraste AA tanto como texto como en botones sólidos con texto blanco. El rojo de marca KIA
+(`#bb162b`, 6.44:1) sí pasaba — conservar la identidad y cumplir accesibilidad resultaron compatibles.
+
+Esta ronda es la **Fase 1: fundación** (decisión explícita: fundación primero, luego módulo por
+módulo). Sin cambios funcionales — solo presentación y accesibilidad.
+
+### Tokens de color en tres niveles
+Se reemplazan los tokens de estado fundidos (`--success`/`--warning`/`--danger`/`--info`, que se
+usaban indistintamente como texto y como fondo) por tres niveles explícitos por estado —
+`*-text` (≥4.5:1 sobre blanco), `*-fill` (relleno con texto blanco ≥4.5:1) y `*-bg` (tinte de
+fondo con texto oscuro ≥15:1) — para `ok`/`warn`/`danger`/`info`. Los nombres viejos quedan como
+alias apuntando a `*-fill` para no romper el código existente durante la migración por módulos.
+
+### Foco de teclado, una sola definición
+Había **tres** reglas `:focus-visible` compitiendo entre sí y **ocho** sitios con `outline: none`
+que además ganaban la especificidad CSS sobre el foco global, dejándolo invisible en formularios de
+Test Plan, firma digital y el PIN de auth. Se consolida en una sola regla con el patrón GDS
+(amarillo + subrayado negro), visible sobre cualquier fondo.
+
+### Semántica y navegación por teclado
+- Las 5 pestañas raíz (`platform-bar`) y la barra inferior móvil pasan de `<div onclick>` a
+  `<button role="tab">`/`<button aria-current>`, con navegación por flechas/Home/End.
+- Un solo `<main>` envuelve las 6 secciones de plataforma (antes cada una llevaba su propio
+  `role="main"` — problemático durante la animación de swipe entre módulos, donde ambas secciones
+  quedan visibles a la vez por un instante).
+- Enlace "Saltar al contenido principal", etiqueta real en el buscador global de VIN, barra de
+  progreso con `role="progressbar"`.
+- `<title>` corregido (decía v14.0 desde hacía varias rondas; real: 16.8) y ya no lleva número de
+  versión fijo para no volver a quedar desincronizado.
+
+### Tipografía y superficie
+Escala tipográfica unificada (antes había dos compitiendo) con mínimo absoluto de 12px — las 839
+declaraciones sub-12px se elevan. Se elimina el efecto glass/neumorfismo de la barra superior y las
+pestañas (gradiente oscuro y opacidades bajas con contraste al límite) por bordes planos y sombras
+sutiles tokenizadas.
+
+### Helpers compartidos nuevos (`js/app.js`)
+`a11yTablist`/`a11yTablistSync` (navegación de pestañas por teclado, patrón APG, reutilizado por
+`switchPlatform`), `a11yDialog` (trampa de foco + Escape + devolución de foco, listo para cablear en
+los modales existentes), `a11yAnnounce` (región `aria-live` única para notificaciones), y
+`tokenColor`/`tokenRGB`/`tokenAlpha` — puente porque `var(--token)` no sirve dentro de Chart.js
+(`backgroundColor`/`borderColor`) ni jsPDF (`setFillColor`/`setTextColor`, que exigen RGB numérico);
+sin este puente, migrar el CSS habría dejado gráficos y PDFs con la paleta vieja.
+
+### Migración de estilos inline (parcial — fundación)
+`index.html` migra sus estilos inline con hex fijo a los tokens nuevos (badges de estado, chips de
+alerta CRITICA/ALTA/MEDIA, panel de notificaciones, PIN de soak timer que había quedado con colores
+del tema oscuro eliminado en v15.5). Se agregan clases utilitarias (`.u-chip`, `.u-tile`, `.u-row`,
+`.u-section-head`, `.u-empty`, `.u-bar`) para que el markup nuevo no vuelva a nacer con estilos
+inline. **La migración de los ~3 000 estilos inline restantes en `js/*.js` queda para las fases
+siguientes, módulo por módulo** (HOY → Pruebas/COP15 → Consumibles → Plan → Datos/Panel →
+Proyectos → CoP), junto con etiquetado de campos, `a11yDialog` en cada modal, y áreas táctiles
+mínimas — sin eso todavía.
+
+### Radix UI (nota)
+Se instaló y desinstaló `@radix-ui/themes` en el curso de esta ronda: son componentes React, y el
+proyecto es JS de ámbito global + Alpine.js sin framework. No se adoptó ninguna dependencia de Radix
+— los valores de color de referencia se tomaron y se pegaron directo en `:root` (un `@import` de
+`@radix-ui/colors` habría roto el bundle offline de un solo archivo que genera `build.sh`).
+
 ## v16.8 — "Proyectos como Project Manager completo" (2026-08-06)
 
 El usuario pidió tres cosas sobre el módulo de Proyectos (v16.6): poder **cargar sus listas desde
