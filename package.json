@@ -16,5 +16,8 @@
   "license": "ISC",
   "devDependencies": {
     "vite": "^8.0.0"
+  },
+  "dependencies": {
+    "@radix-ui/themes": "^3.3.0"
   }
 }
