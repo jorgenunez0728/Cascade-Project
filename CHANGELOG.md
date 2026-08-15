@@ -2,6 +2,46 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.3 — Accesibilidad módulo Consumibles — Fase 4 de overhaul UI (2026-08-15)
+
+Cuarto módulo migrado sobre la fundación de v17.0. Alcance: `js/inventory.js` — el módulo más
+grande hasta ahora (12 pestañas: Gases, Equipos, Mtto, Captura, Predicción, Combustible, Mapa de
+zonas, Gráficas, Config, Reporte, Trazabilidad).
+
+### Un solo arreglo cubre ~20 modales
+La mayoría de las altas/ediciones (Cilindro, Instrumento, Actividad de mantenimiento, Escáner de
+código de barras, lectura rápida…) reutilizan un mismo contenedor (`#invModal`) que cada función
+abre y cierra fijando `style.display` directo, sin pasar por una función de cierre común — tocar
+cada uno habría significado editar ~20 sitios distintos. En vez de eso se observa el propio
+contenedor con `MutationObserver`: cuando se hace visible se activa `a11yDialog` (trampa de foco +
+Escape + devuelve el foco), y cuando se oculta — sin importar qué botón lo haya hecho — se libera
+el listener. Cubre los ~20 modales con un solo bloque de código.
+
+### Bug de contraste real encontrado
+La ficha de detalle de un cilindro de gas (fecha de recepción, vigencia, trazabilidad, concentración
+real, historial de eventos) tenía sus etiquetas en gris claro (`#94a3b8`, 2.56:1) sobre fondo blanco
+— prácticamente invisible. Corregido a `var(--muted)` (5.90:1).
+
+**Aviso de una corrección a medio aplicar**: al migrar ese mismo gris en bloque, dos botones de
+cierre ✕ que sí viven sobre fondo oscuro quedaron con el token equivocado (`var(--muted)`, calibrado
+para fondo claro, cae a 3.03:1 sobre oscuro) — detectado y revertido al valor correcto en la misma
+ronda antes de cerrar el PR.
+
+### Teclado
+- Las 12 pestañas de Consumibles ya se navegan con flechas/Home/End (`a11yTablist`).
+- Un solo hook en el despachador `invRender()` (mismo patrón de doble `requestAnimationFrame` que ya
+  usa `cascadeInjectTooltipsDeferred`) hace alcanzables por Tab los `<div onclick>` de cualquier
+  pestaña — mapa de zonas, tarjetas de equipo, filas de mantenimiento — sin tener que instrumentar
+  cada función de render por separado.
+- 4 campos de búsqueda sin etiqueta (escáner, instrumentos, trazabilidad, mapa de zonas) reciben
+  `aria-label`.
+
+### Alcance no cubierto en esta ronda
+El mapa de zonas (arrastrar un cilindro a una posición) sigue siendo solo por mouse/dedo — no tiene
+alternativa por teclado. Es una interacción nueva a diseñar (seleccionar con teclado, confirmar
+destino, anunciar el resultado), no un ajuste de presentación, así que queda documentado para una
+ronda futura en vez de intentarse de prisa aquí.
+
 ## v17.2 — Accesibilidad módulo Pruebas/COP15 — Fase 3 de overhaul UI (2026-08-14)
 
 Tercer módulo migrado sobre la fundación de v17.0/v17.1. Alcance: `js/cop15.js` (Alta, Operación,
