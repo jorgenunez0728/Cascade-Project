@@ -1728,7 +1728,10 @@
                     <!-- Calendar cells -->
                     <template x-for="(cell, ci) in calendarGrid()" :key="ci">
                         <div :class="{ 'cal-cell': true, 'cal-empty': cell.empty, 'cal-today': cell.isToday }"
-                             @click="!cell.empty && calendarDayClick(cell.dateStr)">
+                             :role="cell.empty ? null : 'button'" :tabindex="cell.empty ? null : 0"
+                             @click="!cell.empty && calendarDayClick(cell.dateStr)"
+                             @keydown.enter="!cell.empty && calendarDayClick(cell.dateStr)"
+                             @keydown.space.prevent="!cell.empty && calendarDayClick(cell.dateStr)">
                             <template x-if="!cell.empty">
                                 <div>
                                     <div class="cal-day-num" x-text="cell.day"></div>

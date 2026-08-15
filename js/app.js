@@ -190,11 +190,17 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.4';
+var APP_VERSION = '17.5';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.5', date: '15 ago 2026', title: 'Accesibilidad — módulo Datos/Panel (Fase 6)', bullets: [
+        'Sexto módulo migrado: Datos (Dashboard, Reportes, Ejecutivo, Turnaround, Usuarios, Bitácora, Alertas, Inteligencia, Sistema, Calendario, Proyectos, Regulaciones, Archivos) — el que mezcla renderizado clásico con las 6 pestañas Alpine.',
+        'Encontrado y corregido el único hueco real de teclado en las pestañas Alpine: las celdas del calendario (`<div @click>`) no tenían equivalente de teclado. El resto de la interfaz Alpine ya usaba botones reales — se revisó cada @click del módulo uno por uno para confirmarlo.',
+        '30+ colores de estado migrados a los tokens verificados (severidad de alertas, matriz de habilidades, indicadores de auditoría).',
+        'Las 13 pestañas de Datos navegan con flechas/Home/End.'
+    ]},
     { version: '17.4', date: '15 ago 2026', title: 'Accesibilidad — módulo Plan (Fase 5)', bullets: [
         'Quinto módulo migrado: Plan (Dashboard, Plan Semanal, Recuperación, Producción, Probados, Familias, Reglas, Historial Semanal, Calendario, Simulador).',
         'Bug sistémico encontrado: la paleta de 10 colores de prioridad (P1..P10) de la barra de Recuperación fallaba contraste en 9 de 10 — texto blanco casi ilegible sobre la mayoría de las barras. Recalculada completa: mismos matices, oscurecidos hasta pasar el mínimo, sin perder la distinción visual entre prioridades.',
