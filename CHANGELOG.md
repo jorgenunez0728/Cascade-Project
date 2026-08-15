@@ -2,6 +2,33 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.6 — Accesibilidad módulo Proyectos — Fase 7 de overhaul UI (2026-08-15)
+
+Séptimo módulo migrado sobre la fundación de v17.0. Alcance: `js/projects.js` — retícula de
+tarjetas/portafolio y las 6 vistas de detalle (Tabla, Kanban, Línea de tiempo, Gantt, Curva S,
+Carga por responsable), más el importador de Excel/CSV/pegado.
+
+### Mejora al helper compartido, no solo a este módulo
+El importador de Excel reconstruye su ventana completa (`#pn-import-overlay`) en cada paso del
+wizard (elegir archivo → mapear columnas → confirmar) — un `a11yDialog` atado a la primera
+instancia quedaría apuntando a un nodo ya desmontado en el paso 2. En vez de instrumentar el
+wizard con lógica especial de limpieza, se corrigió el propio `a11yDialog` compartido (`js/app.js`):
+ahora comprueba `document.contains(el)` en cada tecla y se autodesactiva silenciosamente si su nodo
+ya no está en el documento, sin disparar `onClose` ni robar el foco. Es un cambio aditivo y
+retrocompatible que **protege a los ~30 modales de toda la app que ya usan este helper** (Fases 1-7),
+no solo al importador — cualquier módulo futuro que reconstruya su overlay en pasos queda cubierto
+gratis.
+
+### Otros hallazgos
+- Los indicadores de avance/vencidos/bloqueados del detalle de un proyecto (`tp-metric-val`)
+  migrados a los tokens de contraste verificado.
+- Un campo de texto para pegar tablas (`Ctrl+C` desde Excel/Loop) sin etiqueta recibe `aria-label`.
+- Las vistas de proyecto (🗃️ Tarjetas/📊 Portafolio, 📋 Tabla/🕒 Línea de tiempo/📊 Gantt…) ya eran
+  botones reales — alcanzables por teclado sin cambios.
+- Los `<div onclick>` de las tarjetas de proyecto quedan cubiertos por el mismo hook de
+  `a11yClickables` en `pnRender()` que se instrumentó en la Fase 6 (Proyectos comparte el
+  despachador de renderizado de Datos/Panel).
+
 ## v17.5 — Accesibilidad módulo Datos/Panel — Fase 6 de overhaul UI (2026-08-15)
 
 Sexto módulo migrado sobre la fundación de v17.0. Alcance: `js/panel.js` — Dashboard, Reportes,
