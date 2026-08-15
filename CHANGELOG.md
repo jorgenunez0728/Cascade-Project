@@ -2,6 +2,32 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.5 — Accesibilidad módulo Datos/Panel — Fase 6 de overhaul UI (2026-08-15)
+
+Sexto módulo migrado sobre la fundación de v17.0. Alcance: `js/panel.js` — Dashboard, Reportes,
+Ejecutivo, Turnaround, Usuarios, Bitácora, Alertas, Inteligencia, Sistema, Calendario, Proyectos,
+Regulaciones, Archivos. Es el único módulo que mezcla renderizado clásico con las 6 pestañas sobre
+Alpine.js (`_pnAlpineTabs`).
+
+### El único hueco real de teclado en Alpine: el calendario
+Se revisó cada `@click` del módulo uno por uno (28 en total) para confirmar si vivía sobre un
+`<button>` real o un `<div>`. **27 de 28 ya eran botones** — la interfaz Alpine de este módulo
+estaba mejor construida de lo esperado. La única excepción: las celdas del calendario
+(`<div @click="calendarDayClick(...)">`) no tenían equivalente de teclado. Corregido con los
+modificadores nativos de Alpine (`@keydown.enter`, `@keydown.space.prevent`) y `:role`/`:tabindex`
+condicionales — sin tocar la lógica de `calendarDayClick`.
+
+### Contraste
+30+ colores de estado migrados de hex fijo a los tokens verificados: severidad de alertas, matriz
+de habilidades por operador, indicadores de auditoría. El badge de alertas del topbar (`#fbbf24`/
+`#34d399` sobre el fondo oscuro de la barra) se verificó por separado — ya pasaba con holgura
+(7.45:1 / 6.47:1), tonos elegidos correctamente desde el inicio para ese contexto oscuro.
+
+### Teclado
+Las 13 pestañas de Datos (Dashboard/Reportes/Alertas/Regulaciones + 9 en "⋯ Más") navegan con
+flechas/Home/End (`a11yTablist`). Hook en `pnRender()` (mismo patrón RAF de las Fases 2-5) para las
+pestañas de renderizado clásico; las pestañas Alpine no lo necesitan porque ya usan botones reales.
+
 ## v17.4 — Accesibilidad módulo Plan — Fase 5 de overhaul UI (2026-08-15)
 
 Quinto módulo migrado sobre la fundación de v17.0. Alcance: `js/testplan.js` — Dashboard, Plan
