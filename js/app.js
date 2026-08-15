@@ -190,11 +190,17 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.3';
+var APP_VERSION = '17.4';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.4', date: '15 ago 2026', title: 'Accesibilidad — módulo Plan (Fase 5)', bullets: [
+        'Quinto módulo migrado: Plan (Dashboard, Plan Semanal, Recuperación, Producción, Probados, Familias, Reglas, Historial Semanal, Calendario, Simulador).',
+        'Bug sistémico encontrado: la paleta de 10 colores de prioridad (P1..P10) de la barra de Recuperación fallaba contraste en 9 de 10 — texto blanco casi ilegible sobre la mayoría de las barras. Recalculada completa: mismos matices, oscurecidos hasta pasar el mínimo, sin perder la distinción visual entre prioridades.',
+        'Las tarjetas de configuración (chips de Modelo/Motor/Transmisión/Año/Región…) que aparecen en cada tabla del módulo tenían el texto a 7-8px por defecto — subidas a 12px.',
+        'Este módulo ya usaba el modal compartido y accesible de la plataforma (showModal) para todos sus diálogos — no tenía overlays propios que arreglar.'
+    ]},
     { version: '17.3', date: '15 ago 2026', title: 'Accesibilidad — módulo Consumibles (Fase 4)', bullets: [
         'Cuarto módulo migrado: Consumibles (Gases, Equipos, Mtto, Captura, Predicción, Combustible, Mapa de zonas, Gráficas, Config, Reporte, Trazabilidad) — el más grande hasta ahora, 12 pestañas.',
         'El modal compartido de la mayoría de las altas/ediciones (Cilindro, Instrumento, Actividad, Zona…) se abría/cerraba desde ~20 funciones distintas sin ningún punto común — se resolvió observando el propio modal en vez de tocar cada cierre uno por uno: ahora todos atrapan el foco, cierran con Escape y devuelven el foco al botón que los abrió.',
