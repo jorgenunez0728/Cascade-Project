@@ -2,6 +2,43 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.8 — Mapa de zonas por teclado + limpieza final de tipografía (2026-08-15)
+
+Cierra los dos pendientes documentados al final del overhaul v17.0-v17.7.
+
+### Mapa de zonas operable por teclado
+El mapa de zonas de Consumibles (`invRenderZoneMap`) solo permitía mover un cilindro con
+mouse/dedo (mantener presionado + arrastrar). Se agregó una alternativa de teclado completa, sin
+tocar el motor de arrastre existente:
+
+- **Enter/Espacio sobre un cilindro** lo selecciona (resaltado con foco amarillo) y anuncia qué se
+  seleccionó y qué hacer después.
+- **Enter/Espacio sobre una posición vacía** ejecuta el movimiento — reutiliza el mismo
+  `invDropCylinder()` que usa el arrastre, así que el historial, el deshacer y la sincronización
+  funcionan idénticos por cualquiera de los dos caminos.
+- **Enter/Espacio sobre la misma posición** cancela la selección; sobre **otra posición ocupada**
+  cambia la selección a ese cilindro. **Escape** cancela en cualquier momento.
+- El foco se restaura sobre el cilindro en su nueva posición después de moverlo — sin esto se
+  habría perdido por completo, porque `invDropCylinder` reconstruye todo el mapa al guardar.
+- Técnicamente: un solo listener de `click` por casilla, filtrado por `e.detail === 0` (un clic de
+  mouse real siempre trae `detail>=1`; Enter/Espacio sobre un `<button>` dispara un `click`
+  sintético con `detail===0`) — así conviven sin interferirse con el `mousedown`/`touchstart` que
+  ya maneja el arrastre.
+
+### Tipografía sub-12px: cero en todo el repositorio
+`js/auth.js` (pantalla de login/PIN) y `js/firebase-sync.js` (ajustes de sincronización) quedaron
+fuera de los 7 módulos planeados del overhaul — con esta ronda también se migran. Además se
+encontraron y corrigieron 5 tamaños en decimales (`8.5px`/`10.5px`/`11.5px`) que los barridos
+anteriores no habían detectado (buscaban solo enteros). Verificado con grep de cierre: **cero**
+declaraciones de texto por debajo de 12px en todo el proyecto.
+
+### Bug de contraste encontrado en el camino
+Al revisar `auth.js` para la limpieza de tipografía, los 7 colores de avatar de operador
+(`AUTH_AVATAR_COLORS` — la pantalla de "elige tu usuario", lo primero que ve cualquier técnico al
+abrir la app) fallaban como texto (2.15–4.23:1). Misma técnica de corrección que la paleta P1-P10
+de Plan (v17.4): mismos matices, oscurecidos hasta pasar 4.5:1. También se corrigió un tono
+"por vencer" del mapa de zonas que quedaba justo debajo del mínimo (4.43:1 → 5.72:1).
+
 ## v17.7 — Accesibilidad módulo CoP (Fase 8, última) — cierre del overhaul UI (2026-08-15)
 
 Octavo y último módulo migrado sobre la fundación de v17.0. Alcance: `js/cop_validator.js` —
