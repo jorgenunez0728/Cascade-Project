@@ -2,6 +2,44 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.4 — Accesibilidad módulo Plan — Fase 5 de overhaul UI (2026-08-15)
+
+Quinto módulo migrado sobre la fundación de v17.0. Alcance: `js/testplan.js` — Dashboard, Plan
+Semanal, 🚑 Recuperación, Producción, Probados, Familias, Reglas, Historial Semanal, Calendario,
+Simulador.
+
+### Bug sistémico: paleta de prioridad P1..P10
+La barra de "Test Recovery Plan" clasifica los pendientes en 10 niveles de prioridad (P1..P10),
+cada uno con su color, mostrados como relleno de barra con texto blanco encima. **9 de los 10
+colores fallaban contraste AA** (el más grave, `#84cc16` lima, apenas 1.98:1 — el texto blanco era
+casi invisible). Solo el gris de "sin prioridad" pasaba. Se recalculó la paleta completa
+programáticamente: mismos matices (mantiene la asociación visual P1=rojo…P10=gris), oscurecidos
+justo hasta superar 4.5:1, verificado uno por uno.
+
+| Prioridad | Antes | Ratio | Después | Ratio |
+|---|---|---|---|---|
+| P1 | `#ef4444` | 3.76 ✗ | `#eb1515` | 4.52 ✓ |
+| P2 | `#f59e0b` | 2.15 ✗ | `#9e6506` | 4.86 ✓ |
+| P3 | `#3b82f6` | 3.68 ✗ | `#1e6ff5` | 4.52 ✓ |
+| P4 | `#8b5cf6` | 4.23 ✗ | `#8452f5` | 4.66 ✓ |
+| P5 | `#10b981` | 2.54 ✗ | `#0b815a` | 4.88 ✓ |
+| P6 | `#ec4899` | 3.53 ✗ | `#e0177a` | 4.59 ✓ |
+| P7 | `#06b6d4` | 2.43 ✗ | `#047a8f` | 5.02 ✓ |
+| P8 | `#f97316` | 2.80 ✗ | `#c35305` | 4.61 ✓ |
+| P9 | `#84cc16` | 1.98 ✗ | `#54820e` | 4.59 ✓ |
+| P10 (sin prioridad) | `#94a3b8` | 2.56 ✗ | `--border-strong` | 4.62 ✓ |
+
+### Otros hallazgos
+- Las tarjetas de configuración (`tpConfigBadges`, los chips de Modelo/Motor/Transmisión/Año MY/
+  Regulación/Región/Tracción que aparecen en prácticamente cada tabla del módulo) tenían el texto a
+  7px por defecto y 8px en sus ~8 sitios de uso — subidas al mínimo del proyecto (12px).
+- 3 textos más sobre fondo claro con gris ilegible (`#94a3b8`/`#65a30d`) en el resumen "Pendientes
+  esta semana" y el modal de continuidad entre Model Years — migrados a los tokens.
+
+### Sin overlays propios
+A diferencia de Consumibles (Fase 4), este módulo ya usaba `showModal()` para el 100% de sus
+diálogos — no había ningún overlay artesanal que arreglar.
+
 ## v17.3 — Accesibilidad módulo Consumibles — Fase 4 de overhaul UI (2026-08-15)
 
 Cuarto módulo migrado sobre la fundación de v17.0. Alcance: `js/inventory.js` — el módulo más
