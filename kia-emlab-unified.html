@@ -2596,15 +2596,18 @@ details.acc > summary {
     transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 .inv-zone-slot-formula { font-size: var(--fs-xs); font-weight: 800; line-height: 1.1; }
-.inv-zone-slot-meta { font-size: 8.5px; font-weight: 600; opacity: 0.85; line-height: 1.1; }
+.inv-zone-slot-meta { font-size: var(--fs-xs); font-weight: 600; opacity: 0.85; line-height: 1.1; }
 .inv-zone-slot--ok       { background: rgba(16,185,129,0.14); border: 1.5px solid #10b981; color: #047857; }
-.inv-zone-slot--mid      { background: rgba(245,158,11,0.16); border: 1.5px solid #f59e0b; color: #b45309; }
+.inv-zone-slot--mid      { background: rgba(245,158,11,0.16); border: 1.5px solid #f59e0b; color: #994608; }
 .inv-zone-slot--low      { background: rgba(239,68,68,0.16); border: 1.5px solid #ef4444; color: #b91c1c; }
 .inv-zone-slot--expired  { background: rgba(239,68,68,0.22); border: 1.5px dashed #ef4444; color: #991b1b; }
 .inv-zone-slot--empty    { background: transparent; border: 1.5px dashed var(--border); color: var(--muted); font-size: var(--fs-sm); font-weight: 700; }
 .inv-zone-slot--match    { outline: 2px solid #2563eb; outline-offset: 1px; }
 .inv-zone-slot--dim      { opacity: 0.3; }
 .inv-zone-slot.drag-ready { transform: scale(1.05); }
+/* [v17.8] Selección por teclado (alternativa al drag-and-drop) */
+.inv-zone-slot--kbdsel   { outline: 3px solid var(--focus-yellow); outline-offset: 1px; box-shadow: 0 2px 0 1px var(--focus-ink); }
+.inv-zone-slot--kbdtarget { outline: 2px dashed var(--ok-fill); outline-offset: 1px; }
 
 /* v16.5: listas de una fila por elemento (cilindros, etc.) — 2 columnas en pantallas anchas
    en vez de estirar cada fila de borde a borde. */
@@ -2833,7 +2836,7 @@ details.acc > summary {
 }
 .pn-gantt-tag {
     display: inline-block; margin-left: 5px; padding: 0 5px; border-radius: 7px;
-    font-size: 8.5px; font-weight: 800; vertical-align: middle;
+    font-size: var(--fs-xs); font-weight: 800; vertical-align: middle;
 }
 .pn-gantt-tag--crit { background: rgba(185,28,28,0.14); color: #b91c1c; }
 .pn-gantt-tag--risk { background: rgba(245,158,11,0.18); color: #b45309; }
@@ -3479,7 +3482,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .dash-row-title { font-size: 13px; font-weight: 600; color: #1e293b; }
 .dash-row-meta { font-size: var(--fs-sm); color: #64748b; margin-top: 1px; }
 .dash-chip {
-    font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 10px; white-space: nowrap;
+    font-size: var(--fs-xs); font-weight: 700; padding: 2px 9px; border-radius: 10px; white-space: nowrap;
 }
 .dash-chip--pendiente { background: rgba(148, 163, 184, 0.18); color: #475569; }
 .dash-chip--encurso   { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; }
@@ -3490,7 +3493,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .dash-step.done { background: var(--accent-cascade); opacity: 0.45; }
 .dash-step.now { background: var(--accent-cascade); animation: dash-pulse 1.6s ease-in-out infinite; }
 @keyframes dash-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-.dash-stepper-label { font-size: 10.5px; font-weight: 700; color: #64748b; margin-left: 5px; white-space: nowrap; }
+.dash-stepper-label { font-size: var(--fs-xs); font-weight: 700; color: #64748b; margin-left: 5px; white-space: nowrap; }
 .dash-eta {
     font-size: var(--fs-sm); font-weight: 700; padding: 2px 8px; border-radius: 8px;
     cursor: pointer; white-space: nowrap; border: 1px dashed transparent;
@@ -3530,7 +3533,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .help-banner-text b { color: #1d4ed8; }
 .help-banner-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-left: auto; }
 .help-banner-more, .help-banner-ok {
-    font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 7px; cursor: pointer;
+    font-size: var(--fs-sm); font-weight: 700; padding: 4px 10px; border-radius: 7px; cursor: pointer;
     white-space: nowrap; min-height: 28px;
 }
 .help-banner-more { background: #fff; border: 1px solid #93c5fd; color: #1d4ed8; }
@@ -5170,7 +5173,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
                             <span style="color:var(--tp-dim);font-size: var(--fs-xs);" x-text="v.date"></span>
                             <span x-show="vi === 0" style="background:rgba(16,185,129,0.15);color:var(--ok-text);padding:1px 7px;border-radius:8px;font-size: var(--fs-xs);font-weight:800;">ACTUAL</span>
                         </summary>
-                        <ul style="margin:0;padding:8px 10px 10px 24px;font-size:10.5px;color:var(--tp-dim);line-height:1.5;">
+                        <ul style="margin:0;padding:8px 10px 10px 24px;font-size: var(--fs-xs);color:var(--tp-dim);line-height:1.5;">
                             <template x-for="(b, bi) in v.bullets" :key="bi">
                                 <li x-text="b"></li>
                             </template>
@@ -5674,15 +5677,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608150031';
+var APP_BUILD = '202608150040';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.7';
+var APP_VERSION = '17.8';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.8', date: '15 ago 2026', title: 'Mapa de zonas por teclado + limpieza final de tipografía', bullets: [
+        'El mapa de zonas de Consumibles (mover un cilindro entre posiciones) era solo por mouse/dedo — ahora también se opera por teclado: Enter sobre un cilindro lo selecciona, Enter sobre una posición vacía lo mueve ahí, Escape cancela. Cada paso se anuncia a lectores de pantalla.',
+        'Tipografía sub-12px eliminada en js/auth.js y js/firebase-sync.js (login/PIN, ajustes de sincronización) — con esto ya no queda ningún archivo del proyecto con texto por debajo del mínimo.',
+        'Bug de contraste encontrado al revisar auth.js: los 7 colores de avatar de operador fallaban como texto (la pantalla de "elige tu usuario", lo primero que ve cualquier técnico) — misma corrección que la paleta P1-P10 de Plan (v17.4).',
+        'Un colorcito de "por vencer" en el mapa de zonas y tres tamaños de fuente en decimales (8.5px/10.5px/11.5px) que los barridos anteriores no habían detectado, también corregidos.'
+    ]},
     { version: '17.7', date: '15 ago 2026', title: 'Accesibilidad — módulo CoP (Fase 8, última) + cierre del overhaul', bullets: [
         'Octavo y último módulo migrado: CoP (validador Type 1 de Conformidad de Producción + Control SPC). Con esto quedan migrados los 7 módulos de la plataforma más la fundación — overhaul de accesibilidad v17.0-v17.7 completo.',
         'Tabla de VINes × gases con encabezados <th scope="col"> y aria-label por celda ("Formaldehído — VIN 3N1...") — antes cada casilla numérica era indistinguible por lectores de pantalla.',
@@ -5817,14 +5826,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608150031' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608150040' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608150031' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608150040' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5840,7 +5849,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608150031' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608150040' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -17594,6 +17603,10 @@ var INV_CAL_TYPES = ['Interna', 'Externa'];
 
 // Drag-and-drop state for zone map
 var _invDrag = { active:false, gasId:null, sourceCode:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false };
+// [v17.8] Selección por teclado del mapa de zonas — alternativa al drag-and-drop (que solo
+// funciona con mouse/dedo). Independiente de _invDrag: nunca se tocan a la vez porque el
+// mouse/touch usa mousedown/touchstart y esto usa click con e.detail===0 (ver invZoneKeySelect).
+var _invKbdMove = { gasId: null, sourceCode: null, label: '' };
 var _invUndoStack = [];
 var _invUndoMaxSize = 5;
 
@@ -20865,12 +20878,12 @@ function invRenderZoneMap(el) {
                 var isDim = !!search && !isMatch;
                 var status = _invCylColor(slotGas);
                 var lvl = invGasLevel(slotGas);
-                html += '<button type="button" class="inv-zone-slot inv-zone-slot--' + status + (isMatch ? ' inv-zone-slot--match' : '') + (isDim ? ' inv-zone-slot--dim' : '') + '" data-zone-code="' + code + '" data-gas-id="' + slotGas.id + '" title="' + escapeHtml(slotGas.formula) + (slotGas.concNominal ? ' ' + escapeHtml(slotGas.concNominal) : '') + ' — ' + lvl.pct + '%">';
+                html += '<button type="button" class="inv-zone-slot inv-zone-slot--' + status + (isMatch ? ' inv-zone-slot--match' : '') + (isDim ? ' inv-zone-slot--dim' : '') + '" data-zone-code="' + code + '" data-gas-id="' + slotGas.id + '" aria-label="' + code + ': ' + escapeHtml(slotGas.formula) + (slotGas.concNominal ? ' ' + escapeHtml(slotGas.concNominal) : '') + ', ' + lvl.pct + '%. Enter para seleccionar y mover." title="' + escapeHtml(slotGas.formula) + (slotGas.concNominal ? ' ' + escapeHtml(slotGas.concNominal) : '') + ' — ' + lvl.pct + '%">';
                 html += '<span class="inv-zone-slot-formula">' + escapeHtml(slotGas.formula.split('/')[0]) + '</span>';
                 html += '<span class="inv-zone-slot-meta">' + lvl.pct + '%</span>';
                 html += '</button>';
             } else {
-                html += '<button type="button" class="inv-zone-slot inv-zone-slot--empty" data-zone-code="' + code + '">' + s + '</button>';
+                html += '<button type="button" class="inv-zone-slot inv-zone-slot--empty" data-zone-code="' + code + '" aria-label="' + code + ': posición vacía">' + s + '</button>';
             }
         }
         html += '</div></div>';
@@ -21055,6 +21068,14 @@ function invInitZoneDrag(container) {
     slots.forEach(function(slot) {
         slot.addEventListener('touchstart', onPointerDown, { passive: true });
         slot.addEventListener('mousedown', onPointerDown);
+        // [v17.8] Alternativa de teclado: Enter/Espacio sobre un <button> dispara un evento
+        // `click` nativo con detail===0 (un clic real de mouse siempre trae detail>=1), así
+        // que esto nunca se activa por accidente durante un tap/drag normal — esos ya se
+        // resuelven en onPointerUp más arriba.
+        slot.addEventListener('click', function (e) {
+            if (e.detail !== 0) return;
+            invZoneKeySelect(slot);
+        });
     });
 
     // Move/up on document (so drag continues outside slot boundaries)
@@ -21073,6 +21094,61 @@ function invInitZoneDrag(container) {
         document.removeEventListener('mouseup', onPointerUp);
         document.removeEventListener('touchcancel', onCancel);
     };
+
+    // [v17.8] Escape cancela una selección de teclado en curso. Se cablea una sola vez
+    // (idempotente vía _invKeyEscWired) porque invInitZoneDrag se vuelve a llamar en cada
+    // render del mapa, pero el listener de Escape no depende del contenido del contenedor.
+    if (!window._invKeyEscWired) {
+        window._invKeyEscWired = true;
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && _invKbdMove.gasId) invZoneKeyCancel();
+        });
+    }
+}
+
+// [v17.8] Máquina de estados de la selección por teclado: clic (con detail===0, es decir,
+// Enter/Espacio) sobre una posición OCUPADA selecciona ese cilindro; clic sobre una posición
+// VACÍA con algo seleccionado lo mueve ahí (mismo invDropCylinder que usa el drag-and-drop);
+// clic sobre la MISMA posición cancela; clic sobre OTRA posición ocupada cambia la selección.
+function invZoneKeySelect(slotEl) {
+    var code = slotEl.getAttribute('data-zone-code');
+    var gasId = slotEl.getAttribute('data-gas-id');
+
+    if (_invKbdMove.gasId) {
+        if (code === _invKbdMove.sourceCode) { invZoneKeyCancel(); return; }
+        if (!gasId) {
+            var moved = _invKbdMove.label;
+            invDropCylinder(_invKbdMove.gasId, _invKbdMove.sourceCode, code);
+            _invKbdMove = { gasId: null, sourceCode: null, label: '' };
+            // invDropCylinder ya volvió a renderizar todo el mapa (nuevos botones, nuevo DOM) —
+            // sin esto el foco se perdería del todo tras un movimiento exitoso por teclado.
+            var movedEl = document.querySelector('.inv-zone-slot[data-zone-code="' + code + '"]');
+            if (movedEl) movedEl.focus();
+            if (typeof a11yAnnounce === 'function') a11yAnnounce(moved + ' movido a la posición ' + code + '.');
+            return;
+        }
+        // Posición ocupada por otro cilindro: cambiar la selección a este.
+    }
+
+    if (!gasId) {
+        if (typeof a11yAnnounce === 'function') a11yAnnounce('Posición ' + code + ' vacía. Selecciona primero un cilindro para moverlo.');
+        return;
+    }
+    var gas = invState.gases.find(function (g) { return g.id === gasId; });
+    var label = gas ? (gas.formula + (gas.controlNo ? ' #' + gas.controlNo : '')) : 'Cilindro';
+    _invKbdMove = { gasId: gasId, sourceCode: code, label: label };
+    document.querySelectorAll('.inv-zone-slot--kbdsel').forEach(function (s) { s.classList.remove('inv-zone-slot--kbdsel'); });
+    slotEl.classList.add('inv-zone-slot--kbdsel');
+    if (typeof a11yAnnounce === 'function') {
+        a11yAnnounce(label + ' seleccionado en ' + code + '. Elige una posición vacía con Enter para moverlo ahí, o Escape para cancelar.');
+    }
+}
+
+function invZoneKeyCancel() {
+    var label = _invKbdMove.label;
+    _invKbdMove = { gasId: null, sourceCode: null, label: '' };
+    document.querySelectorAll('.inv-zone-slot--kbdsel').forEach(function (s) { s.classList.remove('inv-zone-slot--kbdsel'); });
+    if (typeof a11yAnnounce === 'function' && label) a11yAnnounce('Movimiento de ' + label + ' cancelado.');
 }
 
 function invDropCylinder(gasId, sourceCode, targetCode) {
@@ -34319,7 +34395,11 @@ function _authPinLenFor(op) {
     return 4;
 }
 
-var AUTH_AVATAR_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+// [v17.8] Paleta recalculada: la original fallaba contraste AA como texto sobre su propio
+// tinte de fondo (usada en color:c junto con background:c+'1f' en _authOpCard). Mismos
+// matices, oscurecidos hasta pasar >=4.5:1 sobre blanco (misma técnica que la paleta P1-P10
+// de Test Plan, v17.4 — ver CHANGELOG).
+var AUTH_AVATAR_COLORS = ['#1e6ff5', '#0b815a', '#9e6506', '#eb1515', '#8452f5', '#e0177a', '#047a8f'];
 
 /**
  * [Fase 5] Color del avatar derivado del ID, no del índice del arreglo.
@@ -34852,7 +34932,7 @@ function authRenderOperatorPicker() {
     if (!el) return;
     var cur = (authState.currentUser && authState.currentUser.name) || 'Laboratorio';
     el.innerHTML = '<button onclick="authSignOut()" title="Cambiar de usuario (cerrar sesión)" ' +
-        'style="display:flex;align-items:center;gap:4px;font-size:11px;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:4px 8px;cursor:pointer;max-width:170px;min-height:32px;">' +
+        'style="display:flex;align-items:center;gap:4px;font-size: var(--fs-sm);background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:4px 8px;cursor:pointer;max-width:170px;min-height:32px;">' +
         '<span>👤</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(cur) + '</span></button>';
 }
 
@@ -35833,11 +35913,11 @@ function fbShowAuthPrompt() {
         '<div style="max-width:380px;margin:60px auto;background:#0f172a;border-radius:14px;padding:24px;position:relative;color:#e2e8f0;">' +
         '<button onclick="document.getElementById(\'fbModal\').style.display=\'none\'" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">✕</button>' +
         '<h3 style="margin:0 0 6px;color:#22d3ee;">🔑 Conectar con el laboratorio</h3>' +
-        '<div style="font-size:11px;color:#94a3b8;margin-bottom:16px;">Ingresa la contraseña del laboratorio para sincronizar este dispositivo. Solo se pide una vez.</div>' +
+        '<div style="font-size: var(--fs-sm);color:#94a3b8;margin-bottom:16px;">Ingresa la contraseña del laboratorio para sincronizar este dispositivo. Solo se pide una vez.</div>' +
         '<input type="password" id="fb-lab-password" autocomplete="current-password" placeholder="Contraseña del laboratorio" ' +
         'style="width:100%;padding:12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;box-sizing:border-box;" ' +
         'onkeydown="if(event.key===\'Enter\')fbSubmitLabPassword();">' +
-        '<div id="fb-lab-password-error" style="color:#ef4444;font-size:11px;min-height:16px;margin:8px 0;"></div>' +
+        '<div id="fb-lab-password-error" style="color:#ef4444;font-size: var(--fs-sm);min-height:16px;margin:8px 0;"></div>' +
         '<button onclick="fbSubmitLabPassword()" style="width:100%;padding:12px;background:#22d3ee;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;">Conectar</button>' +
         '</div>';
     setTimeout(function() { var i = document.getElementById('fb-lab-password'); if (i) i.focus(); }, 100);
@@ -36945,8 +37025,8 @@ function fbUpdateIndicator() {
         '"></span>' + label +
         (fbSync.stationId ? ' (' + fbSync.stationId + ')' : '') +
         (fbSync.lastSync ? ' ' + fbSync.lastSync.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '') +
-        (fbSync._liveSync ? ' <span style="color:#22d3ee;font-size:8px;font-weight:700;">● vivo</span>' : '') +
-        (fbOfflineQueue.length > 0 ? ' <span style="background:#f59e0b;color:#000;padding:1px 5px;border-radius:8px;font-size:8px;font-weight:700;">' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</span>' : '');
+        (fbSync._liveSync ? ' <span style="color:#22d3ee;font-size: var(--fs-xs);font-weight:700;">● vivo</span>' : '') +
+        (fbOfflineQueue.length > 0 ? ' <span style="background:#f59e0b;color:#000;padding:1px 5px;border-radius:8px;font-size: var(--fs-xs);font-weight:700;">' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</span>' : '');
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -36975,15 +37055,15 @@ function fbShowSettings() {
     modal.innerHTML = '<div style="max-width:480px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">' +
         '<button onclick="document.getElementById(\x27fbModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>' +
         '<h3 style="margin:0 0 4px;color:#3b82f6;">Firebase Cloud Sync</h3>' +
-        '<div style="font-size:10px;color:#64748b;margin-bottom:14px;">Sincroniza datos entre multiples dispositivos via Firebase.</div>' +
+        '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:14px;">Sincroniza datos entre multiples dispositivos via Firebase.</div>' +
 
         // Status
         '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:12px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '<span style="font-size:11px;">Estado:</span>' +
-        '<span style="font-size:11px;font-weight:700;color:' + statusColor + ';">' + statusText + '</span></div>' +
-        (fbSync.lastSync ? '<div style="font-size:9px;color:#64748b;margin-top:4px;">Ultima sync: ' + fbSync.lastSync.toLocaleString('es-MX') + '</div>' : '') +
-        (fbSync.lastError ? '<div style="font-size:10px;color:#ef4444;margin-top:6px;padding:6px 8px;background:rgba(239,68,68,0.1);border-radius:4px;white-space:pre-line;">' + fbSync.lastError + '</div>' : '') +
+        '<span style="font-size: var(--fs-sm);">Estado:</span>' +
+        '<span style="font-size: var(--fs-sm);font-weight:700;color:' + statusColor + ';">' + statusText + '</span></div>' +
+        (fbSync.lastSync ? '<div style="font-size: var(--fs-xs);color:#64748b;margin-top:4px;">Ultima sync: ' + fbSync.lastSync.toLocaleString('es-MX') + '</div>' : '') +
+        (fbSync.lastError ? '<div style="font-size: var(--fs-xs);color:#ef4444;margin-top:6px;padding:6px 8px;background:rgba(239,68,68,0.1);border-radius:4px;white-space:pre-line;">' + fbSync.lastError + '</div>' : '') +
         '</div>' +
 
         // [v15.6.1] Cuenta de dispositivo (login de laboratorio Email/Password)
@@ -36992,9 +37072,9 @@ function fbShowSettings() {
             try { var u = firebase.auth().currentUser; if (u && !u.isAnonymous) email = u.email; } catch(e) {}
             return '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:12px;">' +
                 '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                '<span style="font-size:11px;">Cuenta de dispositivo:</span>' +
-                '<span style="font-size:10px;font-weight:700;color:' + (email ? '#10b981' : '#f59e0b') + ';">' + (email ? escapeHtml(email) : 'No conectado') + '</span></div>' +
-                '<button onclick="fbSwitchDeviceAccount()" style="margin-top:8px;width:100%;padding:8px;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:6px;cursor:pointer;font-size:11px;">' +
+                '<span style="font-size: var(--fs-sm);">Cuenta de dispositivo:</span>' +
+                '<span style="font-size: var(--fs-xs);font-weight:700;color:' + (email ? '#10b981' : '#f59e0b') + ';">' + (email ? escapeHtml(email) : 'No conectado') + '</span></div>' +
+                '<button onclick="fbSwitchDeviceAccount()" style="margin-top:8px;width:100%;padding:8px;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">' +
                 (email ? 'Cambiar cuenta de dispositivo' : 'Conectar con la contraseña del laboratorio') + '</button>' +
                 '</div>';
         })() +
@@ -37007,110 +37087,110 @@ function fbShowSettings() {
             var wColor = wPct > 80 ? '#ef4444' : wPct > 50 ? '#f59e0b' : '#10b981';
             var rColor = rPct > 80 ? '#ef4444' : rPct > 50 ? '#f59e0b' : '#10b981';
             return '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:12px;">' +
-                '<div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:8px;">Uso de Quota (proteccion de costos)</div>' +
+                '<div style="font-size: var(--fs-xs);font-weight:700;color:#94a3b8;margin-bottom:8px;">Uso de Quota (proteccion de costos)</div>' +
                 '<div style="display:flex;gap:12px;margin-bottom:6px;">' +
-                '<div style="flex:1;"><div style="font-size:9px;color:#64748b;margin-bottom:3px;">Escrituras/hora</div>' +
+                '<div style="flex:1;"><div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:3px;">Escrituras/hora</div>' +
                 '<div style="height:6px;background:#1e293b;border-radius:3px;overflow:hidden;">' +
                 '<div style="width:' + Math.min(wPct, 100) + '%;height:100%;background:' + wColor + ';border-radius:3px;transition:width 0.3s;"></div></div>' +
-                '<div style="font-size:9px;color:' + wColor + ';margin-top:2px;">' + qs.writesThisHour + '/' + qs.maxWritesHour + '</div></div>' +
-                '<div style="flex:1;"><div style="font-size:9px;color:#64748b;margin-bottom:3px;">Lecturas/hora</div>' +
+                '<div style="font-size: var(--fs-xs);color:' + wColor + ';margin-top:2px;">' + qs.writesThisHour + '/' + qs.maxWritesHour + '</div></div>' +
+                '<div style="flex:1;"><div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:3px;">Lecturas/hora</div>' +
                 '<div style="height:6px;background:#1e293b;border-radius:3px;overflow:hidden;">' +
                 '<div style="width:' + Math.min(rPct, 100) + '%;height:100%;background:' + rColor + ';border-radius:3px;transition:width 0.3s;"></div></div>' +
-                '<div style="font-size:9px;color:' + rColor + ';margin-top:2px;">' + qs.readsThisHour + '/' + qs.maxReadsHour + '</div></div></div>' +
-                (qs.blockedToday > 0 ? '<div style="font-size:9px;color:#f59e0b;margin-top:4px;">Operaciones bloqueadas hoy: ' + qs.blockedToday + '</div>' : '') +
-                '<div style="font-size:8px;color:#475569;margin-top:4px;">Limite diario: ' + qs.writesToday + '/' + qs.maxWritesDay + ' escrituras, ' + qs.readsToday + '/' + qs.maxReadsDay + ' lecturas</div>' +
+                '<div style="font-size: var(--fs-xs);color:' + rColor + ';margin-top:2px;">' + qs.readsThisHour + '/' + qs.maxReadsHour + '</div></div></div>' +
+                (qs.blockedToday > 0 ? '<div style="font-size: var(--fs-xs);color:#f59e0b;margin-top:4px;">Operaciones bloqueadas hoy: ' + qs.blockedToday + '</div>' : '') +
+                '<div style="font-size: var(--fs-xs);color:#475569;margin-top:4px;">Limite diario: ' + qs.writesToday + '/' + qs.maxWritesDay + ' escrituras, ' + qs.readsToday + '/' + qs.maxReadsDay + ' lecturas</div>' +
                 '</div>';
         })() : '') +
 
         // Connection test
-        (hasConfig ? '<div style="margin-bottom:12px;"><button onclick="fbTestConnectionUI()" style="width:100%;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Probar conexion a Firestore</button></div>' : '') +
+        (hasConfig ? '<div style="margin-bottom:12px;"><button onclick="fbTestConnectionUI()" style="width:100%;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Probar conexion a Firestore</button></div>' : '') +
 
         // Station ID
         '<div style="margin-bottom:12px;">' +
-        '<label style="font-size:10px;color:#94a3b8;">ID de Estacion (identifica este dispositivo)</label>' +
+        '<label style="font-size: var(--fs-xs);color:#94a3b8;">ID de Estacion (identifica este dispositivo)</label>' +
         '<div style="display:flex;gap:6px;margin-top:4px;">' +
         '<input id="fb-station-input" value="' + (fbSync.stationId || '') + '" placeholder="ej: CELDA-1, LAB-TABLET" style="flex:1;padding:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:12px;">' +
-        '<button onclick="fbSetStation(document.getElementById(\x27fb-station-input\x27).value)" style="padding:8px 14px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:11px;">Guardar</button>' +
+        '<button onclick="fbSetStation(document.getElementById(\x27fb-station-input\x27).value)" style="padding:8px 14px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">Guardar</button>' +
         '</div></div>' +
 
         // Device name label
         '<div style="margin-bottom:12px;">' +
-        '<label style="font-size:10px;color:#94a3b8;">Nombre del dispositivo (visible en Smart Merge)</label>' +
+        '<label style="font-size: var(--fs-xs);color:#94a3b8;">Nombre del dispositivo (visible en Smart Merge)</label>' +
         '<div style="display:flex;gap:6px;margin-top:4px;">' +
         '<input id="fb-device-name-input" value="' + (localStorage.getItem('kia_fb_device_name') || '') + '" placeholder="ej: Tablet Jorge, PC Lab" style="flex:1;padding:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:12px;">' +
-        '<button onclick="var v=document.getElementById(\x27fb-device-name-input\x27).value.trim();localStorage.setItem(\x27kia_fb_device_name\x27,v);showToast(\x27Nombre guardado: \x27+v,\x27success\x27);fbUpdateStationMeta();" style="padding:8px 14px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:11px;">Guardar</button>' +
+        '<button onclick="var v=document.getElementById(\x27fb-device-name-input\x27).value.trim();localStorage.setItem(\x27kia_fb_device_name\x27,v);showToast(\x27Nombre guardado: \x27+v,\x27success\x27);fbUpdateStationMeta();" style="padding:8px 14px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">Guardar</button>' +
         '</div></div>' +
 
         // Module sync toggles
         (hasConfig ? '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:12px;">' +
-        '<div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:8px;">Modulos a sincronizar</div>' +
+        '<div style="font-size: var(--fs-xs);font-weight:700;color:#94a3b8;margin-bottom:8px;">Modulos a sincronizar</div>' +
         (function() {
             var mods = [{k:'cop15',l:'COP15 Cascade'},{k:'testplan',l:'Test Plan'},{k:'inventory',l:'Inventario'},{k:'panel',l:'Panel'}];
             var h = '';
             mods.forEach(function(m) {
                 h += '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">' +
                 '<input type="checkbox" ' + (fbSyncModules[m.k] ? 'checked' : '') + ' onchange="fbToggleSyncModule(\'' + m.k + '\',this.checked);this.checked=fbSyncModules[\'' + m.k + '\'];">' +
-                '<span style="font-size:11px;">' + m.l + '</span></label>';
+                '<span style="font-size: var(--fs-sm);">' + m.l + '</span></label>';
             });
             return h;
         })() + '</div>' : '') +
 
         // Offline queue status
         (fbOfflineQueue.length > 0 ? '<div style="padding:10px;border:1px solid #854d0e;border-radius:8px;margin-bottom:12px;background:rgba(245,158,11,0.05);">' +
-        '<div style="font-size:10px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Cola Offline: ' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</div>' +
-        '<div style="font-size:9px;color:#64748b;margin-bottom:6px;">Operaciones que fallaron se reintentaran automaticamente.</div>' +
-        '<button onclick="fbQueueRetry();setTimeout(fbShowSettings,1000);" style="padding:6px 12px;background:#f59e0b;color:#000;border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;">Reintentar ahora</button>' +
-        '<button onclick="showConfirmDialog({title:\x27⚠️ Vaciar cola\x27,message:\x27Vaciar cola offline?\x27,type:\x27warning\x27,confirmText:\x27Vaciar\x27,cancelText:\x27Cancelar\x27}).then(function(ok){if(ok){fbOfflineQueue=[];fbQueueSave();fbUpdateIndicator();fbShowSettings();}});" style="padding:6px 12px;background:#334155;color:#e2e8f0;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:6px;">Vaciar cola</button>' +
+        '<div style="font-size: var(--fs-xs);font-weight:700;color:#f59e0b;margin-bottom:4px;">Cola Offline: ' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</div>' +
+        '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:6px;">Operaciones que fallaron se reintentaran automaticamente.</div>' +
+        '<button onclick="fbQueueRetry();setTimeout(fbShowSettings,1000);" style="padding:6px 12px;background:#f59e0b;color:#000;border:none;border-radius:6px;cursor:pointer;font-size: var(--fs-xs);font-weight:700;">Reintentar ahora</button>' +
+        '<button onclick="showConfirmDialog({title:\x27⚠️ Vaciar cola\x27,message:\x27Vaciar cola offline?\x27,type:\x27warning\x27,confirmText:\x27Vaciar\x27,cancelText:\x27Cancelar\x27}).then(function(ok){if(ok){fbOfflineQueue=[];fbQueueSave();fbUpdateIndicator();fbShowSettings();}});" style="padding:6px 12px;background:#334155;color:#e2e8f0;border:none;border-radius:6px;cursor:pointer;font-size: var(--fs-xs);margin-left:6px;">Vaciar cola</button>' +
         '</div>' : '') +
 
         // Sync actions
         (fbSync.enabled && fbSync.status !== 'error' ? '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
-        '<button onclick="fbPushAll(true)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Subir todo a nube</button>' +
-        '<button onclick="showConfirmDialog({title:\x27⚠️ Descargar de nube\x27,message:\x27Esto reemplazara datos locales con los de la nube. Continuar?\x27,type:\x27danger\x27,confirmText:\x27Descargar\x27,cancelText:\x27Cancelar\x27}).then(function(ok){if(ok){fbPullAll(true);}});" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Descargar de nube</button>' +
+        '<button onclick="fbPushAll(true)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">Subir todo a nube</button>' +
+        '<button onclick="showConfirmDialog({title:\x27⚠️ Descargar de nube\x27,message:\x27Esto reemplazara datos locales con los de la nube. Continuar?\x27,type:\x27danger\x27,confirmText:\x27Descargar\x27,cancelText:\x27Cancelar\x27}).then(function(ok){if(ok){fbPullAll(true);}});" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">Descargar de nube</button>' +
         '</div>' : '') +
 
         // ═══ BACKUP SECTION ═══
         (fbSync.enabled && fbSync.status === 'connected' ? '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
-        '<button onclick="fbBackupManual()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Backup Manual</button>' +
-        '<button onclick="fbBackupShowList()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Ver Backups</button>' +
+        '<button onclick="fbBackupManual()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Backup Manual</button>' +
+        '<button onclick="fbBackupShowList()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Ver Backups</button>' +
         '</div>' +
-        '<div style="font-size:9px;color:#64748b;margin-bottom:12px;margin-top:-8px;">Auto-backup diario. Ultimo: ' + (localStorage.getItem(FB_BACKUP_LS_KEY) || 'nunca') + '</div>' : '') +
+        '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:12px;margin-top:-8px;">Auto-backup diario. Ultimo: ' + (localStorage.getItem(FB_BACKUP_LS_KEY) || 'nunca') + '</div>' : '') +
 
         // ═══ ACTIVITY FEED BUTTON ═══
         (fbSync.enabled && fbSync.status === 'connected' ? '<div style="margin-bottom:12px;">' +
-        '<button onclick="fbActivityShowFeed()" style="width:100%;padding:10px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">📡 Activity Feed (entre estaciones)</button>' +
+        '<button onclick="fbActivityShowFeed()" style="width:100%;padding:10px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">📡 Activity Feed (entre estaciones)</button>' +
         '</div>' : '') +
 
         // ═══ LIVE SYNC TOGGLE ═══
         (fbSync.enabled && fbSync.status === 'connected' && FB_IS_HTTP_ORIGIN ? '<div style="margin-bottom:12px;padding:10px;background:#1e293b;border-radius:8px;border:1px solid ' + (fbSync._liveSync ? '#0e7490' : '#334155') + ';">' +
-        '<div style="font-size:11px;font-weight:700;color:' + (fbSync._liveSync ? '#22d3ee' : '#94a3b8') + ';margin-bottom:4px;">' + (fbSync._liveSync ? '● Sync en vivo — activo' : 'Sync en vivo — inactivo') + '</div>' +
-        '<div style="font-size:9px;color:#64748b;margin-bottom:8px;">Recibe cambios de otras estaciones en tiempo real. Solo agrega datos nuevos, nunca borra los locales.</div>' +
-        '<button onclick="fbSync._liveSync ? fbStopListening() : fbStartListening(); setTimeout(fbShowSettings, 200);" style="width:100%;padding:9px;background:' + (fbSync._liveSync ? '#164e63' : '#334155') + ';color:' + (fbSync._liveSync ? '#22d3ee' : '#e2e8f0') + ';border:1px solid ' + (fbSync._liveSync ? '#0e7490' : '#475569') + ';border-radius:6px;cursor:pointer;font-weight:700;font-size:11px;">' +
+        '<div style="font-size: var(--fs-sm);font-weight:700;color:' + (fbSync._liveSync ? '#22d3ee' : '#94a3b8') + ';margin-bottom:4px;">' + (fbSync._liveSync ? '● Sync en vivo — activo' : 'Sync en vivo — inactivo') + '</div>' +
+        '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:8px;">Recibe cambios de otras estaciones en tiempo real. Solo agrega datos nuevos, nunca borra los locales.</div>' +
+        '<button onclick="fbSync._liveSync ? fbStopListening() : fbStartListening(); setTimeout(fbShowSettings, 200);" style="width:100%;padding:9px;background:' + (fbSync._liveSync ? '#164e63' : '#334155') + ';color:' + (fbSync._liveSync ? '#22d3ee' : '#e2e8f0') + ';border:1px solid ' + (fbSync._liveSync ? '#0e7490' : '#475569') + ';border-radius:6px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">' +
         (fbSync._liveSync ? '⏹ Detener sync en vivo' : '▶ Iniciar sync en vivo') + '</button>' +
         '</div>' : '') +
 
         // ═══ SMART MERGE BUTTON ═══
         (fbSync.enabled && fbSync.status === 'connected' ? '<div style="margin-bottom:12px;padding:10px;background:#1e293b;border-radius:8px;border:1px solid #334155;">' +
-        '<div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:6px;">Smart Merge (fusionar desde otra estacion)</div>' +
-        '<div style="font-size:9px;color:#64748b;margin-bottom:8px;">Detecta duplicados, muestra diferencias, y te deja elegir que fusionar por modulo.</div>' +
+        '<div style="font-size: var(--fs-sm);font-weight:700;color:#f59e0b;margin-bottom:6px;">Smart Merge (fusionar desde otra estacion)</div>' +
+        '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:8px;">Detecta duplicados, muestra diferencias, y te deja elegir que fusionar por modulo.</div>' +
         '<button onclick="fbMergeShowPanel()" style="width:100%;padding:10px;background:#f59e0b;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">Abrir Smart Merge</button>' +
         (mergeHist.length > 0 ? '<div style="display:flex;gap:6px;margin-top:8px;">' +
-        '<button onclick="fbMergeShowHistory()" style="flex:1;padding:7px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:10px;">Historial (' + mergeHist.length + ')</button>' +
-        '<button onclick="fbMergeUndo()" style="flex:1;padding:7px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:10px;">Deshacer ultima</button>' +
-        '<button onclick="fbMergeExportCSV()" style="flex:1;padding:7px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:10px;">Exportar CSV</button>' +
+        '<button onclick="fbMergeShowHistory()" style="flex:1;padding:7px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-xs);">Historial (' + mergeHist.length + ')</button>' +
+        '<button onclick="fbMergeUndo()" style="flex:1;padding:7px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-xs);">Deshacer ultima</button>' +
+        '<button onclick="fbMergeExportCSV()" style="flex:1;padding:7px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-xs);">Exportar CSV</button>' +
         '</div>' : '') +
         '</div>' : '') +
 
         // Retry — show when status is 'error' OR 'off' (No configurado) with config present
-        ((fbSync.status === 'error' || fbSync.status === 'off') && hasConfig ? '<div style="margin-bottom:12px;"><button onclick="fbInit();setTimeout(fbShowSettings,2500);" style="width:100%;padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">' + (fbSync.status === 'off' ? 'Conectar a Firebase' : 'Reintentar conexion') + '</button></div>' : '') +
+        ((fbSync.status === 'error' || fbSync.status === 'off') && hasConfig ? '<div style="margin-bottom:12px;"><button onclick="fbInit();setTimeout(fbShowSettings,2500);" style="width:100%;padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">' + (fbSync.status === 'off' ? 'Conectar a Firebase' : 'Reintentar conexion') + '</button></div>' : '') +
 
         // Setup instructions
-        (!hasConfig ? '<div style="padding:12px;background:#1e293b;border-radius:8px;border:1px solid #334155;"><div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:6px;">Setup necesario</div><div style="font-size:10px;color:#94a3b8;line-height:1.5;">1. Ve a <strong>console.firebase.google.com</strong><br>2. Crea un proyecto (gratis)<br>3. En <strong>Authentication > Sign-in method</strong>, habilita <strong>Anonymous</strong><br>4. En <strong>Firestore Database</strong>, crea una base de datos<br>5. En <strong>Firestore > Rules</strong>, pon: allow read, write: if true;<br>6. En Project Settings, agrega una Web App<br>7. Copia el firebaseConfig al archivo <strong>js/firebase-sync.js</strong><br>8. Recarga la app</div></div>' : '') +
+        (!hasConfig ? '<div style="padding:12px;background:#1e293b;border-radius:8px;border:1px solid #334155;"><div style="font-size: var(--fs-sm);font-weight:700;color:#f59e0b;margin-bottom:6px;">Setup necesario</div><div style="font-size: var(--fs-xs);color:#94a3b8;line-height:1.5;">1. Ve a <strong>console.firebase.google.com</strong><br>2. Crea un proyecto (gratis)<br>3. En <strong>Authentication > Sign-in method</strong>, habilita <strong>Anonymous</strong><br>4. En <strong>Firestore Database</strong>, crea una base de datos<br>5. En <strong>Firestore > Rules</strong>, pon: allow read, write: if true;<br>6. En Project Settings, agrega una Web App<br>7. Copia el firebaseConfig al archivo <strong>js/firebase-sync.js</strong><br>8. Recarga la app</div></div>' : '') +
 
         // Rules
-        (hasConfig ? '<div style="padding:10px;background:#1e293b;border-radius:8px;border:1px solid #334155;margin-top:12px;"><div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:4px;">Configuracion requerida en Firebase Console:</div>' +
-        '<div style="font-size:9px;color:#f59e0b;margin-bottom:6px;line-height:1.5;">1. <strong>Authentication > Sign-in method > Anonymous</strong> → Habilitar<br>2. <strong>Firestore Database > Rules</strong> → Copiar las reglas de abajo:</div>' +
-        '<pre style="font-size:9px;color:#64748b;margin:0;overflow-x:auto;white-space:pre;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}</pre><div style="font-size:9px;color:#10b981;margin-top:4px;">Firestore > Rules > Editar > Publicar</div></div>' : '') +
+        (hasConfig ? '<div style="padding:10px;background:#1e293b;border-radius:8px;border:1px solid #334155;margin-top:12px;"><div style="font-size: var(--fs-xs);font-weight:700;color:#94a3b8;margin-bottom:4px;">Configuracion requerida en Firebase Console:</div>' +
+        '<div style="font-size: var(--fs-xs);color:#f59e0b;margin-bottom:6px;line-height:1.5;">1. <strong>Authentication > Sign-in method > Anonymous</strong> → Habilitar<br>2. <strong>Firestore Database > Rules</strong> → Copiar las reglas de abajo:</div>' +
+        '<pre style="font-size: var(--fs-xs);color:#64748b;margin:0;overflow-x:auto;white-space:pre;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}</pre><div style="font-size: var(--fs-xs);color:#10b981;margin-top:4px;">Firestore > Rules > Editar > Publicar</div></div>' : '') +
 
         '</div>';
 }
@@ -37779,20 +37859,20 @@ function fbMergeShowHistory() {
         hist.slice().reverse().forEach(function(r, i) {
             var date = new Date(r.timestamp).toLocaleString('es-MX');
             html += '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:8px;' + (i === 0 ? 'border-color:#f59e0b;' : '') + '">';
-            html += '<div style="display:flex;justify-content:space-between;font-size:11px;">';
+            html += '<div style="display:flex;justify-content:space-between;font-size: var(--fs-sm);">';
             html += '<span style="font-weight:700;">' + r.fromStation + ' \u2192 ' + r.toStation + '</span>';
             html += '<span style="color:#64748b;">' + date + '</span></div>';
             r.actions.forEach(function(a) {
-                html += '<div style="font-size:10px;color:#94a3b8;margin-top:2px;">\u2022 ' + a + '</div>';
+                html += '<div style="font-size: var(--fs-xs);color:#94a3b8;margin-top:2px;">\u2022 ' + a + '</div>';
             });
             html += '</div>';
         });
     }
 
     html += '<div style="display:flex;gap:8px;margin-top:12px;">';
-    html += '<button onclick="fbShowSettings()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Volver</button>';
+    html += '<button onclick="fbShowSettings()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Volver</button>';
     if (hist.length > 0) {
-        html += '<button onclick="fbMergeExportCSV()" style="flex:1;padding:8px;background:#0f766e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Exportar CSV</button>';
+        html += '<button onclick="fbMergeExportCSV()" style="flex:1;padding:8px;background:#0f766e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Exportar CSV</button>';
     }
     html += '</div></div>';
 
@@ -37828,7 +37908,7 @@ function fbMergeShowPanel() {
     modal.innerHTML = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">' +
         '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>' +
         '<h3 style="margin:0 0 4px;color:#f59e0b;">Smart Merge</h3>' +
-        '<div style="font-size:10px;color:#64748b;margin-bottom:14px;">Fusiona datos de otra estacion a la tuya (' + fbSync.stationId + ')</div>' +
+        '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:14px;">Fusiona datos de otra estacion a la tuya (' + fbSync.stationId + ')</div>' +
         '<div style="text-align:center;padding:20px;color:#64748b;"><div style="font-size:24px;margin-bottom:8px;">Cargando estaciones...</div></div>' +
         '</div>';
 
@@ -37838,17 +37918,17 @@ function fbMergeShowPanel() {
         var html = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
         html += '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
         html += '<h3 style="margin:0 0 4px;color:#f59e0b;">Smart Merge</h3>';
-        html += '<div style="font-size:10px;color:#64748b;margin-bottom:14px;">Fusiona datos de otra estacion a <strong>' + fbSync.stationId + '</strong></div>';
+        html += '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:14px;">Fusiona datos de otra estacion a <strong>' + fbSync.stationId + '</strong></div>';
 
         // Show all stations info
         if (stations.length > 0) {
-            html += '<div style="font-size:10px;color:#64748b;margin-bottom:10px;">' + stations.length + ' estacion(es) en Firebase:</div>';
+            html += '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:10px;">' + stations.length + ' estacion(es) en Firebase:</div>';
         }
 
         if (others.length === 0) {
             html += '<div style="text-align:center;padding:20px;color:#64748b;">No hay otras estaciones en Firebase. Sube datos desde otro dispositivo primero.</div>';
         } else {
-            html += '<div style="font-size:11px;color:#94a3b8;margin-bottom:8px;">Selecciona la estacion de origen:</div>';
+            html += '<div style="font-size: var(--fs-sm);color:#94a3b8;margin-bottom:8px;">Selecciona la estacion de origen:</div>';
             others.forEach(function(s) {
                 var lastPushLabel = '';
                 if (s.lastPush) {
@@ -37862,9 +37942,9 @@ function fbMergeShowPanel() {
                 html += '<button onclick="fbMergeLoadAndAnalyze(\x27' + s.id + '\x27)" style="display:block;width:100%;padding:12px;margin-bottom:6px;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:8px;cursor:pointer;font-size:12px;text-align:left;">' +
                     '<div style="display:flex;align-items:center;justify-content:space-between;">' +
                     '<span><span style="color:#f59e0b;margin-right:8px;">\u25B6</span><strong>' + s.id + '</strong></span>' +
-                    (deviceLabel ? '<span style="background:#334155;color:#94a3b8;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:400;">' + deviceLabel + '</span>' : '') +
+                    (deviceLabel ? '<span style="background:#334155;color:#94a3b8;padding:2px 8px;border-radius:10px;font-size: var(--fs-xs);font-weight:400;">' + deviceLabel + '</span>' : '') +
                     '</div>' +
-                    (lastPushLabel ? '<div style="font-size:9px;color:#64748b;margin-top:4px;margin-left:22px;">Ultima sync: ' + lastPushLabel + '</div>' : '') +
+                    (lastPushLabel ? '<div style="font-size: var(--fs-xs);color:#64748b;margin-top:4px;margin-left:22px;">Ultima sync: ' + lastPushLabel + '</div>' : '') +
                     '</button>';
             });
         }
@@ -37873,11 +37953,11 @@ function fbMergeShowPanel() {
         var mySt = stations.filter(function(s) { return s.id === fbSync.stationId; })[0];
         if (mySt) {
             var myLabel = mySt.deviceName && mySt.deviceName !== mySt.id ? ' (' + mySt.deviceName + ')' : '';
-            html += '<div style="margin-top:8px;padding:8px;background:#0f2a1a;border:1px solid #134e2a;border-radius:6px;font-size:10px;color:#4ade80;">' +
+            html += '<div style="margin-top:8px;padding:8px;background:#0f2a1a;border:1px solid #134e2a;border-radius:6px;font-size: var(--fs-xs);color:#4ade80;">' +
                 'Tu estacion: <strong>' + mySt.id + '</strong>' + myLabel + '</div>';
         }
 
-        html += '<button onclick="fbShowSettings()" style="width:100%;padding:8px;margin-top:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Volver</button>';
+        html += '<button onclick="fbShowSettings()" style="width:100%;padding:8px;margin-top:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Volver</button>';
         html += '</div>';
         modal.innerHTML = html;
     });
@@ -37915,7 +37995,7 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
     var html = '<div style="max-width:520px;margin:20px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
     html += '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
     html += '<h3 style="margin:0 0 2px;color:#f59e0b;">Diferencias: ' + remoteStationId + ' \u2192 ' + fbSync.stationId + '</h3>';
-    html += '<div style="font-size:9px;color:#64748b;margin-bottom:14px;">Selecciona como fusionar cada modulo</div>';
+    html += '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:14px;">Selecciona como fusionar cada modulo</div>';
 
     // ── COP15 ──
     var c = analysis.cop15;
@@ -37924,26 +38004,26 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
         html += '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:8px;' + (hasChanges ? 'border-color:#f59e0b;' : '') + '">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
         html += '<span style="font-weight:700;font-size:12px;">COP15 Cascade</span>';
-        html += '<span style="font-size:9px;color:#64748b;">Local: ' + c.localCount + ' | Remoto: ' + c.remoteCount + '</span></div>';
-        html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">';
+        html += '<span style="font-size: var(--fs-xs);color:#64748b;">Local: ' + c.localCount + ' | Remoto: ' + c.remoteCount + '</span></div>';
+        html += '<div style="font-size: var(--fs-xs);color:#94a3b8;margin-bottom:6px;">';
         html += '<span style="color:#10b981;font-weight:700;">+' + c.newItems.length + ' nuevos</span>';
         html += ' &nbsp; <span style="color:#64748b;">' + c.duplicates.length + ' iguales</span>';
         html += ' &nbsp; <span style="color:' + (c.conflicts.length > 0 ? '#ef4444' : '#64748b') + ';font-weight:' + (c.conflicts.length > 0 ? '700' : '400') + ';">' + c.conflicts.length + ' conflictos</span></div>';
         if (c.paStatusGains > 0 || c.paPhotoOnlyRemote > 0) {
-            html += '<div style="font-size:10px;margin-bottom:6px;padding:6px 8px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:6px;color:#fbbf24;">';
+            html += '<div style="font-size: var(--fs-xs);margin-bottom:6px;padding:6px 8px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:6px;color:#fbbf24;">';
             html += '<span style="font-weight:700;">Power Automate:</span>';
             if (c.paStatusGains > 0) html += ' &nbsp; <span title="Vehiculos con receipt de envio PA que aun no estaba en local">+' + c.paStatusGains + ' envio(s) heredados</span>';
             if (c.paPhotoOnlyRemote > 0) html += ' &nbsp; <span style="color:#fcd34d;" title="Estos vehiculos tienen el flag scannedReportCaptured=true en remoto, pero la foto fisica vive en IndexedDB de la otra estacion. Tendras que recapturarla aqui antes de poder enviar a PA.">' + c.paPhotoOnlyRemote + ' foto(s) solo en estacion origen</span>';
             html += '</div>';
         }
         if (hasChanges) {
-            html += '<select id="fb-merge-cop15" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:10px;">';
+            html += '<select id="fb-merge-cop15" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size: var(--fs-xs);">';
             html += '<option value="">No fusionar</option>';
             html += '<option value="new" selected>Solo nuevos (+' + c.newItems.length + ')</option>';
             html += '<option value="merge_all">Merge completo (nuevos + resolver conflictos)</option>';
             html += '<option value="replace">Reemplazar todo con remoto</option></select>';
         } else {
-            html += '<div style="font-size:10px;color:#10b981;">Sin diferencias</div>';
+            html += '<div style="font-size: var(--fs-xs);color:#10b981;">Sin diferencias</div>';
         }
         html += '</div>';
     }
@@ -37955,8 +38035,8 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
         html += '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:8px;' + (hasChanges ? 'border-color:#3b82f6;' : '') + '">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
         html += '<span style="font-weight:700;font-size:12px;">Test Plan</span>';
-        html += '<span style="font-size:9px;color:#64748b;">Probados L:' + tp.localTestedCount + '/R:' + tp.remoteTestedCount + '</span></div>';
-        html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">';
+        html += '<span style="font-size: var(--fs-xs);color:#64748b;">Probados L:' + tp.localTestedCount + '/R:' + tp.remoteTestedCount + '</span></div>';
+        html += '<div style="font-size: var(--fs-xs);color:#94a3b8;margin-bottom:6px;">';
         if (tp.newItems.length > 0) html += '<span style="color:#10b981;font-weight:700;">+' + tp.newItems.length + ' probados nuevos</span> ';
         if (tp.duplicates.length > 0) html += '<span style="color:#64748b;">' + tp.duplicates.length + ' iguales</span> ';
         if (tp.rulesChanged) html += '<span style="color:#f59e0b;">reglas dif.</span> ';
@@ -37971,7 +38051,7 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
             if (tp.planDataDiff && tp.localPlanConfigs === 0 && tp.remotePlanConfigs > 0) newParts.push('+plan produccion');
             if (tp.weeklyPlansDiff && tp.localWeeklyCount === 0 && tp.remoteWeeklyCount > 0) newParts.push('+planes semanales');
             if (newParts.length > 0) newLabel += ' (' + newParts.join(', ') + ')';
-            html += '<select id="fb-merge-testplan" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:10px;">';
+            html += '<select id="fb-merge-testplan" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size: var(--fs-xs);">';
             html += '<option value="">No fusionar</option>';
             html += '<option value="new">' + newLabel + '</option>';
             html += '<option value="merge_all" selected>Merge completo (pruebas + reglas + plan + semanales)</option>';
@@ -37989,26 +38069,26 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
         html += '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:8px;' + (hasChanges ? 'border-color:#10b981;' : '') + '">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
         html += '<span style="font-weight:700;font-size:12px;">Inventory</span>';
-        html += '<span style="font-size:9px;color:#64748b;">Gases L:' + inv.localGasCount + '/R:' + inv.remoteGasCount + ' Eq L:' + inv.localEquipCount + '/R:' + inv.remoteEquipCount + '</span></div>';
-        html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">';
+        html += '<span style="font-size: var(--fs-xs);color:#64748b;">Gases L:' + inv.localGasCount + '/R:' + inv.remoteGasCount + ' Eq L:' + inv.localEquipCount + '/R:' + inv.remoteEquipCount + '</span></div>';
+        html += '<div style="font-size: var(--fs-xs);color:#94a3b8;margin-bottom:6px;">';
         html += '<span style="color:#10b981;font-weight:700;">+' + inv.newGases.length + ' gases, +' + inv.newEquip.length + ' equipos</span>';
         html += ' &nbsp; <span style="color:' + (inv.gasConflicts.length > 0 || inv.equipConflicts.length > 0 ? '#ef4444' : '#64748b') + ';">' + inv.gasConflicts.length + ' conflictos gas, ' + inv.equipConflicts.length + ' cal. actualizadas</span></div>';
-        html += '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">🛠️ COP15-F11: +' + inv.newAssets.length + ' equipos, +' + inv.newMaintActivities.length + ' actividades, +' + inv.newMaintLog.length + ' mantenimientos registrados</div>';
+        html += '<div style="font-size: var(--fs-xs);color:#94a3b8;margin-bottom:6px;">🛠️ COP15-F11: +' + inv.newAssets.length + ' equipos, +' + inv.newMaintActivities.length + ' actividades, +' + inv.newMaintLog.length + ' mantenimientos registrados</div>';
         if (hasChanges) {
-            html += '<select id="fb-merge-inventory" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:10px;">';
+            html += '<select id="fb-merge-inventory" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size: var(--fs-xs);">';
             html += '<option value="">No fusionar</option>';
             html += '<option value="new" selected>Solo nuevos</option>';
             html += '<option value="merge_all">Merge completo (nuevos + resolver conflictos)</option>';
             html += '<option value="replace">Reemplazar todo con remoto</option></select>';
         } else {
-            html += '<div style="font-size:10px;color:#10b981;">Sin diferencias</div>';
+            html += '<div style="font-size: var(--fs-xs);color:#10b981;">Sin diferencias</div>';
         }
         html += '</div>';
     }
 
     // Action buttons
     html += '<div style="display:flex;gap:8px;margin-top:12px;">';
-    html += '<button onclick="fbMergeShowPanel()" style="flex:1;padding:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Cancelar</button>';
+    html += '<button onclick="fbMergeShowPanel()" style="flex:1;padding:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">Cancelar</button>';
     html += '<button onclick="fbMergeConfirmAndExecute()" style="flex:2;padding:10px;background:#f59e0b;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">Ejecutar Merge</button>';
     html += '</div></div>';
 
@@ -38062,12 +38142,12 @@ function fbMergeConfirmAndExecute() {
             html += '<div style="font-size:36px;margin-bottom:12px;">&#10003;</div>';
             html += '<h3 style="color:#10b981;margin-bottom:12px;">Merge Completado</h3>';
             merged.forEach(function(m) {
-                html += '<div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">' + m + '</div>';
+                html += '<div style="font-size: var(--fs-sm);color:#94a3b8;margin-bottom:4px;">' + m + '</div>';
             });
-            html += '<div style="font-size:9px;color:#64748b;margin-top:12px;">Puedes deshacer esta fusion desde el panel de Firebase.</div>';
+            html += '<div style="font-size: var(--fs-xs);color:#64748b;margin-top:12px;">Puedes deshacer esta fusion desde el panel de Firebase.</div>';
             html += '<div style="display:flex;gap:8px;margin-top:16px;">';
-            html += '<button onclick="fbShowSettings()" style="flex:1;padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Volver a Settings</button>';
-            html += '<button onclick="fbMergeUndo()" style="flex:1;padding:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;">Deshacer</button>';
+            html += '<button onclick="fbShowSettings()" style="flex:1;padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">Volver a Settings</button>';
+            html += '<button onclick="fbMergeUndo()" style="flex:1;padding:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">Deshacer</button>';
             html += '</div></div>';
             modal.innerHTML = html;
         }
@@ -38096,7 +38176,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608150031' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608150040' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -38335,8 +38415,8 @@ function fbBackupRestoreSelectModules(backupId) {
     var html = '<div style="max-width:420px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
     html += '<button onclick="fbBackupShowList()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
     html += '<h3 style="margin:0 0 12px;color:#3b82f6;">Restaurar Backup</h3>';
-    html += '<div style="font-size:10px;color:#64748b;margin-bottom:12px;">Backup: ' + backupId + '</div>';
-    html += '<div style="font-size:11px;color:#e2e8f0;margin-bottom:12px;">Selecciona los modulos a restaurar:</div>';
+    html += '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:12px;">Backup: ' + backupId + '</div>';
+    html += '<div style="font-size: var(--fs-sm);color:#e2e8f0;margin-bottom:12px;">Selecciona los modulos a restaurar:</div>';
 
     var mods = [
         { key: 'cop15', label: 'COP15 (Vehiculos)', icon: '🔬' },
@@ -38352,12 +38432,12 @@ function fbBackupRestoreSelectModules(backupId) {
         html += '</label>';
     });
 
-    html += '<div style="padding:8px;margin-top:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size:9px;color:#f59e0b;">';
+    html += '<div style="padding:8px;margin-top:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size: var(--fs-xs);color:#f59e0b;">';
     html += 'Se guardara un snapshot previo. Puedes deshacer la restauracion si es necesario.</div>';
 
     html += '<div style="display:flex;gap:8px;margin-top:12px;">';
-    html += '<button onclick="fbBackupShowList()" style="flex:1;padding:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-size:11px;">Cancelar</button>';
-    html += '<button onclick="fbBackupRestoreConfirm(\'' + backupId + '\')" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;">Restaurar Seleccion</button>';
+    html += '<button onclick="fbBackupShowList()" style="flex:1;padding:10px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-size: var(--fs-sm);">Cancelar</button>';
+    html += '<button onclick="fbBackupRestoreConfirm(\'' + backupId + '\')" style="flex:1;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size: var(--fs-sm);font-weight:700;">Restaurar Seleccion</button>';
     html += '</div></div>';
 
     modal.innerHTML = html;
@@ -38407,20 +38487,20 @@ function fbBackupShowList() {
             list.forEach(function(b) {
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:4px;border:1px solid #1e293b;border-radius:6px;background:#1e293b;">';
                 html += '<div>';
-                html += '<div style="font-size:11px;font-weight:700;">' + b.date + '</div>';
-                html += '<div style="font-size:9px;color:#64748b;">' + b.vehicles + ' vehiculos | ' + b.gases + ' gases</div>';
+                html += '<div style="font-size: var(--fs-sm);font-weight:700;">' + b.date + '</div>';
+                html += '<div style="font-size: var(--fs-xs);color:#64748b;">' + b.vehicles + ' vehiculos | ' + b.gases + ' gases</div>';
                 html += '</div>';
-                html += '<button onclick="fbBackupRestore(\x27' + b.id + '\x27)" style="padding:5px 12px;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:10px;">Restaurar</button>';
+                html += '<button onclick="fbBackupRestore(\x27' + b.id + '\x27)" style="padding:5px 12px;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size: var(--fs-xs);">Restaurar</button>';
                 html += '</div>';
             });
         }
 
         var hasSnapshot = !!localStorage.getItem('kia_fb_prerestore_snapshot');
         html += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">';
-        html += '<button onclick="fbShowSettings()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Volver</button>';
-        html += '<button onclick="fbBackupManual()" style="flex:1;padding:8px;background:#0f766e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Crear Backup Ahora</button>';
+        html += '<button onclick="fbShowSettings()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Volver</button>';
+        html += '<button onclick="fbBackupManual()" style="flex:1;padding:8px;background:#0f766e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Crear Backup Ahora</button>';
         if (hasSnapshot) {
-            html += '<button onclick="fbBackupUndoRestore()" style="flex-basis:100%;padding:8px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:6px;cursor:pointer;font-size:11px;">↩ Deshacer Ultima Restauracion</button>';
+            html += '<button onclick="fbBackupUndoRestore()" style="flex-basis:100%;padding:8px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">↩ Deshacer Ultima Restauracion</button>';
         }
         html += '</div></div>';
 
@@ -38524,7 +38604,7 @@ function fbActivityShowFeed() {
         var html = '<div style="max-width:500px;margin:30px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
         html += '<button onclick="fbShowSettings()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
         html += '<h3 style="margin:0 0 4px;color:#6366f1;">📡 Activity Feed</h3>';
-        html += '<div style="font-size:10px;color:#64748b;margin-bottom:14px;">Eventos recientes de todas las estaciones</div>';
+        html += '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:14px;">Eventos recientes de todas las estaciones</div>';
 
         if (events.length === 0) {
             html += '<div style="text-align:center;padding:30px;color:#64748b;">No hay actividad registrada aun.</div>';
@@ -38554,27 +38634,27 @@ function fbActivityShowFeed() {
             };
 
             Object.keys(grouped).forEach(function(dateKey) {
-                html += '<div style="font-size:10px;font-weight:700;color:#475569;margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid #1e293b;">' + dateKey + '</div>';
+                html += '<div style="font-size: var(--fs-xs);font-weight:700;color:#475569;margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid #1e293b;">' + dateKey + '</div>';
                 grouped[dateKey].forEach(function(e) {
                     var icon = actionIcons[e.action] || '📌';
                     var sColor = stationColors[e.station] || '#64748b';
                     var timeStr = e.time.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' });
                     html += '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #0f172a;">';
-                    html += '<div style="min-width:42px;font-size:9px;color:#64748b;padding-top:2px;">' + timeStr + '</div>';
+                    html += '<div style="min-width:42px;font-size: var(--fs-xs);color:#64748b;padding-top:2px;">' + timeStr + '</div>';
                     html += '<div style="font-size:14px;line-height:1;">' + icon + '</div>';
                     html += '<div style="flex:1;">';
-                    html += '<span style="font-size:10px;font-weight:700;color:' + sColor + ';padding:1px 6px;background:' + sColor + '20;border-radius:4px;margin-right:4px;">' + e.station + '</span>';
-                    if (e.operator) html += '<span style="font-size:9px;color:#a78bfa;margin-right:4px;">' + e.operator + '</span>';
-                    html += '<span style="font-size:10px;color:#cbd5e1;">' + fbActivityLabel(e.action) + '</span>';
-                    if (e.details) html += '<div style="font-size:9px;color:#64748b;margin-top:2px;">' + e.details + '</div>';
+                    html += '<span style="font-size: var(--fs-xs);font-weight:700;color:' + sColor + ';padding:1px 6px;background:' + sColor + '20;border-radius:4px;margin-right:4px;">' + e.station + '</span>';
+                    if (e.operator) html += '<span style="font-size: var(--fs-xs);color:#a78bfa;margin-right:4px;">' + e.operator + '</span>';
+                    html += '<span style="font-size: var(--fs-xs);color:#cbd5e1;">' + fbActivityLabel(e.action) + '</span>';
+                    if (e.details) html += '<div style="font-size: var(--fs-xs);color:#64748b;margin-top:2px;">' + e.details + '</div>';
                     html += '</div></div>';
                 });
             });
         }
 
         html += '<div style="display:flex;gap:8px;margin-top:14px;">';
-        html += '<button onclick="fbShowSettings()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size:11px;">Volver</button>';
-        html += '<button onclick="fbActivityShowFeed()" style="flex:1;padding:8px;background:#6366f1;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Actualizar</button>';
+        html += '<button onclick="fbShowSettings()" style="flex:1;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Volver</button>';
+        html += '<button onclick="fbActivityShowFeed()" style="flex:1;padding:8px;background:#6366f1;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Actualizar</button>';
         html += '</div></div>';
 
         modal.innerHTML = html;

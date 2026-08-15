@@ -190,11 +190,17 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.7';
+var APP_VERSION = '17.8';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.8', date: '15 ago 2026', title: 'Mapa de zonas por teclado + limpieza final de tipografía', bullets: [
+        'El mapa de zonas de Consumibles (mover un cilindro entre posiciones) era solo por mouse/dedo — ahora también se opera por teclado: Enter sobre un cilindro lo selecciona, Enter sobre una posición vacía lo mueve ahí, Escape cancela. Cada paso se anuncia a lectores de pantalla.',
+        'Tipografía sub-12px eliminada en js/auth.js y js/firebase-sync.js (login/PIN, ajustes de sincronización) — con esto ya no queda ningún archivo del proyecto con texto por debajo del mínimo.',
+        'Bug de contraste encontrado al revisar auth.js: los 7 colores de avatar de operador fallaban como texto (la pantalla de "elige tu usuario", lo primero que ve cualquier técnico) — misma corrección que la paleta P1-P10 de Plan (v17.4).',
+        'Un colorcito de "por vencer" en el mapa de zonas y tres tamaños de fuente en decimales (8.5px/10.5px/11.5px) que los barridos anteriores no habían detectado, también corregidos.'
+    ]},
     { version: '17.7', date: '15 ago 2026', title: 'Accesibilidad — módulo CoP (Fase 8, última) + cierre del overhaul', bullets: [
         'Octavo y último módulo migrado: CoP (validador Type 1 de Conformidad de Producción + Control SPC). Con esto quedan migrados los 7 módulos de la plataforma más la fundación — overhaul de accesibilidad v17.0-v17.7 completo.',
         'Tabla de VINes × gases con encabezados <th scope="col"> y aria-label por celda ("Formaldehído — VIN 3N1...") — antes cada casilla numérica era indistinguible por lectores de pantalla.',

@@ -136,7 +136,11 @@ function _authPinLenFor(op) {
     return 4;
 }
 
-var AUTH_AVATAR_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+// [v17.8] Paleta recalculada: la original fallaba contraste AA como texto sobre su propio
+// tinte de fondo (usada en color:c junto con background:c+'1f' en _authOpCard). Mismos
+// matices, oscurecidos hasta pasar >=4.5:1 sobre blanco (misma técnica que la paleta P1-P10
+// de Test Plan, v17.4 — ver CHANGELOG).
+var AUTH_AVATAR_COLORS = ['#1e6ff5', '#0b815a', '#9e6506', '#eb1515', '#8452f5', '#e0177a', '#047a8f'];
 
 /**
  * [Fase 5] Color del avatar derivado del ID, no del índice del arreglo.
@@ -669,7 +673,7 @@ function authRenderOperatorPicker() {
     if (!el) return;
     var cur = (authState.currentUser && authState.currentUser.name) || 'Laboratorio';
     el.innerHTML = '<button onclick="authSignOut()" title="Cambiar de usuario (cerrar sesión)" ' +
-        'style="display:flex;align-items:center;gap:4px;font-size:11px;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:4px 8px;cursor:pointer;max-width:170px;min-height:32px;">' +
+        'style="display:flex;align-items:center;gap:4px;font-size: var(--fs-sm);background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:4px 8px;cursor:pointer;max-width:170px;min-height:32px;">' +
         '<span>👤</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(cur) + '</span></button>';
 }
 
