@@ -190,11 +190,17 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.6';
+var APP_VERSION = '17.7';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.7', date: '15 ago 2026', title: 'Accesibilidad — módulo CoP (Fase 8, última) + cierre del overhaul', bullets: [
+        'Octavo y último módulo migrado: CoP (validador Type 1 de Conformidad de Producción + Control SPC). Con esto quedan migrados los 7 módulos de la plataforma más la fundación — overhaul de accesibilidad v17.0-v17.7 completo.',
+        'Tabla de VINes × gases con encabezados <th scope="col"> y aria-label por celda ("Formaldehído — VIN 3N1...") — antes cada casilla numérica era indistinguible por lectores de pantalla.',
+        'Tres selects de familia/región sin etiqueta reciben aria-label.',
+        'Nota de alcance: js/auth.js y js/firebase-sync.js (pantalla de login/PIN y ajustes de sincronización) no formaban parte de los 7 módulos planeados — quedan con tipografía sub-12px pendiente para una ronda futura.'
+    ]},
     { version: '17.6', date: '15 ago 2026', title: 'Accesibilidad — módulo Proyectos (Fase 7)', bullets: [
         'Séptimo módulo migrado: Proyectos (tarjetas/portafolio, Tabla, Kanban, Línea de tiempo, Gantt, Curva S, Carga por responsable, importador de Excel).',
         'Mejora al helper compartido a11yDialog: ahora se autodesactiva si su modal fue removido del documento sin pasar por su propio cierre — necesario porque el importador reconstruye su ventana completa en cada paso (elegir archivo → mapear columnas → confirmar). Beneficia a los ~30 modales de toda la app que ya lo usan, no solo a este.',
