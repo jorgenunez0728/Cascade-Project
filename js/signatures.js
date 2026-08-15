@@ -34,7 +34,7 @@ function sigCaptureOpen(opts) {
                     ' placeholder="Escribe tu nombre" autocomplete="name">' +
                 (opts.lockName
                     ? '<button type="button" id="sig-onbehalf-btn" onclick="sigUnlockName()" ' +
-                      'style="margin-top:6px;background:none;border:none;color:#2563eb;font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">' +
+                      'style="margin-top:6px;background:none;border:none;color:var(--info-text);font-size: var(--fs-sm);cursor:pointer;text-decoration:underline;padding:0;">' +
                       'Firmar por otra persona…</button>'
                     : '') +
             '</div>' +
@@ -65,6 +65,20 @@ function sigCaptureOpen(opts) {
         } else {
             console.warn('SignaturePad library not available');
         }
+    }
+    if (typeof a11yDialog === 'function') {
+        window._sigA11yClose = a11yDialog(overlay, {
+            labelId: null,
+            onClose: function () {
+                var o = document.querySelector('.sig-capture-overlay');
+                if (o) o.remove();
+                _sigPadInstance = null;
+                _sigCaptureOpts = null;
+            }
+        });
+    } else {
+        var nameEl = document.getElementById('sig-signer-name');
+        if (nameEl && !nameEl.readOnly) nameEl.focus();
     }
 }
 
@@ -145,6 +159,12 @@ function sigCaptureCancel() {
 }
 
 function sigCaptureDismiss() {
+    if (window._sigA11yClose) {
+        var fn = window._sigA11yClose;
+        window._sigA11yClose = null;
+        fn();
+        return;
+    }
     var o = document.querySelector('.sig-capture-overlay');
     if (o) o.remove();
     _sigPadInstance = null;

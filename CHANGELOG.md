@@ -2,6 +2,38 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.2 — Accesibilidad módulo Pruebas/COP15 — Fase 3 de overhaul UI (2026-08-14)
+
+Tercer módulo migrado sobre la fundación de v17.0/v17.1. Alcance: `js/cop15.js` (Alta, Operación,
+Liberación, Cola/Kanban, Historial, Consumibles — los formularios más largos y de mayor tráfico
+diario de la app) y `js/signatures.js` (captura de firma digital).
+
+### El hallazgo más importante: la firma digital no tenía NADA de accesibilidad
+`sigCaptureOpen()` — el modal que se abre para capturar la firma del liberador/aprobador, un
+requisito de seguridad real del proceso de doble-ciego — no atrapaba el foco, no cerraba con
+Escape, y no regresaba el foco al botón que lo abrió. Es probablemente el modal más crítico de toda
+la aplicación (bloquea la liberación de un vehículo) y era el que menos accesibilidad tenía.
+Corregido con `a11yDialog`.
+
+### Teclado
+- Las 6 pestañas de Pruebas (1. Alta / 2. Operación / 3. Liberación / Cola / Historial /
+  📦 Consumibles) ya se navegan con flechas, Home y End (`a11yTablist`), con `aria-selected` y
+  `tabindex` sincronizados en cada cambio.
+- El modal de edición retroactiva (Historial → 📝 Completar) usa `a11yDialog`.
+- Las tarjetas del kanban de vehículos y el checklist de preacondicionamiento en lote (antes
+  `<div onclick>` solo operables con mouse/dedo) ahora son alcanzables con Tab vía
+  `a11yClickables`, reutilizando el helper introducido en la Fase 2.
+- Campos de búsqueda/orden del kanban sin etiqueta reciben `aria-label`.
+
+### Contraste
+Más de 60 colores de estado migrados de hex fijo a los tokens verificados de v17.0 — cubre los
+veredictos "✓ PASA / ✗ FALLA" del checklist de disponibilidad, los indicadores de doble
+verificación (aprobador/liberador), las tarjetas del kanban por estatus, el timer de soak, y las
+validaciones en tiempo real del formulario de Alta (contador de VIN, checksum, avisos). Se revisó
+cada grupo de colores con el mismo cuidado que en la Fase 1/2 — texto vs. relleno vs. fondo — sin
+encontrar bugs de contraste tan severos como los de HOY (v17.1); este módulo ya usaba principalmente
+superficies claras de forma consistente.
+
 ## v17.1 — Accesibilidad módulo HOY — Fase 2 de overhaul UI (2026-08-14)
 
 Primer módulo migrado sobre la fundación de v17.0, en el orden acordado (HOY primero, por ser la
