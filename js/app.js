@@ -190,11 +190,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.1';
+var APP_VERSION = '17.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.2', date: '14 ago 2026', title: 'Accesibilidad — módulo Pruebas/COP15 (Fase 3)', bullets: [
+        'Tercer módulo migrado: Pruebas (Alta, Operación, Liberación, Cola, Historial, Consumibles) — los formularios más largos de la app.',
+        'La firma digital (gate de liberación de vehículos) no tenía NINGUNA accesibilidad — sin atrapar el foco, sin Escape, sin devolver el foco al cerrar. Corregido: es la pieza más crítica del flujo de liberación.',
+        'Las 6 pestañas de Pruebas (Alta/Operación/Liberación/Cola/Historial/Consumibles) ya se navegan con flechas de teclado.',
+        'Más de 60 colores de estado migrados a los tokens con contraste verificado — verdes/ámbares/rojos de PASA/FALLA, tarjetas kanban, checklist de preacondicionamiento, timer de soak.',
+        'Las tarjetas del kanban de vehículos (antes solo clicables con mouse) ya son alcanzables con Tab.'
+    ]},
     { version: '17.1', date: '14 ago 2026', title: 'Accesibilidad — módulo HOY (Fase 2)', bullets: [
         'Segunda fase del overhaul de interfaz: primer módulo migrado por completo (HOY, la pantalla más vista). Se encontraron y corrigieron tres bugs de contraste reales (no solo teóricos) — texto casi invisible en el resumen "Lab Status", en el panel de Backup y en los encabezados de esas mismas tarjetas, restos de un tema oscuro que se eliminó hace varias rondas pero cuyos colores nunca se migraron.',
         'Los `<div onclick>` de tarjetas y filas de alerta ahora son alcanzables con Tab (nuevo helper compartido a11yClickables, reutilizable por los módulos siguientes) — antes solo funcionaban con mouse o dedo.',
