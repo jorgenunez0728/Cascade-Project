@@ -2,6 +2,42 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.7 — Accesibilidad módulo CoP (Fase 8, última) — cierre del overhaul UI (2026-08-15)
+
+Octavo y último módulo migrado sobre la fundación de v17.0. Alcance: `js/cop_validator.js` —
+validador estadístico CoP Type 1 y Control SPC (cartas I-MR).
+
+### Tabla de captura VIN × gases
+La tabla donde se capturan los valores de emisiones por VIN y gas no tenía `scope` en sus
+encabezados ni forma de que un lector de pantalla asociara una casilla numérica con su columna —
+solo "campo numérico en blanco", sin saber si era CO, NOx o Formaldehído, ni de qué VIN. Corregido:
+`<th scope="col">`, `<caption>` (visualmente oculto, `.sr-only`), y `aria-label` por celda
+compuesto del gas y el VIN ("Formaldehído — VIN 3N1...").
+
+### Otros hallazgos
+Tres `<select>` de región/familia (validador y Control SPC) sin etiqueta reciben `aria-label`.
+
+### Cierre del overhaul (v17.0 → v17.7)
+Con esta ronda quedan migrados los 7 módulos de la plataforma (HOY, Pruebas/COP15, Consumibles,
+Plan, Datos/Panel, Proyectos, CoP) sobre la fundación de tokens/foco/semántica de v17.0. Resumen de
+lo encontrado en el camino:
+
+- **Bugs de contraste reales** (no solo teóricos, todos medidos y corregidos): textos casi
+  invisibles en HOY (resabios de un tema oscuro eliminado en v15.5), la ficha de detalle de
+  cilindro en Consumibles, y una paleta completa de 10 colores de prioridad en Plan que fallaba en
+  9 de 10.
+- **El modal con menos accesibilidad de toda la app resultó ser el más crítico**: la firma digital
+  que bloquea la liberación de un vehículo (Fase 3) no tenía ni trampa de foco, ni Escape, ni
+  devolución de foco.
+- **Dos mejoras al helper compartido `a11yDialog`** surgidas de casos reales (Fase 4: ~20 modales
+  reutilizando un mismo contenedor; Fase 7: un wizard que reconstruye su ventana en cada paso) que
+  terminaron beneficiando a los ~30 modales de toda la app, no solo a los módulos que las motivaron.
+- **La interfaz Alpine del Panel (Fase 6) ya estaba mejor construida de lo esperado**: 27 de 28
+  `@click` ya vivían sobre botones reales; solo el calendario necesitó corrección.
+- **Pendiente para una ronda futura**: alternativa de teclado para el mapa de zonas de Consumibles
+  (drag-and-drop sin equivalente), y la tipografía de `js/auth.js`/`js/firebase-sync.js`
+  (infraestructura transversal, fuera de los 7 módulos planeados).
+
 ## v17.6 — Accesibilidad módulo Proyectos — Fase 7 de overhaul UI (2026-08-15)
 
 Séptimo módulo migrado sobre la fundación de v17.0. Alcance: `js/projects.js` — retícula de
