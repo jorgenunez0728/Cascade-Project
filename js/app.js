@@ -190,11 +190,16 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.5';
+var APP_VERSION = '17.6';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.6', date: '15 ago 2026', title: 'Accesibilidad — módulo Proyectos (Fase 7)', bullets: [
+        'Séptimo módulo migrado: Proyectos (tarjetas/portafolio, Tabla, Kanban, Línea de tiempo, Gantt, Curva S, Carga por responsable, importador de Excel).',
+        'Mejora al helper compartido a11yDialog: ahora se autodesactiva si su modal fue removido del documento sin pasar por su propio cierre — necesario porque el importador reconstruye su ventana completa en cada paso (elegir archivo → mapear columnas → confirmar). Beneficia a los ~30 modales de toda la app que ya lo usan, no solo a este.',
+        'Los indicadores de avance/vencidos/bloqueados del detalle de proyecto migrados a los tokens de contraste verificado.'
+    ]},
     { version: '17.5', date: '15 ago 2026', title: 'Accesibilidad — módulo Datos/Panel (Fase 6)', bullets: [
         'Sexto módulo migrado: Datos (Dashboard, Reportes, Ejecutivo, Turnaround, Usuarios, Bitácora, Alertas, Inteligencia, Sistema, Calendario, Proyectos, Regulaciones, Archivos) — el que mezcla renderizado clásico con las 6 pestañas Alpine.',
         'Encontrado y corregido el único hueco real de teclado en las pestañas Alpine: las celdas del calendario (`<div @click>`) no tenían equivalente de teclado. El resto de la interfaz Alpine ya usaba botones reales — se revisó cada @click del módulo uno por uno para confirmarlo.',
@@ -3177,6 +3182,11 @@ function a11yDialog(el, opts) {
             .filter(function (n) { return n.offsetParent !== null; });
     };
     var onKey = function (e) {
+        // Si el nodo ya no está en el documento (p.ej. un wizard que reconstruye su overlay
+        // en cada paso, ver pnProjImportOpen) el listener queda huérfano hasta que algo lo
+        // remueva explícitamente. En vez de exigirle a cada llamador ese cuidado, se
+        // autodesactiva en cuanto detecta que ya no tiene nada que atrapar.
+        if (!document.contains(el)) { document.removeEventListener('keydown', onKey, true); return; }
         if (e.key === 'Escape') { e.preventDefault(); close(); return; }
         if (e.key !== 'Tab') return;
         var list = focusable(); if (!list.length) return;

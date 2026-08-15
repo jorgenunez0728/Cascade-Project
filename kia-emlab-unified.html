@@ -5674,15 +5674,20 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608150022';
+var APP_BUILD = '202608150028';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.5';
+var APP_VERSION = '17.6';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.6', date: '15 ago 2026', title: 'Accesibilidad — módulo Proyectos (Fase 7)', bullets: [
+        'Séptimo módulo migrado: Proyectos (tarjetas/portafolio, Tabla, Kanban, Línea de tiempo, Gantt, Curva S, Carga por responsable, importador de Excel).',
+        'Mejora al helper compartido a11yDialog: ahora se autodesactiva si su modal fue removido del documento sin pasar por su propio cierre — necesario porque el importador reconstruye su ventana completa en cada paso (elegir archivo → mapear columnas → confirmar). Beneficia a los ~30 modales de toda la app que ya lo usan, no solo a este.',
+        'Los indicadores de avance/vencidos/bloqueados del detalle de proyecto migrados a los tokens de contraste verificado.'
+    ]},
     { version: '17.5', date: '15 ago 2026', title: 'Accesibilidad — módulo Datos/Panel (Fase 6)', bullets: [
         'Sexto módulo migrado: Datos (Dashboard, Reportes, Ejecutivo, Turnaround, Usuarios, Bitácora, Alertas, Inteligencia, Sistema, Calendario, Proyectos, Regulaciones, Archivos) — el que mezcla renderizado clásico con las 6 pestañas Alpine.',
         'Encontrado y corregido el único hueco real de teclado en las pestañas Alpine: las celdas del calendario (`<div @click>`) no tenían equivalente de teclado. El resto de la interfaz Alpine ya usaba botones reales — se revisó cada @click del módulo uno por uno para confirmarlo.',
@@ -5806,14 +5811,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608150022' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608150028' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608150022' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608150028' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5829,7 +5834,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608150022' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608150028' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -8665,6 +8670,11 @@ function a11yDialog(el, opts) {
             .filter(function (n) { return n.offsetParent !== null; });
     };
     var onKey = function (e) {
+        // Si el nodo ya no está en el documento (p.ej. un wizard que reconstruye su overlay
+        // en cada paso, ver pnProjImportOpen) el listener queda huérfano hasta que algo lo
+        // remueva explícitamente. En vez de exigirle a cada llamador ese cuidado, se
+        // autodesactiva en cuanto detecta que ya no tiene nada que atrapar.
+        if (!document.contains(el)) { document.removeEventListener('keydown', onKey, true); return; }
         if (e.key === 'Escape') { e.preventDefault(); close(); return; }
         if (e.key !== 'Tab') return;
         var list = focusable(); if (!list.length) return;
@@ -32353,9 +32363,9 @@ function _pnRenderProjectGrid(el) {
     var portfolio = window._pnGridView === 'portfolio';
     var projects = (pnState.projects || []).filter(function(p) { return showArchived ? true : !p.archived; });
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-projects-help"><span>🗂️ Proyectos (' + projects.length + ')</span>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen()" style="font-size:10px;">📥 Importar Excel</button>';
-    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProject()" style="font-size:10px;">+ Proyecto</button></div>';
-    html += '<div style="font-size:11px;color:var(--tp-dim);margin-bottom:8px;">Da seguimiento a reparaciones, proyectos de inversión o cualquier iniciativa: pasos, fechas, responsables y una línea de tiempo con lo que va pasando.</div>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen()" style="font-size: var(--fs-xs);">📥 Importar Excel</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProject()" style="font-size: var(--fs-xs);">+ Proyecto</button></div>';
+    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:8px;">Da seguimiento a reparaciones, proyectos de inversión o cualquier iniciativa: pasos, fechas, responsables y una línea de tiempo con lo que va pasando.</div>';
     // Tarjetas (día a día) vs Portafolio (la vista para reportar hacia arriba)
     html += '<div class="pn-proj-viewtabs">';
     html += '<button class="pn-proj-viewtab' + (!portfolio ? ' active' : '') + '" onclick="window._pnGridView=\'cards\';_pnProjNav();">🗃️ Tarjetas</button>';
@@ -32393,7 +32403,7 @@ function _pnRenderProjectGrid(el) {
         });
         html += '</div>';
     }
-    html += '<div style="text-align:center;margin-top:10px;"><label style="font-size:10px;color:var(--tp-dim);cursor:pointer;"><input type="checkbox" ' + (showArchived ? 'checked' : '') + ' onchange="window._pnProjShowArchived=this.checked;_pnProjNav();" style="vertical-align:middle;"> Mostrar cerrados/archivados</label></div>';
+    html += '<div style="text-align:center;margin-top:10px;"><label style="font-size: var(--fs-xs);color:var(--tp-dim);cursor:pointer;"><input type="checkbox" ' + (showArchived ? 'checked' : '') + ' onchange="window._pnProjShowArchived=this.checked;_pnProjNav();" style="vertical-align:middle;"> Mostrar cerrados/archivados</label></div>';
     el.innerHTML = html;
 }
 
@@ -32404,22 +32414,22 @@ function _pnRenderProjectDetail(el, p) {
 
     var html = '<div class="tp-card">';
     html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="window._pnSelectedProject=null;_pnProjNav();" style="font-size:11px;">← Proyectos</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="window._pnSelectedProject=null;_pnProjNav();" style="font-size: var(--fs-sm);">← Proyectos</button>';
     html += '<span style="font-weight:800;font-size:14px;flex:1;">' + escapeHtml(p.name) + '</span>';
     html += '<span class="pn-proj-status pn-proj-status--' + p.status + '">' + (PN_PROJECT_STATUS[p.status] || p.status) + '</span>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="pnAddProject(\'' + p.id + '\')" style="font-size:10px;">✏️ Editar</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnAddProject(\'' + p.id + '\')" style="font-size: var(--fs-xs);">✏️ Editar</button>';
     html += '</div>';
-    if (p.desc) html += '<div style="font-size:11px;color:var(--tp-dim);margin-bottom:8px;">' + escapeHtml(p.desc) + '</div>';
+    if (p.desc) html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:8px;">' + escapeHtml(p.desc) + '</div>';
     var metaBits = [];
     if (asset) metaBits.push('🔧 ' + escapeHtml(asset.name));
     if (p.owner) metaBits.push('👤 ' + escapeHtml(p.owner));
-    if (metaBits.length) html += '<div style="font-size:11px;margin-bottom:8px;">' + metaBits.join(' · ') + '</div>';
+    if (metaBits.length) html += '<div style="font-size: var(--fs-sm);margin-bottom:8px;">' + metaBits.join(' · ') + '</div>';
 
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:6px;margin-bottom:10px;">';
     html += '<div class="tp-metric"><div class="tp-metric-val">' + prog.done + '/' + prog.total + '</div><div class="tp-metric-label">Pasos</div></div>';
-    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (prog.pct === 100 ? '#10b981' : '#3b82f6') + '">' + prog.pct + '%</div><div class="tp-metric-label">Avance</div></div>';
-    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (prog.overdueN > 0 ? '#ef4444' : '#10b981') + '">' + prog.overdueN + '</div><div class="tp-metric-label">Vencidos</div></div>';
-    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (prog.blockedN > 0 ? '#ef4444' : '#10b981') + '">' + prog.blockedN + '</div><div class="tp-metric-label">Bloqueados</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (prog.pct === 100 ? tokenColor('--ok-text') : tokenColor('--info-text')) + '">' + prog.pct + '%</div><div class="tp-metric-label">Avance</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (prog.overdueN > 0 ? tokenColor('--danger-text') : tokenColor('--ok-text')) + '">' + prog.overdueN + '</div><div class="tp-metric-label">Vencidos</div></div>';
+    html += '<div class="tp-metric"><div class="tp-metric-val" style="color:' + (prog.blockedN > 0 ? tokenColor('--danger-text') : tokenColor('--ok-text')) + '">' + prog.blockedN + '</div><div class="tp-metric-label">Bloqueados</div></div>';
     html += '</div>';
 
     html += '<div class="pn-proj-viewtabs">';
@@ -32461,23 +32471,23 @@ function _pnProjectTableHTML(p) {
     steps.forEach(function(s) {
         var isOverdue = s.status !== 'completado' && s.targetDate && s.targetDate < today;
         html += '<tr class="' + (s.status === 'completado' ? 'pn-proj-row--done' : '') + (isOverdue ? ' pn-proj-row--overdue' : '') + '">';
-        html += '<td>' + escapeHtml(s.title) + (s.phase ? '<div style="font-size:9px;color:var(--tp-dim);">' + escapeHtml(s.phase) + '</div>' : '') + '</td>';
+        html += '<td>' + escapeHtml(s.title) + (s.phase ? '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + escapeHtml(s.phase) + '</div>' : '') + '</td>';
         html += '<td>' + escapeHtml(s.responsible || '—') + '</td>';
         html += '<td><span class="pn-proj-step-status pn-proj-step-status--' + s.status + '">' + (PN_STEP_STATUS[s.status] || s.status) + '</span></td>';
         html += '<td>' + (s.targetDate || '—') + '</td>';
         html += '<td>' + (s.doneDate || '—') + '</td>';
         html += '<td>' + escapeHtml(s.roadblock || '') + '</td>';
         html += '<td style="white-space:nowrap;">';
-        if (s.status !== 'completado') html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjectStepDone(\'' + p.id + '\',\'' + s.id + '\');" title="Marcar completado" style="font-size:10px;">✔</button>';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="pnAddProjectStep(\'' + p.id + '\',\'' + s.id + '\');" title="Editar" style="font-size:10px;">✏️</button>';
+        if (s.status !== 'completado') html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjectStepDone(\'' + p.id + '\',\'' + s.id + '\');" title="Marcar completado" style="font-size: var(--fs-xs);">✔</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="pnAddProjectStep(\'' + p.id + '\',\'' + s.id + '\');" title="Editar" style="font-size: var(--fs-xs);">✏️</button>';
         html += '</td></tr>';
     });
     html += '</tbody></table></div>';
     html += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">';
-    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProjectStep(\'' + p.id + '\');" style="font-size:11px;">+ Paso</button>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen(\'' + p.id + '\')" style="font-size:11px;">📥 Importar Excel</button>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportProjectCSV(\'' + p.id + '\')" style="font-size:11px;">📤 CSV</button>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjectPDF(\'' + p.id + '\')" style="font-size:11px;">📄 PDF</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProjectStep(\'' + p.id + '\');" style="font-size: var(--fs-sm);">+ Paso</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen(\'' + p.id + '\')" style="font-size: var(--fs-sm);">📥 Importar Excel</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportProjectCSV(\'' + p.id + '\')" style="font-size: var(--fs-sm);">📤 CSV</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjectPDF(\'' + p.id + '\')" style="font-size: var(--fs-sm);">📄 PDF</button>';
     html += '</div>';
     return html;
 }
@@ -32487,10 +32497,10 @@ function _pnProjectTimelineHTML(p) {
     var html = '<div class="pn-proj-timeline">';
     html += '<div style="display:flex;gap:6px;margin-bottom:12px;">';
     html += '<input type="text" id="pn-proj-note-input" placeholder="Agregar una nota…" style="flex:1;padding:8px 10px;border:1px solid var(--tp-border);border-radius:8px;font-size:12px;" onkeydown="if(event.key===\'Enter\'){pnAddProjectLog(\'' + p.id + '\');}">';
-    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProjectLog(\'' + p.id + '\')" style="font-size:11px;">Agregar</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProjectLog(\'' + p.id + '\')" style="font-size: var(--fs-sm);">Agregar</button>';
     html += '</div>';
     if (events.length === 0) {
-        html += '<div style="text-align:center;padding:16px;color:var(--tp-dim);font-size:11px;">Sin eventos todavía — agrega una nota o un paso.</div>';
+        html += '<div style="text-align:center;padding:16px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin eventos todavía — agrega una nota o un paso.</div>';
     }
     events.forEach(function(ev) {
         var icon = ev.kind === 'done' ? '✅' : ev.kind === 'blocked' ? '🚧' : ev.kind === 'created' ? '➕' : ev.kind === 'moved' ? '📅' : '📝';
@@ -32507,7 +32517,7 @@ function _pnProjectTimelineHTML(p) {
 
 function _pnProjectGanttHTML(p) {
     var steps = (p.steps || []).slice().sort(function(a, b) { return (a.seq || 0) - (b.seq || 0); });
-    if (steps.length === 0) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin pasos. Agrega uno en la pestaña Tabla.</div>';
+    if (steps.length === 0) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin pasos. Agrega uno en la pestaña Tabla.</div>';
 
     var cpm = pnProjectCPM(p);
     var hasBaseline = steps.some(function(s) { return s.baselineTarget; });
@@ -32519,7 +32529,7 @@ function _pnProjectGanttHTML(p) {
             var n = _pnDayNum(d); if (n !== null) days.push(n);
         });
     });
-    if (!days.length) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin fechas capturadas todavía.</div>';
+    if (!days.length) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin fechas capturadas todavía.</div>';
     var todayN = _pnDayNum(localToday());
     days.push(todayN);
     var minN = Math.min.apply(null, days), maxN = Math.max.apply(null, days);
@@ -32613,7 +32623,7 @@ function _pnProjectGanttHTML(p) {
     html += '</div>';
 
     html += '<div class="pn-gantt-actions">';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjectBaselineSet(\'' + p.id + '\')" style="font-size:11px;" data-help="pn-proj-baseline">' + (hasBaseline ? '🔄 Volver a fijar línea base' : '📌 Fijar línea base') + '</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjectBaselineSet(\'' + p.id + '\')" style="font-size: var(--fs-sm);" data-help="pn-proj-baseline">' + (hasBaseline ? '🔄 Volver a fijar línea base' : '📌 Fijar línea base') + '</button>';
     html += '</div>';
     return html;
 }
@@ -32629,7 +32639,7 @@ function _pnProjectGanttHTML(p) {
 // accesible y el que sirve con teclado o si el arrastre falla.
 function _pnProjectKanbanHTML(p) {
     var steps = (p.steps || []).slice().sort(function(a, b) { return (a.seq || 0) - (b.seq || 0); });
-    if (!steps.length) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin pasos. Agrega uno en la pestaña Tabla.</div>';
+    if (!steps.length) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin pasos. Agrega uno en la pestaña Tabla.</div>';
     var today = localToday();
     var cpm = pnProjectCPM(p);
 
@@ -32793,7 +32803,7 @@ function _pnProjectWorkloadHTML(p) {
     html += '<button class="pn-proj-viewtab' + (!all ? ' active' : '') + '" onclick="window._pnWorkloadAll=false;_pnProjNav();">Solo este proyecto</button>';
     html += '<button class="pn-proj-viewtab' + (all ? ' active' : '') + '" onclick="window._pnWorkloadAll=true;_pnProjNav();">Todos los proyectos</button>';
     html += '</div>';
-    if (!rows.length) return html + '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Sin pasos que repartir todavía.</div>';
+    if (!rows.length) return html + '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin pasos que repartir todavía.</div>';
 
     html += '<div class="pn-workload" data-help="pn-proj-workload">';
     rows.forEach(function(r) {
@@ -32862,7 +32872,7 @@ function pnProjectSCurve(p) {
 
 function _pnProjectSCurveHTML(p) {
     var data = pnProjectSCurve(p);
-    if (!data) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size:11px;">Hace falta al menos un paso con fecha objetivo para dibujar la curva.</div>';
+    if (!data) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Hace falta al menos un paso con fecha objetivo para dibujar la curva.</div>';
     var idxNow = data.actual.reduce(function(acc, v, i) { return v === null ? acc : i; }, 0);
     var planNow = data.planned[idxNow] || 0, realNow = data.actual[idxNow] || 0;
     var diff = realNow - planNow;
@@ -32949,7 +32959,7 @@ var PN_HEALTH = {
 function _pnPortfolioHTML() {
     var rows = pnPortfolioRows();
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-proj-portfolio"><span>🗂️ Portafolio — ' + rows.length + ' proyecto' + (rows.length === 1 ? '' : 's') + ' activo' + (rows.length === 1 ? '' : 's') + '</span>' +
-        '<button class="tp-btn tp-btn-ghost" onclick="pnExportPortfolioCSV()" style="font-size:10px;">📤 CSV</button></div>';
+        '<button class="tp-btn tp-btn-ghost" onclick="pnExportPortfolioCSV()" style="font-size: var(--fs-xs);">📤 CSV</button></div>';
     if (!rows.length) { return html + '<div style="text-align:center;padding:24px;color:var(--tp-dim);">Sin proyectos activos.</div></div>'; }
 
     var counts = { red: 0, amber: 0, ok: 0, done: 0 };
@@ -32966,12 +32976,12 @@ function _pnPortfolioHTML() {
         var p = r.project;
         html += '<tr class="pn-portfolio-row" onclick="window._pnSelectedProject=\'' + p.id + '\';window._pnProjectView=\'table\';_pnProjNav();">';
         html += '<td title="' + PN_HEALTH[r.health].label + '">' + PN_HEALTH[r.health].dot + '</td>';
-        html += '<td><strong>' + escapeHtml(p.name) + '</strong>' + (r.asset ? '<div style="font-size:9px;color:var(--tp-dim);">🔧 ' + escapeHtml(r.asset.name) + '</div>' : '') + '</td>';
+        html += '<td><strong>' + escapeHtml(p.name) + '</strong>' + (r.asset ? '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">🔧 ' + escapeHtml(r.asset.name) + '</div>' : '') + '</td>';
         html += '<td>' + escapeHtml(p.owner || '—') + '</td>';
-        html += '<td style="min-width:110px;"><div class="tp-bar" style="height:14px;"><div class="tp-bar-fill" style="width:' + r.prog.pct + '%;background:' + (r.prog.pct === 100 ? 'var(--tp-green)' : 'var(--tp-blue)') + ';"></div><span class="tp-bar-text" style="line-height:14px;font-size:9px;">' + r.prog.done + '/' + r.prog.total + '</span></div></td>';
+        html += '<td style="min-width:110px;"><div class="tp-bar" style="height:14px;"><div class="tp-bar-fill" style="width:' + r.prog.pct + '%;background:' + (r.prog.pct === 100 ? 'var(--tp-green)' : 'var(--tp-blue)') + ';"></div><span class="tp-bar-text" style="line-height:14px;font-size: var(--fs-xs);">' + r.prog.done + '/' + r.prog.total + '</span></div></td>';
         html += '<td' + (r.prog.overdueN ? ' class="pn-portfolio-bad"' : '') + '>' + (r.prog.overdueN || '—') + '</td>';
         html += '<td' + (r.prog.blockedN ? ' class="pn-portfolio-bad"' : '') + '>' + (r.prog.blockedN || '—') + '</td>';
-        html += '<td>' + (r.nextMs ? '◆ ' + escapeHtml(r.nextMs.title) + '<div style="font-size:9px;color:var(--tp-dim);">' + r.nextMs.targetDate + '</div>' : '—') + '</td>';
+        html += '<td>' + (r.nextMs ? '◆ ' + escapeHtml(r.nextMs.title) + '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + r.nextMs.targetDate + '</div>' : '—') + '</td>';
         html += '</tr>';
     });
     html += '</tbody></table></div></div>';
@@ -33073,18 +33083,18 @@ function pnAddProject(editId) {
         return '<option value="' + k + '" ' + ((p ? p.status : 'activo') === k ? 'selected' : '') + '>' + PN_PROJECT_STATUS[k] + '</option>';
     }).join('');
     var fieldStyle = 'width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;';
-    var lblStyle = 'font-size:11px;color:#475569;font-weight:600;';
+    var lblStyle = 'font-size: var(--fs-sm);color:#475569;font-weight:600;';
 
     var msg = '<div style="display:flex;flex-direction:column;gap:10px;text-align:left;">' +
         '<div><label style="' + lblStyle + '">Nombre *</label><input id="pn-proj-name" value="' + escapeHtml(p ? p.name : '') + '" style="' + fieldStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Equipo (opcional)</label><select id="pn-proj-asset" style="' + fieldStyle + '">' + assetOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '">Responsable</label><input id="pn-proj-owner" value="' + escapeHtml(p ? (p.owner || '') : defaultOwner) + '" style="' + fieldStyle + '"></div>' +
-        '<details><summary style="cursor:pointer;font-size:11px;font-weight:700;color:#475569;padding:4px 0;">Más detalles (descripción, estatus)</summary>' +
+        '<details><summary style="cursor:pointer;font-size: var(--fs-sm);font-weight:700;color:#475569;padding:4px 0;">Más detalles (descripción, estatus)</summary>' +
         '<div style="display:flex;flex-direction:column;gap:10px;padding-top:8px;">' +
         '<div><label style="' + lblStyle + '">Descripción</label><input id="pn-proj-desc" value="' + escapeHtml(p ? (p.desc || '') : '') + '" style="' + fieldStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Estatus</label><select id="pn-proj-status" style="' + fieldStyle + '">' + statusOpts + '</select></div>' +
         '</div></details>' +
-        (isEdit ? '<button type="button" onclick="pnDeleteProjectPrompt(\'' + editId + '\')" style="align-self:flex-start;background:none;border:none;color:#ef4444;font-size:11px;cursor:pointer;padding:2px 0;">🗑️ Eliminar proyecto</button>' : '') +
+        (isEdit ? '<button type="button" onclick="pnDeleteProjectPrompt(\'' + editId + '\')" style="align-self:flex-start;background:none;border:none;color:var(--danger-text);font-size: var(--fs-sm);cursor:pointer;padding:2px 0;">🗑️ Eliminar proyecto</button>' : '') +
         '</div>';
 
     showModal({
@@ -33154,7 +33164,7 @@ function pnAddProjectStep(projectId, stepId) {
         return '<option value="' + k + '" ' + ((s ? s.status : 'pendiente') === k ? 'selected' : '') + '>' + PN_STEP_STATUS[k] + '</option>';
     }).join('');
     var fieldStyle = 'width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;';
-    var lblStyle = 'font-size:11px;color:#475569;font-weight:600;';
+    var lblStyle = 'font-size: var(--fs-sm);color:#475569;font-weight:600;';
 
     // Dependencias: solo se ofrecen los pasos que NO crean un ciclo. Los que
     // dependen (directa o indirectamente) de este paso quedan fuera de la lista,
@@ -33169,7 +33179,7 @@ function pnAddProjectStep(projectId, stepId) {
         }).join('');
         depsHTML = '<div><label style="' + lblStyle + '" data-help="pn-proj-depends">Depende de (Ctrl+clic para varios)</label>' +
             '<select id="pn-step-deps" multiple size="' + Math.min(5, Math.max(2, others.length)) + '" style="' + fieldStyle + 'height:auto;">' + opts + '</select>' +
-            '<div style="font-size:10px;color:var(--tp-dim);margin-top:3px;">Este paso no puede empezar hasta que los seleccionados terminen. Solo se listan los que no crean un círculo.</div></div>';
+            '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:3px;">Este paso no puede empezar hasta que los seleccionados terminen. Solo se listan los que no crean un círculo.</div></div>';
     }
 
     var msg = '<div style="display:flex;flex-direction:column;gap:10px;text-align:left;">' +
@@ -33179,7 +33189,7 @@ function pnAddProjectStep(projectId, stepId) {
         '<div><label style="' + lblStyle + '">Estatus</label><select id="pn-step-status" style="' + fieldStyle + '">' + statusOpts + '</select></div>' +
         '<div><label style="' + lblStyle + '">Fecha objetivo</label><input type="date" id="pn-step-target" value="' + (s ? (s.targetDate || '') : '') + '" style="' + fieldStyle + '"></div>' +
         '</div>' +
-        '<details><summary style="cursor:pointer;font-size:11px;font-weight:700;color:#475569;padding:4px 0;">Más detalles (fase, obstáculo, inicio, hito, dependencias)</summary>' +
+        '<details><summary style="cursor:pointer;font-size: var(--fs-sm);font-weight:700;color:#475569;padding:4px 0;">Más detalles (fase, obstáculo, inicio, hito, dependencias)</summary>' +
         '<div style="display:flex;flex-direction:column;gap:10px;padding-top:8px;">' +
         '<div><label style="' + lblStyle + '" data-help="pn-proj-phase">Fase (para el Gantt)</label><input id="pn-step-phase" value="' + escapeHtml(s ? (s.phase || '') : '') + '" style="' + fieldStyle + '"></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
@@ -33190,10 +33200,10 @@ function pnAddProjectStep(projectId, stepId) {
         '<label style="' + lblStyle + 'display:flex;align-items:center;gap:8px;cursor:pointer;" data-help="pn-proj-milestone">' +
         '<input type="checkbox" id="pn-step-milestone" ' + (s && s.isMilestone ? 'checked' : '') + '> ◆ Es un hito (entregable clave del proyecto)</label>' +
         depsHTML +
-        (s && s.baselineTarget ? '<div style="font-size:11px;color:var(--tp-dim);">📅 Comprometido originalmente: <strong>' + s.baselineTarget + '</strong>' +
+        (s && s.baselineTarget ? '<div style="font-size: var(--fs-sm);color:var(--tp-dim);">📅 Comprometido originalmente: <strong>' + s.baselineTarget + '</strong>' +
             (s.targetDate && s.targetDate !== s.baselineTarget ? ' · hoy va para ' + s.targetDate : ' · sin cambios') + '</div>' : '') +
         '</div></details>' +
-        (isEdit ? '<button type="button" onclick="pnDeleteProjectStepPrompt(\'' + projectId + '\',\'' + stepId + '\')" style="align-self:flex-start;background:none;border:none;color:#ef4444;font-size:11px;cursor:pointer;padding:2px 0;">🗑️ Eliminar paso</button>' : '') +
+        (isEdit ? '<button type="button" onclick="pnDeleteProjectStepPrompt(\'' + projectId + '\',\'' + stepId + '\')" style="align-self:flex-start;background:none;border:none;color:var(--danger-text);font-size: var(--fs-sm);cursor:pointer;padding:2px 0;">🗑️ Eliminar paso</button>' : '') +
         '</div>';
 
     showModal({
@@ -33705,6 +33715,30 @@ function pnProjectBaselineSet(projectId) {
 // { grid, headerRow, map, dmy, targetProjectId, sourceName, sheetNames, sheetIdx }
 var _pnImport = null;
 
+// [v17.6] El wizard de importación (_pnProjImportRender) destruye y vuelve a crear el
+// <div id="pn-import-overlay"> completo en cada paso (elegir archivo → mapear columnas →
+// confirmar). Se observa el <body> por la aparición de una NUEVA instancia de ese id y se
+// cablea a11yDialog fresco en cada una — el listener del paso anterior queda huérfano pero
+// inerte: a11yDialog se autodesactiva en cuanto detecta que su nodo ya no está en el
+// documento (ver el guard `document.contains(el)` en la definición compartida, js/app.js),
+// así que no llama a onClose ni roba el foco al hacerlo.
+(function () {
+    if (typeof a11yDialog !== 'function') return;
+    var wiredEl = null; // instancia del nodo actualmente cableado (mismo id, distinta instancia por paso)
+    var mo = new MutationObserver(function () {
+        var overlay = document.getElementById('pn-import-overlay');
+        if (overlay && overlay !== wiredEl) {
+            wiredEl = overlay;
+            a11yDialog(overlay, { onClose: function () {
+                if (typeof pnProjImportClose === 'function') pnProjImportClose();
+            }});
+        } else if (!overlay && wiredEl) {
+            wiredEl = null;
+        }
+    });
+    mo.observe(document.body, { childList: true });
+})();
+
 function pnProjImportOpen(projectId) {
     _pnImport = { grid: null, headerRow: 0, map: {}, dmy: true, targetProjectId: projectId || '', sourceName: '', sheetNames: [], sheetIdx: 0 };
     _pnProjImportRender();
@@ -33745,7 +33779,7 @@ function _pnProjImportStep1HTML() {
         '<div class="pn-import-source">' +
         '<div class="pn-import-source-title">📋 Pegar</div>' +
         '<div class="pn-import-source-desc">Copia las filas en Excel o Loop (Ctrl+C) y pégalas aquí. Funciona sin internet.</div>' +
-        '<textarea id="pn-import-paste" class="pn-import-paste" placeholder="Pega aquí la tabla…"></textarea>' +
+        '<textarea id="pn-import-paste" aria-label="Pegar tabla de pasos" class="pn-import-paste" placeholder="Pega aquí la tabla…"></textarea>' +
         '<button class="tp-btn tp-btn-primary" onclick="pnProjImportPaste()">Leer lo pegado</button>' +
         '</div></div>';
 }
@@ -38056,7 +38090,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608150022' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608150028' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
