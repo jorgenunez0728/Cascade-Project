@@ -190,11 +190,17 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.2';
+var APP_VERSION = '17.3';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.3', date: '15 ago 2026', title: 'Accesibilidad — módulo Consumibles (Fase 4)', bullets: [
+        'Cuarto módulo migrado: Consumibles (Gases, Equipos, Mtto, Captura, Predicción, Combustible, Mapa de zonas, Gráficas, Config, Reporte, Trazabilidad) — el más grande hasta ahora, 12 pestañas.',
+        'El modal compartido de la mayoría de las altas/ediciones (Cilindro, Instrumento, Actividad, Zona…) se abría/cerraba desde ~20 funciones distintas sin ningún punto común — se resolvió observando el propio modal en vez de tocar cada cierre uno por uno: ahora todos atrapan el foco, cierran con Escape y devuelven el foco al botón que los abrió.',
+        'Encontrado y corregido un bug real de contraste: la ficha de detalle de un cilindro (fecha de recepción, vigencia, trazabilidad, historial) tenía texto gris casi invisible sobre fondo blanco.',
+        'Nota de alcance: el mapa de zonas (arrastrar cilindro a una posición) sigue siendo solo por mouse/dedo — mover un cilindro por teclado queda pendiente para una ronda futura, ya que es una interacción nueva, no un ajuste de presentación.'
+    ]},
     { version: '17.2', date: '14 ago 2026', title: 'Accesibilidad — módulo Pruebas/COP15 (Fase 3)', bullets: [
         'Tercer módulo migrado: Pruebas (Alta, Operación, Liberación, Cola, Historial, Consumibles) — los formularios más largos de la app.',
         'La firma digital (gate de liberación de vehículos) no tenía NINGUNA accesibilidad — sin atrapar el foco, sin Escape, sin devolver el foco al cerrar. Corregido: es la pieza más crítica del flujo de liberación.',
