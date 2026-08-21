@@ -1538,13 +1538,9 @@ body{ overflow-x: hidden; }
 /* [R3-M1] PWA — Online/offline indicator                              */
 /* ══════════════════════════════════════════════════════════════════════ */
 
-#online-status-badge { font-size: var(--fs-xs); cursor: default; }
-#pwa-install-btn {
-    padding: 4px 10px; font-size: var(--fs-xs); font-weight: 700;
-    background: #10b981; color: #fff; border: none; border-radius: 6px;
-    cursor: pointer;
-}
-#pwa-install-btn:hover { background: #059669; }
+/* v17.9: el indicador de conexión y el botón de instalar viven ahora en el menú "⋯"
+   y toman su forma de .tbm-online / .tbm-item--cta. Las reglas por #id que había aquí
+   ganaban por especificidad y dejaban la fila "Instalar app" más baja que las demás. */
 
 /* v16.6: pill de versión — antes casi invisible (10px, opacidad 0.4) y sin indicar que se
    puede tocar para ver el historial completo. Ahora es un chip con borde, siempre clickeable. */
@@ -3345,13 +3341,19 @@ details.acc > summary {
     padding: 4px 10px; cursor: pointer; line-height: 1;
 }
 
-/* v16.8: el grupo "⋯ Más" se colapsa hasta 1400px, no solo en móvil.
+/* v16.8: el grupo "⋯ Más" se colapsa hasta 1600px (v17.9: era 1400px), no solo en móvil.
    Antes el corte estaba en 768px, así que entre 769px y ~1400px la barra
    (5 pestañas + sync + operador + 🔔 🕘 + TODO el grupo expandido + el pill de
    versión) no cabía y provocaba scroll horizontal DE PÁGINA — medido: 536px de
    desbordamiento a 820px, que es justo un iPad en vertical, y el laboratorio
-   trabaja con tablets. En una pantalla ancha (≥1401px) no cambia nada. */
-@media (max-width: 1400px) {
+   trabaja con tablets. En una pantalla ancha (≥1601px) no cambia nada.
+
+   [v17.9] 1400px seguía siendo muy poco: medida real de la barra expandida
+   (5 pestañas 795px + sync + operador + 🔔 🕘 + los 5 controles del grupo + el
+   pill de versión) = ~1900px. Entre 1401px y ~1900px los controles se
+   encimaban unos sobre otros. El corte sube a 1600px y de 1601px en adelante
+   lo único que cede ancho es el texto del indicador de sync (elipsis). */
+@media (max-width: 1600px) {
     #topbar-more-btn { display: flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: center; }
     /* El grupo se vuelve un dropdown anclado a la barra */
     .topbar-more-group {
@@ -3389,6 +3391,110 @@ details.acc > summary {
 @media (max-width: 1024px) {
     .platform-bar .platform-tab { display: none; }
     #fb-sync-indicator { margin-left: 0; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [v17.9] TOPBAR — ritmo horizontal y menú "⋯" legible                   */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* La franja derecha del topbar tenía TODO su estilo en atributos `style`:
+   wrappers <div> con padding propio, `margin-left:auto` en línea (que la
+   media query de tablet no podía anular, por eso la barra terminaba
+   envolviendo a una segunda fila casi vacía) y botones sin ninguna regla
+   compartida. Aquí vive ahora, con una sola escala de espaciado. */
+.platform-bar { gap: 2px; }
+.platform-bar > * { flex-shrink: 0; }
+
+.topbar-sync {
+    margin-left: auto;               /* empuja la franja derecha al extremo */
+    display: block;
+    flex-shrink: 1; min-width: 0;    /* el ÚNICO que cede ancho, recortando con elipsis */
+    font-size: var(--fs-xs); line-height: 1.25;
+    color: var(--muted); cursor: pointer; padding: 6px 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.topbar-op { display: flex; align-items: center; min-width: 0; align-self: center; }
+.topbar-op button { max-width: 170px; }
+
+.topbar-icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    align-self: center;
+    background: none; border: none; border-radius: 8px;
+    color: rgba(255,255,255,0.62); font-size: 16px; line-height: 1;
+    padding: 6px 8px; cursor: pointer; font-family: inherit;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.topbar-icon-btn:hover { background: rgba(255,255,255,0.10); color: #fff; }
+.topbar-icon-btn--badged { position: relative; }
+.topbar-badge {
+    position: absolute; top: 2px; right: 2px;
+    min-width: 15px; height: 15px; padding: 0 3px;
+    border-radius: 8px; background: var(--danger-fill); color: #fff;
+    font-size: var(--fs-xs); font-weight: 700; line-height: 15px; text-align: center;
+}
+
+/* Ítems del menú "⋯". En escritorio (.topbar-more-group es `display:contents`)
+   se ven como iconos sueltos de la barra; dentro del desplegable se vuelven
+   filas de alto uniforme con etiqueta — ver el bloque ≤1400px. */
+.tbm-item {
+    display: flex; align-items: center; gap: 8px; align-self: center;
+    background: none; border: 1px solid transparent; border-radius: 8px;
+    color: rgba(255,255,255,0.72); font-family: inherit;
+    font-size: var(--fs-sm); font-weight: 600; line-height: 1;
+    padding: 7px 9px; cursor: pointer; white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.tbm-item:hover { background: rgba(255,255,255,0.10); color: #fff; }
+.tbm-ico { font-size: 15px; line-height: 1; width: 18px; text-align: center; flex: 0 0 18px; }
+.tbm-hint {
+    margin-left: auto; padding-left: 12px;
+    font-size: var(--fs-xs); font-weight: 700;
+    color: rgba(255,255,255,0.38); letter-spacing: 0.03em;
+}
+.tbm-item--cta { background: var(--ok-fill); color: #fff; }
+.tbm-item--cta:hover { background: #059669; color: #fff; }
+.tbm-foot { display: flex; align-items: center; gap: 8px; align-self: center; }
+.tbm-online { font-size: 13px; line-height: 1; cursor: default; }
+
+/* Escritorio (≥1601px): solo icono, salvo los dos ítems que ya llevaban texto. */
+.tbm-item .tbm-label, .tbm-item .tbm-hint { display: none; }
+.tbm-item--wide { border-color: rgba(255,255,255,0.15); }
+.tbm-item--wide .tbm-label { display: inline; }
+
+@media (max-width: 1600px) {
+    /* Desplegable: filas de menú de verdad — mismo alto, misma sangría,
+       texto siempre visible. Antes cada ítem era un wrapper estirado con
+       el botón suelto adentro, así que se veían cajas altas medio vacías
+       y el icono ⛶ o el 🔍 flotando en el aire. */
+    .topbar-more-group { min-width: 224px; gap: 1px; padding: 6px; }
+    .tbm-item {
+        width: 100%; justify-content: flex-start;
+        min-height: 42px; padding: 0 10px; border-color: transparent;
+    }
+    .tbm-item .tbm-label, .tbm-item .tbm-hint { display: inline; }
+    .tbm-foot {
+        justify-content: space-between;
+        margin-top: 5px; padding: 8px 6px 2px;
+        border-top: 1px solid rgba(255,255,255,0.10);
+    }
+    .tbm-foot .app-version-pill { font-size: var(--fs-xs); padding: 5px 10px; }
+}
+
+@media (max-width: 1024px) {
+    /* Sin las 5 pestañas, todo lo que queda cabe en UNA fila: nada de
+       `flex-wrap`, que era lo que abría la segunda fila vacía del header. */
+    .platform-bar { flex-wrap: nowrap; align-items: center; padding: 4px 6px; }
+    .topbar-sync { margin-left: 0; flex: 1 1 auto; }
+    .topbar-op { flex: 0 0 auto; }   /* el nombre del operador no cede: cede el sync */
+}
+
+@media (max-width: 600px) {
+    /* Teléfono: el `stationId` del indicador de sync es siempre el mismo
+       (KIA-EMLAB) y se comía el ancho que necesitaban la hora y el "● vivo",
+       que sí cambian. Se oculta aquí; sigue visible en el panel de ajustes. */
+    .topbar-sync-station { display: none; }
+    .topbar-op button { max-width: 150px; }
+    .topbar-icon-btn { padding: 6px 4px; }
 }
 
 /* ===== CoP · Control SPC (v15.7) ===== */
@@ -3628,20 +3734,35 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
     <button type="button" class="platform-tab" onclick="switchPlatform('cop')" id="ptab-cop" role="tab" aria-selected="false" tabindex="-1" aria-controls="platform-cop" title="CoP Type 1: Validador estadístico de Conformidad de Producción">
         📋 CoP
     </button>
-    <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size: var(--fs-xs);color:var(--muted);cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
-    <div id="op-picker" style="align-self:center;display:flex;align-items:center;padding:0 4px;" title="Operador actual"></div>
-    <div style="padding:4px 4px;align-self:center;position:relative;"><button class="topbar-icon-btn" onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones" aria-label="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:var(--danger-fill);color:#fff;font-size: var(--fs-xs);font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
-    <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-audit');" style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;color:rgba(255,255,255,0.5);" title="Historial de cambios" aria-label="Historial de cambios">🕘</button></div>
+    <!-- [v17.9] Controles del topbar: estructura semántica (clases, no estilos en línea).
+         La franja derecha se mantiene en UNA sola fila en tablet/móvil (ver .platform-bar
+         en styles.css) — antes envolvía a una segunda fila casi vacía. -->
+    <div id="fb-sync-indicator" class="topbar-sync" onclick="fbShowSettings()" title="Estado de sincronización"></div>
+    <div id="op-picker" class="topbar-op" title="Operador actual"></div>
+    <button class="topbar-icon-btn topbar-icon-btn--badged" onclick="toggleNotificationCenter()" title="Centro de notificaciones" aria-label="Centro de notificaciones">🔔<span id="notif-badge" class="topbar-badge" hidden>0</span></button>
+    <button class="topbar-icon-btn" onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-audit');" title="Historial de cambios" aria-label="Historial de cambios">🕘</button>
     <button id="topbar-more-btn" class="topbar-icon-btn" onclick="topbarMoreToggle()" title="Más opciones" aria-label="Más opciones" aria-haspopup="true" aria-expanded="false">⋯</button>
-    <div class="topbar-more-group" id="topbar-more-group">
-        <button class="topbar-icon-btn" onclick="if(typeof fbPullAll==='function')fbPullAll(true);" style="align-self:center;padding:4px 10px;font-size:12px;font-weight:700;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.7);" title="Descargar los datos más recientes del laboratorio" aria-label="Actualizar datos">🔄 Actualizar datos</button>
-        <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
-        <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size: var(--fs-xs);font-weight:700;background:var(--ok-fill);color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
-        <button id="immersive-toggle-btn" class="topbar-icon-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">⛶</button>
-        <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary topbar-icon-btn" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">🔍</button></div>
-        <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="helpMenuOpen()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Ayuda: recorridos guiados y glosario" aria-label="Menú de ayuda">?</button></div>
-        <div id="app-version-info" class="app-version-pill" style="align-self:center;" title="Versión de la app">
-            <strong>KIA EmLab v16.8</strong>
+    <div class="topbar-more-group" id="topbar-more-group" role="menu" aria-label="Más opciones">
+        <button class="tbm-item tbm-item--wide" role="menuitem" onclick="if(typeof fbPullAll==='function')fbPullAll(true);" title="Descargar los datos más recientes del laboratorio">
+            <span class="tbm-ico" aria-hidden="true">🔄</span><span class="tbm-label">Actualizar datos</span>
+        </button>
+        <button class="tbm-item" role="menuitem" onclick="toggleGlobalSearch()" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">
+            <span class="tbm-ico" aria-hidden="true">🔍</span><span class="tbm-label">Buscar VIN</span><span class="tbm-hint" aria-hidden="true">Ctrl+K</span>
+        </button>
+        <button id="immersive-toggle-btn" class="tbm-item" role="menuitem" onclick="immersiveToggle()" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">
+            <span class="tbm-ico" aria-hidden="true">⛶</span><span class="tbm-label">Pantalla completa</span>
+        </button>
+        <button class="tbm-item" role="menuitem" onclick="helpMenuOpen()" title="Ayuda: recorridos guiados y glosario" aria-label="Menú de ayuda">
+            <span class="tbm-ico" aria-hidden="true">❔</span><span class="tbm-label">Ayuda y glosario</span>
+        </button>
+        <button id="pwa-install-btn" class="tbm-item tbm-item--cta tbm-item--wide" role="menuitem" onclick="pwaInstall()" style="display:none;" title="Instalar como app nativa">
+            <span class="tbm-ico" aria-hidden="true">⬇️</span><span class="tbm-label">Instalar app</span>
+        </button>
+        <div class="tbm-foot">
+            <span id="online-status-badge" class="tbm-online" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
+            <div id="app-version-info" class="app-version-pill" title="Versión de la app">
+                <strong>KIA EmLab</strong>
+            </div>
         </div>
     </div>
 </div>
@@ -5677,15 +5798,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608150040';
+var APP_BUILD = '202608210158';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.8';
+var APP_VERSION = '17.9';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.9', date: '21 ago 2026', title: 'Topbar en una sola fila + menú "⋯" legible + configs manuales que sobreviven', bullets: [
+        'La barra superior ya no envuelve a una segunda fila casi vacía en tablet/teléfono: sin las 5 pestañas (ocultas desde v16.8) no queda nada que envolver. El indicador de sincronización recorta su texto con elipsis en vez de forzar el salto de línea.',
+        'El menú "⋯" pasó de cajas altas medio vacías (botones y wrappers mezclados, estirados) a filas de menú uniformes con icono + etiqueta, y el estado de conexión junto al pill de versión en un pie propio. En escritorio la barra ancha se ve igual que antes.',
+        'Bug corregido: las configuraciones creadas a mano (Gestor de Configuraciones) desaparecían de la cascada al recargar la página — la fusión solo ocurría al guardarlas, no al arrancar. Seguían listadas en el gestor, pero ningún desplegable de Alta las mostraba.',
+        'Cuando la cascada no encuentra ninguna configuración, la tarjeta ahora explica el caso y ofrece el botón "➕ Nueva configuración manual" en vez de terminar en un callejón sin salida.'
+    ]},
     { version: '17.8', date: '15 ago 2026', title: 'Mapa de zonas por teclado + limpieza final de tipografía', bullets: [
         'El mapa de zonas de Consumibles (mover un cilindro entre posiciones) era solo por mouse/dedo — ahora también se opera por teclado: Enter sobre un cilindro lo selecciona, Enter sobre una posición vacía lo mueve ahí, Escape cancela. Cada paso se anuncia a lectores de pantalla.',
         'Tipografía sub-12px eliminada en js/auth.js y js/firebase-sync.js (login/PIN, ajustes de sincronización) — con esto ya no queda ningún archivo del proyecto con texto por debajo del mínimo.',
@@ -5826,14 +5953,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608150040' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608210158' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608150040' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608210158' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -5849,7 +5976,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608150040' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608210158' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -9001,7 +9128,7 @@ function updateNotifBadge() {
     var badge = document.getElementById('notif-badge');
     if (!badge) return;
     var unread = _notificationLog.filter(function(n) { return !n.read; }).length;
-    badge.style.display = unread > 0 ? 'inline-block' : 'none';
+    badge.hidden = unread === 0;
     badge.textContent = unread > 9 ? '9+' : unread;
 }
 
@@ -10086,6 +10213,17 @@ function immersiveToggle() {
     _immersiveActive ? immersiveExit() : immersiveEnter();
 }
 
+// v17.9: sincroniza etiqueta y title del ítem "Pantalla completa" del menú "⋯".
+function _immersiveSyncButton(active) {
+    var btn = document.getElementById('immersive-toggle-btn');
+    if (!btn) return;
+    var label = btn.querySelector('.tbm-label');
+    var text = active ? 'Salir de pantalla completa' : 'Pantalla completa';
+    if (label) label.textContent = text;
+    btn.title = active ? 'Salir del Modo App (pantalla completa)' : 'Modo App (pantalla completa)';
+    btn.setAttribute('aria-label', text);
+}
+
 function immersiveEnter() {
     _immersiveActive = true;
     document.body.classList.add('immersive-mode');
@@ -10093,9 +10231,9 @@ function immersiveEnter() {
     var docEl = document.documentElement;
     if (docEl.requestFullscreen) docEl.requestFullscreen().catch(function(){});
     else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
-    // Update button
-    var btn = document.getElementById('immersive-toggle-btn');
-    if (btn) btn.innerHTML = '⛶';
+    // v17.9: el botón es un ítem de menú (icono + etiqueta). Reescribir su
+    // innerHTML borraba la etiqueta y dejaba una fila con un icono suelto.
+    _immersiveSyncButton(true);
     localStorage.setItem('kia_immersive_prefs', '1');
     showToast('Modo App activado', 'success');
 }
@@ -10105,8 +10243,7 @@ function immersiveExit() {
     document.body.classList.remove('immersive-mode');
     if (document.exitFullscreen) document.exitFullscreen().catch(function(){});
     else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-    var btn = document.getElementById('immersive-toggle-btn');
-    if (btn) btn.innerHTML = '⛶';
+    _immersiveSyncButton(false);
     localStorage.removeItem('kia_immersive_prefs');
 }
 
@@ -10508,6 +10645,14 @@ function setupUnsavedTracking() {
             void 0;
         }
 
+        // [v17.9] Las configuraciones creadas a mano (Gestor de Configuraciones →
+        // "Nueva Configuración Manual", localStorage `kia_manual_configs`) SOLO se
+        // fusionaban dentro de _doSaveManualConfig, es decir en la sesión en la que
+        // se capturaban. Al recargar, parseCSV reconstruía allConfigurations desde el
+        // CSV y las borraba de la cascada: seguían listadas en el gestor pero ya no
+        // aparecían en los desplegables. La fusión pertenece aquí, junto al parseo.
+        if (typeof _mergeManualConfigsIntoAll === 'function') _mergeManualConfigsIntoAll();
+
 setAltaDatetimeIfEmpty(true);
         
         void 0;
@@ -10591,8 +10736,16 @@ setAltaDatetimeIfEmpty(true);
         }
         
         if(filtered.length === 0) {
+            // [v17.9] Antes esto era un callejón sin salida: el operador veía "no hay
+            // configuraciones" sin saber que el catálogo se puede ampliar. La salida
+            // (dar de alta la configuración a mano) ahora está a un toque.
             resultDiv.className = 'config-result empty';
-            resultDiv.innerHTML = '<strong>⚠️ No hay configuraciones</strong> que coincidan con estos filtros';
+            resultDiv.innerHTML = '<strong>⚠️ No hay configuraciones</strong> que coincidan con estos filtros.<br>' +
+                '<span style="font-size: var(--fs-sm);">Si el vehículo existe pero no está en el catálogo (por ejemplo una variante HEV nueva), ' +
+                'puedes darlo de alta sin salir de aquí.</span><br>' +
+                '<button type="button" onclick="if(typeof openManualConfigForm===\'function\')openManualConfigForm();" ' +
+                'style="margin-top:6px;padding:6px 12px;font-size: var(--fs-sm);font-weight:700;background:var(--kia-red);color:#fff;border:none;border-radius:6px;cursor:pointer;">' +
+                '➕ Nueva configuración manual</button>';
             return;
         }
         
@@ -37023,7 +37176,7 @@ function fbUpdateIndicator() {
     el.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + color + ';margin-right:4px;' +
         (fbSync.status === 'syncing' || fbSync.status === 'connecting' ? 'animation:pulse 1s infinite;' : '') +
         '"></span>' + label +
-        (fbSync.stationId ? ' (' + fbSync.stationId + ')' : '') +
+        (fbSync.stationId ? ' <span class="topbar-sync-station">(' + fbSync.stationId + ')</span>' : '') +
         (fbSync.lastSync ? ' ' + fbSync.lastSync.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '') +
         (fbSync._liveSync ? ' <span style="color:#22d3ee;font-size: var(--fs-xs);font-weight:700;">● vivo</span>' : '') +
         (fbOfflineQueue.length > 0 ? ' <span style="background:#f59e0b;color:#000;padding:1px 5px;border-radius:8px;font-size: var(--fs-xs);font-weight:700;">' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</span>' : '');
@@ -38176,7 +38329,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608150040' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608210158' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

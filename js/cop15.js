@@ -103,6 +103,14 @@ function setupUnsavedTracking() {
             console.log('Regulación autorrellenada (EV/N-A) en ' + autoFilledRegs + ' configuración(es) sin dato');
         }
 
+        // [v17.9] Las configuraciones creadas a mano (Gestor de Configuraciones →
+        // "Nueva Configuración Manual", localStorage `kia_manual_configs`) SOLO se
+        // fusionaban dentro de _doSaveManualConfig, es decir en la sesión en la que
+        // se capturaban. Al recargar, parseCSV reconstruía allConfigurations desde el
+        // CSV y las borraba de la cascada: seguían listadas en el gestor pero ya no
+        // aparecían en los desplegables. La fusión pertenece aquí, junto al parseo.
+        if (typeof _mergeManualConfigsIntoAll === 'function') _mergeManualConfigsIntoAll();
+
 setAltaDatetimeIfEmpty(true);
         
         console.log(`Configuraciones cargadas: ${allConfigurations.length}${customCSV ? ' (CSV importado)' : ' (embebido)'}`);
@@ -186,8 +194,16 @@ setAltaDatetimeIfEmpty(true);
         }
         
         if(filtered.length === 0) {
+            // [v17.9] Antes esto era un callejón sin salida: el operador veía "no hay
+            // configuraciones" sin saber que el catálogo se puede ampliar. La salida
+            // (dar de alta la configuración a mano) ahora está a un toque.
             resultDiv.className = 'config-result empty';
-            resultDiv.innerHTML = '<strong>⚠️ No hay configuraciones</strong> que coincidan con estos filtros';
+            resultDiv.innerHTML = '<strong>⚠️ No hay configuraciones</strong> que coincidan con estos filtros.<br>' +
+                '<span style="font-size: var(--fs-sm);">Si el vehículo existe pero no está en el catálogo (por ejemplo una variante HEV nueva), ' +
+                'puedes darlo de alta sin salir de aquí.</span><br>' +
+                '<button type="button" onclick="if(typeof openManualConfigForm===\'function\')openManualConfigForm();" ' +
+                'style="margin-top:6px;padding:6px 12px;font-size: var(--fs-sm);font-weight:700;background:var(--kia-red);color:#fff;border:none;border-radius:6px;cursor:pointer;">' +
+                '➕ Nueva configuración manual</button>';
             return;
         }
         

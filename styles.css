@@ -1497,13 +1497,9 @@ body{ overflow-x: hidden; }
 /* [R3-M1] PWA — Online/offline indicator                              */
 /* ══════════════════════════════════════════════════════════════════════ */
 
-#online-status-badge { font-size: var(--fs-xs); cursor: default; }
-#pwa-install-btn {
-    padding: 4px 10px; font-size: var(--fs-xs); font-weight: 700;
-    background: #10b981; color: #fff; border: none; border-radius: 6px;
-    cursor: pointer;
-}
-#pwa-install-btn:hover { background: #059669; }
+/* v17.9: el indicador de conexión y el botón de instalar viven ahora en el menú "⋯"
+   y toman su forma de .tbm-online / .tbm-item--cta. Las reglas por #id que había aquí
+   ganaban por especificidad y dejaban la fila "Instalar app" más baja que las demás. */
 
 /* v16.6: pill de versión — antes casi invisible (10px, opacidad 0.4) y sin indicar que se
    puede tocar para ver el historial completo. Ahora es un chip con borde, siempre clickeable. */
@@ -3304,13 +3300,19 @@ details.acc > summary {
     padding: 4px 10px; cursor: pointer; line-height: 1;
 }
 
-/* v16.8: el grupo "⋯ Más" se colapsa hasta 1400px, no solo en móvil.
+/* v16.8: el grupo "⋯ Más" se colapsa hasta 1600px (v17.9: era 1400px), no solo en móvil.
    Antes el corte estaba en 768px, así que entre 769px y ~1400px la barra
    (5 pestañas + sync + operador + 🔔 🕘 + TODO el grupo expandido + el pill de
    versión) no cabía y provocaba scroll horizontal DE PÁGINA — medido: 536px de
    desbordamiento a 820px, que es justo un iPad en vertical, y el laboratorio
-   trabaja con tablets. En una pantalla ancha (≥1401px) no cambia nada. */
-@media (max-width: 1400px) {
+   trabaja con tablets. En una pantalla ancha (≥1601px) no cambia nada.
+
+   [v17.9] 1400px seguía siendo muy poco: medida real de la barra expandida
+   (5 pestañas 795px + sync + operador + 🔔 🕘 + los 5 controles del grupo + el
+   pill de versión) = ~1900px. Entre 1401px y ~1900px los controles se
+   encimaban unos sobre otros. El corte sube a 1600px y de 1601px en adelante
+   lo único que cede ancho es el texto del indicador de sync (elipsis). */
+@media (max-width: 1600px) {
     #topbar-more-btn { display: flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: center; }
     /* El grupo se vuelve un dropdown anclado a la barra */
     .topbar-more-group {
@@ -3348,6 +3350,110 @@ details.acc > summary {
 @media (max-width: 1024px) {
     .platform-bar .platform-tab { display: none; }
     #fb-sync-indicator { margin-left: 0; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* [v17.9] TOPBAR — ritmo horizontal y menú "⋯" legible                   */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* La franja derecha del topbar tenía TODO su estilo en atributos `style`:
+   wrappers <div> con padding propio, `margin-left:auto` en línea (que la
+   media query de tablet no podía anular, por eso la barra terminaba
+   envolviendo a una segunda fila casi vacía) y botones sin ninguna regla
+   compartida. Aquí vive ahora, con una sola escala de espaciado. */
+.platform-bar { gap: 2px; }
+.platform-bar > * { flex-shrink: 0; }
+
+.topbar-sync {
+    margin-left: auto;               /* empuja la franja derecha al extremo */
+    display: block;
+    flex-shrink: 1; min-width: 0;    /* el ÚNICO que cede ancho, recortando con elipsis */
+    font-size: var(--fs-xs); line-height: 1.25;
+    color: var(--muted); cursor: pointer; padding: 6px 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.topbar-op { display: flex; align-items: center; min-width: 0; align-self: center; }
+.topbar-op button { max-width: 170px; }
+
+.topbar-icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    align-self: center;
+    background: none; border: none; border-radius: 8px;
+    color: rgba(255,255,255,0.62); font-size: 16px; line-height: 1;
+    padding: 6px 8px; cursor: pointer; font-family: inherit;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.topbar-icon-btn:hover { background: rgba(255,255,255,0.10); color: #fff; }
+.topbar-icon-btn--badged { position: relative; }
+.topbar-badge {
+    position: absolute; top: 2px; right: 2px;
+    min-width: 15px; height: 15px; padding: 0 3px;
+    border-radius: 8px; background: var(--danger-fill); color: #fff;
+    font-size: var(--fs-xs); font-weight: 700; line-height: 15px; text-align: center;
+}
+
+/* Ítems del menú "⋯". En escritorio (.topbar-more-group es `display:contents`)
+   se ven como iconos sueltos de la barra; dentro del desplegable se vuelven
+   filas de alto uniforme con etiqueta — ver el bloque ≤1400px. */
+.tbm-item {
+    display: flex; align-items: center; gap: 8px; align-self: center;
+    background: none; border: 1px solid transparent; border-radius: 8px;
+    color: rgba(255,255,255,0.72); font-family: inherit;
+    font-size: var(--fs-sm); font-weight: 600; line-height: 1;
+    padding: 7px 9px; cursor: pointer; white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.tbm-item:hover { background: rgba(255,255,255,0.10); color: #fff; }
+.tbm-ico { font-size: 15px; line-height: 1; width: 18px; text-align: center; flex: 0 0 18px; }
+.tbm-hint {
+    margin-left: auto; padding-left: 12px;
+    font-size: var(--fs-xs); font-weight: 700;
+    color: rgba(255,255,255,0.38); letter-spacing: 0.03em;
+}
+.tbm-item--cta { background: var(--ok-fill); color: #fff; }
+.tbm-item--cta:hover { background: #059669; color: #fff; }
+.tbm-foot { display: flex; align-items: center; gap: 8px; align-self: center; }
+.tbm-online { font-size: 13px; line-height: 1; cursor: default; }
+
+/* Escritorio (≥1601px): solo icono, salvo los dos ítems que ya llevaban texto. */
+.tbm-item .tbm-label, .tbm-item .tbm-hint { display: none; }
+.tbm-item--wide { border-color: rgba(255,255,255,0.15); }
+.tbm-item--wide .tbm-label { display: inline; }
+
+@media (max-width: 1600px) {
+    /* Desplegable: filas de menú de verdad — mismo alto, misma sangría,
+       texto siempre visible. Antes cada ítem era un wrapper estirado con
+       el botón suelto adentro, así que se veían cajas altas medio vacías
+       y el icono ⛶ o el 🔍 flotando en el aire. */
+    .topbar-more-group { min-width: 224px; gap: 1px; padding: 6px; }
+    .tbm-item {
+        width: 100%; justify-content: flex-start;
+        min-height: 42px; padding: 0 10px; border-color: transparent;
+    }
+    .tbm-item .tbm-label, .tbm-item .tbm-hint { display: inline; }
+    .tbm-foot {
+        justify-content: space-between;
+        margin-top: 5px; padding: 8px 6px 2px;
+        border-top: 1px solid rgba(255,255,255,0.10);
+    }
+    .tbm-foot .app-version-pill { font-size: var(--fs-xs); padding: 5px 10px; }
+}
+
+@media (max-width: 1024px) {
+    /* Sin las 5 pestañas, todo lo que queda cabe en UNA fila: nada de
+       `flex-wrap`, que era lo que abría la segunda fila vacía del header. */
+    .platform-bar { flex-wrap: nowrap; align-items: center; padding: 4px 6px; }
+    .topbar-sync { margin-left: 0; flex: 1 1 auto; }
+    .topbar-op { flex: 0 0 auto; }   /* el nombre del operador no cede: cede el sync */
+}
+
+@media (max-width: 600px) {
+    /* Teléfono: el `stationId` del indicador de sync es siempre el mismo
+       (KIA-EMLAB) y se comía el ancho que necesitaban la hora y el "● vivo",
+       que sí cambian. Se oculta aquí; sigue visible en el panel de ajustes. */
+    .topbar-sync-station { display: none; }
+    .topbar-op button { max-width: 150px; }
+    .topbar-icon-btn { padding: 6px 4px; }
 }
 
 /* ===== CoP · Control SPC (v15.7) ===== */

@@ -29,8 +29,13 @@ no-login operator picker, synced change history).
 Legacy platform names (`cop15`, `testplan`, `inventory`, `panel`) are aliased in
 `switchPlatform()`. Topbar (`index.html`) also has: **👤 operator picker** (`#op-picker`, no password),
 **🕘 change history** (deep-links to Panel → Auditoría), Firebase sync indicator, notificaciones y un
-menú **⋯** que colapsa los controles secundarios en móvil (<768px; en móvil las 5 tabs se ocultan —
-la bottom-nav navega). **v15.5**: tema claro único (el dark mode se eliminó por completo).
+menú **⋯** que colapsa los controles secundarios (**v17.9**: ≤1600px, no ≤768px — la barra
+expandida mide ~1900px reales; ≤1024px las 5 tabs se ocultan y navega la bottom-nav). Todo el estilo
+de la franja derecha vive en `styles.css` (`.topbar-sync`, `.topbar-op`, `.topbar-icon-btn`,
+`.tbm-*`), **no en atributos `style`** — el `margin-left:auto` en línea del indicador de sync era
+inanulable desde las media queries y hacía que el header envolviera a una segunda fila vacía. En la
+barra solo `.topbar-sync` puede encogerse (`.platform-bar > * { flex-shrink: 0 }`).
+**v15.5**: tema claro único (el dark mode se eliminó por completo).
 **v15.6**: `results.js` (Results Analyzer) y `approvals.js` (Power Automate) se **eliminaron
 definitivamente** (estaban fuera del build desde mayo 2026; el flujo PA/VETS fue reemplazado por la
 aprobación doble-ciego interna de la pestaña Liberación). **v15.6 también reactivó la seguridad**:
@@ -468,7 +473,11 @@ puntos de registro se quedaron en `panel.js` (`_pnTabs`, `_pnGetRenderer` —aho
   Las **Security Rules** (`firestore.rules`) son la protección real de los datos; el PIN es atribución
   fuerte. Ver README → "Seguridad — setup una sola vez". WebAuthn queda como acceso rápido opcional.
 - **CDN deps**: signature_pad, jsPDF, Chart.js 4.4.7 (+zoom), JsBarcode, html5-qrcode, Firebase SDK.
-- `CSV_CONFIGURATIONS` in `app.js` holds the embedded vehicle configuration catalog. **v16.1**:
+- `CSV_CONFIGURATIONS` in `app.js` holds the embedded vehicle configuration catalog. Las
+  configuraciones dadas de alta a mano (`kia_manual_configs`, Gestor de Configuraciones) se
+  fusionan al final de **`parseCSV()`** vía `_mergeManualConfigsIntoAll()` — **v17.9**: antes solo
+  se fusionaban al guardarlas, así que desaparecían de la cascada en la siguiente recarga.
+  Cualquier código nuevo que reconstruya `allConfigurations` debe volver a llamarla. **v16.1**:
   regulaciones sin perfil son SELECCIONABLES en la cascada (⚡ EVs `220V`/`120V`/`EV` vía
   `_isEVRegulation`, ⚠ resto); celda de regulación vacía se autorrellena (`_normalizeRegulation`
   en cop15.js, reutilizada por `tpImportPlanCSV`): motor en KW → `EV`, si no → `N/A`.

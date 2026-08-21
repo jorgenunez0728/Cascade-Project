@@ -69,20 +69,35 @@
     <button type="button" class="platform-tab" onclick="switchPlatform('cop')" id="ptab-cop" role="tab" aria-selected="false" tabindex="-1" aria-controls="platform-cop" title="CoP Type 1: Validador estadístico de Conformidad de Producción">
         📋 CoP
     </button>
-    <div id="fb-sync-indicator" onclick="fbShowSettings()" style="font-size: var(--fs-xs);color:var(--muted);cursor:pointer;padding:6px 10px;white-space:nowrap;display:flex;align-items:center;margin-left:auto;"></div>
-    <div id="op-picker" style="align-self:center;display:flex;align-items:center;padding:0 4px;" title="Operador actual"></div>
-    <div style="padding:4px 4px;align-self:center;position:relative;"><button class="topbar-icon-btn" onclick="toggleNotificationCenter()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;position:relative;" title="Centro de notificaciones" aria-label="Centro de notificaciones">🔔<span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:14px;height:14px;border-radius:7px;background:var(--danger-fill);color:#fff;font-size: var(--fs-xs);font-weight:700;text-align:center;line-height:14px;">0</span></button></div>
-    <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-audit');" style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;color:rgba(255,255,255,0.5);" title="Historial de cambios" aria-label="Historial de cambios">🕘</button></div>
+    <!-- [v17.9] Controles del topbar: estructura semántica (clases, no estilos en línea).
+         La franja derecha se mantiene en UNA sola fila en tablet/móvil (ver .platform-bar
+         en styles.css) — antes envolvía a una segunda fila casi vacía. -->
+    <div id="fb-sync-indicator" class="topbar-sync" onclick="fbShowSettings()" title="Estado de sincronización"></div>
+    <div id="op-picker" class="topbar-op" title="Operador actual"></div>
+    <button class="topbar-icon-btn topbar-icon-btn--badged" onclick="toggleNotificationCenter()" title="Centro de notificaciones" aria-label="Centro de notificaciones">🔔<span id="notif-badge" class="topbar-badge" hidden>0</span></button>
+    <button class="topbar-icon-btn" onclick="switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-audit');" title="Historial de cambios" aria-label="Historial de cambios">🕘</button>
     <button id="topbar-more-btn" class="topbar-icon-btn" onclick="topbarMoreToggle()" title="Más opciones" aria-label="Más opciones" aria-haspopup="true" aria-expanded="false">⋯</button>
-    <div class="topbar-more-group" id="topbar-more-group">
-        <button class="topbar-icon-btn" onclick="if(typeof fbPullAll==='function')fbPullAll(true);" style="align-self:center;padding:4px 10px;font-size:12px;font-weight:700;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.7);" title="Descargar los datos más recientes del laboratorio" aria-label="Actualizar datos">🔄 Actualizar datos</button>
-        <span id="online-status-badge" style="align-self:center;padding:0 4px;" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
-        <button id="pwa-install-btn" onclick="pwaInstall()" style="display:none;align-self:center;padding:4px 10px;font-size: var(--fs-xs);font-weight:700;background:var(--ok-fill);color:#fff;border:none;border-radius:6px;cursor:pointer;" title="Instalar como app nativa">Instalar</button>
-        <button id="immersive-toggle-btn" class="topbar-icon-btn" onclick="immersiveToggle()" style="align-self:center;padding:4px 8px;font-size:16px;background:none;border:1px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;color:rgba(255,255,255,0.5);line-height:1;" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">⛶</button>
-        <div style="padding:4px 8px;align-self:center;"><button class="btn-secondary topbar-icon-btn" onclick="toggleGlobalSearch()" style="padding:4px 10px;font-size:14px;min-height:30px;border-radius:6px;" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">🔍</button></div>
-        <div style="padding:4px 4px;align-self:center;"><button class="topbar-icon-btn" onclick="helpMenuOpen()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px 6px;color:rgba(255,255,255,0.5);font-weight:800;" title="Ayuda: recorridos guiados y glosario" aria-label="Menú de ayuda">?</button></div>
-        <div id="app-version-info" class="app-version-pill" style="align-self:center;" title="Versión de la app">
-            <strong>KIA EmLab v16.8</strong>
+    <div class="topbar-more-group" id="topbar-more-group" role="menu" aria-label="Más opciones">
+        <button class="tbm-item tbm-item--wide" role="menuitem" onclick="if(typeof fbPullAll==='function')fbPullAll(true);" title="Descargar los datos más recientes del laboratorio">
+            <span class="tbm-ico" aria-hidden="true">🔄</span><span class="tbm-label">Actualizar datos</span>
+        </button>
+        <button class="tbm-item" role="menuitem" onclick="toggleGlobalSearch()" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">
+            <span class="tbm-ico" aria-hidden="true">🔍</span><span class="tbm-label">Buscar VIN</span><span class="tbm-hint" aria-hidden="true">Ctrl+K</span>
+        </button>
+        <button id="immersive-toggle-btn" class="tbm-item" role="menuitem" onclick="immersiveToggle()" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">
+            <span class="tbm-ico" aria-hidden="true">⛶</span><span class="tbm-label">Pantalla completa</span>
+        </button>
+        <button class="tbm-item" role="menuitem" onclick="helpMenuOpen()" title="Ayuda: recorridos guiados y glosario" aria-label="Menú de ayuda">
+            <span class="tbm-ico" aria-hidden="true">❔</span><span class="tbm-label">Ayuda y glosario</span>
+        </button>
+        <button id="pwa-install-btn" class="tbm-item tbm-item--cta tbm-item--wide" role="menuitem" onclick="pwaInstall()" style="display:none;" title="Instalar como app nativa">
+            <span class="tbm-ico" aria-hidden="true">⬇️</span><span class="tbm-label">Instalar app</span>
+        </button>
+        <div class="tbm-foot">
+            <span id="online-status-badge" class="tbm-online" title="Estado de conexión" role="status" aria-label="Estado de conexión">🟢</span>
+            <div id="app-version-info" class="app-version-pill" title="Versión de la app">
+                <strong>KIA EmLab</strong>
+            </div>
         </div>
     </div>
 </div>
