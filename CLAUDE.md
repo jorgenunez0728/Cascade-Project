@@ -481,6 +481,14 @@ puntos de registro se quedaron en `panel.js` (`_pnTabs`, `_pnGetRenderer` —aho
   regulaciones sin perfil son SELECCIONABLES en la cascada (⚡ EVs `220V`/`120V`/`EV` vía
   `_isEVRegulation`, ⚠ resto); celda de regulación vacía se autorrellena (`_normalizeRegulation`
   en cop15.js, reutilizada por `tpImportPlanCSV`): motor en KW → `EV`, si no → `N/A`.
+- **Regulación de un vehículo (v17.10)**: `_libGetVehicleRegulation(vehicle)` (cop15.js) es **LA
+  definición** de contra qué norma se comparan sus gases — antepone `vehicle.regulationOverride`
+  (elegida a mano por el liberador: `{name, original, by, at}`, solo modificable en
+  `ready-release`) al `config['EMISSION REGULATION']` del alta. Nunca leer el campo del config
+  directo para validar/imprimir resultados (el PDF lo hacía y podía citar otra norma); sí se sigue
+  usando el dato del alta para **identidad**: `copVehicleFamilyKey`, `tpFamilyKeyForCfg`. El alta
+  manual (`_altaManualConfig()`, única definición de esa config) ofrece la regulación como
+  selector de perfiles + "Otra" + "Definir al liberar", y un campo opcional de Transmisión.
 - **Soak Timer** persists via `kia_soak_timer` + Notification API. **Command Palette** `Ctrl+K`.
   **Undo** `Ctrl+Z` (max 10 snapshots). **PWA** installable.
 

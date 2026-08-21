@@ -2,6 +2,56 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.10 — Liberación: elegir contra qué regulación se comparan los gases (2026-08-21)
+
+### El problema
+Un vehículo dado de alta en **modo manual** con "6DCT" (una transmisión) en el campo *Regulación*
+llegaba a la Liberación y se topaba con un callejón sin salida: *"⚠️ La regulación 6DCT no tiene
+perfil de gases configurado"* y un solo botón, "⚗️ Configurar regulaciones", que saca al técnico
+del flujo. `ENVIAR A APROBACIÓN` quedaba deshabilitado sin manera de avanzar desde esa pantalla.
+Pasa lo mismo con cualquier valor que no sea una norma con límites: `N/A`, el voltaje de un EV
+(`220V`), o simplemente una regulación real cuyo perfil todavía no se ha creado.
+
+### La corrección
+**1. El liberador elige contra qué comparar.** El aviso ámbar ahora trae el selector de
+regulaciones configuradas y un botón *"Comparar contra esta"*. Al elegir una, la tabla de gases se
+arma con sus límites y la liberación sigue su curso normal.
+
+**2. También cuando ya hay perfil.** Arriba de la tabla de gases aparece la franja
+`⚖️ Comparando contra <norma>` con un botón **Cambiar** — corregir un alta equivocada ya no
+obliga a repetir la prueba ni a re-registrar el vehículo.
+
+**3. Queda registrado, no escondido.** La elección se guarda en `vehicle.regulationOverride`
+(`{name, original, by, at}`), se anota en la línea de tiempo del vehículo y en la auditoría
+(`regulacion_comparacion`, con la regulación del alta al lado), y se muestra en la pantalla del
+**aprobador** — que necesita saber que está verificando contra una norma elegida a mano y no
+contra la del alta. Solo puede cambiarse mientras el vehículo está en `ready-release`: una vez
+enviado a aprobación, el liberador ya firmó valores contra un perfil concreto y moverlo
+invalidaría la doble verificación ciega.
+
+**4. `_libGetVehicleRegulation()` es LA definición** de contra qué regulación se compara un
+vehículo (ahora antepone la elección manual al dato del alta). El **PDF COP15-F05** re-derivaba la
+regulación por su cuenta leyendo `config['EMISSION REGULATION']`: podía citar una norma distinta
+de la que se usó para validar en pantalla. Ahora llama al helper, y el encabezado de la sección
+imprime *"Resultados de Emisiones — EURO-5"* en vez de solo el título genérico. Las llaves de
+familia (`copVehicleFamilyKey`, `tpFamilyKeyForCfg`) siguen usando el dato del catálogo a
+propósito: son identidad del vehículo, no base de comparación.
+
+### El hueco de origen: el alta manual
+El campo *Regulación Manual* era un `<input type="text">` libre, y el modo manual no tenía dónde
+capturar la transmisión — de ahí que "6DCT" acabara guardado como norma de emisiones. Ahora:
+
+- **Regulación** es un `<select>` con los perfiles configurados, más *"Otra (escribir)…"* (texto
+  libre, para normas sin perfil todavía) y **"Definir al liberar"** como opción por defecto, que
+  deja la decisión explícitamente para la pantalla de Liberación.
+- Se agregó **Transmisión Manual** (opcional) → `config['TRANSMISSION']`.
+- El resumen de confirmación muestra la transmisión y marca *"(se elegirá al liberar)"* cuando la
+  regulación queda pendiente.
+- `_altaManualConfig()` es ahora la única definición de la configuración capturada a mano (la
+  construían por separado `confirmAlta` y `saveNewVehicle`, con riesgo de divergir).
+- Ayuda contextual nueva (`CASCADE_TOOLTIPS`) en los cuatro campos del alta manual, con la
+  advertencia explícita de que la transmisión **no** es la regulación.
+
 ## v17.9 — Topbar en una sola fila + menú "⋯" legible + configuraciones manuales que sobreviven (2026-08-21)
 
 ### Topbar: se acabó la segunda fila vacía

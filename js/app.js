@@ -190,11 +190,17 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.9';
+var APP_VERSION = '17.10';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.10', date: '21 ago 2026', title: 'Liberación: elegir contra qué regulación se comparan los gases', bullets: [
+        'Un vehículo cuya "regulación" no es una norma con límites (típico del alta manual, donde el campo era texto libre y terminaba con la transmisión "6DCT", "N/A" o el voltaje de un EV) dejaba la Liberación bloqueada: el único camino era irse a Datos → Regulaciones y volver. Ahora el liberador elige ahí mismo contra qué regulación comparar, y el botón de enviar a aprobación se desbloquea.',
+        'La elección se guarda en el vehículo, aparece en su línea de tiempo, en la auditoría, en la pantalla del aprobador (que está verificando contra esa norma, no contra la del alta) y en el PDF COP15-F05, que antes releía el dato del alta y podía citar una norma distinta a la usada para validar.',
+        'Cuando sí hay perfil, la tabla de gases ahora dice contra qué regulación está comparando, con un botón "Cambiar" — corregir un alta equivocada ya no obliga a repetir la prueba.',
+        'Alta manual: "Regulación" pasó de texto libre a un selector de las regulaciones configuradas (con "Otra (escribir)" y "Definir al liberar"), y se agregó un campo opcional de Transmisión — el hueco que hacía que la transmisión acabara capturada como si fuera la norma de emisiones.'
+    ]},
     { version: '17.9', date: '21 ago 2026', title: 'Topbar en una sola fila + menú "⋯" legible + configs manuales que sobreviven', bullets: [
         'La barra superior ya no envuelve a una segunda fila casi vacía en tablet/teléfono: sin las 5 pestañas (ocultas desde v16.8) no queda nada que envolver. El indicador de sincronización recorta su texto con elipsis en vez de forzar el salto de línea.',
         'El menú "⋯" pasó de cajas altas medio vacías (botones y wrappers mezclados, estirados) a filas de menú uniformes con icono + etiqueta, y el estado de conexión junto al pill de versión en un pie propio. En escritorio la barra ancha se ve igual que antes.',
