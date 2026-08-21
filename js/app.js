@@ -190,11 +190,17 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.11';
+var APP_VERSION = '17.12';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.12', date: '21 ago 2026', title: 'Bug grave: dos vehículos podían compartir el mismo identificador', bullets: [
+        'Elegir un vehículo en Operación cargaba OTRO (el selector mostraba uno y la ficha seguía con el anterior). Causa: el id se generaba con un contador local (++db.lastId) y la sincronización fusiona vehículos por VIN conservando el id del equipo que los creó, sin adelantar ese contador — dos dispositivos emitían el mismo id sin enterarse.',
+        'El mismo id repetido tenía dos consecuencias peores y silenciosas: el borrador de captura se guardaba en una clave por id, así que dos vehículos compartían borrador; y "Eliminar vehículo" filtraba por id, así que borraba LOS DOS de un golpe.',
+        'Los ids nuevos ya no pueden repetirse entre dispositivos, y al arrancar (y tras cada sincronización) la plataforma detecta y repara los duplicados que ya existan, dejando constancia en Datos → Auditoría. El temporizador de soak y el "último vehículo activo" se reapuntan solos porque guardan el VIN.',
+        'Además, si el vehículo seleccionado ya no existe, Operación y Liberación limpian la pantalla y avisan en vez de dejar cargado el anterior; y "Guardar avance" ya no se queda girando fingiendo que guardó.'
+    ]},
     { version: '17.11', date: '21 ago 2026', title: '"Ad-hoc" pasa a llamarse "Fuera de Plan" + filtros de Historial', bullets: [
         'El término "ad-hoc" desaparece de la interfaz: la casilla del Alta, el distintivo del Historial y el de la Cola ahora dicen "Fuera de Plan", que es lo que la marca significa (trabajo que no acredita el plan semanal).',
         'Historial: filtro nuevo por Propósito (COP-Emisiones, ND-Emisiones, Correlación…), con las opciones tomadas de los registros que existen de verdad.',
@@ -925,6 +931,98 @@ function saveActiveVehicleContext(vehicleId, extraCtx) {
 
 // ── [Fase 2.2] Debounced save wrapper for focusout/auto-save scenarios ──
 var _debouncedSaveDB = debounce(function() { saveDB(); }, 500);
+
+// ══════════════════════════════════════════════════════════════════════
+// [v17.12] IDENTIDAD DE VEHÍCULO — ids únicos ENTRE DISPOSITIVOS
+//
+// `++db.lastId` era un contador puramente local. La sincronización fusiona
+// vehículos POR VIN y conserva el id del dispositivo que los creó, pero nunca
+// adelantaba `db.lastId`: la tablet que recibía los vehículos 1..10 de otro
+// equipo seguía con su `lastId` en 3 y el siguiente alta nacía con el id 4, ya
+// ocupado. A partir de ahí, TODA búsqueda `db.vehicles.find(v => v.id == id)`
+// devolvía el primero de los dos: elegir un vehículo en Operación cargaba otro,
+// el borrador de captura se compartía entre ambos y `deleteVehicleCascade`
+// (`filter(x => x.id != id)`) borraba los dos de un golpe.
+//
+// nextVehicleId() emite un id irrepetible (marca de tiempo + azar, verificado
+// contra los ya usados) y dedupeVehicleIds() repara los duplicados que ya
+// existan, al arrancar y después de cada fusión con la nube.
+// ══════════════════════════════════════════════════════════════════════
+
+function nextVehicleId() {
+    var used = {};
+    ((db && db.vehicles) || []).forEach(function(v) { if (v) used[String(v.id)] = true; });
+    var id;
+    // Date.now()*1000 ≈ 1.8e15, muy por debajo de Number.MAX_SAFE_INTEGER (9e15)
+    for (var i = 0; i < 100; i++) {
+        id = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+        if (!used[String(id)]) break;
+    }
+    if (db) db.lastId = id; // se mantiene por compatibilidad: "último id emitido"
+    return id;
+}
+
+// Reapunta las referencias por id que SÍ se pueden resolver sin ambigüedad
+// (las que guardan también el VIN). Las demás se descartan a propósito.
+function _vehicleIdRepairRefs(vin, oldId, newId) {
+    try {
+        var soak = JSON.parse(localStorage.getItem('kia_soak_timer') || 'null');
+        if (soak && soak.vehicleId == oldId && soak.vin && soak.vin === vin) {
+            soak.vehicleId = newId;
+            localStorage.setItem('kia_soak_timer', JSON.stringify(soak));
+        }
+    } catch(e) {}
+    try {
+        var ctx = JSON.parse(localStorage.getItem('kia_active_vehicle') || 'null');
+        if (ctx && ctx.vehicleId == oldId) {
+            if (ctx.vin && ctx.vin === vin) {
+                ctx.vehicleId = newId;
+                localStorage.setItem('kia_active_vehicle', JSON.stringify(ctx));
+            } else {
+                localStorage.removeItem('kia_active_vehicle');
+            }
+        }
+    } catch(e) {}
+    // El borrador de captura vivía en `kia_cop15_draft_<id>`: con el id duplicado lo
+    // compartían DOS vehículos distintos, así que su contenido es ambiguo y
+    // restaurarlo podría pegar los datos de uno en el otro. Se descarta.
+    try { localStorage.removeItem('kia_cop15_draft_' + oldId); } catch(e) {}
+}
+
+/**
+ * Reasigna un id nuevo a cada vehículo cuyo id esté repetido (o vacío), conservando
+ * el id del primero que aparece. Devuelve cuántos reparó. Idempotente y barata:
+ * una pasada sobre db.vehicles; si no hay duplicados no escribe nada.
+ */
+function dedupeVehicleIds() {
+    if (!db || !Array.isArray(db.vehicles)) return 0;
+    var seen = {};
+    var repaired = [];
+    db.vehicles.forEach(function(v) {
+        if (!v) return;
+        var key = String(v.id);
+        if (v.id === undefined || v.id === null || v.id === '' || seen[key]) {
+            var oldId = v.id;
+            v.id = nextVehicleId();
+            seen[String(v.id)] = true;
+            repaired.push({ vin: v.vin || '', oldId: oldId, newId: v.id });
+        } else {
+            seen[key] = true;
+        }
+    });
+    if (repaired.length === 0) return 0;
+    repaired.forEach(function(r) { _vehicleIdRepairRefs(r.vin, r.oldId, r.newId); });
+    saveDB();
+    try {
+        if (typeof auditLog === 'function') {
+            auditLog('cop15', 'id_duplicado_reparado', { type: 'system', id: 'vehicles', label: 'Identidad de vehículos' },
+                repaired.length + ' vehículo(s) con id repetido recibieron uno nuevo: ' +
+                repaired.map(function(r) { return (r.vin || '?') + ' (' + r.oldId + '→' + r.newId + ')'; }).join(', '));
+        }
+    } catch(e) {}
+    console.warn('dedupeVehicleIds: ' + repaired.length + ' id(s) de vehículo duplicados reparados', repaired);
+    return repaired.length;
+}
 // ══════════════════════════════════════════════════
 // AUDIT TRAIL — Centralized mutation logging
 // [v15.5] Trail en memoria + persistencia debounced: antes cada evento hacía
@@ -3348,6 +3446,14 @@ document.addEventListener('keydown', function (e) {
         // Initialize visual cascade tree
         try { if (typeof initCascadeTree === 'function') initCascadeTree(); } catch(e) { console.error('initCascadeTree error:', e); }
 
+        // Antes de poblar cualquier selector: los <option> llevan el id como valor, así
+        // que un id repetido haría que elegir un vehículo cargara otro.
+        try {
+            var _dupIds = dedupeVehicleIds();
+            if (_dupIds > 0 && typeof showToast === 'function') {
+                showToast('Se repararon ' + _dupIds + ' vehículo(s) con identificador repetido (ver Datos → Auditoría).', 'warning');
+            }
+        } catch(e) { console.error('dedupeVehicleIds error:', e); }
         try { updateProgressBar(); } catch(e) { console.error('updateProgressBar error:', e); }
         try { refreshAllLists(); } catch(e) { console.error('refreshAllLists error:', e); }
 

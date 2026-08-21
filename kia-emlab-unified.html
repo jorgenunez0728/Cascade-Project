@@ -5810,15 +5810,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608211916';
+var APP_BUILD = '202608211926';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.11';
+var APP_VERSION = '17.12';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.12', date: '21 ago 2026', title: 'Bug grave: dos vehículos podían compartir el mismo identificador', bullets: [
+        'Elegir un vehículo en Operación cargaba OTRO (el selector mostraba uno y la ficha seguía con el anterior). Causa: el id se generaba con un contador local (++db.lastId) y la sincronización fusiona vehículos por VIN conservando el id del equipo que los creó, sin adelantar ese contador — dos dispositivos emitían el mismo id sin enterarse.',
+        'El mismo id repetido tenía dos consecuencias peores y silenciosas: el borrador de captura se guardaba en una clave por id, así que dos vehículos compartían borrador; y "Eliminar vehículo" filtraba por id, así que borraba LOS DOS de un golpe.',
+        'Los ids nuevos ya no pueden repetirse entre dispositivos, y al arrancar (y tras cada sincronización) la plataforma detecta y repara los duplicados que ya existan, dejando constancia en Datos → Auditoría. El temporizador de soak y el "último vehículo activo" se reapuntan solos porque guardan el VIN.',
+        'Además, si el vehículo seleccionado ya no existe, Operación y Liberación limpian la pantalla y avisan en vez de dejar cargado el anterior; y "Guardar avance" ya no se queda girando fingiendo que guardó.'
+    ]},
     { version: '17.11', date: '21 ago 2026', title: '"Ad-hoc" pasa a llamarse "Fuera de Plan" + filtros de Historial', bullets: [
         'El término "ad-hoc" desaparece de la interfaz: la casilla del Alta, el distintivo del Historial y el de la Cola ahora dicen "Fuera de Plan", que es lo que la marca significa (trabajo que no acredita el plan semanal).',
         'Historial: filtro nuevo por Propósito (COP-Emisiones, ND-Emisiones, Correlación…), con las opciones tomadas de los registros que existen de verdad.',
@@ -5977,14 +5983,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608211916' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608211926' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608211916' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608211926' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -6000,7 +6006,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608211916' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608211926' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -6549,6 +6555,98 @@ function saveActiveVehicleContext(vehicleId, extraCtx) {
 
 // ── [Fase 2.2] Debounced save wrapper for focusout/auto-save scenarios ──
 var _debouncedSaveDB = debounce(function() { saveDB(); }, 500);
+
+// ══════════════════════════════════════════════════════════════════════
+// [v17.12] IDENTIDAD DE VEHÍCULO — ids únicos ENTRE DISPOSITIVOS
+//
+// `++db.lastId` era un contador puramente local. La sincronización fusiona
+// vehículos POR VIN y conserva el id del dispositivo que los creó, pero nunca
+// adelantaba `db.lastId`: la tablet que recibía los vehículos 1..10 de otro
+// equipo seguía con su `lastId` en 3 y el siguiente alta nacía con el id 4, ya
+// ocupado. A partir de ahí, TODA búsqueda `db.vehicles.find(v => v.id == id)`
+// devolvía el primero de los dos: elegir un vehículo en Operación cargaba otro,
+// el borrador de captura se compartía entre ambos y `deleteVehicleCascade`
+// (`filter(x => x.id != id)`) borraba los dos de un golpe.
+//
+// nextVehicleId() emite un id irrepetible (marca de tiempo + azar, verificado
+// contra los ya usados) y dedupeVehicleIds() repara los duplicados que ya
+// existan, al arrancar y después de cada fusión con la nube.
+// ══════════════════════════════════════════════════════════════════════
+
+function nextVehicleId() {
+    var used = {};
+    ((db && db.vehicles) || []).forEach(function(v) { if (v) used[String(v.id)] = true; });
+    var id;
+    // Date.now()*1000 ≈ 1.8e15, muy por debajo de Number.MAX_SAFE_INTEGER (9e15)
+    for (var i = 0; i < 100; i++) {
+        id = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+        if (!used[String(id)]) break;
+    }
+    if (db) db.lastId = id; // se mantiene por compatibilidad: "último id emitido"
+    return id;
+}
+
+// Reapunta las referencias por id que SÍ se pueden resolver sin ambigüedad
+// (las que guardan también el VIN). Las demás se descartan a propósito.
+function _vehicleIdRepairRefs(vin, oldId, newId) {
+    try {
+        var soak = JSON.parse(localStorage.getItem('kia_soak_timer') || 'null');
+        if (soak && soak.vehicleId == oldId && soak.vin && soak.vin === vin) {
+            soak.vehicleId = newId;
+            localStorage.setItem('kia_soak_timer', JSON.stringify(soak));
+        }
+    } catch(e) {}
+    try {
+        var ctx = JSON.parse(localStorage.getItem('kia_active_vehicle') || 'null');
+        if (ctx && ctx.vehicleId == oldId) {
+            if (ctx.vin && ctx.vin === vin) {
+                ctx.vehicleId = newId;
+                localStorage.setItem('kia_active_vehicle', JSON.stringify(ctx));
+            } else {
+                localStorage.removeItem('kia_active_vehicle');
+            }
+        }
+    } catch(e) {}
+    // El borrador de captura vivía en `kia_cop15_draft_<id>`: con el id duplicado lo
+    // compartían DOS vehículos distintos, así que su contenido es ambiguo y
+    // restaurarlo podría pegar los datos de uno en el otro. Se descarta.
+    try { localStorage.removeItem('kia_cop15_draft_' + oldId); } catch(e) {}
+}
+
+/**
+ * Reasigna un id nuevo a cada vehículo cuyo id esté repetido (o vacío), conservando
+ * el id del primero que aparece. Devuelve cuántos reparó. Idempotente y barata:
+ * una pasada sobre db.vehicles; si no hay duplicados no escribe nada.
+ */
+function dedupeVehicleIds() {
+    if (!db || !Array.isArray(db.vehicles)) return 0;
+    var seen = {};
+    var repaired = [];
+    db.vehicles.forEach(function(v) {
+        if (!v) return;
+        var key = String(v.id);
+        if (v.id === undefined || v.id === null || v.id === '' || seen[key]) {
+            var oldId = v.id;
+            v.id = nextVehicleId();
+            seen[String(v.id)] = true;
+            repaired.push({ vin: v.vin || '', oldId: oldId, newId: v.id });
+        } else {
+            seen[key] = true;
+        }
+    });
+    if (repaired.length === 0) return 0;
+    repaired.forEach(function(r) { _vehicleIdRepairRefs(r.vin, r.oldId, r.newId); });
+    saveDB();
+    try {
+        if (typeof auditLog === 'function') {
+            auditLog('cop15', 'id_duplicado_reparado', { type: 'system', id: 'vehicles', label: 'Identidad de vehículos' },
+                repaired.length + ' vehículo(s) con id repetido recibieron uno nuevo: ' +
+                repaired.map(function(r) { return (r.vin || '?') + ' (' + r.oldId + '→' + r.newId + ')'; }).join(', '));
+        }
+    } catch(e) {}
+    void 0;
+    return repaired.length;
+}
 // ══════════════════════════════════════════════════
 // AUDIT TRAIL — Centralized mutation logging
 // [v15.5] Trail en memoria + persistencia debounced: antes cada evento hacía
@@ -8972,6 +9070,14 @@ document.addEventListener('keydown', function (e) {
         // Initialize visual cascade tree
         try { if (typeof initCascadeTree === 'function') initCascadeTree(); } catch(e) { void 0; }
 
+        // Antes de poblar cualquier selector: los <option> llevan el id como valor, así
+        // que un id repetido haría que elegir un vehículo cargara otro.
+        try {
+            var _dupIds = dedupeVehicleIds();
+            if (_dupIds > 0 && typeof showToast === 'function') {
+                showToast('Se repararon ' + _dupIds + ' vehículo(s) con identificador repetido (ver Datos → Auditoría).', 'warning');
+            }
+        } catch(e) { void 0; }
         try { updateProgressBar(); } catch(e) { void 0; }
         try { refreshAllLists(); } catch(e) { void 0; }
 
@@ -11805,7 +11911,7 @@ setAltaDatetimeIfEmpty(true);
         }
 
         const newVehicle = {
-            id: ++db.lastId,
+            id: nextVehicleId(),
             vin: document.getElementById('vin').value,
             purpose: document.getElementById('vehiclePurpose').value,
             config: config,
@@ -11905,7 +12011,17 @@ function loadVehicle() {
   }
 
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
-  if (!vehicle) return;
+  if (!vehicle) {
+    // Sin esto la pantalla se quedaba con el vehículo ANTERIOR cargado mientras el
+    // selector ya mostraba otro: parecía que el cambio no había surtido efecto.
+    activeVehicleId = null;
+    content.style.display = 'none';
+    toggleActionBar(false);
+    document.getElementById('activeVehSelect').value = '';
+    showToast('Ese vehículo ya no está disponible. Se actualizó la lista.', 'warning');
+    refreshAllLists();
+    return;
+  }
 
   // [V7-C1] Save active vehicle context
   if (typeof saveActiveVehicleContext === 'function') saveActiveVehicleContext(activeVehicleId);
@@ -12410,7 +12526,11 @@ function saveProgress(opts) {
   if (saveBtn && !silent) { setBtnLoading(saveBtn, true, 'Guardando...'); }
 
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
-  if (!vehicle) return;
+  if (!vehicle) {
+    if (saveBtn && !silent) setBtnLoading(saveBtn, false);
+    if (!silent) showToast('No hay un vehículo válido seleccionado — no se guardó nada.', 'error');
+    return;
+  }
   vehicle.lastModified = new Date().toISOString();
 
   const isEm = isEmissionsPurpose(vehicle.purpose);
@@ -13164,7 +13284,14 @@ function loadRelease() {
     var content = document.getElementById('lib-content');
     if (!activeVehicleId) { content.style.display = 'none'; return; }
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle) return;
+    if (!vehicle) {
+        activeVehicleId = null;
+        document.getElementById('releaseVehSelect').value = '';
+        content.style.display = 'none';
+        showToast('Ese vehículo ya no está disponible. Se actualizó la lista.', 'warning');
+        refreshAllLists();
+        return;
+    }
 
     if (vehicle.status !== 'ready-release') {
         showToast('Este vehículo aún no está "Listo para Liberación".', 'warning');
@@ -14264,7 +14391,7 @@ function executeArchiveImport(targetStatus) {
     if (db.vehicles.some(x => x.vin === v.vin && x.status !== 'archived')) { skipped++; return; }
 
     const clone = structuredClone ? structuredClone(v) : JSON.parse(JSON.stringify(v));
-    clone.id = ++db.lastId;
+    clone.id = nextVehicleId();
     clone.status = targetStatus;
     clone.timeline = clone.timeline || [];
     clone.timeline.push({
@@ -14320,7 +14447,7 @@ function deleteVehicleCascade(vehicleId) {
         '<p style="margin-top:8px;font-size: var(--fs-sm);color:var(--muted);">Esta acción no se puede deshacer.</p>',
         function() {
             // 1. COP15
-            db.vehicles = db.vehicles.filter(x => x.id != vehicleId);
+            db.vehicles = db.vehicles.filter(x => x !== v);
             saveDB();
             // 2. Test Plan testedList
             if (typeof tpState !== 'undefined' && tpState.testedList && v.vin) {
@@ -36959,6 +37086,9 @@ function _fbPullLocalScore(col) {
 function _fbPullSeed(col, remoteData, pulled) {
     if (col === 'cop15') {
         db = remoteData;
+        // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
+        // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
+        if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
         refreshAllLists();
         pulled.push('COP15 (' + (db.vehicles || []).length + ' vehiculos)');
@@ -38023,6 +38153,9 @@ function fbMergeExecute(remoteData, analysis, choices) {
             if (analysis.cop15.paStatusGains > 0) summary += ', ' + analysis.cop15.paStatusGains + ' envío(s) PA heredados';
             merged.push(summary);
         }
+        // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
+        // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
+        if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
         refreshAllLists();
     }
@@ -38228,6 +38361,7 @@ function fbMergeUndo() {
         if (last.snapshot) {
             if (last.snapshot.cop15) {
                 db = last.snapshot.cop15;
+                if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
                 localStorage.setItem('kia_db_v11', JSON.stringify(db));
                 refreshAllLists();
             }
@@ -38586,7 +38720,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608211916' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608211926' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -38793,6 +38927,7 @@ function fbBackupRestore(backupId, modules) {
 
             if (modules.cop15 && d.cop15 && d.cop15.data) {
                 db = d.cop15.data;
+                if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
                 localStorage.setItem('kia_db_v11', JSON.stringify(db));
                 if (typeof refreshAllLists === 'function') refreshAllLists();
                 restored.push('COP15');
@@ -38871,7 +39006,7 @@ function fbBackupUndoRestore() {
     showConfirmDialog({ title: '⚠️ Deshacer restauración', message: 'Deshacer la ultima restauracion y volver al estado anterior?', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
 
-        if (snapshot.cop15) { db = snapshot.cop15; localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
+        if (snapshot.cop15) { db = snapshot.cop15; if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds(); localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
         if (snapshot.testplan) { tpState = snapshot.testplan; localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState)); _fbTpUISync(); }
         if (snapshot.inventory) { invState = snapshot.inventory; localStorage.setItem('kia_lab_inventory', JSON.stringify(invState)); if (typeof invRender === 'function') invRender(); }
 

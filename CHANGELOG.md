@@ -2,6 +2,54 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.12 — Bug grave: dos vehículos podían compartir el mismo identificador (2026-08-21)
+
+### El síntoma
+En **Operación**, elegir un vehículo distinto en "Seleccionar Vehículo Activo" dejaba la ficha
+con el vehículo ANTERIOR: el selector decía `3KPFT4DE8TE410605 | COP-Emisiones` y abajo seguía
+`VIN: 3KPFT5115VE000063 | ND-Emisiones | MANUAL`.
+
+### La causa
+`saveNewVehicle` asignaba `id: ++db.lastId`, un contador **puramente local**. La sincronización
+fusiona vehículos **por VIN** y conserva el id del dispositivo que los creó, pero nunca adelantaba
+`db.lastId` en el dispositivo que los recibe:
+
+```
+Tablet A: crea los vehículos 1..10        (lastId = 10)
+Tablet B: los recibe por sync             (lastId sigue en 3)
+Tablet B: da de alta uno nuevo → id 4     ← ya existía
+```
+
+A partir de ahí, **toda** búsqueda `db.vehicles.find(v => v.id == id)` devuelve el primero de los
+dos. De ahí el síntoma, y dos consecuencias peores que no daban ninguna señal:
+
+- El borrador de captura vive en `localStorage['kia_cop15_draft_<id>']` → **dos vehículos
+  distintos compartían borrador**, y restaurarlo podía pegar los datos de uno en el otro.
+- `deleteVehicleCascade` hacía `db.vehicles.filter(x => x.id != vehicleId)` → borrar un vehículo
+  **borraba los dos**.
+
+### La corrección
+- **`nextVehicleId()`** (`js/app.js`) emite un id irrepetible entre dispositivos (marca de tiempo
+  en microsegundos + azar, verificado contra los ya usados; siempre dentro de
+  `Number.MAX_SAFE_INTEGER`). Reemplaza a `++db.lastId` en el alta y en la importación de
+  archivos. `db.lastId` se conserva como "último id emitido" por compatibilidad.
+- **`dedupeVehicleIds()`** repara los duplicados que ya existan: conserva el id del primero y
+  reasigna uno nuevo a los demás. Corre al arrancar —antes de poblar cualquier selector, porque
+  los `<option>` llevan el id como valor— y después de **cada** escritura de `db` que venga de la
+  nube (`_fbPullSeed`, `fbMergeExecute`, deshacer, restaurar respaldo, restaurar snapshot). Deja
+  constancia en Datos → Auditoría (`id_duplicado_reparado`) y avisa con un toast.
+- **Referencias reparadas**: el temporizador de soak (`kia_soak_timer`) y el contexto de vehículo
+  activo (`kia_active_vehicle`) guardan también el VIN, así que se reapuntan sin ambigüedad — y
+  solo si el VIN coincide. El borrador compartido se descarta a propósito: su contenido es
+  ambiguo. Las notas de entidad (`kia_entity_notes`, clave `vehicle:<id>`) quedan con el vehículo
+  que conserva el id; separarlas sería adivinar.
+- **`deleteVehicleCascade`** elimina el objeto por identidad (`x !== v`), no por id.
+
+### Además: ninguna pantalla se queda con datos viejos
+`loadVehicle`, `loadRelease` y `saveProgress` hacían `if (!vehicle) return;` — un regreso mudo que
+dejaba en pantalla el vehículo anterior (o el botón "Guardando..." girando) sin decir nada. Ahora
+limpian la selección, avisan y refrescan la lista.
+
 ## v17.11 — "Ad-hoc" pasa a llamarse "Fuera de Plan" + filtros de Historial (2026-08-21)
 
 ### Renombrado: ad-hoc → Fuera de Plan
