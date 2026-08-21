@@ -190,11 +190,17 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.8';
+var APP_VERSION = '17.9';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.9', date: '21 ago 2026', title: 'Topbar en una sola fila + menú "⋯" legible + configs manuales que sobreviven', bullets: [
+        'La barra superior ya no envuelve a una segunda fila casi vacía en tablet/teléfono: sin las 5 pestañas (ocultas desde v16.8) no queda nada que envolver. El indicador de sincronización recorta su texto con elipsis en vez de forzar el salto de línea.',
+        'El menú "⋯" pasó de cajas altas medio vacías (botones y wrappers mezclados, estirados) a filas de menú uniformes con icono + etiqueta, y el estado de conexión junto al pill de versión en un pie propio. En escritorio la barra ancha se ve igual que antes.',
+        'Bug corregido: las configuraciones creadas a mano (Gestor de Configuraciones) desaparecían de la cascada al recargar la página — la fusión solo ocurría al guardarlas, no al arrancar. Seguían listadas en el gestor, pero ningún desplegable de Alta las mostraba.',
+        'Cuando la cascada no encuentra ninguna configuración, la tarjeta ahora explica el caso y ofrece el botón "➕ Nueva configuración manual" en vez de terminar en un callejón sin salida.'
+    ]},
     { version: '17.8', date: '15 ago 2026', title: 'Mapa de zonas por teclado + limpieza final de tipografía', bullets: [
         'El mapa de zonas de Consumibles (mover un cilindro entre posiciones) era solo por mouse/dedo — ahora también se opera por teclado: Enter sobre un cilindro lo selecciona, Enter sobre una posición vacía lo mueve ahí, Escape cancela. Cada paso se anuncia a lectores de pantalla.',
         'Tipografía sub-12px eliminada en js/auth.js y js/firebase-sync.js (login/PIN, ajustes de sincronización) — con esto ya no queda ningún archivo del proyecto con texto por debajo del mínimo.',
@@ -3510,7 +3516,7 @@ function updateNotifBadge() {
     var badge = document.getElementById('notif-badge');
     if (!badge) return;
     var unread = _notificationLog.filter(function(n) { return !n.read; }).length;
-    badge.style.display = unread > 0 ? 'inline-block' : 'none';
+    badge.hidden = unread === 0;
     badge.textContent = unread > 9 ? '9+' : unread;
 }
 
@@ -4595,6 +4601,17 @@ function immersiveToggle() {
     _immersiveActive ? immersiveExit() : immersiveEnter();
 }
 
+// v17.9: sincroniza etiqueta y title del ítem "Pantalla completa" del menú "⋯".
+function _immersiveSyncButton(active) {
+    var btn = document.getElementById('immersive-toggle-btn');
+    if (!btn) return;
+    var label = btn.querySelector('.tbm-label');
+    var text = active ? 'Salir de pantalla completa' : 'Pantalla completa';
+    if (label) label.textContent = text;
+    btn.title = active ? 'Salir del Modo App (pantalla completa)' : 'Modo App (pantalla completa)';
+    btn.setAttribute('aria-label', text);
+}
+
 function immersiveEnter() {
     _immersiveActive = true;
     document.body.classList.add('immersive-mode');
@@ -4602,9 +4619,9 @@ function immersiveEnter() {
     var docEl = document.documentElement;
     if (docEl.requestFullscreen) docEl.requestFullscreen().catch(function(){});
     else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
-    // Update button
-    var btn = document.getElementById('immersive-toggle-btn');
-    if (btn) btn.innerHTML = '⛶';
+    // v17.9: el botón es un ítem de menú (icono + etiqueta). Reescribir su
+    // innerHTML borraba la etiqueta y dejaba una fila con un icono suelto.
+    _immersiveSyncButton(true);
     localStorage.setItem('kia_immersive_prefs', '1');
     showToast('Modo App activado', 'success');
 }
@@ -4614,8 +4631,7 @@ function immersiveExit() {
     document.body.classList.remove('immersive-mode');
     if (document.exitFullscreen) document.exitFullscreen().catch(function(){});
     else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-    var btn = document.getElementById('immersive-toggle-btn');
-    if (btn) btn.innerHTML = '⛶';
+    _immersiveSyncButton(false);
     localStorage.removeItem('kia_immersive_prefs');
 }
 

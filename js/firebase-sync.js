@@ -1675,7 +1675,7 @@ function fbUpdateIndicator() {
     el.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + color + ';margin-right:4px;' +
         (fbSync.status === 'syncing' || fbSync.status === 'connecting' ? 'animation:pulse 1s infinite;' : '') +
         '"></span>' + label +
-        (fbSync.stationId ? ' (' + fbSync.stationId + ')' : '') +
+        (fbSync.stationId ? ' <span class="topbar-sync-station">(' + fbSync.stationId + ')</span>' : '') +
         (fbSync.lastSync ? ' ' + fbSync.lastSync.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '') +
         (fbSync._liveSync ? ' <span style="color:#22d3ee;font-size: var(--fs-xs);font-weight:700;">● vivo</span>' : '') +
         (fbOfflineQueue.length > 0 ? ' <span style="background:#f59e0b;color:#000;padding:1px 5px;border-radius:8px;font-size: var(--fs-xs);font-weight:700;">' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</span>' : '');

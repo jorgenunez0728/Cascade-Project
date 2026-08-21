@@ -2,6 +2,50 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.9 — Topbar en una sola fila + menú "⋯" legible + configuraciones manuales que sobreviven (2026-08-21)
+
+### Topbar: se acabó la segunda fila vacía
+En tablet y teléfono la barra superior envolvía a una segunda fila que quedaba casi vacía (solo
+🕘 y ⋯, con todo el ancho restante en blanco). Dos causas, ambas corregidas:
+
+- `.platform-bar` traía `flex-wrap: wrap` en las media queries de 640px y 768px. Con las 5
+  pestañas ya ocultas desde v16.8 (≤1024px navega la bottom-nav), no queda nada que envolver:
+  ahora es `flex-wrap: nowrap` en ≤1024px.
+- El `margin-left:auto` del indicador de sincronización vivía en el atributo `style` del elemento,
+  así que la regla `#fb-sync-indicator { margin-left: 0 }` de la media query **nunca ganaba**
+  (estilo en línea > hoja de estilos). Pasó a la clase `.topbar-sync`, que además recorta el texto
+  con elipsis en vez de forzar el salto de línea.
+
+Todo el estilo de la franja derecha estaba en atributos `style`: wrappers `<div>` con padding
+propio, botones sin ninguna regla compartida. Ahora vive en `styles.css` (`.topbar-sync`,
+`.topbar-op`, `.topbar-icon-btn`, `.topbar-badge`) con una sola escala de espaciado.
+
+### Menú "⋯": filas de menú de verdad
+Los ítems del desplegable eran una mezcla de `<button>` sueltos y `<div>` con padding, estirados a
+`align-self: stretch` — de ahí las cajas altas medio vacías, el ⛶ y el 🔍 flotando en el aire y el
+🟢 solo en su propia línea. Se reescribió el marcado como filas uniformes icono + etiqueta
+(`.tbm-item`): mismo alto (42px), misma sangría, texto siempre visible, `role="menu"`/`menuitem`,
+y el estado de conexión + el pill de versión juntos en un pie separado por una línea. En
+escritorio (≥1401px), donde el grupo es `display:contents`, se siguen viendo solo los iconos —
+la apariencia de la barra ancha no cambia.
+
+Como efecto secundario del marcado nuevo: `immersiveEnter/Exit` reescribían el `innerHTML` del
+botón de pantalla completa, lo que borraba su etiqueta; ahora actualizan solo el texto
+(`_immersiveSyncButton`) y de paso el ítem dice "Salir de pantalla completa" cuando está activo.
+
+### Bug: las configuraciones manuales desaparecían al recargar
+`_mergeManualConfigsIntoAll()` solo se llamaba desde `_doSaveManualConfig`, es decir en la sesión
+en la que se capturaba la configuración. Al recargar la página, `parseCSV()` reconstruía
+`allConfigurations` desde el CSV y las borraba de la cascada: seguían listadas en el Gestor de
+Configuraciones pero ya no aparecían en ninguno de los desplegables de Alta. La fusión se movió al
+final de `parseCSV()`, junto al parseo, que es donde pertenece.
+
+### Cascada sin resultados: salida a un toque
+`displayConfigResult` mostraba "⚠️ No hay configuraciones que coincidan" y ahí terminaba — el
+operador no tenía forma de saber que el catálogo se puede ampliar. Ahora esa tarjeta explica el
+caso (por ejemplo, una variante HEV que no está en el CSV embebido) y ofrece el botón
+**➕ Nueva configuración manual**.
+
 ## v17.8 — Mapa de zonas por teclado + limpieza final de tipografía (2026-08-15)
 
 Cierra los dos pendientes documentados al final del overhaul v17.0-v17.7.
