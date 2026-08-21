@@ -1238,7 +1238,7 @@ setAltaDatetimeIfEmpty(true);
         }
 
         const newVehicle = {
-            id: ++db.lastId,
+            id: nextVehicleId(),
             vin: document.getElementById('vin').value,
             purpose: document.getElementById('vehiclePurpose').value,
             config: config,
@@ -1338,7 +1338,17 @@ function loadVehicle() {
   }
 
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
-  if (!vehicle) return;
+  if (!vehicle) {
+    // Sin esto la pantalla se quedaba con el vehículo ANTERIOR cargado mientras el
+    // selector ya mostraba otro: parecía que el cambio no había surtido efecto.
+    activeVehicleId = null;
+    content.style.display = 'none';
+    toggleActionBar(false);
+    document.getElementById('activeVehSelect').value = '';
+    showToast('Ese vehículo ya no está disponible. Se actualizó la lista.', 'warning');
+    refreshAllLists();
+    return;
+  }
 
   // [V7-C1] Save active vehicle context
   if (typeof saveActiveVehicleContext === 'function') saveActiveVehicleContext(activeVehicleId);
@@ -1843,7 +1853,11 @@ function saveProgress(opts) {
   if (saveBtn && !silent) { setBtnLoading(saveBtn, true, 'Guardando...'); }
 
   const vehicle = db.vehicles.find(v => v.id == activeVehicleId);
-  if (!vehicle) return;
+  if (!vehicle) {
+    if (saveBtn && !silent) setBtnLoading(saveBtn, false);
+    if (!silent) showToast('No hay un vehículo válido seleccionado — no se guardó nada.', 'error');
+    return;
+  }
   vehicle.lastModified = new Date().toISOString();
 
   const isEm = isEmissionsPurpose(vehicle.purpose);
@@ -2597,7 +2611,14 @@ function loadRelease() {
     var content = document.getElementById('lib-content');
     if (!activeVehicleId) { content.style.display = 'none'; return; }
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle) return;
+    if (!vehicle) {
+        activeVehicleId = null;
+        document.getElementById('releaseVehSelect').value = '';
+        content.style.display = 'none';
+        showToast('Ese vehículo ya no está disponible. Se actualizó la lista.', 'warning');
+        refreshAllLists();
+        return;
+    }
 
     if (vehicle.status !== 'ready-release') {
         showToast('Este vehículo aún no está "Listo para Liberación".', 'warning');
@@ -3697,7 +3718,7 @@ function executeArchiveImport(targetStatus) {
     if (db.vehicles.some(x => x.vin === v.vin && x.status !== 'archived')) { skipped++; return; }
 
     const clone = structuredClone ? structuredClone(v) : JSON.parse(JSON.stringify(v));
-    clone.id = ++db.lastId;
+    clone.id = nextVehicleId();
     clone.status = targetStatus;
     clone.timeline = clone.timeline || [];
     clone.timeline.push({
@@ -3753,7 +3774,7 @@ function deleteVehicleCascade(vehicleId) {
         '<p style="margin-top:8px;font-size: var(--fs-sm);color:var(--muted);">Esta acción no se puede deshacer.</p>',
         function() {
             // 1. COP15
-            db.vehicles = db.vehicles.filter(x => x.id != vehicleId);
+            db.vehicles = db.vehicles.filter(x => x !== v);
             saveDB();
             // 2. Test Plan testedList
             if (typeof tpState !== 'undefined' && tpState.testedList && v.vin) {

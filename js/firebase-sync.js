@@ -1201,6 +1201,9 @@ function _fbPullLocalScore(col) {
 function _fbPullSeed(col, remoteData, pulled) {
     if (col === 'cop15') {
         db = remoteData;
+        // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
+        // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
+        if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
         refreshAllLists();
         pulled.push('COP15 (' + (db.vehicles || []).length + ' vehiculos)');
@@ -2265,6 +2268,9 @@ function fbMergeExecute(remoteData, analysis, choices) {
             if (analysis.cop15.paStatusGains > 0) summary += ', ' + analysis.cop15.paStatusGains + ' envío(s) PA heredados';
             merged.push(summary);
         }
+        // [v17.12] Un remoto puede traer un vehículo cuyo id ya usa uno local (los ids
+        // viejos eran un contador por dispositivo): reparar ANTES de guardar y refrescar.
+        if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
         localStorage.setItem('kia_db_v11', JSON.stringify(db));
         refreshAllLists();
     }
@@ -2470,6 +2476,7 @@ function fbMergeUndo() {
         if (last.snapshot) {
             if (last.snapshot.cop15) {
                 db = last.snapshot.cop15;
+                if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
                 localStorage.setItem('kia_db_v11', JSON.stringify(db));
                 refreshAllLists();
             }
@@ -3035,6 +3042,7 @@ function fbBackupRestore(backupId, modules) {
 
             if (modules.cop15 && d.cop15 && d.cop15.data) {
                 db = d.cop15.data;
+                if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds();
                 localStorage.setItem('kia_db_v11', JSON.stringify(db));
                 if (typeof refreshAllLists === 'function') refreshAllLists();
                 restored.push('COP15');
@@ -3113,7 +3121,7 @@ function fbBackupUndoRestore() {
     showConfirmDialog({ title: '⚠️ Deshacer restauración', message: 'Deshacer la ultima restauracion y volver al estado anterior?', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
 
-        if (snapshot.cop15) { db = snapshot.cop15; localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
+        if (snapshot.cop15) { db = snapshot.cop15; if (typeof dedupeVehicleIds === 'function') dedupeVehicleIds(); localStorage.setItem('kia_db_v11', JSON.stringify(db)); if (typeof refreshAllLists === 'function') refreshAllLists(); }
         if (snapshot.testplan) { tpState = snapshot.testplan; localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState)); _fbTpUISync(); }
         if (snapshot.inventory) { invState = snapshot.inventory; localStorage.setItem('kia_lab_inventory', JSON.stringify(invState)); if (typeof invRender === 'function') invRender(); }
 

@@ -481,6 +481,12 @@ puntos de registro se quedaron en `panel.js` (`_pnTabs`, `_pnGetRenderer` —aho
   regulaciones sin perfil son SELECCIONABLES en la cascada (⚡ EVs `220V`/`120V`/`EV` vía
   `_isEVRegulation`, ⚠ resto); celda de regulación vacía se autorrellena (`_normalizeRegulation`
   en cop15.js, reutilizada por `tpImportPlanCSV`): motor en KW → `EV`, si no → `N/A`.
+- **Identidad de un vehículo (v17.12)**: `vehicle.id` debe ser único ENTRE DISPOSITIVOS —
+  `nextVehicleId()` (app.js) es la única forma válida de emitir uno; nunca volver a usar
+  `++db.lastId` (era un contador local y el sync fusiona por VIN conservando el id de origen, así
+  que dos equipos emitían el mismo id). `dedupeVehicleIds()` repara duplicados al arrancar y tras
+  CADA escritura de `db` venida de la nube; todo código nuevo que reemplace `db` debe llamarla.
+  Al borrar un vehículo, filtrar por identidad del objeto, no por id.
 - **Regulación de un vehículo (v17.10)**: `_libGetVehicleRegulation(vehicle)` (cop15.js) es **LA
   definición** de contra qué norma se comparan sus gases — antepone `vehicle.regulationOverride`
   (elegida a mano por el liberador: `{name, original, by, at}`, solo modificable en
