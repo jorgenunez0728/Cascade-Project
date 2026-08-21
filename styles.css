@@ -2246,8 +2246,8 @@ html { scroll-behavior: smooth; }
 }
 .plan-preload-banner-close:hover { color: #0f172a; }
 
-/* Ad-hoc badge — marks vehicles excluded from plan accounting */
-.adhoc-badge {
+/* Distintivo "Fuera de Plan" — vehículos excluidos de la contabilidad del plan */
+.offplan-badge {
     display: inline-block;
     margin-left: 6px;
     padding: 1px 6px;
@@ -2260,6 +2260,7 @@ html { scroll-behavior: smooth; }
     text-transform: uppercase;
     letter-spacing: 0.3px;
     vertical-align: middle;
+    white-space: nowrap; /* "FUERA DE PLAN" es más largo que el antiguo "AD-HOC": no debe partirse */
 }
 
 /* Today-tab queue badge (pulsing so it's hard to miss) */

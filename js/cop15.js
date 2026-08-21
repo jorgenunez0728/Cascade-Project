@@ -1259,7 +1259,7 @@ setAltaDatetimeIfEmpty(true);
                 {
                     timestamp: registeredAtIso,
                     user: document.getElementById('reg_operator').value,
-                    action: 'Vehículo Registrado' + (isAdhoc ? ' (ad-hoc)' : ''),
+                    action: 'Vehículo Registrado' + (isAdhoc ? ' (fuera de plan)' : ''),
                     data: { status: 'registered', configCode: configCode, adhoc: isAdhoc, fromPlanItem: planLink }
                 }
             ],
@@ -3142,6 +3142,7 @@ function closeSubstitutionModal() {
 
         var statusF = window._histFilterStatus || 'all';
         var vinQ = window._histFilterVin || '';
+        var purposeF = window._histFilterPurpose || '';
         var yearF = window._histFilterYear || '';
         var monthF = window._histFilterMonth || '';
 
@@ -3153,6 +3154,14 @@ function closeSubstitutionModal() {
         var years = Object.keys(yearsSet).sort(function(a, b) { return b - a; });
         var yearOpts = '<option value="">Todos</option>' + years.map(function(y) {
             return '<option value="' + y + '"' + (yearF === y ? ' selected' : '') + '>' + y + '</option>';
+        }).join('');
+
+        // Propósitos realmente presentes en los datos (mismo patrón que el filtro de año):
+        // así la lista nunca ofrece un propósito sin registros ni omite uno capturado a mano.
+        var purposeSet = {};
+        (db.vehicles || []).forEach(function(v) { if (v.purpose) purposeSet[v.purpose] = true; });
+        var purposeOpts = '<option value="">Todos</option>' + Object.keys(purposeSet).sort().map(function(pp) {
+            return '<option value="' + escapeHtml(pp) + '"' + (purposeF === pp ? ' selected' : '') + '>' + escapeHtml(pp) + '</option>';
         }).join('');
 
         var monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -3168,7 +3177,9 @@ function closeSubstitutionModal() {
             {v:'registered', l: CONFIG.statusLabels['registered'] || 'Registrado'},
             {v:'in-progress', l: CONFIG.statusLabels['in-progress'] || 'En Progreso'},
             {v:'testing', l: CONFIG.statusLabels['testing'] || 'En Prueba'},
-            {v:'ready-release', l: CONFIG.statusLabels['ready-release'] || 'Listo para Liberar'}
+            {v:'ready-release', l: CONFIG.statusLabels['ready-release'] || 'Listo para Liberar'},
+            {v:'pending-approval', l: CONFIG.statusLabels['pending-approval'] || 'Pendiente Aprobación'},
+            {v:'offplan', l:'Fuera de Plan'}
         ];
         var statusHtml = statusOpts.map(function(o) {
             return '<option value="' + o.v + '"' + (statusF === o.v ? ' selected' : '') + '>' + o.l + '</option>';
@@ -3177,6 +3188,7 @@ function closeSubstitutionModal() {
         bar.innerHTML = '<div class="hist-filter-bar">' +
             '<div><label>Estado</label><select onchange="window._histFilterStatus=this.value;renderHistory();">' + statusHtml + '</select></div>' +
             '<div><label>VIN</label><input type="text" id="hist-filter-vin" value="' + escapeHtml(vinQ) + '" oninput="window._histFilterVin=this.value;preserveFocus(renderHistory);" placeholder="Buscar VIN..."></div>' +
+            '<div><label>Propósito</label><select onchange="window._histFilterPurpose=this.value;renderHistory();">' + purposeOpts + '</select></div>' +
             '<div><label>Año</label><select onchange="window._histFilterYear=this.value;if(!this.value){window._histFilterMonth=\'\';} renderHistory();">' + yearOpts + '</select></div>' +
             '<div><label>Mes</label><select onchange="window._histFilterMonth=this.value;renderHistory();"' + (!yearF ? ' disabled' : '') + '>' + monthOpts + '</select></div>' +
             '<div class="hist-filter-actions"><button class="btn-secondary" onclick="histFilterReset()" style="min-height:40px;font-size:0.8rem;padding:8px 14px;">Limpiar</button></div>' +
@@ -3186,6 +3198,7 @@ function closeSubstitutionModal() {
     function histFilterReset() {
         window._histFilterStatus = 'all';
         window._histFilterVin = '';
+        window._histFilterPurpose = '';
         window._histFilterYear = '';
         window._histFilterMonth = '';
         window._histPageSize = 25;
@@ -3210,6 +3223,8 @@ function closeSubstitutionModal() {
             vehicles = vehicles.filter(v => v.status === 'archived');
         } else if (statusF === 'active') {
             vehicles = vehicles.filter(v => v.status !== 'archived');
+        } else if (statusF === 'offplan') {
+            vehicles = vehicles.filter(v => !!v.adhoc);
         } else if (statusF !== 'all') {
             vehicles = vehicles.filter(v => v.status === statusF);
         }
@@ -3218,6 +3233,12 @@ function closeSubstitutionModal() {
         var vinQ = (window._histFilterVin || '').toUpperCase();
         if (vinQ) {
             vehicles = vehicles.filter(v => (v.vin || '').toUpperCase().includes(vinQ));
+        }
+
+        // Purpose filter
+        var purposeF = window._histFilterPurpose || '';
+        if (purposeF) {
+            vehicles = vehicles.filter(v => v.purpose === purposeF);
         }
 
         // Year filter
@@ -3276,7 +3297,7 @@ function closeSubstitutionModal() {
                         return `
                         <tr>
                             <td><input type="checkbox" class="hist-chk" data-vid="${v.id}" onchange="histUpdateBatchBtn()"></td>
-                            <td><strong>${safeVin}</strong>${v.adhoc ? '<span class="adhoc-badge" title="Test ad-hoc — fuera del plan semanal">ad-hoc</span>' : ''}</td>
+                            <td><strong>${safeVin}</strong>${v.adhoc ? '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>' : ''}</td>
                             <td>
                                 ${modelo ? `<div style="font-weight:600;font-size:0.85rem;">${modelo}</div>` : ''}
                                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
@@ -5840,7 +5861,7 @@ function renderKanban() {
                 html += '<span style="display:flex;align-items:center;gap:4px;">';
                 html += '<span style="font-family:monospace;font-size: var(--fs-sm);font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
                 html += '<button onclick="event.stopPropagation();copyToClipboard(\'' + fullVin.replace(/'/g,"\\'") + '\', this)" style="background:none;border:none;cursor:pointer;font-size: var(--fs-xs);padding:0 2px;" title="Copiar VIN">📋</button>';
-                if (v.adhoc) html += '<span class="adhoc-badge" title="Test ad-hoc — fuera del plan semanal">ad-hoc</span>';
+                if (v.adhoc) html += '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>';
                 html += '</span>';
                 if (timeSince) html += '<span style="font-size: var(--fs-xs);color:var(--muted);" title="Tiempo en este estado">' + timeSince + '</span>';
                 html += '</div>';
@@ -6525,6 +6546,7 @@ var CASCADE_TOOLTIPS = {
     cfg_drive: { title: 'Drive Type', text: 'Tipo de tracci\u00f3n del veh\u00edculo (delantera, trasera, integral).' },
     cfg_enginepkg: { title: 'Engine Package', text: 'Paquete de motor espec\u00edfico de la configuraci\u00f3n (si aplica).' },
 
+    vehicleAdhoc: { title: 'Prueba fuera de plan', text: 'M\u00e1rcala cuando el trabajo NO viene del plan semanal aprobado (pruebas del centro de desarrollo, apoyo a otro equipo, investigaci\u00f3n). El veh\u00edculo se registra y se libera igual, pero no acredita ninguna prueba del plan ni cuenta para la cobertura. En Historial y en la Cola aparece con el distintivo "Fuera de Plan".' },
     reg_operator: { title: 'Operador de Registro', text: 'Qui\u00e9n est\u00e1 dando de alta este veh\u00edculo en la plataforma. Elige tu nombre de la lista \u2014 si no aparece, pide que te agreguen en Datos \u2192 Operadores.' },
     reg_datetime: { title: 'Fecha/Hora de Alta', text: 'Momento en que se registra el veh\u00edculo. Se llena autom\u00e1ticamente con la hora actual; solo c\u00e1mbiala si est\u00e1s capturando un registro atrasado.' },
 
@@ -6605,7 +6627,8 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         title: 'Historial',
         text: 'Vehículos archivados: genera su PDF COP15-F05, completa datos retroactivos (📝) si el PDF pide campos que no existían antes, y consulta su control de cambios (🕘).',
         tips: [
-            'Usa los filtros para encontrar un VIN o rango de fechas específico.',
+            'Filtra por Estado, Propósito, VIN o rango de fechas — se combinan entre sí.',
+            'En Estado, la opción "Fuera de Plan" lista las pruebas marcadas como tales al darlas de alta (las que no cuentan para el plan semanal).',
             'El botón "📝 Completar (N)" solo aparece si al vehículo le faltan campos para el PDF.',
             'El botón 🕘 muestra el historial completo de cambios del vehículo, incluidas ediciones retroactivas con su razón y firma.'
         ]
@@ -7252,7 +7275,7 @@ function v7BatchRelease() {
             // skipSave: un solo tpSave/invSave al final del lote, no por vehículo
             if (typeof tpAutoFeedFromRelease === 'function') tpAutoFeedFromRelease(vehicle, { skipSave: true });
             if (typeof invLogTestUsage === 'function') invLogTestUsage(vehicle, { skipSave: true });
-            // Skip weekly-plan crediting for ad-hoc vehicles.
+            // Las pruebas fuera de plan (v.adhoc) no acreditan el plan semanal.
             if (!vehicle.adhoc) {
                 if (typeof tpAutoMarkWeeklyCompletionFromVehicle === 'function') {
                     tpAutoMarkWeeklyCompletionFromVehicle(vehicle, { skipSave: true });
