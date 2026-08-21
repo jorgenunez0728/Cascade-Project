@@ -864,6 +864,58 @@ function initCascadeTree() {
         document.getElementById('container-external').style.display = isExternal ? 'block' : 'none';
         document.getElementById('lblInt').classList.toggle('active', !isExternal);
         document.getElementById('lblExt').classList.toggle('active', isExternal);
+        if (isExternal) _altaPopulateManualRegulations();
+    }
+
+    // [v17.10] El alta manual pedía la regulación como texto libre, así que cualquier
+    // dato del vehículo (la transmisión "6DCT", por ejemplo) terminaba guardado como si
+    // fuera una norma de emisiones y la Liberación se quedaba sin perfil de límites.
+    // Ahora se elige de los perfiles configurados; "Otra" sigue permitiendo escribirla,
+    // y vacío ("Definir al liberar") deja la decisión para la pestaña Liberación.
+    function _altaPopulateManualRegulations() {
+        var sel = document.getElementById('man_regulation');
+        if (!sel) return;
+        var prev = sel.value;
+        var profiles = (typeof getAllRegulationProfiles === 'function') ? getAllRegulationProfiles() : [];
+        var html = '<option value="">Definir al liberar</option>';
+        profiles.forEach(function(p) {
+            html += '<option value="' + escapeHtml(p.name) + '">' + escapeHtml(p.name) + '</option>';
+        });
+        html += '<option value="__other__">Otra (escribir)…</option>';
+        sel.innerHTML = html;
+        if (prev && Array.from(sel.options).some(function(o) { return o.value === prev; })) sel.value = prev;
+        altaManualRegChanged();
+    }
+
+    function altaManualRegChanged() {
+        var sel = document.getElementById('man_regulation');
+        var other = document.getElementById('man_regulation_other');
+        if (!sel || !other) return;
+        other.style.display = sel.value === '__other__' ? 'block' : 'none';
+    }
+
+    // Valor efectivo de la regulación capturada en el alta manual ('' = definir al liberar).
+    function _altaManualRegValue() {
+        var sel = document.getElementById('man_regulation');
+        if (!sel) return '';
+        if (sel.value === '__other__') {
+            var other = document.getElementById('man_regulation_other');
+            return other ? other.value.trim() : '';
+        }
+        return sel.value;
+    }
+
+    // Configuración del vehículo dado de alta en modo manual (una sola definición,
+    // usada por el resumen de confirmación y por el guardado real).
+    function _altaManualConfig() {
+        var cfg = {
+            'Modelo': document.getElementById('man_model').value,
+            'ENGINE CAPACITY': document.getElementById('man_engine').value,
+            'EMISSION REGULATION': _altaManualRegValue() || 'N/A'
+        };
+        var txEl = document.getElementById('man_transmission');
+        if (txEl && txEl.value.trim()) cfg['TRANSMISSION'] = txEl.value.trim();
+        return cfg;
     }
 
 
@@ -1107,11 +1159,7 @@ function setupAccordionSingleOpen(containerId, defaultOpenId = '') {
             
             config = {...currentFilters};
         } else {
-            config = {
-                'Modelo': document.getElementById('man_model').value,
-                'ENGINE CAPACITY': document.getElementById('man_engine').value,
-                'EMISSION REGULATION': document.getElementById('man_regulation').value || 'N/A'
-            };
+            config = _altaManualConfig();
         }
         
 setAltaDatetimeIfEmpty(true);
@@ -1123,8 +1171,9 @@ setAltaDatetimeIfEmpty(true);
                 <strong>Código Config:</strong> ${configCode}<br>
                 <strong>Modelo:</strong> ${config['Modelo']}<br>
                 <strong>Motor:</strong> ${config['ENGINE CAPACITY'] || 'N/A'}<br>
+                <strong>Transmisión:</strong> ${config['TRANSMISSION'] || 'N/A'}<br>
 		<strong>Env Package:</strong> ${config['ENVIRONMENT PACKAGE'] || 'N/A'}<br>
-                <strong>Regulación:</strong> ${config['EMISSION REGULATION'] || 'N/A'}<br>
+                <strong>Regulación:</strong> ${config['EMISSION REGULATION'] || 'N/A'}${(isExternal && !_altaManualRegValue()) ? ' <span style="color:var(--warn-text);">(se elegirá al liberar)</span>' : ''}<br>
                 <strong>Operador:</strong> ${operator}<br>
                 <strong>Modo:</strong> ${isExternal ? 'Manual' : 'Catálogo'}
             </div>
@@ -1155,11 +1204,7 @@ setAltaDatetimeIfEmpty(true);
             
             config = {...currentFilters};
         } else {
-            config = {
-                'Modelo': document.getElementById('man_model').value,
-                'ENGINE CAPACITY': document.getElementById('man_engine').value,
-                'EMISSION REGULATION': document.getElementById('man_regulation').value || 'N/A'
-            };
+            config = _altaManualConfig();
         }
         
         const adhocEl = document.getElementById('vehicleAdhoc');
@@ -2164,10 +2209,147 @@ function libSwitchSubtab(tab) {
     document.getElementById('lib-subtab-aprobador').classList.toggle('active', tab === 'aprobador');
 }
 
+// [v17.10] LA definición de "¿contra qué regulación se compara este vehículo?".
+// Manda la elección explícita del liberador (`vehicle.regulationOverride`) sobre el dato
+// del catálogo: los vehículos dados de alta en modo manual —y algunas filas del CSV—
+// traen en EMISSION REGULATION algo que no es una norma (la transmisión "6DCT", "N/A",
+// el voltaje de un EV). Antes eso dejaba la Liberación en un callejón sin salida.
+// Todo consumidor nuevo debe llamar a esta función, nunca leer config['EMISSION REGULATION'].
 function _libGetVehicleRegulation(vehicle) {
+    if (!vehicle) return null;
+    if (vehicle.regulationOverride && vehicle.regulationOverride.name) return vehicle.regulationOverride.name;
     if (vehicle.config && vehicle.config['EMISSION REGULATION']) return vehicle.config['EMISSION REGULATION'];
     if (vehicle.regulation) return vehicle.regulation;
     return null;
+}
+
+// Regulación tal como quedó registrada en el alta (sin la elección manual).
+function _libGetCatalogRegulation(vehicle) {
+    if (!vehicle) return '';
+    if (vehicle.config && vehicle.config['EMISSION REGULATION']) return vehicle.config['EMISSION REGULATION'];
+    return vehicle.regulation || '';
+}
+
+// <option>s con todos los perfiles de límites configurados (Datos → ⚗️ Regulaciones).
+function _libRegOptionsHTML(selectedName) {
+    var profiles = (typeof getAllRegulationProfiles === 'function') ? getAllRegulationProfiles() : [];
+    var html = '<option value="">-- Elegir regulación --</option>';
+    profiles.forEach(function(p) {
+        var lims = (p.gases || []).filter(function(g) { return g.limit !== null && g.limit !== undefined; })
+                                  .map(function(g) { return g.label; }).join(', ');
+        html += '<option value="' + escapeHtml(p.name) + '"' + (p.name === selectedName ? ' selected' : '') + '>' +
+                escapeHtml(p.name) + (lims ? ' — límites de ' + escapeHtml(lims) : ' — sin límites') + '</option>';
+    });
+    return html;
+}
+
+function _libRegPickerControlsHTML(vehicle, currentName) {
+    var profiles = (typeof getAllRegulationProfiles === 'function') ? getAllRegulationProfiles() : [];
+    var html = '';
+    if (profiles.length === 0) {
+        html += '<div style="font-size:12px;margin-bottom:6px;">No hay ningún perfil de límites configurado todavía.</div>';
+    } else {
+        html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
+            '<select id="lib-reg-select" class="form-control" style="flex:1;min-width:180px;font-size:13px;">' +
+            _libRegOptionsHTML(currentName) + '</select>' +
+            '<button class="btn-primary" style="font-size:12px;padding:8px 14px;" onclick="libApplyComparisonRegulation()">Comparar contra esta</button>' +
+            '</div>';
+    }
+    html += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
+    if (vehicle.regulationOverride && vehicle.regulationOverride.name) {
+        html += '<button class="btn-secondary" style="font-size:12px;padding:6px 12px;" onclick="libClearComparisonRegulation()">↩️ Volver a la del alta (' +
+                escapeHtml(_libGetCatalogRegulation(vehicle) || 'sin dato') + ')</button>';
+    }
+    html += '<button class="btn-secondary" style="font-size:12px;padding:6px 12px;" onclick="switchPlatform(\'panel\');setTimeout(function(){pnSwitchTab(\'pn-regulations\');},200);">⚗️ Crear/editar perfiles</button>';
+    html += '</div>';
+    return html;
+}
+
+// Franja "estás comparando contra X" arriba de la tabla de gases (perfil ya resuelto).
+function _libRegBasisHTML(vehicle, regName) {
+    var ov = vehicle.regulationOverride;
+    var canChange = vehicle.status === 'ready-release';
+    var catalogReg = _libGetCatalogRegulation(vehicle);
+    var html = '<div style="background:rgba(37,99,235,0.07);border:1px solid rgba(37,99,235,0.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#1e3a8a;">';
+    html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
+        '<span style="flex:1;min-width:160px;">⚖️ Comparando contra <strong>' + escapeHtml(regName) + '</strong>' +
+        (ov && ov.name ? ' <span style="color:var(--muted);">(elegida a mano' + (catalogReg ? '; el alta dice "' + escapeHtml(catalogReg) + '"' : '') + ')</span>' : '') +
+        '</span>';
+    if (canChange) {
+        html += '<button class="btn-secondary" style="font-size:12px;padding:4px 12px;" onclick="libRegPickerToggle()">Cambiar</button>';
+    }
+    html += '</div>';
+    if (canChange) {
+        html += '<div id="lib-reg-picker" style="display:none;margin-top:8px;">' + _libRegPickerControlsHTML(vehicle, regName) + '</div>';
+    }
+    html += '</div>';
+    return html;
+}
+
+function libRegPickerToggle() {
+    var el = document.getElementById('lib-reg-picker');
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// Fija la regulación contra la que se validan los gases de ESTE vehículo.
+// Solo durante la liberación: una vez enviado a aprobación, el liberador ya firmó
+// valores contra un perfil concreto y cambiarlo invalidaría la doble verificación.
+function libApplyComparisonRegulation() {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    if (vehicle.status !== 'ready-release') {
+        showToast('La regulación de comparación solo puede cambiarse durante la liberación.', 'warning');
+        return;
+    }
+    var sel = document.getElementById('lib-reg-select');
+    var name = sel ? sel.value : '';
+    if (!name) { showToast('Elige una regulación de la lista', 'error'); return; }
+    var profile = getRegulationProfile(name);
+    if (!profile) { showToast('Esa regulación no tiene perfil de límites configurado', 'error'); return; }
+    var prev = _libGetVehicleRegulation(vehicle);
+    if (prev === profile.name) { showToast('Ya se está comparando contra ' + profile.name, 'info'); return; }
+
+    undoPush('cop15', 'Regulación de comparación: ' + vehicle.vin);
+    var who = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+    vehicle.regulationOverride = {
+        name: profile.name,
+        original: _libGetCatalogRegulation(vehicle),
+        by: who,
+        at: new Date().toISOString()
+    };
+    if (!vehicle.timeline) vehicle.timeline = [];
+    vehicle.timeline.push({
+        timestamp: vehicle.regulationOverride.at,
+        user: who || 'Liberador',
+        action: 'Regulación de comparación: ' + profile.name,
+        data: { regulation: profile.name, original: vehicle.regulationOverride.original }
+    });
+    if (typeof auditLog === 'function') {
+        auditLog('cop15', 'regulacion_comparacion', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+            'Gases comparados contra ' + profile.name + ' (alta: ' + (vehicle.regulationOverride.original || 'sin dato') + ')');
+    }
+    saveDB();
+    loadRelease();
+    showToast('Liberación comparando contra ' + profile.name, 'success');
+}
+
+function libClearComparisonRegulation() {
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || !vehicle.regulationOverride) return;
+    if (vehicle.status !== 'ready-release') {
+        showToast('La regulación de comparación solo puede cambiarse durante la liberación.', 'warning');
+        return;
+    }
+    undoPush('cop15', 'Quitar regulación de comparación: ' + vehicle.vin);
+    var prev = vehicle.regulationOverride.name;
+    delete vehicle.regulationOverride;
+    if (typeof auditLog === 'function') {
+        auditLog('cop15', 'regulacion_comparacion', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+            'Se quitó la regulación elegida a mano (' + prev + '); vuelve a la del alta');
+    }
+    saveDB();
+    loadRelease();
+    showToast('Se restauró la regulación del alta', 'info');
 }
 
 function _libNormalizeVal(v) {
@@ -2472,17 +2654,25 @@ function loadRelease() {
     var btn = document.getElementById('release-archive-btn');
 
     if (!profile) {
+        // [v17.10] Antes esto era un callejón sin salida: el único camino era irse a
+        // Datos → Regulaciones. Ahora el liberador elige aquí mismo contra qué norma
+        // comparar (típico de altas manuales, donde "Regulación" trae la transmisión
+        // o "N/A"). La elección se guarda en el vehículo y queda auditada.
         gasCard.style.display = 'block';
         document.getElementById('lib-gas-entry-content').innerHTML =
-            '<div style="padding:16px;text-align:center;color:var(--warn-text);background:#fef3c7;border-radius:8px;">' +
-            '⚠️ La regulación <strong>' + escapeHtml(regName || 'desconocida') + '</strong> no tiene perfil de gases configurado.<br>' +
-            '<button class="btn-secondary" onclick="switchPlatform(\'panel\');setTimeout(function(){pnSwitchTab(\'pn-regulations\');},200);" style="margin-top:10px;font-size:12px;">⚗️ Configurar regulaciones</button>' +
+            '<div style="padding:14px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;color:#92400e;">' +
+            '<div style="font-size:13px;margin-bottom:10px;">⚠️ <strong>' + escapeHtml(regName || 'Sin regulación') + '</strong> no es una regulación con límites configurados' +
+            (regName ? ' (así quedó registrada en el alta de este vehículo).' : '.') +
+            '<br><strong>Elige contra qué regulación comparar los gases</strong> para poder liberar.</div>' +
+            _libRegPickerControlsHTML(vehicle, '') +
             '</div>';
         btn.disabled = true;
     } else {
         gasCard.style.display = 'block';
         var existing = (testData.gasResults && testData.gasResults.liberador) ? testData.gasResults.liberador.values : {};
         _libRenderGasEntry('lib-gas-entry-content', profile, existing, 'libOnGasChange()');
+        var _gasEl = document.getElementById('lib-gas-entry-content');
+        if (_gasEl) _gasEl.insertAdjacentHTML('afterbegin', _libRegBasisHTML(vehicle, regName));
         libOnGasChange();
     }
 
@@ -2501,7 +2691,14 @@ function loadApproval() {
     }
     content.style.display = 'block';
     document.getElementById('approvalInfo').innerHTML =
-        '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libGetVehicleRegulation(vehicle) || 'N/A');
+        '📋 <strong>VIN:</strong> ' + escapeHtml(vehicle.vin) + ' | <strong>Regulación:</strong> ' + escapeHtml(_libGetVehicleRegulation(vehicle) || 'N/A') +
+        // [v17.10] Si el liberador eligió a mano contra qué comparar, el aprobador tiene
+        // que verlo: está verificando contra esa norma, no contra la del alta.
+        (vehicle.regulationOverride && vehicle.regulationOverride.name
+            ? '<div style="margin-top:6px;font-size:12px;color:#1e3a8a;">⚖️ Regulación de comparación elegida por el liberador' +
+              (vehicle.regulationOverride.by ? ' (' + escapeHtml(vehicle.regulationOverride.by) + ')' : '') +
+              (_libGetCatalogRegulation(vehicle) ? '; en el alta quedó "' + escapeHtml(_libGetCatalogRegulation(vehicle)) + '"' : '') + '.</div>'
+            : '');
 
     var testData = vehicle.testData || {};
     var isEm = isEmissionsPurpose(vehicle.purpose);
@@ -2519,8 +2716,11 @@ function loadApproval() {
     if (matchDiv) matchDiv.style.display = 'none';
 
     if (!isEm || !profile) {
-        document.getElementById('appr-gas-entry-content').innerHTML =
-            '<p style="color:#64748b;font-size:12px;">Este vehículo no requiere verificación de gases.</p>';
+        document.getElementById('appr-gas-entry-content').innerHTML = (isEm && !profile)
+            ? '<div style="padding:12px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;color:#92400e;font-size:12px;">' +
+              '⚠️ La regulación de este vehículo (<strong>' + escapeHtml(regName || 'sin dato') + '</strong>) no tiene perfil de límites, así que no hay gases que verificar. ' +
+              'Si debía compararse contra una norma, pide al liberador que la elija en la pestaña Liberación (botón "Cambiar") antes de aprobar.</div>'
+            : '<p style="color:#64748b;font-size:12px;">Este vehículo no requiere verificación de gases.</p>';
         if (btn) btn.disabled = false;
         return;
     }
@@ -4570,10 +4770,15 @@ const preDT = pre.datetime ? new Date(pre.datetime).toLocaleString('es-MX',{date
   const gasResults = (vehicle.testData && vehicle.testData.gasResults) || {};
   const liberadorGas = gasResults.liberador;
   if (liberadorGas && liberadorGas.values) {
-      const regName = (vehicle.config && vehicle.config['EMISSION REGULATION']) || vehicle.regulation || '';
+      // [v17.10] La regulación del PDF es la MISMA contra la que se validó en pantalla
+      // (_libGetVehicleRegulation respeta la elegida a mano por el liberador); antes se
+      // releía el dato del alta y el documento podía citar una norma distinta.
+      const regName = (typeof _libGetVehicleRegulation === 'function')
+          ? (_libGetVehicleRegulation(vehicle) || '')
+          : ((vehicle.config && vehicle.config['EMISSION REGULATION']) || vehicle.regulation || '');
       const regProfile = typeof getRegulationProfile === 'function' ? getRegulationProfile(regName) : null;
       y += 1;
-      cell(ML, y, CW, 5, 'Resultados de Emisiones', {fill:LT_GREEN, font:'bold', sz:8, align:'center'});
+      cell(ML, y, CW, 5, 'Resultados de Emisiones' + (regName ? ' — ' + regName : ''), {fill:LT_GREEN, font:'bold', sz:8, align:'center'});
       y += 5;
       const gasColW = CW / 4;
       cell(ML, y, gasColW, 4, 'Gas', {fill:GRAY_BG, font:'bold', sz:6, align:'center'});
@@ -6350,7 +6555,11 @@ var CASCADE_TOOLTIPS = {
     releaseVehSelect: { title: 'Veh\u00edculo a liberar', text: 'Elige el veh\u00edculo listo para captura de resultados. Como Liberador, t\u00fa registras el primer juego de valores de gases.' },
     approvalVehSelect: { title: 'Veh\u00edculo pendiente de aprobaci\u00f3n', text: 'Elige el veh\u00edculo que vas a verificar como Aprobador. NO ver\u00e1s los valores que captur\u00f3 el Liberador \u2014 as\u00ed se garantiza el doble ciego.' },
     'hist-filter-help': { title: 'Filtros de Historial', text: 'Filtra los veh\u00edculos archivados por estado, VIN, a\u00f1o o mes para encontrar uno espec\u00edfico r\u00e1pidamente.' },
-    'lib-gas-help': { title: 'Resultados de Emisiones', text: 'Captura los valores FINALES verificados del reporte oficial (no lecturas crudas del analizador). El estado muestra \u2713/\u2717 contra el l\u00edmite regulatorio y el % del l\u00edmite; si un valor se sale del rango plausible se marca en \u00e1mbar (puedes guardarlo igual, queda registrado en auditor\u00eda).' },
+    'lib-gas-help': { title: 'Resultados de Emisiones', text: 'Captura los valores FINALES verificados del reporte oficial (no lecturas crudas del analizador). El estado muestra \u2713/\u2717 contra el l\u00edmite regulatorio y el % del l\u00edmite; si un valor se sale del rango plausible se marca en \u00e1mbar (puedes guardarlo igual, queda registrado en auditor\u00eda). Arriba de la tabla se indica contra qu\u00e9 regulaci\u00f3n se est\u00e1 comparando; con \u201cCambiar\u201d puedes elegir otra si la del alta no corresponde.' },
+    man_model: { title: 'Modelo (alta manual)', text: 'Modelo del veh\u00edculo cuando no existe en el cat\u00e1logo (prototipos, unidades prestadas, variantes nuevas). Se guarda tal cual lo escribas.' },
+    man_engine: { title: 'Motor (alta manual)', text: 'Motor/cilindrada del veh\u00edculo, por ejemplo 1.6T-GDI o 2.0 MPI. Si es el\u00e9ctrico, escribe la potencia en KW.' },
+    man_transmission: { title: 'Transmisi\u00f3n (alta manual)', text: 'Opcional: transmisi\u00f3n del veh\u00edculo (6DCT, 8AT, 6MT\u2026). Es solo un dato descriptivo \u2014 NO es la regulaci\u00f3n de emisiones, que se captura en el campo siguiente.' },
+    man_regulation: { title: 'Regulaci\u00f3n (alta manual)', text: 'Norma de emisiones contra la que se comparar\u00e1n los gases al liberar (EURO-5, SULEV 30\u2026). Solo aparecen las regulaciones con perfil de l\u00edmites configurado en Datos \u2192 Regulaciones. Si a\u00fan no la sabes, deja \u201cDefinir al liberar\u201d: en la pesta\u00f1a Liberaci\u00f3n podr\u00e1s elegir contra cu\u00e1l comparar.' },
     'hist-retro-help': { title: 'Completar datos retroactivos', text: 'Este veh\u00edculo ya est\u00e1 archivado y le faltan campos que el PDF exige. Los campos vac\u00edos (en \u00e1mbar) los puedes llenar libremente. Los que ya tienen valor est\u00e1n bloqueados \ud83d\udd12: para cambiarlos debes escribir la raz\u00f3n del cambio y firmar \u2014 todo queda en el control de cambios (\ud83d\udd58).' }
 };
 

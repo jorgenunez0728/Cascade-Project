@@ -292,8 +292,19 @@
                         <input type="text" id="man_engine" placeholder="Ej: 1.6T-GDI" autocomplete="off">
                     </div>
                     <div class="form-group">
-                        <label>Regulación Manual</label>
-                        <input type="text" id="man_regulation" placeholder="Ej: TIER3 BIN70" autocomplete="off">
+                        <label for="man_transmission">Transmisión Manual <span style="color:var(--muted);font-weight:400;">(opcional)</span></label>
+                        <input type="text" id="man_transmission" placeholder="Ej: 6DCT / 8AT / 6MT" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="man_regulation">Regulación Manual</label>
+                        <select id="man_regulation" onchange="altaManualRegChanged()">
+                            <option value="">Definir al liberar</option>
+                        </select>
+                        <input type="text" id="man_regulation_other" placeholder="Escribe la norma (ej: TIER3 BIN70)" autocomplete="off" style="display:none;margin-top:6px;">
+                        <div style="font-size: var(--fs-sm);color:var(--muted);margin-top:4px;">
+                            Norma contra la que se compararán los gases al liberar. Si no la sabes, déjala en
+                            <em>“Definir al liberar”</em> — podrás elegirla en la pestaña Liberación.
+                        </div>
                     </div>
                 </div>
             </div>
