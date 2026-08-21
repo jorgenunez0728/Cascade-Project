@@ -2,6 +2,35 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.11 — "Ad-hoc" pasa a llamarse "Fuera de Plan" + filtros de Historial (2026-08-21)
+
+### Renombrado: ad-hoc → Fuera de Plan
+El término "ad-hoc" no le decía nada a quien entra por primera vez, y lo que la marca realmente
+significa es *esta prueba no viene del plan semanal aprobado*. Renombrado en toda la interfaz:
+
+- Casilla del Alta: **"Prueba fuera de plan — no contabilizar al plan semanal"**.
+- Distintivo en el Historial y en la Cola: **"Fuera de Plan"** (clase CSS `.adhoc-badge` →
+  `.offplan-badge`, con `white-space: nowrap` porque la etiqueta nueva es más larga).
+- Entrada de la línea de tiempo del vehículo: *"Vehículo Registrado (fuera de plan)"*.
+- Comentarios y logs internos de `cop15.js`/`testplan.js`.
+
+El campo de datos sigue siendo `vehicle.adhoc` — renombrarlo rompería los vehículos ya guardados
+y sincronizados; solo cambió lo que se muestra.
+
+De paso, el texto de ayuda de esa casilla afirmaba *"La aprobación en Power Automate sí se
+enviará"*, un flujo eliminado en v15.6. Ahora dice que la liberación y la aprobación siguen su
+curso normal. Se agregó su entrada en `CASCADE_TOOLTIPS` (`vehicleAdhoc`).
+
+### Historial: filtro por Propósito y Estado completo
+- **Propósito** es un filtro nuevo (`window._histFilterPurpose`), con las opciones derivadas de
+  los propósitos que existen en `db.vehicles` — mismo patrón que el filtro de año, así la lista
+  nunca ofrece un propósito sin registros ni omite uno capturado a mano.
+- **Estado** no ofrecía `pending-approval`: un vehículo esperando aprobación no se podía filtrar
+  aunque el estado exista desde la liberación doble-ciego. Agregado.
+- **"Fuera de Plan"** se suma como opción del filtro de Estado (junto a los atajos "Activos" y
+  "Archivados" que ya vivían ahí), para listar de un toque las pruebas que no cuentan al plan.
+- Los cuatro filtros se combinan entre sí y "Limpiar" los reinicia todos.
+
 ## v17.10 — Liberación: elegir contra qué regulación se comparan los gases (2026-08-21)
 
 ### El problema

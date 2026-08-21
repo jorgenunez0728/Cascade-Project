@@ -622,9 +622,9 @@ function tpLoadPlanFromCSV_CONFIGURATIONS() {
 function tpAutoFeedFromRelease(vehicle, opts) {
     if (!vehicle || !vehicle.configCode) return;
     if (!TP_PURPOSES_VALID.includes(vehicle.purpose)) return;
-    // Ad-hoc vehicles are explicitly excluded from plan accounting.
+    // Las pruebas marcadas "Fuera de Plan" (v.adhoc) se excluyen a propósito del conteo del plan.
     if (vehicle.adhoc) {
-        console.log('TP: skipping auto-feed for ad-hoc vehicle', vehicle.vin || vehicle.id);
+        console.log('TP: se omite el auto-feed de una prueba fuera de plan', vehicle.vin || vehicle.id);
         return;
     }
 

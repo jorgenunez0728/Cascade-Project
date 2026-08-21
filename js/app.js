@@ -190,11 +190,17 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.10';
+var APP_VERSION = '17.11';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.11', date: '21 ago 2026', title: '"Ad-hoc" pasa a llamarse "Fuera de Plan" + filtros de Historial', bullets: [
+        'El término "ad-hoc" desaparece de la interfaz: la casilla del Alta, el distintivo del Historial y el de la Cola ahora dicen "Fuera de Plan", que es lo que la marca significa (trabajo que no acredita el plan semanal).',
+        'Historial: filtro nuevo por Propósito (COP-Emisiones, ND-Emisiones, Correlación…), con las opciones tomadas de los registros que existen de verdad.',
+        'Historial: el filtro de Estado no ofrecía "Pendiente Aprobación" — un vehículo esperando aprobación no se podía filtrar. Agregado, junto con una opción "Fuera de Plan" para listar de un toque las pruebas marcadas así.',
+        'Ayuda contextual nueva en la casilla "Prueba fuera de plan" del Alta, y aviso corregido: decía que la aprobación se enviaría por Power Automate, un flujo eliminado en v15.6.'
+    ]},
     { version: '17.10', date: '21 ago 2026', title: 'Liberación: elegir contra qué regulación se comparan los gases', bullets: [
         'Un vehículo cuya "regulación" no es una norma con límites (típico del alta manual, donde el campo era texto libre y terminaba con la transmisión "6DCT", "N/A" o el voltaje de un EV) dejaba la Liberación bloqueada: el único camino era irse a Datos → Regulaciones y volver. Ahora el liberador elige ahí mismo contra qué regulación comparar, y el botón de enviar a aprobación se desbloquea.',
         'La elección se guarda en el vehículo, aparece en su línea de tiempo, en la auditoría, en la pantalla del aprobador (que está verificando contra esa norma, no contra la del alta) y en el PDF COP15-F05, que antes releía el dato del alta y podía citar una norma distinta a la usada para validar.',
@@ -625,6 +631,7 @@ let activeVehicleId = null;
 let currentFilter = 'all';
 window._histFilterStatus = 'all';
 window._histFilterVin = '';
+window._histFilterPurpose = '';
 window._histFilterYear = '';
 window._histFilterMonth = '';
 window._histPageSize = 25;
