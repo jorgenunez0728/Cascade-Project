@@ -642,7 +642,7 @@ function pnSave() {
     window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'panel' } }));
 }
 
-var _pnTabs = ['pn-dashboard','pn-reports','pn-executive','pn-turnaround','pn-users','pn-shift','pn-projects','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit','pn-regulations','pn-files'];
+var _pnTabs = ['pn-dashboard','pn-reports','pn-executive','pn-turnaround','pn-users','pn-shift','pn-projects','pn-alerts','pn-intelligence','pn-system','pn-calendar','pn-audit','pn-regulations','pn-files','pn-bugs'];
 
 // Tabs managed by Alpine reactive templates (no innerHTML needed)
 var _pnAlpineTabs = { 'pn-users': true, 'pn-shift': true, 'pn-alerts': true, 'pn-system': true, 'pn-calendar': true, 'pn-audit': true };
@@ -693,6 +693,9 @@ function _pnGetRenderer(tabId) {
     if (tabId === 'pn-audit') return pnRenderAuditTrail;
     if (tabId === 'pn-regulations') return pnRenderRegulations;
     if (tabId === 'pn-files') return pnRenderFiles;
+    // v17.13: la bandeja de bugs vive en js/bugreport.js, que carga DESPUÉS de este
+    // archivo — mismo guard typeof que Proyectos.
+    if (tabId === 'pn-bugs') return (typeof pnRenderBugs === 'function') ? pnRenderBugs : null;
     return null;
 }
 

@@ -137,7 +137,38 @@ Cascade-Project/
 - **Rendering**: Call `refreshAllLists()`, `tpRender()`, `invRender()`, `pnRender()` or `copRender()` to update UI
 - **Dark theme** for TP/RA/Inventory/Panel, **light theme** for COP15
 - **Never edit** `kia-emlab-unified.html` — always edit source files and run `build.sh`
-- **Script load order matters**: app.js → cop15.js → inventory.js → testplan.js → panel.js → auth.js → signatures.js → firebase-sync.js → cop_validator.js
+- **Script load order matters**: app.js → cop15.js → inventory.js → testplan.js → panel.js → projects.js → auth.js → signatures.js → firebase-sync.js → cop_validator.js → bugreport.js
+
+## Reporte de bugs — setup una sola vez (v17.13)
+
+El botón 🐞 flotante toma una captura de la pantalla y publica un **issue en GitHub**. Funciona sin
+configurar nada (los reportes se quedan en cola y en la nube del laboratorio), pero para que
+lleguen a GitHub hay que darle un token **una sola vez, desde cualquier dispositivo**:
+
+1. **Crear el token**: GitHub → *Settings* → *Developer settings* → *Personal access tokens* →
+   **Fine-grained tokens** → *Generate new token*.
+   - **Repository access**: *Only select repositories* → `Cascade-Project` (solo ese).
+   - **Permissions → Repository permissions**: **Issues** = *Read and write*, **Contents** =
+     *Read and write* (Contents es para subir las capturas). Nada más.
+   - **Expiration**: ponle fecha. Cuando venza, la app avisa con un mensaje claro y basta con
+     pegar uno nuevo.
+2. **Pegarlo en la app**: Datos → ⋯ Más → **🐞 Bugs** → *Conexión con GitHub* → pegar el token →
+   **Guardar** → **Probar conexión**. Queda compartido con todos los dispositivos del laboratorio.
+3. **Revisar los reportes**: entra a los *Issues* del repositorio con la etiqueta `bug` y ciérralos
+   conforme los arregles. En la app, *Actualizar estados* los marca ✅ Resuelto.
+
+**Dos advertencias de seguridad:**
+
+- El token vive en la nube **compartida** del laboratorio: cualquier dispositivo con sesión puede
+  leerlo. Por eso debe ser fine-grained, limitado a ese repositorio y con los permisos mínimos de
+  arriba — nunca un token clásico con acceso a toda la cuenta.
+- Si el repositorio es **público**, los issues y las capturas quedan visibles para cualquiera en
+  internet, y una captura puede mostrar VINs, resultados de gases y nombres de operadores.
+  **Se recomienda volver el repositorio privado**; el flujo funciona igual (la única diferencia es
+  que la imagen puede no verse embebida en el issue, pero el enlace a la captura siempre sirve).
+
+Las capturas se suben a una rama dedicada **`bug-shots`** (se crea sola), nunca a `main`, así que no
+ensucian la historia del proyecto ni disparan despliegues.
 
 ## Seguridad — setup una sola vez (v15.6)
 

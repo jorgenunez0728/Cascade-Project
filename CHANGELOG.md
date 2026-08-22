@@ -2,6 +2,66 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.13 — Botón 🐞 para reportar fallas con captura de pantalla (2026-08-22)
+
+### Por qué
+Los técnicos usan la plataforma a diario en tablets y teléfonos, y hasta ahora no había forma de
+avisar de una falla en el momento en que ocurre: había que acordarse, encontrar a quién decirle y
+describir de memoria una pantalla que ya no está. El resultado práctico era que la mayoría de los
+problemas nunca se reportaban.
+
+### Qué se agregó
+Un **botón 🐞 flotante, visible en cualquier pantalla** (abajo a la izquierda, espejo del
+temporizador de soak). Al tocarlo:
+
+1. Toma **solo** una captura de lo que se está viendo (sin pedir permisos del navegador).
+2. Abre una ventana con la vista previa y un campo **"¿Qué pasó?"**.
+3. **Descartar** tira la captura sin guardar absolutamente nada — ni local, ni en la nube.
+4. **Enviar reporte** publica un **issue en GitHub** con la captura embebida y el contexto técnico
+   ya adjunto (versión de la app, en qué pantalla estaba, operador, tamaño de pantalla, navegador
+   y los últimos errores internos de JavaScript). El técnico no tiene que explicar nada de eso.
+
+### Offline-first, como el resto de la plataforma
+Sin internet o sin token configurado el reporte **no se pierde**: queda en una cola local
+(`kia_bug_queue`, máximo 3) y el 🐞 muestra cuántos esperan. Se reintenta solo al recuperar
+conexión, al arrancar, y con un botón manual en la bandeja. Si `localStorage` se llena, se
+sacrifican las capturas más viejas antes que el texto del técnico.
+
+`html2canvas` se carga **diferido** desde CDN al picar el botón (mismo patrón que SheetJS en
+`projects.js`): la app arranca igual de rápido. Si el CDN no responde, el reporte se puede enviar
+igual, solo con texto.
+
+### Bandeja: Datos → ⋯ Más → 🐞 Bugs
+- **En espera de envío**: los pendientes, con miniatura, quién y cuándo, el error del último
+  intento, y botones para reintentar o descartar.
+- **Reportes enviados**: respaldo en la nube compartida de cada reporte publicado, con enlace a su
+  issue y su estado. **"Actualizar estados"** le pregunta a GitHub cuáles issues ya cerraste y los
+  marca ✅ Resuelto aquí — el ciclo se cierra desde GitHub, que es donde se arreglan.
+- **Conexión con GitHub**: token, dueño y repositorio. Se configura **una sola vez** desde
+  cualquier dispositivo y se comparte con todos los demás del laboratorio. Incluye "Probar
+  conexión", que además avisa si el repositorio es público.
+
+### Detalles de implementación
+- **Módulo nuevo `js/bugreport.js`** (prefijo `bug*`), cargado al final. Los puntos de registro en
+  `panel.js` son tres líneas (`_pnTabs`, `_pnGetRenderer` con guarda `typeof`, y la entrada del
+  menú en `index.html`) — mismo patrón que Proyectos en v16.8.
+- **Las capturas van a una rama dedicada `bug-shots`**, nunca a `main`: no ensucian la historia ni
+  disparan workflows de despliegue. La rama se crea sola la primera vez.
+- **Respaldo en Firestore** en `stations/KIA-EMLAB/bugreports/{id}` + captura fragmentada en su
+  subcolección `chunks/`, reutilizando el mecanismo del Almacén de Archivos de v16.3. Las reglas
+  actuales ya cubren cualquier subcolección de `stations/` (`match /{path=**}`): **no hay reglas
+  nuevas que desplegar**.
+- **Buffer de errores** (`window._bugRecentErrors`, cap 20, solo en RAM) alimentado por los
+  listeners `error` y `unhandledrejection` de `app.js`. Nada se persiste ni se envía solo.
+- Ayuda contextual completa (banner de pestaña + tooltips `?`), según la regla de v16.0.
+
+### Aviso de seguridad
+El token se guarda en la nube **compartida**: cualquier dispositivo con sesión del laboratorio
+puede leerlo. Debe ser un *fine-grained token* limitado a ese repositorio, con permisos mínimos
+(**Issues** y **Contents**, lectura y escritura) y fecha de expiración. Y si el repositorio es
+**público**, los issues y las capturas —que pueden mostrar VINs, resultados y nombres— quedan
+visibles para cualquiera en internet: conviene volverlo privado. Ver README → "Reporte de bugs".
+
 ## v17.12 — Bug grave: dos vehículos podían compartir el mismo identificador (2026-08-21)
 
 ### El síntoma
