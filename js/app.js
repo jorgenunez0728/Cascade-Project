@@ -2,8 +2,28 @@
 // ║  KIA EmLab — App Core (Config, Utilities, Platform, Init)          ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
+// [v17.13] Los últimos errores internos se conservan en memoria para adjuntarlos
+// al reporte de bugs (botón 🐞). Solo RAM: nada se persiste ni se envía solo.
+window._bugRecentErrors = [];
+function _bugRecordError(type, message, source, line) {
+  try {
+    window._bugRecentErrors.push({
+      at: new Date().toISOString(), type: type,
+      message: String(message || '').slice(0, 300),
+      source: source ? String(source).split('/').pop() : '', line: line || 0
+    });
+    if (window._bugRecentErrors.length > 20) window._bugRecentErrors.shift();
+  } catch (err) {}
+}
+
 window.addEventListener('error', (e) => {
   console.error('🔥 Error JS:', e.message, 'en', e.filename, 'línea', e.lineno);
+  _bugRecordError('error', e.message, e.filename, e.lineno);
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+  var reason = e && e.reason;
+  _bugRecordError('promesa', (reason && reason.message) ? reason.message : reason, '', 0);
 });
 
 // ======================================================================
@@ -190,11 +210,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.12';
+var APP_VERSION = '17.13';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.13', date: '22 ago 2026', title: 'Botón 🐞 para reportar fallas con captura de pantalla', bullets: [
+        'Un botón 🐞 flotante, visible en cualquier pantalla de la plataforma: al tocarlo toma solo una captura de lo que estás viendo y abre una ventana para que cuentes qué pasó.',
+        'Puedes Descartar (no se guarda absolutamente nada) o Enviar. Al enviar, el reporte se publica como issue en el repositorio de GitHub del proyecto, con la captura y los datos técnicos (versión, pantalla, tamaño, errores internos recientes) ya adjuntos — el técnico no tiene que explicar nada de eso.',
+        'Sin internet o sin token configurado el reporte no se pierde: queda en cola (el 🐞 muestra cuántos esperan) y se envía solo al recuperar la conexión.',
+        'Datos → ⋯ Más → 🐞 Bugs: bandeja con todos los reportes enviados, su issue y su estado. "Actualizar estados" pregunta a GitHub cuáles ya cerraste y los marca como resueltos aquí.',
+        'La conexión con GitHub (token + repositorio) se configura UNA vez desde cualquier dispositivo y se comparte con todos los demás del laboratorio.'
+    ]},
     { version: '17.12', date: '21 ago 2026', title: 'Bug grave: dos vehículos podían compartir el mismo identificador', bullets: [
         'Elegir un vehículo en Operación cargaba OTRO (el selector mostraba uno y la ficha seguía con el anterior). Causa: el id se generaba con un contador local (++db.lastId) y la sincronización fusiona vehículos por VIN conservando el id del equipo que los creó, sin adelantar ese contador — dos dispositivos emitían el mismo id sin enterarse.',
         'El mismo id repetido tenía dos consecuencias peores y silenciosas: el borrador de captura se guardaba en una clave por id, así que dos vehículos compartían borrador; y "Eliminar vehículo" filtraba por id, así que borraba LOS DOS de un golpe.',
@@ -3596,6 +3623,11 @@ if (speedEl) speedEl.addEventListener('input', calculateFanFlowFromSpeed);
         try {
             if (typeof dailyDashRender === 'function') dailyDashRender();
         } catch(dashErr) { console.error('dailyDashRender error:', dashErr); }
+
+        // ═══ [v17.13] Botón flotante de reporte de bugs ═══
+        try {
+            if (typeof bugFabInit === 'function') bugFabInit();
+        } catch(bugErr) { console.error('bugFabInit error:', bugErr); }
 
         // [R5-M1] Finalize splash
         if (typeof splashUpdate === 'function') splashUpdate('Listo', 100);

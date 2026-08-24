@@ -61,6 +61,7 @@ js/
   firebase-sync.js      ← Shared-workspace cloud sync layer (~2,900 lines)
   auth.js               ← Operator identity + PIN wall (~490 lines)
   cop_validator.js      ← CoP Type 1 statistical validator + Control SPC (I-MR/Nelson/Cpk) (~1,170 lines)
+  bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
 kia-emlab-unified.html  ← GENERATED FILE — do not edit directly
@@ -83,6 +84,7 @@ CHANGELOG.md            ← Detailed changelog
 | Auth / Operator | `js/auth.js` | `auth` | `authState` (lightweight) | `kia_current_operator` |
 | Signatures | `js/signatures.js` | `sig` | overlay-based | — (in `vehicle.testData.signatures`) |
 | Firebase Sync | `js/firebase-sync.js` | `fb` | `fbSync`, queue | `kia_firebase_queue` |
+| Reporte de Bugs | `js/bugreport.js` | `bug` | cola local (sin state global) | `kia_bug_queue`, `kia_bug_settings` |
 
 ### Additional localStorage Keys
 
@@ -98,6 +100,8 @@ CHANGELOG.md            ← Detailed changelog
 | `kia_entity_notes` | Entity Notes (per-vehicle/per-test annotations) |
 | `kia_soak_timer` | Soak timer persistence |
 | `kia_autoplan_lastrun` | Guard: ISO date of next Monday auto-plan already ran |
+| `kia_bug_queue` | Reportes de bug pendientes de publicar (cap 3, con captura) |
+| `kia_bug_settings` | Cache local del token/repo de GitHub (la fuente es el doc compartido en Firestore) |
 
 **`tpState` sub-fields added in v15:** `months` (dynamic production month labels), `priorityRules`
 (editable P1..P10 classification for Recovery), `weekAvailability`, `maxTiers`, `recoveryUntil`.
@@ -157,16 +161,17 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` (last; reuses `tpFamilyKeyForCfg`/`tpState`
-— guard with `typeof`). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`bugreport.js`** (last; registra
+`pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
+firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
 
 ## Conventions
 
 - All functions use global scope (no ES modules) — intentional for single-file offline compatibility
 - Function naming: `tp*`=Test Plan, `inv*`=Inventory, `pn*`=Panel, `pnProject*`/`pnProj*`=Proyectos, `cop*`=CoP validator,
-  `fb*`=Firebase sync, `auth*`=operator, `note*`=Entity Notes, `chartConfig*`=Chart, `undo*`=Undo,
-  `cascade*`=Cascade tooltips, no prefix = COP15/shared
+  `fb*`=Firebase sync, `auth*`=operator, `bug*`=Reporte de bugs, `note*`=Entity Notes, `chartConfig*`=Chart,
+  `undo*`=Undo, `cascade*`=Cascade tooltips, no prefix = COP15/shared
 - State stored in localStorage as JSON; TP/Inventory/Panel/CoP render HTML dynamically via JS
 - CSS custom properties in `:root`; unified light theme with per-module `--accent-*`
 - Destructive actions call `undoPush(module, label)` first; important state changes call
@@ -445,6 +450,36 @@ puntos de registro se quedaron en `panel.js` (`_pnTabs`, `_pnGetRenderer` —aho
 - **Sync**: sin cambios — `_fbMergeProjectSubArray` mergea `steps[]`/`log[]` por id quedándose con
   el objeto ganador completo, así que los campos nuevos (incluido `dependsOn`) viajan solos.
   Verificado con un merge A/B real.
+
+## v17.13 — Reporte de bugs con captura (`js/bugreport.js`)
+
+Botón 🐞 flotante (`bugFabInit()`, llamado desde `initializeSystem()`) visible en toda la
+plataforma. `bugCaptureStart()` carga **html2canvas diferido** (`_bugLoadHtml2Canvas`, copia literal
+del patrón `_pnProjLoadXLSX`) y rasteriza SOLO el viewport; `bugModalOpen(dataUrl)` pide el
+comentario y ofrece Enviar / **Descartar** (descartar no persiste nada en ningún lado).
+
+- **La captura NUNCA se guarda si no se envía**: vive en `_bugPendingShot` mientras el modal está
+  abierto y se anula al cerrarlo.
+- **`bugBuildIssueBody(report, shotUrls)` es una función PURA** (sin DOM) — se puede probar en Node
+  y es LA definición del cuerpo markdown del issue.
+- **Las capturas van a la rama `bug-shots`, nunca a `main`** (`BUG_GH_BRANCH`), vía Contents API;
+  `_bugEnsureBranch` la crea desde el HEAD de la rama por defecto la primera vez y tolera el 422
+  de carrera entre dispositivos. Un fallo al subir la imagen NO cancela el issue.
+- **Cola offline** `kia_bug_queue` (cap `BUG_QUEUE_MAX`=3). `_bugQueueSave` sacrifica las capturas
+  más viejas antes de rendirse ante un `QuotaExceededError` — el texto del técnico es lo que no se
+  puede perder. Reintentos: evento `online`, arranque (a los 6 s, tras `bugLoadSettings`) y botón
+  manual. `bugTrySendAll` se auto-excluye con `_bugSending` para no duplicar issues.
+- **Respaldo en Firestore**: helpers `fbBugs*` en `firebase-sync.js`, junto a los de Archivos y con
+  su mismo esqueleto de fragmentos (`stations/KIA-EMLAB/bugreports/{id}` + `chunks/`). Reutiliza
+  `fbFilesEnsureReady()` como condición de "listo". **Las reglas ya cubren cualquier subcolección de
+  `stations/` — no hay `firestore.rules` que tocar.**
+- **Token/repo compartidos** en `stations/KIA-EMLAB/settings/bugreports` (`fbBugsGetSettings`/
+  `fbBugsSaveSettings`), con cache local `kia_bug_settings` para arrancar offline. El token **nunca**
+  se escribe en la auditoría ni se muestra completo (`bugMaskToken`).
+- **`window._bugRecentErrors`** (`app.js`, cap 20, solo RAM) lo llenan los listeners `error` y
+  `unhandledrejection`; se adjuntan al issue. No se persiste ni se envía nada por su cuenta.
+- La pestaña `pn-bugs` se registra en `panel.js` con guarda `typeof` (patrón de Proyectos v16.8);
+  `pnRenderBugs` y los `pnBugs*` viven en bugreport.js.
 
 ## Working with this project
 
