@@ -329,6 +329,51 @@
             </div>
         </div>
 
+<!-- v17.14: ficha de homologación — solo se muestra si la región es EUROPE.
+     Va ANTES del operador porque es de los primeros datos que deben existir:
+     los coeficientes se necesitan para cargar el dinamómetro, no al liberar. -->
+<div class="card" id="homo-alta-box" style="display:none;">
+  <div class="card-title">🇪🇺 Datos de homologación (dinamómetro y CO₂)</div>
+
+  <div class="form-group">
+    <label for="homo_mc">MC code / Work Order del ICMS</label>
+    <input type="text" id="homo_mc" autocomplete="off" placeholder="Ej: 8GS6K5G17"
+           oninput="if(typeof homoAltaSearchFromInput==='function')homoAltaSearchFromInput()">
+    <div id="homo-alta-results" style="margin-top:4px;"></div>
+    <div id="homo-alta-status" style="font-size: var(--fs-sm);margin-top:4px;"></div>
+  </div>
+
+  <div class="form-grid">
+    <div class="form-group">
+      <label for="homo_f0">f0 (N)</label>
+      <input type="number" step="any" id="homo_f0" placeholder="102.5"
+             oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
+    </div>
+    <div class="form-group">
+      <label for="homo_f1">f1 (N/(km/h))</label>
+      <input type="number" step="any" id="homo_f1" placeholder="0.147"
+             oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
+    </div>
+    <div class="form-group">
+      <label for="homo_f2">f2 (N/(km/h)²)</label>
+      <input type="number" step="any" id="homo_f2" placeholder="0.03544"
+             oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
+    </div>
+    <div class="form-group">
+      <label for="homo_tm">TM — masa de ensayo (kg)</label>
+      <input type="number" step="any" id="homo_tm" placeholder="1507"
+             oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
+    </div>
+    <div class="form-group">
+      <label for="homo_co2">CO₂ declarado combinado (g/km)</label>
+      <input type="number" step="any" id="homo_co2" placeholder="132"
+             oninput="if(typeof homoAltaUpdateStatus==='function')homoAltaUpdateStatus()">
+    </div>
+  </div>
+
+  <div id="homo-alta-warn" style="font-size: var(--fs-sm);margin-top:6px;"></div>
+</div>
+
 <div class="card">
   <div class="card-title">👤 Operador de Registro</div>
 
@@ -1116,6 +1161,7 @@
                 <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-audit');this.closest('.tp-tab-more-wrap').classList.remove('open')">🔍 Auditoría</button>
                 <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-files');this.closest('.tp-tab-more-wrap').classList.remove('open')">☁️ Archivos</button>
                 <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-bugs');this.closest('.tp-tab-more-wrap').classList.remove('open')">🐞 Bugs</button>
+                <button class="tp-tab" role="tab" aria-selected="false" onclick="pnSwitchTab('pn-homolog');this.closest('.tp-tab-more-wrap').classList.remove('open')">🇪🇺 Homologación</button>
             </div>
         </div>
     </div>
@@ -1967,6 +2013,7 @@
 <script src="js/signatures.js"></script>
 <script src="js/firebase-sync.js"></script>
 <script src="js/cop_validator.js"></script>
+<script src="js/homolog.js"></script>
 <script src="js/bugreport.js"></script>
 
 </body>

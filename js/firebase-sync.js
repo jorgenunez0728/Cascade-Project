@@ -35,11 +35,13 @@ var FB_SYNC_MODULES_KEY = 'kia_fb_sync_modules';
 var fbSyncModules = (function() {
     try { return JSON.parse(localStorage.getItem(FB_SYNC_MODULES_KEY)) || null; } catch(e) { return null; }
 })() || {
-    cop15: true, testplan: true, inventory: true, panel: true, cop: true, audit: true
+    cop15: true, testplan: true, inventory: true, panel: true, cop: true, audit: true, homolog: true
 };
 // Backfill new module flags for users that already have a saved fbSyncModules object
 if (typeof fbSyncModules.cop === 'undefined') fbSyncModules.cop = true;
 if (typeof fbSyncModules.audit === 'undefined') fbSyncModules.audit = true;
+// v17.14: catálogo de homologación Europa (coeficientes de dinamómetro + CO2 declarado)
+if (typeof fbSyncModules.homolog === 'undefined') fbSyncModules.homolog = true;
 // v15.6: results/approvals eliminados — limpiar flags heredados de dispositivos viejos
 delete fbSyncModules.results;
 delete fbSyncModules.approvals;
@@ -1049,6 +1051,10 @@ function fbPushAll(showFeedback) {
         var copRaw = null; try { copRaw = JSON.parse(localStorage.getItem('kia_cop_v1')); } catch(e) {}
         if (copRaw) modules.push({col:'cop', data: copRaw});
     }
+    if (fbSyncModules.homolog) {
+        var homoRaw = null; try { homoRaw = JSON.parse(localStorage.getItem('kia_homolog_v1')); } catch(e) {}
+        if (homoRaw && (homoRaw.catalog || []).length) modules.push({col:'homolog', data: homoRaw});
+    }
     if (fbSyncModules.audit && typeof auditGetTrail === 'function') {
         var auditArr = auditGetTrail();
         if (auditArr && auditArr.length) modules.push({col:'audit', data: auditArr});
@@ -1132,7 +1138,7 @@ function fbPullAll(showFeedback) {
     fbSync.status = 'syncing';
     fbUpdateIndicator();
 
-    var collections = ['cop15', 'testplan', 'inventory', 'panel', 'cop', 'audit'].filter(function(c) { return fbSyncModules[c]; });
+    var collections = ['cop15', 'testplan', 'inventory', 'panel', 'cop', 'homolog', 'audit'].filter(function(c) { return fbSyncModules[c]; });
     if (collections.length === 0) { if (showFeedback) showToast('No hay modulos seleccionados para sync', 'info'); return; }
 
     // Use REST API if SDK transport is broken
@@ -1453,6 +1459,31 @@ function fbPullApply(collections, results, showFeedback) {
             localStorage.setItem('kia_cop_v1', JSON.stringify(_mergedCop));
             if (typeof copSyncReload === 'function') copSyncReload();
             pulled.push('CoP');
+        } else if (col === 'homolog') {
+            // Catálogo de homologación: merge por MC code / Work Order (gana el más
+            // reciente por fila) y unión de los enlaces config→MC code, para que dos
+            // técnicos importando descargas distintas del ICMS no se pisen.
+            var _localHomo = {}; try { _localHomo = JSON.parse(localStorage.getItem('kia_homolog_v1')) || {}; } catch(e) {}
+            var _remoteHomo = remoteData || {};
+            var _rowMap = {};
+            (_localHomo.catalog || []).concat(_remoteHomo.catalog || []).forEach(function(r) {
+                if (!r) return;
+                var k = String((r.mcCode || r.workOrder || '')).trim().toUpperCase().replace(/[\s\-_/]+/g, '');
+                if (!k) return;
+                var prev = _rowMap[k];
+                if (!prev || String(r.at || '') >= String(prev.at || '')) _rowMap[k] = r;
+            });
+            var _mergedHomo = {
+                catalog: Object.keys(_rowMap).map(function(k) { return _rowMap[k]; }),
+                links: Object.assign({}, _remoteHomo.links || {}, _localHomo.links || {}),
+                co2TolerancePct: (typeof _remoteHomo.co2TolerancePct === 'number' && String(_remoteHomo.updatedAt || '') > String(_localHomo.updatedAt || ''))
+                    ? _remoteHomo.co2TolerancePct
+                    : (typeof _localHomo.co2TolerancePct === 'number' ? _localHomo.co2TolerancePct : 4),
+                updatedAt: new Date().toISOString()
+            };
+            localStorage.setItem('kia_homolog_v1', JSON.stringify(_mergedHomo));
+            if (typeof homoSyncReload === 'function') homoSyncReload();
+            pulled.push('Homologación');
         } else if (col === 'audit') {
             // Merge del historial de cambios por id (no perder registros), orden cronológico.
             // Cap unificado con el local (AUDIT_MAX) — antes el pull truncaba a 1000 y encogía la historia.

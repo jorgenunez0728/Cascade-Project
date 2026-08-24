@@ -504,6 +504,10 @@ function renderCascadeTree() {
     });
     document.getElementById('configCount').textContent = totalFiltered.length;
     displayConfigResult(totalFiltered);
+
+    // v17.14: el bloque de homologación aparece/desaparece según la región elegida
+    // (y se autollena si esa config ya se ligó antes a un MC code del ICMS).
+    if (typeof homoAltaSync === 'function') homoAltaSync();
 }
 
 function selectCascadeChip(fieldName, value) {
@@ -1244,6 +1248,11 @@ setAltaDatetimeIfEmpty(true);
             config: config,
             configCode: configCode,
             adhoc: isAdhoc,
+            // v17.14: ficha de homologación (solo vehículos Europa). Se guarda EN EL
+            // VEHÍCULO, no por configuración, para que quede constancia de con qué
+            // coeficientes y contra qué CO2 declarado se corrió ESTE vehículo.
+            homolog: (typeof homoAltaIsEurope === 'function' && homoAltaIsEurope()
+                      && typeof homoAltaCollect === 'function') ? homoAltaCollect() : null,
             fromPlanItem: planLink,
             status: 'registered',
             // El dropdown se conserva: es asignación de trabajo (a quién se le
@@ -1273,6 +1282,17 @@ setAltaDatetimeIfEmpty(true);
         auditLog('cop15', 'vehicle_registered', {type:'vehicle', id:newVehicle.id, label:newVehicle.vin}, 'Config: ' + configCode);
         if (typeof fbPostVehicleRegistered === 'function') fbPostVehicleRegistered(newVehicle.vin, newVehicle.configCode);
 
+        // v17.14: deja constancia de los coeficientes usados y recuerda el enlace
+        // config → MC code, para que el siguiente vehículo igual se autollene.
+        if (newVehicle.homolog && newVehicle.homolog.f0 != null) {
+            auditLog('cop15', 'homologacion_capturada', { type: 'vehicle', id: newVehicle.id, label: newVehicle.vin },
+                'f0=' + newVehicle.homolog.f0 + ' f1=' + newVehicle.homolog.f1 + ' f2=' + newVehicle.homolog.f2 +
+                ' TM=' + newVehicle.homolog.tm + ' CO₂ target=' + newVehicle.homolog.co2Target);
+            if (typeof homoLinkConfig === 'function' && newVehicle.homolog.mcCode) {
+                homoLinkConfig(configCode, newVehicle.homolog.mcCode);
+            }
+        }
+
         closeModal('modalConfirm');
         showToast('Vehículo registrado exitosamente', 'success');
 
@@ -1289,6 +1309,7 @@ setAltaDatetimeIfEmpty(true);
         document.getElementById('vin').value = '';
         document.getElementById('vehiclePurpose').value = '';
         if (adhocEl) adhocEl.checked = false;
+        if (typeof homoAltaReset === 'function') homoAltaReset();
         cop15ClearPlanPreload();
         resetCascadeTree();
         validateVIN(document.getElementById('vin'));
