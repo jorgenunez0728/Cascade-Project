@@ -61,6 +61,7 @@ js/
   firebase-sync.js      ← Shared-workspace cloud sync layer (~2,900 lines)
   auth.js               ← Operator identity + PIN wall (~490 lines)
   cop_validator.js      ← CoP Type 1 statistical validator + Control SPC (I-MR/Nelson/Cpk) (~1,170 lines)
+  homolog.js            ← Homologación Europa: catálogo ICMS + f0/f1/f2/TM + CO₂ declarado (~560 lines)
   bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
@@ -84,6 +85,7 @@ CHANGELOG.md            ← Detailed changelog
 | Auth / Operator | `js/auth.js` | `auth` | `authState` (lightweight) | `kia_current_operator` |
 | Signatures | `js/signatures.js` | `sig` | overlay-based | — (in `vehicle.testData.signatures`) |
 | Firebase Sync | `js/firebase-sync.js` | `fb` | `fbSync`, queue | `kia_firebase_queue` |
+| Homologación EU | `js/homolog.js` | `homo` | `homoState` | `kia_homolog_v1` |
 | Reporte de Bugs | `js/bugreport.js` | `bug` | cola local (sin state global) | `kia_bug_queue`, `kia_bug_settings` |
 
 ### Additional localStorage Keys
@@ -100,6 +102,7 @@ CHANGELOG.md            ← Detailed changelog
 | `kia_entity_notes` | Entity Notes (per-vehicle/per-test annotations) |
 | `kia_soak_timer` | Soak timer persistence |
 | `kia_autoplan_lastrun` | Guard: ISO date of next Monday auto-plan already ran |
+| `kia_homolog_v1` | Catálogo de homologación Europa (ICMS) + enlaces config→MC code + tolerancia CO₂ — synced |
 | `kia_bug_queue` | Reportes de bug pendientes de publicar (cap 3, con captura) |
 | `kia_bug_settings` | Cache local del token/repo de GitHub (la fuente es el doc compartido en Firestore) |
 
@@ -161,7 +164,7 @@ en el cliente sumando metadatos antes de subir.
 ## Script Load Order (matters!)
 
 `app.js` → `cop15.js` → `inventory.js` → `testplan.js` → `panel.js` → **`projects.js`** → `auth.js` →
-`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`bugreport.js`** (last; registra
+`signatures.js` → `firebase-sync.js` → `cop_validator.js` → **`homolog.js`** → **`bugreport.js`** (last; registra
 `pnRenderBugs`, que `panel.js` referencia con guarda `typeof`, y sus helpers `fbBugs*` viven en
 firebase-sync.js). `projects.js` usa `pnState`/`pnSave`/`pnRender` de panel.js, por eso va
 justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem()` in app.js runs on `DOMContentLoaded` and bootstraps everything.
@@ -170,7 +173,7 @@ justo después; panel.js llama de vuelta con guardas `typeof`. `initializeSystem
 
 - All functions use global scope (no ES modules) — intentional for single-file offline compatibility
 - Function naming: `tp*`=Test Plan, `inv*`=Inventory, `pn*`=Panel, `pnProject*`/`pnProj*`=Proyectos, `cop*`=CoP validator,
-  `fb*`=Firebase sync, `auth*`=operator, `bug*`=Reporte de bugs, `note*`=Entity Notes, `chartConfig*`=Chart,
+  `fb*`=Firebase sync, `auth*`=operator, `homo*`=Homologación EU, `bug*`=Reporte de bugs, `note*`=Entity Notes, `chartConfig*`=Chart,
   `undo*`=Undo, `cascade*`=Cascade tooltips, no prefix = COP15/shared
 - State stored in localStorage as JSON; TP/Inventory/Panel/CoP render HTML dynamically via JS
 - CSS custom properties in `:root`; unified light theme with per-module `--accent-*`
@@ -497,6 +500,34 @@ comentario y ofrece Enviar / **Descartar** (descartar no persiste nada en ningú
   `unhandledrejection`; se adjuntan al issue. No se persiste ni se envía nada por su cuenta.
 - La pestaña `pn-bugs` se registra en `panel.js` con guarda `typeof` (patrón de Proyectos v16.8);
   `pnRenderBugs` y los `pnBugs*` viven en bugreport.js.
+
+## v17.14 — Homologación Europa (`js/homolog.js`)
+
+Para vehículos **EUROPE**, los coeficientes de dinamómetro (f0/f1/f2/TM) y el CO₂ declarado vienen
+del **ICMS de HMG**. Se importan como catálogo y se capturan **en el Alta**, no al preacondicionar.
+
+- **`homoIsEurope(region)` es LA definición** de "este vehículo necesita ficha" (acepta EUROPE y
+  EUROPA). El bloque del Alta (`#homo-alta-box`, en index.html) se muestra/oculta desde
+  `homoAltaSync()`, llamada al final de **`renderCascadeTree()`** (cop15.js) — ahí es donde se
+  entera de la región elegida.
+- **La ficha se guarda en el VEHÍCULO** (`vehicle.homolog`), nunca en la configuración: es la
+  evidencia de con qué coeficientes se corrió *ese* vehículo. `homoVehicleData(v)` es LA definición
+  de leerla; se audita al registrar (`homologacion_capturada`).
+- **`homoState.links`** (configCode → MC code) es lo que hace que del segundo vehículo de la misma
+  config en adelante el Alta se autollene solo. Se escribe en `homoAltaPick` y al registrar.
+- **El importador fusiona por MC code / Work Order**, así que las dos descargas del ICMS
+  (coeficientes y CO₂) se pueden subir por separado y la segunda completa la primera —
+  `homoImportApply` solo pisa campos que traen valor. Reimportar actualiza, no duplica.
+  SheetJS se carga diferido reusando `_pnProjLoadXLSX` de projects.js (por eso homolog.js va
+  después). Agregar un sinónimo a `HOMO_IMPORT_FIELDS` basta para reconocer un encabezado nuevo.
+- **CO₂ NO entra al muestreo secuencial del CoP**: no tiene límite regulatorio fijo, su referencia
+  es el valor declarado de cada vehículo. `homoCo2Deviation` y **`homoCo2Assess` son LA definición**
+  del veredicto (promedio de desviaciones % vs `homoState.co2TolerancePct`). `cop_validator.js` solo
+  pinta (`_copBuildCo2HTML`) — la lógica vive en homolog.js.
+- **Sync**: `fbSyncModules.homolog`; el merge en `fbPullApply` empata filas por MC code / Work Order
+  y se queda con la más reciente (`at`), y une los `links` de ambos lados.
+- Alcance actual: **solo CO₂ combinado**. Las fases y el consumo se importan y guardan pero aún no
+  se comparan.
 
 ## Working with this project
 

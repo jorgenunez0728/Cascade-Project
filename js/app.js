@@ -210,11 +210,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.13b';
+var APP_VERSION = '17.14';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.14', date: '24 ago 2026', title: 'Homologación Europa: coeficientes de dinamómetro y CO₂ desde el Alta', bullets: [
+        'Para vehículos Europa, el Alta ahora pide los datos del ICMS (f0, f1, f2, TM y el CO₂ declarado) desde el primer paso, en vez de tener que buscarlos vehículo por vehículo ya empezada la prueba.',
+        'Importa UNA vez el Excel del ICMS en Datos → ⋯ Más → 🇪🇺 Homologación y el Alta se autollena. Puedes subir las dos descargas por separado (coeficientes y CO₂): se fusionan por MC code.',
+        'A partir del segundo vehículo de la misma configuración ya no hay que buscar nada: la plataforma recuerda el enlace y lo llena sola.',
+        'El CoP ahora compara el CO₂: cada vehículo contra SU valor declarado, con una tolerancia que tú configuras, y muestra por VIN con qué coeficientes de dinamómetro se corrió.',
+        'La ficha se guarda en el vehículo y queda en la auditoría, así que siempre se puede demostrar con qué targets se probó cada uno.'
+    ]},
     { version: '17.13b', date: '24 ago 2026', title: 'El token de bugs ya se comparte de verdad con todos los dispositivos', bullets: [
         'Guardar el token de GitHub seguía diciendo "guardado solo en este dispositivo" en algunos equipos. Ahora se configura UNA sola vez, desde cualquier dispositivo, y llega al resto del laboratorio.',
         'La causa: la app tarda hasta 12 segundos en darse cuenta de que la sincronización de ese equipo necesita el modo alterno. Si guardabas antes de ese momento, el intento fallaba y ya no se reintentaba. Ahora, si el guardado falla, se reintenta solo por la vía alterna.'

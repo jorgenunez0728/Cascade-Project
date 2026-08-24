@@ -746,6 +746,9 @@ function copBuildValidatorHTML() {
         html += '</div>';
     }
 
+    // ── CO₂ vs target declarado (v17.14) ──────────────────────────────────────
+    html += _copBuildCo2HTML();
+
     // ── Disclaimer regulatorio ─────────────────────────────────────────────────
     html += '<div class="card" style="margin-bottom:16px;background:rgba(245,158,11,0.04);' +
             'border-color:rgba(245,158,11,0.25);">';
@@ -1200,4 +1203,88 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'cop-verdict-help': { title: 'Concordancia de familia', text: 'PASS = la familia es CONCORDANTE con el límite (puedes dejar de ensayar); FAIL = NO CONCORDANTE (algún contaminante superó B(n)); CONTINUAR = aún faltan datos para decidir, agrega más VINes.' },
     'cop-spc-alarms-help': { title: 'Alarmas de control', text: 'Lista las combinaciones familia×gas que dispararon una regla de Nelson (R1/R2/R3) con los datos más recientes. Toca una alarma para ir directo a su carta.' },
     'cop-spc-help': { title: 'Selección de carta', text: 'Elige la familia y el gas para ver su carta de control I-MR. Los toggles cambian qué líneas de referencia se muestran (zonas σ, límite regulatorio, % del límite).' }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v17.14] CO₂ vs TARGET DECLARADO
+// El CO₂ no tiene un límite regulatorio fijo como los demás contaminantes: su
+// referencia es el valor DECLARADO de cada vehículo (el "Combined" del ICMS,
+// capturado en el Alta). Por eso no entra al muestreo secuencial de arriba, sino
+// que se evalúa aparte: desviación % por vehículo contra SU propio target, y el
+// promedio de la familia contra la tolerancia configurable
+// (Datos → 🇪🇺 Homologación). La tabla deja constancia de con qué coeficientes
+// de dinamómetro se corrió cada vehículo.
+// La lógica vive en homolog.js — aquí solo se pinta.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function _copBuildCo2HTML() {
+    if (typeof homoCo2RowsForVins !== 'function' || typeof homoCo2Assess !== 'function') return '';
+
+    var vins = (copState.vehicles || []).map(function(v) { return v.vin; }).filter(function(v) { return v; });
+    if (!vins.length) return '';
+
+    var rows = homoCo2RowsForVins(vins);
+    var conDatos = rows.filter(function(r) { return r.target != null || r.measured != null; });
+    if (!conDatos.length) return '';
+
+    var res = homoCo2Assess(rows);
+    var html = '<div class="card" style="margin-bottom:16px;">';
+    html += '<p class="label-title" data-help="cop-co2-help" style="margin-bottom:8px;">🌱 CO₂ vs valor declarado (homologación)</p>';
+
+    // Veredicto de familia
+    var okColor = res.verdict === 'CONCORDANTE' ? 'var(--ok-text,#166534)'
+                : res.verdict === 'NO CONCORDANTE' ? 'var(--danger-text,#991b1b)' : 'var(--muted)';
+    html += '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;">';
+    html += '<span style="font-weight:800;color:' + okColor + ';font-size:15px;">' + res.verdict + '</span>';
+    html += '<span style="font-size: var(--fs-sm);color:var(--muted);">' +
+        (res.meanDev === null
+            ? 'Ningún vehículo tiene a la vez CO₂ medido y target declarado.'
+            : 'Desviación promedio <b>' + (res.meanDev >= 0 ? '+' : '') + res.meanDev.toFixed(2) + '%</b> ' +
+              'sobre el declarado · tolerancia <b>' + res.tolerance + '%</b> · n=' + res.n) +
+        '</span></div>';
+
+    // Tabla por vehículo
+    html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
+    html += '<thead><tr>' +
+        ['VIN', 'MC code', 'CO₂ medido', 'CO₂ declarado', 'Desviación', 'f0', 'f1', 'f2', 'TM'].map(function(h) {
+            return '<th style="' + _copTh() + 'text-align:left;">' + h + '</th>';
+        }).join('') + '</tr></thead><tbody>';
+
+    res.rows.forEach(function(r) {
+        var h = r.homolog || {};
+        var devTxt = '—', devColor = 'var(--muted)';
+        if (r.dev !== null) {
+            devTxt = (r.dev >= 0 ? '+' : '') + r.dev.toFixed(2) + '%';
+            devColor = r.dev <= res.tolerance ? 'var(--ok-text,#166534)' : 'var(--danger-text,#991b1b)';
+        }
+        var cell = function(v, extra) {
+            return '<td style="padding:5px 8px;border-bottom:1px solid var(--border);' + (extra || '') + '">' +
+                (v == null || v === '' ? '<span style="color:var(--muted);">—</span>' : _copEsc(String(v))) + '</td>';
+        };
+        html += '<tr>';
+        html += cell(r.vin, 'font-weight:700;white-space:nowrap;');
+        html += cell(h.mcCode);
+        html += cell(r.measured == null ? null : Number(r.measured).toFixed(1));
+        html += cell(r.target == null ? null : Number(r.target).toFixed(1));
+        html += '<td style="padding:5px 8px;border-bottom:1px solid var(--border);font-weight:700;color:' + devColor + ';">' + devTxt + '</td>';
+        html += cell(h.f0); html += cell(h.f1); html += cell(h.f2); html += cell(h.tm);
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+
+    var sinFicha = res.rows.filter(function(r) { return !r.homolog; }).length;
+    if (sinFicha) {
+        html += '<p style="font-size: var(--fs-xs);color:var(--warn-text,#92400e);margin-top:8px;">' +
+            '⚠️ ' + sinFicha + ' vehículo(s) sin ficha de homologación: se capturan en el Alta ' +
+            '(solo aparece para región EUROPE) o se completan importando el catálogo del ICMS en Datos → 🇪🇺 Homologación.</p>';
+    }
+    html += '<p style="font-size: var(--fs-xs);color:var(--muted);margin-top:6px;">' +
+        'El CO₂ no tiene límite regulatorio fijo: se compara contra el valor declarado de cada vehículo. ' +
+        'La tolerancia se configura en Datos → 🇪🇺 Homologación.</p>';
+    html += '</div>';
+    return html;
+}
+
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'cop-co2-help': { title: 'CO₂ vs declarado', text: 'A diferencia de CO, THC o NOₓ, el CO₂ no tiene un límite fijo en la regulación: cada vehículo se compara contra SU propio valor declarado de homologación (el "Combined" del ICMS, capturado en el Alta). Aquí se ve la desviación de cada uno y el promedio de la familia contra la tolerancia que configuraste, además de los coeficientes de dinamómetro con los que se corrió cada vehículo.' }
 });

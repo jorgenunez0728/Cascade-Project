@@ -2,6 +2,48 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.14 — Homologación Europa: coeficientes de dinamómetro y CO₂ desde el Alta (2026-08-24)
+
+### Por qué
+Para los vehículos **Europa**, los coeficientes con los que se carga el dinamómetro (f0, f1, f2, TM)
+y el CO₂ declarado viven en el **ICMS de HMG**, y había que entrar a buscarlos **vehículo por
+vehículo** — normalmente ya empezada la prueba, cuando esos datos deberían existir desde el primer
+paso. Además, el validador CoP no comparaba CO₂ en absoluto.
+
+### Catálogo importable (Datos → ⋯ Más → 🇪🇺 Homologación)
+Se importa **una sola vez** el Excel/CSV que baja el ICMS y a partir de ahí el Alta se autollena.
+Las **dos descargas se pueden subir por separado** (la de *WLTP Driving energy* con f0/f1/f2/TM y la
+de *WLTP - ICE/HEV* con el CO₂): se **fusionan por MC code**, así que la segunda completa las filas
+de la primera sin borrar nada. Reimportar actualiza, no duplica. Sin internet, `.csv` y pegado
+siguen funcionando (SheetJS se carga diferido, patrón de `projects.js`).
+
+### En el Alta — primer paso, no al preacondicionar
+El bloque **🇪🇺 Datos de homologación** aparece **solo si la región es EUROPE**. Se escribe el MC
+code, se elige de la lista y se autollenan los cinco valores. **A partir del segundo vehículo de la
+misma configuración ya no hay que buscar nada**: `homoState.links` recuerda el enlace
+configuración → MC code y lo autollena solo. Si falta algo, avisa sin bloquear el registro.
+
+La ficha se guarda **en el vehículo** (`vehicle.homolog`), no en la configuración: queda constancia
+de con qué coeficientes y contra qué CO₂ declarado se corrió **ese** vehículo, y se audita al
+registrar (`homologacion_capturada`).
+
+### En el CoP — CO₂ contra el valor declarado
+Sección nueva **🌱 CO₂ vs valor declarado**. El CO₂ **no entra al muestreo secuencial** de los demás
+contaminantes porque no tiene límite regulatorio fijo: su referencia es el valor declarado de cada
+vehículo. Se evalúa aparte — desviación % por vehículo contra **su** target, y el promedio de la
+familia contra una **tolerancia configurable** (4% por defecto, editable en Homologación). La tabla
+lista por VIN el CO₂ medido, el declarado, la desviación y **los f0/f1/f2/TM con los que se corrió**,
+que es justo la evidencia que hacía falta.
+
+### Definiciones únicas (todo consumidor nuevo debe llamarlas)
+`homoIsEurope`, `homoSearch`, `homoSuggestForConfig`, `homoVehicleData`, `homoCo2Deviation`,
+`homoCo2Assess`, `homoMeasuredCo2`. El catálogo **se sincroniza** entre dispositivos
+(`fbSyncModules.homolog`, merge por MC code quedándose con la fila más reciente).
+
+### Alcance de esta ronda
+Se comparó el **CO₂ combinado**. Las fases (Low/Medium/High/Extra High) y el consumo de combustible
+se importan y se guardan, pero todavía no se comparan — agregarlos después no requiere rehacer nada.
+
 ## v17.13b — El token de bugs ya se comparte de verdad con todos los dispositivos (2026-08-24)
 
 Guardar el token de GitHub seguía respondiendo *"Guardado en este dispositivo… no se pudo copiar a
