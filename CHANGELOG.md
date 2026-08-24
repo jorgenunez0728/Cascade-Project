@@ -2,6 +2,28 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.13b — El token de bugs ya se comparte de verdad con todos los dispositivos (2026-08-24)
+
+Guardar el token de GitHub seguía respondiendo *"Guardado en este dispositivo… no se pudo copiar a
+los demás"* en un celular cuyo indicador decía **"REST Sync"** — justo el modo que v17.13a había
+añadido. La causa no era el camino REST, sino **cuándo** se decide usarlo.
+
+`fbSync._useREST` se enciende únicamente cuando la prueba de conexión del SDK hace **timeout, a los
+12 segundos**. Si el técnico pica *Guardar* dentro de esa ventana (indicador todavía en
+"Conectando..."), el flag sigue en `false`, se toma el camino del SDK —que en ese dispositivo está
+roto— y la operación falla **definitivamente**, aunque un segundo después el dispositivo pase a
+modo REST. En la captura del reporte se veía exactamente eso: el mensaje de error viejo junto a un
+indicador que ya decía "REST Sync".
+
+**`_fbBugsSdkOrRest(sdkCall, onSdkOk, restCall)`** pasa a ser la única forma de llamar a Firestore
+en este módulo: usa REST directo si el flag ya está puesto y, ante **cualquier** fallo del SDK
+(promesa rechazada, throw síncrono, o ni siquiera devolver una promesa), **reintenta por REST** en
+lugar de rendirse. Como todas las operaciones escriben por id con `set`/PATCH, reintentar es
+idempotente. Los siete helpers `fbBugs*` pasaron a usarlo.
+
+Efecto práctico: el token se configura **una sola vez, desde cualquier dispositivo**, y llega al
+resto del laboratorio aunque quien lo guarde tenga el SDK de Firestore roto o acabe de abrir la app.
+
 ## v17.13a — Correcciones del reporte de bugs en dispositivos con "REST Sync" (2026-08-24)
 
 Dos fallas reportadas desde un celular del laboratorio al estrenar el botón 🐞, ambas del mismo

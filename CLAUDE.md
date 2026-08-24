@@ -473,12 +473,18 @@ comentario y ofrece Enviar / **Descartar** (descartar no persiste nada en ningú
   su mismo esqueleto de fragmentos (`stations/KIA-EMLAB/bugreports/{id}` + `chunks/`). **Las reglas
   ya cubren cualquier subcolección de `stations/` — no hay `firestore.rules` que tocar.**
 - **Los `fbBugs*` tienen DOS caminos, como `fbPush`/`fbPull`**: el SDK, y la **API REST** cuando
-  `fbSync._useREST` es true (transporte del SDK roto; el topbar lo muestra como "REST Sync"). En
-  ese modo `fbSync.db` existe pero NO responde, así que todo helper nuevo que toque Firestore debe
-  ramificar — si no, falla justo en los dispositivos que ya cayeron a REST. Los primitivos REST
+  el transporte del SDK está roto (el topbar lo muestra como "REST Sync"). Los primitivos REST
   (`_fbBugsRestSend/Url/DocToObj`) reusan `_fbIdTokenPromise`/`fbToFirestoreValue`. `fbBugsUpdateMeta`
   manda `updateMask.fieldPaths` en REST: sin él PATCH reemplaza el documento entero y marcar un
   issue como resuelto borraría el comentario y la captura.
+- **NO basta con mirar `fbSync._useREST` para elegir camino**: ese flag se enciende recién cuando
+  la prueba de conexión hace **timeout (12 s)**, así que en los primeros segundos el SDK puede
+  estar roto y el flag seguir en `false`. **`_fbBugsSdkOrRest(sdkCall, onSdkOk, restCall)` es LA
+  forma de llamar a Firestore en este módulo**: usa REST directo si el flag ya está puesto, y ante
+  CUALQUIER fallo del SDK (rechazo, throw síncrono, o no devolver promesa) reintenta por REST en
+  vez de rendirse. Sin eso, guardar el token justo al abrir la app fallaba definitivamente aunque
+  el dispositivo cayera a modo REST un instante después. Todas las operaciones escriben por id con
+  `set`/PATCH, así que reintentar es idempotente.
 - **`fbBugsEnsureReady()`** es la condición de "listo" de este módulo (NO `fbFilesEnsureReady`, que
   exige el SDK y por eso deja fuera el modo REST).
 - **Cada llamada al SDK va envuelta en `try/catch`**, no solo `.catch()`: el SDK a veces lanza

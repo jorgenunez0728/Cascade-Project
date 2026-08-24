@@ -3604,11 +3604,16 @@ function fbFilesDownload(fileId, meta, onDone) {
 // ║  cubren cualquier subcolección de stations/ (match /{path=**}) —    ║
 // ║  no hay reglas nuevas que desplegar.                                ║
 // ║                                                                      ║
-// ║  DOS CAMINOS, como el resto del sync: el SDK cuando funciona, y la  ║
-// ║  API REST cuando el transporte del SDK está roto (fbSync._useREST,  ║
-// ║  el modo que el indicador del topbar muestra como "REST Sync"). En  ║
-// ║  ese modo fbSync.db existe pero no responde, así que llamarlo deja  ║
-// ║  la promesa colgada o lanza — por eso cada helper ramifica.         ║
+// ║  DOS CAMINOS, como el resto del sync: el SDK, y la API REST cuando  ║
+// ║  el transporte del SDK está roto (el topbar lo muestra como         ║
+// ║  "REST Sync"). PERO no basta con mirar fbSync._useREST: ese flag se ║
+// ║  enciende recién cuando la prueba de conexión hace timeout (12 s),  ║
+// ║  así que en los primeros segundos el SDK puede estar roto y el flag ║
+// ║  todavía en false. Por eso _fbBugsSdkOrRest reintenta por REST ante ║
+// ║  CUALQUIER fallo del SDK (rechazo o throw síncrono) en vez de       ║
+// ║  rendirse — si no, guardar el token justo al abrir la app fallaba   ║
+// ║  para siempre aunque el dispositivo acabara en modo REST un         ║
+// ║  instante después.                                                  ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 var FB_BUGS_MAX_BYTES = 8 * 1024 * 1024; // presupuesto propio del respaldo de bugs (independiente de los 5MB de Archivos)
@@ -3627,6 +3632,34 @@ function fbBugsEnsureReady() {
     return { ok: true };
 }
 
+/**
+ * Corre una operación por el SDK y, si el SDK falla de CUALQUIER forma
+ * (promesa rechazada, throw síncrono, o ni siquiera devolver una promesa),
+ * la reintenta por REST. Todas las operaciones de este módulo escriben por
+ * id con PATCH/set, así que reintentar es idempotente.
+ */
+function _fbBugsSdkOrRest(sdkCall, onSdkOk, restCall) {
+    if (fbSync._useREST || !fbSync.db) { restCall(); return; }
+    var settled = false;
+    var fallback = function(why) {
+        if (settled) return;
+        settled = true;
+        console.warn('fbBugs: el SDK no respondió (' + (why || 'sin detalle') + ') — reintentando por REST');
+        restCall();
+    };
+    try {
+        var p = sdkCall();
+        if (!p || typeof p.then !== 'function') { fallback('el SDK no devolvió una promesa'); return; }
+        p.then(function(res) {
+            if (settled) return;
+            settled = true;
+            onSdkOk(res);
+        }, function(err) { fallback(err && err.message); });
+    } catch (err) {
+        fallback(err && err.message);
+    }
+}
+
 function _fbBugsCollection() {
     return fbSync.db.collection('stations').doc(fbSync.stationId).collection('bugreports');
 }
@@ -3635,7 +3668,7 @@ function _fbBugsSettingsDoc() {
     return fbSync.db.collection('stations').doc(fbSync.stationId).collection('settings').doc('bugreports');
 }
 
-// ── Primitivos REST (reusan fbRESTUrl/_fbIdTokenPromise/fbToFirestoreValue) ──
+// ── Primitivos REST (reusan _fbIdTokenPromise/fbToFirestoreValue/fbFromFirestoreValue) ──
 // `suffix` es la ruta relativa a stations/{station}/ — p.ej. 'bugreports/abc'
 // o 'bugreports/abc/chunks/0'.
 
@@ -3693,44 +3726,31 @@ function fbBugsList(callback) {
     var quota = fbQuotaCheck('read');
     if (!quota.allowed) { callback([], quota.reason); return; }
 
-    if (fbSync._useREST) {
+    var viaRest = function() {
         _fbBugsRestSend('GET', 'bugreports', null, 'pageSize=100&orderBy=' + encodeURIComponent('at desc'))
             .then(function(res) {
                 fbQuotaRecord('read');
-                var list = (res && res.documents ? res.documents : []).map(function(doc) {
+                callback((res && res.documents ? res.documents : []).map(function(doc) {
                     var o = _fbBugsRestDocToObj(doc);
                     return _fbBugsRow(o._id, o);
-                });
-                callback(list, null);
+                }), null);
             })
             .catch(function(err) {
                 console.error('fbBugsList REST error:', err);
-                callback([], 'Error al listar reportes: ' + err.message);
+                callback([], 'No se pudo leer el respaldo: ' + err.message);
             });
-        return;
-    }
+    };
 
-    // El SDK de Firestore a veces lanza su error interno "INTERNAL ASSERTION FAILED"
-    // de forma SÍNCRONA (bug conocido del SDK durante una reconexión) en vez de
-    // rechazar la promesa — sin este try/catch ese throw se propagaba hasta
-    // tabCacheSwitch y borraba TODA la pestaña (cola y configuración incluidas)
-    // para dejar solo la caja de error cruda.
-    try {
-        _fbBugsCollection().orderBy('at', 'desc').limit(100).get()
-            .then(function(snap) {
-                fbQuotaRecord('read');
-                var list = [];
-                snap.forEach(function(doc) { list.push(_fbBugsRow(doc.id, doc.data())); });
-                callback(list, null);
-            })
-            .catch(function(err) {
-                console.error('fbBugsList error:', err);
-                callback([], 'Error al listar reportes: ' + err.message);
-            });
-    } catch (err) {
-        console.error('fbBugsList sync error:', err);
-        callback([], 'No se pudo conectar con el respaldo — intenta de nuevo en unos segundos.');
-    }
+    _fbBugsSdkOrRest(
+        function() { return _fbBugsCollection().orderBy('at', 'desc').limit(100).get(); },
+        function(snap) {
+            fbQuotaRecord('read');
+            var list = [];
+            snap.forEach(function(doc) { list.push(_fbBugsRow(doc.id, doc.data())); });
+            callback(list, null);
+        },
+        viaRest
+    );
 }
 
 // Sube un reporte (metadato + captura fragmentada). Tolerante: si el respaldo no
@@ -3769,8 +3789,8 @@ function fbBugsUpload(report, onDone) {
         };
     };
 
-    if (fbSync._useREST) {
-        // Fragmentos primero, metadato al final (igual que el camino del SDK).
+    var viaRest = function() {
+        // Fragmentos primero, metadato al final (mismo orden que el SDK).
         var chain = Promise.resolve();
         chunks.forEach(function(chunkData, idx) {
             chain = chain.then(function() {
@@ -3783,55 +3803,26 @@ function fbBugsUpload(report, onDone) {
             fbQuotaRecord('write');
             onDone(true, null);
         }).catch(function(err) {
-            // El texto del reporte vale por sí solo: se intenta registrar sin la captura.
+            // El texto del reporte vale por sí solo: se registra sin la captura.
             console.warn('fbBugsUpload REST error:', err.message);
             _fbBugsRestSend('PATCH', 'bugreports/' + report.id, metaFields(0))
                 .then(function() { fbQuotaRecord('write'); onDone(true, null); })
                 .catch(function(err2) { onDone(false, err2.message); });
         });
-        return;
-    }
-
-    var col = _fbBugsCollection();
-    var writeMetadata = function() {
-        try {
-            col.doc(report.id).set(metaFields(chunks.length), { merge: true }).then(function() {
-                fbQuotaRecord('write');
-                onDone(true, null);
-            }).catch(function(err) {
-                console.warn('fbBugsUpload metadata error:', err.message);
-                onDone(false, err.message);
-            });
-        } catch (err) {
-            console.warn('fbBugsUpload metadata sync error:', err);
-            onDone(false, 'No se pudo conectar con el respaldo.');
-        }
     };
 
-    if (chunks.length === 0) { writeMetadata(); return; }
-
-    var doneCount = 0, failed = false;
-    try {
-        chunks.forEach(function(chunkData, idx) {
-            col.doc(report.id).collection('chunks').doc(String(idx)).set({ data: chunkData })
-                .then(function() {
-                    if (failed) return;
-                    fbQuotaRecord('write');
-                    if (++doneCount === chunks.length) writeMetadata();
-                })
-                .catch(function(err) {
-                    if (failed) return;
-                    failed = true;
-                    console.warn('fbBugsUpload chunk error:', err.message);
-                    // El texto del reporte vale por sí solo: se registra sin la captura.
-                    chunks = [];
-                    writeMetadata();
-                });
-        });
-    } catch (err) {
-        console.warn('fbBugsUpload chunk sync error:', err);
-        onDone(false, 'No se pudo conectar con el respaldo.');
-    }
+    _fbBugsSdkOrRest(
+        function() {
+            var col = _fbBugsCollection();
+            return Promise.all(chunks.map(function(chunkData, idx) {
+                return col.doc(report.id).collection('chunks').doc(String(idx)).set({ data: chunkData });
+            })).then(function() {
+                return col.doc(report.id).set(metaFields(chunks.length), { merge: true });
+            });
+        },
+        function() { fbQuotaRecord('write'); onDone(true, null); },
+        viaRest
+    );
 }
 
 // Actualiza campos del metadato (número de issue, estado resuelto, etc.). onDone(ok, errorOrNull)
@@ -3840,7 +3831,7 @@ function fbBugsUpdateMeta(bugId, patch, onDone) {
     var ready = fbBugsEnsureReady();
     if (!ready.ok) { onDone(false, ready.reason); return; }
 
-    if (fbSync._useREST) {
+    var viaRest = function() {
         // updateMask.fieldPaths: sin él, PATCH reemplaza el documento entero y
         // borraría el comentario y la captura al marcar un issue como resuelto.
         var mask = Object.keys(patch).map(function(k) {
@@ -3849,17 +3840,13 @@ function fbBugsUpdateMeta(bugId, patch, onDone) {
         _fbBugsRestSend('PATCH', 'bugreports/' + bugId, patch, mask)
             .then(function() { fbQuotaRecord('write'); onDone(true, null); })
             .catch(function(err) { console.warn('fbBugsUpdateMeta REST error:', err.message); onDone(false, err.message); });
-        return;
-    }
+    };
 
-    try {
-        _fbBugsCollection().doc(bugId).set(patch, { merge: true })
-            .then(function() { fbQuotaRecord('write'); onDone(true, null); })
-            .catch(function(err) { console.warn('fbBugsUpdateMeta error:', err.message); onDone(false, err.message); });
-    } catch (err) {
-        console.warn('fbBugsUpdateMeta sync error:', err);
-        onDone(false, 'No se pudo conectar con el respaldo.');
-    }
+    _fbBugsSdkOrRest(
+        function() { return _fbBugsCollection().doc(bugId).set(patch, { merge: true }); },
+        function() { fbQuotaRecord('write'); onDone(true, null); },
+        viaRest
+    );
 }
 
 // Borra un reporte del respaldo (fragmentos + metadato). No toca el issue de GitHub.
@@ -3873,7 +3860,7 @@ function fbBugsDelete(bugId, meta, onDone) {
         if (typeof auditLog === 'function') auditLog('bugs', 'bug_deleted', { type: 'bug', label: bugId }, '');
     };
 
-    if (fbSync._useREST) {
+    var viaRest = function() {
         var dels = [];
         for (var i = 0; i < chunkCount; i++) dels.push(_fbBugsRestSend('DELETE', 'bugreports/' + bugId + '/chunks/' + i));
         Promise.all(dels)
@@ -3883,27 +3870,18 @@ function fbBugsDelete(bugId, meta, onDone) {
                 console.error('fbBugsDelete REST error:', err);
                 onDone(false, 'Error al borrar: ' + err.message);
             });
-        return;
-    }
+    };
 
-    try {
-        var col = _fbBugsCollection();
-        var deletes = [];
-        for (var j = 0; j < chunkCount; j++) deletes.push(col.doc(bugId).collection('chunks').doc(String(j)).delete());
-
-        Promise.all(deletes).then(function() {
-            return col.doc(bugId).delete();
-        }).then(function() {
-            audit();
-            onDone(true, null);
-        }).catch(function(err) {
-            console.error('fbBugsDelete error:', err);
-            onDone(false, 'Error al borrar: ' + err.message);
-        });
-    } catch (err) {
-        console.error('fbBugsDelete sync error:', err);
-        onDone(false, 'No se pudo conectar con el respaldo.');
-    }
+    _fbBugsSdkOrRest(
+        function() {
+            var col = _fbBugsCollection();
+            var deletes = [];
+            for (var j = 0; j < chunkCount; j++) deletes.push(col.doc(bugId).collection('chunks').doc(String(j)).delete());
+            return Promise.all(deletes).then(function() { return col.doc(bugId).delete(); });
+        },
+        function() { audit(); onDone(true, null); },
+        viaRest
+    );
 }
 
 // Rearma la captura de un reporte como dataURL. onDone(ok, errorOrNull, dataUrlOrNull)
@@ -3913,7 +3891,7 @@ function fbBugsDownloadShot(bugId, meta, onDone) {
     var chunkCount = (meta && meta.chunkCount) || 0;
     if (chunkCount === 0) { onDone(false, 'Este reporte no tiene captura guardada.', null); return; }
 
-    if (fbSync._useREST) {
+    var viaRest = function() {
         var gets = [];
         for (var i = 0; i < chunkCount; i++) gets.push(_fbBugsRestSend('GET', 'bugreports/' + bugId + '/chunks/' + i));
         Promise.all(gets).then(function(docs) {
@@ -3924,15 +3902,16 @@ function fbBugsDownloadShot(bugId, meta, onDone) {
             console.error('fbBugsDownloadShot REST error:', err);
             onDone(false, 'Error al descargar: ' + err.message, null);
         });
-        return;
-    }
+    };
 
-    try {
-        var col = _fbBugsCollection();
-        var reads = [];
-        for (var j = 0; j < chunkCount; j++) reads.push(col.doc(bugId).collection('chunks').doc(String(j)).get());
-
-        Promise.all(reads).then(function(snaps) {
+    _fbBugsSdkOrRest(
+        function() {
+            var col = _fbBugsCollection();
+            var reads = [];
+            for (var j = 0; j < chunkCount; j++) reads.push(col.doc(bugId).collection('chunks').doc(String(j)).get());
+            return Promise.all(reads);
+        },
+        function(snaps) {
             for (var n = 0; n < snaps.length; n++) fbQuotaRecord('read');
             try {
                 var b64 = snaps.map(function(s) { return s.data().data; }).join('');
@@ -3940,14 +3919,9 @@ function fbBugsDownloadShot(bugId, meta, onDone) {
             } catch (e) {
                 onDone(false, 'Error al reconstruir la captura: ' + e.message, null);
             }
-        }).catch(function(err) {
-            console.error('fbBugsDownloadShot error:', err);
-            onDone(false, 'Error al descargar: ' + err.message, null);
-        });
-    } catch (err) {
-        console.error('fbBugsDownloadShot sync error:', err);
-        onDone(false, 'No se pudo conectar con el respaldo.', null);
-    }
+        },
+        viaRest
+    );
 }
 
 // Configuración compartida del reporte de bugs (token + repo). callback(settingsOrNull)
@@ -3955,21 +3929,17 @@ function fbBugsGetSettings(callback) {
     var ready = fbBugsEnsureReady();
     if (!ready.ok) { callback(null); return; }
 
-    if (fbSync._useREST) {
+    var viaRest = function() {
         _fbBugsRestSend('GET', 'settings/bugreports')
             .then(function(doc) { fbQuotaRecord('read'); callback(_fbBugsRestDocToObj(doc)); })
             .catch(function(err) { console.warn('fbBugsGetSettings REST:', err.message); callback(null); });
-        return;
-    }
+    };
 
-    try {
-        _fbBugsSettingsDoc().get()
-            .then(function(doc) { fbQuotaRecord('read'); callback(doc.exists ? doc.data() : null); })
-            .catch(function(err) { console.warn('fbBugsGetSettings:', err.message); callback(null); });
-    } catch (err) {
-        console.warn('fbBugsGetSettings sync error:', err);
-        callback(null);
-    }
+    _fbBugsSdkOrRest(
+        function() { return _fbBugsSettingsDoc().get(); },
+        function(doc) { fbQuotaRecord('read'); callback(doc.exists ? doc.data() : null); },
+        viaRest
+    );
 }
 
 function fbBugsSaveSettings(settings, onDone) {
@@ -3982,19 +3952,15 @@ function fbBugsSaveSettings(settings, onDone) {
         updatedAt: new Date().toISOString(), deviceId: FB_DEVICE_ID
     };
 
-    if (fbSync._useREST) {
+    var viaRest = function() {
         _fbBugsRestSend('PATCH', 'settings/bugreports', payload)
             .then(function() { fbQuotaRecord('write'); onDone(true, null); })
             .catch(function(err) { console.warn('fbBugsSaveSettings REST:', err.message); onDone(false, err.message); });
-        return;
-    }
+    };
 
-    try {
-        _fbBugsSettingsDoc().set(payload, { merge: true })
-            .then(function() { fbQuotaRecord('write'); onDone(true, null); })
-            .catch(function(err) { console.warn('fbBugsSaveSettings:', err.message); onDone(false, err.message); });
-    } catch (err) {
-        console.warn('fbBugsSaveSettings sync error:', err);
-        onDone(false, 'No se pudo conectar con el respaldo.');
-    }
+    _fbBugsSdkOrRest(
+        function() { return _fbBugsSettingsDoc().set(payload, { merge: true }); },
+        function() { fbQuotaRecord('write'); onDone(true, null); },
+        viaRest
+    );
 }
