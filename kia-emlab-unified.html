@@ -5909,7 +5909,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608221930';
+var APP_BUILD = '202608241946';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
@@ -6089,14 +6089,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608221930' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608241946' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608221930' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608241946' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -6112,7 +6112,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608221930' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608241946' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -38834,7 +38834,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608221930' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608241946' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -39621,25 +39621,35 @@ function fbBugsList(callback) {
     var quota = fbQuotaCheck('read');
     if (!quota.allowed) { callback([], quota.reason); return; }
 
-    _fbBugsCollection().orderBy('at', 'desc').limit(100).get()
-        .then(function(snap) {
-            fbQuotaRecord('read');
-            var list = [];
-            snap.forEach(function(doc) {
-                var d = doc.data();
-                list.push({
-                    id: doc.id, at: d.at || '', comment: d.comment || '', operator: d.operator || '?',
-                    version: d.version || '?', platform: d.platform || '', viewport: d.viewport || '',
-                    status: d.status || 'abierto', issueNumber: d.issueNumber || 0, issueUrl: d.issueUrl || '',
-                    shotUrl: d.shotUrl || '', chunkCount: d.chunkCount || 0, size: d.size || 0
+    // El SDK de Firestore a veces lanza su error interno "INTERNAL ASSERTION FAILED"
+    // de forma SÍNCRONA (bug conocido del SDK durante una reconexión) en vez de
+    // rechazar la promesa — sin este try/catch ese throw se propagaba hasta
+    // tabCacheSwitch y borraba TODA la pestaña (cola y configuración incluidas)
+    // para dejar solo la caja de error cruda.
+    try {
+        _fbBugsCollection().orderBy('at', 'desc').limit(100).get()
+            .then(function(snap) {
+                fbQuotaRecord('read');
+                var list = [];
+                snap.forEach(function(doc) {
+                    var d = doc.data();
+                    list.push({
+                        id: doc.id, at: d.at || '', comment: d.comment || '', operator: d.operator || '?',
+                        version: d.version || '?', platform: d.platform || '', viewport: d.viewport || '',
+                        status: d.status || 'abierto', issueNumber: d.issueNumber || 0, issueUrl: d.issueUrl || '',
+                        shotUrl: d.shotUrl || '', chunkCount: d.chunkCount || 0, size: d.size || 0
+                    });
                 });
+                callback(list, null);
+            })
+            .catch(function(err) {
+                void 0;
+                callback([], 'Error al listar reportes: ' + err.message);
             });
-            callback(list, null);
-        })
-        .catch(function(err) {
-            void 0;
-            callback([], 'Error al listar reportes: ' + err.message);
-        });
+    } catch (err) {
+        void 0;
+        callback([], 'No se pudo conectar con el respaldo — intenta de nuevo en unos segundos.');
+    }
 }
 
 // Sube un reporte (metadato + captura fragmentada). Tolerante: si el respaldo no
@@ -39667,43 +39677,53 @@ function fbBugsUpload(report, onDone) {
 
     var col = _fbBugsCollection();
     var writeMetadata = function() {
-        col.doc(report.id).set({
-            at: report.at, comment: report.comment,
-            operator: c.operator || '?', version: c.version || '?',
-            platform: c.platformLabel || c.platform || '', viewport: c.viewport || '',
-            ua: c.ua || '', online: c.online !== false,
-            errors: (c.errors || []).map(function(e) { return (e.type || 'error') + ': ' + (e.message || ''); }).join(' | ').slice(0, 1500),
-            status: 'abierto', chunkCount: chunks.length, size: approxBytes,
-            issueNumber: report.issueNumber || 0, issueUrl: report.issueUrl || '',
-            deviceId: FB_DEVICE_ID
-        }, { merge: true }).then(function() {
-            fbQuotaRecord('write');
-            onDone(true, null);
-        }).catch(function(err) {
+        try {
+            col.doc(report.id).set({
+                at: report.at, comment: report.comment,
+                operator: c.operator || '?', version: c.version || '?',
+                platform: c.platformLabel || c.platform || '', viewport: c.viewport || '',
+                ua: c.ua || '', online: c.online !== false,
+                errors: (c.errors || []).map(function(e) { return (e.type || 'error') + ': ' + (e.message || ''); }).join(' | ').slice(0, 1500),
+                status: 'abierto', chunkCount: chunks.length, size: approxBytes,
+                issueNumber: report.issueNumber || 0, issueUrl: report.issueUrl || '',
+                deviceId: FB_DEVICE_ID
+            }, { merge: true }).then(function() {
+                fbQuotaRecord('write');
+                onDone(true, null);
+            }).catch(function(err) {
+                void 0;
+                onDone(false, err.message);
+            });
+        } catch (err) {
             void 0;
-            onDone(false, err.message);
-        });
+            onDone(false, 'No se pudo conectar con el respaldo.');
+        }
     };
 
     if (chunks.length === 0) { writeMetadata(); return; }
 
     var doneCount = 0, failed = false;
-    chunks.forEach(function(chunkData, idx) {
-        col.doc(report.id).collection('chunks').doc(String(idx)).set({ data: chunkData })
-            .then(function() {
-                if (failed) return;
-                fbQuotaRecord('write');
-                if (++doneCount === chunks.length) writeMetadata();
-            })
-            .catch(function(err) {
-                if (failed) return;
-                failed = true;
-                void 0;
-                // El texto del reporte vale por sí solo: se registra sin la captura.
-                chunks = [];
-                writeMetadata();
-            });
-    });
+    try {
+        chunks.forEach(function(chunkData, idx) {
+            col.doc(report.id).collection('chunks').doc(String(idx)).set({ data: chunkData })
+                .then(function() {
+                    if (failed) return;
+                    fbQuotaRecord('write');
+                    if (++doneCount === chunks.length) writeMetadata();
+                })
+                .catch(function(err) {
+                    if (failed) return;
+                    failed = true;
+                    void 0;
+                    // El texto del reporte vale por sí solo: se registra sin la captura.
+                    chunks = [];
+                    writeMetadata();
+                });
+        });
+    } catch (err) {
+        void 0;
+        onDone(false, 'No se pudo conectar con el respaldo.');
+    }
 }
 
 // Actualiza campos del metadato (número de issue, estado resuelto, etc.). onDone(ok, errorOrNull)
@@ -39711,9 +39731,14 @@ function fbBugsUpdateMeta(bugId, patch, onDone) {
     onDone = onDone || function() {};
     var ready = fbFilesEnsureReady();
     if (!ready.ok) { onDone(false, ready.reason); return; }
-    _fbBugsCollection().doc(bugId).set(patch, { merge: true })
-        .then(function() { fbQuotaRecord('write'); onDone(true, null); })
-        .catch(function(err) { void 0; onDone(false, err.message); });
+    try {
+        _fbBugsCollection().doc(bugId).set(patch, { merge: true })
+            .then(function() { fbQuotaRecord('write'); onDone(true, null); })
+            .catch(function(err) { void 0; onDone(false, err.message); });
+    } catch (err) {
+        void 0;
+        onDone(false, 'No se pudo conectar con el respaldo.');
+    }
 }
 
 // Borra un reporte del respaldo (fragmentos + metadato). No toca el issue de GitHub.
@@ -39722,20 +39747,25 @@ function fbBugsDelete(bugId, meta, onDone) {
     var ready = fbFilesEnsureReady();
     if (!ready.ok) { onDone(false, ready.reason); return; }
 
-    var col = _fbBugsCollection();
-    var chunkCount = (meta && meta.chunkCount) || 0;
-    var deletes = [];
-    for (var i = 0; i < chunkCount; i++) deletes.push(col.doc(bugId).collection('chunks').doc(String(i)).delete());
+    try {
+        var col = _fbBugsCollection();
+        var chunkCount = (meta && meta.chunkCount) || 0;
+        var deletes = [];
+        for (var i = 0; i < chunkCount; i++) deletes.push(col.doc(bugId).collection('chunks').doc(String(i)).delete());
 
-    Promise.all(deletes).then(function() {
-        return col.doc(bugId).delete();
-    }).then(function() {
-        if (typeof auditLog === 'function') auditLog('bugs', 'bug_deleted', { type: 'bug', label: bugId }, '');
-        onDone(true, null);
-    }).catch(function(err) {
+        Promise.all(deletes).then(function() {
+            return col.doc(bugId).delete();
+        }).then(function() {
+            if (typeof auditLog === 'function') auditLog('bugs', 'bug_deleted', { type: 'bug', label: bugId }, '');
+            onDone(true, null);
+        }).catch(function(err) {
+            void 0;
+            onDone(false, 'Error al borrar: ' + err.message);
+        });
+    } catch (err) {
         void 0;
-        onDone(false, 'Error al borrar: ' + err.message);
-    });
+        onDone(false, 'No se pudo conectar con el respaldo.');
+    }
 }
 
 // Rearma la captura de un reporte como dataURL. onDone(ok, errorOrNull, dataUrlOrNull)
@@ -39745,43 +39775,58 @@ function fbBugsDownloadShot(bugId, meta, onDone) {
     var chunkCount = (meta && meta.chunkCount) || 0;
     if (chunkCount === 0) { onDone(false, 'Este reporte no tiene captura guardada.', null); return; }
 
-    var col = _fbBugsCollection();
-    var reads = [];
-    for (var i = 0; i < chunkCount; i++) reads.push(col.doc(bugId).collection('chunks').doc(String(i)).get());
+    try {
+        var col = _fbBugsCollection();
+        var reads = [];
+        for (var i = 0; i < chunkCount; i++) reads.push(col.doc(bugId).collection('chunks').doc(String(i)).get());
 
-    Promise.all(reads).then(function(snaps) {
-        for (var i = 0; i < snaps.length; i++) fbQuotaRecord('read');
-        try {
-            var b64 = snaps.map(function(s) { return s.data().data; }).join('');
-            onDone(true, null, 'data:image/jpeg;base64,' + b64);
-        } catch (e) {
-            onDone(false, 'Error al reconstruir la captura: ' + e.message, null);
-        }
-    }).catch(function(err) {
+        Promise.all(reads).then(function(snaps) {
+            for (var i = 0; i < snaps.length; i++) fbQuotaRecord('read');
+            try {
+                var b64 = snaps.map(function(s) { return s.data().data; }).join('');
+                onDone(true, null, 'data:image/jpeg;base64,' + b64);
+            } catch (e) {
+                onDone(false, 'Error al reconstruir la captura: ' + e.message, null);
+            }
+        }).catch(function(err) {
+            void 0;
+            onDone(false, 'Error al descargar: ' + err.message, null);
+        });
+    } catch (err) {
         void 0;
-        onDone(false, 'Error al descargar: ' + err.message, null);
-    });
+        onDone(false, 'No se pudo conectar con el respaldo.', null);
+    }
 }
 
 // Configuración compartida del reporte de bugs (token + repo). callback(settingsOrNull)
 function fbBugsGetSettings(callback) {
     var ready = fbFilesEnsureReady();
     if (!ready.ok) { callback(null); return; }
-    _fbBugsSettingsDoc().get()
-        .then(function(doc) { fbQuotaRecord('read'); callback(doc.exists ? doc.data() : null); })
-        .catch(function(err) { void 0; callback(null); });
+    try {
+        _fbBugsSettingsDoc().get()
+            .then(function(doc) { fbQuotaRecord('read'); callback(doc.exists ? doc.data() : null); })
+            .catch(function(err) { void 0; callback(null); });
+    } catch (err) {
+        void 0;
+        callback(null);
+    }
 }
 
 function fbBugsSaveSettings(settings, onDone) {
     onDone = onDone || function() {};
     var ready = fbFilesEnsureReady();
     if (!ready.ok) { onDone(false, ready.reason); return; }
-    _fbBugsSettingsDoc().set({
-        token: settings.token || '', owner: settings.owner || '', repo: settings.repo || '',
-        updatedAt: new Date().toISOString(), deviceId: FB_DEVICE_ID
-    }, { merge: true })
-        .then(function() { fbQuotaRecord('write'); onDone(true, null); })
-        .catch(function(err) { void 0; onDone(false, err.message); });
+    try {
+        _fbBugsSettingsDoc().set({
+            token: settings.token || '', owner: settings.owner || '', repo: settings.repo || '',
+            updatedAt: new Date().toISOString(), deviceId: FB_DEVICE_ID
+        }, { merge: true })
+            .then(function() { fbQuotaRecord('write'); onDone(true, null); })
+            .catch(function(err) { void 0; onDone(false, err.message); });
+    } catch (err) {
+        void 0;
+        onDone(false, 'No se pudo conectar con el respaldo.');
+    }
 }
 
 
