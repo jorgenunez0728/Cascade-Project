@@ -2,6 +2,71 @@
 
 All notable changes to this project, organized by development round.
 
+## v18.0 — Plan Semanal: una sola pantalla, con vista previa en vivo (2026-08-24)
+
+### El problema
+El plan semanal proponía **casi puro arrastre** (carryover) de semanas anteriores, aunque las
+prioridades ya hubieran cambiado. La causa era estructural, no de configuración:
+`tpSelectWeeklyItems` llenaba la capacidad en tres pasos —obligatorias, **toda** la cola, y recién
+después el déficit fresco—. Con capacidad real de 4 pruebas/semana y una cola de 20+, los dos
+primeros pasos agotaban los lugares y **el tercero nunca corría**: una configuración recién
+repriorizada literalmente no podía entrar al plan.
+
+Se sumaban tres agravantes: el empuje por antigüedad (`agingBoost`, hasta +30 puntos) **no tenía
+control en ninguna pantalla**, así que lo viejo trepaba solo; el arrastre **no caducaba nunca**; y
+el auto-plan del viernes **aceptaba la semana él solo al cargar la página**, y aceptar es
+justamente lo que marca cada pendiente como arrastre.
+
+### La cola ahora tiene techo
+- **Cuota**: por defecto la cola puede ocupar como máximo el **50%** de la semana. El resto queda
+  reservado para las prioridades de hoy, así que el paso de déficit fresco **siempre** corre.
+  Con capacidad 4: 2 de cola + 2 frescas, en vez de 4 de cola.
+- **Caducidad** configurable (4 semanas por defecto): lo que lleva demasiado arrastrándose deja de
+  proponerse. Es un cálculo **derivado** — no toca el déficit, así que `tpCoverageSummary()` no
+  cambia: caducar no es haber probado.
+- **Interruptor** para apagar el arrastre por completo y planear solo con lo de hoy.
+- El empuje por antigüedad queda **acotado a la caducidad** y por fin tiene sliders.
+
+### Todo en una pantalla, con vista previa en vivo
+Plan → **Plan Semanal** se reorganizó en dos paneles: a la izquierda se decide **cómo** se elige
+(ponderación de déficit/volumen/región, peso por región, cola y filtros) y a la derecha se ve **qué**
+se propondría, actualizándose al instante. La propuesta es *exactamente* lo que creará "🚀 Generar":
+muestra día de preacondicionamiento y prueba, puntaje y de dónde salió cada fila (obligatoria, cola
+o déficit), con **📌 fijar** y **🚫 excluir** por fila y un desplegable de "siguientes candidatos"
+con ➕ para añadir. Las perillas de ranking siguen también en Reglas (mismo builder, sin duplicar
+código); las reglas de ratio se quedan solo ahí porque cambian el déficit de todo el sistema.
+
+### Filtros de la semana
+Siete selectores en cascada (Familia, Región, Regulación, Modelo, Cilindrada, **Body**, Manejo) que
+se estrechan entre sí como la cascada del Alta, para dedicar la semana a un solo tipo de vehículo.
+Aplican **tanto al déficit fresco como a la cola**. Lo que se fija a mano entra aunque no cumpla el
+filtro, y se avisa.
+
+### Cambios de comportamiento (avisados a propósito)
+- **El auto-plan del viernes ya no acepta solo**: deja una **propuesta** con el distintivo
+  "⏳ Propuesta — falta aceptar". Aceptar sigue siendo lo que archiva la semana y genera arrastre,
+  pero ahora es una decisión de una persona.
+- Su guard pasó de `localStorage` (que no se sincronizaba, y por eso cada dispositivo generaba su
+  propia semana) a `tpState.autoPlanLastRun`, sincronizado; y el dedupe ahora mira cualquier plan
+  de esa semana, no solo los aceptados.
+- **Descartar de la cola caduca**: se guarda el déficit del momento (`deficitAt`) y si más adelante
+  el déficit **crece** por encima de ese valor, la configuración vuelve a la cola sola. Los
+  descartes viejos conservan la semántica permanente.
+- **Agregar en modo edición** ahora respeta la capacidad (pregunta antes de excederla), calcula el
+  detalle de puntaje y **asigna día**: antes el vehículo agregado caía siempre en "sin día".
+  Quitar del plan gana Deshacer y queda en el control de cambios.
+
+### Notas técnicas
+`tpPlannerCfg()` es LA forma de leer la configuración del planificador: `_fbPullSeed` reemplaza
+`tpState` completo y solo rellena una lista fija de campos, así que un pull desde un dispositivo con
+código anterior dejaría `plannerCfg` en `undefined` y la migración de arranque ya no vuelve a correr
+— el accesor reaplica los defaults en cada lectura, y `plannerCfg`/`autoPlanLastRun` se sumaron a la
+lista de preservación de `firebase-sync.js`. `tpPassesWeekFilter` reusa `_tpRuleMatchField` /
+`tpRuleFieldOptions` sin modificarlos (los filtros tienen a propósito la forma de una regla de
+prioridad). `tpAssignSchedule` acepta `{shuffle:false}` para que la vista previa no reordene los días
+en cada tecla. **Fuera de alcance esta ronda**: "Generar Mes", el Simulador y Recuperación son copias
+cercanas del mismo lazo greedy y siguen ignorando la cola y estos filtros — la pantalla lo advierte.
+
 ## v17.14 — Homologación Europa: coeficientes de dinamómetro y CO₂ desde el Alta (2026-08-24)
 
 ### Por qué
