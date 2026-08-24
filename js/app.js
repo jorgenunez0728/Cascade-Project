@@ -210,11 +210,15 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.13a';
+var APP_VERSION = '17.13b';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.13b', date: '24 ago 2026', title: 'El token de bugs ya se comparte de verdad con todos los dispositivos', bullets: [
+        'Guardar el token de GitHub seguía diciendo "guardado solo en este dispositivo" en algunos equipos. Ahora se configura UNA sola vez, desde cualquier dispositivo, y llega al resto del laboratorio.',
+        'La causa: la app tarda hasta 12 segundos en darse cuenta de que la sincronización de ese equipo necesita el modo alterno. Si guardabas antes de ese momento, el intento fallaba y ya no se reintentaba. Ahora, si el guardado falla, se reintenta solo por la vía alterna.'
+    ]},
     { version: '17.13a', date: '24 ago 2026', title: 'Correcciones del botón 🐞 en dispositivos con "REST Sync"', bullets: [
         'La pestaña Datos → 🐞 Bugs ya no se borra entera cuando la sincronización viene a medias: si algo falla, solo esa sección avisa y el resto (cola pendiente y configuración) sigue en pantalla.',
         'Guardar el token de GitHub ya funciona en los dispositivos cuyo indicador dice "REST Sync" — antes se guardaba solo en ese dispositivo y no se compartía con los demás del laboratorio.',
