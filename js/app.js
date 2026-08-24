@@ -210,11 +210,16 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.13';
+var APP_VERSION = '17.13a';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '17.13a', date: '24 ago 2026', title: 'Correcciones del botón 🐞 en dispositivos con "REST Sync"', bullets: [
+        'La pestaña Datos → 🐞 Bugs ya no se borra entera cuando la sincronización viene a medias: si algo falla, solo esa sección avisa y el resto (cola pendiente y configuración) sigue en pantalla.',
+        'Guardar el token de GitHub ya funciona en los dispositivos cuyo indicador dice "REST Sync" — antes se guardaba solo en ese dispositivo y no se compartía con los demás del laboratorio.',
+        '"Probar conexión" ahora prueba el token que está escrito en pantalla, sin obligar a guardarlo primero.'
+    ]},
     { version: '17.13', date: '22 ago 2026', title: 'Botón 🐞 para reportar fallas con captura de pantalla', bullets: [
         'Un botón 🐞 flotante, visible en cualquier pantalla de la plataforma: al tocarlo toma solo una captura de lo que estás viendo y abre una ventana para que cuentes qué pasó.',
         'Puedes Descartar (no se guarda absolutamente nada) o Enviar. Al enviar, el reporte se publica como issue en el repositorio de GitHub del proyecto, con la captura y los datos técnicos (versión, pantalla, tamaño, errores internos recientes) ya adjuntos — el técnico no tiene que explicar nada de eso.',

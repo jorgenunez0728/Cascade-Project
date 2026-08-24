@@ -470,9 +470,20 @@ comentario y ofrece Enviar / **Descartar** (descartar no persiste nada en ningú
   puede perder. Reintentos: evento `online`, arranque (a los 6 s, tras `bugLoadSettings`) y botón
   manual. `bugTrySendAll` se auto-excluye con `_bugSending` para no duplicar issues.
 - **Respaldo en Firestore**: helpers `fbBugs*` en `firebase-sync.js`, junto a los de Archivos y con
-  su mismo esqueleto de fragmentos (`stations/KIA-EMLAB/bugreports/{id}` + `chunks/`). Reutiliza
-  `fbFilesEnsureReady()` como condición de "listo". **Las reglas ya cubren cualquier subcolección de
-  `stations/` — no hay `firestore.rules` que tocar.**
+  su mismo esqueleto de fragmentos (`stations/KIA-EMLAB/bugreports/{id}` + `chunks/`). **Las reglas
+  ya cubren cualquier subcolección de `stations/` — no hay `firestore.rules` que tocar.**
+- **Los `fbBugs*` tienen DOS caminos, como `fbPush`/`fbPull`**: el SDK, y la **API REST** cuando
+  `fbSync._useREST` es true (transporte del SDK roto; el topbar lo muestra como "REST Sync"). En
+  ese modo `fbSync.db` existe pero NO responde, así que todo helper nuevo que toque Firestore debe
+  ramificar — si no, falla justo en los dispositivos que ya cayeron a REST. Los primitivos REST
+  (`_fbBugsRestSend/Url/DocToObj`) reusan `_fbIdTokenPromise`/`fbToFirestoreValue`. `fbBugsUpdateMeta`
+  manda `updateMask.fieldPaths` en REST: sin él PATCH reemplaza el documento entero y marcar un
+  issue como resuelto borraría el comentario y la captura.
+- **`fbBugsEnsureReady()`** es la condición de "listo" de este módulo (NO `fbFilesEnsureReady`, que
+  exige el SDK y por eso deja fuera el modo REST).
+- **Cada llamada al SDK va envuelta en `try/catch`**, no solo `.catch()`: el SDK a veces lanza
+  `INTERNAL ASSERTION FAILED` de forma SÍNCRONA durante una reconexión, y ese throw se propagaba
+  hasta `tabCacheSwitch` borrando la pestaña entera.
 - **Token/repo compartidos** en `stations/KIA-EMLAB/settings/bugreports` (`fbBugsGetSettings`/
   `fbBugsSaveSettings`), con cache local `kia_bug_settings` para arrancar offline. El token **nunca**
   se escribe en la auditoría ni se muestra completo (`bugMaskToken`).

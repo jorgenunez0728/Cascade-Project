@@ -2,6 +2,44 @@
 
 All notable changes to this project, organized by development round.
 
+## v17.13a — Correcciones del reporte de bugs en dispositivos con "REST Sync" (2026-08-24)
+
+Dos fallas reportadas desde un celular del laboratorio al estrenar el botón 🐞, ambas del mismo
+origen: **la app puede estar corriendo en modo REST** (el indicador del topbar dice "REST Sync")
+porque el transporte del SDK de Firestore está roto en ese dispositivo, y los helpers `fbBugs*`
+nuevos solo sabían hablar por el SDK.
+
+### 1. "Error al renderizar esta sección — INTERNAL ASSERTION FAILED"
+Al abrir Datos → 🐞 Bugs mientras el topbar decía "Conectando...", la pestaña **entera** se
+reemplazaba por una caja de error cruda (se perdían de vista la cola pendiente y la configuración).
+
+El SDK de Firestore, durante una reconexión, puede lanzar ese error de forma **síncrona** en vez de
+rechazar la promesa. Los helpers tenían `.catch()` (para rechazos) pero no `try/catch` (para el
+throw), así que la excepción subía hasta el `try/catch` de `tabCacheSwitch` en `app.js`, cuyo
+trabajo es justamente reemplazar la pestaña. Ahora cada llamada al SDK va envuelta y ese caso se
+convierte en el mismo error controlado de siempre: la pestaña sigue en pie y **solo** la sección
+que falló muestra el aviso.
+
+### 2. "Guardado en este dispositivo, pero no se pudo compartir"
+Guardar el token de GitHub fallaba en el paso de compartirlo con los demás dispositivos, porque en
+modo REST `fbSync.db` **existe pero no responde** — y `fbFilesEnsureReady()`, que solo comprueba
+que exista, daba luz verde.
+
+Los siete helpers `fbBugs*` tienen ahora **dos caminos**, igual que `fbPush`/`fbPull`: el SDK
+cuando funciona y la **API REST** cuando `fbSync._useREST` está activo, reusando los primitivos que
+ya existían (`_fbIdTokenPromise`, `fbToFirestoreValue`, el patrón de `fbRESTUrl`). La condición de
+"listo" pasa a ser `fbBugsEnsureReady()`, que acepta el modo REST.
+
+Detalle que valía una prueba propia: en REST, `fbBugsUpdateMeta` manda `updateMask.fieldPaths`.
+Sin eso, un PATCH reemplaza el documento completo y marcar un issue como resuelto **habría borrado
+el comentario del técnico y su captura**.
+
+### 3. "Probar conexión" pedía guardar primero
+Con el token ya escrito en pantalla, el botón respondía "Falta el token — guárdalo primero", porque
+solo miraba lo ya guardado. Ahora prueba lo que está en los campos, así que se puede validar un
+token antes de guardarlo. El mensaje de guardado parcial también se reescribió: dice explícitamente
+que el botón 🐞 **ya funciona en ese dispositivo** y qué hacer para los demás.
+
 ## v17.13 — Botón 🐞 para reportar fallas con captura de pantalla (2026-08-22)
 
 ### Por qué

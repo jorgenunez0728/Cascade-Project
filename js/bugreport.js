@@ -880,7 +880,9 @@ function pnBugsSaveConfig() {
         if (statusEl) {
             statusEl.innerHTML = ok
                 ? '<span style="color:var(--tp-green);">✅ Guardado y compartido con los demás dispositivos.</span>'
-                : '<span style="color:var(--tp-red);">Guardado en este dispositivo, pero no se pudo compartir: ' + escapeHtml(err || '') + '</span>';
+                : '<span style="color:var(--tp-amber);">✅ Guardado en <b>este</b> dispositivo — el botón 🐞 ya publica issues desde aquí. ' +
+                  'No se pudo copiar a los demás dispositivos (' + escapeHtml(err || 'sin conexión con el respaldo') + '); ' +
+                  'vuelve a picar Guardar cuando la sincronización esté en verde, o repite estos pasos en cada dispositivo.</span>';
         }
         if (tokenEl) tokenEl.value = '';
         showToast('Configuración guardada.', 'success');
@@ -889,9 +891,21 @@ function pnBugsSaveConfig() {
 
 function pnBugsTestConfig() {
     var statusEl = document.getElementById('bug-cfg-status');
-    var settings = bugGetSettings();
+    var tokenEl = document.getElementById('bug-cfg-token');
+    var ownerEl = document.getElementById('bug-cfg-owner');
+    var repoEl = document.getElementById('bug-cfg-repo');
+    var saved = bugGetSettings();
+
+    // Probar lo que está EN PANTALLA: si el técnico acaba de pegar un token,
+    // probarlo sin obligarlo a guardarlo primero (antes decía "Falta el token"
+    // con el campo lleno, porque solo miraba lo ya guardado).
+    var settings = {
+        token: (tokenEl && String(tokenEl.value || '').trim()) || saved.token,
+        owner: (ownerEl && String(ownerEl.value || '').trim()) || saved.owner,
+        repo: (repoEl && String(repoEl.value || '').trim()) || saved.repo
+    };
     if (!settings.token) {
-        if (statusEl) statusEl.innerHTML = '<span style="color:var(--tp-red);">Falta el token — guárdalo primero.</span>';
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--tp-red);">Escribe el token de GitHub arriba (o guárdalo) para poder probar.</span>';
         return;
     }
     if (statusEl) statusEl.textContent = 'Probando…';
