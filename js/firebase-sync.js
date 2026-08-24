@@ -3603,9 +3603,29 @@ function fbFilesDownload(fileId, meta, onDone) {
 // ║  fragmentos base64 bajo su subcolección chunks/. Las reglas ya      ║
 // ║  cubren cualquier subcolección de stations/ (match /{path=**}) —    ║
 // ║  no hay reglas nuevas que desplegar.                                ║
+// ║                                                                      ║
+// ║  DOS CAMINOS, como el resto del sync: el SDK cuando funciona, y la  ║
+// ║  API REST cuando el transporte del SDK está roto (fbSync._useREST,  ║
+// ║  el modo que el indicador del topbar muestra como "REST Sync"). En  ║
+// ║  ese modo fbSync.db existe pero no responde, así que llamarlo deja  ║
+// ║  la promesa colgada o lanza — por eso cada helper ramifica.         ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 var FB_BUGS_MAX_BYTES = 8 * 1024 * 1024; // presupuesto propio del respaldo de bugs (independiente de los 5MB de Archivos)
+
+// ¿Se puede usar el respaldo? Acepta el modo REST (a diferencia de
+// fbFilesEnsureReady, que exige el SDK) — en REST el SDK está roto pero la
+// escritura por HTTP sigue funcionando.
+function fbBugsEnsureReady() {
+    if (!fbSync.enabled || (!fbSync.db && !fbSync._useREST)) {
+        return { ok: false, reason: 'Conecta este dispositivo a Firebase primero (indicador de sincronización, arriba).' };
+    }
+    var u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    if (!_fbIsPasswordUser(u)) {
+        return { ok: false, reason: 'Sesión del laboratorio requerida — vuelve a iniciar sesión con la contraseña del dispositivo.' };
+    }
+    return { ok: true };
+}
 
 function _fbBugsCollection() {
     return fbSync.db.collection('stations').doc(fbSync.stationId).collection('bugreports');
@@ -3615,12 +3635,80 @@ function _fbBugsSettingsDoc() {
     return fbSync.db.collection('stations').doc(fbSync.stationId).collection('settings').doc('bugreports');
 }
 
+// ── Primitivos REST (reusan fbRESTUrl/_fbIdTokenPromise/fbToFirestoreValue) ──
+// `suffix` es la ruta relativa a stations/{station}/ — p.ej. 'bugreports/abc'
+// o 'bugreports/abc/chunks/0'.
+
+function _fbBugsRestUrl(suffix, query) {
+    return 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_CONFIG.projectId +
+        '/databases/(default)/documents/stations/' + encodeURIComponent(fbSync.stationId) +
+        '/' + suffix + '?key=' + FIREBASE_CONFIG.apiKey + (query ? '&' + query : '');
+}
+
+function _fbBugsRestSend(method, suffix, fieldsObj, query) {
+    return _fbIdTokenPromise().then(function(tok) {
+        var headers = {};
+        if (tok) headers['Authorization'] = 'Bearer ' + tok;
+        var init = { method: method, headers: headers };
+        if (fieldsObj) {
+            headers['Content-Type'] = 'application/json';
+            var fields = {};
+            Object.keys(fieldsObj).forEach(function(k) { fields[k] = fbToFirestoreValue(fieldsObj[k]); });
+            init.body = JSON.stringify({ fields: fields });
+        }
+        return fetch(_fbBugsRestUrl(suffix, query), init).then(function(resp) {
+            if (resp.ok) return resp.json().catch(function() { return {}; });
+            return resp.text().then(function(t) {
+                var msg = 'HTTP ' + resp.status;
+                try { msg = JSON.parse(t).error.message || msg; } catch (e) {}
+                throw new Error(msg);
+            });
+        });
+    });
+}
+
+// Documento REST → objeto plano (con su id tomado del campo `name`).
+function _fbBugsRestDocToObj(doc) {
+    var obj = {};
+    var fields = (doc && doc.fields) || {};
+    Object.keys(fields).forEach(function(k) { obj[k] = fbFromFirestoreValue(fields[k]); });
+    obj._id = doc && doc.name ? String(doc.name).split('/').pop() : '';
+    return obj;
+}
+
+// Normaliza un documento (venga del SDK o de REST) a la fila que usa la bandeja.
+function _fbBugsRow(id, d) {
+    return {
+        id: id, at: d.at || '', comment: d.comment || '', operator: d.operator || '?',
+        version: d.version || '?', platform: d.platform || '', viewport: d.viewport || '',
+        status: d.status || 'abierto', issueNumber: d.issueNumber || 0, issueUrl: d.issueUrl || '',
+        shotUrl: d.shotUrl || '', chunkCount: d.chunkCount || 0, size: d.size || 0
+    };
+}
+
 // Lista los reportes respaldados (del más reciente al más viejo). callback(list, errorOrNull)
 function fbBugsList(callback) {
-    var ready = fbFilesEnsureReady(); // misma condición: sync activo + sesión de laboratorio
+    var ready = fbBugsEnsureReady();
     if (!ready.ok) { callback([], ready.reason); return; }
     var quota = fbQuotaCheck('read');
     if (!quota.allowed) { callback([], quota.reason); return; }
+
+    if (fbSync._useREST) {
+        _fbBugsRestSend('GET', 'bugreports', null, 'pageSize=100&orderBy=' + encodeURIComponent('at desc'))
+            .then(function(res) {
+                fbQuotaRecord('read');
+                var list = (res && res.documents ? res.documents : []).map(function(doc) {
+                    var o = _fbBugsRestDocToObj(doc);
+                    return _fbBugsRow(o._id, o);
+                });
+                callback(list, null);
+            })
+            .catch(function(err) {
+                console.error('fbBugsList REST error:', err);
+                callback([], 'Error al listar reportes: ' + err.message);
+            });
+        return;
+    }
 
     // El SDK de Firestore a veces lanza su error interno "INTERNAL ASSERTION FAILED"
     // de forma SÍNCRONA (bug conocido del SDK durante una reconexión) en vez de
@@ -3632,15 +3720,7 @@ function fbBugsList(callback) {
             .then(function(snap) {
                 fbQuotaRecord('read');
                 var list = [];
-                snap.forEach(function(doc) {
-                    var d = doc.data();
-                    list.push({
-                        id: doc.id, at: d.at || '', comment: d.comment || '', operator: d.operator || '?',
-                        version: d.version || '?', platform: d.platform || '', viewport: d.viewport || '',
-                        status: d.status || 'abierto', issueNumber: d.issueNumber || 0, issueUrl: d.issueUrl || '',
-                        shotUrl: d.shotUrl || '', chunkCount: d.chunkCount || 0, size: d.size || 0
-                    });
-                });
+                snap.forEach(function(doc) { list.push(_fbBugsRow(doc.id, doc.data())); });
                 callback(list, null);
             })
             .catch(function(err) {
@@ -3658,7 +3738,7 @@ function fbBugsList(callback) {
 // onDone(ok, errorOrNull)
 function fbBugsUpload(report, onDone) {
     onDone = onDone || function() {};
-    var ready = fbFilesEnsureReady();
+    var ready = fbBugsEnsureReady();
     if (!ready.ok) { onDone(false, ready.reason); return; }
     var quota = fbQuotaCheck('write');
     if (!quota.allowed) { onDone(false, quota.reason); return; }
@@ -3676,19 +3756,46 @@ function fbBugsUpload(report, onDone) {
     var chunks = [];
     for (var i = 0; i < b64.length; i += FB_FILES_CHUNK_CHARS) chunks.push(b64.slice(i, i + FB_FILES_CHUNK_CHARS));
 
+    var metaFields = function(chunkCount) {
+        return {
+            at: report.at, comment: report.comment,
+            operator: c.operator || '?', version: c.version || '?',
+            platform: c.platformLabel || c.platform || '', viewport: c.viewport || '',
+            ua: c.ua || '', online: c.online !== false,
+            errors: (c.errors || []).map(function(e) { return (e.type || 'error') + ': ' + (e.message || ''); }).join(' | ').slice(0, 1500),
+            status: 'abierto', chunkCount: chunkCount, size: approxBytes,
+            issueNumber: report.issueNumber || 0, issueUrl: report.issueUrl || '',
+            deviceId: FB_DEVICE_ID
+        };
+    };
+
+    if (fbSync._useREST) {
+        // Fragmentos primero, metadato al final (igual que el camino del SDK).
+        var chain = Promise.resolve();
+        chunks.forEach(function(chunkData, idx) {
+            chain = chain.then(function() {
+                return _fbBugsRestSend('PATCH', 'bugreports/' + report.id + '/chunks/' + idx, { data: chunkData });
+            });
+        });
+        chain.then(function() {
+            return _fbBugsRestSend('PATCH', 'bugreports/' + report.id, metaFields(chunks.length));
+        }).then(function() {
+            fbQuotaRecord('write');
+            onDone(true, null);
+        }).catch(function(err) {
+            // El texto del reporte vale por sí solo: se intenta registrar sin la captura.
+            console.warn('fbBugsUpload REST error:', err.message);
+            _fbBugsRestSend('PATCH', 'bugreports/' + report.id, metaFields(0))
+                .then(function() { fbQuotaRecord('write'); onDone(true, null); })
+                .catch(function(err2) { onDone(false, err2.message); });
+        });
+        return;
+    }
+
     var col = _fbBugsCollection();
     var writeMetadata = function() {
         try {
-            col.doc(report.id).set({
-                at: report.at, comment: report.comment,
-                operator: c.operator || '?', version: c.version || '?',
-                platform: c.platformLabel || c.platform || '', viewport: c.viewport || '',
-                ua: c.ua || '', online: c.online !== false,
-                errors: (c.errors || []).map(function(e) { return (e.type || 'error') + ': ' + (e.message || ''); }).join(' | ').slice(0, 1500),
-                status: 'abierto', chunkCount: chunks.length, size: approxBytes,
-                issueNumber: report.issueNumber || 0, issueUrl: report.issueUrl || '',
-                deviceId: FB_DEVICE_ID
-            }, { merge: true }).then(function() {
+            col.doc(report.id).set(metaFields(chunks.length), { merge: true }).then(function() {
                 fbQuotaRecord('write');
                 onDone(true, null);
             }).catch(function(err) {
@@ -3730,8 +3837,21 @@ function fbBugsUpload(report, onDone) {
 // Actualiza campos del metadato (número de issue, estado resuelto, etc.). onDone(ok, errorOrNull)
 function fbBugsUpdateMeta(bugId, patch, onDone) {
     onDone = onDone || function() {};
-    var ready = fbFilesEnsureReady();
+    var ready = fbBugsEnsureReady();
     if (!ready.ok) { onDone(false, ready.reason); return; }
+
+    if (fbSync._useREST) {
+        // updateMask.fieldPaths: sin él, PATCH reemplaza el documento entero y
+        // borraría el comentario y la captura al marcar un issue como resuelto.
+        var mask = Object.keys(patch).map(function(k) {
+            return 'updateMask.fieldPaths=' + encodeURIComponent(k);
+        }).join('&');
+        _fbBugsRestSend('PATCH', 'bugreports/' + bugId, patch, mask)
+            .then(function() { fbQuotaRecord('write'); onDone(true, null); })
+            .catch(function(err) { console.warn('fbBugsUpdateMeta REST error:', err.message); onDone(false, err.message); });
+        return;
+    }
+
     try {
         _fbBugsCollection().doc(bugId).set(patch, { merge: true })
             .then(function() { fbQuotaRecord('write'); onDone(true, null); })
@@ -3745,19 +3865,36 @@ function fbBugsUpdateMeta(bugId, patch, onDone) {
 // Borra un reporte del respaldo (fragmentos + metadato). No toca el issue de GitHub.
 function fbBugsDelete(bugId, meta, onDone) {
     onDone = onDone || function() {};
-    var ready = fbFilesEnsureReady();
+    var ready = fbBugsEnsureReady();
     if (!ready.ok) { onDone(false, ready.reason); return; }
+
+    var chunkCount = (meta && meta.chunkCount) || 0;
+    var audit = function() {
+        if (typeof auditLog === 'function') auditLog('bugs', 'bug_deleted', { type: 'bug', label: bugId }, '');
+    };
+
+    if (fbSync._useREST) {
+        var dels = [];
+        for (var i = 0; i < chunkCount; i++) dels.push(_fbBugsRestSend('DELETE', 'bugreports/' + bugId + '/chunks/' + i));
+        Promise.all(dels)
+            .then(function() { return _fbBugsRestSend('DELETE', 'bugreports/' + bugId); })
+            .then(function() { audit(); onDone(true, null); })
+            .catch(function(err) {
+                console.error('fbBugsDelete REST error:', err);
+                onDone(false, 'Error al borrar: ' + err.message);
+            });
+        return;
+    }
 
     try {
         var col = _fbBugsCollection();
-        var chunkCount = (meta && meta.chunkCount) || 0;
         var deletes = [];
-        for (var i = 0; i < chunkCount; i++) deletes.push(col.doc(bugId).collection('chunks').doc(String(i)).delete());
+        for (var j = 0; j < chunkCount; j++) deletes.push(col.doc(bugId).collection('chunks').doc(String(j)).delete());
 
         Promise.all(deletes).then(function() {
             return col.doc(bugId).delete();
         }).then(function() {
-            if (typeof auditLog === 'function') auditLog('bugs', 'bug_deleted', { type: 'bug', label: bugId }, '');
+            audit();
             onDone(true, null);
         }).catch(function(err) {
             console.error('fbBugsDelete error:', err);
@@ -3771,18 +3908,32 @@ function fbBugsDelete(bugId, meta, onDone) {
 
 // Rearma la captura de un reporte como dataURL. onDone(ok, errorOrNull, dataUrlOrNull)
 function fbBugsDownloadShot(bugId, meta, onDone) {
-    var ready = fbFilesEnsureReady();
+    var ready = fbBugsEnsureReady();
     if (!ready.ok) { onDone(false, ready.reason, null); return; }
     var chunkCount = (meta && meta.chunkCount) || 0;
     if (chunkCount === 0) { onDone(false, 'Este reporte no tiene captura guardada.', null); return; }
 
+    if (fbSync._useREST) {
+        var gets = [];
+        for (var i = 0; i < chunkCount; i++) gets.push(_fbBugsRestSend('GET', 'bugreports/' + bugId + '/chunks/' + i));
+        Promise.all(gets).then(function(docs) {
+            for (var k = 0; k < docs.length; k++) fbQuotaRecord('read');
+            var b64 = docs.map(function(d) { return _fbBugsRestDocToObj(d).data || ''; }).join('');
+            onDone(true, null, 'data:image/jpeg;base64,' + b64);
+        }).catch(function(err) {
+            console.error('fbBugsDownloadShot REST error:', err);
+            onDone(false, 'Error al descargar: ' + err.message, null);
+        });
+        return;
+    }
+
     try {
         var col = _fbBugsCollection();
         var reads = [];
-        for (var i = 0; i < chunkCount; i++) reads.push(col.doc(bugId).collection('chunks').doc(String(i)).get());
+        for (var j = 0; j < chunkCount; j++) reads.push(col.doc(bugId).collection('chunks').doc(String(j)).get());
 
         Promise.all(reads).then(function(snaps) {
-            for (var i = 0; i < snaps.length; i++) fbQuotaRecord('read');
+            for (var n = 0; n < snaps.length; n++) fbQuotaRecord('read');
             try {
                 var b64 = snaps.map(function(s) { return s.data().data; }).join('');
                 onDone(true, null, 'data:image/jpeg;base64,' + b64);
@@ -3801,8 +3952,16 @@ function fbBugsDownloadShot(bugId, meta, onDone) {
 
 // Configuración compartida del reporte de bugs (token + repo). callback(settingsOrNull)
 function fbBugsGetSettings(callback) {
-    var ready = fbFilesEnsureReady();
+    var ready = fbBugsEnsureReady();
     if (!ready.ok) { callback(null); return; }
+
+    if (fbSync._useREST) {
+        _fbBugsRestSend('GET', 'settings/bugreports')
+            .then(function(doc) { fbQuotaRecord('read'); callback(_fbBugsRestDocToObj(doc)); })
+            .catch(function(err) { console.warn('fbBugsGetSettings REST:', err.message); callback(null); });
+        return;
+    }
+
     try {
         _fbBugsSettingsDoc().get()
             .then(function(doc) { fbQuotaRecord('read'); callback(doc.exists ? doc.data() : null); })
@@ -3815,13 +3974,23 @@ function fbBugsGetSettings(callback) {
 
 function fbBugsSaveSettings(settings, onDone) {
     onDone = onDone || function() {};
-    var ready = fbFilesEnsureReady();
+    var ready = fbBugsEnsureReady();
     if (!ready.ok) { onDone(false, ready.reason); return; }
+
+    var payload = {
+        token: settings.token || '', owner: settings.owner || '', repo: settings.repo || '',
+        updatedAt: new Date().toISOString(), deviceId: FB_DEVICE_ID
+    };
+
+    if (fbSync._useREST) {
+        _fbBugsRestSend('PATCH', 'settings/bugreports', payload)
+            .then(function() { fbQuotaRecord('write'); onDone(true, null); })
+            .catch(function(err) { console.warn('fbBugsSaveSettings REST:', err.message); onDone(false, err.message); });
+        return;
+    }
+
     try {
-        _fbBugsSettingsDoc().set({
-            token: settings.token || '', owner: settings.owner || '', repo: settings.repo || '',
-            updatedAt: new Date().toISOString(), deviceId: FB_DEVICE_ID
-        }, { merge: true })
+        _fbBugsSettingsDoc().set(payload, { merge: true })
             .then(function() { fbQuotaRecord('write'); onDone(true, null); })
             .catch(function(err) { console.warn('fbBugsSaveSettings:', err.message); onDone(false, err.message); });
     } catch (err) {
