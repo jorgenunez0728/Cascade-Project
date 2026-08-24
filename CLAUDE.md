@@ -102,6 +102,7 @@ CHANGELOG.md            ← Detailed changelog
 | `kia_entity_notes` | Entity Notes (per-vehicle/per-test annotations) |
 | `kia_soak_timer` | Soak timer persistence |
 | `kia_autoplan_lastrun` | Guard: ISO date of next Monday auto-plan already ran |
+| `plannerCfg` (en `kia_testplan_v1`) | Cuota/caducidad de la cola + filtros de la semana — leer SIEMPRE con `tpPlannerCfg()` |
 | `kia_homolog_v1` | Catálogo de homologación Europa (ICMS) + enlaces config→MC code + tolerancia CO₂ — synced |
 | `kia_bug_queue` | Reportes de bug pendientes de publicar (cap 3, con captura) |
 | `kia_bug_settings` | Cache local del token/repo de GitHub (la fuente es el doc compartido en Firestore) |
@@ -528,6 +529,48 @@ del **ICMS de HMG**. Se importan como catálogo y se capturan **en el Alta**, no
   y se queda con la más reciente (`at`), y une los `links` de ambos lados.
 - Alcance actual: **solo CO₂ combinado**. Las fases y el consumo se importan y guardan pero aún no
   se comparan.
+
+## v18.0 — Planificador semanal (`js/testplan.js`, pestaña `tp-weekly`)
+
+El generador llenaba la capacidad con **toda** la cola de arrastre antes de mirar el déficit fresco,
+así que con capacidad 4 y cola de 20+ el paso de déficit **nunca corría**. Ahora la cola tiene techo.
+
+- **`tpSelectWeeklyItems` sigue siendo LA definición** de la selección semanal, ahora en 4 pasos:
+  obligatorias → **cola acotada por cuota** (`carryoverMaxPct`, piso de 1 con capacidad ≥ 2) →
+  déficit fresco (que ya **siempre** corre) → relleno con cola si sobran huecos. `opts` nuevos y
+  retrocompatibles: `exclude[]`, `dryRun`, `ignoreFilters`. Sigue siendo **pura respecto a
+  `tpState`**, que es lo que permite llamarla en cada tecla para la vista previa.
+- **`tpPlannerCfg()` es LA forma de leer la configuración del planificador**, nunca
+  `tpState.plannerCfg.x` directo: `_fbPullSeed` (`firebase-sync.js`) hace `tpState = remoteData` y
+  solo rellena una lista fija, así que un pull desde código viejo dejaría `plannerCfg` en
+  `undefined` y la migración de arranque ya no vuelve a correr. El accesor reaplica defaults en cada
+  lectura; `plannerCfg` y `autoPlanLastRun` se sumaron a la lista de preservación de `:1217`.
+- **La caducidad de la cola es DERIVADA** (`tpBacklogEligible()` → `{eligible, expired, filtered}`):
+  no guarda estado, sobrevive al sync, se autocorrige al cambiarla y **no toca `deficit`** — por eso
+  `tpCoverageSummary()` no cambia. Caducar o descartar no es haber probado.
+- **`tpPassesWeekFilter(cfg)`** reusa `_tpRuleMatchField`/`tpRuleFieldOptions` **sin modificarlos**:
+  `plannerCfg.filters` tiene a propósito la forma de una regla de prioridad (vacío y `'*'` = comodín).
+  Cero código de matching nuevo. Aplica al déficit fresco **y** a la cola; las obligatorias quedan
+  exentas y se reportan en `outOfFilter`.
+- **`tpAgingBoost` se acota a la caducidad**: si no, una config caducada que alguien fija conserva
+  el empuje completo y le gana a todo. Sus sliders (`perWeek`/`max`) por fin existen — antes
+  `tpState.agingBoost` se sincronizaba pero no tenía UI en ninguna pantalla.
+- **UI**: `tpBuildPriorityKnobsHTML(opts)` es el builder único de las perillas de ranking, montado
+  en `tp-weekly` **y** en `tp-rules` (`opts.onInput` decide qué se repinta). Las reglas de ratio se
+  quedan solo en Reglas porque cambian `required`/`deficit` de todo el sistema.
+  `tpRenderPlannerPreview()` escribe **solo** `#tp-planner-preview` (nunca `tpRender()`), se protege
+  con `if (!host) return` porque el debounce puede caer tras cambiar de pestaña, y termina en
+  `cascadeInjectTooltipsDeferred()`. El primer pintado va con doble RAF (tpRenderWeekly ya corre
+  dentro del RAF de `tabCacheSwitch`). Patrón de sliders: `oninput` → mutar + `tpInvalidateCache()` +
+  `_tpDebouncedPreview()`; `onchange` → `tpSave()`.
+- **`tpAssignSchedule(items, workDays, {shuffle:false})`** para la vista previa (si no, los días
+  bailan en cada tecla). **Nunca** llamarla sobre una semana ya publicada: baraja.
+  `tpAssignSlotForItem(plan, item)` es lo que usa `tpAddToWeek` para ocupar el primer par libre.
+- **El auto-plan ya NO acepta solo** (aceptar es lo que estampa `carryover` en `weekHistory`, y
+  corría al cargar la página en cada dispositivo). Deja una propuesta con distintivo; su guard es
+  `tpState.autoPlanLastRun` (sincronizado) y el dedupe mira cualquier plan de esa semana.
+- **Deuda conocida**: `tpGenerateMonthly`, `tpRunSimulation` y `tpBuildRecoveryPlan` son copias
+  cercanas del mismo lazo greedy y **no** conocen la cuota ni los filtros. La pantalla lo advierte.
 
 ## Working with this project
 

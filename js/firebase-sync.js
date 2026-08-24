@@ -1220,8 +1220,11 @@ function _fbPullSeed(col, remoteData, pulled) {
         // (v16.4 suma la capacidad real y el backlog: sin esto, sincronizar contra una copia
         // en la nube escrita por una versión anterior borraba en silencio los vehículos por
         // par configurados y las configuraciones ya descartadas de la cola).
+        // v18 suma plannerCfg (cuota/caducidad de la cola + filtros de la semana) y
+        // autoPlanLastRun: sin esto, sincronizar contra una copia escrita por código
+        // anterior borraba la configuración del planificador en silencio.
         ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks',
-         'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed'].forEach(function(k) {
+         'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed', 'plannerCfg', 'autoPlanLastRun'].forEach(function(k) {
             if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
         });
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));

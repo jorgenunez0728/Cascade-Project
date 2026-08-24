@@ -210,11 +210,19 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.14';
+var APP_VERSION = '18.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '18.0', date: '24 ago 2026', title: 'Plan Semanal: una sola pantalla, con vista previa en vivo', bullets: [
+        'Se acabó el plan lleno de arrastre: la cola de pendientes ahora tiene un techo (50% de la semana por defecto), así que siempre quedan lugares para las prioridades de hoy. Antes la cola se llevaba la semana entera y lo nuevo no podía entrar.',
+        'Los pendientes ahora caducan (4 semanas por defecto) y se pueden apagar por completo. Caducar NO cuenta como probado: el déficit y la cobertura no cambian.',
+        'Todo se maneja en la misma pantalla: a la izquierda ajustas ponderación, peso por región, cola y filtros; a la derecha ves en vivo exactamente el plan que se generaría.',
+        'Filtros de la semana por Body, Regulación, Familia, Modelo, Cilindrada y Manejo, para dedicar la semana a un solo tipo de vehículo.',
+        'Añadir y quitar es directo desde la propuesta: 📌 para fijar, 🚫 para excluir y ➕ en los siguientes candidatos.',
+        'El plan automático del viernes ya no se acepta solo: queda como propuesta marcada "⏳ falta aceptar". Aceptar era justo lo que fabricaba el arrastre.'
+    ]},
     { version: '17.14', date: '24 ago 2026', title: 'Homologación Europa: coeficientes de dinamómetro y CO₂ desde el Alta', bullets: [
         'Para vehículos Europa, el Alta ahora pide los datos del ICMS (f0, f1, f2, TM y el CO₂ declarado) desde el primer paso, en vez de tener que buscarlos vehículo por vehículo ya empezada la prueba.',
         'Importa UNA vez el Excel del ICMS en Datos → ⋯ Más → 🇪🇺 Homologación y el Alta se autollena. Puedes subir las dos descargas por separado (coeficientes y CO₂): se fusionan por MC code.',

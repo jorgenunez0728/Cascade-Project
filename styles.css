@@ -3737,3 +3737,17 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
     background: var(--warn-bg, #fffbeb); border: 1px solid var(--warn-fill, #fcd34d);
     border-radius: var(--radius-md); padding: 8px 10px; margin-bottom: var(--space-lg);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   [v18] PLANIFICADOR SEMANAL — controles a la izquierda, propuesta en vivo
+   a la derecha. Una sola columna en pantallas angostas (el laboratorio
+   planifica en escritorio, pero la pestaña se consulta desde tablet).
+   ══════════════════════════════════════════════════════════════════════ */
+.tp-planner-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; }
+@media (min-width: 900px) {
+    .tp-planner-grid { grid-template-columns: minmax(300px, 1fr) minmax(340px, 1.3fr); align-items: start; }
+    .tp-planner-side { position: sticky; top: 8px; }
+}
+/* Las tarjetas dentro del planificador ya llevan su propio margin-top */
+.tp-planner-controls > .tp-card:first-child,
+.tp-planner-side > .tp-card:first-child { margin-top: 0; }

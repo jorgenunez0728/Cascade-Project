@@ -3778,6 +3778,20 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
     background: var(--warn-bg, #fffbeb); border: 1px solid var(--warn-fill, #fcd34d);
     border-radius: var(--radius-md); padding: 8px 10px; margin-bottom: var(--space-lg);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   [v18] PLANIFICADOR SEMANAL — controles a la izquierda, propuesta en vivo
+   a la derecha. Una sola columna en pantallas angostas (el laboratorio
+   planifica en escritorio, pero la pestaña se consulta desde tablet).
+   ══════════════════════════════════════════════════════════════════════ */
+.tp-planner-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; }
+@media (min-width: 900px) {
+    .tp-planner-grid { grid-template-columns: minmax(300px, 1fr) minmax(340px, 1.3fr); align-items: start; }
+    .tp-planner-side { position: sticky; top: 8px; }
+}
+/* Las tarjetas dentro del planificador ya llevan su propio margin-top */
+.tp-planner-controls > .tp-card:first-child,
+.tp-planner-side > .tp-card:first-child { margin-top: 0; }
     </style>
 </head>
 
@@ -5955,15 +5969,23 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608242039';
+var APP_BUILD = '202608242202';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '17.14';
+var APP_VERSION = '18.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '18.0', date: '24 ago 2026', title: 'Plan Semanal: una sola pantalla, con vista previa en vivo', bullets: [
+        'Se acabó el plan lleno de arrastre: la cola de pendientes ahora tiene un techo (50% de la semana por defecto), así que siempre quedan lugares para las prioridades de hoy. Antes la cola se llevaba la semana entera y lo nuevo no podía entrar.',
+        'Los pendientes ahora caducan (4 semanas por defecto) y se pueden apagar por completo. Caducar NO cuenta como probado: el déficit y la cobertura no cambian.',
+        'Todo se maneja en la misma pantalla: a la izquierda ajustas ponderación, peso por región, cola y filtros; a la derecha ves en vivo exactamente el plan que se generaría.',
+        'Filtros de la semana por Body, Regulación, Familia, Modelo, Cilindrada y Manejo, para dedicar la semana a un solo tipo de vehículo.',
+        'Añadir y quitar es directo desde la propuesta: 📌 para fijar, 🚫 para excluir y ➕ en los siguientes candidatos.',
+        'El plan automático del viernes ya no se acepta solo: queda como propuesta marcada "⏳ falta aceptar". Aceptar era justo lo que fabricaba el arrastre.'
+    ]},
     { version: '17.14', date: '24 ago 2026', title: 'Homologación Europa: coeficientes de dinamómetro y CO₂ desde el Alta', bullets: [
         'Para vehículos Europa, el Alta ahora pide los datos del ICMS (f0, f1, f2, TM y el CO₂ declarado) desde el primer paso, en vez de tener que buscarlos vehículo por vehículo ya empezada la prueba.',
         'Importa UNA vez el Excel del ICMS en Datos → ⋯ Más → 🇪🇺 Homologación y el Alta se autollena. Puedes subir las dos descargas por separado (coeficientes y CO₂): se fusionan por MC code.',
@@ -6151,14 +6173,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608242039' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608242202' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608242039' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608242202' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -6174,7 +6196,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608242039' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608242202' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -23436,22 +23458,68 @@ function tpAddManualPick() {
     tpRender();
 }
 function tpRemoveWeeklyItem(wk, idx) {
+    var _plan = tpState.weeklyPlans[wk];
+    var _lbl = (_plan && _plan.items[idx]) ? _plan.items[idx].desc : '';
     showConfirmDialog({ title: '⚠️ Quitar del plan', message: '¿Quitar del plan?', type: 'warning', confirmText: 'Sí', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
+        // Acción destructiva: se puede deshacer y queda en el control de cambios.
+        if (typeof undoPush === 'function') undoPush('testplan', 'Quitar del plan semanal');
         tpState.weeklyPlans[wk].items.splice(idx, 1);
         tpSave(); tpRender();
+        if (typeof auditLog === 'function') auditLog('tp', 'week_item_removed', { type: 'plan', label: _lbl }, 'Semana ' + (wk + 1));
     });
 }
+
+/**
+ * Asigna a un item el primer par (preacon → prueba) con lugar libre en la semana.
+ * NO se usa tpAssignSchedule aquí: baraja, así que reprogramaría toda una semana
+ * ya publicada solo por agregar un vehículo.
+ */
+function tpAssignSlotForItem(plan, item) {
+    var slots = tpBuildTestSlots(plan.workDays || window._tpWorkDays || {});
+    var perSlot = Math.max(1, parseInt(tpState.vehiclesPerSlot, 10) || 1);
+    var count = {};
+    (plan.items || []).forEach(function(it) { if (it.testDay) count[it.testDay] = (count[it.testDay] || 0) + 1; });
+    for (var i = 0; i < slots.length; i++) {
+        if ((count[slots[i].test] || 0) < perSlot) {
+            item.preconDay = slots[i].precon; item.testDay = slots[i].test;
+            item.preconLabel = slots[i].preconLabel; item.testLabel = slots[i].testLabel;
+            item.unscheduled = false;
+            return true;
+        }
+    }
+    item.preconDay = null; item.testDay = null;
+    item.preconLabel = null; item.testLabel = null;
+    item.unscheduled = true;
+    return false;
+}
+
 function tpAddToWeek(wk) {
-    const sel = document.getElementById('tp-edit-add-' + wk);
+    var sel = document.getElementById('tp-edit-add-' + wk);
     if (!sel || !sel.value) return;
-    const cfg = tpState.planData.find(c => c.desc === sel.value);
-    if (!cfg) return;
-    const rule = tpGetRule(cfg);
-    const n = tpState.testedList.filter(t => t.configText === cfg.desc).length;
-    const req = tpCalcRequired(cfg, rule);
-    tpState.weeklyPlans[wk].items.push({ desc:cfg.desc, id:cfg.id, mod:cfg.mod, rgn:cfg.rgn, reg:cfg.reg, eng:cfg.eng, tx:cfg.tx, my:cfg.my, drv:cfg.drv, body:cfg.body, ep:cfg.ep, engpkg:cfg.engpkg, tire:cfg.tire, required:req, deficit:Math.max(0,req-n), score:tpPriorityScore(cfg,n), completed:false, completedDate:null, manual:true });
-    tpSave(); tpRender();
+    var cfg = tpState.planData.find(function(c) { return c.desc === sel.value; });
+    var plan = tpState.weeklyPlans[wk];
+    if (!cfg || !plan) return;
+
+    // _tpMakeItem calcula required/deficit/score Y el _scoreDetail que la insignia
+    // de puntaje necesita — antes se armaba a mano y el item salía sin explicación.
+    var item = _tpMakeItem(cfg, tpState.testedList.slice(), { manual: true });
+    var cap = tpWeekCapacity(plan.workDays || window._tpWorkDays || {});
+
+    var push = function() {
+        tpAssignSlotForItem(plan, item);
+        plan.items.push(item);
+        tpSave(); tpRender();
+        if (item.unscheduled) showToast('Agregada, pero sin día libre — quedó fuera de horario.', 'warning');
+    };
+
+    if (plan.items.length >= cap.max) {
+        showConfirm('La semana ya tiene ' + plan.items.length + ' de ' + cap.max + ' lugares reales.\n\n' +
+                    'Se puede agregar igual, pero quedará sin día asignado.', push,
+                    { title: 'Excede la capacidad', type: 'warning', confirmText: 'Agregar de todos modos' });
+        return;
+    }
+    push();
 }
 
 // ======================================================================
@@ -23763,6 +23831,42 @@ if (tpState.vehiclesPerSlot === undefined) tpState.vehiclesPerSlot = 1;
 if (!tpState.agingBoost) tpState.agingBoost = { perWeek: 6, max: 30 };
 // { [configDesc]: {at, by, reason} } — sacadas de la cola sin tocar el déficit ni la cobertura.
 if (!tpState.carryoverDismissed) tpState.carryoverDismissed = {};
+
+// ── v18: configuración del planificador semanal ──────────────────────────────
+// Ojo con el orden de carga: _TP_RULE_ALLFIELDS y AUTOPLAN_LS_KEY se ASIGNAN más
+// abajo en este mismo archivo, así que aquí solo se usan literales.
+if (!tpState.plannerCfg) tpState.plannerCfg = {};
+if (tpState.plannerCfg.carryoverOn       === undefined) tpState.plannerCfg.carryoverOn = true;
+if (tpState.plannerCfg.carryoverTtlWeeks === undefined) tpState.plannerCfg.carryoverTtlWeeks = 4;  // 0 = sin caducidad
+if (tpState.plannerCfg.carryoverMaxPct   === undefined) tpState.plannerCfg.carryoverMaxPct = 50;   // tope de capacidad para la cola
+if (tpState.plannerCfg.filtersOn         === undefined) tpState.plannerCfg.filtersOn = false;
+if (!tpState.plannerCfg.filters) tpState.plannerCfg.filters =
+    { familyMatch:'', region:'', regulation:'', modelMatch:'', engMatch:'', bodyMatch:'', drvMatch:'' };
+// Guard del auto-plan: migra desde la clave de localStorage (que NO se sincronizaba,
+// y por eso cada dispositivo generaba y aceptaba su propia semana).
+if (tpState.autoPlanLastRun === undefined) {
+    var _tpLsRun = null;
+    try { _tpLsRun = localStorage.getItem('kia_autoplan_lastrun'); } catch (e) {}
+    tpState.autoPlanLastRun = _tpLsRun || null;
+}
+
+/**
+ * LA forma de leer la configuración del planificador. Nunca leer
+ * `tpState.plannerCfg.x` directo: `_fbPullSeed` (firebase-sync.js) hace
+ * `tpState = remoteData` y solo rellena una lista fija de campos, así que un pull
+ * desde un dispositivo con código viejo dejaría plannerCfg en undefined y la
+ * migración de arranque ya no vuelve a correr. Esto reaplica los defaults.
+ */
+function tpPlannerCfg() {
+    if (!tpState.plannerCfg) tpState.plannerCfg = {};
+    var p = tpState.plannerCfg;
+    if (p.carryoverOn       === undefined) p.carryoverOn = true;
+    if (p.carryoverTtlWeeks === undefined) p.carryoverTtlWeeks = 4;
+    if (p.carryoverMaxPct   === undefined) p.carryoverMaxPct = 50;
+    if (p.filtersOn         === undefined) p.filtersOn = false;
+    if (!p.filters) p.filters = { familyMatch:'', region:'', regulation:'', modelMatch:'', engMatch:'', bodyMatch:'', drvMatch:'' };
+    return p;
+}
 
 function tpSave() {
     _tpInvalidateCache();
@@ -25567,35 +25671,7 @@ function tpRenderRules(el) {
             </details>` : ''}
         </div>
         <div>
-            <div class="tp-card">
-                <div class="tp-card-title" data-help="tp-weights-help"><span>⚖️ Pesos de Priorización</span></div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:10px;">Peso relativo de cada factor. Deben sumar 100.</p>
-                ${[['volume','📦 Volumen de Producción'],['compliance','📊 Cumplimiento (déficit)'],['region','🌍 Importancia de Región'],['newConfig','🆕 Config Nueva'],['urgency','⏰ Urgencia (prod. próxima)']].map(([k,label]) => `
-                    <div style="margin-bottom:10px;">
-                        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                            <span style="font-size: var(--fs-sm);">${label}</span>
-                            <span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tp-amber)">${w[k]}%</span>
-                        </div>
-                        <input type="range" min="0" max="100" step="5" value="${w[k]}" style="width:100%;accent-color:var(--tp-amber);" oninput="tpState.weights.${k}=+this.value;tpInvalidateCache();_tpDebouncedRender();" onchange="tpSave();">
-                    </div>
-                `).join('')}
-                <div style="margin-top:8px;padding:8px;background:#161f2e;border-radius:6px;text-align:center;">
-                    <span style="font-size: var(--fs-sm);color:${wTotal===100?'var(--tp-green)':'var(--tp-amber)'};font-weight:700;">Total: ${wTotal}% ${wTotal===100?'✓':'(ajustar a 100%)'}</span>
-                </div>
-            </div>
-            <div class="tp-card" style="margin-top:14px;">
-                <div class="tp-card-title" data-help="tp-region-priority-help"><span>🌍 Prioridad por Región</span></div>
-                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:10px;">Importancia relativa de cada mercado (0-100). Europa más alto por SOP. Pesa según el factor "Importancia de Región" de arriba.</p>
-                ${regions.filter(r=>r!=='*').concat(['*']).map(r => `
-                    <div style="margin-bottom:8px;">
-                        <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
-                            <span style="font-size: var(--fs-sm);color:${tpRegionColor(r)};font-weight:600;">${r==='*'?'Otras (default)':r}</span>
-                            <span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tp-amber)">${rp[r]!==undefined?rp[r]:50}</span>
-                        </div>
-                        <input type="range" min="0" max="100" step="5" value="${rp[r]!==undefined?rp[r]:50}" style="width:100%;accent-color:${tpRegionColor(r)};" oninput="if(!tpState.regionPriority)tpState.regionPriority={};tpState.regionPriority['${r}']=+this.value;tpInvalidateCache();_tpDebouncedRender();" onchange="tpSave();">
-                    </div>
-                `).join('')}
-            </div>
+            ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedRender()' })}
             <div class="tp-card" style="margin-top:14px;">
                 <div class="tp-card-title" data-help="tp-purpose-region-help"><span>🎯 Propósito al iniciar prueba desde el plan</span></div>
                 <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:10px;">Propósito precargado en Alta según la región de la config (regla corporativa: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo en Alta.</p>
@@ -25781,11 +25857,60 @@ function _tpBacklogAges() {
 // Empuje por antigüedad. Mismo patrón que el boost de tpFamilyOverrideFor: se suma FUERA del
 // promedio ponderado, porque tpState.weights suma 100 y se divide entre 100 — meter un peso
 // más ahí diluiría los otros cuatro en vez de agregar señal.
+/**
+ * ¿Esta config pasa el filtro de la semana? `plannerCfg.filters` tiene a propósito
+ * la misma forma que una regla de prioridad, así que _tpRuleMatchField y
+ * tpRuleFieldOptions sirven SIN modificarse (vacío y '*' son comodín).
+ * Esto es todo el filtro por body type / regulación: cero matching nuevo.
+ */
+function tpPassesWeekFilter(cfg) {
+    var p = tpPlannerCfg();
+    if (!p.filtersOn || !cfg) return true;
+    return _TP_RULE_ALLFIELDS.every(function(f) { return _tpRuleMatchField(cfg, p.filters, f); });
+}
+
+/**
+ * Reparte la cola cruda de tpBacklog() en tres cubetas según la configuración
+ * vigente. La caducidad es DERIVADA: no guarda estado, sobrevive al sync, se
+ * autocorrige al cambiar el TTL y NO toca `deficit` — así `tpCoverageSummary()`
+ * queda intacta (descartar/caducar no es haber probado).
+ * -> { eligible:[], expired:[], filtered:[] }
+ */
+function tpBacklogEligible() {
+    var p = tpPlannerCfg();
+    var ttl = parseInt(p.carryoverTtlWeeks, 10) || 0;
+    var out = { eligible: [], expired: [], filtered: [] };
+    tpBacklog().forEach(function(b) {
+        if (ttl > 0 && b.weeksCarried > ttl) { out.expired.push(b); return; }
+        if (!tpPassesWeekFilter(b.cfg)) { out.filtered.push(b); return; }
+        out.eligible.push(b);
+    });
+    return out;
+}
+
 function tpAgingBoost(desc) {
     var age = tpCarryoverAge(desc);
     if (!age) return 0;
+    // Acotar la edad a la caducidad: si no, una config ya caducada que alguien fija
+    // a mano conserva el empuje completo y le gana a todo lo demás.
+    var ttl = parseInt(tpPlannerCfg().carryoverTtlWeeks, 10) || 0;
+    if (ttl > 0) age = Math.min(age, ttl);
     var cfgB = tpState.agingBoost || { perWeek: 6, max: 30 };
     return Math.min(age * (cfgB.perWeek || 0), cfgB.max || 0);
+}
+
+/**
+ * ¿El descarte de esta config sigue vigente? Un descarte se hace con un déficit
+ * concreto a la vista; si después el déficit CRECE por encima de ese valor, la
+ * situación cambió y la config vuelve a la cola sola.
+ * Los registros viejos (sin `deficitAt`) conservan la semántica permanente de
+ * antes — migración suave, sin reescribir datos.
+ */
+function _tpDismissActive(desc, cfg) {
+    var d = (tpState.carryoverDismissed || {})[desc];
+    if (!d) return false;
+    if (typeof d.deficitAt !== 'number') return true;
+    return !cfg || cfg.deficit <= d.deficitAt;
 }
 
 // El backlog vigente: configs arrastradas que TODAVÍA tienen déficit y no fueron descartadas.
@@ -25804,9 +25929,12 @@ function tpBacklog() {
     Object.keys(ages).forEach(function(desc) {
         var a = ages[desc];
         if (!a || a._closed || !a.weeks) return;
-        if (dismissed[desc]) return;
         var cfg = byDesc[desc];
         if (!cfg || cfg.deficit <= 0) return;   // ya cubierta: no se arrastra
+        // El descarte se evalúa DESPUÉS del déficit: para una config ya cubierta el
+        // registro queda inerte en vez de convertirse en lápida, y un déficit NUEVO
+        // la devuelve a la cola (ver _tpDismissActive).
+        if (_tpDismissActive(desc, cfg)) return;
         out.push({
             desc: desc, cfg: cfg, weeksCarried: a.weeks, firstSeenWeek: a.firstSeenWeek,
             deficit: cfg.deficit, score: cfg.score
@@ -25823,14 +25951,17 @@ function tpDismissCarryover(desc, opts) {
     if (typeof authRequire === 'function' && !authRequire('plan.manage', 'descartar del backlog')) return;
     var run = function() {
         if (!tpState.carryoverDismissed) tpState.carryoverDismissed = {};
+        // deficitAt: el descarte caduca solo si el déficit crece por encima de este valor.
+        var _cur = tpGetAnalysis().filter(function(a) { return a.desc === desc; })[0];
         tpState.carryoverDismissed[desc] = {
             at: new Date().toISOString(),
             by: (typeof authGetCurrentUserName === 'function' ? authGetCurrentUserName('') : ''),
-            reason: (opts && opts.reason) || ''
+            reason: (opts && opts.reason) || '',
+            deficitAt: _cur ? _cur.deficit : 0
         };
         tpBacklogInvalidate();
         tpSave(); tpRender();
-        if (typeof auditLog === 'function') auditLog('tp', 'carryover_dismissed', { type: 'plan', label: desc }, 'Sacada de la cola de pendientes (el déficit y la cobertura no cambian)');
+        if (typeof auditLog === 'function') auditLog('tp', 'carryover_dismissed', { type: 'plan', label: desc }, 'Sacada de la cola (déficit y cobertura no cambian). Vuelve si el déficit pasa de ' + (_cur ? _cur.deficit : 0));
         showToast('Sacada de la cola. Sigue contando como déficit.', 'info');
     };
     if (opts && opts.skipConfirm) { run(); return; }
@@ -25860,7 +25991,7 @@ function tpClearCarryover() {
             if (!tpState.carryoverDismissed) tpState.carryoverDismissed = {};
             var stamp = new Date().toISOString();
             var who = (typeof authGetCurrentUserName === 'function' ? authGetCurrentUserName('') : '');
-            list.forEach(function(b) { tpState.carryoverDismissed[b.desc] = { at: stamp, by: who, reason: 'limpieza masiva' }; });
+            list.forEach(function(b) { tpState.carryoverDismissed[b.desc] = { at: stamp, by: who, reason: 'limpieza masiva', deficitAt: b.deficit }; });
             tpBacklogInvalidate();
             tpSave(); tpRender();
             if (typeof auditLog === 'function') auditLog('tp', 'carryover_cleared', { type: 'plan', label: list.length + ' configs' }, 'Limpieza de la cola de pendientes (el déficit y la cobertura no cambian)');
@@ -25874,8 +26005,10 @@ function tpClearCarryover() {
 // Antes esto volcaba los pendientes completos a las obligatorias, y como las obligatorias no
 // respetaban la capacidad, un clic producía semanas de 33 pruebas para 4 huecos reales.
 function tpLoadCarryoverPicks() {
-    var backlog = tpBacklog();
-    if (!backlog.length) { showToast('No hay pendientes arrastrados', 'info'); return; }
+    // Solo lo elegible: respeta la caducidad y los filtros de la semana, igual que
+    // el generador — si no, este botón reintroducía justo lo que el TTL descartó.
+    var backlog = tpBacklogEligible().eligible;
+    if (!backlog.length) { showToast('No hay pendientes vigentes que incluir', 'info'); return; }
     var workDays = window._tpWorkDays || { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
     var cap = tpWeekCapacity(workDays);
     window._tpWeeklyManualPicks = window._tpWeeklyManualPicks || [];
@@ -25893,14 +26026,17 @@ function tpLoadCarryoverPicks() {
 }
 
 // Assign precon/test days to items, randomizing the order
-function tpAssignSchedule(items, workDays) {
+function tpAssignSchedule(items, workDays, opts) {
     const slots = tpBuildTestSlots(workDays);
     if (slots.length === 0) return items; // No assignment possible
-    // Shuffle items for randomization
+    // Shuffle items for randomization. La vista previa pasa {shuffle:false} para que
+    // los días no bailen en cada tecla; los generadores reales siguen barajando.
     const shuffled = items.slice();
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    if (!opts || opts.shuffle !== false) {
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
     }
     // v16.4: repartir respetando cuántos vehículos caben por par. Antes se ciclaba con
     // slots[i % slots.length], que con 33 items y 4 pares metía 8 vehículos en el mismo par
@@ -25924,6 +26060,336 @@ function tpAssignSchedule(items, workDays) {
     });
     return shuffled;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// [v18] PLANIFICADOR — perillas compartidas, filtros de la semana y vista previa
+// Las perillas de RANKING (pesos, prioridad por región, empuje por antigüedad)
+// se muestran tanto en Reglas como en el Plan Semanal: son las que solo reordenan
+// candidatos, justo lo que la vista previa puede mostrar. Las reglas de ratio se
+// quedan solo en Reglas porque cambian `required`/`deficit` y con eso el Dashboard,
+// Recuperación y el presupuesto anual — previsualizarlas contra una semana engaña.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Un slider con su lectura. `onInput` es el callback de re-render (difiere por pestaña). */
+function _tpSliderHTML(o) {
+    return '<div style="margin-bottom:10px;">' +
+        '<div style="display:flex;justify-content:space-between;margin-bottom:3px;">' +
+        '<span style="font-size: var(--fs-sm);' + (o.labelColor ? 'color:' + o.labelColor + ';font-weight:600;' : '') + '">' + o.label + '</span>' +
+        '<span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tp-amber)">' + o.value + (o.unit || '') + '</span>' +
+        '</div>' +
+        '<input type="range" min="' + o.min + '" max="' + o.max + '" step="' + (o.step || 1) + '" value="' + o.value + '"' +
+        ' style="width:100%;accent-color:' + (o.accent || 'var(--tp-amber)') + ';"' +
+        ' oninput="' + o.set + ';tpInvalidateCache();' + o.onInput + '" onchange="tpSave();">' +
+        '</div>';
+}
+
+/**
+ * Pesos + prioridad por región + empuje por antigüedad. Se monta en Reglas y en
+ * el Plan Semanal; `opts.onInput` decide qué se re-renderiza en cada una.
+ */
+function tpBuildPriorityKnobsHTML(opts) {
+    opts = opts || {};
+    var onInput = opts.onInput || '_tpDebouncedRender()';
+    var w = tpState.weights || {};
+    var rp = tpState.regionPriority || {};
+    var ab = tpState.agingBoost || { perWeek: 6, max: 30 };
+    var wTotal = ['volume','compliance','region','newConfig','urgency']
+        .reduce(function(s, k) { return s + (+w[k] || 0); }, 0);
+    var regions = Array.from(new Set((tpState.planData || []).map(function(c) { return c.rgn; }).filter(Boolean))).sort();
+
+    var h = '';
+
+    // ── Pesos: los tres que se ajustan de verdad, arriba; los otros dos plegados ──
+    h += '<div class="tp-card">';
+    h += '<div class="tp-card-title" data-help="tp-weights-help"><span>⚖️ Ponderación</span></div>';
+    h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:10px;">Cuánto pesa cada factor al ordenar candidatos. Deben sumar 100.</p>';
+    [['compliance','📊 Déficit (cumplimiento)'], ['volume','📦 Volumen de producción'], ['region','🌍 Importancia de región']]
+        .forEach(function(p) {
+            h += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
+                set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
+        });
+    h += '<details style="margin-top:4px;"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">Más factores</summary><div style="padding-top:8px;">';
+    [['newConfig','🆕 Config nueva'], ['urgency','⏰ Urgencia (producción próxima)']].forEach(function(p) {
+        h += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
+            set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
+    });
+    h += '</div></details>';
+    h += '<div style="margin-top:8px;padding:8px;background:var(--tp-dark);border:1px solid var(--tp-border);border-radius:6px;text-align:center;">' +
+         '<span style="font-size: var(--fs-sm);color:' + (wTotal === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';font-weight:700;">' +
+         'Total: ' + wTotal + '% ' + (wTotal === 100 ? '✓' : '(ajustar a 100%)') + '</span></div>';
+    h += '</div>';
+
+    // ── Peso por región (plegado: 10 sliders alargaban la columna de más) ──
+    h += '<div class="tp-card" style="margin-top:14px;">';
+    h += '<details' + (opts.openRegions ? ' open' : '') + '>';
+    h += '<summary class="tp-card-title" data-help="tp-region-priority-help" style="cursor:pointer;list-style:revert;"><span>🌍 Peso por región</span></summary>';
+    h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:10px 0;">Importancia relativa de cada mercado (0-100). Pesa según el factor "Importancia de región" de arriba.</p>';
+    regions.filter(function(r) { return r !== '*'; }).concat(['*']).forEach(function(r) {
+        h += _tpSliderHTML({
+            label: (r === '*' ? 'Otras (default)' : r), labelColor: tpRegionColor(r),
+            value: (rp[r] !== undefined ? rp[r] : 50), min: 0, max: 100, step: 5, accent: tpRegionColor(r),
+            set: "if(!tpState.regionPriority)tpState.regionPriority={};tpState.regionPriority['" + r + "']=+this.value",
+            onInput: onInput
+        });
+    });
+    h += '</details></div>';
+
+    // ── Empuje por antigüedad (antes no tenía UI en ninguna parte) ──
+    h += '<div class="tp-card" style="margin-top:14px;">';
+    h += '<details>';
+    h += '<summary class="tp-card-title" data-help="tp-aging-help" style="cursor:pointer;list-style:revert;"><span>⏳ Empuje por antigüedad</span></summary>';
+    h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:10px 0;">Cuánto sube de puntaje una config por cada semana que lleva postergada. Ponlo en 0 para que la antigüedad deje de influir.</p>';
+    h += _tpSliderHTML({ label: 'Por semana', value: (+ab.perWeek || 0), unit: ' pts', min: 0, max: 15, step: 1,
+        set: "if(!tpState.agingBoost)tpState.agingBoost={};tpState.agingBoost.perWeek=+this.value", onInput: onInput });
+    h += _tpSliderHTML({ label: 'Tope acumulado', value: (+ab.max || 0), unit: ' pts', min: 0, max: 50, step: 5,
+        set: "if(!tpState.agingBoost)tpState.agingBoost={};tpState.agingBoost.max=+this.value", onInput: onInput });
+    h += '</details></div>';
+
+    return h;
+}
+
+/** Cola de pendientes: encendido, caducidad y cuota máxima de la capacidad. */
+function tpBuildCarryoverPanelHTML() {
+    var p = tpPlannerCfg();
+    var B = tpBacklogEligible();
+    var h = '<div class="tp-card" style="margin-top:14px;">';
+    h += '<div class="tp-card-title" data-help="tp-carryover-help"><span>🔄 Cola de pendientes</span></div>';
+    h += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;font-size: var(--fs-sm);">' +
+         '<input type="checkbox" ' + (p.carryoverOn ? 'checked' : '') +
+         ' onchange="tpSetPlannerFlag(\'carryoverOn\', this.checked)">' +
+         '<span>Incluir pendientes de semanas anteriores</span></label>';
+    if (p.carryoverOn) {
+        h += _tpSliderHTML({ label: '🕒 Caducan a las', value: (+p.carryoverTtlWeeks || 0), unit: (p.carryoverTtlWeeks ? ' sem' : ' (sin límite)'),
+            min: 0, max: 12, step: 1, set: "tpPlannerCfg().carryoverTtlWeeks=+this.value", onInput: '_tpDebouncedPreview()' });
+        h += _tpSliderHTML({ label: '📐 Máximo de la semana', value: (+p.carryoverMaxPct || 0), unit: '%',
+            min: 0, max: 100, step: 10, set: "tpPlannerCfg().carryoverMaxPct=+this.value", onInput: '_tpDebouncedPreview()' });
+        h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:4px;">' +
+             'El resto de los lugares queda reservado para las prioridades de hoy. Antes la cola se llevaba la semana entera.</p>';
+    }
+    h += '<div style="margin-top:8px;font-size: var(--fs-xs);color:var(--tp-dim);">' +
+         '✅ ' + B.eligible.length + ' vigentes · 🕒 ' + B.expired.length + ' caducadas · 🔎 ' + B.filtered.length + ' fuera del filtro</div>';
+    if (B.eligible.length || B.expired.length) {
+        h += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">' +
+             '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);" onclick="tpLoadCarryoverPicks()">➕ Incluir las que quepan</button>' +
+             '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);color:var(--tp-red);" onclick="tpClearCarryover()">🧹 Vaciar la cola</button>' +
+             '</div>';
+    }
+    h += '</div>';
+    return h;
+}
+
+/**
+ * Filtros de la semana. `plannerCfg.filters` tiene la forma de una regla de
+ * prioridad a propósito, así que se reusa tpRuleFieldOptions tal cual — incluida
+ * la opción "(actual)" cuando el valor vigente queda fuera del conjunto reducido.
+ */
+function tpBuildWeekFilterHTML() {
+    var p = tpPlannerCfg();
+    var cols = [['familyMatch','Familia'], ['region','Región'], ['regulation','Regulación'],
+                ['modelMatch','Modelo'], ['engMatch','Cilindrada'], ['bodyMatch','Body'], ['drvMatch','Manejo']];
+    var active = cols.filter(function(c) { return p.filters[c[0]]; }).length;
+
+    var h = '<div class="tp-card" style="margin-top:14px;">';
+    h += '<div class="tp-card-title" data-help="tp-weekfilter-help"><span>🔎 Filtros de la semana</span>' +
+         (active ? '<span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);font-size: var(--fs-xs);">' + active + ' activo(s)</span>' : '') +
+         '</div>';
+    h += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;font-size: var(--fs-sm);">' +
+         '<input type="checkbox" ' + (p.filtersOn ? 'checked' : '') +
+         ' onchange="tpSetPlannerFlag(\'filtersOn\', this.checked)">' +
+         '<span>Probar solo lo que cumpla estos filtros</span></label>';
+    if (p.filtersOn) {
+        // Grid propio: .inv-row-list-2col depende del ancho de VENTANA, y aquí lo que
+        // manda es el ancho de la columna izquierda del planificador.
+        h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px 10px;">';
+        cols.forEach(function(c) {
+            var field = c[0], cur = p.filters[field] || '';
+            var opts = [];
+            try { opts = tpRuleFieldOptions(p.filters, field) || []; } catch (e) { opts = []; }
+            var has = opts.some(function(o) { return o.value === cur; });
+            h += '<div class="form-group" style="margin-bottom:6px;">' +
+                 '<label style="font-size: var(--fs-xs);">' + c[1] + '</label>' +
+                 '<select class="tp-select" style="font-size: var(--fs-xs);" onchange="tpSetWeekFilter(\'' + field + '\', this.value)">' +
+                 '<option value="">Todas</option>' +
+                 opts.map(function(o) {
+                     return '<option value="' + escapeHtml(o.value) + '"' + (o.value === cur ? ' selected' : '') + '>' + escapeHtml(o.label) + '</option>';
+                 }).join('') +
+                 (cur && !has ? '<option value="' + escapeHtml(cur) + '" selected>' + escapeHtml(cur) + ' (actual)</option>' : '') +
+                 '</select></div>';
+        });
+        h += '</div>';
+        if (active) {
+            h += '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);margin-top:6px;" onclick="tpClearWeekFilters()">Limpiar filtros</button>';
+        }
+    }
+    h += '</div>';
+    return h;
+}
+
+// ── Setters del planificador ────────────────────────────────────────────────
+// Patrón del módulo: mutar + invalidar caché + repintar SOLO la vista previa.
+// tpSave() persiste (y ensucia las otras pestañas, que es lo correcto).
+
+function tpSetPlannerFlag(key, value) {
+    tpPlannerCfg()[key] = value;
+    tpInvalidateCache();
+    tpSave();
+    tpRender();   // cambia la forma del panel (muestra/oculta controles)
+}
+
+function tpSetWeekFilter(field, value) {
+    tpPlannerCfg().filters[field] = value || '';
+    tpInvalidateCache();
+    tpSave();
+    tpRender();   // el cascade de los demás selects se estrecha
+}
+
+function tpClearWeekFilters() {
+    var f = tpPlannerCfg().filters;
+    Object.keys(f).forEach(function(k) { f[k] = ''; });
+    tpInvalidateCache();
+    tpSave();
+    tpRender();
+    showToast('Filtros limpiados', 'info');
+}
+
+function tpPinPreviewItem(desc) {
+    window._tpWeeklyManualPicks = window._tpWeeklyManualPicks || [];
+    if (window._tpWeeklyManualPicks.indexOf(desc) === -1) window._tpWeeklyManualPicks.push(desc);
+    window._tpWeekExclude = (window._tpWeekExclude || []).filter(function(d) { return d !== desc; });
+    tpRenderPlannerPreview();
+}
+
+function tpUnpinPreviewItem(desc) {
+    window._tpWeeklyManualPicks = (window._tpWeeklyManualPicks || []).filter(function(d) { return d !== desc; });
+    tpRenderPlannerPreview();
+}
+
+function tpExcludePreviewItem(desc) {
+    window._tpWeekExclude = window._tpWeekExclude || [];
+    if (window._tpWeekExclude.indexOf(desc) === -1) window._tpWeekExclude.push(desc);
+    window._tpWeeklyManualPicks = (window._tpWeeklyManualPicks || []).filter(function(d) { return d !== desc; });
+    tpRenderPlannerPreview();
+}
+
+function tpUnexcludePreviewItem(desc) {
+    window._tpWeekExclude = (window._tpWeekExclude || []).filter(function(d) { return d !== desc; });
+    tpRenderPlannerPreview();
+}
+
+/** Opciones que alimentan tanto la vista previa como el botón Generar. */
+function tpPlannerOpts(extra) {
+    var workDays = window._tpWorkDays || { dom:false, lun:true, mar:true, mie:true, jue:true, vie:true, sab:false };
+    var capEl = document.getElementById('tp-weekly-cap');
+    var o = {
+        workDays: workDays,
+        capacity: capEl ? parseInt(capEl.value, 10) : (window._tpWeekCap || undefined),
+        manualPicks: (window._tpWeeklyManualPicks || []).slice(),
+        exclude: (window._tpWeekExclude || []).slice()
+    };
+    return Object.assign(o, extra || {});
+}
+
+/**
+ * Repinta SOLO #tp-planner-preview. No persiste nada: tpSelectWeeklyItems es pura
+ * respecto a tpState (copia testedList y no muta nada global).
+ */
+function tpRenderPlannerPreview() {
+    var host = document.getElementById('tp-planner-preview');
+    if (!host) return;   // el debounce puede caer después de cambiar de pestaña
+
+    var R;
+    try { R = tpSelectWeeklyItems(tpPlannerOpts({ dryRun: true })); }
+    catch (e) {
+        void 0;
+        host.innerHTML = '<div style="padding:12px;color:var(--tp-red);font-size: var(--fs-sm);">No se pudo calcular la propuesta: ' + escapeHtml(e.message) + '</div>';
+        return;
+    }
+    // shuffle:false para que los días no bailen en cada tecla
+    var rows = tpAssignSchedule(R.items.slice(), tpPlannerOpts().workDays, { shuffle: false });
+    var pins = window._tpWeeklyManualPicks || [];
+    var excl = window._tpWeekExclude || [];
+
+    var h = '';
+    h += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">';
+    h += '<span style="font-size:18px;font-weight:800;color:var(--tp-text);">' + rows.length + ' / ' + R.capacity + '</span>';
+    h += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">' +
+         R.freshTaken + ' frescas · ' + R.carryTaken + ' de cola' +
+         (R.carryCap ? ' (máx ' + R.carryCap + ')' : '') + '</span>';
+    h += '</div>';
+
+    if (!rows.length) {
+        h += '<div class="empty-state" style="padding:18px;text-align:center;font-size: var(--fs-sm);color:var(--tp-dim);">' +
+             'Nada que proponer con estos ajustes. Afloja los filtros o revisa el déficit.</div>';
+    } else {
+        rows.forEach(function(it, i) {
+            var origen = it.manual ? ['📌 Obligatoria', 'var(--tp-blue)']
+                       : it.carriedOver ? ['🔄 Cola ' + (tpCarryoverAge(it.desc) || 1) + ' sem', 'var(--tp-amber)']
+                       : ['🆕 Déficit', 'var(--tp-green)'];
+            h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--tp-border);flex-wrap:wrap;">';
+            h += '<span style="font-family:monospace;font-size: var(--fs-xs);color:var(--tp-dim);min-width:18px;">' + (i + 1) + '</span>';
+            h += '<div style="flex:1;min-width:180px;">';
+            h += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:2px;">' +
+                 (it.unscheduled ? '<span style="color:var(--tp-red);">sin día</span>' : 'Preacon ' + (it.preconLabel || '?') + ' → Prueba ' + (it.testLabel || '?')) +
+                 ' · <span style="color:' + origen[1] + ';font-weight:700;">' + origen[0] + '</span></div>';
+            h += (typeof tpConfigBadges === 'function' ? tpConfigBadges(it) : escapeHtml(it.desc));
+            h += '</div>';
+            h += (typeof tpScoreBadge === 'function' ? tpScoreBadge(it) : '');
+            h += '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);" title="' +
+                 (it.manual ? 'Quitar de obligatorias' : 'Fijar: que entre siempre') + '" onclick="' +
+                 (it.manual ? "tpUnpinPreviewItem('" + _tpQ(it.desc) + "')" : "tpPinPreviewItem('" + _tpQ(it.desc) + "')") + '">' +
+                 (it.manual ? '📌✓' : '📌') + '</button>';
+            h += '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);color:var(--tp-red);" title="No esta semana" onclick="tpExcludePreviewItem(\'' + _tpQ(it.desc) + '\')">🚫</button>';
+            h += '</div>';
+        });
+    }
+
+    // Avisos
+    if (R.outOfFilter && R.outOfFilter.length) {
+        h += '<div style="margin-top:8px;font-size: var(--fs-xs);color:var(--tp-amber);">⚠ ' + R.outOfFilter.length +
+             ' obligatoria(s) fuera del filtro — entran igual porque las fijaste a mano.</div>';
+    }
+    if (R.expiredCount || R.filteredCount) {
+        h += '<div style="margin-top:6px;font-size: var(--fs-xs);color:var(--tp-dim);">🕒 ' + R.expiredCount +
+             ' caducadas · 🔎 ' + R.filteredCount + ' fuera del filtro (no compiten esta semana).</div>';
+    }
+
+    // Siguientes candidatos — la vía fácil para añadir
+    var usados = {};
+    rows.forEach(function(it) { usados[it.desc] = true; });
+    var cands = tpGetAnalysis().filter(function(c) {
+        return c.deficit > 0 && !usados[c.desc] && excl.indexOf(c.desc) === -1 && tpPassesWeekFilter(c);
+    }).slice(0, 6);
+    if (cands.length) {
+        h += '<details style="margin-top:10px;"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">➕ Siguientes candidatos (' + cands.length + ')</summary><div style="padding-top:6px;">';
+        cands.forEach(function(c) {
+            h += '<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-bottom:1px solid var(--tp-border);">' +
+                 '<div style="flex:1;min-width:150px;font-size: var(--fs-xs);">' + escapeHtml(c.desc) + '</div>' +
+                 '<span style="font-family:monospace;font-size: var(--fs-xs);color:var(--tp-dim);">S:' + Math.round(c.score) + '</span>' +
+                 '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);" title="Fijar en la semana" onclick="tpPinPreviewItem(\'' + _tpQ(c.desc) + '\')">➕</button>' +
+                 '</div>';
+        });
+        h += '</div></details>';
+    }
+
+    // Excluidas
+    if (excl.length) {
+        h += '<details style="margin-top:8px;"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">🚫 Excluidas esta semana (' + excl.length + ')</summary><div style="padding-top:6px;">';
+        excl.forEach(function(d) {
+            h += '<div style="display:flex;align-items:center;gap:8px;padding:4px;font-size: var(--fs-xs);">' +
+                 '<span style="flex:1;">' + escapeHtml(d) + '</span>' +
+                 '<button class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);" onclick="tpUnexcludePreviewItem(\'' + _tpQ(d) + '\')">↩ Devolver</button></div>';
+        });
+        h += '</div></details>';
+    }
+
+    host.innerHTML = h;
+    if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
+}
+
+/** Escapa una cadena para meterla en un atributo onclick con comillas simples. */
+function _tpQ(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+var _tpDebouncedPreview = debounce(tpRenderPlannerPreview, 200);
 
 // ═══ WEEKLY PLAN TAB ═══
 function tpRenderWeekly(el) {
@@ -26070,6 +26536,24 @@ function tpRenderWeekly(el) {
         </div>
     </div>
 
+    <!-- v18: cómo se elige (izquierda) + propuesta en vivo (derecha) -->
+    <div class="tp-planner-grid">
+        <div class="tp-planner-controls">
+            ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedPreview()' })}
+            ${tpBuildCarryoverPanelHTML()}
+            ${tpBuildWeekFilterHTML()}
+        </div>
+        <div class="tp-planner-side">
+            <div class="tp-card">
+                <div class="tp-card-title" data-help="tp-preview-help"><span>🔮 Propuesta en vivo</span></div>
+                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Esto es exactamente lo que crearía "Generar" ahora mismo. Se actualiza al mover cualquier control.</p>
+                <div id="tp-planner-preview"></div>
+                <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:10px;border-top:1px solid var(--tp-border);padding-top:6px;">
+                    Nota: "📅 Mes" usa solo el déficit — no la cola ni estos filtros.</p>
+            </div>
+        </div>
+    </div>
+
     ${plans.length === 0 ? '' : plans.slice().reverse().map((w, wi) => {
         const idx = plans.length - 1 - wi;
         const done = w.items.filter(i => i.completed).length;
@@ -26099,6 +26583,7 @@ function tpRenderWeekly(el) {
                     ${wdStr ? `<span style="font-size: var(--fs-xs);color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:3px;">${wdStr}</span>` : ''}
                     ${w.accepted?'<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size: var(--fs-xs);">Aceptado</span>':''}
                     ${w.autoGenerated?'<span class="tp-badge" style="background:rgba(59,130,246,0.15);color:var(--tp-blue);font-size: var(--fs-xs);">Auto-generado</span>':''}
+                    ${w.autoGenerated&&!w.accepted?'<span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);font-size: var(--fs-xs);" title="Se generó sola el viernes. Hasta que la aceptes no queda en el historial ni genera arrastre.">⏳ Propuesta — falta aceptar</span>':''}
                     ${carryoverCount>0&&w.accepted?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size: var(--fs-xs);">${carryoverCount} carryover</span>`:''}
                     ${w.carriedFrom?`<span class="tp-badge" style="background:rgba(139,92,246,0.1);color:#8b5cf6;font-size: var(--fs-xs);">desde Sem ${w.carriedFrom}</span>`:''}
                 </div>
@@ -26159,6 +26644,12 @@ function tpRenderWeekly(el) {
             ${isEdit?`<div style="margin-top:6px;padding:6px;background:rgba(245,158,11,0.05);border:1px dashed var(--tp-amber);border-radius:5px;"><div style="display:flex;gap:5px;"><select id="tp-edit-add-${idx}" class="tp-select" style="flex:1;font-size: var(--fs-xs);"><option value="">Agregar...</option>${allConfigs.filter(c=>!w.items.some(i=>i.desc===c)).map(c=>`<option value="${c}">${c}</option>`).join('')}</select><button class="tp-btn tp-btn-primary" onclick="tpAddToWeek(${idx})" style="font-size: var(--fs-xs);">+</button></div></div>`:''}
         </div>`;
     }).join('')}`;
+
+    // Primer pintado de la propuesta: doble RAF porque tpRenderWeekly ya corre dentro
+    // del requestAnimationFrame de tabCacheSwitch — el nodo aún no está en pantalla.
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() { tpRenderPlannerPreview(); });
+    });
 }
 
 function tpScoreBadge(item) {
@@ -26768,14 +27259,21 @@ function tpSelectWeeklyItems(opts) {
     var capacity = Math.max(1, Math.min(parseInt(opts.capacity, 10) || capReal.max, capReal.max));
     var manualPicks = opts.manualPicks || [];
     var testedCopy = tpState.testedList.slice();
-    var items = [], used = new Set(), overflowManual = [], skippedInv = [];
+    var items = [], used = new Set(), overflowManual = [], skippedInv = [], outOfFilter = [];
 
     var backlogDescs = new Set(tpBacklog().map(function(b) { return b.desc; }));
     var byDesc = {};
     tpState.planData.forEach(function(c) { byDesc[c.desc] = c; });
 
+    var pCfg = tpPlannerCfg();
+    var excl = new Set(opts.exclude || []);
+    var useFilter = !opts.ignoreFilters;
+    var passes = function(cfg) { return !useFilter || tpPassesWeekFilter(cfg); };
+    var B = tpBacklogEligible();
+
     function take(cfg, flags) {
         if (!cfg || used.has(cfg.desc)) return false;
+        if (excl.has(cfg.desc)) return false;
         if (items.length >= capacity) return false;
         if (opts.checkInventory) {
             var chk = tpCheckInventoryForConfig(cfg);
@@ -26787,30 +27285,66 @@ function tpSelectWeeklyItems(opts) {
         return true;
     }
 
-    // 1) Obligatorias — primero, pero SIN saltarse el tope.
+    // 1) Obligatorias — primero, pero SIN saltarse el tope. Quedan EXENTAS del filtro
+    //    y de la caducidad: fijar a mano es una intención explícita. Si una fijada no
+    //    pasa el filtro se avisa, no se descarta.
+    var manualTaken = 0;
     manualPicks.forEach(function(pick) {
         var cfg = byDesc[pick];
         if (!cfg) return;
         if (items.length >= capacity) { overflowManual.push(pick); return; }
-        if (!take(cfg, { manual: true, carriedOver: backlogDescs.has(pick) })) {
-            if (!used.has(pick)) overflowManual.push(pick);
+        if (take(cfg, { manual: true, carriedOver: backlogDescs.has(pick) })) {
+            manualTaken++;
+            if (useFilter && !tpPassesWeekFilter(cfg)) outOfFilter.push(pick);
+        } else if (!used.has(pick)) {
+            overflowManual.push(pick);
         }
     });
 
-    // 2) Backlog por puntaje (el puntaje ya trae el empuje por antigüedad).
-    tpBacklog().forEach(function(b) {
-        if (items.length >= capacity) return;
-        take(byDesc[b.desc], { carriedOver: true });
-    });
+    // 2) Cola de pendientes ACOTADA POR CUOTA — el arreglo central.
+    //    Antes se volcaba el backlog completo antes de mirar el déficit fresco, así que
+    //    con una cola de 20+ y capacidad 4 el paso 3 NUNCA corría y una config recién
+    //    repriorizada no podía entrar. Ahora la cola tiene un techo.
+    var carryTaken = items.filter(function(it) { return it.carriedOver; }).length;
+    var carryCap = 0;
+    if (pCfg.carryoverOn) {
+        carryCap = Math.floor(capacity * (parseInt(pCfg.carryoverMaxPct, 10) || 0) / 100);
+        // Con capacidad >= 2 siempre dejamos al menos un hueco de cola; a capacidad 1
+        // gana lo fresco (si no, la única prueba de la semana sería siempre arrastre).
+        if (carryCap < 1 && capacity >= 2) carryCap = 1;
+    }
+    if (pCfg.carryoverOn) {
+        B.eligible.forEach(function(b) {
+            if (items.length >= capacity || carryTaken >= carryCap) return;
+            if (take(byDesc[b.desc], { carriedOver: true })) carryTaken++;
+        });
+    }
 
-    // 3) Resto del déficit por puntaje.
-    var pool = tpGetAnalysis().filter(function(c) { return c.deficit > 0; })
+    // 3) Déficit fresco por puntaje — ahora SIEMPRE corre, porque el paso 2 no puede
+    //    pasar de carryCap.
+    var pool = tpGetAnalysis().filter(function(c) { return c.deficit > 0 && passes(c); })
                               .sort(function(a, b) { return b.score - a.score; });
     for (var i = 0; i < pool.length && items.length < capacity; i++) {
         take(byDesc[pool[i].desc], {});
     }
 
-    return { items: items, overflowManual: overflowManual, skippedInv: skippedInv, capacity: capacity, capReal: capReal };
+    // 4) Relleno: si el pool fresco se agotó, no desperdiciar huecos — se completan
+    //    con cola elegible aunque se pase de la cuota (la cuota reserva, no limita).
+    if (pCfg.carryoverOn && items.length < capacity) {
+        B.eligible.forEach(function(b) {
+            if (items.length >= capacity) return;
+            if (take(byDesc[b.desc], { carriedOver: true })) carryTaken++;
+        });
+    }
+
+    return {
+        items: items, overflowManual: overflowManual, skippedInv: skippedInv,
+        capacity: capacity, capReal: capReal,
+        outOfFilter: outOfFilter,
+        expiredCount: B.expired.length, filteredCount: B.filtered.length,
+        carryTaken: carryTaken, carryCap: carryCap,
+        freshTaken: items.length - carryTaken - manualTaken
+    };
 }
 
 function tpGenerateWeekly() {
@@ -27047,15 +27581,17 @@ function tpShouldAutoGenerate() {
     nextMon.setDate(now.getDate() + daysUntilMon);
     var nextMonISO = localDateStr(nextMon);
 
-    // Already accepted for that week?
+    // ¿Ya hay un plan para esa semana? Antes solo se rechazaba si estaba ACEPTADO;
+    // ahora que el auto-plan deja una propuesta sin aceptar, hay que mirar cualquiera,
+    // o cada dispositivo agregaría la suya.
     var plans = tpState.weeklyPlans || [];
-    var hasAccepted = plans.some(function (p) {
-        return p.accepted && p.weekDate === nextMonISO;
-    });
-    if (hasAccepted) return false;
+    if (plans.some(function (p) { return p.weekDate === nextMonISO; })) return false;
 
-    // Already ran for this week?
-    var lastRun = localStorage.getItem(AUTOPLAN_LS_KEY);
+    // ¿Ya corrió para esta semana? El guard vive en tpState (SINCRONIZADO); la clave
+    // de localStorage se conserva como respaldo offline del mismo dispositivo.
+    if (tpState.autoPlanLastRun === nextMonISO) return false;
+    var lastRun = null;
+    try { lastRun = localStorage.getItem(AUTOPLAN_LS_KEY); } catch (e) {}
     if (lastRun === nextMonISO) return false;
 
     return { nextMonday: nextMonISO };
@@ -27077,10 +27613,15 @@ function tpAutoGenerateIfNeeded() {
         if (lastIdx >= 0 && tpState.weeklyPlans[lastIdx].smartGenerated) {
             tpState.weeklyPlans[lastIdx].weekDate = check.nextMonday;
             tpState.weeklyPlans[lastIdx].autoGenerated = true;
-            tpAcceptWeeklyPlan(lastIdx);
-            localStorage.setItem(AUTOPLAN_LS_KEY, check.nextMonday);
+            // NO se acepta sola. Aceptar es justo lo que marca cada item incompleto como
+            // 'carryover' en weekHistory; hacerlo al cargar la página, en cada dispositivo,
+            // era la fábrica de arrastre. Queda como PROPUESTA para que alguien la revise.
+            tpState.autoPlanLastRun = check.nextMonday;
+            tpSave();
+            try { localStorage.setItem(AUTOPLAN_LS_KEY, check.nextMonday); } catch (e) {}
+            tpRender();
 
-            if (typeof showToast === 'function') showToast('Plan semana ' + check.nextMonday + ' generado automáticamente', 'success');
+            if (typeof showToast === 'function') showToast('Propuesta de la semana ' + check.nextMonday + ' lista — falta aceptarla', 'success');
             if (typeof emitEvent === 'function') emitEvent('plan:autoGenerated', { weekDate: check.nextMonday, itemCount: tpState.weeklyPlans[lastIdx].items.length });
         }
     } catch (e) {
@@ -29057,11 +29598,13 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     },
     'tp-weekly': {
         title: 'Plan semanal',
-        text: 'Genera el plan de la semana: define capacidad y fecha, y usa ⚡ Generación Inteligente (valida inventario). Marca cada prueba al completarla.',
+        text: 'Todo en una pantalla: a la izquierda decides CÓMO se elige (ponderación, cola de pendientes y filtros) y a la derecha ves en vivo QUÉ se propondría. Cuando te convenza, genera.',
         tips: [
-            'La Generación Inteligente reparte la capacidad priorizando lo más urgente y verifica que haya gas/gasolina suficiente antes de asignar.',
-            'Puedes generar un mes completo de una vez con 📅 Generar Mes.',
-            'Marca las pruebas como completadas conforme se liberan — así el sistema sabe qué falta.'
+            'La propuesta de la derecha es exactamente lo que creará "🚀 Generar" — se actualiza al mover cualquier control.',
+            'La cola de pendientes tiene un tope (50% por defecto): el resto de los lugares queda reservado para las prioridades de hoy.',
+            'Si cambiaron las prioridades, baja la caducidad de la cola o apágala — lo viejo deja de proponerse sin tocar el déficit ni la cobertura.',
+            'Filtra por body type o regulación para dedicar la semana a un solo tipo de vehículo.',
+            '📌 fija una prueba (entra siempre) y 🚫 la saca solo de esta semana.'
         ]
     },
     'tp-recovery': {
@@ -29135,7 +29678,11 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'tp-veh-per-slot': { title: 'Vehículos por par', text: 'Cuántos vehículos puedes preacondicionar y probar en el MISMO par de días (lun→mar, mar→mie, …). Depende de cuántas celdas o áreas de soak tiene el laboratorio. La capacidad máxima de la semana es pares × este número. Se comparte con todos los dispositivos.' },
     'tpBacklog': { title: 'Pendientes de semanas anteriores', text: 'Configuraciones que ya se planearon antes y siguen sin probarse. Cada semana que pasa suben de prioridad para que no se queden al fondo. Solo entra a la semana lo que cabe en la capacidad — el resto se queda en la cola. "✕" la saca de la cola pero NO cuenta como probada: el déficit y la cobertura no cambian, y puedes restaurarla desde "Descartadas".' },
     'tp-ratio-help': { title: 'Reglas de Ratio', text: 'Define cuántas pruebas exige cada configuración por cada 1000 unidades producidas, según región y regulación. Las reglas más específicas (región+regulación exacta) ganan sobre las genéricas ("Todas"). Esto es lo que alimenta el déficit y el plan.' },
-    'tp-weights-help': { title: 'Pesos de Priorización', text: 'Qué tanto pesa cada factor (volumen, cumplimiento, región, config nueva, urgencia) al decidir qué probar primero. Deben sumar 100 — el sistema te avisa si no cuadran.' },
+    'tp-weights-help': { title: 'Ponderación', text: 'Qué tanto pesa cada factor (déficit, volumen, región, config nueva, urgencia) al ordenar los candidatos. Deben sumar 100 — el sistema te avisa si no cuadran. Al moverlos, la propuesta de la derecha se reordena al instante.' },
+    'tp-aging-help': { title: 'Empuje por antigüedad', text: 'Puntos que gana una configuración por cada semana que lleva postergada, para que la cola no se estanque. El tope evita que lo viejo le gane siempre a lo urgente. En 0, la antigüedad deja de influir por completo.' },
+    'tp-carryover-help': { title: 'Cola de pendientes', text: 'Lo que quedó sin hacer en semanas anteriores. "Caducan" descarta lo que lleva demasiado tiempo arrastrándose (útil cuando cambian las prioridades) y "Máximo de la semana" limita cuántos lugares puede ocupar la cola, para que siempre quede espacio a lo actual. Ni caducar ni descartar cuentan como probado: el déficit y la cobertura no cambian.' },
+    'tp-weekfilter-help': { title: 'Filtros de la semana', text: 'Restringe la propuesta a un subconjunto — por ejemplo solo body type 5DR y regulación EURO-6C — para dedicar la semana a ese tipo de vehículo. Los selectores se van estrechando entre sí, como la cascada del Alta. Las pruebas que fijaste a mano entran aunque no cumplan el filtro (se avisa).' },
+    'tp-preview-help': { title: 'Propuesta en vivo', text: 'Lo que crearía "Generar" en este momento, con el día de preacondicionamiento y prueba de cada vehículo, su puntaje y de dónde salió (obligatoria, cola o déficit). Cambia solo al mover cualquier control de la izquierda.' },
     'tp-region-priority-help': { title: 'Prioridad por Región', text: 'Qué tan importante es cada mercado (0-100) al calcular la urgencia de una configuración. Europa suele ir más alto por fechas de arranque de producción (SOP).' },
     'tp-purpose-region-help': { title: 'Propósito por región', text: 'Qué propósito se precarga automáticamente en Alta cuando inicias una prueba desde el plan, según la región de la configuración (regla: COP solo para Europa; el resto son auditorías internas). El técnico siempre puede cambiarlo manualmente en Alta.' },
     'tp-csvimport-help': { title: 'Importar Plan de Producción', text: 'El CSV se FUSIONA con lo que ya tenías cargado — no borra meses anteriores, solo agrega o actualiza los que vengan en el archivo nuevo. Columnas esperadas: codigo_config, Modelo, Motor, Regulación, Región, etc. y una columna por mes (ej. Feb-26).' },
@@ -37304,8 +37851,11 @@ function _fbPullSeed(col, remoteData, pulled) {
         // (v16.4 suma la capacidad real y el backlog: sin esto, sincronizar contra una copia
         // en la nube escrita por una versión anterior borraba en silencio los vehículos por
         // par configurados y las configuraciones ya descartadas de la cola).
+        // v18 suma plannerCfg (cuota/caducidad de la cola + filtros de la semana) y
+        // autoPlanLastRun: sin esto, sincronizar contra una copia escrita por código
+        // anterior borraba la configuración del planificador en silencio.
         ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks',
-         'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed'].forEach(function(k) {
+         'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed', 'plannerCfg', 'autoPlanLastRun'].forEach(function(k) {
             if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
         });
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
@@ -38950,7 +39500,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608242039' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608242202' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
