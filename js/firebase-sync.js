@@ -1332,7 +1332,11 @@ function _fbPullAdoptByCount(col, remoteData, pulled) {
 // no resucite desde un remoto viejo.
 function _fbMergeOperators(localOps, remoteOps) {
     var byKey = {};
-    var keyOf = function(o) { return (o.id != null ? o.id : '') + '|' + (o.name || ''); };
+    // La clave era `id|nombre`, pero _authFindOperator (auth.js) busca SOLO por id y
+    // devuelve el primero. Con "Jorge Nuñez" y "Jorge Núñez" (misma id, grafía
+    // distinta) sobrevivían AMBOS y la sesión podía quedarse con el marcador
+    // provisional sin permisos. Con id presente, el id manda.
+    var keyOf = function(o) { return o.id != null ? 'id:' + o.id : 'nm:' + (o.name || ''); };
     // Gana el más reciente en ese campo de fecha
     var newerBy = function(a, b, field) {
         return ((b && b[field]) || '') > ((a && a[field]) || '') ? b : a;
@@ -1379,7 +1383,17 @@ function _fbMergeOperators(localOps, remoteOps) {
         }
         byKey[k] = m;
     });
-    return Object.keys(byKey).map(function(k) { return byKey[k]; });
+    var out = Object.keys(byKey).map(function(k) { return byKey[k]; });
+    // Un rol fuera del mapa de permisos deja al operador con CERO permisos en
+    // silencio; el roster remoto puede traerlo con otra grafía.
+    if (typeof _authNormalizeRole === 'function') {
+        out.forEach(function(o) {
+            if (!o) return;
+            var canon = _authNormalizeRole(o.role);
+            if (canon) o.role = canon;
+        });
+    }
+    return out;
 }
 
 // [Fase 3.5] Merge del catálogo editable de habilidades (pnState.skillCatalog).

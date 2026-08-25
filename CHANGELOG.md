@@ -2,6 +2,83 @@
 
 All notable changes to this project, organized by development round.
 
+## v18.5 — Usuarios: el candado circular de permisos (2026-08-25)
+
+Tercer reporte seguido sobre la misma pantalla (**#100**, **#103**, **#105**): en Datos → Usuarios no
+se podía modificar nada, ni escribir ni usar los dropdowns, **sin ningún error en consola**. Las dos
+rondas anteriores corrigieron defectos reales (`skillCatalog` indefinido en v18.3, clave `x-for`
+duplicada en v18.4) pero **ninguno era la causa**.
+
+### Causa raíz — reproducida, no inferida
+
+Con el estado real del dispositivo (sesión de Jorge Nuñez, `operatorId: 4`):
+
+```
+usuario:  { id: 4, name: 'Jorge Nuñez', role: 'Técnico' }
+authCan('users.manage') → false     authCan('users.skills') → false
+campos del perfil: 22 visibles, 22 DESHABILITADOS, 0 habilitados
+errores JS: 0
+```
+
+**Un candado circular:**
+
+1. `pnInit` siembra los operadores de `CONFIG.operators` con `role: 'Técnico'`.
+2. `AUTH_ROLE_PERMS` da `users.manage` **solo** a `Supervisor` y `Coordinador`.
+3. El único camino para cambiar un rol (`pnEditOperator` → `pnOpUpdate`) exige... `users.manage`.
+
+Nadie podía otorgarse ni otorgar el permiso para otorgar permisos. Todo caía por
+`:disabled="!can('users.manage')"` y `x-show`, **sin toast, sin error, sin explicación**.
+
+La supuesta salida de emergencia estaba rota por partida doble: `authBypassLogin` era **inalcanzable**
+(comprueba que no haya operadores, y `pnInit` siempre los siembra antes) y además asignaba
+`role: 'Admin'`, que **no existe** en `AUTH_ROLE_PERMS` → cero permisos.
+
+### Corregido
+
+- **`_pnEnsureAdminExists()`** (`js/panel.js`, al final de `pnInit`, que corre **antes** de
+  `authInit`): si ningún operador activo tiene `users.manage`, promueve a Coordinador — al jefe de
+  laboratorio si está en el roster, si no al primer activo — sellando `updatedAt` y con
+  `auditLog('rol_desbloqueado')`. **Idempotente**: con un administrador presente no toca nada.
+- **`_authNormalizeRole` / `authRoleHas`** (`js/auth.js`): el lookup era literal, así que
+  `' Supervisor'`, `'SUPERVISOR'` o `'Tecnico'` daban `[]` — **cero permisos en silencio**. Ahora se
+  empatan ignorando mayúsculas, acentos y espacios; un rol inventado cae a `Técnico`.
+- **`authBypassLogin`**: `'Admin'` → `'Coordinador'`.
+- **`authRefreshCurrentRole()`**: `authState.currentUser.role` es una COPIA tomada al iniciar sesión,
+  así que promover a alguien no surtía efecto hasta el siguiente tick o una recarga. Se extrae de
+  `authSessionCheck` y se llama también desde `pnOpUpdate`.
+- **`can()` lee `_dataVersion`** para que Alpine reevalúe los `:disabled` al cambiar el rol.
+- **Aviso que explica el bloqueo** (`index.html`, pestaña `pn-users`): qué rol tienes, cuál hace
+  falta y qué sí puedes hacer — en vez de 22 campos grises.
+- **`pnOpEditModal(opId)`**: formulario con `<select>` de rol y los permisos que otorga cada uno,
+  vía `showModal({body, buttons})` (v18.2). Reemplaza dos `prompt()` encadenados donde el rol se
+  **tecleaba a mano** y, si se escribía distinto, `pnOpUpdate` lo descartaba **en silencio** (ahora
+  avisa). Se añade además una fila **Rol** en el perfil, que es donde uno lo busca.
+- **`_pnDedupeOperators()`**: el merge empataba por `id|nombre` pero la sesión busca **solo por id** y
+  toma el primero, así que `'Jorge Nuñez'` y `'Jorge Núñez'` con la misma id sobrevivían duplicados y
+  podía ganar el marcador provisional sin permisos. Se fusionan conservando PIN y competencias, y el
+  merge de `firebase-sync.js` pasa a clavar por id y a normalizar el rol.
+- **Defensa en profundidad**: `pnOpUpdateProfile` y `pnOpSetSkill` llevan su propio `authRequire`; el
+  candado vivía solo en la capa de vista.
+- **Higiene**: `_syncAndSave` metía el **Proxy reactivo de Alpine dentro de `pnState`**, por donde
+  luego pasaba todo el código clásico y el `JSON.stringify` que serializa los hashes de PIN — y
+  además las reasignaciones dejaban de disparar repintado (reactividad rota **sin errores**). Ya no
+  copia `operators` de vuelta (los `pnOp*` mutan `pnState` directo) y desenvuelve la bitácora.
+
+### Verificado que NO estaba roto
+
+Se sospechó del `<textarea x-text>` de Notas y de los `<option :selected>` sin `x-model`. Probados en
+navegador: **muestran y guardan bien**. No se tocaron.
+
+### Verificación
+
+`test_users_permissions.js` — **27 comprobaciones** en 8 escenarios: el estado real del dispositivo
+(0 campos bloqueados, escribir y dropdowns persisten), la regla general sin Jorge en el roster,
+idempotencia, normalización de grafías, deduplicado conservando PIN, el aviso que ve un Técnico,
+promoción aplicada sin recargar, y que `pnState` ya no recibe el Proxy. Los **18** archivos de prueba
+del proyecto pasan.
+
+---
+
 ## v18.4 — Una clave repetida tumbaba el Panel entero (2026-08-25)
 
 Dos reportes desde producción sobre v18.3, ambos con el **mismo error adjunto**:

@@ -210,11 +210,20 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '18.4';
+var APP_VERSION = '18.5';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '18.5', date: '25 ago 2026', title: 'Usuarios: se rompe el candado que impedía editar nada', bullets: [
+        'Causa real de que ningún campo de Usuarios se dejara modificar: TODOS los operadores nacen con rol "Técnico", pero cambiar un rol exige un permiso que solo tienen Supervisor y Coordinador. Nadie podía darse ni dar el permiso para dar permisos, así que los 22 campos salían en gris — sin errores y sin explicación.',
+        'Jorge Nuñez queda como Coordinador (todos los permisos). Y de forma general: si ningún operador activo puede administrar usuarios, la app promueve sola al primero y lo deja anotado en la auditoría. El laboratorio ya no puede quedarse sin quien reparta permisos.',
+        'Si tu rol no alcanza, ahora la pantalla te lo DICE: qué rol tienes, qué hace falta y qué sí puedes hacer, en vez de dejar todo gris como si la app estuviera rota.',
+        'Cambiar el rol de alguien ya se aplica al instante, sin recargar la página.',
+        'Editar un operador es un formulario con selector de rol y la lista de lo que otorga cada uno. Antes eran dos ventanitas del navegador donde el rol se TECLEABA a mano, y si lo escribías distinto se descartaba en silencio.',
+        'Un rol escrito con otra grafía (\'SUPERVISOR\', \'tecnico\', con espacios) dejaba a esa persona sin ningún permiso sin avisar. Ahora se reconoce igual.',
+        'El mismo operador podía quedar duplicado si su nombre venía escrito distinto entre dispositivos ("Nuñez" / "Núñez"), y la sesión tomaba el registro equivocado. Ahora se fusionan conservando PIN y competencias.'
+    ]},
     { version: '18.4', date: '25 ago 2026', title: 'El Panel vuelve a responder: una clave repetida lo tumbaba entero', bullets: [
         'Ningún campo del Panel funcionaba y el Historial de Versiones salía vacío. Era un solo defecto: el historial armaba su identificador juntando la versión y el número de fila sin separador, así que "17.11" en la fila 9 y "17.1" en la fila 19 daban el MISMO identificador ("17.119").',
         'Con dos filas compartiendo identificador, la librería que dibuja las listas se rompe y deja de reaccionar en TODA la pestaña — no solo en esa tarjeta. Por eso los campos no respondían aunque el error pareciera de otra cosa.',
