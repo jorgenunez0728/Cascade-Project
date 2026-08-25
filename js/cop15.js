@@ -1753,6 +1753,40 @@ function addMissing(missing, id, label) {
   if (el) el.classList.add('field-missing');
 }
 
+// Margen mínimo para dar por segura una liberación: la firma del aprobador es un
+// PNG en base64 (~20-60 KB), más entradas de timeline, resultados de gases y el
+// eco en plan e inventario. Por debajo de esto se para ANTES de mutar nada.
+var RELEASE_MIN_FREE_BYTES = 250 * 1024;
+
+/**
+ * Preflight de almacenamiento para operaciones que escriben en varios módulos.
+ * @param {string} actionLabel  qué se iba a hacer, para el mensaje
+ * @param {number} [needBytes]  espacio requerido; por defecto RELEASE_MIN_FREE_BYTES
+ * @returns {boolean} false si no hay espacio (ya avisó al usuario).
+ */
+function _releasePreflightStorage(actionLabel, needBytes) {
+    if (typeof storageFreeBytes !== 'function') return true;   // build viejo: no bloquear
+    var need = needBytes || RELEASE_MIN_FREE_BYTES;
+    var free = storageFreeBytes();
+    if (free >= need) return true;
+    showConfirm(
+        'No hay espacio suficiente en este dispositivo para ' + (actionLabel || 'guardar') + '.<br><br>'
+        + 'Quedan <b>' + Math.round(free / 1024) + ' KB</b> libres y se necesitan al menos '
+        + Math.round(need / 1024) + ' KB.<br><br>'
+        + 'No se cambió nada. Abre <b>Datos → Sistema</b> y usa "🧹 Liberar espacio".',
+        function() {
+            if (typeof switchPlatform === 'function') switchPlatform('panel');
+            if (typeof pnSwitchTab === 'function') setTimeout(function() { pnSwitchTab('pn-system'); }, 60);
+        },
+        { title: '⚠️ Almacenamiento lleno', type: 'danger', confirmText: 'Ir a liberar espacio' }
+    );
+    if (typeof auditLog === 'function') {
+        auditLog('cop15', 'release_blocked_storage', { type: 'sistema', id: 'localStorage', label: 'Almacenamiento' },
+            'Operación bloqueada por falta de espacio: ' + (actionLabel || '') + ' (' + Math.round(free / 1024) + ' KB libres)');
+    }
+    return false;
+}
+
 function validateReadyForRelease() {
   clearMissingMarks();
   const missing = [];
@@ -2775,6 +2809,9 @@ function loadApproval() {
 function submitToApproval() {
     if (typeof authRequire === 'function' && !authRequire('test.release', 'enviar a aprobación')) return;
     if (!activeVehicleId) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    // La firma del liberador es un PNG en base64: se comprueba el espacio antes de
+    // pedirla, no después de que el técnico ya firmó.
+    if (!_releasePreflightStorage('enviar este vehículo a aprobación')) return;
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle || vehicle.status !== 'ready-release') return;
 
@@ -2861,6 +2898,13 @@ function approveAndArchive() {
         signerName: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '',
         lockName: true,
         onSave: function(sig) {
+            // Preflight de espacio ANTES de tocar nada. Sin esto, con el almacenamiento
+            // lleno el vehículo se marcaba archivado en memoria, saveDB() fallaba en
+            // silencio (devuelve false) pero tpSave()/invSave() sí alcanzaban a escribir
+            // sus propias claves: el plan quedaba marcado como cumplido y el gas
+            // descontado, con el vehículo sin archivar. Split-brain entre módulos.
+            if (!_releasePreflightStorage('archivar este vehículo')) return;
+
             undoPush('cop15', 'Aprobar y Archivar: ' + vehicle.vin);
             var prevStatus = vehicle.status;
             var prevTimeline = JSON.parse(JSON.stringify(vehicle.timeline || []));
@@ -2924,7 +2968,21 @@ function approveAndArchive() {
                 console.error('approveAndArchive rollback:', e);
                 return;
             }
-            saveDB();
+            // El orden importa: si el vehículo no se pudo persistir, NO se persisten el
+            // plan ni el inventario — cada uno escribe su propia clave y sí cabrían.
+            if (saveDB() === false) {
+                vehicle.status = prevStatus;
+                vehicle.timeline = prevTimeline;
+                delete vehicle.archivedAt;
+                showConfirm(
+                    'No hay espacio para guardar el archivado y <b>se revirtió el cambio</b>. '
+                    + 'El vehículo sigue listo para liberar.<br><br>'
+                    + 'Abre <b>Datos → Sistema</b> y usa "🧹 Liberar espacio", luego repite la aprobación.',
+                    function() { if (typeof switchPlatform === 'function') { switchPlatform('panel'); if (typeof pnSwitchTab === 'function') pnSwitchTab('pn-system'); } },
+                    { title: '⚠️ Almacenamiento lleno', type: 'danger', confirmText: 'Ir a liberar espacio' }
+                );
+                return;
+            }
             if (typeof tpSave === 'function') tpSave();
             if (typeof invSave === 'function') invSave();
             refreshAllLists();
@@ -7297,6 +7355,10 @@ function v7BatchRelease() {
 
     if (ready.length === 0) { showToast('Ningun vehiculo cumple los requisitos para liberar', 'error'); return; }
 
+    // Un lote escribe N firmas + N timelines de golpe: el margen escala con el lote.
+    if (!_releasePreflightStorage('liberar ' + ready.length + ' vehículo(s) en lote',
+                                  RELEASE_MIN_FREE_BYTES * Math.min(ready.length, 4))) return;
+
     if (typeof undoPush === 'function') undoPush('cop15', 'Batch Release de ' + ready.length + ' vehiculos');
 
     var count = 0;
@@ -7334,7 +7396,13 @@ function v7BatchRelease() {
         }
     });
 
-    saveDB();
+    // Igual que en approveAndArchive: si el lote no se pudo persistir, no se escriben
+    // plan ni inventario — quedarían diciendo que se probó algo que no se archivó.
+    if (saveDB() === false) {
+        showToast('⚠️ Sin espacio: NO se guardó el lote. Libera espacio en Datos → Sistema y vuelve a intentar.', 'error');
+        v7RenderBatchRelease();
+        return;
+    }
     if (typeof tpSave === 'function') tpSave();
     if (typeof invSave === 'function') invSave();
     refreshAllLists();

@@ -2,6 +2,64 @@
 
 All notable changes to this project, organized by development round.
 
+## v18.1 — Almacenamiento local: la fuga que impedía liberar vehículos (2026-08-25)
+
+Reportado desde producción: `Datos → Sistema` marcaba **5.02 MB / 5 MB (100.4%)** con **"Otros"
+en 4.53 MB (90.2%)**, y el laboratorio **no pudo liberar un vehículo**. Las tres Herramientas de
+Limpieza existentes (COP15 / Test Plan / Notas >90 días) no tocaban nada de ese 90%.
+
+### Causa raíz
+
+`fbMergeApply` (`js/firebase-sync.js`) guardaba en `kia_merge_history` las **últimas 20 fusiones,
+cada una con un `snapshot` que es una copia COMPLETA de `db` + `tpState` + `invState`**. Con datos
+reales eso es ~500 KB por registro → **hasta 10 MB en una sola clave**, contra un presupuesto total
+de 5 MB. El "keep last 20" estaba escrito como si cada registro fuera una línea de bitácora.
+
+`fbMergeUndo` solo lee `hist[hist.length - 1].snapshot`: los snapshots de los 19 registros
+anteriores eran **peso muerto que ningún código podía leer**. Y como `kia_merge_history` no estaba
+en la lista de 9 claves conocidas del panel, caía entera en el bucket ciego "Otros".
+
+### Corregido
+
+- **`_fbMergeTrimHistory`** conserva el snapshot solo de la fusión más reciente (`FB_MERGE_SNAPSHOT_KEEP`)
+  y capa la bitácora en 20 registros de metadatos. Los anteriores quedan marcados `snapshotPurged`
+  y `fbMergeUndo` lo explica en vez de fallar.
+- **`fbMergePurgeOldSnapshots()`** recorta lo ya guardado al arrancar — es lo que libera el espacio
+  en los dispositivos que ya venían llenos. Verificado: **9.28 MB liberados** en la reproducción.
+- **`storageHousekeeping()`** (`js/app.js`) corre al inicio de `initializeSystem()`: purga snapshots
+  de fusión, borradores `kia_cop15_draft_*` caducados y `kia_fb_prerestore_snapshot` vencido (7 días,
+  ahora sella `savedAt`). Los borradores ya caducaban a 24 h, pero **solo al abrir ese vehículo**:
+  el de un vehículo archivado no se volvía a abrir nunca y por lo tanto no se borraba nunca.
+- **Integridad de la liberación** (`js/cop15.js`) — el hallazgo más serio. `approveAndArchive` y
+  `v7BatchRelease` llamaban `saveDB()` **ignorando su valor de retorno** y seguían con `tpSave()` e
+  `invSave()`. Con el almacenamiento lleno el vehículo se marcaba archivado en memoria, `saveDB()`
+  fallaba en silencio, pero el plan y el inventario **sí escribían sus propias claves**: quedaba el
+  plan marcado como cumplido y el gas descontado, con el vehículo sin archivar. Ahora hay preflight
+  (`_releasePreflightStorage`) antes de pedir la firma, y si `saveDB()` devuelve `false` se revierte
+  y **no se persiste nada más**.
+
+### Añadido
+
+- **`pnStorageScan()` es LA definición** del uso de almacenamiento; sustituye los dos lazos ad-hoc
+  (panel y Centro de Reportes) que tenían su propio bucket "Otros". `PN_STORAGE_REGISTRY` clasifica
+  cada clave en `core` (dato del laboratorio, nunca se ofrece), `cache` (regenerable, se purga sin
+  preguntar) y `review` (pesado y con posible trabajo sin enviar, uno por uno con consentimiento).
+- **Desglose clave por clave** en Datos → Sistema, con etiqueta de tipo y botón de borrado para las
+  de tier `review`. Ya no existe el renglón "Otros".
+- **`pnReclaimSpace()`** — botón "🧹 Liberar N MB regenerables" que anuncia de antemano cuánto
+  recupera y no toca datos del laboratorio ni la cola de reportes 🐞 sin enviar.
+- Aviso explícito en pantalla de que el límite es **del navegador y de este dispositivo**, y que
+  estar en Firebase no lo amplía. Toast al arrancar por encima del 90%.
+
+### Verificación
+
+`test_storage.js` — 17 comprobaciones sobre el escenario real reproducido (20 fusiones × 500 KB =
+10.26 MB): la purga libera 9.28 MB y devuelve el dispositivo por debajo del límite; la fusión más
+reciente conserva su respaldo; `kia_db_v11` / `kia_testplan_v1` / `kia_lab_inventory` quedan intactos
+y clasificados como `core`; la purga es idempotente; la bitácora nunca acumula más de un snapshot.
+
+---
+
 ## v18.0 — Plan Semanal: una sola pantalla, con vista previa en vivo (2026-08-24)
 
 ### El problema

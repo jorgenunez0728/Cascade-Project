@@ -2141,72 +2141,59 @@ function pnRenderSystemHealth(el) {
         + (_ver.build ? '<span style="margin-left:auto;font-size: var(--fs-xs);color:var(--tp-dim,#9ca3af);font-family:monospace;">build ' + _ver.build + '</span>' : '')
         + '</div>';
 
-    // Storage breakdown
-    var storageKeys = [
-        { key: 'kia_db_v11', label: 'COP15 (Base de Datos)', module: 'cop15' },
-        { key: 'kia_testplan_v1', label: 'Test Plan Manager', module: 'testplan' },
-        { key: 'kia_regulations_v1', label: 'Perfiles de Regulación', module: 'regulations' },
-        { key: 'kia_lab_inventory', label: 'Lab Inventory', module: 'inventory' },
-        { key: 'kia_panel_v1', label: 'Panel', module: 'panel' },
-        { key: 'kia_chart_configs', label: 'Chart Configs', module: 'charts' },
-        { key: 'kia_entity_notes', label: 'Notas', module: 'notes' },
-        { key: 'kia_soak_timer', label: 'Soak Timer', module: 'soak' },
-        { key: 'kia_firebase_queue', label: 'Firebase Queue', module: 'firebase' }
-    ];
-
-    var totalBytes = 0;
-    var breakdown = [];
-    storageKeys.forEach(function(sk) {
-        try {
-            var val = localStorage.getItem(sk.key);
-            var bytes = val ? new Blob([val]).size : 0;
-            totalBytes += bytes;
-            breakdown.push({ key: sk.key, label: sk.label, module: sk.module, bytes: bytes, raw: val });
-        } catch(e) {
-            breakdown.push({ key: sk.key, label: sk.label, module: sk.module, bytes: 0, raw: null });
-        }
-    });
-
-    // Also count unknown keys
-    var knownKeys = storageKeys.map(function(s) { return s.key; });
-    var otherBytes = 0;
-    for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (knownKeys.indexOf(k) === -1) {
-            try {
-                var v = localStorage.getItem(k);
-                otherBytes += v ? new Blob([v]).size : 0;
-            } catch(e) {}
-        }
-    }
-    if (otherBytes > 0) {
-        totalBytes += otherBytes;
-        breakdown.push({ key: '_other', label: 'Otros', module: 'other', bytes: otherBytes, raw: null });
-    }
-
-    var maxStorage = 5 * 1024 * 1024; // 5MB
-    var usedPct = ((totalBytes / maxStorage) * 100).toFixed(1);
+    // ── Storage breakdown (v18.1: itemizado, sin bucket ciego "Otros") ──
+    var scan = pnStorageScan();
+    var totalBytes = scan.total;
+    var maxStorage = scan.max;
+    var usedPct = scan.pct.toFixed(1);
     var barColor = totalBytes > maxStorage * 0.8 ? '#ef4444' : totalBytes > maxStorage * 0.5 ? '#f59e0b' : '#10b981';
 
     html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
-    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>';
+    html += '<h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;" data-help="pn_storage">📦 Uso de Almacenamiento</h4>';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
     html += '<span style="font-size: var(--fs-sm);color:var(--tp-dim);">' + _pnFormatBytes(totalBytes) + ' / 5 MB</span>';
     html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + barColor + ';">' + usedPct + '%</span>';
     html += '</div>';
-    html += '<div style="width:100%;height:8px;background:rgba(30,41,59,0.8);border-radius:4px;overflow:hidden;">';
+    html += '<div style="width:100%;height:8px;background:var(--tp-border);border-radius:4px;overflow:hidden;">';
     html += '<div style="width:' + Math.min(parseFloat(usedPct), 100) + '%;height:100%;background:' + barColor + ';border-radius:4px;transition:width 0.3s;"></div>';
     html += '</div>';
 
-    // Per-module breakdown
+    // Este límite es del NAVEGADOR, no de Firebase. Es la duda #1 cuando se llena.
+    if (totalBytes > maxStorage * 0.8) {
+        html += '<div style="margin-top:10px;padding:8px 10px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size: var(--fs-xs);color:var(--tp-text);line-height:1.5;">'
+             +  '<b>⚠️ Estás en el límite del navegador.</b> Este espacio es de <b>este dispositivo</b>, no de Firebase: '
+             +  'la app trabaja primero contra el almacenamiento local y la nube es la copia compartida. '
+             +  'Cuando se llena, las capturas dejan de guardarse aunque la sincronización esté en verde.'
+             +  '</div>';
+    }
+
+    // Botón de liberación — dice de antemano cuánto se recupera
+    if (scan.reclaimable > 0) {
+        html += '<button class="tp-btn" onclick="pnReclaimSpace()" style="margin-top:10px;width:100%;padding:9px;background:var(--ok-bg,rgba(16,185,129,0.12));color:var(--ok-text);border:1px solid rgba(16,185,129,0.35);font-weight:600;">'
+             +  '🧹 Liberar ' + _pnFormatBytes(scan.reclaimable) + ' regenerables</button>';
+    }
+
+    // Desglose completo, clave por clave
     html += '<div style="margin-top:10px;">';
-    breakdown.sort(function(a, b) { return b.bytes - a.bytes; });
-    breakdown.forEach(function(b) {
-        if (b.bytes === 0) return;
-        var pct = totalBytes > 0 ? ((b.bytes / totalBytes) * 100).toFixed(1) : '0.0';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(30,41,59,0.3);">';
-        html += '<span style="font-size: var(--fs-xs);color:#e2e8f0;">' + b.label + '</span>';
-        html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">' + _pnFormatBytes(b.bytes) + ' (' + pct + '%)</span>';
+    var TIER_CHIP = {
+        core:   { t: 'dato', c: 'var(--tp-dim)' },
+        cache:  { t: 'regenerable', c: 'var(--ok-text)' },
+        review: { t: 'revisar', c: 'var(--warn-text)' }
+    };
+    scan.items.forEach(function(it) {
+        if (it.bytes < 512) return; // el ruido de <0.5 KB no ayuda a decidir
+        var pct = totalBytes > 0 ? ((it.bytes / totalBytes) * 100).toFixed(1) : '0.0';
+        var chip = TIER_CHIP[it.tier] || TIER_CHIP.review;
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--tp-border);">';
+        html += '<span style="font-size: var(--fs-xs);color:var(--tp-text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
+             +  it.label
+             +  ' <span style="color:' + chip.c + ';font-size:10px;">· ' + chip.t + '</span></span>';
+        html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);flex-shrink:0;">' + _pnFormatBytes(it.bytes) + ' (' + pct + '%)';
+        if (it.tier === 'review') {
+            html += ' <button class="tp-btn" onclick="pnStorageDeleteKey(\'' + it.key.replace(/'/g, "\\'") + '\')" '
+                 +  'style="padding:1px 7px;font-size:10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);margin-left:4px;">Borrar</button>';
+        }
+        html += '</span>';
         html += '</div>';
     });
     html += '</div></div>';
@@ -2302,6 +2289,176 @@ function _pnFormatBytes(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / 1048576).toFixed(2) + ' MB';
+}
+
+// ======================================================================
+// [M-STORAGE] Inventario de localStorage — pnStorageScan() es LA definición
+// ======================================================================
+// Antes había DOS lazos ad-hoc (aquí y en el reporte del Centro de Reportes) que
+// conocían 9 claves y metían TODO lo demás en un bucket ciego llamado "Otros".
+// Cuando el laboratorio se quedó sin espacio, "Otros" era el 90% del uso y las
+// tres Herramientas de Limpieza (COP15/Test Plan/Notas) no tocaban NADA de ese
+// 90%: el técnico veía el problema pero no tenía cómo resolverlo.
+//
+// `tier` decide qué se puede borrar:
+//   'core'   — dato del laboratorio. NUNCA se ofrece para borrar aquí.
+//   'cache'  — se regenera solo o es preferencia local. Se purga sin preguntar.
+//   'review' — pesado pero puede traer trabajo no enviado. Requiere consentimiento
+//              explícito, uno por uno, con lo que se pierde escrito en la pantalla.
+var PN_STORAGE_REGISTRY = [
+    // ── Datos del laboratorio ──
+    { key: 'kia_db_v11',            label: 'COP15 (Base de Datos)',   tier: 'core' },
+    { key: 'kia_testplan_v1',       label: 'Test Plan Manager',        tier: 'core' },
+    { key: 'kia_lab_inventory',     label: 'Consumibles / Equipos',    tier: 'core' },
+    { key: 'kia_panel_v1',          label: 'Panel y Proyectos',        tier: 'core' },
+    { key: 'kia_cop_v1',            label: 'CoP (validador)',          tier: 'core' },
+    { key: 'kia_homolog_v1',        label: 'Homologación Europa',      tier: 'core' },
+    { key: 'kia_audit_trail',       label: 'Historial de cambios',     tier: 'core' },
+    { key: 'kia_manual_configs',    label: 'Configuraciones manuales', tier: 'core' },
+    { key: 'kia_entity_notes',      label: 'Notas',                    tier: 'core' },
+    { key: 'kia_regulations_v1',    label: 'Perfiles de Regulación',   tier: 'core' },
+    { key: 'kia_templates',         label: 'Plantillas',               tier: 'core' },
+    { key: 'kia_firebase_queue',    label: 'Cola de sincronización',   tier: 'core' },
+    { key: 'kia_soak_timer',        label: 'Soak Timer',               tier: 'core' },
+    // ── Sesión / identidad ──
+    { prefix: 'kia_auth',           label: 'Sesión de acceso',         tier: 'core' },
+    { key: 'kia_current_operator',  label: 'Operador actual',          tier: 'core' },
+    { key: 'kia_users',             label: 'Operadores',               tier: 'core' },
+    { key: 'kia_bug_settings',      label: 'Ajustes de reportes',      tier: 'core' },
+    { prefix: 'kia_fb_',            label: 'Ajustes de sincronización', tier: 'core' },
+    // ── Regenerable / preferencias ──
+    { prefix: 'kia_cop15_draft_',   label: 'Borrador de captura',      tier: 'cache',
+      note: 'Campos a medio llenar de una captura. Caducan a las 24 h.' },
+    { key: 'kia_fb_prerestore_snapshot', label: 'Respaldo pre-restauración', tier: 'cache',
+      note: 'Copia completa que permite deshacer una restauración de backup.' },
+    { key: 'kia_merge_history',     label: 'Historial de fusiones',    tier: 'cache',
+      note: 'Bitácora de fusiones entre dispositivos y el respaldo para deshacer la última. '
+          + 'Los datos fusionados NO están aquí — ya viven en cada módulo.' },
+    { key: 'kia_viewModes',         label: 'Modo de vista por módulo', tier: 'cache' },
+    { key: 'kia_chart_configs',     label: 'Ajustes de gráficas',      tier: 'cache',
+      note: 'Colores y tipo de cada gráfica. Vuelven a los valores por defecto.' },
+    { key: 'kia_config_ranking',    label: 'Ranking de configuraciones', tier: 'cache',
+      note: 'Cuáles configuraciones usas más, para ordenar la cascada.' },
+    { key: 'kia_purpose_history',   label: 'Historial de propósitos',  tier: 'cache' },
+    { key: 'kia_help_dismissed',    label: 'Ayudas descartadas',       tier: 'cache' },
+    { prefix: 'kia_tour_done',      label: 'Tours completados',        tier: 'cache' },
+    { key: 'kia_immersive_prefs',   label: 'Preferencias de pantalla', tier: 'cache' },
+    { key: 'kia_autoplan_lastrun',  label: 'Guarda del auto-plan',     tier: 'cache' },
+    { prefix: 'kia_inv_active',     label: 'Pestaña activa',           tier: 'cache' },
+    { prefix: 'kia_cop15_active',   label: 'Pestaña activa',           tier: 'cache' },
+    { key: 'kia_last_module',       label: 'Última pestaña',           tier: 'cache' },
+    { key: 'kia_last_operator',     label: 'Último operador',          tier: 'cache' },
+    { key: 'kia_active_vehicle',    label: 'Vehículo activo',          tier: 'cache' },
+    // ── Pesado, con contenido no recuperable ──
+    { key: 'kia_bug_queue',         label: 'Reportes de bug sin enviar', tier: 'review',
+      note: 'Reportes 🐞 que aún no llegaron a GitHub, con su captura de pantalla.' },
+    { key: 'kia_config_csv_raw',    label: 'Catálogo CSV importado',   tier: 'review',
+      note: 'El CSV que importaste. Al borrarlo vuelve el catálogo embebido de la app.' }
+];
+
+function _pnStorageEntryFor(key) {
+    for (var i = 0; i < PN_STORAGE_REGISTRY.length; i++) {
+        var e = PN_STORAGE_REGISTRY[i];
+        if (e.key && e.key === key) return e;
+        if (e.prefix && key.indexOf(e.prefix) === 0) return e;
+    }
+    return null;
+}
+
+/**
+ * LA definición del uso de localStorage. Todo consumidor nuevo debe llamarla en
+ * vez de recorrer localStorage por su cuenta.
+ * @returns {{total:number, items:Array, reclaimable:number, reviewable:number, max:number, pct:number}}
+ */
+function pnStorageScan() {
+    var items = [], total = 0, reclaimable = 0, reviewable = 0;
+    var n = 0;
+    try { n = localStorage.length; } catch(e) { n = 0; }
+    for (var i = 0; i < n; i++) {
+        var k = null, v = null, bytes = 0;
+        try {
+            k = localStorage.key(i);
+            v = localStorage.getItem(k);
+            bytes = v ? new Blob([v]).size : 0;
+        } catch(e) { continue; }
+        if (!k) continue;
+        var entry = _pnStorageEntryFor(k);
+        var tier = entry ? entry.tier : 'review';
+        var label = entry ? entry.label : k;
+        // Las claves con prefijo se listan una por una para poder borrarlas sueltas,
+        // pero llevan el nombre legible del registro.
+        items.push({
+            key: k, label: label, tier: tier, bytes: bytes,
+            note: entry ? entry.note : 'Clave no reconocida por la app.',
+            known: !!entry
+        });
+        total += bytes;
+        if (tier === 'cache') reclaimable += bytes;
+        else if (tier === 'review') reviewable += bytes;
+    }
+    items.sort(function(a, b) { return b.bytes - a.bytes; });
+    var max = 5 * 1024 * 1024;
+    return {
+        total: total, items: items, reclaimable: reclaimable, reviewable: reviewable,
+        max: max, pct: (total / max) * 100
+    };
+}
+
+/** Purga todo lo de tier 'cache'. No toca datos del laboratorio ni reportes sin enviar. */
+function pnReclaimSpace() {
+    var scan = pnStorageScan();
+    var targets = scan.items.filter(function(it) { return it.tier === 'cache' && it.bytes > 0; });
+    if (!targets.length) {
+        showToast('No hay nada regenerable que liberar. Revisa la lista de abajo.', 'info');
+        return;
+    }
+    var freed = targets.reduce(function(s, it) { return s + it.bytes; }, 0);
+    showConfirm(
+        'Se liberarán ' + _pnFormatBytes(freed) + ' de datos que la app vuelve a generar sola '
+        + '(borradores caducados, respaldos de restauración, preferencias de pantalla).<br><br>'
+        + '<b>No se toca ningún dato del laboratorio</b> ni los reportes de bug sin enviar.',
+        function() {
+            var okCount = 0;
+            targets.forEach(function(it) {
+                try { localStorage.removeItem(it.key); okCount++; } catch(e) {}
+            });
+            if (typeof auditLog === 'function') {
+                auditLog('panel', 'storage_reclaim', { type: 'sistema', id: 'localStorage', label: 'Almacenamiento' },
+                    'Liberados ' + _pnFormatBytes(freed) + ' en ' + okCount + ' claves regenerables');
+            }
+            showToast('✅ ' + _pnFormatBytes(freed) + ' liberados', 'success');
+            // pn-system es una pestaña Alpine: se repinta con _dataVersion, no con pnRender.
+            window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'panel' } }));
+            tabCacheInvalidate('pn', 'pn-system');
+            if (typeof pnRender === 'function') pnRender();
+        },
+        { title: '🧹 Liberar espacio', type: 'warning', confirmText: 'Liberar ' + _pnFormatBytes(freed) }
+    );
+}
+
+/** Borra UNA clave de tier 'review', con lo que se pierde escrito en la confirmación. */
+function pnStorageDeleteKey(key) {
+    var scan = pnStorageScan();
+    var item = null;
+    scan.items.forEach(function(it) { if (it.key === key) item = it; });
+    if (!item) { showToast('Esa clave ya no existe', 'info'); return; }
+    if (item.tier === 'core') { showToast('Ese es un dato del laboratorio — no se borra desde aquí', 'error'); return; }
+    showConfirm(
+        'Se borrará <b>' + item.label + '</b> (' + _pnFormatBytes(item.bytes) + ').<br><br>'
+        + (item.note || '') + '<br><br>Esta acción no se puede deshacer.',
+        function() {
+            try { localStorage.removeItem(key); } catch(e) {}
+            if (typeof auditLog === 'function') {
+                auditLog('panel', 'storage_delete', { type: 'sistema', id: key, label: item.label },
+                    'Liberados ' + _pnFormatBytes(item.bytes));
+            }
+            showToast('✅ ' + _pnFormatBytes(item.bytes) + ' liberados', 'success');
+            window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'panel' } }));
+            tabCacheInvalidate('pn', 'pn-system');
+            if (typeof pnRender === 'function') pnRender();
+        },
+        { title: 'Borrar ' + item.label, type: 'danger', confirmText: 'Borrar' }
+    );
 }
 
 function _pnMeasurePerformance() {
@@ -3098,40 +3255,25 @@ function panelAlpineComponent() {
 
         // ── Computed — System Health ──
         storageData: function() {
-            var storageKeys = [
-                { key: 'kia_db_v11', label: 'COP15 (Base de Datos)' },
-                { key: 'kia_testplan_v1', label: 'Test Plan Manager' },
-                { key: 'kia_lab_inventory', label: 'Lab Inventory' },
-                { key: 'kia_panel_v1', label: 'Panel' },
-                { key: 'kia_chart_configs', label: 'Chart Configs' },
-                { key: 'kia_entity_notes', label: 'Notas' },
-                { key: 'kia_soak_timer', label: 'Soak Timer' },
-                { key: 'kia_firebase_queue', label: 'Firebase Queue' }
-            ];
-            var totalBytes = 0;
-            var breakdown = [];
-            var knownKeys = storageKeys.map(function(s) { return s.key; });
-            storageKeys.forEach(function(sk) {
-                try {
-                    var val = localStorage.getItem(sk.key);
-                    var bytes = val ? new Blob([val]).size : 0;
-                    totalBytes += bytes;
-                    if (bytes > 0) breakdown.push({ label: sk.label, bytes: bytes });
-                } catch(e) {}
-            });
-            var otherBytes = 0;
-            for (var i = 0; i < localStorage.length; i++) {
-                var k = localStorage.key(i);
-                if (knownKeys.indexOf(k) === -1) {
-                    try { var v = localStorage.getItem(k); otherBytes += v ? new Blob([v]).size : 0; } catch(e) {}
-                }
-            }
-            if (otherBytes > 0) { totalBytes += otherBytes; breakdown.push({ label: 'Otros', bytes: otherBytes }); }
-            breakdown.sort(function(a, b) { return b.bytes - a.bytes; });
-            var maxStorage = 5 * 1024 * 1024;
-            var usedPct = ((totalBytes / maxStorage) * 100).toFixed(1);
-            return { totalBytes: totalBytes, breakdown: breakdown, usedPct: usedPct,
-                barColor: totalBytes > maxStorage * 0.8 ? '#ef4444' : totalBytes > maxStorage * 0.5 ? '#f59e0b' : '#10b981' };
+            // v18.1: una sola definición del uso de almacenamiento (pnStorageScan);
+            // antes este lazo era una copia con su propio bucket ciego "Otros".
+            this._dataVersion;  // v16.6: sin leerla, Alpine no re-evalúa esto tras pnSave()
+            var scan = pnStorageScan();
+            var TIER = {
+                core:   { label: 'dato',        color: 'var(--tp-dim)' },
+                cache:  { label: 'regenerable', color: 'var(--ok-text)' },
+                review: { label: 'revisar',     color: 'var(--warn-text)' }
+            };
+            var breakdown = scan.items
+                .filter(function(it) { return it.bytes >= 512; })
+                .map(function(it) {
+                    var t = TIER[it.tier] || TIER.review;
+                    return { key: it.key, label: it.label, bytes: it.bytes, tier: it.tier,
+                             tierLabel: t.label, tierColor: t.color };
+                });
+            return { totalBytes: scan.total, breakdown: breakdown, usedPct: scan.pct.toFixed(1),
+                reclaimable: scan.reclaimable,
+                barColor: scan.total > scan.max * 0.8 ? '#ef4444' : scan.total > scan.max * 0.5 ? '#f59e0b' : '#10b981' };
         },
         agingData: function() {
             var now = Date.now();
@@ -3856,6 +3998,18 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     ]}
 });
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    pn_storage: {
+        title: 'Uso de Almacenamiento',
+        text: 'Espacio que ocupa la app EN ESTE DISPOSITIVO. El navegador da ~5 MB por '
+            + 'dispositivo y los comparten todos los módulos.\n\n'
+            + 'Estar en Firebase NO amplía este límite: la app trabaja primero contra el '
+            + 'almacenamiento local y la nube es la copia compartida entre equipos. Si el '
+            + 'local se llena, deja de guardar aunque la sincronización esté en verde.\n\n'
+            + 'Cada renglón dice qué tipo de dato es:\n'
+            + '· dato — información del laboratorio, no se borra desde aquí.\n'
+            + '· regenerable — la app lo vuelve a crear sola. "🧹 Liberar espacio" borra todo esto.\n'
+            + '· revisar — pesado y puede traer trabajo sin enviar; se borra uno por uno.'
+    },
     'pn-reports-help': { title: 'Centro de Reportes', text: 'Un solo lugar para exportar todos los reportes del laboratorio; cada botón usa los datos actuales del sistema.' },
     'pn-executive-help': { title: 'Compliance Scorecard', text: 'Porcentaje de cumplimiento del plan de producción, con proyección de recursos necesarios para cerrar la brecha.' },
     'pn-turnaround-help': { title: 'Tiempo por etapa', text: 'Promedio de días/horas que un vehículo pasa en cada etapa del proceso (recepción, preacondicionamiento, prueba, liberación).' },
