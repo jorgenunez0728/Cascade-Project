@@ -5171,7 +5171,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 
                         <div class="tp-card">
                             <div class="tp-card-title"><span>🎓 Competencias</span></div>
-                            <template x-for="grp in skillCatalog" :key="grp.group">
+                            <template x-for="grp in skillCatalogGrouped()" :key="grp.group">
                                 <div style="margin-bottom:10px;">
                                     <div style="font-size: var(--fs-xs);font-weight:800;color:var(--tp-dim);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;" x-text="grp.group"></div>
                                     <template x-for="sk in grp.items" :key="sk.id">
@@ -5405,7 +5405,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
                     <template x-for="group in alertsBySource()" :key="group.source">
                         <div class="tp-card">
                             <div class="tp-card-title"><span x-text="group.icon + ' ' + group.source + ' (' + group.alerts.length + ')'"></span></div>
-                            <template x-for="a in group.alerts" :key="a.message">
+                            <template x-for="(a, aIdx) in group.alerts" :key="group.source + '#' + aIdx">
                                 <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">
                                     <span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:4px;font-weight:800;white-space:nowrap;flex-shrink:0;"
                                           :style="{ background: a.color + '20', color: a.color }"
@@ -5996,15 +5996,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608251540';
+var APP_BUILD = '202608251808';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '18.2';
+var APP_VERSION = '18.3';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '18.3', date: '25 ago 2026', title: 'Niveles de operador reparados + dispositivos que se salían del laboratorio', bullets: [
+        'Ya se puede cambiar el nivel de competencia de un operador. La tarjeta 🎓 Competencias salía VACÍA, sin un solo selector, por un error de programación — y como el nivel otorga permisos, nadie podía dar ni quitar autoridad. (Reportado con el botón 🐞, issue #100.)',
+        'Un dispositivo podía salirse del laboratorio sin avisar: el campo "ID de Estación" invitaba a escribir el nombre del equipo, pero en realidad es la ruta del espacio compartido en la nube. Al cambiarlo, ese equipo dejaba de ver los datos y de poder reportar bugs.',
+        'Ese campo ya no se puede editar: ahora se muestra el espacio compartido y, si un equipo quedó fuera, se reconecta solo al abrir la app (con aviso y registro en la auditoría). Para nombrar el equipo está "Nombre del dispositivo".',
+        'Corregido un error de Alpine que ensuciaba todos los reportes de bug: la lista de alertas usaba el texto del mensaje como identificador y dos alertas con el mismo texto la rompían.'
+    ]},
     { version: '18.2', date: '25 ago 2026', title: 'Devolver al liberador + capturar los gases en las unidades del reporte', bullets: [
         'El aprobador ya puede DEVOLVER una prueba al liberador cuando los valores no coinciden. Antes se quedaba atorado: el botón de aprobar estaba deshabilitado y no había salida.',
         'Al devolver se borran los valores y la firma del liberador para que los capture de nuevo, y él ve el motivo al abrir Liberación. Tus valores nunca se le muestran: el doble ciego sigue intacto.',
@@ -6217,14 +6223,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608251540' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608251808' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608251540' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608251808' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -6240,7 +6246,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608251540' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608251808' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -9430,6 +9436,13 @@ function storageFreeBytes() {
         // cuando no hay sesión activa que dejaría el dispositivo atascado para siempre.
         // Ver "Almacenamiento local" en CLAUDE.md.
         try { storageHousekeeping(); } catch(e) { void 0; }
+
+        // Devolver el dispositivo al espacio compartido si quedó apuntando a otra
+        // ruta. Va AQUÍ y no dentro de fbInit a propósito: cuando Firestore no está
+        // disponible, fbInit ni siquiera llega a esa línea — y es justo el
+        // dispositivo desconectado el que necesita la reparación.
+        try { if (typeof fbRepairStationIfStray === 'function') fbRepairStationIfStray(); }
+        catch(e) { void 0; }
 
         // Theme init — apply before any UI renders
         try { themeInit(); } catch(e) { void 0; }
@@ -33201,6 +33214,24 @@ function panelAlpineComponent() {
         colHidden: function(opId) { return pnMatrixCols().hidden.indexOf(String(opId)) !== -1; },
         groupsList: function() { return pnGroupOrder(); },
         skillCatalogFlat: function() { return pnSkillsFlat(); },
+        /**
+         * Catálogo AGRUPADO para el perfil del operador: [{group, items:[...]}].
+         * La plantilla del perfil (index.html) hacía `x-for="grp in skillCatalog"`
+         * contra una propiedad que no existía: Alpine lanzaba
+         * "skillCatalog is not defined" y la tarjeta 🎓 Competencias salía vacía,
+         * sin un solo selector — nadie podía cambiar el nivel de un operador
+         * (y el nivel otorga permisos, ver la nota de seguridad de arriba).
+         */
+        skillCatalogGrouped: function() {
+            this._dataVersion;   // v16.6: sin leerla Alpine no re-evalúa esto
+            var groups = [], byName = {};
+            pnSkillsFlat().forEach(function(s) {
+                var g = s.group || 'General';
+                if (!byName[g]) { byName[g] = { group: g, items: [] }; groups.push(byName[g]); }
+                byName[g].items.push(s);
+            });
+            return groups;
+        },
 
         addSkill: function() {
             var id = pnSkillAdd(this.newSkillName, this.newSkillGroup || 'General');
@@ -37684,7 +37715,9 @@ function fbInit() {
             void 0;
         }
 
-        // Espacio compartido: todos los dispositivos usan el mismo stationId → un solo dataset del lab
+        // Espacio compartido: todos los dispositivos usan el mismo stationId → un solo dataset del lab.
+        // La reparación va ANTES de forzarlo, para poder avisar de dónde venía.
+        fbRepairStationIfStray();
         fbSync.stationId = FB_SHARED_WORKSPACE;
         try { localStorage.setItem('kia_fb_station', FB_SHARED_WORKSPACE); } catch(e) {}
         fbSync.enabled = true;
@@ -38153,16 +38186,64 @@ function fbTestConnectionUI() {
     });
 }
 
+/**
+ * Devuelve el dispositivo al espacio compartido. Se llama sola al arrancar
+ * (`fbRepairStationIfStray`) y desde el botón "Reparar" de los ajustes de sync.
+ */
+function fbResetStation() {
+    var was = fbSync.stationId || localStorage.getItem('kia_fb_station') || '';
+    fbSync.stationId = FB_SHARED_WORKSPACE;
+    try { localStorage.setItem('kia_fb_station', FB_SHARED_WORKSPACE); } catch(e) {}
+    fbUpdateIndicator();
+    if (typeof auditLog === 'function' && was && was !== FB_SHARED_WORKSPACE) {
+        auditLog('sistema', 'workspace_reparado', { type: 'sistema', id: 'kia_fb_station', label: 'Espacio de trabajo' },
+            'Este dispositivo estaba en "' + was + '"; se devolvió a ' + FB_SHARED_WORKSPACE);
+    }
+    showToast('✅ Dispositivo devuelto al espacio compartido (' + FB_SHARED_WORKSPACE + ')', 'success');
+    if (fbSync.enabled) { fbUpdateStationMeta(); fbPullAll(true); }
+    var modal = document.getElementById('fbModal');
+    if (modal && modal.style.display === 'block') fbShowSettings();
+}
+
+/**
+ * Autorreparación al arrancar: un dispositivo que quedó apuntando a otra ruta
+ * (por el campo libre que existía antes) no ve los datos del laboratorio NI el
+ * token de reportes, y no hay nada en pantalla que lo explique.
+ * @returns {string} el espacio anterior si hubo que repararlo, '' si estaba bien
+ */
+function fbRepairStationIfStray() {
+    var saved = '';
+    try { saved = localStorage.getItem('kia_fb_station') || ''; } catch(e) { return ''; }
+    if (!saved || saved === FB_SHARED_WORKSPACE) return '';
+    try { localStorage.setItem('kia_fb_station', FB_SHARED_WORKSPACE); } catch(e) {}
+    fbSync.stationId = FB_SHARED_WORKSPACE;
+    if (typeof auditLog === 'function') {
+        auditLog('sistema', 'workspace_reparado', { type: 'sistema', id: 'kia_fb_station', label: 'Espacio de trabajo' },
+            'Al arrancar estaba en "' + saved + '"; se devolvió a ' + FB_SHARED_WORKSPACE);
+    }
+    setTimeout(function() {
+        if (typeof showToast === 'function') {
+            showToast('Este dispositivo estaba fuera del espacio compartido ("' + saved + '") y se reconectó al del laboratorio.', 'warning');
+        }
+    }, 3000);
+    return saved;
+}
+
 // ── Station ID Management ──
+// El espacio de trabajo es UNO y compartido (FB_SHARED_WORKSPACE). fbSetStation
+// sigue existiendo porque es global y puede llamarse desde código viejo o desde
+// la consola, pero ya NO deja apuntar el dispositivo a otra ruta: hacerlo lo
+// desconectaba en silencio del dataset del laboratorio.
 function fbSetStation(id) {
-    if (!id || !id.trim()) {
-        showToast('Ingresa un ID de estacion', 'error');
+    var want = (id || '').trim().toUpperCase();
+    if (want && want !== FB_SHARED_WORKSPACE) {
+        showToast('El espacio de trabajo es compartido y siempre es ' + FB_SHARED_WORKSPACE
+                + '. Para nombrar este equipo usa "Nombre del dispositivo".', 'error');
         return;
     }
-    fbSync.stationId = id.trim().toUpperCase();
+    fbSync.stationId = FB_SHARED_WORKSPACE;
     localStorage.setItem('kia_fb_station', fbSync.stationId);
     fbUpdateIndicator();
-    showToast('Estacion guardada: ' + fbSync.stationId, 'success');
     if (fbSync.enabled) { fbUpdateStationMeta(); fbPushAll(); }
     // Start live sync listeners now that we have a station ID (if already connected)
     if (fbSync.status === 'connected' && !fbSync._liveSync) fbStartListening();
@@ -39057,13 +39138,27 @@ function fbShowSettings() {
         // Connection test
         (hasConfig ? '<div style="margin-bottom:12px;"><button onclick="fbTestConnectionUI()" style="width:100%;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Probar conexion a Firestore</button></div>' : '') +
 
-        // Station ID
+        // Espacio de trabajo — SOLO LECTURA.
+        // Antes esto era un campo libre rotulado "ID de Estacion (identifica este
+        // dispositivo)" con ejemplos tipo LAB-TABLET, así que invitaba a escribir el
+        // nombre del equipo. Pero no es una etiqueta: es la RUTA del espacio
+        // compartido en Firestore. Al cambiarlo, el dispositivo se iba a un dataset
+        // privado — dejaba de ver los datos del laboratorio y de encontrar el token
+        // de reportes (que vive en stations/KIA-EMLAB/settings). Para nombrar el
+        // equipo está el campo de abajo.
         '<div style="margin-bottom:12px;">' +
-        '<label style="font-size: var(--fs-xs);color:#94a3b8;">ID de Estacion (identifica este dispositivo)</label>' +
-        '<div style="display:flex;gap:6px;margin-top:4px;">' +
-        '<input id="fb-station-input" value="' + (fbSync.stationId || '') + '" placeholder="ej: CELDA-1, LAB-TABLET" style="flex:1;padding:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:12px;">' +
-        '<button onclick="fbSetStation(document.getElementById(\x27fb-station-input\x27).value)" style="padding:8px 14px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">Guardar</button>' +
-        '</div></div>' +
+        '<label style="font-size: var(--fs-xs);color:#94a3b8;">Espacio de trabajo del laboratorio</label>' +
+        '<div style="display:flex;gap:6px;margin-top:4px;align-items:center;">' +
+        '<div style="flex:1;padding:8px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:12px;font-family:monospace;">' + (fbSync.stationId || FB_SHARED_WORKSPACE) + '</div>' +
+        (fbSync.stationId && fbSync.stationId !== FB_SHARED_WORKSPACE
+            ? '<button onclick="fbResetStation()" style="padding:8px 14px;background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">Reparar</button>'
+            : '') +
+        '</div>' +
+        (fbSync.stationId && fbSync.stationId !== FB_SHARED_WORKSPACE
+            ? '<div style="margin-top:6px;padding:8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:6px;font-size:11px;color:#fecaca;line-height:1.5;">'
+              + '<b>Este dispositivo está fuera del espacio compartido.</b> No ve los datos del laboratorio ni puede reportar bugs. Toca <b>Reparar</b> para devolverlo a ' + FB_SHARED_WORKSPACE + '.</div>'
+            : '<div style="margin-top:4px;font-size:11px;color:#64748b;">Es el mismo para todos los equipos del laboratorio. Para nombrar ESTE equipo usa el campo de abajo.</div>') +
+        '</div>' +
 
         // Device name label
         '<div style="margin-bottom:12px;">' +
@@ -40193,7 +40288,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608251540' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608251808' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

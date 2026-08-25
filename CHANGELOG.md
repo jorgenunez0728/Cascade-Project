@@ -2,6 +2,69 @@
 
 All notable changes to this project, organized by development round.
 
+## v18.3 — Niveles de operador + dispositivos fuera del espacio compartido (2026-08-25)
+
+Dos reportes desde producción: el issue **#100** (llegó por el botón 🐞) y una foto de la laptop de
+trabajo mostrando `Error (LAPTOP-TRABAJO-JORGE)`.
+
+### Issue #100 — "No puedo modificar el nivel de autoridad de los operadores"
+
+El propio reporte traía la causa en los errores JS adjuntos: `ReferenceError: skillCatalog is not
+defined`, en `panel → pn-users`.
+
+La plantilla del perfil (`index.html`) hacía `x-for="grp in skillCatalog"`, pero el componente Alpine
+solo exponía `skillCatalogFlat()` — **no existe ninguna propiedad `skillCatalog`**, y además la
+plantilla necesita datos AGRUPADOS (`grp.group` / `grp.items`), no la lista plana. Alpine lanzaba el
+ReferenceError y la tarjeta **🎓 Competencias se renderizaba vacía, con cero selectores**.
+Reproducido en navegador: `{cardFound: true, selects: 0}`.
+
+Como una habilidad puede otorgar permisos (`grants` — un Técnico certificado como Aprobador CoP gana
+`test.approve` sin cambiar de rol), la tarjeta rota significaba que **nadie podía dar ni quitar
+autoridad a nadie**. Corregido con `skillCatalogGrouped()` en el componente (lee `_dataVersion` para
+que Alpine la trackee, patrón v16.6). Verificado: 18 selectores con los 4 niveles, y el cambio
+persiste en el operador.
+
+### Dispositivos que se salían del espacio compartido
+
+El campo de los ajustes de sync decía **"ID de Estación (identifica este dispositivo)"** con
+placeholder `ej: CELDA-1, LAB-TABLET`: invitaba a escribir el nombre del equipo. Pero `stationId` no
+es una etiqueta — es la **ruta del espacio compartido en Firestore** (`stations/{id}/...`). Escribir
+el nombre de la laptop la mandó a `stations/LAPTOP-TRABAJO-JORGE`, un dataset privado: dejó de ver
+los datos del laboratorio y de encontrar el token de reportes (que vive en
+`stations/KIA-EMLAB/settings/bugreports`) — de ahí que el celular sí reportara bugs y la laptop no.
+Resto de antes de v15, cuando cada estación tenía su propio namespace; el campo correcto para
+nombrar el equipo (`kia_fb_device_name`) ya existía justo debajo.
+
+- El campo pasa a **solo lectura**, con aviso y botón **Reparar** si el equipo está fuera.
+- `fbSetStation` **rechaza** cualquier ruta distinta de `FB_SHARED_WORKSPACE` (sigue siendo global y
+  llamable desde consola o código viejo).
+- **`fbRepairStationIfStray()`** devuelve el dispositivo al espacio compartido al arrancar, con aviso
+  y `auditLog('workspace_reparado')`. Se llama desde `initializeSystem`, **no** desde `fbInit`: con
+  Firestore caído `fbInit` ni siquiera llega a esa línea, y es justo el dispositivo desconectado el
+  que necesita la reparación. (La primera versión la puse en `fbInit` y la prueba la cazó.)
+
+**No corregido, porque no es de la app:** el `Firestore no disponible` de esa laptop es un fallo de
+transporte de la red corporativa, no de configuración. La app ya cae a REST cuando el SDK no
+responde; el espacio de trabajo era un problema independiente que habría persistido igual.
+
+### Corregido de paso
+
+`:key="a.message"` en la lista de alertas: dos alertas con el mismo texto (p. ej. la misma
+calibración en dos instrumentos) daban claves duplicadas y rompían el `x-for` de Alpine con
+`Cannot read properties of undefined (reading 'after')` — el error que aparecía repetido en TODOS
+los reportes de bug. Ahora la clave es `source + índice`. Quedaba otro caso transitorio en el
+arranque de Alpine que se recupera solo (todas las listas terminan pintadas); no se persiguió más.
+
+### Verificación
+
+`test_users_workspace.js` — 10 checks: la tarjeta rinde 18 selectores con los 4 niveles, el cambio
+persiste, no hay `skillCatalog is not defined`; y sembrando `kia_fb_station = 'LAPTOP-TRABAJO-JORGE'`
+(el estado real de la laptop) el dispositivo se repara solo al arrancar, queda auditado,
+`fbSetStation('OTRA-COSA')` ya no lo desconecta y el campo libre desapareció. Los 16 archivos de
+prueba pasan.
+
+---
+
 ## v18.2 — Devolver al liberador + unidades de captura de gases (2026-08-25)
 
 Reportado desde el laboratorio con un escenario simulado a propósito: el liberador transcribe mal

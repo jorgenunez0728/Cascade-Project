@@ -1413,7 +1413,7 @@
 
                         <div class="tp-card">
                             <div class="tp-card-title"><span>🎓 Competencias</span></div>
-                            <template x-for="grp in skillCatalog" :key="grp.group">
+                            <template x-for="grp in skillCatalogGrouped()" :key="grp.group">
                                 <div style="margin-bottom:10px;">
                                     <div style="font-size: var(--fs-xs);font-weight:800;color:var(--tp-dim);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;" x-text="grp.group"></div>
                                     <template x-for="sk in grp.items" :key="sk.id">
@@ -1647,7 +1647,7 @@
                     <template x-for="group in alertsBySource()" :key="group.source">
                         <div class="tp-card">
                             <div class="tp-card-title"><span x-text="group.icon + ' ' + group.source + ' (' + group.alerts.length + ')'"></span></div>
-                            <template x-for="a in group.alerts" :key="a.message">
+                            <template x-for="(a, aIdx) in group.alerts" :key="group.source + '#' + aIdx">
                                 <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">
                                     <span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:4px;font-weight:800;white-space:nowrap;flex-shrink:0;"
                                           :style="{ background: a.color + '20', color: a.color }"

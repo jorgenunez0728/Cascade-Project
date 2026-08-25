@@ -3069,6 +3069,24 @@ function panelAlpineComponent() {
         colHidden: function(opId) { return pnMatrixCols().hidden.indexOf(String(opId)) !== -1; },
         groupsList: function() { return pnGroupOrder(); },
         skillCatalogFlat: function() { return pnSkillsFlat(); },
+        /**
+         * Catálogo AGRUPADO para el perfil del operador: [{group, items:[...]}].
+         * La plantilla del perfil (index.html) hacía `x-for="grp in skillCatalog"`
+         * contra una propiedad que no existía: Alpine lanzaba
+         * "skillCatalog is not defined" y la tarjeta 🎓 Competencias salía vacía,
+         * sin un solo selector — nadie podía cambiar el nivel de un operador
+         * (y el nivel otorga permisos, ver la nota de seguridad de arriba).
+         */
+        skillCatalogGrouped: function() {
+            this._dataVersion;   // v16.6: sin leerla Alpine no re-evalúa esto
+            var groups = [], byName = {};
+            pnSkillsFlat().forEach(function(s) {
+                var g = s.group || 'General';
+                if (!byName[g]) { byName[g] = { group: g, items: [] }; groups.push(byName[g]); }
+                byName[g].items.push(s);
+            });
+            return groups;
+        },
 
         addSkill: function() {
             var id = pnSkillAdd(this.newSkillName, this.newSkillGroup || 'General');
