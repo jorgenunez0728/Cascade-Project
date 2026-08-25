@@ -5461,15 +5461,34 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
                     <span style="font-size: var(--fs-sm);color:var(--tp-dim);" x-text="formatBytes(storageData().totalBytes) + ' / 5 MB'"></span>
                     <span style="font-size: var(--fs-sm);font-weight:700;" :style="{ color: storageData().barColor }" x-text="storageData().usedPct + '%'"></span>
                 </div>
-                <div style="width:100%;height:8px;background:rgba(30,41,59,0.8);border-radius:4px;overflow:hidden;">
+                <div style="width:100%;height:8px;background:var(--tp-border);border-radius:4px;overflow:hidden;">
                     <div style="height:100%;border-radius:4px;transition:width 0.3s;"
                          :style="{ width: Math.min(parseFloat(storageData().usedPct), 100) + '%', background: storageData().barColor }"></div>
                 </div>
+
+                <!-- El límite es del NAVEGADOR y de este dispositivo: es la duda #1 al llenarse -->
+                <div x-show="parseFloat(storageData().usedPct) > 80"
+                     style="margin-top:10px;padding:8px 10px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size: var(--fs-xs);color:var(--tp-text);line-height:1.5;">
+                    <b>⚠️ Estás en el límite del navegador.</b> Este espacio es de <b>este dispositivo</b>, no de Firebase:
+                    la app trabaja primero contra el almacenamiento local y la nube es la copia compartida.
+                    Cuando se llena, deja de guardar aunque la sincronización esté en verde.
+                </div>
+
+                <button class="tp-btn" x-show="storageData().reclaimable > 0" onclick="pnReclaimSpace()"
+                        style="margin-top:10px;width:100%;padding:9px;background:rgba(16,185,129,0.12);color:var(--ok-text);border:1px solid rgba(16,185,129,0.35);font-weight:600;"
+                        x-text="'🧹 Liberar ' + formatBytes(storageData().reclaimable) + ' regenerables'"></button>
+
                 <div style="margin-top:10px;">
-                    <template x-for="item in storageData().breakdown" :key="item.label">
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(30,41,59,0.3);">
-                            <span style="font-size: var(--fs-xs);color:var(--tp-text);" x-text="item.label"></span>
-                            <span style="font-size: var(--fs-xs);color:var(--tp-dim);" x-text="formatBytes(item.bytes) + ' (' + (storageData().totalBytes > 0 ? ((item.bytes / storageData().totalBytes) * 100).toFixed(1) : '0.0') + '%)'"></span>
+                    <template x-for="item in storageData().breakdown" :key="item.key">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--tp-border);">
+                            <span style="font-size: var(--fs-xs);color:var(--tp-text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                <span x-text="item.label"></span><span style="font-size:10px;" :style="{ color: item.tierColor }" x-text="' · ' + item.tierLabel"></span>
+                            </span>
+                            <span style="font-size: var(--fs-xs);color:var(--tp-dim);flex-shrink:0;">
+                                <span x-text="formatBytes(item.bytes) + ' (' + (storageData().totalBytes > 0 ? ((item.bytes / storageData().totalBytes) * 100).toFixed(1) : '0.0') + '%)'"></span>
+                                <button class="tp-btn" x-show="item.tier === 'review'" @click="pnStorageDeleteKey(item.key)"
+                                        style="padding:1px 7px;font-size:10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);margin-left:4px;">Borrar</button>
+                            </span>
                         </div>
                     </template>
                 </div>
@@ -5969,15 +5988,23 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608242202';
+var APP_BUILD = '202608251455';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '18.0';
+var APP_VERSION = '18.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '18.1', date: '25 ago 2026', title: 'Se acabó el "almacenamiento lleno" que no dejaba liberar vehículos', bullets: [
+        'Causa encontrada: el historial de fusiones entre dispositivos guardaba las últimas 20 fusiones con una COPIA COMPLETA de la base de datos, el plan y el inventario en cada una (~500 KB por fusión, hasta 10 MB). Ahora solo la fusión más reciente conserva su respaldo — que es la única que se podía deshacer.',
+        'Al abrir la app se limpia sola: respaldos de fusión que ya nadie podía usar, borradores de captura caducados y respaldos de restauración vencidos.',
+        'Datos → Sistema ya no esconde el 90% del uso en un renglón llamado "Otros": ahora se ve clave por clave qué ocupa cuánto, con etiqueta de si es dato del laboratorio, regenerable o para revisar.',
+        'Botón "🧹 Liberar espacio" que dice de antemano cuántos MB recupera y no toca ningún dato del laboratorio ni los reportes 🐞 sin enviar.',
+        'Liberar un vehículo ahora comprueba el espacio ANTES de pedir la firma. Si no cabe, no se cambia nada y te lleva a liberar espacio.',
+        'Corregido un problema serio: cuando el almacenamiento estaba lleno, el vehículo se marcaba como archivado en pantalla (con confeti) pero no se guardaba, mientras que el plan SÍ quedaba marcado como cumplido y el gas descontado. Ahora, si el vehículo no se puede guardar, no se guarda nada.'
+    ]},
     { version: '18.0', date: '24 ago 2026', title: 'Plan Semanal: una sola pantalla, con vista previa en vivo', bullets: [
         'Se acabó el plan lleno de arrastre: la cola de pendientes ahora tiene un techo (50% de la semana por defecto), así que siempre quedan lugares para las prioridades de hoy. Antes la cola se llevaba la semana entera y lo nuevo no podía entrar.',
         'Los pendientes ahora caducan (4 semanas por defecto) y se pueden apagar por completo. Caducar NO cuenta como probado: el déficit y la cobertura no cambian.',
@@ -6173,14 +6200,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608242202' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608251455' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608242202' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608251455' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -6196,7 +6223,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608242202' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608251455' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -9212,7 +9239,95 @@ document.addEventListener('keydown', function (e) {
     }
 });
 
+// ======================================================================
+// [M-HOUSEKEEPING] Higiene de localStorage al arrancar
+// ======================================================================
+// El presupuesto es del NAVEGADOR (~5 MB por origen) y lo comparte toda la app.
+// Firebase no lo amplía: la nube es la copia compartida, pero cada dispositivo
+// trabaja primero contra su almacenamiento local.
+//
+// Todo lo que se purga aquí cumple dos condiciones: se regenera solo, y ningún
+// código puede volver a leerlo. Nada de esto es dato de laboratorio.
+var DRAFT_TTL_MS = 24 * 60 * 60 * 1000;        // igual que v7RestoreDraft
+var PRERESTORE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function storageHousekeeping() {
+    var freed = 0;
+    var now = Date.now();
+
+    // 1) Borradores de captura caducados. v7RestoreDraft ya los caducaba, pero SOLO
+    //    al abrir ese vehículo: el borrador de un vehículo ya archivado no se volvía
+    //    a abrir nunca y por lo tanto no se borraba nunca.
+    var staleDrafts = [];
+    try {
+        for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            if (!k || k.indexOf('kia_cop15_draft_') !== 0) continue;
+            var raw = localStorage.getItem(k);
+            var ts = 0;
+            try { ts = (JSON.parse(raw) || {}).ts || 0; } catch(e) { ts = 0; }
+            // Sin ts (formato viejo) también se va: no se puede saber su edad y el
+            // borrador solo sirve para recuperar una captura de las últimas 24 h.
+            if (!ts || now - ts > DRAFT_TTL_MS) staleDrafts.push({ key: k, bytes: raw ? raw.length : 0 });
+        }
+    } catch(e) {}
+    staleDrafts.forEach(function(d) {
+        try { localStorage.removeItem(d.key); freed += d.bytes; } catch(e) {}
+    });
+
+    // 2) Respaldo pre-restauración vencido (copia completa de los 3 módulos grandes).
+    //    Solo se descarta si trae fecha: sin ella no se puede saber si su "deshacer"
+    //    todavía le sirve a alguien, y se prefiere dejarlo listado para borrado manual.
+    try {
+        var snapRaw = localStorage.getItem('kia_fb_prerestore_snapshot');
+        if (snapRaw) {
+            var savedAt = 0;
+            try { savedAt = (JSON.parse(snapRaw) || {}).savedAt || 0; } catch(e) { savedAt = 0; }
+            if (savedAt && now - savedAt > PRERESTORE_TTL_MS) {
+                localStorage.removeItem('kia_fb_prerestore_snapshot');
+                freed += snapRaw.length;
+            }
+        }
+    } catch(e) {}
+
+    // 3) Snapshots de fusión que ya nadie puede leer (el bug que llenó el disco).
+    try {
+        if (typeof fbMergePurgeOldSnapshots === 'function') freed += fbMergePurgeOldSnapshots();
+    } catch(e) { void 0; }
+
+    if (freed > 0) console.info('storageHousekeeping: ~' + Math.round(freed / 1024) + ' KB liberados');
+
+    // 4) Avisar ANTES de que un guardado falle a media operación.
+    try {
+        if (typeof pnStorageScan === 'function') {
+            var scan = pnStorageScan();
+            if (scan.pct >= 90) {
+                setTimeout(function() {
+                    showToast('⚠️ Almacenamiento al ' + scan.pct.toFixed(0) + '% — abre Datos → Sistema y libera espacio antes de capturar.', 'error');
+                }, 2500);
+            }
+        }
+    } catch(e) {}
+
+    return freed;
+}
+
+/** Bytes libres aproximados. Se usa como preflight antes de operaciones críticas. */
+function storageFreeBytes() {
+    try {
+        if (typeof pnStorageScan !== 'function') return Infinity;
+        var scan = pnStorageScan();
+        return Math.max(0, scan.max - scan.total);
+    } catch(e) { return Infinity; }
+}
+
     function initializeSystem() {
+        // Higiene de almacenamiento — LO PRIMERO, y a propósito ANTES del muro de login:
+        // con el disco lleno ni la sesión se puede guardar, y más abajo hay un `return`
+        // cuando no hay sesión activa que dejaría el dispositivo atascado para siempre.
+        // Ver "Almacenamiento local" en CLAUDE.md.
+        try { storageHousekeeping(); } catch(e) { void 0; }
+
         // Theme init — apply before any UI renders
         try { themeInit(); } catch(e) { void 0; }
         try { modalUxInit(); } catch(e) { void 0; }
@@ -12621,6 +12736,40 @@ function addMissing(missing, id, label) {
   if (el) el.classList.add('field-missing');
 }
 
+// Margen mínimo para dar por segura una liberación: la firma del aprobador es un
+// PNG en base64 (~20-60 KB), más entradas de timeline, resultados de gases y el
+// eco en plan e inventario. Por debajo de esto se para ANTES de mutar nada.
+var RELEASE_MIN_FREE_BYTES = 250 * 1024;
+
+/**
+ * Preflight de almacenamiento para operaciones que escriben en varios módulos.
+ * @param {string} actionLabel  qué se iba a hacer, para el mensaje
+ * @param {number} [needBytes]  espacio requerido; por defecto RELEASE_MIN_FREE_BYTES
+ * @returns {boolean} false si no hay espacio (ya avisó al usuario).
+ */
+function _releasePreflightStorage(actionLabel, needBytes) {
+    if (typeof storageFreeBytes !== 'function') return true;   // build viejo: no bloquear
+    var need = needBytes || RELEASE_MIN_FREE_BYTES;
+    var free = storageFreeBytes();
+    if (free >= need) return true;
+    showConfirm(
+        'No hay espacio suficiente en este dispositivo para ' + (actionLabel || 'guardar') + '.<br><br>'
+        + 'Quedan <b>' + Math.round(free / 1024) + ' KB</b> libres y se necesitan al menos '
+        + Math.round(need / 1024) + ' KB.<br><br>'
+        + 'No se cambió nada. Abre <b>Datos → Sistema</b> y usa "🧹 Liberar espacio".',
+        function() {
+            if (typeof switchPlatform === 'function') switchPlatform('panel');
+            if (typeof pnSwitchTab === 'function') setTimeout(function() { pnSwitchTab('pn-system'); }, 60);
+        },
+        { title: '⚠️ Almacenamiento lleno', type: 'danger', confirmText: 'Ir a liberar espacio' }
+    );
+    if (typeof auditLog === 'function') {
+        auditLog('cop15', 'release_blocked_storage', { type: 'sistema', id: 'localStorage', label: 'Almacenamiento' },
+            'Operación bloqueada por falta de espacio: ' + (actionLabel || '') + ' (' + Math.round(free / 1024) + ' KB libres)');
+    }
+    return false;
+}
+
 function validateReadyForRelease() {
   clearMissingMarks();
   const missing = [];
@@ -13643,6 +13792,9 @@ function loadApproval() {
 function submitToApproval() {
     if (typeof authRequire === 'function' && !authRequire('test.release', 'enviar a aprobación')) return;
     if (!activeVehicleId) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    // La firma del liberador es un PNG en base64: se comprueba el espacio antes de
+    // pedirla, no después de que el técnico ya firmó.
+    if (!_releasePreflightStorage('enviar este vehículo a aprobación')) return;
     var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
     if (!vehicle || vehicle.status !== 'ready-release') return;
 
@@ -13729,6 +13881,13 @@ function approveAndArchive() {
         signerName: (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '',
         lockName: true,
         onSave: function(sig) {
+            // Preflight de espacio ANTES de tocar nada. Sin esto, con el almacenamiento
+            // lleno el vehículo se marcaba archivado en memoria, saveDB() fallaba en
+            // silencio (devuelve false) pero tpSave()/invSave() sí alcanzaban a escribir
+            // sus propias claves: el plan quedaba marcado como cumplido y el gas
+            // descontado, con el vehículo sin archivar. Split-brain entre módulos.
+            if (!_releasePreflightStorage('archivar este vehículo')) return;
+
             undoPush('cop15', 'Aprobar y Archivar: ' + vehicle.vin);
             var prevStatus = vehicle.status;
             var prevTimeline = JSON.parse(JSON.stringify(vehicle.timeline || []));
@@ -13792,7 +13951,21 @@ function approveAndArchive() {
                 void 0;
                 return;
             }
-            saveDB();
+            // El orden importa: si el vehículo no se pudo persistir, NO se persisten el
+            // plan ni el inventario — cada uno escribe su propia clave y sí cabrían.
+            if (saveDB() === false) {
+                vehicle.status = prevStatus;
+                vehicle.timeline = prevTimeline;
+                delete vehicle.archivedAt;
+                showConfirm(
+                    'No hay espacio para guardar el archivado y <b>se revirtió el cambio</b>. '
+                    + 'El vehículo sigue listo para liberar.<br><br>'
+                    + 'Abre <b>Datos → Sistema</b> y usa "🧹 Liberar espacio", luego repite la aprobación.',
+                    function() { if (typeof switchPlatform === 'function') { switchPlatform('panel'); if (typeof pnSwitchTab === 'function') pnSwitchTab('pn-system'); } },
+                    { title: '⚠️ Almacenamiento lleno', type: 'danger', confirmText: 'Ir a liberar espacio' }
+                );
+                return;
+            }
             if (typeof tpSave === 'function') tpSave();
             if (typeof invSave === 'function') invSave();
             refreshAllLists();
@@ -18165,6 +18338,10 @@ function v7BatchRelease() {
 
     if (ready.length === 0) { showToast('Ningun vehiculo cumple los requisitos para liberar', 'error'); return; }
 
+    // Un lote escribe N firmas + N timelines de golpe: el margen escala con el lote.
+    if (!_releasePreflightStorage('liberar ' + ready.length + ' vehículo(s) en lote',
+                                  RELEASE_MIN_FREE_BYTES * Math.min(ready.length, 4))) return;
+
     if (typeof undoPush === 'function') undoPush('cop15', 'Batch Release de ' + ready.length + ' vehiculos');
 
     var count = 0;
@@ -18202,7 +18379,13 @@ function v7BatchRelease() {
         }
     });
 
-    saveDB();
+    // Igual que en approveAndArchive: si el lote no se pudo persistir, no se escriben
+    // plan ni inventario — quedarían diciendo que se probó algo que no se archivó.
+    if (saveDB() === false) {
+        showToast('⚠️ Sin espacio: NO se guardó el lote. Libera espacio en Datos → Sistema y vuelve a intentar.', 'error');
+        v7RenderBatchRelease();
+        return;
+    }
     if (typeof tpSave === 'function') tpSave();
     if (typeof invSave === 'function') invSave();
     refreshAllLists();
@@ -31836,72 +32019,59 @@ function pnRenderSystemHealth(el) {
         + (_ver.build ? '<span style="margin-left:auto;font-size: var(--fs-xs);color:var(--tp-dim,#9ca3af);font-family:monospace;">build ' + _ver.build + '</span>' : '')
         + '</div>';
 
-    // Storage breakdown
-    var storageKeys = [
-        { key: 'kia_db_v11', label: 'COP15 (Base de Datos)', module: 'cop15' },
-        { key: 'kia_testplan_v1', label: 'Test Plan Manager', module: 'testplan' },
-        { key: 'kia_regulations_v1', label: 'Perfiles de Regulación', module: 'regulations' },
-        { key: 'kia_lab_inventory', label: 'Lab Inventory', module: 'inventory' },
-        { key: 'kia_panel_v1', label: 'Panel', module: 'panel' },
-        { key: 'kia_chart_configs', label: 'Chart Configs', module: 'charts' },
-        { key: 'kia_entity_notes', label: 'Notas', module: 'notes' },
-        { key: 'kia_soak_timer', label: 'Soak Timer', module: 'soak' },
-        { key: 'kia_firebase_queue', label: 'Firebase Queue', module: 'firebase' }
-    ];
-
-    var totalBytes = 0;
-    var breakdown = [];
-    storageKeys.forEach(function(sk) {
-        try {
-            var val = localStorage.getItem(sk.key);
-            var bytes = val ? new Blob([val]).size : 0;
-            totalBytes += bytes;
-            breakdown.push({ key: sk.key, label: sk.label, module: sk.module, bytes: bytes, raw: val });
-        } catch(e) {
-            breakdown.push({ key: sk.key, label: sk.label, module: sk.module, bytes: 0, raw: null });
-        }
-    });
-
-    // Also count unknown keys
-    var knownKeys = storageKeys.map(function(s) { return s.key; });
-    var otherBytes = 0;
-    for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (knownKeys.indexOf(k) === -1) {
-            try {
-                var v = localStorage.getItem(k);
-                otherBytes += v ? new Blob([v]).size : 0;
-            } catch(e) {}
-        }
-    }
-    if (otherBytes > 0) {
-        totalBytes += otherBytes;
-        breakdown.push({ key: '_other', label: 'Otros', module: 'other', bytes: otherBytes, raw: null });
-    }
-
-    var maxStorage = 5 * 1024 * 1024; // 5MB
-    var usedPct = ((totalBytes / maxStorage) * 100).toFixed(1);
+    // ── Storage breakdown (v18.1: itemizado, sin bucket ciego "Otros") ──
+    var scan = pnStorageScan();
+    var totalBytes = scan.total;
+    var maxStorage = scan.max;
+    var usedPct = scan.pct.toFixed(1);
     var barColor = totalBytes > maxStorage * 0.8 ? '#ef4444' : totalBytes > maxStorage * 0.5 ? '#f59e0b' : '#10b981';
 
     html += '<div class="tp-card" style="margin-bottom:12px;padding:12px;">';
-    html += '<h4 style="color:#e2e8f0;font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>';
+    html += '<h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;" data-help="pn_storage">📦 Uso de Almacenamiento</h4>';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
     html += '<span style="font-size: var(--fs-sm);color:var(--tp-dim);">' + _pnFormatBytes(totalBytes) + ' / 5 MB</span>';
     html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + barColor + ';">' + usedPct + '%</span>';
     html += '</div>';
-    html += '<div style="width:100%;height:8px;background:rgba(30,41,59,0.8);border-radius:4px;overflow:hidden;">';
+    html += '<div style="width:100%;height:8px;background:var(--tp-border);border-radius:4px;overflow:hidden;">';
     html += '<div style="width:' + Math.min(parseFloat(usedPct), 100) + '%;height:100%;background:' + barColor + ';border-radius:4px;transition:width 0.3s;"></div>';
     html += '</div>';
 
-    // Per-module breakdown
+    // Este límite es del NAVEGADOR, no de Firebase. Es la duda #1 cuando se llena.
+    if (totalBytes > maxStorage * 0.8) {
+        html += '<div style="margin-top:10px;padding:8px 10px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size: var(--fs-xs);color:var(--tp-text);line-height:1.5;">'
+             +  '<b>⚠️ Estás en el límite del navegador.</b> Este espacio es de <b>este dispositivo</b>, no de Firebase: '
+             +  'la app trabaja primero contra el almacenamiento local y la nube es la copia compartida. '
+             +  'Cuando se llena, las capturas dejan de guardarse aunque la sincronización esté en verde.'
+             +  '</div>';
+    }
+
+    // Botón de liberación — dice de antemano cuánto se recupera
+    if (scan.reclaimable > 0) {
+        html += '<button class="tp-btn" onclick="pnReclaimSpace()" style="margin-top:10px;width:100%;padding:9px;background:var(--ok-bg,rgba(16,185,129,0.12));color:var(--ok-text);border:1px solid rgba(16,185,129,0.35);font-weight:600;">'
+             +  '🧹 Liberar ' + _pnFormatBytes(scan.reclaimable) + ' regenerables</button>';
+    }
+
+    // Desglose completo, clave por clave
     html += '<div style="margin-top:10px;">';
-    breakdown.sort(function(a, b) { return b.bytes - a.bytes; });
-    breakdown.forEach(function(b) {
-        if (b.bytes === 0) return;
-        var pct = totalBytes > 0 ? ((b.bytes / totalBytes) * 100).toFixed(1) : '0.0';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(30,41,59,0.3);">';
-        html += '<span style="font-size: var(--fs-xs);color:#e2e8f0;">' + b.label + '</span>';
-        html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">' + _pnFormatBytes(b.bytes) + ' (' + pct + '%)</span>';
+    var TIER_CHIP = {
+        core:   { t: 'dato', c: 'var(--tp-dim)' },
+        cache:  { t: 'regenerable', c: 'var(--ok-text)' },
+        review: { t: 'revisar', c: 'var(--warn-text)' }
+    };
+    scan.items.forEach(function(it) {
+        if (it.bytes < 512) return; // el ruido de <0.5 KB no ayuda a decidir
+        var pct = totalBytes > 0 ? ((it.bytes / totalBytes) * 100).toFixed(1) : '0.0';
+        var chip = TIER_CHIP[it.tier] || TIER_CHIP.review;
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--tp-border);">';
+        html += '<span style="font-size: var(--fs-xs);color:var(--tp-text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
+             +  it.label
+             +  ' <span style="color:' + chip.c + ';font-size:10px;">· ' + chip.t + '</span></span>';
+        html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);flex-shrink:0;">' + _pnFormatBytes(it.bytes) + ' (' + pct + '%)';
+        if (it.tier === 'review') {
+            html += ' <button class="tp-btn" onclick="pnStorageDeleteKey(\'' + it.key.replace(/'/g, "\\'") + '\')" '
+                 +  'style="padding:1px 7px;font-size:10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);margin-left:4px;">Borrar</button>';
+        }
+        html += '</span>';
         html += '</div>';
     });
     html += '</div></div>';
@@ -31997,6 +32167,176 @@ function _pnFormatBytes(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / 1048576).toFixed(2) + ' MB';
+}
+
+// ======================================================================
+// [M-STORAGE] Inventario de localStorage — pnStorageScan() es LA definición
+// ======================================================================
+// Antes había DOS lazos ad-hoc (aquí y en el reporte del Centro de Reportes) que
+// conocían 9 claves y metían TODO lo demás en un bucket ciego llamado "Otros".
+// Cuando el laboratorio se quedó sin espacio, "Otros" era el 90% del uso y las
+// tres Herramientas de Limpieza (COP15/Test Plan/Notas) no tocaban NADA de ese
+// 90%: el técnico veía el problema pero no tenía cómo resolverlo.
+//
+// `tier` decide qué se puede borrar:
+//   'core'   — dato del laboratorio. NUNCA se ofrece para borrar aquí.
+//   'cache'  — se regenera solo o es preferencia local. Se purga sin preguntar.
+//   'review' — pesado pero puede traer trabajo no enviado. Requiere consentimiento
+//              explícito, uno por uno, con lo que se pierde escrito en la pantalla.
+var PN_STORAGE_REGISTRY = [
+    // ── Datos del laboratorio ──
+    { key: 'kia_db_v11',            label: 'COP15 (Base de Datos)',   tier: 'core' },
+    { key: 'kia_testplan_v1',       label: 'Test Plan Manager',        tier: 'core' },
+    { key: 'kia_lab_inventory',     label: 'Consumibles / Equipos',    tier: 'core' },
+    { key: 'kia_panel_v1',          label: 'Panel y Proyectos',        tier: 'core' },
+    { key: 'kia_cop_v1',            label: 'CoP (validador)',          tier: 'core' },
+    { key: 'kia_homolog_v1',        label: 'Homologación Europa',      tier: 'core' },
+    { key: 'kia_audit_trail',       label: 'Historial de cambios',     tier: 'core' },
+    { key: 'kia_manual_configs',    label: 'Configuraciones manuales', tier: 'core' },
+    { key: 'kia_entity_notes',      label: 'Notas',                    tier: 'core' },
+    { key: 'kia_regulations_v1',    label: 'Perfiles de Regulación',   tier: 'core' },
+    { key: 'kia_templates',         label: 'Plantillas',               tier: 'core' },
+    { key: 'kia_firebase_queue',    label: 'Cola de sincronización',   tier: 'core' },
+    { key: 'kia_soak_timer',        label: 'Soak Timer',               tier: 'core' },
+    // ── Sesión / identidad ──
+    { prefix: 'kia_auth',           label: 'Sesión de acceso',         tier: 'core' },
+    { key: 'kia_current_operator',  label: 'Operador actual',          tier: 'core' },
+    { key: 'kia_users',             label: 'Operadores',               tier: 'core' },
+    { key: 'kia_bug_settings',      label: 'Ajustes de reportes',      tier: 'core' },
+    { prefix: 'kia_fb_',            label: 'Ajustes de sincronización', tier: 'core' },
+    // ── Regenerable / preferencias ──
+    { prefix: 'kia_cop15_draft_',   label: 'Borrador de captura',      tier: 'cache',
+      note: 'Campos a medio llenar de una captura. Caducan a las 24 h.' },
+    { key: 'kia_fb_prerestore_snapshot', label: 'Respaldo pre-restauración', tier: 'cache',
+      note: 'Copia completa que permite deshacer una restauración de backup.' },
+    { key: 'kia_merge_history',     label: 'Historial de fusiones',    tier: 'cache',
+      note: 'Bitácora de fusiones entre dispositivos y el respaldo para deshacer la última. '
+          + 'Los datos fusionados NO están aquí — ya viven en cada módulo.' },
+    { key: 'kia_viewModes',         label: 'Modo de vista por módulo', tier: 'cache' },
+    { key: 'kia_chart_configs',     label: 'Ajustes de gráficas',      tier: 'cache',
+      note: 'Colores y tipo de cada gráfica. Vuelven a los valores por defecto.' },
+    { key: 'kia_config_ranking',    label: 'Ranking de configuraciones', tier: 'cache',
+      note: 'Cuáles configuraciones usas más, para ordenar la cascada.' },
+    { key: 'kia_purpose_history',   label: 'Historial de propósitos',  tier: 'cache' },
+    { key: 'kia_help_dismissed',    label: 'Ayudas descartadas',       tier: 'cache' },
+    { prefix: 'kia_tour_done',      label: 'Tours completados',        tier: 'cache' },
+    { key: 'kia_immersive_prefs',   label: 'Preferencias de pantalla', tier: 'cache' },
+    { key: 'kia_autoplan_lastrun',  label: 'Guarda del auto-plan',     tier: 'cache' },
+    { prefix: 'kia_inv_active',     label: 'Pestaña activa',           tier: 'cache' },
+    { prefix: 'kia_cop15_active',   label: 'Pestaña activa',           tier: 'cache' },
+    { key: 'kia_last_module',       label: 'Última pestaña',           tier: 'cache' },
+    { key: 'kia_last_operator',     label: 'Último operador',          tier: 'cache' },
+    { key: 'kia_active_vehicle',    label: 'Vehículo activo',          tier: 'cache' },
+    // ── Pesado, con contenido no recuperable ──
+    { key: 'kia_bug_queue',         label: 'Reportes de bug sin enviar', tier: 'review',
+      note: 'Reportes 🐞 que aún no llegaron a GitHub, con su captura de pantalla.' },
+    { key: 'kia_config_csv_raw',    label: 'Catálogo CSV importado',   tier: 'review',
+      note: 'El CSV que importaste. Al borrarlo vuelve el catálogo embebido de la app.' }
+];
+
+function _pnStorageEntryFor(key) {
+    for (var i = 0; i < PN_STORAGE_REGISTRY.length; i++) {
+        var e = PN_STORAGE_REGISTRY[i];
+        if (e.key && e.key === key) return e;
+        if (e.prefix && key.indexOf(e.prefix) === 0) return e;
+    }
+    return null;
+}
+
+/**
+ * LA definición del uso de localStorage. Todo consumidor nuevo debe llamarla en
+ * vez de recorrer localStorage por su cuenta.
+ * @returns {{total:number, items:Array, reclaimable:number, reviewable:number, max:number, pct:number}}
+ */
+function pnStorageScan() {
+    var items = [], total = 0, reclaimable = 0, reviewable = 0;
+    var n = 0;
+    try { n = localStorage.length; } catch(e) { n = 0; }
+    for (var i = 0; i < n; i++) {
+        var k = null, v = null, bytes = 0;
+        try {
+            k = localStorage.key(i);
+            v = localStorage.getItem(k);
+            bytes = v ? new Blob([v]).size : 0;
+        } catch(e) { continue; }
+        if (!k) continue;
+        var entry = _pnStorageEntryFor(k);
+        var tier = entry ? entry.tier : 'review';
+        var label = entry ? entry.label : k;
+        // Las claves con prefijo se listan una por una para poder borrarlas sueltas,
+        // pero llevan el nombre legible del registro.
+        items.push({
+            key: k, label: label, tier: tier, bytes: bytes,
+            note: entry ? entry.note : 'Clave no reconocida por la app.',
+            known: !!entry
+        });
+        total += bytes;
+        if (tier === 'cache') reclaimable += bytes;
+        else if (tier === 'review') reviewable += bytes;
+    }
+    items.sort(function(a, b) { return b.bytes - a.bytes; });
+    var max = 5 * 1024 * 1024;
+    return {
+        total: total, items: items, reclaimable: reclaimable, reviewable: reviewable,
+        max: max, pct: (total / max) * 100
+    };
+}
+
+/** Purga todo lo de tier 'cache'. No toca datos del laboratorio ni reportes sin enviar. */
+function pnReclaimSpace() {
+    var scan = pnStorageScan();
+    var targets = scan.items.filter(function(it) { return it.tier === 'cache' && it.bytes > 0; });
+    if (!targets.length) {
+        showToast('No hay nada regenerable que liberar. Revisa la lista de abajo.', 'info');
+        return;
+    }
+    var freed = targets.reduce(function(s, it) { return s + it.bytes; }, 0);
+    showConfirm(
+        'Se liberarán ' + _pnFormatBytes(freed) + ' de datos que la app vuelve a generar sola '
+        + '(borradores caducados, respaldos de restauración, preferencias de pantalla).<br><br>'
+        + '<b>No se toca ningún dato del laboratorio</b> ni los reportes de bug sin enviar.',
+        function() {
+            var okCount = 0;
+            targets.forEach(function(it) {
+                try { localStorage.removeItem(it.key); okCount++; } catch(e) {}
+            });
+            if (typeof auditLog === 'function') {
+                auditLog('panel', 'storage_reclaim', { type: 'sistema', id: 'localStorage', label: 'Almacenamiento' },
+                    'Liberados ' + _pnFormatBytes(freed) + ' en ' + okCount + ' claves regenerables');
+            }
+            showToast('✅ ' + _pnFormatBytes(freed) + ' liberados', 'success');
+            // pn-system es una pestaña Alpine: se repinta con _dataVersion, no con pnRender.
+            window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'panel' } }));
+            tabCacheInvalidate('pn', 'pn-system');
+            if (typeof pnRender === 'function') pnRender();
+        },
+        { title: '🧹 Liberar espacio', type: 'warning', confirmText: 'Liberar ' + _pnFormatBytes(freed) }
+    );
+}
+
+/** Borra UNA clave de tier 'review', con lo que se pierde escrito en la confirmación. */
+function pnStorageDeleteKey(key) {
+    var scan = pnStorageScan();
+    var item = null;
+    scan.items.forEach(function(it) { if (it.key === key) item = it; });
+    if (!item) { showToast('Esa clave ya no existe', 'info'); return; }
+    if (item.tier === 'core') { showToast('Ese es un dato del laboratorio — no se borra desde aquí', 'error'); return; }
+    showConfirm(
+        'Se borrará <b>' + item.label + '</b> (' + _pnFormatBytes(item.bytes) + ').<br><br>'
+        + (item.note || '') + '<br><br>Esta acción no se puede deshacer.',
+        function() {
+            try { localStorage.removeItem(key); } catch(e) {}
+            if (typeof auditLog === 'function') {
+                auditLog('panel', 'storage_delete', { type: 'sistema', id: key, label: item.label },
+                    'Liberados ' + _pnFormatBytes(item.bytes));
+            }
+            showToast('✅ ' + _pnFormatBytes(item.bytes) + ' liberados', 'success');
+            window.dispatchEvent(new CustomEvent('data:saved', { detail: { module: 'panel' } }));
+            tabCacheInvalidate('pn', 'pn-system');
+            if (typeof pnRender === 'function') pnRender();
+        },
+        { title: 'Borrar ' + item.label, type: 'danger', confirmText: 'Borrar' }
+    );
 }
 
 function _pnMeasurePerformance() {
@@ -32793,40 +33133,25 @@ function panelAlpineComponent() {
 
         // ── Computed — System Health ──
         storageData: function() {
-            var storageKeys = [
-                { key: 'kia_db_v11', label: 'COP15 (Base de Datos)' },
-                { key: 'kia_testplan_v1', label: 'Test Plan Manager' },
-                { key: 'kia_lab_inventory', label: 'Lab Inventory' },
-                { key: 'kia_panel_v1', label: 'Panel' },
-                { key: 'kia_chart_configs', label: 'Chart Configs' },
-                { key: 'kia_entity_notes', label: 'Notas' },
-                { key: 'kia_soak_timer', label: 'Soak Timer' },
-                { key: 'kia_firebase_queue', label: 'Firebase Queue' }
-            ];
-            var totalBytes = 0;
-            var breakdown = [];
-            var knownKeys = storageKeys.map(function(s) { return s.key; });
-            storageKeys.forEach(function(sk) {
-                try {
-                    var val = localStorage.getItem(sk.key);
-                    var bytes = val ? new Blob([val]).size : 0;
-                    totalBytes += bytes;
-                    if (bytes > 0) breakdown.push({ label: sk.label, bytes: bytes });
-                } catch(e) {}
-            });
-            var otherBytes = 0;
-            for (var i = 0; i < localStorage.length; i++) {
-                var k = localStorage.key(i);
-                if (knownKeys.indexOf(k) === -1) {
-                    try { var v = localStorage.getItem(k); otherBytes += v ? new Blob([v]).size : 0; } catch(e) {}
-                }
-            }
-            if (otherBytes > 0) { totalBytes += otherBytes; breakdown.push({ label: 'Otros', bytes: otherBytes }); }
-            breakdown.sort(function(a, b) { return b.bytes - a.bytes; });
-            var maxStorage = 5 * 1024 * 1024;
-            var usedPct = ((totalBytes / maxStorage) * 100).toFixed(1);
-            return { totalBytes: totalBytes, breakdown: breakdown, usedPct: usedPct,
-                barColor: totalBytes > maxStorage * 0.8 ? '#ef4444' : totalBytes > maxStorage * 0.5 ? '#f59e0b' : '#10b981' };
+            // v18.1: una sola definición del uso de almacenamiento (pnStorageScan);
+            // antes este lazo era una copia con su propio bucket ciego "Otros".
+            this._dataVersion;  // v16.6: sin leerla, Alpine no re-evalúa esto tras pnSave()
+            var scan = pnStorageScan();
+            var TIER = {
+                core:   { label: 'dato',        color: 'var(--tp-dim)' },
+                cache:  { label: 'regenerable', color: 'var(--ok-text)' },
+                review: { label: 'revisar',     color: 'var(--warn-text)' }
+            };
+            var breakdown = scan.items
+                .filter(function(it) { return it.bytes >= 512; })
+                .map(function(it) {
+                    var t = TIER[it.tier] || TIER.review;
+                    return { key: it.key, label: it.label, bytes: it.bytes, tier: it.tier,
+                             tierLabel: t.label, tierColor: t.color };
+                });
+            return { totalBytes: scan.total, breakdown: breakdown, usedPct: scan.pct.toFixed(1),
+                reclaimable: scan.reclaimable,
+                barColor: scan.total > scan.max * 0.8 ? '#ef4444' : scan.total > scan.max * 0.5 ? '#f59e0b' : '#10b981' };
         },
         agingData: function() {
             var now = Date.now();
@@ -33551,6 +33876,18 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     ]}
 });
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    pn_storage: {
+        title: 'Uso de Almacenamiento',
+        text: 'Espacio que ocupa la app EN ESTE DISPOSITIVO. El navegador da ~5 MB por '
+            + 'dispositivo y los comparten todos los módulos.\n\n'
+            + 'Estar en Firebase NO amplía este límite: la app trabaja primero contra el '
+            + 'almacenamiento local y la nube es la copia compartida entre equipos. Si el '
+            + 'local se llena, deja de guardar aunque la sincronización esté en verde.\n\n'
+            + 'Cada renglón dice qué tipo de dato es:\n'
+            + '· dato — información del laboratorio, no se borra desde aquí.\n'
+            + '· regenerable — la app lo vuelve a crear sola. "🧹 Liberar espacio" borra todo esto.\n'
+            + '· revisar — pesado y puede traer trabajo sin enviar; se borra uno por uno.'
+    },
     'pn-reports-help': { title: 'Centro de Reportes', text: 'Un solo lugar para exportar todos los reportes del laboratorio; cada botón usa los datos actuales del sistema.' },
     'pn-executive-help': { title: 'Compliance Scorecard', text: 'Porcentaje de cumplimiento del plan de producción, con proyección de recursos necesarios para cerrar la brecha.' },
     'pn-turnaround-help': { title: 'Tiempo por etapa', text: 'Promedio de días/horas que un vehículo pasa en cada etapa del proceso (recepción, preacondicionamiento, prueba, liberación).' },
@@ -39109,9 +39446,15 @@ function fbMergeExecute(remoteData, analysis, choices) {
         };
         var hist = fbMergeGetHistory();
         hist.push(record);
-        // Keep last 20
-        if (hist.length > 20) hist = hist.slice(-20);
-        localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist));
+        hist = _fbMergeTrimHistory(hist);
+        try {
+            localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist));
+        } catch(e) {
+            // Sin espacio, la bitácora es lo primero que se sacrifica: nunca a costa
+            // de que la fusión en sí no se pueda guardar.
+            void 0;
+            try { localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify([record])); } catch(e2) {}
+        }
 
         showToast('Merge completado: ' + merged.join(' | '), 'success');
 
@@ -39123,9 +39466,58 @@ function fbMergeExecute(remoteData, analysis, choices) {
 }
 
 // ── Merge History ──
+// Cada registro llevaba un `snapshot` con una copia COMPLETA de db + tpState +
+// invState (~500 KB con datos reales) y se guardaban los últimos 20: hasta 10 MB
+// en una sola clave, contra un presupuesto total de 5 MB. Se llenaba el
+// almacenamiento y el laboratorio no podía ni liberar un vehículo.
+//
+// `fbMergeUndo` solo lee `hist[hist.length - 1].snapshot`, así que los snapshots
+// de los registros anteriores eran peso muerto que NADIE podía leer. Se conserva
+// el del último (deshacer sigue funcionando) y los demás quedan como bitácora.
+var FB_MERGE_HISTORY_MAX = 20;      // registros de bitácora (sin snapshot, ~200 B c/u)
+var FB_MERGE_SNAPSHOT_KEEP = 1;     // cuántos snapshots completos se conservan
+
+/** Deja a lo más FB_MERGE_SNAPSHOT_KEEP snapshots (los más recientes) y capa la bitácora. */
+function _fbMergeTrimHistory(hist) {
+    if (!Array.isArray(hist)) return [];
+    if (hist.length > FB_MERGE_HISTORY_MAX) hist = hist.slice(-FB_MERGE_HISTORY_MAX);
+    var cut = hist.length - FB_MERGE_SNAPSHOT_KEEP;
+    for (var i = 0; i < cut; i++) {
+        if (hist[i] && hist[i].snapshot) {
+            delete hist[i].snapshot;
+            hist[i].snapshotPurged = true;   // la UI puede decir "ya no se puede deshacer"
+        }
+    }
+    return hist;
+}
+
 function fbMergeGetHistory() {
     try { return JSON.parse(localStorage.getItem(FB_MERGE_HISTORY_KEY)) || []; }
     catch(e) { return []; }
+}
+
+/**
+ * Recorta la bitácora ya guardada. Corre una vez al arrancar: es lo que libera el
+ * espacio en los dispositivos que ya venían con 20 snapshots acumulados.
+ * @returns {number} bytes liberados
+ */
+function fbMergePurgeOldSnapshots() {
+    var raw = null;
+    try { raw = localStorage.getItem(FB_MERGE_HISTORY_KEY); } catch(e) { return 0; }
+    if (!raw) return 0;
+    var before = raw.length;
+    var hist;
+    try { hist = JSON.parse(raw) || []; } catch(e) { return 0; }
+    var trimmed = _fbMergeTrimHistory(hist);
+    var out = JSON.stringify(trimmed);
+    if (out.length >= before) return 0;
+    try { localStorage.setItem(FB_MERGE_HISTORY_KEY, out); } catch(e) { return 0; }
+    var freed = before - out.length;
+    if (freed > 51200 && typeof auditLog === 'function') {
+        auditLog('sistema', 'merge_history_purge', { type: 'sistema', id: 'kia_merge_history', label: 'Historial de fusiones' },
+            'Liberados ~' + Math.round(freed / 1024) + ' KB de respaldos de fusión que ya no se podían usar');
+    }
+    return freed;
 }
 
 // ── Undo last merge ──
@@ -39134,6 +39526,12 @@ function fbMergeUndo() {
     if (hist.length === 0) { showToast('No hay fusiones para deshacer', 'info'); return; }
 
     var last = hist[hist.length - 1];
+    if (!last.snapshot) {
+        // Solo se conserva el respaldo de la fusión más reciente (ver
+        // _fbMergeTrimHistory): 20 copias completas llenaban el almacenamiento.
+        showToast('Esa fusión ya no se puede deshacer — solo se guarda el respaldo de la más reciente.', 'warning');
+        return;
+    }
     showConfirmDialog({ title: '⚠️ Deshacer fusión', message: 'Deshacer fusion del ' + new Date(last.timestamp).toLocaleString('es-MX') + '?\n\nAcciones: ' + last.actions.join(', ') + '\n\nSe restauraran los datos previos a la fusion.', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
 
@@ -39500,7 +39898,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608242202' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608251455' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -39691,6 +40089,9 @@ function fbBackupRestore(backupId, modules) {
 
     // Create pre-restore snapshot for undo
     var snapshot = {
+        // savedAt permite que storageHousekeeping() lo caduque: es una copia completa
+        // de los tres módulos grandes (~500 KB) y antes se quedaba para siempre.
+        savedAt: Date.now(),
         cop15: typeof safeParse === 'function' ? safeParse('kia_db_v11', null) : JSON.parse(localStorage.getItem('kia_db_v11') || 'null'),
         testplan: typeof safeParse === 'function' ? safeParse('kia_testplan_v1', null) : JSON.parse(localStorage.getItem('kia_testplan_v1') || 'null'),
         inventory: typeof safeParse === 'function' ? safeParse('kia_lab_inventory', null) : JSON.parse(localStorage.getItem('kia_lab_inventory') || 'null')

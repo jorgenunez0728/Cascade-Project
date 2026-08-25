@@ -210,11 +210,19 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '18.0';
+var APP_VERSION = '18.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '18.1', date: '25 ago 2026', title: 'Se acabó el "almacenamiento lleno" que no dejaba liberar vehículos', bullets: [
+        'Causa encontrada: el historial de fusiones entre dispositivos guardaba las últimas 20 fusiones con una COPIA COMPLETA de la base de datos, el plan y el inventario en cada una (~500 KB por fusión, hasta 10 MB). Ahora solo la fusión más reciente conserva su respaldo — que es la única que se podía deshacer.',
+        'Al abrir la app se limpia sola: respaldos de fusión que ya nadie podía usar, borradores de captura caducados y respaldos de restauración vencidos.',
+        'Datos → Sistema ya no esconde el 90% del uso en un renglón llamado "Otros": ahora se ve clave por clave qué ocupa cuánto, con etiqueta de si es dato del laboratorio, regenerable o para revisar.',
+        'Botón "🧹 Liberar espacio" que dice de antemano cuántos MB recupera y no toca ningún dato del laboratorio ni los reportes 🐞 sin enviar.',
+        'Liberar un vehículo ahora comprueba el espacio ANTES de pedir la firma. Si no cabe, no se cambia nada y te lleva a liberar espacio.',
+        'Corregido un problema serio: cuando el almacenamiento estaba lleno, el vehículo se marcaba como archivado en pantalla (con confeti) pero no se guardaba, mientras que el plan SÍ quedaba marcado como cumplido y el gas descontado. Ahora, si el vehículo no se puede guardar, no se guarda nada.'
+    ]},
     { version: '18.0', date: '24 ago 2026', title: 'Plan Semanal: una sola pantalla, con vista previa en vivo', bullets: [
         'Se acabó el plan lleno de arrastre: la cola de pendientes ahora tiene un techo (50% de la semana por defecto), así que siempre quedan lugares para las prioridades de hoy. Antes la cola se llevaba la semana entera y lo nuevo no podía entrar.',
         'Los pendientes ahora caducan (4 semanas por defecto) y se pueden apagar por completo. Caducar NO cuenta como probado: el déficit y la cobertura no cambian.',
@@ -3449,7 +3457,95 @@ document.addEventListener('keydown', function (e) {
     }
 });
 
+// ======================================================================
+// [M-HOUSEKEEPING] Higiene de localStorage al arrancar
+// ======================================================================
+// El presupuesto es del NAVEGADOR (~5 MB por origen) y lo comparte toda la app.
+// Firebase no lo amplía: la nube es la copia compartida, pero cada dispositivo
+// trabaja primero contra su almacenamiento local.
+//
+// Todo lo que se purga aquí cumple dos condiciones: se regenera solo, y ningún
+// código puede volver a leerlo. Nada de esto es dato de laboratorio.
+var DRAFT_TTL_MS = 24 * 60 * 60 * 1000;        // igual que v7RestoreDraft
+var PRERESTORE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function storageHousekeeping() {
+    var freed = 0;
+    var now = Date.now();
+
+    // 1) Borradores de captura caducados. v7RestoreDraft ya los caducaba, pero SOLO
+    //    al abrir ese vehículo: el borrador de un vehículo ya archivado no se volvía
+    //    a abrir nunca y por lo tanto no se borraba nunca.
+    var staleDrafts = [];
+    try {
+        for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            if (!k || k.indexOf('kia_cop15_draft_') !== 0) continue;
+            var raw = localStorage.getItem(k);
+            var ts = 0;
+            try { ts = (JSON.parse(raw) || {}).ts || 0; } catch(e) { ts = 0; }
+            // Sin ts (formato viejo) también se va: no se puede saber su edad y el
+            // borrador solo sirve para recuperar una captura de las últimas 24 h.
+            if (!ts || now - ts > DRAFT_TTL_MS) staleDrafts.push({ key: k, bytes: raw ? raw.length : 0 });
+        }
+    } catch(e) {}
+    staleDrafts.forEach(function(d) {
+        try { localStorage.removeItem(d.key); freed += d.bytes; } catch(e) {}
+    });
+
+    // 2) Respaldo pre-restauración vencido (copia completa de los 3 módulos grandes).
+    //    Solo se descarta si trae fecha: sin ella no se puede saber si su "deshacer"
+    //    todavía le sirve a alguien, y se prefiere dejarlo listado para borrado manual.
+    try {
+        var snapRaw = localStorage.getItem('kia_fb_prerestore_snapshot');
+        if (snapRaw) {
+            var savedAt = 0;
+            try { savedAt = (JSON.parse(snapRaw) || {}).savedAt || 0; } catch(e) { savedAt = 0; }
+            if (savedAt && now - savedAt > PRERESTORE_TTL_MS) {
+                localStorage.removeItem('kia_fb_prerestore_snapshot');
+                freed += snapRaw.length;
+            }
+        }
+    } catch(e) {}
+
+    // 3) Snapshots de fusión que ya nadie puede leer (el bug que llenó el disco).
+    try {
+        if (typeof fbMergePurgeOldSnapshots === 'function') freed += fbMergePurgeOldSnapshots();
+    } catch(e) { console.warn('fbMergePurgeOldSnapshots:', e); }
+
+    if (freed > 0) console.info('storageHousekeeping: ~' + Math.round(freed / 1024) + ' KB liberados');
+
+    // 4) Avisar ANTES de que un guardado falle a media operación.
+    try {
+        if (typeof pnStorageScan === 'function') {
+            var scan = pnStorageScan();
+            if (scan.pct >= 90) {
+                setTimeout(function() {
+                    showToast('⚠️ Almacenamiento al ' + scan.pct.toFixed(0) + '% — abre Datos → Sistema y libera espacio antes de capturar.', 'error');
+                }, 2500);
+            }
+        }
+    } catch(e) {}
+
+    return freed;
+}
+
+/** Bytes libres aproximados. Se usa como preflight antes de operaciones críticas. */
+function storageFreeBytes() {
+    try {
+        if (typeof pnStorageScan !== 'function') return Infinity;
+        var scan = pnStorageScan();
+        return Math.max(0, scan.max - scan.total);
+    } catch(e) { return Infinity; }
+}
+
     function initializeSystem() {
+        // Higiene de almacenamiento — LO PRIMERO, y a propósito ANTES del muro de login:
+        // con el disco lleno ni la sesión se puede guardar, y más abajo hay un `return`
+        // cuando no hay sesión activa que dejaría el dispositivo atascado para siempre.
+        // Ver "Almacenamiento local" en CLAUDE.md.
+        try { storageHousekeeping(); } catch(e) { console.error('storageHousekeeping error:', e); }
+
         // Theme init — apply before any UI renders
         try { themeInit(); } catch(e) { console.error('themeInit error:', e); }
         try { modalUxInit(); } catch(e) { console.error('modalUxInit error:', e); }

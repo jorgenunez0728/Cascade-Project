@@ -572,6 +572,37 @@ así que con capacidad 4 y cola de 20+ el paso de déficit **nunca corría**. Ah
 - **Deuda conocida**: `tpGenerateMonthly`, `tpRunSimulation` y `tpBuildRecoveryPlan` son copias
   cercanas del mismo lazo greedy y **no** conocen la cuota ni los filtros. La pantalla lo advierte.
 
+## v18.1 — Almacenamiento local (`pnStorageScan`, `storageHousekeeping`)
+
+El presupuesto es del **navegador** (~5 MB por origen) y lo comparte toda la app. **Firebase no lo
+amplía**: la nube es la copia compartida, pero cada dispositivo trabaja primero contra su
+localStorage. Confundir ambas cosas fue la duda del usuario cuando se llenó.
+
+- **`pnStorageScan()` (panel.js) es LA definición** del uso de almacenamiento — todo consumidor
+  nuevo debe llamarla en vez de recorrer `localStorage` por su cuenta. Antes había DOS lazos ad-hoc
+  (panel y Centro de Reportes) que conocían 9 claves y metían el resto en un bucket ciego **"Otros"**;
+  cuando el laboratorio se quedó sin espacio, "Otros" era el **90%** del uso y ninguna Herramienta de
+  Limpieza lo tocaba.
+- **`PN_STORAGE_REGISTRY` clasifica cada clave** en `core` (dato del laboratorio — nunca se ofrece
+  para borrar), `cache` (se regenera solo; `pnReclaimSpace()` lo purga sin preguntar) y `review`
+  (pesado y puede traer trabajo sin enviar — `pnStorageDeleteKey()`, uno por uno). **Toda clave
+  nueva de localStorage agrega su entrada aquí**; sin ella cae en `review` y se lista con su nombre
+  crudo.
+- **Nunca guardar copias completas de `db`/`tpState`/`invState` en una lista.** Ese fue el bug:
+  `kia_merge_history` guardaba 20 fusiones **cada una con un snapshot completo** (~500 KB → hasta
+  10 MB) cuando `fbMergeUndo` solo lee el del último. `_fbMergeTrimHistory` conserva
+  `FB_MERGE_SNAPSHOT_KEEP` (=1) y marca el resto `snapshotPurged`.
+- **`storageHousekeeping()` (app.js) corre al inicio de `initializeSystem()`**, antes que nada: un
+  localStorage lleno hace que todo lo de abajo falle en silencio. Purga snapshots de fusión
+  ilegibles, borradores `kia_cop15_draft_*` caducados (la caducidad de 24 h de `v7RestoreDraft` solo
+  se aplicaba **al abrir ese vehículo**, así que el borrador de un archivado no moría nunca) y
+  `kia_fb_prerestore_snapshot` vencido (7 días; ahora sella `savedAt`).
+- **Un `saveDB()` que devuelve `false` NO es cosmético.** `approveAndArchive`/`v7BatchRelease` lo
+  ignoraban y seguían con `tpSave()`/`invSave()`, que escriben **claves distintas** y sí cabían: el
+  plan quedaba marcado como cumplido y el gas descontado con el vehículo sin archivar. Todo código
+  que escriba en varios módulos debe (1) llamar `_releasePreflightStorage(label[, bytes])` antes de
+  mutar y (2) abortar la cascada si `saveDB()` devuelve `false`.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

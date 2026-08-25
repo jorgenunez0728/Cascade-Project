@@ -2478,9 +2478,15 @@ function fbMergeExecute(remoteData, analysis, choices) {
         };
         var hist = fbMergeGetHistory();
         hist.push(record);
-        // Keep last 20
-        if (hist.length > 20) hist = hist.slice(-20);
-        localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist));
+        hist = _fbMergeTrimHistory(hist);
+        try {
+            localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify(hist));
+        } catch(e) {
+            // Sin espacio, la bitácora es lo primero que se sacrifica: nunca a costa
+            // de que la fusión en sí no se pueda guardar.
+            console.warn('fbMerge: no cupo la bitácora de fusión', e);
+            try { localStorage.setItem(FB_MERGE_HISTORY_KEY, JSON.stringify([record])); } catch(e2) {}
+        }
 
         showToast('Merge completado: ' + merged.join(' | '), 'success');
 
@@ -2492,9 +2498,58 @@ function fbMergeExecute(remoteData, analysis, choices) {
 }
 
 // ── Merge History ──
+// Cada registro llevaba un `snapshot` con una copia COMPLETA de db + tpState +
+// invState (~500 KB con datos reales) y se guardaban los últimos 20: hasta 10 MB
+// en una sola clave, contra un presupuesto total de 5 MB. Se llenaba el
+// almacenamiento y el laboratorio no podía ni liberar un vehículo.
+//
+// `fbMergeUndo` solo lee `hist[hist.length - 1].snapshot`, así que los snapshots
+// de los registros anteriores eran peso muerto que NADIE podía leer. Se conserva
+// el del último (deshacer sigue funcionando) y los demás quedan como bitácora.
+var FB_MERGE_HISTORY_MAX = 20;      // registros de bitácora (sin snapshot, ~200 B c/u)
+var FB_MERGE_SNAPSHOT_KEEP = 1;     // cuántos snapshots completos se conservan
+
+/** Deja a lo más FB_MERGE_SNAPSHOT_KEEP snapshots (los más recientes) y capa la bitácora. */
+function _fbMergeTrimHistory(hist) {
+    if (!Array.isArray(hist)) return [];
+    if (hist.length > FB_MERGE_HISTORY_MAX) hist = hist.slice(-FB_MERGE_HISTORY_MAX);
+    var cut = hist.length - FB_MERGE_SNAPSHOT_KEEP;
+    for (var i = 0; i < cut; i++) {
+        if (hist[i] && hist[i].snapshot) {
+            delete hist[i].snapshot;
+            hist[i].snapshotPurged = true;   // la UI puede decir "ya no se puede deshacer"
+        }
+    }
+    return hist;
+}
+
 function fbMergeGetHistory() {
     try { return JSON.parse(localStorage.getItem(FB_MERGE_HISTORY_KEY)) || []; }
     catch(e) { return []; }
+}
+
+/**
+ * Recorta la bitácora ya guardada. Corre una vez al arrancar: es lo que libera el
+ * espacio en los dispositivos que ya venían con 20 snapshots acumulados.
+ * @returns {number} bytes liberados
+ */
+function fbMergePurgeOldSnapshots() {
+    var raw = null;
+    try { raw = localStorage.getItem(FB_MERGE_HISTORY_KEY); } catch(e) { return 0; }
+    if (!raw) return 0;
+    var before = raw.length;
+    var hist;
+    try { hist = JSON.parse(raw) || []; } catch(e) { return 0; }
+    var trimmed = _fbMergeTrimHistory(hist);
+    var out = JSON.stringify(trimmed);
+    if (out.length >= before) return 0;
+    try { localStorage.setItem(FB_MERGE_HISTORY_KEY, out); } catch(e) { return 0; }
+    var freed = before - out.length;
+    if (freed > 51200 && typeof auditLog === 'function') {
+        auditLog('sistema', 'merge_history_purge', { type: 'sistema', id: 'kia_merge_history', label: 'Historial de fusiones' },
+            'Liberados ~' + Math.round(freed / 1024) + ' KB de respaldos de fusión que ya no se podían usar');
+    }
+    return freed;
 }
 
 // ── Undo last merge ──
@@ -2503,6 +2558,12 @@ function fbMergeUndo() {
     if (hist.length === 0) { showToast('No hay fusiones para deshacer', 'info'); return; }
 
     var last = hist[hist.length - 1];
+    if (!last.snapshot) {
+        // Solo se conserva el respaldo de la fusión más reciente (ver
+        // _fbMergeTrimHistory): 20 copias completas llenaban el almacenamiento.
+        showToast('Esa fusión ya no se puede deshacer — solo se guarda el respaldo de la más reciente.', 'warning');
+        return;
+    }
     showConfirmDialog({ title: '⚠️ Deshacer fusión', message: 'Deshacer fusion del ' + new Date(last.timestamp).toLocaleString('es-MX') + '?\n\nAcciones: ' + last.actions.join(', ') + '\n\nSe restauraran los datos previos a la fusion.', type: 'warning', confirmText: 'Deshacer', cancelText: 'Cancelar' }).then(function(ok) {
         if (!ok) return;
 
@@ -3060,6 +3121,9 @@ function fbBackupRestore(backupId, modules) {
 
     // Create pre-restore snapshot for undo
     var snapshot = {
+        // savedAt permite que storageHousekeeping() lo caduque: es una copia completa
+        // de los tres módulos grandes (~500 KB) y antes se quedaba para siempre.
+        savedAt: Date.now(),
         cop15: typeof safeParse === 'function' ? safeParse('kia_db_v11', null) : JSON.parse(localStorage.getItem('kia_db_v11') || 'null'),
         testplan: typeof safeParse === 'function' ? safeParse('kia_testplan_v1', null) : JSON.parse(localStorage.getItem('kia_testplan_v1') || 'null'),
         inventory: typeof safeParse === 'function' ? safeParse('kia_lab_inventory', null) : JSON.parse(localStorage.getItem('kia_lab_inventory') || 'null')
