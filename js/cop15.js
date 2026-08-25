@@ -4638,6 +4638,18 @@ function generateCOP15PDF(vehicleId, opts) {
   const notes = td.notes || '';  // comentarios de recepción
   const tvNotes = tv.notes || ''; // comentarios de verificación
 
+  // Sin esta guarda, `const { jsPDF } = window.jspdf` lanzaba al destructurar
+  // undefined DESPUÉS de showOverlayLoading('Generando PDF...'), así que el aviso
+  // se quedaba pegado y no aparecía ningún archivo ni ningún error legible
+  // (issue #107). Pasa cuando la librería no cargó — red que bloquea CDNs.
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    if (!(opts && opts.silent)) {
+      hideOverlayLoading();
+      showToast('No se pudo cargar el generador de PDF. Recarga la página; si sigue, avisa que la red bloquea la librería.', 'error');
+    }
+    console.error('generateCOP15PDF: window.jspdf no disponible');
+    return null;
+  }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
 

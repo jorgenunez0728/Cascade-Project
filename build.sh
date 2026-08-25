@@ -43,7 +43,7 @@ cat > "$DIR/$OUTPUT" <<'HEADER'
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    <!--JSPDF_INLINE_PLACEHOLDER-->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
@@ -107,6 +107,22 @@ perl -0777 -i -pe 's/console\.(log|warn|error)\s*\((?:[^()]*|\((?:[^()]*|\([^()]
 # minificado de terceros puede romperlo (p. ej. `x?console.warn(a):b`
 # quedaría como `x?void 0;:b`, que es un error de sintaxis).
 # ═══════════════════════════════════════════════════════════════
+echo "Inlining vendor/jspdf.umd.min.js (after console strip)..."
+python3 - "$DIR/$OUTPUT" "$DIR/vendor/jspdf.umd.min.js" <<'PYEOF'
+import sys
+out_path, lib_path = sys.argv[1], sys.argv[2]
+with open(lib_path, encoding='utf-8') as f:
+    lib = f.read()
+with open(out_path, encoding='utf-8') as f:
+    html = f.read()
+marker = '<!--JSPDF_INLINE_PLACEHOLDER-->'
+if marker not in html:
+    sys.exit('ERROR: marcador de jsPDF no encontrado en el bundle')
+html = html.replace(marker, '<script>\n' + lib + '\n</script>')
+with open(out_path, 'w', encoding='utf-8') as f:
+    f.write(html)
+PYEOF
+
 echo "Inlining vendor/alpine.min.js (after console strip)..."
 python3 - "$DIR/$OUTPUT" "$DIR/vendor/alpine.min.js" <<'PYEOF'
 import sys
