@@ -2421,10 +2421,18 @@ function libClearComparisonRegulation() {
     showToast('Se restauró la regulación del alta', 'info');
 }
 
+// [v18.2] Antes redondeaba a 3 DECIMALES fijos, lo que destrozaba los gases
+// pequeños: NOx 0.0013 g/km se guardaba como 0.001 (−23%) y 0.0013 vs 0.0014
+// quedaban idénticos, así que el doble ciego los daba por coincidentes. Con
+// cifras significativas, 0.0013 y 127.6894 se conservan tal cual y el ruido de
+// coma flotante sigue fuera.
+var LIB_VAL_SIGFIGS = 9;
 function _libNormalizeVal(v) {
     if (v === null || v === undefined || v === '') return null;
     var n = parseFloat(String(v).replace(',', '.'));
-    return isNaN(n) ? null : Math.round(n * 1000) / 1000;
+    if (isNaN(n)) return null;
+    if (n === 0) return 0;
+    return parseFloat(n.toPrecision(LIB_VAL_SIGFIGS));
 }
 
 // Rangos plausibles por gas (mismo orden de magnitud en g/km y g/mi): un valor fuera
@@ -2510,12 +2518,20 @@ function _libRenderGasEntry(containerId, profile, existingValues, onChangeCallba
     html += '<th style="text-align:center;padding:6px 8px;font-size: var(--fs-sm);color:#64748b;">Estado</th>';
     html += '</tr></thead><tbody>';
     profile.gases.forEach(function(g) {
-        var val = existingValues && existingValues[g.field] != null ? existingValues[g.field] : '';
+        // Se teclea y se muestra en la unidad de captura; el valor guardado sigue
+        // siendo el de g.unit (ver [M-GASUNITS] en app.js).
+        var capUnit = gasCaptureUnit(g);
+        var converted = capUnit !== g.unit;
+        var stored = existingValues && existingValues[g.field] != null ? existingValues[g.field] : '';
+        var val = stored === '' ? '' : gasConvert(stored, g.unit, capUnit);
+        var dispLimit = (g.limit !== null && g.limit !== undefined) ? gasConvert(g.limit, g.unit, capUnit) : null;
         html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.06);" id="lib-gas-row-' + g.field + '">';
         html += '<td style="padding:6px 8px;font-weight:600;">' + escapeHtml(g.label) + '</td>';
-        html += '<td style="text-align:center;padding:6px 8px;color:#64748b;">' + escapeHtml(g.unit) + '</td>';
-        html += '<td style="text-align:center;padding:6px 8px;">' + (g.limit !== null && g.limit !== undefined ? '<span style="font-weight:700;color:var(--danger-text);">' + g.limit + '</span>' : '<span style="color:var(--muted);">—</span>') + '</td>';
-        html += '<td style="padding:6px 8px;text-align:center;"><input type="number" step="0.001" min="0" class="form-control lib-gas-input" data-field="' + g.field + '" value="' + escapeHtml(String(val)) + '" style="width:90px;text-align:center;font-size:13px;" oninput="' + onChangeCallback + '"></td>';
+        html += '<td style="text-align:center;padding:6px 8px;color:#64748b;">' + escapeHtml(capUnit)
+             +  (converted ? '<div style="font-size:10px;color:var(--muted);">se guarda en ' + escapeHtml(g.unit) + '</div>' : '')
+             +  '</td>';
+        html += '<td style="text-align:center;padding:6px 8px;">' + (dispLimit !== null ? '<span style="font-weight:700;color:var(--danger-text);">' + dispLimit + '</span>' : '<span style="color:var(--muted);">—</span>') + '</td>';
+        html += '<td style="padding:6px 8px;text-align:center;"><input type="number" step="' + gasInputStep(capUnit) + '" min="0" class="form-control lib-gas-input" data-field="' + g.field + '" value="' + escapeHtml(String(val)) + '" style="width:100px;text-align:center;font-size:13px;" oninput="' + onChangeCallback + '"></td>';
         html += '<td style="text-align:center;padding:6px 8px;" id="lib-gas-status-' + g.field + '">—</td>';
         html += '</tr>';
     });
@@ -2531,7 +2547,10 @@ function _libUpdateGasStatuses(profile, containerId) {
         var input = document.querySelector('#' + containerId + ' .lib-gas-input[data-field="' + g.field + '"]');
         var statusEl = document.getElementById('lib-gas-status-' + g.field);
         if (!input || !statusEl) return;
-        var val = _libNormalizeVal(input.value);
+        // Se teclea en la unidad de captura, pero TODO lo que sigue (límite,
+        // rangos de plausibilidad, economía de combustible) está en g.unit.
+        var typed = _libNormalizeVal(input.value);
+        var val = typed === null ? null : gasConvert(typed, gasCaptureUnit(g), g.unit);
         var row = document.getElementById('lib-gas-row-' + g.field);
         if (val === null) { statusEl.innerHTML = '<span style="color:var(--muted);">—</span>'; if (row) row.style.background = ''; if (g.limit !== null) allPass = false; return; }
         anyValue = true;
@@ -2557,11 +2576,27 @@ function _libUpdateGasStatuses(profile, containerId) {
     return { allPass: allPass, anyValue: anyValue };
 }
 
+/**
+ * LA frontera de conversión al LEER: devuelve SIEMPRE valores en g.unit (la
+ * unidad del límite), pase lo que pase con la unidad de captura. Por eso ningún
+ * consumidor aguas abajo (comparación, PDF, SPC, CoP) tuvo que cambiar.
+ */
+/** Resalta el botón de devolver cuando hay desacuerdo: es la salida del atasco. */
+function _libHighlightReturnBtn(on) {
+    var b = document.getElementById('return-releaser-btn');
+    if (!b) return;
+    b.classList.toggle('btn-primary', !!on);
+    b.classList.toggle('btn-secondary', !on);
+    b.style.boxShadow = on ? '0 0 0 3px rgba(245,158,11,0.35)' : '';
+}
+
 function _libCollectGasValues(profile, containerId) {
     var values = {};
     profile.gases.forEach(function(g) {
         var input = document.querySelector('#' + containerId + ' .lib-gas-input[data-field="' + g.field + '"]');
-        if (input) values[g.field] = _libNormalizeVal(input.value);
+        if (!input) return;
+        var typed = _libNormalizeVal(input.value);
+        values[g.field] = typed === null ? null : gasConvert(typed, gasCaptureUnit(g), g.unit);
     });
     return values;
 }
@@ -2627,6 +2662,7 @@ function libOnApproverGasChange() {
         btn.disabled = false;
         // Coincidió: limpiar la alarma de desacuerdo (toast + Panel)
         _libMismatchAlarmKey = null;
+        _libHighlightReturnBtn(false);
         if (vehicle.testData && vehicle.testData.gasResults && vehicle.testData.gasResults.mismatch) {
             delete vehicle.testData.gasResults.mismatch;
             // Debounced: corre mientras el aprobador teclea; la aprobación final persiste directo
@@ -2641,7 +2677,9 @@ function libOnApproverGasChange() {
         matchStatus.style.background = 'rgba(239,68,68,0.1)';
         matchStatus.style.border = '1px solid rgba(239,68,68,0.3)';
         matchStatus.style.color = tokenColor('--danger-text');
-        matchStatus.innerHTML = '✗ Los valores de <strong>' + mismatches.join(', ') + '</strong> no coinciden (comparación a 3 cifras significativas). Verifique su lectura.';
+        matchStatus.innerHTML = '✗ Los valores de <strong>' + mismatches.join(', ') + '</strong> no coinciden (comparación a 3 cifras significativas). '
+            + 'Verifique su lectura; si el error es del liberador, use <strong>↩️ Devolver al liberador</strong>.';
+        _libHighlightReturnBtn(true);
         btn.disabled = true;
         // Alarma: toast (una sola vez por episodio) + registro para alerta en Panel
         var alarmKey = vehicle.id + '|' + mismatches.join(',');
@@ -2749,6 +2787,21 @@ function loadRelease() {
         _libRenderGasEntry('lib-gas-entry-content', profile, existing, 'libOnGasChange()');
         var _gasEl = document.getElementById('lib-gas-entry-content');
         if (_gasEl) _gasEl.insertAdjacentHTML('afterbegin', _libRegBasisHTML(vehicle, regName));
+        // Si el aprobador lo devolvió, el liberador tiene que ver POR QUÉ antes de
+        // volver a teclear — si no, repite el mismo error.
+        if (_gasEl && vehicle.pendingReturn) {
+            var _pr = vehicle.pendingReturn;
+            var _n = Array.isArray(vehicle.returnHistory) ? vehicle.returnHistory.length : 1;
+            _gasEl.insertAdjacentHTML('afterbegin',
+                '<div style="padding:10px 12px;margin-bottom:10px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);border-radius:8px;font-size:13px;line-height:1.55;">'
+                + '<b>↩️ El aprobador devolvió esta prueba</b>'
+                + (_n > 1 ? ' <span style="color:var(--muted);">(devolución ' + _n + ')</span>' : '')
+                + '<div style="margin-top:4px;">' + escapeHtml(_pr.reason || '') + '</div>'
+                + '<div style="margin-top:4px;font-size:11px;color:var(--muted);">'
+                + escapeHtml(_pr.by || 'Aprobador') + ' · ' + new Date(_pr.at).toLocaleString('es-MX') + '</div>'
+                + '<div style="margin-top:6px;font-size:12px;">Vuelve a leer los valores <b>del reporte del banco</b> y firma otra vez.</div>'
+                + '</div>');
+        }
         libOnGasChange();
     }
 
@@ -2848,14 +2901,22 @@ function submitToApproval() {
             if (!vehicle.testData.signatures) vehicle.testData.signatures = {};
             vehicle.testData.signatures.releaser = sig;
             vehicle.status = 'pending-approval';
+            // El aviso de devolución se apaga al reenviar; returnHistory se conserva
+            // como registro permanente de cuántas veces rebotó y por qué.
+            var _wasReturn = !!vehicle.pendingReturn;
+            delete vehicle.pendingReturn;
             vehicle.timeline.push({
                 timestamp: new Date().toISOString(),
                 user: sig.signerName || 'Liberador',
-                action: 'Enviado a Aprobación',
+                action: _wasReturn ? 'Reenviado a Aprobación (corregido)' : 'Enviado a Aprobación',
                 data: { status: 'pending-approval', gasValues: gasValues }
             });
-            auditLog('cop15', 'vehicle_pending_approval', { type: 'vehicle', id: vehicle.id, label: vehicle.vin }, 'Enviado a aprobación por ' + (sig.signerName || ''));
-            saveDB();
+            auditLog('cop15', _wasReturn ? 'vehicle_resubmitted' : 'vehicle_pending_approval', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+                (_wasReturn ? 'Reenviado tras devolución por ' : 'Enviado a aprobación por ') + (sig.signerName || ''));
+            if (saveDB() === false) {
+                showToast('⚠️ Sin espacio: no se guardó el envío a aprobación. Libera espacio en Datos → Sistema.', 'error');
+                return;
+            }
             refreshAllLists();
             updateProgressBar();
             document.getElementById('releaseVehSelect').value = '';
@@ -2996,6 +3057,96 @@ function approveAndArchive() {
             }
         },
         onCancel: function() { showToast('Aprobación cancelada', 'info'); }
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v18.2] DEVOLVER AL LIBERADOR
+// ══════════════════════════════════════════════════════════════════════
+// Cuando los valores no coinciden, el aprobador solo podía quedarse atorado: el
+// botón de aprobar está deshabilitado y no había forma de pedir una corrección.
+// Devolver regresa el vehículo a 'ready-release' y BORRA los valores y la firma
+// del liberador, para que los vuelva a capturar y a firmar.
+function returnToReleaser() {
+    if (!activeVehicleId) { showToast('No hay vehículo seleccionado', 'error'); return; }
+    var vehicle = db.vehicles.find(function(v) { return v.id == activeVehicleId; });
+    if (!vehicle || vehicle.status !== 'pending-approval') {
+        showToast('Este vehículo ya no está pendiente de aprobación', 'error');
+        return;
+    }
+    if (typeof authRequire === 'function' && !authRequire('test.approve', 'devolver al liberador')) return;
+
+    var gr = (vehicle.testData && vehicle.testData.gasResults) || {};
+    var mismatchGases = (gr.mismatch && gr.mismatch.gases) ? gr.mismatch.gases.join(', ') : '';
+
+    showModal({
+        title: '↩️ Devolver al liberador',
+        body:
+            '<p style="font-size:13px;color:var(--muted);margin:0 0 10px 0;">' +
+            'El vehículo <b>' + escapeHtml(vehicle.vin) + '</b> regresa a <b>Liberación</b>. ' +
+            'Se borran los valores de gases y la firma del liberador para que los capture y firme de nuevo.</p>' +
+            (mismatchGases
+                ? '<div style="padding:8px 10px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size:12px;margin-bottom:10px;">' +
+                  'No coincidieron: <b>' + escapeHtml(mismatchGases) + '</b></div>'
+                : '') +
+            '<label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Motivo (mínimo 5 caracteres) *</label>' +
+            '<textarea id="return-reason" class="form-control" rows="3" style="width:100%;box-sizing:border-box;font-size:13px;" ' +
+            'placeholder="Ej: revisar la transcripción de CO y THC contra el reporte del banco"></textarea>' +
+            // El doble ciego solo sirve si el liberador vuelve a leer del reporte,
+            // no si el aprobador le dicta el número correcto.
+            '<div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:8px;font-size:12px;line-height:1.5;">' +
+            '⚠️ <b>No escribas tus valores en el motivo.</b> El liberador debe volver a leerlos del reporte; ' +
+            'si le dictas el número, la verificación doble ciego deja de servir.</div>',
+        buttons: [
+            { label: 'Cancelar', cls: 'btn-secondary', onclick: function() { document.getElementById('globalModal').style.display = 'none'; } },
+            { label: '↩️ Devolver', cls: 'btn-primary', onclick: function() {
+                var reasonEl = document.getElementById('return-reason');
+                var reason = reasonEl ? reasonEl.value.trim() : '';
+                if (reason.length < 5) { showToast('Escribe el motivo (mínimo 5 caracteres)', 'error'); return; }
+
+                undoPush('cop15', 'Devolver al liberador: ' + vehicle.vin);
+                var approverName = (typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('') : '';
+                var nowISO = new Date().toISOString();
+
+                vehicle.status = 'ready-release';
+                if (!vehicle.testData) vehicle.testData = {};
+                if (!vehicle.testData.gasResults) vehicle.testData.gasResults = {};
+                // Se borran para que el liberador los recapture desde el reporte.
+                delete vehicle.testData.gasResults.liberador;
+                delete vehicle.testData.gasResults.mismatch;
+                if (vehicle.testData.signatures) delete vehicle.testData.signatures.releaser;
+                _libMismatchAlarmKey = null;
+
+                // Bitácora de devoluciones: cuántas veces rebotó y por qué. Es la
+                // señal de calidad de transcripción del laboratorio.
+                if (!Array.isArray(vehicle.returnHistory)) vehicle.returnHistory = [];
+                vehicle.returnHistory.push({ at: nowISO, by: approverName, reason: reason, gases: (gr.mismatch && gr.mismatch.gases) ? gr.mismatch.gases.slice() : [] });
+                vehicle.pendingReturn = { at: nowISO, by: approverName, reason: reason };
+
+                if (!Array.isArray(vehicle.timeline)) vehicle.timeline = [];
+                vehicle.timeline.push({
+                    timestamp: nowISO,
+                    user: approverName || 'Aprobador',
+                    action: 'Devuelto al liberador',
+                    data: { status: 'ready-release', reason: reason, gases: (gr.mismatch && gr.mismatch.gases) || [] }
+                });
+
+                if (saveDB() === false) {
+                    showToast('⚠️ Sin espacio: no se pudo guardar la devolución. Libera espacio en Datos → Sistema.', 'error');
+                    return;
+                }
+                auditLog('cop15', 'returned_to_releaser', { type: 'vehicle', id: vehicle.id, label: vehicle.vin },
+                    'Devuelto por ' + (approverName || '?') + ': ' + reason);
+
+                document.getElementById('globalModal').style.display = 'none';
+                showToast('↩️ Devuelto al liberador. Debe recapturar y firmar de nuevo.', 'success');
+                refreshAllLists();
+                updateProgressBar();
+                document.getElementById('approvalVehSelect').value = '';
+                document.getElementById('appr-content').style.display = 'none';
+                if (typeof emitEvent === 'function') emitEvent('vehicle:returned', { vehicle: vehicle, reason: reason });
+            }}
+        ]
     });
 }
 

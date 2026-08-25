@@ -603,6 +603,31 @@ localStorage. Confundir ambas cosas fue la duda del usuario cuando se llenó.
   que escriba en varios módulos debe (1) llamar `_releasePreflightStorage(label[, bytes])` antes de
   mutar y (2) abortar la cascada si `saveDB()` devuelve `false`.
 
+## v18.2 — Devolución al liberador + unidades de captura (`gasConvert`, `returnToReleaser`)
+
+- **`gasConvert(v, from, to)` (app.js) es LA definición** de la conversión entre unidades de gas
+  (base g/km; `g/mi` = 1/1.609344). Ante una unidad desconocida devuelve el valor **sin tocar**.
+  `gasCaptureUnit(gas)` es LA forma de saber en qué unidad se teclea un gas.
+- **`gas.captureUnit` es SOLO presentación.** El valor se guarda siempre en `gas.unit` (la del
+  límite). `_libCollectGasValues` convierte en la frontera de lectura y `_libRenderGasEntry` en la
+  de escritura — por eso comparación, PDF, SPC y CoP no cambiaron. **Todo código nuevo que lea un
+  input de gas debe pasar por `_libCollectGasValues`**, nunca leer `input.value` directo. Un perfil
+  sin `captureUnit` se comporta igual que antes de v18.2.
+- **`_libNormalizeVal` usa cifras significativas (9), no decimales fijos.** Redondear a 3 decimales
+  guardaba NOx `0.0013` como `0.001` y hacía que `0.0013` y `0.0014` se dieran por coincidentes en
+  el doble ciego. No volver a redondear a decimales fijos: los gases viven en 1e-3 g/km.
+- **No forzar mayúsculas en `gas.field`.** Los valores de cada vehículo están indexados por esa
+  clave exacta (`NOx`), así que normalizarla a `NOX` deja huérfano el histórico.
+- **`showModal` soporta `body` (HTML) + `buttons` (lista propia)** además de `message`/`confirmText`.
+  El editor de Regulaciones ya llamaba con esa forma y salía **vacío** — el modal era inusable.
+  Los llamadores cierran con `document.getElementById('globalModal').style.display='none'`; el
+  overlay lleva ese id y se completa el cierre tras el `onclick`.
+- **`returnToReleaser()`** (cop15.js) devuelve `pending-approval` → `ready-release`, borra
+  `gasResults.liberador` y `signatures.releaser`, exige motivo ≥5 chars, y escribe
+  `returnHistory[]` (permanente) + `pendingReturn` (aviso, se borra al reenviar). **El motivo no
+  debe contener los valores del aprobador** — la UI lo advierte, porque dictarlos anula el doble
+  ciego.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

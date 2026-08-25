@@ -2,6 +2,61 @@
 
 All notable changes to this project, organized by development round.
 
+## v18.2 — Devolver al liberador + unidades de captura de gases (2026-08-25)
+
+Reportado desde el laboratorio con un escenario simulado a propósito: el liberador transcribe mal
+un gas, el aprobador lo captura bien, y **el aprobador se queda sin salida** — el botón de aprobar
+está deshabilitado y no hay forma de pedir la corrección.
+
+### Devolver al liberador
+
+- **`returnToReleaser()`** regresa el vehículo a `ready-release`, borra `gasResults.liberador` y la
+  firma del liberador (tiene que recapturar y volver a firmar) y limpia la alarma de desacuerdo.
+- **Exige un motivo (≥5 caracteres)** y advierte explícitamente que no se escriban ahí los valores
+  propios: si el aprobador le dicta el número, la verificación doble ciego deja de servir.
+- `vehicle.returnHistory[]` guarda cada devolución (quién, cuándo, por qué, qué gases) como
+  registro permanente; `vehicle.pendingReturn` es el aviso que ve el liberador y se apaga al
+  reenviar. Timeline + `auditLog('returned_to_releaser')`.
+- El botón se resalta automáticamente cuando hay desacuerdo.
+
+### Unidades de captura (`captureUnit`)
+
+El banco entrega CO/THC/NOx/NMHC en **mg/km** y CO₂ en **g/km**, mientras que el límite vive en
+g/km: el técnico dividía entre 1000 de cabeza y tecleaba `.0243` a partir de un `24.3`. Ahí se
+colaba el error de transcripción.
+
+- **`gasConvert(v, from, to)` es LA definición** de la conversión (base g/km; `g/mi` = 1/1.609344).
+  Ante una unidad desconocida devuelve el valor **sin tocar** — nunca corrompe un dato por un typo.
+- `captureUnit` es **solo** cómo se teclea y se muestra. `_libCollectGasValues` convierte a `g.unit`
+  en la frontera de lectura, así que comparación, PDF, SPC y CoP **no cambiaron una línea** y el
+  histórico sigue siendo válido. Un perfil sin `captureUnit` se comporta exactamente como antes.
+- El límite se muestra convertido (CO 1 g/km → **1000 mg/km**) para comparar contra lo tecleado.
+- Editor: columna **Captura** por gas + preset **"⚡ Captura como el banco"** (todo en mg salvo CO₂,
+  respetando la base km/mi del perfil). Soporta `g/km`, `mg/km`, `g/mi`, `mg/mi`.
+
+### Corregido (preexistente, encontrado al implementar)
+
+- **El editor de Regulaciones nunca funcionó.** `_pnRegShowModal` llamaba `showModal({body, buttons})`
+  pero `showModal` solo entendía `message`/`confirmText`: el modal salía **vacío**, con "Cancelar/
+  Aceptar" y sin un solo campo. Verificado en navegador antes y después. `showModal` ahora soporta
+  `body` + `buttons` (con el id `globalModal` que los llamadores ya usaban para cerrar).
+- **Pérdida de precisión en los gases.** `_libNormalizeVal` redondeaba a **3 decimales fijos**:
+  NOx `0.0013` g/km se guardaba como `0.001` (−23%), y `0.0013` vs `0.0014` quedaban idénticos, así
+  que el doble ciego los daba por **coincidentes**. Ahora conserva 9 cifras significativas.
+- **Las claves de gas se conservan.** El editor hacía `.toUpperCase()`, así que guardar un perfil
+  convertía `NOx` en `NOX` y dejaba huérfano todo el histórico de ese gas. Latente mientras el modal
+  estuvo roto; activo en cuanto se arregló.
+
+### Verificación
+
+`test_gasunits.js` (32) con los valores reales del reporte: 24.3 mg/km → 0.0243 g/km exacto, ida y
+vuelta sin pérdida, km↔mi, y que una unidad desconocida o un campo vacío nunca alteran el dato.
+`test_return_flow.js` (24) en navegador: captura en mg/km, detección del desacuerdo, rechazo de un
+motivo corto, devolución completa (estado, valores y firma borrados, historial, auditoría) y que el
+aviso al liberador **no filtra** el valor del aprobador. Los 15 archivos de prueba pasan.
+
+---
+
 ## v18.1 — Almacenamiento local: la fuga que impedía liberar vehículos (2026-08-25)
 
 Reportado desde producción: `Datos → Sistema` marcaba **5.02 MB / 5 MB (100.4%)** con **"Otros"

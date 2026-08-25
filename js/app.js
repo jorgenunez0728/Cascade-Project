@@ -210,11 +210,20 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '18.1';
+var APP_VERSION = '18.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '18.2', date: '25 ago 2026', title: 'Devolver al liberador + capturar los gases en las unidades del reporte', bullets: [
+        'El aprobador ya puede DEVOLVER una prueba al liberador cuando los valores no coinciden. Antes se quedaba atorado: el botón de aprobar estaba deshabilitado y no había salida.',
+        'Al devolver se borran los valores y la firma del liberador para que los capture de nuevo, y él ve el motivo al abrir Liberación. Tus valores nunca se le muestran: el doble ciego sigue intacto.',
+        'Cada devolución queda registrada (quién, cuándo, por qué) en la línea de tiempo y en la auditoría.',
+        'Los gases se pueden capturar en las mismas unidades del reporte del banco: si trae 24.3 mg/km, tecleas 24.3 en vez de 0.0243. Se configura por gas en Datos → Regulaciones, con un botón "Captura como el banco" que pone todo en mg salvo CO₂.',
+        'También se puede capturar en g/mi o mg/mi para las regulaciones americanas. El valor SIEMPRE se guarda en la unidad del límite, así que nada de lo ya registrado cambia.',
+        'Corregido: el editor de Regulaciones abría vacío (solo Cancelar/Aceptar) — nunca se pudo editar un perfil desde la app.',
+        'Corregido: los valores de gases se redondeaban a 3 decimales, así que NOx 0.0013 g/km se guardaba como 0.001 y dos lecturas distintas (0.0013 y 0.0014) se daban por coincidentes en la verificación doble ciego.'
+    ]},
     { version: '18.1', date: '25 ago 2026', title: 'Se acabó el "almacenamiento lleno" que no dejaba liberar vehículos', bullets: [
         'Causa encontrada: el historial de fusiones entre dispositivos guardaba las últimas 20 fusiones con una COPIA COMPLETA de la base de datos, el plan y el inventario en cada una (~500 KB por fusión, hasta 10 MB). Ahora solo la fusión más reciente conserva su respaldo — que es la única que se podía deshacer.',
         'Al abrir la app se limpia sola: respaldos de fusión que ya nadie podía usar, borradores de captura caducados y respaldos de restauración vencidos.',
@@ -661,6 +670,61 @@ var DEFAULT_REGULATION_PROFILES = [
         ]
     }
 ];
+
+// ======================================================================
+// [M-GASUNITS] Unidades de captura de gases
+// ======================================================================
+// El banco entrega CO/THC/NOx/NMHC en mg/km y CO₂ en g/km, mientras que el
+// límite de la regulación vive en g/km: el técnico tenía que dividir entre 1000
+// de cabeza y teclear ".0243" a partir de un "24.3" del reporte. Ahí se cuela el
+// error de transcripción.
+//
+// SOLO cambia CÓMO SE TECLEA Y SE MUESTRA. El valor SIEMPRE se guarda en la
+// unidad del límite (`gas.unit`), así que comparaciones, PDF, SPC y CoP no se
+// enteran de nada y los datos históricos siguen siendo válidos.
+//
+// Factores relativos a g/km: valor_en_g_por_km = valor * FACTOR[unidad]
+var GAS_UNIT_FACTORS = {
+    'g/km':  1,
+    'mg/km': 0.001,
+    'g/mi':  1 / 1.609344,        // 1 g/mi recorre 1 mi = 1.609344 km
+    'mg/mi': 0.001 / 1.609344
+};
+var GAS_UNIT_OPTIONS = ['g/km', 'mg/km', 'g/mi', 'mg/mi'];
+
+/** Quita el ruido de coma flotante (24.3*0.001 = 0.024300000000000002). */
+function _gasTidy(v) {
+    if (v === null || v === undefined || !isFinite(v)) return v;
+    if (v === 0) return 0;
+    return parseFloat(v.toPrecision(10));
+}
+
+/**
+ * Convierte un valor de gas entre unidades por distancia.
+ * Si alguna unidad no se reconoce devuelve el valor SIN TOCAR — nunca se
+ * corrompe un dato por un typo en el perfil de regulación.
+ */
+function gasConvert(value, fromUnit, toUnit) {
+    if (value === null || value === undefined || value === '') return value;
+    var v = typeof value === 'number' ? value : parseFloat(value);
+    if (isNaN(v)) return value;
+    if (!fromUnit || !toUnit || fromUnit === toUnit) return v;
+    var f = GAS_UNIT_FACTORS[fromUnit], t = GAS_UNIT_FACTORS[toUnit];
+    if (!f || !t) return v;
+    return _gasTidy(v * f / t);
+}
+
+/** Unidad en la que se teclea un gas: su captureUnit, o la del límite. */
+function gasCaptureUnit(gas) {
+    if (!gas) return 'g/km';
+    var u = gas.captureUnit;
+    return (u && GAS_UNIT_FACTORS[u]) ? u : (gas.unit || 'g/km');
+}
+
+/** Paso del <input type=number> acorde a la magnitud de la unidad. */
+function gasInputStep(unit) {
+    return (unit === 'mg/km' || unit === 'mg/mi') ? '0.1' : '0.0001';
+}
 
 function loadRegulations() {
     if (_regulationsData) return _regulationsData;
@@ -1274,20 +1338,38 @@ function showModal(opts) {
     overlay.setAttribute('aria-label', title || 'Diálogo');
 
     var icons = {danger:'⚠️',warning:'⚡',info:'ℹ️',success:'✅'};
+
+    // [v18.2] Modal de formulario: `body` (HTML libre) + `buttons` (lista propia).
+    // El editor de Regulaciones y otras pantallas ya llamaban con esta forma, pero
+    // showModal solo entendía `message`/`confirmText`: el modal salía VACÍO, con
+    // "Cancelar/Aceptar" y sin un solo campo — editar un perfil era imposible.
+    // El id 'globalModal' existe porque esos llamadores cierran con
+    // document.getElementById('globalModal').style.display = 'none'.
+    var customBtns = Array.isArray(opts.buttons) && opts.buttons.length > 0 ? opts.buttons : null;
+    var content = opts.body != null ? opts.body : message;
+    overlay.id = 'globalModal';
+
     var box = document.createElement('div');
     box.className = 'custom-modal-box' + (isLight ? ' modal-light' : '');
+    var actionsHtml = '';
+    if (customBtns) {
+        customBtns.forEach(function(b, i) {
+            var cls = b.cls === 'btn-primary' ? 'modal-btn-confirm modal-type-' + type : 'modal-btn-cancel';
+            actionsHtml += '<button class="' + cls + '" data-modal-btn="' + i + '">' + (b.label || '') + '</button>';
+        });
+    } else {
+        actionsHtml = (showCancel ? '<button class="modal-btn-cancel" id="_modal_cancel">' + cancelText + '</button>' : '')
+                    + '<button class="modal-btn-confirm modal-type-' + type + '" id="_modal_confirm">' + confirmText + '</button>';
+    }
     box.innerHTML = '<div class="custom-modal-title">' + (icons[type]||'') + ' ' + title + '</div>' +
-        '<div class="custom-modal-message">' + message + '</div>' +
-        '<div class="custom-modal-actions">' +
-        (showCancel ? '<button class="modal-btn-cancel" id="_modal_cancel">' + cancelText + '</button>' : '') +
-        '<button class="modal-btn-confirm modal-type-' + type + '" id="_modal_confirm">' + confirmText + '</button>' +
-        '</div>';
+        '<div class="custom-modal-message">' + content + '</div>' +
+        '<div class="custom-modal-actions">' + actionsHtml + '</div>';
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
     var confirmBtn = box.querySelector('#_modal_confirm');
     var cancelBtn = box.querySelector('#_modal_cancel');
-    confirmBtn.focus();
+    if (confirmBtn) confirmBtn.focus();
 
     function close() {
         if (overlay.parentNode) {
@@ -1315,7 +1397,20 @@ function showModal(opts) {
         }
     });
 
-    confirmBtn.addEventListener('click', function(){ close(); if(onConfirm) onConfirm(); });
+    if (customBtns) {
+        box.querySelectorAll('[data-modal-btn]').forEach(function(el) {
+            el.addEventListener('click', function() {
+                var spec = customBtns[parseInt(el.getAttribute('data-modal-btn'), 10)];
+                if (spec && typeof spec.onclick === 'function') spec.onclick();
+                // El llamador cierra poniendo display:none sobre 'globalModal';
+                // aquí se completa el cierre (quitar el nodo, devolver el foco).
+                if (overlay.style.display === 'none') close();
+            });
+        });
+        var _firstInput = box.querySelector('input, textarea, select');
+        if (_firstInput) { try { _firstInput.focus(); } catch(e) {} }
+    }
+    if (confirmBtn) confirmBtn.addEventListener('click', function(){ close(); if(onConfirm) onConfirm(); });
     if (cancelBtn) cancelBtn.addEventListener('click', function(){ close(); if(onCancel) onCancel(); });
     overlay.addEventListener('click', function(e){ if(e.target === overlay){ close(); if(onCancel) onCancel(); } });
 }
