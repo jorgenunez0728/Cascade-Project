@@ -628,6 +628,33 @@ localStorage. Confundir ambas cosas fue la duda del usuario cuando se llenó.
   debe contener los valores del aprobador** — la UI lo advierte, porque dictarlos anula el doble
   ciego.
 
+## v18.5 — Permisos de usuario (`_pnEnsureAdminExists`, `_authNormalizeRole`)
+
+- **`AUTH_ROLE_PERMS` (auth.js) es LA definición de permisos** y los roles son fijos (no hay
+  permisos sueltos por persona). Las competencias certificadas otorgan permisos extra vía
+  `grants`/`minLvl` del catálogo (`_authSkillGrants`) — esa es la única vía de ajuste fino.
+- **Nunca comparar `op.role` contra el mapa directo.** `_authNormalizeRole(role)` es LA forma de
+  empatar un rol (ignora mayúsculas, acentos y espacios) y `authRoleHas(role, perm)` la de
+  preguntar sin sesión de por medio. El lookup literal dejaba a `'SUPERVISOR'` o `' Supervisor'`
+  con **cero permisos en silencio**.
+- **El laboratorio nunca debe quedar sin alguien con `users.manage`.** `_pnEnsureAdminExists()`
+  (final de `pnInit`, que corre **antes** de `authInit`) lo garantiza: era un candado circular —
+  todos nacen `Técnico`, pero cambiar un rol exige `users.manage`, así que nadie podía otorgar el
+  permiso para otorgar permisos (issues #100/#103/#105). Es idempotente.
+- **`authState.currentUser.role` es una COPIA** tomada al iniciar sesión. Todo código que cambie un
+  rol debe llamar **`authRefreshCurrentRole()`** (lo hace `pnOpUpdate`), o el cambio no aplica hasta
+  recargar. Y `can()` en el componente Alpine lee `_dataVersion` para que los `:disabled` se
+  reevalúen.
+- **El candado va en la capa de datos, no solo en la vista.** `pnOpAdd/Update/SetActive/Delete/
+  UpdateProfile/SetSkill` llevan su propio `authRequire`; ocultar el botón es UX, no seguridad.
+- **Nunca meter objetos de Alpine en `pnState`.** `_syncAndSave` hacía `pnState.operators =
+  this.operators`, metiendo el Proxy reactivo: a partir de ahí las reasignaciones dejaban de
+  disparar repintado (**sin lanzar errores**) y `pnSave` serializaba los hashes de PIN a través del
+  proxy. Los `pnOp*` mutan `pnState` directamente; lo que venga de Alpine se desenvuelve primero.
+- **La identidad de un operador es su `id`.** El merge de sync clava por id (antes `id|nombre`, y
+  `'Jorge Nuñez'` vs `'Jorge Núñez'` sobrevivían duplicados mientras la sesión tomaba el primero);
+  `_pnDedupeOperators()` repara los duplicados al arrancar, conservando PIN y competencias.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

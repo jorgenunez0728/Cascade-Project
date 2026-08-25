@@ -35,14 +35,67 @@ var AUTH_ROLE_PERMS = {
 };
 
 /**
+ * Empata un rol escrito de cualquier forma contra las claves de AUTH_ROLE_PERMS.
+ *
+ * El lookup era literal (`AUTH_ROLE_PERMS[u.role]`), así que ' Supervisor',
+ * 'SUPERVISOR' o 'Tecnico' sin acento daban `[]` — cero permisos, en silencio y
+ * sin ningún aviso. Los roles llegan de tres fuentes que nadie normaliza: el
+ * prompt() del editor, el merge de Firebase y ediciones a mano.
+ *
+ * @returns {string|null} la clave canónica ('Supervisor'), o null si no existe.
+ */
+function _authNormalizeRole(role) {
+    if (!role) return null;
+    var want = String(role).trim().toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '');
+    if (!want) return null;
+    var keys = Object.keys(AUTH_ROLE_PERMS);
+    for (var i = 0; i < keys.length; i++) {
+        var k = keys[i].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        if (k === want) return keys[i];
+    }
+    return null;
+}
+
+/** ¿Este rol otorga este permiso? Sin sesión de por medio — sirve para auditar un roster. */
+function authRoleHas(role, perm) {
+    var canon = _authNormalizeRole(role);
+    if (!canon) return false;
+    var list = AUTH_ROLE_PERMS[canon] || [];
+    return list.indexOf('*') !== -1 || list.indexOf(perm) !== -1;
+}
+
+/**
+ * Relee el rol del roster hacia la sesión en curso.
+ *
+ * `authState.currentUser.role` es una COPIA tomada al iniciar sesión, así que
+ * cambiar el rol en pnState.operators no surtía efecto hasta el siguiente tick de
+ * authSessionCheck (o una recarga): promover a alguien dejaba su pantalla igual de
+ * gris. Se llama desde ese tick y desde pnOpUpdate al cambiar un rol.
+ *
+ * @returns {boolean} true si el rol cambió
+ */
+function authRefreshCurrentRole() {
+    if (!authState || !authState.currentUser) return false;
+    var live = _authFindOperator(authState.currentUser.id);
+    if (!live) return false;
+    var fresh = _authNormalizeRole(live.role) || 'Técnico';
+    if (fresh === authState.currentUser.role) return false;
+    authState.currentUser.role = fresh;
+    if (typeof auditLog === 'function') {
+        auditLog('auth', 'role_refreshed', { type: 'operator', label: live.name }, 'Nuevo rol: ' + fresh);
+    }
+    return true;
+}
+
+/**
  * ¿La sesión actual tiene este permiso? Devuelve false sin sesión.
  * USAR SÓLO PARA OCULTAR UI. La comprobación real es authRequire().
  */
 function authCan(perm) {
     var u = authGetCurrentUser();
     if (!u) return false;
-    var list = AUTH_ROLE_PERMS[u.role] || [];
-    if (list.indexOf('*') !== -1 || list.indexOf(perm) !== -1) return true;
+    if (authRoleHas(u.role, perm)) return true;
     return _authSkillGrants(u.id, perm);
 }
 
@@ -223,10 +276,7 @@ function authSessionCheck() {
         return;
     }
     // Rol siempre fresco desde el roster (una degradación surte efecto de inmediato)
-    if ((live.role || 'Técnico') !== authState.currentUser.role) {
-        authState.currentUser.role = live.role || 'Técnico';
-        if (typeof auditLog === 'function') auditLog('auth', 'role_refreshed', { type: 'operator', label: live.name }, 'Nuevo rol: ' + authState.currentUser.role);
-    }
+    authRefreshCurrentRole();
     if (Date.now() - _authLastActivity > AUTH_IDLE_MS) {
         _authForceLogin('Sesión bloqueada por inactividad. Ingresa tu PIN.');
     }
@@ -682,11 +732,14 @@ function authBypassLogin() {
     // bypass de administrador queda deshabilitado (no es una puerta trasera)
     var anyOp = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.some(function(o) { return !o.deleted; }) : false;
     if (anyOp) { showToast('Selecciona un operador e ingresa tu PIN.', 'error'); return; }
-    authState.currentUser = { id: 0, name: 'Administrador', role: 'Admin' };
+    // 'Admin' NO existe en AUTH_ROLE_PERMS: este bypass creaba un "Administrador"
+    // con CERO permisos, incluido users.manage — justo el que necesita para hacer
+    // lo que el propio toast le pide ("Configura operadores y PINs en Usuarios").
+    authState.currentUser = { id: 0, name: 'Administrador', role: 'Coordinador' };
     authState.sessionActive = true;
     var expiry = new Date(Date.now() + 2 * 3600000); // 2 hours for admin bypass
     authState.sessionExpiry = expiry;
-    var session = { operatorId: 0, operatorName: 'Administrador', role: 'Admin', loginAt: new Date().toISOString(), expiresAt: expiry.toISOString() };
+    var session = { operatorId: 0, operatorName: 'Administrador', role: 'Coordinador', loginAt: new Date().toISOString(), expiresAt: expiry.toISOString() };
     localStorage.setItem(AUTH_LS_KEY, JSON.stringify(session));
 
     var overlay = document.getElementById('auth-overlay');

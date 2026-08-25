@@ -1184,6 +1184,16 @@
         <div x-show="activeTab === 'pn-users'" style="padding:12px 0;">
             <div id="help-banner-slot-pn-users"></div>
 
+            <!-- Antes, sin permiso, los 22 campos salían en gris SIN ninguna
+                 explicación y parecía que la app estaba rota (issues #100/#103/#105). -->
+            <div x-show="!can('users.manage')"
+                 style="margin-bottom:10px;padding:10px 12px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);border-radius:8px;font-size:13px;line-height:1.55;color:var(--tp-text);">
+                🔒 Tu rol (<b x-text="myRole()"></b>) permite <b>ver</b> esta pantalla, pero no editarla.
+                Para dar de alta operadores, cambiar roles o certificar competencias hace falta
+                <b x-text="rolesQuePueden('users.manage')"></b>.
+                <span x-show="can('users.skills')">Sí puedes certificar competencias.</span>
+            </div>
+
             <!-- [Fase 3] Selector de vista: Operadores / Matriz de habilidades -->
             <div class="view-mode-toggle" style="margin-bottom:10px;" x-show="usersView !== 'profile'">
                 <button :class="usersView === 'list' ? 'active' : ''" @click="usersView = 'list'">👤 Operadores</button>
@@ -1384,6 +1394,15 @@
                                 </div>
                             </div>
                             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
+                                <div>
+                                    <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Rol (permisos)</label>
+                                    <select class="tp-select" style="width:100%;" :disabled="!can('users.manage')"
+                                            @change="setProfileRole(profileOp().id, $event.target.value)">
+                                        <template x-for="r in roles" :key="r">
+                                            <option :value="r" :selected="profileOp().role === r" x-text="r"></option>
+                                        </template>
+                                    </select>
+                                </div>
                                 <div>
                                     <label style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Nivel</label>
                                     <select class="tp-select" style="width:100%;" :disabled="!can('users.manage')"

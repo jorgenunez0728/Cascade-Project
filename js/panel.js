@@ -364,6 +364,9 @@ function pnSkillCoverage(skillId) {
 
 /** Asigna/actualiza una habilidad. Calcula el vencimiento desde recertMonths. */
 function pnOpSetSkill(opId, skillId, lvl, meta) {
+    // Certificar otorga permisos (ver `grants` en el catálogo): el candado no puede
+    // vivir solo en la vista.
+    if (typeof authRequire === 'function' && !authRequire('users.skills', 'certificar habilidades')) return false;
     var ops = pnState.operators || [];
     var op = null;
     for (var i = 0; i < ops.length; i++) { if (String(ops[i].id) === String(opId)) { op = ops[i]; break; } }
@@ -456,8 +459,17 @@ function pnOpUpdate(opId, patch) {
         if (/[<>]/.test(nm)) { showToast('El nombre no puede contener < o >', 'error'); return false; }
         op.name = nm;
     }
-    if (patch.role !== undefined && PN_ROLES.indexOf(patch.role) !== -1) op.role = patch.role;
+    if (patch.role !== undefined && patch.role !== null && patch.role !== '') {
+        // Normaliza antes de validar: ' supervisor' o 'SUPERVISOR' se aceptaban
+        // como distintos de la clave real y se descartaban sin decir nada.
+        var wantRole = (typeof _authNormalizeRole === 'function') ? _authNormalizeRole(patch.role) : patch.role;
+        if (wantRole && PN_ROLES.indexOf(wantRole) !== -1) op.role = wantRole;
+        else { showToast('Rol no reconocido: "' + patch.role + '". Válidos: ' + PN_ROLES.join(', '), 'error'); return false; }
+    }
     op.updatedAt = new Date().toISOString();
+    // Si el rol que cambió es el de quien está usando la app, su sesión guarda una
+    // COPIA del rol: sin esto los permisos no aplican hasta recargar.
+    if (typeof authRefreshCurrentRole === 'function') authRefreshCurrentRole();
     _pnOpAfterChange();
     if (typeof auditLog === 'function') auditLog('pn', 'operator_updated', { type: 'operator', id: op.id, label: op.name }, 'Rol: ' + op.role);
     return true;
@@ -502,6 +514,9 @@ var PN_ROLES = ['Técnico', 'Supervisor', 'Ingeniero', 'Coordinador', 'Practican
 
 /** Actualiza campos de perfil (no credenciales, no habilidades). */
 function pnOpUpdateProfile(opId, patch) {
+    // El candado vivía SOLO en el método Alpine `saveProfile`; cualquier llamador
+    // nuevo de la capa de datos escribía sin permiso. Defensa en profundidad.
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'editar el perfil')) return false;
     var ops = pnState.operators || [];
     var op = null;
     for (var i = 0; i < ops.length; i++) { if (String(ops[i].id) === String(opId)) { op = ops[i]; break; } }
@@ -541,6 +556,111 @@ function pnInit() {
     if (!pnState.tasks) pnState.tasks = []; // v15.9: tareas manuales del tablero HOY
     if (!pnState.projects) pnState.projects = []; // v16.6: seguimiento de proyectos/eventos
     pnMigrateOperators();
+    _pnDedupeOperators();
+    _pnEnsureAdminExists();
+}
+
+/**
+ * Un mismo operador podía sobrevivir duplicado: el merge de la nube empata por
+ * `id|nombre` (firebase-sync.js) pero la sesión lo busca SOLO por id y se queda con
+ * el primero. Con "Jorge Nuñez" y "Jorge Núñez" (misma id, grafía distinta) el
+ * ganador podía ser el marcador provisional sin permisos.
+ * Mismo patrón que dedupeVehicleIds() (app.js) para vehículos.
+ * @returns {number} cuántos duplicados se fusionaron
+ */
+function _pnDedupeOperators() {
+    var ops = pnState.operators || [];
+    var byId = {}, out = [], merged = 0;
+    ops.forEach(function(o) {
+        if (!o || o.id == null) { out.push(o); return; }
+        var k = String(o.id), prev = byId[k];
+        if (!prev) { byId[k] = o; out.push(o); return; }
+        merged++;
+        // Gana el real sobre el provisional; a igualdad, el de fecha más reciente.
+        var takeNew = (prev.provisional && !o.provisional) ||
+            (!!prev.provisional === !!o.provisional &&
+             (o.updatedAt || o.createdAt || '') > (prev.updatedAt || prev.createdAt || ''));
+        if (!takeNew) return;
+        // Conserva credenciales de cualquiera de los dos: perderlas deja a alguien fuera.
+        var keep = Object.assign({}, o);
+        keep.pinHash2 = o.pinHash2 || prev.pinHash2;
+        keep.pinHash  = o.pinHash  || prev.pinHash;
+        if (!keep.skills || !Object.keys(keep.skills).length) keep.skills = prev.skills;
+        byId[k] = keep;
+        out[out.indexOf(prev)] = keep;
+    });
+    if (merged > 0) {
+        pnState.operators = out;
+        pnSave();
+        if (typeof auditLog === 'function') {
+            auditLog('pn', 'operadores_deduplicados', { type: 'sistema', label: 'Operadores' },
+                'Se fusionaron ' + merged + ' registro(s) duplicado(s) por id');
+        }
+    }
+    return merged;
+}
+
+/**
+ * Garantiza que SIEMPRE exista alguien que pueda administrar usuarios.
+ *
+ * El candado era circular: todos los operadores nacen 'Técnico' (arriba y en
+ * pnOpAdd), pero cambiar un rol exige `users.manage`, que solo tienen Supervisor
+ * y Coordinador. Nadie podía otorgarse ni otorgar el permiso para otorgar
+ * permisos, así que la pantalla de Usuarios quedaba muerta: 22 campos en gris,
+ * sin errores ni explicación (issues #100, #103, #105).
+ *
+ * Corre al final de pnInit(), que se ejecuta ANTES de authInit() — así la sesión
+ * ya lee el rol corregido. Es idempotente: si ya hay administrador, no toca nada.
+ * @returns {string} nombre del operador promovido, o '' si no hizo falta
+ */
+function _pnEnsureAdminExists() {
+    var ops = pnState.operators || [];
+    if (!ops.length) return '';
+    var changed = false;
+
+    // 1) Normalizar roles: un rol fuera del mapa daba CERO permisos en silencio.
+    if (typeof _authNormalizeRole === 'function') {
+        ops.forEach(function(o) {
+            if (!o) return;
+            var canon = _authNormalizeRole(o.role);
+            if (canon && canon !== o.role) { o.role = canon; changed = true; }
+            else if (!canon && o.role !== 'Técnico') { o.role = 'Técnico'; changed = true; }
+        });
+    }
+
+    var isActive = function(o) { return o && !o.deleted && o.active !== false; };
+    var hasAdmin = function(o) {
+        return typeof authRoleHas === 'function' && authRoleHas(o.role, 'users.manage');
+    };
+    if (ops.some(function(o) { return isActive(o) && hasAdmin(o); })) {
+        if (changed) pnSave();
+        return '';
+    }
+
+    // 2) Nadie puede administrar. Se promueve al jefe de laboratorio si está en el
+    //    roster; si no, al primer operador activo, para que el laboratorio nunca
+    //    quede sin quien reparta permisos.
+    var norm = function(s) {
+        return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    };
+    var target = null;
+    for (var i = 0; i < ops.length; i++) {
+        if (isActive(ops[i]) && norm(ops[i].name) === 'jorge nunez') { target = ops[i]; break; }
+    }
+    if (!target) { for (var j = 0; j < ops.length; j++) { if (isActive(ops[j])) { target = ops[j]; break; } } }
+    if (!target) { if (changed) pnSave(); return ''; }
+
+    var before = target.role;
+    target.role = 'Coordinador';
+    // Sella la fecha para ganar el merge por `updatedAt` y que el rol se propague.
+    target.updatedAt = new Date().toISOString();
+    pnSave();
+    if (typeof auditLog === 'function') {
+        auditLog('auth', 'rol_desbloqueado', { type: 'operator', id: target.id, label: target.name },
+            'Ningún operador activo podía administrar usuarios; ' + target.name +
+            ' pasó de "' + (before || 'sin rol') + '" a Coordinador');
+    }
+    return target.name;
 }
 
 /**
@@ -1254,6 +1374,63 @@ function pnAddOperator() {
     if (!id) { if (typeof shakeElement === 'function') shakeElement(name); return; }
     name.value = '';
     showToast('Operador agregado', 'success');
+}
+
+/**
+ * Editor de operador: nombre + rol, con los permisos de cada rol a la vista.
+ *
+ * Reemplaza dos prompt() crudos encadenados que pedían el rol TECLEADO A MANO;
+ * si se escribía mal, pnOpUpdate lo descartaba en silencio y el usuario creía
+ * haberlo cambiado. Usa showModal({body, buttons}) (app.js, v18.2).
+ */
+function pnOpEditModal(opId) {
+    if (typeof authRequire === 'function' && !authRequire('users.manage', 'editar operadores')) return;
+    var op = pnOpFind(opId);
+    if (!op) { showToast('Operador no encontrado', 'error'); return; }
+
+    var permsOf = function(r) {
+        if (typeof AUTH_ROLE_PERMS === 'undefined') return '';
+        var l = AUTH_ROLE_PERMS[r] || [];
+        return l.indexOf('*') !== -1 ? 'todos los permisos' : l.length + ' permisos';
+    };
+    var opts = PN_ROLES.map(function(r) {
+        return '<option value="' + escapeHtml(r) + '"' + (r === op.role ? ' selected' : '') + '>'
+             + escapeHtml(r) + ' — ' + permsOf(r) + '</option>';
+    }).join('');
+    // Quién puede administrar usuarios, para que se vea qué se está otorgando.
+    var admins = PN_ROLES.filter(function(r) {
+        return typeof authRoleHas === 'function' && authRoleHas(r, 'users.manage');
+    }).join(', ');
+
+    showModal({
+        title: '✏️ Editar operador',
+        body:
+            '<div style="margin-bottom:12px;">' +
+            '<label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Nombre</label>' +
+            '<input id="pn-edit-op-name" class="form-control" style="width:100%;box-sizing:border-box;" value="' + escapeHtml(op.name || '') + '">' +
+            '</div>' +
+            '<div style="margin-bottom:10px;">' +
+            '<label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Rol</label>' +
+            '<select id="pn-edit-op-role" class="form-control" style="width:100%;box-sizing:border-box;">' + opts + '</select>' +
+            '</div>' +
+            '<div style="padding:8px 10px;background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.3);border-radius:8px;font-size:12px;line-height:1.5;">' +
+            'El rol decide qué puede hacer esta persona. <b>' + escapeHtml(admins) + '</b> pueden además dar de alta operadores y cambiar roles.' +
+            '<br>Las competencias certificadas otorgan permisos adicionales por separado.' +
+            '</div>',
+        buttons: [
+            { label: 'Cancelar', cls: 'btn-secondary', onclick: function() { document.getElementById('globalModal').style.display = 'none'; } },
+            { label: 'Guardar', cls: 'btn-primary', onclick: function() {
+                var nEl = document.getElementById('pn-edit-op-name');
+                var rEl = document.getElementById('pn-edit-op-role');
+                var newName = nEl ? nEl.value.trim() : '';
+                if (!newName) { showToast('El nombre es requerido', 'error'); return; }
+                if (pnOpUpdate(op.id, { name: newName, role: rEl ? rEl.value : undefined })) {
+                    showToast('Operador actualizado', 'success');
+                }
+                document.getElementById('globalModal').style.display = 'none';
+            }}
+        ]
+    });
 }
 
 function pnEditOperator(idx) {
@@ -3049,7 +3226,37 @@ function panelAlpineComponent() {
         // ── Methods — Users ──
         // [Fase 2] Expuesto para ocultar controles según el rol: x-show="can('users.manage')".
         // Ocultar es sólo UX — el candado real es el authRequire() al inicio de cada método.
-        can: function(perm) { return (typeof authCan === 'function') ? authCan(perm) : true; },
+        // _dataVersion se lee (sin usarse) para que Alpine registre esto como
+        // dependencia: sin ella, promover a alguien NO reevaluaba los :disabled y
+        // los campos seguían grises hasta recargar la página. Mismo patrón que
+        // skillCatalogGrouped() y storageData().
+        can: function(perm) {
+            this._dataVersion;
+            return (typeof authCan === 'function') ? authCan(perm) : true;
+        },
+        /** Cambia el rol desde el perfil. Repinta para que los :disabled se reevalúen
+         *  al instante si te cambias el rol a ti mismo. */
+        setProfileRole: function(opId, role) {
+            if (pnOpUpdate(opId, { role: role })) {
+                this._bump();
+                showToast('Rol actualizado a ' + role, 'success');
+            } else {
+                this._bump();   // revierte el <select> al valor real
+            }
+        },
+        /** Rol de quien está usando la app, para explicar por qué algo está bloqueado. */
+        myRole: function() {
+            this._dataVersion;
+            var u = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
+            return u ? (u.role || '—') : 'sin sesión';
+        },
+        /** Roles que sí pueden administrar usuarios — se nombran en el aviso. */
+        rolesQuePueden: function(perm) {
+            if (typeof AUTH_ROLE_PERMS === 'undefined') return '';
+            return Object.keys(AUTH_ROLE_PERMS).filter(function(r) {
+                return typeof authRoleHas === 'function' && authRoleHas(r, perm);
+            }).join(' o ');
+        },
 
         // ── [Fase 3] Perfiles y matriz de habilidades ──
         openProfile: function(opId) { this.profileOpId = opId; this.usersView = 'profile'; },
@@ -3170,6 +3377,8 @@ function panelAlpineComponent() {
         editOperator: function(idx) {
             var op = this.operators[idx];
             if (!op) return;
+            // Modal con selector de rol; antes eran dos prompt() y el rol se tecleaba.
+            if (typeof pnOpEditModal === 'function') { pnOpEditModal(op.id); return; }
             var newName = prompt('Nombre:', op.name);
             if (newName === null) return;
             var newRole = prompt('Rol (' + this.roles.join(', ') + '):', op.role || 'Técnico');
@@ -3355,10 +3564,18 @@ function panelAlpineComponent() {
         calendarDayClick: function(dateStr) { _pnCalendarDayClick(dateStr); },
 
         // ── Helpers ──
+        // Metía el PROXY REACTIVO de Alpine dentro de pnState. A partir de ahí todo
+        // el código clásico (pnOpFind, _authFindOperator, _fbMergeOperators y el
+        // JSON.stringify de pnSave — que serializa los hashes de PIN) trabajaba a
+        // través del proxy, y `this.operators = pnState.operators` dejaba de disparar
+        // repintado porque el valor ya era idéntico: reactividad rota SIN errores.
+        //
+        // `operators` ya NO se copia de vuelta: los pnOp* mutan pnState directamente
+        // y llaman _pnOpAfterChange() (guarda + sincroniza + repinta). Las listas de
+        // bitácora sí se editan desde Alpine, así que se desenvuelven a objetos planos.
         _syncAndSave: function() {
-            pnState.operators = this.operators;
-            pnState.shiftLog = this.shiftLog;
-            pnState.shiftReports = this.shiftReports;
+            pnState.shiftLog = (this.shiftLog || []).map(function(e) { return Object.assign({}, e); });
+            pnState.shiftReports = (this.shiftReports || []).map(function(e) { return Object.assign({}, e); });
             pnSave();
             pnSyncOperators();
         },
