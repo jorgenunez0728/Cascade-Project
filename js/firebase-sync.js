@@ -421,7 +421,9 @@ function fbInit() {
             console.warn('Firebase: Settings already applied:', settingsErr.message);
         }
 
-        // Espacio compartido: todos los dispositivos usan el mismo stationId → un solo dataset del lab
+        // Espacio compartido: todos los dispositivos usan el mismo stationId → un solo dataset del lab.
+        // La reparación va ANTES de forzarlo, para poder avisar de dónde venía.
+        fbRepairStationIfStray();
         fbSync.stationId = FB_SHARED_WORKSPACE;
         try { localStorage.setItem('kia_fb_station', FB_SHARED_WORKSPACE); } catch(e) {}
         fbSync.enabled = true;
@@ -890,16 +892,64 @@ function fbTestConnectionUI() {
     });
 }
 
+/**
+ * Devuelve el dispositivo al espacio compartido. Se llama sola al arrancar
+ * (`fbRepairStationIfStray`) y desde el botón "Reparar" de los ajustes de sync.
+ */
+function fbResetStation() {
+    var was = fbSync.stationId || localStorage.getItem('kia_fb_station') || '';
+    fbSync.stationId = FB_SHARED_WORKSPACE;
+    try { localStorage.setItem('kia_fb_station', FB_SHARED_WORKSPACE); } catch(e) {}
+    fbUpdateIndicator();
+    if (typeof auditLog === 'function' && was && was !== FB_SHARED_WORKSPACE) {
+        auditLog('sistema', 'workspace_reparado', { type: 'sistema', id: 'kia_fb_station', label: 'Espacio de trabajo' },
+            'Este dispositivo estaba en "' + was + '"; se devolvió a ' + FB_SHARED_WORKSPACE);
+    }
+    showToast('✅ Dispositivo devuelto al espacio compartido (' + FB_SHARED_WORKSPACE + ')', 'success');
+    if (fbSync.enabled) { fbUpdateStationMeta(); fbPullAll(true); }
+    var modal = document.getElementById('fbModal');
+    if (modal && modal.style.display === 'block') fbShowSettings();
+}
+
+/**
+ * Autorreparación al arrancar: un dispositivo que quedó apuntando a otra ruta
+ * (por el campo libre que existía antes) no ve los datos del laboratorio NI el
+ * token de reportes, y no hay nada en pantalla que lo explique.
+ * @returns {string} el espacio anterior si hubo que repararlo, '' si estaba bien
+ */
+function fbRepairStationIfStray() {
+    var saved = '';
+    try { saved = localStorage.getItem('kia_fb_station') || ''; } catch(e) { return ''; }
+    if (!saved || saved === FB_SHARED_WORKSPACE) return '';
+    try { localStorage.setItem('kia_fb_station', FB_SHARED_WORKSPACE); } catch(e) {}
+    fbSync.stationId = FB_SHARED_WORKSPACE;
+    if (typeof auditLog === 'function') {
+        auditLog('sistema', 'workspace_reparado', { type: 'sistema', id: 'kia_fb_station', label: 'Espacio de trabajo' },
+            'Al arrancar estaba en "' + saved + '"; se devolvió a ' + FB_SHARED_WORKSPACE);
+    }
+    setTimeout(function() {
+        if (typeof showToast === 'function') {
+            showToast('Este dispositivo estaba fuera del espacio compartido ("' + saved + '") y se reconectó al del laboratorio.', 'warning');
+        }
+    }, 3000);
+    return saved;
+}
+
 // ── Station ID Management ──
+// El espacio de trabajo es UNO y compartido (FB_SHARED_WORKSPACE). fbSetStation
+// sigue existiendo porque es global y puede llamarse desde código viejo o desde
+// la consola, pero ya NO deja apuntar el dispositivo a otra ruta: hacerlo lo
+// desconectaba en silencio del dataset del laboratorio.
 function fbSetStation(id) {
-    if (!id || !id.trim()) {
-        showToast('Ingresa un ID de estacion', 'error');
+    var want = (id || '').trim().toUpperCase();
+    if (want && want !== FB_SHARED_WORKSPACE) {
+        showToast('El espacio de trabajo es compartido y siempre es ' + FB_SHARED_WORKSPACE
+                + '. Para nombrar este equipo usa "Nombre del dispositivo".', 'error');
         return;
     }
-    fbSync.stationId = id.trim().toUpperCase();
+    fbSync.stationId = FB_SHARED_WORKSPACE;
     localStorage.setItem('kia_fb_station', fbSync.stationId);
     fbUpdateIndicator();
-    showToast('Estacion guardada: ' + fbSync.stationId, 'success');
     if (fbSync.enabled) { fbUpdateStationMeta(); fbPushAll(); }
     // Start live sync listeners now that we have a station ID (if already connected)
     if (fbSync.status === 'connected' && !fbSync._liveSync) fbStartListening();
@@ -1794,13 +1844,27 @@ function fbShowSettings() {
         // Connection test
         (hasConfig ? '<div style="margin-bottom:12px;"><button onclick="fbTestConnectionUI()" style="width:100%;padding:8px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Probar conexion a Firestore</button></div>' : '') +
 
-        // Station ID
+        // Espacio de trabajo — SOLO LECTURA.
+        // Antes esto era un campo libre rotulado "ID de Estacion (identifica este
+        // dispositivo)" con ejemplos tipo LAB-TABLET, así que invitaba a escribir el
+        // nombre del equipo. Pero no es una etiqueta: es la RUTA del espacio
+        // compartido en Firestore. Al cambiarlo, el dispositivo se iba a un dataset
+        // privado — dejaba de ver los datos del laboratorio y de encontrar el token
+        // de reportes (que vive en stations/KIA-EMLAB/settings). Para nombrar el
+        // equipo está el campo de abajo.
         '<div style="margin-bottom:12px;">' +
-        '<label style="font-size: var(--fs-xs);color:#94a3b8;">ID de Estacion (identifica este dispositivo)</label>' +
-        '<div style="display:flex;gap:6px;margin-top:4px;">' +
-        '<input id="fb-station-input" value="' + (fbSync.stationId || '') + '" placeholder="ej: CELDA-1, LAB-TABLET" style="flex:1;padding:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:12px;">' +
-        '<button onclick="fbSetStation(document.getElementById(\x27fb-station-input\x27).value)" style="padding:8px 14px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">Guardar</button>' +
-        '</div></div>' +
+        '<label style="font-size: var(--fs-xs);color:#94a3b8;">Espacio de trabajo del laboratorio</label>' +
+        '<div style="display:flex;gap:6px;margin-top:4px;align-items:center;">' +
+        '<div style="flex:1;padding:8px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:12px;font-family:monospace;">' + (fbSync.stationId || FB_SHARED_WORKSPACE) + '</div>' +
+        (fbSync.stationId && fbSync.stationId !== FB_SHARED_WORKSPACE
+            ? '<button onclick="fbResetStation()" style="padding:8px 14px;background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size: var(--fs-sm);">Reparar</button>'
+            : '') +
+        '</div>' +
+        (fbSync.stationId && fbSync.stationId !== FB_SHARED_WORKSPACE
+            ? '<div style="margin-top:6px;padding:8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:6px;font-size:11px;color:#fecaca;line-height:1.5;">'
+              + '<b>Este dispositivo está fuera del espacio compartido.</b> No ve los datos del laboratorio ni puede reportar bugs. Toca <b>Reparar</b> para devolverlo a ' + FB_SHARED_WORKSPACE + '.</div>'
+            : '<div style="margin-top:4px;font-size:11px;color:#64748b;">Es el mismo para todos los equipos del laboratorio. Para nombrar ESTE equipo usa el campo de abajo.</div>') +
+        '</div>' +
 
         // Device name label
         '<div style="margin-bottom:12px;">' +

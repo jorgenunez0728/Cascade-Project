@@ -210,11 +210,17 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '18.2';
+var APP_VERSION = '18.3';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '18.3', date: '25 ago 2026', title: 'Niveles de operador reparados + dispositivos que se salían del laboratorio', bullets: [
+        'Ya se puede cambiar el nivel de competencia de un operador. La tarjeta 🎓 Competencias salía VACÍA, sin un solo selector, por un error de programación — y como el nivel otorga permisos, nadie podía dar ni quitar autoridad. (Reportado con el botón 🐞, issue #100.)',
+        'Un dispositivo podía salirse del laboratorio sin avisar: el campo "ID de Estación" invitaba a escribir el nombre del equipo, pero en realidad es la ruta del espacio compartido en la nube. Al cambiarlo, ese equipo dejaba de ver los datos y de poder reportar bugs.',
+        'Ese campo ya no se puede editar: ahora se muestra el espacio compartido y, si un equipo quedó fuera, se reconecta solo al abrir la app (con aviso y registro en la auditoría). Para nombrar el equipo está "Nombre del dispositivo".',
+        'Corregido un error de Alpine que ensuciaba todos los reportes de bug: la lista de alertas usaba el texto del mensaje como identificador y dos alertas con el mismo texto la rompían.'
+    ]},
     { version: '18.2', date: '25 ago 2026', title: 'Devolver al liberador + capturar los gases en las unidades del reporte', bullets: [
         'El aprobador ya puede DEVOLVER una prueba al liberador cuando los valores no coinciden. Antes se quedaba atorado: el botón de aprobar estaba deshabilitado y no había salida.',
         'Al devolver se borran los valores y la firma del liberador para que los capture de nuevo, y él ve el motivo al abrir Liberación. Tus valores nunca se le muestran: el doble ciego sigue intacto.',
@@ -3640,6 +3646,13 @@ function storageFreeBytes() {
         // cuando no hay sesión activa que dejaría el dispositivo atascado para siempre.
         // Ver "Almacenamiento local" en CLAUDE.md.
         try { storageHousekeeping(); } catch(e) { console.error('storageHousekeeping error:', e); }
+
+        // Devolver el dispositivo al espacio compartido si quedó apuntando a otra
+        // ruta. Va AQUÍ y no dentro de fbInit a propósito: cuando Firestore no está
+        // disponible, fbInit ni siquiera llega a esa línea — y es justo el
+        // dispositivo desconectado el que necesita la reparación.
+        try { if (typeof fbRepairStationIfStray === 'function') fbRepairStationIfStray(); }
+        catch(e) { console.error('fbRepairStationIfStray error:', e); }
 
         // Theme init — apply before any UI renders
         try { themeInit(); } catch(e) { console.error('themeInit error:', e); }
