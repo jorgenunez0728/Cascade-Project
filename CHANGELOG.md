@@ -2,6 +2,73 @@
 
 All notable changes to this project, organized by development round.
 
+## v18.6 — Cuota de sync, cola que perdía liberaciones y PDF sin CDN (2026-08-25)
+
+Reportado desde el laboratorio: el panel de sync marcaba **75/60 escrituras/hora**, **211 operaciones
+bloqueadas hoy** y **50 pendientes en cola**. Más los issues **#107** (PDF) y **#108** (vehículo
+manual que "vuelve a aparecer al recargar").
+
+### El tope era nuestro, no de Firebase
+
+`FB_QUOTA_LIMITS` estaba en **500 escrituras/día**. La cuota gratuita real de Firestore (Spark) es de
+**20.000 escrituras y 50.000 lecturas al día** por proyecto: nos estábamos limitando al **2,5%**, y el
+tope por hora (60) reventaba en un turno normal con varios módulos sincronizando.
+
+Nuevos topes **por dispositivo**: 500/hora y 2.000/día de escritura (1.500 y 10.000 de lectura). Con
+`FB_ASSUMED_DEVICES = 5` equipos **al tope**, el techo entre todos es 10.000/día = **50% de lo
+gratuito**; el uso esperado queda muy por debajo. El panel ahora muestra ese margen real en vez de
+sugerir que el laboratorio está al límite.
+
+### La cola descartaba justo lo más importante — causa de #108
+
+```js
+fbOfflineQueue.sort(function(a, b) { return a.priority - b.priority; });  // 1 = más importante
+if (fbOfflineQueue.length > 50) fbOfflineQueue = fbOfflineQueue.slice(-50);   // ← conserva las ÚLTIMAS
+```
+
+La lista queda ordenada **ascendente**, así que `slice(-50)` conservaba las de **menor** prioridad y
+tiraba las de mayor. `FB_PRIORITY_MAP` da prioridad **1** a `cop15` — las liberaciones de vehículos —
+frente a 3 de `backups` y `merge-history`. **Al llenarse la cola, lo primero en desaparecer eran las
+liberaciones, y sobrevivían los respaldos.**
+
+Esa es la cadena de #108: se archiva el vehículo → se guarda local ✓ → `fbPush('cop15')` lo encola
+porque la cuota está agotada → la cola se desborda y **descarta ese registro** → la nube nunca se
+entera → cualquier pull posterior restituye el estado previo. Corregido a `slice(0, FB_QUEUE_MAX)` y
+el tope de la cola sube de 50 a 200.
+
+### El contador "diario" medía la última hora
+
+`fbQuotaCheck` calculaba `dailyCount` desde `fbQuota.writes.length`, pero ese array lo **poda
+`fbQuotaPrune` a los últimos 60 minutos**. Por eso el panel mostraba el mismo `75` en "por hora" y en
+"límite diario", y el tope diario no podía dispararse nunca (60/hora salta mucho antes). Se añaden
+acumuladores `dayWrites`/`dayReads` que solo se reinician al cambiar de día.
+
+### #107 — el PDF mostraba el aviso y no generaba archivo
+
+`generateCOP15PDF` hacía `const { jsPDF } = window.jspdf;` **sin guarda**, y eso lanza al
+desestructurar `undefined` — pero **después** de `showOverlayLoading('Generando PDF...')`, así que el
+aviso quedaba pegado, sin archivo y sin error legible. Ocurre cuando la librería no cargó: la red del
+laboratorio bloquea CDNs (el mismo motivo por el que Alpine ya estaba vendorizado, y por el que esa
+laptop no llega a Firestore).
+
+- **jsPDF vendorizado** (`vendor/jspdf.umd.min.js`, inyectado por `build.sh` con el mismo patrón de
+  Alpine). El PDF COP15-F05 es el entregable del laboratorio: no puede depender de un CDN.
+- Guarda explícita que oculta el aviso y explica el problema si aun así faltara.
+
+### Verificación
+
+`test_quota_queue.js` — 16 comprobaciones: una liberación sobrevive al desbordamiento de la cola (y
+la prueba demuestra que el `slice(-N)` anterior sí la tiraba), el contador diario sobrevive al paso
+de las horas mientras el horario se reinicia, los topes dejan margen contra el plan gratuito, y sin
+jsPDF `generateCOP15PDF` devuelve `null` sin lanzar y sin dejar el aviso pegado. Los **19** archivos
+de prueba del proyecto pasan.
+
+**Pendiente de confirmar en campo:** no pude reproducir localmente el "vuelve a aparecer" de #108
+(archivar y recargar persiste bien, manual o no). La cadena descrita arriba lo explica y queda
+corregida, pero hay que verificarlo en el dispositivo con datos reales.
+
+---
+
 ## v18.5 — Usuarios: el candado circular de permisos (2026-08-25)
 
 Tercer reporte seguido sobre la misma pantalla (**#100**, **#103**, **#105**): en Datos → Usuarios no

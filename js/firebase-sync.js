@@ -123,7 +123,10 @@ function fbQueueAdd(collection, data, priority) {
     });
     // Sort by priority (lower number = higher priority)
     fbOfflineQueue.sort(function(a, b) { return (a.priority || 2) - (b.priority || 2); });
-    if (fbOfflineQueue.length > 50) fbOfflineQueue = fbOfflineQueue.slice(-50);
+    // slice(-50) conservaba los ÚLTIMOS 50 de una lista ordenada por prioridad
+    // ASCENDENTE, o sea que tiraba justo las operaciones MÁS importantes y se
+    // quedaba con las menos. Al revés de lo que se quería.
+    if (fbOfflineQueue.length > FB_QUEUE_MAX) fbOfflineQueue = fbOfflineQueue.slice(0, FB_QUEUE_MAX);
     fbQueueSave();
     fbUpdateIndicator();
 }
@@ -187,20 +190,36 @@ var FB_IS_HTTP_ORIGIN = (location.protocol === 'http:' || location.protocol === 
 
 // ── Rate Limiter & Quota ──
 var FB_QUOTA_LS_KEY = 'kia_fb_quota';
+// Cuota REAL del plan gratuito (Spark) de Firestore, por PROYECTO y por día.
+// Sirve de referencia para mostrar cuánto margen queda de verdad.
+var FB_FREE_TIER = { writesPerDay: 20000, readsPerDay: 50000 };
+// Cuántos equipos comparten el proyecto (para estimar el techo entre todos).
+var FB_ASSUMED_DEVICES = 5;
+
+// Tope propio de protección de costos, POR DISPOSITIVO.
+//
+// Estaba en 500 escrituras/día = 2.5% del plan gratuito, y 60/hora era tan bajo
+// que un turno normal lo reventaba: el laboratorio veía 211 operaciones
+// bloqueadas y 50 en cola mientras Firebase estaba prácticamente sin usar.
+// Con estos valores y 5 equipos, el techo entre todos es 10.000 escrituras/día
+// = 50% del gratuito, y el uso esperado queda muy por debajo.
 var FB_QUOTA_LIMITS = {
-    maxWritesPerHour: 60,       // Max Firestore writes per hour
-    maxReadsPerHour: 120,       // Max Firestore reads per hour
-    maxWritesPerDay: 500,       // Max Firestore writes per day
-    maxReadsPerDay: 2000,       // Max Firestore reads per day
+    maxWritesPerHour: 500,      // ráfaga de un turno con varios módulos sincronizando
+    maxReadsPerHour: 1500,
+    maxWritesPerDay: 2000,      // × 5 equipos = 10.000/día = 50% del plan gratuito
+    maxReadsPerDay: 10000,      // × 5 equipos = 50.000... se vigila con el aviso de abajo
     maxPayloadKB: 900,          // Max payload size in KB (Firestore limit is 1MB)
     cooldownAfterBurstMs: 30000 // 30s cooldown after hitting hourly limit
 };
+var FB_QUEUE_MAX = 200;         // era 50 y se llenaba en un turno
 
 var fbQuota = {
-    writes: [],   // timestamps of write operations
-    reads: [],    // timestamps of read operations
-    blocked: 0,   // count of blocked operations today
-    dailyDate: '' // date string for daily reset
+    writes: [],       // timestamps de escrituras — PODADO a la última hora
+    reads: [],        // timestamps de lecturas  — PODADO a la última hora
+    dayWrites: 0,     // acumulado del día (los de arriba se podan, no sirven para el día)
+    dayReads: 0,
+    blocked: 0,       // operaciones bloqueadas hoy
+    dailyDate: ''     // fecha para el corte diario
 };
 
 function fbQuotaLoad() {
@@ -213,6 +232,8 @@ function fbQuotaLoad() {
             if (fbQuota.dailyDate !== today) {
                 fbQuota.writes = [];
                 fbQuota.reads = [];
+                fbQuota.dayWrites = 0;
+                fbQuota.dayReads = 0;
                 fbQuota.blocked = 0;
                 fbQuota.dailyDate = today;
             }
@@ -242,6 +263,8 @@ function fbQuotaCheck(type) {
     if (fbQuota.dailyDate !== today) {
         fbQuota.writes = [];
         fbQuota.reads = [];
+        fbQuota.dayWrites = 0;
+        fbQuota.dayReads = 0;
         fbQuota.blocked = 0;
         fbQuota.dailyDate = today;
     }
@@ -252,7 +275,11 @@ function fbQuotaCheck(type) {
     var arr = type === 'write' ? fbQuota.writes : fbQuota.reads;
     var hourlyLimit = type === 'write' ? FB_QUOTA_LIMITS.maxWritesPerHour : FB_QUOTA_LIMITS.maxReadsPerHour;
     var dailyLimit = type === 'write' ? FB_QUOTA_LIMITS.maxWritesPerDay : FB_QUOTA_LIMITS.maxReadsPerDay;
-    var dailyCount = type === 'write' ? fbQuota.writes.length : fbQuota.reads.length;
+    // Antes esto leía fbQuota.writes.length, pero ese array se poda a la ÚLTIMA
+    // HORA (fbQuotaPrune), así que el "conteo diario" era en realidad el de la
+    // hora: el panel mostraba el mismo 75 en "por hora" y en "diario", y el tope
+    // diario no podía dispararse nunca porque 60/hora salta mucho antes.
+    var dailyCount = type === 'write' ? (fbQuota.dayWrites || 0) : (fbQuota.dayReads || 0);
 
     // Check hourly
     if (arr.length >= hourlyLimit) {
@@ -274,6 +301,8 @@ function fbQuotaCheck(type) {
 function fbQuotaRecord(type) {
     var arr = type === 'write' ? fbQuota.writes : fbQuota.reads;
     arr.push(Date.now());
+    if (type === 'write') fbQuota.dayWrites = (fbQuota.dayWrites || 0) + 1;
+    else fbQuota.dayReads = (fbQuota.dayReads || 0) + 1;
     fbQuotaSave();
 }
 
@@ -298,8 +327,8 @@ function fbQuotaStats() {
     return {
         writesThisHour: fbQuota.writes.length,
         readsThisHour: fbQuota.reads.length,
-        writesToday: fbQuota.writes.length,
-        readsToday: fbQuota.reads.length,
+        writesToday: fbQuota.dayWrites || 0,
+        readsToday: fbQuota.dayReads || 0,
         blockedToday: fbQuota.blocked,
         maxWritesHour: FB_QUOTA_LIMITS.maxWritesPerHour,
         maxReadsHour: FB_QUOTA_LIMITS.maxReadsPerHour,
@@ -1851,7 +1880,15 @@ function fbShowSettings() {
                 '<div style="width:' + Math.min(rPct, 100) + '%;height:100%;background:' + rColor + ';border-radius:3px;transition:width 0.3s;"></div></div>' +
                 '<div style="font-size: var(--fs-xs);color:' + rColor + ';margin-top:2px;">' + qs.readsThisHour + '/' + qs.maxReadsHour + '</div></div></div>' +
                 (qs.blockedToday > 0 ? '<div style="font-size: var(--fs-xs);color:#f59e0b;margin-top:4px;">Operaciones bloqueadas hoy: ' + qs.blockedToday + '</div>' : '') +
-                '<div style="font-size: var(--fs-xs);color:#475569;margin-top:4px;">Limite diario: ' + qs.writesToday + '/' + qs.maxWritesDay + ' escrituras, ' + qs.readsToday + '/' + qs.maxReadsDay + ' lecturas</div>' +
+                '<div style="font-size: var(--fs-xs);color:#475569;margin-top:4px;">Hoy en este equipo: ' + qs.writesToday + '/' + qs.maxWritesDay + ' escrituras, ' + qs.readsToday + '/' + qs.maxReadsDay + ' lecturas</div>' +
+                // El tope de arriba es NUESTRO, de protección de costos. El de Firebase
+                // es 40x más alto: sin esto parecía que el laboratorio estaba al límite.
+                '<div style="font-size: var(--fs-xs);color:#64748b;margin-top:6px;padding:6px 8px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.25);border-radius:6px;line-height:1.5;">' +
+                'Estos topes son <b>nuestros</b>, para proteger el costo. El plan gratuito de Firebase permite <b>' +
+                FB_FREE_TIER.writesPerDay.toLocaleString('es-MX') + ' escrituras</b> y <b>' + FB_FREE_TIER.readsPerDay.toLocaleString('es-MX') +
+                ' lecturas</b> al día para TODO el laboratorio.<br>Con ' + FB_ASSUMED_DEVICES + ' equipos al tope, se usaría el <b>' +
+                Math.round((qs.maxWritesDay * FB_ASSUMED_DEVICES / FB_FREE_TIER.writesPerDay) * 100) + '%</b> de lo gratuito.' +
+                '</div>' +
                 '</div>';
         })() : '') +
 

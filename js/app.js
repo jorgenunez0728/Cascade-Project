@@ -210,11 +210,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '18.5';
+var APP_VERSION = '18.6';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '18.6', date: '25 ago 2026', title: 'La sincronización ya no se estrangula sola (ni tira liberaciones)', bullets: [
+        'La app se limitaba a 500 escrituras al día, que es el 3% de lo que permite el plan gratuito de Firebase (20,000). Por eso salían 211 operaciones bloqueadas y 50 en cola con la nube prácticamente sin usar. Ahora el tope es 2,000 por equipo: con 5 equipos AL TOPE se usaría el 50% de lo gratuito.',
+        'Grave: la cola de pendientes tiraba primero las operaciones MÁS importantes. Estaba ordenada por prioridad y se quedaba con las últimas, así que descartaba las liberaciones de vehículos y conservaba respaldos y bitácoras. Eso explica que una liberación "volviera a aparecer" después de recargar.',
+        'La cola pasa de 50 a 200 pendientes: 50 se llenaba en un solo turno.',
+        'El contador "diario" del panel medía en realidad la última hora (por eso veías el mismo número en ambos lados). Ahora sí es diario, y el panel muestra cuánto margen queda de verdad contra el plan gratuito.',
+        'El PDF ya no falla en silencio: la librería se sirve desde la propia app en vez de un CDN (la red del trabajo los bloquea) y, si aun así no cargara, avisa en vez de dejar pegado el "Generando PDF...".'
+    ]},
     { version: '18.5', date: '25 ago 2026', title: 'Usuarios: se rompe el candado que impedía editar nada', bullets: [
         'Causa real de que ningún campo de Usuarios se dejara modificar: TODOS los operadores nacen con rol "Técnico", pero cambiar un rol exige un permiso que solo tienen Supervisor y Coordinador. Nadie podía darse ni dar el permiso para dar permisos, así que los 22 campos salían en gris — sin errores y sin explicación.',
         'Jorge Nuñez queda como Coordinador (todos los permisos). Y de forma general: si ningún operador activo puede administrar usuarios, la app promueve sola al primero y lo deja anotado en la auditoría. El laboratorio ya no puede quedarse sin quien reparta permisos.',

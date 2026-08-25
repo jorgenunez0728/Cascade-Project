@@ -18,7 +18,10 @@
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    <!-- jsPDF VENDORIZADO: el PDF COP15-F05 es el entregable del laboratorio y la
+         red del trabajo bloquea CDNs (mismo motivo por el que Alpine ya está local).
+         Sin él, generateCOP15PDF reventaba tras mostrar "Generando PDF..." (issue #107). -->
+    <script src="vendor/jspdf.umd.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" defer></script>
