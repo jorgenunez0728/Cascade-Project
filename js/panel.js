@@ -3665,7 +3665,10 @@ function pnRenderRegulations(el) {
                 p.gases.forEach(function(g) {
                     html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.05);">';
                     html += '<td style="padding:4px 6px;font-weight:600;">' + escapeHtml(g.label) + '</td>';
-                    html += '<td style="text-align:center;padding:4px 6px;color:var(--tp-dim);">' + escapeHtml(g.unit) + '</td>';
+                    var _cap = (typeof gasCaptureUnit === 'function') ? gasCaptureUnit(g) : g.unit;
+                    html += '<td style="text-align:center;padding:4px 6px;color:var(--tp-dim);">' + escapeHtml(g.unit)
+                         + (_cap !== g.unit ? '<div style="font-size:10px;color:var(--info-text);">se teclea en ' + escapeHtml(_cap) + '</div>' : '')
+                         + '</td>';
                     html += '<td style="text-align:center;padding:4px 6px;">' + (g.limit !== null && g.limit !== undefined ? '<span style="font-weight:700;color:var(--danger-text);">' + g.limit + '</span>' : '<span style="color:var(--tp-dim);">Sin límite</span>') + '</td>';
                     html += '</tr>';
                 });
@@ -3711,14 +3714,20 @@ function _pnRegShowModal(profile) {
         '<label style="font-size: var(--fs-sm);font-weight:600;display:block;margin-bottom:4px;">Nombre de la Regulación *</label>' +
         '<input id="reg-modal-name" class="form-control" value="' + escapeHtml(p.name) + '" placeholder="Ej: EURO-6C, NOM-163, SULEV 30" style="width:100%;box-sizing:border-box;">' +
         '</div>' +
-        '<div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+        '<div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px;flex-wrap:wrap;">' +
         '<label style="font-size: var(--fs-sm);font-weight:600;">Gases a medir</label>' +
+        '<div style="display:flex;gap:6px;">' +
+        '<button class="tp-btn tp-btn-ghost" onclick="pnRegApplyIcmsUnits()" style="font-size: var(--fs-xs);padding:3px 10px;">⚡ Captura como el banco</button>' +
         '<button class="tp-btn tp-btn-ghost" onclick="pnRegAddGasRow()" style="font-size: var(--fs-xs);padding:3px 10px;">+ Agregar gas</button>' +
-        '</div>' +
-        '<table style="width:100%;font-size: var(--fs-sm);border-collapse:collapse;">' +
-        '<thead><tr style="color:var(--tp-dim);font-size: var(--fs-xs);"><th style="text-align:left;padding:3px;">Campo</th><th style="text-align:left;padding:3px;">Etiqueta</th><th style="text-align:left;padding:3px;">Unidad</th><th style="text-align:center;padding:3px;">Límite (vacío=sin lím.)</th><th></th></tr></thead>' +
+        '</div></div>' +
+        '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:0 0 6px 0;line-height:1.5;">' +
+        '<b>Unidad</b> es la del límite regulatorio y en la que se <b>guarda</b> el dato. ' +
+        '<b>Captura</b> es solo cómo se teclea y se muestra: si el reporte del banco trae 24.3 mg/km, ' +
+        'pon mg/km y se teclea 24.3 en vez de 0.0243. La conversión es automática y no cambia nada de lo ya guardado.</p>' +
+        '<div style="overflow-x:auto;"><table style="width:100%;font-size: var(--fs-sm);border-collapse:collapse;">' +
+        '<thead><tr style="color:var(--tp-dim);font-size: var(--fs-xs);"><th style="text-align:left;padding:3px;">Campo</th><th style="text-align:left;padding:3px;">Etiqueta</th><th style="text-align:left;padding:3px;">Unidad</th><th style="text-align:left;padding:3px;">Captura</th><th style="text-align:center;padding:3px;">Límite (vacío=sin lím.)</th><th></th></tr></thead>' +
         '<tbody id="reg-gas-rows">' + gasRowsHtml + '</tbody>' +
-        '</table></div>';
+        '</table></div></div>';
 
     showModal({
         title: isNew ? 'Agregar Perfil de Regulación' : 'Editar Perfil: ' + escapeHtml(p.name),
@@ -3731,12 +3740,23 @@ function _pnRegShowModal(profile) {
                 var rows = document.querySelectorAll('#reg-gas-rows tr[data-gas-idx]');
                 var gases = [];
                 rows.forEach(function(row) {
-                    var field = row.querySelector('.reg-gas-field').value.trim().toUpperCase().replace(/\s+/g,'');
+                    // NO forzar mayúsculas: los perfiles usan 'NOx' y los valores ya
+                    // guardados en cada vehículo están indexados por esa clave exacta.
+                    // Pasarla a 'NOX' dejaría huérfano todo el histórico de ese gas.
+                    var field = row.querySelector('.reg-gas-field').value.trim().replace(/\s+/g,'');
                     var label = row.querySelector('.reg-gas-label').value.trim();
                     var unit  = row.querySelector('.reg-gas-unit').value.trim();
+                    var capSel = row.querySelector('.reg-gas-capture');
+                    var capture = capSel ? capSel.value : '';
                     var limitVal = row.querySelector('.reg-gas-limit').value.trim();
                     var limit = limitVal === '' ? null : parseFloat(limitVal);
-                    if (field && label) gases.push({ field: field, label: label, unit: unit || 'g/km', limit: isNaN(limit) ? null : limit });
+                    if (field && label) {
+                        var gas = { field: field, label: label, unit: unit || 'g/km', limit: isNaN(limit) ? null : limit };
+                        // Solo se guarda si difiere: un perfil sin captureUnit se comporta
+                        // exactamente como antes de esta versión.
+                        if (capture && capture !== gas.unit) gas.captureUnit = capture;
+                        gases.push(gas);
+                    }
                 });
                 if (gases.length === 0) { showToast('Agrega al menos un gas', 'error'); return; }
                 var data = loadRegulations();
@@ -3757,27 +3777,48 @@ function _pnRegShowModal(profile) {
 }
 
 function _pnRegGasRowHtml(i, g) {
+    var cap = (typeof gasCaptureUnit === 'function') ? gasCaptureUnit(g) : (g.unit || 'g/km');
+    var opts = (typeof GAS_UNIT_OPTIONS !== 'undefined' ? GAS_UNIT_OPTIONS : ['g/km','mg/km','g/mi','mg/mi'])
+        .map(function(u) { return '<option value="' + u + '"' + (u === cap ? ' selected' : '') + '>' + u + '</option>'; }).join('');
     return '<tr data-gas-idx="' + i + '">' +
         '<td style="padding:2px;"><input class="form-control reg-gas-field" value="' + escapeHtml(g.field||'') + '" placeholder="CO" style="width:55px;font-size: var(--fs-xs);"></td>' +
         '<td style="padding:2px;"><input class="form-control reg-gas-label" value="' + escapeHtml(g.label||'') + '" placeholder="CO" style="width:65px;font-size: var(--fs-xs);"></td>' +
-        '<td style="padding:2px;"><input class="form-control reg-gas-unit" value="' + escapeHtml(g.unit||'g/km') + '" placeholder="g/km" style="width:50px;font-size: var(--fs-xs);"></td>' +
+        '<td style="padding:2px;"><input class="form-control reg-gas-unit" value="' + escapeHtml(g.unit||'g/km') + '" placeholder="g/km" style="width:56px;font-size: var(--fs-xs);"></td>' +
+        '<td style="padding:2px;"><select class="form-control reg-gas-capture" style="width:72px;font-size: var(--fs-xs);">' + opts + '</select></td>' +
         '<td style="padding:2px;text-align:center;"><input class="form-control reg-gas-limit" type="number" step="0.001" value="' + (g.limit!=null?g.limit:'') + '" placeholder="—" style="width:65px;font-size: var(--fs-xs);text-align:center;"></td>' +
         '<td style="padding:2px;"><button onclick="this.closest(\'tr\').remove()" class="tp-btn" style="padding:2px 6px;font-size: var(--fs-xs);color:var(--danger-text);">✕</button></td>' +
         '</tr>';
+}
+
+/**
+ * Preset del reporte del banco: todo en mg/km salvo CO₂, que viene en g/km.
+ * Es exactamente el formato del ICMS, que era el que obligaba a convertir a mano.
+ */
+function pnRegApplyIcmsUnits() {
+    var rows = document.querySelectorAll('#reg-gas-rows tr[data-gas-idx]');
+    if (!rows.length) { showToast('Agrega gases primero', 'info'); return; }
+    rows.forEach(function(row) {
+        var field = (row.querySelector('.reg-gas-field').value || '').trim().toUpperCase();
+        var sel = row.querySelector('.reg-gas-capture');
+        if (!sel) return;
+        var isCo2 = field.indexOf('CO2') === 0 || field.indexOf('CO₂') === 0;
+        var base = (row.querySelector('.reg-gas-unit').value || 'g/km').trim();
+        // Solo cambia el prefijo de masa; la base de distancia (km/mi) se respeta.
+        var perMile = base.indexOf('/mi') !== -1;
+        sel.value = isCo2 ? (perMile ? 'g/mi' : 'g/km') : (perMile ? 'mg/mi' : 'mg/km');
+    });
+    showToast('Unidades de captura como el reporte del banco (mg, CO₂ en g)', 'success');
 }
 
 function pnRegAddGasRow() {
     var tbody = document.getElementById('reg-gas-rows');
     if (!tbody) return;
     var idx = tbody.querySelectorAll('tr[data-gas-idx]').length;
-    var tr = document.createElement('tr');
-    tr.setAttribute('data-gas-idx', idx);
-    tr.innerHTML = '<td style="padding:2px;"><input class="form-control reg-gas-field" value="" placeholder="CO" style="width:55px;font-size: var(--fs-xs);"></td>' +
-        '<td style="padding:2px;"><input class="form-control reg-gas-label" value="" placeholder="CO" style="width:65px;font-size: var(--fs-xs);"></td>' +
-        '<td style="padding:2px;"><input class="form-control reg-gas-unit" value="g/km" placeholder="g/km" style="width:50px;font-size: var(--fs-xs);"></td>' +
-        '<td style="padding:2px;text-align:center;"><input class="form-control reg-gas-limit" type="number" step="0.001" value="" placeholder="—" style="width:65px;font-size: var(--fs-xs);text-align:center;"></td>' +
-        '<td style="padding:2px;"><button onclick="this.closest(\'tr\').remove()" class="tp-btn" style="padding:2px 6px;font-size: var(--fs-xs);color:var(--danger-text);">✕</button></td>';
-    tbody.appendChild(tr);
+    // Un solo constructor de fila (_pnRegGasRowHtml): antes esta copia se quedaba
+    // sin las columnas nuevas cada vez que se agregaba una.
+    var wrap = document.createElement('tbody');
+    wrap.innerHTML = _pnRegGasRowHtml(idx, { field: '', label: '', unit: 'g/km', limit: null });
+    tbody.appendChild(wrap.firstChild);
 }
 
 // ══════════════════════════════════════════════════════════════════════
