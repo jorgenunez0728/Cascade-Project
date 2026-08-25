@@ -5445,7 +5445,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
                     <span x-show="!appVersionInfo().publishedES">· desarrollo (sin build)</span>.
                     Todo lo que se ha agregado, versión por versión:
                 </p>
-                <template x-for="(v, vi) in versionHistory" :key="v.version + vi">
+                <template x-for="(v, vi) in versionHistory" :key="vi">
                     <details :open="vi === 0" style="border:1px solid var(--tp-border);border-radius:8px;margin-bottom:6px;overflow:hidden;">
                         <summary style="cursor:pointer;padding:8px 10px;background:var(--tp-card);font-size: var(--fs-sm);display:flex;align-items:center;gap:8px;">
                             <span style="font-weight:800;color:var(--tp-text);" x-text="/^\d/.test(v.version) ? 'v' + v.version : v.version"></span>
@@ -5996,15 +5996,20 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608251808';
+var APP_BUILD = '202608251830';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '18.3';
+var APP_VERSION = '18.4';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '18.4', date: '25 ago 2026', title: 'El Panel vuelve a responder: una clave repetida lo tumbaba entero', bullets: [
+        'Ningún campo del Panel funcionaba y el Historial de Versiones salía vacío. Era un solo defecto: el historial armaba su identificador juntando la versión y el número de fila sin separador, así que "17.11" en la fila 9 y "17.1" en la fila 19 daban el MISMO identificador ("17.119").',
+        'Con dos filas compartiendo identificador, la librería que dibuja las listas se rompe y deja de reaccionar en TODA la pestaña — no solo en esa tarjeta. Por eso los campos no respondían aunque el error pareciera de otra cosa.',
+        'Corregido, y agregada una prueba que recorre todas las listas de la app y falla si dos filas vuelven a compartir identificador, para que esto no regrese.'
+    ]},
     { version: '18.3', date: '25 ago 2026', title: 'Niveles de operador reparados + dispositivos que se salían del laboratorio', bullets: [
         'Ya se puede cambiar el nivel de competencia de un operador. La tarjeta 🎓 Competencias salía VACÍA, sin un solo selector, por un error de programación — y como el nivel otorga permisos, nadie podía dar ni quitar autoridad. (Reportado con el botón 🐞, issue #100.)',
         'Un dispositivo podía salirse del laboratorio sin avisar: el campo "ID de Estación" invitaba a escribir el nombre del equipo, pero en realidad es la ruta del espacio compartido en la nube. Al cambiarlo, ese equipo dejaba de ver los datos y de poder reportar bugs.',
@@ -6223,14 +6228,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608251808' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608251830' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608251808' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608251830' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -6246,7 +6251,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608251808' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608251830' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -40288,7 +40293,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608251808' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608251830' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

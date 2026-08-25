@@ -1687,7 +1687,7 @@
                     <span x-show="!appVersionInfo().publishedES">· desarrollo (sin build)</span>.
                     Todo lo que se ha agregado, versión por versión:
                 </p>
-                <template x-for="(v, vi) in versionHistory" :key="v.version + vi">
+                <template x-for="(v, vi) in versionHistory" :key="vi">
                     <details :open="vi === 0" style="border:1px solid var(--tp-border);border-radius:8px;margin-bottom:6px;overflow:hidden;">
                         <summary style="cursor:pointer;padding:8px 10px;background:var(--tp-card);font-size: var(--fs-sm);display:flex;align-items:center;gap:8px;">
                             <span style="font-weight:800;color:var(--tp-text);" x-text="/^\d/.test(v.version) ? 'v' + v.version : v.version"></span>

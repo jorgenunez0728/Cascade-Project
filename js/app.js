@@ -210,11 +210,16 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '18.3';
+var APP_VERSION = '18.4';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '18.4', date: '25 ago 2026', title: 'El Panel vuelve a responder: una clave repetida lo tumbaba entero', bullets: [
+        'Ningún campo del Panel funcionaba y el Historial de Versiones salía vacío. Era un solo defecto: el historial armaba su identificador juntando la versión y el número de fila sin separador, así que "17.11" en la fila 9 y "17.1" en la fila 19 daban el MISMO identificador ("17.119").',
+        'Con dos filas compartiendo identificador, la librería que dibuja las listas se rompe y deja de reaccionar en TODA la pestaña — no solo en esa tarjeta. Por eso los campos no respondían aunque el error pareciera de otra cosa.',
+        'Corregido, y agregada una prueba que recorre todas las listas de la app y falla si dos filas vuelven a compartir identificador, para que esto no regrese.'
+    ]},
     { version: '18.3', date: '25 ago 2026', title: 'Niveles de operador reparados + dispositivos que se salían del laboratorio', bullets: [
         'Ya se puede cambiar el nivel de competencia de un operador. La tarjeta 🎓 Competencias salía VACÍA, sin un solo selector, por un error de programación — y como el nivel otorga permisos, nadie podía dar ni quitar autoridad. (Reportado con el botón 🐞, issue #100.)',
         'Un dispositivo podía salirse del laboratorio sin avisar: el campo "ID de Estación" invitaba a escribir el nombre del equipo, pero en realidad es la ruta del espacio compartido en la nube. Al cambiarlo, ese equipo dejaba de ver los datos y de poder reportar bugs.',

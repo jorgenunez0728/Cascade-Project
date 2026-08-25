@@ -2,6 +2,57 @@
 
 All notable changes to this project, organized by development round.
 
+## v18.4 — Una clave repetida tumbaba el Panel entero (2026-08-25)
+
+Dos reportes desde producción sobre v18.3, ambos con el **mismo error adjunto**:
+
+- **#102** — "Historial de versiones no funciona" (`panel → pn-system`)
+- **#103** — "Ningún campo funciona aún, no permite hacer ninguna modificación" (`panel → pn-users`)
+
+```
+Uncaught TypeError: Cannot read properties of undefined (reading 'after')
+```
+
+### Causa raíz
+
+Localizada por bisección sobre las 32 plantillas `x-for` (desactivándolas por mitades hasta que el
+error desaparecía). La culpable resultó ser, literalmente, la del issue #102:
+
+```html
+<template x-for="(v, vi) in versionHistory" :key="v.version + vi">
+```
+
+`v.version` es texto y `vi` un número, y se concatenan **sin separador**:
+
+| entrada | índice | clave |
+|---|---|---|
+| `'17.11'` | 9 | `"17.119"` |
+| `'17.1'` | 19 | `"17.119"` |
+
+Dos filas distintas producen la misma clave. Con una clave repetida, el `x-for` de Alpine falla al
+buscar el nodo ancla (`lookup[key]` → `undefined`) y lanza `undefined.after`. **Ese throw mata el
+efecto del componente Alpine completo**, así que deja de reaccionar TODA la pestaña de Datos — de ahí
+que #103 reportara que ningún campo respondía, en una pantalla distinta a la del defecto.
+
+**Corrección de una afirmación previa:** en v18.3 dije que este error era "transitorio y se recupera
+solo". Era incorrecto: es fatal para el componente. Lo que me confundió fue que las listas ya
+pintadas se quedan visibles en el DOM aunque la reactividad esté muerta.
+
+### Corregido
+
+- `:key="vi"` — el índice por sí solo es único y la lista es estática.
+- **`test_alpine_keys.js`**: recorre las 7 pestañas Alpine del Panel más el perfil de operador, y
+  falla si CUALQUIER `x-for` tiene claves repetidas (leyendo `_x_prevKeys` de Alpine). Es una
+  comprobación general, no caso por caso: esta misma clase de defecto ya había aparecido en v18.3
+  con `:key="a.message"` en la lista de alertas. También verifica que el Historial de Versiones
+  liste sus 41 entradas y que un campo del Panel guarde de verdad.
+
+### Verificación
+
+4/4 en `test_alpine_keys.js`; los 17 archivos de prueba del proyecto pasan.
+
+---
+
 ## v18.3 — Niveles de operador + dispositivos fuera del espacio compartido (2026-08-25)
 
 Dos reportes desde producción: el issue **#100** (llegó por el botón 🐞) y una foto de la laptop de
