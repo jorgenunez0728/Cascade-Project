@@ -50,10 +50,87 @@ var COP_FUEL_LIMITS = {
     'Híbrido CI': COP_CI_LIMITS,
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v19.0] ALCANCE DEL CoP
+// El laboratorio hace CoP únicamente sobre EURO-5 / EURO-6E / PRE-EURO 7 en las
+// regiones EUROPE y MIDDLE EAST. El resto del catálogo (EURO-2/3/4, SULEV 30,
+// BRAZIL L8, EVs) se prueba pero NO entra al juicio de conformidad.
+//
+// Esto además tapa un agujero real: COP_PI_LIMITS/COP_CI_LIMITS tienen los límites
+// Euro 6 escritos a fuego y NUNCA consultan getRegulationProfile(). Fuera de este
+// alcance eso juzga mal — EURO-2 (CO 2.2 real vs 1.0 aplicado) y EURO-4 (NOx 0.08
+// vs 0.06) salen NO CONCORDANTE sin serlo, y SULEV 30 se compara en g/km contra
+// datos capturados en g/mi, que es el sentido peligroso (aprobar lo que falla).
+// DENTRO del alcance no hay problema: EURO-5, EURO-6C/6E y PRE-EURO 7 comparten
+// exactamente estos valores. copLimitsForFamily() lo verifica en cada render en
+// vez de confiar en que siga siendo cierto.
+// ═══════════════════════════════════════════════════════════════════════════════
+var COP_SCOPE_DEFAULT = {
+    regulations: ['EURO-5', 'EURO-6E', 'PRE-EURO 7'],
+    regions:     ['EUROPE', 'MIDDLE EAST']
+};
+
+/** Normaliza para comparar normas/regiones: sin acentos, sin separadores, mayúsculas. */
+function _copNormKey(s) {
+    return String(s == null ? '' : s)
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase().replace(/[\s\-_/.]+/g, '');
+}
+
+/** El alcance vigente (los defaults son editables desde el Panorama). */
+function copScope() {
+    var s = (typeof copState !== 'undefined' && copState.scope) ? copState.scope : null;
+    return {
+        regulations: (s && Array.isArray(s.regulations) && s.regulations.length) ? s.regulations : COP_SCOPE_DEFAULT.regulations,
+        regions:     (s && Array.isArray(s.regions)     && s.regions.length)     ? s.regions     : COP_SCOPE_DEFAULT.regions
+    };
+}
+
+function copScopeHasReg(reg) {
+    var k = _copNormKey(reg);
+    if (!k) return false;
+    return copScope().regulations.some(function(r) { return _copNormKey(r) === k; });
+}
+function copScopeHasRegion(rgn) {
+    var k = _copNormKey(rgn);
+    if (!k) return false;
+    // EUROPA/EUROPE son la misma región (homoIsEurope acepta ambas).
+    if (k === 'EUROPA') k = 'EUROPE';
+    return copScope().regions.some(function(r) {
+        var rk = _copNormKey(r);
+        return rk === k || (rk === 'EUROPE' && k === 'EUROPE');
+    });
+}
+
+/**
+ * LA definición de "esto entra al CoP". Acepta una config del plan (`{rgn, reg}`) o
+ * un vehículo de db.vehicles (`{config:{REGION, 'EMISSION REGULATION'}}`).
+ * Devuelve {ok, reason} — el motivo se muestra en pantalla: lo que queda fuera se
+ * declara, nunca se oculta en silencio.
+ */
+function copInScope(x) {
+    if (!x) return { ok: false, reason: 'sin datos' };
+    var cfg = x.config || x;
+    var rgn = cfg['REGION'] || cfg.rgn || x.rgn || '';
+    var reg = cfg['EMISSION REGULATION'] || cfg.reg || x.reg || '';
+    if (!copScopeHasRegion(rgn)) return { ok: false, reason: 'región ' + (rgn || '(sin región)') + ' fuera del alcance CoP', kind: 'region', region: rgn, reg: reg };
+    if (!copScopeHasReg(reg))    return { ok: false, reason: 'norma ' + (reg || '(sin norma)') + ' fuera del alcance CoP', kind: 'regulation', region: rgn, reg: reg };
+    return { ok: true, reason: '', region: rgn, reg: reg };
+}
+
+// ─── CACHE DEL PANORAMA ───────────────────────────────────────────────────────
+// copPortfolioRows() recorre db.vehicles × familias × gases y la consume también
+// pnGetActiveAlerts, que corre en CADA render del Panel. Sin memo el Panel se
+// arrastra. La clave es barata a propósito: no se serializa nada.
+var _copRev = 0;
+var _copPortfolioCache = null;
+function _copBumpRev() { _copRev++; _copPortfolioCache = null; }
+function copInvalidateCache() { _copBumpRev(); }
+
 // ─── ESTADO ───────────────────────────────────────────────────────────────────
 var COP_LS_KEY = 'kia_cop_v1';
 var copState = {
-    view:          'validator', // 'validator' | 'spc'
+    view:          'overview', // 'overview' | 'validator' | 'spc' | 'dossier'
     regulation:    'R154',
     fuelType:      'PI',
     region:        '',      // filtro de región para el selector de familia
@@ -66,6 +143,7 @@ var copState = {
     _lastDecision: null,
     saved:         [],      // juicios guardados
     spc:           null,    // estado de la sub-pestaña Control SPC
+    scope:         null,    // alcance CoP (null = COP_SCOPE_DEFAULT) — ver copScope()
 };
 
 function copPersist() {
@@ -74,8 +152,11 @@ function copPersist() {
             view: copState.view, regulation: copState.regulation, fuelType: copState.fuelType,
             region: copState.region, familyKey: copState.familyKey, familyLabel: copState.familyLabel,
             activePolls: copState.activePolls, vehicles: copState.vehicles, saved: copState.saved,
-            spc: copState.spc
+            spc: copState.spc, scope: copState.scope,
+            present: copState.present, ovFilter: copState.ovFilter,
+            families: copState.families, copSchema: copState.copSchema
         }));
+        _copBumpRev();
         return true;
     } catch (e) {
         console.error('copPersist: no se pudo guardar', e);
@@ -87,7 +168,7 @@ function copLoad() {
     var raw = null;
     try { raw = JSON.parse(localStorage.getItem(COP_LS_KEY)); } catch (e) {}
     if (raw && typeof raw === 'object') {
-        ['view','regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved','spc'].forEach(function(k) {
+        ['view','regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved','spc','scope','present','ovFilter','families','copSchema'].forEach(function(k) {
             if (raw[k] !== undefined && raw[k] !== null) copState[k] = raw[k];
         });
     }
@@ -108,7 +189,36 @@ function copInitState() {
     }
     if (!copState.saved) copState.saved = [];
     if (!copState.spc || typeof copState.spc !== 'object') {
-        copState.spc = { familyKey: '', gas: '', showZones: true, showLimit: true, pctMode: false };
+        copState.spc = { familyKey: '', gas: '', showZones: true, showLimit: true, pctMode: false, allScopes: false };
+    }
+    if (copState.spc.allScopes === undefined) copState.spc.allScopes = false;
+    if (['overview','validator','spc','dossier'].indexOf(copState.view) === -1) copState.view = 'overview';
+
+    // ── Migración a mesa de trabajo por familia (v19.0) ───────────────────────
+    // IDEMPOTENTE a propósito: copSyncReload() la vuelve a ejecutar en cada pull
+    // de Firebase, así que no puede duplicar ni volver a sembrar nada.
+    if (!copState.families) copState.families = {};
+    if (copState.copSchema !== 2) {
+        var tieneAlgo = (copState.vehicles || []).some(function(v) {
+            return v.vin || Object.keys(v.values || {}).length;
+        });
+        if (copState.familyKey && tieneAlgo && !copState.families[copState.familyKey]) {
+            copState.families[copState.familyKey] = {
+                key: copState.familyKey,
+                vehicles: copState.vehicles,
+                activePolls: JSON.parse(JSON.stringify(copState.activePolls || {})),
+                fuelType: copState.fuelType, regulation: copState.regulation,
+                updatedAt: new Date().toISOString(), updatedBy: ''
+            };
+        }
+        copState.copSchema = 2;
+    }
+    // Reengancha el alias tras un copLoad() (el array recuperado del disco es otro
+    // objeto que el guardado dentro de families).
+    if (copState.familyKey && copState.families[copState.familyKey]) {
+        var _f = copState.families[copState.familyKey];
+        if (_f.vehicles && _f.vehicles.length) copState.vehicles = _f.vehicles;
+        else _f.vehicles = copState.vehicles;
     }
 }
 
@@ -116,21 +226,122 @@ function copInitState() {
 function copSyncReload() {
     _copLoaded = false;
     copInitState();
-    if (document.getElementById('platform-cop') && typeof copRender === 'function') copRender();
+    _copBumpRev();
+    if (!document.getElementById('platform-cop') || typeof copRender !== 'function') return;
+    // v19.0: si el técnico está capturando un valor, un pull de la nube le borraba
+    // lo que llevaba escrito (copRender rehace el innerHTML entero). Se difiere el
+    // repintado hasta que suelte el campo.
+    var ae = document.activeElement;
+    if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && ae.closest && ae.closest('#platform-cop')) {
+        if (!_copPendingRender) {
+            _copPendingRender = true;
+            ae.addEventListener('blur', function once() {
+                ae.removeEventListener('blur', once);
+                _copPendingRender = false;
+                if (document.getElementById('platform-cop')) copRender();
+            });
+        }
+        return;
+    }
+    copRender();
+}
+var _copPendingRender = false;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v19.0] MESA DE TRABAJO POR FAMILIA
+//
+// Hasta v18.6 existía UNA sola tabla (`copState.vehicles`) y copAutoPopulateVins la
+// reasignaba entera al elegir familia: cambiar de familia borraba sin avisar lo que
+// se había capturado a mano en la anterior. Con 45 configuraciones en el alcance eso
+// hace imposible llevar varias familias en paralelo, que es el trabajo real.
+//
+// `copState.vehicles` SIGUE existiendo como ALIAS VIVO del array de la familia
+// abierta, así que los ~20 sitios que leen o mutan elementos no se tocan. El único
+// punto autorizado de REASIGNACIÓN es _copSetVehicles().
+//
+// REGLA: nunca escribir `copState.vehicles = ...` directo. Siempre _copSetVehicles().
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Estado guardado de una familia (lo crea si no existía). */
+function copFamilyState(key) {
+    if (!copState.families) copState.families = {};
+    var k = key || '';
+    if (!copState.families[k]) {
+        copState.families[k] = {
+            key: k, vehicles: null,
+            activePolls: JSON.parse(JSON.stringify(copState.activePolls || {})),
+            fuelType: copState.fuelType, regulation: copState.regulation,
+            updatedAt: '', updatedBy: ''
+        };
+    }
+    return copState.families[k];
+}
+
+/** ÚNICO punto de reasignación del array. Mantiene el alias y sella la familia. */
+function _copSetVehicles(arr) {
+    copState.vehicles = arr;
+    var f = copFamilyState(copState.familyKey);
+    f.vehicles = arr;
+    f.activePolls = JSON.parse(JSON.stringify(copState.activePolls || {}));
+    f.fuelType = copState.fuelType;
+    f.regulation = copState.regulation;
+    f.updatedAt = new Date().toISOString();
+    f.updatedBy = _copWho();
+}
+
+/** Abre la mesa de trabajo de una familia: la recupera si ya existía. */
+function _copOpenFamilyState(key) {
+    var f = copFamilyState(key);
+    if (f.vehicles && f.vehicles.length) {
+        copState.vehicles = f.vehicles;           // MISMA referencia: el alias vive
+        if (f.activePolls) copState.activePolls = f.activePolls;
+        if (f.fuelType) copState.fuelType = f.fuelType;
+        if (f.regulation) copState.regulation = f.regulation;
+        return true;
+    }
+    return false;
 }
 
 // ─── FAMILIA + VINes + GUARDADO ──────────────────────────────────────────────
 function _copEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 function copPlanData() { return (typeof tpState !== 'undefined' && tpState.planData) ? tpState.planData : []; }
 function copRegions() {
-    var set = {}; copPlanData().forEach(function(c) { if (c.rgn) set[c.rgn] = true; });
+    // Solo las regiones del alcance que además existen en el plan importado.
+    var set = {};
+    copPlanData().forEach(function(c) { if (c.rgn && copScopeHasRegion(c.rgn)) set[c.rgn] = true; });
     return Object.keys(set).sort();
 }
+
+/**
+ * [v19.0] Lo que queda FUERA del alcance CoP, agrupado por motivo. El Panorama lo
+ * declara — una configuración que no aparece porque se filtró es exactamente el tipo
+ * de omisión que un auditor pregunta.
+ */
+function copOutOfScopeSummary() {
+    var byReason = {}, total = 0;
+    copPlanData().forEach(function(c) {
+        var s = copInScope(c);
+        if (s.ok) return;
+        total++;
+        var label = s.kind === 'region' ? ('Región ' + (s.region || '(sin región)'))
+                                        : ('Norma ' + (s.reg || '(sin norma)'));
+        if (!byReason[label]) byReason[label] = { label: label, kind: s.kind, n: 0 };
+        byReason[label].n++;
+    });
+    return {
+        total: total,
+        groups: Object.keys(byReason).map(function(k) { return byReason[k]; })
+                      .sort(function(a, b) { return b.n - a.n; })
+    };
+}
+
 // Familias reusando el MISMO agrupamiento del Plan (tpFamilyKeyForCfg).
+// v19.0: solo las del alcance CoP (copInScope).
 function copFamilies() {
     var fams = {};
     copPlanData().forEach(function(c) {
         if (typeof tpFamilyKeyForCfg !== 'function') return;
+        if (!copInScope(c).ok) return;
         var k = tpFamilyKeyForCfg(c);
         if (!fams[k]) fams[k] = { key: k, mod: c.mod, eng: c.eng, tx: c.tx, my: c.my, reg: c.reg, rgns: {} };
         if (c.rgn) fams[k].rgns[c.rgn] = true;
@@ -153,26 +364,101 @@ function copVehicleFamilyKey(v) {
 function copSetRegion(r) { copState.region = r; copState.familyKey = ''; copState.familyLabel = ''; copPersist(); copRender(); }
 function copSelectFamily(key) {
     copState.familyKey = key;
-    var fam = copFamilies().find(function(f) { return f.key === key; });
+    var fam = copPortfolioRows().find(function(f) { return f.key === key; })
+           || copFamilies().find(function(f) { return f.key === key; });
     copState.familyLabel = fam ? fam.label : '';
-    if (key) copAutoPopulateVins(key);
+    if (key) {
+        // Si esta familia ya tenía mesa de trabajo, se recupera tal cual quedó; si no,
+        // se ARRANCA EN LIMPIO antes de sembrarla desde los vehículos probados. Sin ese
+        // borrón, copState.vehicles seguía apuntando al array de la familia anterior y
+        // la nueva heredaba sus VINes (incluidos los capturados a mano).
+        if (!_copOpenFamilyState(key)) copState.vehicles = [];
+        copSyncVinsFromTests(key);
+    }
     copPersist(); copRender();
 }
-// Autollenar VINes de vehículos ya probados (db.vehicles) de esa familia. Valores de gases best-effort.
-function copAutoPopulateVins(key) {
+
+/**
+ * [v19.0] Sincroniza la tabla con los vehículos ya probados de la familia.
+ * Reemplaza a copAutoPopulateVins, que REEMPLAZABA la tabla entera.
+ *
+ * Reglas, en este orden:
+ *   1. Las filas manuales no se tocan nunca.
+ *   2. Una celda con valor NO se sobrescribe jamás. Si el laboratorio tiene otro
+ *      número, se marca la fila `staleAuto` y se avisa — reescribir en silencio un
+ *      valor sobre el que ya se emitió un juicio es exactamente el hallazgo que este
+ *      módulo existe para evitar.
+ *   3. Los VINes probados que no estén en la tabla se agregan.
+ */
+function copSyncVinsFromTests(key) {
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
-    var rows = [], nextId = 1;
+    var rows = (copState.vehicles && copState.vehicles.length) ? copState.vehicles.slice() : [];
+    var byVin = {};
+    rows.forEach(function(r) { if (r.vin) byVin[String(r.vin).trim().toUpperCase()] = r; });
+    var nextId = rows.reduce(function(m, r) { return Math.max(m, r.id || 0); }, 0) + 1;
+    var added = 0, stale = 0;
+
     vehicles.forEach(function(v) {
         if (!v.vin || copVehicleFamilyKey(v) !== key) return;
-        var values = {};
+        var vk = String(v.vin).trim().toUpperCase();
+        var row = byVin[vk];
+        if (!row) {
+            var values = {};
+            copGetActiveLimits().forEach(function(p) {
+                var val = copResultValue(v, p.id);
+                if (val !== null && val !== undefined) values[p.id] = String(val);
+            });
+            row = { id: nextId++, vin: v.vin, values: values, source: 'auto' };
+            rows.push(row); byVin[vk] = row; added++;
+            return;
+        }
+        if (row.source === 'manual') return;                 // regla 1
+        var diff = false;
         copGetActiveLimits().forEach(function(p) {
             var val = copResultValue(v, p.id);
-            if (val !== null && val !== undefined) values[p.id] = String(val);
+            if (val === null || val === undefined) return;
+            var cur = row.values[p.id];
+            if (cur === undefined || cur === '') { row.values[p.id] = String(val); return; }
+            if (Math.abs(parseFloat(cur) - val) > 1e-9) diff = true;   // regla 2
         });
-        rows.push({ id: nextId++, vin: v.vin, values: values, source: 'auto' });
+        if (diff) { row.staleAuto = true; stale++; } else { delete row.staleAuto; }
     });
+
     while (rows.length < 3) rows.push({ id: nextId++, vin: '', values: {}, source: 'manual' });
-    copState.vehicles = rows;
+    _copSetVehicles(rows);
+    return { added: added, stale: stale };
+}
+// Compatibilidad: el nombre viejo sigue funcionando (ahora fusiona, no reemplaza).
+function copAutoPopulateVins(key) { return copSyncVinsFromTests(key); }
+
+/** Trae los valores del laboratorio para un VIN marcado `staleAuto`, a petición. */
+function copAcceptLabValues(rowId) {
+    var row = (copState.vehicles || []).find(function(r) { return r.id === rowId; });
+    if (!row || !row.vin) return;
+    var vk = String(row.vin).trim().toUpperCase();
+    var veh = ((typeof db !== 'undefined' && db.vehicles) ? db.vehicles : []).find(function(v) {
+        return v.vin && String(v.vin).trim().toUpperCase() === vk;
+    });
+    if (!veh) return;
+    var cambios = [];
+    copGetActiveLimits().forEach(function(p) {
+        var val = copResultValue(veh, p.id);
+        if (val === null || val === undefined) return;
+        if (String(row.values[p.id]) !== String(val)) {
+            cambios.push(p.label + ': ' + row.values[p.id] + ' → ' + val);
+            row.values[p.id] = String(val);
+        }
+    });
+    delete row.staleAuto;
+    _copSetVehicles(copState.vehicles);
+    copPersist();
+    if (typeof auditLog === 'function' && cambios.length) {
+        auditLog('cop', 'lab_values_accepted', { type: 'cop', label: row.vin }, cambios.join(' · '));
+    }
+    if (typeof showToast === 'function') {
+        showToast(cambios.length ? 'Valores del laboratorio aplicados a ' + row.vin : 'Ya coincidían', 'success');
+    }
+    copRender();
 }
 // Autollenado desde valores FINALES verificados (testData.gasResults capturados en
 // liberación/aprobación) — nunca bolsas crudas del analizador: el juicio regulatorio
@@ -224,7 +510,7 @@ function copAddManualRow() {
     copPersist(); copRender();
 }
 function copRemoveRow(id) {
-    copState.vehicles = copState.vehicles.filter(function(v) { return v.id !== id; });
+    _copSetVehicles(copState.vehicles.filter(function(v) { return v.id !== id; }));
     if (!copState.vehicles.length) copState.vehicles.push({ id: 1, vin: '', values: {}, source: 'manual' });
     copPersist(); copRender();
 }
@@ -234,23 +520,83 @@ function copSetVin(el) {
     if (v) v.vin = el.value;
     copPersist(); // sin re-render para no perder el foco
 }
+/**
+ * v19.0 — el registro se CONGELA con lo que se usó para decidir.
+ *
+ * Un juicio tiene que poder leerse dentro de años sin el sistema que lo produjo:
+ * si mañana cambia COP_PI_LIMITS o el perfil de la norma, un registro que solo
+ * guarda "FAIL" deja de ser reproducible y por tanto deja de ser evidencia.
+ * Se guardan escalares y cadenas — NUNCA objetos de db.vehicles ni la serie SPC
+ * completa (la trampa de almacenamiento de v18.1).
+ */
 function copSaveJudgment() {
     copInitState();
-    var decision = copGetOverallDecision(copGetPollStats());
+    var pollStats = copGetPollStats();
+    var decision = copGetOverallDecision(pollStats);
+    var lim = copLimitsForFamily(copState.familyLabel ? _copFamilyEmissionReg(copState.familyKey) : '');
+
     copState.saved.unshift({
         id: 'cop_' + Date.now(),
         date: new Date().toISOString(),
+        by: _copWho(),
         region: copState.region, familyKey: copState.familyKey, familyLabel: copState.familyLabel,
         regulation: copState.regulation, fuelType: copState.fuelType,
+        emissionReg: _copFamilyEmissionReg(copState.familyKey),
         activePolls: JSON.parse(JSON.stringify(copState.activePolls)),
         vehicles: JSON.parse(JSON.stringify(copState.vehicles)),
+        // ── congelado: sin esto el registro no es reproducible ──
+        limitsUsed: copGetActiveLimits().map(function(p) {
+            return { id: p.id, label: p.label, limit: p.limit, unit: p.unit, isPn: !!p.isPn };
+        }),
+        limitsSource: (lim && lim.mismatches && lim.mismatches.length) ? 'euro6-integrado (NO coincide con el perfil)'
+                     : (lim && lim.profile) ? 'perfil ' + (lim.profile.name || '') : 'euro6-integrado',
+        cvSource: 'R83 Rev.5 / R154 Apendice 2',
+        stats: pollStats.filter(function(p) { return p.stats; }).map(function(p) {
+            return { poll: p.label, n: p.stats.n, mean: p.stats.mean, s: p.stats.s, U: p.stats.U,
+                     a: p.stats.cv ? p.stats.cv.a : null, b: p.stats.cv ? p.stats.cv.b : null,
+                     decision: p.stats.decision };
+        }),
+        appVersion: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '',
         decision: decision || 'INCOMPLETO'
     });
+    _copTrimSaved();
     if (!copPersist()) { copRender(); return; } // no reportar éxito si no se pudo guardar
     _copPushNow();
     if (typeof auditLog === 'function') auditLog('cop', 'judgment_saved', {type:'cop', label:(copState.familyLabel || '(sin familia)')}, 'Veredicto: ' + (decision === 'PASS' ? 'CONCORDANTE' : decision === 'FAIL' ? 'NO CONCORDANTE' : (decision || 'INCOMPLETO')));
     if (typeof showToast === 'function') showToast('Juicio guardado' + (copState.familyLabel ? ' — ' + copState.familyLabel : ''), 'success');
     copRender();
+}
+
+/** Norma de emisiones de una familia (5º campo de la clave). */
+function _copFamilyEmissionReg(familyKey) {
+    var parts = String(familyKey || '').split('|');
+    return parts.length >= 5 ? parts[4] : '';
+}
+
+/**
+ * Cap de juicios guardados. NO borra: COMPACTA — conserva la cabecera y la
+ * estadística (que es lo que hace reproducible el veredicto) y suelta el detalle
+ * de VINes, marcando `evidencePurged`. Mismo principio que `snapshotPurged` en
+ * _fbMergeTrimHistory (v18.1). Y nunca toca el registro más reciente de una
+ * familia: perder el juicio vigente de una familia sería perder el expediente.
+ */
+var COP_SAVED_MAX = 200;
+var COP_SAVED_PER_FAMILY = 24;
+function _copTrimSaved() {
+    var saved = copState.saved || [];
+    if (saved.length <= COP_SAVED_MAX) return;
+    var seen = {};
+    saved.forEach(function(j, i) {
+        var k = j.familyKey || '';
+        seen[k] = (seen[k] || 0) + 1;
+        var esElVigente = seen[k] === 1;              // la lista está en orden desc
+        var sobraPorFamilia = seen[k] > COP_SAVED_PER_FAMILY;
+        var sobraGlobal = i >= COP_SAVED_MAX;
+        if (!esElVigente && (sobraGlobal || sobraPorFamilia) && j.vehicles) {
+            delete j.vehicles;
+            j.evidencePurged = true;
+        }
+    });
 }
 
 // Push inmediato del estado CoP persistido (los juicios no esperan al ciclo de fbPushAll).
@@ -269,7 +615,7 @@ function copLoadJudgment(id) {
     copState.regulation = rec.regulation; copState.fuelType = rec.fuelType;
     copState.region = rec.region; copState.familyKey = rec.familyKey; copState.familyLabel = rec.familyLabel;
     copState.activePolls = JSON.parse(JSON.stringify(rec.activePolls));
-    copState.vehicles = JSON.parse(JSON.stringify(rec.vehicles));
+    _copSetVehicles(JSON.parse(JSON.stringify(rec.vehicles || [])));
     copPersist(); copRender();
     if (typeof showToast === 'function') showToast('Juicio cargado', 'info');
 }
@@ -316,6 +662,46 @@ function copGetActiveLimits() {
     return limits.filter(function(p) { return copState.activePolls[p.id]; });
 }
 
+/**
+ * [v19.0] Verifica los límites aplicados contra el perfil REAL de la norma.
+ *
+ * El validador aplica COP_PI_LIMITS/COP_CI_LIMITS (Euro 6) a todo. Dentro del
+ * alcance CoP (EURO-5 / EURO-6E / PRE-EURO 7) eso es correcto porque los tres
+ * perfiles traen los mismos valores — pero es una coincidencia, no una garantía.
+ * Esta función la comprueba en cada render: si mañana entra una norma al alcance
+ * cuyo perfil difiere, sale el aviso en vez de un veredicto silenciosamente malo.
+ *
+ * Devuelve {limits, profile, emissionReg, mismatches:[{poll, applied, profile, unit}],
+ *           profileMissing} — nunca cambia el número aplicado por su cuenta: avisar
+ * es correcto, recalcular a espaldas del técnico un veredicto ya emitido no lo es.
+ */
+function copLimitsForFamily(emissionReg) {
+    var limits = copGetActiveLimits();
+    var out = { limits: limits, profile: null, emissionReg: emissionReg || '', mismatches: [], profileMissing: false };
+    if (!emissionReg || typeof getRegulationProfile !== 'function') return out;
+
+    var prof = null;
+    try { prof = getRegulationProfile(emissionReg); } catch (e) {}
+    if (!prof || !prof.gases || !prof.gases.length) { out.profileMissing = true; return out; }
+    out.profile = prof;
+
+    limits.forEach(function(p) {
+        // HCNOx no existe como campo suelto en los perfiles: EURO-2 lo guarda bajo THC
+        // con la etiqueta "THC+NOx" (mismo caso que resuelve _copRegCombinesTHC).
+        var g = prof.gases.find(function(x) {
+            return x.field === p.id || (p.id === 'HCNOx' && x.field === 'THC' && /\+\s*NO/i.test(x.label || ''));
+        });
+        if (!g || g.limit === null || g.limit === undefined) return;
+        var sameUnit = _copNormKey(g.unit) === _copNormKey(p.unit);
+        var sameLimit = Math.abs(Number(g.limit) - Number(p.limit)) <= Math.abs(Number(p.limit)) * 1e-9;
+        if (!sameUnit || !sameLimit) {
+            out.mismatches.push({ poll: p.label || p.id, applied: p.limit, appliedUnit: p.unit,
+                                  profile: g.limit, profileUnit: g.unit, unitDiffers: !sameUnit });
+        }
+    });
+    return out;
+}
+
 function copGetPollStats() {
     return copGetActiveLimits().map(function(p) {
         var rawValues = copState.vehicles.map(function(v) {
@@ -336,9 +722,363 @@ function copGetOverallDecision(pollStats) {
     return 'CONTINUE';
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v19.0] PANORAMA — el estado CoP de TODAS las familias del alcance
+//
+// Hasta v18.6 había que elegir una familia en un <select> para ver algo: ninguna
+// pantalla respondía "¿cómo va el CoP del laboratorio?". copPortfolioRows() es LA
+// definición de esa respuesta — todo consumidor nuevo (Panorama, CSV, encabezado
+// del expediente, alertas) la llama en vez de recalcular por su cuenta.
+//
+// NO hay matemática nueva aquí: compone copCalcStats (veredicto secuencial),
+// copSpcStats/copSpcFlags (Cpk y Nelson) y tpBuildFamilies (cobertura del plan,
+// ya cacheada por _tpGetPlanHash).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var COP_RISK_THRESHOLDS = {
+    bandNearB:  0.75,  // U en el 75% superior de la banda A(n)..B(n)
+    marginHigh: 0.90,  // media ≥ 90% del límite
+    marginWarn: 0.80,  // media ≥ 80% del límite
+    cpkBad:     0.67,
+    cpkWarn:    1.00,
+    staleDays:  120    // informativo: no pinta riesgo por sí solo
+};
+
+/** Gases con límite regulatorio de una familia (CO2 fuera: no tiene límite fijo). */
+function copFamilyGases(fam) {
+    return copSpcGases(fam).filter(function(g) {
+        return g.field !== 'CO2' && g.limit !== null && g.limit !== undefined;
+    });
+}
+
+/**
+ * LA definición del semáforo de riesgo. PURA: recibe la fila ya calculada, así que
+ * se puede probar sin DOM ni globales.
+ *
+ * Es un AVISO INTERNO ANTICIPADO, no un veredicto regulatorio — la UI lo dice con
+ * esas palabras. Reglas de honestidad, deliberadas:
+ *   · Sin datos NUNCA es verde. Con n<3 el muestreo secuencial no decide nada, y
+ *     pintar verde ahí sería afirmar algo que la estadística no sostiene.
+ *   · Nada de "va a fallar": el texto dice qué se observó, no qué va a pasar.
+ *   · `confidence` baja sola con n chico o con la familia sin ensayar hace mucho.
+ */
+function copFamilyRisk(row) {
+    var reasons = [], level = 'ok';
+    var bump = function(l) {
+        var order = { ok: 0, atencion: 1, riesgo: 2 };
+        if (order[l] > order[level]) level = l;
+    };
+
+    if (!row || !row.n || row.n < 3) {
+        return {
+            level: 'sin-datos',
+            confidence: 'ninguna',
+            reasons: [{ code: 'no_data', text: row && row.n
+                ? 'Solo ' + row.n + ' VIN(es) con resultados: faltan ' + (3 - row.n) + ' para que el muestreo pueda decidir.'
+                : 'Sin ensayos con resultados finales capturados.' }]
+        };
+    }
+
+    if (row.verdict === 'FAIL') {
+        reasons.push({ code: 'verdict_fail', text: 'Veredicto NO CONCORDANTE' + (row.worstPoll ? ' en ' + row.worstPoll : '') + '.' });
+        bump('riesgo');
+    }
+    if (row.bandPos !== null && row.bandPos !== undefined && row.bandPos >= COP_RISK_THRESHOLDS.bandNearB && row.verdict !== 'FAIL') {
+        reasons.push({ code: 'band_near_b', text: 'El estadístico U de ' + (row.worstPoll || 'el peor gas') +
+            ' está en el ' + Math.round(row.bandPos * 100) + '% superior de la banda A(n)–B(n): más cerca de NO CONCORDANTE que de CONCORDANTE.' });
+        bump('atencion');
+    }
+    // Margen delgado NO es rojo por sí solo: la familia aprobó el muestreo, y pintar
+    // un PASS con el mismo rojo que un NO CONCORDANTE confunde dos situaciones muy
+    // distintas y quema la credibilidad del tablero. Sube a rojo solo cuando además
+    // el proceso no es capaz de sostener ese margen (Cpk < 1).
+    var marginHigh = false;
+    if (row.marginRatio !== null && row.marginRatio !== undefined) {
+        if (row.marginRatio >= COP_RISK_THRESHOLDS.marginHigh) {
+            marginHigh = true;
+            reasons.push({ code: 'margin_high', text: 'La media de ' + (row.worstPoll || 'el peor gas') + ' va al ' +
+                Math.round(row.marginRatio * 100) + '% del límite: casi sin margen.' });
+            bump('atencion');
+        } else if (row.marginRatio >= COP_RISK_THRESHOLDS.marginWarn) {
+            reasons.push({ code: 'margin_warn', text: 'La media de ' + (row.worstPoll || 'el peor gas') + ' va al ' +
+                Math.round(row.marginRatio * 100) + '% del límite: margen delgado.' });
+            bump('atencion');
+        }
+    }
+    if (row.cpkMin !== null && row.cpkMin !== undefined && row.cpkReliable) {
+        if (row.cpkMin < COP_RISK_THRESHOLDS.cpkBad) {
+            reasons.push({ code: 'cpk_bad', text: 'Cpk ' + row.cpkMin.toFixed(2) + ' en ' + (row.cpkMinGas || 'un gas') +
+                ': el proceso no es capaz de sostener el límite.' });
+            bump('riesgo');
+        } else if (row.cpkMin < COP_RISK_THRESHOLDS.cpkWarn) {
+            reasons.push({ code: 'cpk_warn', text: 'Cpk ' + row.cpkMin.toFixed(2) + ' en ' + (row.cpkMinGas || 'un gas') +
+                ': por debajo de 1.00, los resultados están cerca del límite.' });
+            bump('atencion');
+            if (marginHigh) {
+                reasons.push({ code: 'margin_and_cpk', text: 'Margen casi agotado Y proceso no capaz: un lote peor de lo normal deja de concordar.' });
+                bump('riesgo');
+            }
+        }
+    }
+    if (row.spcAlarms && row.spcAlarms.length) {
+        var r1 = row.spcAlarms.filter(function(a) { return a.rule === 'R1'; }).length;
+        reasons.push({ code: r1 ? 'spc_r1' : 'spc_shift',
+            text: row.spcAlarms.length + ' alarma(s) de control de proceso' + (r1 ? ' (punto fuera de ±3σ)' : ' (corrimiento o tendencia)') + '.' });
+        bump('atencion');
+    }
+    // [v19.1] Un vehículo cuya masa de ensayo o CO₂ declarado caen fuera del rango
+    // de su propia familia IP es un problema de EVIDENCIA, no de emisiones: o el
+    // dato del ICMS está mal, o el vehículo no pertenece a esa familia. Se avisa
+    // sin tocar el veredicto.
+    if (row.ipOutliers && row.ipOutliers.length) {
+        reasons.push({ code: 'ip_outlier',
+            text: row.ipOutliers.length + ' vehículo(s) fuera del rango de su familia IP: ' +
+                  row.ipOutliers.slice(0, 2).map(function(o) { return o.text; }).join(' · ') });
+        bump('atencion');
+    }
+
+    var confidence = row.n >= COP_SPC_RELIABLE ? 'alta' : row.n >= 5 ? 'media' : 'baja';
+    if (row.daysSinceTest !== null && row.daysSinceTest !== undefined && row.daysSinceTest > COP_RISK_THRESHOLDS.staleDays) {
+        // No sube el nivel a propósito: una familia sin ensayar hace tiempo no está en
+        // riesgo estadístico, solo hace menos confiable lo que se sabe de ella.
+        reasons.push({ code: 'stale', text: 'Último ensayo hace ' + row.daysSinceTest + ' días: el panorama puede estar desactualizado.' });
+        if (confidence === 'alta') confidence = 'media';
+        else if (confidence === 'media') confidence = 'baja';
+    }
+
+    if (!reasons.length) {
+        reasons.push({ code: 'clear', text: row.verdict === 'PASS'
+            ? 'Familia CONCORDANTE, sin señales de deriva.'
+            : 'En muestreo, sin señales de deriva.' });
+    }
+    return { level: level, confidence: confidence, reasons: reasons };
+}
+
+/**
+ * LA definición del estado CoP de todas las familias del alcance.
+ * Memoizada: pnGetActiveAlerts corre en cada render del Panel.
+ */
+function copPortfolioRows(opts) {
+    var force = !!(opts && opts.force);
+    var nVeh = 0;
+    try { nVeh = (db.vehicles || []).length; } catch (e) {}
+    var nTested = 0;
+    try { nTested = (tpState.testedList || []).length; } catch (e) {}
+    var cacheKey = nVeh + '|' + nTested + '|' + _copRev + '|' + ((copState.saved || []).length);
+    if (!force && _copPortfolioCache && _copPortfolioCache.key === cacheKey) return _copPortfolioCache.rows;
+
+    var fams = {};
+
+    // (1) Lo que el PLAN dice que debe probarse — una familia planeada sin ensayos
+    //     tiene que aparecer (en gris), no desaparecer: es justo lo que se pregunta.
+    var planFams = {};
+    try {
+        if (typeof tpBuildFamilies === 'function') {
+            tpBuildFamilies().forEach(function(f) { planFams[f.key] = f; });
+        }
+    } catch (e) {}
+    copFamilies().forEach(function(f) {
+        var pf = planFams[f.key] || {};
+        fams[f.key] = {
+            key: f.key, label: f.label, regionsArr: f.regionsArr || [],
+            emissionReg: f.reg || '', regName: f.reg || '',
+            planRequired: pf.totalRequired || 0, planTested: pf.totalTested || 0,
+            planDeficit: pf.deficit || 0,
+            planCoverage: (pf.coverage === undefined || pf.coverage === null) ? null : pf.coverage,
+            lastTestDate: pf.lastTestDate || '', daysSinceTest: (pf.daysSinceTest === undefined) ? null : pf.daysSinceTest,
+            tests: [], inPlan: true
+        };
+    });
+
+    // (2) Lo que YA se probó (db.vehicles con gases finales verificados).
+    copSpcFamilies().forEach(function(sf) {
+        var r = fams[sf.key];
+        if (!r) {
+            r = fams[sf.key] = {
+                key: sf.key, label: sf.label, regionsArr: sf.region ? [sf.region] : [],
+                emissionReg: sf.emissionReg || '', regName: sf.regName || sf.emissionReg || '',
+                planRequired: 0, planTested: 0, planDeficit: 0, planCoverage: null,
+                lastTestDate: '', daysSinceTest: null, tests: [], inPlan: false
+            };
+        }
+        r.tests = sf.tests || [];
+        r.regName = sf.regName || r.regName;
+        r.spcFam = sf;
+        if (!r.lastTestDate && r.tests.length) {
+            var last = r.tests[r.tests.length - 1];
+            r.lastTestDate = (last.date || '').slice(0, 10);
+            if (r.lastTestDate) {
+                r.daysSinceTest = Math.floor((Date.now() - new Date(r.lastTestDate + 'T12:00:00').getTime()) / 86400000);
+            }
+        }
+    });
+
+    // (3) Alarmas SPC indexadas UNA vez (el barrido es caro; nunca por familia).
+    var alarmsByFam = {};
+    try {
+        copSpcScanAlarms().forEach(function(a) {
+            (alarmsByFam[a.famKey] = alarmsByFam[a.famKey] || []).push(a);
+        });
+    } catch (e) {}
+
+    // (4) Último juicio guardado por familia.
+    var lastJudgment = {};
+    (copState.saved || []).forEach(function(j) {
+        if (!j || !j.familyKey) return;
+        if (!lastJudgment[j.familyKey] || (j.date || '') > (lastJudgment[j.familyKey].date || '')) {
+            lastJudgment[j.familyKey] = j;
+        }
+    });
+
+    var rows = Object.keys(fams).map(function(k) {
+        var r = fams[k];
+        var fam = r.spcFam || { tests: r.tests, regName: r.regName };
+        var gases = r.tests.length ? copFamilyGases(fam) : [];
+
+        r.polls = [];
+        var worst = null, nMax = 0, cpkMin = null, cpkMinGas = null, cpkReliable = false;
+
+        gases.forEach(function(g) {
+            var pts = copSpcSeries(fam, g.field);
+            var vals = pts.map(function(p) { return p.v; });
+            if (vals.length > nMax) nMax = vals.length;
+            var st = copCalcStats(vals, g.limit);
+            var sp = copSpcStats(vals, g.limit);
+            var marginRatio = (st && g.limit) ? (st.mean / g.limit) : null;
+            var bandPos = null;
+            if (st && st.U !== null && st.cv) {
+                var span = st.cv.b - st.cv.a;
+                bandPos = span > 0 ? Math.max(0, Math.min(1, (st.U - st.cv.a) / span)) : null;
+            }
+            var p = {
+                field: g.field, label: g.label || g.field, unit: g.unit || '', limit: g.limit,
+                n: vals.length, stats: st, marginRatio: marginRatio, bandPos: bandPos,
+                cpk: (sp && sp.n >= COP_SPC_RELIABLE) ? sp.cpk : null
+            };
+            r.polls.push(p);
+            if (p.cpk !== null && p.cpk !== undefined && (cpkMin === null || p.cpk < cpkMin)) {
+                cpkMin = p.cpk; cpkMinGas = p.label; cpkReliable = true;
+            }
+            // "Peor" = el que más manda sobre el veredicto: primero un FAIL, luego el
+            // que esté más arriba en la banda, y como desempate el de menos margen.
+            var score = (st && st.decision === 'FAIL' ? 1000 : 0)
+                      + (bandPos !== null ? bandPos * 100 : 0)
+                      + (marginRatio !== null ? marginRatio : 0);
+            if (!worst || score > worst._score) { worst = Object.assign({ _score: score }, p); }
+        });
+
+        var withStats = r.polls.filter(function(p) { return p.stats; });
+        r.n = nMax;
+        r.nWithStats = withStats.length;
+        r.verdict = withStats.length
+            ? (withStats.some(function(p) { return p.stats.decision === 'FAIL'; }) ? 'FAIL'
+              : withStats.every(function(p) { return p.stats.decision === 'PASS'; }) ? 'PASS' : 'CONTINUE')
+            : null;
+        r.worstPoll   = worst ? worst.label : '';
+        r.worstU      = worst && worst.stats ? worst.stats.U : null;
+        r.band        = worst && worst.stats ? worst.stats.cv : null;
+        r.bandPos     = worst ? worst.bandPos : null;
+        r.marginRatio = worst ? worst.marginRatio : null;
+        r.marginPct   = (r.marginRatio === null || r.marginRatio === undefined) ? null : r.marginRatio * 100;
+        r.cpkMin = cpkMin; r.cpkMinGas = cpkMinGas; r.cpkReliable = cpkReliable;
+        r.spcAlarms = alarmsByFam[k] || [];
+
+        var j = lastJudgment[k];
+        r.judgedAt = j ? j.date : '';
+        r.judgedDecision = j ? j.decision : '';
+        r.judgmentId = j ? j.id : '';
+
+        // [v19.1] Familia de interpolación del WVTA (solo Europa). Es INFORMATIVA
+        // sobre la fila: la clave de agrupación sigue siendo copVehicleFamilyKey,
+        // que es la identidad de las series SPC y de todos los juicios guardados.
+        r.ipFamilies = [];
+        r.ipOutliers = [];
+        try {
+            if (typeof homoIpFamilyForVehicle === 'function') {
+                var vinsFam = {};
+                (r.tests || []).forEach(function(t) { if (t.vin) vinsFam[String(t.vin).toUpperCase()] = true; });
+                var vehsFam = ((typeof db !== 'undefined' && db.vehicles) ? db.vehicles : []).filter(function(v) {
+                    return v.vin && vinsFam[String(v.vin).toUpperCase()];
+                });
+                var codes = {};
+                vehsFam.forEach(function(v) {
+                    var res = homoIpFamilyForVehicle(v);
+                    if (res && res.family) codes[res.family.code] = true;
+                });
+                r.ipFamilies = Object.keys(codes);
+                if (typeof homoIpScanOutliers === 'function') r.ipOutliers = homoIpScanOutliers(vehsFam);
+            }
+        } catch (e) {}
+
+        // El límite aplicado vs el perfil real de la norma (§ copLimitsForFamily).
+        r.limitsCheck = null;
+        try { r.limitsCheck = copLimitsForFamily(r.regName || r.emissionReg); } catch (e) {}
+
+        r.risk = copFamilyRisk(r);
+        delete r.spcFam; // no arrastrar la familia SPC entera en la fila
+        return r;
+    });
+
+    // Peor primero: es el orden en que se quiere leer un tablero de conformidad.
+    var rank = { riesgo: 0, atencion: 1, 'sin-datos': 2, ok: 3 };
+    rows.sort(function(a, b) {
+        var d = rank[a.risk.level] - rank[b.risk.level];
+        if (d) return d;
+        var am = a.marginRatio === null ? -1 : a.marginRatio, bm = b.marginRatio === null ? -1 : b.marginRatio;
+        if (bm !== am) return bm - am;
+        return a.label < b.label ? -1 : a.label > b.label ? 1 : 0;
+    });
+
+    _copPortfolioCache = { key: cacheKey, rows: rows };
+    return rows;
+}
+
+/** Resumen de KPIs del Panorama — deriva de copPortfolioRows, no recuenta. */
+function copPortfolioSummary(rows) {
+    rows = rows || copPortfolioRows();
+    var s = { total: rows.length, pass: 0, fail: 0, cont: 0, sinDatos: 0, riesgo: 0, atencion: 0, alarmas: 0 };
+    rows.forEach(function(r) {
+        if (r.verdict === 'PASS') s.pass++;
+        else if (r.verdict === 'FAIL') s.fail++;
+        else if (r.verdict === 'CONTINUE') s.cont++;
+        else s.sinDatos++;
+        if (r.risk.level === 'riesgo') s.riesgo++;
+        else if (r.risk.level === 'atencion') s.atencion++;
+        s.alarmas += (r.spcAlarms || []).length;
+    });
+    return s;
+}
+
 // ─── MANEJADORES DE EVENTOS ──────────────────────────────────────────────────
 function copSetRegulation(r) {
     copState.regulation = r;
+    copPersist();
+    copRender();
+}
+
+// ─── Panorama: manejadores ────────────────────────────────────────────────────
+function copOpenFamily(key) {
+    copSelectFamily(key);
+    copState.view = 'validator';
+    copPersist();
+    copRender();
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { }
+}
+function copSetOvFilter(what, val) {
+    copState.ovFilter = copState.ovFilter || {};
+    copState.ovFilter[what] = val;
+    copPersist();
+    copRender();
+}
+/** Modo presentación: sube la escala SOLO dentro del CoP (body.cop-present). */
+function copTogglePresent() {
+    copState.present = !copState.present;
+    try { document.body.classList.toggle('cop-present', !!copState.present); } catch (e) { }
+    copPersist();
+    copRender();
+}
+function copSpcToggleAllScopes(el) {
+    copState.spc.allScopes = !!(el && el.checked);
     copPersist();
     copRender();
 }
@@ -348,7 +1088,7 @@ function copSetFuel(fuel) {
     var newLimits = COP_FUEL_LIMITS[fuel] || COP_PI_LIMITS;
     copState.activePolls = {};
     newLimits.forEach(function(p) { copState.activePolls[p.id] = p.active; });
-    copState.vehicles = copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; });
+    _copSetVehicles(copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; }));
     copState._lastDecision = null;
     copPersist();
     copRender();
@@ -370,7 +1110,7 @@ function copHandleInput(el) {
 }
 
 function copClearData() {
-    copState.vehicles = copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; });
+    _copSetVehicles(copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; }));
     copState._lastDecision = null;
     copPersist();
     copRender();
@@ -400,6 +1140,8 @@ function copRender() {
     copInitState();
     var container = document.getElementById('platform-cop');
     if (!container) return;
+    // El modo presentación vive en <body> para poder subir la escala SOLO del CoP.
+    try { document.body.classList.toggle('cop-present', !!copState.present); } catch (e) { }
     container.innerHTML = copBuildHTML();
     if (copState.view === 'spc') copSpcRenderCharts();
     // v16.0: banners/tooltips de ayuda (render síncrono — sin caché de pestañas de por medio)
@@ -408,7 +1150,7 @@ function copRender() {
 }
 
 function copSetView(v) {
-    copState.view = v === 'spc' ? 'spc' : 'validator';
+    copState.view = ['overview', 'validator', 'spc', 'dossier'].indexOf(v) !== -1 ? v : 'overview';
     copPersist();
     copRender();
 }
@@ -439,11 +1181,70 @@ function _copDecBgColor(decision) {
     return { PASS: 'rgba(16,185,129,0.06)', FAIL: 'rgba(239,68,68,0.06)', CONTINUE: 'rgba(245,158,11,0.06)' }[decision] || 'transparent';
 }
 
+/**
+ * [v19.0] Un renglón del gauge: la banda A(n)…B(n) con U marcado encima.
+ *
+ * Escala: la banda ocupa el 60% central del ancho, y los extremos (PASS a la
+ * izquierda, FAIL a la derecha) el 20% cada uno. Un U muy alejado se clava en el
+ * extremo en vez de reventar la escala — el mensaje ("ya decidió") no se pierde.
+ */
+function _copGaugeRowHTML(p) {
+    var st = p.stats, a = st.cv.a, b = st.cv.b, span = b - a;
+    var PASS_W = 20, BAND_W = 60, FAIL_W = 20;
+    var pos;
+    if (span <= 0) {
+        pos = 50;
+    } else if (st.U <= a) {
+        // Dentro del 20% izquierdo, proporcional a cuánto rebasó A(n) (tope: el borde).
+        var over = Math.min(1, (a - st.U) / (span || 1));
+        pos = PASS_W - over * PASS_W * 0.9;
+    } else if (st.U >= b) {
+        var over2 = Math.min(1, (st.U - b) / (span || 1));
+        pos = PASS_W + BAND_W + over2 * FAIL_W * 0.9;
+    } else {
+        pos = PASS_W + ((st.U - a) / span) * BAND_W;
+    }
+    pos = Math.max(0.5, Math.min(99.5, pos));
+
+    var vu = _copVerdictUI(st.decision === 'PASS' ? 'PASS' : st.decision === 'FAIL' ? 'FAIL' : 'CONTINUE');
+    var html = '<div class="cop-gauge-row">';
+    html += '<div class="cop-gauge-name">' + p.label +
+            '<small>L = ' + copFmtLimit(p.limit, p.isPn) + ' ' + _copEsc(p.unit) + ' · n=' + st.n + '</small></div>';
+
+    html += '<div class="cop-gauge" role="img" aria-label="' + _copEsc(p.label) + ': U ' + copFmtU(st.U) +
+            ', banda A ' + a.toFixed(3) + ' a B ' + b.toFixed(3) + ', ' + _copEsc(vu.word) + '">';
+    html += '<div class="cop-gauge-zone cop-gauge-zone--pass" style="width:' + PASS_W + '%;"><span>Concordante</span></div>';
+    html += '<div class="cop-gauge-zone cop-gauge-zone--mid"  style="width:' + BAND_W + '%;"><span>A(n) ' + a.toFixed(2) + ' — sin decidir — B(n) ' + b.toFixed(2) + '</span></div>';
+    html += '<div class="cop-gauge-zone cop-gauge-zone--fail" style="width:' + FAIL_W + '%;"><span>No concord.</span></div>';
+    html += '<div class="cop-gauge-marker" style="left:' + pos.toFixed(1) + '%;" title="U = ' + copFmtU(st.U) + '"></div>';
+    html += '</div>';
+
+    html += '<div class="cop-gauge-val"><span class="cop-chip ' + vu.chip + '">' + vu.short + '</span>' +
+            '<small>U = ' + copFmtU(st.U) + '</small></div>';
+    return html + '</div>';
+}
+
 // ─── HTML: SECCIÓN DE ESTADÍSTICAS (se actualiza por separado en inputs) ─────
 function copBuildStatsHTML() {
     var pollStats = copGetPollStats();
     var overallDecision = copGetOverallDecision(pollStats);
     var html = '';
+
+    // ── Gauge: dónde cae U en la banda A(n)…B(n), por contaminante ────────────
+    // La tabla de abajo dice los números; esto dice qué SIGNIFICAN. Sin este
+    // gráfico el muestreo secuencial es ilegible para cualquiera que no sea del
+    // laboratorio — que es justo quien lo va a ver en una auditoría.
+    var conGauge = pollStats.filter(function(p) { return p.stats && p.stats.U !== null && p.stats.cv; });
+    if (conGauge.length) {
+        html += '<div class="card" style="margin-bottom:16px;">';
+        html += '<div class="card-title" data-help="cop-gauge-help">🎯 Qué tan cerca está cada gas de decidir</div>';
+        conGauge.forEach(function(p) { html += _copGaugeRowHTML(p); });
+        html += '<div class="cop-gauge-legend">';
+        html += '<span><span class="cop-chip cop-chip--ok">CONCORDANTE</span> U ≤ A(n): la familia ya cumplió, puedes dejar de ensayar.</span>';
+        html += '<span><span class="cop-chip cop-chip--warn">SIN DECIDIR</span> entre A(n) y B(n): hace falta otro vehículo.</span>';
+        html += '<span><span class="cop-chip cop-chip--bad">NO CONCORDANTE</span> U ≥ B(n).</span>';
+        html += '</div></div>';
+    }
 
     // Card de análisis
     html += '<div class="card" style="margin-bottom:16px;">';
@@ -504,22 +1305,26 @@ function copBuildStatsHTML() {
     html += '</tbody></table></div>';
     html += '</div>'; // stats card
 
-    // Veredicto de concordancia de la familia
+    // Veredicto de concordancia de la familia — banner protagonista (v19.0)
     if (overallDecision) {
-        var decLabel = {
-            PASS:     '✓ Familia CONCORDANTE',
-            FAIL:     '✗ Familia NO CONCORDANTE',
-            CONTINUE: '⧗ Faltan VINes (ensayar más)',
+        var vCls = { PASS: 'pass', FAIL: 'fail', CONTINUE: 'cont' }[overallDecision] || 'none';
+        var vWord = { PASS: '✓ CONCORDANTE', FAIL: '✗ NO CONCORDANTE', CONTINUE: '⧗ EN MUESTREO' }[overallDecision];
+        var vSub = {
+            PASS:     'La familia cumple: el muestreo secuencial decidió a favor en todos los contaminantes activos.',
+            FAIL:     'Algún contaminante superó B(n). El muestreo decidió en contra.',
+            CONTINUE: 'Aún sin decidir: agrega otro VIN con resultados para que el muestreo concluya.'
         }[overallDecision];
+        var nVin = (copState.vehicles || []).filter(function(v) { return v.vin; }).length;
 
-        html += '<div class="card" style="margin-bottom:16px;border-color:' + _copDecBorderColor(overallDecision) +
-                ';background:' + _copDecBgColor(overallDecision) + ';display:flex;align-items:center;gap:16px;flex-wrap:wrap;">';
-        html += '<p class="label-title" data-help="cop-verdict-help" style="margin:0;white-space:nowrap;">CONCORDANCIA DE FAMILIA</p>';
-        html += '<span class="' + _copDecClass(overallDecision) +
-                '" style="padding:8px 20px;border-radius:var(--radius-md);font-size:15px;font-weight:800;letter-spacing:0.04em;">' +
-                decLabel + '</span>';
-        html += '<p class="label-title" style="margin:0 0 0 auto;white-space:nowrap;">n = ' +
-                copState.vehicles.length + ' VIN(es)</p>';
+        html += '<div class="cop-verdict cop-verdict--' + vCls + '" data-help="cop-verdict-help">';
+        html += '<div style="flex:1;min-width:240px;">';
+        html += '<div class="cop-verdict-word">' + vWord + '</div>';
+        html += '<div class="cop-verdict-meta">' + vSub + '</div>';
+        html += '</div>';
+        html += '<div style="text-align:right;">';
+        html += '<div class="cop-verdict-word" style="font-size:var(--fs-md);">n = ' + nVin + '</div>';
+        html += '<div class="cop-verdict-meta">VIN(es) con resultados</div>';
+        html += '</div>';
         html += '</div>';
 
         // Toast único al cambiar a NO CONCORDANTE
@@ -528,26 +1333,347 @@ function copBuildStatsHTML() {
         }
         copState._lastDecision = overallDecision;
     } else {
-        html += '<div class="card" style="margin-bottom:16px;border-color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.05);">';
-        html += '<p class="label-title" style="margin:0;color:var(--warning);">⧗ Aún sin veredicto — captura al menos 3 VINes con valores por contaminante para calcular la concordancia.</p>';
-        html += '</div>';
+        var faltan = 3 - (copState.vehicles || []).filter(function(v) {
+            return copGetActiveLimits().some(function(p) { return v.values[p.id] !== undefined && v.values[p.id] !== ''; });
+        }).length;
+        html += '<div class="cop-verdict cop-verdict--none" data-help="cop-verdict-help">';
+        html += '<div style="flex:1;min-width:240px;">';
+        html += '<div class="cop-verdict-word">SIN VEREDICTO</div>';
+        html += '<div class="cop-verdict-meta">El muestreo secuencial necesita al menos 3 VINes con valor por contaminante' +
+                (faltan > 0 && faltan < 3 ? ' — faltan ' + faltan + '.' : '.') +
+                ' Con menos datos no se afirma nada.</div>';
+        html += '</div></div>';
         copState._lastDecision = null;
     }
 
     return html;
 }
 
-// ─── HTML: PÁGINA COMPLETA (sub-pestañas Validador | Control SPC) ────────────
-function copBuildHTML() {
-    var html = '<div class="container" style="padding-top:20px;padding-bottom:20px;">';
-    html += '<div style="display:flex;gap:8px;margin-bottom:16px;">';
-    [['validator', '📋 Validador CoP'], ['spc', '📈 Control SPC']].forEach(function(t) {
-        var active = (copState.view || 'validator') === t[0];
-        html += '<button onclick="copSetView(\'' + t[0] + '\')" class="btn btn-sm ' + (active ? '' : 'btn-ghost') + '" ' +
-                (active ? 'style="background:var(--accent-cop);color:#fff;"' : '') + '>' + t[1] + '</button>';
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v19.0] HTML: PANORAMA — todas las familias del alcance en una pantalla
+// Pensado para proyectarse: una palabra grande por familia, el margen como barra
+// y el motivo escrito. Sin Chart.js a propósito (nada de destruir/crear canvas).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var COP_VERDICT_UI = {
+    PASS:     { cls: 'ok',   chip: 'cop-chip--ok',   word: 'CONCORDANTE',     short: 'CONCORDANTE' },
+    FAIL:     { cls: 'bad',  chip: 'cop-chip--bad',  word: 'NO CONCORDANTE',  short: 'NO CONCORDA.' },
+    CONTINUE: { cls: 'warn', chip: 'cop-chip--warn', word: 'EN MUESTREO',     short: 'EN MUESTREO' }
+};
+var COP_RISK_UI = {
+    riesgo:      { cls: 'bad',  chip: 'cop-chip--bad',  glyph: '🔴', label: 'Riesgo alto' },
+    atencion:    { cls: 'warn', chip: 'cop-chip--warn', glyph: '🟡', label: 'Atención' },
+    ok:          { cls: 'ok',   chip: 'cop-chip--ok',   glyph: '🟢', label: 'Sin señales' },
+    'sin-datos': { cls: 'none', chip: 'cop-chip--none', glyph: '⚪', label: 'Sin datos' }
+};
+function _copVerdictUI(v) { return COP_VERDICT_UI[v] || { cls: 'none', chip: 'cop-chip--none', word: 'SIN VEREDICTO', short: 'SIN VEREDICTO' }; }
+function _copRiskUI(l) { return COP_RISK_UI[l] || COP_RISK_UI['sin-datos']; }
+
+function copBuildOverviewHTML() {
+    var rows = copPortfolioRows();
+    var s = copPortfolioSummary(rows);
+    var f = copState.ovFilter || {};
+    var html = '';
+
+    // ── KPIs ──────────────────────────────────────────────────────────────────
+    var kpis = [
+        { n: s.total,     l: 'Familias en alcance', k: 'none' },
+        { n: s.pass,      l: 'Concordantes',        k: 'ok' },
+        { n: s.cont,      l: 'En muestreo',         k: 'warn' },
+        { n: s.fail,      l: 'No concordantes',     k: 'bad' },
+        { n: s.sinDatos,  l: 'Sin datos',           k: 'none' },
+        { n: s.riesgo,    l: 'Riesgo alto',         k: s.riesgo ? 'bad' : 'none' }
+    ];
+    html += '<div class="cop-kpis" data-help="cop-kpis-help">';
+    kpis.forEach(function(k) {
+        html += '<div class="cop-kpi cop-kpi--' + k.k + '"><div class="cop-kpi-n">' + k.n + '</div>' +
+                '<div class="cop-kpi-l">' + k.l + '</div></div>';
     });
     html += '</div>';
-    html += (copState.view === 'spc') ? copBuildSpcHTML() : copBuildValidatorHTML();
+
+    // ── Filtros ───────────────────────────────────────────────────────────────
+    var regions = {};
+    rows.forEach(function(r) { (r.regionsArr || []).forEach(function(x) { if (x) regions[x] = true; }); });
+    html += '<div class="cop-toolbar">';
+    html += '<div><p class="label-title" style="margin-bottom:6px;">Región</p>';
+    html += '<select aria-label="Filtrar por región" class="cop-select" onchange="copSetOvFilter(\'region\', this.value)" ' +
+            'style="padding:7px 10px;font-size:var(--fs-sm);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);">';
+    html += '<option value="">Todas</option>';
+    Object.keys(regions).sort().forEach(function(r) {
+        html += '<option value="' + _copEsc(r) + '"' + (f.region === r ? ' selected' : '') + '>' + _copEsc(r) + '</option>';
+    });
+    html += '</select></div>';
+
+    html += '<div><p class="label-title" style="margin-bottom:6px;">Mostrar</p><div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    [['', 'Todas'], ['riesgo', '🔴 Riesgo'], ['atencion', '🟡 Atención'], ['sin-datos', '⚪ Sin datos']].forEach(function(o) {
+        var active = (f.risk || '') === o[0];
+        html += '<button type="button" class="cop-nav-btn' + (active ? ' active' : '') + '" ' +
+                'onclick="copSetOvFilter(\'risk\', \'' + o[0] + '\')">' + o[1] + '</button>';
+    });
+    html += '</div></div>';
+
+    html += '<div style="margin-left:auto;"><p class="label-title" style="margin-bottom:6px;">Sala</p>';
+    html += '<button type="button" class="cop-nav-btn' + (copState.present ? ' active' : '') + '" ' +
+            'data-help="cop-present-help" onclick="copTogglePresent()">🖥️ Modo presentación</button></div>';
+    html += '</div>';
+
+    // ── Aviso de límites que no coinciden con el perfil ───────────────────────
+    var mism = rows.filter(function(r) { return r.limitsCheck && r.limitsCheck.mismatches && r.limitsCheck.mismatches.length; });
+    if (mism.length) {
+        html += '<div class="cop-note cop-note--bad"><div class="cop-note-title">⚠ Límite aplicado distinto al perfil de la norma</div>';
+        html += mism.length + ' familia(s) se están juzgando contra un límite que NO coincide con su perfil de regulación. ' +
+                'El veredicto de esas familias no es válido hasta corregirlo en Datos → Regulaciones:';
+        html += '<ul style="margin:6px 0 0 18px;">';
+        mism.slice(0, 6).forEach(function(r) {
+            var m = r.limitsCheck.mismatches[0];
+            html += '<li>' + _copEsc(r.label) + ' — ' + _copEsc(m.poll) + ': aplicado ' + m.applied + ' ' + _copEsc(m.appliedUnit) +
+                    ', perfil ' + m.profile + ' ' + _copEsc(m.profileUnit) + (m.unitDiffers ? ' <b>(¡unidad distinta!)</b>' : '') + '</li>';
+        });
+        html += '</ul></div>';
+    }
+
+    // ── Retícula de familias ──────────────────────────────────────────────────
+    var shown = rows.filter(function(r) {
+        if (f.region && (r.regionsArr || []).indexOf(f.region) === -1) return false;
+        if (f.risk && r.risk.level !== f.risk) return false;
+        return true;
+    });
+
+    if (!rows.length) {
+        html += '<div class="cop-note cop-note--warn"><div class="cop-note-title">Aún no hay familias en el alcance CoP</div>' +
+                'El alcance vigente es ' + _copEsc(copScope().regulations.join(', ')) + ' en ' + _copEsc(copScope().regions.join(' y ')) + '. ' +
+                'Importa el plan de producción en Plan → Producción, o libera vehículos de esas familias en Pruebas.</div>';
+    } else if (!shown.length) {
+        html += '<div class="cop-note">Ninguna familia coincide con el filtro. ' +
+                '<button type="button" class="btn btn-sm btn-ghost" onclick="copSetOvFilter(\'risk\',\'\')">Quitar filtro</button></div>';
+    } else {
+        html += '<div class="cop-fam-grid">';
+        shown.forEach(function(r) { html += _copFamCardHTML(r); });
+        html += '</div>';
+    }
+
+    // ── Lo que queda FUERA del alcance — se declara, no se esconde ────────────
+    var oos = copOutOfScopeSummary();
+    if (oos.total) {
+        html += '<details class="card" style="margin-top:16px;">';
+        html += '<summary data-help="cop-scope-help" style="cursor:pointer;font-weight:var(--weight-bold);color:var(--text);">' +
+                'Fuera del alcance CoP: ' + oos.total + ' configuración(es) ' +
+                '<span class="cop-chip cop-chip--none">no se juzgan aquí</span></summary>';
+        html += '<div style="margin-top:10px;">';
+        html += '<p class="label-title" style="margin-bottom:8px;">El laboratorio hace CoP sobre <b>' +
+                _copEsc(copScope().regulations.join(' · ')) + '</b> en <b>' + _copEsc(copScope().regions.join(' y ')) +
+                '</b>. Estas configuraciones se prueban, pero no entran al juicio de conformidad:</p>';
+        html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+        oos.groups.forEach(function(g) {
+            html += '<span class="cop-chip cop-chip--none">' + _copEsc(g.label) + ' · ' + g.n + '</span>';
+        });
+        html += '</div></div></details>';
+    }
+
+    return html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v19.0] EXPEDIENTE — la dimensión temporal
+// copState.saved era una lista plana pintada como renglones diminutos: no había
+// forma de ver la historia de UNA familia. La cronología se DERIVA (mismo principio
+// que pnProjectTimeline y v.timeline): mezcla los juicios guardados con los ensayos
+// de la familia. No se guarda nada nuevo.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** LA definición de la cronología de una familia. Eventos más recientes primero. */
+function copFamilyHistory(familyKey) {
+    var ev = [];
+    (copState.saved || []).forEach(function(j) {
+        if (j && j.familyKey === familyKey) {
+            ev.push({
+                at: j.date, kind: 'juicio', decision: j.decision, id: j.id,
+                by: j.by || '', n: (j.vehicles || []).filter(function(v) { return v.vin; }).length,
+                text: 'Juicio emitido: ' + _copDecisionWord(j.decision) +
+                      (j.by ? ' — ' + j.by : '') + ' · n=' + (j.vehicles || []).filter(function(v) { return v.vin; }).length
+            });
+        }
+    });
+    var rows = copPortfolioRows();
+    var row = rows.find(function(r) { return r.key === familyKey; });
+    (row && row.tests ? row.tests : []).forEach(function(t) {
+        ev.push({ at: t.date, kind: 'ensayo', text: 'Ensayo liberado — VIN ' + (t.vin || '(sin VIN)') });
+    });
+    (row && row.spcAlarms ? row.spcAlarms : []).forEach(function(a) {
+        ev.push({ at: a.date, kind: 'alarma',
+                  text: 'Alarma de control ' + a.rule + ' en ' + (a.gasLabel || a.gas) + ' — ' + (COP_SPC_RULES[a.rule] || '') });
+    });
+    return ev.sort(function(a, b) { return (b.at || '').localeCompare(a.at || ''); });
+}
+
+function _copDecisionWord(d) {
+    return d === 'PASS' ? 'CONCORDANTE' : d === 'FAIL' ? 'NO CONCORDANTE'
+         : d === 'CONTINUE' ? 'EN MUESTREO (sin decidir)' : (d || 'INCOMPLETO');
+}
+
+/** Veredicto vigente de una familia en una fecha — el último juicio hasta ese día. */
+function copVerdictAt(familyKey, isoDate) {
+    var best = null;
+    (copState.saved || []).forEach(function(j) {
+        if (!j || j.familyKey !== familyKey) return;
+        if ((j.date || '') > isoDate) return;
+        if (!best || (j.date || '') > (best.date || '')) best = j;
+    });
+    return best ? best.decision : null;
+}
+
+function copBuildDossierHTML() {
+    var rows = copPortfolioRows();
+    var key = copState.familyKey;
+    var row = rows.find(function(r) { return r.key === key; });
+    var html = '';
+
+    // Selector de familia
+    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card-title" data-help="cop-dossier-help">🗂️ Expediente de familia</div>';
+    html += '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">';
+    html += '<div style="flex:1;min-width:280px;"><p class="label-title" style="margin-bottom:6px;">Familia</p>';
+    html += '<select aria-label="Familia del expediente" onchange="copSelectFamily(this.value)" ' +
+            'style="width:100%;padding:7px 10px;font-size:var(--fs-sm);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);">';
+    html += '<option value="">— Selecciona una familia —</option>';
+    rows.forEach(function(r) {
+        html += '<option value="' + _copEsc(r.key) + '"' + (r.key === key ? ' selected' : '') + '>' +
+                _copEsc(r.label) + ' — ' + _copVerdictUI(r.verdict).word + '</option>';
+    });
+    html += '</select></div>';
+    if (row) {
+        html += '<button type="button" class="btn btn-sm" style="background:var(--accent-cop);color:#fff;" ' +
+                'onclick="copFamilyPDF()">📄 Expediente PDF</button>';
+        html += '<button type="button" class="btn btn-sm btn-ghost" onclick="copExportFamilyCSV()">CSV</button>';
+    }
+    html += '</div></div>';
+
+    if (!row) {
+        html += '<div class="cop-note">Elige una familia para ver su historia: juicios emitidos, ensayos liberados y alarmas de control, en orden cronológico.</div>';
+        return html;
+    }
+
+    // Franja del año
+    var year = new Date().getFullYear();
+    var meses = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card-title" data-help="cop-strip-help">📅 Veredicto vigente por mes — ' + year + '</div>';
+    html += '<div class="cop-strip">';
+    for (var m = 0; m < 12; m++) {
+        var lastDay = new Date(year, m + 1, 0);
+        var iso = year + '-' + String(m + 1).padStart(2, '0') + '-' + String(lastDay.getDate()).padStart(2, '0');
+        var v = copVerdictAt(row.key, iso + 'T23:59:59');
+        var cls = v === 'PASS' ? 'cop-cell--pass' : v === 'FAIL' ? 'cop-cell--fail'
+                : v === 'CONTINUE' ? 'cop-cell--cont' : 'cop-cell--none';
+        html += '<div class="cop-strip-cell ' + cls + '" title="' + meses[m] + ' ' + year + ': ' +
+                (v ? _copDecisionWord(v) : 'sin juicio emitido') + '">' + meses[m] + '</div>';
+    }
+    html += '</div>';
+    html += '<p class="label-title" style="margin-top:8px;font-size:var(--fs-xs);">Un mes en gris significa que ese mes no había un juicio emitido — nunca se pinta verde por omisión.</p>';
+    html += '</div>';
+
+    // Cronología
+    var ev = copFamilyHistory(row.key);
+    html += '<div class="card" style="margin-bottom:16px;">';
+    html += '<div class="card-title">🕒 Cronología — ' + _copEsc(row.label) + '</div>';
+    if (!ev.length) {
+        html += '<p class="label-title">Sin eventos registrados todavía para esta familia.</p>';
+    } else {
+        html += '<div class="cop-timeline">';
+        ev.slice(0, 60).forEach(function(e) {
+            var dot = e.kind === 'juicio' ? (e.decision === 'PASS' ? 'cop-tl-dot--ok' : e.decision === 'FAIL' ? 'cop-tl-dot--bad' : 'cop-tl-dot--warn')
+                    : e.kind === 'alarma' ? 'cop-tl-dot--warn' : '';
+            html += '<div class="cop-tl-item"><div class="cop-tl-dot ' + dot + '"></div>';
+            html += '<div class="cop-tl-date">' + _copEsc((e.at || '').slice(0, 10) || 's/f') + '</div>';
+            html += '<div class="cop-tl-body">' + _copEsc(e.text) + '</div></div>';
+        });
+        html += '</div>';
+        if (ev.length > 60) html += '<p class="label-title" style="margin-top:8px;">Mostrando los 60 eventos más recientes de ' + ev.length + '.</p>';
+    }
+    html += '</div>';
+    return html;
+}
+
+/** Una tarjeta de familia del Panorama. */
+function _copFamCardHTML(r) {
+    var vu = _copVerdictUI(r.verdict), ru = _copRiskUI(r.risk.level);
+    var html = '<button type="button" class="cop-fam-card cop-fam-card--' + ru.cls + '" ' +
+               'onclick="copOpenFamily(\'' + _copEsc(r.key).replace(/'/g, '&#39;') + '\')" ' +
+               'aria-label="Abrir familia ' + _copEsc(r.label) + '">';
+
+    html += '<div class="cop-fam-head">';
+    html += '<div><div class="cop-fam-title">' + _copEsc(r.label) + '</div>';
+    html += '<div class="cop-fam-sub">' + _copEsc((r.regionsArr || []).join(', ') || '—') +
+            (r.emissionReg ? ' · ' + _copEsc(r.emissionReg) : '') + '</div>';
+    if (r.ipFamilies && r.ipFamilies.length) {
+        html += '<div class="cop-fam-sub" style="font-family:monospace;">🧬 ' +
+                _copEsc(r.ipFamilies.join(' · ')) + '</div>';
+    }
+    html += '</div>';
+    html += '<span class="cop-chip ' + ru.chip + '" title="' + _copEsc(ru.label) + '">' + ru.glyph + '</span>';
+    html += '</div>';
+
+    html += '<div><span class="cop-chip ' + vu.chip + '">' + vu.word + '</span></div>';
+
+    // Barra de margen: el único número que un no-laboratorista entiende sin ayuda.
+    if (r.marginPct !== null && r.marginPct !== undefined) {
+        var pct = Math.max(0, Math.min(100, r.marginPct));
+        var barCls = r.marginPct >= 90 ? 'bad' : r.marginPct >= 80 ? 'warn' : 'ok';
+        html += '<div><div class="cop-bar-label"><span>' + _copEsc(r.worstPoll || 'peor gas') + ' vs límite</span>' +
+                '<span><b>' + Math.round(r.marginPct) + '%</b></span></div>';
+        html += '<div class="cop-bar"><div class="cop-bar-fill cop-bar-fill--' + barCls + '" style="width:' + pct + '%;"></div></div></div>';
+    }
+
+    html += '<div class="cop-fam-metrics">';
+    html += '<div class="cop-fam-metric"><div class="cop-fam-metric-n">' + (r.n || 0) + '</div><div class="cop-fam-metric-l">VIN</div></div>';
+    html += '<div class="cop-fam-metric"><div class="cop-fam-metric-n">' +
+            (r.cpkMin === null || r.cpkMin === undefined ? '—' : r.cpkMin.toFixed(2)) +
+            '</div><div class="cop-fam-metric-l">Cpk mín</div></div>';
+    html += '<div class="cop-fam-metric"><div class="cop-fam-metric-n">' +
+            (r.daysSinceTest === null || r.daysSinceTest === undefined ? '—' : r.daysSinceTest) +
+            '</div><div class="cop-fam-metric-l">días</div></div>';
+    html += '</div>';
+
+    html += '<div class="cop-fam-reason">' + _copEsc(r.risk.reasons[0].text) + '</div>';
+    return html + '</button>';
+}
+
+// ─── HTML: PÁGINA COMPLETA (Panorama | Validador | Control SPC | Expediente) ──
+function copBuildHTML() {
+    var view = copState.view || 'overview';
+    var scope = copScope();
+    var html = '<div class="container cop-main" style="padding-top:20px;padding-bottom:20px;">';
+
+    // Cabecera de plataforma — las otras 4 plataformas la tienen; el CoP no la tenía.
+    html += '<div class="cop-header">';
+    html += '<div class="cop-header-title">🔬 Conformidad de Producción — Tipo 1';
+    if (copState.present) html += '<span class="cop-chip cop-chip--info">Modo presentación</span>';
+    html += '</div>';
+    html += '<div class="cop-header-sub">Muestreo secuencial σ desconocida (R83 Rev.5 / R154 Ap.2) · Alcance: <b>' +
+            _copEsc(scope.regulations.join(' · ')) + '</b> en <b>' + _copEsc(scope.regions.join(' y ')) + '</b></div>';
+    html += '</div>';
+
+    // Navegación
+    html += '<nav class="cop-nav" aria-label="Vistas de CoP">';
+    [['overview', '📊 Panorama'], ['validator', '📋 Validador'], ['spc', '📈 Control SPC'], ['dossier', '🗂️ Expediente']].forEach(function(t) {
+        var active = view === t[0];
+        html += '<button type="button" class="cop-nav-btn' + (active ? ' active' : '') + '"' +
+                (active ? ' aria-current="page"' : '') +
+                ' onclick="copSetView(\'' + t[0] + '\')">' + t[1] + '</button>';
+    });
+    html += '</nav>';
+
+    // v16.0: el banner de ayuda de esta pestaña. HELP_TABS traía las entradas del CoP
+    // desde v16.0 pero nadie llamaba helpBannerHTML() aquí, así que nunca se vieron.
+    var helpKey = { overview: 'cop-overview', validator: 'cop-validator', spc: 'cop-spc', dossier: 'cop-dossier' }[view];
+    if (helpKey && typeof helpBannerHTML === 'function') {
+        try { html += helpBannerHTML(helpKey); } catch (e) { }
+    }
+
+    html += view === 'overview' ? copBuildOverviewHTML()
+          : view === 'spc'      ? copBuildSpcHTML()
+          : view === 'dossier'  ? copBuildDossierHTML()
+          :                       copBuildValidatorHTML();
     html += '</div>'; // container
     return html;
 }
@@ -562,10 +1688,15 @@ function copBuildValidatorHTML() {
 
     // ── Cabecera + Configuración ──────────────────────────────────────────────
     html += '<div class="card" style="margin-bottom:16px;">';
-    html += '<div class="card-title" data-help="cop-validator-help" style="border-bottom-color:var(--accent-cop);">📋 CoP Emissions Validator</div>';
+    html += '<div class="card-title" data-help="cop-validator-help" style="border-bottom-color:var(--accent-cop);">📋 Validador de conformidad</div>';
+    // El reglamento (R154/R83) es el PROCEDIMIENTO de ensayo; la norma de emisiones
+    // (EURO-5, PRE-EURO 7…) es de dónde salen los límites. Son dos cosas distintas y
+    // la cabecera las confundía escribiendo "Euro 6" fijo.
+    var _famReg = _copFamilyEmissionReg(copState.familyKey);
     html += '<p class="label-title" style="margin-bottom:18px;">' +
-            'Conformidad de Producción · Tipo 1 · Appendix 2 · Muestreo secuencial σ desconocida · Euro 6 · ' +
-            copState.regulation + ' (' + (copState.regulation === 'R154' ? 'WLTP' : 'NEDC') + ')</p>';
+            'Tipo 1 · Apéndice 2 · Muestreo secuencial σ desconocida · Procedimiento ' +
+            copState.regulation + ' (' + (copState.regulation === 'R154' ? 'WLTP' : 'NEDC') + ')' +
+            (_famReg ? ' · Norma de emisiones <b>' + _copEsc(_famReg) + '</b>' : '') + '</p>';
 
     html += '<div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">';
 
@@ -622,15 +1753,24 @@ function copBuildValidatorHTML() {
     html += '<option value="">Todas</option>';
     _copRegs.forEach(function(r) { html += '<option value="' + _copEsc(r) + '" ' + (copState.region === r ? 'selected' : '') + '>' + _copEsc(r) + '</option>'; });
     html += '</select></div>';
-    var _copFams = copFamilies().filter(function(f) { return !copState.region || f.regionsArr.indexOf(copState.region) !== -1; });
+    // v19.0: la lista sale del Panorama (unión de plan + vehículos ya probados). Antes
+    // solo leía tpState.planData, así que una familia con ensayos pero sin plan
+    // importado salía como "Familia (0)" aunque estuviera abierta y con datos en pantalla.
+    var _copFams = copPortfolioRows().filter(function(f) {
+        return !copState.region || (f.regionsArr || []).indexOf(copState.region) !== -1;
+    });
     html += '<div style="flex:1;min-width:260px;"><p class="label-title" style="margin-bottom:6px;">Familia (' + _copFams.length + ')</p>';
     html += '<select aria-label="Familia a evaluar" onchange="copSelectFamily(this.value)" style="width:100%;padding:6px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">';
     html += '<option value="">— Selecciona una familia —</option>';
-    _copFams.forEach(function(f) { html += '<option value="' + _copEsc(f.key) + '" ' + (copState.familyKey === f.key ? 'selected' : '') + '>' + _copEsc(f.label) + '</option>'; });
+    _copFams.forEach(function(f) {
+        html += '<option value="' + _copEsc(f.key) + '" ' + (copState.familyKey === f.key ? 'selected' : '') + '>' +
+                _copEsc(f.label) + (f.inPlan ? '' : ' (sin plan)') + '</option>';
+    });
     html += '</select></div>';
     html += '</div>';
-    if (!copPlanData().length) {
-        html += '<p class="label-title" style="margin-top:10px;color:var(--warning);">Importa el plan de producción para listar familias. ' +
+    if (!_copFams.length) {
+        html += '<p class="label-title" style="margin-top:10px;color:var(--warn-text);">No hay familias en el alcance CoP todavía. ' +
+                'Importa el plan de producción, o libera vehículos de ' + _copEsc(copScope().regulations.join(' / ')) + '. ' +
                 '<button onclick="switchPlatform(\'testplan\');if(typeof tpSwitchTab===\'function\')tpSwitchTab(\'tp-production\');" class="btn btn-sm btn-ghost" style="font-size: var(--fs-xs);margin-left:6px;">📥 Ir a Producción →</button></p>';
     } else if (copState.familyLabel) {
         html += '<p class="label-title" style="margin-top:10px;color:var(--accent-cop);">Evaluando: ' + _copEsc(copState.familyLabel) + '</p>';
@@ -655,6 +1795,15 @@ function copBuildValidatorHTML() {
     if (activeLimits.length === 0) {
         html += '<p class="label-title" style="text-align:center;padding:20px;">Activa al menos un contaminante para introducir datos.</p>';
     } else {
+        var _stale = (copState.vehicles || []).filter(function(v) { return v.staleAuto; });
+        if (_stale.length) {
+            html += '<div class="cop-note cop-note--warn">';
+            html += '<div class="cop-note-title">↻ ' + _stale.length + ' VIN(es) con un valor distinto en el laboratorio</div>';
+            html += 'La celda que ya tenía valor NO se sobrescribió: el laboratorio registró otro número para ' +
+                    _copEsc(_stale.map(function(v) { return v.vin; }).join(', ')) +
+                    '. Revisa cuál es el correcto y usa ↻ en la fila para traer el del laboratorio.';
+            html += '</div>';
+        }
         // Encabezado de límites por contaminante (columnas)
         html += '<div style="overflow-x:auto;">';
         html += '<table style="border-collapse:collapse;width:100%;min-width:520px;">';
@@ -686,7 +1835,16 @@ function copBuildValidatorHTML() {
                 html += 'style="width:90px;padding:6px 8px;font-size:12px;text-align:right;box-sizing:border-box;font-family:monospace;" />';
                 html += '</td>';
             });
-            html += '<td style="' + _copTd() + 'padding:4px;"><button onclick="copRemoveRow(' + v.id + ')" class="btn btn-sm btn-ghost" title="Quitar VIN" style="padding:2px 8px;">✕</button></td>';
+            html += '<td style="' + _copTd() + 'padding:4px;white-space:nowrap;">';
+            if (v.staleAuto) {
+                // El laboratorio tiene otro valor para este VIN. Se AVISA, no se pisa:
+                // reescribir en silencio un número sobre el que ya se emitió un juicio
+                // es exactamente el hallazgo que este módulo existe para evitar.
+                html += '<button onclick="copAcceptLabValues(' + v.id + ')" class="btn btn-sm btn-ghost" ' +
+                        'title="El laboratorio tiene otro valor para este VIN — traerlo" ' +
+                        'style="padding:2px 6px;color:var(--warn-text);">↻</button>';
+            }
+            html += '<button onclick="copRemoveRow(' + v.id + ')" class="btn btn-sm btn-ghost" title="Quitar VIN" style="padding:2px 8px;">✕</button></td>';
             html += '</tr>';
         });
 
@@ -750,14 +1908,16 @@ function copBuildValidatorHTML() {
     html += _copBuildCo2HTML();
 
     // ── Disclaimer regulatorio ─────────────────────────────────────────────────
-    html += '<div class="card" style="margin-bottom:16px;background:rgba(245,158,11,0.04);' +
-            'border-color:rgba(245,158,11,0.25);">';
-    html += '<p class="label-title" style="color:var(--warning);margin-bottom:6px;">⚠ Advertencia Regulatoria</p>';
-    html += '<p style="font-size:12px;color:var(--muted);line-height:1.7;">' +
-            'Los valores A(n)/B(n) son de referencia basados en R83 Rev.5 / R154 Appendix 2. ' +
-            'Verificar contra el texto oficial del reglamento antes de uso en homologación real. ' +
-            'Límites Euro 6 — mismos valores para R154 (WLTP) y R83 (NEDC). ' +
-            'Decisión por contaminante independiente · Serie FAIL si cualquier contaminante FAIL.' +
+    html += '<div class="cop-note cop-note--warn">';
+    html += '<div class="cop-note-title">⚠ Advertencia regulatoria</div>';
+    html += '<p style="font-size:var(--fs-xs);line-height:1.7;margin:0;">' +
+            'Los valores A(n)/B(n) son de referencia, basados en R83 Rev.5 / R154 Apéndice 2. ' +
+            'Verificar contra el texto oficial del reglamento antes de su uso en homologación real. ' +
+            'Los límites aplicados corresponden a ' + _copEsc(copScope().regulations.join(' / ')) +
+            ', que comparten los mismos valores de Tipo 1; el validador avisa arriba si el perfil de la ' +
+            'norma de una familia no coincide con el límite aplicado. ' +
+            'La decisión es independiente por contaminante: la familia se declara NO CONCORDANTE si ' +
+            'cualquier contaminante lo es.' +
             '</p>';
     html += '</div>';
 
@@ -792,7 +1952,15 @@ function _copSpcFmt(v, dec) {
 
 // Familias con datos: agrupa db.vehicles con gases finales por copVehicleFamilyKey.
 // Excluye familias con Modelo/Motor/Regulación vacíos (equivale a excluir OTHER/(sin dato)).
-function copSpcFamilies() {
+//
+// v19.0 — `opts.allScopes`: el SPC es control de PROCESO, no juicio de conformidad, y
+// sirve igual en familias fuera del alcance CoP (detecta deriva antes de rebasar un
+// límite). Por eso `copSpcScanAlarms()` sigue barriendo TODO — quitarle al Panel las
+// alarmas de las 31 configuraciones EURO-5 de MEXICO sería perder una red de seguridad
+// sin que nadie lo pidiera. La UI del CoP sí filtra por alcance salvo que se destilde.
+// Cada familia trae `inScope` para que la pantalla pueda etiquetarlas.
+function copSpcFamilies(opts) {
+    var allScopes = !!(opts && opts.allScopes);
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var fams = {};
     vehicles.forEach(function(v) {
@@ -801,12 +1969,18 @@ function copSpcFamilies() {
         var cfg = v.config || {};
         var mod = cfg['Modelo'], eng = cfg['ENGINE CAPACITY'], reg = cfg['EMISSION REGULATION'];
         if (!mod || !eng || !reg) return;
+        var scope = copInScope(v);
+        if (!allScopes && !scope.ok) return;
         var key = copVehicleFamilyKey(v);
         if (!fams[key]) {
             fams[key] = {
                 key: key,
                 label: [mod, eng, cfg['TRANSMISSION'], cfg['MODEL YEAR (VIN)'], reg].filter(Boolean).join(' · '),
                 regName: (typeof _libGetVehicleRegulation === 'function') ? _libGetVehicleRegulation(v) : reg,
+                region: cfg['REGION'] || '',
+                emissionReg: reg,
+                inScope: scope.ok,
+                scopeReason: scope.reason,
                 tests: []
             };
         }
@@ -885,9 +2059,15 @@ function copSpcFlags(st) {
 
 // Escaneo de alarmas en todas las familias con n≥4 (gases ≠ CO2). Lo consume
 // también el Panel (alertas del laboratorio).
+//
+// v19.0 — barre TODAS las familias a propósito, también las de fuera del alcance CoP:
+// el SPC vigila el proceso del laboratorio, no la conformidad, y acotarlo al alcance
+// apagaría en silencio la detección de deriva de las familias que más se prueban.
+// Cada alarma trae `inScope` para que la UI del CoP las separe. La firma no cambia:
+// pnGetActiveAlerts la consume con guarda `typeof`.
 function copSpcScanAlarms() {
     var out = [];
-    copSpcFamilies().filter(function(f) { return f.n >= COP_SPC_MIN; }).forEach(function(f) {
+    copSpcFamilies({ allScopes: true }).filter(function(f) { return f.n >= COP_SPC_MIN; }).forEach(function(f) {
         copSpcGases(f).forEach(function(g) {
             if (g.field === 'CO2') return;
             var pts = copSpcSeries(f, g.field);
@@ -900,7 +2080,8 @@ function copSpcScanAlarms() {
                 var last = idx[idx.length - 1];
                 out.push({
                     famKey: f.key, famLabel: f.label, gas: g.field, gasLabel: g.label,
-                    rule: fl[last][0], val: pts[last].v, date: pts[last].date, unit: g.unit || ''
+                    rule: fl[last][0], val: pts[last].v, date: pts[last].date, unit: g.unit || '',
+                    inScope: !!f.inScope
                 });
             }
         });
@@ -1186,6 +2367,18 @@ function copSpcRenderCharts() {
 // v16.0: Ayuda — banners de pestaña y tooltips de campo
 // ══════════════════════════════════════════════════
 if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
+    'cop-overview': { title: 'Panorama CoP', text: 'El estado de conformidad de TODAS las familias del alcance en una pantalla: veredicto, qué tan cerca del límite van, Cpk y desde cuándo no se ensayan. Pensado para proyectarse en una auditoría.', tips: [
+        'El color del borde es el aviso interno de riesgo; el chip de adentro es el veredicto estadístico. Son dos cosas distintas a propósito.',
+        'Gris nunca significa "bien": significa que con menos de 3 VINes el muestreo no puede decidir nada.',
+        'La barra compara la media del peor gas contra su límite — es el número que se entiende sin ser del laboratorio.',
+        'Toca una familia para abrirla en el Validador. 🖥️ Modo presentación agranda todo para la sala de juntas.',
+        'El CoP solo cubre EURO-5 / EURO-6E / PRE-EURO 7 en EUROPE y MIDDLE EAST; lo que queda fuera se declara al final de la pantalla.'
+    ]},
+    'cop-dossier': { title: 'Expediente', text: 'La historia de una familia: los juicios emitidos, los ensayos liberados y las alarmas de control, en orden. De aquí sale el PDF que se entrega en auditoría.', tips: [
+        'La franja de meses muestra qué veredicto estaba vigente en cada mes. Gris = ese mes no había juicio emitido.',
+        'El PDF cita los límites CONGELADOS en el juicio, no los de hoy: por eso sigue siendo válido dentro de años.',
+        'Si generas el PDF sin un juicio guardado, sale marcado PRELIMINAR — a propósito.'
+    ]},
     'cop-validator': { title: 'Validador CoP', text: 'Valida la conformidad de producción de una familia: elige región y familia, la tabla se llena con los VINes ya probados, y el veredicto CONCORDANTE se calcula en vivo (muestreo secuencial, mínimo 3 VINes).', tips: [
         'Los VINes en azul se autollenaron desde vehículos ya probados; captura/edita los gases que falten.',
         'Necesitas al menos 3 VINes con valor por contaminante para obtener un veredicto.',
@@ -1202,7 +2395,13 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'cop-family-help': { title: 'Familia a evaluar', text: 'Elige primero la región (opcional, filtra la lista) y luego la familia de emisiones. Las familias vienen del plan de producción importado en Plan → Producción.' },
     'cop-verdict-help': { title: 'Concordancia de familia', text: 'PASS = la familia es CONCORDANTE con el límite (puedes dejar de ensayar); FAIL = NO CONCORDANTE (algún contaminante superó B(n)); CONTINUAR = aún faltan datos para decidir, agrega más VINes.' },
     'cop-spc-alarms-help': { title: 'Alarmas de control', text: 'Lista las combinaciones familia×gas que dispararon una regla de Nelson (R1/R2/R3) con los datos más recientes. Toca una alarma para ir directo a su carta.' },
-    'cop-spc-help': { title: 'Selección de carta', text: 'Elige la familia y el gas para ver su carta de control I-MR. Los toggles cambian qué líneas de referencia se muestran (zonas σ, límite regulatorio, % del límite).' }
+    'cop-spc-help': { title: 'Selección de carta', text: 'Elige la familia y el gas para ver su carta de control I-MR. Los toggles cambian qué líneas de referencia se muestran (zonas σ, límite regulatorio, % del límite).' },
+    'cop-kpis-help': { title: 'Resumen del alcance', text: 'Cuántas familias hay en el alcance CoP y cómo se reparten. "Sin datos" son familias con menos de 3 VINes con resultados: no se puede afirmar nada de ellas todavía, ni bueno ni malo. "Riesgo alto" es el aviso interno del laboratorio, no un veredicto regulatorio.' },
+    'cop-gauge-help': { title: 'Qué tan cerca está de decidir', text: 'El muestreo secuencial no compara la media contra el límite: compara el estadístico U contra dos valores críticos, A(n) y B(n), que dependen de cuántos vehículos llevas. Si U cae a la izquierda de A(n) la familia ya es CONCORDANTE y puedes dejar de ensayar; si cae a la derecha de B(n) es NO CONCORDANTE; si queda en medio, hace falta otro vehículo. La marca negra es dónde está U ahora.' },
+    'cop-present-help': { title: 'Modo presentación', text: 'Agranda letras, tarjetas y tablas solo dentro del CoP, para proyectar en una sala sin tocar el tamaño con el que los técnicos usan la app en el celular. Se apaga con el mismo botón.' },
+    'cop-scope-help': { title: 'Alcance del CoP', text: 'El laboratorio hace Conformidad de Producción sobre EURO-5, EURO-6E y PRE-EURO 7 en las regiones EUROPE y MIDDLE EAST. El resto del catálogo se prueba, pero no entra al juicio de conformidad — aquí se listan esas configuraciones para que quede claro qué NO cubre esta pantalla.' },
+    'cop-dossier-help': { title: 'Expediente de familia', text: 'La cronología completa de una familia: qué se ensayó, cuándo, qué juicios se emitieron y qué alarmas de control saltaron. Se deriva de los datos existentes — no es una bitácora que alguien tenga que llenar.' },
+    'cop-strip-help': { title: 'Veredicto por mes', text: 'Qué veredicto estaba vigente al cierre de cada mes, según el último juicio emitido hasta esa fecha. Un mes en gris significa que ese mes no había juicio emitido: nunca se pinta verde por omisión.' }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1288,3 +2487,394 @@ function _copBuildCo2HTML() {
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'cop-co2-help': { title: 'CO₂ vs declarado', text: 'A diferencia de CO, THC o NOₓ, el CO₂ no tiene un límite fijo en la regulación: cada vehículo se compara contra SU propio valor declarado de homologación (el "Combined" del ICMS, capturado en el Alta). Aquí se ve la desviación de cada uno y el promedio de la familia contra la tolerancia que configuraste, además de los coeficientes de dinamómetro con los que se corrió cada vehículo.' }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v19.0] EXPORTACIONES — lo que se entrega en una auditoría
+//
+// Hasta v18.6 el módulo CoP no tenía NI UNA exportación, y el Centro de Reportes
+// tenía 17 renglones y ninguno de CoP: el expediente había que armarlo a mano.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function _copCsvCell(v) {
+    var s = (v === null || v === undefined) ? '' : String(v);
+    if (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+}
+function _copDownloadCsv(csv, filename) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }));
+    a.download = filename;
+    a.click();
+    if (typeof showToast === 'function') showToast('Exportado: ' + filename, 'success');
+}
+function _copToday() { return (typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10); }
+function _copWho() {
+    try {
+        var u = (typeof authGetCurrentUser === 'function') ? authGetCurrentUser() : null;
+        return u ? (u.name || '') : '';
+    } catch (e) { return ''; }
+}
+function _copFileSafe(s) { return String(s || 'familia').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 60); }
+
+/** Un renglón por familia del alcance: el tablero de conformidad, en Excel. */
+function copExportPortfolioCSV() {
+    var rows = copPortfolioRows();
+    if (!rows.length) { if (typeof showToast === 'function') showToast('No hay familias en el alcance CoP', 'warning'); return; }
+    var csv = 'Familia,Región,Norma,VINes con resultado,Veredicto,Gas crítico,% del límite,U,A(n),B(n),Cpk mín,Alarmas SPC,Último ensayo,Días sin ensayar,Requeridas (plan),Probadas (plan),Déficit,Riesgo,Confianza,Motivo,Último juicio,Decisión del juicio\n';
+    rows.forEach(function(r) {
+        csv += [
+            r.label, (r.regionsArr || []).join(' / '), r.emissionReg, r.n,
+            _copDecisionWord(r.verdict), r.worstPoll,
+            r.marginPct === null || r.marginPct === undefined ? '' : Math.round(r.marginPct),
+            r.worstU === null || r.worstU === undefined ? '' : r.worstU.toFixed(3),
+            r.band ? r.band.a.toFixed(3) : '', r.band ? r.band.b.toFixed(3) : '',
+            r.cpkMin === null || r.cpkMin === undefined ? '' : r.cpkMin.toFixed(2),
+            (r.spcAlarms || []).length,
+            (r.lastTestDate || '').slice(0, 10),
+            r.daysSinceTest === null || r.daysSinceTest === undefined ? '' : r.daysSinceTest,
+            r.planRequired, r.planTested, r.planDeficit,
+            _copRiskUI(r.risk.level).label, r.risk.confidence,
+            r.risk.reasons.map(function(x) { return x.text; }).join(' | '),
+            (r.judgedAt || '').slice(0, 10), _copDecisionWord(r.judgedDecision)
+        ].map(_copCsvCell).join(',') + '\n';
+    });
+    _copDownloadCsv(csv, 'CoP_Panorama_' + _copToday() + '.csv');
+}
+
+/** Los datos crudos VIN × gas de una familia. */
+function copExportFamilyCSV(familyKey) {
+    var key = familyKey || copState.familyKey;
+    var row = copPortfolioRows().find(function(r) { return r.key === key; });
+    if (!row) { if (typeof showToast === 'function') showToast('Abre primero una familia en CoP', 'warning'); return; }
+
+    var gases = row.polls || [];
+    var csv = 'Familia,' + _copCsvCell(row.label) + '\n';
+    csv += 'Región,' + _copCsvCell((row.regionsArr || []).join(' / ')) + '\n';
+    csv += 'Norma,' + _copCsvCell(row.emissionReg) + '\n';
+    csv += 'Generado,' + _copToday() + ',' + _copCsvCell(_copWho()) + '\n\n';
+    csv += 'VIN,Fecha de ensayo,' + gases.map(function(g) { return _copCsvCell(g.label + ' (' + g.unit + ')'); }).join(',') + '\n';
+    (row.tests || []).forEach(function(t) {
+        csv += [t.vin, (t.date || '').slice(0, 10)].concat(gases.map(function(g) {
+            var v = _copNum(t.values[g.field]);
+            return v === null ? '' : v;
+        })).map(_copCsvCell).join(',') + '\n';
+    });
+    csv += '\nLímite aplicado,,' + gases.map(function(g) { return g.limit; }).map(_copCsvCell).join(',') + '\n';
+    csv += 'Media,,' + gases.map(function(g) { return g.stats ? g.stats.mean.toFixed(5) : ''; }).map(_copCsvCell).join(',') + '\n';
+    csv += 'U,,' + gases.map(function(g) { return (g.stats && g.stats.U !== null) ? g.stats.U.toFixed(3) : ''; }).map(_copCsvCell).join(',') + '\n';
+    csv += 'Decisión,,' + gases.map(function(g) { return g.stats ? g.stats.decision : ''; }).map(_copCsvCell).join(',') + '\n';
+    _copDownloadCsv(csv, 'CoP_' + _copFileSafe(row.label) + '_' + _copToday() + '.csv');
+}
+
+/** Historial de juicios emitidos — la traza de quién dictaminó qué y cuándo. */
+function copExportJudgmentsCSV() {
+    var saved = copState.saved || [];
+    if (!saved.length) { if (typeof showToast === 'function') showToast('Aún no hay juicios guardados', 'warning'); return; }
+    var csv = 'Fecha,Familia,Región,Norma CoP,Combustible,VINes,Decisión,Emitido por,Límites congelados\n';
+    saved.forEach(function(j) {
+        csv += [
+            (j.date || '').slice(0, 10), j.familyLabel || '(sin familia)', j.region || '',
+            j.regulation || '', j.fuelType || '',
+            (j.vehicles || []).filter(function(v) { return v.vin; }).length,
+            _copDecisionWord(j.decision), j.by || '',
+            (j.limitsUsed || []).map(function(l) { return l.label + '=' + l.limit + l.unit; }).join(' ') || '(no registrados)'
+        ].map(_copCsvCell).join(',') + '\n';
+    });
+    _copDownloadCsv(csv, 'CoP_Juicios_' + _copToday() + '.csv');
+}
+
+/**
+ * [v19.0] Expediente PDF de una familia — el documento que se entrega en auditoría.
+ * Esqueleto tomado de pnProjectPDF (projects.js): cursor y/ML/CW, doc.rect para las
+ * cajas, splitTextToSize y corte de página.
+ *
+ * Principio: el documento no puede sonar más seguro que la pantalla. Cita los
+ * límites con los que se decidió, dice si el veredicto viene de un juicio guardado
+ * o del estado en vivo (y en ese caso lo marca PRELIMINAR), y reproduce la
+ * advertencia regulatoria tal cual.
+ */
+function copFamilyPDF(familyKey) {
+    if (typeof window.jspdf === 'undefined') {
+        if (typeof showToast === 'function') showToast('jsPDF no está disponible.', 'error');
+        return;
+    }
+    var key = familyKey || copState.familyKey;
+    var row = copPortfolioRows().find(function(r) { return r.key === key; });
+    if (!row) {
+        if (typeof showToast === 'function') showToast('Abre primero una familia en CoP → Panorama', 'warning');
+        return;
+    }
+
+    var saved = (copState.saved || []).filter(function(j) { return j.familyKey === key; })
+                    .sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    var judgment = saved[0] || null;
+    var preliminar = !judgment;
+
+    var doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+    var W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+    var ML = 14, CW = W - ML * 2, y = 16;
+    var brk = function(need) { if (y > H - (need || 18)) { doc.addPage(); y = 18; } };
+    var h2 = function(t) { brk(24); doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(0); doc.text(t, ML, y); y += 5; };
+
+    // ── 1. Identificación ─────────────────────────────────────────────────────
+    doc.setFontSize(15); doc.setFont('helvetica', 'bold');
+    doc.text('Expediente de Conformidad de Producción', ML, y); y += 6;
+    doc.setFontSize(11); doc.text(row.label, ML, y); y += 6;
+
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100);
+    var head = [];
+    head.push('Región: ' + ((row.regionsArr || []).join(' / ') || '—'));
+    // Procedimiento CoP (R154/R83) y norma de emisiones son DOS cosas distintas:
+    // el auditor pregunta por ambas y la pantalla las confundía.
+    head.push('Procedimiento: ' + (copState.regulation || 'R154') + (copState.regulation === 'R83' ? ' (NEDC)' : ' (WLTP)'));
+    head.push('Norma de emisiones: ' + (row.emissionReg || '—'));
+    doc.text(head.join('   ·   '), ML, y); y += 4;
+    // [v19.1] Familia de interpolación + certificado WVTA (solo Europa). Es lo
+    // primero que un auditor europeo busca para saber contra qué está juzgando.
+    if (r.ipFamilies && r.ipFamilies.length) {
+        var ipInfo = [];
+        r.ipFamilies.forEach(function(code) {
+            var f = (typeof homoIpFamilyByCode === 'function') ? homoIpFamilyByCode(code) : null;
+            ipInfo.push(code + (f && f.tml ? ' (TML ' + f.tml + ' / TMH ' + f.tmh + ' kg)' : ''));
+        });
+        doc.text('Familia(s) de interpolacion: ' + ipInfo.join('   ·   '), ML, y); y += 4;
+        var prim = (typeof homoIpFamilyByCode === 'function') ? homoIpFamilyByCode(r.ipFamilies[0]) : null;
+        if (prim && prim.wvta) {
+            doc.text('WVTA: ' + prim.wvta + (prim.wvtaDate ? '   ·   ' + prim.wvtaDate : '') +
+                     (prim.type ? '   ·   tipo ' + prim.type : ''), ML, y); y += 4;
+        }
+    }
+    var head2 = ['Generado: ' + _copToday()];
+    if (_copWho()) head2.push('por ' + _copWho());
+    if (typeof APP_VERSION !== 'undefined') head2.push('KIA EmLab v' + APP_VERSION);
+    doc.text(head2.join('   ·   '), ML, y); y += 7;
+    doc.setTextColor(0);
+
+    // ── 2. Veredicto ──────────────────────────────────────────────────────────
+    var decision = judgment ? judgment.decision : row.verdict;
+    doc.setDrawColor(150); doc.setLineWidth(0.4);
+    doc.rect(ML, y, CW, 18);
+    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+    if (decision === 'PASS') doc.setTextColor(19, 108, 58);
+    else if (decision === 'FAIL') doc.setTextColor(179, 38, 30);
+    else doc.setTextColor(138, 83, 0);
+    doc.text(_copDecisionWord(decision), ML + 4, y + 8);
+    doc.setTextColor(80); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    var basis = 'Basado en n = ' + row.n + ' ensayo(s)';
+    if (row.tests && row.tests.length) {
+        basis += ' entre ' + (row.tests[0].date || '').slice(0, 10) + ' y ' + (row.tests[row.tests.length - 1].date || '').slice(0, 10);
+    }
+    doc.text(basis, ML + 4, y + 14);
+    doc.setTextColor(0);
+    y += 22;
+
+    if (preliminar) {
+        doc.setFillColor(253, 236, 234); doc.setDrawColor(179, 38, 30);
+        doc.rect(ML, y, CW, 11, 'FD');
+        doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(179, 38, 30);
+        doc.text('PRELIMINAR — no corresponde a un juicio guardado', ML + 4, y + 5);
+        doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+        doc.text('Refleja el estado en vivo al momento de generarlo. Para un expediente firmable, guarda el juicio en CoP → Validador.', ML + 4, y + 9);
+        doc.setTextColor(0); y += 15;
+    } else {
+        doc.setFontSize(8); doc.setTextColor(100);
+        doc.text('Juicio emitido el ' + (judgment.date || '').slice(0, 10) + (judgment.by ? ' por ' + judgment.by : ''), ML, y);
+        doc.setTextColor(0); y += 6;
+    }
+
+    // ── 3. Aviso de riesgo (con su etiqueta honesta) ──────────────────────────
+    h2('Vigilancia interna');
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    doc.text('Nivel: ' + _copRiskUI(row.risk.level).label + '  ·  confianza ' + row.risk.confidence, ML + 2, y); y += 4;
+    row.risk.reasons.forEach(function(rn) {
+        brk(); doc.setTextColor(90);
+        doc.splitTextToSize('- ' + rn.text, CW - 4).forEach(function(ln) { brk(); doc.text(ln, ML + 2, y); y += 3.6; });
+        doc.setTextColor(0);
+    });
+    doc.setFontSize(7); doc.setTextColor(120);
+    y += 1;
+    doc.splitTextToSize('Aviso interno anticipado del laboratorio. No sustituye el veredicto estadistico ni constituye juicio regulatorio.', CW - 4)
+       .forEach(function(ln) { brk(); doc.text(ln, ML + 2, y); y += 3.4; });
+    doc.setTextColor(0); y += 4;
+
+    // ── 4. Bases del juicio: límites CONGELADOS ───────────────────────────────
+    h2('Bases del juicio — límites aplicados');
+    var limitsUsed = (judgment && judgment.limitsUsed && judgment.limitsUsed.length)
+        ? judgment.limitsUsed
+        : (row.polls || []).map(function(p) { return { label: p.label, limit: p.limit, unit: p.unit }; });
+    doc.setFontSize(7); doc.setFillColor(240); doc.rect(ML, y - 3.5, CW, 5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.text('Contaminante', ML + 2, y); doc.text('Límite', ML + 50, y); doc.text('Unidad', ML + 78, y); doc.text('Fuente', ML + 104, y);
+    y += 4; doc.setFont('helvetica', 'normal');
+    limitsUsed.forEach(function(l) {
+        brk();
+        doc.text(String(l.label), ML + 2, y);
+        doc.text(String(l.limit), ML + 50, y);
+        doc.text(String(l.unit || ''), ML + 78, y);
+        doc.text(judgment ? 'congelado en el juicio' : 'perfil vigente', ML + 104, y);
+        y += 4;
+    });
+    y += 2;
+    if (row.limitsCheck && row.limitsCheck.mismatches && row.limitsCheck.mismatches.length) {
+        doc.setTextColor(179, 38, 30); doc.setFontSize(7);
+        doc.splitTextToSize('ATENCION: el limite aplicado no coincide con el perfil de la norma ' + (row.emissionReg || '') +
+            '. El veredicto de esta familia no es valido hasta corregirlo.', CW - 4)
+            .forEach(function(ln) { brk(); doc.text(ln, ML + 2, y); y += 3.4; });
+        doc.setTextColor(0); y += 2;
+    }
+
+    // ── 5. Estadística por contaminante ───────────────────────────────────────
+    h2('Estadística por contaminante (muestreo secuencial)');
+    var statCols = [[ML + 2, 'Gas'], [ML + 32, 'n'], [ML + 42, 'media'], [ML + 68, 's'], [ML + 92, 'U'], [ML + 112, 'A(n)'], [ML + 132, 'B(n)'], [ML + 152, 'Decisión']];
+    doc.setFontSize(7); doc.setFillColor(240); doc.rect(ML, y - 3.5, CW, 5, 'F');
+    doc.setFont('helvetica', 'bold');
+    statCols.forEach(function(c) { doc.text(c[1], c[0], y); });
+    y += 4; doc.setFont('helvetica', 'normal');
+    var statRows = (judgment && judgment.stats && judgment.stats.length)
+        ? judgment.stats
+        : (row.polls || []).filter(function(p) { return p.stats; }).map(function(p) {
+              return { poll: p.label, n: p.stats.n, mean: p.stats.mean, s: p.stats.s, U: p.stats.U,
+                       a: p.stats.cv ? p.stats.cv.a : null, b: p.stats.cv ? p.stats.cv.b : null, decision: p.stats.decision };
+          });
+    statRows.forEach(function(s) {
+        brk();
+        if (s.decision === 'FAIL') doc.setTextColor(179, 38, 30);
+        doc.text(String(s.poll), statCols[0][0], y);
+        doc.text(String(s.n), statCols[1][0], y);
+        doc.text(s.mean === null || s.mean === undefined ? '—' : Number(s.mean).toFixed(5), statCols[2][0], y);
+        doc.text(s.s === null || s.s === undefined ? '—' : Number(s.s).toFixed(5), statCols[3][0], y);
+        doc.text(s.U === null || s.U === undefined ? '—' : Number(s.U).toFixed(3), statCols[4][0], y);
+        doc.text(s.a === null || s.a === undefined ? '—' : Number(s.a).toFixed(3), statCols[5][0], y);
+        doc.text(s.b === null || s.b === undefined ? '—' : Number(s.b).toFixed(3), statCols[6][0], y);
+        doc.text(_copDecisionWord(s.decision), statCols[7][0], y);
+        doc.setTextColor(0);
+        y += 4;
+    });
+    y += 2;
+    doc.setFontSize(7); doc.setTextColor(110);
+    doc.text('U = (media - L) * raiz(n) / s   ·   U <= A(n): concordante   ·   U >= B(n): no concordante   ·   entre A y B: ensayar otro vehiculo', ML + 2, y);
+    doc.setTextColor(0); y += 6;
+
+    // ── 6. Evidencia: VINes ───────────────────────────────────────────────────
+    h2('Evidencia — vehículos ensayados');
+    var gases = (row.polls || []).slice(0, 5);
+    doc.setFontSize(7); doc.setFillColor(240); doc.rect(ML, y - 3.5, CW, 5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.text('VIN', ML + 2, y); doc.text('Fecha', ML + 42, y);
+    gases.forEach(function(g, i) { doc.text(String(g.label).slice(0, 6), ML + 66 + i * 23, y); });
+    y += 4; doc.setFont('helvetica', 'normal');
+    (row.tests || []).forEach(function(t) {
+        brk();
+        doc.text(String(t.vin || '—').slice(0, 20), ML + 2, y);
+        doc.text((t.date || '').slice(0, 10) || '—', ML + 42, y);
+        gases.forEach(function(g, i) {
+            var v = _copNum(t.values[g.field]);
+            doc.text(v === null ? '—' : String(v), ML + 66 + i * 23, y);
+        });
+        y += 4;
+    });
+    if (!(row.tests || []).length) { doc.setTextColor(120); doc.text('Sin ensayos liberados con resultados finales.', ML + 2, y); doc.setTextColor(0); y += 4; }
+    y += 4;
+
+    // ── 7. CO2 vs declarado (solo Europa) ─────────────────────────────────────
+    try {
+        if (typeof homoCo2RowsForVins === 'function' && typeof homoCo2Assess === 'function' &&
+            (row.regionsArr || []).some(function(r) { return typeof homoIsEurope === 'function' && homoIsEurope(r); })) {
+            var vins = (row.tests || []).map(function(t) { return t.vin; }).filter(Boolean);
+            var co2rows = homoCo2RowsForVins(vins);
+            if (co2rows.some(function(c) { return c.target != null || c.measured != null; })) {
+                var res = homoCo2Assess(co2rows);
+                h2('CO₂ vs valor declarado (homologación)');
+                doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+                doc.text('Veredicto: ' + res.verdict + '   ·   desviación promedio ' +
+                    (res.meanDev === null ? '—' : (res.meanDev >= 0 ? '+' : '') + res.meanDev.toFixed(2) + '%') +
+                    '   ·   tolerancia ' + res.tolerance + '%   ·   n=' + res.n, ML + 2, y);
+                y += 5;
+                doc.setFillColor(240); doc.rect(ML, y - 3.5, CW, 5, 'F'); doc.setFont('helvetica', 'bold');
+                ['VIN', 'MC code', 'medido', 'declarado', 'desv.', 'f0', 'f1', 'f2', 'TM'].forEach(function(hh, i) {
+                    doc.text(hh, ML + 2 + i * 20, y);
+                });
+                y += 4; doc.setFont('helvetica', 'normal');
+                res.rows.forEach(function(c) {
+                    brk();
+                    var hg = c.homolog || {};
+                    [String(c.vin || '').slice(0, 12), hg.mcCode || '—',
+                     c.measured == null ? '—' : Number(c.measured).toFixed(1),
+                     c.target == null ? '—' : Number(c.target).toFixed(1),
+                     c.dev === null ? '—' : (c.dev >= 0 ? '+' : '') + c.dev.toFixed(1) + '%',
+                     hg.f0 == null ? '—' : hg.f0, hg.f1 == null ? '—' : hg.f1,
+                     hg.f2 == null ? '—' : hg.f2, hg.tm == null ? '—' : hg.tm
+                    ].forEach(function(cell, i) { doc.text(String(cell), ML + 2 + i * 20, y); });
+                    y += 4;
+                });
+                y += 2;
+                doc.setFontSize(6.5); doc.setTextColor(110);
+                doc.text('Los coeficientes f0/f1/f2 y el CO2 declarado provienen del catalogo ICMS, no del certificado WVTA.', ML + 2, y);
+                doc.setTextColor(0); y += 6;
+            }
+        }
+    } catch (e) { }
+
+    // ── 8. Histórico de juicios ───────────────────────────────────────────────
+    if (saved.length) {
+        h2('Histórico de juicios de esta familia');
+        doc.setFontSize(7); doc.setFillColor(240); doc.rect(ML, y - 3.5, CW, 5, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.text('Fecha', ML + 2, y); doc.text('n', ML + 32, y); doc.text('Decisión', ML + 44, y); doc.text('Emitido por', ML + 96, y);
+        y += 4; doc.setFont('helvetica', 'normal');
+        saved.forEach(function(j) {
+            brk();
+            doc.text((j.date || '').slice(0, 10), ML + 2, y);
+            doc.text(String((j.vehicles || []).filter(function(v) { return v.vin; }).length), ML + 32, y);
+            doc.text(_copDecisionWord(j.decision), ML + 44, y);
+            doc.text(String(j.by || '—'), ML + 96, y);
+            y += 4;
+        });
+        y += 4;
+    }
+
+    // ── 9. Advertencia regulatoria — textual, la misma de la pantalla ─────────
+    brk(30);
+    h2('Advertencia regulatoria');
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(90);
+    doc.splitTextToSize(
+        'Los valores A(n)/B(n) son de referencia, basados en R83 Rev.5 / R154 Apendice 2. Verificar contra el texto oficial ' +
+        'del reglamento antes de su uso en homologacion real. La decision es independiente por contaminante: la familia se ' +
+        'declara NO CONCORDANTE si cualquier contaminante lo es.', CW - 4)
+        .forEach(function(ln) { brk(); doc.text(ln, ML + 2, y); y += 3.5; });
+    doc.setTextColor(0); y += 6;
+
+    // ── 10. Firmas ────────────────────────────────────────────────────────────
+    brk(34);
+    h2('Firmas');
+    var bw = (CW - 8) / 3;
+    ['Elaboró', 'Revisó', 'Aprobó'].forEach(function(rol, i) {
+        var x = ML + i * (bw + 4);
+        doc.setDrawColor(150); doc.rect(x, y, bw, 24);
+        doc.setFontSize(7); doc.setTextColor(110);
+        doc.text(rol, x + 2, y + 4);
+        doc.setDrawColor(190);
+        doc.line(x + 3, y + 15, x + bw - 3, y + 15);
+        doc.text('Nombre y firma', x + 3, y + 18);
+        doc.line(x + 3, y + 21.5, x + bw - 3, y + 21.5);
+        doc.setTextColor(0);
+    });
+    y += 28;
+
+    // Pie por página (segunda pasada: jsPDF necesita saber el total).
+    var total = doc.getNumberOfPages();
+    for (var pg = 1; pg <= total; pg++) {
+        doc.setPage(pg);
+        doc.setFontSize(6.5); doc.setTextColor(130);
+        doc.text('Pagina ' + pg + ' de ' + total + '  ·  CoP ' + row.label + '  ·  ' + _copToday() +
+                 (preliminar ? '  ·  PRELIMINAR' : ''), ML, H - 8);
+        doc.setTextColor(0);
+    }
+
+    doc.save('CoP_Expediente_' + _copFileSafe(row.label) + '_' + _copToday() + '.pdf');
+    if (typeof showToast === 'function') showToast('Expediente generado', 'success');
+    if (typeof auditLog === 'function') {
+        auditLog('cop', 'dossier_exported', { type: 'cop', label: row.label },
+                 'Expediente PDF' + (preliminar ? ' (preliminar)' : ' del juicio del ' + (judgment.date || '').slice(0, 10)));
+    }
+}

@@ -1489,6 +1489,46 @@ function _fbMergeProjectSubArray(localArr, remoteArr) {
     });
     return Object.keys(byId).map(function(k) { return byId[k]; });
 }
+/**
+ * [v19.0] Fusiona las mesas de trabajo del CoP (copState.families), por clave de
+ * familia. Gana la de `updatedAt` más reciente; dentro de la ganadora se agregan
+ * los VINes que solo existían del otro lado (unión por VIN normalizado), para que
+ * dos técnicos capturando la misma familia no se borren el trabajo.
+ */
+function _fbMergeCopFamilies(localFams, remoteFams) {
+    var out = {};
+    var keys = {};
+    Object.keys(localFams || {}).forEach(function(k) { keys[k] = true; });
+    Object.keys(remoteFams || {}).forEach(function(k) { keys[k] = true; });
+
+    Object.keys(keys).forEach(function(k) {
+        var l = (localFams || {})[k], r = (remoteFams || {})[k];
+        if (!l) { out[k] = r; return; }
+        if (!r) { out[k] = l; return; }
+        var lAt = l.updatedAt || '', rAt = r.updatedAt || '';
+        var win = lAt >= rAt ? l : r;
+        var lose = lAt >= rAt ? r : l;
+        var merged = JSON.parse(JSON.stringify(win));
+        var seen = {};
+        (merged.vehicles || []).forEach(function(v) {
+            if (v && v.vin) seen[String(v.vin).trim().toUpperCase()] = true;
+        });
+        (lose.vehicles || []).forEach(function(v) {
+            if (!v || !v.vin) return;                       // las filas vacías no se arrastran
+            var vk = String(v.vin).trim().toUpperCase();
+            if (seen[vk]) return;
+            (merged.vehicles = merged.vehicles || []).push(JSON.parse(JSON.stringify(v)));
+            seen[vk] = true;
+        });
+        // Renumerar SIEMPRE: la fusión es justo donde se encuentran datos de dos
+        // dispositivos, y dos filas con el mismo id harían que copRemoveRow borre las
+        // dos y que copHandleInput escriba solo en la primera. Barato y se autocorrige.
+        (merged.vehicles || []).forEach(function(v, i) { v.id = i + 1; });
+        out[k] = merged;
+    });
+    return out;
+}
+
 function _fbMergeProjects(localProjects, remoteProjects) {
     var byId = {};
     (localProjects || []).forEach(function(p) { if (p && p.id) byId[p.id] = p; });
@@ -1552,6 +1592,31 @@ function fbPullApply(collections, results, showFeedback) {
             var _savedMap = {};
             (_localCop.saved || []).concat(_mergedCop.saved || []).forEach(function(r) { if (r && r.id) _savedMap[r.id] = r; });
             _mergedCop.saved = Object.keys(_savedMap).map(function(k) { return _savedMap[k]; }).sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+
+            // v19.0 — El resto de copState se tomaba del remoto ENTERO. Eso hace que la
+            // pantalla del CoP salte de vista y de familia porque otro técnico tocó la
+            // suya, y en el peor caso pisa la mesa de trabajo local. Estos campos son
+            // estado de UI POR DISPOSITIVO: siempre gana el local.
+            ['view', 'region', 'familyKey', 'familyLabel', 'vehicles', 'present', 'ovFilter', 'spc',
+             'showTable', 'showFormula'].forEach(function(k) {
+                if (_localCop[k] !== undefined) _mergedCop[k] = _localCop[k];
+                else delete _mergedCop[k];
+            });
+
+            // v19.0 — Mesas de trabajo por familia: merge POR CLAVE, gana la de
+            // `updatedAt` más reciente, y dentro de la ganadora se agregan los VINes
+            // que solo tenía la perdedora. En una frase: dos técnicos que capturan
+            // familias distintas conservan ambas, y si capturan la MISMA familia se
+            // queda la versión más reciente más los VINes que el otro había agregado.
+            // Sin esto, el primer pull borraría el trabajo local (remoto gana entero).
+            _mergedCop.families = _fbMergeCopFamilies(_localCop.families, _mergedCop.families);
+            if (_localCop.copSchema && !(_mergedCop.copSchema >= _localCop.copSchema)) {
+                _mergedCop.copSchema = _localCop.copSchema;
+            }
+            // El alcance sí es del laboratorio (compartido), pero si el remoto viene de
+            // una versión previa a v19.0 no lo trae: conservar el local en vez de borrarlo.
+            if (_mergedCop.scope === undefined && _localCop.scope !== undefined) _mergedCop.scope = _localCop.scope;
+
             localStorage.setItem('kia_cop_v1', JSON.stringify(_mergedCop));
             if (typeof copSyncReload === 'function') copSyncReload();
             pulled.push('CoP');
@@ -1569,9 +1634,21 @@ function fbPullApply(collections, results, showFeedback) {
                 var prev = _rowMap[k];
                 if (!prev || String(r.at || '') >= String(prev.at || '')) _rowMap[k] = r;
             });
+            // v19.1 — Familias IP del WVTA: merge por código (gana `updatedAt`). Este
+            // objeto se arma desde cero, así que una clave nueva que no se liste aquí
+            // se pierde en CADA pull. Se empata normalizando el código igual que
+            // _homoNorm (mayúsculas, sin separadores).
+            var _ipMap = {};
+            (_localHomo.ipFamilies || []).concat(_remoteHomo.ipFamilies || []).forEach(function(f) {
+                if (!f || !f.code) return;
+                var k = String(f.code).trim().toUpperCase().replace(/[\s\-_/]+/g, '');
+                var prev = _ipMap[k];
+                if (!prev || String(f.updatedAt || '') >= String(prev.updatedAt || '')) _ipMap[k] = f;
+            });
             var _mergedHomo = {
                 catalog: Object.keys(_rowMap).map(function(k) { return _rowMap[k]; }),
                 links: Object.assign({}, _remoteHomo.links || {}, _localHomo.links || {}),
+                ipFamilies: Object.keys(_ipMap).map(function(k) { return _ipMap[k]; }),
                 co2TolerancePct: (typeof _remoteHomo.co2TolerancePct === 'number' && String(_remoteHomo.updatedAt || '') > String(_localHomo.updatedAt || ''))
                     ? _remoteHomo.co2TolerancePct
                     : (typeof _localHomo.co2TolerancePct === 'number' ? _localHomo.co2TolerancePct : 4),

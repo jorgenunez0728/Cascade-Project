@@ -210,11 +210,29 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '18.6';
+var APP_VERSION = '19.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '19.1', date: '26 ago 2026', title: 'Familias de interpolación del WVTA', bullets: [
+        'El CoP ya reconoce la familia de interpolación (IP), que es la agrupación oficial en Europa: la declara el certificado de homologación por variante y versión. Se lee pegando el texto del WVTA — no hay que teclear familia por familia.',
+        'Probado contra un certificado real (e4*2018/858*00261*00, tipo CL4m / K4): las 5 familias salen con sus variantes, versiones, masas TML/TMH y rango de CO₂ exactamente como los declara el documento.',
+        'Detecta un caso que a ojo se pasa: la misma variante puede pertenecer a familias distintas según su versión (B5P22 está en dos). Cuando la variante sola es ambigua, la app NO adivina.',
+        'Aviso nuevo: si la masa de ensayo o el CO₂ declarado de un vehículo (datos del ICMS) caen fuera del rango de su propia familia IP (rango del WVTA), sale marcado. O el dato está mal, o el vehículo no es de esa familia — en los dos casos es algo que corregir antes de una auditoría.',
+        'El expediente PDF ya cita la familia IP, sus masas y el número de certificado.',
+        'Los coeficientes f0/f1/f2 siguen viniendo del ICMS, nunca del WVTA: el certificado solo trae los de los vehículos extremos VL y VH que acotan la familia, no los del vehículo que se va a ensayar.'
+    ]},
+    { version: '19.0', date: '26 ago 2026', title: 'CoP: de calculadora a tablero de conformidad', bullets: [
+        'El CoP ya no obliga a elegir una familia en un menú para ver algo: el Panorama muestra TODAS las familias del alcance de un vistazo, con su veredicto, qué tan cerca del límite van y desde cuándo no se ensayan. Está pensado para proyectarse en una auditoría (botón Modo presentación).',
+        'Alcance acotado a lo que el laboratorio realmente certifica: EURO-5, EURO-6E y PRE-EURO 7 en EUROPE y MIDDLE EAST. Lo que queda fuera se declara al pie de la pantalla en vez de desaparecer sin explicación.',
+        'Encontrado al revisar: el validador tenía los límites Euro 6 escritos a fuego y nunca consultaba el perfil de la norma. Fuera del alcance elegido eso juzgaba mal 65 de 173 configuraciones — EURO-2 y EURO-4 salían NO CONCORDANTE sin serlo, y SULEV 30 se comparaba en g/km contra datos en g/mi. Dentro del alcance no cambia ningún veredicto, y ahora la pantalla avisa si un límite no coincide con su perfil.',
+        'Gráfico nuevo que hace legible el muestreo secuencial sin explicarlo: se ve de qué lado de la banda A(n)–B(n) cayó cada gas y cuánto le falta para decidir.',
+        'Semáforo de riesgo por familia que avisa ANTES de que sea un hallazgo (margen delgado, Cpk bajo, alarmas de proceso). Con menos de 3 VINes nunca pinta verde: dice "sin datos", porque con esa muestra no se puede afirmar nada.',
+        'Expediente por familia con su cronología y el veredicto vigente mes a mes, y un PDF de auditoría que congela los límites con los que se decidió — por eso sigue siendo válido dentro de años. Sin juicio guardado sale marcado PRELIMINAR.',
+        'Cambiar de familia ya no borra lo que llevabas capturado en la anterior: cada familia guarda su propia mesa de trabajo y sobrevive al cambio, a la recarga y a la sincronización entre equipos.',
+        'El módulo pasa a tener 3 exportaciones (Panorama CSV, Expediente PDF/CSV, Juicios CSV) en el Centro de Reportes, que tenía 17 renglones y ninguno de CoP.'
+    ]},
     { version: '18.6', date: '25 ago 2026', title: 'La sincronización ya no se estrangula sola (ni tira liberaciones)', bullets: [
         'La app se limitaba a 500 escrituras al día, que es el 3% de lo que permite el plan gratuito de Firebase (20,000). Por eso salían 211 operaciones bloqueadas y 50 en cola con la nube prácticamente sin usar. Ahora el tope es 2,000 por equipo: con 5 equipos AL TOPE se usaría el 50% de lo gratuito.',
         'Grave: la cola de pendientes tiraba primero las operaciones MÁS importantes. Estaba ordenada por prioridad y se quedaba con las últimas, así que descartaba las liberaciones de vehículos y conservaba respaldos y bitácoras. Eso explica que una liberación "volviera a aparecer" después de recargar.',
@@ -660,6 +678,19 @@ var DEFAULT_REGULATION_PROFILES = [
         ]
     },
     {
+        // Euro 6e cambió los factores de conformidad de RDE, NO los límites de Tipo 1:
+        // por eso son idénticos a EURO-6C. Verificar contra el texto oficial antes de
+        // usarlo en homologación; el perfil es editable en Datos → Regulaciones.
+        id: 'reg_euro6e', name: 'EURO-6E', shortName: 'EURO-6E',
+        gases: [
+            { field: 'CO',   label: 'CO',   unit: 'g/km', limit: 1.0 },
+            { field: 'CO2',  label: 'CO₂',  unit: 'g/km', limit: null },
+            { field: 'THC',  label: 'THC',  unit: 'g/km', limit: 0.1 },
+            { field: 'NOx',  label: 'NOx',  unit: 'g/km', limit: 0.06 },
+            { field: 'NMHC', label: 'NMHC', unit: 'g/km', limit: 0.068 }
+        ]
+    },
+    {
         id: 'reg_euro2', name: 'EURO-2', shortName: 'EURO-2',
         gases: [
             { field: 'CO',  label: 'CO',  unit: 'g/km', limit: 2.2 },
@@ -761,6 +792,22 @@ function loadRegulations() {
         saveRegulations();
     } else {
         _regulationsData = saved;
+        // Un perfil nuevo agregado a DEFAULT_REGULATION_PROFILES jamás llegaba a los
+        // dispositivos que ya tenían kia_regulations_v1 escrito (la rama de arriba solo
+        // corre en un dispositivo virgen). Se agregan los que falten SIN tocar los que
+        // el laboratorio ya editó — el perfil guardado siempre gana.
+        var _have = {};
+        _regulationsData.profiles.forEach(function(p) {
+            if (p && p.name) _have[String(p.name).trim().toUpperCase()] = true;
+        });
+        var _added = 0;
+        DEFAULT_REGULATION_PROFILES.forEach(function(d) {
+            if (!_have[String(d.name).trim().toUpperCase()]) {
+                _regulationsData.profiles.push(JSON.parse(JSON.stringify(d)));
+                _added++;
+            }
+        });
+        if (_added) saveRegulations();
     }
     return _regulationsData;
 }
@@ -4554,8 +4601,12 @@ var TOURS = {
         { target: '[data-help="pn-audit-help"]', title: 'Auditoría', text: 'El control de cambios de toda la plataforma: quién hizo qué y cuándo.', position: 'top', tab: 'pn-audit' }
     ],
     cop: [
-        { target: '[data-help="cop-family-help"]', title: 'Familia a evaluar', text: 'Elige región y familia — la tabla se llena con los VINes ya probados de esa familia.', position: 'bottom' },
-        { target: '[data-help="cop-verdict-help"]', title: 'Veredicto en vivo', text: 'El veredicto CONCORDANTE/NO CONCORDANTE se recalcula con cada valor capturado (mínimo 3 VINes).', position: 'top' },
+        { target: '[data-help="cop-kpis-help"]', title: 'Panorama', text: 'Arranca aquí: el estado de conformidad de TODAS las familias del alcance en una pantalla. Cada tarjeta es una familia; el color del borde es el aviso de riesgo y el chip de adentro es el veredicto estadístico.', position: 'bottom' },
+        { target: '[data-help="cop-present-help"]', title: 'Para la sala', text: 'Modo presentación agranda todo dentro del CoP para proyectarlo en una auditoría, sin cambiar el tamaño con el que se usa la app en el celular.', position: 'bottom' },
+        { target: '[data-help="cop-scope-help"]', title: 'Qué NO cubre', text: 'El CoP solo juzga EURO-5, EURO-6E y PRE-EURO 7 en EUROPE y MIDDLE EAST. Lo que queda fuera se declara aquí, para que nadie suponga que se omitió por descuido.', position: 'top' },
+        { target: '[data-help="cop-gauge-help"]', title: 'Qué tan cerca de decidir', text: 'En el Validador, esta barra por gas muestra dónde cayó el estadístico U dentro de la banda A(n)–B(n): si la familia ya concluyó y de qué lado, o cuántos vehículos le faltan.', position: 'top' },
+        { target: '[data-help="cop-verdict-help"]', title: 'Veredicto en vivo', text: 'Se recalcula con cada valor capturado. Con menos de 3 VINes no se emite veredicto — a propósito.', position: 'top' },
+        { target: '[data-help="cop-dossier-help"]', title: 'Expediente', text: 'La historia de cada familia y el PDF que se entrega en auditoría, con los límites congelados del juicio.', position: 'bottom' },
         { title: 'Control SPC', text: 'La sub-pestaña 📈 Control SPC detecta corrimientos y tendencias antes de fallar un límite regulatorio.' }
     ],
     cop15: [

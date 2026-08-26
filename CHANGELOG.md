@@ -2,6 +2,221 @@
 
 All notable changes to this project, organized by development round.
 
+## v19.1 — Familias de interpolación del WVTA (2026-08-26)
+
+Cierra el pendiente que v19.0 dejó anotado. La **familia de interpolación (IP)** es la agrupación
+**oficial** del CoP en Europa: la declara el certificado de homologación (Whole Vehicle Type
+Approval, Reg. UE 2018/858) en su punto **0.2.3.1**, por variante y versión.
+
+### De dónde sale cada dato — la regla que no se debe romper
+
+| Dato | Fuente |
+|---|---|
+| Identidad de la familia (código IP), miembros, TML/TMH, rango de CO₂ VL–VH | **WVTA** |
+| Coeficientes f0/f1/f2 y CO₂ declarado **de cada vehículo** | **ICMS** |
+
+El WVTA *sí* trae f0/f1/f2, pero **solo los de los vehículos extremos VL y VH** que acotan la
+familia — no los del vehículo que se va a ensayar, que se obtienen interpolando entre ambos. Esa
+interpolación es justamente lo que el ICMS entrega ya resuelto por MC code. Copiar los coeficientes
+del certificado a un vehículo concreto sería usar los del extremo de la familia en vez de los
+suyos. Por eso `homoState.ipFamilies` **no tiene campos f0/f1/f2**, y así está escrito en el propio
+archivo, en la tarjeta de la pantalla y en `CLAUDE.md`.
+
+### Lector del certificado
+
+`homoIpParseWVTA(text)` es una función **pura** (sin DOM, testeable en Node) que interpreta el
+texto pegado del PDF. Pedirle a alguien que teclee 5 familias × 5 campos por certificado es la
+forma segura de que la función no se use.
+
+Dos cosas que el PDF hace y que hubo que resolver con el documento real en la mano:
+
+- **Parte los códigos entre renglones** cuando la columna es angosta
+  (`IP-0401789-` / `3KP`) — `_homoWvtaJoinSplitCodes` los vuelve a pegar antes de interpretar.
+- **No siempre etiqueta igual el encabezado de columnas**: en un mismo certificado aparece como
+  `Interpolation family …` en una página y como `Version(s) IP-…` en la siguiente. Por eso se toma
+  como encabezado cualquier renglón con códigos IP que no sea el `IP Family` del bloque 0.2.3.1.
+
+**Verificado contra un certificado real** (`e4*2018/858*00261*00 Cor.01`, tipo CL4m / K4): las 5
+familias salen con sus variantes, versiones, TML/TMH y CO₂ VL–VH idénticos a lo impreso.
+
+### La variante sola no basta — y la app no adivina
+
+En ese certificado **`B5P22` pertenece a dos familias distintas** según su versión
+(`M61A11` → IP-0401788-3KP, `D71A11` → IP-0401787-3KP). `homoIpFamilyForVehicle()` es LA definición
+de la resolución y va en este orden: sello explícito en el vehículo → variante + versión → los del
+catálogo ICMS por MC code → variante sola **solo si no es ambigua** → `null`. Una variante repartida
+entre familias devuelve `null` en vez de escoger una.
+
+### Chequeo de rango: estructura del WVTA contra números del ICMS
+
+`homoIpMassCheck` / `homoIpCo2Check` / `homoIpScanOutliers` marcan un vehículo cuya masa de ensayo
+o CO₂ declarado (datos del **ICMS**) caen fuera del rango de su propia familia IP (rango del
+**WVTA**). O el dato está mal capturado, o el vehículo no pertenece a esa familia: en los dos casos
+es algo que corregir antes de que lo encuentre un auditor. Entra al Panorama como motivo de
+**atención**, sin tocar el veredicto — es un problema de evidencia, no de emisiones.
+
+### Integración con el CoP
+
+- El Panorama muestra la familia IP en la tarjeta y los atípicos como motivo de riesgo.
+- `copFamilyPDF()` cita la familia IP, sus masas TML/TMH y el número y fecha del certificado.
+- **La clave de agrupación NO cambia**: sigue siendo `copVehicleFamilyKey`, que es la identidad de
+  las series SPC y de todos los juicios ya guardados. La familia IP es informativa sobre la fila.
+  Reemplazarla huerfanaría el histórico completo.
+
+### Sync
+
+`_mergedHomo` se arma desde cero en `fbPullApply`, así que una clave que no se liste ahí **se pierde
+en cada pull**. `ipFamilies` se fusiona por código (gana `updatedAt`). `homoSyncReload` invalida el
+índice de resolución y el cache del Panorama.
+
+### Detalle de UI
+
+La tarjeta seguía diciendo "aún no hay familias IP" con las familias ya guardadas: las pestañas del
+Panel están cacheadas y `pnRender()` solo no repinta la pestaña actual. Se resuelve con
+`tabCacheInvalidate('pn', 'pn-homolog')`, el mismo patrón de `_pnProjNav` (v16.8).
+
+## v19.0 — CoP: de calculadora a tablero de conformidad (2026-08-26)
+
+Pedido del laboratorio: el CoP es lo que muestra el seguimiento y lo que probablemente se
+comparta en una auditoría, así que tenía que ser **muy visual y profesional**. Cuatro carencias
+concretas, todas verificadas en el código antes de tocar nada.
+
+### El módulo era una calculadora, no un sistema de registro
+
+- **No había panorama.** Había que elegir UNA familia en un `<select>` para ver algo. Ninguna
+  pantalla respondía "¿cómo va el CoP del laboratorio?".
+- **No había seguimiento en el tiempo.** `copState.saved` era una lista plana pintada como
+  renglones diminutos. Peor: `copAutoPopulateVins` **reasignaba `copState.vehicles` entero** al
+  cambiar de familia, así que solo existía la mesa de trabajo de UNA familia y cambiar de familia
+  borraba sin avisar lo capturado a mano en la anterior.
+- **No había nada que entregar.** Cero exportaciones, y el Centro de Reportes tenía 17 renglones
+  y **ninguno de CoP**.
+- **No tenía identidad visual.** `grep -c "\.cop-" styles.css` = **0**: era 100% `style=""` en
+  línea, contra `.tp-*` (40 clases), `.inv-*` (25), `.pn-*` (127), `.dash-*` (38).
+
+### Los límites estaban mal para el 38% del catálogo
+
+Al verificar el validador salió un bug real: `COP_PI_LIMITS`/`COP_CI_LIMITS` tienen los límites
+Euro 6 **escritos a fuego** y nunca consultan `getRegulationProfile()`, aunque `_copRegCombinesTHC`
+ya leía el perfil para otra cosa. De 173 configuraciones del catálogo:
+
+| Norma | cfgs | Qué pasaba |
+|---|---|---|
+| EURO-5 / PRE-EURO 7 / EURO-6C | 97 | correcto **por casualidad** (mismos valores) |
+| **EURO-2** | 28 | CO 2.2 real vs **1.0 aplicado**; THC+NOx 0.5 vs **THC 0.1** → falsos NO CONCORDANTE |
+| **EURO-4** | 22 | NOx 0.08 real vs **0.06 aplicado** → falsos NO CONCORDANTE |
+| **SULEV 30** | 15 | NOx 0.02 y NMHC 0.01 en **g/mi**, comparados contra límites en g/km → el sentido peligroso: **aprobar lo que falla** |
+| EURO-3, BRAZIL L8 | 7 | sin perfil definido |
+
+**Resuelto acotando el alcance** a lo que el laboratorio realmente certifica: `COP_SCOPE_DEFAULT`
+= EURO-5 / EURO-6E / PRE-EURO 7 en EUROPE y MIDDLE EAST (45 de 173 configuraciones). Esas tres
+normas comparten exactamente los valores ya codificados, así que **ningún veredicto cambia**.
+`copInScope()` es LA definición del alcance y todo filtra por ahí; `copOutOfScopeSummary()`
+**declara** lo que queda fuera y por qué — una configuración que desaparece sin explicación es
+justo lo que un auditor pregunta. `copLimitsForFamily()` compara en cada render el límite aplicado
+contra el perfil real y avisa si difieren, para que el agujero no vuelva si mañana entra una norma
+nueva al alcance. Se agregó el perfil `EURO-6E` (mismos límites de Tipo 1 que 6C: Euro 6e cambió
+los factores de conformidad de RDE, no el Tipo 1), y `loadRegulations()` ahora siembra los perfiles
+nuevos en dispositivos que ya tenían `kia_regulations_v1` escrito — antes esa rama solo corría en
+un dispositivo virgen.
+
+**El SPC NO se acotó**: es control de proceso, no juicio de conformidad, y apagarle al Panel las
+alarmas de las 31 configuraciones EURO-5 de MEXICO sería perder una red de seguridad que nadie
+pidió quitar. `copSpcScanAlarms()` sigue barriendo todo y marca cada alarma con `inScope`.
+
+### Panorama (vista nueva, y ahora la de arranque)
+
+`copPortfolioRows()` es **LA definición** del estado CoP de todas las familias. No agrega
+matemática: compone `copCalcStats`, `copSpcStats`/`copSpcFlags` y `tpBuildFamilies` (ya cacheada
+por `_tpGetPlanHash`). **Memoizada** — `pnGetActiveAlerts` corre en cada render del Panel y sin
+memo el Panel se arrastra. Une lo que el plan exige con lo que ya se probó, así que una familia
+planeada y nunca ensayada aparece **en gris** en vez de desaparecer.
+
+`copFamilyRisk()` es LA definición del semáforo, y es **pura** (recibe la fila, se prueba sin DOM).
+Reglas de honestidad, deliberadas y comentadas en el código:
+
+- Con `n < 3` el nivel es **`sin-datos`, nunca verde**: el muestreo secuencial no decide nada con
+  esa muestra y pintar verde afirmaría algo que la estadística no sostiene.
+- El texto dice **qué se observó**, no qué va a pasar. La pantalla lo etiqueta como aviso interno
+  anticipado, no como veredicto regulatorio.
+- **Margen delgado con veredicto PASS es ámbar, no rojo.** Pintar un PASS del mismo rojo que un NO
+  CONCORDANTE confunde dos situaciones muy distintas y quema la credibilidad del tablero. Sube a
+  rojo solo si además el Cpk dice que el proceso no puede sostener ese margen.
+- `confidence` baja sola con n chico o con la familia sin ensayar hace mucho.
+
+### Que se entienda a simple vista
+
+El muestreo secuencial se presentaba como una tabla de `U`, `A(n)`, `B(n)` que nadie ajeno al
+laboratorio puede leer. Ahora hay una **barra por gas** con las tres zonas y la marca de U: se ve
+de qué lado cayó y cuánto le falta para decidir. La escala se verificó: monótona, acotada, las
+fronteras A(n)/B(n) caen exactamente en el borde de su zona y un U extremo se clava en el extremo
+sin reventar la escala. Se dibuja igual en pantalla (CSS) que en el PDF (vectorial).
+
+El veredicto de familia pasa de tarjeta delgada a **banner protagonista**, y **82 clases `.cop-*`**
+nuevas en `styles.css` (antes cero) dan al módulo el vocabulario que los demás ya tenían, incluido
+un **modo presentación** con alcance a `body.cop-present` — sube la escala solo dentro del CoP,
+nunca la global, que es la que usan los técnicos en el celular todos los días.
+
+### Expediente y evidencia
+
+`copFamilyHistory()` **deriva** la cronología (juicios + ensayos + alarmas) en vez de guardarla —
+mismo principio que `pnProjectTimeline` y `v.timeline`. `copVerdictAt()` pinta la franja de 12
+meses; un mes sin juicio va **en gris, nunca verde por omisión**.
+
+Los juicios ahora **congelan** los límites, los A(n)/B(n), la estadística por contaminante, el
+operador y la versión de la app: un registro que solo guarda "FAIL" deja de ser reproducible si
+mañana cambia un perfil, y por tanto deja de ser evidencia. `_copTrimSaved` **compacta en vez de
+borrar** (patrón `snapshotPurged` de v18.1) y nunca toca el juicio vigente de una familia.
+
+`copFamilyPDF()` arma el expediente en 10 secciones, separando **procedimiento** (R154/R83) de
+**norma de emisiones** — son dos cosas distintas que la pantalla confundía. Sin juicio guardado
+sale marcado **PRELIMINAR**: el documento no puede sonar más seguro que la pantalla.
+
+### Mesa de trabajo por familia
+
+`copState.families` guarda la tabla por clave de familia. `copState.vehicles` **sigue siendo un
+alias vivo** del array de la familia abierta, así que los ~20 sitios que leen o mutan filas no se
+tocaron; los seis que reasignaban el array pasan por `_copSetVehicles()`.
+
+**Regla para código nuevo: nunca `copState.vehicles = ...` directo, siempre `_copSetVehicles()`.**
+
+`copSyncVinsFromTests` reemplaza a `copAutoPopulateVins`: fusiona en vez de reemplazar. Las filas
+manuales no se tocan y **una celda con valor no se sobrescribe jamás** — si el laboratorio tiene
+otro número se marca `staleAuto` y se avisa con un botón para traerlo. Reescribir en silencio un
+valor sobre el que ya se emitió un juicio es exactamente el hallazgo que este módulo existe para
+evitar.
+
+`_fbMergeCopFamilies` fusiona por clave (gana `updatedAt`) y dentro de la ganadora agrega los VINes
+que solo tenía la perdedora. En una frase: **dos técnicos que capturan familias distintas conservan
+ambas; si capturan la misma, se queda la más reciente más los VINes que el otro había agregado.**
+Renumera las filas siempre, porque la fusión es donde chocan datos de dos equipos y dos filas con
+el mismo id harían que `copRemoveRow` borre las dos.
+
+### Otras correcciones encontradas al probar
+
+- **`fbPullApply` tomaba `copState` del remoto entero.** La vista, la familia abierta y la mesa de
+  trabajo saltaban porque otro técnico tocó su pantalla. Esos campos son estado de UI por
+  dispositivo y ahora gana el local.
+- **`copSyncReload` repintaba encima de lo que estabas capturando** (rehace el `innerHTML`
+  completo). Ahora difiere el repintado hasta que sueltes el campo.
+- **Al abrir una familia sin mesa guardada**, `copState.vehicles` seguía apuntando al array de la
+  familia anterior y la nueva **heredaba sus VINes**, incluidos los manuales.
+- **El selector de familia leía solo `tpState.planData`**, así que una familia con ensayos pero sin
+  plan importado salía como "Familia (0)" aun estando abierta y con datos en pantalla.
+- **`HELP_TABS` traía entradas del CoP desde v16.0 pero nadie llamaba `helpBannerHTML()` aquí**:
+  los banners de ayuda nunca se habían visto en esta plataforma.
+- La cabecera decía "Euro 6" fijo y llamaba "Reglamento" al procedimiento de ensayo.
+
+### Deuda conocida
+
+- **Familias IP (WVTA) pendientes**: la agrupación oficial de interpolación para Europa queda para
+  la siguiente ronda, en cuanto lleguen las fotos de los certificados. Los coeficientes f0/f1/f2
+  seguirán viniendo del **ICMS**, no del WVTA.
+- `undoPush('cop', …)` sigue siendo un **no-op** (`undoPush` solo conoce cop15/testplan/inventory).
+  Ningún código nuevo del CoP lo llama, precisamente por eso.
+- La migración de estilos en línea a `.cop-*` es **parcial y deliberada**: el código nuevo usa las
+  clases, lo viejo se convierte oportunísticamente en vez de reescribir 1290 líneas de una vez.
+
 ## v18.6 — Cuota de sync, cola que perdía liberaciones y PDF sin CDN (2026-08-25)
 
 Reportado desde el laboratorio: el panel de sync marcaba **75/60 escrituras/hora**, **211 operaciones

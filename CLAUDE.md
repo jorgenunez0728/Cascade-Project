@@ -24,7 +24,7 @@ no-login operator picker, synced change history).
 | **Plan** | Test Plan Manager (weekly plan, **🚑 Recuperación**, families, calendar, simulator, production) | `platform-testplan` |
 | **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
 | **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system, **☁️ Archivos**, **🗂️ Proyectos**) | `platform-panel` |
-| **CoP** | CoP Type 1 statistical Conformity-of-Production validator (family + VINes, live verdict) + **📈 Control SPC** (v15.7: cartas I-MR por familia×gas, Nelson, Cpk, alarmas) | `platform-cop` |
+| **CoP** | **v19.0**: 4 vistas — **📊 Panorama** (todas las familias del alcance de un vistazo), 📋 Validador (+ gauge de la banda A(n)–B(n)), **📈 Control SPC** (I-MR, Nelson, Cpk, alarmas), **🗂️ Expediente** (cronología + PDF de auditoría) | `platform-cop` |
 
 Legacy platform names (`cop15`, `testplan`, `inventory`, `panel`) are aliased in
 `switchPlatform()`. Topbar (`index.html`) also has: **👤 operator picker** (`#op-picker`, no password),
@@ -60,8 +60,8 @@ js/
   projects.js           ← Proyectos: importador Excel, 6 vistas, CPM/línea base (~1,900 lines)
   firebase-sync.js      ← Shared-workspace cloud sync layer (~2,900 lines)
   auth.js               ← Operator identity + PIN wall (~490 lines)
-  cop_validator.js      ← CoP Type 1 statistical validator + Control SPC (I-MR/Nelson/Cpk) (~1,170 lines)
-  homolog.js            ← Homologación Europa: catálogo ICMS + f0/f1/f2/TM + CO₂ declarado (~560 lines)
+  cop_validator.js      ← CoP Type 1: Panorama, validador, Control SPC, expediente + PDF (~2,830 lines)
+  homolog.js            ← Homologación EU: catálogo ICMS + f0/f1/f2/TM + CO₂ + familias IP del WVTA (~1,280 lines)
   bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
@@ -80,12 +80,12 @@ CHANGELOG.md            ← Detailed changelog
 | Test Plan Manager | `js/testplan.js` | `tp` | `tpState` | `kia_testplan_v1` |
 | Lab Inventory | `js/inventory.js` | `inv` | `invState` | `kia_lab_inventory` |
 | Panel | `js/panel.js` | `pn` | `pnState` | `kia_panel_v1` |
-| CoP Validator | `js/cop_validator.js` | `cop` | `copState` | `kia_cop_v1` |
+| CoP Validator | `js/cop_validator.js` | `cop` | `copState` (+ `copState.families`) | `kia_cop_v1` |
 | Proyectos | `js/projects.js` | `pnProject*` | `pnState.projects` (vive en panel) | — (dentro de `kia_panel_v1`) |
 | Auth / Operator | `js/auth.js` | `auth` | `authState` (lightweight) | `kia_current_operator` |
 | Signatures | `js/signatures.js` | `sig` | overlay-based | — (in `vehicle.testData.signatures`) |
 | Firebase Sync | `js/firebase-sync.js` | `fb` | `fbSync`, queue | `kia_firebase_queue` |
-| Homologación EU | `js/homolog.js` | `homo` | `homoState` | `kia_homolog_v1` |
+| Homologación EU | `js/homolog.js` | `homo` | `homoState` (+ `homoState.ipFamilies`) | `kia_homolog_v1` |
 | Reporte de Bugs | `js/bugreport.js` | `bug` | cola local (sin state global) | `kia_bug_queue`, `kia_bug_settings` |
 
 ### Additional localStorage Keys
@@ -654,6 +654,91 @@ localStorage. Confundir ambas cosas fue la duda del usuario cuando se llenó.
 - **La identidad de un operador es su `id`.** El merge de sync clava por id (antes `id|nombre`, y
   `'Jorge Nuñez'` vs `'Jorge Núñez'` sobrevivían duplicados mientras la sesión tomaba el primero);
   `_pnDedupeOperators()` repara los duplicados al arrancar, conservando PIN y competencias.
+
+## v19.0 — CoP: tablero de conformidad (`js/cop_validator.js`)
+
+El módulo pasó de calculadora de una familia a tablero con 4 vistas
+(`copState.view`: `overview` | `validator` | `spc` | `dossier`; arranca en `overview`).
+
+- **`copInScope(cfgOrVehicle)` es LA definición del alcance CoP** y todo filtra por ahí.
+  `COP_SCOPE_DEFAULT` = EURO-5 / EURO-6E / PRE-EURO 7 en EUROPE y MIDDLE EAST (45 de las 173
+  configuraciones). Esto **tapa un agujero real**: `COP_PI_LIMITS` tiene los límites Euro 6
+  escritos a fuego y nunca consulta `getRegulationProfile()`; fuera del alcance eso juzgaba mal
+  65 configuraciones (EURO-2/EURO-4 demasiado estricto; **SULEV 30 en g/km contra datos en
+  g/mi**, que puede aprobar lo que falla). Dentro del alcance las tres normas comparten los
+  mismos valores, así que no cambia ningún veredicto. **`copLimitsForFamily()` lo verifica en
+  cada render** — si mañana entra una norma nueva al alcance, avisa en vez de juzgar mal en
+  silencio. Lo que queda fuera **se declara** (`copOutOfScopeSummary()`), nunca se oculta.
+- **El SPC NO se acota al alcance a propósito**: es control de proceso, no conformidad.
+  `copSpcScanAlarms()` barre TODO (el Panel depende de esas alarmas) y marca cada una con
+  `inScope`; `copSpcFamilies(opts)` sí filtra salvo `opts.allScopes`.
+- **`copPortfolioRows()` es LA definición** del estado CoP de todas las familias — todo
+  consumidor nuevo la llama en vez de recalcular. Une plan (`copFamilies`) + probado
+  (`copSpcFamilies`), y **compone** `copCalcStats`/`copSpcStats`/`copSpcFlags`/`tpBuildFamilies`
+  sin agregar matemática. **Memoizada obligatoriamente** (`_copRev`, `copInvalidateCache()`):
+  `pnGetActiveAlerts` corre en cada render del Panel.
+- **`copFamilyRisk(row)` es LA definición del semáforo y es PURA** (recibe la fila; testeable sin
+  DOM). Es un **aviso interno anticipado, nunca un veredicto regulatorio**, y la UI lo dice con
+  esas palabras. Con `n < 3` devuelve `sin-datos`, **jamás verde**. Margen delgado con veredicto
+  PASS es ámbar, no rojo.
+- **Mesa de trabajo por familia**: `copState.families[key]`. `copState.vehicles` sigue siendo un
+  **alias vivo** del array de la familia abierta. **REGLA: nunca escribir `copState.vehicles = …`
+  directo — siempre `_copSetVehicles(arr)`**, que es el único punto de reasignación y sella
+  `updatedAt`. Al abrir una familia sin mesa guardada hay que **arrancar en limpio** o hereda los
+  VINes de la anterior.
+- **`copSyncVinsFromTests(key)` fusiona, no reemplaza**: filas manuales intactas y **una celda con
+  valor NO se sobrescribe jamás** — se marca `staleAuto` y se ofrece `copAcceptLabValues(id)`.
+- **Los juicios CONGELAN** límites, A(n)/B(n), estadística por contaminante, operador y
+  `appVersion`: sin eso un registro deja de ser reproducible cuando cambia un perfil, y por tanto
+  deja de ser evidencia. `_copTrimSaved()` **compacta en vez de borrar** (patrón `snapshotPurged`
+  de v18.1) y nunca toca el juicio vigente de una familia.
+- **`copFamilyHistory(key)` / `copVerdictAt(key, iso)` DERIVAN**, no guardan (patrón
+  `pnProjectTimeline`). Un mes sin juicio se pinta **gris, nunca verde por omisión**.
+- **Sync**: la rama `cop` de `fbPullApply` tomaba `remoteData` entero — `view`/`region`/
+  `familyKey`/`vehicles`/`spc`/`present` son **estado de UI por dispositivo** y ahora gana el
+  local (antes la pantalla saltaba porque otro técnico tocó la suya). `_fbMergeCopFamilies`
+  fusiona por clave (gana `updatedAt`) uniendo VINes, y **renumera siempre** las filas.
+- **CSS**: 82 clases `.cop-*` (antes CERO — era 100% `style=""` en línea). Modo presentación con
+  alcance a **`body.cop-present`**: nunca subir la escala global. Migración de estilos en línea
+  deliberadamente parcial — código nuevo con clases, lo viejo se convierte oportunísticamente.
+- **`copFamilyPDF()`** separa **procedimiento** (R154/R83) de **norma de emisiones** (son dos
+  cosas distintas) y sale marcado **PRELIMINAR** si no hay juicio guardado.
+- **Ojo**: `undoPush('cop', …)` es un **no-op** — `undoPush` (app.js) solo conoce
+  `cop15`/`testplan`/`inventory`. No llamarlo desde el CoP creyendo que hace algo.
+## v19.1 — Familias de interpolación del WVTA (`js/homolog.js`)
+
+`homoState.ipFamilies` = `[{id, code, members:[{variant,version}], tml, tmh, co2Low, co2High,
+wvta, wvtaDate, type, commercialName, updatedAt}]`.
+
+- **REGLA QUE NO SE ROMPE: f0/f1/f2 vienen del ICMS (`homoState.catalog`), NUNCA del WVTA.**
+  El certificado sí los trae, pero solo los de los vehículos extremos **VL y VH** que acotan la
+  familia — no los del vehículo que se va a ensayar, que salen de interpolar entre ambos, que es
+  justo lo que el ICMS entrega ya resuelto por MC code. Por eso `ipFamilies` **no tiene campos
+  f0/f1/f2** y no se le deben agregar. Del WVTA salen: identidad de la familia, miembros,
+  TML/TMH y el rango de CO₂ VL–VH.
+- **`homoIpFamilyForVehicle(v)` es LA definición** de la resolución: sello explícito
+  (`vehicle.homolog.ipFamilyId`) → variante + versión → las del catálogo ICMS por MC code →
+  variante sola **solo si no es ambigua** → `null`. **La variante sola NO basta**: en un
+  certificado real `B5P22` está en dos familias según su versión. Ante ambigüedad devuelve
+  `null`, no adivina. Solo resuelve para región Europa (`homoIsEurope`).
+- **`homoIpParseWVTA(text)` es PURA** (sin DOM, testeable en Node) y lee el texto pegado del PDF.
+  Dos rarezas del formato ya resueltas: los códigos se **parten entre renglones**
+  (`IP-0401789-` / `3KP`, lo repara `_homoWvtaJoinSplitCodes`) y el encabezado de columnas del
+  bloque 3.1 **no siempre se llama igual** (`Interpolation family` en una página, `Version(s)` en
+  la siguiente), así que se toma como encabezado cualquier renglón con códigos IP que no sea el
+  `IP Family` del bloque 0.2.3.1.
+- **`homoIpMassCheck`/`homoIpCo2Check`/`homoIpScanOutliers`**: rango del WVTA contra valor del
+  ICMS. Un vehículo fuera de rango es un problema de **evidencia**, no de emisiones — entra como
+  motivo de atención en el Panorama y **no toca el veredicto**.
+- **La clave de agrupación del CoP NO cambia**: sigue siendo `copVehicleFamilyKey`, que es la
+  identidad de las series SPC y de todos los juicios guardados. `row.ipFamilies` es informativo.
+  Si alguna vez se agrupa por IP, debe ir **encima** con prefijo `IP:`, nunca reemplazándola.
+- **Sync**: `_mergedHomo` en `fbPullApply` se arma **desde cero**, así que toda clave nueva de
+  `homoState` debe listarse ahí o se pierde en cada pull. `ipFamilies` mergea por código
+  (gana `updatedAt`).
+- **UI**: tras cambiar familias hay que llamar `_homoIpRepaint()`
+  (`tabCacheInvalidate('pn','pn-homolog')` + `pnRender()`) — las pestañas del Panel están
+  cacheadas y `pnRender()` solo no repinta la pestaña actual (patrón `_pnProjNav`, v16.8).
 
 ## Working with this project
 
