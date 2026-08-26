@@ -153,7 +153,8 @@ function copPersist() {
             region: copState.region, familyKey: copState.familyKey, familyLabel: copState.familyLabel,
             activePolls: copState.activePolls, vehicles: copState.vehicles, saved: copState.saved,
             spc: copState.spc, scope: copState.scope,
-            present: copState.present, ovFilter: copState.ovFilter
+            present: copState.present, ovFilter: copState.ovFilter,
+            families: copState.families, copSchema: copState.copSchema
         }));
         _copBumpRev();
         return true;
@@ -167,7 +168,7 @@ function copLoad() {
     var raw = null;
     try { raw = JSON.parse(localStorage.getItem(COP_LS_KEY)); } catch (e) {}
     if (raw && typeof raw === 'object') {
-        ['view','regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved','spc','scope','present','ovFilter'].forEach(function(k) {
+        ['view','regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved','spc','scope','present','ovFilter','families','copSchema'].forEach(function(k) {
             if (raw[k] !== undefined && raw[k] !== null) copState[k] = raw[k];
         });
     }
@@ -192,6 +193,33 @@ function copInitState() {
     }
     if (copState.spc.allScopes === undefined) copState.spc.allScopes = false;
     if (['overview','validator','spc','dossier'].indexOf(copState.view) === -1) copState.view = 'overview';
+
+    // ── Migración a mesa de trabajo por familia (v19.0) ───────────────────────
+    // IDEMPOTENTE a propósito: copSyncReload() la vuelve a ejecutar en cada pull
+    // de Firebase, así que no puede duplicar ni volver a sembrar nada.
+    if (!copState.families) copState.families = {};
+    if (copState.copSchema !== 2) {
+        var tieneAlgo = (copState.vehicles || []).some(function(v) {
+            return v.vin || Object.keys(v.values || {}).length;
+        });
+        if (copState.familyKey && tieneAlgo && !copState.families[copState.familyKey]) {
+            copState.families[copState.familyKey] = {
+                key: copState.familyKey,
+                vehicles: copState.vehicles,
+                activePolls: JSON.parse(JSON.stringify(copState.activePolls || {})),
+                fuelType: copState.fuelType, regulation: copState.regulation,
+                updatedAt: new Date().toISOString(), updatedBy: ''
+            };
+        }
+        copState.copSchema = 2;
+    }
+    // Reengancha el alias tras un copLoad() (el array recuperado del disco es otro
+    // objeto que el guardado dentro de families).
+    if (copState.familyKey && copState.families[copState.familyKey]) {
+        var _f = copState.families[copState.familyKey];
+        if (_f.vehicles && _f.vehicles.length) copState.vehicles = _f.vehicles;
+        else _f.vehicles = copState.vehicles;
+    }
 }
 
 // Recargar copState desde localStorage (lo usa Firebase sync tras hacer pull/merge).
@@ -218,6 +246,61 @@ function copSyncReload() {
     copRender();
 }
 var _copPendingRender = false;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v19.0] MESA DE TRABAJO POR FAMILIA
+//
+// Hasta v18.6 existía UNA sola tabla (`copState.vehicles`) y copAutoPopulateVins la
+// reasignaba entera al elegir familia: cambiar de familia borraba sin avisar lo que
+// se había capturado a mano en la anterior. Con 45 configuraciones en el alcance eso
+// hace imposible llevar varias familias en paralelo, que es el trabajo real.
+//
+// `copState.vehicles` SIGUE existiendo como ALIAS VIVO del array de la familia
+// abierta, así que los ~20 sitios que leen o mutan elementos no se tocan. El único
+// punto autorizado de REASIGNACIÓN es _copSetVehicles().
+//
+// REGLA: nunca escribir `copState.vehicles = ...` directo. Siempre _copSetVehicles().
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Estado guardado de una familia (lo crea si no existía). */
+function copFamilyState(key) {
+    if (!copState.families) copState.families = {};
+    var k = key || '';
+    if (!copState.families[k]) {
+        copState.families[k] = {
+            key: k, vehicles: null,
+            activePolls: JSON.parse(JSON.stringify(copState.activePolls || {})),
+            fuelType: copState.fuelType, regulation: copState.regulation,
+            updatedAt: '', updatedBy: ''
+        };
+    }
+    return copState.families[k];
+}
+
+/** ÚNICO punto de reasignación del array. Mantiene el alias y sella la familia. */
+function _copSetVehicles(arr) {
+    copState.vehicles = arr;
+    var f = copFamilyState(copState.familyKey);
+    f.vehicles = arr;
+    f.activePolls = JSON.parse(JSON.stringify(copState.activePolls || {}));
+    f.fuelType = copState.fuelType;
+    f.regulation = copState.regulation;
+    f.updatedAt = new Date().toISOString();
+    f.updatedBy = _copWho();
+}
+
+/** Abre la mesa de trabajo de una familia: la recupera si ya existía. */
+function _copOpenFamilyState(key) {
+    var f = copFamilyState(key);
+    if (f.vehicles && f.vehicles.length) {
+        copState.vehicles = f.vehicles;           // MISMA referencia: el alias vive
+        if (f.activePolls) copState.activePolls = f.activePolls;
+        if (f.fuelType) copState.fuelType = f.fuelType;
+        if (f.regulation) copState.regulation = f.regulation;
+        return true;
+    }
+    return false;
+}
 
 // ─── FAMILIA + VINes + GUARDADO ──────────────────────────────────────────────
 function _copEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
@@ -281,26 +364,101 @@ function copVehicleFamilyKey(v) {
 function copSetRegion(r) { copState.region = r; copState.familyKey = ''; copState.familyLabel = ''; copPersist(); copRender(); }
 function copSelectFamily(key) {
     copState.familyKey = key;
-    var fam = copFamilies().find(function(f) { return f.key === key; });
+    var fam = copPortfolioRows().find(function(f) { return f.key === key; })
+           || copFamilies().find(function(f) { return f.key === key; });
     copState.familyLabel = fam ? fam.label : '';
-    if (key) copAutoPopulateVins(key);
+    if (key) {
+        // Si esta familia ya tenía mesa de trabajo, se recupera tal cual quedó; si no,
+        // se ARRANCA EN LIMPIO antes de sembrarla desde los vehículos probados. Sin ese
+        // borrón, copState.vehicles seguía apuntando al array de la familia anterior y
+        // la nueva heredaba sus VINes (incluidos los capturados a mano).
+        if (!_copOpenFamilyState(key)) copState.vehicles = [];
+        copSyncVinsFromTests(key);
+    }
     copPersist(); copRender();
 }
-// Autollenar VINes de vehículos ya probados (db.vehicles) de esa familia. Valores de gases best-effort.
-function copAutoPopulateVins(key) {
+
+/**
+ * [v19.0] Sincroniza la tabla con los vehículos ya probados de la familia.
+ * Reemplaza a copAutoPopulateVins, que REEMPLAZABA la tabla entera.
+ *
+ * Reglas, en este orden:
+ *   1. Las filas manuales no se tocan nunca.
+ *   2. Una celda con valor NO se sobrescribe jamás. Si el laboratorio tiene otro
+ *      número, se marca la fila `staleAuto` y se avisa — reescribir en silencio un
+ *      valor sobre el que ya se emitió un juicio es exactamente el hallazgo que este
+ *      módulo existe para evitar.
+ *   3. Los VINes probados que no estén en la tabla se agregan.
+ */
+function copSyncVinsFromTests(key) {
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
-    var rows = [], nextId = 1;
+    var rows = (copState.vehicles && copState.vehicles.length) ? copState.vehicles.slice() : [];
+    var byVin = {};
+    rows.forEach(function(r) { if (r.vin) byVin[String(r.vin).trim().toUpperCase()] = r; });
+    var nextId = rows.reduce(function(m, r) { return Math.max(m, r.id || 0); }, 0) + 1;
+    var added = 0, stale = 0;
+
     vehicles.forEach(function(v) {
         if (!v.vin || copVehicleFamilyKey(v) !== key) return;
-        var values = {};
+        var vk = String(v.vin).trim().toUpperCase();
+        var row = byVin[vk];
+        if (!row) {
+            var values = {};
+            copGetActiveLimits().forEach(function(p) {
+                var val = copResultValue(v, p.id);
+                if (val !== null && val !== undefined) values[p.id] = String(val);
+            });
+            row = { id: nextId++, vin: v.vin, values: values, source: 'auto' };
+            rows.push(row); byVin[vk] = row; added++;
+            return;
+        }
+        if (row.source === 'manual') return;                 // regla 1
+        var diff = false;
         copGetActiveLimits().forEach(function(p) {
             var val = copResultValue(v, p.id);
-            if (val !== null && val !== undefined) values[p.id] = String(val);
+            if (val === null || val === undefined) return;
+            var cur = row.values[p.id];
+            if (cur === undefined || cur === '') { row.values[p.id] = String(val); return; }
+            if (Math.abs(parseFloat(cur) - val) > 1e-9) diff = true;   // regla 2
         });
-        rows.push({ id: nextId++, vin: v.vin, values: values, source: 'auto' });
+        if (diff) { row.staleAuto = true; stale++; } else { delete row.staleAuto; }
     });
+
     while (rows.length < 3) rows.push({ id: nextId++, vin: '', values: {}, source: 'manual' });
-    copState.vehicles = rows;
+    _copSetVehicles(rows);
+    return { added: added, stale: stale };
+}
+// Compatibilidad: el nombre viejo sigue funcionando (ahora fusiona, no reemplaza).
+function copAutoPopulateVins(key) { return copSyncVinsFromTests(key); }
+
+/** Trae los valores del laboratorio para un VIN marcado `staleAuto`, a petición. */
+function copAcceptLabValues(rowId) {
+    var row = (copState.vehicles || []).find(function(r) { return r.id === rowId; });
+    if (!row || !row.vin) return;
+    var vk = String(row.vin).trim().toUpperCase();
+    var veh = ((typeof db !== 'undefined' && db.vehicles) ? db.vehicles : []).find(function(v) {
+        return v.vin && String(v.vin).trim().toUpperCase() === vk;
+    });
+    if (!veh) return;
+    var cambios = [];
+    copGetActiveLimits().forEach(function(p) {
+        var val = copResultValue(veh, p.id);
+        if (val === null || val === undefined) return;
+        if (String(row.values[p.id]) !== String(val)) {
+            cambios.push(p.label + ': ' + row.values[p.id] + ' → ' + val);
+            row.values[p.id] = String(val);
+        }
+    });
+    delete row.staleAuto;
+    _copSetVehicles(copState.vehicles);
+    copPersist();
+    if (typeof auditLog === 'function' && cambios.length) {
+        auditLog('cop', 'lab_values_accepted', { type: 'cop', label: row.vin }, cambios.join(' · '));
+    }
+    if (typeof showToast === 'function') {
+        showToast(cambios.length ? 'Valores del laboratorio aplicados a ' + row.vin : 'Ya coincidían', 'success');
+    }
+    copRender();
 }
 // Autollenado desde valores FINALES verificados (testData.gasResults capturados en
 // liberación/aprobación) — nunca bolsas crudas del analizador: el juicio regulatorio
@@ -352,7 +510,7 @@ function copAddManualRow() {
     copPersist(); copRender();
 }
 function copRemoveRow(id) {
-    copState.vehicles = copState.vehicles.filter(function(v) { return v.id !== id; });
+    _copSetVehicles(copState.vehicles.filter(function(v) { return v.id !== id; }));
     if (!copState.vehicles.length) copState.vehicles.push({ id: 1, vin: '', values: {}, source: 'manual' });
     copPersist(); copRender();
 }
@@ -457,7 +615,7 @@ function copLoadJudgment(id) {
     copState.regulation = rec.regulation; copState.fuelType = rec.fuelType;
     copState.region = rec.region; copState.familyKey = rec.familyKey; copState.familyLabel = rec.familyLabel;
     copState.activePolls = JSON.parse(JSON.stringify(rec.activePolls));
-    copState.vehicles = JSON.parse(JSON.stringify(rec.vehicles));
+    _copSetVehicles(JSON.parse(JSON.stringify(rec.vehicles || [])));
     copPersist(); copRender();
     if (typeof showToast === 'function') showToast('Juicio cargado', 'info');
 }
@@ -898,7 +1056,7 @@ function copSetFuel(fuel) {
     var newLimits = COP_FUEL_LIMITS[fuel] || COP_PI_LIMITS;
     copState.activePolls = {};
     newLimits.forEach(function(p) { copState.activePolls[p.id] = p.active; });
-    copState.vehicles = copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; });
+    _copSetVehicles(copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; }));
     copState._lastDecision = null;
     copPersist();
     copRender();
@@ -920,7 +1078,7 @@ function copHandleInput(el) {
 }
 
 function copClearData() {
-    copState.vehicles = copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; });
+    _copSetVehicles(copState.vehicles.map(function(v) { return { id: v.id, vin: v.vin, values: {}, source: v.source }; }));
     copState._lastDecision = null;
     copPersist();
     copRender();
@@ -1600,6 +1758,15 @@ function copBuildValidatorHTML() {
     if (activeLimits.length === 0) {
         html += '<p class="label-title" style="text-align:center;padding:20px;">Activa al menos un contaminante para introducir datos.</p>';
     } else {
+        var _stale = (copState.vehicles || []).filter(function(v) { return v.staleAuto; });
+        if (_stale.length) {
+            html += '<div class="cop-note cop-note--warn">';
+            html += '<div class="cop-note-title">↻ ' + _stale.length + ' VIN(es) con un valor distinto en el laboratorio</div>';
+            html += 'La celda que ya tenía valor NO se sobrescribió: el laboratorio registró otro número para ' +
+                    _copEsc(_stale.map(function(v) { return v.vin; }).join(', ')) +
+                    '. Revisa cuál es el correcto y usa ↻ en la fila para traer el del laboratorio.';
+            html += '</div>';
+        }
         // Encabezado de límites por contaminante (columnas)
         html += '<div style="overflow-x:auto;">';
         html += '<table style="border-collapse:collapse;width:100%;min-width:520px;">';
@@ -1631,7 +1798,16 @@ function copBuildValidatorHTML() {
                 html += 'style="width:90px;padding:6px 8px;font-size:12px;text-align:right;box-sizing:border-box;font-family:monospace;" />';
                 html += '</td>';
             });
-            html += '<td style="' + _copTd() + 'padding:4px;"><button onclick="copRemoveRow(' + v.id + ')" class="btn btn-sm btn-ghost" title="Quitar VIN" style="padding:2px 8px;">✕</button></td>';
+            html += '<td style="' + _copTd() + 'padding:4px;white-space:nowrap;">';
+            if (v.staleAuto) {
+                // El laboratorio tiene otro valor para este VIN. Se AVISA, no se pisa:
+                // reescribir en silencio un número sobre el que ya se emitió un juicio
+                // es exactamente el hallazgo que este módulo existe para evitar.
+                html += '<button onclick="copAcceptLabValues(' + v.id + ')" class="btn btn-sm btn-ghost" ' +
+                        'title="El laboratorio tiene otro valor para este VIN — traerlo" ' +
+                        'style="padding:2px 6px;color:var(--warn-text);">↻</button>';
+            }
+            html += '<button onclick="copRemoveRow(' + v.id + ')" class="btn btn-sm btn-ghost" title="Quitar VIN" style="padding:2px 8px;">✕</button></td>';
             html += '</tr>';
         });
 
