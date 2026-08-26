@@ -3379,17 +3379,27 @@ details.acc > summary {
     animation: v7SlideDown 0.3s var(--ease-out);
 }
 
-/* ── Next Step Floating Banner (D2) ── */
+/* ── Next Step Floating Banner (D2) ──
+   [v18.6 — issue #109] Tenía `z-index:9000`, o sea por encima de TODO: de la
+   bottom-nav (2000) y de la action-bar (2500). En teléfono y tablet tapaba la
+   navegación completa, y en cualquier vista tapaba lo último de la página (Iván la
+   reportó encima de los botones Editar/borrar de Regulaciones). Ahora se apila
+   DEBAJO de la bottom-nav, se sienta encima de ella cuando está visible, y el
+   cuerpo reserva su altura vía `body.has-next-step` para no montarse sobre nada.
+   El gate por plataforma y el ✕ están en v7UpdateNextStepBanner (app.js). */
+:root { --nextstep-h: 60px; }
 #v7-next-step-banner {
-    position: fixed; bottom: 0; left: 0; right: 0;
+    position: fixed; bottom: 62px; left: 0; right: 0;   /* 62px = alto de .bottom-nav */
     background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
     border-top: 1px solid var(--glass-border);
-    padding: 10px 16px; z-index: 9000;
+    padding: 10px 16px; z-index: 1900;
     display: flex; align-items: center; gap: 10px;
     transform: translateY(100%); transition: transform 0.3s ease;
     box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
 }
 #v7-next-step-banner.show { transform: translateY(0); }
+/* `body` ya reserva 70px para la bottom-nav; con la tira visible se suma su alto. */
+body.has-next-step { padding-bottom: calc(70px + var(--nextstep-h)); }
 .v7-next-step-icon { font-size: 20px; }
 .v7-next-step-text { flex: 1; font-size: var(--font-sm); font-weight: var(--weight-bold); color: var(--text); }
 .v7-next-step-go {
@@ -3399,6 +3409,22 @@ details.acc > summary {
     transition: transform 0.15s, box-shadow 0.15s;
 }
 .v7-next-step-go:active { transform: scale(0.92); box-shadow: var(--shadow-sm); }
+.v7-next-step-close {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    border: 1px solid var(--glass-border); background: transparent;
+    color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+}
+.v7-next-step-close:hover { background: rgba(0,0,0,0.06); color: var(--text); }
+
+/* Los dos flotantes que viven en la misma franja (`bottom:68px`) suben por encima
+   de la tira mientras se ve, si no se le encaraman: el 🐞 tapaba el icono y las
+   primeras letras del texto, y el badge de soak los botones → y ✕.
+   El `!important` del badge de soak es porque su posición está en un atributo
+   `style` de index.html, que gana a cualquier selector (mismo problema que el
+   `margin-left:auto` del topbar en v17.9). */
+body.has-next-step .bug-fab { bottom: calc(68px + var(--nextstep-h)); }
+body.has-next-step #soak-floating-badge { bottom: calc(68px + var(--nextstep-h)) !important; }
 
 /* ── Soak Complete Modal (D3) ── */
 .v7-soak-modal {
@@ -5881,6 +5907,25 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
                 </template>
             </div>
 
+            <!-- [v18.6 — issue #109] Interruptor de la tira de "siguiente paso".
+                 x-data local: es una preferencia de este dispositivo (localStorage),
+                 no vive en pnState ni necesita la reactividad del componente grande. -->
+            <div class="tp-card" style="margin-bottom:12px;padding:12px;"
+                 x-data="{ off: (typeof v7NextStepDisabled === 'function' && v7NextStepDisabled()) }"
+                 data-help="pn-nextstep-help">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">🖥️ Preferencias de pantalla</h4>
+                <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size: var(--fs-sm);color:var(--tp-text);">
+                    <input type="checkbox" :checked="!off"
+                           @change="off = !$event.target.checked; v7NextStepSetEnabled($event.target.checked);"
+                           style="accent-color:var(--tp-blue);width:17px;height:17px;flex-shrink:0;">
+                    <span>Mostrar la tira de <b>“Siguiente paso”</b> en Pruebas</span>
+                </label>
+                <p style="color:var(--tp-dim);font-size: var(--fs-xs);margin:6px 0 0 26px;line-height:1.5;">
+                    Es la franja de abajo que dice “Siguiente: …” con la flecha. Solo aparece dentro de
+                    <b>Pruebas</b> y con un vehículo abierto. Vale para este dispositivo.
+                </p>
+            </div>
+
             <!-- Storage Breakdown -->
             <div class="tp-card" style="margin-bottom:12px;padding:12px;">
                 <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>
@@ -6415,15 +6460,22 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608252311';
+var APP_BUILD = '202608260013';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '18.6';
+var APP_VERSION = '18.7';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '18.7', date: '26 ago 2026', title: 'Botones del Plan que no hacían nada, y la tira que tapaba la pantalla', bullets: [
+        'En Plan, el lápiz ✏️ de una semana no hacía NADA. La causa afectaba a ~30 controles del módulo: la pantalla solo se repintaba después de guardar algo, y los controles que solo cambian la vista (editar semana, filtros del tablero, ⚙️ de las gráficas, fechas de Probados, capacidad y días de la semana, desplegar el historial, el simulador) no guardan nada. Cambiaban por dentro y la pantalla se quedaba igual, sin error ni aviso.',
+        'Los mismos 4 controles de Consumibles (el año del Plan Maestro y los tres botones de tipo de gráfica) estaban muertos por lo mismo. Ya responden.',
+        'La tira de abajo "Siguiente: …" se quedaba pegada en Datos, Plan y HOY aunque el vehículo estuviera en Pruebas, y tapaba lo que hubiera debajo — reportada encima de los botones Editar/borrar de Regulaciones. Ahora solo sale dentro de Pruebas.',
+        'Además esa tira se montaba encima de la barra de navegación de abajo en celular y tablet. Ahora se apoya sobre ella y la página reserva su espacio, así que ya no tapa nada.',
+        'Y si aun así estorba: la tira trae una ✕ para apagarla, y se puede volver a encender en Datos → Sistema → Preferencias de pantalla. Es un ajuste de cada dispositivo, no afecta a los demás.'
+    ]},
     { version: '18.6', date: '25 ago 2026', title: 'La sincronización ya no se estrangula sola (ni tira liberaciones)', bullets: [
         'La app se limitaba a 500 escrituras al día, que es el 3% de lo que permite el plan gratuito de Firebase (20,000). Por eso salían 211 operaciones bloqueadas y 50 en cola con la nube prácticamente sin usar. Ahora el tope es 2,000 por equipo: con 5 equipos AL TOPE se usaría el 50% de lo gratuito.',
         'Grave: la cola de pendientes tiraba primero las operaciones MÁS importantes. Estaba ordenada por prioridad y se quedaba con las últimas, así que descartaba las liberaciones de vehículos y conservaba respaldos y bitácoras. Eso explica que una liberación "volviera a aparecer" después de recargar.',
@@ -6663,14 +6715,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608252311' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608260013' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608252311' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608260013' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -6686,7 +6738,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608252311' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608260013' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -8285,6 +8337,21 @@ function tabCacheInvalidate(moduleId, tabId) {
 }
 
 /**
+ * [v18.6] Marca una pestaña para que se vuelva a pintar SIN resetear su contenido.
+ *
+ * Diferencia con `tabCacheInvalidate`: ese pone `rendered = false` cuando la pestaña
+ * está visible, y `tabCacheSwitch` responde con un esqueleto de carga antes de
+ * repintar. Eso está bien tras un guardado, pero parpadea feo cuando el usuario solo
+ * abrió un panel o movió un filtro. Aquí solo se ensucia: `tabCacheSwitch` repinta
+ * en el siguiente frame, encima de lo que ya se ve.
+ */
+function tabCacheMarkDirty(moduleId, tabId) {
+    var cache = _tabCache[moduleId];
+    if (!cache || !tabId) return;
+    cache.dirty[tabId] = true;
+}
+
+/**
  * Force re-render of the currently visible tab in a module.
  */
 /**
@@ -8410,6 +8477,11 @@ function switchPlatform(platform, swipeDir) {
     document.body.style.color = 'var(--text)';
 
     _currentPlatform = platform;
+
+    // [v18.6 — issue #109] Igual que la action-bar de arriba: la tira de "siguiente
+    // paso" se quedaba pegada abajo en Datos/Plan/HOY tapando los botones de la
+    // vista. Va DESPUÉS de fijar _currentPlatform, que es lo que consulta.
+    if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
 
     // [V7-C3] Save last module visited (store resolved section name for backward compat)
     localStorage.setItem('kia_last_module', sectionId);
@@ -11484,18 +11556,60 @@ function v7GoToVehicle(vehicleId, gotoSection) {
 }
 
 // [V7-D2] Floating Next Step Banner
+//
+// [v18.6 — issue #109] La tira vivía pegada abajo con `z-index:9000` y SIN ninguna
+// atadura a la plataforma: bastaba tener un vehículo cargado en COP15 para que
+// siguiera ahí en Datos, Plan y HOY, tapando lo que hubiera debajo (Iván la reportó
+// encima de los botones Editar/borrar de las tarjetas de Regulaciones) y, en móvil y
+// tablet, tapando también la bottom-nav entera. Tres candados nuevos:
+//   1. solo se ve dentro de COP15, que es donde el "siguiente paso" significa algo;
+//   2. trae ✕ para apagarla — la decisión se recuerda por dispositivo;
+//   3. cuando se ve, el cuerpo reserva su altura (`body.has-next-step`), así que ya
+//      no se monta encima de nada.
+var V7_NEXTSTEP_OFF_KEY = 'kia_nextstep_off';
+
+/** ¿El usuario de este dispositivo apagó la tira de "Siguiente paso"? */
+function v7NextStepDisabled() {
+    try { return localStorage.getItem(V7_NEXTSTEP_OFF_KEY) === '1'; } catch (e) { return false; }
+}
+
+/** Apaga (o vuelve a encender) la tira y repinta. */
+function v7NextStepSetEnabled(on) {
+    try {
+        if (on) localStorage.removeItem(V7_NEXTSTEP_OFF_KEY);
+        else localStorage.setItem(V7_NEXTSTEP_OFF_KEY, '1');
+    } catch (e) {}
+    v7UpdateNextStepBanner();
+    if (!on && typeof showToast === 'function') {
+        showToast('Tira de "siguiente paso" desactivada. Puedes volver a encenderla en Datos → Sistema.', 'info');
+    }
+}
+
+function v7HideNextStepBanner() {
+    var banner = document.getElementById('v7-next-step-banner');
+    if (banner) banner.classList.remove('show');
+    document.body.classList.remove('has-next-step');
+}
+
 function v7UpdateNextStepBanner() {
     var banner = document.getElementById('v7-next-step-banner');
     if (!banner) return;
-    if (!activeVehicleId) { banner.classList.remove('show'); return; }
+    // Solo dentro de COP15: fuera de ahí la tira no aporta y sí estorba.
+    if (_currentPlatform !== 'cop15' || v7NextStepDisabled()) { v7HideNextStepBanner(); return; }
+    if (!activeVehicleId) { v7HideNextStepBanner(); return; }
     var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle || vehicle.status === 'archived') { banner.classList.remove('show'); return; }
+    if (!vehicle || vehicle.status === 'archived') { v7HideNextStepBanner(); return; }
     var step = typeof getNextStep === 'function' ? getNextStep(vehicle) : null;
-    if (!step) { banner.classList.remove('show'); return; }
+    if (!step) { v7HideNextStepBanner(); return; }
     banner.innerHTML = '<span class="v7-next-step-icon">' + step.icon + '</span>' +
         '<span class="v7-next-step-text">Siguiente: ' + step.action + '</span>' +
-        '<button class="v7-next-step-go" onclick="v7GoToVehicleStep(\'' + (step.goto || '') + '\')">&rarr;</button>';
+        '<button class="v7-next-step-go" onclick="v7GoToVehicleStep(\'' + (step.goto || '') + '\')" ' +
+            'aria-label="Ir al siguiente paso">&rarr;</button>' +
+        '<button class="v7-next-step-close" onclick="v7NextStepSetEnabled(false)" ' +
+            'title="Ocultar esta tira (se puede reactivar en Datos → Sistema)" ' +
+            'aria-label="Ocultar la tira de siguiente paso">&times;</button>';
     banner.classList.add('show');
+    document.body.classList.add('has-next-step');
 }
 
 function v7GoToVehicleStep(gotoSection) {
@@ -19640,7 +19754,7 @@ function invSwitchTab(tabId) {
     if (typeof a11yTablistSync === 'function') {
         a11yTablistSync(document.getElementById('inv-tabs-bar'), targetBtn || document.querySelector('#inv-tabs-bar .tp-tab.active'));
     }
-    invRender();
+    invRender({ keepCache: true });
 }
 function invRestoreTab() {
     var saved = localStorage.getItem('kia_inv_activeTab');
@@ -19684,9 +19798,21 @@ function _invGetRenderer(tabId) {
     return null;
 }
 
-function invRender() {
+/**
+ * Repinta la pestaña activa de Consumibles.
+ *
+ * [v18.6] Mismo default que `tpRender()` (ver el comentario largo ahí): el cache de
+ * pestañas solo lo ensucia `invSave()`, así que los controles que cambian nada más
+ * la vista — el año del Plan Maestro (`_invMaintYear`) y los tres botones de tipo de
+ * gráfica (`_invChartType`) — cambiaban el flag y no repintaban. `invSwitchTab` es
+ * el único que conserva el cache.
+ */
+function invRender(opts) {
     if (!document.getElementById('inv-content')) return;
     if (!_tabCache['inv']) tabCacheInit('inv', _invTabs);
+    if (!(opts && opts.keepCache) && typeof tabCacheMarkDirty === 'function') {
+        tabCacheMarkDirty('inv', invState.activeTab);
+    }
     invCheckProactiveAlerts();
     var tab = invState.activeTab;
     var renderer = _invGetRenderer(tab);
@@ -25256,7 +25382,9 @@ function tpSwitchTab(tabId) {
     if (typeof a11yTablistSync === 'function' && _activeBtn) {
         a11yTablistSync(document.getElementById('tp-tabs-bar'), _activeBtn);
     }
-    tpRender();
+    // Único llamador que conserva el cache: saltar a una pestaña ya pintada es
+    // instantáneo y `tpSave()` ya la habría ensuciado si los datos cambiaron.
+    tpRender({ keepCache: true });
 }
 
 function _tpGetRenderer(tabId) {
@@ -25271,9 +25399,30 @@ function _tpGetRenderer(tabId) {
     return map[tabId] || null;
 }
 
-function tpRender() {
+/**
+ * Repinta la pestaña activa del Plan.
+ *
+ * [v18.6 — issue #110 "editar semana no hace nada"] `tpRender()` delega en
+ * `tabCacheSwitch`, que SOLO vuelve a pintar si la pestaña está sucia o nunca se
+ * pintó. Quien ensucia el cache es `tpSave()`. Pero los controles que cambian solo
+ * estado de UI no guardan nada (`window._tpEditWeek`, `_tpChartCfgOpen`,
+ * `_tpDashFilter`, `_tpWeeklyManualPicks`, los filtros de fecha de Probados, la
+ * capacidad y los días de la semana, `_tpHistExpand`, el ⚙️ de Producción, el
+ * simulador…): el flag cambiaba y la pantalla se quedaba EXACTAMENTE igual, sin
+ * error ni aviso. Eran ~30 controles muertos en todo el módulo.
+ *
+ * Por eso el default se invierte: `tpRender()` repinta siempre. El cache solo se
+ * respeta cuando quien llama lo pide con `{keepCache:true}` — hoy únicamente
+ * `tpSwitchTab`, que es el caso donde de verdad sirve (saltar entre pestañas ya
+ * pintadas sin recalcular). Se usa `tabCacheMarkDirty` y no `tabCacheInvalidate`
+ * para que el repintado no muestre el esqueleto de carga a media interacción.
+ */
+function tpRender(opts) {
     if (!document.getElementById('tp-content')) return;
     if (!_tabCache['tp']) tabCacheInit('tp', _tpTabs);
+    if (!(opts && opts.keepCache) && typeof tabCacheMarkDirty === 'function') {
+        tabCacheMarkDirty('tp', tpState.activeTab);
+    }
     // Keep the active tab button in sync with tpState.activeTab (covers programmatic
     // navigation, e.g. deep-links from the Hoy dashboard or the exec summary).
     var _bar = document.getElementById('tp-tabs-bar');
@@ -33117,6 +33266,7 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_help_dismissed',    label: 'Ayudas descartadas',       tier: 'cache' },
     { prefix: 'kia_tour_done',      label: 'Tours completados',        tier: 'cache' },
     { key: 'kia_immersive_prefs',   label: 'Preferencias de pantalla', tier: 'cache' },
+    { key: 'kia_nextstep_off',      label: 'Tira "siguiente paso" apagada', tier: 'cache' },
     { key: 'kia_autoplan_lastrun',  label: 'Guarda del auto-plan',     tier: 'cache' },
     { prefix: 'kia_inv_active',     label: 'Pestaña activa',           tier: 'cache' },
     { prefix: 'kia_cop15_active',   label: 'Pestaña activa',           tier: 'cache' },
@@ -34892,7 +35042,8 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
     'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
     'pn-skill-matrix': { title: 'Matriz de competencias', text: 'Quién está capacitado para qué. Los niveles son: 1 en entrenamiento (supervisado), 2 autónomo, 3 puede certificar a otros. Las habilidades con recertificación (dinamómetro, calibración de analizadores, aprobador CoP) vencen solas y se marcan en rojo. La fila Cobertura te dice cuántos operadores activos pueden hacer esa prueba hoy — si marca 0 en una habilidad crítica, el laboratorio no puede cubrirla.' },
-    'pn-version-history-help': { title: 'Historial de versiones', text: 'Todas las rondas de mejoras de la plataforma, empezando por la más reciente (marcada ACTUAL). Toca el nombre de una versión para ver qué trajo. El pill "KIA EmLab vX.X" del menú ⋯ del topbar también trae aquí.' }
+    'pn-version-history-help': { title: 'Historial de versiones', text: 'Todas las rondas de mejoras de la plataforma, empezando por la más reciente (marcada ACTUAL). Toca el nombre de una versión para ver qué trajo. El pill "KIA EmLab vX.X" del menú ⋯ del topbar también trae aquí.' },
+    'pn-nextstep-help': { title: 'Tira de "Siguiente paso"', text: 'La franja de abajo que sugiere qué sigue con el vehículo que tienes abierto (precondicionar, soak, liberar, aprobar…) y te lleva ahí con la flecha. Solo sale dentro de Pruebas. Si te estorba, apágala aquí o con la ✕ de la propia tira; el ajuste es de este dispositivo y no afecta a nadie más.' }
 });
 
 
@@ -41061,7 +41212,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608252311' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608260013' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

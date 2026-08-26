@@ -442,7 +442,7 @@ function invSwitchTab(tabId) {
     if (typeof a11yTablistSync === 'function') {
         a11yTablistSync(document.getElementById('inv-tabs-bar'), targetBtn || document.querySelector('#inv-tabs-bar .tp-tab.active'));
     }
-    invRender();
+    invRender({ keepCache: true });
 }
 function invRestoreTab() {
     var saved = localStorage.getItem('kia_inv_activeTab');
@@ -486,9 +486,21 @@ function _invGetRenderer(tabId) {
     return null;
 }
 
-function invRender() {
+/**
+ * Repinta la pestaña activa de Consumibles.
+ *
+ * [v18.6] Mismo default que `tpRender()` (ver el comentario largo ahí): el cache de
+ * pestañas solo lo ensucia `invSave()`, así que los controles que cambian nada más
+ * la vista — el año del Plan Maestro (`_invMaintYear`) y los tres botones de tipo de
+ * gráfica (`_invChartType`) — cambiaban el flag y no repintaban. `invSwitchTab` es
+ * el único que conserva el cache.
+ */
+function invRender(opts) {
     if (!document.getElementById('inv-content')) return;
     if (!_tabCache['inv']) tabCacheInit('inv', _invTabs);
+    if (!(opts && opts.keepCache) && typeof tabCacheMarkDirty === 'function') {
+        tabCacheMarkDirty('inv', invState.activeTab);
+    }
     invCheckProactiveAlerts();
     var tab = invState.activeTab;
     var renderer = _invGetRenderer(tab);

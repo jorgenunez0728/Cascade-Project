@@ -2520,6 +2520,7 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_help_dismissed',    label: 'Ayudas descartadas',       tier: 'cache' },
     { prefix: 'kia_tour_done',      label: 'Tours completados',        tier: 'cache' },
     { key: 'kia_immersive_prefs',   label: 'Preferencias de pantalla', tier: 'cache' },
+    { key: 'kia_nextstep_off',      label: 'Tira "siguiente paso" apagada', tier: 'cache' },
     { key: 'kia_autoplan_lastrun',  label: 'Guarda del auto-plan',     tier: 'cache' },
     { prefix: 'kia_inv_active',     label: 'Pestaña activa',           tier: 'cache' },
     { prefix: 'kia_cop15_active',   label: 'Pestaña activa',           tier: 'cache' },
@@ -4295,5 +4296,6 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-audit-help': { title: 'Control de cambios', text: 'Bitácora automática de auditoría: cada acción importante queda aquí con operador, fecha y detalle.' },
     'pn-files-help': { title: 'Almacén compartido', text: 'Sube un archivo aquí y descárgalo desde cualquier otro dispositivo conectado al laboratorio. 5MB de espacio TOTAL, compartido entre todos los archivos.' },
     'pn-skill-matrix': { title: 'Matriz de competencias', text: 'Quién está capacitado para qué. Los niveles son: 1 en entrenamiento (supervisado), 2 autónomo, 3 puede certificar a otros. Las habilidades con recertificación (dinamómetro, calibración de analizadores, aprobador CoP) vencen solas y se marcan en rojo. La fila Cobertura te dice cuántos operadores activos pueden hacer esa prueba hoy — si marca 0 en una habilidad crítica, el laboratorio no puede cubrirla.' },
-    'pn-version-history-help': { title: 'Historial de versiones', text: 'Todas las rondas de mejoras de la plataforma, empezando por la más reciente (marcada ACTUAL). Toca el nombre de una versión para ver qué trajo. El pill "KIA EmLab vX.X" del menú ⋯ del topbar también trae aquí.' }
+    'pn-version-history-help': { title: 'Historial de versiones', text: 'Todas las rondas de mejoras de la plataforma, empezando por la más reciente (marcada ACTUAL). Toca el nombre de una versión para ver qué trajo. El pill "KIA EmLab vX.X" del menú ⋯ del topbar también trae aquí.' },
+    'pn-nextstep-help': { title: 'Tira de "Siguiente paso"', text: 'La franja de abajo que sugiere qué sigue con el vehículo que tienes abierto (precondicionar, soak, liberar, aprobar…) y te lleva ahí con la flecha. Solo sale dentro de Pruebas. Si te estorba, apágala aquí o con la ✕ de la propia tira; el ajuste es de este dispositivo y no afecta a nadie más.' }
 });

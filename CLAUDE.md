@@ -655,6 +655,31 @@ localStorage. Confundir ambas cosas fue la duda del usuario cuando se llenó.
   `'Jorge Nuñez'` vs `'Jorge Núñez'` sobrevivían duplicados mientras la sesión tomaba el primero);
   `_pnDedupeOperators()` repara los duplicados al arrancar, conservando PIN y competencias.
 
+## v18.7 — Repintado de pestañas y la tira "Siguiente paso"
+
+- **`tpRender()` / `invRender()` repintan SIEMPRE por defecto.** El cache de pestañas
+  (`tabCacheSwitch`) solo repinta si la pestaña está sucia, y quien la ensucia es
+  `tpSave()`/`invSave()`. Los controles que cambian **solo estado de UI** (`window._tpEditWeek`,
+  `_tpChartCfgOpen`, `_tpDashFilter`, `_tpHistExpand`, `_invChartType`, `_invMaintYear`…) no
+  guardan nada, así que el flag cambiaba y **la pantalla se quedaba igual, en silencio** — eran
+  ~30 controles muertos en Plan y 4 en Consumibles (issue #110, "editar semana no hace nada").
+  Solo `tpSwitchTab`/`invSwitchTab` pasan `{keepCache:true}`. **Todo control nuevo que solo
+  cambie la vista puede llamar `tpRender()`/`invRender()` a secas y funciona**; si alguna vez se
+  necesita conservar el cache, hay que pedirlo explícitamente.
+- **`tabCacheMarkDirty(moduleId, tabId)` (app.js) ensucia SIN resetear.** Es la diferencia con
+  `tabCacheInvalidate`, que pone `rendered = false` y hace que `tabCacheSwitch` pinte el
+  esqueleto de carga: eso está bien tras un guardado, pero parpadea feo cuando el usuario solo
+  abrió un panel o movió un filtro.
+- `pnRender()` **no** lleva este cambio: sus pestañas clásicas ya navegan por `_pnProjNav()`
+  (v16.8) y las de Alpine no pasan por el cache (`_pnAlpineTabRenderer` deja el `-cached` vacío).
+- **`v7UpdateNextStepBanner()` es LA definición de si la tira "Siguiente: …" se ve**, y ahora
+  tiene tres candados (issue #109): solo dentro de **COP15** (`_currentPlatform`; `switchPlatform`
+  la actualiza justo después de fijarlo, igual que la action-bar), apagable por dispositivo
+  (`v7NextStepSetEnabled`, clave `kia_nextstep_off`, ✕ en la tira + interruptor en Datos →
+  Sistema), y sin montarse encima de nada: `z-index` 1900 (**debajo** de `.bottom-nav`=2000 y
+  `.action-bar`=2500 — antes era 9000 y tapaba las dos), `bottom:62px` para apoyarse sobre la
+  bottom-nav, y `body.has-next-step` reservando su altura mientras se ve.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

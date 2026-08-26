@@ -2,6 +2,75 @@
 
 All notable changes to this project, organized by development round.
 
+## v18.7 — Controles muertos del Plan y la tira que tapaba la pantalla (2026-08-26)
+
+Dos issues nuevos desde el laboratorio, ambos contra v18.5: **#110** (Jorge — "en la pantalla de plan,
+editar semana no hace nada") y **#109** (Iván Cárdenas — "esa tira de siguiente vehículo no sirve, me
+gustaría que no esté porque tapa los botones de abajo").
+
+### #110 — el cache de pestañas dejaba muertos ~30 controles
+
+Reproducido en navegador: al pulsar el ✏️ de una semana, `window._tpEditWeek` pasaba de `-1` a `0`
+correctamente… y el DOM se quedaba **idéntico**. Sin error, sin toast, sin nada.
+
+`tpRender()` delega en `tabCacheSwitch`, que solo vuelve a pintar **si la pestaña está sucia o nunca se
+pintó**:
+
+```js
+if (!cache.rendered[tabId] || cache.dirty[tabId]) { /* … repinta … */ }
+```
+
+Quien ensucia el cache es `tpSave()`. Y los controles que cambian **solo estado de UI** no guardan
+nada — no tienen por qué. Toda esa familia estaba muerta:
+
+| Pestaña | Control |
+|---|---|
+| Semanal | ✏️ editar semana (`_tpEditWeek`), capacidad, días de trabajo, quitar una config fijada, "Ver las N →" del backlog |
+| Dashboard | segmentos de filtro por estado, ⚙️ de la gráfica y sus 5 ajustes |
+| Probados | Captura Manual / Importar JSON, filtros de fecha, "Limpiar filtro" |
+| Producción | ⚙️ de la gráfica y sus 4 ajustes |
+| Historial | desplegar una semana (`_tpHistExpand`) |
+| Simulador | 🔄 Simular |
+| Cobertura | 🔄 Recalcular |
+
+El default se invierte: **`tpRender()` repinta siempre**. El cache solo se respeta cuando quien llama
+lo pide con `tpRender({keepCache:true})` — hoy únicamente `tpSwitchTab`, que es el caso donde sirve de
+verdad (saltar entre pestañas ya pintadas). Se usa el nuevo **`tabCacheMarkDirty(moduleId, tabId)`**
+(app.js) en vez de `tabCacheInvalidate`, porque ese último pone `rendered = false` y hace que
+`tabCacheSwitch` muestre el esqueleto de carga: correcto tras guardar, feo a media interacción.
+
+**`invRender()` tenía el mismo defecto** y se corrige igual: el año del Plan Maestro (`_invMaintYear`)
+y los tres botones de tipo de gráfica (`_invChartType`) también estaban muertos. `pnRender()` no se
+toca — las pestañas clásicas del Panel ya navegan por `_pnProjNav()` (v16.8) y las de Alpine no pasan
+por el cache.
+
+### #109 — la tira "Siguiente: …" se quedaba pegada encima de todo
+
+`#v7-next-step-banner` estaba en `position:fixed; bottom:0; z-index:9000` y `v7UpdateNextStepBanner()`
+no miraba la plataforma: bastaba tener un vehículo cargado en COP15 para que la tira siguiera ahí en
+Datos, Plan y HOY. Verificado en navegador: tras `switchPlatform('panel')` seguía visible con el texto
+exacto de la foto de Iván — `🚗 Siguiente: Liberar Vehiculo →`.
+
+Y con `z-index:9000` quedaba por encima de **todo**: de la `.bottom-nav` (2000) y de la `.action-bar`
+(2500). En teléfono y tablet tapaba la navegación entera.
+
+Tres candados:
+
+1. **Solo dentro de COP15.** `switchPlatform` la actualiza justo después de fijar `_currentPlatform`,
+   igual que ya hacía con la action-bar.
+2. **Se puede apagar.** ✕ en la propia tira → `v7NextStepSetEnabled(false)`, recordado por dispositivo
+   en `kia_nextstep_off`; se vuelve a encender en **Datos → Sistema → Preferencias de pantalla**.
+3. **No se monta sobre nada.** `z-index` baja a 1900 y la tira se apoya sobre la bottom-nav
+   (`bottom:62px`); mientras se ve, `body.has-next-step` reserva su altura.
+
+### Verificación
+
+`test_uistate_repaint.js` (nuevo, Playwright, 23 comprobaciones) reproduce los dos reportes con el
+estado real y comprueba el arreglo: el ✏️ saca el selector "Agregar…" y las × de cada prueba; los
+controles de Dashboard/Probados/Producción y los de Consumibles repintan; la tira solo se ve en
+Pruebas, no tapa la bottom-nav, la ✕ la apaga, la decisión persiste y se puede revertir; y las 5
+pestañas del Plan siguen pintándose al cambiar de una a otra.
+
 ## v18.6 — Cuota de sync, cola que perdía liberaciones y PDF sin CDN (2026-08-25)
 
 Reportado desde el laboratorio: el panel de sync marcaba **75/60 escrituras/hora**, **211 operaciones

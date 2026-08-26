@@ -1726,6 +1726,25 @@
                 </template>
             </div>
 
+            <!-- [v18.6 — issue #109] Interruptor de la tira de "siguiente paso".
+                 x-data local: es una preferencia de este dispositivo (localStorage),
+                 no vive en pnState ni necesita la reactividad del componente grande. -->
+            <div class="tp-card" style="margin-bottom:12px;padding:12px;"
+                 x-data="{ off: (typeof v7NextStepDisabled === 'function' && v7NextStepDisabled()) }"
+                 data-help="pn-nextstep-help">
+                <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">🖥️ Preferencias de pantalla</h4>
+                <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size: var(--fs-sm);color:var(--tp-text);">
+                    <input type="checkbox" :checked="!off"
+                           @change="off = !$event.target.checked; v7NextStepSetEnabled($event.target.checked);"
+                           style="accent-color:var(--tp-blue);width:17px;height:17px;flex-shrink:0;">
+                    <span>Mostrar la tira de <b>“Siguiente paso”</b> en Pruebas</span>
+                </label>
+                <p style="color:var(--tp-dim);font-size: var(--fs-xs);margin:6px 0 0 26px;line-height:1.5;">
+                    Es la franja de abajo que dice “Siguiente: …” con la flecha. Solo aparece dentro de
+                    <b>Pruebas</b> y con un vehículo abierto. Vale para este dispositivo.
+                </p>
+            </div>
+
             <!-- Storage Breakdown -->
             <div class="tp-card" style="margin-bottom:12px;padding:12px;">
                 <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>

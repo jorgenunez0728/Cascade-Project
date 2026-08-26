@@ -922,7 +922,9 @@ function tpSwitchTab(tabId) {
     if (typeof a11yTablistSync === 'function' && _activeBtn) {
         a11yTablistSync(document.getElementById('tp-tabs-bar'), _activeBtn);
     }
-    tpRender();
+    // Único llamador que conserva el cache: saltar a una pestaña ya pintada es
+    // instantáneo y `tpSave()` ya la habría ensuciado si los datos cambiaron.
+    tpRender({ keepCache: true });
 }
 
 function _tpGetRenderer(tabId) {
@@ -937,9 +939,30 @@ function _tpGetRenderer(tabId) {
     return map[tabId] || null;
 }
 
-function tpRender() {
+/**
+ * Repinta la pestaña activa del Plan.
+ *
+ * [v18.6 — issue #110 "editar semana no hace nada"] `tpRender()` delega en
+ * `tabCacheSwitch`, que SOLO vuelve a pintar si la pestaña está sucia o nunca se
+ * pintó. Quien ensucia el cache es `tpSave()`. Pero los controles que cambian solo
+ * estado de UI no guardan nada (`window._tpEditWeek`, `_tpChartCfgOpen`,
+ * `_tpDashFilter`, `_tpWeeklyManualPicks`, los filtros de fecha de Probados, la
+ * capacidad y los días de la semana, `_tpHistExpand`, el ⚙️ de Producción, el
+ * simulador…): el flag cambiaba y la pantalla se quedaba EXACTAMENTE igual, sin
+ * error ni aviso. Eran ~30 controles muertos en todo el módulo.
+ *
+ * Por eso el default se invierte: `tpRender()` repinta siempre. El cache solo se
+ * respeta cuando quien llama lo pide con `{keepCache:true}` — hoy únicamente
+ * `tpSwitchTab`, que es el caso donde de verdad sirve (saltar entre pestañas ya
+ * pintadas sin recalcular). Se usa `tabCacheMarkDirty` y no `tabCacheInvalidate`
+ * para que el repintado no muestre el esqueleto de carga a media interacción.
+ */
+function tpRender(opts) {
     if (!document.getElementById('tp-content')) return;
     if (!_tabCache['tp']) tabCacheInit('tp', _tpTabs);
+    if (!(opts && opts.keepCache) && typeof tabCacheMarkDirty === 'function') {
+        tabCacheMarkDirty('tp', tpState.activeTab);
+    }
     // Keep the active tab button in sync with tpState.activeTab (covers programmatic
     // navigation, e.g. deep-links from the Hoy dashboard or the exec summary).
     var _bar = document.getElementById('tp-tabs-bar');

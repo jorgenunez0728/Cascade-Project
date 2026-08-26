@@ -210,11 +210,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '18.6';
+var APP_VERSION = '18.7';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '18.7', date: '26 ago 2026', title: 'Botones del Plan que no hacían nada, y la tira que tapaba la pantalla', bullets: [
+        'En Plan, el lápiz ✏️ de una semana no hacía NADA. La causa afectaba a ~30 controles del módulo: la pantalla solo se repintaba después de guardar algo, y los controles que solo cambian la vista (editar semana, filtros del tablero, ⚙️ de las gráficas, fechas de Probados, capacidad y días de la semana, desplegar el historial, el simulador) no guardan nada. Cambiaban por dentro y la pantalla se quedaba igual, sin error ni aviso.',
+        'Los mismos 4 controles de Consumibles (el año del Plan Maestro y los tres botones de tipo de gráfica) estaban muertos por lo mismo. Ya responden.',
+        'La tira de abajo "Siguiente: …" se quedaba pegada en Datos, Plan y HOY aunque el vehículo estuviera en Pruebas, y tapaba lo que hubiera debajo — reportada encima de los botones Editar/borrar de Regulaciones. Ahora solo sale dentro de Pruebas.',
+        'Además esa tira se montaba encima de la barra de navegación de abajo en celular y tablet. Ahora se apoya sobre ella y la página reserva su espacio, así que ya no tapa nada.',
+        'Y si aun así estorba: la tira trae una ✕ para apagarla, y se puede volver a encender en Datos → Sistema → Preferencias de pantalla. Es un ajuste de cada dispositivo, no afecta a los demás.'
+    ]},
     { version: '18.6', date: '25 ago 2026', title: 'La sincronización ya no se estrangula sola (ni tira liberaciones)', bullets: [
         'La app se limitaba a 500 escrituras al día, que es el 3% de lo que permite el plan gratuito de Firebase (20,000). Por eso salían 211 operaciones bloqueadas y 50 en cola con la nube prácticamente sin usar. Ahora el tope es 2,000 por equipo: con 5 equipos AL TOPE se usaría el 50% de lo gratuito.',
         'Grave: la cola de pendientes tiraba primero las operaciones MÁS importantes. Estaba ordenada por prioridad y se quedaba con las últimas, así que descartaba las liberaciones de vehículos y conservaba respaldos y bitácoras. Eso explica que una liberación "volviera a aparecer" después de recargar.',
@@ -2076,6 +2083,21 @@ function tabCacheInvalidate(moduleId, tabId) {
 }
 
 /**
+ * [v18.6] Marca una pestaña para que se vuelva a pintar SIN resetear su contenido.
+ *
+ * Diferencia con `tabCacheInvalidate`: ese pone `rendered = false` cuando la pestaña
+ * está visible, y `tabCacheSwitch` responde con un esqueleto de carga antes de
+ * repintar. Eso está bien tras un guardado, pero parpadea feo cuando el usuario solo
+ * abrió un panel o movió un filtro. Aquí solo se ensucia: `tabCacheSwitch` repinta
+ * en el siguiente frame, encima de lo que ya se ve.
+ */
+function tabCacheMarkDirty(moduleId, tabId) {
+    var cache = _tabCache[moduleId];
+    if (!cache || !tabId) return;
+    cache.dirty[tabId] = true;
+}
+
+/**
  * Force re-render of the currently visible tab in a module.
  */
 /**
@@ -2201,6 +2223,11 @@ function switchPlatform(platform, swipeDir) {
     document.body.style.color = 'var(--text)';
 
     _currentPlatform = platform;
+
+    // [v18.6 — issue #109] Igual que la action-bar de arriba: la tira de "siguiente
+    // paso" se quedaba pegada abajo en Datos/Plan/HOY tapando los botones de la
+    // vista. Va DESPUÉS de fijar _currentPlatform, que es lo que consulta.
+    if (typeof v7UpdateNextStepBanner === 'function') v7UpdateNextStepBanner();
 
     // [V7-C3] Save last module visited (store resolved section name for backward compat)
     localStorage.setItem('kia_last_module', sectionId);
@@ -5275,18 +5302,60 @@ function v7GoToVehicle(vehicleId, gotoSection) {
 }
 
 // [V7-D2] Floating Next Step Banner
+//
+// [v18.6 — issue #109] La tira vivía pegada abajo con `z-index:9000` y SIN ninguna
+// atadura a la plataforma: bastaba tener un vehículo cargado en COP15 para que
+// siguiera ahí en Datos, Plan y HOY, tapando lo que hubiera debajo (Iván la reportó
+// encima de los botones Editar/borrar de las tarjetas de Regulaciones) y, en móvil y
+// tablet, tapando también la bottom-nav entera. Tres candados nuevos:
+//   1. solo se ve dentro de COP15, que es donde el "siguiente paso" significa algo;
+//   2. trae ✕ para apagarla — la decisión se recuerda por dispositivo;
+//   3. cuando se ve, el cuerpo reserva su altura (`body.has-next-step`), así que ya
+//      no se monta encima de nada.
+var V7_NEXTSTEP_OFF_KEY = 'kia_nextstep_off';
+
+/** ¿El usuario de este dispositivo apagó la tira de "Siguiente paso"? */
+function v7NextStepDisabled() {
+    try { return localStorage.getItem(V7_NEXTSTEP_OFF_KEY) === '1'; } catch (e) { return false; }
+}
+
+/** Apaga (o vuelve a encender) la tira y repinta. */
+function v7NextStepSetEnabled(on) {
+    try {
+        if (on) localStorage.removeItem(V7_NEXTSTEP_OFF_KEY);
+        else localStorage.setItem(V7_NEXTSTEP_OFF_KEY, '1');
+    } catch (e) {}
+    v7UpdateNextStepBanner();
+    if (!on && typeof showToast === 'function') {
+        showToast('Tira de "siguiente paso" desactivada. Puedes volver a encenderla en Datos → Sistema.', 'info');
+    }
+}
+
+function v7HideNextStepBanner() {
+    var banner = document.getElementById('v7-next-step-banner');
+    if (banner) banner.classList.remove('show');
+    document.body.classList.remove('has-next-step');
+}
+
 function v7UpdateNextStepBanner() {
     var banner = document.getElementById('v7-next-step-banner');
     if (!banner) return;
-    if (!activeVehicleId) { banner.classList.remove('show'); return; }
+    // Solo dentro de COP15: fuera de ahí la tira no aporta y sí estorba.
+    if (_currentPlatform !== 'cop15' || v7NextStepDisabled()) { v7HideNextStepBanner(); return; }
+    if (!activeVehicleId) { v7HideNextStepBanner(); return; }
     var vehicle = (db.vehicles || []).find(function(v) { return v.id == activeVehicleId; });
-    if (!vehicle || vehicle.status === 'archived') { banner.classList.remove('show'); return; }
+    if (!vehicle || vehicle.status === 'archived') { v7HideNextStepBanner(); return; }
     var step = typeof getNextStep === 'function' ? getNextStep(vehicle) : null;
-    if (!step) { banner.classList.remove('show'); return; }
+    if (!step) { v7HideNextStepBanner(); return; }
     banner.innerHTML = '<span class="v7-next-step-icon">' + step.icon + '</span>' +
         '<span class="v7-next-step-text">Siguiente: ' + step.action + '</span>' +
-        '<button class="v7-next-step-go" onclick="v7GoToVehicleStep(\'' + (step.goto || '') + '\')">&rarr;</button>';
+        '<button class="v7-next-step-go" onclick="v7GoToVehicleStep(\'' + (step.goto || '') + '\')" ' +
+            'aria-label="Ir al siguiente paso">&rarr;</button>' +
+        '<button class="v7-next-step-close" onclick="v7NextStepSetEnabled(false)" ' +
+            'title="Ocultar esta tira (se puede reactivar en Datos → Sistema)" ' +
+            'aria-label="Ocultar la tira de siguiente paso">&times;</button>';
     banner.classList.add('show');
+    document.body.classList.add('has-next-step');
 }
 
 function v7GoToVehicleStep(gotoSection) {

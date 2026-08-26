@@ -2938,17 +2938,27 @@ details.acc > summary {
     animation: v7SlideDown 0.3s var(--ease-out);
 }
 
-/* ── Next Step Floating Banner (D2) ── */
+/* ── Next Step Floating Banner (D2) ──
+   [v18.6 — issue #109] Tenía `z-index:9000`, o sea por encima de TODO: de la
+   bottom-nav (2000) y de la action-bar (2500). En teléfono y tablet tapaba la
+   navegación completa, y en cualquier vista tapaba lo último de la página (Iván la
+   reportó encima de los botones Editar/borrar de Regulaciones). Ahora se apila
+   DEBAJO de la bottom-nav, se sienta encima de ella cuando está visible, y el
+   cuerpo reserva su altura vía `body.has-next-step` para no montarse sobre nada.
+   El gate por plataforma y el ✕ están en v7UpdateNextStepBanner (app.js). */
+:root { --nextstep-h: 60px; }
 #v7-next-step-banner {
-    position: fixed; bottom: 0; left: 0; right: 0;
+    position: fixed; bottom: 62px; left: 0; right: 0;   /* 62px = alto de .bottom-nav */
     background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
     border-top: 1px solid var(--glass-border);
-    padding: 10px 16px; z-index: 9000;
+    padding: 10px 16px; z-index: 1900;
     display: flex; align-items: center; gap: 10px;
     transform: translateY(100%); transition: transform 0.3s ease;
     box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
 }
 #v7-next-step-banner.show { transform: translateY(0); }
+/* `body` ya reserva 70px para la bottom-nav; con la tira visible se suma su alto. */
+body.has-next-step { padding-bottom: calc(70px + var(--nextstep-h)); }
 .v7-next-step-icon { font-size: 20px; }
 .v7-next-step-text { flex: 1; font-size: var(--font-sm); font-weight: var(--weight-bold); color: var(--text); }
 .v7-next-step-go {
@@ -2958,6 +2968,22 @@ details.acc > summary {
     transition: transform 0.15s, box-shadow 0.15s;
 }
 .v7-next-step-go:active { transform: scale(0.92); box-shadow: var(--shadow-sm); }
+.v7-next-step-close {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    border: 1px solid var(--glass-border); background: transparent;
+    color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+}
+.v7-next-step-close:hover { background: rgba(0,0,0,0.06); color: var(--text); }
+
+/* Los dos flotantes que viven en la misma franja (`bottom:68px`) suben por encima
+   de la tira mientras se ve, si no se le encaraman: el 🐞 tapaba el icono y las
+   primeras letras del texto, y el badge de soak los botones → y ✕.
+   El `!important` del badge de soak es porque su posición está en un atributo
+   `style` de index.html, que gana a cualquier selector (mismo problema que el
+   `margin-left:auto` del topbar en v17.9). */
+body.has-next-step .bug-fab { bottom: calc(68px + var(--nextstep-h)); }
+body.has-next-step #soak-floating-badge { bottom: calc(68px + var(--nextstep-h)) !important; }
 
 /* ── Soak Complete Modal (D3) ── */
 .v7-soak-modal {
