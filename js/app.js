@@ -210,11 +210,21 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '18.6';
+var APP_VERSION = '19.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '19.0', date: '26 ago 2026', title: 'CoP: de calculadora a tablero de conformidad', bullets: [
+        'El CoP ya no obliga a elegir una familia en un menú para ver algo: el Panorama muestra TODAS las familias del alcance de un vistazo, con su veredicto, qué tan cerca del límite van y desde cuándo no se ensayan. Está pensado para proyectarse en una auditoría (botón Modo presentación).',
+        'Alcance acotado a lo que el laboratorio realmente certifica: EURO-5, EURO-6E y PRE-EURO 7 en EUROPE y MIDDLE EAST. Lo que queda fuera se declara al pie de la pantalla en vez de desaparecer sin explicación.',
+        'Encontrado al revisar: el validador tenía los límites Euro 6 escritos a fuego y nunca consultaba el perfil de la norma. Fuera del alcance elegido eso juzgaba mal 65 de 173 configuraciones — EURO-2 y EURO-4 salían NO CONCORDANTE sin serlo, y SULEV 30 se comparaba en g/km contra datos en g/mi. Dentro del alcance no cambia ningún veredicto, y ahora la pantalla avisa si un límite no coincide con su perfil.',
+        'Gráfico nuevo que hace legible el muestreo secuencial sin explicarlo: se ve de qué lado de la banda A(n)–B(n) cayó cada gas y cuánto le falta para decidir.',
+        'Semáforo de riesgo por familia que avisa ANTES de que sea un hallazgo (margen delgado, Cpk bajo, alarmas de proceso). Con menos de 3 VINes nunca pinta verde: dice "sin datos", porque con esa muestra no se puede afirmar nada.',
+        'Expediente por familia con su cronología y el veredicto vigente mes a mes, y un PDF de auditoría que congela los límites con los que se decidió — por eso sigue siendo válido dentro de años. Sin juicio guardado sale marcado PRELIMINAR.',
+        'Cambiar de familia ya no borra lo que llevabas capturado en la anterior: cada familia guarda su propia mesa de trabajo y sobrevive al cambio, a la recarga y a la sincronización entre equipos.',
+        'El módulo pasa a tener 3 exportaciones (Panorama CSV, Expediente PDF/CSV, Juicios CSV) en el Centro de Reportes, que tenía 17 renglones y ninguno de CoP.'
+    ]},
     { version: '18.6', date: '25 ago 2026', title: 'La sincronización ya no se estrangula sola (ni tira liberaciones)', bullets: [
         'La app se limitaba a 500 escrituras al día, que es el 3% de lo que permite el plan gratuito de Firebase (20,000). Por eso salían 211 operaciones bloqueadas y 50 en cola con la nube prácticamente sin usar. Ahora el tope es 2,000 por equipo: con 5 equipos AL TOPE se usaría el 50% de lo gratuito.',
         'Grave: la cola de pendientes tiraba primero las operaciones MÁS importantes. Estaba ordenada por prioridad y se quedaba con las últimas, así que descartaba las liberaciones de vehículos y conservaba respaldos y bitácoras. Eso explica que una liberación "volviera a aparecer" después de recargar.',
@@ -4583,8 +4593,12 @@ var TOURS = {
         { target: '[data-help="pn-audit-help"]', title: 'Auditoría', text: 'El control de cambios de toda la plataforma: quién hizo qué y cuándo.', position: 'top', tab: 'pn-audit' }
     ],
     cop: [
-        { target: '[data-help="cop-family-help"]', title: 'Familia a evaluar', text: 'Elige región y familia — la tabla se llena con los VINes ya probados de esa familia.', position: 'bottom' },
-        { target: '[data-help="cop-verdict-help"]', title: 'Veredicto en vivo', text: 'El veredicto CONCORDANTE/NO CONCORDANTE se recalcula con cada valor capturado (mínimo 3 VINes).', position: 'top' },
+        { target: '[data-help="cop-kpis-help"]', title: 'Panorama', text: 'Arranca aquí: el estado de conformidad de TODAS las familias del alcance en una pantalla. Cada tarjeta es una familia; el color del borde es el aviso de riesgo y el chip de adentro es el veredicto estadístico.', position: 'bottom' },
+        { target: '[data-help="cop-present-help"]', title: 'Para la sala', text: 'Modo presentación agranda todo dentro del CoP para proyectarlo en una auditoría, sin cambiar el tamaño con el que se usa la app en el celular.', position: 'bottom' },
+        { target: '[data-help="cop-scope-help"]', title: 'Qué NO cubre', text: 'El CoP solo juzga EURO-5, EURO-6E y PRE-EURO 7 en EUROPE y MIDDLE EAST. Lo que queda fuera se declara aquí, para que nadie suponga que se omitió por descuido.', position: 'top' },
+        { target: '[data-help="cop-gauge-help"]', title: 'Qué tan cerca de decidir', text: 'En el Validador, esta barra por gas muestra dónde cayó el estadístico U dentro de la banda A(n)–B(n): si la familia ya concluyó y de qué lado, o cuántos vehículos le faltan.', position: 'top' },
+        { target: '[data-help="cop-verdict-help"]', title: 'Veredicto en vivo', text: 'Se recalcula con cada valor capturado. Con menos de 3 VINes no se emite veredicto — a propósito.', position: 'top' },
+        { target: '[data-help="cop-dossier-help"]', title: 'Expediente', text: 'La historia de cada familia y el PDF que se entrega en auditoría, con los límites congelados del juicio.', position: 'bottom' },
         { title: 'Control SPC', text: 'La sub-pestaña 📈 Control SPC detecta corrimientos y tendencias antes de fallar un límite regulatorio.' }
     ],
     cop15: [
