@@ -3751,3 +3751,312 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 /* Las tarjetas dentro del planificador ya llevan su propio margin-top */
 .tp-planner-controls > .tp-card:first-child,
 .tp-planner-side > .tp-card:first-child { margin-top: 0; }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* CoP TYPE 1 — Panorama, veredicto, gauge, expediente          [v19.0]   */
+/*                                                                        */
+/* Hasta v18.6 este módulo era el único sin vocabulario de clases: todo    */
+/* iba en atributos style="" en línea, y por eso era el peor presentado    */
+/* de la plataforma justo en la pantalla que se proyecta en auditoría.     */
+/* Regla para código nuevo: usar estas clases, no estilos en línea.        */
+/* Colores por ROL con la escala de tres niveles de v17.0                  */
+/* (*-text sobre --surface, *-fill con texto blanco, *-bg como tinte).     */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Chrome del módulo ─────────────────────────────────────────────── */
+.cop-main { max-width: var(--content-max); margin: 0 auto; }
+
+.cop-header {
+    border-left: 4px solid var(--accent-cop);
+    background: var(--surface); border-radius: var(--radius-lg);
+    padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-lg);
+    box-shadow: var(--shadow-sm);
+}
+.cop-header-title {
+    font-size: var(--fs-md); font-weight: var(--weight-black); color: var(--text);
+    display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap;
+}
+.cop-header-sub { font-size: var(--fs-sm); color: var(--muted); margin-top: 2px; }
+
+.cop-nav { display: flex; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-lg); }
+.cop-nav-btn {
+    appearance: none; cursor: pointer; font-family: inherit;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    padding: 8px 14px; font-size: var(--fs-sm); font-weight: var(--weight-semibold);
+    display: inline-flex; align-items: center; gap: 6px;
+}
+.cop-nav-btn:hover { background: var(--surface-alt); }
+.cop-nav-btn.active {
+    background: var(--accent-cop); color: #fff; border-color: var(--accent-cop);
+    font-weight: var(--weight-bold);
+}
+.cop-toolbar {
+    display: flex; gap: var(--space-md); flex-wrap: wrap; align-items: flex-end;
+    margin-bottom: var(--space-lg);
+}
+
+/* La barrita de acento que TP/Inventory/Results sí tenían y CoP no. */
+#platform-cop .card-title::before {
+    content: ''; display: inline-block; width: 3px; height: 14px;
+    background: var(--accent-cop); border-radius: 2px; margin-right: 6px; flex-shrink: 0;
+}
+
+/* ── Franja de KPIs ────────────────────────────────────────────────── */
+.cop-kpis {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-md); margin-bottom: var(--space-lg);
+}
+.cop-kpi {
+    background: var(--surface); border: 1px solid var(--border);
+    border-top: 3px solid var(--border-strong);
+    border-radius: var(--radius-lg); padding: var(--space-md);
+    text-align: center; box-shadow: var(--shadow-sm);
+}
+.cop-kpi-n {
+    font-size: var(--fs-xl); font-weight: var(--weight-black); line-height: 1.1;
+    color: var(--text); font-variant-numeric: tabular-nums;
+}
+.cop-kpi-l {
+    font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.05em; font-weight: var(--weight-bold); margin-top: 4px;
+}
+.cop-kpi--ok    { border-top-color: var(--ok-fill); }
+.cop-kpi--ok    .cop-kpi-n { color: var(--ok-text); }
+.cop-kpi--warn  { border-top-color: var(--warn-fill); }
+.cop-kpi--warn  .cop-kpi-n { color: var(--warn-text); }
+.cop-kpi--bad   { border-top-color: var(--danger-fill); }
+.cop-kpi--bad   .cop-kpi-n { color: var(--danger-text); }
+.cop-kpi--none  { border-top-color: var(--border-strong); }
+.cop-kpi--none  .cop-kpi-n { color: var(--muted); }
+
+/* ── Chips de estado ───────────────────────────────────────────────── */
+.cop-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: var(--radius-sm);
+    font-size: var(--fs-xs); font-weight: var(--weight-bold);
+    white-space: nowrap; border: 1px solid transparent;
+}
+.cop-chip--ok   { background: var(--ok-bg);     color: var(--ok-text);     border-color: var(--ok-fill); }
+.cop-chip--warn { background: var(--warn-bg);   color: var(--warn-text);   border-color: var(--warn-fill); }
+.cop-chip--bad  { background: var(--danger-bg); color: var(--danger-text); border-color: var(--danger-fill); }
+.cop-chip--info { background: var(--info-bg);   color: var(--info-text);   border-color: var(--info-fill); }
+.cop-chip--none { background: var(--surface-alt); color: var(--muted);     border-color: var(--border); }
+
+/* ── Retícula de familias ──────────────────────────────────────────── */
+.cop-fam-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-md);
+}
+.cop-fam-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 4px solid var(--border-strong);
+    border-radius: var(--radius-lg); padding: var(--space-md);
+    box-shadow: var(--shadow-sm); cursor: pointer; text-align: left; width: 100%;
+    font-family: inherit; appearance: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    display: flex; flex-direction: column; gap: 8px;
+}
+.cop-fam-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.cop-fam-card--ok   { border-left-color: var(--ok-fill); }
+.cop-fam-card--warn { border-left-color: var(--warn-fill); }
+.cop-fam-card--bad  { border-left-color: var(--danger-fill); }
+.cop-fam-card--none { border-left-color: var(--border-strong); }
+.cop-fam-head { display: flex; align-items: flex-start; gap: 8px; justify-content: space-between; }
+.cop-fam-title {
+    font-size: var(--fs-sm); font-weight: var(--weight-bold); color: var(--text);
+    line-height: var(--lh-tight);
+}
+.cop-fam-sub { font-size: var(--fs-xs); color: var(--muted); }
+.cop-fam-metrics {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+    border-top: 1px solid var(--border); padding-top: 8px;
+}
+.cop-fam-metric { text-align: center; }
+.cop-fam-metric-n {
+    font-size: var(--fs-base); font-weight: var(--weight-black); color: var(--text);
+    font-variant-numeric: tabular-nums; line-height: 1.15;
+}
+.cop-fam-metric-l {
+    font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.cop-fam-reason {
+    font-size: var(--fs-xs); color: var(--muted); line-height: var(--lh-base);
+    border-top: 1px dashed var(--border); padding-top: 6px;
+}
+
+/* ── Barra de margen al límite ─────────────────────────────────────── */
+.cop-bar {
+    position: relative; height: 10px; background: var(--surface-alt);
+    border: 1px solid var(--border); border-radius: var(--radius-full); overflow: hidden;
+}
+.cop-bar-fill { position: absolute; inset: 0 auto 0 0; border-radius: var(--radius-full); }
+.cop-bar-fill--ok   { background: var(--ok-fill); }
+.cop-bar-fill--warn { background: var(--warn-fill); }
+.cop-bar-fill--bad  { background: var(--danger-fill); }
+.cop-bar-label {
+    display: flex; justify-content: space-between; gap: 6px;
+    font-size: var(--fs-xs); color: var(--muted); margin-bottom: 3px;
+}
+
+/* ── Banner de veredicto ───────────────────────────────────────────── */
+.cop-verdict {
+    display: flex; align-items: center; gap: var(--space-lg); flex-wrap: wrap;
+    border: 1px solid var(--border); border-left: 6px solid var(--border-strong);
+    border-radius: var(--radius-lg); padding: var(--space-lg);
+    margin-bottom: var(--space-lg); background: var(--surface);
+}
+.cop-verdict-word {
+    font-size: var(--fs-lg); font-weight: var(--weight-black);
+    letter-spacing: 0.01em; line-height: 1.1;
+}
+.cop-verdict-meta { font-size: var(--fs-sm); color: var(--muted); }
+.cop-verdict--pass { border-left-color: var(--ok-fill);     background: var(--ok-bg); }
+.cop-verdict--pass .cop-verdict-word { color: var(--ok-text); }
+.cop-verdict--fail { border-left-color: var(--danger-fill); background: var(--danger-bg); }
+.cop-verdict--fail .cop-verdict-word { color: var(--danger-text); }
+.cop-verdict--cont { border-left-color: var(--warn-fill);   background: var(--warn-bg); }
+.cop-verdict--cont .cop-verdict-word { color: var(--warn-text); }
+.cop-verdict--none { border-left-color: var(--border-strong); }
+.cop-verdict--none .cop-verdict-word { color: var(--muted); }
+
+/* ── Gauge: U sobre la banda A(n)…B(n) ─────────────────────────────── */
+/* Hace legible el muestreo secuencial sin explicarlo: se ve de qué lado  */
+/* está U y cuánto le falta para decidir.                                 */
+.cop-gauge-row {
+    display: grid; grid-template-columns: minmax(90px, 130px) 1fr minmax(88px, auto);
+    gap: var(--space-md); align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.cop-gauge-name {
+    font-size: var(--fs-sm); font-weight: var(--weight-bold); color: var(--text);
+}
+.cop-gauge-name small { display: block; font-weight: 400; color: var(--muted); font-size: var(--fs-xs); }
+.cop-gauge {
+    position: relative; height: 22px; border-radius: var(--radius-sm);
+    display: flex; overflow: visible; border: 1px solid var(--border);
+    background: var(--surface-alt);
+}
+.cop-gauge-zone { height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.cop-gauge-zone span {
+    font-size: 9px; font-weight: var(--weight-bold); text-transform: uppercase;
+    letter-spacing: 0.04em; white-space: nowrap; opacity: 0.85;
+}
+.cop-gauge-zone--pass { background: var(--ok-bg);     color: var(--ok-text); }
+.cop-gauge-zone--mid  { background: var(--warn-bg);   color: var(--warn-text); }
+.cop-gauge-zone--fail { background: var(--danger-bg); color: var(--danger-text); }
+.cop-gauge-marker {
+    position: absolute; top: -4px; bottom: -4px; width: 3px;
+    background: var(--text); border-radius: 2px; transform: translateX(-1.5px);
+    box-shadow: 0 0 0 2px var(--surface);
+}
+.cop-gauge-marker::after {
+    content: ''; position: absolute; left: 50%; top: -5px;
+    border: 5px solid transparent; border-top-color: var(--text);
+    transform: translateX(-50%);
+}
+.cop-gauge-val {
+    font-size: var(--fs-sm); font-weight: var(--weight-bold);
+    font-variant-numeric: tabular-nums; text-align: right; color: var(--text);
+}
+.cop-gauge-val small { display: block; font-weight: 400; color: var(--muted); font-size: var(--fs-xs); }
+.cop-gauge-legend {
+    display: flex; gap: var(--space-md); flex-wrap: wrap;
+    font-size: var(--fs-xs); color: var(--muted); margin-top: var(--space-sm);
+}
+
+/* ── Tablas ────────────────────────────────────────────────────────── */
+.cop-table { border-collapse: collapse; width: 100%; }
+.cop-table th {
+    padding: 10px 12px; font-size: var(--fs-sm); font-weight: var(--weight-bold);
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;
+    border-bottom: 1.5px solid var(--border); text-align: center; white-space: nowrap;
+    background: var(--surface-alt);
+}
+.cop-table td {
+    padding: 9px 12px; font-size: var(--fs-xs);
+    border-bottom: 1px solid var(--border); text-align: center; color: var(--text);
+}
+.cop-table th.cop-l, .cop-table td.cop-l { text-align: left; }
+.cop-table .cop-num { font-variant-numeric: tabular-nums; }
+.cop-table tbody tr:hover { background: var(--surface-alt); }
+.cop-table--rows tbody tr { cursor: pointer; }
+.cop-scroll { overflow-x: auto; }
+
+/* ── Línea de tiempo del expediente ────────────────────────────────── */
+.cop-timeline { position: relative; padding-left: 22px; }
+.cop-timeline::before {
+    content: ''; position: absolute; left: 6px; top: 4px; bottom: 4px;
+    width: 2px; background: var(--border);
+}
+.cop-tl-item { position: relative; padding: 0 0 var(--space-md) 0; }
+.cop-tl-dot {
+    position: absolute; left: -21px; top: 3px; width: 11px; height: 11px;
+    border-radius: 50%; background: var(--surface);
+    border: 2px solid var(--border-strong);
+}
+.cop-tl-dot--ok   { border-color: var(--ok-fill); background: var(--ok-fill); }
+.cop-tl-dot--bad  { border-color: var(--danger-fill); background: var(--danger-fill); }
+.cop-tl-dot--warn { border-color: var(--warn-fill); background: var(--warn-fill); }
+.cop-tl-date { font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+.cop-tl-body { font-size: var(--fs-sm); color: var(--text); line-height: var(--lh-base); }
+
+/* ── Franja del año / matriz mes × familia ─────────────────────────── */
+.cop-strip { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; }
+.cop-strip-cell {
+    height: 26px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: var(--weight-bold); color: var(--muted);
+    background: var(--surface-alt);
+}
+.cop-cell--pass { background: var(--ok-bg);     border-color: var(--ok-fill);     color: var(--ok-text); }
+.cop-cell--fail { background: var(--danger-bg); border-color: var(--danger-fill); color: var(--danger-text); }
+.cop-cell--cont { background: var(--warn-bg);   border-color: var(--warn-fill);   color: var(--warn-text); }
+.cop-cell--none { background: var(--surface-alt); border-color: var(--border);    color: var(--muted); }
+
+/* ── Avisos de alcance / evidencia ─────────────────────────────────── */
+.cop-note {
+    border: 1px solid var(--border); border-left: 4px solid var(--info-fill);
+    background: var(--info-bg); border-radius: var(--radius-md);
+    padding: var(--space-md); font-size: var(--fs-sm); color: var(--text);
+    line-height: var(--lh-base); margin-bottom: var(--space-md);
+}
+.cop-note--warn { border-left-color: var(--warn-fill); background: var(--warn-bg); }
+.cop-note--bad  { border-left-color: var(--danger-fill); background: var(--danger-bg); }
+.cop-note-title { font-weight: var(--weight-bold); margin-bottom: 4px; }
+
+/* ── Modo presentación (sala de auditoría) ─────────────────────────── */
+/* Con alcance a body.cop-present: NUNCA subir la escala global, que es la */
+/* que usan los técnicos en el celular todos los días.                     */
+body.cop-present .cop-kpi-n      { font-size: var(--fs-2xl); }
+body.cop-present .cop-kpi-l      { font-size: var(--fs-sm); }
+body.cop-present .cop-verdict-word { font-size: var(--fs-xl); }
+body.cop-present .cop-verdict-meta,
+body.cop-present .cop-fam-title  { font-size: var(--fs-base); }
+body.cop-present .cop-fam-sub,
+body.cop-present .cop-fam-metric-l,
+body.cop-present .cop-fam-reason { font-size: var(--fs-sm); }
+body.cop-present .cop-fam-metric-n { font-size: var(--fs-md); }
+body.cop-present .cop-fam-grid   { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+body.cop-present .cop-table td,
+body.cop-present .cop-table th   { font-size: var(--fs-sm); padding: 12px 14px; }
+body.cop-present .cop-toolbar    { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .cop-fam-card { transition: none; }
+    .cop-fam-card:hover { transform: none; }
+}
+
+/* ── Impresión ─────────────────────────────────────────────────────── */
+/* El entregable real de auditoría es el PDF (copFamilyPDF); esto es para  */
+/* que Ctrl+P sobre la pantalla en vivo tampoco salga roto.                */
+@media print {
+    .cop-nav, .cop-toolbar { display: none !important; }
+    .cop-fam-grid { grid-template-columns: repeat(2, 1fr); }
+    .cop-fam-card, .cop-verdict, .cop-kpi, .cop-gauge-row { break-inside: avoid; }
+    .cop-fam-card:hover { transform: none; box-shadow: none; }
+    /* Los fondos no se imprimen por defecto: el estado va como borde + texto. */
+    .cop-chip, .cop-verdict, .cop-kpi, .cop-strip-cell { background: transparent !important; }
+    .cop-fam-card { box-shadow: none; border: 1px solid #999; }
+}

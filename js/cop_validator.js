@@ -50,10 +50,87 @@ var COP_FUEL_LIMITS = {
     'Híbrido CI': COP_CI_LIMITS,
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v19.0] ALCANCE DEL CoP
+// El laboratorio hace CoP únicamente sobre EURO-5 / EURO-6E / PRE-EURO 7 en las
+// regiones EUROPE y MIDDLE EAST. El resto del catálogo (EURO-2/3/4, SULEV 30,
+// BRAZIL L8, EVs) se prueba pero NO entra al juicio de conformidad.
+//
+// Esto además tapa un agujero real: COP_PI_LIMITS/COP_CI_LIMITS tienen los límites
+// Euro 6 escritos a fuego y NUNCA consultan getRegulationProfile(). Fuera de este
+// alcance eso juzga mal — EURO-2 (CO 2.2 real vs 1.0 aplicado) y EURO-4 (NOx 0.08
+// vs 0.06) salen NO CONCORDANTE sin serlo, y SULEV 30 se compara en g/km contra
+// datos capturados en g/mi, que es el sentido peligroso (aprobar lo que falla).
+// DENTRO del alcance no hay problema: EURO-5, EURO-6C/6E y PRE-EURO 7 comparten
+// exactamente estos valores. copLimitsForFamily() lo verifica en cada render en
+// vez de confiar en que siga siendo cierto.
+// ═══════════════════════════════════════════════════════════════════════════════
+var COP_SCOPE_DEFAULT = {
+    regulations: ['EURO-5', 'EURO-6E', 'PRE-EURO 7'],
+    regions:     ['EUROPE', 'MIDDLE EAST']
+};
+
+/** Normaliza para comparar normas/regiones: sin acentos, sin separadores, mayúsculas. */
+function _copNormKey(s) {
+    return String(s == null ? '' : s)
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase().replace(/[\s\-_/.]+/g, '');
+}
+
+/** El alcance vigente (los defaults son editables desde el Panorama). */
+function copScope() {
+    var s = (typeof copState !== 'undefined' && copState.scope) ? copState.scope : null;
+    return {
+        regulations: (s && Array.isArray(s.regulations) && s.regulations.length) ? s.regulations : COP_SCOPE_DEFAULT.regulations,
+        regions:     (s && Array.isArray(s.regions)     && s.regions.length)     ? s.regions     : COP_SCOPE_DEFAULT.regions
+    };
+}
+
+function copScopeHasReg(reg) {
+    var k = _copNormKey(reg);
+    if (!k) return false;
+    return copScope().regulations.some(function(r) { return _copNormKey(r) === k; });
+}
+function copScopeHasRegion(rgn) {
+    var k = _copNormKey(rgn);
+    if (!k) return false;
+    // EUROPA/EUROPE son la misma región (homoIsEurope acepta ambas).
+    if (k === 'EUROPA') k = 'EUROPE';
+    return copScope().regions.some(function(r) {
+        var rk = _copNormKey(r);
+        return rk === k || (rk === 'EUROPE' && k === 'EUROPE');
+    });
+}
+
+/**
+ * LA definición de "esto entra al CoP". Acepta una config del plan (`{rgn, reg}`) o
+ * un vehículo de db.vehicles (`{config:{REGION, 'EMISSION REGULATION'}}`).
+ * Devuelve {ok, reason} — el motivo se muestra en pantalla: lo que queda fuera se
+ * declara, nunca se oculta en silencio.
+ */
+function copInScope(x) {
+    if (!x) return { ok: false, reason: 'sin datos' };
+    var cfg = x.config || x;
+    var rgn = cfg['REGION'] || cfg.rgn || x.rgn || '';
+    var reg = cfg['EMISSION REGULATION'] || cfg.reg || x.reg || '';
+    if (!copScopeHasRegion(rgn)) return { ok: false, reason: 'región ' + (rgn || '(sin región)') + ' fuera del alcance CoP', kind: 'region', region: rgn, reg: reg };
+    if (!copScopeHasReg(reg))    return { ok: false, reason: 'norma ' + (reg || '(sin norma)') + ' fuera del alcance CoP', kind: 'regulation', region: rgn, reg: reg };
+    return { ok: true, reason: '', region: rgn, reg: reg };
+}
+
+// ─── CACHE DEL PANORAMA ───────────────────────────────────────────────────────
+// copPortfolioRows() recorre db.vehicles × familias × gases y la consume también
+// pnGetActiveAlerts, que corre en CADA render del Panel. Sin memo el Panel se
+// arrastra. La clave es barata a propósito: no se serializa nada.
+var _copRev = 0;
+var _copPortfolioCache = null;
+function _copBumpRev() { _copRev++; _copPortfolioCache = null; }
+function copInvalidateCache() { _copBumpRev(); }
+
 // ─── ESTADO ───────────────────────────────────────────────────────────────────
 var COP_LS_KEY = 'kia_cop_v1';
 var copState = {
-    view:          'validator', // 'validator' | 'spc'
+    view:          'overview', // 'overview' | 'validator' | 'spc' | 'dossier'
     regulation:    'R154',
     fuelType:      'PI',
     region:        '',      // filtro de región para el selector de familia
@@ -66,6 +143,7 @@ var copState = {
     _lastDecision: null,
     saved:         [],      // juicios guardados
     spc:           null,    // estado de la sub-pestaña Control SPC
+    scope:         null,    // alcance CoP (null = COP_SCOPE_DEFAULT) — ver copScope()
 };
 
 function copPersist() {
@@ -74,8 +152,9 @@ function copPersist() {
             view: copState.view, regulation: copState.regulation, fuelType: copState.fuelType,
             region: copState.region, familyKey: copState.familyKey, familyLabel: copState.familyLabel,
             activePolls: copState.activePolls, vehicles: copState.vehicles, saved: copState.saved,
-            spc: copState.spc
+            spc: copState.spc, scope: copState.scope
         }));
+        _copBumpRev();
         return true;
     } catch (e) {
         console.error('copPersist: no se pudo guardar', e);
@@ -87,7 +166,7 @@ function copLoad() {
     var raw = null;
     try { raw = JSON.parse(localStorage.getItem(COP_LS_KEY)); } catch (e) {}
     if (raw && typeof raw === 'object') {
-        ['view','regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved','spc'].forEach(function(k) {
+        ['view','regulation','fuelType','region','familyKey','familyLabel','activePolls','vehicles','saved','spc','scope'].forEach(function(k) {
             if (raw[k] !== undefined && raw[k] !== null) copState[k] = raw[k];
         });
     }
@@ -108,8 +187,10 @@ function copInitState() {
     }
     if (!copState.saved) copState.saved = [];
     if (!copState.spc || typeof copState.spc !== 'object') {
-        copState.spc = { familyKey: '', gas: '', showZones: true, showLimit: true, pctMode: false };
+        copState.spc = { familyKey: '', gas: '', showZones: true, showLimit: true, pctMode: false, allScopes: false };
     }
+    if (copState.spc.allScopes === undefined) copState.spc.allScopes = false;
+    if (['overview','validator','spc','dossier'].indexOf(copState.view) === -1) copState.view = 'overview';
 }
 
 // Recargar copState desde localStorage (lo usa Firebase sync tras hacer pull/merge).
@@ -123,14 +204,42 @@ function copSyncReload() {
 function _copEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 function copPlanData() { return (typeof tpState !== 'undefined' && tpState.planData) ? tpState.planData : []; }
 function copRegions() {
-    var set = {}; copPlanData().forEach(function(c) { if (c.rgn) set[c.rgn] = true; });
+    // Solo las regiones del alcance que además existen en el plan importado.
+    var set = {};
+    copPlanData().forEach(function(c) { if (c.rgn && copScopeHasRegion(c.rgn)) set[c.rgn] = true; });
     return Object.keys(set).sort();
 }
+
+/**
+ * [v19.0] Lo que queda FUERA del alcance CoP, agrupado por motivo. El Panorama lo
+ * declara — una configuración que no aparece porque se filtró es exactamente el tipo
+ * de omisión que un auditor pregunta.
+ */
+function copOutOfScopeSummary() {
+    var byReason = {}, total = 0;
+    copPlanData().forEach(function(c) {
+        var s = copInScope(c);
+        if (s.ok) return;
+        total++;
+        var label = s.kind === 'region' ? ('Región ' + (s.region || '(sin región)'))
+                                        : ('Norma ' + (s.reg || '(sin norma)'));
+        if (!byReason[label]) byReason[label] = { label: label, kind: s.kind, n: 0 };
+        byReason[label].n++;
+    });
+    return {
+        total: total,
+        groups: Object.keys(byReason).map(function(k) { return byReason[k]; })
+                      .sort(function(a, b) { return b.n - a.n; })
+    };
+}
+
 // Familias reusando el MISMO agrupamiento del Plan (tpFamilyKeyForCfg).
+// v19.0: solo las del alcance CoP (copInScope).
 function copFamilies() {
     var fams = {};
     copPlanData().forEach(function(c) {
         if (typeof tpFamilyKeyForCfg !== 'function') return;
+        if (!copInScope(c).ok) return;
         var k = tpFamilyKeyForCfg(c);
         if (!fams[k]) fams[k] = { key: k, mod: c.mod, eng: c.eng, tx: c.tx, my: c.my, reg: c.reg, rgns: {} };
         if (c.rgn) fams[k].rgns[c.rgn] = true;
@@ -314,6 +423,46 @@ function copFmtU(v) { return v === null ? '—' : v.toFixed(3); }
 function copGetActiveLimits() {
     var limits = COP_FUEL_LIMITS[copState.fuelType] || COP_PI_LIMITS;
     return limits.filter(function(p) { return copState.activePolls[p.id]; });
+}
+
+/**
+ * [v19.0] Verifica los límites aplicados contra el perfil REAL de la norma.
+ *
+ * El validador aplica COP_PI_LIMITS/COP_CI_LIMITS (Euro 6) a todo. Dentro del
+ * alcance CoP (EURO-5 / EURO-6E / PRE-EURO 7) eso es correcto porque los tres
+ * perfiles traen los mismos valores — pero es una coincidencia, no una garantía.
+ * Esta función la comprueba en cada render: si mañana entra una norma al alcance
+ * cuyo perfil difiere, sale el aviso en vez de un veredicto silenciosamente malo.
+ *
+ * Devuelve {limits, profile, emissionReg, mismatches:[{poll, applied, profile, unit}],
+ *           profileMissing} — nunca cambia el número aplicado por su cuenta: avisar
+ * es correcto, recalcular a espaldas del técnico un veredicto ya emitido no lo es.
+ */
+function copLimitsForFamily(emissionReg) {
+    var limits = copGetActiveLimits();
+    var out = { limits: limits, profile: null, emissionReg: emissionReg || '', mismatches: [], profileMissing: false };
+    if (!emissionReg || typeof getRegulationProfile !== 'function') return out;
+
+    var prof = null;
+    try { prof = getRegulationProfile(emissionReg); } catch (e) {}
+    if (!prof || !prof.gases || !prof.gases.length) { out.profileMissing = true; return out; }
+    out.profile = prof;
+
+    limits.forEach(function(p) {
+        // HCNOx no existe como campo suelto en los perfiles: EURO-2 lo guarda bajo THC
+        // con la etiqueta "THC+NOx" (mismo caso que resuelve _copRegCombinesTHC).
+        var g = prof.gases.find(function(x) {
+            return x.field === p.id || (p.id === 'HCNOx' && x.field === 'THC' && /\+\s*NO/i.test(x.label || ''));
+        });
+        if (!g || g.limit === null || g.limit === undefined) return;
+        var sameUnit = _copNormKey(g.unit) === _copNormKey(p.unit);
+        var sameLimit = Math.abs(Number(g.limit) - Number(p.limit)) <= Math.abs(Number(p.limit)) * 1e-9;
+        if (!sameUnit || !sameLimit) {
+            out.mismatches.push({ poll: p.label || p.id, applied: p.limit, appliedUnit: p.unit,
+                                  profile: g.limit, profileUnit: g.unit, unitDiffers: !sameUnit });
+        }
+    });
+    return out;
 }
 
 function copGetPollStats() {
@@ -792,7 +941,15 @@ function _copSpcFmt(v, dec) {
 
 // Familias con datos: agrupa db.vehicles con gases finales por copVehicleFamilyKey.
 // Excluye familias con Modelo/Motor/Regulación vacíos (equivale a excluir OTHER/(sin dato)).
-function copSpcFamilies() {
+//
+// v19.0 — `opts.allScopes`: el SPC es control de PROCESO, no juicio de conformidad, y
+// sirve igual en familias fuera del alcance CoP (detecta deriva antes de rebasar un
+// límite). Por eso `copSpcScanAlarms()` sigue barriendo TODO — quitarle al Panel las
+// alarmas de las 31 configuraciones EURO-5 de MEXICO sería perder una red de seguridad
+// sin que nadie lo pidiera. La UI del CoP sí filtra por alcance salvo que se destilde.
+// Cada familia trae `inScope` para que la pantalla pueda etiquetarlas.
+function copSpcFamilies(opts) {
+    var allScopes = !!(opts && opts.allScopes);
     var vehicles = (typeof db !== 'undefined' && db.vehicles) ? db.vehicles : [];
     var fams = {};
     vehicles.forEach(function(v) {
@@ -801,12 +958,18 @@ function copSpcFamilies() {
         var cfg = v.config || {};
         var mod = cfg['Modelo'], eng = cfg['ENGINE CAPACITY'], reg = cfg['EMISSION REGULATION'];
         if (!mod || !eng || !reg) return;
+        var scope = copInScope(v);
+        if (!allScopes && !scope.ok) return;
         var key = copVehicleFamilyKey(v);
         if (!fams[key]) {
             fams[key] = {
                 key: key,
                 label: [mod, eng, cfg['TRANSMISSION'], cfg['MODEL YEAR (VIN)'], reg].filter(Boolean).join(' · '),
                 regName: (typeof _libGetVehicleRegulation === 'function') ? _libGetVehicleRegulation(v) : reg,
+                region: cfg['REGION'] || '',
+                emissionReg: reg,
+                inScope: scope.ok,
+                scopeReason: scope.reason,
                 tests: []
             };
         }
@@ -885,9 +1048,15 @@ function copSpcFlags(st) {
 
 // Escaneo de alarmas en todas las familias con n≥4 (gases ≠ CO2). Lo consume
 // también el Panel (alertas del laboratorio).
+//
+// v19.0 — barre TODAS las familias a propósito, también las de fuera del alcance CoP:
+// el SPC vigila el proceso del laboratorio, no la conformidad, y acotarlo al alcance
+// apagaría en silencio la detección de deriva de las familias que más se prueban.
+// Cada alarma trae `inScope` para que la UI del CoP las separe. La firma no cambia:
+// pnGetActiveAlerts la consume con guarda `typeof`.
 function copSpcScanAlarms() {
     var out = [];
-    copSpcFamilies().filter(function(f) { return f.n >= COP_SPC_MIN; }).forEach(function(f) {
+    copSpcFamilies({ allScopes: true }).filter(function(f) { return f.n >= COP_SPC_MIN; }).forEach(function(f) {
         copSpcGases(f).forEach(function(g) {
             if (g.field === 'CO2') return;
             var pts = copSpcSeries(f, g.field);
@@ -900,7 +1069,8 @@ function copSpcScanAlarms() {
                 var last = idx[idx.length - 1];
                 out.push({
                     famKey: f.key, famLabel: f.label, gas: g.field, gasLabel: g.label,
-                    rule: fl[last][0], val: pts[last].v, date: pts[last].date, unit: g.unit || ''
+                    rule: fl[last][0], val: pts[last].v, date: pts[last].date, unit: g.unit || '',
+                    inScope: !!f.inScope
                 });
             }
         });

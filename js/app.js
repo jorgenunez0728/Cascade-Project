@@ -660,6 +660,19 @@ var DEFAULT_REGULATION_PROFILES = [
         ]
     },
     {
+        // Euro 6e cambió los factores de conformidad de RDE, NO los límites de Tipo 1:
+        // por eso son idénticos a EURO-6C. Verificar contra el texto oficial antes de
+        // usarlo en homologación; el perfil es editable en Datos → Regulaciones.
+        id: 'reg_euro6e', name: 'EURO-6E', shortName: 'EURO-6E',
+        gases: [
+            { field: 'CO',   label: 'CO',   unit: 'g/km', limit: 1.0 },
+            { field: 'CO2',  label: 'CO₂',  unit: 'g/km', limit: null },
+            { field: 'THC',  label: 'THC',  unit: 'g/km', limit: 0.1 },
+            { field: 'NOx',  label: 'NOx',  unit: 'g/km', limit: 0.06 },
+            { field: 'NMHC', label: 'NMHC', unit: 'g/km', limit: 0.068 }
+        ]
+    },
+    {
         id: 'reg_euro2', name: 'EURO-2', shortName: 'EURO-2',
         gases: [
             { field: 'CO',  label: 'CO',  unit: 'g/km', limit: 2.2 },
@@ -761,6 +774,22 @@ function loadRegulations() {
         saveRegulations();
     } else {
         _regulationsData = saved;
+        // Un perfil nuevo agregado a DEFAULT_REGULATION_PROFILES jamás llegaba a los
+        // dispositivos que ya tenían kia_regulations_v1 escrito (la rama de arriba solo
+        // corre en un dispositivo virgen). Se agregan los que falten SIN tocar los que
+        // el laboratorio ya editó — el perfil guardado siempre gana.
+        var _have = {};
+        _regulationsData.profiles.forEach(function(p) {
+            if (p && p.name) _have[String(p.name).trim().toUpperCase()] = true;
+        });
+        var _added = 0;
+        DEFAULT_REGULATION_PROFILES.forEach(function(d) {
+            if (!_have[String(d.name).trim().toUpperCase()]) {
+                _regulationsData.profiles.push(JSON.parse(JSON.stringify(d)));
+                _added++;
+            }
+        });
+        if (_added) saveRegulations();
     }
     return _regulationsData;
 }
