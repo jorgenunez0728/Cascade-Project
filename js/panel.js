@@ -908,7 +908,10 @@ function pnRenderReports(el) {
         { icon: '🗓️', title: 'F11 — Plan Maestro', desc: 'Matriz de 52 semanas + cumplimiento, lista para firmar.', actions: [{ label: 'PDF', fn: 'invMaintPlanPDF' }] },
         { icon: '🗂️', title: 'Proyectos', desc: 'Pasos de todos los proyectos (Step/Responsible/Status/Target Date/Completion Date/Roadblock), formato compatible con tablero tipo Loop.', actions: [{ label: 'CSV', fn: 'pnExportAllProjectsCSV' }] },
         { icon: '📊', title: 'Portafolio de Proyectos', desc: 'Un renglón por proyecto activo con semáforo, avance, vencidos, bloqueados y próximo hito — para reportar a jefatura.', actions: [{ label: 'CSV', fn: 'pnExportPortfolioCSV' }] },
-        { icon: '📄', title: 'Proyecto (detalle)', desc: 'Una carilla del proyecto abierto: métricas, hitos, curva S y la tabla de pasos. Abre primero el proyecto en Datos → Proyectos.', actions: [{ label: 'PDF', fn: 'pnProjectPDF' }] }
+        { icon: '📄', title: 'Proyecto (detalle)', desc: 'Una carilla del proyecto abierto: métricas, hitos, curva S y la tabla de pasos. Abre primero el proyecto en Datos → Proyectos.', actions: [{ label: 'PDF', fn: 'pnProjectPDF' }] },
+        { icon: '🧪', title: 'CoP — Panorama de familias', desc: 'Un renglón por familia del alcance CoP: veredicto, VINes, % del límite, U con su banda A(n)/B(n), Cpk, días sin ensayar, riesgo y motivo.', actions: [{ label: 'CSV', fn: 'copExportPortfolioCSV' }] },
+        { icon: '📑', title: 'CoP — Expediente de familia (auditoría)', desc: 'Dossier de la familia abierta: identificación, límites congelados, estadística, VINes con fechas, CO₂ vs declarado y firmas. Abre primero la familia en CoP → Panorama.', actions: [{ label: 'PDF', fn: 'copFamilyPDF' }, { label: 'CSV', fn: 'copExportFamilyCSV' }] },
+        { icon: '📜', title: 'CoP — Juicios emitidos', desc: 'Historial de veredictos con fecha, familia, n, decisión, quién lo emitió y los límites con los que se decidió.', actions: [{ label: 'CSV', fn: 'copExportJudgmentsCSV' }] }
     ];
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-reports-help"><span>📤 Centro de Reportes</span></div>'
         + '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:6px;">Un solo lugar para exportar. Cada reporte usa los datos actuales del sistema.</div>';

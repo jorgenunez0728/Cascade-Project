@@ -1552,6 +1552,20 @@ function fbPullApply(collections, results, showFeedback) {
             var _savedMap = {};
             (_localCop.saved || []).concat(_mergedCop.saved || []).forEach(function(r) { if (r && r.id) _savedMap[r.id] = r; });
             _mergedCop.saved = Object.keys(_savedMap).map(function(k) { return _savedMap[k]; }).sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+
+            // v19.0 — El resto de copState se tomaba del remoto ENTERO. Eso hace que la
+            // pantalla del CoP salte de vista y de familia porque otro técnico tocó la
+            // suya, y en el peor caso pisa la mesa de trabajo local. Estos campos son
+            // estado de UI POR DISPOSITIVO: siempre gana el local.
+            ['view', 'region', 'familyKey', 'familyLabel', 'vehicles', 'present', 'ovFilter', 'spc',
+             'showTable', 'showFormula'].forEach(function(k) {
+                if (_localCop[k] !== undefined) _mergedCop[k] = _localCop[k];
+                else delete _mergedCop[k];
+            });
+            // El alcance sí es del laboratorio (compartido), pero si el remoto viene de
+            // una versión previa a v19.0 no lo trae: conservar el local en vez de borrarlo.
+            if (_mergedCop.scope === undefined && _localCop.scope !== undefined) _mergedCop.scope = _localCop.scope;
+
             localStorage.setItem('kia_cop_v1', JSON.stringify(_mergedCop));
             if (typeof copSyncReload === 'function') copSyncReload();
             pulled.push('CoP');
