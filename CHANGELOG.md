@@ -2,6 +2,79 @@
 
 All notable changes to this project, organized by development round.
 
+## v19.1 — Familias de interpolación del WVTA (2026-08-26)
+
+Cierra el pendiente que v19.0 dejó anotado. La **familia de interpolación (IP)** es la agrupación
+**oficial** del CoP en Europa: la declara el certificado de homologación (Whole Vehicle Type
+Approval, Reg. UE 2018/858) en su punto **0.2.3.1**, por variante y versión.
+
+### De dónde sale cada dato — la regla que no se debe romper
+
+| Dato | Fuente |
+|---|---|
+| Identidad de la familia (código IP), miembros, TML/TMH, rango de CO₂ VL–VH | **WVTA** |
+| Coeficientes f0/f1/f2 y CO₂ declarado **de cada vehículo** | **ICMS** |
+
+El WVTA *sí* trae f0/f1/f2, pero **solo los de los vehículos extremos VL y VH** que acotan la
+familia — no los del vehículo que se va a ensayar, que se obtienen interpolando entre ambos. Esa
+interpolación es justamente lo que el ICMS entrega ya resuelto por MC code. Copiar los coeficientes
+del certificado a un vehículo concreto sería usar los del extremo de la familia en vez de los
+suyos. Por eso `homoState.ipFamilies` **no tiene campos f0/f1/f2**, y así está escrito en el propio
+archivo, en la tarjeta de la pantalla y en `CLAUDE.md`.
+
+### Lector del certificado
+
+`homoIpParseWVTA(text)` es una función **pura** (sin DOM, testeable en Node) que interpreta el
+texto pegado del PDF. Pedirle a alguien que teclee 5 familias × 5 campos por certificado es la
+forma segura de que la función no se use.
+
+Dos cosas que el PDF hace y que hubo que resolver con el documento real en la mano:
+
+- **Parte los códigos entre renglones** cuando la columna es angosta
+  (`IP-0401789-` / `3KP`) — `_homoWvtaJoinSplitCodes` los vuelve a pegar antes de interpretar.
+- **No siempre etiqueta igual el encabezado de columnas**: en un mismo certificado aparece como
+  `Interpolation family …` en una página y como `Version(s) IP-…` en la siguiente. Por eso se toma
+  como encabezado cualquier renglón con códigos IP que no sea el `IP Family` del bloque 0.2.3.1.
+
+**Verificado contra un certificado real** (`e4*2018/858*00261*00 Cor.01`, tipo CL4m / K4): las 5
+familias salen con sus variantes, versiones, TML/TMH y CO₂ VL–VH idénticos a lo impreso.
+
+### La variante sola no basta — y la app no adivina
+
+En ese certificado **`B5P22` pertenece a dos familias distintas** según su versión
+(`M61A11` → IP-0401788-3KP, `D71A11` → IP-0401787-3KP). `homoIpFamilyForVehicle()` es LA definición
+de la resolución y va en este orden: sello explícito en el vehículo → variante + versión → los del
+catálogo ICMS por MC code → variante sola **solo si no es ambigua** → `null`. Una variante repartida
+entre familias devuelve `null` en vez de escoger una.
+
+### Chequeo de rango: estructura del WVTA contra números del ICMS
+
+`homoIpMassCheck` / `homoIpCo2Check` / `homoIpScanOutliers` marcan un vehículo cuya masa de ensayo
+o CO₂ declarado (datos del **ICMS**) caen fuera del rango de su propia familia IP (rango del
+**WVTA**). O el dato está mal capturado, o el vehículo no pertenece a esa familia: en los dos casos
+es algo que corregir antes de que lo encuentre un auditor. Entra al Panorama como motivo de
+**atención**, sin tocar el veredicto — es un problema de evidencia, no de emisiones.
+
+### Integración con el CoP
+
+- El Panorama muestra la familia IP en la tarjeta y los atípicos como motivo de riesgo.
+- `copFamilyPDF()` cita la familia IP, sus masas TML/TMH y el número y fecha del certificado.
+- **La clave de agrupación NO cambia**: sigue siendo `copVehicleFamilyKey`, que es la identidad de
+  las series SPC y de todos los juicios ya guardados. La familia IP es informativa sobre la fila.
+  Reemplazarla huerfanaría el histórico completo.
+
+### Sync
+
+`_mergedHomo` se arma desde cero en `fbPullApply`, así que una clave que no se liste ahí **se pierde
+en cada pull**. `ipFamilies` se fusiona por código (gana `updatedAt`). `homoSyncReload` invalida el
+índice de resolución y el cache del Panorama.
+
+### Detalle de UI
+
+La tarjeta seguía diciendo "aún no hay familias IP" con las familias ya guardadas: las pestañas del
+Panel están cacheadas y `pnRender()` solo no repinta la pestaña actual. Se resuelve con
+`tabCacheInvalidate('pn', 'pn-homolog')`, el mismo patrón de `_pnProjNav` (v16.8).
+
 ## v19.0 — CoP: de calculadora a tablero de conformidad (2026-08-26)
 
 Pedido del laboratorio: el CoP es lo que muestra el seguimiento y lo que probablemente se

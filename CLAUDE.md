@@ -61,7 +61,7 @@ js/
   firebase-sync.js      ← Shared-workspace cloud sync layer (~2,900 lines)
   auth.js               ← Operator identity + PIN wall (~490 lines)
   cop_validator.js      ← CoP Type 1: Panorama, validador, Control SPC, expediente + PDF (~2,830 lines)
-  homolog.js            ← Homologación Europa: catálogo ICMS + f0/f1/f2/TM + CO₂ declarado (~560 lines)
+  homolog.js            ← Homologación EU: catálogo ICMS + f0/f1/f2/TM + CO₂ + familias IP del WVTA (~1,280 lines)
   bugreport.js          ← Botón 🐞 flotante: captura → comentario → GitHub Issue + bandeja (~600 lines)
   signatures.js         ← Digital signature capture (SignaturePad overlay) (~100 lines)
 build.sh                ← Generates kia-emlab-unified.html (single-file for production)
@@ -85,7 +85,7 @@ CHANGELOG.md            ← Detailed changelog
 | Auth / Operator | `js/auth.js` | `auth` | `authState` (lightweight) | `kia_current_operator` |
 | Signatures | `js/signatures.js` | `sig` | overlay-based | — (in `vehicle.testData.signatures`) |
 | Firebase Sync | `js/firebase-sync.js` | `fb` | `fbSync`, queue | `kia_firebase_queue` |
-| Homologación EU | `js/homolog.js` | `homo` | `homoState` | `kia_homolog_v1` |
+| Homologación EU | `js/homolog.js` | `homo` | `homoState` (+ `homoState.ipFamilies`) | `kia_homolog_v1` |
 | Reporte de Bugs | `js/bugreport.js` | `bug` | cola local (sin state global) | `kia_bug_queue`, `kia_bug_settings` |
 
 ### Additional localStorage Keys
@@ -705,11 +705,40 @@ El módulo pasó de calculadora de una familia a tablero con 4 vistas
   cosas distintas) y sale marcado **PRELIMINAR** si no hay juicio guardado.
 - **Ojo**: `undoPush('cop', …)` es un **no-op** — `undoPush` (app.js) solo conoce
   `cop15`/`testplan`/`inventory`. No llamarlo desde el CoP creyendo que hace algo.
-- **Pendiente**: familias IP (interpolación WLTP) del WVTA para Europa. Cuando se implementen,
-  los coeficientes **f0/f1/f2 siguen viniendo del ICMS** (`homoState.catalog`), **nunca del
-  WVTA** — del certificado solo salen la identidad de la familia, sus variantes/versiones y
-  TML/TMH. La agrupación debe ir **encima** de `copVehicleFamilyKey` (prefijo `IP:`), nunca
-  reemplazarla: es la identidad de las series SPC y de todos los juicios ya guardados.
+## v19.1 — Familias de interpolación del WVTA (`js/homolog.js`)
+
+`homoState.ipFamilies` = `[{id, code, members:[{variant,version}], tml, tmh, co2Low, co2High,
+wvta, wvtaDate, type, commercialName, updatedAt}]`.
+
+- **REGLA QUE NO SE ROMPE: f0/f1/f2 vienen del ICMS (`homoState.catalog`), NUNCA del WVTA.**
+  El certificado sí los trae, pero solo los de los vehículos extremos **VL y VH** que acotan la
+  familia — no los del vehículo que se va a ensayar, que salen de interpolar entre ambos, que es
+  justo lo que el ICMS entrega ya resuelto por MC code. Por eso `ipFamilies` **no tiene campos
+  f0/f1/f2** y no se le deben agregar. Del WVTA salen: identidad de la familia, miembros,
+  TML/TMH y el rango de CO₂ VL–VH.
+- **`homoIpFamilyForVehicle(v)` es LA definición** de la resolución: sello explícito
+  (`vehicle.homolog.ipFamilyId`) → variante + versión → las del catálogo ICMS por MC code →
+  variante sola **solo si no es ambigua** → `null`. **La variante sola NO basta**: en un
+  certificado real `B5P22` está en dos familias según su versión. Ante ambigüedad devuelve
+  `null`, no adivina. Solo resuelve para región Europa (`homoIsEurope`).
+- **`homoIpParseWVTA(text)` es PURA** (sin DOM, testeable en Node) y lee el texto pegado del PDF.
+  Dos rarezas del formato ya resueltas: los códigos se **parten entre renglones**
+  (`IP-0401789-` / `3KP`, lo repara `_homoWvtaJoinSplitCodes`) y el encabezado de columnas del
+  bloque 3.1 **no siempre se llama igual** (`Interpolation family` en una página, `Version(s)` en
+  la siguiente), así que se toma como encabezado cualquier renglón con códigos IP que no sea el
+  `IP Family` del bloque 0.2.3.1.
+- **`homoIpMassCheck`/`homoIpCo2Check`/`homoIpScanOutliers`**: rango del WVTA contra valor del
+  ICMS. Un vehículo fuera de rango es un problema de **evidencia**, no de emisiones — entra como
+  motivo de atención en el Panorama y **no toca el veredicto**.
+- **La clave de agrupación del CoP NO cambia**: sigue siendo `copVehicleFamilyKey`, que es la
+  identidad de las series SPC y de todos los juicios guardados. `row.ipFamilies` es informativo.
+  Si alguna vez se agrupa por IP, debe ir **encima** con prefijo `IP:`, nunca reemplazándola.
+- **Sync**: `_mergedHomo` en `fbPullApply` se arma **desde cero**, así que toda clave nueva de
+  `homoState` debe listarse ahí o se pierde en cada pull. `ipFamilies` mergea por código
+  (gana `updatedAt`).
+- **UI**: tras cambiar familias hay que llamar `_homoIpRepaint()`
+  (`tabCacheInvalidate('pn','pn-homolog')` + `pnRender()`) — las pestañas del Panel están
+  cacheadas y `pnRender()` solo no repinta la pestaña actual (patrón `_pnProjNav`, v16.8).
 
 ## Working with this project
 

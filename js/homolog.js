@@ -17,6 +17,7 @@ var HOMO_CO2_TOL_DEFAULT = 4; // % sobre el CO₂ declarado — editable por el 
 var homoState = {
     catalog: [],            // filas del ICMS: {id, mcCode, workOrder, ocn, wvta, variant, version, f0, f1, f2, tm, co2Combined, fcCombined, at, by}
     links: {},              // configCode → mcCode (recordar el enlace: el 2º vehículo de la misma config ya se autollena)
+    ipFamilies: [],         // familias de interpolación del WVTA — ver bloque IP más abajo
     co2TolerancePct: HOMO_CO2_TOL_DEFAULT,
     updatedAt: ''
 };
@@ -29,6 +30,7 @@ function homoLoad() {
         if (raw && typeof raw === 'object') {
             if (Array.isArray(raw.catalog)) homoState.catalog = raw.catalog;
             if (raw.links && typeof raw.links === 'object') homoState.links = raw.links;
+            if (Array.isArray(raw.ipFamilies)) homoState.ipFamilies = raw.ipFamilies;
             if (typeof raw.co2TolerancePct === 'number') homoState.co2TolerancePct = raw.co2TolerancePct;
             homoState.updatedAt = raw.updatedAt || '';
         }
@@ -55,7 +57,12 @@ function homoSave() {
 
 var _homoLoaded = false;
 function homoInit() { if (!_homoLoaded) { homoLoad(); _homoLoaded = true; } }
-function homoSyncReload() { _homoLoaded = false; homoInit(); }
+function homoSyncReload() {
+    _homoLoaded = false;
+    _homoIpIndex = null;               // el índice de familias IP se rehace tras un pull
+    homoInit();
+    if (typeof copInvalidateCache === 'function') copInvalidateCache();
+}
 
 // ─── REGIÓN ───────────────────────────────────────────────────────────────────
 
@@ -525,6 +532,9 @@ function pnRenderHomolog(el) {
         '</div>';
     html += '</div>';
 
+    // ── Familias de interpolación (WVTA) ──
+    html += _homoIpCardHTML();
+
     // ── Tolerancia de CO₂ ──
     html += '<div class="tp-card">';
     html += '<div class="tp-card-title" data-help="pn-homolog-tol-help"><span>🎯 Tolerancia de CO₂ para el CoP</span></div>';
@@ -697,4 +707,573 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'homo_f2': { title: 'f2 (N/(km/h)²)', text: 'Coeficiente cuadrático de la resistencia al avance, del ICMS.' },
     'homo_tm': { title: 'TM — masa de ensayo (kg)', text: 'Test Mass del ICMS: la masa con la que se configura la inercia del dinamómetro.' },
     'homo_co2': { title: 'CO₂ declarado combinado (g/km)', text: 'El valor Combined de CO₂ del ICMS. Es el target contra el que el CoP compara el CO₂ medido de este vehículo.' }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v19.1] FAMILIAS DE INTERPOLACIÓN (IP) — del WVTA
+//
+// La familia de interpolación es la agrupación OFICIAL del CoP para Europa: es lo
+// que el certificado de homologación (Whole Vehicle Type Approval, Reg. UE
+// 2018/858) declara en su punto 0.2.3.1, y se identifica por variante + versión.
+//
+// ─── DE DÓNDE SALE CADA DATO (regla que NO se debe romper) ────────────────────
+// Del WVTA:  la IDENTIDAD de la familia (código IP), qué variantes/versiones la
+//            componen, sus masas de ensayo TML/TMH y el rango de CO₂ declarado
+//            entre el vehículo bajo (VL) y el alto (VH).
+// Del ICMS:  los coeficientes f0/f1/f2 y el CO₂ declarado DE CADA VEHÍCULO.
+//
+// El WVTA sí trae f0/f1/f2, pero SOLO los de los vehículos extremos VL y VH que
+// acotan la familia — no los del vehículo que se va a ensayar, que se obtienen
+// interpolando entre ambos. Esa interpolación es justamente lo que el ICMS
+// entrega ya resuelto por MC code. Copiar los coeficientes del WVTA a un vehículo
+// concreto sería usar los del extremo de la familia en vez de los suyos.
+// NO agregar campos f0/f1/f2 a homoState.ipFamilies.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function _homoNum(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = parseFloat(String(v).replace(/[^\d.,\-]/g, '').replace(',', '.'));
+    return isFinite(n) ? n : null;
+}
+
+/** Índice variante|versión → familia IP. Se reconstruye al guardar/sincronizar. */
+var _homoIpIndex = null;
+function _homoIpBuildIndex() {
+    _homoIpIndex = {};
+    (homoState.ipFamilies || []).forEach(function(f) {
+        (f.members || []).forEach(function(m) {
+            var k = _homoNorm(m.variant) + '|' + _homoNorm(m.version);
+            if (k !== '|') _homoIpIndex[k] = f;
+        });
+        // También por variante sola, SOLO si esa variante no está repartida entre
+        // familias distintas (en el WVTA real B5P22 aparece en dos familias con
+        // versiones distintas, así que ahí la variante sola no alcanza).
+        (f.members || []).forEach(function(m) {
+            var vk = 'V:' + _homoNorm(m.variant);
+            if (!vk || vk === 'V:') return;
+            if (_homoIpIndex[vk] === undefined) _homoIpIndex[vk] = f;
+            else if (_homoIpIndex[vk] !== f) _homoIpIndex[vk] = null; // ambigua
+        });
+    });
+    return _homoIpIndex;
+}
+function _homoIpIdx() { return _homoIpIndex || _homoIpBuildIndex(); }
+
+function homoIpFamilyByCode(code) {
+    homoInit();
+    var c = _homoNorm(code);
+    if (!c) return null;
+    return (homoState.ipFamilies || []).find(function(f) { return _homoNorm(f.code) === c; }) || null;
+}
+
+/**
+ * LA definición de "a qué familia de interpolación pertenece este vehículo".
+ * Orden: sello explícito → variante+versión de su ficha → variante+versión del
+ * catálogo ICMS por MC code → variante sola (si no es ambigua) → null.
+ * Devuelve {family, via} o null.
+ */
+function homoIpFamilyForVehicle(vehicle) {
+    homoInit();
+    if (!vehicle) return null;
+    if (!homoIsEurope(homoRegionOf(vehicle.config))) return null;
+
+    var h = homoVehicleData(vehicle) || {};
+    if (h.ipFamilyId) {
+        var byId = (homoState.ipFamilies || []).find(function(f) { return f.id === h.ipFamilyId; });
+        if (byId) return { family: byId, via: 'sellada en el vehículo' };
+    }
+    var idx = _homoIpIdx();
+    var variant = h.variant, version = h.version;
+
+    // Completar desde el catálogo del ICMS si la ficha no los trae.
+    if ((!variant || !version) && h.mcCode) {
+        var row = homoFindByKey(h.mcCode);
+        if (row) { variant = variant || row.variant; version = version || row.version; }
+    }
+    if (variant && version) {
+        var f = idx[_homoNorm(variant) + '|' + _homoNorm(version)];
+        if (f) return { family: f, via: 'variante + versión' };
+    }
+    if (variant) {
+        var fv = idx['V:' + _homoNorm(variant)];
+        if (fv) return { family: fv, via: 'variante' };
+        if (fv === null) return null; // variante repartida entre familias: no adivinar
+    }
+    return null;
+}
+
+/**
+ * ¿La masa de ensayo del vehículo (la del ICMS) cae dentro de [TML, TMH] de su
+ * familia IP? Es un chequeo barato que ejercita exactamente el reparto de fuentes:
+ * el rango viene del WVTA, el valor del ICMS.
+ */
+function homoIpMassCheck(family, tm) {
+    var m = _homoNum(tm);
+    if (!family || m === null) return { ok: true, unknown: true };
+    var lo = _homoNum(family.tml), hi = _homoNum(family.tmh);
+    if (lo === null || hi === null) return { ok: true, unknown: true };
+    if (lo > hi) { var t = lo; lo = hi; hi = t; }
+    return { ok: m >= lo && m <= hi, unknown: false, tm: m, tml: lo, tmh: hi };
+}
+
+/** Lo mismo para el CO₂ declarado: debe caer entre el de VL y el de VH. */
+function homoIpCo2Check(family, co2) {
+    var c = _homoNum(co2);
+    if (!family || c === null) return { ok: true, unknown: true };
+    var lo = _homoNum(family.co2Low), hi = _homoNum(family.co2High);
+    if (lo === null || hi === null) return { ok: true, unknown: true };
+    if (lo > hi) { var t = lo; lo = hi; hi = t; }
+    return { ok: c >= lo && c <= hi, unknown: false, co2: c, lo: lo, hi: hi };
+}
+
+/** Revisa todos los vehículos de una lista contra su familia IP. */
+function homoIpScanOutliers(vehicles) {
+    var out = [];
+    (vehicles || []).forEach(function(v) {
+        var res = homoIpFamilyForVehicle(v);
+        if (!res) return;
+        var h = homoVehicleData(v) || {};
+        var mass = homoIpMassCheck(res.family, h.tm);
+        var co2 = homoIpCo2Check(res.family, h.co2Target);
+        if (!mass.unknown && !mass.ok) {
+            out.push({ vin: v.vin, kind: 'masa', family: res.family,
+                       text: 'TM ' + mass.tm + ' kg fuera del rango [' + mass.tml + ', ' + mass.tmh + '] de ' + res.family.code });
+        }
+        if (!co2.unknown && !co2.ok) {
+            out.push({ vin: v.vin, kind: 'co2', family: res.family,
+                       text: 'CO₂ declarado ' + co2.co2 + ' g/km fuera del rango [' + co2.lo + ', ' + co2.hi + '] de ' + res.family.code });
+        }
+    });
+    return out;
+}
+
+// ─── IP: ALTA / EDICIÓN / BORRADO ─────────────────────────────────────────────
+
+function homoIpSave(fam) {
+    homoInit();
+    if (!fam || !fam.code) return false;
+    if (!homoState.ipFamilies) homoState.ipFamilies = [];
+    var i = homoState.ipFamilies.findIndex(function(f) {
+        return f.id === fam.id || _homoNorm(f.code) === _homoNorm(fam.code);
+    });
+    fam.updatedAt = new Date().toISOString();
+    fam.by = fam.by || ((typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : '');
+    if (i >= 0) {
+        fam.id = homoState.ipFamilies[i].id;
+        homoState.ipFamilies[i] = fam;
+    } else {
+        fam.id = fam.id || ('ipf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+        fam.at = new Date().toISOString();
+        homoState.ipFamilies.push(fam);
+    }
+    _homoIpIndex = null;
+    var ok = homoSave();
+    if (ok && typeof auditLog === 'function') {
+        auditLog('homolog', 'ip_family_saved', { type: 'homolog', label: fam.code },
+                 (fam.members || []).length + ' variante(s)/versión(es) · TML ' + (fam.tml || '—') + ' / TMH ' + (fam.tmh || '—'));
+    }
+    if (typeof copInvalidateCache === 'function') copInvalidateCache();
+    return ok;
+}
+
+function homoIpDelete(id) {
+    homoInit();
+    var f = (homoState.ipFamilies || []).find(function(x) { return x.id === id; });
+    homoState.ipFamilies = (homoState.ipFamilies || []).filter(function(x) { return x.id !== id; });
+    _homoIpIndex = null;
+    homoSave();
+    if (f && typeof auditLog === 'function') auditLog('homolog', 'ip_family_deleted', { type: 'homolog', label: f.code }, '');
+    if (typeof copInvalidateCache === 'function') copInvalidateCache();
+}
+
+// ─── IP: LECTOR DEL WVTA (pegar el texto del certificado) ────────────────────
+//
+// El WVTA es un PDF; pedirle a alguien que teclee 5 familias × 5 campos es la
+// forma segura de que no se use. Se acepta PEGAR el texto de los dos bloques que
+// importan y se arma todo solo:
+//
+//   0.2.3.1 Interpolation family's identifier   → código IP + variante/versión
+//   3.1     Results of the CO2 emission tests   → TML/TMH y CO₂ de VL y VH
+//
+// El formato real (verificado contra un certificado e4*2018/858*00261*00) pone
+// cada campo en una línea con sus valores separados por espacios, en el mismo
+// orden que las columnas. No hay separador de columnas, así que se empatan por
+// POSICIÓN — por eso se valida que los conteos coincidan antes de aceptar nada.
+
+/** Números de una línea de la tabla del WVTA, en orden de columna. */
+function _homoWvtaNums(line) {
+    var m = String(line || '').match(/-?\d+(?:[.,]\d+)?/g) || [];
+    return m.map(function(x) { return parseFloat(x.replace(',', '.')); });
+}
+
+/**
+ * Interpreta el texto pegado de un WVTA. Devuelve
+ * {families:[...], warnings:[...], meta:{wvta,type,commercialName,wvtaDate}}.
+ * Es una función PURA (sin DOM): se puede probar en Node.
+ */
+/**
+ * El PDF parte los códigos IP entre dos renglones cuando la columna es angosta:
+ *   "Interpolation family IP-0401789- IP-0401788- IP-0401787-"
+ *   "3KP 3KP 3KP"
+ * Se vuelven a pegar antes de interpretar nada.
+ */
+function _homoWvtaJoinSplitCodes(lines) {
+    var out = [];
+    for (var i = 0; i < lines.length; i++) {
+        var l = lines[i], next = lines[i + 1];
+        var partes = l.match(/IP-[\w]*-(?=\s|$)/g);
+        if (partes && next) {
+            var sufijos = next.trim().split(/\s+/);
+            if (sufijos.length === partes.length && sufijos.every(function(s) { return /^[\w]+$/.test(s); })) {
+                var k = 0;
+                out.push(l.replace(/IP-[\w]*-(?=\s|$)/g, function(m) { return m + sufijos[k++]; }));
+                i++;                       // el renglón de sufijos ya se consumió
+                continue;
+            }
+        }
+        out.push(l);
+    }
+    return out;
+}
+
+function homoIpParseWVTA(text) {
+    var lines = _homoWvtaJoinSplitCodes(
+        String(text || '').split(/\r?\n/).map(function(l) { return l.trim(); })
+    );
+    var warnings = [], meta = {};
+
+    lines.forEach(function(l) {
+        var m;
+        if (!meta.wvta && (m = l.match(/Type-?approval\s*No\.?\s*:?\s*(\S.*)$/i))) meta.wvta = m[1].trim();
+        if (!meta.type && (m = l.match(/^Type\s*:?\s*([A-Za-z0-9_\-]+)\s*$/i))) meta.type = m[1].trim();
+        if (!meta.commercialName && (m = l.match(/Commercial name.*?:\s*(\S.*)$/i))) meta.commercialName = m[1].trim();
+        if (!meta.wvtaDate && (m = l.match(/^Date\s*:?\s*(\d{1,2}\s+\w+\s+\d{4})\s*$/i))) meta.wvtaDate = m[1].trim();
+        if (!meta.regulationCited && (m = l.match(/(Regulation\s*\(EC\)\s*No\s*715\/2007[^\n]*)/i))) meta.regulationCited = m[1].trim();
+    });
+
+    // ── Bloque 0.2.3.1: variante(s) / versión(es) / IP Family, en tríos ────────
+    var byCode = {};   // código IP → {code, members:[]}
+    var pend = null;
+    lines.forEach(function(l) {
+        var mv = l.match(/^Variant\(s\)\s+(.+)$/i);
+        var mV = l.match(/^Version\(s\)\s+(.+)$/i);
+        var mi = l.match(/^IP\s*Family\s+(.+)$/i);
+        if (mv) { pend = { variants: mv[1].trim().split(/\s+/) }; return; }
+        if (mV && pend) { pend.versions = mV[1].trim().split(/\s+/); return; }
+        if (mi && pend && pend.versions) {
+            var codes = mi[1].trim().split(/\s+/);
+            var n = pend.variants.length;
+            // El WVTA repite el mismo código IP para columnas contiguas cuando
+            // comparten familia; si vienen menos códigos que columnas, se avisa en
+            // vez de inventar el reparto.
+            if (codes.length !== n) {
+                warnings.push('El bloque de "' + pend.variants.join(' ') + '" trae ' + n +
+                    ' variante(s) pero ' + codes.length + ' código(s) IP. Revisa el reparto a mano.');
+            }
+            for (var i = 0; i < n; i++) {
+                var code = codes[i] || codes[codes.length - 1];
+                if (!code || !/^IP-/i.test(code)) continue;
+                if (!byCode[code]) byCode[code] = { code: code, members: [] };
+                byCode[code].members.push({
+                    variant: pend.variants[i] || '',
+                    version: (pend.versions && pend.versions[i]) || ''
+                });
+            }
+            pend = null;
+        }
+    });
+
+    // ── Bloque 3.1: TML/TMH y CO₂ combinado por familia (columnas VH, VL) ──────
+    // Cada familia ocupa DOS columnas (VH y VL). El encabezado de columnas NO
+    // siempre se llama igual: en un mismo certificado aparece como "Interpolation
+    // family …" en una página y como "Version(s) IP-…" en la siguiente (el PDF
+    // desplaza las etiquetas). Por eso se toma como encabezado CUALQUIER renglón
+    // con códigos IP que no sea el "IP Family" del bloque 0.2.3.1, y las líneas
+    // Combined / Test mass se asignan al último encabezado visto.
+    var pendientes = 0;
+    lines.forEach(function(l) {
+        if (/^IP\s*Family\b/i.test(l)) return;            // ese bloque ya se consumió
+        var codes = l.match(/IP-[\w]+-[\w]+/gi);
+        if (codes && codes.length) {
+            var order = codes.map(function(c) { return c.trim(); });
+            lines._curOrder = order;
+            return;
+        }
+        var order2 = lines._curOrder;
+        if (!order2 || !order2.length) return;
+        var esCombined = /^Combined\b/i.test(l);
+        var esMasa = /^Test\s*mass/i.test(l);
+        if (!esCombined && !esMasa) return;
+
+        var nums = _homoWvtaNums(l);
+        // Test mass puede traer basura del encabezado ("(kg)"); se toman los
+        // últimos 2·N números, que son los de las columnas.
+        var need = order2.length * 2;
+        if (nums.length < need) {
+            pendientes++;
+            return;
+        }
+        var vals = nums.slice(nums.length - need);
+        order2.forEach(function(code, i) {
+            var f = byCode[code] || (byCode[code] = { code: code, members: [] });
+            var a = vals[i * 2], b = vals[i * 2 + 1];
+            if (a == null || b == null) return;
+            if (esMasa)     { f.tmh = Math.max(a, b);     f.tml = Math.min(a, b); }
+            if (esCombined && f.co2High === undefined) { f.co2High = Math.max(a, b); f.co2Low = Math.min(a, b); }
+        });
+    });
+    if (pendientes) {
+        warnings.push('Se encontró el bloque de resultados pero alguna fila traía menos valores que columnas; revisa TML/TMH y CO₂ de las familias afectadas.');
+    }
+
+    var families = Object.keys(byCode).map(function(k) {
+        var f = byCode[k];
+        return {
+            code: f.code, members: f.members || [],
+            tml: f.tml != null ? f.tml : '', tmh: f.tmh != null ? f.tmh : '',
+            co2Low: f.co2Low != null ? f.co2Low : '', co2High: f.co2High != null ? f.co2High : '',
+            wvta: meta.wvta || '', wvtaDate: meta.wvtaDate || '', type: meta.type || '',
+            commercialName: meta.commercialName || '', regulationCited: meta.regulationCited || ''
+        };
+    });
+    if (!families.length) {
+        warnings.push('No se encontró ningún código IP-… en el texto. Copia el punto 0.2.3.1 del certificado (y, si lo tienes, el bloque 3.1 de resultados de CO₂).');
+    }
+    return { families: families, warnings: warnings, meta: meta };
+}
+
+// ─── IP: UI dentro de la pestaña de Homologación ─────────────────────────────
+
+function _homoIpCardHTML() {
+    homoInit();
+    var fams = homoState.ipFamilies || [];
+    var html = '<div class="tp-card">';
+    html += '<div class="tp-card-title" data-help="pn-homolog-ip-help"><span>🧬 Familias de interpolación (WVTA)</span>' +
+        (fams.length ? '<button class="tp-btn tp-btn-ghost" onclick="homoIpExportCSV()" style="font-size: var(--fs-xs);">📤 Exportar CSV</button>' : '') +
+        '</div>';
+    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:12px;line-height:1.5;">' +
+        'La familia de interpolación es la agrupación <b>oficial</b> del CoP en Europa: la declara el certificado ' +
+        'de homologación (WVTA) en su punto <b>0.2.3.1</b>, por variante y versión. ' +
+        '<b>Los coeficientes f0/f1/f2 NO se capturan aquí</b> — el WVTA solo trae los de los vehículos extremos ' +
+        'VL y VH que acotan la familia, no los del vehículo que vas a ensayar. Esos siguen viniendo del catálogo ' +
+        'del ICMS. De aquí salen la identidad de la familia, sus miembros, las masas TML/TMH y el rango de CO₂ declarado.</div>';
+
+    html += '<div class="form-group"><label for="homo-ip-paste">Pega el texto del WVTA (punto 0.2.3.1 y, si lo tienes, el bloque 3.1 de resultados de CO₂)</label>' +
+        '<textarea id="homo-ip-paste" class="form-control" rows="4" placeholder="Copia del PDF del certificado las tablas de Variant(s) / Version(s) / IP Family, y las de Combined y Test mass."></textarea>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">' +
+        '<button class="tp-btn tp-btn-primary" onclick="homoIpImportPaste()">Leer el certificado</button>' +
+        '<button class="tp-btn tp-btn-ghost" onclick="homoIpEditModal()">➕ Capturar a mano</button>' +
+        '</div></div>';
+    html += '<div id="homo-ip-status" style="font-size: var(--fs-sm);margin:8px 0;"></div>';
+
+    if (!fams.length) {
+        html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);">Aún no hay familias IP. Mientras no las haya, el CoP sigue agrupando por la familia derivada del plan (modelo · motor · transmisión · año · norma).</div>';
+        return html + '</div>';
+    }
+
+    html += '<div style="overflow-x:auto;"><table class="cop-table"><thead><tr>' +
+        '<th class="cop-l">Familia IP</th><th class="cop-l">Variantes / versiones</th>' +
+        '<th>TML (kg)</th><th>TMH (kg)</th><th>CO₂ VL–VH</th><th class="cop-l">WVTA</th><th></th>' +
+        '</tr></thead><tbody>';
+    fams.slice().sort(function(a, b) { return String(a.code).localeCompare(String(b.code)); }).forEach(function(f) {
+        html += '<tr>';
+        html += '<td class="cop-l"><b>' + _homoEsc(f.code) + '</b>' +
+                (f.commercialName ? '<br><span style="color:var(--tp-dim);font-size:var(--fs-xs);">' + _homoEsc(f.commercialName) + (f.type ? ' · ' + _homoEsc(f.type) : '') + '</span>' : '') + '</td>';
+        html += '<td class="cop-l" style="font-family:monospace;font-size:var(--fs-xs);">' +
+                (f.members || []).map(function(m) { return _homoEsc(m.variant) + ' / ' + _homoEsc(m.version); }).join('<br>') + '</td>';
+        html += '<td class="cop-num">' + (f.tml === '' || f.tml == null ? '—' : f.tml) + '</td>';
+        html += '<td class="cop-num">' + (f.tmh === '' || f.tmh == null ? '—' : f.tmh) + '</td>';
+        html += '<td class="cop-num">' + ((f.co2Low === '' || f.co2Low == null) ? '—' : f.co2Low + ' – ' + f.co2High) + '</td>';
+        html += '<td class="cop-l" style="font-size:var(--fs-xs);color:var(--tp-dim);">' + _homoEsc(f.wvta || '—') +
+                (f.wvtaDate ? '<br>' + _homoEsc(f.wvtaDate) : '') + '</td>';
+        html += '<td style="white-space:nowrap;">' +
+                '<button class="tp-btn tp-btn-ghost" style="font-size:var(--fs-xs);" onclick="homoIpEditModal(\'' + f.id + '\')">Editar</button>' +
+                '<button class="tp-btn tp-btn-ghost" style="font-size:var(--fs-xs);" onclick="homoIpConfirmDelete(\'' + f.id + '\')" title="Borrar">✕</button></td>';
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    return html + '</div>';
+}
+
+function _homoEsc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+/** Lee lo pegado, muestra lo que entendió y pide confirmar antes de escribir. */
+function homoIpImportPaste() {
+    var ta = document.getElementById('homo-ip-paste');
+    var st = document.getElementById('homo-ip-status');
+    var txt = ta ? ta.value : '';
+    if (!txt.trim()) { if (st) st.innerHTML = '<span style="color:var(--warn-text);">Pega primero el texto del certificado.</span>'; return; }
+
+    var res = homoIpParseWVTA(txt);
+    window._homoIpPending = res.families;
+
+    var h = '';
+    if (res.warnings.length) {
+        h += '<div class="cop-note cop-note--warn"><div class="cop-note-title">Revisar</div>' +
+             res.warnings.map(_homoEsc).join('<br>') + '</div>';
+    }
+    if (!res.families.length) { if (st) st.innerHTML = h; return; }
+
+    h += '<div class="cop-note"><div class="cop-note-title">Se entendieron ' + res.families.length + ' familia(s)</div>';
+    if (res.meta.wvta) h += 'Certificado <b>' + _homoEsc(res.meta.wvta) + '</b>' + (res.meta.wvtaDate ? ' · ' + _homoEsc(res.meta.wvtaDate) : '') + '<br>';
+    h += '<table class="cop-table" style="margin-top:8px;"><thead><tr><th class="cop-l">Familia IP</th>' +
+         '<th class="cop-l">Variantes / versiones</th><th>TML</th><th>TMH</th><th>CO₂ VL–VH</th></tr></thead><tbody>';
+    res.families.forEach(function(f) {
+        var falta = (f.tml === '' || f.tmh === '');
+        h += '<tr><td class="cop-l"><b>' + _homoEsc(f.code) + '</b></td>' +
+             '<td class="cop-l" style="font-family:monospace;font-size:var(--fs-xs);">' +
+             (f.members || []).map(function(m) { return _homoEsc(m.variant) + '/' + _homoEsc(m.version); }).join('<br>') + '</td>' +
+             '<td class="cop-num">' + (f.tml === '' ? '<span style="color:var(--warn-text);">falta</span>' : f.tml) + '</td>' +
+             '<td class="cop-num">' + (f.tmh === '' ? '<span style="color:var(--warn-text);">falta</span>' : f.tmh) + '</td>' +
+             '<td class="cop-num">' + (f.co2Low === '' ? '—' : f.co2Low + ' – ' + f.co2High) + '</td></tr>';
+        if (falta) { /* se avisa arriba en la celda */ }
+    });
+    h += '</tbody></table>';
+    h += '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">' +
+         '<button class="tp-btn tp-btn-primary" onclick="homoIpApplyPending()">Guardar estas familias</button>' +
+         '<button class="tp-btn tp-btn-ghost" onclick="homoIpCancelPending()">Cancelar</button></div>';
+    h += '<div style="margin-top:8px;font-size:var(--fs-xs);color:var(--tp-dim);">Reimportar el mismo certificado actualiza, no duplica: se empata por código IP.</div>';
+    h += '</div>';
+    if (st) st.innerHTML = h;
+}
+
+/**
+ * Repinta la pestaña de Homologación. Hace falta `tabCacheInvalidate` porque las
+ * pestañas del Panel están cacheadas y moverse DENTRO de la misma pestaña no
+ * dispara un cambio real: sin esto la tarjeta seguía diciendo "aún no hay
+ * familias IP" con las familias ya guardadas. Mismo patrón que _pnProjNav (v16.8).
+ */
+function _homoIpRepaint() {
+    if (typeof tabCacheInvalidate === 'function') tabCacheInvalidate('pn', 'pn-homolog');
+    if (typeof pnRender === 'function') pnRender();
+}
+
+function homoIpApplyPending() {
+    var pend = window._homoIpPending || [];
+    if (!pend.length) return;
+    var n = 0;
+    pend.forEach(function(f) { if (homoIpSave(f)) n++; });
+    window._homoIpPending = null;
+    if (typeof showToast === 'function') showToast(n + ' familia(s) IP guardada(s)', 'success');
+    _homoIpRepaint();
+}
+function homoIpCancelPending() {
+    window._homoIpPending = null;
+    var st = document.getElementById('homo-ip-status');
+    if (st) st.innerHTML = '';
+}
+
+function homoIpConfirmDelete(id) {
+    var f = (homoState.ipFamilies || []).find(function(x) { return x.id === id; });
+    if (!f) return;
+    var go = function() { homoIpDelete(id); _homoIpRepaint(); };
+    if (typeof showConfirm === 'function') showConfirm('¿Borrar la familia ' + f.code + '?', go);
+    else if (confirm('¿Borrar la familia ' + f.code + '?')) go();
+}
+
+/** Alta/edición a mano (para un certificado que no se pueda copiar como texto). */
+function homoIpEditModal(id) {
+    homoInit();
+    var f = id ? (homoState.ipFamilies || []).find(function(x) { return x.id === id; }) : null;
+    var v = function(x) { return _homoEsc(f ? (f[x] == null ? '' : f[x]) : ''); };
+    var miembros = f ? (f.members || []).map(function(m) { return m.variant + '/' + m.version; }).join('\n') : '';
+
+    var body =
+        '<div class="form-group"><label for="ipf-code">Código de familia IP *</label>' +
+        '<input id="ipf-code" class="form-control" placeholder="IP-0401789-3KP" value="' + v('code') + '"></div>' +
+        '<div class="form-group"><label for="ipf-members">Variantes / versiones (una por renglón, separadas con /)</label>' +
+        '<textarea id="ipf-members" class="form-control" rows="4" placeholder="B5P12/M61A11">' + _homoEsc(miembros) + '</textarea></div>' +
+        '<div class="inv-row-list-2col">' +
+        '<div class="form-group"><label for="ipf-tml">TML — masa de ensayo del VL (kg)</label>' +
+        '<input id="ipf-tml" type="number" step="0.1" class="form-control" value="' + v('tml') + '"></div>' +
+        '<div class="form-group"><label for="ipf-tmh">TMH — masa de ensayo del VH (kg)</label>' +
+        '<input id="ipf-tmh" type="number" step="0.1" class="form-control" value="' + v('tmh') + '"></div>' +
+        '</div>' +
+        '<details><summary style="cursor:pointer;font-size:var(--fs-sm);">Más detalles</summary>' +
+        '<div class="inv-row-list-2col" style="margin-top:8px;">' +
+        '<div class="form-group"><label for="ipf-co2l">CO₂ combinado del VL (g/km)</label>' +
+        '<input id="ipf-co2l" type="number" step="0.1" class="form-control" value="' + v('co2Low') + '"></div>' +
+        '<div class="form-group"><label for="ipf-co2h">CO₂ combinado del VH (g/km)</label>' +
+        '<input id="ipf-co2h" type="number" step="0.1" class="form-control" value="' + v('co2High') + '"></div>' +
+        '<div class="form-group"><label for="ipf-wvta">No. de homologación (WVTA)</label>' +
+        '<input id="ipf-wvta" class="form-control" placeholder="e4*2018/858*00261*00" value="' + v('wvta') + '"></div>' +
+        '<div class="form-group"><label for="ipf-date">Fecha del certificado</label>' +
+        '<input id="ipf-date" class="form-control" value="' + v('wvtaDate') + '"></div>' +
+        '<div class="form-group"><label for="ipf-type">Tipo</label>' +
+        '<input id="ipf-type" class="form-control" placeholder="CL4m" value="' + v('type') + '"></div>' +
+        '<div class="form-group"><label for="ipf-name">Nombre comercial</label>' +
+        '<input id="ipf-name" class="form-control" placeholder="K4" value="' + v('commercialName') + '"></div>' +
+        '</div></details>' +
+        '<p style="font-size:var(--fs-xs);color:var(--tp-dim);margin-top:8px;">' +
+        'Los coeficientes f0/f1/f2 no van aquí: son de cada vehículo y vienen del catálogo del ICMS.</p>';
+
+    if (typeof showModal !== 'function') return;
+    // showModal (v18.2) espera `onclick` como FUNCIÓN y marca el primario con
+    // cls:'btn-primary'; el cierre lo dispara el llamador poniendo display:none.
+    var cerrar = function() {
+        var ov = document.getElementById('globalModal');
+        if (ov) ov.style.display = 'none';
+    };
+    showModal({
+        title: f ? 'Editar familia IP' : 'Nueva familia IP',
+        body: body,
+        buttons: [
+            { label: 'Cancelar', onclick: cerrar },
+            { label: 'Guardar', cls: 'btn-primary', onclick: function() { homoIpSaveFromModal(f ? f.id : null); } }
+        ]
+    });
+}
+
+function homoIpSaveFromModal(id) {
+    var g = function(x) { var e = document.getElementById(x); return e ? e.value.trim() : ''; };
+    var code = g('ipf-code');
+    if (!code) { if (typeof showToast === 'function') showToast('El código de familia IP es obligatorio', 'error'); return; }
+    var members = g('ipf-members').split(/\r?\n/).map(function(l) {
+        var p = l.split('/');
+        return { variant: (p[0] || '').trim(), version: (p[1] || '').trim() };
+    }).filter(function(m) { return m.variant || m.version; });
+
+    var num = function(x) { var s = g(x); return s === '' ? '' : parseFloat(s); };
+    var fam = {
+        id: id || undefined, code: code, members: members,
+        tml: num('ipf-tml'), tmh: num('ipf-tmh'),
+        co2Low: num('ipf-co2l'), co2High: num('ipf-co2h'),
+        wvta: g('ipf-wvta'), wvtaDate: g('ipf-date'),
+        type: g('ipf-type'), commercialName: g('ipf-name')
+    };
+    if (homoIpSave(fam)) {
+        var ov = document.getElementById('globalModal');
+        if (ov) ov.style.display = 'none';
+        if (typeof showToast === 'function') showToast('Familia ' + code + ' guardada', 'success');
+        _homoIpRepaint();
+    }
+}
+
+function homoIpExportCSV() {
+    homoInit();
+    var fams = homoState.ipFamilies || [];
+    if (!fams.length) return;
+    var cell = function(x) {
+        var s = (x === null || x === undefined) ? '' : String(x);
+        return (s.indexOf(',') >= 0 || s.indexOf('"') >= 0) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    var csv = 'Familia IP,Variante,Version,TML (kg),TMH (kg),CO2 VL (g/km),CO2 VH (g/km),WVTA,Fecha,Tipo,Nombre comercial\n';
+    fams.forEach(function(f) {
+        var ms = (f.members || []).length ? f.members : [{ variant: '', version: '' }];
+        ms.forEach(function(m) {
+            csv += [f.code, m.variant, m.version, f.tml, f.tmh, f.co2Low, f.co2High,
+                    f.wvta, f.wvtaDate, f.type, f.commercialName].map(cell).join(',') + '\n';
+        });
+    });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }));
+    a.download = 'Familias_IP_WVTA_' + (typeof localToday === 'function' ? localToday() : '') + '.csv';
+    a.click();
+    if (typeof showToast === 'function') showToast('Exportado', 'success');
+}
+
+if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    'pn-homolog-ip-help': { title: 'Familias de interpolación (WVTA)', text: 'Es la agrupación oficial del CoP en Europa: el certificado de homologación declara, por variante y versión, a qué familia de interpolación pertenece cada vehículo. Sirve para que el CoP agrupe como lo hace la autoridad, y para detectar un vehículo cuya masa de ensayo o CO₂ declarado caen fuera del rango de su propia familia. Los coeficientes f0/f1/f2 NO salen de aquí: el certificado solo trae los de los vehículos extremos VL y VH, y los de cada vehículo concreto vienen del ICMS.' }
 });

@@ -826,6 +826,16 @@ function copFamilyRisk(row) {
             text: row.spcAlarms.length + ' alarma(s) de control de proceso' + (r1 ? ' (punto fuera de ±3σ)' : ' (corrimiento o tendencia)') + '.' });
         bump('atencion');
     }
+    // [v19.1] Un vehículo cuya masa de ensayo o CO₂ declarado caen fuera del rango
+    // de su propia familia IP es un problema de EVIDENCIA, no de emisiones: o el
+    // dato del ICMS está mal, o el vehículo no pertenece a esa familia. Se avisa
+    // sin tocar el veredicto.
+    if (row.ipOutliers && row.ipOutliers.length) {
+        reasons.push({ code: 'ip_outlier',
+            text: row.ipOutliers.length + ' vehículo(s) fuera del rango de su familia IP: ' +
+                  row.ipOutliers.slice(0, 2).map(function(o) { return o.text; }).join(' · ') });
+        bump('atencion');
+    }
 
     var confidence = row.n >= COP_SPC_RELIABLE ? 'alta' : row.n >= 5 ? 'media' : 'baja';
     if (row.daysSinceTest !== null && row.daysSinceTest !== undefined && row.daysSinceTest > COP_RISK_THRESHOLDS.staleDays) {
@@ -977,6 +987,28 @@ function copPortfolioRows(opts) {
         r.judgedAt = j ? j.date : '';
         r.judgedDecision = j ? j.decision : '';
         r.judgmentId = j ? j.id : '';
+
+        // [v19.1] Familia de interpolación del WVTA (solo Europa). Es INFORMATIVA
+        // sobre la fila: la clave de agrupación sigue siendo copVehicleFamilyKey,
+        // que es la identidad de las series SPC y de todos los juicios guardados.
+        r.ipFamilies = [];
+        r.ipOutliers = [];
+        try {
+            if (typeof homoIpFamilyForVehicle === 'function') {
+                var vinsFam = {};
+                (r.tests || []).forEach(function(t) { if (t.vin) vinsFam[String(t.vin).toUpperCase()] = true; });
+                var vehsFam = ((typeof db !== 'undefined' && db.vehicles) ? db.vehicles : []).filter(function(v) {
+                    return v.vin && vinsFam[String(v.vin).toUpperCase()];
+                });
+                var codes = {};
+                vehsFam.forEach(function(v) {
+                    var res = homoIpFamilyForVehicle(v);
+                    if (res && res.family) codes[res.family.code] = true;
+                });
+                r.ipFamilies = Object.keys(codes);
+                if (typeof homoIpScanOutliers === 'function') r.ipOutliers = homoIpScanOutliers(vehsFam);
+            }
+        } catch (e) {}
 
         // El límite aplicado vs el perfil real de la norma (§ copLimitsForFamily).
         r.limitsCheck = null;
@@ -1572,7 +1604,12 @@ function _copFamCardHTML(r) {
     html += '<div class="cop-fam-head">';
     html += '<div><div class="cop-fam-title">' + _copEsc(r.label) + '</div>';
     html += '<div class="cop-fam-sub">' + _copEsc((r.regionsArr || []).join(', ') || '—') +
-            (r.emissionReg ? ' · ' + _copEsc(r.emissionReg) : '') + '</div></div>';
+            (r.emissionReg ? ' · ' + _copEsc(r.emissionReg) : '') + '</div>';
+    if (r.ipFamilies && r.ipFamilies.length) {
+        html += '<div class="cop-fam-sub" style="font-family:monospace;">🧬 ' +
+                _copEsc(r.ipFamilies.join(' · ')) + '</div>';
+    }
+    html += '</div>';
     html += '<span class="cop-chip ' + ru.chip + '" title="' + _copEsc(ru.label) + '">' + ru.glyph + '</span>';
     html += '</div>';
 
@@ -2592,6 +2629,21 @@ function copFamilyPDF(familyKey) {
     head.push('Procedimiento: ' + (copState.regulation || 'R154') + (copState.regulation === 'R83' ? ' (NEDC)' : ' (WLTP)'));
     head.push('Norma de emisiones: ' + (row.emissionReg || '—'));
     doc.text(head.join('   ·   '), ML, y); y += 4;
+    // [v19.1] Familia de interpolación + certificado WVTA (solo Europa). Es lo
+    // primero que un auditor europeo busca para saber contra qué está juzgando.
+    if (r.ipFamilies && r.ipFamilies.length) {
+        var ipInfo = [];
+        r.ipFamilies.forEach(function(code) {
+            var f = (typeof homoIpFamilyByCode === 'function') ? homoIpFamilyByCode(code) : null;
+            ipInfo.push(code + (f && f.tml ? ' (TML ' + f.tml + ' / TMH ' + f.tmh + ' kg)' : ''));
+        });
+        doc.text('Familia(s) de interpolacion: ' + ipInfo.join('   ·   '), ML, y); y += 4;
+        var prim = (typeof homoIpFamilyByCode === 'function') ? homoIpFamilyByCode(r.ipFamilies[0]) : null;
+        if (prim && prim.wvta) {
+            doc.text('WVTA: ' + prim.wvta + (prim.wvtaDate ? '   ·   ' + prim.wvtaDate : '') +
+                     (prim.type ? '   ·   tipo ' + prim.type : ''), ML, y); y += 4;
+        }
+    }
     var head2 = ['Generado: ' + _copToday()];
     if (_copWho()) head2.push('por ' + _copWho());
     if (typeof APP_VERSION !== 'undefined') head2.push('KIA EmLab v' + APP_VERSION);

@@ -210,11 +210,19 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '19.0';
+var APP_VERSION = '19.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '19.1', date: '26 ago 2026', title: 'Familias de interpolación del WVTA', bullets: [
+        'El CoP ya reconoce la familia de interpolación (IP), que es la agrupación oficial en Europa: la declara el certificado de homologación por variante y versión. Se lee pegando el texto del WVTA — no hay que teclear familia por familia.',
+        'Probado contra un certificado real (e4*2018/858*00261*00, tipo CL4m / K4): las 5 familias salen con sus variantes, versiones, masas TML/TMH y rango de CO₂ exactamente como los declara el documento.',
+        'Detecta un caso que a ojo se pasa: la misma variante puede pertenecer a familias distintas según su versión (B5P22 está en dos). Cuando la variante sola es ambigua, la app NO adivina.',
+        'Aviso nuevo: si la masa de ensayo o el CO₂ declarado de un vehículo (datos del ICMS) caen fuera del rango de su propia familia IP (rango del WVTA), sale marcado. O el dato está mal, o el vehículo no es de esa familia — en los dos casos es algo que corregir antes de una auditoría.',
+        'El expediente PDF ya cita la familia IP, sus masas y el número de certificado.',
+        'Los coeficientes f0/f1/f2 siguen viniendo del ICMS, nunca del WVTA: el certificado solo trae los de los vehículos extremos VL y VH que acotan la familia, no los del vehículo que se va a ensayar.'
+    ]},
     { version: '19.0', date: '26 ago 2026', title: 'CoP: de calculadora a tablero de conformidad', bullets: [
         'El CoP ya no obliga a elegir una familia en un menú para ver algo: el Panorama muestra TODAS las familias del alcance de un vistazo, con su veredicto, qué tan cerca del límite van y desde cuándo no se ensayan. Está pensado para proyectarse en una auditoría (botón Modo presentación).',
         'Alcance acotado a lo que el laboratorio realmente certifica: EURO-5, EURO-6E y PRE-EURO 7 en EUROPE y MIDDLE EAST. Lo que queda fuera se declara al pie de la pantalla en vez de desaparecer sin explicación.',

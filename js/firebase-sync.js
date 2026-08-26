@@ -1634,9 +1634,21 @@ function fbPullApply(collections, results, showFeedback) {
                 var prev = _rowMap[k];
                 if (!prev || String(r.at || '') >= String(prev.at || '')) _rowMap[k] = r;
             });
+            // v19.1 — Familias IP del WVTA: merge por código (gana `updatedAt`). Este
+            // objeto se arma desde cero, así que una clave nueva que no se liste aquí
+            // se pierde en CADA pull. Se empata normalizando el código igual que
+            // _homoNorm (mayúsculas, sin separadores).
+            var _ipMap = {};
+            (_localHomo.ipFamilies || []).concat(_remoteHomo.ipFamilies || []).forEach(function(f) {
+                if (!f || !f.code) return;
+                var k = String(f.code).trim().toUpperCase().replace(/[\s\-_/]+/g, '');
+                var prev = _ipMap[k];
+                if (!prev || String(f.updatedAt || '') >= String(prev.updatedAt || '')) _ipMap[k] = f;
+            });
             var _mergedHomo = {
                 catalog: Object.keys(_rowMap).map(function(k) { return _rowMap[k]; }),
                 links: Object.assign({}, _remoteHomo.links || {}, _localHomo.links || {}),
+                ipFamilies: Object.keys(_ipMap).map(function(k) { return _ipMap[k]; }),
                 co2TolerancePct: (typeof _remoteHomo.co2TolerancePct === 'number' && String(_remoteHomo.updatedAt || '') > String(_localHomo.updatedAt || ''))
                     ? _remoteHomo.co2TolerancePct
                     : (typeof _localHomo.co2TolerancePct === 'number' ? _localHomo.co2TolerancePct : 4),
