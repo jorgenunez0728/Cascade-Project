@@ -6724,7 +6724,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608271113';
+var APP_BUILD = '202608271117';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
@@ -6990,14 +6990,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608271113' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608271117' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608271113' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608271117' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -7013,7 +7013,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608271113' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608271117' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -25421,12 +25421,23 @@ function tpWeekRegionBalance(items) {
 var _tpAnalysisCache = { key: '', data: null };
 
 function tpGetAnalysis() {
-    var cacheKey = tpState.planData.length + ':' + tpState.testedList.length + ':' + (tpState.testedList.length > 0 ? tpState.testedList[tpState.testedList.length-1].date : '');
+    // v20: `_lastSave` entra en la clave. Sin él, quitar y agregar una prueba el mismo
+    // día dejaba la clave IDÉNTICA y el análisis servía datos viejos — justo lo que
+    // pasa al palomear y despalomear en el plan.
+    var cacheKey = tpState.planData.length + ':' + tpState.testedList.length + ':' +
+                   (tpState.testedList.length > 0 ? tpState.testedList[tpState.testedList.length-1].date : '') +
+                   ':' + (tpState._lastSave || 0);
     if (_tpAnalysisCache.key === cacheKey && _tpAnalysisCache.data) return _tpAnalysisCache.data;
 
     var result = tpState.planData.map(cfg => {
         const rule = tpGetRule(cfg);
-        const n = tpState.testedList.filter(t => t.configText === cfg.desc).length;
+        const filas = tpState.testedList.filter(t => t.configText === cfg.desc);
+        const n = filas.length;
+        // v20: aditivo. `testedN` NO cambia de significado — sigue contando todo, para
+        // que la palomita manual sí baje el déficit (es justo su razón de ser). Al lado
+        // va el número solo-verificadas, que nunca se oculta.
+        const nDecl = filas.filter(tpTestedIsDeclared).length;
+        const nVer = n - nDecl;
         const req = cfg.paused ? 0 : tpCalcRequired(cfg, rule); // v16.2: pausada = no exige
         const comp = req > 0 ? Math.min(n / req, 1) : 1;
         const st = comp >= 1 ? 'ok' : comp >= 0.5 ? 'warn' : 'crit';
@@ -25434,7 +25445,8 @@ function tpGetAnalysis() {
         // v16.2: cuánto volumen entra al cálculo y qué regla se usó — para transparencia total
         const ruleInfo = { label: rule.label || '(sin nombre)', matchType: rule._matchType, ratio: rule.ratio, per: rule.per,
             vol: cfg.total + cfg.hist, formula: '(' + cfg.total.toLocaleString() + ' plan + ' + cfg.hist.toLocaleString() + ' hist) × ' + rule.ratio + '/' + rule.per.toLocaleString() };
-        return { ...cfg, testedN: n, required: req, deficit: Math.max(0, req - n), compliance: comp, status: st, score: sc, ruleInfo: ruleInfo };
+        return { ...cfg, testedN: n, testedVerified: nVer, testedDeclared: nDecl,
+                 required: req, deficit: Math.max(0, req - n), compliance: comp, status: st, score: sc, ruleInfo: ruleInfo };
     }).sort((a, b) => b.score - a.score);
 
     _tpAnalysisCache = { key: cacheKey, data: result };
@@ -25460,13 +25472,25 @@ function tpCoverageSummary() {
     var totalReq = analysis.reduce(function(s, a) { return s + a.required; }, 0);
     var totalTested = analysis.reduce(function(s, a) { return s + a.testedN; }, 0);
     var deficit = analysis.reduce(function(s, a) { return s + a.deficit; }, 0);
+    // v20 — ADITIVO. Ninguna llave existente cambia de significado: `pct`, `deficit` y
+    // `totalTested` siguen contando las declaradas a mano, porque la palomita existe
+    // justo para que el operador diga "esto ya se hizo, deja de proponérmelo"; si no
+    // bajara el déficit, la config volvería la semana siguiente y la palomita sería
+    // inútil. Pero el número solo-verificadas va AL LADO, siempre visible: nunca
+    // ocultar, siempre declarar (el principio del semáforo del CoP).
+    var totalDeclared = analysis.reduce(function(s, a) { return s + (a.testedDeclared || 0); }, 0);
+    var okVerified = vigentes.filter(function(a) { return (a.testedVerified || 0) >= a.required; }).length;
     return {
         vigentes: vigentes.length,
         ok: ok,
         pct: vigentes.length > 0 ? Math.round((ok / vigentes.length) * 100) : 0,
         totalReq: totalReq,
         totalTested: totalTested,
-        deficit: deficit
+        deficit: deficit,
+        totalDeclared: totalDeclared,
+        totalVerified: totalTested - totalDeclared,
+        okVerified: okVerified,
+        pctVerified: vigentes.length > 0 ? Math.round((okVerified / vigentes.length) * 100) : 0
     };
 }
 
@@ -25509,7 +25533,19 @@ function tpAutoFeedFromRelease(vehicle, opts) {
         source: 'cop15-release',
         purpose: vehicle.purpose,
     };
+    // v20: una declaración a mano es un MARCADOR de posición hasta que hay evidencia
+    // real. Al llegar la liberación de esa config, la más vieja se retira: si no, la
+    // misma prueba contaría dos veces (declarada + verificada) e inflaría la cobertura.
+    var _decl = (tpState.testedList || []).findIndex(function(t) {
+        return t && t.configText === vehicle.configCode && tpTestedIsDeclared(t);
+    });
+    if (_decl >= 0) {
+        entry.promotedFrom = 'plan-manual';
+        entry.note += ' (sustituye una declarada a mano)';
+        tpState.testedList.splice(_decl, 1);
+    }
     tpState.testedList.push(entry);
+    if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
     if (!(opts && opts.skipSave)) tpSave();
     tpUpdateBadges();
     auditLog('tp', 'vehicle_tested', {type:'plan', label:vehicle.configCode}, 'VIN: ' + (vehicle.vin || ''));
@@ -26836,7 +26872,7 @@ function tpRenderTested(el) {
                             <td style="max-width:260px;">${tpConfigBadges({desc:t.configText},{fontSize:'var(--fs-xs)'})}</td>
                             <td style="font-family:monospace;font-size: var(--fs-sm);font-weight:700;color:var(--tp-amber);white-space:nowrap;letter-spacing:0.3px;">${vin || '—'}</td>
                             <td style="font-size: var(--fs-xs);white-space:nowrap;">${t.date}</td>
-                            <td><span class="tp-badge" style="background:${t.source==='cop15-release'?'rgba(139,92,246,0.15);color:#8b5cf6':'rgba(6,182,212,0.15);color:#06b6d4'};border:1px solid currentColor;font-size: var(--fs-xs);">${t.source}</span></td>
+                            <td><span class="tp-badge" style="background:${tpTestedIsDeclared(t)?'rgba(245,158,11,0.15);color:var(--tp-amber)':t.source==='cop15-release'?'rgba(139,92,246,0.15);color:#8b5cf6':'rgba(6,182,212,0.15);color:#06b6d4'};border:1px solid currentColor;font-size: var(--fs-xs);" title="${tpTestedIsDeclared(t)?'Declarada a mano en el plan — sin vehículo liberado que la respalde':'Evidencia registrada'}">${tpTestedIsDeclared(t)?'✋ declarada':t.source}</span></td>
                             <td style="font-size: var(--fs-xs)">${t.purpose||'—'}</td>
                             <td><button onclick="tpState.testedList.splice(${origIdx},1);tpSave();tpRender();tpUpdateBadges();" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:14px;">×</button></td>
                         </tr>`;
@@ -28182,14 +28218,112 @@ function tpStartTestFromPlan(weekIdx, itemIdx) {
     }, 150);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v20] LA PALOMITA MANUAL, DURABLE Y HONESTA
+//
+// Antes `tpToggleWeeklyItem` solo escribía `item.completed` DENTRO del plan y nunca
+// tocaba `testedList`. Borrar el plan se llevaba la palomita: la única prueba de que
+// alguien declaró "esto ya se hizo" desaparecía, y la configuración volvía a
+// proponerse la semana siguiente. Ésa fue la pérdida real que reportó el laboratorio.
+//
+// Ahora la palomita deja un registro propio en `testedList`, marcado como DECLARADO
+// (`source:'plan-manual'`, `verified:false`) — nunca disfrazado de liberación real.
+//
+// `verified` es OPT-OUT a propósito: su AUSENCIA significa verificada. Así las ~500
+// filas que ya existen no necesitan migración y un pull desde código viejo no las
+// degrada. Barato, a prueba de sync, sin migración.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var TP_DECLARED_NOTE = 'Declarada en el plan — sin vehículo liberado';
+
+/** ¿Esta fila de `testedList` es evidencia real o una declaración a mano? */
+function tpTestedIsDeclared(t) { return !!(t && t.verified === false); }
+
+/** ¿Hay evidencia REAL (liberación) de esa config dentro de la semana del plan? */
+function _tpHasVerifiedInWeek(plan, desc) {
+    var d0 = plan && plan.weekDate;
+    if (!d0) return false;
+    var fin = new Date(d0 + 'T00:00:00');
+    if (isNaN(fin.getTime())) return false;
+    fin.setDate(fin.getDate() + 6);
+    var d1 = (typeof _tpFmtDate === 'function') ? _tpFmtDate(fin) : d0;
+    return (tpState.testedList || []).some(function(t) {
+        return t && t.configText === desc && !tpTestedIsDeclared(t) && t.date >= d0 && t.date <= d1;
+    });
+}
+
+/** Escribe la declaración. Idempotente por planId+itemIdx. */
+function _tpDeclareTested(plan, item, itemIdx) {
+    if (!Array.isArray(tpState.testedList)) tpState.testedList = [];
+    var pid = tpPlanId(plan);
+    var ya = tpState.testedList.some(function(t) {
+        return t && t.planId === pid && t.itemIdx === itemIdx && tpTestedIsDeclared(t);
+    });
+    if (ya) return false;
+    tpState.testedList.push({
+        configText: item.desc,
+        date: (typeof localToday === 'function') ? localToday() : new Date().toISOString().slice(0, 10),
+        note: TP_DECLARED_NOTE,
+        source: 'plan-manual',
+        verified: false,
+        planId: pid,
+        itemIdx: itemIdx,
+        by: (typeof authGetCurrentUser === 'function' && authGetCurrentUser()) ? authGetCurrentUser().name : ''
+    });
+    return true;
+}
+
+/**
+ * Retira la declaración. Empata por planId+itemIdx, NUNCA por `desc`: dos semanas
+ * distintas comparten descripción y despalomear una borraría la otra.
+ */
+function _tpUndeclareTested(plan, itemIdx) {
+    if (!Array.isArray(tpState.testedList)) return false;
+    var pid = tpPlanId(plan);
+    var antes = tpState.testedList.length;
+    tpState.testedList = tpState.testedList.filter(function(t) {
+        return !(t && t.planId === pid && t.itemIdx === itemIdx && tpTestedIsDeclared(t));
+    });
+    return tpState.testedList.length < antes;
+}
+
 function tpToggleWeeklyItem(weekIdx, itemIdx) {
     if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
-    const item = tpState.weeklyPlans[weekIdx].items[itemIdx];
+    const plan = tpState.weeklyPlans[weekIdx];
+    const item = plan.items[itemIdx];
     if (!item) return;
+    tpEnsurePlanIds();
     item.completed = !item.completed;
     item.completedDate = item.completed ? new Date().toISOString() : null;
-    if (item.completed) tpAutoMarkWeeklyCompletion(item.desc);
-    tpSave(); tpRender();
+
+    if (item.completed) {
+        // Si YA hay evidencia real de esa config dentro de la semana del plan, la
+        // palomita solo confirma lo que existe: no se declara nada y no se cuenta
+        // doble. `declared` es lo que distingue una cosa de la otra, y viaja a la
+        // foto archivada (_tpWeekHistoryEntry ya lo lee).
+        item.declared = !_tpHasVerifiedInWeek(plan, item.desc);
+        if (item.declared) _tpDeclareTested(plan, item, itemIdx);
+        // NO se llama a tpAutoMarkWeeklyCompletion: palomear ESTE item no debe
+        // acreditar de rebote el mismo `desc` en otra semana. Una prueba, un item.
+        if (typeof auditLog === 'function') {
+            auditLog('tp', item.declared ? 'week_item_declared' : 'week_item_checked',
+                     { type: 'plan', label: item.desc },
+                     'Semana del ' + (plan.weekDate || '—') + (item.declared ? ' · declarada a mano, sin vehículo liberado' : ''));
+        }
+    } else {
+        var quitada = _tpUndeclareTested(plan, itemIdx);
+        delete item.declared;
+        if (typeof auditLog === 'function') {
+            auditLog('tp', 'week_item_unchecked', { type: 'plan', label: item.desc },
+                     'Semana del ' + (plan.weekDate || '—') + (quitada ? ' · se retiró la declaración' : ''));
+        }
+    }
+
+    // Obligatorio: la clave del cache de tpGetAnalysis es (nº configs, nº probadas,
+    // última fecha) — palomear y despalomear el mismo día la deja idéntica.
+    tpInvalidateCache();
+    _tpTouchPlan(weekIdx);
+    tpRender(); tpUpdateBadges();
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -41986,7 +42120,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608271113' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608271117' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
