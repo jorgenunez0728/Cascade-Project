@@ -1334,7 +1334,10 @@ function copRender() {
     // El modo presentación vive en <body> para poder subir la escala SOLO del CoP.
     try { document.body.classList.toggle('cop-present', !!copState.present); } catch (e) { }
     container.innerHTML = copBuildHTML();
-    if (copState.view === 'spc') copSpcRenderCharts();
+    // setTimeout, no llamada directa: justo tras activar la pestaña (o volver a
+    // ella) el contenedor todavía no terminó su reflow y Chart.js mide un canvas
+    // 0x0 — mismo patrón que pnProjSCurveRender (projects.js) para ese mismo bug.
+    if (copState.view === 'spc') setTimeout(copSpcRenderCharts, 30);
     // v16.0: banners/tooltips de ayuda (render síncrono — sin caché de pestañas de por medio)
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
     if (typeof a11yClickables === 'function') a11yClickables(container);

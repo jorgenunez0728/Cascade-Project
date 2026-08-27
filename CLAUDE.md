@@ -900,6 +900,21 @@ greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya n
   excepción que señalar a diario. El dato vive en `moves[]`, la auditoría, el menú ⋯ y el
   `title` del asa. No volver a agregarlo a `marcas`.
 
+## v20.3 — Modal sin scroll y gráficas SPC en blanco
+
+- **`.custom-modal-box` (styles.css) no tenía `overflow`**, solo `max-height:80vh` — cualquier
+  `showModal({body:…})` con contenido largo (p. ej. **Mi semana → 🔄 Sustituir** con varias
+  candidatas) se recortaba en silencio sin scroll. Ahora la caja es `flex column` con título y
+  botones fijos y **`.custom-modal-message` es la única región que hace scroll** (`flex:1;
+  overflow-y:auto`). Código nuevo que use `showModal` con `body` largo no necesita nada extra.
+- **`copSpcRenderCharts()` (cop_validator.js) llamaba a `new Chart()` síncrono**, en el mismo
+  tick en que `copRender()` acaba de pasar la pestaña de oculta a visible — Chart.js medía el
+  canvas antes del reflow y lo creaba a 0×0 (cartas I-MR/MR en blanco). `copRender()` ahora la
+  llama con `setTimeout(fn, 30)`, el mismo patrón que ya usa `pnProjSCurveRender` (projects.js,
+  con el comentario "canvas is already in use" — ahí es el mismo problema de timing). **Toda
+  gráfica nueva que se cree justo tras un cambio de pestaña/vista debe usar este patrón**, no
+  `new Chart()` directo tras el `innerHTML`.
+
 ## v20.2 — CO₂ en el CoP: verificación estadística de familia (`js/cop_validator.js`)
 
 El CO₂ pasó de un % de tolerancia inventado por la app a la prueba real de la norma. El Excel de

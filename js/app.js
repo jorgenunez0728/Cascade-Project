@@ -210,11 +210,15 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.2';
+var APP_VERSION = '20.3';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.3', date: '27 ago 2026', title: 'Modal sin scroll y gráficas SPC en blanco', bullets: [
+        'El modal genérico (usado por "🔄 Sustituir" en Mi semana, entre otros) recortaba el contenido largo sin dejar hacer scroll — corregido.',
+        'Las cartas I-MR/MR de CoP → Control SPC salían en blanco al entrar a la pestaña — corregido (mismo arreglo que ya tenía la Curva S de Proyectos).'
+    ] },
     { version: '20.2', date: '27 ago 2026', title: 'CO₂ en el CoP: verificación estadística de familia', bullets: [
         'El CO₂ ya no se compara solo contra un % de tolerancia: ahora corre la prueba estadística real de la norma (Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4, "A menos varianza"), confirmada con la tabla de UN R154 (WLTP GTR) §3.3.1 — las dos, lado a lado, con su propio gauge y una conclusión en texto ("se acepta la familia" / "se rechaza la familia") con los números reales.',
         'Nuevo ajuste por familia: FCF (Family Correction Factor) y Evolution Factor, editables ahí mismo en CoP → Validador. Sin ajustar valen 1 (sin corrección); cambiar uno recalcula el veredicto al instante.',
