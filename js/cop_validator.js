@@ -3,6 +3,181 @@
 // Muestreo secuencial con σ desconocida — Appendix 2, UN R83 Rev.5 / R154
 // VERIFICAR valores A(n)/B(n) contra texto oficial antes de uso en homologación
 
+// ─── CO₂ — Verificación de familia, UN R154 (WLTP GTR) §3.3.1, Tabla A2/3 ────
+// Fórmula y tabla verificadas contra el texto oficial (Excel de referencia con
+// extracto de la norma adjunto, mismo texto que Reg. (UE) 2017/1151 Ap.1 §4 para
+// el caso general de CO2/EC con A=1,01 y L=1). NO es el mismo test que gases
+// (§3.1, tabla COP_CV de arriba): aquí no hay U ni división entre s — la banda
+// se compara directo contra el promedio normalizado, así que se define aparte.
+var COP_CO2_A = 1.01;
+var COP_CO2_TABLE = {
+    3:  { tP1: 1.686, tP2: 0.438, tF1: 1.686, tF2: 0.438 },
+    4:  { tP1: 1.125, tP2: 0.425, tF1: 1.177, tF2: 0.438 },
+    5:  { tP1: 0.850, tP2: 0.401, tF1: 0.953, tF2: 0.438 },
+    6:  { tP1: 0.673, tP2: 0.370, tF1: 0.823, tF2: 0.438 },
+    7:  { tP1: 0.544, tP2: 0.335, tF1: 0.734, tF2: 0.438 },
+    8:  { tP1: 0.443, tP2: 0.299, tF1: 0.670, tF2: 0.438 },
+    9:  { tP1: 0.361, tP2: 0.263, tF1: 0.620, tF2: 0.438 },
+    10: { tP1: 0.292, tP2: 0.226, tF1: 0.580, tF2: 0.438 },
+    11: { tP1: 0.232, tP2: 0.190, tF1: 0.546, tF2: 0.438 },
+    12: { tP1: 0.178, tP2: 0.153, tF1: 0.518, tF2: 0.438 },
+    13: { tP1: 0.129, tP2: 0.116, tF1: 0.494, tF2: 0.438 },
+    14: { tP1: 0.083, tP2: 0.078, tF1: 0.473, tF2: 0.438 },
+    15: { tP1: 0.040, tP2: 0.038, tF1: 0.455, tF2: 0.438 },
+    16: { tP1: 0.000, tP2: 0.000, tF1: 0.438, tF2: 0.438 }
+};
+
+/**
+ * LA definición del veredicto estadístico de CO₂ de una familia. El Excel de
+ * referencia (con el extracto oficial adjunto) calcula DOS pruebas en paralelo
+ * sobre el mismo x_i, como verificación cruzada — no es que sobre una:
+ *
+ *   x_i = (CO2_medido_i × EvC × FCF) / CO2_declarado_i
+ *   X̄ = promedio de x_i · VAR = varianza muestral (n−1) · s = √VAR
+ *
+ *   PRINCIPAL — Reg. (UE) 2017/1151, Anexo XXI Apéndice I §4 (caso CO2/EC,
+ *   A=1,01 y L=1 simplifican la fórmula general de gases a esto):
+ *     Pasa  si X̄ <  A − VAR
+ *     Falla si X̄ >  A − ((n−3)/13)·VAR
+ *   Ésta es la que describe la conclusión ("A menos varianza").
+ *
+ *   CONFIRMACIÓN — UN R154 (WLTP GTR) §3.3.1, Tabla A2/3 (banda con t de
+ *   Student por tamaño de muestra, más estrecha, pensada para Nivel 1A):
+ *     Pasa  si X̄ ≤ A − (tP1+tP2)·s
+ *     Falla si X̄ >  A + (tF1−tF2)·s
+ *
+ * A = 1,01 fijo por la norma en ambas — no es una tolerancia configurable
+ * como en gases. FCF (Family Correction Factor) y EvC (Evolution Factor) SÍ
+ * son de la familia (Ajustes → esta pantalla) y entran multiplicando el CO₂
+ * medido, tal cual la hoja de referencia (columna CO2 = raw × EvC × FCF).
+ *
+ * Las dos fórmulas colapsan su banda exactamente en n=16 (verificado con los
+ * valores cacheados del Excel: a n=16, (16−3)/13=1 → A−VAR = A−1·VAR, y
+ * tP1=tP2=0 en la Tabla A2/3) — por eso ambas comparten el mismo tope de
+ * muestra. Más allá de 16 se evalúa con esa fila tope y se marca `overSample`.
+ *
+ * rows = [{measured, target}, …] (mismo shape que homoCo2RowsForVins). Con
+ * menos de 3 pares válidos devuelve decision:'SIN DATOS' — mismo criterio que
+ * copCalcStats para gases.
+ */
+function copCo2CalcStats(rows, fcf, evc) {
+    var f = (typeof fcf === 'number' && fcf > 0) ? fcf : 1;
+    var e = (typeof evc === 'number' && evc > 0) ? evc : 1;
+    var x = [];
+    (rows || []).forEach(function(r) {
+        var m = parseFloat(r.measured), t = parseFloat(r.target);
+        if (!isFinite(m) || !isFinite(t) || t === 0) return;
+        x.push({ vin: r.vin, measured: m, target: t, x: (m * e * f) / t });
+    });
+    var n = x.length;
+    if (n < 3) return { n: n, mean: null, s: null, fcf: f, evc: e, A: COP_CO2_A, decision: 'SIN DATOS', x: x };
+
+    var mean = x.reduce(function(s, r) { return s + r.x; }, 0) / n;
+    var vr = x.reduce(function(acc, r) { return acc + Math.pow(r.x - mean, 2); }, 0) / (n - 1);
+    var s = Math.sqrt(vr);
+    var nClamped = Math.max(3, Math.min(n, 16));
+
+    // ── Principal: Apéndice I §4 (VAR directa, sin tabla) ──
+    var apPassBound = COP_CO2_A - vr;
+    var apFailBound = COP_CO2_A - ((nClamped - 3) / 13) * vr;
+    var apDecision = mean < apPassBound ? 'PASS' : mean > apFailBound ? 'FAIL' : 'CONTINUE';
+
+    // ── Confirmación: R154 §3.3.1 (tabla t, banda más estrecha) ──
+    var t = COP_CO2_TABLE[nClamped];
+    var r154PassBound = COP_CO2_A - (t.tP1 + t.tP2) * s;
+    var r154FailBound = COP_CO2_A + (t.tF1 - t.tF2) * s;
+    var r154Decision = mean <= r154PassBound ? 'PASS' : mean > r154FailBound ? 'FAIL' : 'CONTINUE';
+
+    return {
+        n: n, mean: mean, s: s, var: vr, fcf: f, evc: e, A: COP_CO2_A,
+        overSample: n > 16, x: x,
+        // Compatibilidad de nivel superior = la prueba PRINCIPAL (Apéndice I):
+        // así el resto de la pantalla (gauge, conclusión, congelado del juicio)
+        // no necesita saber que hay dos pruebas para pintar el veredicto de arriba.
+        decision: apDecision, passBound: apPassBound, failBound: apFailBound,
+        appendixI: { decision: apDecision, passBound: apPassBound, failBound: apFailBound, source: 'Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4' },
+        r154: { decision: r154Decision, passBound: r154PassBound, failBound: r154FailBound, table: t, tableN: nClamped, source: 'UN R154 (WLTP GTR) §3.3.1 — Tabla A2/3' }
+    };
+}
+
+/**
+ * Los FCF/Evolution Factor de una familia. Sin `key`, la que está abierta.
+ * Sin ajustar, 1 = sin corrección. Acepta `key` explícito para el PDF, que
+ * puede exportar una familia distinta a la que está abierta en pantalla.
+ */
+function copCo2Factors(key) {
+    var fam = copFamilyState(key || copState.familyKey);
+    return {
+        fcf: (typeof fam.co2Fcf === 'number' && fam.co2Fcf > 0) ? fam.co2Fcf : 1,
+        evc: (typeof fam.co2Evc === 'number' && fam.co2Evc > 0) ? fam.co2Evc : 1,
+        set: !!(fam.co2Fcf || fam.co2Evc)
+    };
+}
+
+/** Guarda FCF/Evolution Factor de la familia abierta. Ahí es "settings, por familia". */
+function copSetCo2Factors(fcfRaw, evcRaw) {
+    var f = parseFloat(fcfRaw), e = parseFloat(evcRaw);
+    if (!isFinite(f) || f <= 0 || !isFinite(e) || e <= 0) {
+        if (typeof showToast === 'function') showToast('FCF y Evolution Factor deben ser números mayores a 0.', 'warning');
+        return;
+    }
+    var fam = copFamilyState(copState.familyKey);
+    fam.co2Fcf = f; fam.co2Evc = e;
+    fam.updatedAt = new Date().toISOString();
+    fam.updatedBy = _copWho();
+    copPersist();
+    _copPushNow();
+    if (typeof auditLog === 'function') {
+        auditLog('cop', 'co2_factors_set', { type: 'cop', label: copState.familyLabel || '(sin familia)' },
+                 'FCF=' + f + ' · Evolution Factor=' + e);
+    }
+    // copRenderStats() SOLO repinta #cop-stats-section (dentro de copBuildStatsHTML) —
+    // la tarjeta de CO2 vive en copBuildValidatorHTML, un nivel arriba de esa sección,
+    // así que un repintado parcial la deja mostrando el veredicto viejo. copRender()
+    // completo es correcto aquí: a diferencia de copHandleInput (que corre en cada
+    // tecla), esto solo dispara al pulsar "Guardar".
+    copRender();
+    if (typeof showToast === 'function') showToast('Factores de CO₂ guardados — el veredicto se recalculó.', 'success');
+}
+
+/** La frase de conclusión, con los números reales — lo que pide una auditoría. */
+/**
+ * La frase de conclusión, con los números reales. Usa la prueba PRINCIPAL
+ * (Apéndice I, "A menos varianza") y agrega una línea de confirmación con la
+ * prueba de R154 §3.3.1 — si las dos coinciden lo dice de pasada; si NO
+ * coinciden lo declara en rojo, porque eso es justo lo que un auditor necesita
+ * ver antes de aceptar la familia.
+ */
+function copCo2ConclusionHTML(stats) {
+    if (!stats || stats.decision === 'SIN DATOS' || !stats.appendixI) return '';
+    var ap = stats.appendixI, r154 = stats.r154;
+    var boundTxt, cmpTxt;
+    if (ap.decision === 'PASS') {
+        boundTxt = 'A − VAR = ' + stats.A.toFixed(2) + ' − ' + stats.var.toFixed(6) + ' = ' + ap.passBound.toFixed(4);
+        cmpTxt = 'X̄ = ' + stats.mean.toFixed(4) + ' es menor que ' + boundTxt;
+    } else if (ap.decision === 'FAIL') {
+        boundTxt = 'A − ((n−3)/13)·VAR = ' + ap.failBound.toFixed(4);
+        cmpTxt = 'X̄ = ' + stats.mean.toFixed(4) + ' supera ' + boundTxt;
+    } else {
+        cmpTxt = 'X̄ = ' + stats.mean.toFixed(4) + ' cae entre ' + ap.passBound.toFixed(4) + ' y ' + ap.failBound.toFixed(4) + ' — todavía sin decidir';
+    }
+    var frase = ap.decision === 'PASS'
+        ? 'Como ' + cmpTxt + ' (n=' + stats.n + ' ensayos), <b>se acepta la familia</b> — el CO₂ CONCUERDA con el valor declarado.'
+        : ap.decision === 'FAIL'
+        ? 'Como ' + cmpTxt + ' (n=' + stats.n + ' ensayos), <b>se rechaza la familia</b> — el CO₂ NO CONCUERDA con el valor declarado.'
+        : cmpTxt + ' (n=' + stats.n + ' de hasta 16 ensayos): hace falta otro vehículo para decidir.';
+    var icon = ap.decision === 'PASS' ? '✅' : ap.decision === 'FAIL' ? '❌' : '⏳';
+
+    var coincide = r154.decision === ap.decision;
+    var confirm = coincide
+        ? '<span style="opacity:0.8;">Confirma UN R154 §3.3.1 (Tabla A2/3): ' + _copDecisionWord(r154.decision) + '.</span>'
+        : '<b style="color:var(--danger-text,#991b1b);">⚠ UN R154 §3.3.1 da ' + _copDecisionWord(r154.decision) + ' — las dos pruebas NO coinciden, revisar antes de aceptar.</b>';
+
+    return '<p class="cop-co2-conclusion cop-co2-conclusion--' + ap.decision.toLowerCase() + '">' + icon + ' ' + frase +
+           (stats.overSample ? ' <span style="opacity:0.75;">(n&gt;16: evaluado con la fila tope, n=16.)</span>' : '') +
+           '<br>' + confirm + '</p>';
+}
+
 // ─── VALORES CRÍTICOS A(n) B(n) — Test t secuencial ─────────────────────────
 var COP_CV = {
     3:  { a: -0.860, b: 2.117 },
@@ -556,6 +731,22 @@ function copSaveJudgment() {
                      a: p.stats.cv ? p.stats.cv.a : null, b: p.stats.cv ? p.stats.cv.b : null,
                      decision: p.stats.decision };
         }),
+        // [v20.2] CO₂ — congelado igual que los gases: si mañana cambia el FCF/Evolution
+        // Factor de la familia, este juicio no debe empezar a decir otra cosa sobre con
+        // qué se decidió entonces. `co2Source` cita la norma, igual que `cvSource` arriba.
+        co2: (function() {
+            if (typeof homoCo2RowsForVins !== 'function') return null;
+            var vins = (copState.vehicles || []).map(function(v) { return v.vin; }).filter(Boolean);
+            if (!vins.length) return null;
+            var rows = homoCo2RowsForVins(vins);
+            var factors = copCo2Factors();
+            var st = copCo2CalcStats(rows, factors.fcf, factors.evc);
+            if (st.decision === 'SIN DATOS') return null;
+            return { n: st.n, mean: st.mean, s: st.s, var: st.var, fcf: st.fcf, evc: st.evc, A: st.A,
+                     decision: st.decision, overSample: !!st.overSample,
+                     appendixI: st.appendixI, r154: st.r154 };
+        })(),
+        co2Source: 'Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4 · confirmación UN R154 §3.3.1',
         appVersion: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '',
         decision: decision || 'INCOMPLETO'
     });
@@ -2416,8 +2607,53 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
 // La lógica vive en homolog.js — aquí solo se pinta.
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * [v20.2] El gauge de CO₂ — mismo lenguaje visual que `_copGaugeRowHTML` (gases),
+ * pero NO se reusa esa función tal cual: ahí "a"/"b" nombran los límites de la
+ * banda U y aquí "A" ya es el nombre que la norma le da al centro (1,01) — mezclar
+ * las dos notaciones en el mismo componente iba a confundir más que ayudar.
+ */
+function _copCo2GaugeHTML(stats) {
+    var a = stats.passBound, b = stats.failBound, span = b - a;
+    var PASS_W = 20, BAND_W = 60, FAIL_W = 20;
+    var pos;
+    if (span <= 0) {
+        pos = stats.mean <= stats.A ? PASS_W * 0.5 : PASS_W + BAND_W + FAIL_W * 0.5;
+    } else if (stats.mean <= a) {
+        var over = Math.min(1, (a - stats.mean) / span);
+        pos = PASS_W - over * PASS_W * 0.9;
+    } else if (stats.mean >= b) {
+        var over2 = Math.min(1, (stats.mean - b) / span);
+        pos = PASS_W + BAND_W + over2 * FAIL_W * 0.9;
+    } else {
+        pos = PASS_W + ((stats.mean - a) / span) * BAND_W;
+    }
+    pos = Math.max(0.5, Math.min(99.5, pos));
+
+    var vu = _copVerdictUI(stats.decision === 'PASS' ? 'PASS' : stats.decision === 'FAIL' ? 'FAIL' : 'CONTINUE');
+    var html = '<div class="cop-gauge-row">';
+    html += '<div class="cop-gauge-name">CO₂ normalizado (X̄)<small>A = ' + stats.A.toFixed(2) + ' · n=' + stats.n + '</small></div>';
+    html += '<div class="cop-gauge" role="img" aria-label="CO₂: X̄ ' + stats.mean.toFixed(4) +
+            ', banda ' + a.toFixed(4) + ' a ' + b.toFixed(4) + ', ' + _copEsc(vu.word) + '">';
+    html += '<div class="cop-gauge-zone cop-gauge-zone--pass" style="width:' + PASS_W + '%;"><span>Concordante</span></div>';
+    html += '<div class="cop-gauge-zone cop-gauge-zone--mid"  style="width:' + BAND_W + '%;"><span>' + a.toFixed(3) + ' — sin decidir — ' + b.toFixed(3) + '</span></div>';
+    html += '<div class="cop-gauge-zone cop-gauge-zone--fail" style="width:' + FAIL_W + '%;"><span>No concord.</span></div>';
+    html += '<div class="cop-gauge-marker" style="left:' + pos.toFixed(1) + '%;" title="X̄ = ' + stats.mean.toFixed(4) + '"></div>';
+    html += '</div>';
+    html += '<div class="cop-gauge-val"><span class="cop-chip ' + vu.chip + '">' + vu.short + '</span>' +
+            '<small>X̄ = ' + stats.mean.toFixed(4) + '</small></div>';
+    return html + '</div>';
+}
+
+/**
+ * [v20.2] CO₂ — verificación estadística de familia, UN R154 §3.3.1 (Tabla A2/3).
+ * Reemplaza al promedio-vs-tolerancia de v17.14 (`homoCo2Assess`) por el método
+ * REAL de la norma — el mismo que ya se aplica a los gases, con su propia tabla.
+ * Recalcula solo con leer `copState.vehicles` en cada render: agregar/quitar un
+ * VIN (mismo flujo que gases) hace que esta tarjeta se rehaga sin cableado nuevo.
+ */
 function _copBuildCo2HTML() {
-    if (typeof homoCo2RowsForVins !== 'function' || typeof homoCo2Assess !== 'function') return '';
+    if (typeof homoCo2RowsForVins !== 'function') return '';
 
     var vins = (copState.vehicles || []).map(function(v) { return v.vin; }).filter(function(v) { return v; });
     if (!vins.length) return '';
@@ -2426,36 +2662,46 @@ function _copBuildCo2HTML() {
     var conDatos = rows.filter(function(r) { return r.target != null || r.measured != null; });
     if (!conDatos.length) return '';
 
-    var res = homoCo2Assess(rows);
+    var factors = copCo2Factors();
+    var stats = copCo2CalcStats(rows, factors.fcf, factors.evc);
     var html = '<div class="card" style="margin-bottom:16px;">';
-    html += '<p class="label-title" data-help="cop-co2-help" style="margin-bottom:8px;">🌱 CO₂ vs valor declarado (homologación)</p>';
+    html += '<p class="label-title" data-help="cop-co2-help" style="margin-bottom:8px;">🌱 CO₂ vs valor declarado (Reg. 2017/1151 Ap.I · confirmación R154 §3.3.1)</p>';
 
-    // Veredicto de familia
-    var okColor = res.verdict === 'CONCORDANTE' ? 'var(--ok-text,#166534)'
-                : res.verdict === 'NO CONCORDANTE' ? 'var(--danger-text,#991b1b)' : 'var(--muted)';
-    html += '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;">';
-    html += '<span style="font-weight:800;color:' + okColor + ';font-size:15px;">' + res.verdict + '</span>';
-    html += '<span style="font-size: var(--fs-sm);color:var(--muted);">' +
-        (res.meanDev === null
-            ? 'Ningún vehículo tiene a la vez CO₂ medido y target declarado.'
-            : 'Desviación promedio <b>' + (res.meanDev >= 0 ? '+' : '') + res.meanDev.toFixed(2) + '%</b> ' +
-              'sobre el declarado · tolerancia <b>' + res.tolerance + '%</b> · n=' + res.n) +
-        '</span></div>';
+    // ── Ajustes de familia: FCF y Evolution Factor, "settings, ahí mismo" ──
+    html += '<div class="cop-co2-settings" data-help="cop-co2-factors-help">';
+    html += '<label>FCF (Family Correction Factor)<input type="number" id="cop-co2-fcf" step="0.0001" min="0.0001" value="' + factors.fcf + '"></label>';
+    html += '<label>Evolution Factor<input type="number" id="cop-co2-evc" step="0.0001" min="0.0001" value="' + factors.evc + '"></label>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="copSetCo2Factors(document.getElementById(\'cop-co2-fcf\').value, document.getElementById(\'cop-co2-evc\').value)">Guardar</button>';
+    if (!factors.set) html += '<span class="cop-co2-settings-hint">sin ajustar = 1 (sin corrección)</span>';
+    html += '</div>';
+
+    if (stats.decision === 'SIN DATOS') {
+        html += '<p style="font-size: var(--fs-sm);color:var(--muted);margin:10px 0;">' +
+            'Hacen falta al menos 3 vehículos con CO₂ medido y declarado a la vez (hay ' + stats.n + ').</p>';
+    } else {
+        html += _copCo2GaugeHTML(stats);
+        html += copCo2ConclusionHTML(stats);
+    }
 
     // Tabla por vehículo
-    html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
+    html += '<div style="overflow-x:auto;margin-top:10px;"><table style="width:100%;border-collapse:collapse;font-size: var(--fs-xs);">';
     html += '<thead><tr>' +
-        ['VIN', 'MC code', 'CO₂ medido', 'CO₂ declarado', 'Desviación', 'f0', 'f1', 'f2', 'TM'].map(function(h) {
+        ['VIN', 'MC code', 'CO₂ medido', 'CO₂ declarado', 'X normalizado', 'Desviación', 'f0', 'f1', 'f2', 'TM'].map(function(h) {
             return '<th style="' + _copTh() + 'text-align:left;">' + h + '</th>';
         }).join('') + '</tr></thead><tbody>';
 
-    res.rows.forEach(function(r) {
+    var xByVin = {};
+    (stats.x || []).forEach(function(r) { xByVin[r.vin] = r.x; });
+
+    rows.forEach(function(r) {
         var h = r.homolog || {};
-        var devTxt = '—', devColor = 'var(--muted)';
-        if (r.dev !== null) {
-            devTxt = (r.dev >= 0 ? '+' : '') + r.dev.toFixed(2) + '%';
-            devColor = r.dev <= res.tolerance ? 'var(--ok-text,#166534)' : 'var(--danger-text,#991b1b)';
-        }
+        var dev = (typeof homoCo2Deviation === 'function') ? homoCo2Deviation(r.measured, r.target) : null;
+        var devTxt = dev === null ? '—' : (dev >= 0 ? '+' : '') + dev.toFixed(2) + '%';
+        var xVal = xByVin[r.vin];
+        var xTxt = xVal === undefined ? '—' : xVal.toFixed(4);
+        var xColor = xVal === undefined ? 'var(--muted)'
+                   : xVal <= (stats.passBound != null ? stats.passBound : stats.A) ? 'var(--ok-text,#166534)'
+                   : xVal > (stats.failBound != null ? stats.failBound : stats.A) ? 'var(--danger-text,#991b1b)' : 'var(--warn-text,#92400e)';
         var cell = function(v, extra) {
             return '<td style="padding:5px 8px;border-bottom:1px solid var(--border);' + (extra || '') + '">' +
                 (v == null || v === '' ? '<span style="color:var(--muted);">—</span>' : _copEsc(String(v))) + '</td>';
@@ -2465,27 +2711,29 @@ function _copBuildCo2HTML() {
         html += cell(h.mcCode);
         html += cell(r.measured == null ? null : Number(r.measured).toFixed(1));
         html += cell(r.target == null ? null : Number(r.target).toFixed(1));
-        html += '<td style="padding:5px 8px;border-bottom:1px solid var(--border);font-weight:700;color:' + devColor + ';">' + devTxt + '</td>';
+        html += '<td style="padding:5px 8px;border-bottom:1px solid var(--border);font-weight:700;color:' + xColor + ';">' + xTxt + '</td>';
+        html += '<td style="padding:5px 8px;border-bottom:1px solid var(--border);color:var(--muted);">' + devTxt + '</td>';
         html += cell(h.f0); html += cell(h.f1); html += cell(h.f2); html += cell(h.tm);
         html += '</tr>';
     });
     html += '</tbody></table></div>';
 
-    var sinFicha = res.rows.filter(function(r) { return !r.homolog; }).length;
+    var sinFicha = rows.filter(function(r) { return !r.homolog; }).length;
     if (sinFicha) {
         html += '<p style="font-size: var(--fs-xs);color:var(--warn-text,#92400e);margin-top:8px;">' +
             '⚠️ ' + sinFicha + ' vehículo(s) sin ficha de homologación: se capturan en el Alta ' +
             '(solo aparece para región EUROPE) o se completan importando el catálogo del ICMS en Datos → 🇪🇺 Homologación.</p>';
     }
     html += '<p style="font-size: var(--fs-xs);color:var(--muted);margin-top:6px;">' +
-        'El CO₂ no tiene límite regulatorio fijo: se compara contra el valor declarado de cada vehículo. ' +
-        'La tolerancia se configura en Datos → 🇪🇺 Homologación.</p>';
+        '"X normalizado" = (CO₂ medido × Evolution Factor × FCF) / CO₂ declarado. A = 1,01 fijo por la norma. ' +
+        'Verificar contra el texto oficial (Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4 y UN R154 §3.3.1) antes de uso en homologación real.</p>';
     html += '</div>';
     return html;
 }
 
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
-    'cop-co2-help': { title: 'CO₂ vs declarado', text: 'A diferencia de CO, THC o NOₓ, el CO₂ no tiene un límite fijo en la regulación: cada vehículo se compara contra SU propio valor declarado de homologación (el "Combined" del ICMS, capturado en el Alta). Aquí se ve la desviación de cada uno y el promedio de la familia contra la tolerancia que configuraste, además de los coeficientes de dinamómetro con los que se corrió cada vehículo.' }
+    'cop-co2-help': { title: 'CO₂ vs declarado', text: 'El CO₂ no tiene un límite fijo como CO/THC/NOₓ: cada vehículo se compara contra SU propio valor declarado de homologación (el "Combined" del ICMS, capturado en el Alta). El veredicto principal usa Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4 ("A menos varianza") y se confirma con la tabla de UN R154 §3.3.1 — dos pruebas sobre el mismo dato, no el mismo test que gases.' },
+    'cop-co2-factors-help': { title: 'FCF y Evolution Factor', text: 'Factores de la FAMILIA (no del vehículo), tal como los trae el reporte de interpolación WLTP. FCF (Family Correction Factor) y Evolution Factor multiplican el CO₂ medido antes de compararlo contra el declarado. Sin ajustar valen 1 (sin corrección). Se guardan por familia — cambiarlos recalcula el veredicto al instante.' }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2776,40 +3024,59 @@ function copFamilyPDF(familyKey) {
     if (!(row.tests || []).length) { doc.setTextColor(120); doc.text('Sin ensayos liberados con resultados finales.', ML + 2, y); doc.setTextColor(0); y += 4; }
     y += 4;
 
-    // ── 7. CO2 vs declarado (solo Europa) ─────────────────────────────────────
+    // ── 7. CO2 vs declarado (solo Europa) — UN R154 §3.3.1 ────────────────────
     try {
-        if (typeof homoCo2RowsForVins === 'function' && typeof homoCo2Assess === 'function' &&
+        if (typeof homoCo2RowsForVins === 'function' && typeof copCo2CalcStats === 'function' &&
             (row.regionsArr || []).some(function(r) { return typeof homoIsEurope === 'function' && homoIsEurope(r); })) {
             var vins = (row.tests || []).map(function(t) { return t.vin; }).filter(Boolean);
             var co2rows = homoCo2RowsForVins(vins);
             if (co2rows.some(function(c) { return c.target != null || c.measured != null; })) {
-                var res = homoCo2Assess(co2rows);
-                h2('CO₂ vs valor declarado (homologación)');
+                // Congelado si hay juicio guardado (reproducible), en vivo si no (PRELIMINAR,
+                // igual que el resto del documento en ese caso).
+                var co2Stats = (judgment && judgment.co2)
+                    ? Object.assign({ x: [] }, judgment.co2)
+                    : copCo2CalcStats(co2rows, copCo2Factors(key).fcf, copCo2Factors(key).evc);
+                var xByVin = {};
+                if (!judgment || !judgment.co2) (co2Stats.x || []).forEach(function(r) { xByVin[r.vin] = r.x; });
+
+                h2('CO₂ vs valor declarado (' + (judgment && judgment.co2Source ? judgment.co2Source : 'UN R154 §3.3.1') + ')');
                 doc.setFontSize(7); doc.setFont('helvetica', 'normal');
-                doc.text('Veredicto: ' + res.verdict + '   ·   desviación promedio ' +
-                    (res.meanDev === null ? '—' : (res.meanDev >= 0 ? '+' : '') + res.meanDev.toFixed(2) + '%') +
-                    '   ·   tolerancia ' + res.tolerance + '%   ·   n=' + res.n, ML + 2, y);
-                y += 5;
+                if (co2Stats.decision && co2Stats.decision !== 'SIN DATOS') {
+                    doc.text('Veredicto: ' + _copDecisionWord(co2Stats.decision) +
+                        '   ·   X̄ = ' + co2Stats.mean.toFixed(4) +
+                        '   ·   FCF = ' + co2Stats.fcf + '   ·   Evolution Factor = ' + co2Stats.evc +
+                        '   ·   n=' + co2Stats.n, ML + 2, y);
+                    y += 4;
+                    var concl = (typeof copCo2ConclusionHTML === 'function') ? copCo2ConclusionHTML(co2Stats).replace(/<[^>]+>/g, '') : '';
+                    if (concl) { doc.text(doc.splitTextToSize(concl, CW - 4), ML + 2, y); y += 8; }
+                } else {
+                    doc.text('Sin suficientes vehículos con CO2 medido y declarado a la vez para decidir (n<3).', ML + 2, y);
+                    y += 5;
+                }
                 doc.setFillColor(240); doc.rect(ML, y - 3.5, CW, 5, 'F'); doc.setFont('helvetica', 'bold');
-                ['VIN', 'MC code', 'medido', 'declarado', 'desv.', 'f0', 'f1', 'f2', 'TM'].forEach(function(hh, i) {
-                    doc.text(hh, ML + 2 + i * 20, y);
+                ['VIN', 'MC code', 'medido', 'declarado', 'X norm.', 'desv.', 'f0', 'f1', 'f2', 'TM'].forEach(function(hh, i) {
+                    doc.text(hh, ML + 2 + i * 18, y);
                 });
                 y += 4; doc.setFont('helvetica', 'normal');
-                res.rows.forEach(function(c) {
+                co2rows.forEach(function(c) {
                     brk();
                     var hg = c.homolog || {};
-                    [String(c.vin || '').slice(0, 12), hg.mcCode || '—',
+                    var dev = (typeof homoCo2Deviation === 'function') ? homoCo2Deviation(c.measured, c.target) : null;
+                    var xVal = xByVin[c.vin];
+                    [String(c.vin || '').slice(0, 11), hg.mcCode || '—',
                      c.measured == null ? '—' : Number(c.measured).toFixed(1),
                      c.target == null ? '—' : Number(c.target).toFixed(1),
-                     c.dev === null ? '—' : (c.dev >= 0 ? '+' : '') + c.dev.toFixed(1) + '%',
+                     xVal === undefined ? '—' : xVal.toFixed(4),
+                     dev === null ? '—' : (dev >= 0 ? '+' : '') + dev.toFixed(1) + '%',
                      hg.f0 == null ? '—' : hg.f0, hg.f1 == null ? '—' : hg.f1,
                      hg.f2 == null ? '—' : hg.f2, hg.tm == null ? '—' : hg.tm
-                    ].forEach(function(cell, i) { doc.text(String(cell), ML + 2 + i * 20, y); });
+                    ].forEach(function(cell, i) { doc.text(String(cell), ML + 2 + i * 18, y); });
                     y += 4;
                 });
                 y += 2;
                 doc.setFontSize(6.5); doc.setTextColor(110);
-                doc.text('Los coeficientes f0/f1/f2 y el CO2 declarado provienen del catalogo ICMS, no del certificado WVTA.', ML + 2, y);
+                doc.text('X normalizado = (CO2 medido x Evolution Factor x FCF) / CO2 declarado. Los f0/f1/f2 y el CO2 declarado', ML + 2, y); y += 3.2;
+                doc.text('provienen del catalogo ICMS, no del certificado WVTA. Verificar contra el texto oficial (Reg. 2017/1151 Ap.I / R154).', ML + 2, y);
                 doc.setTextColor(0); y += 6;
             }
         }

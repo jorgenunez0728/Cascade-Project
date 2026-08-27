@@ -12,13 +12,11 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 var HOMO_LS_KEY = 'kia_homolog_v1';
-var HOMO_CO2_TOL_DEFAULT = 4; // % sobre el CO₂ declarado — editable por el usuario
 
 var homoState = {
     catalog: [],            // filas del ICMS: {id, mcCode, workOrder, ocn, wvta, variant, version, f0, f1, f2, tm, co2Combined, fcCombined, at, by}
     links: {},              // configCode → mcCode (recordar el enlace: el 2º vehículo de la misma config ya se autollena)
     ipFamilies: [],         // familias de interpolación del WVTA — ver bloque IP más abajo
-    co2TolerancePct: HOMO_CO2_TOL_DEFAULT,
     updatedAt: ''
 };
 
@@ -31,7 +29,6 @@ function homoLoad() {
             if (Array.isArray(raw.catalog)) homoState.catalog = raw.catalog;
             if (raw.links && typeof raw.links === 'object') homoState.links = raw.links;
             if (Array.isArray(raw.ipFamilies)) homoState.ipFamilies = raw.ipFamilies;
-            if (typeof raw.co2TolerancePct === 'number') homoState.co2TolerancePct = raw.co2TolerancePct;
             homoState.updatedAt = raw.updatedAt || '';
         }
     } catch (e) {}
@@ -172,33 +169,6 @@ function homoCo2Deviation(measured, target) {
     var m = parseFloat(measured), t = parseFloat(target);
     if (!isFinite(m) || !isFinite(t) || t === 0) return null;
     return ((m - t) / t) * 100;
-}
-
-/**
- * LA definición del veredicto de CO₂ de una familia: promedio de las
- * desviaciones porcentuales contra la tolerancia configurada.
- * rows = [{vin, measured, target}]
- */
-function homoCo2Assess(rows, tolPct) {
-    homoInit();
-    var tol = (typeof tolPct === 'number') ? tolPct : homoState.co2TolerancePct;
-    var evaluated = [];
-    (rows || []).forEach(function(r) {
-        var dev = homoCo2Deviation(r.measured, r.target);
-        evaluated.push({ vin: r.vin, measured: r.measured, target: r.target, dev: dev, homolog: r.homolog });
-    });
-    var withDev = evaluated.filter(function(r) { return r.dev !== null; });
-    var meanDev = null;
-    if (withDev.length) {
-        meanDev = withDev.reduce(function(a, r) { return a + r.dev; }, 0) / withDev.length;
-    }
-    return {
-        rows: evaluated,
-        n: withDev.length,
-        meanDev: meanDev,
-        tolerance: tol,
-        verdict: meanDev === null ? 'SIN DATOS' : (meanDev <= tol ? 'CONCORDANTE' : 'NO CONCORDANTE')
-    };
 }
 
 /** CO₂ final verificado de un vehículo (mismo dato que usa el SPC). */
@@ -535,17 +505,16 @@ function pnRenderHomolog(el) {
     // ── Familias de interpolación (WVTA) ──
     html += _homoIpCardHTML();
 
-    // ── Tolerancia de CO₂ ──
+    // ── [v20.2] La verificación de CO₂ dejó de ser un % de tolerancia:
+    // ahora es el muestreo secuencial de UN R154 §3.3.1 (FCF/Evolution Factor
+    // por familia), viviendo en CoP → Validador → 🌱 CO₂ vs valor declarado
+    // — ahí mismo es donde se ve el efecto de cada ajuste al instante.
     html += '<div class="tp-card">';
-    html += '<div class="tp-card-title" data-help="pn-homolog-tol-help"><span>🎯 Tolerancia de CO₂ para el CoP</span></div>';
-    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:10px;">' +
-        'El CoP compara el CO₂ medido de cada vehículo contra <b>su</b> target declarado y promedia las ' +
-        'desviaciones de la familia. Si el promedio supera esta tolerancia, marca NO CONCORDANTE.</div>';
-    html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
-        '<label for="homo-tol" style="margin:0;">Tolerancia</label>' +
-        '<input type="number" id="homo-tol" class="form-control" style="width:110px;" step="0.1" value="' + homoState.co2TolerancePct + '">' +
-        '<span>% sobre el declarado</span>' +
-        '<button class="tp-btn tp-btn-primary" onclick="homoSaveTolerance()">Guardar</button></div>';
+    html += '<div class="tp-card-title"><span>🎯 Verificación de CO₂</span></div>';
+    html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);">' +
+        'El veredicto de CO₂ (con FCF y Evolution Factor por familia) se configura y se ve en ' +
+        '<b>CoP → Validador</b>, dentro de la mesa de trabajo de cada familia — se recalcula ahí ' +
+        'mismo al cambiar un ajuste o agregar/quitar un vehículo.</div>';
     html += '</div>';
 
     // ── Listado ──
@@ -587,16 +556,6 @@ function pnRenderHomolog(el) {
     el.innerHTML = html;
 }
 
-function homoSaveTolerance() {
-    homoInit();
-    var el = document.getElementById('homo-tol');
-    var v = el ? _homoNum(el.value) : null;
-    if (v == null || v < 0) { showToast('Escribe una tolerancia válida (por ejemplo 4).', 'warning'); return; }
-    homoState.co2TolerancePct = v;
-    homoSave();
-    if (typeof auditLog === 'function') auditLog('homolog', 'tolerancia_co2', { type: 'config', label: 'CO2' }, v + '%');
-    showToast('Tolerancia guardada: ' + v + '%', 'success');
-}
 
 function homoDeleteRow(id) {
     showConfirm('¿Quitar este vehículo del catálogo? No afecta a los vehículos ya registrados.', function() {
@@ -694,13 +653,12 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         'Sube el Excel del ICMS una sola vez; el Alta autollena solo a partir de ahí.',
         'Puedes subir las dos descargas por separado (coeficientes y CO₂): se fusionan por MC code.',
         'Reimportar el mismo archivo actualiza las filas, no las duplica.',
-        'La tolerancia de CO₂ es la que usa el CoP para juzgar la familia.'
+        'El veredicto de CO₂ (FCF, Evolution Factor) se ajusta en CoP → Validador, dentro de la mesa de trabajo de cada familia.'
     ]}
 });
 
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'pn-homolog-help': { title: 'Catálogo del ICMS', text: 'Cada fila es un vehículo homologado, identificado por su MC code. De ahí salen los coeficientes con los que se carga el dinamómetro y el CO₂ declarado contra el que se compara lo medido.' },
-    'pn-homolog-tol-help': { title: 'Tolerancia de CO₂', text: 'Cuánto puede exceder el promedio de la familia al CO₂ declarado antes de marcar NO CONCORDANTE. Se expresa en porcentaje sobre el valor declarado.' },
     'homo_mc': { title: 'MC code', text: 'El código del ICMS que identifica la homologación del vehículo. Escribe unos caracteres y elige de la lista: se autollenan los coeficientes y el CO₂. La próxima vez que registres esta misma configuración se llenará solo.' },
     'homo_f0': { title: 'f0 (N)', text: 'Coeficiente constante de la resistencia al avance, del apartado WLTP Driving energy del ICMS. Es uno de los tres valores con los que se carga el dinamómetro.' },
     'homo_f1': { title: 'f1 (N/(km/h))', text: 'Coeficiente lineal de la resistencia al avance, del ICMS.' },

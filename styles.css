@@ -4353,3 +4353,28 @@ body.cop-present .cop-toolbar    { display: none; }
     background: var(--ok-bg); color: var(--ok-text); border: 1px solid var(--ok-text);
     margin-bottom: 6px;
 }
+
+/* ── [v20.2] CO₂ — ajustes de familia (FCF / Evolution Factor) + conclusión ── */
+.cop-co2-settings {
+    display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
+    padding: 10px 12px; border-radius: var(--radius-md); background: var(--bg);
+    border: 1px solid var(--border); margin-bottom: 10px;
+}
+.cop-co2-settings label {
+    display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-xs);
+    color: var(--muted); font-weight: 600;
+}
+.cop-co2-settings input {
+    width: 110px; padding: 6px 8px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    font-size: var(--fs-sm);
+}
+.cop-co2-settings-hint { font-size: var(--fs-xs); color: var(--muted); font-style: italic; }
+
+.cop-co2-conclusion {
+    font-size: var(--fs-sm); padding: 8px 12px; border-radius: var(--radius-md);
+    margin: 10px 0 0; border-left: 3px solid var(--border); background: var(--bg);
+}
+.cop-co2-conclusion--pass     { border-left-color: var(--ok-fill);     background: var(--ok-bg);     color: var(--ok-text); }
+.cop-co2-conclusion--fail     { border-left-color: var(--danger-fill); background: var(--danger-bg); color: var(--danger-text); }
+.cop-co2-conclusion--continue { border-left-color: var(--warn-fill);   background: var(--warn-bg);   color: var(--warn-text); }

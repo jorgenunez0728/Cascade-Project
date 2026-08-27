@@ -1660,9 +1660,9 @@ function fbPullApply(collections, results, showFeedback) {
                 catalog: Object.keys(_rowMap).map(function(k) { return _rowMap[k]; }),
                 links: Object.assign({}, _remoteHomo.links || {}, _localHomo.links || {}),
                 ipFamilies: Object.keys(_ipMap).map(function(k) { return _ipMap[k]; }),
-                co2TolerancePct: (typeof _remoteHomo.co2TolerancePct === 'number' && String(_remoteHomo.updatedAt || '') > String(_localHomo.updatedAt || ''))
-                    ? _remoteHomo.co2TolerancePct
-                    : (typeof _localHomo.co2TolerancePct === 'number' ? _localHomo.co2TolerancePct : 4),
+                // v20.2: co2TolerancePct se retiró (la verificación de CO₂ ahora es el
+                // muestreo secuencial de UN R154 §3.3.1, no un % de tolerancia) — no se
+                // lista aquí a propósito, así que un pull deja de traerla.
                 updatedAt: new Date().toISOString()
             };
             localStorage.setItem('kia_homolog_v1', JSON.stringify(_mergedHomo));

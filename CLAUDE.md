@@ -900,6 +900,46 @@ greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya n
   excepción que señalar a diario. El dato vive en `moves[]`, la auditoría, el menú ⋯ y el
   `title` del asa. No volver a agregarlo a `marcas`.
 
+## v20.2 — CO₂ en el CoP: verificación estadística de familia (`js/cop_validator.js`)
+
+El CO₂ pasó de un % de tolerancia inventado por la app a la prueba real de la norma. El Excel de
+referencia (con el extracto oficial adjunto) corre DOS fórmulas en paralelo — se implementaron
+las dos, no una:
+
+- **`copCo2CalcStats(rows, fcf, evc)` es LA definición del veredicto de CO₂**, y devuelve AMBAS
+  pruebas: `appendixI` (Reg. (UE) 2017/1151 Anexo XXI Ap.I §4, "A menos varianza" — `Xtests <
+  A−VAR` / `Xtests > A−((n−3)/13)·VAR`, PRINCIPAL: es la que describe la conclusión) y `r154`
+  (UN R154 §3.3.1, Tabla A2/3 con t por tamaño de muestra — CONFIRMACIÓN). Los campos de nivel
+  superior (`decision`, `passBound`, `failBound`) son un alias de `appendixI` para que el resto
+  de la pantalla (gauge, congelado del juicio) no necesite saber que hay dos pruebas. **Si las
+  dos no coinciden, la conclusión lo declara en rojo — nunca se elige una en silencio.**
+- **Verificado byte-exacto contra los valores CACHEADOS del Excel de referencia** (media,
+  varianza, límites, decisión) — no es una aproximación de la fórmula, reproduce sus números
+  dígito por dígito. `COP_CO2_TABLE` (n=3..16) es la Tabla A2/3 transcrita del extracto oficial;
+  a n=16 las dos pruebas colapsan su banda exactamente al mismo punto (por diseño de la norma,
+  no coincidencia) — por eso comparten tope de muestra.
+- **`COP_CO2_A = 1,01` es fijo por la norma, NO configurable** — a diferencia del % de tolerancia
+  que reemplaza (v17.14-v20.1, retirado). Lo que SÍ es de la familia y SÍ se configura son
+  **FCF (Family Correction Factor) y Evolution Factor** (`copFamilyState(key).co2Fcf/.co2Evc`,
+  `copCo2Factors()`/`copSetCo2Factors()`), editables directo en CoP → Validador — no en una
+  pantalla de settings separada, a propósito: es donde se ve el efecto al instante.
+  `x_i = (CO2_medido × EvC × FCF) / CO2_declarado`.
+- **`_copBuildCo2HTML()` NO vive en `copBuildStatsHTML()`** — está un nivel arriba, en
+  `copBuildValidatorHTML()`. `copSetCo2Factors()` llama a `copRender()` completo, NUNCA
+  `copRenderStats()` (que solo repinta `#cop-stats-section`) — ese fue el bug real que apareció
+  al construir esto: guardar el ajuste actualizaba el estado pero la tarjeta seguía mostrando el
+  veredicto viejo, porque el repintado parcial no llegaba hasta ahí.
+- **El juicio guardado (`copSaveJudgment`) congela `co2` con las DOS pruebas** (`appendixI` +
+  `r154`, más `fcf`/`evc`/`mean`/`s`/`var`/`n` de cuando se decidió) — mismo principio que ya
+  aplicaba a los gases: un registro debe ser reproducible aunque después cambie un ajuste. El
+  PDF de expediente usa el congelado si hay juicio guardado, o lo calcula en vivo (PRELIMINAR)
+  si no — mismo patrón que el resto del documento.
+- **Se retiró `homoCo2Assess`/`homoState.co2TolerancePct`/`homoSaveTolerance`** (homolog.js) por
+  quedar superados — sin usos que quedaran huérfanos, se confirmó con grep antes de borrar.
+  **`homoCo2Deviation` SÍ se conserva**: la sigue usando la columna de desviación % por vehículo
+  en la tabla, que es informativa y no decide el veredicto. La clave `co2TolerancePct` se quitó
+  también de `_mergedHomo` en `fbPullApply` (se arma desde cero, así que basta con no listarla).
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

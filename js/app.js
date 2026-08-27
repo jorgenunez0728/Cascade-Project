@@ -210,11 +210,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.1';
+var APP_VERSION = '20.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.2', date: '27 ago 2026', title: 'CO₂ en el CoP: verificación estadística de familia', bullets: [
+        'El CO₂ ya no se compara solo contra un % de tolerancia: ahora corre la prueba estadística real de la norma (Reg. (UE) 2017/1151 Anexo XXI Apéndice I §4, "A menos varianza"), confirmada con la tabla de UN R154 (WLTP GTR) §3.3.1 — las dos, lado a lado, con su propio gauge y una conclusión en texto ("se acepta la familia" / "se rechaza la familia") con los números reales.',
+        'Nuevo ajuste por familia: FCF (Family Correction Factor) y Evolution Factor, editables ahí mismo en CoP → Validador. Sin ajustar valen 1 (sin corrección); cambiar uno recalcula el veredicto al instante.',
+        'Usa el CO₂ medido de cada vehículo (de Pruebas) y el CO₂ declarado del ICMS (de Homologación) — agregar o quitar un vehículo de la mesa de trabajo recalcula todo solo, igual que con los gases.',
+        'El juicio guardado congela el CO₂ (las dos pruebas, con el FCF/Evolution Factor con que se decidió) para que el registro sea reproducible aunque después cambien los ajustes. El expediente en PDF también lo incluye.',
+        'Se retiró la tolerancia porcentual de CO₂ de Homologación → Settings: quedó superada por la prueba estadística real.'
+    ] },
     { version: '20.1', date: '27 ago 2026', title: 'Mi semana — repetir, agregar y vincular', bullets: [
         'YA SE PUEDEN PROBAR DOS VEHÍCULOS IDÉNTICOS de la misma configuración en la misma semana. Estaba bloqueado en cuatro sitios a la vez; ahora "⧉ Otra unidad igual" agrega la segunda, se numeran "1 de 2" y "2 de 2", y cada una toma su propio vehículo.',
         'Botón ＋ en cada día para agregar configuraciones directo desde Mi semana, con buscador y agrupadas por familia. Antes solo se podían mover las que el generador proponía.',
