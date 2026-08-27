@@ -4297,3 +4297,18 @@ body.cop-present .cop-toolbar    { display: none; }
     cursor: pointer; font-size: var(--fs-xs); font-weight: 700; color: var(--info-text);
     list-style: revert; min-height: 24px; display: list-item;
 }
+
+/* ── [v20] Asa de arrastre de la tarjeta ─────────────────────────────────────
+   La TARJETA no puede ser el <button> (contiene botones), así que el origen del
+   arrastre y del teclado es esta asa — el patrón que conserva la accesibilidad
+   de teclado que v17.8 le dio al mapa del cuarto de gases. */
+.tp-week-grip {
+    flex: 0 0 auto; cursor: grab; background: none; border: 1px solid transparent;
+    color: var(--muted); font-size: 13px; line-height: 1; padding: 4px 2px;
+    border-radius: var(--radius-sm); min-height: 26px; touch-action: none;
+}
+.tp-week-grip:hover  { background: var(--bg); color: var(--text); }
+.tp-week-grip:active { cursor: grabbing; }
+.tp-week-grip--sel   { background: var(--info-bg); color: var(--info-text); border-color: var(--info-text); }
+.tp-week-col-body.drag-ready { background: var(--info-bg); }
+@media print { .tp-week-grip { display: none !important; } }

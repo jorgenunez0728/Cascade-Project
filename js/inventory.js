@@ -58,12 +58,9 @@ var INV_LABS = ['Emisiones', 'Materiales', 'Calibración'];
 var INV_CAL_PLACES = ['En sitio', 'Externo Nacional', 'Externo USA'];
 var INV_CAL_TYPES = ['Interna', 'Externa'];
 
-// Drag-and-drop state for zone map
-var _invDrag = { active:false, gasId:null, sourceCode:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false };
-// [v17.8] Selección por teclado del mapa de zonas — alternativa al drag-and-drop (que solo
-// funciona con mouse/dedo). Independiente de _invDrag: nunca se tocan a la vez porque el
-// mouse/touch usa mousedown/touchstart y esto usa click con e.detail===0 (ver invZoneKeySelect).
-var _invKbdMove = { gasId: null, sourceCode: null, label: '' };
+// [v20] El estado del arrastre y de la selección por teclado del mapa de zonas se mudó a
+// `_gridDrag`/`_gridKbd` en app.js, junto con el motor: el tablero de "Mi semana" necesitaba
+// exactamente lo mismo y dos copias del mismo arrastre táctil se habrían desincronizado.
 var _invUndoStack = [];
 var _invUndoMaxSize = 5;
 
@@ -3366,247 +3363,50 @@ function invShowZoneSlotDetail(code) {
 }
 
 // ── Zone Map: Drag-and-Drop ──
+/**
+ * [v20] Envoltura sobre `gridDragInit` (app.js). Este motor NACIÓ aquí (v16.5, con la
+ * alternativa de teclado añadida en v17.8) y era el único de la plataforma; al aparecer
+ * el tablero de "Mi semana" hacían falta exactamente las mismas dos cosas, así que se
+ * generalizó en vez de copiarlo. El comportamiento del mapa de gases no cambia: mismo
+ * long-press de 380 ms, mismo umbral de 15 px, mismo Enter/Espacio con `detail === 0`,
+ * misma clase `.inv-zone-slot--kbdsel`.
+ */
 function invInitZoneDrag(container) {
-    var slots = container.querySelectorAll('.inv-zone-slot');
-    var LONG_PRESS_MS = 380;
-    var DRAG_THRESHOLD = 15;
-
-    function getXY(e) {
-        if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        if (e.changedTouches && e.changedTouches.length > 0) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
-        return { x: e.clientX, y: e.clientY };
-    }
-
-    function cancelDrag() {
-        if (_invDrag.timer) { clearTimeout(_invDrag.timer); _invDrag.timer = null; }
-        if (_invDrag.ghostEl) { _invDrag.ghostEl.remove(); _invDrag.ghostEl = null; }
-        // Remove visual highlights
-        container.querySelectorAll('.inv-zone-slot').forEach(function(s) {
-            s.style.outline = '';
-            s.style.opacity = '';
-            s.classList.remove('drag-ready');
-        });
-        container.style.touchAction = '';
-        _invDrag.active = false;
-        _invDrag.committed = false;
-        _invDrag.gasId = null;
-        _invDrag.sourceCode = null;
-    }
-
-    function startDragMode(slotEl, pt) {
-        var gasId = slotEl.getAttribute('data-gas-id');
-        if (!gasId) return; // Empty slot, nothing to drag
-        _invDrag.active = true;
-        _invDrag.gasId = gasId;
-        _invDrag.sourceCode = slotEl.getAttribute('data-zone-code');
-
-        // Vibrate if available
-        if (navigator.vibrate) navigator.vibrate(50);
-
-        // Create ghost element
-        var ghost = slotEl.cloneNode(true);
-        ghost.style.position = 'fixed';
-        ghost.style.left = (pt.x - 26) + 'px';
-        ghost.style.top = (pt.y - 26) + 'px';
-        ghost.style.width = '52px';
-        ghost.style.opacity = '0.85';
-        ghost.style.zIndex = '10000';
-        ghost.style.pointerEvents = 'none';
-        ghost.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)';
-        ghost.style.transform = 'scale(1.15)';
-        ghost.style.transition = 'none';
-        document.body.appendChild(ghost);
-        _invDrag.ghostEl = ghost;
-
-        // Highlight source slot
-        slotEl.style.opacity = '0.3';
-        slotEl.style.outline = '2px dashed #eab308';
-
-        // Highlight empty slots as drop targets
-        container.querySelectorAll('.inv-zone-slot').forEach(function(s) {
-            if (s === slotEl) return;
-            if (!s.getAttribute('data-gas-id')) {
-                s.style.outline = '2px dashed #22c55e';
-            }
-        });
-    }
-
-    function onPointerDown(e) {
-        // Only primary button for mouse
-        if (e.type === 'mousedown' && e.button !== 0) return;
-        cancelDrag();
-        var slotEl = e.currentTarget;
-        var pt = getXY(e);
-        _invDrag.startX = pt.x;
-        _invDrag.startY = pt.y;
-        _invDrag.committed = false;
-        _invDrag.sourceCode = slotEl.getAttribute('data-zone-code'); // Store for tap fallback
-        if (!slotEl.getAttribute('data-gas-id')) {
-            // Empty slot: no drag, but still handle tap on pointer-up via a dummy timer
-            _invDrag.timer = setTimeout(function() { _invDrag.timer = null; }, LONG_PRESS_MS);
-            return;
-        }
-        _invDrag.timer = setTimeout(function() {
-            _invDrag.timer = null;
-            slotEl.classList.add('drag-ready');
-            container.style.touchAction = 'none';
-            startDragMode(slotEl, pt);
-        }, LONG_PRESS_MS);
-    }
-
-    function onPointerMove(e) {
-        var pt = getXY(e);
-        // If timer still running, check if moved too far (cancel long-press)
-        if (_invDrag.timer) {
-            var dx = Math.abs(pt.x - _invDrag.startX);
-            var dy = Math.abs(pt.y - _invDrag.startY);
-            if (dx > 12 || dy > 12) {
-                clearTimeout(_invDrag.timer);
-                _invDrag.timer = null;
-            }
-            return;
-        }
-        if (!_invDrag.active) return;
-        e.preventDefault(); // Prevent scroll during drag
-
-        // Check drag threshold
-        var distX = pt.x - _invDrag.startX;
-        var distY = pt.y - _invDrag.startY;
-        if (!_invDrag.committed && Math.sqrt(distX*distX + distY*distY) > DRAG_THRESHOLD) {
-            _invDrag.committed = true;
-        }
-
-        // Move ghost
-        if (_invDrag.ghostEl) {
-            _invDrag.ghostEl.style.left = (pt.x - 26) + 'px';
-            _invDrag.ghostEl.style.top = (pt.y - 26) + 'px';
-        }
-    }
-
-    function onPointerUp(e) {
-        // If long-press timer still running → normal tap
-        if (_invDrag.timer) {
-            clearTimeout(_invDrag.timer);
-            _invDrag.timer = null;
-            var tapCode = _invDrag.sourceCode;
-            _invDrag.sourceCode = null;
-            if (tapCode) invShowZoneSlotDetail(tapCode);
-            return;
-        }
-        if (!_invDrag.active) return;
-
-        var pt = getXY(e);
-        var wasCommitted = _invDrag.committed;
-        var gasId = _invDrag.gasId;
-        var sourceCode = _invDrag.sourceCode;
-
-        cancelDrag();
-
-        if (!wasCommitted) {
-            // Drag was activated (long-press fired) but didn't move far enough → treat as detail view
-            if (sourceCode) invShowZoneSlotDetail(sourceCode);
-            return;
-        }
-
-        // Find drop target
-        var targetEl = document.elementFromPoint(pt.x, pt.y);
-        if (targetEl) targetEl = targetEl.closest('.inv-zone-slot');
-        if (!targetEl) { showToast('Soltar fuera del mapa — cancelado', 'warning'); return; }
-        var targetCode = targetEl.getAttribute('data-zone-code');
-        if (!targetCode || targetCode === sourceCode) return;
-
-        invDropCylinder(gasId, sourceCode, targetCode);
-    }
-
-    // Cleanup previous listeners before attaching new ones
-    if (window._invDragCleanup) window._invDragCleanup();
-
-    // Attach listeners to each slot
-    slots.forEach(function(slot) {
-        slot.addEventListener('touchstart', onPointerDown, { passive: true });
-        slot.addEventListener('mousedown', onPointerDown);
-        // [v17.8] Alternativa de teclado: Enter/Espacio sobre un <button> dispara un evento
-        // `click` nativo con detail===0 (un clic real de mouse siempre trae detail>=1), así
-        // que esto nunca se activa por accidente durante un tap/drag normal — esos ya se
-        // resuelven en onPointerUp más arriba.
-        slot.addEventListener('click', function (e) {
-            if (e.detail !== 0) return;
-            invZoneKeySelect(slot);
-        });
+    if (typeof gridDragInit !== 'function') return;   // app.js carga antes; guarda por si acaso
+    gridDragInit(container, {
+        ns: 'inv-zone',
+        itemSelector: '.inv-zone-slot',
+        idAttr: 'data-gas-id',
+        cellAttr: 'data-zone-code',
+        selectedClass: 'inv-zone-slot--kbdsel',
+        ghostWidth: 52,
+        label: function(gasId) {
+            var g = (invState.gases || []).find(function(x) { return x.id === gasId; });
+            return g ? (g.formula + (g.controlNo ? ' #' + g.controlNo : '')) : 'Cilindro';
+        },
+        // Sólo las posiciones VACÍAS aceptan: es la regla que el mapa siempre tuvo.
+        canDrop: function(gasId, from, to, el) { return !!to && to !== from && el && !el.getAttribute('data-gas-id'); },
+        onDrop: function(gasId, from, to) { invDropCylinder(gasId, from, to); },
+        onTap: function(code) { if (code) invShowZoneSlotDetail(code); }
     });
-
-    // Move/up on document (so drag continues outside slot boundaries)
-    var onCancel = function() { cancelDrag(); };
-    document.addEventListener('touchmove', onPointerMove, { passive: false });
-    document.addEventListener('mousemove', onPointerMove);
-    document.addEventListener('touchend', onPointerUp, { passive: true });
-    document.addEventListener('mouseup', onPointerUp);
-    document.addEventListener('touchcancel', onCancel);
-
-    // Store cleanup ref for re-renders
-    window._invDragCleanup = function() {
-        document.removeEventListener('touchmove', onPointerMove);
-        document.removeEventListener('mousemove', onPointerMove);
-        document.removeEventListener('touchend', onPointerUp);
-        document.removeEventListener('mouseup', onPointerUp);
-        document.removeEventListener('touchcancel', onCancel);
-    };
-
-    // [v17.8] Escape cancela una selección de teclado en curso. Se cablea una sola vez
-    // (idempotente vía _invKeyEscWired) porque invInitZoneDrag se vuelve a llamar en cada
-    // render del mapa, pero el listener de Escape no depende del contenido del contenedor.
-    if (!window._invKeyEscWired) {
-        window._invKeyEscWired = true;
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && _invKbdMove.gasId) invZoneKeyCancel();
-        });
-    }
 }
 
-// [v17.8] Máquina de estados de la selección por teclado: clic (con detail===0, es decir,
-// Enter/Espacio) sobre una posición OCUPADA selecciona ese cilindro; clic sobre una posición
-// VACÍA con algo seleccionado lo mueve ahí (mismo invDropCylinder que usa el drag-and-drop);
-// clic sobre la MISMA posición cancela; clic sobre OTRA posición ocupada cambia la selección.
+/** Compatibilidad: el estado del teclado ahora vive en app.js (`_gridKbd`). */
 function invZoneKeySelect(slotEl) {
-    var code = slotEl.getAttribute('data-zone-code');
-    var gasId = slotEl.getAttribute('data-gas-id');
-
-    if (_invKbdMove.gasId) {
-        if (code === _invKbdMove.sourceCode) { invZoneKeyCancel(); return; }
-        if (!gasId) {
-            var moved = _invKbdMove.label;
-            invDropCylinder(_invKbdMove.gasId, _invKbdMove.sourceCode, code);
-            _invKbdMove = { gasId: null, sourceCode: null, label: '' };
-            // invDropCylinder ya volvió a renderizar todo el mapa (nuevos botones, nuevo DOM) —
-            // sin esto el foco se perdería del todo tras un movimiento exitoso por teclado.
-            var movedEl = document.querySelector('.inv-zone-slot[data-zone-code="' + code + '"]');
-            if (movedEl) movedEl.focus();
-            if (typeof a11yAnnounce === 'function') a11yAnnounce(moved + ' movido a la posición ' + code + '.');
-            return;
-        }
-        // Posición ocupada por otro cilindro: cambiar la selección a este.
-    }
-
-    if (!gasId) {
-        if (typeof a11yAnnounce === 'function') a11yAnnounce('Posición ' + code + ' vacía. Selecciona primero un cilindro para moverlo.');
-        return;
-    }
-    var gas = invState.gases.find(function (g) { return g.id === gasId; });
-    var label = gas ? (gas.formula + (gas.controlNo ? ' #' + gas.controlNo : '')) : 'Cilindro';
-    _invKbdMove = { gasId: gasId, sourceCode: code, label: label };
-    document.querySelectorAll('.inv-zone-slot--kbdsel').forEach(function (s) { s.classList.remove('inv-zone-slot--kbdsel'); });
-    slotEl.classList.add('inv-zone-slot--kbdsel');
-    if (typeof a11yAnnounce === 'function') {
-        a11yAnnounce(label + ' seleccionado en ' + code + '. Elige una posición vacía con Enter para moverlo ahí, o Escape para cancelar.');
-    }
+    if (typeof gridKbdSelect !== 'function') return;
+    gridKbdSelect(slotEl, {
+        ns: 'inv-zone', itemSelector: '.inv-zone-slot',
+        idAttr: 'data-gas-id', cellAttr: 'data-zone-code', selectedClass: 'inv-zone-slot--kbdsel',
+        label: function(gasId) {
+            var g = (invState.gases || []).find(function(x) { return x.id === gasId; });
+            return g ? (g.formula + (g.controlNo ? ' #' + g.controlNo : '')) : 'Cilindro';
+        },
+        canDrop: function(gasId, from, to, el) { return !!to && to !== from && el && !el.getAttribute('data-gas-id'); },
+        onDrop: function(gasId, from, to) { invDropCylinder(gasId, from, to); }
+    });
 }
 
-function invZoneKeyCancel() {
-    var label = _invKbdMove.label;
-    _invKbdMove = { gasId: null, sourceCode: null, label: '' };
-    document.querySelectorAll('.inv-zone-slot--kbdsel').forEach(function (s) { s.classList.remove('inv-zone-slot--kbdsel'); });
-    if (typeof a11yAnnounce === 'function' && label) a11yAnnounce('Movimiento de ' + label + ' cancelado.');
-}
+function invZoneKeyCancel() { if (typeof gridKbdCancel === 'function') gridKbdCancel(); }
 
 function invDropCylinder(gasId, sourceCode, targetCode) {
     var gas = invState.gases.find(function(g) { return g.id === gasId; });

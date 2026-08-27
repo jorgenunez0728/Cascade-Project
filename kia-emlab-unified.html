@@ -4738,6 +4738,21 @@ body.cop-present .cop-toolbar    { display: none; }
     cursor: pointer; font-size: var(--fs-xs); font-weight: 700; color: var(--info-text);
     list-style: revert; min-height: 24px; display: list-item;
 }
+
+/* ── [v20] Asa de arrastre de la tarjeta ─────────────────────────────────────
+   La TARJETA no puede ser el <button> (contiene botones), así que el origen del
+   arrastre y del teclado es esta asa — el patrón que conserva la accesibilidad
+   de teclado que v17.8 le dio al mapa del cuarto de gases. */
+.tp-week-grip {
+    flex: 0 0 auto; cursor: grab; background: none; border: 1px solid transparent;
+    color: var(--muted); font-size: 13px; line-height: 1; padding: 4px 2px;
+    border-radius: var(--radius-sm); min-height: 26px; touch-action: none;
+}
+.tp-week-grip:hover  { background: var(--bg); color: var(--text); }
+.tp-week-grip:active { cursor: grabbing; }
+.tp-week-grip--sel   { background: var(--info-bg); color: var(--info-text); border-color: var(--info-text); }
+.tp-week-col-body.drag-ready { background: var(--info-bg); }
+@media print { .tp-week-grip { display: none !important; } }
     </style>
 </head>
 
@@ -6962,7 +6977,7 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW (FR) + 70KW (RR)-235/45 R19-USA-WGN-HIGH POWE
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-CANADA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,CANADA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608271134';
+var APP_BUILD = '202608271141';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
@@ -7228,14 +7243,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608271134' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608271141' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608271134' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608271141' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -7251,7 +7266,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608271134' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608271141' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -12160,6 +12175,272 @@ function v7GoToVehicleStep(gotoSection) {
                 if (firstInput) firstInput.focus();
             }, 400);
         }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v20] gridDragInit — UN SOLO motor de arrastre + teclado para toda la plataforma
+//
+// Nació como `invInitZoneDrag` (v16.5) para el mapa del cuarto de gases, y v17.8 le
+// agregó la alternativa de teclado. Al aparecer el tablero de "Mi semana" hacían falta
+// exactamente las mismas dos cosas, así que en vez de copiar 200 líneas se generalizó:
+// `invInitZoneDrag` quedó como envoltura y el planificador lo llama con sus propias
+// opciones. Un solo motor = un solo lugar donde arreglar el arrastre en tablet.
+//
+//   gridDragInit(container, {
+//     itemSelector,            // qué elementos participan (deben ser <button>)
+//     idAttr,   cellAttr,      // atributos: quién se mueve, y a qué celda
+//     longPressMs, threshold, ghostWidth,
+//     label(id, el),           // texto para los anuncios de accesibilidad
+//     canDrop(id, from, to),   // opcional; false ⇒ esa celda no acepta
+//     onDrop(id, from, to),    // obligatorio
+//     onTap(cell, el)          // opcional: toque corto
+//   })
+//
+// Reglas que NO se pueden perder al tocar esto:
+//  · El origen tiene que ser un <button>: Enter/Espacio disparan un `click` nativo con
+//    `detail === 0` (un clic de ratón real siempre trae detail ≥ 1). Ése es el truco que
+//    distingue teclado de tap sin registrar handlers de keydown por elemento.
+//  · Los listeners de movimiento van en `document`, no en el elemento: si no, el arrastre
+//    se corta al salir de sus límites.
+//  · `touchmove` debe ir con `{passive:false}` — es el único modo en que preventDefault
+//    puede frenar el desplazamiento de la página durante el arrastre.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var _gridDrag = { active:false, id:null, from:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false, ns:null };
+var _gridKbd  = { id:null, from:null, label:'', ns:null, cls:null };
+
+/** ¿Hay una selección de teclado viva en este contenedor? (lo usa Escape) */
+function gridKbdActive(ns) { return !!(_gridKbd.id && (!ns || _gridKbd.ns === ns)); }
+
+function gridKbdCancel(silencioso) {
+    var label = _gridKbd.label;
+    // La clase de selección la elige cada rejilla, así que se recuerda con la selección
+    // en vez de listarlas aquí: hardcodearlas dejaba la marca pegada en pantalla.
+    var cls = _gridKbd.cls || 'grid-drag-kbdsel';
+    _gridKbd = { id:null, from:null, label:'', ns:null, cls:null };
+    document.querySelectorAll('.' + cls).forEach(function(s) { s.classList.remove(cls); });
+    if (!silencioso && typeof a11yAnnounce === 'function' && label) a11yAnnounce('Movimiento de ' + label + ' cancelado.');
+}
+
+function gridDragInit(container, opts) {
+    if (!container) return;
+    opts = opts || {};
+    var SEL       = opts.itemSelector || '.grid-drag-item';
+    var ID_ATTR   = opts.idAttr   || 'data-drag-id';
+    var CELL_ATTR = opts.cellAttr || 'data-drag-cell';
+    var LONG_PRESS_MS   = opts.longPressMs || 380;
+    var DRAG_THRESHOLD  = opts.threshold   || 15;
+    var GHOST_W   = opts.ghostWidth || 52;
+    var SELCLASS  = opts.selectedClass || 'grid-drag-kbdsel';
+    var NS        = opts.ns || SEL;
+    var onDrop    = opts.onDrop || function() {};
+    var onTap     = opts.onTap  || null;
+    var canDrop   = opts.canDrop || function() { return true; };
+    var labelOf   = opts.label || function(id, el) { return (el && el.getAttribute('aria-label')) || 'Elemento'; };
+
+    var slots = container.querySelectorAll(SEL);
+
+    function getXY(e) {
+        if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        if (e.changedTouches && e.changedTouches.length > 0) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    function cancelDrag() {
+        if (_gridDrag.timer) { clearTimeout(_gridDrag.timer); _gridDrag.timer = null; }
+        if (_gridDrag.ghostEl) { _gridDrag.ghostEl.remove(); _gridDrag.ghostEl = null; }
+        container.querySelectorAll(SEL).forEach(function(s) {
+            s.style.outline = ''; s.style.opacity = ''; s.classList.remove('drag-ready');
+        });
+        container.style.touchAction = '';
+        _gridDrag.active = false; _gridDrag.committed = false;
+        _gridDrag.id = null; _gridDrag.from = null; _gridDrag.ns = null;
+    }
+
+    function startDragMode(slotEl, pt) {
+        var id = slotEl.getAttribute(ID_ATTR);
+        if (!id) return;
+        _gridDrag.active = true; _gridDrag.id = id; _gridDrag.ns = NS;
+        _gridDrag.from = slotEl.getAttribute(CELL_ATTR);
+        if (navigator.vibrate) { try { navigator.vibrate(50); } catch (e) {} }
+
+        var ghost = slotEl.cloneNode(true);
+        ghost.style.position = 'fixed';
+        ghost.style.left = (pt.x - GHOST_W / 2) + 'px';
+        ghost.style.top  = (pt.y - GHOST_W / 2) + 'px';
+        ghost.style.width = GHOST_W + 'px';
+        ghost.style.opacity = '0.85';
+        ghost.style.zIndex = '10000';
+        ghost.style.pointerEvents = 'none';
+        ghost.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)';
+        ghost.style.transform = 'scale(1.15)';
+        ghost.style.transition = 'none';
+        document.body.appendChild(ghost);
+        _gridDrag.ghostEl = ghost;
+
+        slotEl.style.opacity = '0.3';
+        slotEl.style.outline = '2px dashed #eab308';
+        // Marcar en verde SOLO las celdas que de verdad aceptan: prometer un destino que
+        // luego se rechaza es peor que no marcarlo.
+        container.querySelectorAll(SEL).forEach(function(s) {
+            if (s === slotEl) return;
+            if (canDrop(id, _gridDrag.from, s.getAttribute(CELL_ATTR), s)) s.style.outline = '2px dashed #22c55e';
+        });
+    }
+
+    function onPointerDown(e) {
+        if (e.type === 'mousedown' && e.button !== 0) return;
+        // Las rejillas pueden ANIDAR origen y destino (en el tablero de la semana el asa
+        // vive dentro de la columna). Sin esto el evento burbujea, el handler de la celda
+        // contenedora vuelve a correr y cancela el arrastre que acaba de empezar.
+        e.stopPropagation();
+        cancelDrag();
+        var slotEl = e.currentTarget;
+        var pt = getXY(e);
+        _gridDrag.startX = pt.x; _gridDrag.startY = pt.y; _gridDrag.committed = false;
+        _gridDrag.from = slotEl.getAttribute(CELL_ATTR);
+        if (!slotEl.getAttribute(ID_ATTR)) {
+            // Celda sin carga: no hay arrastre, pero el toque corto sigue valiendo.
+            _gridDrag.timer = setTimeout(function() { _gridDrag.timer = null; }, LONG_PRESS_MS);
+            return;
+        }
+        _gridDrag.timer = setTimeout(function() {
+            _gridDrag.timer = null;
+            slotEl.classList.add('drag-ready');
+            container.style.touchAction = 'none';
+            startDragMode(slotEl, pt);
+        }, LONG_PRESS_MS);
+    }
+
+    function onPointerMove(e) {
+        var pt = getXY(e);
+        if (_gridDrag.timer) {
+            if (Math.abs(pt.x - _gridDrag.startX) > 12 || Math.abs(pt.y - _gridDrag.startY) > 12) {
+                clearTimeout(_gridDrag.timer); _gridDrag.timer = null;
+            }
+            return;
+        }
+        if (!_gridDrag.active || _gridDrag.ns !== NS) return;
+        e.preventDefault();
+        var dx = pt.x - _gridDrag.startX, dy = pt.y - _gridDrag.startY;
+        if (!_gridDrag.committed && Math.sqrt(dx*dx + dy*dy) > DRAG_THRESHOLD) _gridDrag.committed = true;
+        if (_gridDrag.ghostEl) {
+            _gridDrag.ghostEl.style.left = (pt.x - GHOST_W / 2) + 'px';
+            _gridDrag.ghostEl.style.top  = (pt.y - GHOST_W / 2) + 'px';
+        }
+    }
+
+    function onPointerUp(e) {
+        if (_gridDrag.timer) {
+            clearTimeout(_gridDrag.timer); _gridDrag.timer = null;
+            var tapCell = _gridDrag.from; _gridDrag.from = null;
+            if (tapCell && onTap) onTap(tapCell, null);
+            return;
+        }
+        if (!_gridDrag.active || _gridDrag.ns !== NS) return;
+        var pt = getXY(e);
+        var comprometido = _gridDrag.committed, id = _gridDrag.id, from = _gridDrag.from;
+        cancelDrag();
+        if (!comprometido) { if (from && onTap) onTap(from, null); return; }
+
+        var targetEl = document.elementFromPoint(pt.x, pt.y);
+        if (targetEl) targetEl = targetEl.closest(SEL);
+        if (!targetEl) { if (typeof showToast === 'function') showToast('Soltar fuera del tablero — cancelado', 'warning'); return; }
+        var to = targetEl.getAttribute(CELL_ATTR);
+        if (!to || to === from) return;
+        if (!canDrop(id, from, to, targetEl)) return;
+        onDrop(id, from, to, targetEl);
+    }
+
+    // Los listeners viejos se quitan antes de volver a montar: gridDragInit se llama en
+    // cada render y si no, se acumulan y el arrastre dispara N veces.
+    if (window._gridDragCleanup && window._gridDragCleanup[NS]) window._gridDragCleanup[NS]();
+
+    slots.forEach(function(slot) {
+        slot.addEventListener('touchstart', onPointerDown, { passive: true });
+        slot.addEventListener('mousedown', onPointerDown);
+        slot.addEventListener('click', function(e) {
+            if (e.detail !== 0) return;   // sólo Enter/Espacio; un clic real trae detail ≥ 1
+            // Mismo motivo que en onPointerDown: seleccionar el asa burbujeaba hasta su
+            // propia columna, que leía "misma celda" y cancelaba la selección al instante.
+            e.stopPropagation();
+            gridKbdSelect(slot, {
+                idAttr: ID_ATTR, cellAttr: CELL_ATTR, selectedClass: SELCLASS, ns: NS,
+                itemSelector: SEL, refocusSelector: opts.refocusSelector,
+                label: labelOf, canDrop: canDrop, onDrop: onDrop
+            });
+        });
+    });
+
+    var onCancel = function() { cancelDrag(); };
+    document.addEventListener('touchmove', onPointerMove, { passive: false });
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('touchend', onPointerUp, { passive: true });
+    document.addEventListener('mouseup', onPointerUp);
+    document.addEventListener('touchcancel', onCancel);
+
+    if (!window._gridDragCleanup) window._gridDragCleanup = {};
+    window._gridDragCleanup[NS] = function() {
+        document.removeEventListener('touchmove', onPointerMove);
+        document.removeEventListener('mousemove', onPointerMove);
+        document.removeEventListener('touchend', onPointerUp);
+        document.removeEventListener('mouseup', onPointerUp);
+        document.removeEventListener('touchcancel', onCancel);
+    };
+
+    // Escape se cablea UNA vez para toda la plataforma: no depende del contenedor y
+    // gridDragInit se vuelve a llamar en cada render.
+    if (!window._gridKeyEscWired) {
+        window._gridKeyEscWired = true;
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && _gridKbd.id) gridKbdCancel(); });
+    }
+}
+
+/**
+ * Máquina de estados del movimiento por teclado (v17.8, generalizada):
+ * Enter/Espacio sobre una celda CON carga la selecciona; sobre una celda que la acepta,
+ * la mueve; sobre la MISMA celda, cancela; sobre otra celda con carga, cambia la selección.
+ */
+function gridKbdSelect(slotEl, o) {
+    var cell = slotEl.getAttribute(o.cellAttr);
+    var id   = slotEl.getAttribute(o.idAttr);
+
+    if (_gridKbd.id && _gridKbd.ns === o.ns) {
+        if (cell === _gridKbd.from) { gridKbdCancel(); return; }
+        if (o.canDrop(_gridKbd.id, _gridKbd.from, cell, slotEl)) {
+            var movido = _gridKbd.label, origen = _gridKbd.from, quien = _gridKbd.id;
+            _gridKbd = { id:null, from:null, label:'', ns:null, cls:null };
+            document.querySelectorAll('.' + o.selectedClass).forEach(function(s) { s.classList.remove(o.selectedClass); });
+            o.onDrop(quien, origen, cell, slotEl);
+            // onDrop repinta: el foco se perdería del todo sin volver a buscarlo.
+            // OJO: `itemSelector` puede ser una LISTA separada por comas (el tablero de la
+            // semana usa asa + columna). Concatenarle el atributo produciría un selector
+            // roto —`.a, .b[attr]` sólo filtra el último—, así que el llamador puede pasar
+            // `refocusSelector` con el selector exacto del destino.
+            var refoco = o.refocusSelector || o.itemSelector;
+            var nuevo = document.querySelector(refoco + '[' + o.cellAttr + '="' + cell + '"]');
+            if (nuevo) nuevo.focus();
+            if (typeof a11yAnnounce === 'function') a11yAnnounce(movido + ' movido a ' + cell + '.');
+            return;
+        }
+        if (!id) {
+            if (typeof a11yAnnounce === 'function') a11yAnnounce('No se puede mover ahí.');
+            return;
+        }
+        // Celda ocupada por otro: cambia la selección.
+    }
+
+    if (!id) {
+        if (typeof a11yAnnounce === 'function') a11yAnnounce('Posición ' + cell + ' vacía. Selecciona primero algo para moverlo.');
+        return;
+    }
+    var label = o.label(id, slotEl);
+    _gridKbd = { id: id, from: cell, label: label, ns: o.ns, cls: o.selectedClass };
+    document.querySelectorAll('.' + o.selectedClass).forEach(function(s) { s.classList.remove(o.selectedClass); });
+    slotEl.classList.add(o.selectedClass);
+    if (typeof a11yAnnounce === 'function') {
+        a11yAnnounce(label + ' seleccionado en ' + cell + '. Elige un destino con Enter para moverlo, o Escape para cancelar.');
     }
 }
 
@@ -19891,12 +20172,9 @@ var INV_LABS = ['Emisiones', 'Materiales', 'Calibración'];
 var INV_CAL_PLACES = ['En sitio', 'Externo Nacional', 'Externo USA'];
 var INV_CAL_TYPES = ['Interna', 'Externa'];
 
-// Drag-and-drop state for zone map
-var _invDrag = { active:false, gasId:null, sourceCode:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false };
-// [v17.8] Selección por teclado del mapa de zonas — alternativa al drag-and-drop (que solo
-// funciona con mouse/dedo). Independiente de _invDrag: nunca se tocan a la vez porque el
-// mouse/touch usa mousedown/touchstart y esto usa click con e.detail===0 (ver invZoneKeySelect).
-var _invKbdMove = { gasId: null, sourceCode: null, label: '' };
+// [v20] El estado del arrastre y de la selección por teclado del mapa de zonas se mudó a
+// `_gridDrag`/`_gridKbd` en app.js, junto con el motor: el tablero de "Mi semana" necesitaba
+// exactamente lo mismo y dos copias del mismo arrastre táctil se habrían desincronizado.
 var _invUndoStack = [];
 var _invUndoMaxSize = 5;
 
@@ -23199,247 +23477,50 @@ function invShowZoneSlotDetail(code) {
 }
 
 // ── Zone Map: Drag-and-Drop ──
+/**
+ * [v20] Envoltura sobre `gridDragInit` (app.js). Este motor NACIÓ aquí (v16.5, con la
+ * alternativa de teclado añadida en v17.8) y era el único de la plataforma; al aparecer
+ * el tablero de "Mi semana" hacían falta exactamente las mismas dos cosas, así que se
+ * generalizó en vez de copiarlo. El comportamiento del mapa de gases no cambia: mismo
+ * long-press de 380 ms, mismo umbral de 15 px, mismo Enter/Espacio con `detail === 0`,
+ * misma clase `.inv-zone-slot--kbdsel`.
+ */
 function invInitZoneDrag(container) {
-    var slots = container.querySelectorAll('.inv-zone-slot');
-    var LONG_PRESS_MS = 380;
-    var DRAG_THRESHOLD = 15;
-
-    function getXY(e) {
-        if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        if (e.changedTouches && e.changedTouches.length > 0) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
-        return { x: e.clientX, y: e.clientY };
-    }
-
-    function cancelDrag() {
-        if (_invDrag.timer) { clearTimeout(_invDrag.timer); _invDrag.timer = null; }
-        if (_invDrag.ghostEl) { _invDrag.ghostEl.remove(); _invDrag.ghostEl = null; }
-        // Remove visual highlights
-        container.querySelectorAll('.inv-zone-slot').forEach(function(s) {
-            s.style.outline = '';
-            s.style.opacity = '';
-            s.classList.remove('drag-ready');
-        });
-        container.style.touchAction = '';
-        _invDrag.active = false;
-        _invDrag.committed = false;
-        _invDrag.gasId = null;
-        _invDrag.sourceCode = null;
-    }
-
-    function startDragMode(slotEl, pt) {
-        var gasId = slotEl.getAttribute('data-gas-id');
-        if (!gasId) return; // Empty slot, nothing to drag
-        _invDrag.active = true;
-        _invDrag.gasId = gasId;
-        _invDrag.sourceCode = slotEl.getAttribute('data-zone-code');
-
-        // Vibrate if available
-        if (navigator.vibrate) navigator.vibrate(50);
-
-        // Create ghost element
-        var ghost = slotEl.cloneNode(true);
-        ghost.style.position = 'fixed';
-        ghost.style.left = (pt.x - 26) + 'px';
-        ghost.style.top = (pt.y - 26) + 'px';
-        ghost.style.width = '52px';
-        ghost.style.opacity = '0.85';
-        ghost.style.zIndex = '10000';
-        ghost.style.pointerEvents = 'none';
-        ghost.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)';
-        ghost.style.transform = 'scale(1.15)';
-        ghost.style.transition = 'none';
-        document.body.appendChild(ghost);
-        _invDrag.ghostEl = ghost;
-
-        // Highlight source slot
-        slotEl.style.opacity = '0.3';
-        slotEl.style.outline = '2px dashed #eab308';
-
-        // Highlight empty slots as drop targets
-        container.querySelectorAll('.inv-zone-slot').forEach(function(s) {
-            if (s === slotEl) return;
-            if (!s.getAttribute('data-gas-id')) {
-                s.style.outline = '2px dashed #22c55e';
-            }
-        });
-    }
-
-    function onPointerDown(e) {
-        // Only primary button for mouse
-        if (e.type === 'mousedown' && e.button !== 0) return;
-        cancelDrag();
-        var slotEl = e.currentTarget;
-        var pt = getXY(e);
-        _invDrag.startX = pt.x;
-        _invDrag.startY = pt.y;
-        _invDrag.committed = false;
-        _invDrag.sourceCode = slotEl.getAttribute('data-zone-code'); // Store for tap fallback
-        if (!slotEl.getAttribute('data-gas-id')) {
-            // Empty slot: no drag, but still handle tap on pointer-up via a dummy timer
-            _invDrag.timer = setTimeout(function() { _invDrag.timer = null; }, LONG_PRESS_MS);
-            return;
-        }
-        _invDrag.timer = setTimeout(function() {
-            _invDrag.timer = null;
-            slotEl.classList.add('drag-ready');
-            container.style.touchAction = 'none';
-            startDragMode(slotEl, pt);
-        }, LONG_PRESS_MS);
-    }
-
-    function onPointerMove(e) {
-        var pt = getXY(e);
-        // If timer still running, check if moved too far (cancel long-press)
-        if (_invDrag.timer) {
-            var dx = Math.abs(pt.x - _invDrag.startX);
-            var dy = Math.abs(pt.y - _invDrag.startY);
-            if (dx > 12 || dy > 12) {
-                clearTimeout(_invDrag.timer);
-                _invDrag.timer = null;
-            }
-            return;
-        }
-        if (!_invDrag.active) return;
-        e.preventDefault(); // Prevent scroll during drag
-
-        // Check drag threshold
-        var distX = pt.x - _invDrag.startX;
-        var distY = pt.y - _invDrag.startY;
-        if (!_invDrag.committed && Math.sqrt(distX*distX + distY*distY) > DRAG_THRESHOLD) {
-            _invDrag.committed = true;
-        }
-
-        // Move ghost
-        if (_invDrag.ghostEl) {
-            _invDrag.ghostEl.style.left = (pt.x - 26) + 'px';
-            _invDrag.ghostEl.style.top = (pt.y - 26) + 'px';
-        }
-    }
-
-    function onPointerUp(e) {
-        // If long-press timer still running → normal tap
-        if (_invDrag.timer) {
-            clearTimeout(_invDrag.timer);
-            _invDrag.timer = null;
-            var tapCode = _invDrag.sourceCode;
-            _invDrag.sourceCode = null;
-            if (tapCode) invShowZoneSlotDetail(tapCode);
-            return;
-        }
-        if (!_invDrag.active) return;
-
-        var pt = getXY(e);
-        var wasCommitted = _invDrag.committed;
-        var gasId = _invDrag.gasId;
-        var sourceCode = _invDrag.sourceCode;
-
-        cancelDrag();
-
-        if (!wasCommitted) {
-            // Drag was activated (long-press fired) but didn't move far enough → treat as detail view
-            if (sourceCode) invShowZoneSlotDetail(sourceCode);
-            return;
-        }
-
-        // Find drop target
-        var targetEl = document.elementFromPoint(pt.x, pt.y);
-        if (targetEl) targetEl = targetEl.closest('.inv-zone-slot');
-        if (!targetEl) { showToast('Soltar fuera del mapa — cancelado', 'warning'); return; }
-        var targetCode = targetEl.getAttribute('data-zone-code');
-        if (!targetCode || targetCode === sourceCode) return;
-
-        invDropCylinder(gasId, sourceCode, targetCode);
-    }
-
-    // Cleanup previous listeners before attaching new ones
-    if (window._invDragCleanup) window._invDragCleanup();
-
-    // Attach listeners to each slot
-    slots.forEach(function(slot) {
-        slot.addEventListener('touchstart', onPointerDown, { passive: true });
-        slot.addEventListener('mousedown', onPointerDown);
-        // [v17.8] Alternativa de teclado: Enter/Espacio sobre un <button> dispara un evento
-        // `click` nativo con detail===0 (un clic real de mouse siempre trae detail>=1), así
-        // que esto nunca se activa por accidente durante un tap/drag normal — esos ya se
-        // resuelven en onPointerUp más arriba.
-        slot.addEventListener('click', function (e) {
-            if (e.detail !== 0) return;
-            invZoneKeySelect(slot);
-        });
+    if (typeof gridDragInit !== 'function') return;   // app.js carga antes; guarda por si acaso
+    gridDragInit(container, {
+        ns: 'inv-zone',
+        itemSelector: '.inv-zone-slot',
+        idAttr: 'data-gas-id',
+        cellAttr: 'data-zone-code',
+        selectedClass: 'inv-zone-slot--kbdsel',
+        ghostWidth: 52,
+        label: function(gasId) {
+            var g = (invState.gases || []).find(function(x) { return x.id === gasId; });
+            return g ? (g.formula + (g.controlNo ? ' #' + g.controlNo : '')) : 'Cilindro';
+        },
+        // Sólo las posiciones VACÍAS aceptan: es la regla que el mapa siempre tuvo.
+        canDrop: function(gasId, from, to, el) { return !!to && to !== from && el && !el.getAttribute('data-gas-id'); },
+        onDrop: function(gasId, from, to) { invDropCylinder(gasId, from, to); },
+        onTap: function(code) { if (code) invShowZoneSlotDetail(code); }
     });
-
-    // Move/up on document (so drag continues outside slot boundaries)
-    var onCancel = function() { cancelDrag(); };
-    document.addEventListener('touchmove', onPointerMove, { passive: false });
-    document.addEventListener('mousemove', onPointerMove);
-    document.addEventListener('touchend', onPointerUp, { passive: true });
-    document.addEventListener('mouseup', onPointerUp);
-    document.addEventListener('touchcancel', onCancel);
-
-    // Store cleanup ref for re-renders
-    window._invDragCleanup = function() {
-        document.removeEventListener('touchmove', onPointerMove);
-        document.removeEventListener('mousemove', onPointerMove);
-        document.removeEventListener('touchend', onPointerUp);
-        document.removeEventListener('mouseup', onPointerUp);
-        document.removeEventListener('touchcancel', onCancel);
-    };
-
-    // [v17.8] Escape cancela una selección de teclado en curso. Se cablea una sola vez
-    // (idempotente vía _invKeyEscWired) porque invInitZoneDrag se vuelve a llamar en cada
-    // render del mapa, pero el listener de Escape no depende del contenido del contenedor.
-    if (!window._invKeyEscWired) {
-        window._invKeyEscWired = true;
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && _invKbdMove.gasId) invZoneKeyCancel();
-        });
-    }
 }
 
-// [v17.8] Máquina de estados de la selección por teclado: clic (con detail===0, es decir,
-// Enter/Espacio) sobre una posición OCUPADA selecciona ese cilindro; clic sobre una posición
-// VACÍA con algo seleccionado lo mueve ahí (mismo invDropCylinder que usa el drag-and-drop);
-// clic sobre la MISMA posición cancela; clic sobre OTRA posición ocupada cambia la selección.
+/** Compatibilidad: el estado del teclado ahora vive en app.js (`_gridKbd`). */
 function invZoneKeySelect(slotEl) {
-    var code = slotEl.getAttribute('data-zone-code');
-    var gasId = slotEl.getAttribute('data-gas-id');
-
-    if (_invKbdMove.gasId) {
-        if (code === _invKbdMove.sourceCode) { invZoneKeyCancel(); return; }
-        if (!gasId) {
-            var moved = _invKbdMove.label;
-            invDropCylinder(_invKbdMove.gasId, _invKbdMove.sourceCode, code);
-            _invKbdMove = { gasId: null, sourceCode: null, label: '' };
-            // invDropCylinder ya volvió a renderizar todo el mapa (nuevos botones, nuevo DOM) —
-            // sin esto el foco se perdería del todo tras un movimiento exitoso por teclado.
-            var movedEl = document.querySelector('.inv-zone-slot[data-zone-code="' + code + '"]');
-            if (movedEl) movedEl.focus();
-            if (typeof a11yAnnounce === 'function') a11yAnnounce(moved + ' movido a la posición ' + code + '.');
-            return;
-        }
-        // Posición ocupada por otro cilindro: cambiar la selección a este.
-    }
-
-    if (!gasId) {
-        if (typeof a11yAnnounce === 'function') a11yAnnounce('Posición ' + code + ' vacía. Selecciona primero un cilindro para moverlo.');
-        return;
-    }
-    var gas = invState.gases.find(function (g) { return g.id === gasId; });
-    var label = gas ? (gas.formula + (gas.controlNo ? ' #' + gas.controlNo : '')) : 'Cilindro';
-    _invKbdMove = { gasId: gasId, sourceCode: code, label: label };
-    document.querySelectorAll('.inv-zone-slot--kbdsel').forEach(function (s) { s.classList.remove('inv-zone-slot--kbdsel'); });
-    slotEl.classList.add('inv-zone-slot--kbdsel');
-    if (typeof a11yAnnounce === 'function') {
-        a11yAnnounce(label + ' seleccionado en ' + code + '. Elige una posición vacía con Enter para moverlo ahí, o Escape para cancelar.');
-    }
+    if (typeof gridKbdSelect !== 'function') return;
+    gridKbdSelect(slotEl, {
+        ns: 'inv-zone', itemSelector: '.inv-zone-slot',
+        idAttr: 'data-gas-id', cellAttr: 'data-zone-code', selectedClass: 'inv-zone-slot--kbdsel',
+        label: function(gasId) {
+            var g = (invState.gases || []).find(function(x) { return x.id === gasId; });
+            return g ? (g.formula + (g.controlNo ? ' #' + g.controlNo : '')) : 'Cilindro';
+        },
+        canDrop: function(gasId, from, to, el) { return !!to && to !== from && el && !el.getAttribute('data-gas-id'); },
+        onDrop: function(gasId, from, to) { invDropCylinder(gasId, from, to); }
+    });
 }
 
-function invZoneKeyCancel() {
-    var label = _invKbdMove.label;
-    _invKbdMove = { gasId: null, sourceCode: null, label: '' };
-    document.querySelectorAll('.inv-zone-slot--kbdsel').forEach(function (s) { s.classList.remove('inv-zone-slot--kbdsel'); });
-    if (typeof a11yAnnounce === 'function' && label) a11yAnnounce('Movimiento de ' + label + ' cancelado.');
-}
+function invZoneKeyCancel() { if (typeof gridKbdCancel === 'function') gridKbdCancel(); }
 
 function invDropCylinder(gasId, sourceCode, targetCode) {
     var gas = invState.gases.find(function(g) { return g.id === gasId; });
@@ -28694,6 +28775,15 @@ function _tpWeekCardHTML(row, workDays) {
 
     var h = '<div class="tp-week-card ' + mods.join(' ') + '" data-plan="' + row.planIdx + '" data-item="' + row.itemIdx + '">';
     h += '<div class="tp-week-card-top">';
+    // El asa. La TARJETA no puede ser el <button> (contiene botones), así que el origen del
+    // arrastre y del teclado es este elemento — el mismo patrón que conserva v17.8.
+    if (!row.done) {
+        h += '<button type="button" class="tp-week-grip" ' +
+             'data-drag-id="' + row.planIdx + ':' + row.itemIdx + '" ' +
+             'data-drag-cell="' + (row.testDay || '_sin') + '" ' +
+             'aria-label="Mover ' + (row.shortName || row.desc) + '. Enter para seleccionar y elegir otro día." ' +
+             'title="Arrastra (mantén pulsado) o pulsa Enter para mover a otro día">⠿</button>';
+    }
     h += '<button class="tp-week-check" onclick="tpToggleWeeklyItem(' + row.planIdx + ',' + row.itemIdx + ');_tpBoardRepaint();" ' +
          'title="' + (row.done ? 'Quitar la palomita' : 'Marcar como hecha (queda registrada como declarada a mano)') + '" ' +
          'aria-pressed="' + (row.done ? 'true' : 'false') + '">' + chip.icon + '</button>';
@@ -28805,7 +28895,7 @@ function tpRenderMyWeek(el) {
                d.rows.length + '/' + d.perSlot + ' prueba' + (d.perSlot === 1 && d.rows.length === 1 ? '' : 's') +
                (d.preconCount ? ' · ' + d.preconCount + ' preacon' : '') +
              '</span></header>';
-        h += '<div class="tp-week-col-body">';
+        h += '<div class="tp-week-col-body" data-drag-cell="' + d.key + '">';
         if (!d.rows.length) h += '<div class="tp-week-col-empty">—</div>';
         else d.rows.forEach(function(r) { h += _tpWeekCardHTML(r, b.workDays); });
         h += '</div></section>';
@@ -28823,8 +28913,52 @@ function tpRenderMyWeek(el) {
 
     h += '</div>';
     el.innerHTML = h;
+    // Arrastre + teclado. Se vuelve a montar en cada pintado porque el DOM es nuevo;
+    // gridDragInit desmonta los listeners anteriores por su cuenta (ns 'tp-week').
+    tpWeekBoardDragInit(el);
     if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
     if (typeof a11yClickables === 'function') a11yClickables(el);
+}
+
+/**
+ * [v20] Arrastrar una prueba a otro día. Usa `gridDragInit` (app.js), el mismo motor
+ * del mapa del cuarto de gases: long-press de 380 ms, umbral de 15 px, dedo y ratón —
+ * el laboratorio trabaja en tablet — y la alternativa de teclado de v17.8 gratis.
+ *
+ * El origen es el asa `.tp-week-grip` (la tarjeta no puede serlo: contiene botones) y
+ * el destino es `.tp-week-col-body`. Los dos llevan `data-drag-cell`; sólo el asa lleva
+ * `data-drag-id`, que es exactamente el modelo del motor: "celda con carga" vs "celda
+ * vacía". Un tirón siempre pasa por `tpMoveItemToDay`, así que el rechazo con el motivo
+ * escrito y el consentimiento del sobrecupo se comportan igual que por el menú.
+ */
+function tpWeekBoardDragInit(host) {
+    if (typeof gridDragInit !== 'function' || !host) return;
+    gridDragInit(host, {
+        ns: 'tp-week',
+        itemSelector: '.tp-week-grip, .tp-week-col-body',
+        refocusSelector: '.tp-week-col-body',
+        idAttr: 'data-drag-id',
+        cellAttr: 'data-drag-cell',
+        selectedClass: 'tp-week-grip--sel',
+        ghostWidth: 44,
+        label: function(id, el) { return (el && el.getAttribute('aria-label')) || 'La prueba'; },
+        canDrop: function(id, from, to, el) {
+            if (!to || to === from || to === '_sin') return false;
+            if (el && el.getAttribute('data-drag-id')) return false;   // el destino es una columna, no otra asa
+            var p = String(id || '').split(':');
+            var plan = (tpState.weeklyPlans || [])[+p[0]];
+            var item = plan && plan.items ? plan.items[+p[1]] : null;
+            if (!item) return false;
+            var cfg = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
+            var horas = (typeof item.soakHours === 'number' && item.soakHours > 0) ? item.soakHours : tpSoakHoursFor(cfg).hours;
+            // Sólo se pinta en verde y sólo se acepta lo que el reposo permite de verdad.
+            return tpSlotsForSoak(horas, tpWorkDaysFor(plan)).some(function(sl) { return sl.test === to; });
+        },
+        onDrop: function(id, from, to) {
+            var p = String(id || '').split(':');
+            tpWeekDoMove(+p[0], +p[1], to, false);
+        }
+    });
 }
 
 /**
@@ -28902,8 +29036,11 @@ function tpWeekMoveMenu(weekIdx, itemIdx) {
 function tpWeekDoMove(weekIdx, itemIdx, day, lleno) {
     var cerrar = function() { var m = document.getElementById('globalModal'); if (m) m.remove(); };
     var aplicar = function(over) {
-        var r = tpMoveItemToDay(weekIdx, itemIdx, day, { overCapacity: !!over, via: 'menu' });
+        var r = tpMoveItemToDay(weekIdx, itemIdx, day, { overCapacity: !!over, via: over ? 'menu-sobrecupo' : 'menu' });
         cerrar();
+        // El arrastre no sabe de antemano si el día está lleno (el menú sí lo pinta): si
+        // resulta que lo estaba, se pide consentimiento en vez de fallar en seco.
+        if (!r.ok && r.full && !over) { tpWeekDoMove(weekIdx, itemIdx, day, true); return; }
         if (!r.ok) { showToast(r.reason, 'error'); return; }
         showToast('Movida a ' + TP_DAY_LABELS[r.to] + ' · preacondiciona ' + TP_DAY_LABELS[r.precon] +
                   (r.overCapacity ? ' (sobre cupo)' : ''), 'success', null,
@@ -43329,7 +43466,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608271134' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608271141' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

@@ -3725,6 +3725,15 @@ function _tpWeekCardHTML(row, workDays) {
 
     var h = '<div class="tp-week-card ' + mods.join(' ') + '" data-plan="' + row.planIdx + '" data-item="' + row.itemIdx + '">';
     h += '<div class="tp-week-card-top">';
+    // El asa. La TARJETA no puede ser el <button> (contiene botones), así que el origen del
+    // arrastre y del teclado es este elemento — el mismo patrón que conserva v17.8.
+    if (!row.done) {
+        h += '<button type="button" class="tp-week-grip" ' +
+             'data-drag-id="' + row.planIdx + ':' + row.itemIdx + '" ' +
+             'data-drag-cell="' + (row.testDay || '_sin') + '" ' +
+             'aria-label="Mover ' + (row.shortName || row.desc) + '. Enter para seleccionar y elegir otro día." ' +
+             'title="Arrastra (mantén pulsado) o pulsa Enter para mover a otro día">⠿</button>';
+    }
     h += '<button class="tp-week-check" onclick="tpToggleWeeklyItem(' + row.planIdx + ',' + row.itemIdx + ');_tpBoardRepaint();" ' +
          'title="' + (row.done ? 'Quitar la palomita' : 'Marcar como hecha (queda registrada como declarada a mano)') + '" ' +
          'aria-pressed="' + (row.done ? 'true' : 'false') + '">' + chip.icon + '</button>';
@@ -3836,7 +3845,7 @@ function tpRenderMyWeek(el) {
                d.rows.length + '/' + d.perSlot + ' prueba' + (d.perSlot === 1 && d.rows.length === 1 ? '' : 's') +
                (d.preconCount ? ' · ' + d.preconCount + ' preacon' : '') +
              '</span></header>';
-        h += '<div class="tp-week-col-body">';
+        h += '<div class="tp-week-col-body" data-drag-cell="' + d.key + '">';
         if (!d.rows.length) h += '<div class="tp-week-col-empty">—</div>';
         else d.rows.forEach(function(r) { h += _tpWeekCardHTML(r, b.workDays); });
         h += '</div></section>';
@@ -3854,8 +3863,52 @@ function tpRenderMyWeek(el) {
 
     h += '</div>';
     el.innerHTML = h;
+    // Arrastre + teclado. Se vuelve a montar en cada pintado porque el DOM es nuevo;
+    // gridDragInit desmonta los listeners anteriores por su cuenta (ns 'tp-week').
+    tpWeekBoardDragInit(el);
     if (typeof cascadeInjectTooltipsDeferred === 'function') cascadeInjectTooltipsDeferred();
     if (typeof a11yClickables === 'function') a11yClickables(el);
+}
+
+/**
+ * [v20] Arrastrar una prueba a otro día. Usa `gridDragInit` (app.js), el mismo motor
+ * del mapa del cuarto de gases: long-press de 380 ms, umbral de 15 px, dedo y ratón —
+ * el laboratorio trabaja en tablet — y la alternativa de teclado de v17.8 gratis.
+ *
+ * El origen es el asa `.tp-week-grip` (la tarjeta no puede serlo: contiene botones) y
+ * el destino es `.tp-week-col-body`. Los dos llevan `data-drag-cell`; sólo el asa lleva
+ * `data-drag-id`, que es exactamente el modelo del motor: "celda con carga" vs "celda
+ * vacía". Un tirón siempre pasa por `tpMoveItemToDay`, así que el rechazo con el motivo
+ * escrito y el consentimiento del sobrecupo se comportan igual que por el menú.
+ */
+function tpWeekBoardDragInit(host) {
+    if (typeof gridDragInit !== 'function' || !host) return;
+    gridDragInit(host, {
+        ns: 'tp-week',
+        itemSelector: '.tp-week-grip, .tp-week-col-body',
+        refocusSelector: '.tp-week-col-body',
+        idAttr: 'data-drag-id',
+        cellAttr: 'data-drag-cell',
+        selectedClass: 'tp-week-grip--sel',
+        ghostWidth: 44,
+        label: function(id, el) { return (el && el.getAttribute('aria-label')) || 'La prueba'; },
+        canDrop: function(id, from, to, el) {
+            if (!to || to === from || to === '_sin') return false;
+            if (el && el.getAttribute('data-drag-id')) return false;   // el destino es una columna, no otra asa
+            var p = String(id || '').split(':');
+            var plan = (tpState.weeklyPlans || [])[+p[0]];
+            var item = plan && plan.items ? plan.items[+p[1]] : null;
+            if (!item) return false;
+            var cfg = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
+            var horas = (typeof item.soakHours === 'number' && item.soakHours > 0) ? item.soakHours : tpSoakHoursFor(cfg).hours;
+            // Sólo se pinta en verde y sólo se acepta lo que el reposo permite de verdad.
+            return tpSlotsForSoak(horas, tpWorkDaysFor(plan)).some(function(sl) { return sl.test === to; });
+        },
+        onDrop: function(id, from, to) {
+            var p = String(id || '').split(':');
+            tpWeekDoMove(+p[0], +p[1], to, false);
+        }
+    });
 }
 
 /**
@@ -3933,8 +3986,11 @@ function tpWeekMoveMenu(weekIdx, itemIdx) {
 function tpWeekDoMove(weekIdx, itemIdx, day, lleno) {
     var cerrar = function() { var m = document.getElementById('globalModal'); if (m) m.remove(); };
     var aplicar = function(over) {
-        var r = tpMoveItemToDay(weekIdx, itemIdx, day, { overCapacity: !!over, via: 'menu' });
+        var r = tpMoveItemToDay(weekIdx, itemIdx, day, { overCapacity: !!over, via: over ? 'menu-sobrecupo' : 'menu' });
         cerrar();
+        // El arrastre no sabe de antemano si el día está lleno (el menú sí lo pinta): si
+        // resulta que lo estaba, se pide consentimiento en vez de fallar en seco.
+        if (!r.ok && r.full && !over) { tpWeekDoMove(weekIdx, itemIdx, day, true); return; }
         if (!r.ok) { showToast(r.reason, 'error'); return; }
         showToast('Movida a ' + TP_DAY_LABELS[r.to] + ' · preacondiciona ' + TP_DAY_LABELS[r.precon] +
                   (r.overCapacity ? ' (sobre cupo)' : ''), 'success', null,

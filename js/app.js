@@ -5406,3 +5406,269 @@ function v7GoToVehicleStep(gotoSection) {
         }
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v20] gridDragInit — UN SOLO motor de arrastre + teclado para toda la plataforma
+//
+// Nació como `invInitZoneDrag` (v16.5) para el mapa del cuarto de gases, y v17.8 le
+// agregó la alternativa de teclado. Al aparecer el tablero de "Mi semana" hacían falta
+// exactamente las mismas dos cosas, así que en vez de copiar 200 líneas se generalizó:
+// `invInitZoneDrag` quedó como envoltura y el planificador lo llama con sus propias
+// opciones. Un solo motor = un solo lugar donde arreglar el arrastre en tablet.
+//
+//   gridDragInit(container, {
+//     itemSelector,            // qué elementos participan (deben ser <button>)
+//     idAttr,   cellAttr,      // atributos: quién se mueve, y a qué celda
+//     longPressMs, threshold, ghostWidth,
+//     label(id, el),           // texto para los anuncios de accesibilidad
+//     canDrop(id, from, to),   // opcional; false ⇒ esa celda no acepta
+//     onDrop(id, from, to),    // obligatorio
+//     onTap(cell, el)          // opcional: toque corto
+//   })
+//
+// Reglas que NO se pueden perder al tocar esto:
+//  · El origen tiene que ser un <button>: Enter/Espacio disparan un `click` nativo con
+//    `detail === 0` (un clic de ratón real siempre trae detail ≥ 1). Ése es el truco que
+//    distingue teclado de tap sin registrar handlers de keydown por elemento.
+//  · Los listeners de movimiento van en `document`, no en el elemento: si no, el arrastre
+//    se corta al salir de sus límites.
+//  · `touchmove` debe ir con `{passive:false}` — es el único modo en que preventDefault
+//    puede frenar el desplazamiento de la página durante el arrastre.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var _gridDrag = { active:false, id:null, from:null, ghostEl:null, timer:null, startX:0, startY:0, committed:false, ns:null };
+var _gridKbd  = { id:null, from:null, label:'', ns:null, cls:null };
+
+/** ¿Hay una selección de teclado viva en este contenedor? (lo usa Escape) */
+function gridKbdActive(ns) { return !!(_gridKbd.id && (!ns || _gridKbd.ns === ns)); }
+
+function gridKbdCancel(silencioso) {
+    var label = _gridKbd.label;
+    // La clase de selección la elige cada rejilla, así que se recuerda con la selección
+    // en vez de listarlas aquí: hardcodearlas dejaba la marca pegada en pantalla.
+    var cls = _gridKbd.cls || 'grid-drag-kbdsel';
+    _gridKbd = { id:null, from:null, label:'', ns:null, cls:null };
+    document.querySelectorAll('.' + cls).forEach(function(s) { s.classList.remove(cls); });
+    if (!silencioso && typeof a11yAnnounce === 'function' && label) a11yAnnounce('Movimiento de ' + label + ' cancelado.');
+}
+
+function gridDragInit(container, opts) {
+    if (!container) return;
+    opts = opts || {};
+    var SEL       = opts.itemSelector || '.grid-drag-item';
+    var ID_ATTR   = opts.idAttr   || 'data-drag-id';
+    var CELL_ATTR = opts.cellAttr || 'data-drag-cell';
+    var LONG_PRESS_MS   = opts.longPressMs || 380;
+    var DRAG_THRESHOLD  = opts.threshold   || 15;
+    var GHOST_W   = opts.ghostWidth || 52;
+    var SELCLASS  = opts.selectedClass || 'grid-drag-kbdsel';
+    var NS        = opts.ns || SEL;
+    var onDrop    = opts.onDrop || function() {};
+    var onTap     = opts.onTap  || null;
+    var canDrop   = opts.canDrop || function() { return true; };
+    var labelOf   = opts.label || function(id, el) { return (el && el.getAttribute('aria-label')) || 'Elemento'; };
+
+    var slots = container.querySelectorAll(SEL);
+
+    function getXY(e) {
+        if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        if (e.changedTouches && e.changedTouches.length > 0) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    function cancelDrag() {
+        if (_gridDrag.timer) { clearTimeout(_gridDrag.timer); _gridDrag.timer = null; }
+        if (_gridDrag.ghostEl) { _gridDrag.ghostEl.remove(); _gridDrag.ghostEl = null; }
+        container.querySelectorAll(SEL).forEach(function(s) {
+            s.style.outline = ''; s.style.opacity = ''; s.classList.remove('drag-ready');
+        });
+        container.style.touchAction = '';
+        _gridDrag.active = false; _gridDrag.committed = false;
+        _gridDrag.id = null; _gridDrag.from = null; _gridDrag.ns = null;
+    }
+
+    function startDragMode(slotEl, pt) {
+        var id = slotEl.getAttribute(ID_ATTR);
+        if (!id) return;
+        _gridDrag.active = true; _gridDrag.id = id; _gridDrag.ns = NS;
+        _gridDrag.from = slotEl.getAttribute(CELL_ATTR);
+        if (navigator.vibrate) { try { navigator.vibrate(50); } catch (e) {} }
+
+        var ghost = slotEl.cloneNode(true);
+        ghost.style.position = 'fixed';
+        ghost.style.left = (pt.x - GHOST_W / 2) + 'px';
+        ghost.style.top  = (pt.y - GHOST_W / 2) + 'px';
+        ghost.style.width = GHOST_W + 'px';
+        ghost.style.opacity = '0.85';
+        ghost.style.zIndex = '10000';
+        ghost.style.pointerEvents = 'none';
+        ghost.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)';
+        ghost.style.transform = 'scale(1.15)';
+        ghost.style.transition = 'none';
+        document.body.appendChild(ghost);
+        _gridDrag.ghostEl = ghost;
+
+        slotEl.style.opacity = '0.3';
+        slotEl.style.outline = '2px dashed #eab308';
+        // Marcar en verde SOLO las celdas que de verdad aceptan: prometer un destino que
+        // luego se rechaza es peor que no marcarlo.
+        container.querySelectorAll(SEL).forEach(function(s) {
+            if (s === slotEl) return;
+            if (canDrop(id, _gridDrag.from, s.getAttribute(CELL_ATTR), s)) s.style.outline = '2px dashed #22c55e';
+        });
+    }
+
+    function onPointerDown(e) {
+        if (e.type === 'mousedown' && e.button !== 0) return;
+        // Las rejillas pueden ANIDAR origen y destino (en el tablero de la semana el asa
+        // vive dentro de la columna). Sin esto el evento burbujea, el handler de la celda
+        // contenedora vuelve a correr y cancela el arrastre que acaba de empezar.
+        e.stopPropagation();
+        cancelDrag();
+        var slotEl = e.currentTarget;
+        var pt = getXY(e);
+        _gridDrag.startX = pt.x; _gridDrag.startY = pt.y; _gridDrag.committed = false;
+        _gridDrag.from = slotEl.getAttribute(CELL_ATTR);
+        if (!slotEl.getAttribute(ID_ATTR)) {
+            // Celda sin carga: no hay arrastre, pero el toque corto sigue valiendo.
+            _gridDrag.timer = setTimeout(function() { _gridDrag.timer = null; }, LONG_PRESS_MS);
+            return;
+        }
+        _gridDrag.timer = setTimeout(function() {
+            _gridDrag.timer = null;
+            slotEl.classList.add('drag-ready');
+            container.style.touchAction = 'none';
+            startDragMode(slotEl, pt);
+        }, LONG_PRESS_MS);
+    }
+
+    function onPointerMove(e) {
+        var pt = getXY(e);
+        if (_gridDrag.timer) {
+            if (Math.abs(pt.x - _gridDrag.startX) > 12 || Math.abs(pt.y - _gridDrag.startY) > 12) {
+                clearTimeout(_gridDrag.timer); _gridDrag.timer = null;
+            }
+            return;
+        }
+        if (!_gridDrag.active || _gridDrag.ns !== NS) return;
+        e.preventDefault();
+        var dx = pt.x - _gridDrag.startX, dy = pt.y - _gridDrag.startY;
+        if (!_gridDrag.committed && Math.sqrt(dx*dx + dy*dy) > DRAG_THRESHOLD) _gridDrag.committed = true;
+        if (_gridDrag.ghostEl) {
+            _gridDrag.ghostEl.style.left = (pt.x - GHOST_W / 2) + 'px';
+            _gridDrag.ghostEl.style.top  = (pt.y - GHOST_W / 2) + 'px';
+        }
+    }
+
+    function onPointerUp(e) {
+        if (_gridDrag.timer) {
+            clearTimeout(_gridDrag.timer); _gridDrag.timer = null;
+            var tapCell = _gridDrag.from; _gridDrag.from = null;
+            if (tapCell && onTap) onTap(tapCell, null);
+            return;
+        }
+        if (!_gridDrag.active || _gridDrag.ns !== NS) return;
+        var pt = getXY(e);
+        var comprometido = _gridDrag.committed, id = _gridDrag.id, from = _gridDrag.from;
+        cancelDrag();
+        if (!comprometido) { if (from && onTap) onTap(from, null); return; }
+
+        var targetEl = document.elementFromPoint(pt.x, pt.y);
+        if (targetEl) targetEl = targetEl.closest(SEL);
+        if (!targetEl) { if (typeof showToast === 'function') showToast('Soltar fuera del tablero — cancelado', 'warning'); return; }
+        var to = targetEl.getAttribute(CELL_ATTR);
+        if (!to || to === from) return;
+        if (!canDrop(id, from, to, targetEl)) return;
+        onDrop(id, from, to, targetEl);
+    }
+
+    // Los listeners viejos se quitan antes de volver a montar: gridDragInit se llama en
+    // cada render y si no, se acumulan y el arrastre dispara N veces.
+    if (window._gridDragCleanup && window._gridDragCleanup[NS]) window._gridDragCleanup[NS]();
+
+    slots.forEach(function(slot) {
+        slot.addEventListener('touchstart', onPointerDown, { passive: true });
+        slot.addEventListener('mousedown', onPointerDown);
+        slot.addEventListener('click', function(e) {
+            if (e.detail !== 0) return;   // sólo Enter/Espacio; un clic real trae detail ≥ 1
+            // Mismo motivo que en onPointerDown: seleccionar el asa burbujeaba hasta su
+            // propia columna, que leía "misma celda" y cancelaba la selección al instante.
+            e.stopPropagation();
+            gridKbdSelect(slot, {
+                idAttr: ID_ATTR, cellAttr: CELL_ATTR, selectedClass: SELCLASS, ns: NS,
+                itemSelector: SEL, refocusSelector: opts.refocusSelector,
+                label: labelOf, canDrop: canDrop, onDrop: onDrop
+            });
+        });
+    });
+
+    var onCancel = function() { cancelDrag(); };
+    document.addEventListener('touchmove', onPointerMove, { passive: false });
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('touchend', onPointerUp, { passive: true });
+    document.addEventListener('mouseup', onPointerUp);
+    document.addEventListener('touchcancel', onCancel);
+
+    if (!window._gridDragCleanup) window._gridDragCleanup = {};
+    window._gridDragCleanup[NS] = function() {
+        document.removeEventListener('touchmove', onPointerMove);
+        document.removeEventListener('mousemove', onPointerMove);
+        document.removeEventListener('touchend', onPointerUp);
+        document.removeEventListener('mouseup', onPointerUp);
+        document.removeEventListener('touchcancel', onCancel);
+    };
+
+    // Escape se cablea UNA vez para toda la plataforma: no depende del contenedor y
+    // gridDragInit se vuelve a llamar en cada render.
+    if (!window._gridKeyEscWired) {
+        window._gridKeyEscWired = true;
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && _gridKbd.id) gridKbdCancel(); });
+    }
+}
+
+/**
+ * Máquina de estados del movimiento por teclado (v17.8, generalizada):
+ * Enter/Espacio sobre una celda CON carga la selecciona; sobre una celda que la acepta,
+ * la mueve; sobre la MISMA celda, cancela; sobre otra celda con carga, cambia la selección.
+ */
+function gridKbdSelect(slotEl, o) {
+    var cell = slotEl.getAttribute(o.cellAttr);
+    var id   = slotEl.getAttribute(o.idAttr);
+
+    if (_gridKbd.id && _gridKbd.ns === o.ns) {
+        if (cell === _gridKbd.from) { gridKbdCancel(); return; }
+        if (o.canDrop(_gridKbd.id, _gridKbd.from, cell, slotEl)) {
+            var movido = _gridKbd.label, origen = _gridKbd.from, quien = _gridKbd.id;
+            _gridKbd = { id:null, from:null, label:'', ns:null, cls:null };
+            document.querySelectorAll('.' + o.selectedClass).forEach(function(s) { s.classList.remove(o.selectedClass); });
+            o.onDrop(quien, origen, cell, slotEl);
+            // onDrop repinta: el foco se perdería del todo sin volver a buscarlo.
+            // OJO: `itemSelector` puede ser una LISTA separada por comas (el tablero de la
+            // semana usa asa + columna). Concatenarle el atributo produciría un selector
+            // roto —`.a, .b[attr]` sólo filtra el último—, así que el llamador puede pasar
+            // `refocusSelector` con el selector exacto del destino.
+            var refoco = o.refocusSelector || o.itemSelector;
+            var nuevo = document.querySelector(refoco + '[' + o.cellAttr + '="' + cell + '"]');
+            if (nuevo) nuevo.focus();
+            if (typeof a11yAnnounce === 'function') a11yAnnounce(movido + ' movido a ' + cell + '.');
+            return;
+        }
+        if (!id) {
+            if (typeof a11yAnnounce === 'function') a11yAnnounce('No se puede mover ahí.');
+            return;
+        }
+        // Celda ocupada por otro: cambia la selección.
+    }
+
+    if (!id) {
+        if (typeof a11yAnnounce === 'function') a11yAnnounce('Posición ' + cell + ' vacía. Selecciona primero algo para moverlo.');
+        return;
+    }
+    var label = o.label(id, slotEl);
+    _gridKbd = { id: id, from: cell, label: label, ns: o.ns, cls: o.selectedClass };
+    document.querySelectorAll('.' + o.selectedClass).forEach(function(s) { s.classList.remove(o.selectedClass); });
+    slotEl.classList.add(o.selectedClass);
+    if (typeof a11yAnnounce === 'function') {
+        a11yAnnounce(label + ' seleccionado en ' + cell + '. Elige un destino con Enter para moverlo, o Escape para cancelar.');
+    }
+}
