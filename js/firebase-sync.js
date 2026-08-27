@@ -1307,8 +1307,14 @@ function _fbPullSeed(col, remoteData, pulled) {
         // v18 suma plannerCfg (cuota/caducidad de la cola + filtros de la semana) y
         // autoPlanLastRun: sin esto, sincronizar contra una copia escrita por código
         // anterior borraba la configuración del planificador en silencio.
+        // v20 suma `soak` (horas de reposo por familia/norma, de donde sale el hueco
+        // preacon→prueba) y `_migr` (guardas de migración de una sola vez). Si no se
+        // preservan, un pull desde código anterior los deja undefined: el laboratorio
+        // pierde su tabla de soak, y la guarda perdida hace que la migración VUELVA a
+        // correr. Es la misma trampa que documentó plannerCfg en v18.
         ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks',
-         'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed', 'plannerCfg', 'autoPlanLastRun'].forEach(function(k) {
+         'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed', 'plannerCfg', 'autoPlanLastRun',
+         'soak', '_migr'].forEach(function(k) {
             if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
         });
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));

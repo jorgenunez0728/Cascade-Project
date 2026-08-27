@@ -407,6 +407,8 @@ function _tpEnsureState() {
     if (!tpState.configOverrides) tpState.configOverrides = {};
     if (typeof tpState.capacity !== 'number') tpState.capacity = 8;
     if (typeof tpState.weeks !== 'number')    tpState.weeks = 4;
+    if (!tpState._migr || typeof tpState._migr !== 'object') tpState._migr = {}; // guardas de migración
+    if (typeof tpSoakCfg === 'function') tpSoakCfg();                            // v20: horas de reposo
     return tpState;
 }
 
@@ -2383,22 +2385,116 @@ function tpDeleteRulePreset(idx) {
 }
 
 
-// ═══ SCHEDULE HELPERS ═══
-// Build pairs of (precon day, test day) based on working days
-// Rule: preconditioning on day N requires testing on day N+1 (min 12h soak)
-// Week runs Dom→Sab. Sunday preacon = Monday test, etc.
-function tpBuildTestSlots(workDays) {
-    const dayOrder = ['dom','lun','mar','mie','jue','vie','sab'];
-    const dayLabels = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
-    const slots = [];
-    for (let i = 0; i < dayOrder.length - 1; i++) {
-        const preDay = dayOrder[i];
-        const testDay = dayOrder[i + 1];
-        if (workDays[preDay] && workDays[testDay]) {
-            slots.push({ precon: preDay, test: testDay, preconLabel: dayLabels[preDay], testLabel: dayLabels[testDay] });
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v20] MODELO DE DÍAS — derivado del soak REAL, no de un supuesto
+//
+// Hasta v18.6 esto eran pares de días CONSECUTIVOS a fuego, con el comentario
+// "min 12h soak". Pero el soak por defecto de la app es de 24 h y ofrece 36
+// (index.html, #soak_timer_hours), y el flujo real del laboratorio son 8 etapas
+// (CASCADE_STAGES), no 2. Por eso los días que daba el plan no coincidían con la
+// realidad y cada semana generaba arrastre estructural.
+//
+// Ahora el hueco se DERIVA de las horas de reposo de cada configuración. Con
+// 24 h el par sigue siendo de días consecutivos (o sea: con los defaults la
+// salida es idéntica a la de antes); con 36 h la prueba se va dos días después y
+// la capacidad de la semana baja de forma honesta en vez de prometer pruebas que
+// no caben.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var TP_DAY_ORDER  = ['dom','lun','mar','mie','jue','vie','sab'];
+var TP_DAY_LABELS = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
+var TP_SOAK_DEFAULT_H = 24;   // el mismo default que el <select> de soak de la app
+
+/** Estado del soak. Se siembra en 24 h para TODO: no se inventan datos físicos del laboratorio. */
+function tpSoakCfg() {
+    if (!tpState.soak || typeof tpState.soak !== 'object') tpState.soak = {};
+    var s = tpState.soak;
+    if (typeof s.defaultHours !== 'number' || !(s.defaultHours > 0)) s.defaultHours = TP_SOAK_DEFAULT_H;
+    if (!s.byRegulation || typeof s.byRegulation !== 'object') s.byRegulation = {};
+    if (!s.byFamily || typeof s.byFamily !== 'object') s.byFamily = {};
+    return s;
+}
+
+/**
+ * LA definición de cuánto reposa una configuración, y de dónde salió ese número.
+ * Orden: override por familia → default por norma → default del laboratorio.
+ * Devuelve {hours, source, label} — la procedencia se muestra en pantalla, igual
+ * que `ruleInfo._matchType` en tpGetRule: el usuario tiene que poder ver si el
+ * número es suyo o es el default.
+ */
+function tpSoakHoursFor(cfg) {
+    var s = tpSoakCfg();
+    if (cfg) {
+        var fk = (typeof tpFamilyKeyForCfg === 'function') ? tpFamilyKeyForCfg(cfg) : null;
+        if (fk && typeof s.byFamily[fk] === 'number' && s.byFamily[fk] > 0) {
+            return { hours: s.byFamily[fk], source: 'familia', label: 'definido para esta familia' };
+        }
+        var reg = cfg.reg || cfg['EMISSION REGULATION'];
+        if (reg && typeof s.byRegulation[reg] === 'number' && s.byRegulation[reg] > 0) {
+            return { hours: s.byRegulation[reg], source: 'regulacion', label: 'definido para ' + reg };
         }
     }
+    return { hours: s.defaultHours, source: 'laboratorio', label: 'default del laboratorio' };
+}
+
+/** Días de calendario que hay entre preacondicionar y probar, dadas N horas de reposo. */
+function tpSoakGapDays(hours) {
+    var h = parseFloat(hours);
+    if (!isFinite(h) || h <= 0) h = TP_SOAK_DEFAULT_H;
+    return Math.max(1, Math.ceil(h / 24));
+}
+
+/**
+ * Pares (preacon → prueba) posibles en la semana para un soak dado.
+ *
+ * Reemplaza al motor viejo, que exigía días CONSECUTIVOS (dayOrder[i+1]) y por eso
+ * perdía cualquier par no contiguo. Aquí solo se exige que el día de preacon y el
+ * de prueba sean laborables: los días intermedios el vehículo reposa solo, no hace
+ * falta que haya nadie.
+ *
+ * NO hay opción de "prohibir que repose el fin de semana", a propósito: la semana
+ * se modela como un arreglo dom→sáb, así que un día intermedio de fin de semana
+ * exigiría preacondicionar antes del sábado y probar después del domingo — los dos
+ * extremos del arreglo. Es imposible por construcción, y esos casos ya salen como
+ * `spillsNextWeek`. Una perilla que nunca puede hacer nada es peor que no tenerla.
+ */
+function tpSlotsForSoak(hours, workDays) {
+    var wd = workDays || {};
+    var gap = tpSoakGapDays(hours);
+    var soakH = parseFloat(hours) || TP_SOAK_DEFAULT_H;
+    var slots = [];
+    for (var i = 0; i < TP_DAY_ORDER.length; i++) {
+        var pre = TP_DAY_ORDER[i];
+        if (!wd[pre]) continue;
+        var j = i + gap;
+        var spills = j > TP_DAY_ORDER.length - 1;
+        var test = spills ? null : TP_DAY_ORDER[j];
+        if (spills) {
+            // El día de prueba cae en la semana siguiente. No cuenta para la capacidad,
+            // pero se DECLARA: ese día sí sirve para preparar la semana que entra.
+            slots.push({ precon: pre, test: null, preconLabel: TP_DAY_LABELS[pre], testLabel: null,
+                         soakHours: soakH, gapDays: gap, spanDays: TP_DAY_ORDER.slice(i),
+                         spillsNextWeek: true, key: pre + '>+' });
+            continue;
+        }
+        if (!wd[test]) continue;
+        slots.push({ precon: pre, test: test, preconLabel: TP_DAY_LABELS[pre], testLabel: TP_DAY_LABELS[test],
+                     soakHours: soakH, gapDays: gap, spanDays: TP_DAY_ORDER.slice(i, j + 1),
+                     spillsNextWeek: false, key: pre + '>' + test });
+    }
     return slots;
+}
+
+/**
+ * Compatibilidad: la firma vieja, ahora sobre el motor nuevo con el soak default.
+ * Así tpAssignSlotForItem, tpBuildSchedulePreview y tpRecoveryWeeks siguen sin
+ * tocarse, y el mes/Simulador/Recuperación heredan el modelo nuevo gratis.
+ * Los pares que se derraman a la semana siguiente NO se devuelven aquí: los
+ * llamadores viejos cuentan `.length` como capacidad.
+ */
+function tpBuildTestSlots(workDays) {
+    return tpSlotsForSoak(tpSoakCfg().defaultHours, workDays || {})
+        .filter(function(s) { return !s.spillsNextWeek; });
 }
 
 // v16.4 — LA definición única de "cuántas pruebas caben en una semana".
@@ -2406,10 +2502,20 @@ function tpBuildTestSlots(workDays) {
 // en cada par; el campo de capacidad del formulario NO puede pasarse de aquí. Antes eran dos
 // números sin relación (el campo arrancaba en 8, los pares eran 4), y planear el doble de lo
 // que cabe generaba carryover garantizado cada semana aunque todo saliera perfecto.
+// v20: se le AGREGAN campos (soakHours/soakSource/spill), nunca se le quitan — la leen
+// tpSelectWeeklyItems, el planificador y Recuperación. Con el soak default de 24 h el
+// resultado es idéntico al de v16.4.
 function tpWeekCapacity(workDays) {
-    var slots = tpBuildTestSlots(workDays || {}).length;
+    var soak = tpSoakCfg();
+    var todos = tpSlotsForSoak(soak.defaultHours, workDays || {});
+    var usables = todos.filter(function(s) { return !s.spillsNextWeek; });
     var perSlot = Math.max(1, parseInt(tpState.vehiclesPerSlot, 10) || 1);
-    return { slots: slots, perSlot: perSlot, max: slots * perSlot };
+    return {
+        slots: usables.length, perSlot: perSlot, max: usables.length * perSlot,
+        soakHours: soak.defaultHours,
+        gapDays: tpSoakGapDays(soak.defaultHours),
+        spill: todos.filter(function(s) { return s.spillsNextWeek; }).map(function(s) { return s.precon; })
+    };
 }
 
 function tpSetVehiclesPerSlot(val) {
