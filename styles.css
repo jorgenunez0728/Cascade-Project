@@ -955,21 +955,23 @@ body{ overflow-x: hidden; }
     min-width: 300px; max-width: 90vw; max-height: 80vh;
     box-shadow: var(--shadow-xl); animation: modalSlideIn 0.3s var(--ease-out);
     backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    display: flex; flex-direction: column;
 }
 .custom-modal-box.modal-light {
     background: #fff; border-color: #e2e5ea; color: #1a1a2e;
 }
 .custom-modal-title {
     font-size: 16px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
-    color: #0f172a;
+    color: #0f172a; flex: 0 0 auto;
 }
 .modal-light .custom-modal-title { color: #0f172a; }
 .custom-modal-message {
     font-size: 14px; color: #64748b; line-height: 1.5; margin-bottom: 20px;
+    overflow-y: auto; flex: 1 1 auto; min-height: 0;
 }
 .modal-light .custom-modal-message { color: #64748b; }
 .custom-modal-actions {
-    display: flex; gap: 10px; justify-content: flex-end;
+    display: flex; gap: 10px; justify-content: flex-end; flex: 0 0 auto;
 }
 .custom-modal-actions button {
     padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;

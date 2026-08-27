@@ -2,6 +2,32 @@
 
 All notable changes to this project, organized by development round.
 
+## v20.4 — Catálogo de configuraciones actualizado a producción (2026-08-27)
+
+`CSV_CONFIGURATIONS` (`js/app.js`) se reemplazó con el CSV de producción más reciente: pasa de
+**173 a 248 configuraciones** — se dan de baja 10 descontinuadas y se agregan 85, incluida una
+familia nueva, **CL4MH** (11 configuraciones). El reemplazo se hizo en el catálogo embebido, no
+vía el importador local (`kia_config_csv_raw`), porque ese importador guarda el CSV en
+`localStorage` de un solo dispositivo y **nunca se sincroniza por Firebase** — un catálogo
+importado así se ve en el equipo donde se subió y en ningún otro. Horneado en el código, en
+cambio, se despliega igual a todos los dispositivos.
+
+## v20.3 — Modal sin scroll y gráficas SPC en blanco (2026-08-27)
+
+Dos bugs reportados por el laboratorio desde un dispositivo real:
+
+- **El modal genérico (`showModal`) no se podía hacer scroll.** `.custom-modal-box` tenía
+  `max-height: 80vh` pero ningún `overflow`, así que el contenido más alto que el modal se
+  recortaba en silencio sin barra de scroll — se notó en **Mi semana → 🔄 Sustituir** con más de
+  unas pocas candidatas, pero afectaba a **cualquier** `showModal({body:…})` largo. Ahora
+  `.custom-modal-box` es `flex column` con el título y los botones fijos y
+  `.custom-modal-message` como la única región que crece y hace scroll.
+- **Las cartas I-MR/MR de CoP → Control SPC salían en blanco.** `copSpcRenderCharts()` se
+  llamaba síncrono justo después de `container.innerHTML = …`, en el mismo tick en que la
+  pestaña de CoP pasa de oculta a visible — Chart.js mide el canvas antes de que el navegador
+  termine el reflow y lo crea a 0×0. `pnProjSCurveRender` (Proyectos → Curva S) ya resolvía este
+  mismo problema con un `setTimeout(fn, 30)`; `copRender()` ahora usa el mismo patrón.
+
 ## v20.2 — CO₂ en el CoP: verificación estadística de familia (2026-08-27)
 
 > *"Verifica que la de los gases esté correcta, según yo, si está bien, y ponme la del CO2 ...

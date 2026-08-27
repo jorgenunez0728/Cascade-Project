@@ -900,6 +900,38 @@ greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya n
   excepción que señalar a diario. El dato vive en `moves[]`, la auditoría, el menú ⋯ y el
   `title` del asa. No volver a agregarlo a `marcas`.
 
+## v20.4 — Catálogo de configuraciones actualizado a producción
+
+- **`CSV_CONFIGURATIONS` (`js/app.js`) se reemplazó con el CSV de producción más reciente**:
+  173 → 248 configuraciones (10 descontinuadas, 85 nuevas, familia nueva **CL4MH**). Mismo
+  formato/orden de columnas de siempre (`codigo_config_text,Modelo,MODEL YEAR (VIN),
+  TRANSMISSION,ENVIRONMENT PACKAGE,EMISSION REGULATION,DRIVE TYPE,ENGINE CAPACITY,TIRE ASSY,
+  REGION,BODY TYPE,ENGINE PACKAGE`) — el CSV de producción trae además `codigo_config` (id
+  interno) y columnas de volumen mensual (`count_hist`, `Aug-26`…`Total_Calc`) que **no** son
+  parte del catálogo y se descartan al hornear; esas mismas columnas de volumen sí alimentan el
+  importador de producción del Plan (`tpImportPlanCSV`), pero eso el laboratorio lo sube desde
+  la propia app, no se hornea.
+- **Por qué se hornea en vez de usar el importador de la app (`kia_config_csv_raw`)**: ese
+  importador guarda el CSV en `localStorage` de un solo dispositivo y **no está en la lista de
+  sync de `firebase-sync.js`** — un catálogo importado ahí se ve en el equipo donde se subió y
+  en ningún otro. Un catálogo nuevo que deba verse igual en todos los dispositivos va horneado
+  en `CSV_CONFIGURATIONS` (vía código + `./build.sh`), no por el importador.
+
+## v20.3 — Modal sin scroll y gráficas SPC en blanco
+
+- **`.custom-modal-box` (styles.css) no tenía `overflow`**, solo `max-height:80vh` — cualquier
+  `showModal({body:…})` con contenido largo (p. ej. **Mi semana → 🔄 Sustituir** con varias
+  candidatas) se recortaba en silencio sin scroll. Ahora la caja es `flex column` con título y
+  botones fijos y **`.custom-modal-message` es la única región que hace scroll** (`flex:1;
+  overflow-y:auto`). Código nuevo que use `showModal` con `body` largo no necesita nada extra.
+- **`copSpcRenderCharts()` (cop_validator.js) llamaba a `new Chart()` síncrono**, en el mismo
+  tick en que `copRender()` acaba de pasar la pestaña de oculta a visible — Chart.js medía el
+  canvas antes del reflow y lo creaba a 0×0 (cartas I-MR/MR en blanco). `copRender()` ahora la
+  llama con `setTimeout(fn, 30)`, el mismo patrón que ya usa `pnProjSCurveRender` (projects.js,
+  con el comentario "canvas is already in use" — ahí es el mismo problema de timing). **Toda
+  gráfica nueva que se cree justo tras un cambio de pestaña/vista debe usar este patrón**, no
+  `new Chart()` directo tras el `innerHTML`.
+
 ## v20.2 — CO₂ en el CoP: verificación estadística de familia (`js/cop_validator.js`)
 
 El CO₂ pasó de un % de tolerancia inventado por la app a la prueba real de la norma. El Excel de
