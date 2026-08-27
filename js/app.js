@@ -210,11 +210,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.0';
+var APP_VERSION = '20.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.1', date: '27 ago 2026', title: 'Mi semana — repetir, agregar y vincular', bullets: [
+        'YA SE PUEDEN PROBAR DOS VEHÍCULOS IDÉNTICOS de la misma configuración en la misma semana. Estaba bloqueado en cuatro sitios a la vez; ahora "⧉ Otra unidad igual" agrega la segunda, se numeran "1 de 2" y "2 de 2", y cada una toma su propio vehículo.',
+        'Botón ＋ en cada día para agregar configuraciones directo desde Mi semana, con buscador y agrupadas por familia. Antes solo se podían mover las que el generador proponía.',
+        '🔗 Vincular: lista las pruebas de la semana con su VIN y configuración para acreditar una fila a mano cuando el automático no la empató. Si el vehículo es de otra configuración, se registra como sustitución con sus diferencias.',
+        'Sustituir ahora tiene tres alcances: misma familia (equivalente), misma región y norma, o misma región. Los que se alejan del núcleo salen marcados con ⚠️ y el nivel queda grabado en el registro.',
+        'Menos ruido: el aviso "movida desde el martes" ya no se pinta en la tarjeta. Que el plan se reacomode es normal; el registro sigue en la auditoría y en el menú ⋯.'
+    ] },
     { version: '20.0', date: '27 ago 2026', title: 'Planificador semanal — overhaul', bullets: [
         'Plan abre en 📅 Mi semana: una columna por día laborable, con la de hoy resaltada. El plan ya no sale hasta el fondo de la pantalla — es lo primero y lo único que se ve.',
         'Cada prueba se puede mover de día arrastrándola (mantén pulsado, también con el dedo) o con el teclado. Al moverla se recorre su preacondicionamiento, y si el reposo no cabe la app se niega DICIENDO por qué y qué días sí se puede.',

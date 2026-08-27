@@ -4131,7 +4131,9 @@ body.cop-present .cop-toolbar    { display: none; }
 .tp-week-col--past  { opacity: 0.72; }
 .tp-week-col-head {
     padding: var(--space-sm); border-bottom: 1px solid var(--border);
-    display: grid; grid-template-columns: 1fr auto; gap: 2px 6px; align-items: baseline;
+    /* 3 columnas: nombre del día · número · ＋. Con dos columnas, el ＋ (v20.1) se
+       colaba entre el día y la fecha y el encabezado salía en desorden. */
+    display: grid; grid-template-columns: 1fr auto auto; gap: 2px 6px; align-items: baseline;
     background: var(--bg);
 }
 .tp-week-col--today .tp-week-col-head { background: var(--info-bg); }
@@ -4312,3 +4314,42 @@ body.cop-present .cop-toolbar    { display: none; }
 .tp-week-grip--sel   { background: var(--info-bg); color: var(--info-text); border-color: var(--info-text); }
 .tp-week-col-body.drag-ready { background: var(--info-bg); }
 @media print { .tp-week-grip { display: none !important; } }
+
+/* ── [v20.1] Agregar desde el tablero, alcance de sustitución y vínculo ────── */
+.tp-week-coladd {
+    justify-self: end; background: none; border: 1px solid transparent;
+    color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1;
+    border-radius: var(--radius-sm); padding: 0 5px; min-height: 24px; min-width: 24px;
+}
+.tp-week-coladd:hover { background: var(--info-bg); color: var(--info-text); border-color: var(--info-text); }
+.tp-week-col-empty--add {
+    width: 100%; background: none; border: 1px dashed var(--border);
+    border-radius: var(--radius-md); cursor: pointer; color: var(--muted);
+    font-size: var(--fs-sm); min-height: 40px;
+}
+.tp-week-col-empty--add:hover { border-color: var(--info-text); color: var(--info-text); background: var(--info-bg); }
+
+.tp-week-addsug { display: flex; flex-direction: column; gap: 4px; margin-bottom: var(--space-sm); }
+.tp-week-addsug > strong { font-size: var(--fs-xs); color: var(--muted); }
+.tp-week-addpick { display: flex; flex-direction: column; gap: 6px; }
+.tp-week-addpick select { width: 100%; }
+
+.tp-subst-scopes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.tp-subst-scope {
+    flex: 1 1 auto; font-size: var(--fs-xs); font-weight: 600; padding: 6px 10px; cursor: pointer;
+    border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    min-height: 32px;
+}
+.tp-subst-scope--on { background: var(--info-fill); color: #fff; border-color: var(--info-fill); }
+.tp-subst-scope-n { opacity: 0.75; font-weight: 400; }
+.tp-subst-nota {
+    font-size: var(--fs-xs); color: var(--muted); margin: 0 0 6px;
+    padding: 6px 8px; border-radius: var(--radius-sm); background: var(--bg);
+}
+.tp-subst-nota--warn { color: var(--warn-text); background: var(--warn-bg); border: 1px solid var(--warn-text); }
+
+.tp-link-current {
+    font-size: var(--fs-xs); padding: var(--space-sm); border-radius: var(--radius-md);
+    background: var(--ok-bg); color: var(--ok-text); border: 1px solid var(--ok-text);
+    margin-bottom: 6px;
+}

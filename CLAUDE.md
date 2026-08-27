@@ -867,6 +867,39 @@ plataforma entera. Reproducido y corregido.
 greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya no ignora `slots`
 (agendaba el doble), pero el lazo sigue duplicado.
 
+## v20.1 — Mi semana: repetir, agregar y vincular (`js/testplan.js`)
+
+- **Dos vehículos IDÉNTICOS en la misma semana estaban bloqueados en CUATRO sitios**: el Set
+  `used` de `tpSelectWeeklyItems`, el `.includes()` de `tpAddManualPick`, el filtro del
+  desplegable de `tpAddToWeek`, y —el peor— `tpWeekBoardRows`, que apuntaba las dos filas al
+  MISMO vehículo. **Regla:** el generador AUTOMÁTICO sigue sin repetir por su cuenta (gasta
+  capacidad que el déficit necesita); lo que se pide a mano SÍ se repite. `take()` recibe
+  `allowRepeat` y sólo las obligatorias lo pasan.
+- **`tpAddItemToWeekDay(weekIdx, desc, day, opts)` es LA definición de agregar una prueba al
+  plan** desde el tablero — no filtra duplicados a propósito. `tpDuplicateItem` es el atajo
+  ("⧉ Otra unidad igual"). Todo consumidor nuevo llama a `tpAddItemToWeekDay`, no empuja a
+  `plan.items` directo (se perdería el soak congelado, el par legal y la auditoría).
+- **`tpWeekBoardRows` REPARTE los vehículos** (`_usados`): cada vehículo acredita a lo sumo
+  una fila. Las repetidas se numeran `dupIdx`/`dupTotal`.
+- **`row.vehicle` sigue significando "vivo, en curso"** (de eso dependen el semáforo y la
+  ETA); **`row.vehicleAny` es el vehículo RESUELTO**, archivado incluido. Con dos pruebas
+  idénticas la segunda suele quedar cubierta por uno ya liberado y sin `vehicleAny` la
+  tarjeta se veía vacía. Código nuevo que quiera "¿tiene vehículo?" usa `vehicleAny`.
+- **`tpLinkableVehiclesFor` / `tpLinkVehicleToItem` / `tpUnlinkVehicleFromItem`** — el
+  respaldo manual de `tpAutoFeedFromRelease`, que sólo acredita con `configCode` EXACTO y
+  alta desde el plan. **Vincular es lo contrario de declarar**: si la fila venía declarada a
+  mano se asciende y su placeholder se retira; si la configuración difiere se registra como
+  SUSTITUCIÓN con diffs, nunca como si se hubiera corrido lo planeado. `item.linkedVehicleId`
+  manda sobre la resolución automática. Desvincular NO borra la evidencia de `testedList`.
+- **`TP_SUBST_SCOPES` (familia | norma | region) es LA definición de los alcances de
+  sustitución.** Fuera de `familia` las diferencias se listan sobre `_tpCoreFields` TAMBIÉN
+  (lo que cambia puede ser el motor), las candidatas que rompen el núcleo se marcan
+  `breaksCore` y van al final, y **el nivel se GRABA en `substitution.scope`**: una
+  sustitución "misma región" no es lo mismo que una equivalente.
+- **El chip "↪ movida" NO se pinta en la tarjeta.** Que el plan se reacomode es normal, no una
+  excepción que señalar a diario. El dato vive en `moves[]`, la auditoría, el menú ⋯ y el
+  `title` del asa. No volver a agregarlo a `marcas`.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

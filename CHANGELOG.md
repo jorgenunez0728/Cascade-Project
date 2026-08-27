@@ -2,6 +2,87 @@
 
 All notable changes to this project, organized by development round.
 
+## v20.1 — Mi semana: repetir, agregar y vincular (2026-08-27)
+
+Ajustes pedidos tras usar v20.0 en el laboratorio.
+
+### Dos vehículos idénticos en la misma semana — estaba bloqueado en CUATRO sitios
+
+> *"No me permite generar más de un vehículo en la misma configuración por semana… quiero
+> probar dos vehículos idénticos de la misma configuración durante la misma semana y no me
+> está dejando."*
+
+| # | Dónde | Qué hacía |
+|---|---|---|
+| 1 | `tpSelectWeeklyItems` | Set `used` por `desc` — el generador nunca proponía dos. |
+| 2 | `tpAddManualPick` | `_tpWeeklyManualPicks` filtrado con `.includes()` — fijar la misma dos veces era imposible. |
+| 3 | `tpAddToWeek` | El desplegable escondía lo que ya estaba en la semana. |
+| 4 | `tpWeekBoardRows` | Aunque se colaran dos, **las dos apuntaban al MISMO vehículo**. |
+
+**Decisión:** el generador **automático** sigue sin repetir por su cuenta (repetir gasta
+capacidad que el déficit necesita, y nadie se lo pidió), pero **lo que se pide a mano sí se
+repite** — repetir es una intención explícita, no un accidente.
+
+- `tpAddItemToWeekDay(weekIdx, desc, day, opts)` — LA definición de "agregar una prueba al
+  plan" desde el tablero. No filtra duplicados a propósito.
+- `tpDuplicateItem` (menú ⋯ → **⧉ Otra unidad igual**) busca el siguiente día legal con
+  lugar; si todos están llenos, marca sobrecupo; si no hay ninguno, la declara sin día.
+- `tpWeekBoardRows` **reparte**: `_usados` garantiza que cada vehículo acredite a lo sumo
+  una fila. Las filas repetidas se numeran **"1 de 2" / "2 de 2"**.
+- `row.vehicleAny` expone el vehículo resuelto aunque esté archivado. `row.vehicle` sigue
+  significando "vivo, en curso" (de eso dependen el semáforo y la ETA), pero con dos
+  pruebas idénticas la segunda suele quedar cubierta por uno ya liberado y la tarjeta se
+  veía vacía como si nadie la hubiera corrido.
+
+### Agregar desde Mi semana
+
+Un **＋** por columna y las columnas vacías clicables. El selector reusa los `<optgroup>`
+por familia y el buscador de Armar semana (`tpFilterPickOptions` ahora acepta el id del
+`<select>`). Ofrece **todo**, incluido lo que ya está en la semana, que es justo lo que
+faltaba.
+
+### Vincular con una prueba
+
+> *"Que apareciera un botoncito que diga vincular con prueba y vengan las pruebas liberadas
+> en el transcurso de la semana, el VIN y la configuración, y me permita seleccionar
+> manualmente en caso de que no se haga automáticamente."*
+
+`tpAutoFeedFromRelease` solo acredita cuando el `configCode` coincide EXACTO y el vehículo
+se dio de alta desde el plan. En la práctica eso falla seguido. Sin esta puerta la única
+salida era la palomita a mano, que deja la prueba "declarada" **aunque sí exista el vehículo
+y su evidencia**.
+
+- `tpLinkableVehiclesFor(item, opts)` — LA definición de qué se puede vincular. Ordena por
+  cercanía (configuración exacta → misma familia → resto) y, dentro de cada nivel, lo
+  liberado antes que lo que sigue en curso. No se limita a lo liberado: un vehículo en curso
+  también se vincula, que es lo que hace falta cuando se registró por fuera del plan.
+- `tpLinkVehicleToItem` acredita la fila con su VIN. **Vincular es lo contrario de
+  declarar**: si la fila venía declarada a mano, se asciende y su registro placeholder se
+  retira. Si la configuración del vehículo NO es la planeada, se registra como
+  **sustitución** con sus diferencias — no como si se hubiera corrido lo planeado.
+- Un vehículo no puede acreditar dos filas, y deja de ofrecerse en las demás.
+- `tpUnlinkVehicleFromItem` devuelve la fila a pendiente; **la evidencia en Probados se
+  conserva**.
+
+### Sustituir: tres alcances
+
+> *"Intentaba expandir ese scope de que sustituyera por cualquier Europe de la misma
+> regulación o algo así, de que no es exactamente ese, sino otro."*
+
+`TP_SUBST_SCOPES` — 🎯 misma familia (equivalente) · 📋 misma región y norma · 🌍 misma
+región. Salir de la familia **no puede pasar en silencio**: fuera del primer nivel las
+diferencias se listan sobre TODOS los campos (no solo los flexibles — lo que cambia puede
+ser el motor), las candidatas que rompen el núcleo salen marcadas **⚠️** y ordenadas al
+final, y el nivel usado queda **grabado** en `substitution.scope` porque dentro de un mes
+nadie se acuerda de cuál fue cuál si no está escrito.
+
+### Menos ruido
+
+El chip **"↪ movida desde el martes" ya no se pinta en la tarjeta**. Que el plan se reacomode
+es normal, no una excepción que haya que señalar todos los días. El registro no se pierde:
+sigue en `moves[]` (append-only), en la auditoría, en el menú ⋯ y en el título del asa; el
+borde punteado lo insinúa sin gritarlo.
+
 ## v20.0 — Planificador semanal: overhaul (2026-08-27)
 
 > *"Es una lata, es un coco, difícil de usar, no está bien distribuido, **el plan sale hasta el
