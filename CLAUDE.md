@@ -900,6 +900,23 @@ greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya n
   excepción que señalar a diario. El dato vive en `moves[]`, la auditoría, el menú ⋯ y el
   `title` del asa. No volver a agregarlo a `marcas`.
 
+## v20.4 — Catálogo de configuraciones actualizado a producción
+
+- **`CSV_CONFIGURATIONS` (`js/app.js`) se reemplazó con el CSV de producción más reciente**:
+  173 → 248 configuraciones (10 descontinuadas, 85 nuevas, familia nueva **CL4MH**). Mismo
+  formato/orden de columnas de siempre (`codigo_config_text,Modelo,MODEL YEAR (VIN),
+  TRANSMISSION,ENVIRONMENT PACKAGE,EMISSION REGULATION,DRIVE TYPE,ENGINE CAPACITY,TIRE ASSY,
+  REGION,BODY TYPE,ENGINE PACKAGE`) — el CSV de producción trae además `codigo_config` (id
+  interno) y columnas de volumen mensual (`count_hist`, `Aug-26`…`Total_Calc`) que **no** son
+  parte del catálogo y se descartan al hornear; esas mismas columnas de volumen sí alimentan el
+  importador de producción del Plan (`tpImportPlanCSV`), pero eso el laboratorio lo sube desde
+  la propia app, no se hornea.
+- **Por qué se hornea en vez de usar el importador de la app (`kia_config_csv_raw`)**: ese
+  importador guarda el CSV en `localStorage` de un solo dispositivo y **no está en la lista de
+  sync de `firebase-sync.js`** — un catálogo importado ahí se ve en el equipo donde se subió y
+  en ningún otro. Un catálogo nuevo que deba verse igual en todos los dispositivos va horneado
+  en `CSV_CONFIGURATIONS` (vía código + `./build.sh`), no por el importador.
+
 ## v20.3 — Modal sin scroll y gráficas SPC en blanco
 
 - **`.custom-modal-box` (styles.css) no tenía `overflow`**, solo `max-height:80vh` — cualquier

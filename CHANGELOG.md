@@ -2,6 +2,16 @@
 
 All notable changes to this project, organized by development round.
 
+## v20.4 — Catálogo de configuraciones actualizado a producción (2026-08-27)
+
+`CSV_CONFIGURATIONS` (`js/app.js`) se reemplazó con el CSV de producción más reciente: pasa de
+**173 a 248 configuraciones** — se dan de baja 10 descontinuadas y se agregan 85, incluida una
+familia nueva, **CL4MH** (11 configuraciones). El reemplazo se hizo en el catálogo embebido, no
+vía el importador local (`kia_config_csv_raw`), porque ese importador guarda el CSV en
+`localStorage` de un solo dispositivo y **nunca se sincroniza por Firebase** — un catálogo
+importado así se ve en el equipo donde se subió y en ningún otro. Horneado en el código, en
+cambio, se despliega igual a todos los dispositivos.
+
 ## v20.3 — Modal sin scroll y gráficas SPC en blanco (2026-08-27)
 
 Dos bugs reportados por el laboratorio desde un dispositivo real:
