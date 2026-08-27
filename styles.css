@@ -3746,7 +3746,15 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .tp-planner-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; }
 @media (min-width: 900px) {
     .tp-planner-grid { grid-template-columns: minmax(300px, 1fr) minmax(340px, 1.3fr); align-items: start; }
-    .tp-planner-side { position: sticky; top: 8px; }
+    /* [v20] `top: 8px` sin z-index metía la propuesta en vivo DEBAJO de `.tp-header`
+       (sticky, top 43px, alto ~75px, z-index 100): al bajar a las perillas la
+       propuesta —lo que el usuario dijo que sí funciona— se perdía tras el
+       encabezado. 126px libera esa pila; el z-index la sube sobre el contenido
+       hermano pero la deja pasar por debajo del encabezado, que es lo correcto. */
+    .tp-planner-side {
+        position: sticky; top: 126px; z-index: 1;
+        max-height: calc(100vh - 140px); overflow-y: auto;
+    }
 }
 /* Las tarjetas dentro del planificador ya llevan su propio margin-top */
 .tp-planner-controls > .tp-card:first-child,
@@ -4060,3 +4068,247 @@ body.cop-present .cop-toolbar    { display: none; }
     .cop-chip, .cop-verdict, .cop-kpi, .cop-strip-cell { background: transparent !important; }
     .cop-fam-card { box-shadow: none; border: 1px solid #999; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   [v20] MI SEMANA — el tablero operativo del planificador
+   Vocabulario propio, como el `.cop-*` de v19: nada de `style=""` en línea para
+   estado. Los tres tokens de estado (`*-text` / `*-fill` / `*-bg`) se eligen por
+   ROL: texto sobre fondo claro con `-text`, relleno sólido con `-fill`.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.tp-week-wrap { max-width: var(--content-max); margin: 0 auto; }
+
+/* ── Encabezado ── */
+.tp-week-head {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: var(--space-md); margin-bottom: var(--space-md);
+}
+.tp-week-nav { display: flex; align-items: center; gap: var(--space-sm); }
+.tp-week-title { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--fs-md); }
+.tp-week-headacts { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
+.tp-week-tag {
+    font-size: var(--fs-xs); font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+    white-space: nowrap;
+}
+.tp-week-tag--now  { color: var(--info-text);   background: var(--info-bg);   border-color: var(--info-text); }
+.tp-week-tag--past { color: var(--muted); }
+.tp-week-tag--next { color: var(--text); }
+.tp-week-tag--ok   { color: var(--ok-text);     background: var(--ok-bg);     border-color: var(--ok-text); }
+
+/* ── Franja de KPIs ── */
+.tp-week-kpis {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+    gap: var(--space-sm); margin-bottom: var(--space-md);
+}
+.tp-week-kpi {
+    text-align: center; padding: var(--space-sm); border-radius: var(--radius-md);
+    background: var(--surface); border: 1px solid var(--border);
+}
+.tp-week-kpi-n { font-size: var(--fs-xl); font-weight: 800; line-height: 1.1; color: var(--text); }
+.tp-week-kpi-l { font-size: var(--fs-xs); color: var(--muted); }
+.tp-week-kpi--ok    .tp-week-kpi-n { color: var(--ok-text); }
+.tp-week-kpi--live  .tp-week-kpi-n { color: var(--info-text); }
+.tp-week-kpi--moved .tp-week-kpi-n { color: var(--warn-text); }
+.tp-week-kpi--risk  .tp-week-kpi-n { color: var(--danger-text); }
+
+.tp-week-note {
+    font-size: var(--fs-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md);
+    background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-text);
+    margin-bottom: var(--space-md);
+}
+
+/* ── El tablero: una columna por día laborable ── */
+.tp-week-board {
+    display: grid; gap: var(--space-sm); align-items: start;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+.tp-week-col {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden; min-width: 0;
+}
+.tp-week-col--today { border-color: var(--info-text); box-shadow: 0 0 0 2px var(--info-bg); }
+.tp-week-col--past  { opacity: 0.72; }
+.tp-week-col-head {
+    padding: var(--space-sm); border-bottom: 1px solid var(--border);
+    display: grid; grid-template-columns: 1fr auto; gap: 2px 6px; align-items: baseline;
+    background: var(--bg);
+}
+.tp-week-col--today .tp-week-col-head { background: var(--info-bg); }
+.tp-week-col-day  { font-weight: 800; font-size: var(--fs-sm); color: var(--text); }
+.tp-week-col-date { font-size: var(--fs-sm); font-weight: 700; color: var(--muted); }
+.tp-week-col-load { grid-column: 1 / -1; font-size: var(--fs-xs); color: var(--muted); }
+.tp-week-col-load--over { color: var(--danger-text); font-weight: 700; }
+.tp-week-col-body { padding: var(--space-sm); display: flex; flex-direction: column; gap: var(--space-sm); min-height: 56px; }
+.tp-week-col-empty { text-align: center; color: var(--muted); font-size: var(--fs-sm); padding: var(--space-sm) 0; }
+
+/* ── La tarjeta ── */
+.tp-week-card {
+    border: 1px solid var(--border); border-left: 3px solid var(--border);
+    border-radius: var(--radius-md); padding: var(--space-sm);
+    background: var(--surface); min-width: 0;
+}
+.tp-week-card--done  { border-left-color: var(--ok-fill);     background: var(--ok-bg); }
+.tp-week-card--warn  { border-left-color: var(--warn-fill); }
+.tp-week-card--risk  { border-left-color: var(--danger-fill); }
+.tp-week-card--moved { border-left-style: dashed; }
+.tp-week-card--subst { border-left-color: var(--info-fill); }
+
+.tp-week-card-top { display: flex; align-items: flex-start; gap: 6px; }
+.tp-week-check {
+    background: none; border: none; cursor: pointer; font-size: 16px; line-height: 1;
+    padding: 2px; border-radius: var(--radius-sm); flex: 0 0 auto;
+}
+.tp-week-check:hover { background: var(--bg); }
+.tp-week-card-id { flex: 1 1 auto; min-width: 0; }
+.tp-week-name {
+    font-size: var(--fs-sm); font-weight: 700; color: var(--text);
+    overflow-wrap: anywhere;
+}
+.tp-week-variant { font-size: var(--fs-xs); color: var(--muted); overflow-wrap: anywhere; }
+.tp-week-rgn {
+    flex: 0 0 auto; font-size: var(--fs-xs); font-weight: 700; padding: 1px 5px;
+    border-radius: var(--radius-sm); color: var(--rgn, var(--muted));
+    border: 1px solid currentColor;
+}
+
+/* ── La tira de días: preacon · reposo · prueba ── */
+.tp-week-span { display: flex; align-items: center; gap: 2px; margin: 6px 0 4px; }
+.tp-week-span-cell {
+    flex: 1 1 0; min-width: 0; text-align: center; font-size: 9px; font-weight: 700;
+    line-height: 14px; border-radius: 2px; background: var(--bg);
+    color: var(--muted); border: 1px solid var(--border);
+}
+.tp-week-span-cell--off  { opacity: 0.35; }
+.tp-week-span-cell--pre  { background: var(--info-bg);   color: var(--info-text);   border-color: var(--info-text); }
+.tp-week-span-cell--soak { background: var(--warn-bg);   color: var(--warn-text);   border-color: var(--warn-bg); }
+.tp-week-span-cell--test { background: var(--ok-bg);     color: var(--ok-text);     border-color: var(--ok-text); }
+.tp-week-span-note { flex: 0 0 auto; font-size: var(--fs-xs); color: var(--muted); padding-left: 4px; }
+
+/* ── Marcas y motivos ── */
+.tp-week-flags { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 4px; }
+.tp-week-flag {
+    font-size: var(--fs-xs); padding: 1px 5px; border-radius: var(--radius-sm);
+    background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+    overflow-wrap: anywhere;
+}
+.tp-week-flag--risk     { color: var(--danger-text); background: var(--danger-bg); border-color: var(--danger-text); }
+.tp-week-flag--warn     { color: var(--warn-text);   background: var(--warn-bg);   border-color: var(--warn-text); }
+.tp-week-flag--moved    { color: var(--warn-text);   border-color: var(--warn-text); }
+.tp-week-flag--declared { color: var(--warn-text);   background: var(--warn-bg);   border-color: var(--warn-text); }
+.tp-week-flag--live     { color: var(--info-text);   background: var(--info-bg);   border-color: var(--info-text); }
+.tp-week-flag--subst    { color: var(--info-text);   border-color: var(--info-text); }
+
+/* ── Acciones ── */
+.tp-week-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.tp-week-act {
+    font-size: var(--fs-xs); font-weight: 600; padding: 3px 8px; cursor: pointer;
+    border-radius: var(--radius-sm); border: 1px solid var(--border);
+    background: var(--surface); color: var(--text);
+    min-height: 28px;   /* objetivo táctil: se trabaja en tablet */
+}
+.tp-week-act:hover { background: var(--bg); }
+.tp-week-act--ghost { color: var(--muted); }
+
+/* ── Vacíos y sin agendar ── */
+.tp-week-empty { text-align: center; padding: var(--space-2xl) var(--space-lg); }
+.tp-week-empty-icon { font-size: 34px; margin-bottom: var(--space-sm); }
+.tp-week-empty p { color: var(--muted); font-size: var(--fs-sm); margin: var(--space-sm) 0 var(--space-md); }
+.tp-week-unsched { margin-top: var(--space-lg); }
+.tp-week-unsched h4 { margin: 0 0 4px; color: var(--warn-text); font-size: var(--fs-md); }
+.tp-week-unsched p  { margin: 0 0 var(--space-sm); color: var(--muted); font-size: var(--fs-sm); }
+.tp-week-unsched-list {
+    display: grid; gap: var(--space-sm);
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+/* ── Mover a otro día (menú de teclado) ── */
+.tp-week-movebox { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.tp-week-movehint { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 4px; }
+.tp-week-movebtn {
+    display: flex; flex-direction: column; gap: 1px; text-align: left; width: 100%;
+    padding: var(--space-sm); border-radius: var(--radius-md); cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    min-height: 44px;   /* objetivo táctil */
+}
+.tp-week-movebtn:hover:not(:disabled) { background: var(--info-bg); border-color: var(--info-text); }
+.tp-week-movebtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.tp-week-movebtn--now    { border-color: var(--info-text); }
+.tp-week-movebtn--full   { border-color: var(--warn-text); }
+.tp-week-movebtn--danger { color: var(--danger-text); }
+.tp-week-movebtn-day { font-weight: 700; font-size: var(--fs-sm); }
+.tp-week-movebtn-sub { font-size: var(--fs-xs); color: var(--muted); }
+.tp-week-moves { font-size: var(--fs-xs); color: var(--muted); border-top: 1px solid var(--border); padding-top: 6px; }
+
+/* En pantallas angostas el tablero se apila: una columna por día, en orden. */
+@media (max-width: 720px) {
+    .tp-week-board { grid-template-columns: 1fr; }
+    .tp-week-head  { flex-direction: column; align-items: stretch; }
+}
+
+@media print {
+    .tp-week-actions, .tp-week-headacts, .tp-week-nav button { display: none !important; }
+    .tp-week-board { grid-template-columns: repeat(5, 1fr); }
+    .tp-week-card, .tp-week-col { box-shadow: none; break-inside: avoid; }
+}
+
+/* ── [v20] Enfoque de la semana ────────────────────────────────────────────── */
+.tp-focus {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: var(--space-md); margin-bottom: var(--space-md);
+}
+.tp-focus-label { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); display: block; margin-bottom: 6px; }
+.tp-focus-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tp-focus-chip {
+    font-size: var(--fs-sm); font-weight: 600; padding: 6px 12px; cursor: pointer;
+    border-radius: 999px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); min-height: 34px;
+}
+.tp-focus-chip:hover { border-color: var(--info-text); }
+.tp-focus-chip--on { background: var(--info-fill); color: #fff; border-color: var(--info-fill); }
+.tp-focus-read { font-size: var(--fs-xs); color: var(--muted); margin-top: 8px; }
+.tp-focus-warn { color: var(--warn-text); font-weight: 600; }
+
+/* ── [v20] Índice de semanas (sustituye al muro de 90 líneas del fondo) ───── */
+.tp-week-index { display: flex; flex-direction: column; gap: 4px; }
+.tp-week-index-row {
+    display: grid; grid-template-columns: auto auto auto 1fr; gap: var(--space-sm);
+    align-items: center; text-align: left; width: 100%; cursor: pointer;
+    padding: var(--space-sm); border-radius: var(--radius-md);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    min-height: 40px;
+}
+.tp-week-index-row:hover { background: var(--info-bg); border-color: var(--info-text); }
+.tp-week-index-date { font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; }
+.tp-week-index-tag  { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+.tp-week-index-n    { font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
+.tp-week-index-bal  { font-size: var(--fs-xs); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) {
+    .tp-week-index-row { grid-template-columns: 1fr auto; }
+    .tp-week-index-bal { grid-column: 1 / -1; }
+}
+
+/* ── [v20] Días de asistencia: configuración de una vez, plegada por default ── */
+.tp-workdays {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-md);
+}
+.tp-workdays > summary {
+    cursor: pointer; font-size: var(--fs-xs); font-weight: 700; color: var(--info-text);
+    list-style: revert; min-height: 24px; display: list-item;
+}
+
+/* ── [v20] Asa de arrastre de la tarjeta ─────────────────────────────────────
+   La TARJETA no puede ser el <button> (contiene botones), así que el origen del
+   arrastre y del teclado es esta asa — el patrón que conserva la accesibilidad
+   de teclado que v17.8 le dio al mapa del cuarto de gases. */
+.tp-week-grip {
+    flex: 0 0 auto; cursor: grab; background: none; border: 1px solid transparent;
+    color: var(--muted); font-size: 13px; line-height: 1; padding: 4px 2px;
+    border-radius: var(--radius-sm); min-height: 26px; touch-action: none;
+}
+.tp-week-grip:hover  { background: var(--bg); color: var(--text); }
+.tp-week-grip:active { cursor: grabbing; }
+.tp-week-grip--sel   { background: var(--info-bg); color: var(--info-text); border-color: var(--info-text); }
+.tp-week-col-body.drag-ready { background: var(--info-bg); }
+@media print { .tp-week-grip { display: none !important; } }

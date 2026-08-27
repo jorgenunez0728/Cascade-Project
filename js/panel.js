@@ -942,13 +942,18 @@ function pnRunReport(fnName) {
     }
 }
 
-// tpExportWeeklyPlan needs a week index — pick the last accepted week (else the last).
+// tpExportWeeklyPlan pide un índice de semana. v20: se exporta la semana EN CURSO
+// (`tpWeekBoardRows`, LA definición); si aún no hay una, la última aceptada, y si no,
+// la última creada.
 function _pnReportWeeklyPlan() {
     if (typeof tpExportWeeklyPlan !== 'function') { if (typeof showToast === 'function') showToast('No disponible', 'error'); return; }
     var plans = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
     if (!plans.length) { if (typeof showToast === 'function') showToast('No hay plan semanal', 'warning'); return; }
-    var idx = plans.length - 1;
-    for (var i = plans.length - 1; i >= 0; i--) { if (plans[i].accepted) { idx = i; break; } }
+    var idx = -1;
+    if (typeof tpWeekBoardRows === 'function') {
+        try { var b = tpWeekBoardRows({}); if (b && b.planIdx >= 0) idx = b.planIdx; } catch (e) {}
+    }
+    if (idx < 0) { idx = plans.length - 1; for (var i = plans.length - 1; i >= 0; i--) { if (plans[i].accepted) { idx = i; break; } } }
     tpExportWeeklyPlan(idx);
 }
 
@@ -999,10 +1004,16 @@ function renderLabOverview(el, opts) {
     var byStatus = {}; activeVehicles.forEach(function(v) { byStatus[v.status] = (byStatus[v.status] || 0) + 1; });
     var pendingApproval = vehicles.filter(function(v) { return v.status === 'pending-approval'; }).length;
 
+    // v20: el avance de "el plan" es el de la semana EN CURSO (`tpWeekBoardRows`, LA
+    // definición). `weeklyPlans[length-1]` era el último plan CREADO: generar la semana
+    // que entra dejaba este indicador en 0/N y parecía que el laboratorio no había hecho
+    // nada. Se conserva el último plan como respaldo si aún no hay uno de esta semana.
+    var _lo = null;
+    if (typeof tpWeekBoardRows === 'function') { try { _lo = tpWeekBoardRows({}); } catch (e) { _lo = null; } }
     var tpPlans = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
-    var latestPlan = tpPlans.length ? tpPlans[tpPlans.length - 1] : null;
-    var tpDone = latestPlan ? latestPlan.items.filter(function(i) { return i.completed; }).length : 0;
-    var tpTotal = latestPlan ? latestPlan.items.length : 0;
+    var latestPlan = (_lo && _lo.plan) ? _lo.plan : (tpPlans.length ? tpPlans[tpPlans.length - 1] : null);
+    var tpDone = latestPlan ? (latestPlan.items || []).filter(function(i) { return i.completed; }).length : 0;
+    var tpTotal = latestPlan ? (latestPlan.items || []).length : 0;
     var tpPct = tpTotal ? Math.round(tpDone / tpTotal * 100) : 0;
 
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
@@ -1102,11 +1113,17 @@ function pnRenderDashboard(el) {
     var byStatus = {};
     activeVehicles.forEach(function(v) { byStatus[v.status] = (byStatus[v.status] || 0) + 1; });
 
+    // v20: el avance de "el plan" es el de la semana EN CURSO (`tpWeekBoardRows`, LA
+    // definición). `weeklyPlans[length-1]` era el último plan CREADO: generar la semana
+    // que entra dejaba este indicador en 0/N y parecía que el laboratorio no había hecho
+    // nada. Se conserva el último plan como respaldo si aún no hay uno de esta semana.
+    var _lo = null;
+    if (typeof tpWeekBoardRows === 'function') { try { _lo = tpWeekBoardRows({}); } catch (e) { _lo = null; } }
     var tpPlans = (typeof tpState !== 'undefined' && tpState.weeklyPlans) ? tpState.weeklyPlans : [];
-    var latestPlan = tpPlans.length > 0 ? tpPlans[tpPlans.length - 1] : null;
-    var tpDone = latestPlan ? latestPlan.items.filter(function(i) { return i.completed; }).length : 0;
-    var tpTotal = latestPlan ? latestPlan.items.length : 0;
-    var tpPct = tpTotal > 0 ? Math.round((tpDone / tpTotal) * 100) : 0;
+    var latestPlan = (_lo && _lo.plan) ? _lo.plan : (tpPlans.length ? tpPlans[tpPlans.length - 1] : null);
+    var tpDone = latestPlan ? (latestPlan.items || []).filter(function(i) { return i.completed; }).length : 0;
+    var tpTotal = latestPlan ? (latestPlan.items || []).length : 0;
+    var tpPct = tpTotal ? Math.round(tpDone / tpTotal * 100) : 0;
 
     var raToday = 0;
 
@@ -1942,12 +1959,17 @@ function pnGetActiveAlerts() {
         });
     }
 
-    // Check test plan coverage
-    if (typeof tpState !== 'undefined' && tpState.weeklyPlans && tpState.weeklyPlans.length > 0) {
-        var lastPlan = tpState.weeklyPlans[tpState.weeklyPlans.length - 1];
-        var planAge = (now - new Date(lastPlan.created).getTime()) / 86400000;
-        if (planAge > 7) {
-            alerts.push({ level: 'MEDIA', color: '#f59e0b', message: 'Plan semanal tiene ' + Math.round(planAge) + ' dias — generar nuevo', source: 'Test Plan' });
+    // Cobertura del plan. v20: se pregunta por la semana EN CURSO en vez de mirar
+    // `weeklyPlans[length-1]`, que es el último CREADO — podía ser una semana futura
+    // recién generada (alerta que nunca salta) o una vieja que ya nadie usa.
+    if (typeof tpWeekBoardRows === 'function') {
+        var _wb = null;
+        try { _wb = tpWeekBoardRows({}); } catch (e) { _wb = null; }
+        if (_wb && !_wb.plan && (tpState.weeklyPlans || []).length > 0) {
+            alerts.push({ level: 'MEDIA', color: '#f59e0b', message: 'No hay plan para la semana en curso — armar uno', source: 'Test Plan' });
+        } else if (_wb && _wb.plan && _wb.kpis.riesgo > 0) {
+            alerts.push({ level: 'MEDIA', color: '#f59e0b',
+                message: _wb.kpis.riesgo + ' prueba(s) de esta semana en riesgo — ver Plan → Mi semana', source: 'Test Plan' });
         }
     }
 
@@ -2998,10 +3020,14 @@ function _pnCollectTurnoverData() {
         }).length;
     }
 
-    // Pending tests
-    if (typeof tpState !== 'undefined' && tpState.weeklyPlans && tpState.weeklyPlans.length > 0) {
-        var latest = tpState.weeklyPlans[tpState.weeklyPlans.length - 1];
-        data.pendingTests = (latest.items || []).filter(function(it) { return !it.completed; }).length;
+    // Pendientes. v20: de la semana EN CURSO (`tpWeekBoardRows`), no del último plan
+    // creado — que podía ser el de la semana que entra y hacía que el turno de hoy
+    // reportara pendientes que aún no tocan.
+    if (typeof tpWeekBoardRows === 'function') {
+        try {
+            var _wb2 = tpWeekBoardRows({});
+            if (_wb2 && _wb2.plan) data.pendingTests = _wb2.kpis.planeadas - _wb2.kpis.hechas;
+        } catch (e) {}
     }
 
     // Low gases

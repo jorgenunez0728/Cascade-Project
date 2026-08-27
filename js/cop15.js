@@ -1225,6 +1225,14 @@ setAltaDatetimeIfEmpty(true);
                 itemIdx: window._pendingCop15Preload.itemIdx,
                 configCode: window._pendingCop15Preload.configCode
             };
+            // v20: weekIdx es un ÍNDICE DE ARRAY — borrar una semana anterior recorre
+            // todas las posteriores y este enlace queda apuntando a OTRO plan. planId
+            // es la identidad estable; weekIdx se conserva solo como respaldo.
+            try {
+                var _pl = (typeof tpState === 'object' && tpState && tpState.weeklyPlans)
+                          ? tpState.weeklyPlans[planLink.weekIdx] : null;
+                if (_pl && typeof tpPlanId === 'function') planLink.planId = tpPlanId(_pl);
+            } catch (e) {}
         }
 
         const regDtEl = document.getElementById('reg_datetime');

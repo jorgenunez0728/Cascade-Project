@@ -1160,6 +1160,11 @@ function fbPushAll(showFeedback) {
 function _fbTpUISync() {
     try {
         if (typeof tpState !== 'undefined' && tpState) tpState._lastSave = Date.now();
+        // v20: rellenar las claves que el remoto pudo no traer, ANTES de repintar. Un pull
+        // desde un dispositivo con código viejo dejaba tpState.weights/rules en undefined y
+        // la cadena tpGetAnalysis → tpCoverageSummary → tpUpdateBadges → switchPlatform
+        // tumbaba la pestaña Plan entera. El seed de _fbPullSeed pasa por aquí.
+        if (typeof _tpEnsureState === 'function') _tpEnsureState();
         // v16.2: los merges/seeds de sync escriben tpState directo a localStorage sin pasar
         // por tpSave() — invalidar aquí también, o el análisis (REQ/déficit/cobertura) queda
         // obsoleto tras un pull remoto de reglas o volúmenes.
@@ -1302,8 +1307,14 @@ function _fbPullSeed(col, remoteData, pulled) {
         // v18 suma plannerCfg (cuota/caducidad de la cola + filtros de la semana) y
         // autoPlanLastRun: sin esto, sincronizar contra una copia escrita por código
         // anterior borraba la configuración del planificador en silencio.
+        // v20 suma `soak` (horas de reposo por familia/norma, de donde sale el hueco
+        // preacon→prueba) y `_migr` (guardas de migración de una sola vez). Si no se
+        // preservan, un pull desde código anterior los deja undefined: el laboratorio
+        // pierde su tabla de soak, y la guarda perdida hace que la migración VUELVA a
+        // correr. Es la misma trampa que documentó plannerCfg en v18.
         ['months', 'priorityRules', 'weekAvailability', 'maxTiers', 'recoveryUntil', 'recoveryHorizonWeeks',
-         'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed', 'plannerCfg', 'autoPlanLastRun'].forEach(function(k) {
+         'vehiclesPerSlot', 'agingBoost', 'carryoverDismissed', 'plannerCfg', 'autoPlanLastRun',
+         'soak', '_migr'].forEach(function(k) {
             if ((tpState[k] === undefined || tpState[k] === null) && prevTp[k] !== undefined) tpState[k] = prevTp[k];
         });
         localStorage.setItem('kia_testplan_v1', JSON.stringify(tpState));
@@ -2564,22 +2575,37 @@ function fbMergeExecute(remoteData, analysis, choices) {
                 if ((tpState.weeklyPlans || []).length === 0) {
                     tpState.weeklyPlans = remoteData.testplan.weeklyPlans;
                 } else {
-                    // Merge by week label — add new weeks, merge items for existing weeks
+                    // v20 — ANTES esto mezclaba por `w.week`, un campo que NINGÚN generador
+                    // escribe (todos escriben id/weekDate/created). O sea `localWeekMap[undefined]`:
+                    // todos los planes locales colapsaban en un solo bucket y los items remotos
+                    // se injertaban en un plan local arbitrario. Ahora se empata por la identidad
+                    // estable del plan, con cadena de respaldo para los que vengan de código viejo.
+                    var _wkKey = function(w) {
+                        if (!w) return '';
+                        if (typeof tpPlanId === 'function') return tpPlanId(w);
+                        return w.planId || w.week || w.weekDate || String(w.created || w.id || '');
+                    };
                     var localWeekMap = {};
-                    (tpState.weeklyPlans || []).forEach(function(w, i) { localWeekMap[w.week] = i; });
+                    (tpState.weeklyPlans || []).forEach(function(w, i) { localWeekMap[_wkKey(w)] = i; });
                     (remoteData.testplan.weeklyPlans || []).forEach(function(rw) {
-                        if (localWeekMap[rw.week] === undefined) {
+                        var k = _wkKey(rw);
+                        if (!k || localWeekMap[k] === undefined) {
                             tpState.weeklyPlans.push(rw);
+                            if (k) localWeekMap[k] = tpState.weeklyPlans.length - 1;
                         } else {
-                            // Add items not already present
-                            var lw = tpState.weeklyPlans[localWeekMap[rw.week]];
-                            var existingDescs = {};
-                            (lw.items || []).forEach(function(item) { existingDescs[item.desc] = true; });
+                            var lw = tpState.weeklyPlans[localWeekMap[k]];
+                            if (!lw.items) lw.items = [];
+                            // Empatar por desc + día de prueba: la misma config puede estar dos
+                            // veces en la semana en días distintos y no son el mismo item.
+                            var idxByKey = {};
+                            lw.items.forEach(function(item, i) { idxByKey[item.desc + '|' + (item.testDay || '')] = i; });
                             (rw.items || []).forEach(function(item) {
-                                if (!existingDescs[item.desc]) {
-                                    if (!lw.items) lw.items = [];
-                                    lw.items.push(item);
-                                }
+                                var ik = item.desc + '|' + (item.testDay || '');
+                                if (idxByKey[ik] === undefined) { lw.items.push(item); idxByKey[ik] = lw.items.length - 1; return; }
+                                // Ya existe en ambos lados: gana el que registre la prueba HECHA.
+                                // Perder una palomita en un merge es justo lo que no puede pasar.
+                                var mine = lw.items[idxByKey[ik]];
+                                if (item.completed && !mine.completed) lw.items[idxByKey[ik]] = item;
                             });
                         }
                     });
