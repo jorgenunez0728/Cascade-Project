@@ -1160,6 +1160,11 @@ function fbPushAll(showFeedback) {
 function _fbTpUISync() {
     try {
         if (typeof tpState !== 'undefined' && tpState) tpState._lastSave = Date.now();
+        // v20: rellenar las claves que el remoto pudo no traer, ANTES de repintar. Un pull
+        // desde un dispositivo con código viejo dejaba tpState.weights/rules en undefined y
+        // la cadena tpGetAnalysis → tpCoverageSummary → tpUpdateBadges → switchPlatform
+        // tumbaba la pestaña Plan entera. El seed de _fbPullSeed pasa por aquí.
+        if (typeof _tpEnsureState === 'function') _tpEnsureState();
         // v16.2: los merges/seeds de sync escriben tpState directo a localStorage sin pasar
         // por tpSave() — invalidar aquí también, o el análisis (REQ/déficit/cobertura) queda
         // obsoleto tras un pull remoto de reglas o volúmenes.

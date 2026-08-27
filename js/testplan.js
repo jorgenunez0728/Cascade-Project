@@ -120,7 +120,7 @@ function tpExportWeeklyPlan(wk) {
 // ======================================================================
 function tpRenderPlanActual(el) {
     const plans = tpState.weeklyPlans || [];
-    if (plans.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay planes generados.<br><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-weekly\');document.querySelectorAll(\'#tp-tabs-bar .tp-tab\').forEach(b=>b.classList.remove(\'active\'));document.querySelectorAll(\'#tp-tabs-bar .tp-tab\')[6].classList.add(\'active\');" style="margin-top:12px;">📅 Generar Plan Semanal</button></div>'; return; }
+    if (plans.length === 0) { el.innerHTML = '<div class="tp-card" style="text-align:center;padding:40px;color:var(--tp-dim);">No hay planes generados.<br><button class="tp-btn tp-btn-primary" onclick="tpSwitchTab(\'tp-weekly\');" style="margin-top:12px;">📅 Generar Plan Semanal</button></div>'; return; }
     const wData = plans.map((w,i) => {
         const t = w.items.length, d = w.items.filter(x=>x.completed).length, co = w.items.filter(x=>x.status==='carryover').length;
         return { week:i+1, total:t, done:d, carryover:co, pct:t>0?Math.round(d/t*100):0, created:w.created, weekDate:w.weekDate, accepted:w.accepted };
@@ -371,13 +371,65 @@ let tpState = safeParse(TP_LS_KEY, null) || {
     planImportDate: null,
     rulePresets: [],
 };
-// Ensure weekHistory exists for existing localStorage data
-if (!tpState.weekHistory) tpState.weekHistory = [];
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v20] BLINDAJE DE tpState — LA garantía de que la plataforma Plan abre
+//
+// `tpState = safeParse(TP_LS_KEY, null) || { ...defaults }` (arriba): los defaults
+// del literal **solo aplican en un dispositivo virgen**. Con cualquier estado
+// guardado se salta el objeto entero y solo rellenan los `if (!tpState.x)` de
+// abajo — y `planData`, `testedList`, `rules` y `weights` NO estaban entre ellos.
+//
+// Eso no es teórico: `_fbPullSeed` hace `tpState = remoteData` y solo preserva una
+// lista fija, así que un pull desde un dispositivo con código viejo (o cualquier
+// remoto sin esas claves) deja `tpState.weights` en `undefined` y revienta la
+// cadena tpPriorityScore → tpGetAnalysis → tpCoverageSummary → tpUpdateBadges →
+// **switchPlatform**: la pestaña Plan deja de abrir por completo. Reproducido.
+//
+// REGLA: toda clave nueva de tpState que se lea con `.algo` se registra AQUÍ, no
+// solo en el literal de defaults.
+// ═══════════════════════════════════════════════════════════════════════════════
+function _tpEnsureState() {
+    if (!Array.isArray(tpState.planData))    tpState.planData = [];
+    if (!Array.isArray(tpState.testedList))  tpState.testedList = [];
+    if (!Array.isArray(tpState.weeklyPlans)) tpState.weeklyPlans = [];
+    if (!Array.isArray(tpState.planHistory)) tpState.planHistory = [];
+    if (!Array.isArray(tpState.weekHistory)) tpState.weekHistory = [];
+    if (!Array.isArray(tpState.rulePresets)) tpState.rulePresets = [];
+    if (!Array.isArray(tpState.rules) || !tpState.rules.length) tpState.rules = tpDefaultRules();
+    if (!tpState.weights || typeof tpState.weights !== 'object') {
+        tpState.weights = { volume:35, compliance:25, region:20, newConfig:10, urgency:10 };
+    }
+    if (tpState.weights.region === undefined) tpState.weights.region = 0; // no rompe sumas viejas
+    if (!tpState.regionPriority || typeof tpState.regionPriority !== 'object') {
+        tpState.regionPriority = { EUROPE:100, USA:90, CANADA:80, GENERAL:60, MEXICO:55, 'MIDDLE EAST':50, BRAZIL:50, RUSSIA:45, AUSTRALIA:40, '*':50 };
+    }
+    if (!tpState.familyOverrides) tpState.familyOverrides = {};
+    if (!tpState.configOverrides) tpState.configOverrides = {};
+    if (typeof tpState.capacity !== 'number') tpState.capacity = 8;
+    if (typeof tpState.weeks !== 'number')    tpState.weeks = 4;
+    return tpState;
+}
+
+/** Las reglas de ratio por default — extraídas para que _tpEnsureState pueda resembrarlas. */
+function tpDefaultRules() {
+    return [
+        {id:1,region:"USA",regulation:"SULEV 30",ratio:3,per:1000,label:"USA / SULEV 30"},
+        {id:2,region:"USA",regulation:"*",ratio:3,per:1000,label:"USA / Otros"},
+        {id:3,region:"CANADA",regulation:"*",ratio:3,per:1000,label:"Canada"},
+        {id:4,region:"EUROPE",regulation:"EURO-6C",ratio:4,per:1000,label:"Europe / EURO-6C"},
+        {id:5,region:"EUROPE",regulation:"*",ratio:3,per:1000,label:"Europe / Otros"},
+        {id:6,region:"MEXICO",regulation:"*",ratio:2,per:1000,label:"Mexico"},
+        {id:7,region:"GENERAL",regulation:"EURO-6C",ratio:3,per:1000,label:"General / EURO-6C"},
+        {id:8,region:"GENERAL",regulation:"*",ratio:2,per:1000,label:"General / Otros"},
+        {id:9,region:"MIDDLE EAST",regulation:"*",ratio:2,per:1000,label:"Middle East"},
+        {id:10,region:"BRAZIL",regulation:"*",ratio:2,per:1000,label:"Brazil"},
+        {id:11,region:"AUSTRALIA",regulation:"*",ratio:2,per:1000,label:"Australia"},
+        {id:12,region:"*",regulation:"*",ratio:1,per:1000,label:"Default (catch-all)"},
+    ];
+}
+
+_tpEnsureState();
 // ── Migración suave para datos ya guardados en localStorage ──
-if (!tpState.regionPriority) tpState.regionPriority = { EUROPE:100, USA:90, CANADA:80, GENERAL:60, MEXICO:55, 'MIDDLE EAST':50, BRAZIL:50, RUSSIA:45, AUSTRALIA:40, '*':50 };
-if (!tpState.familyOverrides) tpState.familyOverrides = {};
-if (!tpState.configOverrides) tpState.configOverrides = {};
-if (tpState.weights && tpState.weights.region === undefined) tpState.weights.region = 0; // no rompe sumas de pesos viejas
 // ── [Recuperación] Estado para el Plan de Recuperación ──
 if (!tpState.priorityRules) tpState.priorityRules = tpDefaultPriorityRules();
 else tpEnsurePriorityRuleDefaults(); // v15.8: añade P4/P5 a estados persistidos (respeta personalizaciones)
@@ -1154,7 +1206,7 @@ function tpRenderDashboard(el) {
             <div style="font-size:48px;margin-bottom:16px;">📋</div>
             <h3 style="color:var(--tp-amber);margin-bottom:8px;">No hay plan de producción cargado</h3>
             <p style="color:var(--tp-dim);margin-bottom:20px;">Ve a la pestaña 🏭 Producción para importar tu CSV del plan de producción.</p>
-            <button class="tp-btn tp-btn-primary" onclick="tpState.activeTab='tp-production';tpRender();document.querySelectorAll('#tp-tabs-bar .tp-tab').forEach(b=>b.classList.remove('active'));document.querySelectorAll('#tp-tabs-bar .tp-tab')[4].classList.add('active');">Ir a Producción →</button>
+            <button class="tp-btn tp-btn-primary" onclick="tpSwitchTab('tp-production');">Ir a Producción →</button>
         </div>`;
         return;
     }
@@ -2032,7 +2084,12 @@ function tpRenderTested(el) {
                         return true;
                     }).map((t,i) => {
                         const origIdx = tpState.testedList.indexOf(t);
-                        const vinMatch = (t.note || '').match(/VIN:\\s*([^\\s—]+)/);
+                        // v20: iba `\\s` dentro de un template literal, o sea una barra invertida
+                        // LITERAL obligatoria seguida de ceros-o-más 's'. Las notas son
+                        // "VIN: KNAxxx — Auto desde COP15", sin barra, así que NUNCA empataba y
+                        // la columna VIN salía siempre '—'. Es justo la columna que se necesita
+                        // para reconstruir una semana. La versión buena ya existía en :2138.
+                        const vinMatch = (t.note || '').match(/VIN:\s*([^\s—-]+)/);
                         const vin = vinMatch ? vinMatch[1] : '';
                         return `
                         <tr>
@@ -3508,8 +3565,13 @@ function tpRecoveryWeeks(fromDate) {
         var attendDays = dayKeys.filter(function(d) { return workDays[d]; }).length;
         var slots = tpBuildTestSlots(workDays).length;
         var capNum = (av.capacity !== undefined && av.capacity !== null) ? av.capacity : (tpState.capacity || 8);
-        // Capacidad real = nº de pruebas por semana (se pueden preparar/probar varios vehículos por día).
-        var effCap = available ? capNum : 0;
+        // v20: el tope físico es el nº de pares preacon→prueba que caben en la semana, por los
+        // vehículos que caben en cada par. ANTES effCap usaba capNum a secas e IGNORABA `slots`,
+        // así que con lun-vie (4 pares × 1 veh) Recuperación agendaba 8 donde caben 4 — el doble.
+        // Es el mismo tope que tpWeekCapacity ya aplica en el plan semanal desde v16.4.
+        var _perSlot = Math.max(1, parseInt(tpState.vehiclesPerSlot, 10) || 1);
+        var capFisica = slots * _perSlot;
+        var effCap = available ? Math.max(0, Math.min(capNum, capFisica)) : 0;
         weeks.push({ monday: key, mondayDate: mon, available: available, capacity: capNum, slots: slots, attendDays: attendDays, workDays: workDays, effCap: effCap, note: av.note || '' });
     }
     return weeks;

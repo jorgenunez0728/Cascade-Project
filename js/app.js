@@ -2535,10 +2535,39 @@ function dashCollectActivities() {
     }
 
     // 3) Pruebas y preacondicionamientos que tocan HOY según el plan semanal aceptado
+    //
+    // v20 — ANTES: tomaba el último plan aceptado SIN mirar su fecha y lo cruzaba contra el
+    // nombre del día de hoy. Un plan aceptado hace tres semanas seguía dictando qué se prueba
+    // este martes, para siempre, y por eso HOY pedía vehículos que ya se habían probado.
+    // AHORA: solo cuenta el plan aceptado cuya semana es la EN CURSO. Si no hay, no se
+    // inventa nada — se ofrece armarla.
     if (typeof tpState !== 'undefined' && tpState.weeklyPlans) {
+        // _tpMonday recibe y devuelve un Date; weekDate es 'YYYY-MM-DD'. Se normaliza con
+        // _tpFmtDate para comparar cadenas, no objetos.
+        var _hoyMon = null;
+        try {
+            if (typeof _tpMonday === 'function' && typeof _tpFmtDate === 'function') {
+                _hoyMon = _tpFmtDate(_tpMonday(new Date()));
+            }
+        } catch (e) { _hoyMon = null; }
         var planIdx = -1;
         for (var pi = tpState.weeklyPlans.length - 1; pi >= 0; pi--) {
-            if (tpState.weeklyPlans[pi] && tpState.weeklyPlans[pi].accepted && tpState.weeklyPlans[pi].items) { planIdx = pi; break; }
+            var _pl = tpState.weeklyPlans[pi];
+            if (!_pl || !_pl.accepted || !_pl.items) continue;
+            // Sin weekDate no se puede afirmar de qué semana es: no se usa (los planes de
+            // v20 en adelante siempre lo traen; los viejos sin fecha quedan fuera a propósito).
+            if (!_pl.weekDate || !_hoyMon || _pl.weekDate !== _hoyMon) continue;
+            planIdx = pi; break;
+        }
+        if (planIdx < 0) {
+            var _hayAceptado = tpState.weeklyPlans.some(function(p) { return p && p.accepted; });
+            if (_hayAceptado) {
+                acts.push({ id: 'act-plan-nowk', cat: 'plan', icon: '📅',
+                    title: 'No hay plan aceptado para esta semana',
+                    meta: 'El último plan aceptado es de otra semana — no se usa para decidir qué toca hoy.',
+                    status: 'pendiente', urgency: 1,
+                    action: { label: '🎛️ Armar semana', js: "switchPlatform('testplan');if(typeof tpSwitchTab==='function')tpSwitchTab('tp-weekly');" } });
+            }
         }
         if (planIdx >= 0) {
             var hoyKey = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'][new Date().getDay()];
