@@ -472,6 +472,13 @@ if (tpState.autoPlanLastRun === undefined) {
     tpState.autoPlanLastRun = _tpLsRun || null;
 }
 
+// ── v20: identidad estable de los planes (weekNum índice → planId) ──
+// Va envuelto porque corre al PARSEAR el archivo: un throw aquí se llevaría
+// entera la definición de testplan.js. La guarda vive en tpState._migr, que se
+// preserva en _fbPullSeed — si no, un pull desde código viejo la borraría y la
+// migración volvería a correr (la trampa que documenta tpPlannerCfg en v18.0).
+try { tpEnsurePlanIds(); tpMigrateWeekHistoryIds(); } catch (e) { console.warn('tpMigrateWeekHistoryIds:', e); }
+
 /**
  * LA forma de leer la configuración del planificador. Nunca leer
  * `tpState.plannerCfg.x` directo: `_fbPullSeed` (firebase-sync.js) hace
@@ -3321,11 +3328,11 @@ function tpRenderWeekly(el) {
                 <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
                     <span style="font-size: var(--fs-sm);font-weight:700;color:${pct===100?'var(--tp-green)':'var(--tp-amber)'};">${done}/${tot}</span>
                     <div class="tp-bar" style="width:50px;"><div class="tp-bar-fill" style="width:${pct}%;background:${pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size: var(--fs-xs);">${pct}%</span></div>
-                    ${!w.accepted?`<button class="tp-btn tp-btn-primary" onclick="tpAcceptWeeklyPlan(${idx})" style="font-size: var(--fs-xs);">✅ Aceptar</button>`:''}
+                    ${!w.accepted?`<button class="tp-btn tp-btn-primary" onclick="tpAcceptWeeklyPlan(${idx})" style="font-size: var(--fs-xs);">✅ Aceptar</button>`:`<button class="tp-btn tp-btn-ghost" onclick="tpUnacceptWeeklyPlan(${idx})" style="font-size: var(--fs-xs);" title="Vuelve a quedar como propuesta; los pendientes salen de la cola">↩️ Desaceptar</button>`}
                     <button class="tp-btn tp-btn-ghost" onclick="tpCarryOverWeekly(${idx})" style="font-size: var(--fs-xs);" title="Copiar items pendientes a nueva semana">➡️ Copiar pendientes</button>
                     <button class="tp-btn tp-btn-ghost" onclick="tpExportWeeklyPlan(${idx})" style="font-size: var(--fs-xs);">📤</button>
                     <button class="tp-btn tp-btn-ghost" onclick="window._tpEditWeek=${isEdit?-1:idx};tpRender();" style="font-size: var(--fs-xs);">${isEdit?'✕':'✏️'}</button>
-                    <button class="tp-btn tp-btn-ghost" onclick="showConfirm('¿Eliminar semana ${idx+1}?',function(){tpState.weeklyPlans.splice(${idx},1);tpSave();tpRender();},{title:'Eliminar semana',type:'danger',confirmText:'Eliminar'})" style="font-size: var(--fs-xs);color:var(--tp-red);">🗑</button>
+                    <button class="tp-btn tp-btn-ghost" onclick="tpDeleteWeeklyPlan(${idx})" style="font-size: var(--fs-xs);color:var(--tp-red);" title="Eliminar el plan de esta semana">🗑</button>
                 </div>
             </div>
             <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin:-2px 0 6px;">⚖️ Balance: ${tpWeekRegionBalance(w.items)}${w.monthBatch?' · <span style="color:var(--tp-blue);">parte de plan mensual</span>':''}</div>
@@ -4257,43 +4264,256 @@ function tpGenerateMonthly(startDateStr) {
     showToast('📅 Plan mensual generado: ' + created + ' semanas. Revísalas y acéptalas.', 'success');
 }
 
-function tpAcceptWeeklyPlan(weekIdx) {
-    if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
-    const plan = tpState.weeklyPlans[weekIdx];
-    plan.accepted = true;
-    plan.acceptedDate = new Date().toISOString();
-    // Mark incomplete items as carryover status
-    plan.items.forEach(item => {
-        if (!item.completed) {
-            item.status = 'carryover';
-        }
-    });
-    // Archive to week history
-    if (!tpState.weekHistory) tpState.weekHistory = [];
-    tpState.weekHistory.push({
-        weekNum: weekIdx + 1,
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v20] CICLO DE VIDA DEL PLAN — identidad estable, desaceptar, borrar de verdad
+//
+// Lo que estaba roto y por qué dolió:
+//  · NO existía desaceptar. `plan.accepted = true` era la única asignación en todo
+//    el repo, así que BORRAR era el único camino para revertir una aceptación.
+//  · Borrar era un `onclick` inline con `weeklyPlans.splice()`: sin deshacer, sin
+//    auditoría, sin permiso y sin tocar weekHistory — que quedaba mintiendo.
+//  · weekHistory guardaba `weekNum = weekIdx + 1`, un ÍNDICE DE ARRAY. Tras un
+//    splice todas las semanas posteriores se recorren y el histórico deja de
+//    corresponder. Aceptar dos veces empujaba dos entradas para la misma semana,
+//    y _tpBuildCarryAges las contaba dobles: la antigüedad de la cola se inflaba.
+//  · La copia archivada era una FOTO del momento de aceptar que nadie volvía a
+//    sincronizar: si liberabas el jueves, seguía diciendo `completed:false` para
+//    siempre.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Identidad estable de un plan. Legible y ordenable; nunca un índice de array. */
+function tpPlanId(plan) {
+    if (!plan) return '';
+    if (plan.planId) return plan.planId;
+    return 'W' + (plan.weekDate || String(plan.created || '').slice(0, 10) || '?') + '-' + (plan.id || plan.created || '?');
+}
+
+function tpEnsurePlanIds() {
+    (tpState.weeklyPlans || []).forEach(function(p) { if (p && !p.planId) p.planId = tpPlanId(p); });
+}
+
+function tpFindPlanIndexById(planId) {
+    return (tpState.weeklyPlans || []).findIndex(function(p) { return p && tpPlanId(p) === planId; });
+}
+
+/** La foto archivada de un plan, reconstruida desde el plan VIVO. */
+function _tpWeekHistoryEntry(plan) {
+    return {
+        planId: tpPlanId(plan),
         weekDate: plan.weekDate || null,
         created: plan.created,
         acceptedDate: plan.acceptedDate,
         capacity: plan.capacity,
         workDays: plan.workDays || null,
-        total: plan.items.length,
-        completed: plan.items.filter(i => i.completed).length,
-        carryover: plan.items.filter(i => i.status === 'carryover').length,
-        items: plan.items.map(i => ({
-            desc: i.desc, mod: i.mod, rgn: i.rgn, reg: i.reg, eng: i.eng,
-            completed: i.completed, completedDate: i.completedDate,
-            status: i.status || (i.completed ? 'completed' : 'carryover'),
-            manual: i.manual, carriedOver: i.carriedOver,
-            substituted: i.substituted || false,
-            substitution: i.substitution || null,
-            preconDay: i.preconDay, testDay: i.testDay,
-            preconLabel: i.preconLabel, testLabel: i.testLabel
-        }))
+        total: (plan.items || []).length,
+        completed: (plan.items || []).filter(function(i) { return i.completed; }).length,
+        carryover: (plan.items || []).filter(function(i) { return i.status === 'carryover'; }).length,
+        items: (plan.items || []).map(function(i) {
+            return {
+                desc: i.desc, mod: i.mod, rgn: i.rgn, reg: i.reg, eng: i.eng,
+                completed: i.completed, completedDate: i.completedDate,
+                status: i.status || (i.completed ? 'completed' : 'carryover'),
+                manual: i.manual, carriedOver: i.carriedOver,
+                declared: i.declared || false,
+                substituted: i.substituted || false,
+                substitution: i.substitution || null,
+                preconDay: i.preconDay, testDay: i.testDay,
+                preconLabel: i.preconLabel, testLabel: i.testLabel,
+                plannedTestDay: i.plannedTestDay || null, moved: !!(i.plannedTestDay && i.plannedTestDay !== i.testDay)
+            };
+        })
+    };
+}
+
+/**
+ * Re-sincroniza la foto archivada con el plan vivo. Se llama desde TODO mutador
+ * vía _tpTouchPlan: un helper único es lo que evita que se olvide uno.
+ */
+function tpSyncWeekHistoryFor(planId) {
+    if (!planId || !Array.isArray(tpState.weekHistory)) return false;
+    var idx = tpFindPlanIndexById(planId);
+    if (idx < 0) return false;
+    var plan = tpState.weeklyPlans[idx];
+    if (!plan || !plan.accepted) return false;
+    var h = tpState.weekHistory.findIndex(function(w) { return w && w.planId === planId; });
+    if (h < 0) return false;
+    tpState.weekHistory[h] = _tpWeekHistoryEntry(plan);
+    return true;
+}
+
+/** Guardar + resincronizar la foto + invalidar cachés. Todo mutador del plan pasa por aquí. */
+function _tpTouchPlan(weekIdx) {
+    var plan = (tpState.weeklyPlans || [])[weekIdx];
+    if (plan) tpSyncWeekHistoryFor(tpPlanId(plan));
+    if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
+    if (typeof tpBacklogInvalidate === 'function') tpBacklogInvalidate();
+    tpSave();
+}
+
+/**
+ * Migración de una sola vez: weekNum (índice) → planId (estable).
+ * Empata por weekDate+acceptedDate, luego weekDate, luego created. Lo que no
+ * empata NO se tira: se marca `orphan` — su plan se borró, pero la entrada sigue
+ * siendo evidencia válida de qué se arrastró esa semana.
+ * Y deduplica: dos entradas con el mismo planId eran el daño de los dobles-aceptar.
+ */
+function tpMigrateWeekHistoryIds() {
+    if (!tpState._migr) tpState._migr = {};
+    if (tpState._migr.weekIds) return 0;
+    tpEnsurePlanIds();
+    var planes = tpState.weeklyPlans || [];
+    var tocadas = 0;
+    (tpState.weekHistory || []).forEach(function(w, i) {
+        if (!w || w.planId) return;
+        var p = planes.find(function(x) { return x.weekDate && x.weekDate === w.weekDate && x.acceptedDate === w.acceptedDate; })
+             || planes.find(function(x) { return x.weekDate && x.weekDate === w.weekDate; })
+             || planes.find(function(x) { return x.created && x.created === w.created; });
+        if (p) { w.planId = tpPlanId(p); }
+        else   { w.planId = 'H' + (w.weekDate || w.created || i) + '-' + i; w.orphan = true; }
+        tocadas++;
     });
+    // Deduplicar por planId conservando la aceptación más reciente.
+    var vistos = {}, limpias = [];
+    (tpState.weekHistory || []).forEach(function(w) {
+        if (!w || !w.planId) { limpias.push(w); return; }
+        var prev = vistos[w.planId];
+        if (prev === undefined) { vistos[w.planId] = limpias.length; limpias.push(w); return; }
+        if (String(w.acceptedDate || '') > String(limpias[prev].acceptedDate || '')) limpias[prev] = w;
+    });
+    var dups = (tpState.weekHistory || []).length - limpias.length;
+    tpState.weekHistory = limpias;
+    tpState._migr.weekIds = true;
+    if (tocadas || dups) {
+        tpSave();
+        if (typeof auditLog === 'function') {
+            auditLog('tp', 'weekhistory_migrated', { type: 'plan', label: 'historial de semanas' },
+                     tocadas + ' semana(s) con identidad estable' + (dups ? ' · ' + dups + ' duplicada(s) por doble aceptación' : ''));
+        }
+    }
+    return tocadas;
+}
+
+/** Aceptar — ahora IDEMPOTENTE: aceptar dos veces no duplica el archivo. */
+function tpAcceptWeeklyPlan(weekIdx) {
+    if (!tpState.weeklyPlans || !tpState.weeklyPlans[weekIdx]) return;
+    const plan = tpState.weeklyPlans[weekIdx];
+    tpEnsurePlanIds();
+    var pid = tpPlanId(plan);
+    if (!Array.isArray(tpState.weekHistory)) tpState.weekHistory = [];
+
+    if (plan.accepted) {
+        // Ya estaba aceptado: solo refrescar la foto. Antes esto empujaba una
+        // SEGUNDA entrada y _tpBuildCarryAges contaba doble la antigüedad.
+        tpSyncWeekHistoryFor(pid);
+        tpSave(); tpRender(); tpUpdateBadges();
+        showToast('Este plan ya estaba aceptado — se actualizó su registro.', 'info');
+        return;
+    }
+
+    plan.accepted = true;
+    plan.acceptedDate = new Date().toISOString();
+    plan.items.forEach(item => { if (!item.completed) item.status = 'carryover'; });
+
+    var h = tpState.weekHistory.findIndex(function(w) { return w && w.planId === pid; });
+    if (h >= 0) tpState.weekHistory[h] = _tpWeekHistoryEntry(plan);
+    else tpState.weekHistory.push(_tpWeekHistoryEntry(plan));
+
+    if (typeof tpBacklogInvalidate === 'function') tpBacklogInvalidate();
     tpSave(); tpRender(); tpUpdateBadges();
     if (typeof fbPostPlanAccepted === 'function') fbPostPlanAccepted(weekIdx + 1);
-    showToast('Plan semana ' + (weekIdx+1) + ' aceptado. ' + plan.items.filter(i=>i.status==='carryover').length + ' items marcados como carryover.', 'success');
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'week_accepted', { type: 'plan', label: plan.weekDate || tpPlanId(plan) },
+                 plan.items.filter(i => i.status === 'carryover').length + ' pendiente(s) a la cola');
+    }
+    showToast('Plan de la semana del ' + (plan.weekDate || '—') + ' aceptado. ' +
+              plan.items.filter(i => i.status === 'carryover').length + ' pendiente(s) pasan a la cola.', 'success');
+}
+
+/**
+ * Desaceptar — NO EXISTÍA, y por eso borrar era el único camino.
+ * Quitar la entrada de weekHistory es justo lo que le quita el sello de arrastre
+ * a los pendientes de esa semana.
+ */
+function tpUnacceptWeeklyPlan(weekIdx) {
+    var plan = (tpState.weeklyPlans || [])[weekIdx];
+    if (!plan) return;
+    if (!plan.accepted) { showToast('Ese plan no está aceptado.', 'info'); return; }
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'desaceptar un plan')) return;
+
+    var pid = tpPlanId(plan);
+    var enCola = (plan.items || []).filter(function(i) { return i.status === 'carryover'; }).length;
+    showConfirmDialog({
+        title: '↩️ Desaceptar el plan',
+        message: 'La semana del ' + (plan.weekDate || '—') + ' vuelve a quedar como propuesta.\n\n' +
+                 (enCola ? enCola + ' configuración(es) saldrán de la cola de pendientes.\n' : '') +
+                 'Las pruebas ya realizadas siguen contando: la cobertura no cambia.',
+        type: 'warning', confirmText: 'Desaceptar', cancelText: 'Cancelar'
+    }).then(function(ok) {
+        if (!ok) return;
+        if (typeof undoPush === 'function') undoPush('testplan', 'Desaceptar plan semanal');
+        plan.accepted = false;
+        delete plan.acceptedDate;
+        (plan.items || []).forEach(function(i) { if (i.status === 'carryover') delete i.status; });
+        tpState.weekHistory = (tpState.weekHistory || []).filter(function(w) { return !w || w.planId !== pid; });
+        if (typeof tpBacklogInvalidate === 'function') tpBacklogInvalidate();
+        if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
+        tpSave(); tpRender(); tpUpdateBadges();
+        if (typeof auditLog === 'function') {
+            auditLog('tp', 'week_unaccepted', { type: 'plan', label: plan.weekDate || pid }, enCola + ' salieron de la cola');
+        }
+        showToast(enCola ? enCola + ' configuración(es) salieron de la cola. La cobertura no cambia — probar es lo que la mueve.'
+                         : 'Plan desaceptado.', 'success');
+    });
+}
+
+/**
+ * Borrar — reemplaza al `splice` inline que no dejaba rastro.
+ * Se NIEGA a borrar una semana aceptada: primero hay que desaceptarla. Dos pasos
+ * para lo destructivo, en un dataset compartido y sincronizado, es lo correcto y
+ * además hace legible la auditoría.
+ */
+function tpDeleteWeeklyPlan(weekIdx) {
+    var plan = (tpState.weeklyPlans || [])[weekIdx];
+    if (!plan) return;
+    if (typeof authRequire === 'function' && !authRequire('plan.manage', 'eliminar un plan')) return;
+
+    if (plan.accepted) {
+        showConfirmDialog({
+            title: '⚠️ Ese plan está aceptado',
+            message: 'La semana del ' + (plan.weekDate || '—') + ' está aceptada.\n\n' +
+                     'Desacéptala primero: así el histórico y la cola quedan consistentes en vez de dejar registros huérfanos.',
+            type: 'warning', confirmText: '↩️ Desaceptar', cancelText: 'Cancelar'
+        }).then(function(ok) { if (ok) tpUnacceptWeeklyPlan(weekIdx); });
+        return;
+    }
+
+    var items = plan.items || [];
+    var declaradas = items.filter(function(i) { return i.completed && i.declared; }).length;
+    var hechas = items.filter(function(i) { return i.completed; }).length;
+    var aviso = '';
+    if (hechas) {
+        aviso = '\n\n' + hechas + ' prueba(s) marcadas como hechas: las que se liberaron en Pruebas ' +
+                'siguen contando en la cobertura.';
+        if (declaradas) aviso += '\n' + declaradas + ' fue(ron) declarada(s) a mano — quedan registradas en Probados.';
+    }
+    showConfirmDialog({
+        title: '🗑 Eliminar el plan',
+        message: 'Semana del ' + (plan.weekDate || '—') + ' · ' + items.length + ' prueba(s) planeadas.' + aviso,
+        type: 'danger', confirmText: 'Eliminar', cancelText: 'Cancelar'
+    }).then(function(ok) {
+        if (!ok) return;
+        if (typeof undoPush === 'function') undoPush('testplan', 'Eliminar plan semanal');
+        var pid = tpPlanId(plan);
+        tpState.weeklyPlans.splice(weekIdx, 1);
+        tpState.weekHistory = (tpState.weekHistory || []).filter(function(w) { return !w || w.planId !== pid; });
+        if (typeof tpBacklogInvalidate === 'function') tpBacklogInvalidate();
+        if (typeof tpInvalidateCache === 'function') tpInvalidateCache();
+        tpSave(); tpRender(); tpUpdateBadges();
+        if (typeof auditLog === 'function') {
+            auditLog('tp', 'week_deleted', { type: 'plan', label: plan.weekDate || pid }, items.length + ' prueba(s) planeadas');
+        }
+        showToast('Plan eliminado. Las pruebas ya realizadas siguen contando: la cobertura no bajó.', 'success');
+    });
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -4453,17 +4673,41 @@ function tpRenderWeekHistory(el) {
 }
 
 // ── Auto-mark weekly items when COP15 releases match ──
+/**
+ * v20: acredita la semana EN CURSO primero.
+ * Antes recorría `weeklyPlans` en orden de creación y marcaba el PRIMER item con ese
+ * `desc` en CUALQUIER semana: liberar hoy acreditaba una semana de hace un mes, la de
+ * hoy seguía en rojo y la vieja aparecía cumplida retroactivamente. El orden nuevo es
+ * semana en curso → semanas más recientes hacia atrás.
+ */
 function tpAutoMarkWeeklyCompletion(configText, opts) {
     if (!tpState.weeklyPlans || tpState.weeklyPlans.length === 0) return false;
-    // Search all weekly plans for a matching pending item
-    for (const plan of tpState.weeklyPlans) {
-        if (!plan.items) continue;
-        for (const item of plan.items) {
+    var hoyMon = null;
+    try {
+        if (typeof _tpMonday === 'function' && typeof _tpFmtDate === 'function') hoyMon = _tpFmtDate(_tpMonday(new Date()));
+    } catch (e) {}
+
+    var orden = tpState.weeklyPlans.map(function(p, i) { return { p: p, i: i }; });
+    orden.sort(function(a, b) {
+        var aH = (hoyMon && a.p && a.p.weekDate === hoyMon) ? 1 : 0;
+        var bH = (hoyMon && b.p && b.p.weekDate === hoyMon) ? 1 : 0;
+        if (aH !== bH) return bH - aH;                 // la semana en curso, primero
+        var aD = String((a.p && a.p.weekDate) || ''), bD = String((b.p && b.p.weekDate) || '');
+        if (aD !== bD) return bD < aD ? -1 : 1;        // luego, de la más reciente hacia atrás
+        return b.i - a.i;
+    });
+
+    for (var k = 0; k < orden.length; k++) {
+        var plan = orden[k].p;
+        if (!plan || !plan.items) continue;
+        for (var j = 0; j < plan.items.length; j++) {
+            var item = plan.items[j];
             if (!item.completed && item.desc === configText) {
                 item.completed = true;
                 item.completedDate = localToday();
+                if (typeof tpSyncWeekHistoryFor === 'function') tpSyncWeekHistoryFor(tpPlanId(plan));
                 if (!(opts && opts.skipSave)) tpSave();
-                console.log('TP: Auto-marked weekly item as completed:', configText);
+                console.log('TP: Auto-marked weekly item as completed:', configText, '· semana', plan.weekDate);
                 return true;
             }
         }
@@ -4477,13 +4721,23 @@ function tpAutoMarkWeeklyCompletion(configText, opts) {
 function tpAutoMarkWeeklyCompletionFromVehicle(vehicle, opts) {
     if (!vehicle || !tpState.weeklyPlans) return false;
     var link = vehicle.fromPlanItem;
-    if (link && typeof link.weekIdx === 'number' && typeof link.itemIdx === 'number') {
-        var plan = tpState.weeklyPlans[link.weekIdx];
+    if (link && typeof link.itemIdx === 'number') {
+        // v20: el enlace se resuelve por planId (identidad estable). weekIdx queda como
+        // respaldo para los vehículos registrados antes de esta versión — pero es un
+        // índice de array, así que un borrado lo deja apuntando a otra semana.
+        var wi = (link.planId && typeof tpFindPlanIndexById === 'function')
+                 ? tpFindPlanIndexById(link.planId) : -1;
+        if (wi < 0 && typeof link.weekIdx === 'number') wi = link.weekIdx;
+        var plan = tpState.weeklyPlans[wi];
         if (plan && plan.items && plan.items[link.itemIdx]) {
             var item = plan.items[link.itemIdx];
             if (!item.completed && item.desc === link.configCode) {
                 item.completed = true;
                 item.completedDate = localToday();
+                // La foto archivada se re-sincroniza SIEMPRE (antes se congelaba en
+                // completed:false para siempre); guardar respeta skipSave, porque la
+                // cascada de liberación hace un único tpSave al final.
+                if (typeof tpSyncWeekHistoryFor === 'function') tpSyncWeekHistoryFor(tpPlanId(plan));
                 if (!(opts && opts.skipSave)) tpSave();
                 console.log('TP: Auto-marked weekly item via plan link:', link.configCode);
                 return true;
