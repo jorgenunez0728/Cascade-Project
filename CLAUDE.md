@@ -867,6 +867,79 @@ plataforma entera. Reproducido y corregido.
 greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya no ignora `slots`
 (agendaba el doble), pero el lazo sigue duplicado.
 
+## v20.1 — Mi semana: repetir, agregar y vincular (`js/testplan.js`)
+
+- **Dos vehículos IDÉNTICOS en la misma semana estaban bloqueados en CUATRO sitios**: el Set
+  `used` de `tpSelectWeeklyItems`, el `.includes()` de `tpAddManualPick`, el filtro del
+  desplegable de `tpAddToWeek`, y —el peor— `tpWeekBoardRows`, que apuntaba las dos filas al
+  MISMO vehículo. **Regla:** el generador AUTOMÁTICO sigue sin repetir por su cuenta (gasta
+  capacidad que el déficit necesita); lo que se pide a mano SÍ se repite. `take()` recibe
+  `allowRepeat` y sólo las obligatorias lo pasan.
+- **`tpAddItemToWeekDay(weekIdx, desc, day, opts)` es LA definición de agregar una prueba al
+  plan** desde el tablero — no filtra duplicados a propósito. `tpDuplicateItem` es el atajo
+  ("⧉ Otra unidad igual"). Todo consumidor nuevo llama a `tpAddItemToWeekDay`, no empuja a
+  `plan.items` directo (se perdería el soak congelado, el par legal y la auditoría).
+- **`tpWeekBoardRows` REPARTE los vehículos** (`_usados`): cada vehículo acredita a lo sumo
+  una fila. Las repetidas se numeran `dupIdx`/`dupTotal`.
+- **`row.vehicle` sigue significando "vivo, en curso"** (de eso dependen el semáforo y la
+  ETA); **`row.vehicleAny` es el vehículo RESUELTO**, archivado incluido. Con dos pruebas
+  idénticas la segunda suele quedar cubierta por uno ya liberado y sin `vehicleAny` la
+  tarjeta se veía vacía. Código nuevo que quiera "¿tiene vehículo?" usa `vehicleAny`.
+- **`tpLinkableVehiclesFor` / `tpLinkVehicleToItem` / `tpUnlinkVehicleFromItem`** — el
+  respaldo manual de `tpAutoFeedFromRelease`, que sólo acredita con `configCode` EXACTO y
+  alta desde el plan. **Vincular es lo contrario de declarar**: si la fila venía declarada a
+  mano se asciende y su placeholder se retira; si la configuración difiere se registra como
+  SUSTITUCIÓN con diffs, nunca como si se hubiera corrido lo planeado. `item.linkedVehicleId`
+  manda sobre la resolución automática. Desvincular NO borra la evidencia de `testedList`.
+- **`TP_SUBST_SCOPES` (familia | norma | region) es LA definición de los alcances de
+  sustitución.** Fuera de `familia` las diferencias se listan sobre `_tpCoreFields` TAMBIÉN
+  (lo que cambia puede ser el motor), las candidatas que rompen el núcleo se marcan
+  `breaksCore` y van al final, y **el nivel se GRABA en `substitution.scope`**: una
+  sustitución "misma región" no es lo mismo que una equivalente.
+- **El chip "↪ movida" NO se pinta en la tarjeta.** Que el plan se reacomode es normal, no una
+  excepción que señalar a diario. El dato vive en `moves[]`, la auditoría, el menú ⋯ y el
+  `title` del asa. No volver a agregarlo a `marcas`.
+
+## v20.2 — CO₂ en el CoP: verificación estadística de familia (`js/cop_validator.js`)
+
+El CO₂ pasó de un % de tolerancia inventado por la app a la prueba real de la norma. El Excel de
+referencia (con el extracto oficial adjunto) corre DOS fórmulas en paralelo — se implementaron
+las dos, no una:
+
+- **`copCo2CalcStats(rows, fcf, evc)` es LA definición del veredicto de CO₂**, y devuelve AMBAS
+  pruebas: `appendixI` (Reg. (UE) 2017/1151 Anexo XXI Ap.I §4, "A menos varianza" — `Xtests <
+  A−VAR` / `Xtests > A−((n−3)/13)·VAR`, PRINCIPAL: es la que describe la conclusión) y `r154`
+  (UN R154 §3.3.1, Tabla A2/3 con t por tamaño de muestra — CONFIRMACIÓN). Los campos de nivel
+  superior (`decision`, `passBound`, `failBound`) son un alias de `appendixI` para que el resto
+  de la pantalla (gauge, congelado del juicio) no necesite saber que hay dos pruebas. **Si las
+  dos no coinciden, la conclusión lo declara en rojo — nunca se elige una en silencio.**
+- **Verificado byte-exacto contra los valores CACHEADOS del Excel de referencia** (media,
+  varianza, límites, decisión) — no es una aproximación de la fórmula, reproduce sus números
+  dígito por dígito. `COP_CO2_TABLE` (n=3..16) es la Tabla A2/3 transcrita del extracto oficial;
+  a n=16 las dos pruebas colapsan su banda exactamente al mismo punto (por diseño de la norma,
+  no coincidencia) — por eso comparten tope de muestra.
+- **`COP_CO2_A = 1,01` es fijo por la norma, NO configurable** — a diferencia del % de tolerancia
+  que reemplaza (v17.14-v20.1, retirado). Lo que SÍ es de la familia y SÍ se configura son
+  **FCF (Family Correction Factor) y Evolution Factor** (`copFamilyState(key).co2Fcf/.co2Evc`,
+  `copCo2Factors()`/`copSetCo2Factors()`), editables directo en CoP → Validador — no en una
+  pantalla de settings separada, a propósito: es donde se ve el efecto al instante.
+  `x_i = (CO2_medido × EvC × FCF) / CO2_declarado`.
+- **`_copBuildCo2HTML()` NO vive en `copBuildStatsHTML()`** — está un nivel arriba, en
+  `copBuildValidatorHTML()`. `copSetCo2Factors()` llama a `copRender()` completo, NUNCA
+  `copRenderStats()` (que solo repinta `#cop-stats-section`) — ese fue el bug real que apareció
+  al construir esto: guardar el ajuste actualizaba el estado pero la tarjeta seguía mostrando el
+  veredicto viejo, porque el repintado parcial no llegaba hasta ahí.
+- **El juicio guardado (`copSaveJudgment`) congela `co2` con las DOS pruebas** (`appendixI` +
+  `r154`, más `fcf`/`evc`/`mean`/`s`/`var`/`n` de cuando se decidió) — mismo principio que ya
+  aplicaba a los gases: un registro debe ser reproducible aunque después cambie un ajuste. El
+  PDF de expediente usa el congelado si hay juicio guardado, o lo calcula en vivo (PRELIMINAR)
+  si no — mismo patrón que el resto del documento.
+- **Se retiró `homoCo2Assess`/`homoState.co2TolerancePct`/`homoSaveTolerance`** (homolog.js) por
+  quedar superados — sin usos que quedaran huérfanos, se confirmó con grep antes de borrar.
+  **`homoCo2Deviation` SÍ se conserva**: la sigue usando la columna de desviación % por vehículo
+  en la tabla, que es informativa y no decide el veredicto. La clave `co2TolerancePct` se quitó
+  también de `_mergedHomo` en `fbPullApply` (se arma desde cero, así que basta con no listarla).
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

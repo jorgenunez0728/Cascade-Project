@@ -2,6 +2,144 @@
 
 All notable changes to this project, organized by development round.
 
+## v20.2 — CO₂ en el CoP: verificación estadística de familia (2026-08-27)
+
+> *"Verifica que la de los gases esté correcta, según yo, si está bien, y ponme la del CO2 ...
+> como factor A menos varianza es mayor que el promedio normalizado de CO2 ... se acepta la
+> familia."*
+
+Hasta v17.14 el CoP comparaba el CO₂ de cada vehículo contra su target declarado (ICMS) y
+promediaba las desviaciones contra un **% de tolerancia configurable** — un criterio propio de
+la app, no de la norma. El usuario mandó el Excel de trabajo de un laboratorio hermano
+(Eslovaquia) con el extracto oficial adjunto, y con él se reemplazó por el método real.
+
+### Dos pruebas, no una — el Excel de referencia las corre en paralelo
+
+El extracto oficial trae DOS fórmulas legítimas, y el Excel las cruza como verificación mutua:
+
+| | Cita | Fórmula |
+|---|---|---|
+| **Principal** | Reg. (UE) 2017/1151, Anexo XXI Apéndice I §4 (caso CO₂/EC, A=1,01, L=1) | Pasa si `X̄ < A − VAR`; falla si `X̄ > A − ((n−3)/13)·VAR` |
+| **Confirmación** | UN R154 (WLTP GTR) §3.3.1, Tabla A2/3 | Pasa si `X̄ ≤ A − (tP1+tP2)·s`; falla si `X̄ > A + (tF1−tF2)·s`, con tP1/tP2/tF1/tF2 por tamaño de muestra (n=3..16) |
+
+La frase de conclusión ("A menos varianza") describe literalmente la fórmula **principal** — es
+la que manda en el veredicto de arriba; la de R154 aparece como confirmación, y si las dos
+**no coinciden** la pantalla lo dice en rojo en vez de escoger una en silencio. Las dos fórmulas
+colapsan su banda exactamente en n=16 (verificado: a n=16, `(16−3)/13=1` y `tP1=tP2=0`), así que
+comparten el mismo tope de muestra por diseño.
+
+**Verificado byte-exacto contra los valores cacheados del propio Excel** (media, varianza,
+límites y decisión PASS, con y sin FCF/Evolution Factor aplicados) — no es una aproximación,
+reproduce sus números dígito por dígito.
+
+### FCF y Evolution Factor — el ajuste "en settings" que pidió el usuario
+
+`x_i = (CO2_medido_i × Evolution Factor × FCF) / CO2_declarado_i`. Los dos factores son de la
+**familia** (no del vehículo), tal como los trae el reporte de interpolación WLTP, y se editan
+directo en **CoP → Validador**, dentro de la mesa de trabajo de cada familia — ahí mismo donde
+se ve el efecto: cambiar uno recalcula el veredicto al instante, sin recargar. Sin ajustar valen
+1 (sin corrección).
+
+### Se integra con lo que ya existía, sin romperlo
+
+- **Agregar/quitar un vehículo recalcula solo** — la tarjeta de CO₂ lee `copState.vehicles`
+  (la misma mesa de trabajo de los gases) en cada render; no hizo falta cablear nada nuevo.
+- **El juicio guardado congela el CO₂** (las dos pruebas, con el FCF/Evolution Factor de
+  entonces) — mismo principio que ya aplicaba a los gases: un registro tiene que poder leerse
+  dentro de años sin que un ajuste posterior le cambie el resultado.
+- **El expediente en PDF** trae la misma verificación, congelada si hay un juicio guardado
+  (reproducible) o en vivo si no (marcado PRELIMINAR, igual que el resto del documento).
+- **`homoCo2Deviation` (desviación % por vehículo) se conserva** como columna informativa en la
+  tabla — sigue siendo útil para ver de un vistazo qué vehículo se aleja más, aunque ya no decide
+  el veredicto de familia.
+
+### Se retiró
+
+El % de tolerancia de CO₂ (`homoState.co2TolerancePct`, `homoCo2Assess`, la tarjeta "Tolerancia
+de CO₂" en Homologación → Settings) quedó superado por la prueba estadística real y se dio de
+baja — incluida su clave del merge de Firebase, para que un pull viejo no la reviva.
+
+## v20.1 — Mi semana: repetir, agregar y vincular (2026-08-27)
+
+Ajustes pedidos tras usar v20.0 en el laboratorio.
+
+### Dos vehículos idénticos en la misma semana — estaba bloqueado en CUATRO sitios
+
+> *"No me permite generar más de un vehículo en la misma configuración por semana… quiero
+> probar dos vehículos idénticos de la misma configuración durante la misma semana y no me
+> está dejando."*
+
+| # | Dónde | Qué hacía |
+|---|---|---|
+| 1 | `tpSelectWeeklyItems` | Set `used` por `desc` — el generador nunca proponía dos. |
+| 2 | `tpAddManualPick` | `_tpWeeklyManualPicks` filtrado con `.includes()` — fijar la misma dos veces era imposible. |
+| 3 | `tpAddToWeek` | El desplegable escondía lo que ya estaba en la semana. |
+| 4 | `tpWeekBoardRows` | Aunque se colaran dos, **las dos apuntaban al MISMO vehículo**. |
+
+**Decisión:** el generador **automático** sigue sin repetir por su cuenta (repetir gasta
+capacidad que el déficit necesita, y nadie se lo pidió), pero **lo que se pide a mano sí se
+repite** — repetir es una intención explícita, no un accidente.
+
+- `tpAddItemToWeekDay(weekIdx, desc, day, opts)` — LA definición de "agregar una prueba al
+  plan" desde el tablero. No filtra duplicados a propósito.
+- `tpDuplicateItem` (menú ⋯ → **⧉ Otra unidad igual**) busca el siguiente día legal con
+  lugar; si todos están llenos, marca sobrecupo; si no hay ninguno, la declara sin día.
+- `tpWeekBoardRows` **reparte**: `_usados` garantiza que cada vehículo acredite a lo sumo
+  una fila. Las filas repetidas se numeran **"1 de 2" / "2 de 2"**.
+- `row.vehicleAny` expone el vehículo resuelto aunque esté archivado. `row.vehicle` sigue
+  significando "vivo, en curso" (de eso dependen el semáforo y la ETA), pero con dos
+  pruebas idénticas la segunda suele quedar cubierta por uno ya liberado y la tarjeta se
+  veía vacía como si nadie la hubiera corrido.
+
+### Agregar desde Mi semana
+
+Un **＋** por columna y las columnas vacías clicables. El selector reusa los `<optgroup>`
+por familia y el buscador de Armar semana (`tpFilterPickOptions` ahora acepta el id del
+`<select>`). Ofrece **todo**, incluido lo que ya está en la semana, que es justo lo que
+faltaba.
+
+### Vincular con una prueba
+
+> *"Que apareciera un botoncito que diga vincular con prueba y vengan las pruebas liberadas
+> en el transcurso de la semana, el VIN y la configuración, y me permita seleccionar
+> manualmente en caso de que no se haga automáticamente."*
+
+`tpAutoFeedFromRelease` solo acredita cuando el `configCode` coincide EXACTO y el vehículo
+se dio de alta desde el plan. En la práctica eso falla seguido. Sin esta puerta la única
+salida era la palomita a mano, que deja la prueba "declarada" **aunque sí exista el vehículo
+y su evidencia**.
+
+- `tpLinkableVehiclesFor(item, opts)` — LA definición de qué se puede vincular. Ordena por
+  cercanía (configuración exacta → misma familia → resto) y, dentro de cada nivel, lo
+  liberado antes que lo que sigue en curso. No se limita a lo liberado: un vehículo en curso
+  también se vincula, que es lo que hace falta cuando se registró por fuera del plan.
+- `tpLinkVehicleToItem` acredita la fila con su VIN. **Vincular es lo contrario de
+  declarar**: si la fila venía declarada a mano, se asciende y su registro placeholder se
+  retira. Si la configuración del vehículo NO es la planeada, se registra como
+  **sustitución** con sus diferencias — no como si se hubiera corrido lo planeado.
+- Un vehículo no puede acreditar dos filas, y deja de ofrecerse en las demás.
+- `tpUnlinkVehicleFromItem` devuelve la fila a pendiente; **la evidencia en Probados se
+  conserva**.
+
+### Sustituir: tres alcances
+
+> *"Intentaba expandir ese scope de que sustituyera por cualquier Europe de la misma
+> regulación o algo así, de que no es exactamente ese, sino otro."*
+
+`TP_SUBST_SCOPES` — 🎯 misma familia (equivalente) · 📋 misma región y norma · 🌍 misma
+región. Salir de la familia **no puede pasar en silencio**: fuera del primer nivel las
+diferencias se listan sobre TODOS los campos (no solo los flexibles — lo que cambia puede
+ser el motor), las candidatas que rompen el núcleo salen marcadas **⚠️** y ordenadas al
+final, y el nivel usado queda **grabado** en `substitution.scope` porque dentro de un mes
+nadie se acuerda de cuál fue cuál si no está escrito.
+
+### Menos ruido
+
+El chip **"↪ movida desde el martes" ya no se pinta en la tarjeta**. Que el plan se reacomode
+es normal, no una excepción que haya que señalar todos los días. El registro no se pierde:
+sigue en `moves[]` (append-only), en la auditoría, en el menú ⋯ y en el título del asa; el
+borde punteado lo insinúa sin gritarlo.
+
 ## v20.0 — Planificador semanal: overhaul (2026-08-27)
 
 > *"Es una lata, es un coco, difícil de usar, no está bien distribuido, **el plan sale hasta el
