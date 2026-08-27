@@ -2866,6 +2866,108 @@ function _tpSliderHTML(o) {
  * Pesos + prioridad por región + empuje por antigüedad. Se monta en Reglas y en
  * el Plan Semanal; `opts.onInput` decide qué se re-renderiza en cada una.
  */
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v20] ENFOQUE DE LA SEMANA — "las prioridades son probar lo de Europa, lo de USA"
+//
+// TRAMPA que esto resuelve: `tpState.weights.region` puede quedar legítimamente en
+// **0** (la migración de arranque lo pone así para no romper sumas viejas), y con
+// region=0 los 10 sliders de prioridad por región **no hacen absolutamente nada**.
+// Un chip de enfoque que solo tocara `regionPriority` sería decorativo. `tpSetFocus`
+// SUBE el peso de región y redistribuye el resto proporcionalmente.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var TP_FOCUS = {
+    europa:    { label: '🇪🇺 Europa',        regions: ['EUROPE'],            weight: 45 },
+    usa:       { label: '🇺🇸 USA',           regions: ['USA', 'CANADA'],     weight: 45 },
+    prioridad: { label: '🇪🇺+🇺🇸 Prioridad', regions: ['EUROPE','USA','CANADA'], weight: 40 },
+    todo:      { label: '🌎 Todo',           regions: null,                  weight: 20 }
+};
+
+/** Qué enfoque describe la configuración actual. DERIVADO, no una bandera guardada. */
+function tpCurrentFocus() {
+    var rp = tpState.regionPriority || {};
+    var w = +(tpState.weights || {}).region || 0;
+    if (w < 25) return 'todo';
+    var alto = Object.keys(rp).filter(function(r) { return r !== '*' && rp[r] >= 95; }).sort().join(',');
+    var claves = Object.keys(TP_FOCUS);
+    for (var i = 0; i < claves.length; i++) {
+        var f = TP_FOCUS[claves[i]];
+        if (f.regions && f.regions.slice().sort().join(',') === alto) return claves[i];
+    }
+    return 'medida';
+}
+
+/**
+ * Aplica un enfoque. Sube `weights.region` al valor del enfoque y reparte lo que
+ * sobra entre los demás pesos EN PROPORCIÓN a como estaban, para que la suma siga
+ * siendo 100 sin borrar lo que el usuario ya había ajustado.
+ */
+function tpSetFocus(key) {
+    var f = TP_FOCUS[key];
+    if (!f) return;
+    var w = tpState.weights;
+    var otros = ['volume', 'compliance', 'newConfig', 'urgency'];
+    var sumaOtros = otros.reduce(function(s, k) { return s + (+w[k] || 0); }, 0);
+    var restante = Math.max(0, 100 - f.weight);
+    otros.forEach(function(k) {
+        w[k] = sumaOtros > 0 ? Math.round((+w[k] || 0) / sumaOtros * restante) : Math.round(restante / otros.length);
+    });
+    // El redondeo puede dejar ±1: se ajusta sobre el peso más grande, no sobre región.
+    var total = otros.reduce(function(s, k) { return s + w[k]; }, 0) + f.weight;
+    if (total !== 100) {
+        var mayor = otros.slice().sort(function(a, b) { return w[b] - w[a]; })[0];
+        w[mayor] = Math.max(0, w[mayor] + (100 - total));
+    }
+    w.region = f.weight;
+
+    if (!tpState.regionPriority) tpState.regionPriority = {};
+    var rp = tpState.regionPriority;
+    var regiones = Array.from(new Set((tpState.planData || []).map(function(c) { return c.rgn; }).filter(Boolean)));
+    regiones.forEach(function(r) {
+        rp[r] = (!f.regions || f.regions.indexOf(r) !== -1) ? 100 : (f.regions ? 30 : 50);
+    });
+    if (f.regions) f.regions.forEach(function(r) { rp[r] = 100; });
+    rp['*'] = f.regions ? 30 : 50;
+
+    tpInvalidateCache();
+    tpSave();
+    if (typeof auditLog === 'function') {
+        auditLog('tp', 'focus_changed', { type: 'plan', label: f.label },
+                 'peso de región ' + f.weight + '% · ' + (f.regions ? f.regions.join(' + ') : 'todas por igual'));
+    }
+    tpRender();
+    showToast('Enfoque: ' + f.label + ' — peso de región ' + f.weight + '%. La propuesta se reordenó.', 'success');
+}
+
+/** La fila de chips. Siempre visible: es la perilla que el laboratorio usa a diario. */
+function tpBuildFocusChipsHTML() {
+    var actual = tpCurrentFocus();
+    var an = (typeof tpGetAnalysis === 'function') ? tpGetAnalysis() : [];
+    var f = TP_FOCUS[actual];
+    var enFoco = f && f.regions
+        ? an.filter(function(a) { return f.regions.indexOf(a.rgn) !== -1 && a.required > 0; })
+        : an.filter(function(a) { return a.required > 0; });
+    var conDeficit = enFoco.filter(function(a) { return a.deficit > 0; }).length;
+
+    var h = '<div class="tp-focus" data-help="tp-focus-help">';
+    h += '<span class="tp-focus-label">Enfoque de la semana</span><div class="tp-focus-chips">';
+    Object.keys(TP_FOCUS).forEach(function(k) {
+        h += '<button class="tp-focus-chip' + (actual === k ? ' tp-focus-chip--on' : '') + '" ' +
+             'onclick="tpSetFocus(\'' + k + '\')" aria-pressed="' + (actual === k) + '">' + TP_FOCUS[k].label + '</button>';
+    });
+    // "A medida" no aplica nada: abre las perillas de siempre. tpBuildPriorityKnobsHTML
+    // YA acepta opts.openRegions desde v18 y hasta ahora nadie se lo pasaba.
+    h += '<button class="tp-focus-chip' + (actual === 'medida' ? ' tp-focus-chip--on' : '') + '" ' +
+         'onclick="window._tpOpenRegions=true;tpRender();">⚙️ A medida</button>';
+    h += '</div>';
+    h += '<div class="tp-focus-read">' + enFoco.length + ' configuración(es) en foco · <strong>' +
+         conDeficit + '</strong> con déficit' +
+         (+(tpState.weights || {}).region === 0
+            ? ' · <span class="tp-focus-warn">⚠️ el peso de región está en 0: las prioridades por región no influyen</span>'
+            : '') + '</div>';
+    return h + '</div>';
+}
+
 function tpBuildPriorityKnobsHTML(opts) {
     opts = opts || {};
     var onInput = opts.onInput || '_tpDebouncedRender()';
@@ -3879,6 +3981,92 @@ function tpWeekCardMenu(weekIdx, itemIdx) {
 }
 
 // ═══ WEEKLY PLAN TAB ═══
+/**
+ * El `<select>` de configuraciones eran 173 opciones PLANAS con el `desc` completo
+ * (58-84 caracteres): imposible de recorrer. Se agrupa por familia — la misma
+ * `tpFamilyKeyForCfg` que usa todo lo demás — y cada opción muestra solo lo que la
+ * distingue dentro de su grupo.
+ */
+function tpBuildPickOptgroupsHTML(descs) {
+    var porFamilia = {};
+    (descs || []).forEach(function(d) {
+        var c = (tpState.planData || []).find(function(p) { return p.desc === d; });
+        if (!c) { (porFamilia['(sin catálogo)'] = porFamilia['(sin catálogo)'] || []).push({ desc: d, etiqueta: d }); return; }
+        var fam = tpConfigShortName(c) + ' · ' + (c.rgn || '?');
+        (porFamilia[fam] = porFamilia[fam] || []).push({ desc: d, etiqueta: tpConfigVariantTag(c) || d, cfg: c });
+    });
+    return Object.keys(porFamilia).sort().map(function(fam) {
+        return '<optgroup label="' + fam + '">' + porFamilia[fam].map(function(o) {
+            // El `desc` completo va en data-full para que el buscador empate por
+            // cualquier campo, no solo por lo que se ve.
+            return '<option value="' + o.desc + '" data-full="' + o.desc.toLowerCase() + '">' + o.etiqueta + '</option>';
+        }).join('') + '</optgroup>';
+    }).join('');
+}
+
+/** Buscador del selector. Oculta opciones y los grupos que se quedan vacíos. */
+function tpFilterPickOptions(q) {
+    var sel = document.getElementById('tp-manual-pick-select');
+    if (!sel) return;
+    var t = String(q || '').trim().toLowerCase();
+    var terminos = t ? t.split(/\s+/) : [];
+    Array.prototype.forEach.call(sel.querySelectorAll('optgroup'), function(g) {
+        var visibles = 0;
+        Array.prototype.forEach.call(g.querySelectorAll('option'), function(o) {
+            var texto = (o.getAttribute('data-full') || o.value || '').toLowerCase() + ' ' + g.label.toLowerCase();
+            var ok = terminos.every(function(x) { return texto.indexOf(x) !== -1; });
+            o.hidden = !ok;
+            if (ok) visibles++;
+        });
+        g.hidden = visibles === 0;
+    });
+}
+
+/**
+ * Índice compacto de semanas. Antes aquí venían ~90 líneas de HTML con TODO el plan
+ * desglosado por día — el bloque que salía "hasta el mero fondo". Ese trabajo ahora
+ * lo hace el tablero de Mi semana; esto solo enlaza.
+ */
+function tpBuildWeekIndexHTML() {
+    var planes = (tpState.weeklyPlans || []).slice().reverse().slice(0, 8);
+    if (!planes.length) return '';
+    var h = '<div class="tp-card"><div class="tp-card-title"><span>🗂 Semanas generadas</span>' +
+            '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-myweek\')" style="font-size: var(--fs-xs);">📅 Abrir Mi semana</button></div>' +
+            '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">El detalle de cada semana (días, tarjetas, mover, sustituir) vive en <strong>Mi semana</strong>.</p>' +
+            '<div class="tp-week-index">';
+    planes.forEach(function(w) {
+        var idx = tpState.weeklyPlans.indexOf(w);
+        var items = w.items || [];
+        var hechas = items.filter(function(i) { return i.completed; }).length;
+        var pct = items.length ? Math.round(hechas / items.length * 100) : 0;
+        h += '<button class="tp-week-index-row" onclick="window._tpBoardWeek=' +
+             (w.weekDate ? "'" + w.weekDate + "'" : 'null') + ';tpSwitchTab(\'tp-myweek\')">' +
+             '<span class="tp-week-index-date">' + (w.weekDate || String(w.created || '').slice(0, 10)) + '</span>' +
+             '<span class="tp-week-index-tag">' + (w.accepted ? '✔ Aceptado' : '⏳ Propuesta') + '</span>' +
+             '<span class="tp-week-index-n">' + hechas + '/' + items.length + ' · ' + pct + '%</span>' +
+             '<span class="tp-week-index-bal">' + tpWeekRegionBalance(items) + '</span>' +
+             '</button>';
+    });
+    h += '</div>';
+    if ((tpState.weeklyPlans || []).length > 8) {
+        h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:6px;">Se muestran las 8 más recientes de ' +
+             tpState.weeklyPlans.length + '.</p>';
+    }
+    return h + '</div>';
+}
+
+/** Generar te lleva al tablero: generar no debe dejarte en el formulario. */
+function tpGenerateAndOpen() {
+    var antes = (tpState.weeklyPlans || []).length;
+    tpGenerateWeekly();
+    var nuevo = (tpState.weeklyPlans || [])[tpState.weeklyPlans.length - 1];
+    if ((tpState.weeklyPlans || []).length > antes && nuevo) {
+        window._tpBoardWeek = nuevo.weekDate || null;
+        tpBoardInvalidate();
+        tpSwitchTab('tp-myweek');
+    }
+}
+
 function tpRenderWeekly(el) {
     if (!tpState.weeklyPlans) tpState.weeklyPlans = [];
     const plans = tpState.weeklyPlans;
@@ -3909,9 +4097,10 @@ function tpRenderWeekly(el) {
     const _room = Math.max(0, _cap.max - manualPicks.length);
 
     el.innerHTML = `
+    ${tpBuildFocusChipsHTML()}
     <div class="tp-card" style="border:2px solid var(--tp-amber);background:linear-gradient(135deg,rgba(245,158,11,0.05),transparent);">
-        <div class="tp-card-title"><span style="font-size:15px;">📅 Generar Plan Semanal</span></div>
-        <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:10px;">El algoritmo prioriza configuraciones de mayor riesgo. Confirma la fecha y dias de trabajo antes de generar.</p>
+        <div class="tp-card-title"><span style="font-size:15px;">🎛️ Armar la semana</span></div>
+        <p style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:10px;">Decide CÓMO se elige; a la derecha ves en vivo QUÉ se propondría. Cuando te convenza, genera — y te lleva directo al tablero de Mi semana.</p>
 
         <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;">
             <div>
@@ -3926,14 +4115,14 @@ function tpRenderWeekly(el) {
                 <label for="tp-veh-per-slot" style="font-size: var(--fs-xs);color:var(--tp-dim);display:block;margin-bottom:3px;">Veh. por par</label>
                 <input type="number" id="tp-veh-per-slot" value="${_cap.perSlot}" min="1" max="10" class="tp-select" style="width:65px;text-align:center;" onchange="tpSetVehiclesPerSlot(this.value);">
             </div>
-            <button class="tp-btn tp-btn-primary" onclick="tpGenerateWeekly()" style="font-size:12px;padding:8px 14px;background:var(--tp-amber);color:#000;font-weight:700;">🚀 Generar</button>
+            <button class="tp-btn tp-btn-primary" onclick="tpGenerateAndOpen()" style="font-size:12px;padding:8px 14px;background:var(--tp-amber);color:#000;font-weight:700;" title="Genera el plan y abre el tablero de Mi semana">🚀 Generar y abrir Mi semana</button>
             <button class="tp-btn tp-btn-primary" onclick="tpSmartGenerate()" style="font-size:12px;padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;" title="Genera plan optimo con validacion de inventario y carryover automatico">⚡ Smart</button>
             <button class="tp-btn tp-btn-primary" onclick="tpGenerateMonthly()" style="font-size:12px;padding:8px 14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:700;" title="Genera 4 semanas de una vez distribuyendo los déficits de mayor prioridad">📅 Generar Mes</button>
         </div>
 
-        <div style="padding:8px 10px;background:var(--tp-card);border-radius:8px;border:1px solid var(--tp-border);margin-bottom:12px;">
-            <div style="font-size: var(--fs-xs);font-weight:700;color:var(--tp-blue);margin-bottom:6px;">🗓 Dias de asistencia</div>
-            <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:6px;">Selecciona los dias que asistiras. El preacondicionamiento requiere min. 12h, por lo que solo puedes probar al dia siguiente de preacondicionar.</p>
+        <details class="tp-workdays" ${window._tpWorkDaysOpen ? 'open' : ''} ontoggle="window._tpWorkDaysOpen=this.open;">
+            <summary>🗓 Días de asistencia · <strong>${_cap.slots} par(es)</strong> · máximo ${_cap.max} prueba(s) · reposo ${_cap.soakHours} h</summary>
+            <p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:6px 0;">Selecciona los días que asistirás. El hueco entre preacondicionar y probar sale de las <strong>horas de reposo</strong> reales (${_cap.soakHours} h → ${_cap.gapDays} día(s)), no de un supuesto fijo.${_cap.spill && _cap.spill.length ? ' Con este reposo, preacondicionar en ' + _cap.spill.map(function(d){return TP_DAY_LABELS[d];}).join(' o ') + ' deja la prueba para la semana siguiente.' : ''}</p>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 ${['dom','lun','mar','mie','jue','vie','sab'].map((d,i) => {
                     const labels = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
@@ -3947,8 +4136,16 @@ function tpRenderWeekly(el) {
             <div style="margin-top:6px;font-size: var(--fs-xs);color:var(--tp-dim);" id="tp-schedule-preview">
                 ${tpBuildSchedulePreview(_workDays)}
             </div>
-        </div>
+        </details>
 
+    </div>
+
+    <!-- [v20] La selección de configuraciones baja a la columna IZQUIERDA. Antes vivía
+         arriba, dentro del bloque de "Generar", y empujaba la propuesta en vivo hasta
+         y=1116 — fuera de pantalla en cualquier laptop. Ahora la propuesta arranca a la
+         altura de las perillas y, siendo sticky, ya no se pierde al bajar. -->
+    <div class="tp-planner-grid">
+        <div class="tp-planner-controls">
         ${backlog.length > 0 ? `
         <div style="padding:8px 10px;background:rgba(139,92,246,0.05);border-radius:8px;border:1px solid rgba(139,92,246,0.3);margin-bottom:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;flex-wrap:wrap;gap:4px;">
@@ -4005,10 +4202,12 @@ function tpRenderWeekly(el) {
                 </div>`).join('')}
             </div>` : ''}
             <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">
-                <select id="tp-manual-pick-select" class="tp-select" style="flex:1;min-width:180px;font-size: var(--fs-xs);">
+                <input type="search" id="tp-manual-pick-search" class="tp-select" placeholder="Filtrar (modelo, motor, región…)"
+                       style="flex:1;min-width:150px;font-size: var(--fs-xs);" oninput="tpFilterPickOptions(this.value)">
+                <select id="tp-manual-pick-select" class="tp-select" style="flex:2;min-width:200px;font-size: var(--fs-xs);">
                     <option value="">Seleccionar...</option>
                     ${suggested.length > 0 ? `<optgroup label="⚡ Sugeridas">${suggested.map(s => `<option value="${s.desc}">${s.desc}</option>`).join('')}</optgroup>` : ''}
-                    <optgroup label="Todas las configuraciones">${restConfigs.map(c => `<option value="${c}">${c}</option>`).join('')}</optgroup>
+                    ${tpBuildPickOptgroupsHTML(restConfigs)}
                 </select>
                 <button class="tp-btn tp-btn-primary" onclick="tpAddManualPick()" style="font-size: var(--fs-xs);">+</button>
             </div>
@@ -4021,12 +4220,8 @@ function tpRenderWeekly(el) {
                 </div>`;
             }).join('')}</div>` : '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Ninguna — el algoritmo decidirá.</div>'}
         </div>
-    </div>
 
-    <!-- v18: cómo se elige (izquierda) + propuesta en vivo (derecha) -->
-    <div class="tp-planner-grid">
-        <div class="tp-planner-controls">
-            ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedPreview()' })}
+            ${tpBuildPriorityKnobsHTML({ onInput: '_tpDebouncedPreview()', openRegions: !!window._tpOpenRegions })}
             ${tpBuildCarryoverPanelHTML()}
             ${tpBuildWeekFilterHTML()}
         </div>
@@ -4041,96 +4236,7 @@ function tpRenderWeekly(el) {
         </div>
     </div>
 
-    ${plans.length === 0 ? '' : plans.slice().reverse().map((w, wi) => {
-        const idx = plans.length - 1 - wi;
-        const done = w.items.filter(i => i.completed).length;
-        const carryoverCount = w.items.filter(i => i.status === 'carryover').length;
-        const tot = w.items.length;
-        const pct = tot > 0 ? Math.round((done/tot)*100) : 0;
-        const isEdit = window._tpEditWeek === idx;
-        const dt = w.weekDate ? new Date(w.weekDate + 'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) : new Date(w.created).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
-        const dayLabels = {dom:'D',lun:'L',mar:'M',mie:'X',jue:'J',vie:'V',sab:'S'};
-        const wdStr = w.workDays ? Object.keys(dayLabels).filter(d => w.workDays[d]).map(d => dayLabels[d]).join('') : '';
-        // Group items by test day for schedule view
-        const _subPreds = typeof tpPredictSubstitutions === 'function' ? tpPredictSubstitutions(w.items) : [];
-        const dayGroups = {};
-        w.items.forEach((item, ii) => {
-            const key = item.testDay || '_sin';
-            if (!dayGroups[key]) dayGroups[key] = [];
-            dayGroups[key].push({item, ii});
-        });
-        const dayFullLabels = {dom:'Domingo',lun:'Lunes',mar:'Martes',mie:'Miercoles',jue:'Jueves',vie:'Viernes',sab:'Sabado'};
-        const hasSchedule = w.items.some(i => i.testDay);
-        return `
-        <div class="tp-card" style="border-left:3px solid ${pct===100?'var(--tp-green)':carryoverCount>0&&w.accepted?'#8b5cf6':pct>0?'var(--tp-amber)':'var(--tp-blue)'};">
-            <div class="tp-card-title" style="flex-wrap:wrap;gap:6px;">
-                <div>
-                    <span style="font-size:13px;font-weight:700;">Semana ${idx+1}</span>
-                    <span style="font-size: var(--fs-xs);color:var(--tp-dim);">${dt}</span>
-                    ${wdStr ? `<span style="font-size: var(--fs-xs);color:var(--tp-blue);background:rgba(59,130,246,0.1);padding:1px 4px;border-radius:3px;margin-left:3px;">${wdStr}</span>` : ''}
-                    ${w.accepted?'<span class="tp-badge" style="background:rgba(16,185,129,0.15);color:var(--tp-green);font-size: var(--fs-xs);">Aceptado</span>':''}
-                    ${w.autoGenerated?'<span class="tp-badge" style="background:rgba(59,130,246,0.15);color:var(--tp-blue);font-size: var(--fs-xs);">Auto-generado</span>':''}
-                    ${w.autoGenerated&&!w.accepted?'<span class="tp-badge" style="background:rgba(245,158,11,0.15);color:var(--tp-amber);font-size: var(--fs-xs);" title="Se generó sola el viernes. Hasta que la aceptes no queda en el historial ni genera arrastre.">⏳ Propuesta — falta aceptar</span>':''}
-                    ${carryoverCount>0&&w.accepted?`<span class="tp-badge" style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size: var(--fs-xs);">${carryoverCount} carryover</span>`:''}
-                    ${w.carriedFrom?`<span class="tp-badge" style="background:rgba(139,92,246,0.1);color:#8b5cf6;font-size: var(--fs-xs);">desde Sem ${w.carriedFrom}</span>`:''}
-                </div>
-                <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
-                    <span style="font-size: var(--fs-sm);font-weight:700;color:${pct===100?'var(--tp-green)':'var(--tp-amber)'};">${done}/${tot}</span>
-                    <div class="tp-bar" style="width:50px;"><div class="tp-bar-fill" style="width:${pct}%;background:${pct===100?'var(--tp-green)':'var(--tp-amber)'}"></div><span class="tp-bar-text" style="font-size: var(--fs-xs);">${pct}%</span></div>
-                    ${!w.accepted?`<button class="tp-btn tp-btn-primary" onclick="tpAcceptWeeklyPlan(${idx})" style="font-size: var(--fs-xs);">✅ Aceptar</button>`:`<button class="tp-btn tp-btn-ghost" onclick="tpUnacceptWeeklyPlan(${idx})" style="font-size: var(--fs-xs);" title="Vuelve a quedar como propuesta; los pendientes salen de la cola">↩️ Desaceptar</button>`}
-                    <button class="tp-btn tp-btn-ghost" onclick="tpCarryOverWeekly(${idx})" style="font-size: var(--fs-xs);" title="Copiar items pendientes a nueva semana">➡️ Copiar pendientes</button>
-                    <button class="tp-btn tp-btn-ghost" onclick="tpExportWeeklyPlan(${idx})" style="font-size: var(--fs-xs);">📤</button>
-                    <button class="tp-btn tp-btn-ghost" onclick="window._tpEditWeek=${isEdit?-1:idx};tpRender();" style="font-size: var(--fs-xs);">${isEdit?'✕':'✏️'}</button>
-                    <button class="tp-btn tp-btn-ghost" onclick="tpDeleteWeeklyPlan(${idx})" style="font-size: var(--fs-xs);color:var(--tp-red);" title="Eliminar el plan de esta semana">🗑</button>
-                </div>
-            </div>
-            <div style="font-size: var(--fs-xs);color:var(--tp-dim);margin:-2px 0 6px;">⚖️ Balance: ${tpWeekRegionBalance(w.items)}${w.monthBatch?' · <span style="color:var(--tp-blue);">parte de plan mensual</span>':''}</div>
-            ${hasSchedule ? ['dom','lun','mar','mie','jue','vie','sab'].filter(d => dayGroups[d] && dayGroups[d].length > 0).map(d => `
-            <div style="margin-bottom:6px;">
-                <div style="font-size: var(--fs-xs);font-weight:700;color:var(--tp-blue);padding:3px 6px;background:rgba(59,130,246,0.06);border-radius:4px;margin-bottom:3px;">
-                    Prueba ${dayFullLabels[d]} (Preacon ${dayFullLabels[dayGroups[d][0].item.preconDay] || '?'})
-                </div>
-                ${dayGroups[d].map(({item, ii}) => `
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
-                    <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
-                        <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                        ${item.carriedOver?'<span style="font-size: var(--fs-xs);color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size: var(--fs-xs);color:var(--warn-text);flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
-                        ${item.manual&&!item.carriedOver?'<span style="font-size: var(--fs-xs);color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
-                        ${tpConfigBadges(item,{fontSize:'var(--fs-xs)'})}
-                    ${tpScoreBadge(item)}
-                    </div>
-                    <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
-                        ${tpStartTestButton(idx, ii, item, isEdit)}
-                        ${isEdit?`<button onclick="tpRemoveWeeklyItem(${idx},${ii})" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:13px;">×</button>`:''}
-                    </div>
-                </div>`).join('')}
-            </div>`).join('') + (dayGroups['_sin'] ? dayGroups['_sin'].map(({item, ii}) => `
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);">
-                    <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
-                        <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':'⬜'}</span>
-                        ${tpConfigBadges(item,{fontSize:'var(--fs-xs)'})}
-                    ${tpScoreBadge(item)}
-                    </div>
-                    <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
-                        ${tpStartTestButton(idx, ii, item, isEdit)}
-                    </div>
-                </div>`).join('') : '')
-            : w.items.map((item, ii) => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:3px;border:1px solid ${item.status==='carryover'?'rgba(139,92,246,0.3)':item.completed?'rgba(16,185,129,0.2)':'var(--tp-border)'};border-radius:6px;background:${item.completed?'rgba(16,185,129,0.05)':item.status==='carryover'?'rgba(139,92,246,0.04)':'var(--tp-card)'};opacity:${item.completed?0.7:1};">
-                <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;flex-wrap:wrap;">
-                    <span onclick="tpToggleWeeklyItem(${idx},${ii})" style="cursor:pointer;font-size:15px;user-select:none;flex-shrink:0;">${item.completed?'✅':item.status==='carryover'?'🔄':'⬜'}</span>
-                    ${item.carriedOver?'<span style="font-size: var(--fs-xs);color:#8b5cf6;flex-shrink:0;background:rgba(139,92,246,0.1);padding:1px 3px;border-radius:2px;">carryover</span>':''}${item.substituted?'<span style="font-size: var(--fs-xs);color:var(--warn-text);flex-shrink:0;background:rgba(245,158,11,0.1);padding:1px 4px;border-radius:2px;" title="'+(item.substitution?item.substitution.differences.map(function(d){return d.label+': '+d.planned+' → '+d.actual;}).join(', '):'')+'">🔄 sustituido</span>':''}${!item.completed&&typeof tpGetSubstitutionBadge==='function'?tpGetSubstitutionBadge(item,ii,_subPreds):''}
-                    ${item.manual&&!item.carriedOver?'<span style="font-size: var(--fs-xs);color:var(--tp-amber);flex-shrink:0;">📌</span>':''}
-                    ${tpConfigBadges(item,{fontSize:'var(--fs-xs)'})}
-                </div>
-                <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
-                    ${tpStartTestButton(idx, ii, item, isEdit)}
-                    ${isEdit?`<button onclick="tpRemoveWeeklyItem(${idx},${ii})" style="background:none;border:none;color:var(--tp-red);cursor:pointer;font-size:13px;">×</button>`:''}
-                </div>
-            </div>`).join('')}
-            ${isEdit?`<div style="margin-top:6px;padding:6px;background:rgba(245,158,11,0.05);border:1px dashed var(--tp-amber);border-radius:5px;"><div style="display:flex;gap:5px;"><select id="tp-edit-add-${idx}" class="tp-select" style="flex:1;font-size: var(--fs-xs);"><option value="">Agregar...</option>${allConfigs.filter(c=>!w.items.some(i=>i.desc===c)).map(c=>`<option value="${c}">${c}</option>`).join('')}</select><button class="tp-btn tp-btn-primary" onclick="tpAddToWeek(${idx})" style="font-size: var(--fs-xs);">+</button></div></div>`:''}
-        </div>`;
-    }).join('')}`;
+    ${tpBuildWeekIndexHTML()}`;
 
     // Primer pintado de la propuesta: doble RAF porque tpRenderWeekly ya corre dentro
     // del requestAnimationFrame de tabCacheSwitch — el nodo aún no está en pantalla.
@@ -7585,7 +7691,7 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     },
     'tp-weekly': {
         title: 'Armar semana',
-        text: 'Todo en una pantalla: a la izquierda decides CÓMO se elige (ponderación, cola de pendientes y filtros) y a la derecha ves en vivo QUÉ se propondría. Cuando te convenza, genera.',
+        text: 'Todo en una pantalla: arriba el enfoque (Europa / USA / todo), a la izquierda CÓMO se elige (ponderación, cola de pendientes y filtros) y a la derecha, siempre visible, QUÉ se propondría. "Generar y abrir Mi semana" te deja en el tablero, no en el formulario.',
         tips: [
             'La propuesta de la derecha es exactamente lo que creará "🚀 Generar" — se actualiza al mover cualquier control.',
             'La cola de pendientes tiene un tope (50% por defecto): el resto de los lugares queda reservado para las prioridades de hoy.',
@@ -7676,6 +7782,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'tp-availability-help': { title: 'Disponibilidad por semana', text: 'Marca "No disponible" las semanas de mantenimiento/paro del dinamómetro (no cuentan capacidad). "Cap" = número de pruebas que caben esa semana; "días" = cuántos días de la semana asistes. La capacidad real es pruebas/semana, no pruebas/día — puedes correr más de una por día.' },
     'tp-priority-help': { title: 'Reglas de Prioridad', text: 'Se evalúan de arriba a abajo — la PRIMERA regla que coincide asigna la prioridad (P1 = más urgente). Cada columna es un filtro que se va acotando en cascada; "Todas" es comodín. "Niveles" define cuántas prioridades (P1..P10) existen.' },
     'tp-req-help': { title: 'Pruebas requeridas (Req.)', text: 'Se calcula así: (Vol.Plan + Hist) × ratio / por, según la regla de Reglas → Ratio que coincida con la región y regulación de esta configuración. Toca el número de cualquier fila para ver la fórmula exacta y qué regla se usó. Un punto ámbar ● significa que no hay regla específica para esa región/regulación — se usó una regla comodín.' },
+    'tp-focus-help': { title: 'Enfoque de la semana', text: 'Un toque reordena la propuesta hacia un mercado. IMPORTANTE: sube el peso de "Importancia de región" y reparte el resto proporcionalmente — si ese peso está en 0, las prioridades por región no influyen en nada y los chips serían decorativos. "⚙️ A medida" abre las perillas de siempre con la sección de regiones desplegada.' },
     'tp_week_kpis': { title: 'La semana de un vistazo', text: 'Planeadas / hechas / en curso / movidas / en riesgo. "Hechas" incluye las declaradas a mano (pasa el cursor para ver cuántas). "Movidas" son las que cambiaron de día respecto al plan original — no es un error, es el registro de que la semana se reacomodó. "En riesgo" es un aviso interno anticipado, no un juicio.' },
     'tp-dormant-help': { title: 'Configuración inactiva', text: 'Lleva 3 o más meses seguidos sin volumen planeado. Puedes marcarla "Pausada" (deja de exigir pruebas y de contar en cobertura) o confirmar que sigue vigente.' }
 });

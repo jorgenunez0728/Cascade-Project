@@ -3746,7 +3746,15 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .tp-planner-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; }
 @media (min-width: 900px) {
     .tp-planner-grid { grid-template-columns: minmax(300px, 1fr) minmax(340px, 1.3fr); align-items: start; }
-    .tp-planner-side { position: sticky; top: 8px; }
+    /* [v20] `top: 8px` sin z-index metía la propuesta en vivo DEBAJO de `.tp-header`
+       (sticky, top 43px, alto ~75px, z-index 100): al bajar a las perillas la
+       propuesta —lo que el usuario dijo que sí funciona— se perdía tras el
+       encabezado. 126px libera esa pila; el z-index la sube sobre el contenido
+       hermano pero la deja pasar por debajo del encabezado, que es lo correcto. */
+    .tp-planner-side {
+        position: sticky; top: 126px; z-index: 1;
+        max-height: calc(100vh - 140px); overflow-y: auto;
+    }
 }
 /* Las tarjetas dentro del planificador ya llevan su propio margin-top */
 .tp-planner-controls > .tp-card:first-child,
@@ -4242,4 +4250,50 @@ body.cop-present .cop-toolbar    { display: none; }
     .tp-week-actions, .tp-week-headacts, .tp-week-nav button { display: none !important; }
     .tp-week-board { grid-template-columns: repeat(5, 1fr); }
     .tp-week-card, .tp-week-col { box-shadow: none; break-inside: avoid; }
+}
+
+/* ── [v20] Enfoque de la semana ────────────────────────────────────────────── */
+.tp-focus {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: var(--space-md); margin-bottom: var(--space-md);
+}
+.tp-focus-label { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); display: block; margin-bottom: 6px; }
+.tp-focus-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tp-focus-chip {
+    font-size: var(--fs-sm); font-weight: 600; padding: 6px 12px; cursor: pointer;
+    border-radius: 999px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); min-height: 34px;
+}
+.tp-focus-chip:hover { border-color: var(--info-text); }
+.tp-focus-chip--on { background: var(--info-fill); color: #fff; border-color: var(--info-fill); }
+.tp-focus-read { font-size: var(--fs-xs); color: var(--muted); margin-top: 8px; }
+.tp-focus-warn { color: var(--warn-text); font-weight: 600; }
+
+/* ── [v20] Índice de semanas (sustituye al muro de 90 líneas del fondo) ───── */
+.tp-week-index { display: flex; flex-direction: column; gap: 4px; }
+.tp-week-index-row {
+    display: grid; grid-template-columns: auto auto auto 1fr; gap: var(--space-sm);
+    align-items: center; text-align: left; width: 100%; cursor: pointer;
+    padding: var(--space-sm); border-radius: var(--radius-md);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    min-height: 40px;
+}
+.tp-week-index-row:hover { background: var(--info-bg); border-color: var(--info-text); }
+.tp-week-index-date { font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; }
+.tp-week-index-tag  { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+.tp-week-index-n    { font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
+.tp-week-index-bal  { font-size: var(--fs-xs); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) {
+    .tp-week-index-row { grid-template-columns: 1fr auto; }
+    .tp-week-index-bal { grid-column: 1 / -1; }
+}
+
+/* ── [v20] Días de asistencia: configuración de una vez, plegada por default ── */
+.tp-workdays {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-md);
+}
+.tp-workdays > summary {
+    cursor: pointer; font-size: var(--fs-xs); font-weight: 700; color: var(--info-text);
+    list-style: revert; min-height: 24px; display: list-item;
 }
