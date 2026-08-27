@@ -21,7 +21,7 @@ no-login operator picker, synced change history).
 | Root Tab | Contains | Internal Section IDs |
 |----------|----------|---------------------|
 | **Hoy** | Daily dashboard (incl. shared Lab Overview strip), quick actions | `platform-today` |
-| **Plan** | Test Plan Manager (weekly plan, **🚑 Recuperación**, families, calendar, simulator, production) | `platform-testplan` |
+| **Plan** | **v20**: abre en **📅 Mi semana** (tablero por día) + **🎛️ Armar semana** (perillas + propuesta en vivo), **🚑 Recuperación**, familias, calendario, simulador, producción | `platform-testplan` |
 | **Pruebas** | COP15 (Alta, Operacion, Liberacion, Cola, Historial) + Consumibles (Inventory) | `platform-cop15`, `platform-inventory` |
 | **Datos** | Panel (dashboard, **📤 Reportes**, alerts, 🔍 Auditoría, system, **☁️ Archivos**, **🗂️ Proyectos**) | `platform-panel` |
 | **CoP** | **v19.0**: 4 vistas — **📊 Panorama** (todas las familias del alcance de un vistazo), 📋 Validador (+ gauge de la banda A(n)–B(n)), **📈 Control SPC** (I-MR, Nelson, Cpk, alarmas), **🗂️ Expediente** (cronología + PDF de auditoría) | `platform-cop` |
@@ -52,9 +52,9 @@ El `#op-picker` sin contraseña se reemplazó por un chip 👤 con "Cambiar usua
 index.html              ← Development entry point (modular, uses <script src>)
 styles.css              ← All CSS — Glass + Neumorphism design system
 js/
-  app.js                ← Config, utils, chart engine, undo, notes, PDF, audit log, bootstrap (~3,990 lines)
+  app.js                ← Config, utils, chart engine, undo, notes, PDF, audit, gridDragInit, bootstrap (~5,660 lines)
   cop15.js              ← COP15 Cascade module + Soak Timer + Field Tooltips (~6,290 lines)
-  testplan.js           ← Test Plan Manager + Recovery Plan + dynamic months (~5,090 lines)
+  testplan.js           ← Mi semana + Armar semana + Recuperación + meses dinámicos (~6,900 lines)
   inventory.js          ← Lab Inventory + Zone Map grid (~5,000 lines)
   panel.js              ← Dashboard, Lab Overview, Reports Center, Users, Alerts, Audit, Health (~3,840 lines)
   projects.js           ← Proyectos: importador Excel, 6 vistas, CPM/línea base (~1,900 lines)
@@ -740,6 +740,133 @@ wvta, wvtaDate, type, commercialName, updatedAt}]`.
   (`tabCacheInvalidate('pn','pn-homolog')` + `pnRender()`) — las pestañas del Panel están
   cacheadas y `pnRender()` solo no repinta la pestaña actual (patrón `_pnProjNav`, v16.8).
 
+## v20.0 — Planificador semanal: overhaul (`js/testplan.js`, `js/app.js`)
+
+El módulo pasó de un formulario de 223 líneas de `innerHTML` a un tablero por día. Dos
+definiciones nuevas son la columna vertebral (mismo patrón que `copPortfolioRows`/`copFamilyRisk`
+de v19):
+
+- **`tpWeekBoardRows(opts)` es LA definición del estado de la semana** — plan + soak resuelto +
+  vehículos de COP15 + `testedList` + riesgo. **Memoizada obligatoriamente** (`_tpBoardCache`,
+  `tpBoardInvalidate()`, encadenada a `tpInvalidateCache()`): la lee HOY en cada render. Todo
+  consumidor nuevo la llama en vez de rebuscar en `tpState.weeklyPlans`. Ya migrados:
+  `dashCollectActivities` (app.js), `pnGetActiveAlerts`, `renderLabOverview`, `_pnReportWeeklyPlan`
+  y el resumen de turno (panel.js) — todos leían `weeklyPlans[length-1]`, el último plan **creado**,
+  que puede ser el de la semana que entra.
+- **`tpWeekItemRisk(row, ctx)` es LA definición del semáforo de UNA prueba y es PURA** (recibe la
+  fila; testeable en Node). Sin día asignado devuelve `atencion`, **jamás verde**. Es un aviso
+  interno anticipado, no un juicio, y la UI lo dice con esas palabras.
+
+### Modelo de días — reposo real, no un supuesto
+
+- **`tpSoakHoursFor(cfg)` es LA definición de cuánto reposa una config** (familia → norma →
+  laboratorio) y devuelve la procedencia, como `ruleInfo._matchType`. Vive en `tpState.soak`,
+  **NO en `DEFAULT_REGULATION_PROFILES`**: esos perfiles son evidencia de emisiones (los congela
+  cada juicio CoP) y el soak es ocupación de celda — mezclarlos invitaría a editar un perfil
+  regulatorio para arreglar un calendario.
+- `tpSlotsForSoak(horas, workDays)` reemplaza al motor que exigía días **consecutivos**
+  (`dayOrder[i+1]`) asumiendo 12 h, cuando el default real de la app es **24 h**. Desfase =
+  `Math.max(1, ceil(h/24))`. Lo que se derrama a la semana siguiente sale con `spillsNextWeek` y
+  **se declara**, no se pierde. **`tpBuildTestSlots` queda como shim** sobre el soak default, así
+  que Mes/Simulador/Recuperación heredan el modelo nuevo gratis y **con 24 h la salida es idéntica
+  a la de v19**.
+- **NO hay opción de "prohibir que repose el fin de semana"**: la semana se modela como un arreglo
+  dom→sáb, así que un día intermedio de fin de semana exigiría preacondicionar antes del sábado y
+  probar después del domingo — los dos extremos del arreglo. Es imposible por construcción. Una
+  perilla que nunca puede hacer nada es peor que no tenerla.
+
+### Ciclo de vida del plan
+
+- **`tpPlanId(plan)` es la identidad; `weekNum` era un ÍNDICE DE ARRAY.** Tras un splice el
+  histórico dejaba de corresponder. `tpMigrateWeekHistoryIds()` migra una sola vez (guarda en
+  `tpState._migr.weekIds`, **preservado en `_fbPullSeed`** junto con `soak`), **deduplica** el daño
+  de los dobles-aceptar y conserva como `orphan` lo que ya no tiene plan vivo — **no se tira**.
+- `tpAcceptWeeklyPlan` es **idempotente**. `tpSyncWeekHistoryFor(planId)` re-sincroniza la foto
+  archivada desde el plan vivo (antes se congelaba en `completed:false` para siempre). **Todo
+  mutador del plan pasa por `_tpTouchPlan(weekIdx)`** — un helper único es lo que evita que se
+  olvide uno.
+- `tpUnacceptWeeklyPlan` / `tpDeleteWeeklyPlan` con `undoPush('testplan', …)` + `auditLog` +
+  `authRequire('plan.manage')`. Borrar **se niega** sobre una semana aceptada.
+- **`undoPush('tp', …)` es un no-op** — `undoPush` (app.js) solo conoce `cop15`/`testplan`/
+  `inventory`. Siempre `'testplan'`. (La misma trampa que CLAUDE.md registra del CoP.)
+- El merge de `weeklyPlans` en `firebase-sync.js` empataba por **`w.week`, campo que ningún
+  generador escribe**: todos los planes colapsaban en un bucket. Ahora `tpPlanId`, con los items
+  empatados por `desc + testDay` y `completed:true` ganando.
+
+### La palomita manual
+
+- `tpToggleWeeklyItem` escribe en `testedList` con `source:'plan-manual'`, `verified:false`,
+  `planId` e `itemIdx`. **`verified` es OPT-OUT: su ausencia significa verificada** — así las ~500
+  filas existentes no necesitan migración y un pull desde código viejo no las degrada.
+- **Despalomear empata por `planId + itemIdx`, NUNCA por `desc`**: dos semanas comparten
+  descripción.
+- `tpAutoFeedFromRelease` **asciende** la declarada (la retira al llegar la liberación real): era
+  un marcador de posición, no una segunda prueba.
+- **`tpCoverageSummary()` sigue siendo LA definición** y solo se le AGREGARON `totalVerified`,
+  `totalDeclared`, `okVerified`, `pctVerified`. `pct` y `deficit` **siguen contando las
+  declaradas** —si no bajaran el déficit, la config volvería la semana siguiente y la palomita
+  sería inútil— pero el número solo-verificadas va **al lado, siempre visible**.
+- `tpGetAnalysis` devuelve además `testedVerified`/`testedDeclared`, y **su clave de cache incluye
+  `_lastSave`**: quitar y agregar una prueba el mismo día la dejaba idéntica.
+
+### Mover y sustituir
+
+- **`tpMoveItemToDay(weekIdx, itemIdx, day, opts)`** — no existía NINGUNA función que cambiara el
+  día de una prueba. Deriva el preacondicionamiento legal con `tpSlotsForSoak` y, si no hay
+  ninguno, **rechaza con el motivo escrito**. Sobrecupo se consiente y queda **marcado**
+  (`item.overCapacity`).
+- **`plannedTestDay` es una SOMBRA**: se estampa una vez y jamás se reescribe. **"Movida" se
+  DERIVA** (`tpItemMoved`), sin bandera que mantener sincronizada. `moves[]` es append-only, tope
+  10. `soakHours`/`soakSource` se **congelan** al mover: si cambia la tabla, un plan publicado no
+  debe empezar a mentir.
+- **`tpSubstituteCandidatesFor(item)` / `tpSwapItemConfig`** son la dirección que faltaba ("el
+  vehículo no llegó, ¿qué corro en su lugar?"). Reusan las MISMAS `_tpCoreFields`/`_tpFlexFields`
+  que la liberación, así que las dos direcciones no se pueden desincronizar. **Sustituir NO marca
+  como hecha** (`tpSubstituteItem`, que sí acredita, sigue siendo lo de la cascada de liberación —
+  son dos cosas distintas y se quedan separadas).
+
+### Enfoque de la semana
+
+- **`tpSetFocus(key)` SUBE `weights.region` y redistribuye.** `tpState.weights.region` puede quedar
+  legítimamente en **0** (la migración de arranque lo pone así) y con region=0 los 10 sliders de
+  prioridad por región **no hacen absolutamente nada**: un chip que solo tocara `regionPriority`
+  sería decorativo. Cuando el peso está en 0, la pantalla **lo dice**.
+- `tpCurrentFocus()` **deriva** qué chip está activo; no hay bandera guardada. `⚙️ A medida` pasa
+  `opts.openRegions` a `tpBuildPriorityKnobsHTML`, que ya lo aceptaba desde v18 sin que nadie se lo
+  pasara.
+
+### `gridDragInit` — un solo motor de arrastre + teclado (app.js)
+
+Generaliza `invInitZoneDrag` (v16.5) con su alternativa de teclado (v17.8); `invInitZoneDrag` queda
+como envoltura y `_invDrag`/`_invKbdMove` se mudaron a `_gridDrag`/`_gridKbd`.
+
+- **El origen tiene que ser un `<button>`**: Enter/Espacio disparan un `click` con `detail === 0`
+  (un clic real siempre trae `detail ≥ 1`). Ése es el truco que distingue teclado de tap. La
+  tarjeta del tablero no puede serlo (contiene botones): el origen es el asa `.tp-week-grip`.
+- **Origen y destino pueden ANIDAR** (el asa vive dentro de la columna) → `stopPropagation()` en
+  `onPointerDown` y en el handler de teclado, o el mismo gesto se procesa dos veces y se cancela
+  solo.
+- La clase de selección viaja **con la selección** (`_gridKbd.cls`): listarlas en `gridKbdCancel`
+  dejaba la marca pegada.
+- `itemSelector` puede ser una LISTA separada por comas → pasar `refocusSelector` para el foco
+  post-movimiento (`.a, .b[attr]` sólo filtra el último).
+- Listeners de movimiento en `document` (si no, el arrastre se corta al salir del elemento);
+  `touchmove` con `{passive:false}` (único modo en que `preventDefault` frena el scroll).
+
+### Blindaje de `tpState` (v20, etapa 0)
+
+**`_tpEnsureState()` corre al parsear testplan.js y repara `weights`, `rules`, `planData` y demás.**
+`let tpState = safeParse(...) || {defaults}` hacía que los defaults **solo aplicaran en un
+dispositivo virgen**: un pull de sync sin esos campos reventaba `tpPriorityScore` →
+`tpGetAnalysis` → `tpCoverageSummary` → `tpUpdateBadges` → **`switchPlatform`**, o sea la
+plataforma entera. Reproducido y corregido.
+
+### Deuda conocida (heredada de v18.0)
+
+`tpGenerateMonthly`, `tpRunSimulation` y `tpBuildRecoveryPlan` son copias cercanas del mismo lazo
+greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya no ignora `slots`
+(agendaba el doble), pero el lazo sigue duplicado.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).
@@ -748,6 +875,8 @@ wvta, wvtaDate, type, commercialName, updatedAt}]`.
   versión del topbar y el historial de Datos → Sistema quedan desincronizados del changelog real
   (pasó entre v14 y v16.6: `APP_VERSION` quedó pegado en `'14.0'` varias rondas).
 - New function: add to the right module file; global scope makes it cross-available.
+- **Toda clave nueva de `localStorage` agrega su entrada a `PN_STORAGE_REGISTRY`** (v18.1) y, si
+  vive dentro de `tpState`, a la lista de preservación de `_fbPullSeed` (v18.0/v20).
 - Saving state: `tpSave()`, `invSave()`, `pnSave()`, `saveDB()`, `copPersist()`.
 - Rendering: `tpRender()`, `invRender()`, `pnRender()`, `copRender()`, `refreshAllLists()`.
 - Tab switching: `tpSwitchTab`, `invSwitchTab`, `pnSwitchTab`; platforms via `switchPlatform`.

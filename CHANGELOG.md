@@ -2,6 +2,126 @@
 
 All notable changes to this project, organized by development round.
 
+## v20.0 — Planificador semanal: overhaul (2026-08-27)
+
+> *"Es una lata, es un coco, difícil de usar, no está bien distribuido, **el plan sale hasta el
+> mero fondo**… tuve que eliminar un plan, pero **como ya había aprobado esta semana se me
+> dificulta saber cuáles pruebas ya había hecho**… **me da los días de preacondicionamiento
+> estándar y luego no coinciden**, entonces me dice que hoy me tocan probar otros vehículos que
+> posiblemente ya hayan tocado."*
+
+Las tres quejas tenían causa raíz concreta, y se midieron antes de tocar nada.
+
+### Diagnóstico
+
+| Queja | Causa medida |
+|---|---|
+| "Sale hasta el mero fondo" | `tpRenderWeekly` era **un solo `innerHTML` de 223 líneas** haciendo cuatro trabajos; 2062 px de alto y el plan era el **último** bloque. `.tp-planner-side` era sticky **sin z-index** y quedaba **debajo** de `.tp-header`. |
+| "Borré el plan y perdí qué se probó" | **No existía desaceptar** (`plan.accepted = true` era la única asignación del repo), borrar era un `onclick` inline con `splice()` sin deshacer ni auditoría, y **`tpToggleWeeklyItem` nunca escribía en `testedList`**. |
+| "Los días estándar no coinciden" | `tpBuildTestSlots` codificaba pares de días **consecutivos** asumiendo 12 h de reposo. **El default real de la app es 24 h** y ofrece 36 h. Y `dashCollectActivities` tomaba el último plan aceptado **sin mirar su fecha**. |
+
+> **Lo que NO se perdió:** `testedList` nunca se tocó al borrar un plan. Todo lo liberado desde
+> COP15 siguió contando: la cobertura y el déficit no se movieron ni un punto. Lo que se perdía
+> eran las palomitas puestas a mano y el enlace visual de la semana.
+
+### La columna vertebral (patrón CoP v19)
+
+Lo que hizo funcionar al CoP no fue el CSS: fue que `copPortfolioRows()` pasó a ser **LA
+definición** del estado y `copFamilyRisk()` **LA definición pura** del semáforo. El planificador
+no tenía eso — cada pantalla (HOY, Panel, Consumibles) rebuscaba en `tpState.weeklyPlans` con su
+propio criterio.
+
+- **`tpWeekBoardRows(opts)`** — LA definición del estado de la semana. Une plan + soak resuelto +
+  vehículos de COP15 + `testedList` + riesgo. Memoizada obligatoriamente.
+- **`tpWeekItemRisk(row, ctx)`** — LA definición del semáforo de UNA prueba, **PURA**. Sin día
+  asignado nunca es verde, y la UI dice que es aviso interno, no juicio.
+- `tpConfigShortName` / `tpConfigVariantTag` parten el `desc` de 58-84 caracteres donde importa:
+  identidad de familia vs. lo que una sustitución puede cambiar.
+
+### Mi semana (pestaña nueva, la de arranque)
+
+Una columna por día laborable. La tarjeta vive **una sola vez**, en su columna de PRUEBA:
+duplicarla en la de preacondicionamiento vuelve ambiguo el arrastre. El preacon se ve en el
+medidor del encabezado y en la tira de 7 días de la tarjeta (P · reposo · T), que hace evidente
+por qué un soak de 36 h ocupa más.
+
+**Mover de día** (`tpMoveItemToDay`) no existía: el único vocabulario del sistema era `completed`
+sí/no. Deriva hacia atrás el preacondicionamiento legal y, si no hay ninguno, **rechaza con el
+motivo escrito** ("96 h de reposo no caben antes del Lunes. Con este soak los días posibles son:
+Viernes"). Sobrecupo: se consiente y queda **marcado**. `plannedTestDay` es una sombra que se
+estampa una vez; "movida" se **deriva** comparando.
+
+**Sustituir** (`tpSubstituteCandidatesFor` / `tpSwapItemConfig`): la dirección que faltaba. Cero
+matemática nueva — reusa las mismas listas `_tpCoreFields`/`_tpFlexFields` de la liberación.
+
+### Ciclo de vida
+
+- `tpPlanId` sustituye a `weekNum` (que era un **índice de array**: tras un splice el histórico
+  dejaba de corresponder). `tpMigrateWeekHistoryIds` migra, **deduplica** el daño de los
+  dobles-aceptar y conserva como `orphan` lo que ya no tiene plan.
+- `tpAcceptWeeklyPlan` es **idempotente**; `tpSyncWeekHistoryFor` re-sincroniza la foto archivada
+  (antes se congelaba en `completed:false` para siempre).
+- **`tpUnacceptWeeklyPlan`** y **`tpDeleteWeeklyPlan`** con `undoPush` + `auditLog` + permiso.
+  Borrar se **niega** sobre una semana aceptada: primero desacéptala.
+- El merge de Firebase empataba `weeklyPlans` por `w.week`, campo que **ningún generador
+  escribe**: todos los planes colapsaban en un bucket. Ahora usa `tpPlanId`.
+
+### La palomita manual, durable y honesta
+
+Deja un registro propio en `testedList` (`source:'plan-manual'`, `verified:false`) que **sobrevive
+al borrado del plan** y nunca se disfraza de liberación real. `verified` es **opt-out** —su
+ausencia significa verificada—, así que las ~500 filas existentes no necesitan migración. Una
+liberación real **asciende** la declarada en vez de contarla dos veces. `tpCoverageSummary` gana
+`totalVerified` / `totalDeclared` / `okVerified` / `pctVerified`, **aditivos**: `pct` y `deficit`
+no cambian de significado, pero el número solo-verificadas va **al lado, siempre**.
+
+### El modelo de días deja de suponer
+
+`tpSoakHoursFor(cfg)` (familia → norma → laboratorio) y `tpSlotsForSoak(horas, workDays)`.
+Desfase = `ceil(horas/24)`: 24 h → 1 día, **36 h → 2**. Ganancia gratis: el motor viejo exigía
+días *consecutivos* y perdía cualquier par no contiguo. Lo que se derrama a la semana siguiente se
+**declara** (`spillsNextWeek`), no se pierde. `tpBuildTestSlots` queda como shim de una línea, así
+que Mes, Simulador y Recuperación heredan el modelo nuevo sin tocarse. **Criterio de aceptación
+cumplido: con 24 h la salida es idéntica a la de v19.**
+
+### Armar semana
+
+- **Enfoque de un toque**: 🇪🇺 Europa · 🇺🇸 USA · Prioridad · Todo. `tpSetFocus` **sube
+  `weights.region`** y redistribuye — con region en 0 (donde lo deja la migración de arranque) los
+  10 sliders de región **no hacen nada**, así que un chip que solo tocara `regionPriority` habría
+  sido decorativo. Cuando el peso está en 0, la pantalla **lo dice**.
+- El muro de ~90 líneas del fondo se fue (ese trabajo lo hace Mi semana); la selección de
+  configuraciones baja a la columna izquierda; días de asistencia se pliega. La propuesta en vivo
+  arranca en **y=755** (era 1116) y **se queda pegada y visible** al bajar a las perillas.
+- El `<select>` de 173 configuraciones planas se agrupa en **53 `<optgroup>`** por familia, con
+  buscador que esconde los grupos vacíos.
+
+### Un solo motor de arrastre
+
+`gridDragInit(container, opts)` (app.js) generaliza el motor del mapa del cuarto de gases (v16.5)
+con su alternativa de teclado (v17.8). `invInitZoneDrag` queda como envoltura. Dos bugs que solo
+aparecen cuando origen y destino **anidan** (el asa vive dentro de la columna): el evento
+burbujeaba y cancelaba el gesto recién iniciado, y `gridKbdCancel` quitaba la marca por nombre
+fijo.
+
+### Blindaje que salió de paso
+
+- **`tpState` podía tumbar la plataforma entera**: `weights`, `rules` y `planData` no tenían guarda
+  de existencia, y un pull de sync sin esos campos reventaba hasta `switchPlatform`.
+  `_tpEnsureState()` los repara en cada arranque. Reproducido y corregido.
+- El regex de VIN en Probados llevaba `\\s` dentro de un template literal → **nunca empataba** y la
+  columna VIN salía siempre `—`. Justo la columna que se necesita para reconstruir una semana.
+- En Recuperación, `effCap` ignoraba `slots` y **agendaba el doble** de lo que cabe.
+- El cache de `tpGetAnalysis` no incluía `_lastSave`: quitar y agregar una prueba el mismo día
+  dejaba la clave idéntica y servía datos viejos.
+
+### Deuda anotada
+
+`tpGenerateMonthly`, `tpRunSimulation` y `tpBuildRecoveryPlan` siguen siendo copias cercanas del
+mismo lazo greedy y **no** conocen la cuota ni los filtros (v18.0 ya lo advertía). La migración de
+estilos en línea del planificador es deliberadamente parcial: código nuevo con clases, lo viejo se
+convierte oportunísticamente.
+
 ## v19.1 — Familias de interpolación del WVTA (2026-08-26)
 
 Cierra el pendiente que v19.0 dejó anotado. La **familia de interpolación (IP)** es la agrupación

@@ -210,11 +210,21 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '19.1';
+var APP_VERSION = '20.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.0', date: '27 ago 2026', title: 'Planificador semanal — overhaul', bullets: [
+        'Plan abre en 📅 Mi semana: una columna por día laborable, con la de hoy resaltada. El plan ya no sale hasta el fondo de la pantalla — es lo primero y lo único que se ve.',
+        'Cada prueba se puede mover de día arrastrándola (mantén pulsado, también con el dedo) o con el teclado. Al moverla se recorre su preacondicionamiento, y si el reposo no cabe la app se niega DICIENDO por qué y qué días sí se puede.',
+        'El hueco entre preacondicionar y probar ya no es un supuesto fijo de 12 h: sale de las horas de reposo reales. Con 36 h la prueba cae dos días después, y la semana ofrece 3 pares en vez de 4.',
+        'Ya se puede DESACEPTAR un plan. Antes borrar era el único camino, y borrar se llevaba las palomitas puestas a mano.',
+        'La palomita manual deja registro permanente, marcado como "declarada a mano": sobrevive aunque borres el plan, y nunca se disfraza de liberación real. La cobertura muestra verificadas y declaradas por separado.',
+        'Sustituir por una variante compatible (mismo modelo/motor/transmisión/año/norma/región, distinto rin, carrocería o paquete) ya se hace desde la tarjeta.',
+        'Enfoque de la semana de un toque: 🇪🇺 Europa · 🇺🇸 USA · Prioridad · Todo. La propuesta en vivo se reordena al instante y ya no queda tapada por el encabezado al bajar.',
+        'HOY dejó de dictar el día con un plan de hace tres semanas: ahora pregunta por la semana en curso, y si no hay plan lo dice y ofrece armarla.'
+    ] },
     { version: '19.1', date: '26 ago 2026', title: 'Familias de interpolación del WVTA', bullets: [
         'El CoP ya reconoce la familia de interpolación (IP), que es la agrupación oficial en Europa: la declara el certificado de homologación por variante y versión. Se lee pegando el texto del WVTA — no hay que teclear familia por familia.',
         'Probado contra un certificado real (e4*2018/858*00261*00, tipo CL4m / K4): las 5 familias salen con sus variantes, versiones, masas TML/TMH y rango de CO₂ exactamente como los declara el documento.',
@@ -2539,48 +2549,46 @@ function dashCollectActivities() {
     // v20 — ANTES: tomaba el último plan aceptado SIN mirar su fecha y lo cruzaba contra el
     // nombre del día de hoy. Un plan aceptado hace tres semanas seguía dictando qué se prueba
     // este martes, para siempre, y por eso HOY pedía vehículos que ya se habían probado.
-    // AHORA: solo cuenta el plan aceptado cuya semana es la EN CURSO. Si no hay, no se
-    // inventa nada — se ofrece armarla.
-    if (typeof tpState !== 'undefined' && tpState.weeklyPlans) {
-        // _tpMonday recibe y devuelve un Date; weekDate es 'YYYY-MM-DD'. Se normaliza con
-        // _tpFmtDate para comparar cadenas, no objetos.
-        var _hoyMon = null;
-        try {
-            if (typeof _tpMonday === 'function' && typeof _tpFmtDate === 'function') {
-                _hoyMon = _tpFmtDate(_tpMonday(new Date()));
-            }
-        } catch (e) { _hoyMon = null; }
-        var planIdx = -1;
-        for (var pi = tpState.weeklyPlans.length - 1; pi >= 0; pi--) {
-            var _pl = tpState.weeklyPlans[pi];
-            if (!_pl || !_pl.accepted || !_pl.items) continue;
-            // Sin weekDate no se puede afirmar de qué semana es: no se usa (los planes de
-            // v20 en adelante siempre lo traen; los viejos sin fecha quedan fuera a propósito).
-            if (!_pl.weekDate || !_hoyMon || _pl.weekDate !== _hoyMon) continue;
-            planIdx = pi; break;
-        }
-        if (planIdx < 0) {
-            var _hayAceptado = tpState.weeklyPlans.some(function(p) { return p && p.accepted; });
-            if (_hayAceptado) {
+    // AHORA esta pantalla ya no rebusca en `weeklyPlans` por su cuenta —
+    // `tpWeekBoardRows()` es LA definición del estado de la semana (semana EN CURSO por
+    // default, soak resuelto, vehículo vivo y semáforo incluidos) y aquí solo se consume.
+    // Antes cada pantalla tenía su propio criterio y por eso HOY podía dictar el día con
+    // un plan de hace tres semanas.
+    if (typeof tpWeekBoardRows === 'function') {
+        var _b = null;
+        try { _b = tpWeekBoardRows({}); } catch (e) { _b = null; }
+        if (_b && !_b.plan) {
+            if ((tpState.weeklyPlans || []).length > 0) {
                 acts.push({ id: 'act-plan-nowk', cat: 'plan', icon: '📅',
-                    title: 'No hay plan aceptado para esta semana',
-                    meta: 'El último plan aceptado es de otra semana — no se usa para decidir qué toca hoy.',
+                    title: 'No hay plan para esta semana',
+                    meta: 'El último plan es de otra semana — no se usa para decidir qué toca hoy.',
                     status: 'pendiente', urgency: 1,
                     action: { label: '🎛️ Armar semana', js: "switchPlatform('testplan');if(typeof tpSwitchTab==='function')tpSwitchTab('tp-weekly');" } });
             }
-        }
-        if (planIdx >= 0) {
+        } else if (_b && _b.plan) {
             var hoyKey = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'][new Date().getDay()];
-            tpState.weeklyPlans[planIdx].items.forEach(function(item, ii) {
-                var isTest = item.testDay === hoyKey, isPre = item.preconDay === hoyKey;
+            _b.rows.forEach(function(row) {
+                var isTest = row.testDay === hoyKey, isPre = row.preconDay === hoyKey;
                 if (!isTest && !isPre) return;
-                acts.push({ id: 'act-plan-' + ii + (isTest ? 't' : 'p'), cat: 'plan', icon: isTest ? '🏭' : '🔧',
-                    title: (isTest ? 'Prueba' : 'Preacondicionamiento') + ': ' + ((item.mod || '') + ' ' + (item.reg || '')).trim(),
-                    meta: (item.desc || '') + (item.tier ? ' · P' + item.tier : ''),
-                    status: item.completed ? 'hecho' : 'pendiente',
-                    urgency: item.completed ? 0 : 2,
-                    checkbox: { js: 'tpToggleWeeklyItem(' + planIdx + ',' + ii + ');dailyDashRender();', checked: !!item.completed },
-                    action: { label: '▶ Iniciar', js: "switchPlatform('testplan')" } });
+                // El semáforo viene de `tpWeekItemRisk`, no se recalcula aquí: un solo
+                // criterio de riesgo en toda la plataforma.
+                var motivo = row.risk.reasons.length ? row.risk.reasons[0].text : '';
+                acts.push({
+                    id: 'act-plan-' + row.itemIdx + (isTest ? 't' : 'p'), cat: 'plan',
+                    icon: isTest ? '🏭' : '🔧',
+                    title: (isTest ? 'Prueba' : 'Preacondicionamiento') + ': ' + (row.shortName || row.desc),
+                    meta: (row.variantTag ? row.variantTag + ' · ' : '') +
+                          (row.moved ? '↪ movida · ' : '') +
+                          // Un plan sin aceptar SÍ se muestra —el técnico necesita saber qué
+                          // hay agendado hoy— pero se dice que aún es propuesta.
+                          (_b.accepted ? '' : '⏳ propuesta sin aceptar · ') +
+                          (motivo || (row.soakHours + ' h de reposo')),
+                    status: row.done ? 'hecho' : (row.risk.level === 'riesgo' ? 'atrasado' : row.state === 'encurso' ? 'encurso' : 'pendiente'),
+                    urgency: row.done ? 0 : (row.risk.level === 'riesgo' ? 3 : 2),
+                    checkbox: { js: 'tpToggleWeeklyItem(' + row.planIdx + ',' + row.itemIdx + ');dailyDashRender();', checked: row.done },
+                    action: { label: '📅 Mi semana', js: "switchPlatform('testplan');if(typeof tpSwitchTab==='function')tpSwitchTab('tp-myweek');" },
+                    action2: { label: '↪ Mover', js: 'tpWeekMoveMenu(' + row.planIdx + ',' + row.itemIdx + ')' }
+                });
             });
         }
     }
@@ -2717,13 +2725,19 @@ function dashCollectActivities() {
         try {
             pnGetActiveAlerts().forEach(function(a, ai) {
                 if (a.source === 'Inventario' || a.source === 'Consumo' || a.source === 'Mantenimiento' || a.source === 'Proyectos') return;
-                var cat = a.source === 'Test Plan' ? 'plan' : a.source === 'CoP SPC' ? 'calidad' : null;
+                // v20: 'Test Plan' también sale del pase de alertas. Sus dos mensajes
+                // ("no hay plan para la semana en curso" y "N pruebas en riesgo") se
+                // derivan de tpWeekBoardRows, que el punto 3 ya recorrió tarjeta por
+                // tarjeta con su motivo concreto: repetirlos aquí es decir dos veces lo
+                // mismo, una de ellas sin decir cuál prueba.
+                if (a.source === 'Test Plan') return;
+                var cat = a.source === 'CoP SPC' ? 'calidad' : null;
                 if (a.source === 'COP15') { if (a.level !== 'CRITICA') return; cat = 'calidad'; }
                 if (!cat) return;
                 acts.push({ id: 'act-al-' + ai, cat: cat, icon: '🚨', title: a.message, meta: a.source,
                     status: a.level === 'CRITICA' ? 'atrasado' : 'pendiente',
                     urgency: a.level === 'CRITICA' ? 3 : 2,
-                    action: { label: 'Revisar', js: a.source === 'Test Plan' ? "switchPlatform('testplan')" : a.source === 'CoP SPC' ? "switchPlatform('cop')" : "switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-alerts');" } });
+                    action: { label: 'Revisar', js: a.source === 'CoP SPC' ? "switchPlatform('cop')" : "switchPlatform('panel');if(typeof pnSwitchTab==='function')pnSwitchTab('pn-alerts');" } });
             });
         } catch (e) {}
     }
