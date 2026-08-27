@@ -977,6 +977,16 @@ las dos, no una:
   regulaciones sin perfil son SELECCIONABLES en la cascada (⚡ EVs `220V`/`120V`/`EV` vía
   `_isEVRegulation`, ⚠ resto); celda de regulación vacía se autorrellena (`_normalizeRegulation`
   en cop15.js, reutilizada por `tpImportPlanCSV`): motor en KW → `EV`, si no → `N/A`.
+  **Trampa confirmada (ago-2026): son DOS catálogos independientes.** `tpImportPlanCSV` (Plan →
+  Producción) solo escribe `tpState.planData` — un modelo nuevo (ej. `CL4MH`) puede aparecer ahí
+  con déficit y `required>0` y SEGUIR sin poder darse de alta en Pruebas, porque la cascada de
+  Alta lee `allConfigurations` (= `CSV_CONFIGURATIONS` + manuales), que el import de producción
+  NUNCA toca. Cuando llegue un modelo/variante que no exista en `CSV_CONFIGURATIONS`, hay que
+  agregarlo ahí a mano (mismas 12 columnas, sin `codigo_config` ni columnas de mes) — comparar
+  `Array.from(new Set(allConfigurations.map(c=>c.Modelo)))` contra los modelos del CSV de
+  producción para encontrar el hueco. El texto de `codigo_config_text` debe copiarse VERBATIM del
+  CSV de producción (mismo orden de campos, misma capitalización) para que calce byte a byte con
+  `tpState.planData[].desc` — regenerarlo con otra lógica crea dos identidades para la misma config.
 - **Identidad de un vehículo (v17.12)**: `vehicle.id` debe ser único ENTRE DISPOSITIVOS —
   `nextVehicleId()` (app.js) es la única forma válida de emitir uno; nunca volver a usar
   `++db.lastId` (era un contador local y el sync fusiona por VIN conservando el id de origen, así
