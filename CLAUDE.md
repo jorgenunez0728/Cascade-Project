@@ -900,6 +900,36 @@ greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya n
   excepción que señalar a diario. El dato vive en `moves[]`, la auditoría, el menú ⋯ y el
   `title` del asa. No volver a agregarlo a `marcas`.
 
+## v20.5 — Panorama: ocultar familias y Gantt de progreso semanal
+
+- **`copState.ovHidden`** = `{familyKey: true}`, estado de UI POR DISPOSITIVO (se agregó a la
+  misma lista de exclusión de `fbPullApply` que `view`/`region`/`ovFilter`/`spc` — v19.0: "gana
+  el local"). `copHideFamily`/`copShowFamily`/`copShowAllFamilies` son los únicos mutadores.
+  **Ocultar es declutter de la lectura, NUNCA del tracking**: `copPortfolioRows()` (KPIs,
+  `pnGetActiveAlerts`, SPC) sigue viendo TODAS las familias — el filtro por `ovHidden` vive
+  solo dentro de `copBuildOverviewHTML()`, al construir `visible`/`hidden` a partir de `shown`.
+- **`_copFamCardHTML` pasó de `<button>` a `<div onclick=...>`** porque ahora lleva un
+  `<button>` real anidado (🙈 ocultar, con `event.stopPropagation()`) — un `<button>` no puede
+  contener otro. El teclado lo sigue manejando igual: `a11yClickables()` (ya se llama al final
+  de `copRender()`) le pone `role="button"`/`tabindex` y el listener global de Enter/Espacio de
+  app.js hace el resto. Patrón ya usado en otras filas clicables de la app (`event.
+  stopPropagation()` en un botón anidado) — no es nuevo, solo su primer uso en una tarjeta CoP.
+- **`tpFamilyWeeklyProgress(familyKey)`** (testplan.js) es LA definición de "qué semanas del
+  plan tocan a esta familia": recorre `tpState.weeklyPlans` (vivo — las semanas aceptadas se
+  quedan ahí, nunca se mudan a `weekHistory` solamente), resuelve cada item a su config vía
+  `tpState.planData` (mismo patrón que `tpWeekBoardRows`, porque un item de un plan viejo solo
+  trae `desc` + un puñado de campos) y agrupa por `tpFamilyKeyForCfg`. Devuelve `done`
+  (completed, separado en `verified`/`declared`) y `planned` (sin completar todavía) por
+  semana — **no reconcilia esto con `planTested`/cobertura** (que cuenta TODO `testedList`,
+  incluida evidencia fuera de cualquier plan semanal): es a propósito una lente más angosta,
+  "según lo que pasó por Mi semana".
+- **`_copFamilyGanttHTML(rows)`** (cop_validator.js) consume lo anterior para las familias
+  `visible` (no ocultas) del Panorama: eje de semanas COMPARTIDO entre todas las filas (unión
+  de fechas con actividad, tope 12 columnas, se queda con las más recientes/próximas), y la
+  columna final "En el Plan" suma sobre el arreglo COMPLETO de `tpFamilyWeeklyProgress` (sin el
+  tope de 12), no solo lo visible, para que el total/pendiente no se lea mal cuando hay más de
+  12 semanas de historia. No guarda nada — se recalcula en cada render de `copBuildOverviewHTML`.
+
 ## v20.4 — Catálogo de configuraciones actualizado a producción
 
 - **`CSV_CONFIGURATIONS` (`js/app.js`) se reemplazó con el CSV de producción más reciente**:

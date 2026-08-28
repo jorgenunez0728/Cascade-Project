@@ -1261,6 +1261,29 @@ function copSetOvFilter(what, val) {
     copPersist();
     copRender();
 }
+
+// [v20.5] Ocultar/mostrar familias del Panorama — declutter, no tracking: la
+// familia sigue en copPortfolioRows() (KPIs, alertas, SPC), solo se retira de la
+// retícula y del Gantt de esta pantalla. Estado de UI POR DISPOSITIVO a propósito
+// (mismo criterio que view/region/ovFilter/spc en fbPullApply): lo que un técnico
+// decide esconder para su propia lectura del tablero no debe saltarle al resto.
+function copHideFamily(key) {
+    if (!key) return;
+    copState.ovHidden = copState.ovHidden || {};
+    copState.ovHidden[key] = true;
+    copPersist();
+    copRender();
+}
+function copShowFamily(key) {
+    if (copState.ovHidden) delete copState.ovHidden[key];
+    copPersist();
+    copRender();
+}
+function copShowAllFamilies() {
+    copState.ovHidden = {};
+    copPersist();
+    copRender();
+}
 /** Modo presentación: sube la escala SOLO dentro del CoP (body.cop-present). */
 function copTogglePresent() {
     copState.present = !copState.present;
@@ -1633,6 +1656,24 @@ function copBuildOverviewHTML() {
         return true;
     });
 
+    // [v20.5] Ocultar/mostrar — declutter de la LECTURA, no del tracking: una
+    // familia oculta se sigue contando en los KPIs de arriba (que usan `rows`, no
+    // `visible`) y en alertas/SPC; solo desaparece de la retícula y del Gantt.
+    var hiddenSet = copState.ovHidden || {};
+    var visible = shown.filter(function(r) { return !hiddenSet[r.key]; });
+    var hidden = shown.filter(function(r) { return hiddenSet[r.key]; });
+
+    if (hidden.length) {
+        html += '<details class="cop-hidden-strip"><summary>🙈 ' + hidden.length + ' familia(s) oculta(s) — siguen contando en KPIs y alertas' +
+                '<button type="button" class="btn btn-sm btn-ghost" style="margin-left:10px;" onclick="event.preventDefault();copShowAllFamilies()">Mostrar todas</button></summary>';
+        html += '<div class="cop-hidden-chips">';
+        hidden.forEach(function(r) {
+            html += '<button type="button" class="cop-chip cop-chip--none" onclick="copShowFamily(\'' +
+                    _copEsc(r.key).replace(/'/g, '&#39;') + '\')" title="Mostrar de nuevo">' + _copEsc(r.label) + ' ✕</button>';
+        });
+        html += '</div></details>';
+    }
+
     if (!rows.length) {
         html += '<div class="cop-note cop-note--warn"><div class="cop-note-title">Aún no hay familias en el alcance CoP</div>' +
                 'El alcance vigente es ' + _copEsc(copScope().regulations.join(', ')) + ' en ' + _copEsc(copScope().regions.join(' y ')) + '. ' +
@@ -1640,9 +1681,13 @@ function copBuildOverviewHTML() {
     } else if (!shown.length) {
         html += '<div class="cop-note">Ninguna familia coincide con el filtro. ' +
                 '<button type="button" class="btn btn-sm btn-ghost" onclick="copSetOvFilter(\'risk\',\'\')">Quitar filtro</button></div>';
+    } else if (!visible.length) {
+        html += '<div class="cop-note">Todas las familias que coinciden con el filtro están ocultas. ' +
+                '<button type="button" class="btn btn-sm btn-ghost" onclick="copShowAllFamilies()">Mostrar todas</button></div>';
     } else {
+        html += _copFamilyGanttHTML(visible);
         html += '<div class="cop-fam-grid">';
-        shown.forEach(function(r) { html += _copFamCardHTML(r); });
+        visible.forEach(function(r) { html += _copFamCardHTML(r); });
         html += '</div>';
     }
 
@@ -1791,9 +1836,17 @@ function copBuildDossierHTML() {
 /** Una tarjeta de familia del Panorama. */
 function _copFamCardHTML(r) {
     var vu = _copVerdictUI(r.verdict), ru = _copRiskUI(r.risk.level);
-    var html = '<button type="button" class="cop-fam-card cop-fam-card--' + ru.cls + '" ' +
-               'onclick="copOpenFamily(\'' + _copEsc(r.key).replace(/'/g, '&#39;') + '\')" ' +
+    var keyEsc = _copEsc(r.key).replace(/'/g, '&#39;');
+    // div, no <button>: necesita un <button> real anidado adentro (ocultar) y un
+    // <button> no puede contener otro. a11yClickables()/el listener global de
+    // Enter-Espacio (app.js) le dan el mismo comportamiento de teclado que un botón.
+    var html = '<div class="cop-fam-card cop-fam-card--' + ru.cls + '" ' +
+               'onclick="copOpenFamily(\'' + keyEsc + '\')" ' +
                'aria-label="Abrir familia ' + _copEsc(r.label) + '">';
+
+    html += '<button type="button" class="cop-fam-hide-btn" title="Ocultar ' + _copEsc(r.label) + ' del Panorama (sigue contando en KPIs y alertas)" ' +
+            'aria-label="Ocultar familia ' + _copEsc(r.label) + '" ' +
+            'onclick="event.stopPropagation();copHideFamily(\'' + keyEsc + '\')">🙈</button>';
 
     html += '<div class="cop-fam-head">';
     html += '<div><div class="cop-fam-title">' + _copEsc(r.label) + '</div>';
@@ -1829,7 +1882,101 @@ function _copFamCardHTML(r) {
     html += '</div>';
 
     html += '<div class="cop-fam-reason">' + _copEsc(r.risk.reasons[0].text) + '</div>';
-    return html + '</button>';
+    return html + '</div>';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v20.5] GANTT DE PANORAMA — cruza el plan (Mi semana) con las familias que se
+// están mostrando (no ocultas) para responder "¿cuándo se completan los vehículos
+// que le faltan a esta familia?". Se deriva de tpFamilyWeeklyProgress() en cada
+// render — no guarda nada, así que una semana que se mueve o se sustituye en Mi
+// semana se refleja aquí solo (nada que resincronizar).
+//
+// A propósito NO pretende reconciliar esto con `planTested`/cobertura (que cuentan
+// TODO testedList, incluida evidencia fuera de cualquier plan semanal): esta es
+// la lectura "según lo programado en el Plan", una lente distinta y más angosta.
+// ═══════════════════════════════════════════════════════════════════════════════
+function _copFamilyGanttHTML(rows) {
+    if (typeof tpFamilyWeeklyProgress !== 'function') return '';
+    var data = rows.map(function(r) {
+        return { row: r, weeks: tpFamilyWeeklyProgress(r.key) };
+    }).filter(function(d) { return d.weeks.length; });
+
+    var card = '<div class="card" style="margin-bottom:16px;">' +
+        '<div class="card-title" data-help="cop-gantt-help">📅 Progreso semanal — familias mostradas</div>';
+
+    if (!data.length) {
+        return card + '<p class="label-title" style="margin:0;">Ninguna de las familias que se muestran tiene actividad programada en Plan → Mi semana todavía.</p></div>';
+    }
+
+    // Eje de semanas COMPARTIDO: unión de fechas con actividad en cualquier familia
+    // mostrada, para que todas las filas se lean en la misma columna de calendario.
+    var weekSet = {};
+    data.forEach(function(d) { d.weeks.forEach(function(w) { weekSet[w.weekDate] = true; }); });
+    var allWeeks = Object.keys(weekSet).sort();
+    var MAX_COLS = 12;
+    var weekDates = allWeeks.length > MAX_COLS ? allWeeks.slice(-MAX_COLS) : allWeeks;
+
+    function weekLabel(iso) {
+        var d = new Date(iso + 'T00:00:00');
+        if (isNaN(d.getTime())) return iso;
+        var end = new Date(d); end.setDate(d.getDate() + 6);
+        var fmt = function(x) { return String(x.getDate()).padStart(2, '0') + '/' + String(x.getMonth() + 1).padStart(2, '0'); };
+        return fmt(d) + '–' + fmt(end);
+    }
+    var todayMon = (typeof _tpMonday === 'function' && typeof _tpFmtDate === 'function') ? _tpFmtDate(_tpMonday(new Date())) : null;
+
+    var html = card;
+    if (allWeeks.length > MAX_COLS) {
+        html += '<p class="label-title" style="margin:0 0 10px;">Mostrando las ' + MAX_COLS + ' semanas más recientes/próximas de ' + allWeeks.length + ' con actividad.</p>';
+    }
+    html += '<div class="cop-gantt-scroll"><table class="cop-gantt">';
+    html += '<thead><tr><th class="cop-gantt-fam">Familia</th>';
+    weekDates.forEach(function(wd) {
+        html += '<th class="cop-gantt-wk' + (wd === todayMon ? ' cop-gantt-wk--now' : '') + '">' + weekLabel(wd) + '</th>';
+    });
+    html += '<th class="cop-gantt-total">En el Plan</th></tr></thead><tbody>';
+
+    data.forEach(function(d) {
+        var r = d.row;
+        var byWeek = {};
+        d.weeks.forEach(function(w) { byWeek[w.weekDate] = w; });
+        var totalDone = d.weeks.reduce(function(a, w) { return a + w.done; }, 0);
+        var totalPlanned = d.weeks.reduce(function(a, w) { return a + w.planned; }, 0);
+        var required = r.planRequired || 0;
+        var pending = Math.max(0, required - totalDone);
+
+        html += '<tr>';
+        html += '<td class="cop-gantt-fam"><button type="button" class="cop-gantt-fam-btn" onclick="copOpenFamily(\'' +
+                _copEsc(r.key).replace(/'/g, '&#39;') + '\')">' + _copEsc(r.label) + '</button>' +
+                '<div class="cop-gantt-fam-sub">' + (required ? ('requiere ' + required) : 'sin cuota vigente') + '</div></td>';
+
+        weekDates.forEach(function(wd) {
+            var w = byWeek[wd];
+            if (!w) { html += '<td class="cop-gantt-cell cop-gantt-cell--empty"></td>'; return; }
+            var parts = [];
+            if (w.verified) parts.push('<span class="cop-gantt-n cop-gantt-n--verified">' + w.verified + '</span>');
+            if (w.declared) parts.push('<span class="cop-gantt-n cop-gantt-n--declared">' + w.declared + '</span>');
+            if (w.planned) parts.push('<span class="cop-gantt-n cop-gantt-n--planned">' + w.planned + '</span>');
+            var title = w.verified + ' verificado(s) · ' + w.declared + ' declarado(s) · ' + w.planned +
+                        ' programado(s) sin correr — semana ' + weekLabel(wd);
+            html += '<td class="cop-gantt-cell" title="' + _copEsc(title) + '">' + parts.join('') + '</td>';
+        });
+
+        html += '<td class="cop-gantt-total-cell">' + totalDone + (required ? (' / ' + required) : '') +
+                (pending ? '<div class="cop-gantt-pending">faltan ' + pending + '</div>' : (required ? '<div class="cop-gantt-done-tag">✓ cumplida</div>' : '')) +
+                (totalPlanned ? '<div class="cop-gantt-fam-sub">+' + totalPlanned + ' programado(s)</div>' : '') +
+                '</td>';
+        html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    html += '<div class="cop-gantt-legend"><span><span class="cop-gantt-n cop-gantt-n--verified">n</span> verificado</span>' +
+            '<span><span class="cop-gantt-n cop-gantt-n--declared">n</span> declarado (sin evidencia aún)</span>' +
+            '<span><span class="cop-gantt-n cop-gantt-n--planned">n</span> programado, todavía sin correr</span>' +
+            '<span>"En el Plan" cuenta solo lo que pasó por Mi semana — puede no coincidir con la cobertura total si hubo evidencia capturada fuera del plan.</span></div>';
+    html += '</div>';
+    return html;
 }
 
 // ─── HTML: PÁGINA COMPLETA (Panorama | Validador | Control SPC | Expediente) ──
@@ -2595,6 +2742,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'cop-present-help': { title: 'Modo presentación', text: 'Agranda letras, tarjetas y tablas solo dentro del CoP, para proyectar en una sala sin tocar el tamaño con el que los técnicos usan la app en el celular. Se apaga con el mismo botón.' },
     'cop-scope-help': { title: 'Alcance del CoP', text: 'El laboratorio hace Conformidad de Producción sobre EURO-5, EURO-6E y PRE-EURO 7 en las regiones EUROPE y MIDDLE EAST. El resto del catálogo se prueba, pero no entra al juicio de conformidad — aquí se listan esas configuraciones para que quede claro qué NO cubre esta pantalla.' },
     'cop-dossier-help': { title: 'Expediente de familia', text: 'La cronología completa de una familia: qué se ensayó, cuándo, qué juicios se emitieron y qué alarmas de control saltaron. Se deriva de los datos existentes — no es una bitácora que alguien tenga que llenar.' },
+    'cop-gantt-help': { title: 'Progreso semanal', text: 'Cruza Plan → Mi semana con las familias que se están mostrando aquí (usa 🙈 en una tarjeta para ocultarla de esta pantalla sin sacarla del seguimiento). Cada celda es una semana: verde = verificado, ámbar = declarado sin evidencia, gris = programado y aún sin correr. Sirve para ver de un vistazo cuándo se completan los vehículos que le faltan a cada familia — útil para mostrar avance a gerencia.' },
     'cop-strip-help': { title: 'Veredicto por mes', text: 'Qué veredicto estaba vigente al cierre de cada mes, según el último juicio emitido hasta esa fecha. Un mes en gris significa que ese mes no había juicio emitido: nunca se pinta verde por omisión.' }
 });
 

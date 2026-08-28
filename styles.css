@@ -3859,6 +3859,7 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
     gap: var(--space-md);
 }
 .cop-fam-card {
+    position: relative;
     background: var(--surface); border: 1px solid var(--border);
     border-left: 4px solid var(--border-strong);
     border-radius: var(--radius-lg); padding: var(--space-md);
@@ -3873,6 +3874,53 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .cop-fam-card--bad  { border-left-color: var(--danger-fill); }
 .cop-fam-card--none { border-left-color: var(--border-strong); }
 .cop-fam-head { display: flex; align-items: flex-start; gap: 8px; justify-content: space-between; }
+
+/* [v20.5] Ocultar familia — botón discreto en la esquina, visible al pasar el
+   mouse; siempre visible en touch (no hay hover) para que no quede escondido. */
+.cop-fam-hide-btn {
+    position: absolute; top: 8px; right: 8px; z-index: 1;
+    width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--surface); cursor: pointer; font-size: 13px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.15s ease, background 0.15s ease;
+}
+.cop-fam-card:hover .cop-fam-hide-btn,
+.cop-fam-hide-btn:focus-visible { opacity: 1; }
+.cop-fam-hide-btn:hover { background: var(--surface-alt); }
+@media (hover: none) { .cop-fam-hide-btn { opacity: 0.7; } }
+
+.cop-hidden-strip {
+    margin-bottom: var(--space-md); border: 1px dashed var(--border); border-radius: var(--radius-lg);
+    padding: 8px 12px; font-size: var(--fs-sm); color: var(--muted); background: var(--surface-alt);
+}
+.cop-hidden-strip summary { cursor: pointer; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.cop-hidden-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cop-hidden-chips button.cop-chip { cursor: pointer; }
+
+/* ── [v20.5] Gantt de progreso semanal (Panorama) ─────────────────────────── */
+.cop-gantt-scroll { overflow-x: auto; }
+.cop-gantt { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); }
+.cop-gantt th, .cop-gantt td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap; }
+.cop-gantt thead th { color: var(--muted); font-weight: 700; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.4px; }
+.cop-gantt th.cop-gantt-fam, .cop-gantt td.cop-gantt-fam { text-align: left; position: sticky; left: 0; background: var(--surface); min-width: 160px; }
+.cop-gantt-wk--now { color: var(--accent-cop); }
+.cop-gantt-fam-btn { background: none; border: none; padding: 0; font: inherit; font-weight: 700; color: var(--text); cursor: pointer; text-align: left; }
+.cop-gantt-fam-btn:hover { text-decoration: underline; }
+.cop-gantt-fam-sub { font-size: var(--fs-xs); color: var(--muted); }
+.cop-gantt-cell { min-width: 56px; }
+.cop-gantt-cell--empty { color: var(--border); }
+.cop-gantt-n {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px;
+    border-radius: 50%; font-size: var(--fs-xs); font-weight: 800; margin: 0 1px; padding: 0 2px;
+}
+.cop-gantt-n--verified { background: var(--ok-bg); color: var(--ok-text); }
+.cop-gantt-n--declared { background: var(--warn-bg); color: var(--warn-text); }
+.cop-gantt-n--planned  { background: var(--surface-alt); color: var(--muted); border: 1px dashed var(--border); }
+.cop-gantt-total-cell { text-align: right; font-weight: 700; }
+.cop-gantt-pending { font-size: var(--fs-xs); color: var(--warning); font-weight: 600; }
+.cop-gantt-done-tag { font-size: var(--fs-xs); color: var(--success); font-weight: 600; }
+.cop-gantt-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: var(--fs-xs); color: var(--muted); align-items: center; }
+.cop-gantt-legend > span { display: flex; align-items: center; gap: 4px; }
 .cop-fam-title {
     font-size: var(--fs-sm); font-weight: var(--weight-bold); color: var(--text);
     line-height: var(--lh-tight);

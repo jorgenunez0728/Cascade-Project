@@ -2,6 +2,26 @@
 
 All notable changes to this project, organized by development round.
 
+## v20.5 — Panorama: ocultar familias y Gantt de progreso semanal (2026-08-28)
+
+Dos pedidos del laboratorio para preparar la pantalla del CoP antes de proyectarla en una
+junta de gerencia:
+
+- **🙈 Ocultar familia** en cada tarjeta del Panorama — declutter de la LECTURA, no del
+  tracking: la familia oculta se sigue contando en los KPIs de arriba, en alertas y en SPC;
+  solo desaparece de la retícula y del Gantt de esta pantalla. Estado por dispositivo a
+  propósito (mismo criterio que `view`/`region`/`ovFilter` — no se sincroniza entre equipos),
+  con una franja plegable "N familia(s) oculta(s)" para restaurarlas una por una o todas
+  juntas.
+- **📅 Progreso semanal (Gantt)**: nueva tarjeta en Panorama, arriba de la retícula, que
+  cruza Plan → Mi semana con las familias que se están mostrando (después de ocultar las que
+  no interesan). Una fila por familia, una columna por semana con actividad; cada celda
+  muestra cuántos vehículos se verificaron, se declararon o siguen programados sin correr esa
+  semana, y la columna final compara el total contra la cuota vigente de la familia. Responde
+  justo la pregunta que se hacía a mano: "si a esta familia le faltan 3, ¿cuándo se van a
+  completar según lo que ya está en el plan?" — sin guardar nada nuevo, se deriva del plan en
+  cada render.
+
 ## v20.4 — Catálogo de configuraciones actualizado a producción (2026-08-27)
 
 `CSV_CONFIGURATIONS` (`js/app.js`) se reemplazó con el CSV de producción más reciente: pasa de

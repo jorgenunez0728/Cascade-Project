@@ -1608,7 +1608,7 @@ function fbPullApply(collections, results, showFeedback) {
             // pantalla del CoP salte de vista y de familia porque otro técnico tocó la
             // suya, y en el peor caso pisa la mesa de trabajo local. Estos campos son
             // estado de UI POR DISPOSITIVO: siempre gana el local.
-            ['view', 'region', 'familyKey', 'familyLabel', 'vehicles', 'present', 'ovFilter', 'spc',
+            ['view', 'region', 'familyKey', 'familyLabel', 'vehicles', 'present', 'ovFilter', 'ovHidden', 'spc',
              'showTable', 'showFormula'].forEach(function(k) {
                 if (_localCop[k] !== undefined) _mergedCop[k] = _localCop[k];
                 else delete _mergedCop[k];
