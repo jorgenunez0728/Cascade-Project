@@ -6960,6 +6960,56 @@ function tpBuildFamilies() {
     return _tpCache.families;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v20.5] AVANCE SEMANAL POR FAMILIA — el Gantt de Panorama (CoP) lo consume
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// LA definición de "qué semanas del plan tocan a esta familia". Recorre
+// `tpState.weeklyPlans` (vivo: incluye semanas pasadas YA aceptadas — se quedan ahí,
+// nunca se mudan a otro lado — y semanas futuras propuestas), resuelve cada item a
+// su config completa vía `tpState.planData` (mismo patrón que `tpWeekBoardRows`,
+// porque un item de un plan viejo solo trae `desc` + un puñado de campos, no la
+// config completa) y agrupa por `tpFamilyKeyForCfg`. No inventa fechas ni required:
+// el llamador ya tiene `totalRequired` de `tpBuildFamilies()`/`copPortfolioRows()`.
+//
+/**
+ * @param {string} familyKey - misma clave que tpFamilyKeyForCfg()/copFamilies() usan.
+ * @returns {Array<{weekDate, done, verified, declared, planned, items}>} una fila por
+ *   semana con actividad (con items o planeada) para esa familia, ordenadas por fecha.
+ *   `done` = items marcados completed (verified+declared); `planned` = items de esa
+ *   semana aún sin completar (pronóstico, no promesa: puede moverse o sustituirse).
+ */
+function tpFamilyWeeklyProgress(familyKey) {
+    if (!familyKey || typeof tpFamilyKeyForCfg !== 'function') return [];
+    var planData = tpState.planData || [];
+    var cfgByDesc = {};
+    planData.forEach(function(c) { cfgByDesc[c.desc] = c; });
+
+    var rows = (tpState.weeklyPlans || [])
+        .filter(function(p) { return p && p.weekDate; })
+        .map(function(plan) {
+            var done = 0, verified = 0, declared = 0, planned = 0, items = [];
+            (plan.items || []).forEach(function(item) {
+                var cfg = cfgByDesc[item.desc] || item;
+                if (tpFamilyKeyForCfg(cfg) !== familyKey) return;
+                if (item.completed) {
+                    done++;
+                    if (item.declared) declared++; else verified++;
+                } else {
+                    planned++;
+                }
+                items.push({ desc: item.desc, testDay: item.testDay || null, completed: !!item.completed, declared: !!item.declared });
+            });
+            if (!items.length) return null;
+            return { weekDate: plan.weekDate, planId: (typeof tpPlanId === 'function') ? tpPlanId(plan) : null,
+                     done: done, verified: verified, declared: declared, planned: planned, items: items };
+        })
+        .filter(Boolean);
+
+    rows.sort(function(a, b) { return (a.weekDate || '').localeCompare(b.weekDate || ''); });
+    return rows;
+}
+
 function _tpExtractVin(note) {
     if (!note) return '';
     var m = String(note).match(/VIN:\s*([^\s—]+)/);

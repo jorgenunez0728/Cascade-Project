@@ -285,11 +285,15 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.4';
+var APP_VERSION = '20.5';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.5', date: '28 ago 2026', title: 'Panorama: ocultar familias y Gantt de progreso semanal', bullets: [
+        'Botón 🙈 en cada tarjeta del Panorama para ocultarla de esta pantalla sin sacarla del seguimiento (sigue en KPIs, alertas y SPC). Se puede restaurar una por una o todas juntas.',
+        'Nueva tarjeta "📅 Progreso semanal" arriba de la retícula: cruza Plan → Mi semana con las familias que se muestran y dice cuántos vehículos se verificaron/declararon/programaron por semana, comparado contra la cuota — pensado para mostrar avance a gerencia.'
+    ] },
     { version: '20.4', date: '27 ago 2026', title: 'Catálogo de configuraciones actualizado a producción', bullets: [
         'El catálogo embebido (CSV_CONFIGURATIONS) pasa de 173 a 248 configuraciones con el CSV de producción más reciente — 10 descontinuadas, 85 nuevas, incluida la familia CL4MH.',
         'Horneado en el código (no importado localmente) para que se vea igual en todos los dispositivos: el importador de la app guarda el CSV solo en el equipo donde se sube, sin sincronizar por Firebase.'
