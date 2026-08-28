@@ -900,6 +900,22 @@ greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya n
   excepción que señalar a diario. El dato vive en `moves[]`, la auditoría, el menú ⋯ y el
   `title` del asa. No volver a agregarlo a `marcas`.
 
+## v20.10 — Una semana, un plan (el Gantt contaba doble)
+
+- **`tpState.weeklyPlans` puede tener VARIOS planes de la misma `weekDate`** — cada
+  "Generar" empuja uno nuevo, así que lo normal es el aceptado + N propuestas viejas.
+  Todo consumidor que agregue por semana debe resolver el **plan vigente** primero:
+  el/los `accepted`, y si no hay ninguno, la propuesta con `created` más reciente.
+  `tpFamilyWeeklyProgress` ya lo hace y devuelve `proposal:true` cuando la semana no
+  tiene plan aceptado. Antes devolvía **una fila por plan**, así que el Gantt pintaba
+  la última (`byWeek[weekDate]` se sobrescribe) pero sumaba todas en el total.
+- **`tpDeleteWeeklyPlan` ya está expuesta** (🗑 por propuesta en `tpBuildWeekIndexHTML`).
+  Existía desde v20 sin ninguna UI que la llamara. Los planes aceptados no llevan botón:
+  la función ya redirigía a desaceptar primero, y esa validación se respeta en la vista.
+- Las filas de `tpBuildWeekIndexHTML` pasaron de `<button>` a `<div onclick>` porque
+  llevan un `<button>` anidado — mismo patrón (y misma razón) que `_copFamCardHTML` en
+  v20.5, con `a11yClickables(el)` al final de `tpRenderWeekly` para el teclado.
+
 ## v20.9 — El REQ es de la familia, por lotes de producción
 
 - **`tpFamilyRequired(vol)` (testplan.js) es LA definición del REQ de una familia** y todo

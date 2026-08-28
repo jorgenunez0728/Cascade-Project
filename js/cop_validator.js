@@ -2050,8 +2050,12 @@ function _copFamilyGanttHTML(rows) {
             if (w.declared) parts.push('<span class="cop-gantt-n cop-gantt-n--declared">' + w.declared + '</span>');
             if (w.planned) parts.push('<span class="cop-gantt-n cop-gantt-n--planned">' + w.planned + '</span>');
             var title = w.verified + ' verificado(s) · ' + w.declared + ' declarado(s) · ' + w.planned +
-                        ' programado(s) sin correr — semana ' + weekLabel(wd);
-            html += '<td class="cop-gantt-cell' + nowCls + '" title="' + _copEsc(title) + '">' + parts.join('') + '</td>';
+                        ' programado(s) sin correr — semana ' + weekLabel(wd) +
+                        (w.proposal ? ' · plan aún NO aceptado (propuesta)' : '');
+            // v20.10: una semana cuyo plan sigue siendo propuesta no es compromiso — se
+            // marca en vez de leerse igual que una semana aceptada.
+            html += '<td class="cop-gantt-cell' + nowCls + (w.proposal ? ' cop-gantt-cell--prop' : '') +
+                    '" title="' + _copEsc(title) + '">' + parts.join('') + '</td>';
         });
 
         // Barra de avance done/required — el número queda, la barra lo hace legible de lejos.
@@ -2073,6 +2077,7 @@ function _copFamilyGanttHTML(rows) {
             '<span><span class="cop-gantt-n cop-gantt-n--planned">n</span> programado, todavía sin correr</span>' +
             '<span><span class="cop-gantt-chip cop-gantt-chip--body">5DR</span> carrocería</span>' +
             '<span><span class="cop-gantt-chip cop-gantt-chip--pt">MILD HEV</span> tren motriz</span>' +
+            '<span><span class="cop-gantt-propdot"></span> semana con plan aún no aceptado</span>' +
             '<span>"En el Plan" cuenta solo lo que pasó por Mi semana — puede no coincidir con la cobertura total si hubo evidencia capturada fuera del plan.</span></div>';
     html += '</div>';
     return html;

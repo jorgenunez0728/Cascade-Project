@@ -2,6 +2,25 @@
 
 All notable changes to this project, organized by development round.
 
+## v20.10 — Una semana, un plan: el Gantt dejaba de contar doble (2026-08-28)
+
+El Gantt reportaba "+7 programado(s)" con 2 en la columna. Dos causas encimadas, ambas por
+lo mismo: **cada "Generar" crea un plan NUEVO**, así que una semana acumula el aceptado más
+todas las propuestas que se generaron antes.
+
+- **`tpFamilyWeeklyProgress` devolvía una fila por PLAN, no por SEMANA.** Seis planes de la
+  misma semana daban seis filas con la misma fecha: la columna mostraba solo la última
+  (`byWeek[weekDate]` se sobrescribe) pero el total las sumaba todas. Ahora agrupa por
+  semana y usa el **plan vigente**: el aceptado si lo hay, y si no la propuesta más
+  reciente, marcada como tal. Los borradores anteriores se descartan.
+- **Una semana cuyo plan sigue siendo propuesta se marca** (rayado sutil + leyenda): no es
+  compromiso todavía, y leerla igual que una semana aceptada era parte de la confusión.
+- **Ahora se pueden borrar las propuestas.** `tpDeleteWeeklyPlan` existía desde v20 pero
+  **no estaba expuesta en ninguna pantalla**: no había forma de limpiar los planes viejos
+  desde la app. Se agregó 🗑 en cada propuesta de Plan → 🗂 Semanas generadas (los planes
+  aceptados no lo llevan — hay que desaceptarlos primero, como ya validaba la función), más
+  un aviso que dice cuántas semanas tienen más de un plan.
+
 ## v20.9 — El REQ es de la familia, por lotes de producción (2026-08-28)
 
 El REQ de una familia se calculaba **sumando el REQ de cada configuración**, así que dos

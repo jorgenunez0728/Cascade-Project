@@ -4400,20 +4400,43 @@ function tpBuildWeekIndexHTML() {
             '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-myweek\')" style="font-size: var(--fs-xs);">📅 Abrir Mi semana</button></div>' +
             '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">El detalle de cada semana (días, tarjetas, mover, sustituir) vive en <strong>Mi semana</strong>.</p>' +
             '<div class="tp-week-index">';
+    // v20.10: cuántos planes hay por semana — "Generar" deja uno nuevo cada vez, así que
+    // una semana puede acumular el aceptado + varias propuestas viejas. Se avisa y se
+    // ofrece borrarlas: antes no había NINGUNA forma de hacerlo desde la app
+    // (tpDeleteWeeklyPlan existía pero no estaba expuesta en ninguna pantalla).
+    var _porSemana = {};
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        if (p && p.weekDate) _porSemana[p.weekDate] = (_porSemana[p.weekDate] || 0) + 1;
+    });
+
     planes.forEach(function(w) {
         var idx = tpState.weeklyPlans.indexOf(w);
         var items = w.items || [];
         var hechas = items.filter(function(i) { return i.completed; }).length;
         var pct = items.length ? Math.round(hechas / items.length * 100) : 0;
-        h += '<button class="tp-week-index-row" onclick="window._tpBoardWeek=' +
+        var dupe = !w.accepted && w.weekDate && _porSemana[w.weekDate] > 1;
+        // div, no <button>: lleva un <button> real anidado (borrar) y un botón no puede
+        // contener otro. a11yClickables() le da el rol y el teclado (patrón de v20.5).
+        h += '<div class="tp-week-index-row' + (dupe ? ' tp-week-index-row--dupe' : '') + '" onclick="window._tpBoardWeek=' +
              (w.weekDate ? "'" + w.weekDate + "'" : 'null') + ';tpSwitchTab(\'tp-myweek\')">' +
              '<span class="tp-week-index-date">' + (w.weekDate || String(w.created || '').slice(0, 10)) + '</span>' +
              '<span class="tp-week-index-tag">' + (w.accepted ? '✔ Aceptado' : '⏳ Propuesta') + '</span>' +
              '<span class="tp-week-index-n">' + hechas + '/' + items.length + ' · ' + pct + '%</span>' +
              '<span class="tp-week-index-bal">' + tpWeekRegionBalance(items) + '</span>' +
-             '</button>';
+             (w.accepted ? '' :
+                '<button type="button" class="tp-week-index-del" title="Eliminar esta propuesta" ' +
+                'aria-label="Eliminar la propuesta del ' + (w.weekDate || '') + '" ' +
+                'onclick="event.stopPropagation();tpDeleteWeeklyPlan(' + idx + ')">🗑</button>') +
+             '</div>';
     });
     h += '</div>';
+
+    var _dups = Object.keys(_porSemana).filter(function(k) { return _porSemana[k] > 1; });
+    if (_dups.length) {
+        h += '<p class="tp-week-index-note">⚠️ ' + _dups.length + ' semana(s) con más de un plan (cada "Generar" crea uno nuevo). ' +
+             'El tablero y el Gantt usan el aceptado — o la propuesta más reciente si no hay ninguno aceptado — ' +
+             'pero conviene borrar las propuestas que ya no sirven con 🗑.</p>';
+    }
     if ((tpState.weeklyPlans || []).length > 8) {
         h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:6px;">Se muestran las 8 más recientes de ' +
              tpState.weeklyPlans.length + '.</p>';
@@ -4603,6 +4626,10 @@ function tpRenderWeekly(el) {
     </div>
 
     ${tpBuildWeekIndexHTML()}`;
+
+    // v20.10: las filas del índice de semanas son <div onclick> (llevan el botón 🗑
+    // anidado), así que necesitan el rol y el teclado — mismo patrón que el tablero.
+    if (typeof a11yClickables === 'function') a11yClickables(el);
 
     // Primer pintado de la propuesta: doble RAF porque tpRenderWeekly ya corre dentro
     // del requestAnimationFrame de tabCacheSwitch — el nodo aún no está en pantalla.
@@ -7117,10 +7144,35 @@ function tpFamilyWeeklyProgress(familyKey) {
     var cfgByDesc = {};
     planData.forEach(function(c) { cfgByDesc[c.desc] = c; });
 
-    var rows = (tpState.weeklyPlans || [])
-        .filter(function(p) { return p && p.weekDate; })
-        .map(function(plan) {
-            var done = 0, verified = 0, declared = 0, planned = 0, items = [];
+    // [v20.10] UNA fila por SEMANA, no por plan. Generar deja un plan nuevo cada vez, así
+    // que una misma semana suele tener el aceptado + varias propuestas viejas; contarlos
+    // todos sumaba la misma semana varias veces e inflaba el total ("+7 programado" con 2
+    // en la columna). El plan VIGENTE de una semana es:
+    //   · el aceptado, si lo hay (es el compromiso; si hubiera más de uno, se suman —
+    //     es raro pero legítimo cuando se parte el plan de una semana en dos);
+    //   · si no, la propuesta MÁS RECIENTE, marcada `proposal:true` para que la UI pueda
+    //     distinguirla. Los borradores anteriores se descartan.
+    var porSemana = {};
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        if (!p || !p.weekDate) return;
+        var g = porSemana[p.weekDate] || (porSemana[p.weekDate] = { aceptados: [], propuestas: [] });
+        (p.accepted ? g.aceptados : g.propuestas).push(p);
+    });
+
+    var rows = Object.keys(porSemana).map(function(weekDate) {
+        var g = porSemana[weekDate];
+        var vigentes = g.aceptados;
+        var esPropuesta = false;
+        if (!vigentes.length) {
+            // La más reciente por fecha de creación (con el orden del arreglo como desempate).
+            vigentes = [g.propuestas.reduce(function(a, b) {
+                return String(b.created || '') >= String(a.created || '') ? b : a;
+            })];
+            esPropuesta = true;
+        }
+
+        var done = 0, verified = 0, declared = 0, planned = 0, items = [];
+        vigentes.forEach(function(plan) {
             (plan.items || []).forEach(function(item) {
                 var cfg = cfgByDesc[item.desc] || item;
                 if (tpFamilyKeyForCfg(cfg) !== familyKey) return;
@@ -7132,11 +7184,13 @@ function tpFamilyWeeklyProgress(familyKey) {
                 }
                 items.push({ desc: item.desc, testDay: item.testDay || null, completed: !!item.completed, declared: !!item.declared });
             });
-            if (!items.length) return null;
-            return { weekDate: plan.weekDate, planId: (typeof tpPlanId === 'function') ? tpPlanId(plan) : null,
-                     done: done, verified: verified, declared: declared, planned: planned, items: items };
-        })
-        .filter(Boolean);
+        });
+        if (!items.length) return null;
+        return { weekDate: weekDate,
+                 planId: (typeof tpPlanId === 'function') ? tpPlanId(vigentes[0]) : null,
+                 proposal: esPropuesta, plans: vigentes.length,
+                 done: done, verified: verified, declared: declared, planned: planned, items: items };
+    }).filter(Boolean);
 
     rows.sort(function(a, b) { return (a.weekDate || '').localeCompare(b.weekDate || ''); });
     return rows;
