@@ -3898,25 +3898,68 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .cop-hidden-chips button.cop-chip { cursor: pointer; }
 
 /* ── [v20.5] Gantt de progreso semanal (Panorama) ─────────────────────────── */
-.cop-gantt-scroll { overflow-x: auto; }
-.cop-gantt { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); }
-.cop-gantt th, .cop-gantt td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap; }
-.cop-gantt thead th { color: var(--muted); font-weight: 700; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.4px; }
-.cop-gantt th.cop-gantt-fam, .cop-gantt td.cop-gantt-fam { text-align: left; position: sticky; left: 0; background: var(--surface); min-width: 160px; }
-.cop-gantt-wk--now { color: var(--accent-cop); }
-.cop-gantt-fam-btn { background: none; border: none; padding: 0; font: inherit; font-weight: 700; color: var(--text); cursor: pointer; text-align: left; }
-.cop-gantt-fam-btn:hover { text-decoration: underline; }
-.cop-gantt-fam-sub { font-size: var(--fs-xs); color: var(--muted); }
-.cop-gantt-cell { min-width: 56px; }
-.cop-gantt-cell--empty { color: var(--border); }
-.cop-gantt-n {
-    display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px;
-    border-radius: 50%; font-size: var(--fs-xs); font-weight: 800; margin: 0 1px; padding: 0 2px;
+.cop-gantt-scroll {
+    overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg);
+    background: var(--surface);
 }
-.cop-gantt-n--verified { background: var(--ok-bg); color: var(--ok-text); }
-.cop-gantt-n--declared { background: var(--warn-bg); color: var(--warn-text); }
-.cop-gantt-n--planned  { background: var(--surface-alt); color: var(--muted); border: 1px dashed var(--border); }
-.cop-gantt-total-cell { text-align: right; font-weight: 700; }
+.cop-gantt { border-collapse: separate; border-spacing: 0; width: 100%; font-size: var(--fs-sm); }
+.cop-gantt th, .cop-gantt td {
+    padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap;
+}
+.cop-gantt tbody tr:last-child th, .cop-gantt tbody tr:last-child td { border-bottom: none; }
+.cop-gantt thead th {
+    position: sticky; top: 0; z-index: 2; background: var(--surface-alt);
+    color: var(--muted); font-weight: 700; font-size: var(--fs-xs);
+    text-transform: uppercase; letter-spacing: 0.4px;
+    border-bottom: 1.5px solid var(--border-strong);
+}
+/* La columna de familia se congela al hacer scroll horizontal: sin ella, a la
+   sexta semana ya no se sabe de qué fila se está leyendo el número. */
+.cop-gantt th.cop-gantt-fam, .cop-gantt td.cop-gantt-fam {
+    text-align: left; position: sticky; left: 0; z-index: 1;
+    background: var(--surface); min-width: 190px; max-width: 260px;
+    border-right: 1px solid var(--border); white-space: normal;
+}
+.cop-gantt thead th.cop-gantt-fam { z-index: 3; background: var(--surface-alt); }
+.cop-gantt tbody tr:nth-child(even) td { background: var(--surface-alt); }
+.cop-gantt tbody tr:nth-child(even) td.cop-gantt-fam { background: var(--surface-alt); }
+.cop-gantt tbody tr:hover td { background: var(--info-bg); }
+.cop-gantt tbody tr:hover td.cop-gantt-fam { background: var(--info-bg); }
+.cop-gantt-wk--now {
+    color: var(--accent-cop); position: relative;
+    box-shadow: inset 0 -3px 0 var(--accent-cop);
+}
+.cop-gantt-cell--nowcol { background: rgba(11, 92, 173, 0.05) !important; }
+.cop-gantt-fam-btn {
+    background: none; border: none; padding: 0; font: inherit; font-weight: 700;
+    color: var(--text); cursor: pointer; text-align: left; white-space: normal; line-height: var(--lh-tight);
+}
+.cop-gantt-fam-btn:hover { color: var(--accent-cop); text-decoration: underline; }
+.cop-gantt-fam-sub { font-size: var(--fs-xs); color: var(--muted); margin-top: 2px; }
+.cop-gantt-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.cop-gantt-chip {
+    display: inline-block; padding: 1px 7px; border-radius: 999px;
+    font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.2px; line-height: 1.5;
+}
+/* Carrocería y tren motriz con color propio: en este laboratorio son dos ejes
+   distintos (una 5DR y una WGN no se prueban juntas), no dos etiquetas más. */
+.cop-gantt-chip--body { background: var(--info-bg); color: var(--info-text); }
+.cop-gantt-chip--pt   { background: rgba(139, 92, 246, 0.14); color: #6d3fc4; }
+.cop-gantt-cell { min-width: 62px; }
+.cop-gantt-cell--empty::after { content: '·'; color: var(--border-strong); }
+.cop-gantt-n {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px;
+    border-radius: 50%; font-size: var(--fs-xs); font-weight: 800; margin: 0 1px; padding: 0 3px;
+}
+.cop-gantt-n--verified { background: var(--ok-fill);   color: #fff; }
+.cop-gantt-n--declared { background: var(--warn-fill); color: #fff; }
+.cop-gantt-n--planned  { background: var(--surface); color: var(--muted); border: 1px dashed var(--border-strong); }
+.cop-gantt-total-cell { text-align: right; font-weight: 700; min-width: 92px; }
+.cop-gantt-mini {
+    height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; margin: 4px 0 3px;
+}
+.cop-gantt-mini-fill { height: 100%; background: var(--warn-fill); border-radius: 2px; }
+.cop-gantt-mini-fill--done { background: var(--ok-fill); }
 .cop-gantt-pending { font-size: var(--fs-xs); color: var(--warning); font-weight: 600; }
 .cop-gantt-done-tag { font-size: var(--fs-xs); color: var(--success); font-weight: 600; }
 .cop-gantt-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: var(--fs-xs); color: var(--muted); align-items: center; }

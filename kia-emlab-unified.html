@@ -4339,25 +4339,68 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .cop-hidden-chips button.cop-chip { cursor: pointer; }
 
 /* ── [v20.5] Gantt de progreso semanal (Panorama) ─────────────────────────── */
-.cop-gantt-scroll { overflow-x: auto; }
-.cop-gantt { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); }
-.cop-gantt th, .cop-gantt td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap; }
-.cop-gantt thead th { color: var(--muted); font-weight: 700; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.4px; }
-.cop-gantt th.cop-gantt-fam, .cop-gantt td.cop-gantt-fam { text-align: left; position: sticky; left: 0; background: var(--surface); min-width: 160px; }
-.cop-gantt-wk--now { color: var(--accent-cop); }
-.cop-gantt-fam-btn { background: none; border: none; padding: 0; font: inherit; font-weight: 700; color: var(--text); cursor: pointer; text-align: left; }
-.cop-gantt-fam-btn:hover { text-decoration: underline; }
-.cop-gantt-fam-sub { font-size: var(--fs-xs); color: var(--muted); }
-.cop-gantt-cell { min-width: 56px; }
-.cop-gantt-cell--empty { color: var(--border); }
-.cop-gantt-n {
-    display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px;
-    border-radius: 50%; font-size: var(--fs-xs); font-weight: 800; margin: 0 1px; padding: 0 2px;
+.cop-gantt-scroll {
+    overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg);
+    background: var(--surface);
 }
-.cop-gantt-n--verified { background: var(--ok-bg); color: var(--ok-text); }
-.cop-gantt-n--declared { background: var(--warn-bg); color: var(--warn-text); }
-.cop-gantt-n--planned  { background: var(--surface-alt); color: var(--muted); border: 1px dashed var(--border); }
-.cop-gantt-total-cell { text-align: right; font-weight: 700; }
+.cop-gantt { border-collapse: separate; border-spacing: 0; width: 100%; font-size: var(--fs-sm); }
+.cop-gantt th, .cop-gantt td {
+    padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap;
+}
+.cop-gantt tbody tr:last-child th, .cop-gantt tbody tr:last-child td { border-bottom: none; }
+.cop-gantt thead th {
+    position: sticky; top: 0; z-index: 2; background: var(--surface-alt);
+    color: var(--muted); font-weight: 700; font-size: var(--fs-xs);
+    text-transform: uppercase; letter-spacing: 0.4px;
+    border-bottom: 1.5px solid var(--border-strong);
+}
+/* La columna de familia se congela al hacer scroll horizontal: sin ella, a la
+   sexta semana ya no se sabe de qué fila se está leyendo el número. */
+.cop-gantt th.cop-gantt-fam, .cop-gantt td.cop-gantt-fam {
+    text-align: left; position: sticky; left: 0; z-index: 1;
+    background: var(--surface); min-width: 190px; max-width: 260px;
+    border-right: 1px solid var(--border); white-space: normal;
+}
+.cop-gantt thead th.cop-gantt-fam { z-index: 3; background: var(--surface-alt); }
+.cop-gantt tbody tr:nth-child(even) td { background: var(--surface-alt); }
+.cop-gantt tbody tr:nth-child(even) td.cop-gantt-fam { background: var(--surface-alt); }
+.cop-gantt tbody tr:hover td { background: var(--info-bg); }
+.cop-gantt tbody tr:hover td.cop-gantt-fam { background: var(--info-bg); }
+.cop-gantt-wk--now {
+    color: var(--accent-cop); position: relative;
+    box-shadow: inset 0 -3px 0 var(--accent-cop);
+}
+.cop-gantt-cell--nowcol { background: rgba(11, 92, 173, 0.05) !important; }
+.cop-gantt-fam-btn {
+    background: none; border: none; padding: 0; font: inherit; font-weight: 700;
+    color: var(--text); cursor: pointer; text-align: left; white-space: normal; line-height: var(--lh-tight);
+}
+.cop-gantt-fam-btn:hover { color: var(--accent-cop); text-decoration: underline; }
+.cop-gantt-fam-sub { font-size: var(--fs-xs); color: var(--muted); margin-top: 2px; }
+.cop-gantt-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.cop-gantt-chip {
+    display: inline-block; padding: 1px 7px; border-radius: 999px;
+    font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.2px; line-height: 1.5;
+}
+/* Carrocería y tren motriz con color propio: en este laboratorio son dos ejes
+   distintos (una 5DR y una WGN no se prueban juntas), no dos etiquetas más. */
+.cop-gantt-chip--body { background: var(--info-bg); color: var(--info-text); }
+.cop-gantt-chip--pt   { background: rgba(139, 92, 246, 0.14); color: #6d3fc4; }
+.cop-gantt-cell { min-width: 62px; }
+.cop-gantt-cell--empty::after { content: '·'; color: var(--border-strong); }
+.cop-gantt-n {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px;
+    border-radius: 50%; font-size: var(--fs-xs); font-weight: 800; margin: 0 1px; padding: 0 3px;
+}
+.cop-gantt-n--verified { background: var(--ok-fill);   color: #fff; }
+.cop-gantt-n--declared { background: var(--warn-fill); color: #fff; }
+.cop-gantt-n--planned  { background: var(--surface); color: var(--muted); border: 1px dashed var(--border-strong); }
+.cop-gantt-total-cell { text-align: right; font-weight: 700; min-width: 92px; }
+.cop-gantt-mini {
+    height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; margin: 4px 0 3px;
+}
+.cop-gantt-mini-fill { height: 100%; background: var(--warn-fill); border-radius: 2px; }
+.cop-gantt-mini-fill--done { background: var(--ok-fill); }
 .cop-gantt-pending { font-size: var(--fs-xs); color: var(--warning); font-weight: 600; }
 .cop-gantt-done-tag { font-size: var(--fs-xs); color: var(--success); font-weight: 600; }
 .cop-gantt-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: var(--fs-xs); color: var(--muted); align-items: center; }
@@ -7168,15 +7211,20 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608281549';
+var APP_BUILD = '202608281615';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.7';
+var APP_VERSION = '20.8';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.8', date: '28 ago 2026', title: 'La carrocería es familia, y el candado de vinculación', bullets: [
+        'Una 5DR y una WGN ya son FAMILIAS DISTINTAS en todo el sistema: contador propio, tarjeta propia y veredicto propio. No se prueban juntas, así que no se cuentan juntas. Lo que ya tenías guardado (prioridades, horas de reposo) se reparte solo a cada carrocería, y los juicios CoP viejos siguen apareciendo en la historia de ambas.',
+        '🔒 Un vehículo acredita UNA sola prueba: ya no se puede vincular el mismo VIN a dos pruebas, ni siquiera en semanas distintas (antes el mismo vehículo aparecía como liberado en dos semanas con una sola prueba real). Si de verdad hacen falta dos, primero se desvincula la anterior.',
+        'El Gantt de Progreso semanal se rediseñó: carrocería y tren motriz como etiquetas de color separadas, columna de familia fija al desplazarse, la semana en curso resaltada y una barra de avance por familia.'
+    ] },
     { version: '20.7', date: '28 ago 2026', title: 'Carrocerías separadas, no combinadas', bullets: [
         'Las carrocerías de una familia (p. ej. 5DR y WGN) ahora se listan separadas por coma en vez de "/" — antes se leían como una sola carrocería compuesta.'
     ] },
@@ -7477,14 +7525,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608281549' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608281615' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608281549' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608281615' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -7500,7 +7548,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608281549' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608281615' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -25704,6 +25752,8 @@ function _tpEnsureState() {
     if (typeof tpState.weeks !== 'number')    tpState.weeks = 4;
     if (!tpState._migr || typeof tpState._migr !== 'object') tpState._migr = {}; // guardas de migración
     if (typeof tpSoakCfg === 'function') tpSoakCfg();                            // v20: horas de reposo
+    // v20.8: la carrocería entró a la clave de familia — remapear claves guardadas
+    try { _tpMigrateFamilyKeysBody(); } catch (e) {}
     return tpState;
 }
 
@@ -25896,8 +25946,56 @@ function tpConfirmDormantActive(desc) {
 }
 
 // Replica la clave de familia usada en tpBuildFamilies() para un config suelto.
+// [v20.8] La carrocería ENTRÓ a la clave: 5DR y WGN no se prueban igual — son familias
+// distintas, con contador y tarjeta propios, no variantes de la misma. La clave pasa de
+// 7 a 8 segmentos; `_tpMigrateFamilyKeysBody()` remapea lo guardado con clave vieja
+// (overrides, soak) y el CoP empata juicios viejos por prefijo (no se pierde historia).
 function tpFamilyKeyForCfg(cfg) {
-    return `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}`;
+    return `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}|${(cfg.body&&cfg.body!=='0')?cfg.body:''}`;
+}
+
+/**
+ * [v20.8] Migración de claves de familia 7→8 segmentos (la carrocería entró a la
+ * identidad). Idempotente y barata: solo actúa sobre claves con 7 segmentos, así que
+ * puede correr en cada arranque y tras cada pull de sync (un dispositivo sin
+ * actualizar puede reintroducir claves viejas). Una clave vieja se duplica a TODAS
+ * las carrocerías que esa familia agrupaba en el catálogo — el override o el soak
+ * eran de la familia combinada, así que aplican a cada mitad por igual.
+ */
+function _tpMigrateFamilyKeysBody() {
+    var plan = tpState.planData || [];
+    if (!plan.length) return;
+    var bodiesByOldKey = null; // se calcula una sola vez, y solo si hay algo que migrar
+    function bodiesFor(oldKey) {
+        if (!bodiesByOldKey) {
+            bodiesByOldKey = {};
+            plan.forEach(function(c) {
+                var nk = tpFamilyKeyForCfg(c);
+                var ok = nk.split('|').slice(0, 7).join('|');
+                (bodiesByOldKey[ok] = bodiesByOldKey[ok] || {})[(c.body && c.body !== '0') ? c.body : ''] = true;
+            });
+        }
+        return Object.keys(bodiesByOldKey[oldKey] || {});
+    }
+    function remap(map) {
+        if (!map || typeof map !== 'object') return false;
+        var moved = false;
+        Object.keys(map).forEach(function(k) {
+            if (String(k).split('|').length !== 7) return;
+            var bodies = bodiesFor(k);
+            if (!bodies.length) return; // familia que ya no está en el catálogo: se deja tal cual
+            bodies.forEach(function(b) {
+                var nk = k + '|' + b;
+                if (map[nk] === undefined) map[nk] = map[k];
+            });
+            delete map[k];
+            moved = true;
+        });
+        return moved;
+    }
+    var m1 = remap(tpState.familyOverrides);
+    var m2 = remap(tpState.soak && tpState.soak.byFamily);
+    if ((m1 || m2) && typeof tpInvalidateCache === 'function') tpInvalidateCache();
 }
 
 // Importancia 0-100 de la región (editable en pestaña Reglas).
@@ -28771,7 +28869,13 @@ function tpWeekBoardRows(opts) {
     var ctx = { todayIdx: todayIdx, weekIsPast: weekIsPast, weekIsFuture: weekIsFuture,
                 dayLoad: dayLoad, perSlot: perSlot, workDays: workDays };
 
-    var _usados = {};   // un vehículo no puede acreditar dos filas (ver abajo)
+    // Un vehículo no puede acreditar dos filas (ver abajo). Los vínculos EXPLÍCITOS
+    // (`item.linkedVehicleId`) se precargan ANTES de resolver ninguna fila, y de
+    // TODAS las semanas, no solo esta — si no, una fila auto-resuelta podía "ganarle"
+    // el vehículo a una vinculada a mano, o mostrar en esta semana un VIN cuyo
+    // vínculo real vive en otra. El vínculo explícito SIEMPRE gana.
+    var _usados = {};
+    Object.keys(_tpVehicleLinksElsewhere(null)).forEach(function(id) { _usados[id] = true; });
     var rows = (plan && plan.items || []).map(function(item, itemIdx) {
         var cfg = (tpState.planData || []).find(function(p) { return p.desc === item.desc; }) || item;
         var soak = tpSoakHoursFor(cfg);
@@ -28798,7 +28902,12 @@ function tpWeekBoardRows(opts) {
                 var v = vehiculos[k];
                 if (!v || v.configCode !== item.desc) continue;
                 if (_usados[v.id]) continue;
-                if (v.status === 'archived') { if (!_arch) _arch = v; continue; }
+                // [v20.8] Un liberado solo respalda una fila YA completada: un archivado
+                // es una prueba que ya ocurrió, y si esta fila fuera esa prueba estaría
+                // marcada (tpAutoMarkWeeklyCompletion la marca al liberar). Prestárselo a
+                // una fila pendiente pintaba el mismo VIN "liberado" en dos semanas
+                // distintas con una sola prueba real de por medio.
+                if (v.status === 'archived') { if (!_arch && item.completed) _arch = v; continue; }
                 veh = v; break;
             }
             if (!veh) veh = _arch;
@@ -31580,6 +31689,26 @@ function tpOpenSubstituteModal(weekIdx, itemIdx, scope) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
+ * [v20.8] El candado: un vehículo real es UNA prueba — nunca puede acreditar dos filas
+ * del plan a la vez, ni siquiera en semanas distintas. Devuelve `{itemRef: vehicleId}`
+ * de TODOS los `tpState.weeklyPlans`, no solo la semana que se está viendo — antes
+ * `tpLinkableVehiclesFor`/`tpLinkVehicleToItem` solo miraban `plan.items` de la semana
+ * abierta, así que el mismo VIN se podía vincular otra vez en una semana distinta sin
+ * ningún aviso. Dos pruebas que de verdad necesitan el mismo VIN (reensayo tras una
+ * reparación, por ejemplo) siguen siendo posibles: hay que desvincular la anterior
+ * primero (`tpUnlinkVehicleFromItem`) — el candado impide el descuido, no el caso real.
+ */
+function _tpVehicleLinksElsewhere(excludeItem) {
+    var out = {};
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        (p && p.items || []).forEach(function(it) {
+            if (it !== excludeItem && it.linkedVehicleId != null) out[it.linkedVehicleId] = it;
+        });
+    });
+    return out;
+}
+
+/**
  * LA definición de "qué pruebas puedo vincular a esta fila". Ordena por cercanía:
  * primero la configuración exacta, luego la misma familia, luego el resto de la semana.
  * NO se limita a lo liberado: un vehículo en curso también se puede vincular, que es
@@ -31598,11 +31727,8 @@ function tpLinkableVehiclesFor(item, opts) {
     var base = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
     var famBase = (typeof tpFamilyKeyForCfg === 'function') ? tpFamilyKeyForCfg(base) : null;
 
-    // Ya vinculados a OTRA fila de esta semana: no se ofrecen dos veces.
-    var tomados = {};
-    (plan && plan.items || []).forEach(function(it) {
-        if (it !== item && it.linkedVehicleId != null) tomados[it.linkedVehicleId] = true;
-    });
+    // Ya vinculado a OTRA fila — de esta semana o de cualquier otra: no se ofrece dos veces.
+    var tomados = _tpVehicleLinksElsewhere(item);
 
     var out = [];
     db.vehicles.forEach(function(v) {
@@ -31648,8 +31774,22 @@ function tpLinkVehicleToItem(weekIdx, itemIdx, vehicleId, opts) {
     var v = (typeof db === 'object' && db && db.vehicles || []).find(function(x) { return x && x.id == vehicleId; });
     if (!v) return { ok: false, reason: 'Ese vehículo ya no existe.' };
 
-    var yaOtro = plan.items.some(function(it, i) { return i !== itemIdx && it.linkedVehicleId == vehicleId; });
-    if (yaOtro) return { ok: false, reason: 'Ese vehículo ya está vinculado a otra prueba de esta semana.' };
+    // [v20.8] El candado es GLOBAL: un vehículo real es UNA prueba y no puede acreditar
+    // dos filas del plan, ni siquiera en semanas distintas. Si de verdad hay dos pruebas
+    // que lo justifican (un reensayo, por ejemplo), primero se desvincula la anterior —
+    // el candado impide el descuido, no el caso legítimo.
+    var yaEn = null;
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        (p && p.items || []).forEach(function(it, i) {
+            if (yaEn) return;
+            if ((p !== plan || i !== itemIdx) && it.linkedVehicleId == vehicleId) yaEn = { plan: p, item: it };
+        });
+    });
+    if (yaEn) {
+        var dnd = yaEn.plan.weekDate ? 'la semana del ' + yaEn.plan.weekDate : 'otra semana';
+        return { ok: false, reason: '🔒 Ese vehículo ya está vinculado a "' + (yaEn.item.desc || 'otra prueba') + '" en ' + dnd +
+                 '. Un vehículo acredita UNA sola prueba: si esta es la correcta, desvincúlalo allá primero (menú ⋯ → Quitar vínculo).' };
+    }
 
     if (typeof undoPush === 'function') undoPush('testplan', 'Vincular prueba con vehículo');
 
@@ -32059,9 +32199,12 @@ function tpBuildFamilies() {
     var h = _tpGetPlanHash();
     if (_tpCache.planHash === h && _tpCache.families !== null) return _tpCache.families;
     _tpCache.planHash = h;
+    // [v20.8] Un pull de sync desde un dispositivo sin actualizar puede reintroducir
+    // claves de 7 segmentos en overrides/soak — la migración es idempotente y barata.
+    try { _tpMigrateFamilyKeysBody(); } catch (e) {}
     const families = {};
     tpState.planData.forEach(cfg => {
-        const key = `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}`;
+        const key = tpFamilyKeyForCfg(cfg); // [v20.8] única definición — incluye carrocería
         if (!families[key]) {
             families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgns:new Set(), drvs:new Set(), bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, testedConfigs:0, totalTested:0, totalRequired:0, pausedCount:0, dormantCount:0 };
         }
@@ -44300,7 +44443,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608281549' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608281615' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -45824,6 +45967,57 @@ function copInitState() {
         }
         copState.copSchema = 2;
     }
+
+    // ── [v20.8] La carrocería entró a la clave de familia (7 → 8 segmentos) ───
+    // Idempotente (solo actúa sobre claves de 7 segmentos) y corre también tras cada
+    // pull de sync, porque un dispositivo sin actualizar puede reintroducir claves
+    // viejas. Una mesa de trabajo vieja solo se adopta si la familia tenía UNA sola
+    // carrocería en el catálogo (los VINes capturados son de una carrocería concreta
+    // — repartirlos a ciegas sería inventar); si tenía varias, se queda con su clave
+    // vieja, inofensiva. `ovHidden` sí se duplica a todas: ocultar era una intención
+    // sobre el grupo entero. Los juicios guardados NUNCA se reescriben — se empatan
+    // por prefijo en _copJudgmentMatchesFamily.
+    try {
+        var _bodiesOf = function(oldKey) {
+            var out = {};
+            if (typeof tpState === 'object' && tpState && Array.isArray(tpState.planData) &&
+                typeof tpFamilyKeyForCfg === 'function') {
+                tpState.planData.forEach(function(c) {
+                    var nk = tpFamilyKeyForCfg(c);
+                    if (nk.split('|').slice(0, 7).join('|') === oldKey) out[nk] = true;
+                });
+            }
+            return Object.keys(out);
+        };
+        Object.keys(copState.families).forEach(function(k) {
+            if (String(k).split('|').length !== 7) return;
+            var nks = _bodiesOf(k);
+            if (nks.length === 1 && !copState.families[nks[0]]) {
+                copState.families[nks[0]] = copState.families[k];
+                copState.families[nks[0]].key = nks[0];
+                delete copState.families[k];
+                if (copState.familyKey === k) copState.familyKey = nks[0];
+            }
+        });
+        if (copState.ovHidden) {
+            Object.keys(copState.ovHidden).forEach(function(k) {
+                if (String(k).split('|').length !== 7) return;
+                _bodiesOf(k).forEach(function(nk) { copState.ovHidden[nk] = true; });
+                delete copState.ovHidden[k];
+            });
+        }
+        // Selecciones de UI con clave vieja que no se pudo remapear: a limpio.
+        if (copState.familyKey && String(copState.familyKey).split('|').length === 7) {
+            var _nksSel = _bodiesOf(copState.familyKey);
+            copState.familyKey = _nksSel.length === 1 ? _nksSel[0] : '';
+            if (!copState.familyKey) copState.familyLabel = '';
+        }
+        if (copState.spc && copState.spc.familyKey && String(copState.spc.familyKey).split('|').length === 7) {
+            var _nksSpc = _bodiesOf(copState.spc.familyKey);
+            copState.spc.familyKey = _nksSpc.length === 1 ? _nksSpc[0] : '';
+        }
+    } catch (e) {}
+
     // Reengancha el alias tras un copLoad() (el array recuperado del disco es otro
     // objeto que el guardado dentro de families).
     if (copState.familyKey && copState.families[copState.familyKey]) {
@@ -45954,12 +46148,17 @@ function copFamilies() {
         if (typeof tpFamilyKeyForCfg !== 'function') return;
         if (!copInScope(c).ok) return;
         var k = tpFamilyKeyForCfg(c);
-        if (!fams[k]) fams[k] = { key: k, mod: c.mod, eng: c.eng, tx: c.tx, my: c.my, reg: c.reg, rgns: {} };
+        if (!fams[k]) fams[k] = { key: k, mod: c.mod, eng: c.eng, tx: c.tx, my: c.my, reg: c.reg,
+                                  ep: (c.ep && c.ep !== '0') ? c.ep : '',
+                                  engpkg: (c.engpkg && c.engpkg !== '0') ? c.engpkg : '',
+                                  body: (c.body && c.body !== '0') ? c.body : '', rgns: {} };
         if (c.rgn) fams[k].rgns[c.rgn] = true;
     });
     return Object.keys(fams).map(function(k) {
         var f = fams[k];
-        f.label = [f.mod, f.eng, f.tx, f.my, f.reg].filter(Boolean).join(' · ');
+        // v20.8: el tren motriz (MILD HEV, HIGH/LOW POWER) y la carrocería SON parte del
+        // nombre — dos familias que solo difieren en eso se veían idénticas en pantalla.
+        f.label = [f.mod, f.eng, f.tx, f.my, f.reg, f.ep, f.engpkg, f.body].filter(Boolean).join(' · ');
         f.regionsArr = Object.keys(f.rgns);
         return f;
     }).sort(function(a, b) { return a.label < b.label ? -1 : a.label > b.label ? 1 : 0; });
@@ -45969,8 +46168,24 @@ function copVehicleFamilyKey(v) {
     var cfg = (v && v.config) ? v.config : {};
     var mod = cfg['Modelo'] || '', eng = cfg['ENGINE CAPACITY'] || '', tx = cfg['TRANSMISSION'] || '',
         my = cfg['MODEL YEAR (VIN)'] || '', reg = cfg['EMISSION REGULATION'] || '',
-        ep = cfg['ENVIRONMENT PACKAGE'] || '', engpkg = cfg['ENGINE PACKAGE'] || '';
-    return mod + '|' + eng + '|' + tx + '|' + my + '|' + reg + '|' + ((ep && ep !== '0') ? ep : '') + '|' + ((engpkg && engpkg !== '0') ? engpkg : '');
+        ep = cfg['ENVIRONMENT PACKAGE'] || '', engpkg = cfg['ENGINE PACKAGE'] || '',
+        body = cfg['BODY TYPE'] || '';
+    return mod + '|' + eng + '|' + tx + '|' + my + '|' + reg + '|' + ((ep && ep !== '0') ? ep : '') + '|' + ((engpkg && engpkg !== '0') ? engpkg : '') + '|' + ((body && body !== '0') ? body : '');
+}
+
+// [v20.8] La clave de familia pasó de 7 a 8 segmentos (entró la carrocería). Los
+// juicios guardados con la clave vieja NO se reescriben — son evidencia congelada —
+// sino que se EMPATAN por prefijo: el juicio de la familia combinada de entonces
+// cubría ambas carrocerías, así que aparece en la historia de las dos.
+function _copFamKeyLegacy(key) {
+    var p = String(key || '').split('|');
+    return p.length >= 8 ? p.slice(0, 7).join('|') : null;
+}
+function _copJudgmentMatchesFamily(j, familyKey) {
+    if (!j || !j.familyKey) return false;
+    if (j.familyKey === familyKey) return true;
+    var legacy = _copFamKeyLegacy(familyKey);
+    return !!legacy && j.familyKey === legacy;
 }
 function copSetRegion(r) { copState.region = r; copState.familyKey = ''; copState.familyLabel = ''; copPersist(); copRender(); }
 function copSelectFamily(key) {
@@ -46611,7 +46826,10 @@ function copPortfolioRows(opts) {
         r.cpkMin = cpkMin; r.cpkMinGas = cpkMinGas; r.cpkReliable = cpkReliable;
         r.spcAlarms = alarmsByFam[k] || [];
 
-        var j = lastJudgment[k];
+        // v20.8: un juicio guardado con la clave vieja de 7 segmentos (antes de que la
+        // carrocería entrara a la identidad) cubría la familia combinada — vale para
+        // cada una de sus mitades. El juicio exacto de la clave nueva siempre gana.
+        var j = lastJudgment[k] || lastJudgment[_copFamKeyLegacy(k)];
         r.judgedAt = j ? j.date : '';
         r.judgedDecision = j ? j.decision : '';
         r.judgmentId = j ? j.id : '';
@@ -47161,7 +47379,7 @@ function copBuildOverviewHTML() {
 function copFamilyHistory(familyKey) {
     var ev = [];
     (copState.saved || []).forEach(function(j) {
-        if (j && j.familyKey === familyKey) {
+        if (_copJudgmentMatchesFamily(j, familyKey)) { // v20.8: incluye juicios con clave vieja (prefijo)
             ev.push({
                 at: j.date, kind: 'juicio', decision: j.decision, id: j.id,
                 by: j.by || '', n: (j.vehicles || []).filter(function(v) { return v.vin; }).length,
@@ -47191,7 +47409,7 @@ function _copDecisionWord(d) {
 function copVerdictAt(familyKey, isoDate) {
     var best = null;
     (copState.saved || []).forEach(function(j) {
-        if (!j || j.familyKey !== familyKey) return;
+        if (!_copJudgmentMatchesFamily(j, familyKey)) return; // v20.8: clave vieja empata por prefijo
         if ((j.date || '') > isoDate) return;
         if (!best || (j.date || '') > (best.date || '')) best = j;
     });
@@ -47287,9 +47505,11 @@ function _copFamCardHTML(r) {
 
     html += '<div class="cop-fam-head">';
     html += '<div><div class="cop-fam-title">' + _copEsc(r.label) + '</div>';
+    // v20.8: la carrocería y el tren motriz ya viven en el TÍTULO (label incluye
+    // ep/engpkg/body desde que entraron a la identidad de la familia) — repetirlos
+    // aquí era ruido. El sub queda para lo que el título no dice: regiones y norma.
     html += '<div class="cop-fam-sub">' + _copEsc((r.regionsArr || []).join(', ') || '—') +
-            (r.emissionReg ? ' · ' + _copEsc(r.emissionReg) : '') +
-            ((r.bodiesArr && r.bodiesArr.length) ? ' · ' + _copEsc(r.bodiesArr.join(', ')) : '') + '</div>';
+            (r.emissionReg ? ' · ' + _copEsc(r.emissionReg) : '') + '</div>';
     if (r.ipFamilies && r.ipFamilies.length) {
         html += '<div class="cop-fam-sub" style="font-family:monospace;">🧬 ' +
                 _copEsc(r.ipFamilies.join(' · ')) + '</div>';
@@ -47384,29 +47604,42 @@ function _copFamilyGanttHTML(rows) {
         var required = r.planRequired || 0;
         var pending = Math.max(0, required - totalDone);
 
-        // Coma, no "/": leído como "5DR/WGN" parecía UNA carrocería combinada — son
-        // dos carrocerías DISTINTAS que la familia agrupa, no una cosa compuesta.
-        var bodies = (r.bodiesArr && r.bodiesArr.length) ? r.bodiesArr.join(', ') : '';
+        // v20.8: carrocería y tren motriz SEPARADOS, como chips propios — no pegados al
+        // nombre. Los segmentos salen de la clave (mod|eng|tx|my|reg|ep|engpkg|body),
+        // que es la única fuente que ambos orígenes de fila (plan y SPC) comparten.
+        var seg = String(r.key).split('|');
+        var nombre = seg.slice(0, 5).filter(Boolean).join(' · ') || r.label;
+        var chips = '';
+        if (seg[7]) chips += '<span class="cop-gantt-chip cop-gantt-chip--body">' + _copEsc(seg[7]) + '</span>';
+        if (seg[5]) chips += '<span class="cop-gantt-chip cop-gantt-chip--pt">' + _copEsc(seg[5]) + '</span>';
+        if (seg[6]) chips += '<span class="cop-gantt-chip cop-gantt-chip--pt">' + _copEsc(seg[6]) + '</span>';
 
         html += '<tr>';
         html += '<td class="cop-gantt-fam"><button type="button" class="cop-gantt-fam-btn" onclick="copOpenFamily(\'' +
-                _copEsc(r.key).replace(/'/g, '&#39;') + '\')">' + _copEsc(r.label) + '</button>' +
-                '<div class="cop-gantt-fam-sub">' + (bodies ? _copEsc(bodies) + ' · ' : '') +
-                (required ? ('requiere ' + required) : 'sin cuota vigente') + '</div></td>';
+                _copEsc(r.key).replace(/'/g, '&#39;') + '\')">' + _copEsc(nombre) + '</button>' +
+                (chips ? '<div class="cop-gantt-chips">' + chips + '</div>' : '') +
+                '<div class="cop-gantt-fam-sub">' + (required ? ('requiere ' + required) : 'sin cuota vigente') + '</div></td>';
 
         weekDates.forEach(function(wd) {
             var w = byWeek[wd];
-            if (!w) { html += '<td class="cop-gantt-cell cop-gantt-cell--empty"></td>'; return; }
+            var nowCls = wd === todayMon ? ' cop-gantt-cell--nowcol' : '';
+            if (!w) { html += '<td class="cop-gantt-cell cop-gantt-cell--empty' + nowCls + '"></td>'; return; }
             var parts = [];
             if (w.verified) parts.push('<span class="cop-gantt-n cop-gantt-n--verified">' + w.verified + '</span>');
             if (w.declared) parts.push('<span class="cop-gantt-n cop-gantt-n--declared">' + w.declared + '</span>');
             if (w.planned) parts.push('<span class="cop-gantt-n cop-gantt-n--planned">' + w.planned + '</span>');
             var title = w.verified + ' verificado(s) · ' + w.declared + ' declarado(s) · ' + w.planned +
                         ' programado(s) sin correr — semana ' + weekLabel(wd);
-            html += '<td class="cop-gantt-cell" title="' + _copEsc(title) + '">' + parts.join('') + '</td>';
+            html += '<td class="cop-gantt-cell' + nowCls + '" title="' + _copEsc(title) + '">' + parts.join('') + '</td>';
         });
 
-        html += '<td class="cop-gantt-total-cell">' + totalDone + (required ? (' / ' + required) : '') +
+        // Barra de avance done/required — el número queda, la barra lo hace legible de lejos.
+        var barHtml = '';
+        if (required > 0) {
+            var pct = Math.max(0, Math.min(100, Math.round(totalDone / required * 100)));
+            barHtml = '<div class="cop-gantt-mini"><div class="cop-gantt-mini-fill' + (pct >= 100 ? ' cop-gantt-mini-fill--done' : '') + '" style="width:' + pct + '%;"></div></div>';
+        }
+        html += '<td class="cop-gantt-total-cell"><b>' + totalDone + (required ? (' / ' + required) : '') + '</b>' + barHtml +
                 (pending ? '<div class="cop-gantt-pending">faltan ' + pending + '</div>' : (required ? '<div class="cop-gantt-done-tag">✓ cumplida</div>' : '')) +
                 (totalPlanned ? '<div class="cop-gantt-fam-sub">+' + totalPlanned + ' programado(s)</div>' : '') +
                 '</td>';
@@ -47417,6 +47650,8 @@ function _copFamilyGanttHTML(rows) {
     html += '<div class="cop-gantt-legend"><span><span class="cop-gantt-n cop-gantt-n--verified">n</span> verificado</span>' +
             '<span><span class="cop-gantt-n cop-gantt-n--declared">n</span> declarado (sin evidencia aún)</span>' +
             '<span><span class="cop-gantt-n cop-gantt-n--planned">n</span> programado, todavía sin correr</span>' +
+            '<span><span class="cop-gantt-chip cop-gantt-chip--body">5DR</span> carrocería</span>' +
+            '<span><span class="cop-gantt-chip cop-gantt-chip--pt">MILD HEV</span> tren motriz</span>' +
             '<span>"En el Plan" cuenta solo lo que pasó por Mi semana — puede no coincidir con la cobertura total si hubo evidencia capturada fuera del plan.</span></div>';
     html += '</div>';
     return html;
@@ -47757,9 +47992,13 @@ function copSpcFamilies(opts) {
         if (!allScopes && !scope.ok) return;
         var key = copVehicleFamilyKey(v);
         if (!fams[key]) {
+            var _ep = cfg['ENVIRONMENT PACKAGE'], _epk = cfg['ENGINE PACKAGE'], _bd = cfg['BODY TYPE'];
             fams[key] = {
                 key: key,
-                label: [mod, eng, cfg['TRANSMISSION'], cfg['MODEL YEAR (VIN)'], reg].filter(Boolean).join(' · '),
+                // v20.8: mismo formato de nombre que copFamilies — tren motriz y carrocería incluidos
+                label: [mod, eng, cfg['TRANSMISSION'], cfg['MODEL YEAR (VIN)'], reg,
+                        (_ep && _ep !== '0') ? _ep : '', (_epk && _epk !== '0') ? _epk : '',
+                        (_bd && _bd !== '0') ? _bd : ''].filter(Boolean).join(' · '),
                 regName: (typeof _libGetVehicleRegulation === 'function') ? _libGetVehicleRegulation(v) : reg,
                 region: cfg['REGION'] || '',
                 emissionReg: reg,

@@ -2,6 +2,53 @@
 
 All notable changes to this project, organized by development round.
 
+## v20.8 — La carrocería es familia, y el candado de vinculación (2026-08-28)
+
+### La carrocería entró a la identidad de la familia
+
+v20.7 se quedó corto: separar `5DR/WGN` por coma era cosmético. **Una 5DR y una WGN no se
+prueban juntas — son familias distintas, con su propio contador, su propia tarjeta y su
+propio veredicto.** `tpFamilyKeyForCfg` pasa de 7 a 8 segmentos (entra `body`), y con eso
+se separan solas en TODOS los consumidores: Plan → Familias, el Panorama del CoP, el Gantt,
+las cuotas y la cobertura.
+
+- **Nada se pierde al migrar.** `_tpMigrateFamilyKeysBody()` remapea lo guardado con clave
+  vieja (overrides de familia y horas de soak) duplicándolo a cada carrocería que esa
+  familia agrupaba — el ajuste era del grupo, así que aplica a cada mitad. Es idempotente y
+  corre también tras cada pull de sync, porque un dispositivo sin actualizar puede
+  reintroducir claves viejas.
+- **Los juicios CoP guardados NO se reescriben** — son evidencia congelada. Se EMPATAN por
+  prefijo (`_copJudgmentMatchesFamily`): el juicio de la familia combinada de entonces
+  cubría ambas carrocerías, así que aparece en la historia de las dos.
+- Las mesas de trabajo del CoP solo se adoptan a la clave nueva si la familia tenía UNA
+  sola carrocería; con varias se quedan con su clave vieja, inofensivas — los VINes
+  capturados son de una carrocería concreta y repartirlos a ciegas sería inventar.
+- **El nombre de la familia ahora incluye tren motriz y carrocería** (`copFamilies` y
+  `copSpcFamilies`): dos familias que solo diferían en eso se veían idénticas en pantalla.
+
+### 🔒 Un vehículo acredita UNA prueba
+
+El mismo VIN aparecía como "liberado" en dos semanas distintas habiendo corrido una sola
+prueba. Tres agujeros, los tres cerrados:
+
+1. **`tpLinkVehicleToItem` solo miraba la semana abierta.** El candado ahora es global
+   (`_tpVehicleLinksElsewhere`): si el vehículo ya está vinculado en cualquier semana, se
+   rechaza diciendo en cuál y qué hacer. Dos pruebas que de verdad lo justifican siguen
+   siendo posibles — hay que desvincular la anterior primero: el candado impide el
+   descuido, no el caso legítimo.
+2. **`tpWeekBoardRows` prestaba un liberado a filas pendientes.** Un archivado es una
+   prueba que YA ocurrió; si esta fila fuera esa prueba, estaría marcada. Ahora solo
+   respalda filas ya completadas.
+3. Los vínculos explícitos se reservan ANTES de resolver ninguna fila, y de todas las
+   semanas — antes una fila auto-resuelta podía ganarle el vehículo a una vinculada a mano.
+
+### El Gantt, más legible
+
+Carrocería y tren motriz salen como **chips de color propios** (no pegados al nombre):
+son dos ejes distintos del laboratorio, no dos etiquetas más. Además: columna de familia
+congelada al hacer scroll horizontal, encabezado pegajoso, zebra y resaltado de fila,
+la semana en curso marcada en toda su columna, y una barra de avance por familia.
+
 ## v20.7 — Carrocerías separadas, no combinadas (2026-08-28)
 
 Las carrocerías de una familia (`r.bodiesArr`, agregado en v20.6) se unían con "/"

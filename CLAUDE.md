@@ -900,6 +900,47 @@ greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya n
   excepción que señalar a diario. El dato vive en `moves[]`, la auditoría, el menú ⋯ y el
   `title` del asa. No volver a agregarlo a `marcas`.
 
+## v20.8 — La carrocería es familia, y el candado de vinculación
+
+- **`tpFamilyKeyForCfg` tiene 8 segmentos, no 7** — `body` entró a la identidad:
+  `mod|eng|tx|my|reg|ep|engpkg|body`. Una 5DR y una WGN **no se prueban juntas**, así que
+  son familias distintas con contador, tarjeta y veredicto propios. `tpBuildFamilies` ya
+  no duplica la fórmula: llama a `tpFamilyKeyForCfg`. `copVehicleFamilyKey` (que replica
+  la clave desde los headers crudos de `v.config`) suma `BODY TYPE` — **las dos definiciones
+  tienen que cambiar juntas o las series SPC dejan de empatar con el plan.**
+- **`_tpMigrateFamilyKeysBody()` (testplan.js) remapea lo guardado con clave vieja**
+  (`familyOverrides`, `soak.byFamily`) duplicándolo a cada carrocería que esa familia
+  agrupaba en el catálogo. Solo actúa sobre claves de 7 segmentos, así que es idempotente
+  y **corre en `_tpEnsureState()` Y al principio de `tpBuildFamilies()`**: un pull de sync
+  desde un dispositivo sin actualizar puede reintroducir claves viejas en cualquier momento.
+- **Los juicios CoP guardados NUNCA se reescriben** — son evidencia congelada. Se empatan
+  por prefijo con **`_copJudgmentMatchesFamily(j, key)`** (el juicio de la familia combinada
+  cubría ambas carrocerías, así que sale en la historia de las dos). Todo consumidor nuevo
+  de `copState.saved` debe usarla en vez de `j.familyKey === key`. Ya migrados:
+  `copPortfolioRows`, `copFamilyHistory`, `copVerdictAt`.
+- Las **mesas de trabajo** (`copState.families`) solo se adoptan a la clave nueva si la
+  familia tenía UNA sola carrocería; con varias se quedan con la clave vieja, inofensivas —
+  los VINes capturados son de una carrocería concreta y repartirlos sería inventar.
+  `ovHidden` sí se duplica a todas: ocultar era una intención sobre el grupo entero.
+- **`_copFamilyEmissionReg` lee `parts[4]`** (índice desde el inicio), así que sobrevivió al
+  cambio. Cualquier parseo nuevo de la clave debe indexar desde el inicio, nunca desde el final.
+
+### 🔒 Un vehículo acredita UNA prueba
+
+- **`_tpVehicleLinksElsewhere(excludeItem)` es LA definición de "qué vehículos ya están
+  vinculados"** y barre **TODOS** los `tpState.weeklyPlans`, no solo la semana abierta —
+  ese era el bug: el mismo VIN se vinculaba otra vez en otra semana sin ningún aviso.
+  La usan `tpLinkableVehiclesFor` (para no ofrecerlo), `tpLinkVehicleToItem` (para
+  rechazarlo, diciendo en qué semana está) y `tpWeekBoardRows` (para reservarlo).
+- **Un archivado solo respalda una fila YA completada** (`tpWeekBoardRows`): un liberado es
+  una prueba que ocurrió, y si esta fila fuera esa prueba estaría marcada
+  (`tpAutoMarkWeeklyCompletion` la marca al liberar). Prestárselo a una fila pendiente
+  pintaba el mismo VIN "liberado" en dos semanas con una sola prueba real.
+- Los vínculos explícitos se **reservan antes** de resolver ninguna fila: si no, una fila
+  auto-resuelta que se procesa primero le gana el vehículo a una vinculada a mano.
+- El candado impide el **descuido**, no el caso legítimo: dos pruebas que de verdad
+  necesitan el mismo VIN se logran desvinculando la anterior primero.
+
 ## v20.5 — Panorama: ocultar familias y Gantt de progreso semanal
 
 - **`copState.ovHidden`** = `{familyKey: true}`, estado de UI POR DISPOSITIVO (se agregó a la
