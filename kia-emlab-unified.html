@@ -4371,6 +4371,17 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
     box-shadow: inset 0 -3px 0 var(--accent-cop);
 }
 .cop-gantt-cell--nowcol { background: rgba(11, 92, 173, 0.05) !important; }
+/* Semana cuyo plan sigue siendo propuesta: rayado sutil. No es compromiso todavía. */
+.cop-gantt-cell--prop {
+    background-image: repeating-linear-gradient(45deg,
+        transparent, transparent 4px, rgba(120,120,120,0.09) 4px, rgba(120,120,120,0.09) 8px);
+}
+.cop-gantt-propdot {
+    display: inline-block; width: 14px; height: 14px; border-radius: 3px;
+    border: 1px solid var(--border-strong); vertical-align: -2px;
+    background-image: repeating-linear-gradient(45deg,
+        transparent, transparent 3px, rgba(120,120,120,0.35) 3px, rgba(120,120,120,0.35) 6px);
+}
 .cop-gantt-fam-btn {
     background: none; border: none; padding: 0; font: inherit; font-weight: 700;
     color: var(--text); cursor: pointer; text-align: left; white-space: normal; line-height: var(--lh-tight);
@@ -4808,17 +4819,33 @@ body.cop-present .cop-toolbar    { display: none; }
 /* ── [v20] Índice de semanas (sustituye al muro de 90 líneas del fondo) ───── */
 .tp-week-index { display: flex; flex-direction: column; gap: 4px; }
 .tp-week-index-row {
-    display: grid; grid-template-columns: auto auto auto 1fr; gap: var(--space-sm);
+    display: grid; grid-template-columns: auto auto auto 1fr auto; gap: var(--space-sm);
     align-items: center; text-align: left; width: 100%; cursor: pointer;
     padding: var(--space-sm); border-radius: var(--radius-md);
     border: 1px solid var(--border); background: var(--surface); color: var(--text);
     min-height: 40px;
 }
 .tp-week-index-row:hover { background: var(--info-bg); border-color: var(--info-text); }
+/* Semana con más de un plan: la propuesta repetida se marca para que se note que sobra. */
+.tp-week-index-row--dupe { border-style: dashed; }
 .tp-week-index-date { font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; }
 .tp-week-index-tag  { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
 .tp-week-index-n    { font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
 .tp-week-index-bal  { font-size: var(--fs-xs); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tp-week-index-del {
+    background: none; border: 1px solid transparent; border-radius: var(--radius-sm);
+    cursor: pointer; font-size: var(--fs-sm); line-height: 1; padding: 4px 6px; color: var(--muted);
+    opacity: 0; transition: opacity 0.15s ease, background 0.15s ease;
+}
+.tp-week-index-row:hover .tp-week-index-del,
+.tp-week-index-del:focus-visible { opacity: 1; }
+.tp-week-index-del:hover { background: var(--danger-bg); color: var(--danger-text); border-color: var(--danger-fill); }
+@media (hover: none) { .tp-week-index-del { opacity: 0.7; } }
+.tp-week-index-note {
+    font-size: var(--fs-xs); color: var(--warn-text); margin-top: 8px;
+    background: var(--warn-bg); border: 1px solid var(--warn-fill);
+    border-radius: var(--radius-md); padding: 6px 10px; line-height: 1.5;
+}
 @media (max-width: 640px) {
     .tp-week-index-row { grid-template-columns: 1fr auto; }
     .tp-week-index-bal { grid-column: 1 / -1; }
@@ -7211,15 +7238,19 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608281641';
+var APP_BUILD = '202608281649';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.9';
+var APP_VERSION = '20.10';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.10', date: '28 ago 2026', title: 'Una semana, un plan: el Gantt dejaba de contar doble', bullets: [
+        'El Gantt contaba TODOS los planes de una semana (cada "Generar" crea uno nuevo, así que se acumulan el aceptado y las propuestas viejas). Ahora usa un solo plan por semana: el aceptado, o la propuesta más reciente si no hay ninguno aceptado — marcada como propuesta para que se distinga del compromiso.',
+        'Ya se pueden borrar las propuestas: botón 🗑 en cada una dentro de Plan → 🗂 Semanas generadas, con un aviso cuando una semana tiene más de un plan. Los aceptados hay que desaceptarlos primero.'
+    ] },
     { version: '20.9', date: '28 ago 2026', title: 'El REQ es de la familia, por lotes de producción', bullets: [
         'El REQ de una familia ya no es la suma del REQ de sus variantes: es 3 ensayos por cada lote de 5,000 unidades producidas, y el siguiente lote de 3 no entra hasta superar 7,501. Con los volúmenes actuales todas las familias quedan en 3 — calculado, no escrito a mano: el día que una pase de 7,501 sube sola a 6.',
         'El REQ por configuración no cambia: sigue alimentando al planificador semanal, que decide qué variante conviene correr. Son dos preguntas distintas.'
@@ -7529,14 +7560,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608281641' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608281649' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608281641' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608281649' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -7552,7 +7583,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608281641' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608281649' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -29740,20 +29771,43 @@ function tpBuildWeekIndexHTML() {
             '<button class="tp-btn tp-btn-ghost" onclick="tpSwitchTab(\'tp-myweek\')" style="font-size: var(--fs-xs);">📅 Abrir Mi semana</button></div>' +
             '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">El detalle de cada semana (días, tarjetas, mover, sustituir) vive en <strong>Mi semana</strong>.</p>' +
             '<div class="tp-week-index">';
+    // v20.10: cuántos planes hay por semana — "Generar" deja uno nuevo cada vez, así que
+    // una semana puede acumular el aceptado + varias propuestas viejas. Se avisa y se
+    // ofrece borrarlas: antes no había NINGUNA forma de hacerlo desde la app
+    // (tpDeleteWeeklyPlan existía pero no estaba expuesta en ninguna pantalla).
+    var _porSemana = {};
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        if (p && p.weekDate) _porSemana[p.weekDate] = (_porSemana[p.weekDate] || 0) + 1;
+    });
+
     planes.forEach(function(w) {
         var idx = tpState.weeklyPlans.indexOf(w);
         var items = w.items || [];
         var hechas = items.filter(function(i) { return i.completed; }).length;
         var pct = items.length ? Math.round(hechas / items.length * 100) : 0;
-        h += '<button class="tp-week-index-row" onclick="window._tpBoardWeek=' +
+        var dupe = !w.accepted && w.weekDate && _porSemana[w.weekDate] > 1;
+        // div, no <button>: lleva un <button> real anidado (borrar) y un botón no puede
+        // contener otro. a11yClickables() le da el rol y el teclado (patrón de v20.5).
+        h += '<div class="tp-week-index-row' + (dupe ? ' tp-week-index-row--dupe' : '') + '" onclick="window._tpBoardWeek=' +
              (w.weekDate ? "'" + w.weekDate + "'" : 'null') + ';tpSwitchTab(\'tp-myweek\')">' +
              '<span class="tp-week-index-date">' + (w.weekDate || String(w.created || '').slice(0, 10)) + '</span>' +
              '<span class="tp-week-index-tag">' + (w.accepted ? '✔ Aceptado' : '⏳ Propuesta') + '</span>' +
              '<span class="tp-week-index-n">' + hechas + '/' + items.length + ' · ' + pct + '%</span>' +
              '<span class="tp-week-index-bal">' + tpWeekRegionBalance(items) + '</span>' +
-             '</button>';
+             (w.accepted ? '' :
+                '<button type="button" class="tp-week-index-del" title="Eliminar esta propuesta" ' +
+                'aria-label="Eliminar la propuesta del ' + (w.weekDate || '') + '" ' +
+                'onclick="event.stopPropagation();tpDeleteWeeklyPlan(' + idx + ')">🗑</button>') +
+             '</div>';
     });
     h += '</div>';
+
+    var _dups = Object.keys(_porSemana).filter(function(k) { return _porSemana[k] > 1; });
+    if (_dups.length) {
+        h += '<p class="tp-week-index-note">⚠️ ' + _dups.length + ' semana(s) con más de un plan (cada "Generar" crea uno nuevo). ' +
+             'El tablero y el Gantt usan el aceptado — o la propuesta más reciente si no hay ninguno aceptado — ' +
+             'pero conviene borrar las propuestas que ya no sirven con 🗑.</p>';
+    }
     if ((tpState.weeklyPlans || []).length > 8) {
         h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:6px;">Se muestran las 8 más recientes de ' +
              tpState.weeklyPlans.length + '.</p>';
@@ -29943,6 +29997,10 @@ function tpRenderWeekly(el) {
     </div>
 
     ${tpBuildWeekIndexHTML()}`;
+
+    // v20.10: las filas del índice de semanas son <div onclick> (llevan el botón 🗑
+    // anidado), así que necesitan el rol y el teclado — mismo patrón que el tablero.
+    if (typeof a11yClickables === 'function') a11yClickables(el);
 
     // Primer pintado de la propuesta: doble RAF porque tpRenderWeekly ya corre dentro
     // del requestAnimationFrame de tabCacheSwitch — el nodo aún no está en pantalla.
@@ -32457,10 +32515,35 @@ function tpFamilyWeeklyProgress(familyKey) {
     var cfgByDesc = {};
     planData.forEach(function(c) { cfgByDesc[c.desc] = c; });
 
-    var rows = (tpState.weeklyPlans || [])
-        .filter(function(p) { return p && p.weekDate; })
-        .map(function(plan) {
-            var done = 0, verified = 0, declared = 0, planned = 0, items = [];
+    // [v20.10] UNA fila por SEMANA, no por plan. Generar deja un plan nuevo cada vez, así
+    // que una misma semana suele tener el aceptado + varias propuestas viejas; contarlos
+    // todos sumaba la misma semana varias veces e inflaba el total ("+7 programado" con 2
+    // en la columna). El plan VIGENTE de una semana es:
+    //   · el aceptado, si lo hay (es el compromiso; si hubiera más de uno, se suman —
+    //     es raro pero legítimo cuando se parte el plan de una semana en dos);
+    //   · si no, la propuesta MÁS RECIENTE, marcada `proposal:true` para que la UI pueda
+    //     distinguirla. Los borradores anteriores se descartan.
+    var porSemana = {};
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        if (!p || !p.weekDate) return;
+        var g = porSemana[p.weekDate] || (porSemana[p.weekDate] = { aceptados: [], propuestas: [] });
+        (p.accepted ? g.aceptados : g.propuestas).push(p);
+    });
+
+    var rows = Object.keys(porSemana).map(function(weekDate) {
+        var g = porSemana[weekDate];
+        var vigentes = g.aceptados;
+        var esPropuesta = false;
+        if (!vigentes.length) {
+            // La más reciente por fecha de creación (con el orden del arreglo como desempate).
+            vigentes = [g.propuestas.reduce(function(a, b) {
+                return String(b.created || '') >= String(a.created || '') ? b : a;
+            })];
+            esPropuesta = true;
+        }
+
+        var done = 0, verified = 0, declared = 0, planned = 0, items = [];
+        vigentes.forEach(function(plan) {
             (plan.items || []).forEach(function(item) {
                 var cfg = cfgByDesc[item.desc] || item;
                 if (tpFamilyKeyForCfg(cfg) !== familyKey) return;
@@ -32472,11 +32555,13 @@ function tpFamilyWeeklyProgress(familyKey) {
                 }
                 items.push({ desc: item.desc, testDay: item.testDay || null, completed: !!item.completed, declared: !!item.declared });
             });
-            if (!items.length) return null;
-            return { weekDate: plan.weekDate, planId: (typeof tpPlanId === 'function') ? tpPlanId(plan) : null,
-                     done: done, verified: verified, declared: declared, planned: planned, items: items };
-        })
-        .filter(Boolean);
+        });
+        if (!items.length) return null;
+        return { weekDate: weekDate,
+                 planId: (typeof tpPlanId === 'function') ? tpPlanId(vigentes[0]) : null,
+                 proposal: esPropuesta, plans: vigentes.length,
+                 done: done, verified: verified, declared: declared, planned: planned, items: items };
+    }).filter(Boolean);
 
     rows.sort(function(a, b) { return (a.weekDate || '').localeCompare(b.weekDate || ''); });
     return rows;
@@ -44484,7 +44569,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608281641' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608281649' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -47670,8 +47755,12 @@ function _copFamilyGanttHTML(rows) {
             if (w.declared) parts.push('<span class="cop-gantt-n cop-gantt-n--declared">' + w.declared + '</span>');
             if (w.planned) parts.push('<span class="cop-gantt-n cop-gantt-n--planned">' + w.planned + '</span>');
             var title = w.verified + ' verificado(s) · ' + w.declared + ' declarado(s) · ' + w.planned +
-                        ' programado(s) sin correr — semana ' + weekLabel(wd);
-            html += '<td class="cop-gantt-cell' + nowCls + '" title="' + _copEsc(title) + '">' + parts.join('') + '</td>';
+                        ' programado(s) sin correr — semana ' + weekLabel(wd) +
+                        (w.proposal ? ' · plan aún NO aceptado (propuesta)' : '');
+            // v20.10: una semana cuyo plan sigue siendo propuesta no es compromiso — se
+            // marca en vez de leerse igual que una semana aceptada.
+            html += '<td class="cop-gantt-cell' + nowCls + (w.proposal ? ' cop-gantt-cell--prop' : '') +
+                    '" title="' + _copEsc(title) + '">' + parts.join('') + '</td>';
         });
 
         // Barra de avance done/required — el número queda, la barra lo hace legible de lejos.
@@ -47693,6 +47782,7 @@ function _copFamilyGanttHTML(rows) {
             '<span><span class="cop-gantt-n cop-gantt-n--planned">n</span> programado, todavía sin correr</span>' +
             '<span><span class="cop-gantt-chip cop-gantt-chip--body">5DR</span> carrocería</span>' +
             '<span><span class="cop-gantt-chip cop-gantt-chip--pt">MILD HEV</span> tren motriz</span>' +
+            '<span><span class="cop-gantt-propdot"></span> semana con plan aún no aceptado</span>' +
             '<span>"En el Plan" cuenta solo lo que pasó por Mi semana — puede no coincidir con la cobertura total si hubo evidencia capturada fuera del plan.</span></div>';
     html += '</div>';
     return html;

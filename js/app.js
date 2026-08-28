@@ -285,11 +285,15 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.9';
+var APP_VERSION = '20.10';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.10', date: '28 ago 2026', title: 'Una semana, un plan: el Gantt dejaba de contar doble', bullets: [
+        'El Gantt contaba TODOS los planes de una semana (cada "Generar" crea uno nuevo, así que se acumulan el aceptado y las propuestas viejas). Ahora usa un solo plan por semana: el aceptado, o la propuesta más reciente si no hay ninguno aceptado — marcada como propuesta para que se distinga del compromiso.',
+        'Ya se pueden borrar las propuestas: botón 🗑 en cada una dentro de Plan → 🗂 Semanas generadas, con un aviso cuando una semana tiene más de un plan. Los aceptados hay que desaceptarlos primero.'
+    ] },
     { version: '20.9', date: '28 ago 2026', title: 'El REQ es de la familia, por lotes de producción', bullets: [
         'El REQ de una familia ya no es la suma del REQ de sus variantes: es 3 ensayos por cada lote de 5,000 unidades producidas, y el siguiente lote de 3 no entra hasta superar 7,501. Con los volúmenes actuales todas las familias quedan en 3 — calculado, no escrito a mano: el día que una pase de 7,501 sube sola a 6.',
         'El REQ por configuración no cambia: sigue alimentando al planificador semanal, que decide qué variante conviene correr. Son dos preguntas distintas.'
