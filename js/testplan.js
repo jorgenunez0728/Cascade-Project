@@ -416,6 +416,8 @@ function _tpEnsureState() {
     if (typeof tpState.weeks !== 'number')    tpState.weeks = 4;
     if (!tpState._migr || typeof tpState._migr !== 'object') tpState._migr = {}; // guardas de migración
     if (typeof tpSoakCfg === 'function') tpSoakCfg();                            // v20: horas de reposo
+    // v20.8: la carrocería entró a la clave de familia — remapear claves guardadas
+    try { _tpMigrateFamilyKeysBody(); } catch (e) {}
     return tpState;
 }
 
@@ -608,8 +610,56 @@ function tpConfirmDormantActive(desc) {
 }
 
 // Replica la clave de familia usada en tpBuildFamilies() para un config suelto.
+// [v20.8] La carrocería ENTRÓ a la clave: 5DR y WGN no se prueban igual — son familias
+// distintas, con contador y tarjeta propios, no variantes de la misma. La clave pasa de
+// 7 a 8 segmentos; `_tpMigrateFamilyKeysBody()` remapea lo guardado con clave vieja
+// (overrides, soak) y el CoP empata juicios viejos por prefijo (no se pierde historia).
 function tpFamilyKeyForCfg(cfg) {
-    return `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}`;
+    return `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}|${(cfg.body&&cfg.body!=='0')?cfg.body:''}`;
+}
+
+/**
+ * [v20.8] Migración de claves de familia 7→8 segmentos (la carrocería entró a la
+ * identidad). Idempotente y barata: solo actúa sobre claves con 7 segmentos, así que
+ * puede correr en cada arranque y tras cada pull de sync (un dispositivo sin
+ * actualizar puede reintroducir claves viejas). Una clave vieja se duplica a TODAS
+ * las carrocerías que esa familia agrupaba en el catálogo — el override o el soak
+ * eran de la familia combinada, así que aplican a cada mitad por igual.
+ */
+function _tpMigrateFamilyKeysBody() {
+    var plan = tpState.planData || [];
+    if (!plan.length) return;
+    var bodiesByOldKey = null; // se calcula una sola vez, y solo si hay algo que migrar
+    function bodiesFor(oldKey) {
+        if (!bodiesByOldKey) {
+            bodiesByOldKey = {};
+            plan.forEach(function(c) {
+                var nk = tpFamilyKeyForCfg(c);
+                var ok = nk.split('|').slice(0, 7).join('|');
+                (bodiesByOldKey[ok] = bodiesByOldKey[ok] || {})[(c.body && c.body !== '0') ? c.body : ''] = true;
+            });
+        }
+        return Object.keys(bodiesByOldKey[oldKey] || {});
+    }
+    function remap(map) {
+        if (!map || typeof map !== 'object') return false;
+        var moved = false;
+        Object.keys(map).forEach(function(k) {
+            if (String(k).split('|').length !== 7) return;
+            var bodies = bodiesFor(k);
+            if (!bodies.length) return; // familia que ya no está en el catálogo: se deja tal cual
+            bodies.forEach(function(b) {
+                var nk = k + '|' + b;
+                if (map[nk] === undefined) map[nk] = map[k];
+            });
+            delete map[k];
+            moved = true;
+        });
+        return moved;
+    }
+    var m1 = remap(tpState.familyOverrides);
+    var m2 = remap(tpState.soak && tpState.soak.byFamily);
+    if ((m1 || m2) && typeof tpInvalidateCache === 'function') tpInvalidateCache();
 }
 
 // Importancia 0-100 de la región (editable en pestaña Reglas).
@@ -3483,7 +3533,13 @@ function tpWeekBoardRows(opts) {
     var ctx = { todayIdx: todayIdx, weekIsPast: weekIsPast, weekIsFuture: weekIsFuture,
                 dayLoad: dayLoad, perSlot: perSlot, workDays: workDays };
 
-    var _usados = {};   // un vehículo no puede acreditar dos filas (ver abajo)
+    // Un vehículo no puede acreditar dos filas (ver abajo). Los vínculos EXPLÍCITOS
+    // (`item.linkedVehicleId`) se precargan ANTES de resolver ninguna fila, y de
+    // TODAS las semanas, no solo esta — si no, una fila auto-resuelta podía "ganarle"
+    // el vehículo a una vinculada a mano, o mostrar en esta semana un VIN cuyo
+    // vínculo real vive en otra. El vínculo explícito SIEMPRE gana.
+    var _usados = {};
+    Object.keys(_tpVehicleLinksElsewhere(null)).forEach(function(id) { _usados[id] = true; });
     var rows = (plan && plan.items || []).map(function(item, itemIdx) {
         var cfg = (tpState.planData || []).find(function(p) { return p.desc === item.desc; }) || item;
         var soak = tpSoakHoursFor(cfg);
@@ -3510,7 +3566,12 @@ function tpWeekBoardRows(opts) {
                 var v = vehiculos[k];
                 if (!v || v.configCode !== item.desc) continue;
                 if (_usados[v.id]) continue;
-                if (v.status === 'archived') { if (!_arch) _arch = v; continue; }
+                // [v20.8] Un liberado solo respalda una fila YA completada: un archivado
+                // es una prueba que ya ocurrió, y si esta fila fuera esa prueba estaría
+                // marcada (tpAutoMarkWeeklyCompletion la marca al liberar). Prestárselo a
+                // una fila pendiente pintaba el mismo VIN "liberado" en dos semanas
+                // distintas con una sola prueba real de por medio.
+                if (v.status === 'archived') { if (!_arch && item.completed) _arch = v; continue; }
                 veh = v; break;
             }
             if (!veh) veh = _arch;
@@ -6292,6 +6353,26 @@ function tpOpenSubstituteModal(weekIdx, itemIdx, scope) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
+ * [v20.8] El candado: un vehículo real es UNA prueba — nunca puede acreditar dos filas
+ * del plan a la vez, ni siquiera en semanas distintas. Devuelve `{itemRef: vehicleId}`
+ * de TODOS los `tpState.weeklyPlans`, no solo la semana que se está viendo — antes
+ * `tpLinkableVehiclesFor`/`tpLinkVehicleToItem` solo miraban `plan.items` de la semana
+ * abierta, así que el mismo VIN se podía vincular otra vez en una semana distinta sin
+ * ningún aviso. Dos pruebas que de verdad necesitan el mismo VIN (reensayo tras una
+ * reparación, por ejemplo) siguen siendo posibles: hay que desvincular la anterior
+ * primero (`tpUnlinkVehicleFromItem`) — el candado impide el descuido, no el caso real.
+ */
+function _tpVehicleLinksElsewhere(excludeItem) {
+    var out = {};
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        (p && p.items || []).forEach(function(it) {
+            if (it !== excludeItem && it.linkedVehicleId != null) out[it.linkedVehicleId] = it;
+        });
+    });
+    return out;
+}
+
+/**
  * LA definición de "qué pruebas puedo vincular a esta fila". Ordena por cercanía:
  * primero la configuración exacta, luego la misma familia, luego el resto de la semana.
  * NO se limita a lo liberado: un vehículo en curso también se puede vincular, que es
@@ -6310,11 +6391,8 @@ function tpLinkableVehiclesFor(item, opts) {
     var base = (tpState.planData || []).find(function(c) { return c.desc === item.desc; }) || item;
     var famBase = (typeof tpFamilyKeyForCfg === 'function') ? tpFamilyKeyForCfg(base) : null;
 
-    // Ya vinculados a OTRA fila de esta semana: no se ofrecen dos veces.
-    var tomados = {};
-    (plan && plan.items || []).forEach(function(it) {
-        if (it !== item && it.linkedVehicleId != null) tomados[it.linkedVehicleId] = true;
-    });
+    // Ya vinculado a OTRA fila — de esta semana o de cualquier otra: no se ofrece dos veces.
+    var tomados = _tpVehicleLinksElsewhere(item);
 
     var out = [];
     db.vehicles.forEach(function(v) {
@@ -6360,8 +6438,22 @@ function tpLinkVehicleToItem(weekIdx, itemIdx, vehicleId, opts) {
     var v = (typeof db === 'object' && db && db.vehicles || []).find(function(x) { return x && x.id == vehicleId; });
     if (!v) return { ok: false, reason: 'Ese vehículo ya no existe.' };
 
-    var yaOtro = plan.items.some(function(it, i) { return i !== itemIdx && it.linkedVehicleId == vehicleId; });
-    if (yaOtro) return { ok: false, reason: 'Ese vehículo ya está vinculado a otra prueba de esta semana.' };
+    // [v20.8] El candado es GLOBAL: un vehículo real es UNA prueba y no puede acreditar
+    // dos filas del plan, ni siquiera en semanas distintas. Si de verdad hay dos pruebas
+    // que lo justifican (un reensayo, por ejemplo), primero se desvincula la anterior —
+    // el candado impide el descuido, no el caso legítimo.
+    var yaEn = null;
+    (tpState.weeklyPlans || []).forEach(function(p) {
+        (p && p.items || []).forEach(function(it, i) {
+            if (yaEn) return;
+            if ((p !== plan || i !== itemIdx) && it.linkedVehicleId == vehicleId) yaEn = { plan: p, item: it };
+        });
+    });
+    if (yaEn) {
+        var dnd = yaEn.plan.weekDate ? 'la semana del ' + yaEn.plan.weekDate : 'otra semana';
+        return { ok: false, reason: '🔒 Ese vehículo ya está vinculado a "' + (yaEn.item.desc || 'otra prueba') + '" en ' + dnd +
+                 '. Un vehículo acredita UNA sola prueba: si esta es la correcta, desvincúlalo allá primero (menú ⋯ → Quitar vínculo).' };
+    }
 
     if (typeof undoPush === 'function') undoPush('testplan', 'Vincular prueba con vehículo');
 
@@ -6771,9 +6863,12 @@ function tpBuildFamilies() {
     var h = _tpGetPlanHash();
     if (_tpCache.planHash === h && _tpCache.families !== null) return _tpCache.families;
     _tpCache.planHash = h;
+    // [v20.8] Un pull de sync desde un dispositivo sin actualizar puede reintroducir
+    // claves de 7 segmentos en overrides/soak — la migración es idempotente y barata.
+    try { _tpMigrateFamilyKeysBody(); } catch (e) {}
     const families = {};
     tpState.planData.forEach(cfg => {
-        const key = `${cfg.mod}|${cfg.eng}|${cfg.tx}|${cfg.my}|${cfg.reg}|${(cfg.ep&&cfg.ep!=='0')?cfg.ep:''}|${(cfg.engpkg&&cfg.engpkg!=='0')?cfg.engpkg:''}`;
+        const key = tpFamilyKeyForCfg(cfg); // [v20.8] única definición — incluye carrocería
         if (!families[key]) {
             families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgns:new Set(), drvs:new Set(), bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, testedConfigs:0, totalTested:0, totalRequired:0, pausedCount:0, dormantCount:0 };
         }

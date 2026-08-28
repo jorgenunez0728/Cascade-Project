@@ -285,11 +285,16 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.7';
+var APP_VERSION = '20.8';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.8', date: '28 ago 2026', title: 'La carrocería es familia, y el candado de vinculación', bullets: [
+        'Una 5DR y una WGN ya son FAMILIAS DISTINTAS en todo el sistema: contador propio, tarjeta propia y veredicto propio. No se prueban juntas, así que no se cuentan juntas. Lo que ya tenías guardado (prioridades, horas de reposo) se reparte solo a cada carrocería, y los juicios CoP viejos siguen apareciendo en la historia de ambas.',
+        '🔒 Un vehículo acredita UNA sola prueba: ya no se puede vincular el mismo VIN a dos pruebas, ni siquiera en semanas distintas (antes el mismo vehículo aparecía como liberado en dos semanas con una sola prueba real). Si de verdad hacen falta dos, primero se desvincula la anterior.',
+        'El Gantt de Progreso semanal se rediseñó: carrocería y tren motriz como etiquetas de color separadas, columna de familia fija al desplazarse, la semana en curso resaltada y una barra de avance por familia.'
+    ] },
     { version: '20.7', date: '28 ago 2026', title: 'Carrocerías separadas, no combinadas', bullets: [
         'Las carrocerías de una familia (p. ej. 5DR y WGN) ahora se listan separadas por coma en vez de "/" — antes se leían como una sola carrocería compuesta.'
     ] },
