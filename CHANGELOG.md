@@ -2,6 +2,33 @@
 
 All notable changes to this project, organized by development round.
 
+## v20.9 — El REQ es de la familia, por lotes de producción (2026-08-28)
+
+El REQ de una familia se calculaba **sumando el REQ de cada configuración**, así que dos
+familias con el mismo volumen pedían números distintos según cuántas variantes tuvieran
+(una con 5 variantes pedía 5, otra con 2 pedía 2). La norma no muestrea variantes: muestrea
+**la familia**.
+
+- **`tpFamilyRequired(vol)` es LA definición del REQ de una familia**: 3 ensayos por cada
+  lote de 5 000 unidades producidas, y el siguiente lote de 3 **no entra hasta SUPERAR
+  7 501**. El escalón no es `ceil(vol/5000)` — con 7 500 eso ya pediría 6 —, así que el
+  corte se corre media caja: `≤7 500 → 3 · 7 501–12 500 → 6 · 12 501–17 500 → 9`. Sin
+  volumen no exige nada, igual que antes.
+- Con los volúmenes actuales **ninguna familia supera 7 501, así que todas quedan en 3** —
+  el número que pidió el laboratorio, pero calculado, no escrito a mano: el día que una
+  familia pase de 7 501 sube sola a 6 sin tocar código.
+- El volumen que cuenta excluye las configuraciones **pausadas** (`f.activeVol`), misma
+  regla que ya aplicaba al REQ por configuración.
+- **`tpCalcRequired` (por configuración) NO cambia**: sigue alimentando al planificador
+  semanal, que decide QUÉ variante correr. La suma por variante se conserva como
+  `f.configRequiredSum` para no perder el dato. Son dos preguntas distintas: cuántos
+  ensayos exige la norma (familia) y qué variante conviene correr (configuración).
+- `f.coverage` se acota a 1: con el REQ de familia es normal correr más ensayos de los
+  exigidos, y una cobertura de 150% no significa nada.
+
+**No cambia** el % de cobertura del topbar (`tpCoverageSummary`), que mide otra cosa:
+configuraciones vigentes con su REQ por configuración cumplido.
+
 ## v20.8 — La carrocería es familia, y el candado de vinculación (2026-08-28)
 
 ### La carrocería entró a la identidad de la familia
