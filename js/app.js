@@ -285,13 +285,17 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.5';
+var APP_VERSION = '20.6';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.6', date: '28 ago 2026', title: 'Ajustes al Gantt de Panorama', bullets: [
+        'La carrocería (body type) de la familia ahora se ve en la tarjeta y en cada fila del Gantt de Progreso semanal.',
+        'Se cambió el emoji del botón de ocultar familia (de 🙈 a ➖).'
+    ] },
     { version: '20.5', date: '28 ago 2026', title: 'Panorama: ocultar familias y Gantt de progreso semanal', bullets: [
-        'Botón 🙈 en cada tarjeta del Panorama para ocultarla de esta pantalla sin sacarla del seguimiento (sigue en KPIs, alertas y SPC). Se puede restaurar una por una o todas juntas.',
+        'Botón ➖ en cada tarjeta del Panorama para ocultarla de esta pantalla sin sacarla del seguimiento (sigue en KPIs, alertas y SPC). Se puede restaurar una por una o todas juntas.',
         'Nueva tarjeta "📅 Progreso semanal" arriba de la retícula: cruza Plan → Mi semana con las familias que se muestran y dice cuántos vehículos se verificaron/declararon/programaron por semana, comparado contra la cuota — pensado para mostrar avance a gerencia.'
     ] },
     { version: '20.4', date: '27 ago 2026', title: 'Catálogo de configuraciones actualizado a producción', bullets: [

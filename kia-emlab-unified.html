@@ -7168,17 +7168,21 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608281141';
+var APP_BUILD = '202608281402';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.5';
+var APP_VERSION = '20.6';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.6', date: '28 ago 2026', title: 'Ajustes al Gantt de Panorama', bullets: [
+        'La carrocería (body type) de la familia ahora se ve en la tarjeta y en cada fila del Gantt de Progreso semanal.',
+        'Se cambió el emoji del botón de ocultar familia (de 🙈 a ➖).'
+    ] },
     { version: '20.5', date: '28 ago 2026', title: 'Panorama: ocultar familias y Gantt de progreso semanal', bullets: [
-        'Botón 🙈 en cada tarjeta del Panorama para ocultarla de esta pantalla sin sacarla del seguimiento (sigue en KPIs, alertas y SPC). Se puede restaurar una por una o todas juntas.',
+        'Botón ➖ en cada tarjeta del Panorama para ocultarla de esta pantalla sin sacarla del seguimiento (sigue en KPIs, alertas y SPC). Se puede restaurar una por una o todas juntas.',
         'Nueva tarjeta "📅 Progreso semanal" arriba de la retícula: cruza Plan → Mi semana con las familias que se muestran y dice cuántos vehículos se verificaron/declararon/programaron por semana, comparado contra la cuota — pensado para mostrar avance a gerencia.'
     ] },
     { version: '20.4', date: '27 ago 2026', title: 'Catálogo de configuraciones actualizado a producción', bullets: [
@@ -7470,14 +7474,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608281141' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608281402' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608281141' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608281402' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -7493,7 +7497,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608281141' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608281402' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -44293,7 +44297,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608281141' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608281402' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -46506,6 +46510,7 @@ function copPortfolioRows(opts) {
             planDeficit: pf.deficit || 0,
             planCoverage: (pf.coverage === undefined || pf.coverage === null) ? null : pf.coverage,
             lastTestDate: pf.lastTestDate || '', daysSinceTest: (pf.daysSinceTest === undefined) ? null : pf.daysSinceTest,
+            bodiesArr: pf.bodies || [],
             tests: [], inPlan: true
         };
     });
@@ -46518,7 +46523,7 @@ function copPortfolioRows(opts) {
                 key: sf.key, label: sf.label, regionsArr: sf.region ? [sf.region] : [],
                 emissionReg: sf.emissionReg || '', regName: sf.regName || sf.emissionReg || '',
                 planRequired: 0, planTested: 0, planDeficit: 0, planCoverage: null,
-                lastTestDate: '', daysSinceTest: null, tests: [], inPlan: false
+                lastTestDate: '', daysSinceTest: null, bodiesArr: [], tests: [], inPlan: false
             };
         }
         r.tests = sf.tests || [];
@@ -47093,7 +47098,7 @@ function copBuildOverviewHTML() {
     var hidden = shown.filter(function(r) { return hiddenSet[r.key]; });
 
     if (hidden.length) {
-        html += '<details class="cop-hidden-strip"><summary>🙈 ' + hidden.length + ' familia(s) oculta(s) — siguen contando en KPIs y alertas' +
+        html += '<details class="cop-hidden-strip"><summary>➖ ' + hidden.length + ' familia(s) oculta(s) — siguen contando en KPIs y alertas' +
                 '<button type="button" class="btn btn-sm btn-ghost" style="margin-left:10px;" onclick="event.preventDefault();copShowAllFamilies()">Mostrar todas</button></summary>';
         html += '<div class="cop-hidden-chips">';
         hidden.forEach(function(r) {
@@ -47275,12 +47280,13 @@ function _copFamCardHTML(r) {
 
     html += '<button type="button" class="cop-fam-hide-btn" title="Ocultar ' + _copEsc(r.label) + ' del Panorama (sigue contando en KPIs y alertas)" ' +
             'aria-label="Ocultar familia ' + _copEsc(r.label) + '" ' +
-            'onclick="event.stopPropagation();copHideFamily(\'' + keyEsc + '\')">🙈</button>';
+            'onclick="event.stopPropagation();copHideFamily(\'' + keyEsc + '\')">➖</button>';
 
     html += '<div class="cop-fam-head">';
     html += '<div><div class="cop-fam-title">' + _copEsc(r.label) + '</div>';
     html += '<div class="cop-fam-sub">' + _copEsc((r.regionsArr || []).join(', ') || '—') +
-            (r.emissionReg ? ' · ' + _copEsc(r.emissionReg) : '') + '</div>';
+            (r.emissionReg ? ' · ' + _copEsc(r.emissionReg) : '') +
+            ((r.bodiesArr && r.bodiesArr.length) ? ' · ' + _copEsc(r.bodiesArr.join('/')) : '') + '</div>';
     if (r.ipFamilies && r.ipFamilies.length) {
         html += '<div class="cop-fam-sub" style="font-family:monospace;">🧬 ' +
                 _copEsc(r.ipFamilies.join(' · ')) + '</div>';
@@ -47375,10 +47381,13 @@ function _copFamilyGanttHTML(rows) {
         var required = r.planRequired || 0;
         var pending = Math.max(0, required - totalDone);
 
+        var bodies = (r.bodiesArr && r.bodiesArr.length) ? r.bodiesArr.join('/') : '';
+
         html += '<tr>';
         html += '<td class="cop-gantt-fam"><button type="button" class="cop-gantt-fam-btn" onclick="copOpenFamily(\'' +
                 _copEsc(r.key).replace(/'/g, '&#39;') + '\')">' + _copEsc(r.label) + '</button>' +
-                '<div class="cop-gantt-fam-sub">' + (required ? ('requiere ' + required) : 'sin cuota vigente') + '</div></td>';
+                '<div class="cop-gantt-fam-sub">' + (bodies ? _copEsc(bodies) + ' · ' : '') +
+                (required ? ('requiere ' + required) : 'sin cuota vigente') + '</div></td>';
 
         weekDates.forEach(function(wd) {
             var w = byWeek[wd];
@@ -48171,7 +48180,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'cop-present-help': { title: 'Modo presentación', text: 'Agranda letras, tarjetas y tablas solo dentro del CoP, para proyectar en una sala sin tocar el tamaño con el que los técnicos usan la app en el celular. Se apaga con el mismo botón.' },
     'cop-scope-help': { title: 'Alcance del CoP', text: 'El laboratorio hace Conformidad de Producción sobre EURO-5, EURO-6E y PRE-EURO 7 en las regiones EUROPE y MIDDLE EAST. El resto del catálogo se prueba, pero no entra al juicio de conformidad — aquí se listan esas configuraciones para que quede claro qué NO cubre esta pantalla.' },
     'cop-dossier-help': { title: 'Expediente de familia', text: 'La cronología completa de una familia: qué se ensayó, cuándo, qué juicios se emitieron y qué alarmas de control saltaron. Se deriva de los datos existentes — no es una bitácora que alguien tenga que llenar.' },
-    'cop-gantt-help': { title: 'Progreso semanal', text: 'Cruza Plan → Mi semana con las familias que se están mostrando aquí (usa 🙈 en una tarjeta para ocultarla de esta pantalla sin sacarla del seguimiento). Cada celda es una semana: verde = verificado, ámbar = declarado sin evidencia, gris = programado y aún sin correr. Sirve para ver de un vistazo cuándo se completan los vehículos que le faltan a cada familia — útil para mostrar avance a gerencia.' },
+    'cop-gantt-help': { title: 'Progreso semanal', text: 'Cruza Plan → Mi semana con las familias que se están mostrando aquí (usa ➖ en una tarjeta para ocultarla de esta pantalla sin sacarla del seguimiento). Cada celda es una semana: verde = verificado, ámbar = declarado sin evidencia, gris = programado y aún sin correr. Sirve para ver de un vistazo cuándo se completan los vehículos que le faltan a cada familia — útil para mostrar avance a gerencia.' },
     'cop-strip-help': { title: 'Veredicto por mes', text: 'Qué veredicto estaba vigente al cierre de cada mes, según el último juicio emitido hasta esa fecha. Un mes en gris significa que ese mes no había juicio emitido: nunca se pinta verde por omisión.' }
 });
 

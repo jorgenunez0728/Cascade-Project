@@ -1077,6 +1077,7 @@ function copPortfolioRows(opts) {
             planDeficit: pf.deficit || 0,
             planCoverage: (pf.coverage === undefined || pf.coverage === null) ? null : pf.coverage,
             lastTestDate: pf.lastTestDate || '', daysSinceTest: (pf.daysSinceTest === undefined) ? null : pf.daysSinceTest,
+            bodiesArr: pf.bodies || [],
             tests: [], inPlan: true
         };
     });
@@ -1089,7 +1090,7 @@ function copPortfolioRows(opts) {
                 key: sf.key, label: sf.label, regionsArr: sf.region ? [sf.region] : [],
                 emissionReg: sf.emissionReg || '', regName: sf.regName || sf.emissionReg || '',
                 planRequired: 0, planTested: 0, planDeficit: 0, planCoverage: null,
-                lastTestDate: '', daysSinceTest: null, tests: [], inPlan: false
+                lastTestDate: '', daysSinceTest: null, bodiesArr: [], tests: [], inPlan: false
             };
         }
         r.tests = sf.tests || [];
@@ -1664,7 +1665,7 @@ function copBuildOverviewHTML() {
     var hidden = shown.filter(function(r) { return hiddenSet[r.key]; });
 
     if (hidden.length) {
-        html += '<details class="cop-hidden-strip"><summary>🙈 ' + hidden.length + ' familia(s) oculta(s) — siguen contando en KPIs y alertas' +
+        html += '<details class="cop-hidden-strip"><summary>➖ ' + hidden.length + ' familia(s) oculta(s) — siguen contando en KPIs y alertas' +
                 '<button type="button" class="btn btn-sm btn-ghost" style="margin-left:10px;" onclick="event.preventDefault();copShowAllFamilies()">Mostrar todas</button></summary>';
         html += '<div class="cop-hidden-chips">';
         hidden.forEach(function(r) {
@@ -1846,12 +1847,13 @@ function _copFamCardHTML(r) {
 
     html += '<button type="button" class="cop-fam-hide-btn" title="Ocultar ' + _copEsc(r.label) + ' del Panorama (sigue contando en KPIs y alertas)" ' +
             'aria-label="Ocultar familia ' + _copEsc(r.label) + '" ' +
-            'onclick="event.stopPropagation();copHideFamily(\'' + keyEsc + '\')">🙈</button>';
+            'onclick="event.stopPropagation();copHideFamily(\'' + keyEsc + '\')">➖</button>';
 
     html += '<div class="cop-fam-head">';
     html += '<div><div class="cop-fam-title">' + _copEsc(r.label) + '</div>';
     html += '<div class="cop-fam-sub">' + _copEsc((r.regionsArr || []).join(', ') || '—') +
-            (r.emissionReg ? ' · ' + _copEsc(r.emissionReg) : '') + '</div>';
+            (r.emissionReg ? ' · ' + _copEsc(r.emissionReg) : '') +
+            ((r.bodiesArr && r.bodiesArr.length) ? ' · ' + _copEsc(r.bodiesArr.join('/')) : '') + '</div>';
     if (r.ipFamilies && r.ipFamilies.length) {
         html += '<div class="cop-fam-sub" style="font-family:monospace;">🧬 ' +
                 _copEsc(r.ipFamilies.join(' · ')) + '</div>';
@@ -1946,10 +1948,13 @@ function _copFamilyGanttHTML(rows) {
         var required = r.planRequired || 0;
         var pending = Math.max(0, required - totalDone);
 
+        var bodies = (r.bodiesArr && r.bodiesArr.length) ? r.bodiesArr.join('/') : '';
+
         html += '<tr>';
         html += '<td class="cop-gantt-fam"><button type="button" class="cop-gantt-fam-btn" onclick="copOpenFamily(\'' +
                 _copEsc(r.key).replace(/'/g, '&#39;') + '\')">' + _copEsc(r.label) + '</button>' +
-                '<div class="cop-gantt-fam-sub">' + (required ? ('requiere ' + required) : 'sin cuota vigente') + '</div></td>';
+                '<div class="cop-gantt-fam-sub">' + (bodies ? _copEsc(bodies) + ' · ' : '') +
+                (required ? ('requiere ' + required) : 'sin cuota vigente') + '</div></td>';
 
         weekDates.forEach(function(wd) {
             var w = byWeek[wd];
@@ -2742,7 +2747,7 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'cop-present-help': { title: 'Modo presentación', text: 'Agranda letras, tarjetas y tablas solo dentro del CoP, para proyectar en una sala sin tocar el tamaño con el que los técnicos usan la app en el celular. Se apaga con el mismo botón.' },
     'cop-scope-help': { title: 'Alcance del CoP', text: 'El laboratorio hace Conformidad de Producción sobre EURO-5, EURO-6E y PRE-EURO 7 en las regiones EUROPE y MIDDLE EAST. El resto del catálogo se prueba, pero no entra al juicio de conformidad — aquí se listan esas configuraciones para que quede claro qué NO cubre esta pantalla.' },
     'cop-dossier-help': { title: 'Expediente de familia', text: 'La cronología completa de una familia: qué se ensayó, cuándo, qué juicios se emitieron y qué alarmas de control saltaron. Se deriva de los datos existentes — no es una bitácora que alguien tenga que llenar.' },
-    'cop-gantt-help': { title: 'Progreso semanal', text: 'Cruza Plan → Mi semana con las familias que se están mostrando aquí (usa 🙈 en una tarjeta para ocultarla de esta pantalla sin sacarla del seguimiento). Cada celda es una semana: verde = verificado, ámbar = declarado sin evidencia, gris = programado y aún sin correr. Sirve para ver de un vistazo cuándo se completan los vehículos que le faltan a cada familia — útil para mostrar avance a gerencia.' },
+    'cop-gantt-help': { title: 'Progreso semanal', text: 'Cruza Plan → Mi semana con las familias que se están mostrando aquí (usa ➖ en una tarjeta para ocultarla de esta pantalla sin sacarla del seguimiento). Cada celda es una semana: verde = verificado, ámbar = declarado sin evidencia, gris = programado y aún sin correr. Sirve para ver de un vistazo cuándo se completan los vehículos que le faltan a cada familia — útil para mostrar avance a gerencia.' },
     'cop-strip-help': { title: 'Veredicto por mes', text: 'Qué veredicto estaba vigente al cierre de cada mes, según el último juicio emitido hasta esa fecha. Un mes en gris significa que ese mes no había juicio emitido: nunca se pinta verde por omisión.' }
 });
 

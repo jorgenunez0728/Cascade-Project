@@ -2,6 +2,17 @@
 
 All notable changes to this project, organized by development round.
 
+## v20.6 — Ajustes al Gantt de Panorama (2026-08-28)
+
+Retroalimentación tras el primer uso de v20.5:
+
+- **Carrocería (body type)** ahora se muestra bajo el nombre de la familia, tanto en la
+  tarjeta del Panorama como en cada fila del Gantt (`r.bodiesArr`, tomado de `tpBuildFamilies()`
+  vía `copPortfolioRows()` — no era nuevo cálculo, solo faltaba propagarlo). Una familia puede
+  agrupar más de una carrocería (es una de las cosas que varían dentro de la familia, no lo que
+  la define), así que se listan todas separadas por "/".
+- Se cambió el emoji del botón de ocultar (de 🙈 a ➖) — mismo comportamiento, solo el ícono.
+
 ## v20.5 — Panorama: ocultar familias y Gantt de progreso semanal (2026-08-28)
 
 Dos pedidos del laboratorio para preparar la pantalla del CoP antes de proyectarla en una
