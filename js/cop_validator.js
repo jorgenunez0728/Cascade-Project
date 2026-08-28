@@ -1853,7 +1853,7 @@ function _copFamCardHTML(r) {
     html += '<div><div class="cop-fam-title">' + _copEsc(r.label) + '</div>';
     html += '<div class="cop-fam-sub">' + _copEsc((r.regionsArr || []).join(', ') || '—') +
             (r.emissionReg ? ' · ' + _copEsc(r.emissionReg) : '') +
-            ((r.bodiesArr && r.bodiesArr.length) ? ' · ' + _copEsc(r.bodiesArr.join('/')) : '') + '</div>';
+            ((r.bodiesArr && r.bodiesArr.length) ? ' · ' + _copEsc(r.bodiesArr.join(', ')) : '') + '</div>';
     if (r.ipFamilies && r.ipFamilies.length) {
         html += '<div class="cop-fam-sub" style="font-family:monospace;">🧬 ' +
                 _copEsc(r.ipFamilies.join(' · ')) + '</div>';
@@ -1948,7 +1948,9 @@ function _copFamilyGanttHTML(rows) {
         var required = r.planRequired || 0;
         var pending = Math.max(0, required - totalDone);
 
-        var bodies = (r.bodiesArr && r.bodiesArr.length) ? r.bodiesArr.join('/') : '';
+        // Coma, no "/": leído como "5DR/WGN" parecía UNA carrocería combinada — son
+        // dos carrocerías DISTINTAS que la familia agrupa, no una cosa compuesta.
+        var bodies = (r.bodiesArr && r.bodiesArr.length) ? r.bodiesArr.join(', ') : '';
 
         html += '<tr>';
         html += '<td class="cop-gantt-fam"><button type="button" class="cop-gantt-fam-btn" onclick="copOpenFamily(\'' +

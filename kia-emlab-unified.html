@@ -7168,15 +7168,18 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608281402';
+var APP_BUILD = '202608281549';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.6';
+var APP_VERSION = '20.7';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.7', date: '28 ago 2026', title: 'Carrocerías separadas, no combinadas', bullets: [
+        'Las carrocerías de una familia (p. ej. 5DR y WGN) ahora se listan separadas por coma en vez de "/" — antes se leían como una sola carrocería compuesta.'
+    ] },
     { version: '20.6', date: '28 ago 2026', title: 'Ajustes al Gantt de Panorama', bullets: [
         'La carrocería (body type) de la familia ahora se ve en la tarjeta y en cada fila del Gantt de Progreso semanal.',
         'Se cambió el emoji del botón de ocultar familia (de 🙈 a ➖).'
@@ -7474,14 +7477,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608281402' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608281549' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608281402' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608281549' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -7497,7 +7500,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608281402' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608281549' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -44297,7 +44300,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608281402' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608281549' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -47286,7 +47289,7 @@ function _copFamCardHTML(r) {
     html += '<div><div class="cop-fam-title">' + _copEsc(r.label) + '</div>';
     html += '<div class="cop-fam-sub">' + _copEsc((r.regionsArr || []).join(', ') || '—') +
             (r.emissionReg ? ' · ' + _copEsc(r.emissionReg) : '') +
-            ((r.bodiesArr && r.bodiesArr.length) ? ' · ' + _copEsc(r.bodiesArr.join('/')) : '') + '</div>';
+            ((r.bodiesArr && r.bodiesArr.length) ? ' · ' + _copEsc(r.bodiesArr.join(', ')) : '') + '</div>';
     if (r.ipFamilies && r.ipFamilies.length) {
         html += '<div class="cop-fam-sub" style="font-family:monospace;">🧬 ' +
                 _copEsc(r.ipFamilies.join(' · ')) + '</div>';
@@ -47381,7 +47384,9 @@ function _copFamilyGanttHTML(rows) {
         var required = r.planRequired || 0;
         var pending = Math.max(0, required - totalDone);
 
-        var bodies = (r.bodiesArr && r.bodiesArr.length) ? r.bodiesArr.join('/') : '';
+        // Coma, no "/": leído como "5DR/WGN" parecía UNA carrocería combinada — son
+        // dos carrocerías DISTINTAS que la familia agrupa, no una cosa compuesta.
+        var bodies = (r.bodiesArr && r.bodiesArr.length) ? r.bodiesArr.join(', ') : '';
 
         html += '<tr>';
         html += '<td class="cop-gantt-fam"><button type="button" class="cop-gantt-fam-btn" onclick="copOpenFamily(\'' +

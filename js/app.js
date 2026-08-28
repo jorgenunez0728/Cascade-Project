@@ -285,11 +285,14 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.6';
+var APP_VERSION = '20.7';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.7', date: '28 ago 2026', title: 'Carrocerías separadas, no combinadas', bullets: [
+        'Las carrocerías de una familia (p. ej. 5DR y WGN) ahora se listan separadas por coma en vez de "/" — antes se leían como una sola carrocería compuesta.'
+    ] },
     { version: '20.6', date: '28 ago 2026', title: 'Ajustes al Gantt de Panorama', bullets: [
         'La carrocería (body type) de la familia ahora se ve en la tarjeta y en cada fila del Gantt de Progreso semanal.',
         'Se cambió el emoji del botón de ocultar familia (de 🙈 a ➖).'

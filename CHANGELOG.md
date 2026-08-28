@@ -2,6 +2,13 @@
 
 All notable changes to this project, organized by development round.
 
+## v20.7 — Carrocerías separadas, no combinadas (2026-08-28)
+
+Las carrocerías de una familia (`r.bodiesArr`, agregado en v20.6) se unían con "/"
+(`5DR/WGN`), que se leía como una sola carrocería compuesta en vez de dos carrocerías
+DISTINTAS que la familia agrupa. Se cambió a coma (`5DR, WGN`) en la tarjeta del Panorama y
+en el Gantt de Progreso semanal.
+
 ## v20.6 — Ajustes al Gantt de Panorama (2026-08-28)
 
 Retroalimentación tras el primer uso de v20.5:
