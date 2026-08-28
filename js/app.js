@@ -285,11 +285,15 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.8';
+var APP_VERSION = '20.9';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '20.9', date: '28 ago 2026', title: 'El REQ es de la familia, por lotes de producción', bullets: [
+        'El REQ de una familia ya no es la suma del REQ de sus variantes: es 3 ensayos por cada lote de 5,000 unidades producidas, y el siguiente lote de 3 no entra hasta superar 7,501. Con los volúmenes actuales todas las familias quedan en 3 — calculado, no escrito a mano: el día que una pase de 7,501 sube sola a 6.',
+        'El REQ por configuración no cambia: sigue alimentando al planificador semanal, que decide qué variante conviene correr. Son dos preguntas distintas.'
+    ] },
     { version: '20.8', date: '28 ago 2026', title: 'La carrocería es familia, y el candado de vinculación', bullets: [
         'Una 5DR y una WGN ya son FAMILIAS DISTINTAS en todo el sistema: contador propio, tarjeta propia y veredicto propio. No se prueban juntas, así que no se cuentan juntas. Lo que ya tenías guardado (prioridades, horas de reposo) se reparte solo a cada carrocería, y los juicios CoP viejos siguen apareciendo en la historia de ambas.',
         '🔒 Un vehículo acredita UNA sola prueba: ya no se puede vincular el mismo VIN a dos pruebas, ni siquiera en semanas distintas (antes el mismo vehículo aparecía como liberado en dos semanas con una sola prueba real). Si de verdad hacen falta dos, primero se desvincula la anterior.',

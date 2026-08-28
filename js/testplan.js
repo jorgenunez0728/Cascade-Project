@@ -575,6 +575,37 @@ function tpCalcRequired(cfg, rule) {
     return Math.max(1, Math.ceil((vol * rule.ratio) / rule.per));
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v20.9] EL REQ DE UNA FAMILIA — la unidad de muestreo del CoP es la FAMILIA
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// `tpCalcRequired` (arriba) sigue siendo el REQ POR CONFIGURACIÓN: alimenta al
+// planificador semanal, que decide QUÉ variante correr. Pero la norma no exige un
+// ensayo por variante: exige **3 ensayos por familia por cada lote de 5 000
+// unidades producidas**, y el siguiente lote de 3 no entra hasta SUPERAR 7 501.
+// Sumar el REQ de cada config daba números inflados y distintos entre familias
+// con el mismo volumen (una familia con 5 variantes pedía 5, otra con 2 pedía 2),
+// que es justo lo que el laboratorio reportó.
+//
+// El escalón NO es `ceil(vol/5000)`: con 7 500 unidades eso ya pediría 6. El punto
+// de quiebre está a la mitad del lote (7 501), así que se corre 2 500 hacia atrás.
+var TP_COP_LOT_UNITS   = 5000;  // unidades por lote
+var TP_COP_LOT_TESTS   = 3;     // ensayos que exige cada lote
+var TP_COP_LOT_ROLLOVER = 2500; // corrimiento: el 2º lote entra en 7 501, no en 5 001
+
+/**
+ * LA definición de cuántos ensayos exige una familia dado su volumen.
+ * Todo consumidor nuevo debe llamarla en vez de sumar el REQ de las configuraciones.
+ *   vol ≤ 7 500 → 3 · 7 501–12 500 → 6 · 12 501–17 500 → 9 …
+ * Sin volumen no exige nada (misma regla que tpCalcRequired).
+ */
+function tpFamilyRequired(vol) {
+    var v = Number(vol) || 0;
+    if (v <= 0) return 0;
+    var lotes = Math.max(1, Math.ceil((v - TP_COP_LOT_ROLLOVER) / TP_COP_LOT_UNITS));
+    return lotes * TP_COP_LOT_TESTS;
+}
+
 // v16.2: pausar/reactivar una configuración dormant (3+ meses seguidos en 0). Pausada =
 // required 0 y fuera del denominador de cobertura (tpCoverageSummary). "Confirmar activa"
 // no pausa nada — solo marca que ya se revisó, para no volver a preguntar.
@@ -6870,7 +6901,7 @@ function tpBuildFamilies() {
     tpState.planData.forEach(cfg => {
         const key = tpFamilyKeyForCfg(cfg); // [v20.8] única definición — incluye carrocería
         if (!families[key]) {
-            families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgns:new Set(), drvs:new Set(), bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, testedConfigs:0, totalTested:0, totalRequired:0, pausedCount:0, dormantCount:0 };
+            families[key] = { key, mod:cfg.mod, eng:cfg.eng, tx:cfg.tx, my:cfg.my, reg:cfg.reg, rgns:new Set(), drvs:new Set(), bodies:new Set(), ep:cfg.ep||'', engpkg:cfg.engpkg||'', configs:[], totalVol:0, totalHist:0, activeVol:0, testedConfigs:0, totalTested:0, totalRequired:0, configRequiredSum:0, pausedCount:0, dormantCount:0 };
         }
         const rule = tpGetRule(cfg);
         const n = tpState.testedList.filter(t => t.configText === cfg.desc).length;
@@ -6887,7 +6918,10 @@ function tpBuildFamilies() {
         families[key].rgns.add(cfg.rgn||'');
         families[key].totalVol += cfg.total;
         families[key].totalHist += cfg.hist;
-        families[key].totalRequired += req;
+        // v20.9: el volumen que cuenta para el REQ de la familia excluye las pausadas
+        // (misma regla que el REQ por config: pausada = no exige).
+        if (!cfg.paused) families[key].activeVol += (cfg.total + cfg.hist);
+        families[key].configRequiredSum += req;   // suma por config — la usa el planificador
         families[key].totalTested += n;
         if (n > 0) families[key].testedConfigs++;
         if (cfg.paused) families[key].pausedCount++;
@@ -6901,7 +6935,10 @@ function tpBuildFamilies() {
         f.drvs  = [...f.drvs].filter(Boolean).sort();
         f.rgns  = [...f.rgns].filter(Boolean).sort();
         f.configCount = f.configs.length;
-        f.coverage = f.totalRequired > 0 ? f.totalTested / f.totalRequired : 1;
+        // v20.9: el REQ de la familia sale de SU volumen por la regla de lotes, no de
+        // sumar el REQ de cada variante — la norma muestrea la familia, no la variante.
+        f.totalRequired = tpFamilyRequired(f.activeVol);
+        f.coverage = f.totalRequired > 0 ? Math.min(1, f.totalTested / f.totalRequired) : 1;
         f.configCoverage = f.configCount > 0 ? f.testedConfigs / f.configCount : 1;
         f.deficit = Math.max(0, f.totalRequired - f.totalTested);
         f.riskScore = ((1 - f.coverage) * 60) + (((f.totalVol + f.totalHist) / maxVol) * 30) + ((1 - f.configCoverage) * 10);

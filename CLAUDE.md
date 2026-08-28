@@ -900,6 +900,27 @@ greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya n
   excepción que señalar a diario. El dato vive en `moves[]`, la auditoría, el menú ⋯ y el
   `title` del asa. No volver a agregarlo a `marcas`.
 
+## v20.9 — El REQ es de la familia, por lotes de producción
+
+- **`tpFamilyRequired(vol)` (testplan.js) es LA definición del REQ de una familia** y todo
+  consumidor nuevo debe llamarla en vez de sumar el REQ de las configuraciones. Regla:
+  `TP_COP_LOT_TESTS` (3) ensayos por cada `TP_COP_LOT_UNITS` (5 000) unidades, con el
+  escalón corrido `TP_COP_LOT_ROLLOVER` (2 500) hacia atrás — **no es `ceil(vol/5000)`**:
+  el segundo lote entra al SUPERAR 7 501, no al pasar 5 000. `≤7 500 → 3 · 7 501–12 500 → 6`.
+  Volumen 0 → 0 (misma regla que `tpCalcRequired`).
+- **`tpCalcRequired` (por configuración) NO fue reemplazada** — son dos preguntas distintas
+  y deben seguir separadas: cuántos ensayos exige la norma (familia, `f.totalRequired`) y
+  qué variante conviene correr (configuración, `configs[].required`, lo que lee el
+  planificador semanal vía `tpGetAnalysis`). La suma por variante se conserva en
+  `f.configRequiredSum` — si algún consumidor viejo la necesitaba, está ahí.
+- **`f.activeVol`** es el volumen que cuenta para el REQ: excluye las configuraciones
+  `paused`, igual que ya hacía el REQ por configuración. Toda regla nueva de volumen a
+  nivel familia debe usarlo, no `totalVol + totalHist` (que incluye pausadas).
+- `f.coverage` se acota a 1: con el REQ de familia es normal correr de más.
+- **`tpCoverageSummary()` sigue siendo otra cosa y NO cambió**: mide configuraciones
+  vigentes con su REQ *por configuración* cumplido. No intentar reconciliar los dos números
+  — miden unidades distintas a propósito.
+
 ## v20.8 — La carrocería es familia, y el candado de vinculación
 
 - **`tpFamilyKeyForCfg` tiene 8 segmentos, no 7** — `body` entró a la identidad:
