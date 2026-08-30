@@ -2,6 +2,75 @@
 
 All notable changes to this project, organized by development round.
 
+## v21.0 — La captura de gases y gasolina, de cuatro caminos a uno (2026-08-30)
+
+> *"Capturar es tardado."*
+
+El módulo tenía **cuatro caminos de captura de gas** (captura diaria, escaneo, mapa, ronda) y
+**dos de combustible**, y ninguno compartía nada: cada uno reimplementaba validar →
+deduplicar → guardar → auditar, y discrepaban en los cuatro pasos. Tres políticas de
+deduplicación distintas, dos acciones de auditoría, y **solo uno de los cuatro reentrenaba
+el modelo de consumo** — así que capturar por el camino rápido dejaba la predicción
+desactualizada hasta la siguiente captura diaria.
+
+### El motor único
+
+**`invAddReading(gasId, psi, opts)` y `invAddFuelReading(tankId, level, opts)` son LA
+definición de registrar una lectura.** Validan, deduplican por fecha, atribuyen operador,
+guardan, auditan, reentrenan el modelo y publican a la nube. Los seis caminos pasan por
+ellas; nadie vuelve a empujar a `readings[]` directo.
+
+- **Un cilindro tiene A LO MÁS una lectura por día.** La captura diaria duplicaba el día si
+  guardabas dos veces, creando un par con caída 0 que el modelo leía como consumo real.
+- **Cada lectura trae autor** (`by`). Antes ninguna lo tenía, y la ronda no auditaba nada.
+- **La medición humana manda sobre la estimación**: al capturar un día que ya tenía
+  auto-deducciones por prueba, esas estimaciones se retiran.
+- **Banda de cordura que avisa sin bloquear** (misma semántica que `GAS_PLAUSIBLE_BOUNDS` en
+  la liberación): un dedazo de más SUBE la lectura y uno de menos la derrumba — las dos
+  direcciones se marcan en ámbar, con el motivo escrito, y **se guardan igual**: el técnico
+  decide y el aviso queda en la auditoría. Es lo que evita que `12660` por `1266` reaparezca
+  días después como una falsa alarma de "posible FUGA".
+- La presión nominal sale del **máximo histórico**, no de la primera lectura: un cilindro
+  estrenado a media carga hacía ver imposible toda recarga legítima.
+
+### La ronda, que nunca había funcionado
+
+Estaba construida desde R5-M5 y **jamás corrió**: filtraba `status === 'active'`, un estado
+que la app no escribe (los reales son `Stock|In use|Empty|Spare`), así que el botón siempre
+respondía "No hay cilindros activos". Y guardaba un esquema propio **sin campo `date`** que
+habría reventado el modelo de consumo, el nivel, HOY y las gráficas en cuanto alguien la
+hiciera arrancar. Las dos cosas están corregidas, y encima:
+
+- **Orden físico por zona** (A01, A02, B01…): la pantalla sigue la caminata, no al revés.
+- **Combustible en la misma pasada**, al final del recorrido.
+- **Reanudar**: salir a media ronda conserva el avance y al volver ofrece retomarlo — el
+  cuarto de gases puede no tener señal.
+- **Saltar** lo que no se pudo leer, y las saltadas se declaran en el resumen final.
+- Aviso en vivo mientras se teclea, y `= Igual` / Enter para avanzar sin levantar la vista.
+
+### Capturar desde donde estés
+
+- **Un toque desde HOY**: la app abre ahí, y "🔄 Hacer la ronda" arranca el recorrido directo.
+  La retícula completa queda como acción secundaria.
+- **Modo libreta**: la retícula ahora tiene **fecha de lote editable** — quien pasa lo anotado
+  en papel casi siempre lo hace al día siguiente, y antes no había manera de retrofechar.
+- **⛽ Combustible sale del menú `⋯ Más`** a la barra principal: es parte de la misma tarea.
+- El contador de HOY busca la lectura del día **en toda la serie**, no solo en la última:
+  con captura retrofechada se quedaba corto.
+
+### Lo visual
+
+Toda la superficie de captura seguía en el **tema oscuro eliminado en v15.5** (`#0f172a`,
+`#1e293b`): popups negros dentro de una app clara. Migrada a los tokens y a las utilidades
+`u-*`, con campos de 44px y `inputmode` correcto en cada uno.
+
+### Otros arreglos
+
+- `fbPostGasReading` recibía **la fecha donde espera el PSI** en los tres llamadores, así que
+  el feed compartido decía "CH4-20: 2026-08-30 PSI".
+- Capturar combustible desde su pestaña **no reentrenaba el modelo**; ahora sí.
+- El nivel autoritativo del tanque y su serie de lecturas ya no pueden divergir.
+
 ## v20.10 — Una semana, un plan: el Gantt dejaba de contar doble (2026-08-28)
 
 El Gantt reportaba "+7 programado(s)" con 2 en la columna. Dos causas encimadas, ambas por

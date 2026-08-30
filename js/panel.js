@@ -2522,6 +2522,9 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_templates',         label: 'Plantillas',               tier: 'core' },
     { key: 'kia_firebase_queue',    label: 'Cola de sincronización',   tier: 'core' },
     { key: 'kia_soak_timer',        label: 'Soak Timer',               tier: 'core' },
+    // v21: ronda de lecturas a medias. Es 'core' porque contiene trabajo del turno
+    // que todavía no se ha guardado — borrarla pierde el recorrido caminado.
+    { key: 'kia_inv_round',         label: 'Ronda de lecturas en curso', tier: 'core' },
     // ── Sesión / identidad ──
     { prefix: 'kia_auth',           label: 'Sesión de acceso',         tier: 'core' },
     { key: 'kia_current_operator',  label: 'Operador actual',          tier: 'core' },

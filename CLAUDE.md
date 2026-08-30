@@ -900,6 +900,56 @@ greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya n
   excepción que señalar a diario. El dato vive en `moves[]`, la auditoría, el menú ⋯ y el
   `title` del asa. No volver a agregarlo a `marcas`.
 
+## v21.0 — El motor único de captura de lecturas (`js/inventory.js`)
+
+- **`invAddReading(gasId, psi, opts)` e `invAddFuelReading(tankId, level, opts)` son LA
+  definición de registrar una lectura.** Validan, deduplican por fecha, atribuyen operador
+  (`by`), guardan, auditan, **reentrenan el modelo de consumo** y publican a la nube.
+  **Nunca volver a empujar a `readings[]` directo** — había CUATRO caminos de gas y DOS de
+  combustible haciéndolo, con tres políticas de deduplicación distintas y solo uno de los
+  cuatro reentrenando el modelo. `opts`: `{date, by, source, silent, skipSave}`; devuelve
+  `{ok, reading, replaced, warning}` o `{ok:false, reason}`.
+- **Un cilindro/tanque tiene A LO MÁS una lectura HUMANA por fecha.** `invFindReadingOn`
+  ignora a propósito las `auto:true` (puede haber varias por día, una por prueba corrida) y
+  `_invDropAutoReadingsOn` las retira cuando llega la medición real: el manómetro manda
+  sobre la estimación.
+- **La auto-deducción por prueba (`invLogTestUsage`) NO pasa por el motor, y así debe
+  quedarse**: sus filas llevan `auto:true`, que es lo que hace que `invCalcConsumptionRates`
+  las excluya (`!r.auto`) y no envenene el aprendizaje con caídas sintéticas.
+- **`invReadingWarning` / `invFuelReadingWarning` son PURAS** (sin DOM, testeables en Node) y
+  **avisan sin bloquear**, igual que `GAS_PLAUSIBLE_BOUNDS` en la liberación. La nominal sale
+  del **máximo histórico**, nunca de `readings[0]`: un cilindro estrenado a media carga hacía
+  ver imposible toda recarga legítima (es el mismo defecto que `invGasLevel` sigue teniendo al
+  medir el % contra la primera lectura — ahí no se corrigió).
+- `invAddReading` **ordena `readings[]` por fecha** tras insertar: el orden cronológico es un
+  supuesto de `invGasLevel`, del EWMA y de las gráficas, y la captura retrofechada lo rompería.
+
+### La ronda (`invStartReadingRound`)
+
+- **Nunca había corrido**: filtraba `status === 'active'`, estado que la app no escribe (los
+  reales son `Stock|In use|Empty|Spare`), y guardaba un esquema **sin campo `date`** que
+  habría reventado `invCalcConsumptionRates` (`a.date.localeCompare`), el nivel, HOY y las
+  gráficas. Si se toca este código, **el filtro correcto es `status !== 'Empty'`** (el mismo
+  que la pestaña Captura) y **se escribe por el motor**, nunca a mano.
+- **`invRoundItems()` es LA definición de los puntos del recorrido**: gases ordenados por
+  zona con `localeCompare(..., {numeric:true})` (para que A10 vaya después de A02) y el
+  combustible al final. El orden en pantalla es el orden de la caminata.
+- El avance vive en `kia_inv_round` (registrado en `PN_STORAGE_REGISTRY` como **`core`**: es
+  trabajo del turno sin guardar). `_invRoundCancel` **conserva** la llave para poder retomar;
+  solo `invRoundFinish` la limpia.
+- La ronda escribe con `skipSave:true` y guarda **una sola vez** al final.
+
+### Fase 2 — captura desde donde estés
+
+- La fila `act-gasread` de HOY (`app.js:dashCollectActivities`) lanza la ronda directo; la
+  retícula queda como `action2`. La app abre en HOY, así que es un toque hasta capturar.
+- La retícula tiene **fecha de lote** (`#inv-capture-date`): retrofechar es el caso normal de
+  quien pasa lo anotado en papel.
+- **`invReadingStatusToday` busca la lectura de hoy en TODA la serie**, no solo en la última
+  — con captura retrofechada la última puede ser de otro día y el contador se quedaba corto.
+- Las superficies de captura salieron del **tema oscuro de v15.5** (`#0f172a`/`#1e293b`) a los
+  tokens y a las utilidades `u-*`. No volver a propagar hex oscuros en este módulo.
+
 ## v20.10 — Una semana, un plan (el Gantt contaba doble)
 
 - **`tpState.weeklyPlans` puede tener VARIOS planes de la misma `weekDate`** — cada

@@ -1824,9 +1824,12 @@ body{ overflow-x: hidden; }
     animation: animFadeInUp 0.3s var(--ease-out);
 }
 .reading-round-card {
-    background: #fff; border: 1px solid #e2e8f0;
-    border-radius: 18px; padding: 24px; width: 90%; max-width: 360px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); padding: var(--space-xl); width: 90%; max-width: 380px;
     box-shadow: var(--shadow-xl);
+    /* La ronda se usa de pie en el cuarto de gases: si la tarjeta crece (muchas
+       alertas en el resumen) tiene que poder desplazarse, no recortarse. */
+    max-height: 90vh; overflow-y: auto;
 }
 
 /* ══════════════════════════════════════════════════════════════════════ */
