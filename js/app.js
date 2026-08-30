@@ -285,11 +285,28 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '20.10';
+var APP_VERSION = '21.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '21.1', date: '30 ago 2026', title: 'Números confiables y la gasolina en la nube', bullets: [
+        'EL NIVEL DE UN CILINDRO YA ES REAL. Se medía contra la primera lectura registrada, no contra qué tan lleno está: un cilindro al 13% se reportaba al 63% y en verde. Ahora se mide contra la presión nominal (hay un campo nuevo y opcional para declararla; sin él usa el máximo histórico).',
+        'Un solo criterio de "nivel bajo" en toda la app. Había cinco distintos, así que un cilindro podía verse verde en el mapa y crítico en las alertas al mismo tiempo.',
+        'LA GASOLINA YA SE SINCRONIZA. Los tanques nunca viajaban a la nube: cada dispositivo llevaba su propio nivel. Además, unir dos dispositivos ya no descarta las lecturas capturadas aquí.',
+        'Las alertas de gas del Panel decían "Gas undefined en nivel CRITICO" — corregido.',
+        'Las columnas de consumo del reporte se calculan de las lecturas reales; antes venían de la semilla y salían en 0.0 para todo cilindro dado de alta en la app.',
+        'La regulación del tanque es un selector (era texto libre, y un typo rompía el descuento automático de gasolina en silencio). Borrar un tanque ahora tiene deshacer y queda en la auditoría.'
+    ] },
+    { version: '21.0', date: '30 ago 2026', title: 'La captura de gases y gasolina, de cuatro caminos a uno', bullets: [
+        'LA RONDA POR FIN FUNCIONA. Estaba construida pero nunca había corrido (buscaba un estado de cilindro que la app no usa). Te pide un punto a la vez, en el orden en que están acomodados en el cuarto, termina con el combustible, y puedes salir a media ronda y retomarla donde ibas.',
+        'Desde HOY, "🔄 Hacer la ronda" arranca el recorrido de un toque: la app abre en HOY, así que es un toque desde el arranque hasta estar capturando.',
+        '¿Capturas de una libreta? La retícula ahora deja elegir la fecha del recorrido — antes clavaba la de hoy sin manera de retrofechar.',
+        'Un valor improbable se marca en ámbar y dice por qué (un dígito de más o de menos), pero NUNCA impide guardar: tú decides y el aviso queda en la auditoría.',
+        'Ya no se puede duplicar el día: capturar dos veces el mismo cilindro reemplaza en vez de duplicar. Y cada lectura guarda quién la tomó.',
+        'Capturar por escaneo, por el mapa o por la ronda ahora también actualiza la predicción de consumo — antes solo lo hacía la captura diaria.',
+        '⛽ Combustible sale del menú "⋯ Más" a la barra principal, y las pantallas de captura dejan de verse en tema oscuro.'
+    ] },
     { version: '20.10', date: '28 ago 2026', title: 'Una semana, un plan: el Gantt dejaba de contar doble', bullets: [
         'El Gantt contaba TODOS los planes de una semana (cada "Generar" crea uno nuevo, así que se acumulan el aceptado y las propuestas viejas). Ahora usa un solo plan por semana: el aceptado, o la propuesta más reciente si no hay ninguno aceptado — marcada como propuesta para que se distinga del compromiso.',
         'Ya se pueden borrar las propuestas: botón 🗑 en cada una dentro de Plan → 🗂 Semanas generadas, con un aviso cuando una semana tiene más de un plan. Los aceptados hay que desaceptarlos primero.'
@@ -2654,14 +2671,21 @@ function dashCollectActivities() {
                 status: rdDone ? 'hecho' : 'pendiente',
                 progress: { done: rd.capturedToday, total: rd.inUseTotal },
                 urgency: rdDone ? 0 : 2,
-                action: { label: 'Capturar', js: "dashGo('inventory','inv-readings')" } });
+                // v21: "Capturar" arranca LA RONDA directo — la app abre en HOY, así que
+                // esto es un toque desde el arranque hasta estar capturando. La retícula
+                // completa (para pasar la libreta) queda como acción secundaria.
+                action: { label: '🔄 Hacer la ronda', aria: 'Iniciar la ronda de lecturas',
+                          js: "dashGo('inventory','inv-readings');setTimeout(function(){if(typeof invStartReadingRound==='function')invStartReadingRound();},350)" },
+                action2: { label: '📋', aria: 'Abrir la captura en bloque', ghost: true,
+                           js: "dashGo('inventory','inv-readings')" } });
         }
         if (rd.inUseTotal > 0 && (rd.daysSinceLast === null || rd.daysSinceLast >= 3)) {
             acts.push({ id: 'act-prod', cat: 'inventario', icon: '📅',
                 title: rd.daysSinceLast === null ? 'Sin capturas de producción registradas' : 'Captura de producción atrasada',
                 meta: rd.daysSinceLast === null ? '' : 'Van ' + rd.daysSinceLast + ' días desde la última',
                 status: 'atrasado', urgency: 3,
-                action: { label: 'Capturar ahora', js: "dashGo('inventory','inv-readings')" } });
+                action: { label: '🔄 Hacer la ronda', aria: 'Iniciar la ronda de lecturas',
+                          js: "dashGo('inventory','inv-readings');setTimeout(function(){if(typeof invStartReadingRound==='function')invStartReadingRound();},350)" } });
         }
     }
 
@@ -2759,8 +2783,9 @@ function dashCollectActivities() {
             }
             if (typeof invGasLevel === 'function') {
                 var lvl = invGasLevel(g);
-                if (lvl.pct < 15 && lvl.pct >= 0) acts.push({ id: 'act-glvl-' + g.id, cat: 'inventario', icon: '📉',
-                    title: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', meta: 'Nivel bajo', status: 'pendiente', urgency: 2,
+                // v21.1: el criterio de "bajo" es el de invGasLevel, no un < 15 propio de HOY.
+                if (lvl.status === 'critico') acts.push({ id: 'act-glvl-' + g.id, cat: 'inventario', icon: '📉',
+                    title: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', meta: 'Nivel crítico', status: 'pendiente', urgency: 2,
                     action: { label: 'Reponer', js: "dashGo('inventory','inv-gases','invEditGas','" + g.id + "')" } });
             }
         });
@@ -4382,10 +4407,11 @@ function renderLabDashboard(container) {
 
     // ── Inventory Module ──
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
+    // v21.1: criterio único (invGasIsLow) — antes comparaba PSI absolutos contra
+    // cilindros de cualquier tamaño nominal.
     var criticalGases = invGases.filter(function(g) {
-        if (!g.readings || g.readings.length === 0 || g.status === 'Empty') return false;
-        var last = g.readings[g.readings.length - 1];
-        return last.psi < (g.reorderPSI || 500);
+        if (g.status === 'Empty') return false;
+        return typeof invGasIsLow === 'function' ? invGasIsLow(g) : false;
     });
     if (criticalGases.length > 0) {
         alerts.push({ level: 'ALTO', color: tokenColor('--danger-fill'), module: 'Inventario',

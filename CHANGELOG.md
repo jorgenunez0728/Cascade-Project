@@ -2,6 +2,133 @@
 
 All notable changes to this project, organized by development round.
 
+## v21.1 — Números confiables y la gasolina en la nube (2026-08-30)
+
+Fases 3 y 4 del overhaul de captura. La 1 y la 2 arreglaron **cómo se captura**; éstas
+arreglan **qué tan confiable es lo capturado** y **a dónde llega**.
+
+### El nivel de un cilindro era relativo a su primera lectura
+
+`invGasLevel` dividía entre `readings[0]`, así que el % dependía de en qué estado se tomó
+la PRIMERA lectura del cilindro, no de qué tan lleno está. Un cilindro cuya primera lectura
+se tomó a 400 psi, luego recargado a 2000 y hoy en 250, se reportaba al **63% (verde)**
+cuando en realidad está al **13%**.
+
+- **`invGasLevel` ahora es ABSOLUTO**, contra la presión nominal: `initialPsi` si está
+  declarada, y si no el **máximo histórico** (el cilindro estuvo al menos así de lleno).
+- **Campo nuevo y opcional "Presión nominal (psi)"** en el alta del cilindro. Sin él todo
+  sigue funcionando con el máximo histórico — no hay migración que correr.
+- **`invGasLevel` es LA definición del nivel y `invGasIsLow` la de "¿está bajo?"**. Había
+  **cinco criterios distintos** para la misma pregunta: 15/30% aquí, 25/50% en el mapa,
+  <20% en el dashboard, <10% en las alertas proactivas, <15% en HOY, y 200/500 psi
+  **absolutos** en el Panel y en las alertas globales — un cilindro podía verse verde en el
+  mapa y crítico en las alertas al mismo tiempo. Ahora todos consumen la misma definición.
+
+### Otros números que mentían
+
+- **Las alertas de gas del Panel decían literalmente "Gas undefined en nivel CRITICO"**:
+  el mensaje usaba `g.name`, campo que un cilindro no tiene.
+- **Las columnas del reporte estaban congeladas en la semilla.** `weeklyPsi`/`dailyPsi`/
+  `reposDays` nunca se recalculaban, así que todo cilindro dado de alta en la app mostraba
+  0.0 mientras el modelo de consumo sí tenía los números buenos. **`invGasBurnRate(g)` es LA
+  definición del ritmo de un cilindro**, calculada de sus lecturas humanas y descartando los
+  tramos de recarga.
+- **La auto-deducción de gas por prueba no se auditaba** (su gemela de combustible sí): era
+  el único movimiento de existencias invisible en el historial de cambios.
+
+### ⛽ La gasolina entra a la nube
+
+**`fuelTanks` no aparecía ni una vez en `firebase-sync.js`.** El nivel de combustible nunca
+viajaba entre dispositivos: cada equipo llevaba el suyo, y en la ruta de seed el local se
+reemplazaba entero. En un laboratorio que trabaja en espacio compartido eso es dato
+incorrecto, no una carencia de comodidad.
+
+- **Los tanques entran al análisis y al merge**, empatados por id, y el score local **ya
+  cuenta sus lecturas**: un dispositivo cuyo único dato nuevo era gasolina puntuaba como
+  vacío y el seed lo reemplazaba entero.
+- **El seed conserva los subcampos locales** que un remoto de código viejo no trae
+  (`fuelTanks`, `assets`, `maintActivities`, `maintLog`…), igual que ya hacía Test Plan.
+- **`_fbMergeReadings` une las series sin perder ninguna lectura.** El merge de un cilindro
+  en conflicto hacía `invState.gases[idx] = c.remote`, **tirando a la basura las lecturas
+  capturadas en este dispositivo**. Ahora las series se unen: una fecha aparece una sola vez,
+  gana la humana sobre la automática y, entre dos humanas, la local.
+- **La regulación del tanque es un selector**, no texto libre: es la llave con la que se
+  decide de qué tanque descontar la gasolina de una prueba, y un espacio de más rompía el
+  descuento en silencio.
+- **Editar el nivel en el formulario deja lectura**: antes escribía `currentLevel` a secas y
+  el nivel podía divergir de la serie sin que el modelo se enterara.
+- **Borrar un tanque tiene deshacer y auditoría** — era la única acción destructiva del
+  módulo sin ninguno de los dos.
+
+## v21.0 — La captura de gases y gasolina, de cuatro caminos a uno (2026-08-30)
+
+> *"Capturar es tardado."*
+
+El módulo tenía **cuatro caminos de captura de gas** (captura diaria, escaneo, mapa, ronda) y
+**dos de combustible**, y ninguno compartía nada: cada uno reimplementaba validar →
+deduplicar → guardar → auditar, y discrepaban en los cuatro pasos. Tres políticas de
+deduplicación distintas, dos acciones de auditoría, y **solo uno de los cuatro reentrenaba
+el modelo de consumo** — así que capturar por el camino rápido dejaba la predicción
+desactualizada hasta la siguiente captura diaria.
+
+### El motor único
+
+**`invAddReading(gasId, psi, opts)` y `invAddFuelReading(tankId, level, opts)` son LA
+definición de registrar una lectura.** Validan, deduplican por fecha, atribuyen operador,
+guardan, auditan, reentrenan el modelo y publican a la nube. Los seis caminos pasan por
+ellas; nadie vuelve a empujar a `readings[]` directo.
+
+- **Un cilindro tiene A LO MÁS una lectura por día.** La captura diaria duplicaba el día si
+  guardabas dos veces, creando un par con caída 0 que el modelo leía como consumo real.
+- **Cada lectura trae autor** (`by`). Antes ninguna lo tenía, y la ronda no auditaba nada.
+- **La medición humana manda sobre la estimación**: al capturar un día que ya tenía
+  auto-deducciones por prueba, esas estimaciones se retiran.
+- **Banda de cordura que avisa sin bloquear** (misma semántica que `GAS_PLAUSIBLE_BOUNDS` en
+  la liberación): un dedazo de más SUBE la lectura y uno de menos la derrumba — las dos
+  direcciones se marcan en ámbar, con el motivo escrito, y **se guardan igual**: el técnico
+  decide y el aviso queda en la auditoría. Es lo que evita que `12660` por `1266` reaparezca
+  días después como una falsa alarma de "posible FUGA".
+- La presión nominal sale del **máximo histórico**, no de la primera lectura: un cilindro
+  estrenado a media carga hacía ver imposible toda recarga legítima.
+
+### La ronda, que nunca había funcionado
+
+Estaba construida desde R5-M5 y **jamás corrió**: filtraba `status === 'active'`, un estado
+que la app no escribe (los reales son `Stock|In use|Empty|Spare`), así que el botón siempre
+respondía "No hay cilindros activos". Y guardaba un esquema propio **sin campo `date`** que
+habría reventado el modelo de consumo, el nivel, HOY y las gráficas en cuanto alguien la
+hiciera arrancar. Las dos cosas están corregidas, y encima:
+
+- **Orden físico por zona** (A01, A02, B01…): la pantalla sigue la caminata, no al revés.
+- **Combustible en la misma pasada**, al final del recorrido.
+- **Reanudar**: salir a media ronda conserva el avance y al volver ofrece retomarlo — el
+  cuarto de gases puede no tener señal.
+- **Saltar** lo que no se pudo leer, y las saltadas se declaran en el resumen final.
+- Aviso en vivo mientras se teclea, y `= Igual` / Enter para avanzar sin levantar la vista.
+
+### Capturar desde donde estés
+
+- **Un toque desde HOY**: la app abre ahí, y "🔄 Hacer la ronda" arranca el recorrido directo.
+  La retícula completa queda como acción secundaria.
+- **Modo libreta**: la retícula ahora tiene **fecha de lote editable** — quien pasa lo anotado
+  en papel casi siempre lo hace al día siguiente, y antes no había manera de retrofechar.
+- **⛽ Combustible sale del menú `⋯ Más`** a la barra principal: es parte de la misma tarea.
+- El contador de HOY busca la lectura del día **en toda la serie**, no solo en la última:
+  con captura retrofechada se quedaba corto.
+
+### Lo visual
+
+Toda la superficie de captura seguía en el **tema oscuro eliminado en v15.5** (`#0f172a`,
+`#1e293b`): popups negros dentro de una app clara. Migrada a los tokens y a las utilidades
+`u-*`, con campos de 44px y `inputmode` correcto en cada uno.
+
+### Otros arreglos
+
+- `fbPostGasReading` recibía **la fecha donde espera el PSI** en los tres llamadores, así que
+  el feed compartido decía "CH4-20: 2026-08-30 PSI".
+- Capturar combustible desde su pestaña **no reentrenaba el modelo**; ahora sí.
+- El nivel autoritativo del tanque y su serie de lecturas ya no pueden divergir.
+
 ## v20.10 — Una semana, un plan: el Gantt dejaba de contar doble (2026-08-28)
 
 El Gantt reportaba "+7 programado(s)" con 2 en la columna. Dos causas encimadas, ambas por

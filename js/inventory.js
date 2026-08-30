@@ -455,7 +455,7 @@ function invCheckProactiveAlerts() {
     var criticals = [];
     invState.gases.forEach(function(g) {
         if (invGasExpiry(g).status === 'expired') criticals.push(g.formula + ' #' + g.controlNo + ' VENCIDO');
-        if (invGasLevel(g).pct < 10 && invGasLevel(g).pct >= 0) criticals.push(g.formula + ' #' + g.controlNo + ' nivel critico');
+        if (invGasLevel(g).status === 'critico') criticals.push(g.formula + ' #' + g.controlNo + ' nivel critico');
     });
     invState.equipment.forEach(function(e) {
         if (!e.nextCalDate) return;
@@ -581,16 +581,89 @@ function invGasExpiry(g) {
     return {status:'ok',text:'Vigente ' + days + 'd',days:days,color:'#10b981'};
 }
 
+// [v21.1] LOS umbrales de nivel. Había CINCO criterios distintos para la misma
+// pregunta ("¿este cilindro está bajo?"): 15/30 en invGasLevel, 25/50 en _invCylColor,
+// <20 en el dashboard, <10 en las alertas proactivas y 200/500 psi absolutos en el
+// Panel. Un cilindro podía verse verde en el mapa y rojo en las alertas a la vez.
+var INV_LEVEL_CRITICAL_PCT = 15;   // rojo: hay que reponer ya
+var INV_LEVEL_LOW_PCT      = 30;   // ámbar: pedir reposición
+
+/**
+ * LA definición del nivel de un cilindro. Todo consumidor (mapa, dashboard, alertas,
+ * Panel, pronóstico) debe llamarla en vez de comparar PSI por su cuenta.
+ *
+ * El % es ABSOLUTO, contra la presión nominal del cilindro — antes era relativo a
+ * `readings[0]`, así que un cilindro cuya PRIMERA lectura se tomó a media carga se
+ * veía al 100% para siempre. La nominal sale de `initialPsi` si está declarada, y si
+ * no del máximo histórico (el cilindro estuvo al menos así de lleno alguna vez).
+ *
+ * @returns {{pct, psi, nominal, status:'sinlecturas'|'critico'|'bajo'|'ok', text, color}}
+ */
 function invGasLevel(g) {
-    if (!g.readings || g.readings.length === 0) return {pct:100,text:'Sin lecturas',color:'#94a3b8'};
-    var last = g.readings[g.readings.length-1];
-    var first = g.readings[0];
-    var pct = first.psi > 0 ? Math.round((last.psi / first.psi) * 100) : 0;
+    if (!g || !g.readings || g.readings.length === 0) {
+        return { pct: 100, psi: null, nominal: null, status: 'sinlecturas', text: 'Sin lecturas', color: 'var(--muted)', bg: 'var(--surface-alt)' };
+    }
+    var last = g.readings[g.readings.length - 1];
+    var nominal = (typeof g.initialPsi === 'number' && g.initialPsi > 0) ? g.initialPsi : 0;
+    if (!nominal) g.readings.forEach(function(r) { if (r && r.psi > nominal) nominal = r.psi; });
+    if (!nominal) nominal = INV_PSI_NOMINAL_FALLBACK;
+
+    var pct = Math.round((last.psi / nominal) * 100);
     if (pct > 100) pct = 100;
     if (pct < 0) pct = 0;
-    if (pct < 15) return {pct:pct,text:last.psi + ' psi (' + pct + '%)',color:'#ef4444'};
-    if (pct < 30) return {pct:pct,text:last.psi + ' psi (' + pct + '%)',color:'#f59e0b'};
-    return {pct:pct,text:last.psi + ' psi (' + pct + '%)',color:'#10b981'};
+
+    var status = pct < INV_LEVEL_CRITICAL_PCT ? 'critico' : pct < INV_LEVEL_LOW_PCT ? 'bajo' : 'ok';
+    // color = texto/relleno; bg = tinte de fondo. Son los tres roles del sistema de
+    // diseño, no un color con alfa concatenado a mano.
+    var color = status === 'critico' ? 'var(--danger-text)' : status === 'bajo' ? 'var(--warn-text)' : 'var(--ok-text)';
+    var bg    = status === 'critico' ? 'var(--danger-bg)'   : status === 'bajo' ? 'var(--warn-bg)'   : 'var(--ok-bg)';
+    return { pct: pct, psi: last.psi, nominal: nominal, status: status,
+             text: last.psi + ' psi (' + pct + '%)', color: color, bg: bg };
+}
+
+/** ¿Está por debajo del umbral de reposición? Un solo criterio para toda la app. */
+function invGasIsLow(g) {
+    var s = invGasLevel(g).status;
+    return s === 'critico' || s === 'bajo';
+}
+
+/**
+ * [v21.1] LA definición del ritmo de consumo de UN cilindro, calculada de sus lecturas.
+ *
+ * Los campos `weeklyPsi`/`dailyPsi`/`reposDays`/`limitPsi` venían en la semilla y **nunca
+ * se recalculaban**: todo cilindro dado de alta en la app mostraba 0.0 en el reporte
+ * mientras el modelo de consumo sí tenía los números buenos.
+ *
+ * Solo mira lecturas HUMANAS (`!r.auto`) — igual que invCalcConsumptionRates — y descarta
+ * los tramos donde la presión sube (una recarga no es consumo negativo).
+ *
+ * @returns {{dailyPsi, weeklyPsi, daysToLow, lowPsi, n, span}} — ceros si no hay con qué.
+ */
+function invGasBurnRate(g) {
+    var vacio = { dailyPsi: 0, weeklyPsi: 0, daysToLow: null, lowPsi: 0, n: 0, span: 0 };
+    if (!g || !g.readings) return vacio;
+    var rs = g.readings.filter(function(r) { return r && !r.auto && r.date && typeof r.psi === 'number'; })
+                       .sort(function(a, b) { return a.date.localeCompare(b.date); });
+    if (rs.length < 2) return vacio;
+
+    var caida = 0, dias = 0;
+    for (var i = 1; i < rs.length; i++) {
+        var d = (new Date(rs[i].date) - new Date(rs[i - 1].date)) / 86400000;
+        if (!(d > 0)) continue;
+        var drop = rs[i - 1].psi - rs[i].psi;
+        if (drop < 0) continue;          // recarga: no es consumo
+        caida += drop; dias += d;
+    }
+    if (!(dias > 0)) return vacio;
+
+    var daily = caida / dias;
+    var lvl = invGasLevel(g);
+    var lowPsi = (lvl.nominal || INV_PSI_NOMINAL_FALLBACK) * (INV_LEVEL_LOW_PCT / 100);
+    var actual = rs[rs.length - 1].psi;
+    var daysToLow = daily > 0 ? Math.max(0, Math.round((actual - lowPsi) / daily)) : null;
+
+    return { dailyPsi: daily, weeklyPsi: daily * 7, daysToLow: daysToLow,
+             lowPsi: lowPsi, n: rs.length, span: dias };
 }
 
 // Daily reading status for the reception dashboard ("Hoy").
@@ -601,8 +674,11 @@ function invReadingStatusToday() {
     if (typeof invState === 'undefined' || !invState) return safe;
     var todayISO = localToday();
     var inUse = (invState.gases || []).filter(function(g){ return g.status !== 'Empty'; });
+    // v21: busca la lectura de HOY en toda la serie, no solo en la última. Con la
+    // captura retrofechada (pasar la libreta de ayer) la última lectura puede ser de
+    // otro día aunque la de hoy exista, y el contador de HOY se quedaba corto.
     var capturedToday = inUse.filter(function(g){
-        return g.readings && g.readings.length && g.readings[g.readings.length-1].date === todayISO;
+        return (g.readings || []).some(function(r){ return r && r.date === todayISO; });
     }).length;
 
     // Most recent reading date: prefer lastReadingDate, else scan readings.
@@ -631,7 +707,7 @@ function invRenderDashboard(el) {
     var equip = invState.equipment;
     var expired = gases.filter(function(g){ return invGasExpiry(g).status === 'expired'; }).length;
     var warning = gases.filter(function(g){ return invGasExpiry(g).status === 'warning'; }).length;
-    var lowLevel = gases.filter(function(g){ return invGasLevel(g).pct < 20; }).length;
+    var lowLevel = gases.filter(invGasIsLow).length;   // v21.1: criterio único
     var eqExpired = equip.filter(function(e){ var d = new Date(e.nextCalDate); return d < new Date(); }).length;
     var eqWarn = equip.filter(function(e){ var d = new Date(e.nextCalDate); var diff = (d - new Date())/(1000*60*60*24); return diff > 0 && diff < 30; }).length;
 
@@ -675,7 +751,7 @@ function invRenderDashboard(el) {
         refill.forEach(function(x){
             html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;">';
             html += '<div style="flex:1;"><div style="font-weight:700;font-size: var(--fs-sm);">' + x.g.formula + ' #' + x.g.controlNo + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + (x.g.zone||'?') + ' · ' + x.lvl.text + '</div></div>';
-            html += '<div style="min-width:70px;"><div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;"><div style="height:100%;width:' + Math.max(2, x.lvl.pct) + '%;background:' + x.lvl.color + ';"></div></div></div>';
+            html += '<div style="min-width:70px;"><div class="u-bar"><span style="width:' + Math.max(2, x.lvl.pct) + '%;background:' + x.lvl.color + ';"></span></div></div>';
             html += '<div style="font-weight:800;font-size: var(--fs-sm);color:' + x.lvl.color + ';min-width:38px;text-align:right;">' + x.lvl.pct + '%</div>';
             html += '</div>';
         });
@@ -788,7 +864,7 @@ function invRenderGases(el) {
             html += '</div>';
             html += '<div style="display:flex;gap:6px;align-items:center;">';
             html += '<span style="font-size: var(--fs-xs);padding:2px 6px;border-radius:4px;background:' + exp.color + '20;color:' + exp.color + ';border:1px solid ' + exp.color + '30;">' + exp.text + '</span>';
-            html += '<span style="font-size: var(--fs-xs);padding:2px 6px;border-radius:4px;background:' + lvl.color + '20;color:' + lvl.color + ';">' + lvl.text + '</span>';
+            html += '<span style="font-size: var(--fs-xs);padding:2px 6px;border-radius:var(--radius-md);background:' + lvl.bg + ';color:' + lvl.color + ';">' + lvl.text + '</span>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGas(\'' + g.id + '\')" style="font-size: var(--fs-xs);" title="Editar" aria-label="Editar cilindro">\u270F</button>';
             if (g.readings && g.readings.length >= 2) html += '<button class="tp-btn tp-btn-ghost" onclick="invShowTrendChart(\'' + g.id + '\')" style="font-size: var(--fs-xs);" title="Tendencia" aria-label="Ver tendencia de consumo">&#x1F4C8;</button>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invShowBarcode(\'' + g.id + '\')" style="font-size: var(--fs-xs);" title="C\u00F3digo de barras" aria-label="Ver c\u00F3digo de barras">\u{1F4CB}</button>';
@@ -848,6 +924,7 @@ function invShowAddGas(editId) {
         '<div><label style="' + lblStyle + '">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Trazabilidad</label><select id="inv-g-trace" style="' + inpStyle + '"><option ' + (lastTS.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (lastTS.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (lastTS.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
         '<div><label style="' + lblStyle + '">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:localToday()) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Presión nominal (psi)</label><input id="inv-g-initpsi" type="number" inputmode="numeric" min="0" value="' + (g && g.initialPsi ? g.initialPsi : '') + '" placeholder="' + INV_PSI_NOMINAL_FALLBACK + ' (lleno de fábrica)" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Proveedor</label><input id="inv-g-supplier" value="' + (g ? (g.supplier||'') : (lastTS.supplier||'')) + '" placeholder="Nombre del proveedor" style="' + inpStyle + '"></div>' +
         '</div></details>' +
@@ -898,6 +975,11 @@ function invSaveGas(editId) {
         lotNumber: document.getElementById('inv-g-lot').value.trim(),
         supplier: document.getElementById('inv-g-supplier').value.trim()
     };
+    // v21.1: la presión nominal es la referencia del % de nivel. Es OPCIONAL: sin ella
+    // invGasLevel cae al máximo histórico, que es lo que hacen todos los cilindros ya
+    // capturados. Se guarda sólo si trae número, para no sembrar ceros.
+    var _initPsi = parseFloat((document.getElementById('inv-g-initpsi') || {}).value);
+    if (isFinite(_initPsi) && _initPsi > 0) obj.initialPsi = Math.round(_initPsi);
 
     if (editId) {
         var idx = invState.gases.findIndex(function(g){ return g.id === editId; });
@@ -1185,7 +1267,7 @@ function invShowTimeline(id) {
     var statusClr = g.status==='In use'?'#dcfce7;color:#16a34a':g.status==='Empty'?'#fef2f2;color:var(--danger-text)':'#fef9c3;color:#ca8a04';
     html += '<span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:12px;background:' + statusClr + ';">' + g.status + '</span>';
     html += '<span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:12px;background:' + exp.color + '20;color:' + exp.color + ';">' + exp.text + '</span>';
-    html += '<span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:12px;background:' + lvl.color + '20;color:' + lvl.color + ';">' + lvl.text + '</span>';
+    html += '<span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:var(--radius-full);background:' + lvl.bg + ';color:' + lvl.color + ';">' + lvl.text + '</span>';
     html += '</div>';
     // Info grid
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size: var(--fs-xs);margin-bottom:12px;color:#334155;">';
@@ -1245,23 +1327,16 @@ function invMapQuickReadSave(gasId) {
     if (!inp || !inp.value) { showToast('Ingresa la presion', 'error'); return; }
 
     var psi = parseFloat(inp.value);
-    if (isNaN(psi) || psi < 0) { showToast('Presion invalida', 'error'); return; }
-
     var date = dateInp ? dateInp.value : localToday();
     var gas = invState.gases.find(function(g) { return g.id === gasId; });
     if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
 
-    if (!gas.readings) gas.readings = [];
-
-    // Check for duplicate reading on same date
-    var existing = gas.readings.find(function(r) { return r.date === date; });
-
+    // v21: validar/deduplicar/auditar/reentrenar vive en invAddReading. Aquí solo
+    // queda la decisión de UI: preguntar antes de pisar la lectura de ese día.
+    var existing = invFindReadingOn(gas, date);
     function _doSaveMapRead() {
-        if (existing) { existing.psi = psi; } else { gas.readings.push({ date: date, psi: psi }); }
-        invSave();
-        if (typeof auditLog === 'function') auditLog('inv', 'gas_reading', {type:'gas', id:gas.id, label:gas.controlNo}, gas.formula + ': ' + psi + ' psi (' + date + ')');
-        if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
-        showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi', 'success');
+        var res = invAddReading(gasId, psi, { date: date, source: 'mapa' });
+        if (!res.ok) { showToast(res.reason, 'error'); return; }
         invShowTimeline(gasId);
     }
 
@@ -1282,6 +1357,260 @@ function invShowZone(zoneId) {
     invRender();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [v21.0] EL MOTOR ÚNICO DE CAPTURA — invAddReading / invAddFuelReading
+//
+// Antes había CUATRO caminos de captura de gas (captura diaria, escaneo, mapa,
+// ronda) y DOS de combustible, y ninguno compartía nada: reimplementaban validar →
+// deduplicar → guardar → auditar, y discrepaban en los cuatro pasos. Tres políticas
+// de deduplicación distintas, dos acciones de auditoría, y **solo uno de los cuatro
+// reentrenaba el modelo de consumo** — así que capturar por el camino rápido dejaba
+// la predicción desactualizada hasta la siguiente captura diaria.
+//
+// Estas dos funciones son LA definición de registrar una lectura. Todo camino nuevo
+// las llama; nadie vuelve a empujar a `readings[]` directo.
+//
+// Patrón `opts.x || <default>` tomado de invMaintMarkDone: la llamada de un toque
+// es `invAddReading(id, psi)` y la forma larga usa los mismos parámetros.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Presión nominal de referencia cuando el cilindro no declara `initialPsi`.
+var INV_PSI_NOMINAL_FALLBACK = 2200;
+
+/**
+ * Aviso de captura — ADVIERTE, NO BLOQUEA. Lo usa el guardado por lote, donde el
+ * motor corre en silencio y los avisos se resumen al final en un solo mensaje.
+ */
+function invWarnReading(msg, title) {
+    if (typeof showToast === 'function') showToast('⚠ ' + (title ? title + ' — ' : '') + msg, 'warning');
+}
+
+/**
+ * La lectura HUMANA de ese día, si existe.
+ *
+ * Un mismo día puede tener varias filas `auto:true` (una auto-deducción por prueba
+ * corrida) además de la lectura del técnico. La medición real manda sobre las
+ * estimaciones, así que este buscador ignora las automáticas: lo que se reemplaza
+ * al recapturar es la lectura humana, y las estimaciones de ese día se retiran
+ * (ver `_invDropAutoReadingsOn`) porque ya quedaron superadas por el manómetro.
+ */
+function invFindReadingOn(gas, date) {
+    if (!gas || !gas.readings) return null;
+    return gas.readings.find(function(r) { return r && r.date === date && !r.auto; }) || null;
+}
+
+/** Retira las estimaciones automáticas de una fecha: ya hay medición real de ese día. */
+function _invDropAutoReadingsOn(owner, date) {
+    if (!owner || !owner.readings) return 0;
+    var antes = owner.readings.length;
+    owner.readings = owner.readings.filter(function(r) { return !(r && r.date === date && r.auto); });
+    return antes - owner.readings.length;
+}
+
+/**
+ * Banda de cordura — PURA (sin DOM), testeable en Node.
+ *
+ * AVISA, NUNCA BLOQUEA: misma semántica que GAS_PLAUSIBLE_BOUNDS en la liberación
+ * (cop15.js). El técnico decide; el aviso queda en la auditoría. Es lo que evita
+ * que un dedazo (12660 por 1266) se acepte en silencio y reaparezca días después
+ * como una falsa alarma de "posible FUGA".
+ *
+ * Las dos direcciones del dedazo quedan cubiertas: un dígito de más SUBE la lectura
+ * (regla 1) y un dígito de menos la DERRUMBA (regla 2).
+ *
+ * @returns {string|null} el motivo del aviso, o null si la lectura es plausible.
+ */
+function invReadingWarning(gas, psi, date) {
+    if (!gas || typeof psi !== 'number' || !isFinite(psi)) return null;
+    var prev = null;
+    (gas.readings || []).forEach(function(r) {
+        if (!r || !r.date || r.date === date) return;      // la que se reemplaza no compara contra sí misma
+        if (r.date < date && (!prev || r.date > prev.date)) prev = r;
+    });
+
+    // La nominal sale del MÁXIMO histórico, no de la primera lectura: si el cilindro
+    // se estrenó a media carga, tomar esa primera lectura como tope haría que toda
+    // recarga legítima se viera imposible. (Es el mismo defecto que invGasLevel tiene
+    // hoy al medir el % contra readings[0] — aquí no se repite.)
+    var nominal = (typeof gas.initialPsi === 'number' && gas.initialPsi > 0) ? gas.initialPsi : 0;
+    if (!nominal) {
+        (gas.readings || []).forEach(function(r) { if (r && r.psi > nominal) nominal = r.psi; });
+    }
+    if (!nominal) nominal = INV_PSI_NOMINAL_FALLBACK;
+
+    // Orden deliberado. Un valor MUY por encima de la nominal es un dedazo, no una
+    // recarga, y merece decirlo así; una subida moderada sí puede ser una recarga real
+    // (la app no tiene evento de recarga, así que se pregunta en vez de suponer).
+    if (psi > nominal * 2) {
+        return 'Muy por encima de la presión nominal (~' + Math.round(nominal) + ' psi): revisa si sobra un dígito.';
+    }
+    if (prev && prev.psi > 0) {
+        if (psi > prev.psi * 1.02) {
+            return 'Subió respecto a la lectura del ' + prev.date + ' (' + prev.psi + ' psi). ¿Se recargó o se cambió el cilindro?';
+        }
+        if (psi < prev.psi * 0.5) {
+            return 'Cayó más de la mitad de golpe (' + prev.psi + ' → ' + psi + ' psi).';
+        }
+    }
+    return null;
+}
+
+/**
+ * LA definición de registrar una lectura de gas.
+ *
+ * Valida, deduplica por fecha (un cilindro tiene A LO MÁS una lectura por día),
+ * atribuye operador, guarda, audita, REENTRENA EL MODELO y publica a la nube.
+ *
+ * @param {string} gasId
+ * @param {number|string} psi
+ * @param {object} [opts] {date, by, source, silent, skipSave, skipRender}
+ * @returns {{ok:boolean, reason?:string, reading?:object, replaced?:object, warning?:string}}
+ */
+function invAddReading(gasId, psi, opts) {
+    opts = opts || {};
+    var gas = (invState.gases || []).find(function(g) { return g && g.id === gasId; });
+    if (!gas) return { ok: false, reason: 'Cilindro no encontrado' };
+
+    var val = (typeof psi === 'number') ? psi : parseFloat(psi);
+    if (psi === '' || psi === null || psi === undefined || isNaN(val)) return { ok: false, reason: 'Presión inválida' };
+    if (val < 0) return { ok: false, reason: 'La presión no puede ser negativa' };
+
+    var date = opts.date || localToday();
+    var by = opts.by || ((typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('Laboratorio') : 'Laboratorio');
+    var warning = invReadingWarning(gas, val, date);
+
+    if (!gas.readings) gas.readings = [];
+    var existing = invFindReadingOn(gas, date);
+    _invDropAutoReadingsOn(gas, date);   // la medición real sustituye a las estimaciones del día
+    var replaced = null;
+    var reading;
+
+    if (existing) {
+        // Reemplaza en vez de duplicar. La captura diaria SÍ duplicaba (creaba un par
+        // con caída 0 que el EWMA leía como consumo real); ahora ningún camino puede.
+        replaced = { date: existing.date, psi: existing.psi, by: existing.by || '' };
+        existing.psi = val;
+        existing.by = by;
+        if (opts.source) existing.source = opts.source;
+        reading = existing;
+    } else {
+        reading = { date: date, psi: val, by: by };
+        if (opts.source) reading.source = opts.source;
+        gas.readings.push(reading);
+        // El orden cronológico es un supuesto de invGasLevel, del EWMA y de las gráficas;
+        // retrofechar (capturar de papel) insertaría fuera de orden sin esto.
+        gas.readings.sort(function(a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
+    }
+
+    if (!invState.lastReadingDate || date > invState.lastReadingDate) invState.lastReadingDate = date;
+
+    if (!opts.skipSave) {
+        // El modelo se reentrena en TODOS los caminos, no solo en la captura diaria.
+        if (typeof invUpdateConsumptionModel === 'function') invUpdateConsumptionModel();
+        invSave();
+    }
+
+    if (typeof auditLog === 'function') {
+        auditLog('inv', 'gas_reading', { type: 'gas', id: gas.id, label: gas.controlNo },
+                 gas.formula + ': ' + val + ' psi (' + date + ') · ' + by +
+                 (replaced ? ' · reemplaza ' + replaced.psi + ' psi' : '') +
+                 (warning ? ' · ⚠ ' + warning : ''));
+    }
+    // fbPostGasReading espera el PSI; los tres llamadores viejos le pasaban la fecha,
+    // así que el feed compartido decía "CH4-20: 2026-08-30 PSI".
+    if (typeof fbPostGasReading === 'function') {
+        try { fbPostGasReading(gas.formula + ' ' + gas.controlNo, val); } catch (e) {}
+    }
+
+    if (!opts.silent && typeof showToast === 'function') {
+        showToast(gas.formula + ' #' + gas.controlNo + ': ' + val + ' psi' + (replaced ? ' (reemplazada)' : '') +
+                  (warning ? ' · ⚠ ' + warning : ''), warning ? 'warning' : 'success');
+    }
+    return { ok: true, reading: reading, replaced: replaced, warning: warning, gas: gas };
+}
+
+/** Banda de cordura del combustible. Pura, misma lógica y mismo criterio que el gas. */
+function invFuelReadingWarning(tank, level, date) {
+    if (!tank || typeof level !== 'number' || !isFinite(level)) return null;
+    var prev = null;
+    (tank.readings || []).forEach(function(r) {
+        if (!r || !r.date || r.date === date) return;
+        if (r.date < date && (!prev || r.date > prev.date)) prev = r;
+    });
+    var cap = parseFloat(tank.capacity);
+    if (isFinite(cap) && cap > 0 && level > cap * 1.02) {
+        return 'Excede la capacidad del tanque (' + cap + ' ' + (tank.unit || 'L') + ').';
+    }
+    if (prev && prev.level > 0) {
+        if (level > prev.level * 1.02) {
+            return 'Subió respecto a la lectura del ' + prev.date + ' (' + prev.level + '). ¿Se rellenó el tanque?';
+        }
+        if (level < prev.level * 0.5) {
+            return 'Cayó más de la mitad de golpe (' + prev.level + ' → ' + level + ').';
+        }
+    }
+    return null;
+}
+
+/**
+ * LA definición de registrar una lectura de combustible. Gemela de invAddReading,
+ * con las mismas garantías — incluida la de reentrenar el modelo, que la captura
+ * desde la pestaña ⛽ Combustible NO hacía.
+ */
+function invAddFuelReading(tankId, level, opts) {
+    opts = opts || {};
+    var tank = (invState.fuelTanks || []).find(function(t) { return t && t.id === tankId; });
+    if (!tank) return { ok: false, reason: 'Tanque no encontrado' };
+
+    var val = (typeof level === 'number') ? level : parseFloat(level);
+    if (level === '' || level === null || level === undefined || isNaN(val)) return { ok: false, reason: 'Nivel inválido' };
+    if (val < 0) return { ok: false, reason: 'El nivel no puede ser negativo' };
+
+    var date = opts.date || localToday();
+    var by = opts.by || ((typeof authGetCurrentUserName === 'function') ? authGetCurrentUserName('Laboratorio') : 'Laboratorio');
+    var warning = invFuelReadingWarning(tank, val, date);
+
+    if (!tank.readings) tank.readings = [];
+    var existing = tank.readings.find(function(r) { return r && r.date === date && !r.auto; }) || null;
+    _invDropAutoReadingsOn(tank, date);
+    var replaced = null;
+    var reading;
+
+    if (existing) {
+        replaced = { date: existing.date, level: existing.level, by: existing.by || '' };
+        existing.level = val;
+        existing.by = by;
+        if (opts.source) existing.source = opts.source;
+        reading = existing;
+    } else {
+        reading = { date: date, level: val, by: by };
+        if (opts.source) reading.source = opts.source;
+        tank.readings.push(reading);
+        tank.readings.sort(function(a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
+    }
+
+    // El nivel autoritativo y la serie no pueden divergir: se escriben juntos, siempre.
+    tank.currentLevel = val;
+    if (!invState.lastReadingDate || date > invState.lastReadingDate) invState.lastReadingDate = date;
+
+    if (!opts.skipSave) {
+        if (typeof invUpdateConsumptionModel === 'function') invUpdateConsumptionModel();
+        invSave();
+    }
+
+    if (typeof auditLog === 'function') {
+        auditLog('inv', 'fuel_reading', { type: 'fuel', id: tank.id, label: (tank.name || tank.id) },
+                 val + ' ' + (tank.unit || 'L') + ' (' + date + ') · ' + by +
+                 (replaced ? ' · reemplaza ' + replaced.level : '') +
+                 (warning ? ' · ⚠ ' + warning : ''));
+    }
+    if (!opts.silent && typeof showToast === 'function') {
+        showToast((tank.name || 'Combustible') + ': ' + val + ' ' + (tank.unit || 'L') + (replaced ? ' (reemplazada)' : '') +
+                  (warning ? ' · ⚠ ' + warning : ''), warning ? 'warning' : 'success');
+    }
+    return { ok: true, reading: reading, replaced: replaced, warning: warning, tank: tank };
+}
+
 // ══════════════════════════════════════════════════
 // READINGS (Daily pressure readings)
 // ══════════════════════════════════════════════════
@@ -1289,12 +1618,22 @@ function invRenderReadings(el) {
     var gases = invState.gases.filter(function(g){ return g.status !== 'Empty'; });
     var html = invRenderAnomalyBanner();
     html += '<div class="tp-card"><div class="tp-card-title" data-help="inv-readings-help"><span>Captura Diaria — Gases (psi)</span>';
-    html += '<div style="display:flex;gap:6px;">';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="invStartReadingRound()" style="font-size: var(--fs-xs);border-color:var(--ok-text);color:var(--ok-text);">🔄 Ronda</button>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size: var(--fs-xs);border-color:#8b5cf6;color:#8b5cf6;">📷 Escanear</button>';
-    html += '<button class="tp-btn tp-btn-primary" onclick="invSaveDailyCapture()" style="font-size: var(--fs-xs);">💾 Guardar Captura</button>';
+    html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    html += '<button class="tp-btn tp-btn-primary" onclick="invStartReadingRound()" style="font-size: var(--fs-xs);">🔄 Hacer la ronda</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="invScanBarcode()" style="font-size: var(--fs-xs);">📷 Escanear</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="invSaveDailyCapture()" style="font-size: var(--fs-xs);">💾 Guardar lo capturado</button>';
     html += '</div></div>';
-    html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:8px;">Registra la presion (psi) de cada cilindro en uso y los niveles de combustible. Un solo botón guarda todo.</div>';
+    // v21: los dos modos reales del laboratorio, dichos con todas sus letras — la
+    // ronda para el recorrido con el celular, esta retícula para pasar la libreta.
+    html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-bottom:10px;line-height:1.5;">' +
+            '<strong>¿Vas al cuarto de gases?</strong> Usa <strong>🔄 Hacer la ronda</strong>: te va pidiendo un cilindro a la vez, en el orden en que están acomodados. ' +
+            '<strong>¿Traes la libreta?</strong> Captura aquí abajo y elige la fecha del recorrido.</div>';
+    // La fecha del lote: capturar de papel casi siempre ocurre después del recorrido.
+    html += '<div class="u-flex-between" style="flex-wrap:wrap;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-lg);">' +
+            '<label for="inv-capture-date" style="font-size: var(--fs-sm);font-weight:700;color:var(--text);">📅 Fecha de estas lecturas</label>' +
+            '<input type="date" id="inv-capture-date" value="' + localToday() + '" max="' + localToday() + '" ' +
+            'class="tp-input" style="width:auto;min-height:var(--target-min);font-size: var(--fs-base);">' +
+            '</div>';
 
     if (invState.gases.length === 0) {
         html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);">Aún no hay cilindros registrados. <button class="tp-btn tp-btn-primary" onclick="invSwitchTab(\'inv-gases\')" style="font-size: var(--fs-xs);margin-left:6px;">🔴 Dar de alta un cilindro →</button></div>';
@@ -1313,7 +1652,7 @@ function invRenderReadings(el) {
                 last5.forEach(function(r){ html += '<span style="font-size: var(--fs-xs);padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.05);border:1px solid var(--tp-border);color:var(--tp-dim);">' + r.date.slice(5) + ': <strong style="color:#fff;">' + r.psi + '</strong></span>'; });
             } else { html += '<span style="font-size: var(--fs-xs);color:var(--tp-dim);">Sin lecturas</span>'; }
             html += '</div>';
-            html += '<input type="number" inputmode="numeric" id="inv-rd-' + g.id + '" placeholder="psi" style="width:90px;min-height:40px;padding:8px 10px;border:1px solid var(--tp-border);border-radius:8px;background:#1e293b;color:#fff;font-size:14px;text-align:center;font-weight:600;">';
+            html += '<input type="number" inputmode="numeric" id="inv-rd-' + g.id + '" placeholder="psi" aria-label="Presión de ' + escapeHtml(g.controlNo || g.id) + '" class="tp-input" style="width:100px;text-align:center;font-weight:700;">';
             html += '</div>';
         });
         html += '</div>';
@@ -1331,7 +1670,7 @@ function invRenderReadings(el) {
             var lastR = (t.readings && t.readings.length) ? t.readings[t.readings.length-1] : null;
             html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;background:var(--tp-card);flex-wrap:wrap;">';
             html += '<div style="min-width:120px;"><div style="font-weight:700;font-size: var(--fs-xs);">' + (t.name||'Tanque') + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">Actual: ' + (t.currentLevel!=null?t.currentLevel:'?') + ' ' + (t.unit||'L') + (lastR?(' | '+lastR.date.slice(5)):'') + '</div></div>';
-            html += '<input type="number" inputmode="decimal" id="inv-fuel-rd-' + t.id + '" placeholder="' + (t.unit||'L') + '" style="width:100px;min-height:40px;padding:8px 10px;border:1px solid var(--tp-border);border-radius:8px;background:#1e293b;color:#fff;font-size:14px;text-align:center;font-weight:600;">';
+            html += '<input type="number" inputmode="decimal" id="inv-fuel-rd-' + t.id + '" placeholder="' + (t.unit||'L') + '" aria-label="Nivel de ' + escapeHtml(t.name || t.id) + '" class="tp-input" style="width:110px;text-align:center;font-weight:700;">';
             html += '</div>';
         });
     }
@@ -1357,29 +1696,31 @@ function invRenderReadings(el) {
 
 // Unified daily capture: saves gas PSI + fuel levels in a single action.
 function invSaveDailyCapture() {
-    var date = localToday();
-    var count = 0;
+    // v21: la fecha del LOTE es editable — quien captura de una libreta suele hacerlo
+    // al día siguiente, y antes esto clavaba localToday() sin manera de retrofechar.
+    var dEl = document.getElementById('inv-capture-date');
+    var date = (dEl && dEl.value) ? dEl.value : localToday();
+    var count = 0, fuelCount = 0, avisos = [];
+
     (invState.gases || []).filter(function(g){ return g.status !== 'Empty'; }).forEach(function(g) {
         var inp = document.getElementById('inv-rd-' + g.id);
-        if (inp && inp.value !== '') {
-            var psi = parseFloat(inp.value);
-            if (!isNaN(psi) && psi >= 0) { if (!g.readings) g.readings = []; g.readings.push({date: date, psi: psi}); count++; }
-        }
+        if (!inp || inp.value === '') return;
+        // silent + skipSave: un solo guardado y un solo toast al final del lote.
+        var res = invAddReading(g.id, inp.value, { date: date, source: 'captura', silent: true, skipSave: true });
+        if (res.ok) { count++; if (res.warning) avisos.push(g.controlNo + ': ' + res.warning); }
     });
-    var fuelCount = 0;
     (invState.fuelTanks || []).forEach(function(t) {
         var inp = document.getElementById('inv-fuel-rd-' + t.id);
-        if (inp && inp.value !== '') {
-            var lvl = parseFloat(inp.value);
-            if (!isNaN(lvl) && lvl >= 0) { t.currentLevel = lvl; if (!t.readings) t.readings = []; t.readings.push({date: date, level: lvl}); fuelCount++; }
-        }
+        if (!inp || inp.value === '') return;
+        var res = invAddFuelReading(t.id, inp.value, { date: date, source: 'captura', silent: true, skipSave: true });
+        if (res.ok) { fuelCount++; if (res.warning) avisos.push((t.name || 'Combustible') + ': ' + res.warning); }
     });
+
     if (count === 0 && fuelCount === 0) { showToast('No se ingresaron capturas', 'warning'); return; }
-    invState.lastReadingDate = date;
     if (typeof auditLog === 'function') auditLog('inv', 'daily_capture', {type:'reading', label:date}, count + ' gases, ' + fuelCount + ' combustibles');
     invUpdateConsumptionModel(); // v15.9: re-aprender con la información nueva del día
     invSave(); invRender();
-    if (count > 0 && typeof fbPostGasReading === 'function') fbPostGasReading(count + ' cilindros', date);
+    if (avisos.length) invWarnReading(avisos.join(' · '), avisos.length + ' lectura(s) con aviso');
     showToast(count + ' lecturas de gas y ' + fuelCount + ' de combustible guardadas (' + date + ')', 'success');
 }
 
@@ -1394,7 +1735,7 @@ function invScanBarcode() {
     var hasCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     var hasLib = typeof Html5Qrcode !== 'undefined';
 
-    var html = '<div style="max-width:420px;margin:20px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">';
+    var html = '<div style="max-width:420px;margin:20px auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:var(--space-lg);position:relative;color:var(--text);box-shadow:var(--shadow-xl);">';
     html += '<button onclick="invScanStop();document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
     html += '<h3 style="margin:0 0 10px;color:#8b5cf6;">Lectura Rapida</h3>';
 
@@ -1404,15 +1745,15 @@ function invScanBarcode() {
         html += '<div id="inv-scan-status" style="text-align:center;font-size: var(--fs-xs);color:#8b5cf6;margin-top:6px;">Apunta al codigo de barras...</div>';
         html += '</div>';
     } else if (!hasLib) {
-        html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size: var(--fs-xs);color:var(--warn-text);">Libreria de escaneo no cargada. Usa la busqueda rapida abajo.</div>';
+        html += '<div style="padding:10px;background:var(--warn-bg);border:1px solid var(--warn-fill);border-radius:var(--radius-lg);margin-bottom:12px;font-size: var(--fs-xs);color:var(--warn-text);">Librería de escaneo no cargada. Usa la búsqueda rápida de abajo.</div>';
     } else {
-        html += '<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px;font-size: var(--fs-xs);color:var(--warn-text);">Camara no disponible. Usa la busqueda rapida abajo.</div>';
+        html += '<div style="padding:10px;background:var(--warn-bg);border:1px solid var(--warn-fill);border-radius:var(--radius-lg);margin-bottom:12px;font-size: var(--fs-xs);color:var(--warn-text);">Cámara no disponible. Usa la búsqueda rápida de abajo.</div>';
     }
 
     // Quick search fallback (always shown)
     html += '<div style="margin-bottom:12px;">';
     html += '<label style="font-size: var(--fs-xs);color:#94a3b8;">Busqueda rapida (No. Control, cilindro o formula)</label>';
-    html += '<input id="inv-scan-search" aria-label="Buscar cilindro" placeholder="Escribe para buscar..." oninput="_debouncedInvScanFilter()" style="width:100%;padding:10px;margin-top:4px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;">';
+    html += '<input id="inv-scan-search" aria-label="Buscar cilindro" placeholder="Escribe para buscar..." oninput="_debouncedInvScanFilter()" class="tp-input" style="width:100%;margin-top:4px;">';
     html += '</div>';
 
     // Search results
@@ -1512,7 +1853,7 @@ function invScanFilter() {
     gases.forEach(function(g) {
         var lastR = g.readings && g.readings.length > 0 ? g.readings[g.readings.length - 1] : null;
         var lvl = invGasLevel(g);
-        html += '<button onclick="invScanStop();invQuickReadPopup(invState.gases.find(function(x){return x.id===\x27' + g.id + '\x27}))" style="display:block;width:100%;padding:10px;margin-bottom:4px;background:#1e293b;border:1px solid #334155;border-radius:8px;cursor:pointer;text-align:left;color:#e2e8f0;">';
+        html += '<button onclick="invScanStop();invQuickReadPopup(invState.gases.find(function(x){return x.id===\x27' + g.id + '\x27}))" style="display:block;width:100%;padding:10px;margin-bottom:4px;background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-lg);cursor:pointer;text-align:left;color:var(--text);min-height:var(--target-min);">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
         html += '<div><strong style="font-size:12px;">' + g.formula + '</strong> <span style="font-size: var(--fs-xs);color:#94a3b8;">' + (g.concNominal || '') + '</span>';
         html += '<div style="font-size: var(--fs-xs);color:#64748b;">#' + g.controlNo + ' | Cil: ' + (g.cylinderNo || '?') + ' | ' + (g.zone || '?') + '</div></div>';
@@ -1537,64 +1878,72 @@ function invQuickReadPopup(g) {
     var lvl = invGasLevel(g);
     var today = localToday();
 
-    var html = '<div style="max-width:400px;margin:30px auto;background:#0f172a;border-radius:14px;padding:24px;position:relative;color:#e2e8f0;">';
-    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>';
+    // v21: esta tarjeta era del tema oscuro que se eliminó en v15.5 — un popup negro
+    // dentro de una app clara. Ahora vive en los tokens, como el resto de la app.
+    var html = '<div style="max-width:400px;margin:30px auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:var(--space-xl);position:relative;color:var(--text);box-shadow:var(--shadow-xl);">';
+    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" aria-label="Cerrar" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">\u2715</button>';
 
-    // Cylinder header
     html += '<div style="text-align:center;margin-bottom:16px;">';
-    html += '<div style="font-size:20px;font-weight:700;">' + g.formula + ' <span style="color:#94a3b8;font-weight:400;">' + (g.concNominal || '') + '</span></div>';
-    html += '<div style="font-size: var(--fs-sm);color:#64748b;">' + (g.gasType || '') + '</div>';
-    html += '<div style="display:flex;justify-content:center;gap:12px;margin-top:6px;">';
-    html += '<span style="font-size: var(--fs-xs);padding:2px 8px;background:#1e293b;border-radius:10px;border:1px solid #334155;">Control: <strong>' + g.controlNo + '</strong></span>';
-    html += '<span style="font-size: var(--fs-xs);padding:2px 8px;background:#1e293b;border-radius:10px;border:1px solid #334155;">Cil: <strong>' + (g.cylinderNo || '?') + '</strong></span>';
-    html += '<span style="font-size: var(--fs-xs);padding:2px 8px;background:#1e293b;border-radius:10px;border:1px solid #334155;">Zona: <strong>' + (g.zone || '?') + '</strong></span>';
+    html += '<div style="font-size: var(--fs-md);font-weight:700;">' + escapeHtml(g.formula || '') + ' <span style="color:var(--muted);font-weight:400;">' + escapeHtml(g.concNominal || '') + '</span></div>';
+    html += '<div style="font-size: var(--fs-sm);color:var(--muted);">' + escapeHtml(g.gasType || '') + '</div>';
+    html += '<div style="display:flex;justify-content:center;gap:6px;margin-top:6px;flex-wrap:wrap;">';
+    html += '<span class="u-chip u-chip--neutral">Control: <strong>' + escapeHtml(g.controlNo || '') + '</strong></span>';
+    html += '<span class="u-chip u-chip--neutral">Cil: <strong>' + escapeHtml(g.cylinderNo || '?') + '</strong></span>';
+    html += '<span class="u-chip u-chip--neutral">Zona: <strong>' + escapeHtml(g.zone || '?') + '</strong></span>';
     html += '</div></div>';
 
-    // Previous reading
-    html += '<div style="background:#1e293b;border-radius:10px;padding:14px;margin-bottom:16px;border:1px solid #334155;">';
-    html += '<div style="font-size: var(--fs-sm);color:#475569;font-weight:600;margin-bottom:6px;">Lectura anterior</div>';
+    html += '<div style="background:var(--surface-alt);border-radius:var(--radius-lg);padding:14px;margin-bottom:16px;border:1px solid var(--border);">';
+    html += '<div style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;margin-bottom:6px;">Lectura anterior</div>';
     if (lastR) {
         html += '<div style="display:flex;justify-content:space-between;align-items:baseline;">';
-        html += '<span style="font-size:28px;font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' <span style="font-size:14px;font-weight:400;">psi</span></span>';
-        html += '<span style="font-size: var(--fs-sm);color:#64748b;">' + lastR.date + '</span>';
+        html += '<span style="font-size: var(--fs-lg);font-weight:700;color:' + lvl.color + ';">' + lastR.psi + ' <span style="font-size: var(--fs-sm);font-weight:400;">psi</span></span>';
+        html += '<span style="font-size: var(--fs-sm);color:var(--muted);">' + escapeHtml(lastR.date || '') + '</span>';
         html += '</div>';
-        html += '<div style="margin-top:6px;height:4px;background:#0f172a;border-radius:2px;overflow:hidden;">';
-        html += '<div style="width:' + Math.min(lvl.pct, 100) + '%;height:100%;background:' + lvl.color + ';border-radius:2px;"></div></div>';
-        html += '<div style="font-size: var(--fs-xs);color:#64748b;margin-top:3px;">' + lvl.text + '</div>';
+        html += '<div class="u-bar" style="margin-top:6px;"><span style="width:' + Math.min(lvl.pct, 100) + '%;background:' + lvl.color + ';"></span></div>';
+        html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top:3px;">' + escapeHtml(lvl.text) + '</div>';
     } else {
-        html += '<div style="font-size:13px;color:#64748b;">Sin lecturas previas</div>';
+        html += '<div style="font-size: var(--fs-sm);color:var(--muted);">Sin lecturas previas</div>';
     }
     html += '</div>';
 
-    // New reading input
-    html += '<div style="background:#0c1a2e;border:2px solid #8b5cf6;border-radius:10px;padding:16px;margin-bottom:16px;">';
-    html += '<div style="font-size: var(--fs-sm);color:#8b5cf6;font-weight:700;margin-bottom:8px;">Nueva lectura</div>';
-    html += '<div style="display:flex;gap:10px;align-items:center;">';
-    html += '<div style="flex:1;">';
-    html += '<input id="inv-quick-psi" type="number" inputmode="numeric" placeholder="0" autofocus style="width:100%;padding:14px;font-size:24px;font-weight:700;text-align:center;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#fff;">';
-    html += '<div style="text-align:center;font-size: var(--fs-sm);color:#475569;font-weight:600;margin-top:3px;">psi</div>';
+    html += '<div style="background:var(--info-bg);border:2px solid var(--info-fill);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px;">';
+    html += '<label for="inv-quick-psi" style="display:block;font-size: var(--fs-sm);color:var(--info-text);font-weight:700;margin-bottom:8px;">Nueva lectura</label>';
+    html += '<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">';
+    html += '<div style="flex:1;min-width:140px;">';
+    html += '<input id="inv-quick-psi" type="number" inputmode="numeric" placeholder="0" autofocus class="tp-input" style="width:100%;font-size: var(--fs-lg);font-weight:700;text-align:center;">';
+    html += '<div style="text-align:center;font-size: var(--fs-sm);color:var(--muted);font-weight:600;margin-top:3px;">psi</div>';
     html += '</div>';
-    html += '<div>';
-    html += '<input id="inv-quick-date" type="date" value="' + today + '" style="padding:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size: var(--fs-sm);">';
+    html += '<div><label for="inv-quick-date" style="display:block;font-size: var(--fs-xs);color:var(--muted);margin-bottom:2px;">Fecha</label>';
+    html += '<input id="inv-quick-date" type="date" value="' + today + '" max="' + today + '" class="tp-input" style="width:auto;"></div>';
     html += '</div>';
-    html += '</div></div>';
+    // Aviso en vivo: informa mientras teclea, nunca impide guardar.
+    html += '<div id="inv-quick-warn" style="min-height:16px;font-size: var(--fs-xs);color:var(--warn-text);font-weight:700;margin-top:6px;"></div>';
+    html += '</div>';
 
-    // Action buttons
     html += '<div style="display:flex;gap:8px;">';
-    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="flex:1;padding:12px;background:#334155;color:#e2e8f0;border:none;border-radius:8px;cursor:pointer;font-size:12px;">Cancelar</button>';
-    html += '<button onclick="invQuickReadSave(\x27' + g.id + '\x27)" style="flex:2;padding:12px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;">Guardar Lectura</button>';
+    html += '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" class="tp-btn tp-btn-ghost" style="flex:1;min-height:var(--target-min);">Cancelar</button>';
+    html += '<button onclick="invQuickReadSave(\x27' + g.id + '\x27)" class="tp-btn tp-btn-primary" style="flex:2;min-height:var(--target-min);font-weight:700;">Guardar Lectura</button>';
     html += '</div>';
-
-    // Quick: scan another
-    html += '<button onclick="invScanBarcode()" style="width:100%;margin-top:8px;padding:8px;background:transparent;color:#8b5cf6;border:1px solid #8b5cf6;border-radius:8px;cursor:pointer;font-size: var(--fs-sm);">📷 Escanear otro cilindro</button>';
+    html += '<button onclick="invScanBarcode()" class="tp-btn tp-btn-ghost" style="width:100%;margin-top:8px;min-height:var(--target-min);">📷 Escanear otro cilindro</button>';
 
     html += '</div>';
     modal.innerHTML = html;
 
-    // Auto-focus the input
     setTimeout(function() {
         var inp = document.getElementById('inv-quick-psi');
-        if (inp) inp.focus();
+        if (!inp) return;
+        inp.focus();
+        inp.oninput = function() {
+            var w = document.getElementById('inv-quick-warn');
+            var d = document.getElementById('inv-quick-date');
+            if (!w) return;
+            var v = parseFloat(inp.value);
+            if (isNaN(v)) { w.textContent = ''; return; }
+            var msg = invReadingWarning(g, v, (d && d.value) || today);
+            w.textContent = msg ? '⚠ ' + msg : '';
+        };
+        // Enter guarda: en el cuarto de gases se captura con una mano.
+        inp.onkeydown = function(e) { if (e.key === 'Enter') invQuickReadSave(g.id); };
     }, 100);
 }
 
@@ -1604,24 +1953,15 @@ function invQuickReadSave(gasId) {
     if (!inp || !inp.value) { showToast('Ingresa la presion', 'error'); return; }
 
     var psi = parseFloat(inp.value);
-    if (isNaN(psi) || psi < 0) { showToast('Presion invalida', 'error'); return; }
-
     var date = dateInp ? dateInp.value : localToday();
     var gas = invState.gases.find(function(g) { return g.id === gasId; });
     if (!gas) { showToast('Cilindro no encontrado', 'error'); return; }
 
-    if (!gas.readings) gas.readings = [];
-
-    // Check for duplicate reading on same date
-    var existingToday = gas.readings.find(function(r) { return r.date === date; });
-
+    var existingToday = invFindReadingOn(gas, date);
     function _doSaveQuickRead() {
-        if (existingToday) { existingToday.psi = psi; } else { gas.readings.push({ date: date, psi: psi }); }
-        invSave();
+        var res = invAddReading(gasId, psi, { date: date, source: 'escaneo' });
+        if (!res.ok) { showToast(res.reason, 'error'); return; }
         invRender();
-        if (typeof auditLog === 'function') auditLog('inv', 'gas_reading', {type:'gas', id:gas.id, label:gas.controlNo}, gas.formula + ': ' + psi + ' psi (' + date + ')');
-        if (typeof fbPostGasReading === 'function') fbPostGasReading(gas.formula + ' ' + gas.controlNo, date);
-        showToast(gas.formula + ' #' + gas.controlNo + ': ' + psi + ' psi guardado', 'success');
         document.getElementById('invModal').style.display = 'none';
     }
 
@@ -2666,6 +3006,15 @@ function invLogTestUsage(vehicle, opts) {
         }
     });
     entry.gasDeducted = gasDeducted;
+    // v21.1: la auto-deducción de gas ahora se audita, como ya hacía su gemela de
+    // combustible (`fuel_auto_deduct`). Descontar inventario sin dejar rastro era el
+    // único movimiento de existencias invisible en el historial de cambios.
+    var _gasDedList = Object.keys(gasDeducted).filter(function(k) { return gasDeducted[k] > 0; });
+    if (_gasDedList.length && typeof auditLog === 'function') {
+        auditLog('inv', 'gas_auto_deduct', { type: 'reading', label: (vehicle.vin || vehicle.id || '') },
+                 _gasDedList.map(function(k) { return k + ' −' + gasDeducted[k] + ' psi'; }).join(', ') +
+                 ' · prueba ' + regulation);
+    }
 
     // v15.9: AUTO-DESCUENTO DE GASOLINA al tanque de la regulación de la prueba (el de
     // registro más reciente con nivel > 0 — resuelve tanques duplicados orden anterior/actual).
@@ -3050,6 +3399,46 @@ function invRenderFuel(el) {
     el.innerHTML = html;
 }
 
+/**
+ * [v21.1] Las regulaciones como lista cerrada. `regulation` es la LLAVE con la que
+ * `invLogTestUsage` decide de qué tanque descontar la gasolina de una prueba: en texto
+ * libre, un espacio o un guion de más rompía el descuento sin decir nada. Se ofrecen los
+ * perfiles reales de la app y se conserva como opción lo que el tanque ya tuviera escrito,
+ * para no perder de vista un valor viejo que no empate con ningún perfil.
+ */
+function _invRegulationSelectHTML(id, actual) {
+    var nombres = [];
+    try {
+        var reg = (typeof loadRegulations === 'function') ? loadRegulations() : null;
+        (reg && reg.profiles ? reg.profiles : []).forEach(function(p) { if (p && p.name) nombres.push(p.name); });
+    } catch (e) {}
+    if (actual && nombres.indexOf(actual) === -1) nombres.unshift(actual);   // valor heredado
+    var h = '<select id="' + id + '" class="tp-select" style="width:100%;">';
+    h += '<option value=""' + (actual ? '' : ' selected') + '>— Sin regulación —</option>';
+    nombres.forEach(function(n) {
+        h += '<option value="' + escapeHtml(n) + '"' + (n === actual ? ' selected' : '') + '>' + escapeHtml(n) + '</option>';
+    });
+    return h + '</select>';
+}
+
+/** Borrar un tanque, con deshacer y auditoría — era la única acción destructiva sin ambos. */
+function invDeleteFuelTank(tankId) {
+    var t = (invState.fuelTanks || []).find(function(x) { return x.id === tankId; });
+    if (!t) return;
+    var nLect = (t.readings || []).length;
+    showConfirm('¿Eliminar "' + (t.name || tankId) + '"?' + (nLect ? '\n\nSe borran también sus ' + nLect + ' lectura(s) de nivel.' : ''), function() {
+        if (typeof undoPush === 'function') undoPush('inventory', 'Eliminar tanque de combustible');
+        invState.fuelTanks = invState.fuelTanks.filter(function(x) { return x.id !== tankId; });
+        invSave(); invRender();
+        var m = document.getElementById('invModal'); if (m) m.style.display = 'none';
+        if (typeof auditLog === 'function') {
+            auditLog('inv', 'fuel_deleted', { type: 'fuel', id: tankId, label: (t.name || tankId) },
+                     nLect + ' lectura(s) · ' + (t.regulation || 'sin regulación'));
+        }
+        showToast('Tanque eliminado', 'success', null, (typeof undoPop === 'function') ? undoPop : null);
+    }, { title: 'Eliminar tanque', type: 'danger', confirmText: 'Eliminar' });
+}
+
 function invAddFuelTank(editId) {
     var t = editId ? (invState.fuelTanks||[]).find(function(x){return x.id===editId;}) : null;
     var isEdit = !!t;
@@ -3062,7 +3451,7 @@ function invAddFuelTank(editId) {
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
         '<div style="grid-column:1/-1;"><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Nombre *</label><input id="inv-ft-name" value="' + v('name','Tambo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Tipo combustible</label><input id="inv-ft-type" value="' + v('fuelType','Gasolina Referencia') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Regulacion</label><input id="inv-ft-reg" value="' + v('regulation') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label for="inv-ft-reg" style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Regulación</label>' + _invRegulationSelectHTML('inv-ft-reg', v('regulation')) + '</div>' +
         '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Octanaje/Spec</label><input id="inv-ft-octane" value="' + v('octane','87 AKI') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Proveedor</label><input id="inv-ft-supplier" value="' + v('supplier') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Capacidad</label><input id="inv-ft-cap" type="number" value="' + v('capacity','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
@@ -3073,7 +3462,7 @@ function invAddFuelTank(editId) {
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveFuelTank(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar tanque?\',function(){invState.fuelTanks=invState.fuelTanks.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button onclick="invDeleteFuelTank(\x27' + editId + '\x27)" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -3093,9 +3482,11 @@ function invSaveFuelTank(editId) {
         fuelStatus: document.getElementById('inv-ft-status').value
     };
     if (!obj.name) { showToast('Nombre requerido', 'error'); return; }
+    var nivelCambio = false, nivelNuevo = obj.currentLevel;
     if (editId) {
         var t = (invState.fuelTanks||[]).find(function(x){return x.id===editId;});
         if (t) {
+            nivelCambio = (t.currentLevel !== obj.currentLevel);
             if (!t.timeline) t.timeline = [];
             if (t.fuelStatus !== obj.fuelStatus) t.timeline.push({date:new Date().toISOString(),action:'Estatus: ' + (t.fuelStatus||'?') + ' → ' + obj.fuelStatus});
             t.timeline.push({date:new Date().toISOString(),action:'Modificado'});
@@ -3110,6 +3501,13 @@ function invSaveFuelTank(editId) {
         obj.timeline = [{date:new Date().toISOString(),action:'Recepcion'}];
         invState.fuelTanks.push(obj);
         auditLog('inv', 'fuel_created', {type:'fuel', id:obj.id, label:obj.name}, obj.fuelType + ' ' + obj.octane);
+        nivelCambio = true;   // el nivel de alta es la primera lectura del tanque
+    }
+    // v21.1: editar el nivel aquí DEBE dejar lectura. Antes este formulario escribía
+    // `currentLevel` a secas, así que el nivel autoritativo y la serie podían divergir
+    // sin que el modelo de consumo (que solo lee `readings`) se enterara de la corrección.
+    if (nivelCambio) {
+        invAddFuelReading(editId || obj.id, nivelNuevo, { source: 'alta-tanque', silent: true, skipSave: true });
     }
     invSave(); invRender();
     document.getElementById('invModal').style.display = 'none';
@@ -3125,9 +3523,11 @@ function invFuelReading(tankId) {
     modal.innerHTML = '<div style="max-width:360px;margin:40px auto;background:#fff;border-radius:14px;padding:20px;position:relative;">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;">\u2715</button>' +
         '<h3 style="margin:0 0 12px;color:#0f172a;">Lectura: ' + t.name + '</h3>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Nivel actual (' + (t.unit||'L') + ')</label>' +
-        '<input id="inv-fuel-level" type="number" step="0.1" value="' + (t.currentLevel||0) + '" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:6px;font-size:16px;margin-top:4px;"></div>' +
-        '<button onclick="invSaveFuelReading(\x27' + tankId + '\x27)" style="width:100%;margin-top:14px;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar Lectura</button>' +
+        '<div><label for="inv-fuel-level" style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Nivel actual (' + (t.unit||'L') + ')</label>' +
+        '<input id="inv-fuel-level" type="number" inputmode="decimal" step="0.1" value="' + (t.currentLevel||0) + '" class="tp-input" style="width:100%;font-size: var(--fs-lg);font-weight:700;text-align:center;margin-top:4px;"></div>' +
+        '<div style="margin-top:10px;"><label for="inv-fuel-read-date" style="font-size: var(--fs-sm);color:var(--muted);font-weight:600;">Fecha</label>' +
+        '<input id="inv-fuel-read-date" type="date" value="' + localToday() + '" max="' + localToday() + '" class="tp-input" style="width:100%;margin-top:4px;"></div>' +
+        '<button onclick="invSaveFuelReading(\x27' + tankId + '\x27)" class="tp-btn tp-btn-primary" style="width:100%;margin-top:14px;min-height:var(--target-min);font-weight:700;">Guardar Lectura</button>' +
         '</div>';
     setTimeout(function(){ var inp = document.getElementById('inv-fuel-level'); if(inp) inp.focus(); }, 100);
 }
@@ -3135,17 +3535,16 @@ function invFuelReading(tankId) {
 function invSaveFuelReading(tankId) {
     var t = (invState.fuelTanks||[]).find(function(x){return x.id===tankId;});
     if (!t) return;
-    var level = parseFloat(document.getElementById('inv-fuel-level').value);
-    if (isNaN(level)) { showToast('Nivel inválido', 'error'); return; }
-    t.currentLevel = level;
-    if (!t.readings) t.readings = [];
-    var fuelDate = localToday();
-    t.readings.push({ date: fuelDate, level: level });
-    invState.lastReadingDate = fuelDate;
-    if (typeof auditLog === 'function') auditLog('inv', 'fuel_reading', {type:'fuel', id:t.id, label:(t.name||t.id)}, level + ' ' + (t.unit||'L') + ' (' + fuelDate + ')');
-    invSave(); invRender();
+    var lvlEl = document.getElementById('inv-fuel-level');
+    var dEl = document.getElementById('inv-fuel-read-date');
+    // v21: por invAddFuelReading — antes este camino NO reentrenaba el modelo, así que
+    // capturar desde la pestaña ⛽ dejaba el pronóstico de combustible desactualizado.
+    var res = invAddFuelReading(tankId, lvlEl ? lvlEl.value : '', {
+        date: (dEl && dEl.value) ? dEl.value : localToday(), source: 'combustible'
+    });
+    if (!res.ok) { showToast(res.reason, 'error'); return; }
+    invRender();
     document.getElementById('invModal').style.display = 'none';
-    showToast('Lectura guardada: ' + level + ' ' + (t.unit||'L'), 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -3220,12 +3619,15 @@ function invRenderReport(el) {
     html += '</tr></thead><tbody>';
 
     invState.gases.forEach(function(g) {
-        var lastPsi = g.readings && g.readings.length > 0 ? g.readings[g.readings.length-1].psi : g.currentPsi || 0;
-        var weekly = g.weeklyPsi || 0;
-        var daily = g.dailyPsi || 0;
-        var repos = g.reposDays || 44;
-        var limit = g.limitPsi || 0;
-        var isOk = lastPsi > limit || limit === 0;
+        // v21.1: calculado de las lecturas reales. Antes salía de campos de la semilla
+        // que nunca se recalculaban, así que todo cilindro creado en la app mostraba 0.0.
+        var lastPsi = g.readings && g.readings.length > 0 ? g.readings[g.readings.length-1].psi : 0;
+        var br = invGasBurnRate(g);
+        var weekly = br.weeklyPsi;
+        var daily = br.dailyPsi;
+        var repos = br.daysToLow === null ? '—' : br.daysToLow;
+        var limit = br.lowPsi;
+        var isOk = !invGasIsLow(g);
         var catColor = g.gasCategory === 'Trabajo' ? '#fef9c3' : '#e0f2fe';
         html += '<tr style="background:' + catColor + '20;border-bottom:1px solid rgba(255,255,255,0.05);">';
         html += '<td style="padding:3px 6px;font-size: var(--fs-xs);color:var(--tp-dim);">' + (g.gasCategory||'Ref') + '</td>';
@@ -3234,7 +3636,7 @@ function invRenderReport(el) {
         html += '<td style="padding:3px 6px;text-align:center;">' + weekly.toFixed(1) + '</td>';
         html += '<td style="padding:3px 6px;text-align:center;">' + daily.toFixed(1) + '</td>';
         html += '<td style="padding:3px 6px;text-align:center;">' + repos + '</td>';
-        html += '<td style="padding:3px 6px;text-align:center;color:var(--tp-amber);">' + limit.toFixed(2) + '</td>';
+        html += '<td style="padding:3px 6px;text-align:center;color:var(--warn-text);">' + limit.toFixed(0) + '</td>';
         html += '<td style="padding:3px 6px;text-align:center;font-weight:700;color:' + (isOk?'#22c55e':'#ef4444') + ';">' + (isOk?'OK':'BAJO') + '</td>';
         html += '</tr>';
     });
@@ -3297,10 +3699,10 @@ function invExportReport() {
 function _invCylColor(gas) {
     var expiry = invGasExpiry(gas);
     if (expiry.status === 'expired') return 'expired';
-    var lvl = invGasLevel(gas);
-    if (lvl.pct > 50) return 'ok';
-    if (lvl.pct > 25) return 'mid';
-    return 'low';
+    // v21.1: usa los umbrales únicos (invGasLevel), no otros propios — el mapa pintaba
+    // verde un cilindro que las alertas ya daban por bajo.
+    var st = invGasLevel(gas).status;
+    return st === 'critico' ? 'low' : st === 'bajo' ? 'mid' : 'ok';
 }
 
 function invRenderZoneMap(el) {
@@ -3479,7 +3881,7 @@ function invRenderCharts(el) {
 
     if (chartType === 'gas_psi') {
         var gasesWithReadings = invState.gases.filter(function(g){ return g.readings && g.readings.length >= 2; });
-        html += '<div style="margin-bottom:8px;"><select id="inv-chart-gas-sel" onchange="invDrawMainChart()" style="width:100%;padding:8px;background:#1e293b;border:1px solid var(--tp-border);border-radius:6px;color:#e2e8f0;font-size: var(--fs-sm);">';
+        html += '<div style="margin-bottom:8px;"><select id="inv-chart-gas-sel" onchange="invDrawMainChart()" class="tp-select" style="width:100%;">';
         gasesWithReadings.forEach(function(g) {
             html += '<option value="' + g.id + '">' + g.formula + ' ' + (g.concNominal||'') + ' #' + g.controlNo + '</option>';
         });
@@ -3786,7 +4188,7 @@ function invShowTrendChart(gasId) {
 
     var modal = document.getElementById('invModal');
     modal.style.display = 'block';
-    modal.innerHTML = '<div style="max-width:520px;margin:20px auto;background:#0f172a;border-radius:14px;padding:20px;position:relative;color:#e2e8f0;">' +
+    modal.innerHTML = '<div style="max-width:520px;margin:20px auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:var(--space-lg);position:relative;color:var(--text);box-shadow:var(--shadow-xl);">' +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">\u2715</button>' +
         '<h3 style="margin:0 0 2px;color:#06b6d4;">' + g.formula + ' ' + (g.concNominal || '') + '</h3>' +
         '<div style="font-size: var(--fs-sm);color:#475569;font-weight:600;margin-bottom:12px;">#' + g.controlNo + ' | Zona ' + (g.zone || '?') + ' | ' + g.readings.length + ' lecturas</div>' +
@@ -4623,73 +5025,140 @@ function _invFindLeastFullZone() {
 // [R5-M5] Batch Reading Round — One-at-a-time gas reading experience
 // ══════════════════════════════════════════════════════════════════════
 
+// [v21.0] LA RONDA — el recorrido guiado del cuarto de gases.
+//
+// Estaba construida desde R5-M5 y NUNCA había corrido: filtraba `status === 'active'`,
+// un estado que la app no escribe (los reales son Stock|In use|Empty|Spare), así que el
+// botón siempre respondía "No hay cilindros activos". Y guardaba un esquema propio
+// ({psi, value, timestamp, source}) SIN campo `date`, que habría reventado
+// invCalcConsumptionRates (`a.date.localeCompare`), el nivel, HOY y las gráficas en
+// cuanto alguien la hiciera arrancar. Las dos cosas se corrigen aquí.
+//
+// v21 le suma lo que el recorrido real necesita: orden físico por zona, combustible en
+// la misma pasada, saltar lo que no se pudo leer, y reanudar si se interrumpe.
+
 var _readingRound = null;
+var INV_ROUND_LS_KEY = 'kia_inv_round';   // ronda a medias (el cuarto de gases puede no tener señal)
+var _invLastRound = null;                 // resumen de la última ronda, para el botón Copiar
 
-function invStartReadingRound() {
-    var gases = invState.gases.filter(function(g) { return g.status === 'active'; });
-    if (gases.length === 0) { showToast('No hay cilindros activos', 'warning'); return; }
+/** Los puntos del recorrido, en el orden en que están acomodados físicamente. */
+function invRoundItems() {
+    var items = (invState.gases || [])
+        .filter(function(g) { return g && g.status !== 'Empty'; })   // el mismo criterio que la pestaña Captura
+        .map(function(g) { return { kind: 'gas', id: g.id, zone: g.zone || 'ZZZ' }; });
+    // Orden físico: A01, A02, B01… para que la pantalla siga la caminata y no al revés.
+    items.sort(function(a, b) { return String(a.zone).localeCompare(String(b.zone), 'es', { numeric: true }); });
+    // El combustible va al final: son otros medidores, en otro lugar del cuarto.
+    (invState.fuelTanks || []).forEach(function(t) { items.push({ kind: 'fuel', id: t.id, zone: '~' }); });
+    return items;
+}
 
+/** El objeto vivo (cilindro o tanque) de un punto del recorrido. */
+function _invRoundRef(item) {
+    if (!item) return null;
+    return item.kind === 'fuel'
+        ? (invState.fuelTanks || []).find(function(t) { return t.id === item.id; })
+        : (invState.gases || []).find(function(g) { return g.id === item.id; });
+}
+
+function _invRoundPersist() {
+    try {
+        if (!_readingRound) { localStorage.removeItem(INV_ROUND_LS_KEY); return; }
+        localStorage.setItem(INV_ROUND_LS_KEY, JSON.stringify({
+            index: _readingRound.index, date: _readingRound.date,
+            startTime: _readingRound.startTime, results: _readingRound.results,
+            ids: _readingRound.items.map(function(i) { return i.kind + ':' + i.id; })
+        }));
+    } catch (e) {}   // que se llene el almacenamiento no debe tumbar la ronda
+}
+
+function invStartReadingRound(opts) {
+    opts = opts || {};
+    var items = invRoundItems();
+    if (!items.length) { showToast('No hay cilindros ni tanques que leer', 'warning'); return; }
+
+    // ¿Quedó una ronda a medias? Se ofrece retomarla en vez de perder lo caminado.
+    if (!opts.fresh && !opts.resume) {
+        var prev = null;
+        try { prev = JSON.parse(localStorage.getItem(INV_ROUND_LS_KEY)); } catch (e) {}
+        if (prev && prev.index > 0 && prev.index < items.length && typeof showConfirmDialog === 'function') {
+            showConfirmDialog({
+                title: '🔄 Tienes una ronda a medias',
+                message: 'Ibas en el punto ' + (prev.index + 1) + ' de ' + items.length + ' (' + (prev.date || '') + ').\n\n¿Retomarla donde la dejaste?',
+                type: 'info', confirmText: 'Retomar', cancelText: 'Empezar de nuevo'
+            }).then(function(ok) {
+                invStartReadingRound(ok ? { resume: prev } : { fresh: true });
+            });
+            return;
+        }
+    }
+
+    var r = opts.resume;
     _readingRound = {
-        gases: gases,
-        index: 0,
-        results: [],
-        startTime: Date.now()
+        items: items,
+        index: (r && r.index < items.length) ? r.index : 0,
+        results: (r && Array.isArray(r.results)) ? r.results : [],
+        startTime: (r && r.startTime) || Date.now(),
+        date: (r && r.date) || localToday()
     };
+    _invRoundPersist();
     _invRoundRenderCurrent();
 }
 
 function _invRoundRenderCurrent() {
     if (!_readingRound) return;
-    var gas = _readingRound.gases[_readingRound.index];
-    var total = _readingRound.gases.length;
+    var item = _readingRound.items[_readingRound.index];
+    var ref = _invRoundRef(item);
+    // El cilindro pudo borrarse a media ronda (o llegar un pull de la nube): se salta.
+    if (!ref) { _readingRound.index++; if (_readingRound.index >= _readingRound.items.length) { invRoundFinish(); } else { _invRoundRenderCurrent(); } return; }
+
+    var esFuel = item.kind === 'fuel';
+    var total = _readingRound.items.length;
     var idx = _readingRound.index;
+    var lecturas = ref.readings || [];
+    var ultima = lecturas.length ? lecturas[lecturas.length - 1] : null;
+    var lastVal = ultima ? (esFuel ? ultima.level : ultima.psi) : '';
+    var unidad = esFuel ? (ref.unit || 'L') : 'PSI';
 
-    // Get last reading
-    var lastReading = gas.readings && gas.readings.length > 0 ? gas.readings[gas.readings.length - 1] : null;
-    var lastVal = lastReading ? (lastReading.psi || lastReading.value || '') : '';
+    var sparkHtml = _invRoundSparkline(lecturas.slice(-5).map(function(r) { return (esFuel ? r.level : r.psi) || 0; }));
+    var pct = Math.round((idx / total) * 100);
 
-    // Build sparkline data
-    var sparkData = (gas.readings || []).slice(-5).map(function(r) { return r.psi || r.value || 0; });
-    var sparkHtml = _invRoundSparkline(sparkData);
-
-    var pct = Math.round(((idx) / total) * 100);
+    var titulo = esFuel ? (ref.name || 'Combustible') : (ref.gasType || 'Gas');
+    var sub = esFuel
+        ? ((ref.regulation || '—') + ' · capacidad ' + (ref.capacity || '?') + ' ' + unidad)
+        : ((ref.controlNo || ref.id) + ' · Zona: ' + (ref.zone || '—'));
 
     var html = '<div class="reading-round-overlay">' +
         '<div class="reading-round-card">' +
-        // Header
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
-        '<span style="font-size:12px;font-weight:700;color:var(--tp-dim);">' + (idx + 1) + ' de ' + total + '</span>' +
-        '<button onclick="_invRoundCancel()" style="background:none;border:none;color:var(--danger-text);cursor:pointer;font-size:18px;font-weight:700;">✕</button>' +
+        '<span style="font-size: var(--fs-xs);font-weight:700;color:var(--muted);">' + (idx + 1) + ' de ' + total + (esFuel ? ' · ⛽' : '') + '</span>' +
+        '<button onclick="_invRoundCancel()" aria-label="Salir de la ronda" style="background:none;border:none;color:var(--danger-text);cursor:pointer;font-size:18px;font-weight:700;">✕</button>' +
         '</div>' +
-        // Progress bar
-        '<div style="height:4px;background:rgba(255,255,255,0.1);border-radius:2px;margin-bottom:16px;overflow:hidden;">' +
-        '<div style="height:100%;width:' + pct + '%;background:var(--tp-green);border-radius:2px;transition:width 0.3s;"></div>' +
+        '<div style="height:4px;background:var(--border);border-radius:2px;margin-bottom:16px;overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:var(--ok-fill);border-radius:2px;transition:width 0.3s;"></div>' +
         '</div>' +
-        // Gas info
         '<div style="text-align:center;margin-bottom:20px;">' +
-        '<div style="font-size:14px;font-weight:800;color:var(--tp-text);">' + escapeHtml(gas.gasType || 'Gas') + '</div>' +
-        '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-top:2px;">' + escapeHtml(gas.controlNo || gas.id) + ' · Zona: ' + escapeHtml(gas.zone || '—') + '</div>' +
-        '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:2px;">Conc: ' + escapeHtml(gas.concNominal || '—') + ' / ' + escapeHtml(gas.concReal || '—') + '</div>' +
+        '<div style="font-size: var(--fs-base);font-weight:800;color:var(--text);">' + escapeHtml(titulo) + '</div>' +
+        '<div style="font-size: var(--fs-sm);color:var(--muted);margin-top:2px;">' + escapeHtml(sub) + '</div>' +
+        (esFuel ? '' : '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top:2px;">Conc: ' + escapeHtml(ref.concNominal || '—') + '</div>') +
         '</div>' +
-        // Sparkline
-        (sparkHtml ? '<div style="text-align:center;margin-bottom:12px;">' + sparkHtml + '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:2px;">Últimas 5 lecturas</div></div>' : '') +
-        // Last value
-        (lastVal ? '<div style="text-align:center;margin-bottom:8px;font-size: var(--fs-xs);color:var(--tp-dim);">Última lectura: <strong style="color:var(--tp-text);">' + lastVal + ' PSI</strong></div>' : '') +
-        // Input
-        '<div style="text-align:center;margin-bottom:16px;">' +
-        '<input type="number" id="round-reading-input" placeholder="PSI" value="' + (lastVal || '') + '" ' +
-        'style="width:120px;padding:12px 16px;font-size:24px;font-weight:800;text-align:center;border:2px solid var(--tp-border);border-radius:12px;background:var(--tp-card);color:var(--tp-text);" ' +
+        (sparkHtml ? '<div style="text-align:center;margin-bottom:12px;">' + sparkHtml + '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top:2px;">Últimas 5 lecturas</div></div>' : '') +
+        (lastVal !== '' ? '<div style="text-align:center;margin-bottom:8px;font-size: var(--fs-xs);color:var(--muted);">Última lectura: <strong style="color:var(--text);">' + lastVal + ' ' + unidad + '</strong></div>' : '') +
+        '<div style="text-align:center;margin-bottom:6px;">' +
+        '<input type="number" inputmode="' + (esFuel ? 'decimal' : 'numeric') + '" id="round-reading-input" ' +
+        'aria-label="Lectura de ' + escapeHtml(titulo) + ' en ' + unidad + '" placeholder="' + unidad + '" value="' + (lastVal || '') + '" ' +
+        'style="width:150px;padding:12px 16px;font-size:24px;font-weight:800;text-align:center;border:2px solid var(--border-strong);border-radius:var(--radius-xl);background:var(--surface);color:var(--text);" ' +
         'onkeydown="if(event.key===\'Enter\')invRoundNext()">' +
         '</div>' +
-        // Buttons
-        '<div style="display:flex;gap:8px;justify-content:center;">' +
-        (idx > 0 ? '<button onclick="invRoundPrev()" class="btn-secondary" style="padding:10px 20px;">← Anterior</button>' : '') +
-        (lastVal ? '<button onclick="_invRoundSameValue()" class="btn-secondary" style="padding:10px 20px;background:rgba(16,185,129,0.1);color:var(--ok-text);border-color:var(--ok-text);">= Igual</button>' : '') +
-        '<button onclick="invRoundNext()" class="btn-primary" style="padding:10px 24px;">' + (idx < total - 1 ? 'Siguiente →' : 'Finalizar ✓') + '</button>' +
+        '<div id="round-warn" style="min-height:18px;text-align:center;font-size: var(--fs-xs);color:var(--warn-text);font-weight:700;margin-bottom:10px;"></div>' +
+        '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">' +
+        (idx > 0 ? '<button onclick="invRoundPrev()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);">← Anterior</button>' : '') +
+        '<button onclick="invRoundSkip()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);" title="No se pudo leer este punto">Saltar</button>' +
+        (lastVal !== '' ? '<button onclick="_invRoundSameValue()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);border-color:var(--ok-text);color:var(--ok-text);">= Igual</button>' : '') +
+        '<button onclick="invRoundNext()" class="tp-btn tp-btn-primary" style="min-height:var(--target-min);">' + (idx < total - 1 ? 'Siguiente →' : 'Finalizar ✓') + '</button>' +
         '</div>' +
         '</div></div>';
 
-    // Show as overlay
     var overlay = document.getElementById('reading-round-overlay');
     if (!overlay) {
         overlay = document.createElement('div');
@@ -4699,10 +5168,19 @@ function _invRoundRenderCurrent() {
     overlay.innerHTML = html;
     overlay.style.display = 'block';
 
-    // Focus input
     setTimeout(function() {
         var inp = document.getElementById('round-reading-input');
-        if (inp) { inp.focus(); inp.select(); }
+        if (!inp) return;
+        inp.focus(); inp.select();
+        // Aviso en vivo mientras teclea: ámbar que informa, nunca un candado.
+        inp.oninput = function() {
+            var w = document.getElementById('round-warn');
+            if (!w) return;
+            var v = parseFloat(inp.value);
+            if (isNaN(v)) { w.textContent = ''; return; }
+            var msg = esFuel ? invFuelReadingWarning(ref, v, _readingRound.date) : invReadingWarning(ref, v, _readingRound.date);
+            w.textContent = msg ? '⚠ ' + msg : '';
+        };
     }, 100);
 }
 
@@ -4710,7 +5188,8 @@ function invRoundNext() {
     if (!_readingRound) return;
     _invRoundSaveCurrentReading();
     _readingRound.index++;
-    if (_readingRound.index >= _readingRound.gases.length) {
+    _invRoundPersist();
+    if (_readingRound.index >= _readingRound.items.length) {
         invRoundFinish();
     } else {
         _invRoundRenderCurrent();
@@ -4720,51 +5199,82 @@ function invRoundNext() {
 function invRoundPrev() {
     if (!_readingRound || _readingRound.index <= 0) return;
     _readingRound.index--;
+    _invRoundPersist();
     _invRoundRenderCurrent();
 }
 
+/** Saltar: el punto no se pudo leer (manómetro tapado, cilindro fuera). No guarda nada. */
+function invRoundSkip() {
+    if (!_readingRound) return;
+    var item = _readingRound.items[_readingRound.index];
+    var ref = _invRoundRef(item);
+    _readingRound.results.push({
+        kind: item.kind, id: item.id,
+        controlNo: ref ? (ref.controlNo || ref.name || item.id) : item.id,
+        gasType: ref ? (ref.gasType || ref.name || '') : '',
+        skipped: true
+    });
+    _readingRound.index++;
+    _invRoundPersist();
+    if (_readingRound.index >= _readingRound.items.length) invRoundFinish();
+    else _invRoundRenderCurrent();
+}
+
 function _invRoundSameValue() {
-    // Keep the pre-filled value (last reading) and advance
+    // Conserva el valor precargado (la última lectura) y avanza.
     invRoundNext();
 }
 
 function _invRoundSaveCurrentReading() {
     if (!_readingRound) return;
-    var gas = _readingRound.gases[_readingRound.index];
+    var item = _readingRound.items[_readingRound.index];
+    var ref = _invRoundRef(item);
+    if (!ref) return;
     var inp = document.getElementById('round-reading-input');
     var val = inp ? parseFloat(inp.value) : NaN;
     if (isNaN(val)) return;
 
-    gas.readings = gas.readings || [];
-    var lastVal = gas.readings.length > 0 ? (gas.readings[gas.readings.length - 1].psi || gas.readings[gas.readings.length - 1].value || 0) : 0;
+    var lecturas = ref.readings || [];
+    var ultima = lecturas.length ? lecturas[lecturas.length - 1] : null;
+    var lastVal = ultima ? ((item.kind === 'fuel' ? ultima.level : ultima.psi) || 0) : 0;
 
-    gas.readings.push({
-        psi: val,
-        value: val,
-        timestamp: new Date().toISOString(),
-        source: 'round'
-    });
+    // v21: por el motor único — valida, deduplica, atribuye, audita y reentrena.
+    // Antes escribía a mano un esquema sin `date` que nadie más sabía leer.
+    // skipSave: la ronda guarda una sola vez al final (invRoundFinish).
+    var res = (item.kind === 'fuel')
+        ? invAddFuelReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true })
+        : invAddReading(item.id, val, { date: _readingRound.date, source: 'ronda', silent: true, skipSave: true });
+    if (!res.ok) { showToast(res.reason, 'error'); return; }
 
-    // Track result
     var dropPct = lastVal > 0 ? Math.round(((lastVal - val) / lastVal) * 100) : 0;
     _readingRound.results.push({
-        gasId: gas.id,
-        controlNo: gas.controlNo,
-        gasType: gas.gasType,
-        value: val,
-        prev: lastVal,
-        alert: dropPct > 15
+        kind: item.kind, id: item.id,
+        controlNo: ref.controlNo || ref.name || item.id,
+        gasType: ref.gasType || ref.name || '',
+        value: val, prev: lastVal,
+        warning: res.warning || null,
+        alert: dropPct > 15 || !!res.warning
     });
 }
 
 function invRoundFinish() {
     if (!_readingRound) return;
+    // La ronda escribió con skipSave: aquí va el único guardado y el único reentrenamiento.
+    if (typeof invUpdateConsumptionModel === 'function') invUpdateConsumptionModel();
     invSave();
+    try { localStorage.removeItem(INV_ROUND_LS_KEY); } catch (e) {}   // ya no hay nada que retomar
+
+    var capturadas = _readingRound.results.filter(function(r) { return !r.skipped; });
+    var saltadas = _readingRound.results.filter(function(r) { return r.skipped; });
+    if (typeof auditLog === 'function') {
+        auditLog('inv', 'reading_round', { type: 'reading', label: _readingRound.date },
+                 capturadas.length + ' lectura(s), ' + saltadas.length + ' saltada(s)');
+    }
 
     var elapsed = Math.round((Date.now() - _readingRound.startTime) / 1000);
     var mins = Math.floor(elapsed / 60);
     var secs = elapsed % 60;
-    var alerts = _readingRound.results.filter(function(r) { return r.alert; });
+    var alerts = capturadas.filter(function(r) { return r.alert; });
 
     var html = '<div class="reading-round-overlay">' +
         '<div class="reading-round-card">' +
@@ -4774,8 +5284,8 @@ function invRoundFinish() {
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">' +
         '<div class="tp-card" style="text-align:center;padding:10px;">' +
-        '<div style="font-size:20px;font-weight:800;color:var(--tp-green);">' + _readingRound.results.length + '</div>' +
-        '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Lecturas</div></div>' +
+        '<div style="font-size:20px;font-weight:800;color:var(--ok-text);">' + capturadas.length + '</div>' +
+        '<div style="font-size: var(--fs-xs);color:var(--muted);">Lecturas</div></div>' +
         '<div class="tp-card" style="text-align:center;padding:10px;">' +
         '<div style="font-size:20px;font-weight:800;color:' + (alerts.length > 0 ? '#ef4444' : 'var(--tp-green)') + ';">' + alerts.length + '</div>' +
         '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Alertas</div></div>' +
@@ -4794,13 +5304,26 @@ function invRoundFinish() {
         html += '</div>';
     }
 
-    html += '<div style="display:flex;gap:8px;justify-content:center;">' +
-        '<button onclick="_invRoundCopyReport()" class="btn-secondary" style="padding:8px 16px;">📋 Copiar Resumen</button>' +
-        '<button onclick="_invRoundCancel()" class="btn-primary" style="padding:8px 20px;">Cerrar</button>' +
+    if (saltadas.length > 0) {
+        html += '<div style="margin-bottom:12px;">';
+        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--muted);margin-bottom:6px;">↷ Saltadas (sin lectura):</div>';
+        saltadas.forEach(function(s) {
+            html += '<div style="font-size: var(--fs-xs);color:var(--muted);padding:2px 0;">' + escapeHtml(s.controlNo) + '</div>';
+        });
+        html += '</div>';
+    }
+
+    html += '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">' +
+        '<button onclick="_invRoundCopyReport()" class="tp-btn tp-btn-ghost" style="min-height:var(--target-min);">📋 Copiar Resumen</button>' +
+        '<button onclick="_invRoundCancel()" class="tp-btn tp-btn-primary" style="min-height:var(--target-min);">Cerrar</button>' +
         '</div></div></div>';
 
     var overlay = document.getElementById('reading-round-overlay');
     if (overlay) overlay.innerHTML = html;
+
+    // El botón "Copiar Resumen" corre DESPUÉS de soltar la ronda, así que el resumen
+    // se guarda aquí; si no, sólo quedaba raspar el texto del DOM.
+    _invLastRound = { date: _readingRound.date, elapsed: elapsed, results: _readingRound.results.slice() };
 
     invRender();
     _readingRound = null;
@@ -4809,19 +5332,29 @@ function invRoundFinish() {
 function _invRoundCancel() {
     var overlay = document.getElementById('reading-round-overlay');
     if (overlay) overlay.style.display = 'none';
+    // Salir a media ronda NO borra el avance: se ofrece retomarlo al volver a entrar.
+    // (invRoundFinish sí limpia la llave — ahí ya no queda nada pendiente.)
     _readingRound = null;
 }
 
 function _invRoundCopyReport() {
-    if (!_readingRound && document.getElementById('reading-round-overlay')) {
-        // Use the last results stored
+    var r = _invLastRound;
+    var text;
+    if (r) {
+        var mins = Math.floor(r.elapsed / 60), secs = r.elapsed % 60;
+        text = 'Ronda de lecturas — ' + r.date + ' (' + mins + ':' + String(secs).padStart(2, '0') + ')\n';
+        r.results.forEach(function(x) {
+            text += (x.skipped ? '↷ ' : '• ') + x.controlNo + (x.gasType ? ' (' + x.gasType + ')' : '') + ': ' +
+                    (x.skipped ? 'sin lectura' : (x.prev ? x.prev + ' → ' : '') + x.value) +
+                    (x.warning ? '  ⚠ ' + x.warning : '') + '\n';
+        });
+    } else {
+        var overlay = document.getElementById('reading-round-overlay');
+        text = overlay ? overlay.textContent : 'Ronda de lecturas';
     }
-    var text = 'Ronda de Lecturas — ' + new Date().toLocaleString('es-MX') + '\n';
-    var overlay = document.getElementById('reading-round-overlay');
-    // Simple copy of visible text
     if (navigator.clipboard) {
-        navigator.clipboard.writeText(overlay ? overlay.textContent : text);
-        showToast('Resumen copiado', 'success');
+        navigator.clipboard.writeText(text).then(function() { showToast('Resumen copiado', 'success'); })
+            .catch(function() { showToast('No se pudo copiar', 'error'); });
     }
 }
 
@@ -4866,9 +5399,11 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
         '"📥 Importar F11" actualiza calibraciones en bloque desde el CSV oficial exportado por la plataforma.'
     ]},
     'inv-readings': { title: 'Captura diaria', text: 'Captura una vez al día el PSI de cada cilindro en uso y el nivel de los tanques. De estas lecturas la plataforma APRENDE cuánto consume cada tipo de prueba — sin capturas no hay predicción.', tips: [
+        'Si vas al cuarto de gases, usa 🔄 Hacer la ronda: te pide un punto a la vez, en el orden en que están acomodados, y termina con el combustible. Puedes salir a media ronda y retomarla donde ibas.',
+        '"= Igual" repite la lectura anterior de un toque; Enter avanza al siguiente punto; "Saltar" deja sin lectura lo que no se pudo leer.',
+        'Si traes la libreta, captura en la retícula y cambia la fecha del lote a la del recorrido.',
         'Captura todos los cilindros "En uso" cada día, aunque el valor no haya cambiado.',
-        'Las lecturas manuales (no automáticas) son las que alimentan el modelo de consumo.',
-        'Revisa la sección ⛽ Combustible para registrar también el nivel de los tambos.'
+        'Un valor improbable se marca en ámbar y avisa por qué, pero nunca te impide guardar: tú decides, y queda en la auditoría.'
     ]},
     'inv-predict': { title: 'Predicción', text: 'Consumo aprendido por tipo de prueba y proyección: ¿alcanza el gas/gasolina para el plan? Los números se actualizan con cada lectura y cada prueba.', tips: [
         'La confianza (Alta/Media/Baja) depende de cuántas lecturas manuales hay acumuladas.',
@@ -4930,5 +5465,6 @@ if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
     'inv-report-help': { title: 'Reporte semanal', text: 'Resumen de consumo de la semana en curso, listo para copiar y enviar por correo.' },
     'inv-charts-help': { title: 'Gráficas de consumo', text: 'Tendencia histórica de PSI y nivel de combustible por cilindro/tanque.' },
     'inv-zonemap-help': { title: 'Mapa del cuarto de gases', text: 'Cada tarjeta es una zona; arrastra un cilindro entre posiciones para reubicarlo.' },
-    'inv-readings-fuel-help': { title: 'Captura de combustible', text: 'Registra el nivel actual de cada tambo de combustible. Estas lecturas alimentan el descuento automático por prueba.' }
+    'inv-readings-fuel-help': { title: 'Captura de combustible', text: 'Registra el nivel actual de cada tambo de combustible. Estas lecturas alimentan el descuento automático por prueba.' },
+    'inv-capture-date': { title: 'Fecha de estas lecturas', text: 'La fecha a la que pertenece TODO lo que captures en esta pantalla. Déjala en hoy si estás capturando al momento; cámbiala a la del recorrido si estás pasando lo que anotaste en papel. Si ya existe una lectura de ese día para un cilindro, se reemplaza en vez de duplicarse.' }
 });
