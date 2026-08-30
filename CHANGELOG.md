@@ -2,6 +2,64 @@
 
 All notable changes to this project, organized by development round.
 
+## v21.1 — Números confiables y la gasolina en la nube (2026-08-30)
+
+Fases 3 y 4 del overhaul de captura. La 1 y la 2 arreglaron **cómo se captura**; éstas
+arreglan **qué tan confiable es lo capturado** y **a dónde llega**.
+
+### El nivel de un cilindro era relativo a su primera lectura
+
+`invGasLevel` dividía entre `readings[0]`, así que el % dependía de en qué estado se tomó
+la PRIMERA lectura del cilindro, no de qué tan lleno está. Un cilindro cuya primera lectura
+se tomó a 400 psi, luego recargado a 2000 y hoy en 250, se reportaba al **63% (verde)**
+cuando en realidad está al **13%**.
+
+- **`invGasLevel` ahora es ABSOLUTO**, contra la presión nominal: `initialPsi` si está
+  declarada, y si no el **máximo histórico** (el cilindro estuvo al menos así de lleno).
+- **Campo nuevo y opcional "Presión nominal (psi)"** en el alta del cilindro. Sin él todo
+  sigue funcionando con el máximo histórico — no hay migración que correr.
+- **`invGasLevel` es LA definición del nivel y `invGasIsLow` la de "¿está bajo?"**. Había
+  **cinco criterios distintos** para la misma pregunta: 15/30% aquí, 25/50% en el mapa,
+  <20% en el dashboard, <10% en las alertas proactivas, <15% en HOY, y 200/500 psi
+  **absolutos** en el Panel y en las alertas globales — un cilindro podía verse verde en el
+  mapa y crítico en las alertas al mismo tiempo. Ahora todos consumen la misma definición.
+
+### Otros números que mentían
+
+- **Las alertas de gas del Panel decían literalmente "Gas undefined en nivel CRITICO"**:
+  el mensaje usaba `g.name`, campo que un cilindro no tiene.
+- **Las columnas del reporte estaban congeladas en la semilla.** `weeklyPsi`/`dailyPsi`/
+  `reposDays` nunca se recalculaban, así que todo cilindro dado de alta en la app mostraba
+  0.0 mientras el modelo de consumo sí tenía los números buenos. **`invGasBurnRate(g)` es LA
+  definición del ritmo de un cilindro**, calculada de sus lecturas humanas y descartando los
+  tramos de recarga.
+- **La auto-deducción de gas por prueba no se auditaba** (su gemela de combustible sí): era
+  el único movimiento de existencias invisible en el historial de cambios.
+
+### ⛽ La gasolina entra a la nube
+
+**`fuelTanks` no aparecía ni una vez en `firebase-sync.js`.** El nivel de combustible nunca
+viajaba entre dispositivos: cada equipo llevaba el suyo, y en la ruta de seed el local se
+reemplazaba entero. En un laboratorio que trabaja en espacio compartido eso es dato
+incorrecto, no una carencia de comodidad.
+
+- **Los tanques entran al análisis y al merge**, empatados por id, y el score local **ya
+  cuenta sus lecturas**: un dispositivo cuyo único dato nuevo era gasolina puntuaba como
+  vacío y el seed lo reemplazaba entero.
+- **El seed conserva los subcampos locales** que un remoto de código viejo no trae
+  (`fuelTanks`, `assets`, `maintActivities`, `maintLog`…), igual que ya hacía Test Plan.
+- **`_fbMergeReadings` une las series sin perder ninguna lectura.** El merge de un cilindro
+  en conflicto hacía `invState.gases[idx] = c.remote`, **tirando a la basura las lecturas
+  capturadas en este dispositivo**. Ahora las series se unen: una fecha aparece una sola vez,
+  gana la humana sobre la automática y, entre dos humanas, la local.
+- **La regulación del tanque es un selector**, no texto libre: es la llave con la que se
+  decide de qué tanque descontar la gasolina de una prueba, y un espacio de más rompía el
+  descuento en silencio.
+- **Editar el nivel en el formulario deja lectura**: antes escribía `currentLevel` a secas y
+  el nivel podía divergir de la serie sin que el modelo se enterara.
+- **Borrar un tanque tiene deshacer y auditoría** — era la única acción destructiva del
+  módulo sin ninguno de los dos.
+
 ## v21.0 — La captura de gases y gasolina, de cuatro caminos a uno (2026-08-30)
 
 > *"Capturar es tardado."*

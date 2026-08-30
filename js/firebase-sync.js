@@ -1282,6 +1282,9 @@ function _fbPullLocalScore(col) {
         if (st && st.assets) s += st.assets.length;
         if (st && st.maintActivities) s += st.maintActivities.length;
         if (st && st.maintLog) s += st.maintLog.length;
+        // v21.1: el combustible NO se contaba. Un dispositivo cuyo único dato nuevo eran
+        // lecturas de gasolina puntuaba como vacío y _fbPullSeed lo reemplazaba entero.
+        if (st && st.fuelTanks) st.fuelTanks.forEach(function(t) { s += 1 + ((t.readings && t.readings.length) || 0); });
         return s;
     }
     return 0;
@@ -1321,7 +1324,17 @@ function _fbPullSeed(col, remoteData, pulled) {
         _fbTpUISync();
         pulled.push('Test Plan');
     } else if (col === 'inventory') {
+        // v21.1: se preservan los subcampos locales que un remoto de código viejo no trae
+        // — mismo criterio que testplan arriba. `fuelTanks` es el caso grave: no viajaba
+        // por la nube, así que un pull de un equipo sin combustible borraba el de éste.
+        var prevInv = (typeof invState !== 'undefined' && invState) ? invState : {};
         invState = remoteData;
+        ['fuelTanks', 'assets', 'maintActivities', 'maintLog', 'consumption', 'f11Seed'].forEach(function(k) {
+            if ((invState[k] === undefined || invState[k] === null ||
+                 (Array.isArray(invState[k]) && !invState[k].length)) && prevInv[k] !== undefined) {
+                invState[k] = prevInv[k];
+            }
+        });
         localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
         if (typeof invRender === 'function') invRender();
         pulled.push('Inventory');
@@ -1342,7 +1355,9 @@ function _fbPullMergeModule(col, remoteData, pulled) {
     else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged;
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
         (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
-        (a.newMaintActivities || []).length > 0 || (a.maintActivityUpdates || []).length > 0 || (a.newMaintLog || []).length > 0;
+        (a.newMaintActivities || []).length > 0 || (a.maintActivityUpdates || []).length > 0 || (a.newMaintLog || []).length > 0 ||
+        // v21.1: sin esto, un pull cuyo único cambio es el combustible se descartaba.
+        (a.newFuelTanks || []).length > 0 || (a.fuelUpdates || []).length > 0;
     if (!hasWork) return;
 
     // merge_all: agrega lo nuevo y resuelve diferencias con la política existente
@@ -2335,6 +2350,24 @@ function fbMergeAnalyze(remoteData) {
     }
 
     // ── Inventory: compare gases by controlNo, equipment by name ──
+    // [v21.1] Une dos series de lecturas SIN perder ninguna. Una fecha aparece una
+    // sola vez; entre dos filas del mismo día gana la HUMANA sobre la automática, y
+    // entre dos humanas gana la local (el técnico acaba de capturarla en este equipo).
+    // Antes el merge de un cilindro en conflicto hacía `invState.gases[idx] = c.remote`,
+    // tirando a la basura las lecturas capturadas aquí.
+    function _fbMergeReadings(locales, remotas, campo) {
+        var porFecha = {};
+        (remotas || []).forEach(function(r) { if (r && r.date) porFecha[r.date] = r; });
+        (locales || []).forEach(function(r) {
+            if (!r || !r.date) return;
+            var otra = porFecha[r.date];
+            if (!otra) { porFecha[r.date] = r; return; }
+            if (otra.auto && !r.auto) porFecha[r.date] = r;        // humana > automática
+            else if (!otra.auto && !r.auto) porFecha[r.date] = r;  // empate: gana la local
+        });
+        return Object.keys(porFecha).sort().map(function(d) { return porFecha[d]; });
+    }
+
     if (remoteData.inventory) {
         var localGases = {};
         ((invState.gases || []).forEach(function(g) { localGases[g.controlNo || g.name] = g; }));
@@ -2394,6 +2427,23 @@ function fbMergeAnalyze(remoteData) {
         (invState.maintLog || []).forEach(function(l) { if (l && l.id) localLogIds[l.id] = true; });
         var newMaintLog = (remoteData.inventory.maintLog || []).filter(function(l) { return l && l.id && !localLogIds[l.id]; });
 
+        // [v21.1] COMBUSTIBLE. `fuelTanks` no aparecía NI UNA VEZ en este archivo, así que
+        // el nivel de gasolina nunca viajaba entre dispositivos: cada equipo llevaba el suyo,
+        // y en la ruta de seed el local se reemplazaba entero. Se empata por id (y por nombre
+        // para los tanques sembrados antes de que existieran los ids estables).
+        var localTanks = {};
+        (invState.fuelTanks || []).forEach(function(t) { if (t) localTanks[t.id || t.name] = t; });
+        var remoteTanks = remoteData.inventory.fuelTanks || [];
+        var newFuelTanks = [], fuelUpdates = [];
+        remoteTanks.forEach(function(rt) {
+            if (!rt) return;
+            var lt = localTanks[rt.id || rt.name];
+            if (!lt) { newFuelTanks.push(rt); return; }
+            // Hay conflicto si difieren las series o el nivel: se resuelve uniendo lecturas.
+            var nLocal = (lt.readings || []).length, nRemoto = (rt.readings || []).length;
+            if (nLocal !== nRemoto || lt.currentLevel !== rt.currentLevel) fuelUpdates.push({ key: rt.id || rt.name, local: lt, remote: rt });
+        });
+
         analysis.inventory = {
             localGasCount: (invState.gases || []).length,
             remoteGasCount: remoteGases.length,
@@ -2410,6 +2460,8 @@ function fbMergeAnalyze(remoteData) {
             newMaintActivities: newMaintActivities,
             maintActivityUpdates: maintActivityUpdates,
             newMaintLog: newMaintLog,
+            newFuelTanks: newFuelTanks,
+            fuelUpdates: fuelUpdates,
             remoteTs: remoteData.inventory_ts || null
         };
     }
@@ -2653,7 +2705,11 @@ function fbMergeExecute(remoteData, analysis, choices) {
             analysis.inventory.newAssets.forEach(function(a) { invState.assets.push(a); });
             analysis.inventory.newMaintActivities.forEach(function(a) { invState.maintActivities.push(a); });
             analysis.inventory.newMaintLog.forEach(function(l) { invState.maintLog.push(l); });
-            merged.push('Inventory: +' + analysis.inventory.newGases.length + ' gases, +' + analysis.inventory.newEquip.length + ' equipos');
+            if (!invState.fuelTanks) invState.fuelTanks = [];
+            (analysis.inventory.newFuelTanks || []).forEach(function(t) { invState.fuelTanks.push(t); });
+            merged.push('Inventory: +' + analysis.inventory.newGases.length + ' gases, +' +
+                        analysis.inventory.newEquip.length + ' equipos, +' +
+                        (analysis.inventory.newFuelTanks || []).length + ' tanques');
         } else if (choices.inventory === 'replace') {
             invState = remoteData.inventory;
             merged.push('Inventory: reemplazado');
@@ -2662,9 +2718,18 @@ function fbMergeExecute(remoteData, analysis, choices) {
             if (!invState.equipment) invState.equipment = [];
             analysis.inventory.newGases.forEach(function(g) { invState.gases.push(g); });
             analysis.inventory.newEquip.forEach(function(e) { invState.equipment.push(e); });
+            // v21.1: el conflicto de un cilindro ya NO reemplaza el objeto entero — eso
+            // tiraba las lecturas capturadas en este dispositivo. Se toma el remoto como
+            // base pero las series se UNEN, y se conserva la nominal local si el remoto
+            // no la trae (un equipo con código viejo no conoce `initialPsi`).
             analysis.inventory.gasConflicts.forEach(function(c) {
                 var idx = invState.gases.findIndex(function(g) { return (g.controlNo || g.name) === c.key; });
-                if (idx >= 0) invState.gases[idx] = c.remote;
+                if (idx < 0) return;
+                var local = invState.gases[idx];
+                var mezcla = Object.assign({}, local, c.remote);
+                mezcla.readings = _fbMergeReadings(local.readings, (c.remote || {}).readings);
+                if (local.initialPsi && !mezcla.initialPsi) mezcla.initialPsi = local.initialPsi;
+                invState.gases[idx] = mezcla;
             });
             analysis.inventory.equipConflicts.forEach(_fbMergeEquipConflict);
             analysis.inventory.newAssets.forEach(function(a) { invState.assets.push(a); });
@@ -2678,6 +2743,21 @@ function fbMergeExecute(remoteData, analysis, choices) {
                 if (idx >= 0) invState.maintActivities[idx] = a;
             });
             analysis.inventory.newMaintLog.forEach(function(l) { invState.maintLog.push(l); });
+            // v21.1: combustible, con la misma unión de series que los cilindros.
+            if (!invState.fuelTanks) invState.fuelTanks = [];
+            (analysis.inventory.newFuelTanks || []).forEach(function(t) { invState.fuelTanks.push(t); });
+            (analysis.inventory.fuelUpdates || []).forEach(function(c) {
+                var idx = invState.fuelTanks.findIndex(function(t) { return (t.id || t.name) === c.key; });
+                if (idx < 0) return;
+                var local = invState.fuelTanks[idx];
+                var mezcla = Object.assign({}, local, c.remote);
+                mezcla.readings = _fbMergeReadings(local.readings, (c.remote || {}).readings);
+                // El nivel autoritativo sale de la última lectura de la serie ya unida:
+                // si no, podría quedar apuntando a un valor que ninguna lectura respalda.
+                var ult = mezcla.readings.length ? mezcla.readings[mezcla.readings.length - 1] : null;
+                if (ult && typeof ult.level === 'number') mezcla.currentLevel = ult.level;
+                invState.fuelTanks[idx] = mezcla;
+            });
             merged.push('Inventory: merge completo');
         }
         localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
@@ -3037,7 +3117,8 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
     if (inv) {
         var hasChanges = inv.newGases.length > 0 || inv.newEquip.length > 0 || inv.gasConflicts.length > 0 ||
             inv.equipConflicts.length > 0 || inv.newAssets.length > 0 || inv.assetUpdates.length > 0 ||
-            inv.newMaintActivities.length > 0 || inv.maintActivityUpdates.length > 0 || inv.newMaintLog.length > 0;
+            inv.newMaintActivities.length > 0 || inv.maintActivityUpdates.length > 0 || inv.newMaintLog.length > 0 ||
+            (inv.newFuelTanks || []).length > 0 || (inv.fuelUpdates || []).length > 0;
         html += '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:8px;' + (hasChanges ? 'border-color:#10b981;' : '') + '">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
         html += '<span style="font-weight:700;font-size:12px;">Inventory</span>';
@@ -3046,6 +3127,7 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
         html += '<span style="color:#10b981;font-weight:700;">+' + inv.newGases.length + ' gases, +' + inv.newEquip.length + ' equipos</span>';
         html += ' &nbsp; <span style="color:' + (inv.gasConflicts.length > 0 || inv.equipConflicts.length > 0 ? '#ef4444' : '#64748b') + ';">' + inv.gasConflicts.length + ' conflictos gas, ' + inv.equipConflicts.length + ' cal. actualizadas</span></div>';
         html += '<div style="font-size: var(--fs-xs);color:#94a3b8;margin-bottom:6px;">🛠️ COP15-F11: +' + inv.newAssets.length + ' equipos, +' + inv.newMaintActivities.length + ' actividades, +' + inv.newMaintLog.length + ' mantenimientos registrados</div>';
+        html += '<div style="font-size: var(--fs-xs);color:#94a3b8;margin-bottom:6px;">⛽ Combustible: +' + (inv.newFuelTanks || []).length + ' tanques, ' + (inv.fuelUpdates || []).length + ' con lecturas por unir</div>';
         if (hasChanges) {
             html += '<select id="fb-merge-inventory" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size: var(--fs-xs);">';
             html += '<option value="">No fusionar</option>';

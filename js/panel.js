@@ -1017,7 +1017,7 @@ function renderLabOverview(el, opts) {
     var tpPct = tpTotal ? Math.round(tpDone / tpTotal * 100) : 0;
 
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
-    var lowGases = invGases.filter(function(g) { if (!g.readings || !g.readings.length) return false; return g.readings[g.readings.length - 1].psi < (g.reorderPSI || 500); });
+    var lowGases = invGases.filter(function(g) { return typeof invGasIsLow === 'function' ? invGasIsLow(g) : false; });
     var activeOps = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }).length : 0;
 
     var html = '';
@@ -1128,11 +1128,8 @@ function pnRenderDashboard(el) {
     var raToday = 0;
 
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
-    var lowGases = invGases.filter(function(g) {
-        if (!g.readings || g.readings.length === 0) return false;
-        var last = g.readings[g.readings.length - 1];
-        return last.psi < (g.reorderPSI || 500);
-    });
+    // v21.1: criterio único (invGasIsLow), no PSI absolutos.
+    var lowGases = invGases.filter(function(g) { return typeof invGasIsLow === 'function' ? invGasIsLow(g) : false; });
 
     var todayStr = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -1914,13 +1911,19 @@ function pnGetActiveAlerts() {
 
     // Check gas levels
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
+    // v21.1: dos arreglos aquí. (1) El mensaje usaba `g.name`, campo que un cilindro NO
+    // tiene, así que la alerta decía literalmente "Gas undefined en nivel CRITICO".
+    // (2) Comparaba PSI absolutos (200/500) contra cilindros de cualquier tamaño; ahora
+    // usa invGasLevel, que es LA definición del nivel y trabaja en % de la nominal.
     invGases.forEach(function(g) {
         if (!g.readings || g.readings.length === 0) return;
-        var last = g.readings[g.readings.length - 1];
-        if (last.psi < (g.criticalPSI || 200)) {
-            alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Gas ' + g.name + ' en nivel CRITICO: ' + last.psi + ' PSI', source: 'Inventario' });
-        } else if (last.psi < (g.reorderPSI || 500)) {
-            alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Gas ' + g.name + ' bajo: ' + last.psi + ' PSI — reordenar', source: 'Inventario' });
+        if (typeof invGasLevel !== 'function') return;
+        var lvl = invGasLevel(g);
+        var etiqueta = (g.formula || g.gasType || 'Gas') + (g.controlNo ? ' #' + g.controlNo : '');
+        if (lvl.status === 'critico') {
+            alerts.push({ level: 'CRITICA', color: '#ef4444', message: etiqueta + ' en nivel CRITICO: ' + lvl.psi + ' psi (' + lvl.pct + '%)', source: 'Inventario' });
+        } else if (lvl.status === 'bajo') {
+            alerts.push({ level: 'ALTA', color: '#f59e0b', message: etiqueta + ' bajo: ' + lvl.psi + ' psi (' + lvl.pct + '%) — reordenar', source: 'Inventario' });
         }
     });
 

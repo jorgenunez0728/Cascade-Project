@@ -900,6 +900,48 @@ greedy y **no** conocen la cuota ni los filtros. En Recuperación, `effCap` ya n
   excepción que señalar a diario. El dato vive en `moves[]`, la auditoría, el menú ⋯ y el
   `title` del asa. No volver a agregarlo a `marcas`.
 
+## v21.1 — Nivel absoluto, un solo umbral, y la gasolina en la nube
+
+- **`invGasLevel(g)` es LA definición del nivel y es ABSOLUTA**: el % va contra la presión
+  nominal (`g.initialPsi` si está declarada, si no el **máximo histórico**), no contra
+  `readings[0]`. Antes el % dependía de en qué estado se tomó la PRIMERA lectura: un
+  cilindro al 13% real se reportaba al 63% y en verde. Devuelve
+  `{pct, psi, nominal, status:'sinlecturas'|'critico'|'bajo'|'ok', text, color, bg}` —
+  `color` es texto/relleno y `bg` el tinte; **no concatenar alfa a mano** (`color + '20'`
+  reventaba en cuanto los colores pasaron a ser tokens).
+- **`invGasIsLow(g)` es LA definición de "¿está bajo?"** y `INV_LEVEL_CRITICAL_PCT` /
+  `INV_LEVEL_LOW_PCT` los únicos umbrales. Había **cinco criterios en conflicto** (15/30 en
+  invGasLevel, 25/50 en `_invCylColor`, <20 en el dashboard, <10 en alertas proactivas, <15
+  en HOY) más **PSI absolutos** (200/500) en `pnGetActiveAlerts` y en las alertas de app.js.
+  Todo consumidor nuevo llama a estas dos, nunca compara PSI por su cuenta.
+  **`reorderPSI`/`criticalPSI` ya no se usan en ningún lado** — nunca se escribieron.
+- **`invGasBurnRate(g)` es LA definición del ritmo de consumo de UN cilindro** (diario,
+  semanal, días a nivel bajo), calculada de sus lecturas **humanas** y descartando los tramos
+  donde la presión sube (una recarga no es consumo negativo). Reemplaza a `weeklyPsi`/
+  `dailyPsi`/`reposDays`/`limitPsi`, que venían en la semilla y **nunca se recalculaban**.
+  No confundir con `invCalcConsumptionRates`, que es el consumo por TIPO DE PRUEBA.
+- `initialPsi` por fin se escribe (campo opcional en el alta). Sin él nada se rompe: la
+  nominal cae al máximo histórico.
+
+### ⛽ El combustible en `firebase-sync.js`
+
+- **`fuelTanks` no aparecía NI UNA VEZ en ese archivo.** Los tanques ahora entran a
+  `_fbAnalyzeMerge` (`newFuelTanks` / `fuelUpdates`), al merge, a `hasWork` y al
+  **`_fbPullLocalScore`** — sin lo último, un dispositivo cuyo único dato nuevo eran lecturas
+  de gasolina puntuaba 0 y `_fbPullSeed` lo reemplazaba entero.
+- **`_fbPullSeed` preserva subcampos locales de inventario** (`fuelTanks`, `assets`,
+  `maintActivities`, `maintLog`, `consumption`, `f11Seed`) que un remoto de código viejo no
+  trae — mismo patrón que ya tenía `testplan`. Toda clave nueva de `invState` debe listarse
+  ahí o se pierde en cada pull.
+- **`_fbMergeReadings(locales, remotas)` une series sin perder lecturas.** El conflicto de un
+  cilindro hacía `invState.gases[idx] = c.remote`, tirando lo capturado en este dispositivo.
+  Regla: una fecha aparece una sola vez, gana la **humana** sobre la `auto:true`, y entre dos
+  humanas gana la **local**. El nivel autoritativo del tanque se recalcula de la última
+  lectura de la serie ya unida.
+- La `regulation` del tanque es un **selector** (`_invRegulationSelectHTML`), no texto libre:
+  es la llave con la que `invLogTestUsage` decide de qué tanque descontar. Conserva como
+  opción el valor heredado para no perder de vista uno que no empate con ningún perfil.
+
 ## v21.0 — El motor único de captura de lecturas (`js/inventory.js`)
 
 - **`invAddReading(gasId, psi, opts)` e `invAddFuelReading(tankId, level, opts)` son LA

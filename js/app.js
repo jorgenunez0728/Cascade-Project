@@ -285,11 +285,19 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '21.0';
+var APP_VERSION = '21.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '21.1', date: '30 ago 2026', title: 'Números confiables y la gasolina en la nube', bullets: [
+        'EL NIVEL DE UN CILINDRO YA ES REAL. Se medía contra la primera lectura registrada, no contra qué tan lleno está: un cilindro al 13% se reportaba al 63% y en verde. Ahora se mide contra la presión nominal (hay un campo nuevo y opcional para declararla; sin él usa el máximo histórico).',
+        'Un solo criterio de "nivel bajo" en toda la app. Había cinco distintos, así que un cilindro podía verse verde en el mapa y crítico en las alertas al mismo tiempo.',
+        'LA GASOLINA YA SE SINCRONIZA. Los tanques nunca viajaban a la nube: cada dispositivo llevaba su propio nivel. Además, unir dos dispositivos ya no descarta las lecturas capturadas aquí.',
+        'Las alertas de gas del Panel decían "Gas undefined en nivel CRITICO" — corregido.',
+        'Las columnas de consumo del reporte se calculan de las lecturas reales; antes venían de la semilla y salían en 0.0 para todo cilindro dado de alta en la app.',
+        'La regulación del tanque es un selector (era texto libre, y un typo rompía el descuento automático de gasolina en silencio). Borrar un tanque ahora tiene deshacer y queda en la auditoría.'
+    ] },
     { version: '21.0', date: '30 ago 2026', title: 'La captura de gases y gasolina, de cuatro caminos a uno', bullets: [
         'LA RONDA POR FIN FUNCIONA. Estaba construida pero nunca había corrido (buscaba un estado de cilindro que la app no usa). Te pide un punto a la vez, en el orden en que están acomodados en el cuarto, termina con el combustible, y puedes salir a media ronda y retomarla donde ibas.',
         'Desde HOY, "🔄 Hacer la ronda" arranca el recorrido de un toque: la app abre en HOY, así que es un toque desde el arranque hasta estar capturando.',
@@ -2775,8 +2783,9 @@ function dashCollectActivities() {
             }
             if (typeof invGasLevel === 'function') {
                 var lvl = invGasLevel(g);
-                if (lvl.pct < 15 && lvl.pct >= 0) acts.push({ id: 'act-glvl-' + g.id, cat: 'inventario', icon: '📉',
-                    title: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', meta: 'Nivel bajo', status: 'pendiente', urgency: 2,
+                // v21.1: el criterio de "bajo" es el de invGasLevel, no un < 15 propio de HOY.
+                if (lvl.status === 'critico') acts.push({ id: 'act-glvl-' + g.id, cat: 'inventario', icon: '📉',
+                    title: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', meta: 'Nivel crítico', status: 'pendiente', urgency: 2,
                     action: { label: 'Reponer', js: "dashGo('inventory','inv-gases','invEditGas','" + g.id + "')" } });
             }
         });
@@ -4398,10 +4407,11 @@ function renderLabDashboard(container) {
 
     // ── Inventory Module ──
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
+    // v21.1: criterio único (invGasIsLow) — antes comparaba PSI absolutos contra
+    // cilindros de cualquier tamaño nominal.
     var criticalGases = invGases.filter(function(g) {
-        if (!g.readings || g.readings.length === 0 || g.status === 'Empty') return false;
-        var last = g.readings[g.readings.length - 1];
-        return last.psi < (g.reorderPSI || 500);
+        if (g.status === 'Empty') return false;
+        return typeof invGasIsLow === 'function' ? invGasIsLow(g) : false;
     });
     if (criticalGases.length > 0) {
         alerts.push({ level: 'ALTO', color: tokenColor('--danger-fill'), module: 'Inventario',

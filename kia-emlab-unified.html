@@ -7241,15 +7241,23 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202608300751';
+var APP_BUILD = '202608300808';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '21.0';
+var APP_VERSION = '21.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '21.1', date: '30 ago 2026', title: 'Números confiables y la gasolina en la nube', bullets: [
+        'EL NIVEL DE UN CILINDRO YA ES REAL. Se medía contra la primera lectura registrada, no contra qué tan lleno está: un cilindro al 13% se reportaba al 63% y en verde. Ahora se mide contra la presión nominal (hay un campo nuevo y opcional para declararla; sin él usa el máximo histórico).',
+        'Un solo criterio de "nivel bajo" en toda la app. Había cinco distintos, así que un cilindro podía verse verde en el mapa y crítico en las alertas al mismo tiempo.',
+        'LA GASOLINA YA SE SINCRONIZA. Los tanques nunca viajaban a la nube: cada dispositivo llevaba su propio nivel. Además, unir dos dispositivos ya no descarta las lecturas capturadas aquí.',
+        'Las alertas de gas del Panel decían "Gas undefined en nivel CRITICO" — corregido.',
+        'Las columnas de consumo del reporte se calculan de las lecturas reales; antes venían de la semilla y salían en 0.0 para todo cilindro dado de alta en la app.',
+        'La regulación del tanque es un selector (era texto libre, y un typo rompía el descuento automático de gasolina en silencio). Borrar un tanque ahora tiene deshacer y queda en la auditoría.'
+    ] },
     { version: '21.0', date: '30 ago 2026', title: 'La captura de gases y gasolina, de cuatro caminos a uno', bullets: [
         'LA RONDA POR FIN FUNCIONA. Estaba construida pero nunca había corrido (buscaba un estado de cilindro que la app no usa). Te pide un punto a la vez, en el orden en que están acomodados en el cuarto, termina con el combustible, y puedes salir a media ronda y retomarla donde ibas.',
         'Desde HOY, "🔄 Hacer la ronda" arranca el recorrido de un toque: la app abre en HOY, así que es un toque desde el arranque hasta estar capturando.',
@@ -7572,14 +7580,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202608300751' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202608300808' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202608300751' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202608300808' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -7595,7 +7603,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202608300751' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202608300808' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -9735,8 +9743,9 @@ function dashCollectActivities() {
             }
             if (typeof invGasLevel === 'function') {
                 var lvl = invGasLevel(g);
-                if (lvl.pct < 15 && lvl.pct >= 0) acts.push({ id: 'act-glvl-' + g.id, cat: 'inventario', icon: '📉',
-                    title: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', meta: 'Nivel bajo', status: 'pendiente', urgency: 2,
+                // v21.1: el criterio de "bajo" es el de invGasLevel, no un < 15 propio de HOY.
+                if (lvl.status === 'critico') acts.push({ id: 'act-glvl-' + g.id, cat: 'inventario', icon: '📉',
+                    title: g.formula + ' #' + g.controlNo + ' al ' + Math.round(lvl.pct) + '%', meta: 'Nivel crítico', status: 'pendiente', urgency: 2,
                     action: { label: 'Reponer', js: "dashGo('inventory','inv-gases','invEditGas','" + g.id + "')" } });
             }
         });
@@ -11358,10 +11367,11 @@ function renderLabDashboard(container) {
 
     // ── Inventory Module ──
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
+    // v21.1: criterio único (invGasIsLow) — antes comparaba PSI absolutos contra
+    // cilindros de cualquier tamaño nominal.
     var criticalGases = invGases.filter(function(g) {
-        if (!g.readings || g.readings.length === 0 || g.status === 'Empty') return false;
-        var last = g.readings[g.readings.length - 1];
-        return last.psi < (g.reorderPSI || 500);
+        if (g.status === 'Empty') return false;
+        return typeof invGasIsLow === 'function' ? invGasIsLow(g) : false;
     });
     if (criticalGases.length > 0) {
         alerts.push({ level: 'ALTO', color: tokenColor('--danger-fill'), module: 'Inventario',
@@ -20909,7 +20919,7 @@ function invCheckProactiveAlerts() {
     var criticals = [];
     invState.gases.forEach(function(g) {
         if (invGasExpiry(g).status === 'expired') criticals.push(g.formula + ' #' + g.controlNo + ' VENCIDO');
-        if (invGasLevel(g).pct < 10 && invGasLevel(g).pct >= 0) criticals.push(g.formula + ' #' + g.controlNo + ' nivel critico');
+        if (invGasLevel(g).status === 'critico') criticals.push(g.formula + ' #' + g.controlNo + ' nivel critico');
     });
     invState.equipment.forEach(function(e) {
         if (!e.nextCalDate) return;
@@ -21035,16 +21045,89 @@ function invGasExpiry(g) {
     return {status:'ok',text:'Vigente ' + days + 'd',days:days,color:'#10b981'};
 }
 
+// [v21.1] LOS umbrales de nivel. Había CINCO criterios distintos para la misma
+// pregunta ("¿este cilindro está bajo?"): 15/30 en invGasLevel, 25/50 en _invCylColor,
+// <20 en el dashboard, <10 en las alertas proactivas y 200/500 psi absolutos en el
+// Panel. Un cilindro podía verse verde en el mapa y rojo en las alertas a la vez.
+var INV_LEVEL_CRITICAL_PCT = 15;   // rojo: hay que reponer ya
+var INV_LEVEL_LOW_PCT      = 30;   // ámbar: pedir reposición
+
+/**
+ * LA definición del nivel de un cilindro. Todo consumidor (mapa, dashboard, alertas,
+ * Panel, pronóstico) debe llamarla en vez de comparar PSI por su cuenta.
+ *
+ * El % es ABSOLUTO, contra la presión nominal del cilindro — antes era relativo a
+ * `readings[0]`, así que un cilindro cuya PRIMERA lectura se tomó a media carga se
+ * veía al 100% para siempre. La nominal sale de `initialPsi` si está declarada, y si
+ * no del máximo histórico (el cilindro estuvo al menos así de lleno alguna vez).
+ *
+ * @returns {{pct, psi, nominal, status:'sinlecturas'|'critico'|'bajo'|'ok', text, color}}
+ */
 function invGasLevel(g) {
-    if (!g.readings || g.readings.length === 0) return {pct:100,text:'Sin lecturas',color:'#94a3b8'};
-    var last = g.readings[g.readings.length-1];
-    var first = g.readings[0];
-    var pct = first.psi > 0 ? Math.round((last.psi / first.psi) * 100) : 0;
+    if (!g || !g.readings || g.readings.length === 0) {
+        return { pct: 100, psi: null, nominal: null, status: 'sinlecturas', text: 'Sin lecturas', color: 'var(--muted)', bg: 'var(--surface-alt)' };
+    }
+    var last = g.readings[g.readings.length - 1];
+    var nominal = (typeof g.initialPsi === 'number' && g.initialPsi > 0) ? g.initialPsi : 0;
+    if (!nominal) g.readings.forEach(function(r) { if (r && r.psi > nominal) nominal = r.psi; });
+    if (!nominal) nominal = INV_PSI_NOMINAL_FALLBACK;
+
+    var pct = Math.round((last.psi / nominal) * 100);
     if (pct > 100) pct = 100;
     if (pct < 0) pct = 0;
-    if (pct < 15) return {pct:pct,text:last.psi + ' psi (' + pct + '%)',color:'#ef4444'};
-    if (pct < 30) return {pct:pct,text:last.psi + ' psi (' + pct + '%)',color:'#f59e0b'};
-    return {pct:pct,text:last.psi + ' psi (' + pct + '%)',color:'#10b981'};
+
+    var status = pct < INV_LEVEL_CRITICAL_PCT ? 'critico' : pct < INV_LEVEL_LOW_PCT ? 'bajo' : 'ok';
+    // color = texto/relleno; bg = tinte de fondo. Son los tres roles del sistema de
+    // diseño, no un color con alfa concatenado a mano.
+    var color = status === 'critico' ? 'var(--danger-text)' : status === 'bajo' ? 'var(--warn-text)' : 'var(--ok-text)';
+    var bg    = status === 'critico' ? 'var(--danger-bg)'   : status === 'bajo' ? 'var(--warn-bg)'   : 'var(--ok-bg)';
+    return { pct: pct, psi: last.psi, nominal: nominal, status: status,
+             text: last.psi + ' psi (' + pct + '%)', color: color, bg: bg };
+}
+
+/** ¿Está por debajo del umbral de reposición? Un solo criterio para toda la app. */
+function invGasIsLow(g) {
+    var s = invGasLevel(g).status;
+    return s === 'critico' || s === 'bajo';
+}
+
+/**
+ * [v21.1] LA definición del ritmo de consumo de UN cilindro, calculada de sus lecturas.
+ *
+ * Los campos `weeklyPsi`/`dailyPsi`/`reposDays`/`limitPsi` venían en la semilla y **nunca
+ * se recalculaban**: todo cilindro dado de alta en la app mostraba 0.0 en el reporte
+ * mientras el modelo de consumo sí tenía los números buenos.
+ *
+ * Solo mira lecturas HUMANAS (`!r.auto`) — igual que invCalcConsumptionRates — y descarta
+ * los tramos donde la presión sube (una recarga no es consumo negativo).
+ *
+ * @returns {{dailyPsi, weeklyPsi, daysToLow, lowPsi, n, span}} — ceros si no hay con qué.
+ */
+function invGasBurnRate(g) {
+    var vacio = { dailyPsi: 0, weeklyPsi: 0, daysToLow: null, lowPsi: 0, n: 0, span: 0 };
+    if (!g || !g.readings) return vacio;
+    var rs = g.readings.filter(function(r) { return r && !r.auto && r.date && typeof r.psi === 'number'; })
+                       .sort(function(a, b) { return a.date.localeCompare(b.date); });
+    if (rs.length < 2) return vacio;
+
+    var caida = 0, dias = 0;
+    for (var i = 1; i < rs.length; i++) {
+        var d = (new Date(rs[i].date) - new Date(rs[i - 1].date)) / 86400000;
+        if (!(d > 0)) continue;
+        var drop = rs[i - 1].psi - rs[i].psi;
+        if (drop < 0) continue;          // recarga: no es consumo
+        caida += drop; dias += d;
+    }
+    if (!(dias > 0)) return vacio;
+
+    var daily = caida / dias;
+    var lvl = invGasLevel(g);
+    var lowPsi = (lvl.nominal || INV_PSI_NOMINAL_FALLBACK) * (INV_LEVEL_LOW_PCT / 100);
+    var actual = rs[rs.length - 1].psi;
+    var daysToLow = daily > 0 ? Math.max(0, Math.round((actual - lowPsi) / daily)) : null;
+
+    return { dailyPsi: daily, weeklyPsi: daily * 7, daysToLow: daysToLow,
+             lowPsi: lowPsi, n: rs.length, span: dias };
 }
 
 // Daily reading status for the reception dashboard ("Hoy").
@@ -21088,7 +21171,7 @@ function invRenderDashboard(el) {
     var equip = invState.equipment;
     var expired = gases.filter(function(g){ return invGasExpiry(g).status === 'expired'; }).length;
     var warning = gases.filter(function(g){ return invGasExpiry(g).status === 'warning'; }).length;
-    var lowLevel = gases.filter(function(g){ return invGasLevel(g).pct < 20; }).length;
+    var lowLevel = gases.filter(invGasIsLow).length;   // v21.1: criterio único
     var eqExpired = equip.filter(function(e){ var d = new Date(e.nextCalDate); return d < new Date(); }).length;
     var eqWarn = equip.filter(function(e){ var d = new Date(e.nextCalDate); var diff = (d - new Date())/(1000*60*60*24); return diff > 0 && diff < 30; }).length;
 
@@ -21132,7 +21215,7 @@ function invRenderDashboard(el) {
         refill.forEach(function(x){
             html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:3px;border:1px solid var(--tp-border);border-radius:6px;">';
             html += '<div style="flex:1;"><div style="font-weight:700;font-size: var(--fs-sm);">' + x.g.formula + ' #' + x.g.controlNo + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + (x.g.zone||'?') + ' · ' + x.lvl.text + '</div></div>';
-            html += '<div style="min-width:70px;"><div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;"><div style="height:100%;width:' + Math.max(2, x.lvl.pct) + '%;background:' + x.lvl.color + ';"></div></div></div>';
+            html += '<div style="min-width:70px;"><div class="u-bar"><span style="width:' + Math.max(2, x.lvl.pct) + '%;background:' + x.lvl.color + ';"></span></div></div>';
             html += '<div style="font-weight:800;font-size: var(--fs-sm);color:' + x.lvl.color + ';min-width:38px;text-align:right;">' + x.lvl.pct + '%</div>';
             html += '</div>';
         });
@@ -21245,7 +21328,7 @@ function invRenderGases(el) {
             html += '</div>';
             html += '<div style="display:flex;gap:6px;align-items:center;">';
             html += '<span style="font-size: var(--fs-xs);padding:2px 6px;border-radius:4px;background:' + exp.color + '20;color:' + exp.color + ';border:1px solid ' + exp.color + '30;">' + exp.text + '</span>';
-            html += '<span style="font-size: var(--fs-xs);padding:2px 6px;border-radius:4px;background:' + lvl.color + '20;color:' + lvl.color + ';">' + lvl.text + '</span>';
+            html += '<span style="font-size: var(--fs-xs);padding:2px 6px;border-radius:var(--radius-md);background:' + lvl.bg + ';color:' + lvl.color + ';">' + lvl.text + '</span>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invEditGas(\'' + g.id + '\')" style="font-size: var(--fs-xs);" title="Editar" aria-label="Editar cilindro">\u270F</button>';
             if (g.readings && g.readings.length >= 2) html += '<button class="tp-btn tp-btn-ghost" onclick="invShowTrendChart(\'' + g.id + '\')" style="font-size: var(--fs-xs);" title="Tendencia" aria-label="Ver tendencia de consumo">&#x1F4C8;</button>';
             html += '<button class="tp-btn tp-btn-ghost" onclick="invShowBarcode(\'' + g.id + '\')" style="font-size: var(--fs-xs);" title="C\u00F3digo de barras" aria-label="Ver c\u00F3digo de barras">\u{1F4CB}</button>';
@@ -21305,6 +21388,7 @@ function invShowAddGas(editId) {
         '<div><label style="' + lblStyle + '">Conc. Real</label><input id="inv-g-concreal" value="' + (g?g.concReal:'') + '" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Trazabilidad</label><select id="inv-g-trace" style="' + inpStyle + '"><option ' + (lastTS.traceability==='EPA'?'selected':'') + '>EPA</option><option ' + (lastTS.traceability==='CENAM'?'selected':'') + '>CENAM</option><option ' + (lastTS.traceability==='NIST'?'selected':'') + '>NIST</option></select></div>' +
         '<div><label style="' + lblStyle + '">Fecha recibido</label><input id="inv-g-regdate" type="date" value="' + (g?g.regDate:localToday()) + '" style="' + inpStyle + '"></div>' +
+        '<div><label style="' + lblStyle + '">Presión nominal (psi)</label><input id="inv-g-initpsi" type="number" inputmode="numeric" min="0" value="' + (g && g.initialPsi ? g.initialPsi : '') + '" placeholder="' + INV_PSI_NOMINAL_FALLBACK + ' (lleno de fábrica)" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Proveedor</label><input id="inv-g-supplier" value="' + (g ? (g.supplier||'') : (lastTS.supplier||'')) + '" placeholder="Nombre del proveedor" style="' + inpStyle + '"></div>' +
         '</div></details>' +
@@ -21355,6 +21439,11 @@ function invSaveGas(editId) {
         lotNumber: document.getElementById('inv-g-lot').value.trim(),
         supplier: document.getElementById('inv-g-supplier').value.trim()
     };
+    // v21.1: la presión nominal es la referencia del % de nivel. Es OPCIONAL: sin ella
+    // invGasLevel cae al máximo histórico, que es lo que hacen todos los cilindros ya
+    // capturados. Se guarda sólo si trae número, para no sembrar ceros.
+    var _initPsi = parseFloat((document.getElementById('inv-g-initpsi') || {}).value);
+    if (isFinite(_initPsi) && _initPsi > 0) obj.initialPsi = Math.round(_initPsi);
 
     if (editId) {
         var idx = invState.gases.findIndex(function(g){ return g.id === editId; });
@@ -21642,7 +21731,7 @@ function invShowTimeline(id) {
     var statusClr = g.status==='In use'?'#dcfce7;color:#16a34a':g.status==='Empty'?'#fef2f2;color:var(--danger-text)':'#fef9c3;color:#ca8a04';
     html += '<span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:12px;background:' + statusClr + ';">' + g.status + '</span>';
     html += '<span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:12px;background:' + exp.color + '20;color:' + exp.color + ';">' + exp.text + '</span>';
-    html += '<span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:12px;background:' + lvl.color + '20;color:' + lvl.color + ';">' + lvl.text + '</span>';
+    html += '<span style="font-size: var(--fs-xs);padding:3px 8px;border-radius:var(--radius-full);background:' + lvl.bg + ';color:' + lvl.color + ';">' + lvl.text + '</span>';
     html += '</div>';
     // Info grid
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size: var(--fs-xs);margin-bottom:12px;color:#334155;">';
@@ -23381,6 +23470,15 @@ function invLogTestUsage(vehicle, opts) {
         }
     });
     entry.gasDeducted = gasDeducted;
+    // v21.1: la auto-deducción de gas ahora se audita, como ya hacía su gemela de
+    // combustible (`fuel_auto_deduct`). Descontar inventario sin dejar rastro era el
+    // único movimiento de existencias invisible en el historial de cambios.
+    var _gasDedList = Object.keys(gasDeducted).filter(function(k) { return gasDeducted[k] > 0; });
+    if (_gasDedList.length && typeof auditLog === 'function') {
+        auditLog('inv', 'gas_auto_deduct', { type: 'reading', label: (vehicle.vin || vehicle.id || '') },
+                 _gasDedList.map(function(k) { return k + ' −' + gasDeducted[k] + ' psi'; }).join(', ') +
+                 ' · prueba ' + regulation);
+    }
 
     // v15.9: AUTO-DESCUENTO DE GASOLINA al tanque de la regulación de la prueba (el de
     // registro más reciente con nivel > 0 — resuelve tanques duplicados orden anterior/actual).
@@ -23765,6 +23863,46 @@ function invRenderFuel(el) {
     el.innerHTML = html;
 }
 
+/**
+ * [v21.1] Las regulaciones como lista cerrada. `regulation` es la LLAVE con la que
+ * `invLogTestUsage` decide de qué tanque descontar la gasolina de una prueba: en texto
+ * libre, un espacio o un guion de más rompía el descuento sin decir nada. Se ofrecen los
+ * perfiles reales de la app y se conserva como opción lo que el tanque ya tuviera escrito,
+ * para no perder de vista un valor viejo que no empate con ningún perfil.
+ */
+function _invRegulationSelectHTML(id, actual) {
+    var nombres = [];
+    try {
+        var reg = (typeof loadRegulations === 'function') ? loadRegulations() : null;
+        (reg && reg.profiles ? reg.profiles : []).forEach(function(p) { if (p && p.name) nombres.push(p.name); });
+    } catch (e) {}
+    if (actual && nombres.indexOf(actual) === -1) nombres.unshift(actual);   // valor heredado
+    var h = '<select id="' + id + '" class="tp-select" style="width:100%;">';
+    h += '<option value=""' + (actual ? '' : ' selected') + '>— Sin regulación —</option>';
+    nombres.forEach(function(n) {
+        h += '<option value="' + escapeHtml(n) + '"' + (n === actual ? ' selected' : '') + '>' + escapeHtml(n) + '</option>';
+    });
+    return h + '</select>';
+}
+
+/** Borrar un tanque, con deshacer y auditoría — era la única acción destructiva sin ambos. */
+function invDeleteFuelTank(tankId) {
+    var t = (invState.fuelTanks || []).find(function(x) { return x.id === tankId; });
+    if (!t) return;
+    var nLect = (t.readings || []).length;
+    showConfirm('¿Eliminar "' + (t.name || tankId) + '"?' + (nLect ? '\n\nSe borran también sus ' + nLect + ' lectura(s) de nivel.' : ''), function() {
+        if (typeof undoPush === 'function') undoPush('inventory', 'Eliminar tanque de combustible');
+        invState.fuelTanks = invState.fuelTanks.filter(function(x) { return x.id !== tankId; });
+        invSave(); invRender();
+        var m = document.getElementById('invModal'); if (m) m.style.display = 'none';
+        if (typeof auditLog === 'function') {
+            auditLog('inv', 'fuel_deleted', { type: 'fuel', id: tankId, label: (t.name || tankId) },
+                     nLect + ' lectura(s) · ' + (t.regulation || 'sin regulación'));
+        }
+        showToast('Tanque eliminado', 'success', null, (typeof undoPop === 'function') ? undoPop : null);
+    }, { title: 'Eliminar tanque', type: 'danger', confirmText: 'Eliminar' });
+}
+
 function invAddFuelTank(editId) {
     var t = editId ? (invState.fuelTanks||[]).find(function(x){return x.id===editId;}) : null;
     var isEdit = !!t;
@@ -23777,7 +23915,7 @@ function invAddFuelTank(editId) {
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
         '<div style="grid-column:1/-1;"><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Nombre *</label><input id="inv-ft-name" value="' + v('name','Tambo') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Tipo combustible</label><input id="inv-ft-type" value="' + v('fuelType','Gasolina Referencia') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
-        '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Regulacion</label><input id="inv-ft-reg" value="' + v('regulation') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
+        '<div><label for="inv-ft-reg" style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Regulación</label>' + _invRegulationSelectHTML('inv-ft-reg', v('regulation')) + '</div>' +
         '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Octanaje/Spec</label><input id="inv-ft-octane" value="' + v('octane','87 AKI') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Proveedor</label><input id="inv-ft-supplier" value="' + v('supplier') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:#475569;font-weight:600;">Capacidad</label><input id="inv-ft-cap" type="number" value="' + v('capacity','400') + '" style="width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:6px;"></div>' +
@@ -23788,7 +23926,7 @@ function invAddFuelTank(editId) {
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveFuelTank(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
-        (isEdit ? '<button onclick="showConfirm(\'Eliminar tanque?\',function(){invState.fuelTanks=invState.fuelTanks.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
+        (isEdit ? '<button onclick="invDeleteFuelTank(\x27' + editId + '\x27)" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
         '<button onclick="document.getElementById(\x27invModal\x27).style.display=\x27none\x27" style="padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Cancelar</button>' +
         '</div></div>';
     if (typeof cascadeInjectTooltips === 'function') cascadeInjectTooltips();
@@ -23808,9 +23946,11 @@ function invSaveFuelTank(editId) {
         fuelStatus: document.getElementById('inv-ft-status').value
     };
     if (!obj.name) { showToast('Nombre requerido', 'error'); return; }
+    var nivelCambio = false, nivelNuevo = obj.currentLevel;
     if (editId) {
         var t = (invState.fuelTanks||[]).find(function(x){return x.id===editId;});
         if (t) {
+            nivelCambio = (t.currentLevel !== obj.currentLevel);
             if (!t.timeline) t.timeline = [];
             if (t.fuelStatus !== obj.fuelStatus) t.timeline.push({date:new Date().toISOString(),action:'Estatus: ' + (t.fuelStatus||'?') + ' → ' + obj.fuelStatus});
             t.timeline.push({date:new Date().toISOString(),action:'Modificado'});
@@ -23825,6 +23965,13 @@ function invSaveFuelTank(editId) {
         obj.timeline = [{date:new Date().toISOString(),action:'Recepcion'}];
         invState.fuelTanks.push(obj);
         auditLog('inv', 'fuel_created', {type:'fuel', id:obj.id, label:obj.name}, obj.fuelType + ' ' + obj.octane);
+        nivelCambio = true;   // el nivel de alta es la primera lectura del tanque
+    }
+    // v21.1: editar el nivel aquí DEBE dejar lectura. Antes este formulario escribía
+    // `currentLevel` a secas, así que el nivel autoritativo y la serie podían divergir
+    // sin que el modelo de consumo (que solo lee `readings`) se enterara de la corrección.
+    if (nivelCambio) {
+        invAddFuelReading(editId || obj.id, nivelNuevo, { source: 'alta-tanque', silent: true, skipSave: true });
     }
     invSave(); invRender();
     document.getElementById('invModal').style.display = 'none';
@@ -23936,12 +24083,15 @@ function invRenderReport(el) {
     html += '</tr></thead><tbody>';
 
     invState.gases.forEach(function(g) {
-        var lastPsi = g.readings && g.readings.length > 0 ? g.readings[g.readings.length-1].psi : g.currentPsi || 0;
-        var weekly = g.weeklyPsi || 0;
-        var daily = g.dailyPsi || 0;
-        var repos = g.reposDays || 44;
-        var limit = g.limitPsi || 0;
-        var isOk = lastPsi > limit || limit === 0;
+        // v21.1: calculado de las lecturas reales. Antes salía de campos de la semilla
+        // que nunca se recalculaban, así que todo cilindro creado en la app mostraba 0.0.
+        var lastPsi = g.readings && g.readings.length > 0 ? g.readings[g.readings.length-1].psi : 0;
+        var br = invGasBurnRate(g);
+        var weekly = br.weeklyPsi;
+        var daily = br.dailyPsi;
+        var repos = br.daysToLow === null ? '—' : br.daysToLow;
+        var limit = br.lowPsi;
+        var isOk = !invGasIsLow(g);
         var catColor = g.gasCategory === 'Trabajo' ? '#fef9c3' : '#e0f2fe';
         html += '<tr style="background:' + catColor + '20;border-bottom:1px solid rgba(255,255,255,0.05);">';
         html += '<td style="padding:3px 6px;font-size: var(--fs-xs);color:var(--tp-dim);">' + (g.gasCategory||'Ref') + '</td>';
@@ -23950,7 +24100,7 @@ function invRenderReport(el) {
         html += '<td style="padding:3px 6px;text-align:center;">' + weekly.toFixed(1) + '</td>';
         html += '<td style="padding:3px 6px;text-align:center;">' + daily.toFixed(1) + '</td>';
         html += '<td style="padding:3px 6px;text-align:center;">' + repos + '</td>';
-        html += '<td style="padding:3px 6px;text-align:center;color:var(--tp-amber);">' + limit.toFixed(2) + '</td>';
+        html += '<td style="padding:3px 6px;text-align:center;color:var(--warn-text);">' + limit.toFixed(0) + '</td>';
         html += '<td style="padding:3px 6px;text-align:center;font-weight:700;color:' + (isOk?'#22c55e':'#ef4444') + ';">' + (isOk?'OK':'BAJO') + '</td>';
         html += '</tr>';
     });
@@ -24013,10 +24163,10 @@ function invExportReport() {
 function _invCylColor(gas) {
     var expiry = invGasExpiry(gas);
     if (expiry.status === 'expired') return 'expired';
-    var lvl = invGasLevel(gas);
-    if (lvl.pct > 50) return 'ok';
-    if (lvl.pct > 25) return 'mid';
-    return 'low';
+    // v21.1: usa los umbrales únicos (invGasLevel), no otros propios — el mapa pintaba
+    // verde un cilindro que las alertas ya daban por bajo.
+    var st = invGasLevel(gas).status;
+    return st === 'critico' ? 'low' : st === 'bajo' ? 'mid' : 'ok';
 }
 
 function invRenderZoneMap(el) {
@@ -35405,7 +35555,7 @@ function renderLabOverview(el, opts) {
     var tpPct = tpTotal ? Math.round(tpDone / tpTotal * 100) : 0;
 
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
-    var lowGases = invGases.filter(function(g) { if (!g.readings || !g.readings.length) return false; return g.readings[g.readings.length - 1].psi < (g.reorderPSI || 500); });
+    var lowGases = invGases.filter(function(g) { return typeof invGasIsLow === 'function' ? invGasIsLow(g) : false; });
     var activeOps = (typeof pnState !== 'undefined' && pnState.operators) ? pnState.operators.filter(function(o) { return o.active; }).length : 0;
 
     var html = '';
@@ -35516,11 +35666,8 @@ function pnRenderDashboard(el) {
     var raToday = 0;
 
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
-    var lowGases = invGases.filter(function(g) {
-        if (!g.readings || g.readings.length === 0) return false;
-        var last = g.readings[g.readings.length - 1];
-        return last.psi < (g.reorderPSI || 500);
-    });
+    // v21.1: criterio único (invGasIsLow), no PSI absolutos.
+    var lowGases = invGases.filter(function(g) { return typeof invGasIsLow === 'function' ? invGasIsLow(g) : false; });
 
     var todayStr = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -36302,13 +36449,19 @@ function pnGetActiveAlerts() {
 
     // Check gas levels
     var invGases = (typeof invState !== 'undefined' && invState.gases) ? invState.gases : [];
+    // v21.1: dos arreglos aquí. (1) El mensaje usaba `g.name`, campo que un cilindro NO
+    // tiene, así que la alerta decía literalmente "Gas undefined en nivel CRITICO".
+    // (2) Comparaba PSI absolutos (200/500) contra cilindros de cualquier tamaño; ahora
+    // usa invGasLevel, que es LA definición del nivel y trabaja en % de la nominal.
     invGases.forEach(function(g) {
         if (!g.readings || g.readings.length === 0) return;
-        var last = g.readings[g.readings.length - 1];
-        if (last.psi < (g.criticalPSI || 200)) {
-            alerts.push({ level: 'CRITICA', color: '#ef4444', message: 'Gas ' + g.name + ' en nivel CRITICO: ' + last.psi + ' PSI', source: 'Inventario' });
-        } else if (last.psi < (g.reorderPSI || 500)) {
-            alerts.push({ level: 'ALTA', color: '#f59e0b', message: 'Gas ' + g.name + ' bajo: ' + last.psi + ' PSI — reordenar', source: 'Inventario' });
+        if (typeof invGasLevel !== 'function') return;
+        var lvl = invGasLevel(g);
+        var etiqueta = (g.formula || g.gasType || 'Gas') + (g.controlNo ? ' #' + g.controlNo : '');
+        if (lvl.status === 'critico') {
+            alerts.push({ level: 'CRITICA', color: '#ef4444', message: etiqueta + ' en nivel CRITICO: ' + lvl.psi + ' psi (' + lvl.pct + '%)', source: 'Inventario' });
+        } else if (lvl.status === 'bajo') {
+            alerts.push({ level: 'ALTA', color: '#f59e0b', message: etiqueta + ' bajo: ' + lvl.psi + ' psi (' + lvl.pct + '%) — reordenar', source: 'Inventario' });
         }
     });
 
@@ -43121,6 +43274,9 @@ function _fbPullLocalScore(col) {
         if (st && st.assets) s += st.assets.length;
         if (st && st.maintActivities) s += st.maintActivities.length;
         if (st && st.maintLog) s += st.maintLog.length;
+        // v21.1: el combustible NO se contaba. Un dispositivo cuyo único dato nuevo eran
+        // lecturas de gasolina puntuaba como vacío y _fbPullSeed lo reemplazaba entero.
+        if (st && st.fuelTanks) st.fuelTanks.forEach(function(t) { s += 1 + ((t.readings && t.readings.length) || 0); });
         return s;
     }
     return 0;
@@ -43160,7 +43316,17 @@ function _fbPullSeed(col, remoteData, pulled) {
         _fbTpUISync();
         pulled.push('Test Plan');
     } else if (col === 'inventory') {
+        // v21.1: se preservan los subcampos locales que un remoto de código viejo no trae
+        // — mismo criterio que testplan arriba. `fuelTanks` es el caso grave: no viajaba
+        // por la nube, así que un pull de un equipo sin combustible borraba el de éste.
+        var prevInv = (typeof invState !== 'undefined' && invState) ? invState : {};
         invState = remoteData;
+        ['fuelTanks', 'assets', 'maintActivities', 'maintLog', 'consumption', 'f11Seed'].forEach(function(k) {
+            if ((invState[k] === undefined || invState[k] === null ||
+                 (Array.isArray(invState[k]) && !invState[k].length)) && prevInv[k] !== undefined) {
+                invState[k] = prevInv[k];
+            }
+        });
         localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
         if (typeof invRender === 'function') invRender();
         pulled.push('Inventory');
@@ -43181,7 +43347,9 @@ function _fbPullMergeModule(col, remoteData, pulled) {
     else if (col === 'testplan') hasWork = (a.newItems || []).length > 0 || a.planDataDiff || a.weeklyPlansDiff || a.rulesChanged;
     else if (col === 'inventory') hasWork = (a.newGases || []).length > 0 || (a.newEquip || []).length > 0 || (a.gasConflicts || []).length > 0 ||
         (a.equipConflicts || []).length > 0 || (a.newAssets || []).length > 0 || (a.assetUpdates || []).length > 0 ||
-        (a.newMaintActivities || []).length > 0 || (a.maintActivityUpdates || []).length > 0 || (a.newMaintLog || []).length > 0;
+        (a.newMaintActivities || []).length > 0 || (a.maintActivityUpdates || []).length > 0 || (a.newMaintLog || []).length > 0 ||
+        // v21.1: sin esto, un pull cuyo único cambio es el combustible se descartaba.
+        (a.newFuelTanks || []).length > 0 || (a.fuelUpdates || []).length > 0;
     if (!hasWork) return;
 
     // merge_all: agrega lo nuevo y resuelve diferencias con la política existente
@@ -44174,6 +44342,24 @@ function fbMergeAnalyze(remoteData) {
     }
 
     // ── Inventory: compare gases by controlNo, equipment by name ──
+    // [v21.1] Une dos series de lecturas SIN perder ninguna. Una fecha aparece una
+    // sola vez; entre dos filas del mismo día gana la HUMANA sobre la automática, y
+    // entre dos humanas gana la local (el técnico acaba de capturarla en este equipo).
+    // Antes el merge de un cilindro en conflicto hacía `invState.gases[idx] = c.remote`,
+    // tirando a la basura las lecturas capturadas aquí.
+    function _fbMergeReadings(locales, remotas, campo) {
+        var porFecha = {};
+        (remotas || []).forEach(function(r) { if (r && r.date) porFecha[r.date] = r; });
+        (locales || []).forEach(function(r) {
+            if (!r || !r.date) return;
+            var otra = porFecha[r.date];
+            if (!otra) { porFecha[r.date] = r; return; }
+            if (otra.auto && !r.auto) porFecha[r.date] = r;        // humana > automática
+            else if (!otra.auto && !r.auto) porFecha[r.date] = r;  // empate: gana la local
+        });
+        return Object.keys(porFecha).sort().map(function(d) { return porFecha[d]; });
+    }
+
     if (remoteData.inventory) {
         var localGases = {};
         ((invState.gases || []).forEach(function(g) { localGases[g.controlNo || g.name] = g; }));
@@ -44233,6 +44419,23 @@ function fbMergeAnalyze(remoteData) {
         (invState.maintLog || []).forEach(function(l) { if (l && l.id) localLogIds[l.id] = true; });
         var newMaintLog = (remoteData.inventory.maintLog || []).filter(function(l) { return l && l.id && !localLogIds[l.id]; });
 
+        // [v21.1] COMBUSTIBLE. `fuelTanks` no aparecía NI UNA VEZ en este archivo, así que
+        // el nivel de gasolina nunca viajaba entre dispositivos: cada equipo llevaba el suyo,
+        // y en la ruta de seed el local se reemplazaba entero. Se empata por id (y por nombre
+        // para los tanques sembrados antes de que existieran los ids estables).
+        var localTanks = {};
+        (invState.fuelTanks || []).forEach(function(t) { if (t) localTanks[t.id || t.name] = t; });
+        var remoteTanks = remoteData.inventory.fuelTanks || [];
+        var newFuelTanks = [], fuelUpdates = [];
+        remoteTanks.forEach(function(rt) {
+            if (!rt) return;
+            var lt = localTanks[rt.id || rt.name];
+            if (!lt) { newFuelTanks.push(rt); return; }
+            // Hay conflicto si difieren las series o el nivel: se resuelve uniendo lecturas.
+            var nLocal = (lt.readings || []).length, nRemoto = (rt.readings || []).length;
+            if (nLocal !== nRemoto || lt.currentLevel !== rt.currentLevel) fuelUpdates.push({ key: rt.id || rt.name, local: lt, remote: rt });
+        });
+
         analysis.inventory = {
             localGasCount: (invState.gases || []).length,
             remoteGasCount: remoteGases.length,
@@ -44249,6 +44452,8 @@ function fbMergeAnalyze(remoteData) {
             newMaintActivities: newMaintActivities,
             maintActivityUpdates: maintActivityUpdates,
             newMaintLog: newMaintLog,
+            newFuelTanks: newFuelTanks,
+            fuelUpdates: fuelUpdates,
             remoteTs: remoteData.inventory_ts || null
         };
     }
@@ -44492,7 +44697,11 @@ function fbMergeExecute(remoteData, analysis, choices) {
             analysis.inventory.newAssets.forEach(function(a) { invState.assets.push(a); });
             analysis.inventory.newMaintActivities.forEach(function(a) { invState.maintActivities.push(a); });
             analysis.inventory.newMaintLog.forEach(function(l) { invState.maintLog.push(l); });
-            merged.push('Inventory: +' + analysis.inventory.newGases.length + ' gases, +' + analysis.inventory.newEquip.length + ' equipos');
+            if (!invState.fuelTanks) invState.fuelTanks = [];
+            (analysis.inventory.newFuelTanks || []).forEach(function(t) { invState.fuelTanks.push(t); });
+            merged.push('Inventory: +' + analysis.inventory.newGases.length + ' gases, +' +
+                        analysis.inventory.newEquip.length + ' equipos, +' +
+                        (analysis.inventory.newFuelTanks || []).length + ' tanques');
         } else if (choices.inventory === 'replace') {
             invState = remoteData.inventory;
             merged.push('Inventory: reemplazado');
@@ -44501,9 +44710,18 @@ function fbMergeExecute(remoteData, analysis, choices) {
             if (!invState.equipment) invState.equipment = [];
             analysis.inventory.newGases.forEach(function(g) { invState.gases.push(g); });
             analysis.inventory.newEquip.forEach(function(e) { invState.equipment.push(e); });
+            // v21.1: el conflicto de un cilindro ya NO reemplaza el objeto entero — eso
+            // tiraba las lecturas capturadas en este dispositivo. Se toma el remoto como
+            // base pero las series se UNEN, y se conserva la nominal local si el remoto
+            // no la trae (un equipo con código viejo no conoce `initialPsi`).
             analysis.inventory.gasConflicts.forEach(function(c) {
                 var idx = invState.gases.findIndex(function(g) { return (g.controlNo || g.name) === c.key; });
-                if (idx >= 0) invState.gases[idx] = c.remote;
+                if (idx < 0) return;
+                var local = invState.gases[idx];
+                var mezcla = Object.assign({}, local, c.remote);
+                mezcla.readings = _fbMergeReadings(local.readings, (c.remote || {}).readings);
+                if (local.initialPsi && !mezcla.initialPsi) mezcla.initialPsi = local.initialPsi;
+                invState.gases[idx] = mezcla;
             });
             analysis.inventory.equipConflicts.forEach(_fbMergeEquipConflict);
             analysis.inventory.newAssets.forEach(function(a) { invState.assets.push(a); });
@@ -44517,6 +44735,21 @@ function fbMergeExecute(remoteData, analysis, choices) {
                 if (idx >= 0) invState.maintActivities[idx] = a;
             });
             analysis.inventory.newMaintLog.forEach(function(l) { invState.maintLog.push(l); });
+            // v21.1: combustible, con la misma unión de series que los cilindros.
+            if (!invState.fuelTanks) invState.fuelTanks = [];
+            (analysis.inventory.newFuelTanks || []).forEach(function(t) { invState.fuelTanks.push(t); });
+            (analysis.inventory.fuelUpdates || []).forEach(function(c) {
+                var idx = invState.fuelTanks.findIndex(function(t) { return (t.id || t.name) === c.key; });
+                if (idx < 0) return;
+                var local = invState.fuelTanks[idx];
+                var mezcla = Object.assign({}, local, c.remote);
+                mezcla.readings = _fbMergeReadings(local.readings, (c.remote || {}).readings);
+                // El nivel autoritativo sale de la última lectura de la serie ya unida:
+                // si no, podría quedar apuntando a un valor que ninguna lectura respalda.
+                var ult = mezcla.readings.length ? mezcla.readings[mezcla.readings.length - 1] : null;
+                if (ult && typeof ult.level === 'number') mezcla.currentLevel = ult.level;
+                invState.fuelTanks[idx] = mezcla;
+            });
             merged.push('Inventory: merge completo');
         }
         localStorage.setItem('kia_lab_inventory', JSON.stringify(invState));
@@ -44876,7 +45109,8 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
     if (inv) {
         var hasChanges = inv.newGases.length > 0 || inv.newEquip.length > 0 || inv.gasConflicts.length > 0 ||
             inv.equipConflicts.length > 0 || inv.newAssets.length > 0 || inv.assetUpdates.length > 0 ||
-            inv.newMaintActivities.length > 0 || inv.maintActivityUpdates.length > 0 || inv.newMaintLog.length > 0;
+            inv.newMaintActivities.length > 0 || inv.maintActivityUpdates.length > 0 || inv.newMaintLog.length > 0 ||
+            (inv.newFuelTanks || []).length > 0 || (inv.fuelUpdates || []).length > 0;
         html += '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:8px;' + (hasChanges ? 'border-color:#10b981;' : '') + '">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
         html += '<span style="font-weight:700;font-size:12px;">Inventory</span>';
@@ -44885,6 +45119,7 @@ function fbMergeShowDiffUI(remoteStationId, analysis) {
         html += '<span style="color:#10b981;font-weight:700;">+' + inv.newGases.length + ' gases, +' + inv.newEquip.length + ' equipos</span>';
         html += ' &nbsp; <span style="color:' + (inv.gasConflicts.length > 0 || inv.equipConflicts.length > 0 ? '#ef4444' : '#64748b') + ';">' + inv.gasConflicts.length + ' conflictos gas, ' + inv.equipConflicts.length + ' cal. actualizadas</span></div>';
         html += '<div style="font-size: var(--fs-xs);color:#94a3b8;margin-bottom:6px;">🛠️ COP15-F11: +' + inv.newAssets.length + ' equipos, +' + inv.newMaintActivities.length + ' actividades, +' + inv.newMaintLog.length + ' mantenimientos registrados</div>';
+        html += '<div style="font-size: var(--fs-xs);color:#94a3b8;margin-bottom:6px;">⛽ Combustible: +' + (inv.newFuelTanks || []).length + ' tanques, ' + (inv.fuelUpdates || []).length + ' con lecturas por unir</div>';
         if (hasChanges) {
             html += '<select id="fb-merge-inventory" style="width:100%;padding:6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size: var(--fs-xs);">';
             html += '<option value="">No fusionar</option>';
@@ -44987,7 +45222,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202608300751' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202608300808' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
