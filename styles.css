@@ -1367,11 +1367,70 @@ body{ overflow-x: hidden; }
     display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg);
     border-radius: var(--radius-xl); cursor: pointer; transition: background 0.1s;
 }
-.cmd-item:hover, .cmd-item.cmd-active { background: #f1f5f9; }
-.cmd-icon { font-size: 16px; flex-shrink: 0; }
-.cmd-label { font-size: 13px; color: #0f172a; font-weight: 600; flex: 1; }
-.cmd-shortcut { font-size: var(--fs-xs); color: #64748b; background: #f1f5f9; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-md); }
-.cmd-desc { font-size: var(--fs-xs); color: #64748b; }
+.cmd-item:hover, .cmd-item.cmd-active { background: var(--surface-alt); }
+.cmd-icon { font-size: var(--fs-base); flex-shrink: 0; }
+.cmd-label { font-size: var(--fs-sm); color: var(--text); font-weight: 600; flex: 1; }
+.cmd-cat { font-size: var(--fs-xs); color: var(--muted); flex-shrink: 0; }
+.cmd-shortcut { font-size: var(--fs-xs); color: var(--muted); background: var(--surface-alt); padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-md); }
+.cmd-desc { font-size: var(--fs-xs); color: var(--muted); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   [v22.2] LANZADOR — portada de tiles del command palette
+   Es el equivalente honesto a la fila de iconos de un LIMS comercial: un solo
+   nivel, todo visible, sin clip-art saturado. Se muestra solo con la consulta
+   vacía; al teclear cae a la lista .cmd-item de siempre.
+   ══════════════════════════════════════════════════════════════════════ */
+.cmd-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(15, 23, 42, 0.3); backdrop-filter: blur(8px);
+    animation: modalFadeIn var(--dur-base) var(--ease-out);
+    padding: var(--space-lg);
+}
+.cmd-box {
+    max-width: 720px; margin: 6vh auto 0;
+    max-height: 84vh; display: flex; flex-direction: column;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-2xl); box-shadow: var(--shadow-xl); overflow: hidden;
+}
+.cmd-inputrow {
+    padding: var(--space-md) var(--space-lg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: var(--space-sm); flex-shrink: 0;
+}
+.cmd-prompt { color: var(--muted); font-size: var(--fs-base); }
+/* 16px: por debajo de eso iOS hace zoom al enfocar y no vuelve solo. */
+.cmd-input {
+    flex: 1; background: transparent; border: none; color: var(--text);
+    font-family: inherit; font-size: var(--fs-base); outline: none; min-height: var(--target-abs);
+}
+.cmd-kbd {
+    background: var(--surface-alt); color: var(--muted);
+    padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-md); font-size: var(--fs-xs);
+}
+/* La única región que hace scroll: el campo y el borde quedan fijos. */
+.cmd-results { flex: 1; overflow-y: auto; padding: var(--space-sm); }
+
+.cmd-group {
+    font-size: var(--fs-xs); font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--muted);
+    padding: var(--space-md) var(--space-md) var(--space-sm);
+}
+.cmd-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: var(--space-sm); padding: 0 var(--space-md) var(--space-md);
+}
+.cmd-tile {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--space-xs); padding: var(--space-md) var(--space-sm);
+    min-height: var(--target-min);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); cursor: pointer; text-align: center;
+    font-family: inherit; color: var(--text);
+    transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.cmd-tile:hover, .cmd-tile.cmd-active { background: var(--surface-alt); border-color: var(--border-strong); }
+.cmd-tile:active { transform: scale(0.97); }
+.cmd-tile-icon { font-size: var(--fs-lg); line-height: 1; }
+.cmd-tile-label { font-size: var(--fs-xs); font-weight: 600; line-height: var(--lh-tight); }
 
 /* ═══ Kanban Search Highlight ═══ */
 .kanban-search-match { background: rgba(245,158,11,0.3); border-radius: var(--radius-sm); }
@@ -1975,13 +2034,29 @@ body{ overflow-x: hidden; }
 .daily-dash { padding: var(--space-lg); max-width: var(--content-max); margin: 0 auto; }
 .daily-dash-header {
     margin-bottom: var(--space-lg);
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: var(--space-md); flex-wrap: wrap;
 }
 .daily-dash-greeting {
-    font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: var(--space-2xs);
+    font-size: var(--fs-md); font-weight: 800; color: var(--text); margin-bottom: var(--space-2xs);
 }
 .daily-dash-date {
-    font-size: 12px; color: #64748b; font-weight: 600;
+    font-size: var(--fs-xs); color: var(--muted); font-weight: 600;
 }
+/* v22.2 — "Ir a…" y "Crear" en la cabecera de HOY */
+.dash-header-acts { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+.dash-launch-btn {
+    display: inline-flex; align-items: center; gap: var(--space-xs);
+    padding: var(--space-sm) var(--space-lg); min-height: var(--target-min);
+    border: 1px solid var(--border); border-radius: var(--radius-full);
+    background: var(--surface); color: var(--text);
+    font-family: inherit; font-size: var(--fs-sm); font-weight: 700; cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.dash-launch-btn:hover { background: var(--surface-alt); }
+.dash-launch-btn:active { transform: scale(0.97); }
+.dash-launch-btn--cta { background: var(--kia-red); border-color: var(--kia-red); color: #fff; }
+.dash-launch-btn--cta:hover { background: var(--kia-red-dark); }
 .daily-dash-section {
     margin-bottom: var(--space-lg);
 }

@@ -1228,6 +1228,32 @@ las dos, no una:
   alias que NO sigue el patrón `kia_tour_done_<módulo>`); y `scrollIntoView` es animado por
   `scroll-behavior: smooth`, así que hay que esperar antes de medir o se lee la posición vieja.
 
+### v22.2 — Lanzador (`uiNavRegistry`, `UI_CREATE_ACTIONS`)
+
+- **`uiNavRegistry()` (app.js) es LA definición de los destinos navegables** y se **DERIVA DEL
+  DOM**, nunca de una lista escrita a mano: un destino nuevo tiene que tener botón para ser
+  alcanzable, y si tiene botón el escáner lo ve. Además da lo *alcanzable*, no lo declarado
+  (`_tpTabs` declara 13 ids y solo 11 tienen botón). **No agregar una lista paralela.**
+- **`dashGo(platform, tabId)` es LA primitiva de navegación profunda** y ya cubre las cinco
+  plataformas, incluidas las dos sin `xxSwitchTab`: COP15 (click en `.tab[data-tab]`) y CoP
+  (`copSetView`). Todo consumidor nuevo la llama en vez de encadenar `switchPlatform` + timeout.
+- **`COP_VIEWS` (cop_validator.js) es LA definición de las vistas del CoP.** Vive a nivel de
+  archivo porque la nav del CoP se pinta bajo demanda y no está en el DOM inicial.
+- **`_uiFold(s)` es LA forma de comparar texto de búsqueda**: minúsculas y sin acentos. En el
+  laboratorio se teclea "calibracion" mucho más que "calibración". Las marcas combinantes van
+  como escapes `̀-ͯ`, nunca literales (invisibles en el editor, y un reencoding las
+  rompe en silencio).
+- **`UI_CREATE_ACTIONS` (app.js) es el menú del botón Crear.** Es la única lista literal del
+  lanzador porque no hay DOM del que derivar un verbo de alta. **Toda pantalla nueva que dé de
+  alta una entidad agrega su verbo ahí**, o queda invisible desde Crear. Guarda `typeof` por fila.
+- Los destinos se enriquecen con `HELP_TABS[id].title + .text` para buscar por concepto — otra
+  razón para mantener `HELP_TABS` al día además del banner de ayuda.
+- **Los botones NO van en el topbar**: la barra mide ~1900px expandida. Van en el menú `⋯` y en
+  la cabecera de HOY (`.dash-launch-btn`), que es donde abre la app.
+- Al leer la etiqueta de un botón de navegación, **clonar y borrar los `<span>` en la copia**
+  (`_uiCleanLabel`), no hacer `replace()` sobre `textContent`: la pestaña Pruebas lleva DOS
+  badges y solo uno tiene la clase `.pt-badge`.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

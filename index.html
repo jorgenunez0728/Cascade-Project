@@ -84,8 +84,14 @@
         <button class="tbm-item tbm-item--wide" role="menuitem" onclick="if(typeof fbPullAll==='function')fbPullAll(true);" title="Descargar los datos más recientes del laboratorio">
             <span class="tbm-ico" aria-hidden="true">🔄</span><span class="tbm-label">Actualizar datos</span>
         </button>
-        <button class="tbm-item" role="menuitem" onclick="toggleGlobalSearch()" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">
-            <span class="tbm-ico" aria-hidden="true">🔍</span><span class="tbm-label">Buscar VIN</span><span class="tbm-hint" aria-hidden="true">Ctrl+K</span>
+        <button class="tbm-item tbm-item--wide" role="menuitem" onclick="openCommandPalette('launcher')" title="Ir a cualquier pantalla de la plataforma (Ctrl+K)" aria-label="Ir a cualquier pantalla">
+            <span class="tbm-ico" aria-hidden="true">🧭</span><span class="tbm-label">Ir a…</span><span class="tbm-hint" aria-hidden="true">Ctrl+K</span>
+        </button>
+        <button class="tbm-item" role="menuitem" onclick="openCommandPalette('create')" title="Dar de alta algo nuevo" aria-label="Crear algo nuevo">
+            <span class="tbm-ico" aria-hidden="true">➕</span><span class="tbm-label">Crear</span>
+        </button>
+        <button class="tbm-item" role="menuitem" onclick="toggleGlobalSearch()" title="Buscar un VIN en todos los módulos" aria-label="Buscar VIN en todos los módulos">
+            <span class="tbm-ico" aria-hidden="true">🔍</span><span class="tbm-label">Buscar VIN</span>
         </button>
         <button id="immersive-toggle-btn" class="tbm-item" role="menuitem" onclick="immersiveToggle()" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">
             <span class="tbm-ico" aria-hidden="true">⛶</span><span class="tbm-label">Pantalla completa</span>
@@ -2017,14 +2023,18 @@
 </div>
 
 <!-- ═══ COMMAND PALETTE ═══ -->
-<div id="command-palette-overlay" role="dialog" aria-modal="true" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.3);backdrop-filter:blur(8px);animation:modalFadeIn 0.2s ease;" onclick="if(event.target===this)closeCommandPalette()">
-    <div style="max-width:520px;margin:80px auto;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
-            <span style="color:var(--muted);font-size:16px;">></span>
-            <input id="command-palette-input" type="text" autocomplete="off" placeholder="Escribe un comando..." style="flex:1;background:transparent;border:none;color:var(--text);font-size:14px;outline:none;" oninput="filterCommands(this.value)" onkeydown="handleCommandKey(event)">
-            <kbd style="background:var(--surface-alt);color:var(--muted);padding:2px 6px;border-radius:4px;font-size: var(--fs-xs);">ESC</kbd>
+<!-- v22.2: el overlay pasó de estilos en línea a clases (.cmd-overlay/.cmd-box/…).
+     Medía 520px de ancho y 320px de alto de resultados, dimensionado para una lista
+     de 14 comandos; con los 53 destinos del lanzador mostraba un grupo y medio. -->
+<div id="command-palette-overlay" class="cmd-overlay" role="dialog" aria-modal="true" aria-label="Ir a una pantalla o ejecutar una acción" style="display:none;" onclick="if(event.target===this)closeCommandPalette()">
+    <div class="cmd-box">
+        <div class="cmd-inputrow">
+            <span class="cmd-prompt" aria-hidden="true">&gt;</span>
+            <label for="command-palette-input" class="sr-only">Buscar pantalla o comando</label>
+            <input id="command-palette-input" class="cmd-input" type="text" autocomplete="off" placeholder="Escribe un comando..." oninput="filterCommands(this.value)" onkeydown="handleCommandKey(event)">
+            <kbd class="cmd-kbd">ESC</kbd>
         </div>
-        <div id="command-palette-results" style="max-height:320px;overflow-y:auto;padding:6px;"></div>
+        <div id="command-palette-results" class="cmd-results"></div>
     </div>
 </div>
 

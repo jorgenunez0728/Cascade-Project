@@ -1808,11 +1808,70 @@ body{ overflow-x: hidden; }
     display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg);
     border-radius: var(--radius-xl); cursor: pointer; transition: background 0.1s;
 }
-.cmd-item:hover, .cmd-item.cmd-active { background: #f1f5f9; }
-.cmd-icon { font-size: 16px; flex-shrink: 0; }
-.cmd-label { font-size: 13px; color: #0f172a; font-weight: 600; flex: 1; }
-.cmd-shortcut { font-size: var(--fs-xs); color: #64748b; background: #f1f5f9; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-md); }
-.cmd-desc { font-size: var(--fs-xs); color: #64748b; }
+.cmd-item:hover, .cmd-item.cmd-active { background: var(--surface-alt); }
+.cmd-icon { font-size: var(--fs-base); flex-shrink: 0; }
+.cmd-label { font-size: var(--fs-sm); color: var(--text); font-weight: 600; flex: 1; }
+.cmd-cat { font-size: var(--fs-xs); color: var(--muted); flex-shrink: 0; }
+.cmd-shortcut { font-size: var(--fs-xs); color: var(--muted); background: var(--surface-alt); padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-md); }
+.cmd-desc { font-size: var(--fs-xs); color: var(--muted); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   [v22.2] LANZADOR — portada de tiles del command palette
+   Es el equivalente honesto a la fila de iconos de un LIMS comercial: un solo
+   nivel, todo visible, sin clip-art saturado. Se muestra solo con la consulta
+   vacía; al teclear cae a la lista .cmd-item de siempre.
+   ══════════════════════════════════════════════════════════════════════ */
+.cmd-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(15, 23, 42, 0.3); backdrop-filter: blur(8px);
+    animation: modalFadeIn var(--dur-base) var(--ease-out);
+    padding: var(--space-lg);
+}
+.cmd-box {
+    max-width: 720px; margin: 6vh auto 0;
+    max-height: 84vh; display: flex; flex-direction: column;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-2xl); box-shadow: var(--shadow-xl); overflow: hidden;
+}
+.cmd-inputrow {
+    padding: var(--space-md) var(--space-lg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: var(--space-sm); flex-shrink: 0;
+}
+.cmd-prompt { color: var(--muted); font-size: var(--fs-base); }
+/* 16px: por debajo de eso iOS hace zoom al enfocar y no vuelve solo. */
+.cmd-input {
+    flex: 1; background: transparent; border: none; color: var(--text);
+    font-family: inherit; font-size: var(--fs-base); outline: none; min-height: var(--target-abs);
+}
+.cmd-kbd {
+    background: var(--surface-alt); color: var(--muted);
+    padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-md); font-size: var(--fs-xs);
+}
+/* La única región que hace scroll: el campo y el borde quedan fijos. */
+.cmd-results { flex: 1; overflow-y: auto; padding: var(--space-sm); }
+
+.cmd-group {
+    font-size: var(--fs-xs); font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--muted);
+    padding: var(--space-md) var(--space-md) var(--space-sm);
+}
+.cmd-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: var(--space-sm); padding: 0 var(--space-md) var(--space-md);
+}
+.cmd-tile {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--space-xs); padding: var(--space-md) var(--space-sm);
+    min-height: var(--target-min);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); cursor: pointer; text-align: center;
+    font-family: inherit; color: var(--text);
+    transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.cmd-tile:hover, .cmd-tile.cmd-active { background: var(--surface-alt); border-color: var(--border-strong); }
+.cmd-tile:active { transform: scale(0.97); }
+.cmd-tile-icon { font-size: var(--fs-lg); line-height: 1; }
+.cmd-tile-label { font-size: var(--fs-xs); font-weight: 600; line-height: var(--lh-tight); }
 
 /* ═══ Kanban Search Highlight ═══ */
 .kanban-search-match { background: rgba(245,158,11,0.3); border-radius: var(--radius-sm); }
@@ -2416,13 +2475,29 @@ body{ overflow-x: hidden; }
 .daily-dash { padding: var(--space-lg); max-width: var(--content-max); margin: 0 auto; }
 .daily-dash-header {
     margin-bottom: var(--space-lg);
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: var(--space-md); flex-wrap: wrap;
 }
 .daily-dash-greeting {
-    font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: var(--space-2xs);
+    font-size: var(--fs-md); font-weight: 800; color: var(--text); margin-bottom: var(--space-2xs);
 }
 .daily-dash-date {
-    font-size: 12px; color: #64748b; font-weight: 600;
+    font-size: var(--fs-xs); color: var(--muted); font-weight: 600;
 }
+/* v22.2 — "Ir a…" y "Crear" en la cabecera de HOY */
+.dash-header-acts { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+.dash-launch-btn {
+    display: inline-flex; align-items: center; gap: var(--space-xs);
+    padding: var(--space-sm) var(--space-lg); min-height: var(--target-min);
+    border: 1px solid var(--border); border-radius: var(--radius-full);
+    background: var(--surface); color: var(--text);
+    font-family: inherit; font-size: var(--fs-sm); font-weight: 700; cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.dash-launch-btn:hover { background: var(--surface-alt); }
+.dash-launch-btn:active { transform: scale(0.97); }
+.dash-launch-btn--cta { background: var(--kia-red); border-color: var(--kia-red); color: #fff; }
+.dash-launch-btn--cta:hover { background: var(--kia-red-dark); }
 .daily-dash-section {
     margin-bottom: var(--space-lg);
 }
@@ -5099,8 +5174,14 @@ body.cop-present .cop-toolbar    { display: none; }
         <button class="tbm-item tbm-item--wide" role="menuitem" onclick="if(typeof fbPullAll==='function')fbPullAll(true);" title="Descargar los datos más recientes del laboratorio">
             <span class="tbm-ico" aria-hidden="true">🔄</span><span class="tbm-label">Actualizar datos</span>
         </button>
-        <button class="tbm-item" role="menuitem" onclick="toggleGlobalSearch()" title="Buscar VIN en todos los módulos (Ctrl+K)" aria-label="Buscar VIN en todos los módulos">
-            <span class="tbm-ico" aria-hidden="true">🔍</span><span class="tbm-label">Buscar VIN</span><span class="tbm-hint" aria-hidden="true">Ctrl+K</span>
+        <button class="tbm-item tbm-item--wide" role="menuitem" onclick="openCommandPalette('launcher')" title="Ir a cualquier pantalla de la plataforma (Ctrl+K)" aria-label="Ir a cualquier pantalla">
+            <span class="tbm-ico" aria-hidden="true">🧭</span><span class="tbm-label">Ir a…</span><span class="tbm-hint" aria-hidden="true">Ctrl+K</span>
+        </button>
+        <button class="tbm-item" role="menuitem" onclick="openCommandPalette('create')" title="Dar de alta algo nuevo" aria-label="Crear algo nuevo">
+            <span class="tbm-ico" aria-hidden="true">➕</span><span class="tbm-label">Crear</span>
+        </button>
+        <button class="tbm-item" role="menuitem" onclick="toggleGlobalSearch()" title="Buscar un VIN en todos los módulos" aria-label="Buscar VIN en todos los módulos">
+            <span class="tbm-ico" aria-hidden="true">🔍</span><span class="tbm-label">Buscar VIN</span>
         </button>
         <button id="immersive-toggle-btn" class="tbm-item" role="menuitem" onclick="immersiveToggle()" title="Modo App (pantalla completa)" aria-label="Modo pantalla completa">
             <span class="tbm-ico" aria-hidden="true">⛶</span><span class="tbm-label">Pantalla completa</span>
@@ -7032,14 +7113,18 @@ body.cop-present .cop-toolbar    { display: none; }
 </div>
 
 <!-- ═══ COMMAND PALETTE ═══ -->
-<div id="command-palette-overlay" role="dialog" aria-modal="true" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.3);backdrop-filter:blur(8px);animation:modalFadeIn 0.2s ease;" onclick="if(event.target===this)closeCommandPalette()">
-    <div style="max-width:520px;margin:80px auto;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
-            <span style="color:var(--muted);font-size:16px;">></span>
-            <input id="command-palette-input" type="text" autocomplete="off" placeholder="Escribe un comando..." style="flex:1;background:transparent;border:none;color:var(--text);font-size:14px;outline:none;" oninput="filterCommands(this.value)" onkeydown="handleCommandKey(event)">
-            <kbd style="background:var(--surface-alt);color:var(--muted);padding:2px 6px;border-radius:4px;font-size: var(--fs-xs);">ESC</kbd>
+<!-- v22.2: el overlay pasó de estilos en línea a clases (.cmd-overlay/.cmd-box/…).
+     Medía 520px de ancho y 320px de alto de resultados, dimensionado para una lista
+     de 14 comandos; con los 53 destinos del lanzador mostraba un grupo y medio. -->
+<div id="command-palette-overlay" class="cmd-overlay" role="dialog" aria-modal="true" aria-label="Ir a una pantalla o ejecutar una acción" style="display:none;" onclick="if(event.target===this)closeCommandPalette()">
+    <div class="cmd-box">
+        <div class="cmd-inputrow">
+            <span class="cmd-prompt" aria-hidden="true">&gt;</span>
+            <label for="command-palette-input" class="sr-only">Buscar pantalla o comando</label>
+            <input id="command-palette-input" class="cmd-input" type="text" autocomplete="off" placeholder="Escribe un comando..." oninput="filterCommands(this.value)" onkeydown="handleCommandKey(event)">
+            <kbd class="cmd-kbd">ESC</kbd>
         </div>
-        <div id="command-palette-results" style="max-height:320px;overflow-y:auto;padding:6px;"></div>
+        <div id="command-palette-results" class="cmd-results"></div>
     </div>
 </div>
 
@@ -7364,15 +7449,22 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609011827';
+var APP_BUILD = '202609012055';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '22.1';
+var APP_VERSION = '22.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '22.2', date: '1 sep 2026', title: 'Lanzador: las ~50 pantallas, en una sola', bullets: [
+        'BOTÓN "IR A…" EN HOY Y EN EL MENÚ ⋯. Abre una retícula con TODAS las pantallas de la plataforma agrupadas por módulo — 53 destinos que antes vivían tras 5 pestañas y submenús "⋯ Más".',
+        'Se busca por concepto, no por nombre: teclear "cobertura" encuentra Dashboard y Familias, "calibración" encuentra Gases y Equipos. Funciona con y sin acentos.',
+        'BOTÓN "CREAR": un solo lugar para dar de alta actividad, cilindro, ronda de lecturas, instrumento, mantenimiento o reporte de un problema.',
+        'La lista de pantallas se arma sola leyendo los botones que ya existen, así que una pestaña nueva aparece en el lanzador sin que nadie la agregue a ninguna lista.',
+        'Ctrl+K sigue funcionando igual. La ventana pasó de 520 a 720px y ya no recorta la lista.'
+    ] },
     { version: '22.1', date: '1 sep 2026', title: 'HOY: la casilla de marcar por fin se puede tocar', bullets: [
         'LA CASILLA DE MARCAR MEDÍA 17px — la mitad del mínimo accesible — en la pantalla de arranque y en tablet. Ahora se ve de 20px pero el área que responde al dedo es de 44px, sin que la fila crezca.',
         'Las actividades ya no se aprietan en tres columnas: en pantalla ancha son dos, y los títulos que salían en cuatro renglones ahora salen en dos.',
@@ -7717,14 +7809,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609011827' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609012055' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609011827' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609012055' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -7740,7 +7832,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609011827' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609012055' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -9638,6 +9730,12 @@ function dashGo(platform, tabId, action, id) {
             if (platform === 'inventory' && typeof invSwitchTab === 'function') invSwitchTab(tabId);
             else if (platform === 'testplan' && typeof tpSwitchTab === 'function') tpSwitchTab(tabId);
             else if (platform === 'panel' && typeof pnSwitchTab === 'function') pnSwitchTab(tabId);
+            // v22.2 — Las dos plataformas que no tienen una función xxSwitchTab:
+            // COP15 navega por click en .tab[data-tab] y el CoP por copSetView.
+            // Van aquí y no en el lanzador para que dashGo siga siendo LA primitiva
+            // de navegación profunda de toda la app.
+            else if (platform === 'cop15') { var _t = document.querySelector('#platform-cop15 .tab[data-tab="' + tabId + '"]'); if (_t) _t.click(); }
+            else if (platform === 'cop' && typeof copSetView === 'function') copSetView(tabId);
         }
         if (action && typeof window[action] === 'function') {
             setTimeout(function() { try { window[action](id); } catch(e) {} }, 220);
@@ -9719,9 +9817,20 @@ function dailyDashRender() {
     if (typeof helpBannerHTML === 'function') html += helpBannerHTML('today');
 
     // ── Header ──
+    // v22.2: "Ir a…" y "Crear" viven AQUÍ además de en el menú ⋯ del topbar. La app
+    // abre en HOY, así que este es el único sitio donde están garantizadamente a un
+    // toque; el topbar ya mide ~1900px expandido y no admite dos controles más.
     html += '<div class="daily-dash-header">';
+    html += '<div>';
     html += '<div class="daily-dash-greeting">' + greeting + '</div>';
     html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
+    html += '</div>';
+    html += '<div class="dash-header-acts">';
+    html += '<button type="button" class="dash-launch-btn" onclick="openCommandPalette(\'launcher\')" aria-label="Ir a cualquier pantalla">'
+         +  '<span aria-hidden="true">🧭</span> Ir a…</button>';
+    html += '<button type="button" class="dash-launch-btn dash-launch-btn--cta" onclick="openCommandPalette(\'create\')" aria-label="Crear algo nuevo">'
+         +  '<span aria-hidden="true">➕</span> Crear</button>';
+    html += '</div>';
     html += '</div>';
 
     // ── [v15-P1] Resumen del Lab (fuente única: renderLabOverview, KPI + pipeline) ──
@@ -11408,31 +11517,169 @@ document.addEventListener('click', function(e) {
 // [M21] COMMAND PALETTE + KEYBOARD SHORTCUTS
 // ══════════════════════════════════════════════════════════════════════
 
+// Las 6 entradas de navegación que había aquí se retiraron en v22.2: cubrían 6 de
+// ~50 destinos y varias apuntaban a alias legacy. Ahora la navegación la aporta
+// uiNavRegistry(), derivada del DOM. Aquí quedan solo las ACCIONES.
 var _commandPaletteCommands = [
-    { label: 'Plan Semanal', icon: '📋', action: function(){ switchPlatform('plan'); }, shortcut: 'Ctrl+1', cat: 'nav' },
-    { label: 'Pruebas (COP15)', icon: '🔬', action: function(){ switchPlatform('pruebas'); }, shortcut: 'Ctrl+2', cat: 'nav' },
-    { label: 'Datos y Análisis', icon: '📊', action: function(){ switchPlatform('datos'); }, shortcut: 'Ctrl+3', cat: 'nav' },
-    { label: 'Vista Hoy', icon: '🏠', action: function(){ switchPlatform('today'); }, shortcut: 'Ctrl+4', cat: 'nav' },
-    { label: 'Consumibles (Inventario)', icon: '📦', action: function(){ switchPlatform('inventory'); }, cat: 'nav' },
-    { label: 'Panel de Control', icon: '⚙️', action: function(){ switchPlatform('panel'); }, cat: 'nav' },
-    { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'action' },
-    { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'action' },
-    { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'action' },
-    { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'action' },
-    { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'action' },
-    { label: 'Generar Plan Smart', icon: '⚡', action: function(){ switchPlatform('testplan'); setTimeout(function(){ if(typeof tpSmartGenerate==='function') tpSmartGenerate(); }, 300); }, cat: 'action' },
-    { label: 'Ver Kanban', icon: '📋', action: function(){ switchPlatform('cop15'); setTimeout(function(){ var t=document.querySelector('.tab[data-tab="kanban"]'); if(t)t.click(); }, 200); }, cat: 'nav' },
-    { label: 'Configurar Regulaciones', icon: '⚗️', action: function(){ switchPlatform('panel'); setTimeout(function(){ pnSwitchTab('pn-regulations'); }, 200); }, cat: 'nav' }
+    { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'Acciones' },
+    { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'Acciones' },
+    { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'Acciones' },
+    { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'Acciones' },
+    { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'Acciones' },
+    { label: 'Generar Plan Smart', icon: '⚡', action: function(){ switchPlatform('testplan'); setTimeout(function(){ if(typeof tpSmartGenerate==='function') tpSmartGenerate(); }, 300); }, cat: 'Acciones' }
 ];
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.2] LANZADOR — `uiNavRegistry()` es LA definición de los destinos
+//
+// La app tiene ~50 destinos repartidos en 5 tabs raíz × N sub-pestañas × el menú
+// "⋯ Más". Encontrar algo exigía saber de antemano dónde vivía.
+//
+// El registro se DERIVA DEL DOM, no de una lista escrita a mano. Razones:
+//   1. Una lista paralela se desincroniza — es cuestión de tiempo. Un destino
+//      nuevo TIENE que tener botón para ser alcanzable; si tiene botón, el
+//      escáner lo ve. No hay nada que recordar actualizar.
+//   2. Da lo ALCANZABLE, no lo declarado. Hoy `_tpTabs` declara 13 ids pero solo
+//      11 tienen botón: ofrecer los 13 llevaría a dos pantallas muertas.
+// Las descripciones para buscar salen de HELP_TABS, que CLAUDE.md ya obliga a
+// mantener ("toda pestaña nueva agrega una entrada a HELP_TABS"), así que teclear
+// "cobertura" o "calibración" encuentra la pantalla sin inventar un diccionario.
+// ══════════════════════════════════════════════════════════════════════
+
+/** PURA: normaliza para buscar — minúsculas y SIN acentos. En el laboratorio se
+ *  teclea "calibracion" mucho más seguido que "calibración"; sin esto la búsqueda
+ *  del lanzador devolvía cero resultados para media plataforma. */
+function _uiFold(s) {
+    // ̀-ͯ = marcas combinantes. Escritas como escapes y no como caracteres
+    // literales: en literal son invisibles en el editor y cualquier reencoding del
+    // archivo las puede romper sin que nadie lo note.
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/** PURA: "tpSwitchTab('tp-myweek')" → {fn:'tpSwitchTab', arg:'tp-myweek'}. null si no empata. */
+function _uiParseOnclick(str) {
+    if (!str) return null;
+    var m = String(str).match(/([A-Za-z_$][\w$]*)\s*\(\s*['"]([^'"]+)['"]/);
+    return m ? { fn: m[1], arg: m[2] } : null;
+}
+
+/** Texto de un botón sin sus badges/adornos. Clona y borra en la copia en vez de
+ *  hacer replace() sobre el textContent: el badge trae su propio espaciado y un
+ *  replace por cadena dejaba restos ("PRUEBAS 0" en vez de "PRUEBAS"). */
+function _uiCleanLabel(btn, dropSel) {
+    var c = btn.cloneNode(true);
+    if (dropSel) c.querySelectorAll(dropSel).forEach(function(n) { n.remove(); });
+    return c.textContent;
+}
+
+/** PURA: separa el emoji inicial de la etiqueta. "📅 Mi semana" → {icon:'📅', label:'Mi semana'} */
+function _uiSplitIcon(text, fallback) {
+    var t = String(text || '').replace(/\s+/g, ' ').trim();
+    var m = t.match(/^([^\w\sÁÉÍÓÚÜÑáéíóúüñ]+)\s*(.*)$/);
+    if (m && m[1] && m[2]) return { icon: m[1].trim(), label: m[2].trim() };
+    return { icon: fallback || '•', label: t };
+}
+
+var UI_NAV_SOURCES = [
+    { sel: '#tp-tabs-bar .tp-tab[onclick*="tpSwitchTab"]',  plat: 'testplan',  group: 'Plan',        fallback: '📋' },
+    { sel: '#inv-tabs-bar .tp-tab[onclick*="invSwitchTab"]', plat: 'inventory', group: 'Consumibles', fallback: '📦' },
+    { sel: '#pn-tabs-bar .tp-tab[onclick*="pnSwitchTab"]',   plat: 'panel',     group: 'Datos',       fallback: '📊' }
+];
+
+function uiNavRegistry() {
+    var out = [], seen = {};
+    function push(e) { if (e && !seen[e.id]) { seen[e.id] = 1; out.push(e); } }
+
+    // 1. Las 5 tabs raíz
+    document.querySelectorAll('#platformBar .platform-tab').forEach(function(b) {
+        var p = _uiParseOnclick(b.getAttribute('onclick'));
+        if (!p || p.fn !== 'switchPlatform') return;
+        // Se descartan TODOS los <span>, no solo .pt-badge: la pestaña Pruebas lleva
+        // un segundo badge (#inv-alert-badge) sin esa clase, y por él la etiqueta
+        // salía como "PRUEBAS 0". El nombre de la pestaña es un nodo de texto suelto.
+        var s = _uiSplitIcon(_uiCleanLabel(b, 'span'), '🏠');
+        push({ id: 'plat:' + p.arg, icon: s.icon, label: s.label, group: 'Principal',
+               keywords: '', go: (function(a){ return function(){ switchPlatform(a); }; })(p.arg) });
+    });
+
+    // 2. Sub-pestañas de Plan / Consumibles / Datos (incluye las del "⋯ Más": están
+    //    en el DOM aunque el menú esté cerrado)
+    UI_NAV_SOURCES.forEach(function(src) {
+        document.querySelectorAll(src.sel).forEach(function(b) {
+            var p = _uiParseOnclick(b.getAttribute('onclick'));
+            if (!p) return;
+            var s = _uiSplitIcon(b.textContent, src.fallback);
+            push({ id: p.arg, icon: s.icon, label: s.label, group: src.group,
+                   keywords: _uiHelpText(p.arg),
+                   go: (function(pl, t){ return function(){ dashGo(pl, t); }; })(src.plat, p.arg) });
+        });
+    });
+
+    // 3. COP15 — navega por click en .tab[data-tab], no por una función xxSwitchTab
+    document.querySelectorAll('#platform-cop15 .tab[data-tab]').forEach(function(b) {
+        var t = b.getAttribute('data-tab');
+        // 'consumibles' es un ENLACE CRUZADO: esa pestaña de COP15 salta a la
+        // plataforma de Consumibles, que el lanzador ya lista con sus 12 destinos
+        // propios. Incluirla aquí la pondría bajo "Pruebas" apuntando a otro lado.
+        if (t === 'consumibles') return;
+        var s = _uiSplitIcon(_uiCleanLabel(b, 'span'), '🔬');
+        push({ id: 'cop15-' + t, icon: s.icon, label: s.label, group: 'Pruebas',
+               keywords: _uiHelpText('cop15-' + t) || _uiHelpText(t),
+               go: (function(x){ return function(){ dashGo('cop15', x); }; })(t) });
+    });
+
+    // 4. CoP — su nav se pinta bajo demanda, así que no está en el DOM inicial.
+    //    COP_VIEWS (cop_validator.js) es su única definición.
+    if (typeof COP_VIEWS !== 'undefined') {
+        COP_VIEWS.forEach(function(v) {
+            var s = _uiSplitIcon(v[1], '📐');
+            push({ id: 'cop-' + v[0], icon: s.icon, label: s.label, group: 'CoP',
+                   keywords: _uiHelpText('cop-' + v[0]),
+                   go: (function(x){ return function(){ dashGo('cop', x); }; })(v[0]) });
+        });
+    }
+    return out;
+}
+
+/** Texto de HELP_TABS de un destino, para que la búsqueda encuentre por concepto. */
+function _uiHelpText(id) {
+    if (typeof HELP_TABS === 'undefined' || !HELP_TABS[id]) return '';
+    var h = HELP_TABS[id];
+    return ((h.title || '') + ' ' + (h.text || '')).toLowerCase();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.2] UI_CREATE_ACTIONS — el único "+ Crear" de la app
+// Aquí sí hace falta una lista literal: no hay DOM del que derivar un verbo de
+// alta. Cada fila lleva guarda typeof, así que un módulo que no cargue
+// simplemente no aparece en el menú.
+// REGLA para código nuevo: toda pantalla que dé de alta una entidad agrega su
+// verbo aquí, o queda invisible desde el botón Crear.
+// ══════════════════════════════════════════════════════════════════════
+var UI_CREATE_ACTIONS = [
+    { icon: '📝', label: 'Actividad de hoy',      fn: 'dashTaskModalOpen',   hint: 'Un pendiente suelto en el tablero de HOY' },
+    { icon: '🔴', label: 'Cilindro de gas',       fn: 'invShowAddGas',       hint: 'Alta en Consumibles' },
+    { icon: '📖', label: 'Ronda de lecturas',     fn: 'invStartReadingRound',hint: 'Recorrido para capturar presiones y nivel' },
+    { icon: '🔧', label: 'Instrumento',           fn: 'invAddEquipment',     hint: 'Equipo del plan maestro F11' },
+    { icon: '🛠️', label: 'Actividad de mtto',     fn: 'invAddMaintActivity', hint: 'Mantenimiento preventivo' },
+    { icon: '🐞', label: 'Reportar un problema',  fn: 'bugCaptureStart',     hint: 'Captura la pantalla y abre un reporte' }
+];
+
 var _cmdActiveIdx = 0;
 var _cmdFiltered = [];
+var _cmdMode = 'command';   // 'command' | 'launcher' | 'create'
 
-function openCommandPalette() {
+// mode: 'command' (Ctrl+K, el de siempre) | 'launcher' (Ir a…) | 'create' (+ Crear)
+function openCommandPalette(mode) {
     var el = document.getElementById('command-palette-overlay');
     if (!el) return;
+    _cmdMode = (mode === 'launcher' || mode === 'create') ? mode : 'command';
     el.style.display = 'block';
     var input = document.getElementById('command-palette-input');
     input.value = '';
+    input.placeholder = _cmdMode === 'launcher' ? 'Busca una pantalla: cobertura, calibración, familia…'
+                      : _cmdMode === 'create'   ? '¿Qué quieres dar de alta?'
+                      : 'Escribe un comando...';
     _cmdActiveIdx = 0;
     filterCommands('');
     setTimeout(function(){ input.focus(); }, 50);
@@ -11441,6 +11688,24 @@ function openCommandPalette() {
 function closeCommandPalette() {
     var el = document.getElementById('command-palette-overlay');
     if (el) el.style.display = 'none';
+    _cmdMode = 'command';
+}
+
+/** Universo buscable según el modo. El lanzador incluye las acciones para que
+ *  teclear "deshacer" también funcione desde ahí — un solo campo, un solo teclado. */
+function _cmdUniverse() {
+    if (_cmdMode === 'create') {
+        return UI_CREATE_ACTIONS.filter(function(a) { return typeof window[a.fn] === 'function'; })
+            .map(function(a) {
+                return { label: a.label, icon: a.icon, cat: a.hint,
+                         action: (function(f){ return function(){ try { window[f](); } catch(e) {} }; })(a.fn) };
+            });
+    }
+    var nav = [];
+    try { nav = uiNavRegistry().map(function(e) {
+        return { label: e.label, icon: e.icon, cat: e.group, keywords: e.keywords, action: e.go };
+    }); } catch (e) { nav = []; }
+    return nav.concat(_commandPaletteCommands);
 }
 
 function filterCommands(query) {
@@ -11453,9 +11718,13 @@ function filterCommands(query) {
         renderCommandResults();
         return;
     }
-    _cmdFiltered = q ? _commandPaletteCommands.filter(function(c) {
-        return c.label.toLowerCase().includes(q) || (c.cat && c.cat.includes(q));
-    }) : _commandPaletteCommands;
+    var universe = _cmdUniverse();
+    var qf = _uiFold(q);
+    _cmdFiltered = qf ? universe.filter(function(c) {
+        return _uiFold(c.label).includes(qf)
+            || (c.cat && _uiFold(c.cat).includes(qf))
+            || (c.keywords && _uiFold(c.keywords).includes(qf));
+    }) : universe;
     _cmdActiveIdx = 0;
     renderCommandResults();
 }
@@ -11483,10 +11752,41 @@ function _globalCrossSearchForPalette(q) {
 function renderCommandResults() {
     var el = document.getElementById('command-palette-results');
     if (!el) return;
+    var q = (document.getElementById('command-palette-input') || {}).value || '';
+
+    // Portada del lanzador: retícula de tiles agrupada por módulo, mientras no se
+    // teclea nada. En cuanto hay consulta cae a la lista de siempre — un solo
+    // overlay, un solo manejo de teclado.
+    if ((_cmdMode === 'launcher' || _cmdMode === 'create') && !q.trim()) {
+        if (!_cmdFiltered.length) { el.innerHTML = '<div class="u-empty">Nada que mostrar.</div>'; return; }
+        var groups = [], byName = {};
+        _cmdFiltered.forEach(function(c, i) {
+            var g = c.cat || 'Otros';
+            if (!byName[g]) { byName[g] = []; groups.push(g); }
+            byName[g].push({ c: c, i: i });
+        });
+        el.innerHTML = groups.map(function(g) {
+            return '<div class="cmd-group">' + escapeHtml(g) + '</div>'
+                 + '<div class="cmd-grid">' + byName[g].map(function(x) {
+                       return '<button type="button" class="cmd-tile' + (x.i === _cmdActiveIdx ? ' cmd-active' : '') + '"'
+                            + ' onclick="executeCommand(' + x.i + ')">'
+                            + '<span class="cmd-tile-icon" aria-hidden="true">' + x.c.icon + '</span>'
+                            + '<span class="cmd-tile-label">' + escapeHtml(x.c.label) + '</span>'
+                            + '</button>';
+                   }).join('') + '</div>';
+        }).join('');
+        return;
+    }
+
+    if (!_cmdFiltered.length) {
+        el.innerHTML = '<div class="u-empty">Sin resultados para “' + escapeHtml(q) + '”.</div>';
+        return;
+    }
     el.innerHTML = _cmdFiltered.map(function(c, i) {
         return '<div class="cmd-item' + (i === _cmdActiveIdx ? ' cmd-active' : '') + '" onclick="executeCommand(' + i + ')" onmouseenter="_cmdActiveIdx=' + i + ';renderCommandResults();">' +
             '<span class="cmd-icon">' + c.icon + '</span>' +
-            '<span class="cmd-label">' + c.label + '</span>' +
+            '<span class="cmd-label">' + escapeHtml(c.label) + '</span>' +
+            (c.cat ? '<span class="cmd-cat">' + escapeHtml(c.cat) + '</span>' : '') +
             (c.shortcut ? '<span class="cmd-shortcut">' + c.shortcut + '</span>' : '') +
             '</div>';
     }).join('');
@@ -45507,7 +45807,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609011827' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609012055' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
@@ -48085,6 +48385,17 @@ function copRender() {
     if (typeof a11yClickables === 'function') a11yClickables(container);
 }
 
+// v22.2 — LA definición de las vistas del CoP. Estaba escrita en línea dentro del
+// forEach que pinta la nav, así que era la única fuente de navegación de la app que
+// el lanzador (uiNavRegistry, app.js) no podía descubrir: la nav del CoP se pinta
+// bajo demanda, no vive en el DOM inicial como las barras de pestañas.
+var COP_VIEWS = [
+    ['overview',  '📊 Panorama'],
+    ['validator', '📋 Validador'],
+    ['spc',       '📈 Control SPC'],
+    ['dossier',   '🗂️ Expediente']
+];
+
 function copSetView(v) {
     copState.view = ['overview', 'validator', 'spc', 'dossier'].indexOf(v) !== -1 ? v : 'overview';
     copPersist();
@@ -48743,7 +49054,7 @@ function copBuildHTML() {
 
     // Navegación
     html += '<nav class="cop-nav" aria-label="Vistas de CoP">';
-    [['overview', '📊 Panorama'], ['validator', '📋 Validador'], ['spc', '📈 Control SPC'], ['dossier', '🗂️ Expediente']].forEach(function(t) {
+    COP_VIEWS.forEach(function(t) {
         var active = view === t[0];
         html += '<button type="button" class="cop-nav-btn' + (active ? ' active' : '') + '"' +
                 (active ? ' aria-current="page"' : '') +

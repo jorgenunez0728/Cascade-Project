@@ -285,11 +285,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '22.1';
+var APP_VERSION = '22.2';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '22.2', date: '1 sep 2026', title: 'Lanzador: las ~50 pantallas, en una sola', bullets: [
+        'BOTÓN "IR A…" EN HOY Y EN EL MENÚ ⋯. Abre una retícula con TODAS las pantallas de la plataforma agrupadas por módulo — 53 destinos que antes vivían tras 5 pestañas y submenús "⋯ Más".',
+        'Se busca por concepto, no por nombre: teclear "cobertura" encuentra Dashboard y Familias, "calibración" encuentra Gases y Equipos. Funciona con y sin acentos.',
+        'BOTÓN "CREAR": un solo lugar para dar de alta actividad, cilindro, ronda de lecturas, instrumento, mantenimiento o reporte de un problema.',
+        'La lista de pantallas se arma sola leyendo los botones que ya existen, así que una pestaña nueva aparece en el lanzador sin que nadie la agregue a ninguna lista.',
+        'Ctrl+K sigue funcionando igual. La ventana pasó de 520 a 720px y ya no recorta la lista.'
+    ] },
     { version: '22.1', date: '1 sep 2026', title: 'HOY: la casilla de marcar por fin se puede tocar', bullets: [
         'LA CASILLA DE MARCAR MEDÍA 17px — la mitad del mínimo accesible — en la pantalla de arranque y en tablet. Ahora se ve de 20px pero el área que responde al dedo es de 44px, sin que la fila crezca.',
         'Las actividades ya no se aprietan en tres columnas: en pantalla ancha son dos, y los títulos que salían en cuatro renglones ahora salen en dos.',
@@ -2555,6 +2562,12 @@ function dashGo(platform, tabId, action, id) {
             if (platform === 'inventory' && typeof invSwitchTab === 'function') invSwitchTab(tabId);
             else if (platform === 'testplan' && typeof tpSwitchTab === 'function') tpSwitchTab(tabId);
             else if (platform === 'panel' && typeof pnSwitchTab === 'function') pnSwitchTab(tabId);
+            // v22.2 — Las dos plataformas que no tienen una función xxSwitchTab:
+            // COP15 navega por click en .tab[data-tab] y el CoP por copSetView.
+            // Van aquí y no en el lanzador para que dashGo siga siendo LA primitiva
+            // de navegación profunda de toda la app.
+            else if (platform === 'cop15') { var _t = document.querySelector('#platform-cop15 .tab[data-tab="' + tabId + '"]'); if (_t) _t.click(); }
+            else if (platform === 'cop' && typeof copSetView === 'function') copSetView(tabId);
         }
         if (action && typeof window[action] === 'function') {
             setTimeout(function() { try { window[action](id); } catch(e) {} }, 220);
@@ -2636,9 +2649,20 @@ function dailyDashRender() {
     if (typeof helpBannerHTML === 'function') html += helpBannerHTML('today');
 
     // ── Header ──
+    // v22.2: "Ir a…" y "Crear" viven AQUÍ además de en el menú ⋯ del topbar. La app
+    // abre en HOY, así que este es el único sitio donde están garantizadamente a un
+    // toque; el topbar ya mide ~1900px expandido y no admite dos controles más.
     html += '<div class="daily-dash-header">';
+    html += '<div>';
     html += '<div class="daily-dash-greeting">' + greeting + '</div>';
     html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
+    html += '</div>';
+    html += '<div class="dash-header-acts">';
+    html += '<button type="button" class="dash-launch-btn" onclick="openCommandPalette(\'launcher\')" aria-label="Ir a cualquier pantalla">'
+         +  '<span aria-hidden="true">🧭</span> Ir a…</button>';
+    html += '<button type="button" class="dash-launch-btn dash-launch-btn--cta" onclick="openCommandPalette(\'create\')" aria-label="Crear algo nuevo">'
+         +  '<span aria-hidden="true">➕</span> Crear</button>';
+    html += '</div>';
     html += '</div>';
 
     // ── [v15-P1] Resumen del Lab (fuente única: renderLabOverview, KPI + pipeline) ──
@@ -4325,31 +4349,169 @@ document.addEventListener('click', function(e) {
 // [M21] COMMAND PALETTE + KEYBOARD SHORTCUTS
 // ══════════════════════════════════════════════════════════════════════
 
+// Las 6 entradas de navegación que había aquí se retiraron en v22.2: cubrían 6 de
+// ~50 destinos y varias apuntaban a alias legacy. Ahora la navegación la aporta
+// uiNavRegistry(), derivada del DOM. Aquí quedan solo las ACCIONES.
 var _commandPaletteCommands = [
-    { label: 'Plan Semanal', icon: '📋', action: function(){ switchPlatform('plan'); }, shortcut: 'Ctrl+1', cat: 'nav' },
-    { label: 'Pruebas (COP15)', icon: '🔬', action: function(){ switchPlatform('pruebas'); }, shortcut: 'Ctrl+2', cat: 'nav' },
-    { label: 'Datos y Análisis', icon: '📊', action: function(){ switchPlatform('datos'); }, shortcut: 'Ctrl+3', cat: 'nav' },
-    { label: 'Vista Hoy', icon: '🏠', action: function(){ switchPlatform('today'); }, shortcut: 'Ctrl+4', cat: 'nav' },
-    { label: 'Consumibles (Inventario)', icon: '📦', action: function(){ switchPlatform('inventory'); }, cat: 'nav' },
-    { label: 'Panel de Control', icon: '⚙️', action: function(){ switchPlatform('panel'); }, cat: 'nav' },
-    { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'action' },
-    { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'action' },
-    { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'action' },
-    { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'action' },
-    { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'action' },
-    { label: 'Generar Plan Smart', icon: '⚡', action: function(){ switchPlatform('testplan'); setTimeout(function(){ if(typeof tpSmartGenerate==='function') tpSmartGenerate(); }, 300); }, cat: 'action' },
-    { label: 'Ver Kanban', icon: '📋', action: function(){ switchPlatform('cop15'); setTimeout(function(){ var t=document.querySelector('.tab[data-tab="kanban"]'); if(t)t.click(); }, 200); }, cat: 'nav' },
-    { label: 'Configurar Regulaciones', icon: '⚗️', action: function(){ switchPlatform('panel'); setTimeout(function(){ pnSwitchTab('pn-regulations'); }, 200); }, cat: 'nav' }
+    { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'Acciones' },
+    { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'Acciones' },
+    { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'Acciones' },
+    { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'Acciones' },
+    { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'Acciones' },
+    { label: 'Generar Plan Smart', icon: '⚡', action: function(){ switchPlatform('testplan'); setTimeout(function(){ if(typeof tpSmartGenerate==='function') tpSmartGenerate(); }, 300); }, cat: 'Acciones' }
 ];
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.2] LANZADOR — `uiNavRegistry()` es LA definición de los destinos
+//
+// La app tiene ~50 destinos repartidos en 5 tabs raíz × N sub-pestañas × el menú
+// "⋯ Más". Encontrar algo exigía saber de antemano dónde vivía.
+//
+// El registro se DERIVA DEL DOM, no de una lista escrita a mano. Razones:
+//   1. Una lista paralela se desincroniza — es cuestión de tiempo. Un destino
+//      nuevo TIENE que tener botón para ser alcanzable; si tiene botón, el
+//      escáner lo ve. No hay nada que recordar actualizar.
+//   2. Da lo ALCANZABLE, no lo declarado. Hoy `_tpTabs` declara 13 ids pero solo
+//      11 tienen botón: ofrecer los 13 llevaría a dos pantallas muertas.
+// Las descripciones para buscar salen de HELP_TABS, que CLAUDE.md ya obliga a
+// mantener ("toda pestaña nueva agrega una entrada a HELP_TABS"), así que teclear
+// "cobertura" o "calibración" encuentra la pantalla sin inventar un diccionario.
+// ══════════════════════════════════════════════════════════════════════
+
+/** PURA: normaliza para buscar — minúsculas y SIN acentos. En el laboratorio se
+ *  teclea "calibracion" mucho más seguido que "calibración"; sin esto la búsqueda
+ *  del lanzador devolvía cero resultados para media plataforma. */
+function _uiFold(s) {
+    // ̀-ͯ = marcas combinantes. Escritas como escapes y no como caracteres
+    // literales: en literal son invisibles en el editor y cualquier reencoding del
+    // archivo las puede romper sin que nadie lo note.
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/** PURA: "tpSwitchTab('tp-myweek')" → {fn:'tpSwitchTab', arg:'tp-myweek'}. null si no empata. */
+function _uiParseOnclick(str) {
+    if (!str) return null;
+    var m = String(str).match(/([A-Za-z_$][\w$]*)\s*\(\s*['"]([^'"]+)['"]/);
+    return m ? { fn: m[1], arg: m[2] } : null;
+}
+
+/** Texto de un botón sin sus badges/adornos. Clona y borra en la copia en vez de
+ *  hacer replace() sobre el textContent: el badge trae su propio espaciado y un
+ *  replace por cadena dejaba restos ("PRUEBAS 0" en vez de "PRUEBAS"). */
+function _uiCleanLabel(btn, dropSel) {
+    var c = btn.cloneNode(true);
+    if (dropSel) c.querySelectorAll(dropSel).forEach(function(n) { n.remove(); });
+    return c.textContent;
+}
+
+/** PURA: separa el emoji inicial de la etiqueta. "📅 Mi semana" → {icon:'📅', label:'Mi semana'} */
+function _uiSplitIcon(text, fallback) {
+    var t = String(text || '').replace(/\s+/g, ' ').trim();
+    var m = t.match(/^([^\w\sÁÉÍÓÚÜÑáéíóúüñ]+)\s*(.*)$/);
+    if (m && m[1] && m[2]) return { icon: m[1].trim(), label: m[2].trim() };
+    return { icon: fallback || '•', label: t };
+}
+
+var UI_NAV_SOURCES = [
+    { sel: '#tp-tabs-bar .tp-tab[onclick*="tpSwitchTab"]',  plat: 'testplan',  group: 'Plan',        fallback: '📋' },
+    { sel: '#inv-tabs-bar .tp-tab[onclick*="invSwitchTab"]', plat: 'inventory', group: 'Consumibles', fallback: '📦' },
+    { sel: '#pn-tabs-bar .tp-tab[onclick*="pnSwitchTab"]',   plat: 'panel',     group: 'Datos',       fallback: '📊' }
+];
+
+function uiNavRegistry() {
+    var out = [], seen = {};
+    function push(e) { if (e && !seen[e.id]) { seen[e.id] = 1; out.push(e); } }
+
+    // 1. Las 5 tabs raíz
+    document.querySelectorAll('#platformBar .platform-tab').forEach(function(b) {
+        var p = _uiParseOnclick(b.getAttribute('onclick'));
+        if (!p || p.fn !== 'switchPlatform') return;
+        // Se descartan TODOS los <span>, no solo .pt-badge: la pestaña Pruebas lleva
+        // un segundo badge (#inv-alert-badge) sin esa clase, y por él la etiqueta
+        // salía como "PRUEBAS 0". El nombre de la pestaña es un nodo de texto suelto.
+        var s = _uiSplitIcon(_uiCleanLabel(b, 'span'), '🏠');
+        push({ id: 'plat:' + p.arg, icon: s.icon, label: s.label, group: 'Principal',
+               keywords: '', go: (function(a){ return function(){ switchPlatform(a); }; })(p.arg) });
+    });
+
+    // 2. Sub-pestañas de Plan / Consumibles / Datos (incluye las del "⋯ Más": están
+    //    en el DOM aunque el menú esté cerrado)
+    UI_NAV_SOURCES.forEach(function(src) {
+        document.querySelectorAll(src.sel).forEach(function(b) {
+            var p = _uiParseOnclick(b.getAttribute('onclick'));
+            if (!p) return;
+            var s = _uiSplitIcon(b.textContent, src.fallback);
+            push({ id: p.arg, icon: s.icon, label: s.label, group: src.group,
+                   keywords: _uiHelpText(p.arg),
+                   go: (function(pl, t){ return function(){ dashGo(pl, t); }; })(src.plat, p.arg) });
+        });
+    });
+
+    // 3. COP15 — navega por click en .tab[data-tab], no por una función xxSwitchTab
+    document.querySelectorAll('#platform-cop15 .tab[data-tab]').forEach(function(b) {
+        var t = b.getAttribute('data-tab');
+        // 'consumibles' es un ENLACE CRUZADO: esa pestaña de COP15 salta a la
+        // plataforma de Consumibles, que el lanzador ya lista con sus 12 destinos
+        // propios. Incluirla aquí la pondría bajo "Pruebas" apuntando a otro lado.
+        if (t === 'consumibles') return;
+        var s = _uiSplitIcon(_uiCleanLabel(b, 'span'), '🔬');
+        push({ id: 'cop15-' + t, icon: s.icon, label: s.label, group: 'Pruebas',
+               keywords: _uiHelpText('cop15-' + t) || _uiHelpText(t),
+               go: (function(x){ return function(){ dashGo('cop15', x); }; })(t) });
+    });
+
+    // 4. CoP — su nav se pinta bajo demanda, así que no está en el DOM inicial.
+    //    COP_VIEWS (cop_validator.js) es su única definición.
+    if (typeof COP_VIEWS !== 'undefined') {
+        COP_VIEWS.forEach(function(v) {
+            var s = _uiSplitIcon(v[1], '📐');
+            push({ id: 'cop-' + v[0], icon: s.icon, label: s.label, group: 'CoP',
+                   keywords: _uiHelpText('cop-' + v[0]),
+                   go: (function(x){ return function(){ dashGo('cop', x); }; })(v[0]) });
+        });
+    }
+    return out;
+}
+
+/** Texto de HELP_TABS de un destino, para que la búsqueda encuentre por concepto. */
+function _uiHelpText(id) {
+    if (typeof HELP_TABS === 'undefined' || !HELP_TABS[id]) return '';
+    var h = HELP_TABS[id];
+    return ((h.title || '') + ' ' + (h.text || '')).toLowerCase();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.2] UI_CREATE_ACTIONS — el único "+ Crear" de la app
+// Aquí sí hace falta una lista literal: no hay DOM del que derivar un verbo de
+// alta. Cada fila lleva guarda typeof, así que un módulo que no cargue
+// simplemente no aparece en el menú.
+// REGLA para código nuevo: toda pantalla que dé de alta una entidad agrega su
+// verbo aquí, o queda invisible desde el botón Crear.
+// ══════════════════════════════════════════════════════════════════════
+var UI_CREATE_ACTIONS = [
+    { icon: '📝', label: 'Actividad de hoy',      fn: 'dashTaskModalOpen',   hint: 'Un pendiente suelto en el tablero de HOY' },
+    { icon: '🔴', label: 'Cilindro de gas',       fn: 'invShowAddGas',       hint: 'Alta en Consumibles' },
+    { icon: '📖', label: 'Ronda de lecturas',     fn: 'invStartReadingRound',hint: 'Recorrido para capturar presiones y nivel' },
+    { icon: '🔧', label: 'Instrumento',           fn: 'invAddEquipment',     hint: 'Equipo del plan maestro F11' },
+    { icon: '🛠️', label: 'Actividad de mtto',     fn: 'invAddMaintActivity', hint: 'Mantenimiento preventivo' },
+    { icon: '🐞', label: 'Reportar un problema',  fn: 'bugCaptureStart',     hint: 'Captura la pantalla y abre un reporte' }
+];
+
 var _cmdActiveIdx = 0;
 var _cmdFiltered = [];
+var _cmdMode = 'command';   // 'command' | 'launcher' | 'create'
 
-function openCommandPalette() {
+// mode: 'command' (Ctrl+K, el de siempre) | 'launcher' (Ir a…) | 'create' (+ Crear)
+function openCommandPalette(mode) {
     var el = document.getElementById('command-palette-overlay');
     if (!el) return;
+    _cmdMode = (mode === 'launcher' || mode === 'create') ? mode : 'command';
     el.style.display = 'block';
     var input = document.getElementById('command-palette-input');
     input.value = '';
+    input.placeholder = _cmdMode === 'launcher' ? 'Busca una pantalla: cobertura, calibración, familia…'
+                      : _cmdMode === 'create'   ? '¿Qué quieres dar de alta?'
+                      : 'Escribe un comando...';
     _cmdActiveIdx = 0;
     filterCommands('');
     setTimeout(function(){ input.focus(); }, 50);
@@ -4358,6 +4520,24 @@ function openCommandPalette() {
 function closeCommandPalette() {
     var el = document.getElementById('command-palette-overlay');
     if (el) el.style.display = 'none';
+    _cmdMode = 'command';
+}
+
+/** Universo buscable según el modo. El lanzador incluye las acciones para que
+ *  teclear "deshacer" también funcione desde ahí — un solo campo, un solo teclado. */
+function _cmdUniverse() {
+    if (_cmdMode === 'create') {
+        return UI_CREATE_ACTIONS.filter(function(a) { return typeof window[a.fn] === 'function'; })
+            .map(function(a) {
+                return { label: a.label, icon: a.icon, cat: a.hint,
+                         action: (function(f){ return function(){ try { window[f](); } catch(e) {} }; })(a.fn) };
+            });
+    }
+    var nav = [];
+    try { nav = uiNavRegistry().map(function(e) {
+        return { label: e.label, icon: e.icon, cat: e.group, keywords: e.keywords, action: e.go };
+    }); } catch (e) { nav = []; }
+    return nav.concat(_commandPaletteCommands);
 }
 
 function filterCommands(query) {
@@ -4370,9 +4550,13 @@ function filterCommands(query) {
         renderCommandResults();
         return;
     }
-    _cmdFiltered = q ? _commandPaletteCommands.filter(function(c) {
-        return c.label.toLowerCase().includes(q) || (c.cat && c.cat.includes(q));
-    }) : _commandPaletteCommands;
+    var universe = _cmdUniverse();
+    var qf = _uiFold(q);
+    _cmdFiltered = qf ? universe.filter(function(c) {
+        return _uiFold(c.label).includes(qf)
+            || (c.cat && _uiFold(c.cat).includes(qf))
+            || (c.keywords && _uiFold(c.keywords).includes(qf));
+    }) : universe;
     _cmdActiveIdx = 0;
     renderCommandResults();
 }
@@ -4400,10 +4584,41 @@ function _globalCrossSearchForPalette(q) {
 function renderCommandResults() {
     var el = document.getElementById('command-palette-results');
     if (!el) return;
+    var q = (document.getElementById('command-palette-input') || {}).value || '';
+
+    // Portada del lanzador: retícula de tiles agrupada por módulo, mientras no se
+    // teclea nada. En cuanto hay consulta cae a la lista de siempre — un solo
+    // overlay, un solo manejo de teclado.
+    if ((_cmdMode === 'launcher' || _cmdMode === 'create') && !q.trim()) {
+        if (!_cmdFiltered.length) { el.innerHTML = '<div class="u-empty">Nada que mostrar.</div>'; return; }
+        var groups = [], byName = {};
+        _cmdFiltered.forEach(function(c, i) {
+            var g = c.cat || 'Otros';
+            if (!byName[g]) { byName[g] = []; groups.push(g); }
+            byName[g].push({ c: c, i: i });
+        });
+        el.innerHTML = groups.map(function(g) {
+            return '<div class="cmd-group">' + escapeHtml(g) + '</div>'
+                 + '<div class="cmd-grid">' + byName[g].map(function(x) {
+                       return '<button type="button" class="cmd-tile' + (x.i === _cmdActiveIdx ? ' cmd-active' : '') + '"'
+                            + ' onclick="executeCommand(' + x.i + ')">'
+                            + '<span class="cmd-tile-icon" aria-hidden="true">' + x.c.icon + '</span>'
+                            + '<span class="cmd-tile-label">' + escapeHtml(x.c.label) + '</span>'
+                            + '</button>';
+                   }).join('') + '</div>';
+        }).join('');
+        return;
+    }
+
+    if (!_cmdFiltered.length) {
+        el.innerHTML = '<div class="u-empty">Sin resultados para “' + escapeHtml(q) + '”.</div>';
+        return;
+    }
     el.innerHTML = _cmdFiltered.map(function(c, i) {
         return '<div class="cmd-item' + (i === _cmdActiveIdx ? ' cmd-active' : '') + '" onclick="executeCommand(' + i + ')" onmouseenter="_cmdActiveIdx=' + i + ';renderCommandResults();">' +
             '<span class="cmd-icon">' + c.icon + '</span>' +
-            '<span class="cmd-label">' + c.label + '</span>' +
+            '<span class="cmd-label">' + escapeHtml(c.label) + '</span>' +
+            (c.cat ? '<span class="cmd-cat">' + escapeHtml(c.cat) + '</span>' : '') +
             (c.shortcut ? '<span class="cmd-shortcut">' + c.shortcut + '</span>' : '') +
             '</div>';
     }).join('');

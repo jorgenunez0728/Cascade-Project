@@ -2,6 +2,90 @@
 
 All notable changes to this project, organized by development round.
 
+## v22.2 — Lanzador: las ~50 pantallas, en una sola (2026-09-01)
+
+Etapa 3 del overhaul, y la que ataca el "clustered" directamente. La app tenía **53 destinos
+alcanzables** repartidos en 5 tabs raíz × N sub-pestañas × el menú `⋯ Más`: encontrar algo
+exigía saber de antemano dónde vivía.
+
+| Grupo | Destinos |
+|---|---|
+| Principal | 5 |
+| Plan | 11 |
+| Consumibles | 12 |
+| Datos | 16 |
+| Pruebas | 5 |
+| CoP | 4 |
+
+### `uiNavRegistry()` es LA definición de los destinos — y se DERIVA DEL DOM
+
+No hay lista escrita a mano, por dos razones:
+
+1. **Una lista paralela se desincroniza**, es cuestión de tiempo. Un destino nuevo *tiene* que
+   tener botón para ser alcanzable; si tiene botón, el escáner lo ve. No hay nada que recordar.
+2. **Da lo ALCANZABLE, no lo declarado.** Hoy `_tpTabs` declara 13 ids pero solo 11 tienen
+   botón: ofrecer los 13 llevaría a dos pantallas muertas.
+
+Fuentes: `#platformBar .platform-tab`, las tres barras `#tp-/inv-/pn-tabs-bar` (que incluyen las
+entradas del `⋯ Más` — están en el DOM aunque el menú esté cerrado), `#platform-cop15
+.tab[data-tab]` y `COP_VIEWS`.
+
+- **`COP_VIEWS` se extrajo a nivel de archivo** (`cop_validator.js`). Estaba escrito en línea
+  dentro del `forEach` que pinta la nav, y era la única fuente de navegación que el escáner no
+  podía descubrir: la nav del CoP se pinta bajo demanda, no vive en el DOM inicial.
+- **`dashGo` sigue siendo LA primitiva de navegación profunda** y se le agregaron las dos
+  plataformas que no tienen función `xxSwitchTab`: COP15 (click en `.tab[data-tab]`) y CoP
+  (`copSetView`). Van ahí y no en el lanzador para no tener dos formas de navegar.
+
+### Búsqueda por concepto, no por nombre
+
+Cada destino se enriquece con `HELP_TABS[id].title + .text`, que CLAUDE.md **ya obliga** a
+mantener. Teclear "cobertura" encuentra Dashboard/Familias/Simulador y "calibración" encuentra
+Gases/Equipos, sin mantener ningún diccionario de sinónimos.
+
+- **`_uiFold()` pliega acentos**: en el laboratorio se teclea "calibracion" mucho más seguido
+  que "calibración", y sin esto la búsqueda devolvía **cero resultados** para media plataforma.
+  Las marcas combinantes van como escapes `\\u0300-\\u036f`, no como caracteres literales: en
+  literal son invisibles en el editor y cualquier reencoding las rompe sin que nadie lo note.
+
+### Un solo "+ Crear"
+
+`UI_CREATE_ACTIONS` — aquí sí hace falta una lista literal, no hay DOM del que derivar un verbo
+de alta. Cada fila lleva guarda `typeof`, así que un módulo que no cargue simplemente no aparece.
+**Regla para código nuevo: toda pantalla que dé de alta una entidad agrega su verbo ahí.**
+
+### Dónde viven los botones
+
+**No en el topbar**: CLAUDE.md avisa que `.platform-bar` mide ~1900px expandida y colapsa a `⋯`
+en ≤1600px; meterle dos controles más empeora justo lo que ya está al límite. Van en el menú `⋯`
+y —lo importante— en la cabecera de **HOY**, que es donde abre la app y el único sitio
+garantizado a un toque.
+
+### Palette existente, no uno nuevo
+
+`openCommandPalette(mode)` reusa el overlay, el teclado y `executeCommand` de siempre. Las 6
+entradas de navegación hardcodeadas de `_commandPaletteCommands` se retiraron: cubrían 6 de ~50
+destinos y varias apuntaban a alias legacy (`switchPlatform('testplan')`, `'cop15'`). Ahí quedan
+solo las acciones. El overlay pasó de estilos en línea a clases y de 520×320px a 720px con
+`max-height: 84vh` — estaba dimensionado para 14 comandos y con 59 tiles mostraba grupo y medio.
+
+### Dos defectos de etiqueta que la verificación en navegador destapó
+
+- La pestaña **Pruebas** salía como "PRUEBAS 0": tiene **dos** badges y solo uno lleva la clase
+  `.pt-badge` (el otro es `#inv-alert-badge`). Un `replace()` por cadena sobre `textContent`
+  dejaba restos. `_uiCleanLabel` clona el nodo y borra en la copia.
+- La pestaña **📦 Consumibles de COP15 es un ENLACE CRUZADO** a otra plataforma, así que
+  aparecía bajo "Pruebas" apuntando a Consumibles. Se excluye.
+
+### Verificación
+
+Se navegó **a los 53 destinos, uno por uno**, comprobando que la sección activa sea la esperada:
+cero fallos. Más: sin ids duplicados, sin etiquetas vacías, todos con texto de búsqueda; en
+celular (390px) y tablet (820px) la caja cabe en pantalla, **ningún tile por debajo de 44px** y
+sin desborde horizontal; Enter navega y cierra el overlay.
+
+---
+
 ## v22.1 — HOY: la casilla de marcar por fin se puede tocar (2026-09-01)
 
 Etapa 2 del overhaul. Sanea `.dash-*` — el bloque que pinta la pantalla de arranque y que,
