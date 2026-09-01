@@ -2,6 +2,429 @@
 
 All notable changes to this project, organized by development round.
 
+## v22.5 — El resto de las etapas 7 y 8 (2026-09-01)
+
+### `uiCard` en el resto de las pantallas
+
+- **`renderLabOverview` (panel.js)** — Pipeline, Plan Semanal y Alertas. Es un cambio con
+  doble efecto: esa función pinta **HOY y Datos → Dashboard**, así que colapsar en una deja
+  colapsado en la otra.
+  - **Trampa que costó un paso extra**: `renderLabOverview` **memoiza el HTML**
+    (`_labOverviewCache`). Colapsar una tarjeta cambiaba `uiPref('cards')` pero el memo
+    devolvía el HTML viejo con `open`, y la tarjeta se reabría sola en el siguiente render.
+    El estado de colapso entró a `_labOverviewKey`.
+- **`invRenderMaint` (inventory.js)** — Plan Maestro, Catálogo e Historial. Ya eran
+  `<details>` desde v16.4 pero con estilos propios cada uno. Usan `ui-card-body--flush`
+  porque ya traen su envoltorio con padding: sin eso se acumulaban los dos.
+- **NO migrado a propósito: `copBuildOverviewHTML`.** El CoP tiene su propio vocabulario de
+  82 clases `.cop-*` (v19) y `_copFamCardHTML` es un `<div onclick>` con un `<button>`
+  anidado a propósito (v20.5). Migrarlo es una ronda propia, no un apéndice de ésta.
+
+### "Crear otro" en instrumento y actividad de mantenimiento
+
+Mismo patrón que v22.3: `uiCreateAnotherHTML` pinta la casilla, `uiCreateAnotherChecked` la
+lee **antes** de cerrar. Al reabrir, `invEqAutofillFromAsset` / `_invLastInstrumentOfAsset`
+(v16.5) rellenan el equipo padre, así que la segunda alta arranca casi llena.
+
+### "Solo míos" en Proyectos — y dónde NO se puso
+
+**`pnProjStepsFor(p)` es LA definición de los pasos visibles** de un proyecto. Usa
+`uiPref('onlyMine')`, **el mismo de HOY**, así que el filtro viaja entre pantallas.
+
+- **Solo en Tabla y Kanban**, que son las vistas donde uno actúa sobre un paso. **Gantt,
+  Curva S, Línea de tiempo y Carga se quedan con TODOS los pasos**: son vistas analíticas y
+  un Gantt que solo muestra los pasos de uno **miente sobre el proyecto**. Ahí el control
+  sería engañoso, así que ni siquiera se ofrece.
+- Un paso **sin responsable** se muestra siempre — mismo criterio que `dashRenderBoard`
+  (`!a.assignee || a.assignee === currentOp`).
+- Cuando el filtro esconde algo **lo dice** (`N de otros ocultos`): un filtro activo que no se
+  anuncia es una trampa.
+
+**NO se agregó a Mi semana, y esa es la decisión importante de esta ronda.** El plan semanal
+**no tiene concepto de responsable** — cero `assignee` en `testplan.js`. El control habría
+sido decorativo: o mostraba todo o no mostraba nada. Es exactamente la trampa que CLAUDE.md
+registra de v16.8, y el mismo defecto que v22.3 acaba de señalar con los sliders de región a
+peso 0. Darle responsable a cada prueba del plan es un cambio de modelo de datos y una
+funcionalidad distinta, no un checkbox.
+
+---
+
+## v22.4 — Movimiento: un solo sistema, y el acordeón que nadie usaba (2026-09-01)
+
+Etapa 6 del overhaul. El diagnóstico previo decía "los tokens de movimiento casi no se usan";
+al medirlo resultó **menos dramático y más interesante**:
+
+| Duración | Usos | Token |
+|---|---|---|
+| `0.15s` | 66 | `--dur-fast` — **exacto** |
+| `0.2s` | 60 | `--dur-base` — **exacto** |
+| `0.3s` | 29 | `--dur-slow` — **exacto** |
+| `0.25s` | 10 | ninguno |
+
+**155 de las 165 duraciones cortas ya coincidían exactamente con los tres tokens.** No había
+caos de movimiento: había un sistema coherente que no se nombraba a sí mismo. Tokenizarlo es
+mantenibilidad (cambiar el ritmo de la plataforma pasa a ser cambiar tres valores), **no un
+cambio visual** — y conviene decirlo así en vez de venderlo como que se va a sentir distinto.
+
+- **10 → 106 usos de `var(--dur-*)`**; cero duraciones cortas crudas. Las `0.25s` se ajustaron a
+  `--dur-base` (50ms en una sombra de hover es imperceptible y deja el sistema sin duraciones
+  sin nombre).
+- **Se dejan a propósito** ~17 one-offs cortos (0.1s de micro-feedback, 0.6s de un rebote) y los
+  bucles ambientales de 1–15s, que no son transiciones. Snapear un rebote de 0.6s **sí** se
+  vería.
+- **Corrección de un dato del diagnóstico**: los "49 easings hardcodeados" eran 48 *dentro* de
+  `var(--ease-out)` que el grep contó por error, más 1 real. El easing ya estaba tokenizado.
+
+### El acordeón que existía y nadie usaba
+
+`@keyframes accordionOpen` y la regla `details.acc` llevaban tiempo en el archivo, pero exigían
+la clase `.acc` y **solo 5 de los 41 `<details>` de la app la llevaban**: los otros 36 abrían de
+golpe — incluidas las tarjetas `uiCard` creadas en v22.3.
+
+- La regla pasa a aplicar a **todo `<details>` abierto** (en esta app un `<details>` es siempre
+  una sección plegable de contenido, no hay ninguno con otra semántica). `.acc` se conserva.
+- **Se anima solo la APERTURA, a propósito.** Animar el cierre exige medir altura en JS y
+  pelearse con el momento en que el navegador colapsa el `<details>`; cerrar es una acción de
+  descarte y nadie necesita verla.
+- **Excepción: nada de animar un contenedor con una gráfica dentro** (`:has(canvas)`). La
+  animación solo toca `opacity`/`transform`, que **no** cambian la caja de layout, así que
+  Chart.js mediría bien — pero v20.3 ya costó una ronda por medir un canvas en mal momento y no
+  vale la pena volver a apostar. Verificado en navegador: `:has()` soportado, el div normal
+  anima, el div con canvas no, y el canvas mide correcto.
+- **El chevron gira en vez de cambiar de carácter.** Eran dos símbolos (`▾` / `▸`)
+  intercambiados por `content`, que **no se puede animar**: se leía como dos flechas
+  parpadeando en vez de un mismo objeto girando.
+
+### Movimiento reducido: dos reglas que se contradecían
+
+Había **cuatro** bloques `prefers-reduced-motion` y dos de ellos declaraban `*` con
+`!important` y valores **contradictorios** de `transition-duration` (`0.01ms` en uno, `120ms` en
+el otro). Ganaba el segundo por posición, así que el primero llevaba tiempo muerto y quien
+leyera el archivo se llevaba una idea equivocada de qué hace la app.
+
+- Consolidados en **un solo bloque autoritativo**, conservando el criterio del que ganaba (que
+  es el correcto): se matan las animaciones de keyframes —movimiento decorativo— pero se deja
+  una transición corta de 120ms, porque un cambio de color o de opacidad no es "movimiento" y
+  quitarlo del todo convierte el feedback de estado en un corte seco. `scroll-behavior` sí se
+  anula: el scroll animado sí es movimiento.
+- **REGLA: no agregar otro bloque `*` de reduced-motion.** Las excepciones por componente (como
+  `.cop-fam-card`) van en su propia regla.
+
+### No verificado
+
+El único `<details>` de la app con una gráfica dentro es el **burndown de Plan → Dashboard**, y
+esa pantalla necesita datos de producción importados para pintarse: con una base vacía no
+renderiza ningún canvas. La exclusión `:has(canvas)` se verificó con un caso construido a mano,
+no sobre el burndown real.
+
+---
+
+## v22.3 — `uiCard`, "Solo míos" que persiste y "Crear otro" (2026-09-01)
+
+Etapas 7 y 8 del overhaul.
+
+### `uiCard(opts)` es LA primitiva de tarjeta/widget
+
+La app pinta HTML desde strings, así que la primitiva es un **builder**, no un componente.
+Es **PURA**: mismos opts → mismo string, sin tocar el DOM, testeable en Node. El estado de
+colapso se le pasa (`uiCardOpen` lo lee), para que el llamador decida.
+
+```
+<details class="ui-card ui-card--<accent>">
+  <summary class="ui-card-head">  icono · título · chip · acciones · chevron
+  <div class="ui-card-body">
+```
+
+- **El chip del encabezado muestra el dato clave SIN abrir la tarjeta**: cuántos pendientes,
+  si la ponderación suma 100, cuántas regiones, si el empuje por antigüedad está apagado.
+  Es lo que hace que colapsar no sea perder información.
+- **El colapso se guarda en `uiPref('cards')[id]`** — sin clave nueva de `localStorage`, va
+  dentro de `kia_ui_prefs` (v22.0). Por dispositivo, sin sincronizar.
+- **Las acciones del encabezado van envueltas en `onclick="event.stopPropagation()"`**: sin
+  eso, tocar un botón del encabezado además colapsa la tarjeta.
+- `bodyFlush` para cuerpos que ya traen su propio padding (listas de filas a sangre), o se
+  acumulan los dos.
+- **Aplicada en**: los 6 grupos de HOY (`dashRenderBoard`, que reemplaza las 5 reglas
+  `.dash-group--*` por `accent`) y las 3 tarjetas de Plan → Armar semana
+  (`tpBuildPriorityKnobsHTML`), la pantalla más densa de la app. Las dos de "Peso por región"
+  y "Empuje por antigüedad" ahora nacen **cerradas**: es el "no clustered" más literal.
+- `opts.open` manda sobre la preferencia guardada — el chip "⚙️ A medida" abre "Peso por
+  región" a propósito y no puede quedar cerrada porque el dispositivo la cerró la última vez.
+
+### "Solo míos" dejó de perderse
+
+Vivía en `window._dashOnlyMine`, o sea **solo en memoria**: quien trabaja filtrado tenía que
+volver a marcarlo en cada recarga. Ahora es `uiPref('onlyMine')` vía `dashOnlyMine()` /
+`dashSetOnlyMine()`; la global se conserva como alias por si algún código viejo la lee. No se
+sincroniza a propósito: el filtro de un técnico no debe cambiarle la pantalla a otro.
+
+### "Crear otro" — capturar en serie
+
+Dar de alta es repetitivo y quien captura diez cilindros abría el modal diez veces. Las
+pantallas de alta **no usan `showModal`** (se inyectan con `innerHTML`), así que en vez de
+tocar `showModal` son dos helpers que cada flujo llama:
+
+- `uiCreateAnotherHTML(id, label)` pinta la casilla.
+- **`uiCreateAnotherChecked(id)` la lee ANTES de cerrar** — cerrar destruye el modal y con él
+  la casilla. Ese orden es la parte que se puede romper sin que se note.
+- **La elección se recuerda por flujo y por dispositivo** (dentro de `kia_ui_prefs`): quien
+  captura siempre en serie no la vuelve a marcar.
+- Al reabrir se **conserva lo que se repite** (responsable, fecha; proveedor y siguiente hueco
+  vía los helpers de autollenado de v16.5) y se **limpia lo que cambia** (el título), con el
+  foco puesto ahí.
+- Aplicado en ➕ Actividad y en el alta de cilindro. Solo en alta, nunca al editar.
+
+### Un aviso que faltaba
+
+En Armar semana, si `weights.region` está en **0%** los diez sliders de peso por región **no
+hacen absolutamente nada** (v20 ya lo documentaba). Ahora la tarjeta lo dice en un chip ámbar
+en vez de dejar que alguien los mueva creyendo que sirven.
+
+### Verificación
+
+Colapsar una tarjeta y recargar: sigue colapsada (`{"cards":{"dash-inventario":false}}`).
+"Solo míos" sobrevive a la recarga con la casilla marcada. Dos actividades creadas en serie
+sin cerrar el modal, conservando responsable y limpiando título; al desmarcar, cierra. Y la
+regresión completa: 5 plataformas × 3 viewports, los 53 destinos del lanzador, y el área
+táctil de la casilla de HOY.
+
+---
+
+## v22.2 — Lanzador: las ~50 pantallas, en una sola (2026-09-01)
+
+Etapa 3 del overhaul, y la que ataca el "clustered" directamente. La app tenía **53 destinos
+alcanzables** repartidos en 5 tabs raíz × N sub-pestañas × el menú `⋯ Más`: encontrar algo
+exigía saber de antemano dónde vivía.
+
+| Grupo | Destinos |
+|---|---|
+| Principal | 5 |
+| Plan | 11 |
+| Consumibles | 12 |
+| Datos | 16 |
+| Pruebas | 5 |
+| CoP | 4 |
+
+### `uiNavRegistry()` es LA definición de los destinos — y se DERIVA DEL DOM
+
+No hay lista escrita a mano, por dos razones:
+
+1. **Una lista paralela se desincroniza**, es cuestión de tiempo. Un destino nuevo *tiene* que
+   tener botón para ser alcanzable; si tiene botón, el escáner lo ve. No hay nada que recordar.
+2. **Da lo ALCANZABLE, no lo declarado.** Hoy `_tpTabs` declara 13 ids pero solo 11 tienen
+   botón: ofrecer los 13 llevaría a dos pantallas muertas.
+
+Fuentes: `#platformBar .platform-tab`, las tres barras `#tp-/inv-/pn-tabs-bar` (que incluyen las
+entradas del `⋯ Más` — están en el DOM aunque el menú esté cerrado), `#platform-cop15
+.tab[data-tab]` y `COP_VIEWS`.
+
+- **`COP_VIEWS` se extrajo a nivel de archivo** (`cop_validator.js`). Estaba escrito en línea
+  dentro del `forEach` que pinta la nav, y era la única fuente de navegación que el escáner no
+  podía descubrir: la nav del CoP se pinta bajo demanda, no vive en el DOM inicial.
+- **`dashGo` sigue siendo LA primitiva de navegación profunda** y se le agregaron las dos
+  plataformas que no tienen función `xxSwitchTab`: COP15 (click en `.tab[data-tab]`) y CoP
+  (`copSetView`). Van ahí y no en el lanzador para no tener dos formas de navegar.
+
+### Búsqueda por concepto, no por nombre
+
+Cada destino se enriquece con `HELP_TABS[id].title + .text`, que CLAUDE.md **ya obliga** a
+mantener. Teclear "cobertura" encuentra Dashboard/Familias/Simulador y "calibración" encuentra
+Gases/Equipos, sin mantener ningún diccionario de sinónimos.
+
+- **`_uiFold()` pliega acentos**: en el laboratorio se teclea "calibracion" mucho más seguido
+  que "calibración", y sin esto la búsqueda devolvía **cero resultados** para media plataforma.
+  Las marcas combinantes van como escapes `\\u0300-\\u036f`, no como caracteres literales: en
+  literal son invisibles en el editor y cualquier reencoding las rompe sin que nadie lo note.
+
+### Un solo "+ Crear"
+
+`UI_CREATE_ACTIONS` — aquí sí hace falta una lista literal, no hay DOM del que derivar un verbo
+de alta. Cada fila lleva guarda `typeof`, así que un módulo que no cargue simplemente no aparece.
+**Regla para código nuevo: toda pantalla que dé de alta una entidad agrega su verbo ahí.**
+
+### Dónde viven los botones
+
+**No en el topbar**: CLAUDE.md avisa que `.platform-bar` mide ~1900px expandida y colapsa a `⋯`
+en ≤1600px; meterle dos controles más empeora justo lo que ya está al límite. Van en el menú `⋯`
+y —lo importante— en la cabecera de **HOY**, que es donde abre la app y el único sitio
+garantizado a un toque.
+
+### Palette existente, no uno nuevo
+
+`openCommandPalette(mode)` reusa el overlay, el teclado y `executeCommand` de siempre. Las 6
+entradas de navegación hardcodeadas de `_commandPaletteCommands` se retiraron: cubrían 6 de ~50
+destinos y varias apuntaban a alias legacy (`switchPlatform('testplan')`, `'cop15'`). Ahí quedan
+solo las acciones. El overlay pasó de estilos en línea a clases y de 520×320px a 720px con
+`max-height: 84vh` — estaba dimensionado para 14 comandos y con 59 tiles mostraba grupo y medio.
+
+### Dos defectos de etiqueta que la verificación en navegador destapó
+
+- La pestaña **Pruebas** salía como "PRUEBAS 0": tiene **dos** badges y solo uno lleva la clase
+  `.pt-badge` (el otro es `#inv-alert-badge`). Un `replace()` por cadena sobre `textContent`
+  dejaba restos. `_uiCleanLabel` clona el nodo y borra en la copia.
+- La pestaña **📦 Consumibles de COP15 es un ENLACE CRUZADO** a otra plataforma, así que
+  aparecía bajo "Pruebas" apuntando a Consumibles. Se excluye.
+
+### Verificación
+
+Se navegó **a los 53 destinos, uno por uno**, comprobando que la sección activa sea la esperada:
+cero fallos. Más: sin ids duplicados, sin etiquetas vacías, todos con texto de búsqueda; en
+celular (390px) y tablet (820px) la caja cabe en pantalla, **ningún tile por debajo de 44px** y
+sin desborde horizontal; Enter navega y cierra el overlay.
+
+---
+
+## v22.1 — HOY: la casilla de marcar por fin se puede tocar (2026-09-01)
+
+Etapa 2 del overhaul. Sanea `.dash-*` — el bloque que pinta la pantalla de arranque y que,
+según el propio diagnóstico de v22.0, era el que más violaba el sistema que el proyecto
+documenta. Incluye **dos regresiones que introdujo v22.0** y que se corrigen aquí.
+
+### Objetivo táctil: `.u-hit` es LA técnica para crecer el área sin crecer la caja
+
+`.dash-row-check` medía **17×17px**: la mitad del mínimo WCAG 2.2 (24px), en la pantalla que
+abre la app, en tablet. Subirla a 44px destruiría la fila.
+
+- **`.u-hit` separa la caja visible del área táctil**: la caja se queda del tamaño que se ve y
+  un `::after` absoluto extiende el ÁREA. Se estira a `--target-min` **solo bajo
+  `@media (pointer: coarse)`** — el escritorio con ratón conserva su densidad de filas, la
+  tablet gana el objetivo. No hay que elegir entre las dos.
+- **Tiene que ir sobre un `<label>` envolvente, NO sobre el `<input>`**: los pseudo-elementos
+  **no aplican a elementos reemplazados**, así que `input.u-hit::after` habría sido CSS que no
+  hace nada. Al envolver, además, tocar cualquier punto del área alterna la casilla.
+- Verificado en navegador con puntero grueso: caja visible 20px, área medida **44×44**, y un
+  clic a 18px del centro —fuera de la casilla— marca la tarea en los datos y tacha la fila.
+- `--target-min`/`--target-abs` estaban declarados y se usaban **cero veces**, con 21 `44px`
+  escritos a mano. Ahora hay 19 usos del token.
+
+### Regresión de v22.0: más letra sin más ancho
+
+`.dash-group-rows` tenía `minmax(380px, 1fr)` fijo. Con la tipografía de v22.0 el título de una
+fila envolvía a **cuatro renglones** a 1280px — el modo cómodo se veía **peor** que el compacto
+justo donde debía verse mejor.
+
+- **`--dash-col-min` es un token de DENSIDAD** (380 / 440 / 520px). Más aire exige más ancho de
+  columna, o no es más aire. A 1280px cómodo pasa de 3 columnas a **2**, y el título de 4
+  renglones a **2**.
+
+### Regresión de v22.0: el chip perdió su fondo
+
+`.dash-row--atrasado` pasó de un tinte del 4% a `var(--danger-bg)` — **el mismo token que usa el
+chip "Atrasado" encima**. El chip se quedó sin contraste contra su propia fila y se leía como
+texto rojo suelto.
+
+- **Cuarto nivel de color: `*-tint`**, más claro que `*-bg`. Regla: `*-bg` es para el chip,
+  `*-tint` para la fila que lo contiene. Una fila resaltada y un chip encima **no pueden
+  compartir token**.
+
+### Saneo del bloque
+
+- **0 hexes crudos** en `.dash-*` (había ~20: `#1e293b`, `#64748b`, `#94a3b8`, `#f1f5f9`,
+  `#d97706`, `#fef3c7`, `#059669`, `#d1fae5`, `#cbd5e1`, `#475569`…). `#64748b` en particular
+  es el que `:root` documenta como retirado por contraste 4.76:1.
+- **Título y metadato estaban invertidos**: el título en 13px y el metadato en 15px. Ahora
+  título `--fs-sm`, metadato `--fs-xs`.
+- **Los campos del modal de actividad a `--fs-base` (16px)**: por debajo de 16px iOS hace zoom
+  automático al enfocar un campo y no vuelve solo. Estaban en 13px.
+- Chips y ETAs pasan a los tokens de rol (`--ok-*`, `--warn-*`, `--danger-*`, `--info-*`) en vez
+  de `rgba()` inventados uno por uno.
+
+### Nota de método
+
+Dos falsos negativos costaron tiempo y quedan anotados para no repetirlos al verificar en
+navegador: el **overlay del tour** tapa toda la página y bloquea los clics (la clave del tour
+general es `kia_tour_done` a secas, **no** `kia_tour_done_global` — es un alias que no sigue el
+patrón), y **`scrollIntoView` es animado** por `scroll-behavior: smooth`, así que medir en el
+mismo `evaluate()` devuelve la posición vieja.
+
+---
+
+## v22.0 — Aire: la app dejó de estar escrita en 12px (2026-09-01)
+
+Etapa 1 del overhaul de fluidez y accesibilidad, disparado por la comparación con QLIMS.
+Diagnóstico previo: el sistema de diseño de `styles.css` estaba **bien construido y a
+medias aplicado**. Escala tipográfica, rejilla de 4px, tokens de movimiento,
+`prefers-reduced-motion`, `--target-min: 44px` y contrastes WCAG anotados — todo ahí, y
+las pantallas obedeciéndolo de forma desigual.
+
+### La causa medida de "se ve apretado"
+
+`var(--fs-xs)` (12px), cuyo propio comentario decía *"mínimo legal — solo metadatos"*, se
+usaba **898 veces** (775 en JS + 123 en CSS) contra **403** de `--fs-sm` (14px). En
+`testplan.js` la proporción era 4:1 (301 vs 75), en `inventory.js` 199 vs 89, en
+`panel.js` 107 vs 31. **El tamaño de cuerpo de facto de la plataforma era el que el
+sistema declaraba como piso legal para metadatos.**
+
+- **`--fs-2xs: 12px` es ahora el piso ABSOLUTO** y documentado — metadato verdadero.
+  `--fs-xs` sube a 13px y `--fs-sm` a 15px en el modo cómodo.
+- **`--lh-base` 1.5 → 1.6.** Es la palanca más barata del retuneo: `line-height` **se
+  hereda**, así que los ~900 sitios que fijan `font-size` en línea (y no `line-height`)
+  ganaron altura de caja sin tocar ni uno.
+- La escala de espaciado **se detenía en 32px**, así que no existía vocabulario para
+  "aire" y toda separación generosa terminaba como px crudo fuera de rejilla. Se agregaron
+  `--space-3xl` (56px) y `--space-4xl` (72px), más `--space-2xs` (2px) como el único
+  off-grid legítimo (hairlines y chips).
+
+### Densidad elegible — `data-density` sobre `<html>`
+
+Tres modos (`compacto` | `comodo` | `amplio`), mismo patrón que `data-theme`. Selector en
+**Datos → Sistema**, donde el efecto se ve en la propia pantalla al instante.
+
+- **REGLA QUE NO SE ROMPE: un modo de densidad SOLO redeclara tokens, nunca reglas.** Nada
+  de `calc()` ni multiplicadores — cada valor es un peldaño real de la rejilla de 4px,
+  escrito a mano y verificable. Si una pantalla necesita una regla propia para caber en
+  compacto, el problema es la pantalla, no la densidad.
+- `compacto` devuelve la escala de v21.1 en tipografía e interlineado y el espaciado a sus
+  mismos peldaños, pero **no es píxel-idéntico**: el codemod redondeó a la rejilla, así que
+  un `gap` de 6px quedó en 8px también en compacto. Es la vía de escape, no una
+  reproducción exacta.
+- Se aplica **al parsear `app.js`**, no en `DOMContentLoaded`: esperar al bootstrap dejaba
+  un parpadeo visible de cómodo a compacto en el arranque de quien eligió compacto.
+
+### `uiPref` es LA definición de las preferencias de interfaz
+
+Una sola clave `kia_ui_prefs` (`{density, onlyMine, searchScope, cards}`) en vez de una por
+preferencia. Reaplica defaults en **cada lectura** (patrón de `tpPlannerCfg`, v18.0): una
+clave corrupta o un pull de código viejo no deben dejar un campo en `undefined`. **No se
+sincroniza a propósito** — mismo criterio que `copState.ovHidden` (v20.5): que un técnico
+prefiera vista compacta no debe cambiarle la pantalla a otro.
+
+### `styles.css` era peor infractor que el JS
+
+617 declaraciones de `padding`/`gap`/`margin`/`border-radius` en px crudo contra solo ~141
+usos de la escala. Mientras eso siguiera así, **cualquier palanca global de densidad no
+tocaba nada**. Codemod con allowlist de propiedades y lookahead por delimitador literal:
+
+| | antes | después |
+|---|---|---|
+| `var(--space-*)` | 141 | **811** |
+| `var(--radius-*)` | 101 | **236** |
+| px crudos en esas 4 propiedades | 617 | **71** |
+
+- **La barra de navegación quedó EXCLUIDA a propósito** (`.platform-bar`, `.platform-tab`,
+  `.topbar`, `.tbm-*`, `.bottom-nav`). Mide ~1900px expandida: engordar su `padding: 14px
+  28px` habría traído de vuelta el envolvimiento a segunda fila que v17.9 corrigió. El
+  chrome de navegación **no escala con la densidad del contenido**. Verificado: sigue en
+  50px de alto en cómodo y compacto.
+- Excluidos también `@keyframes` (un `padding` tokenizado deja de interpolar suave),
+  `@media print`, y los valores negativos (solapamientos intencionales como `-22px`).
+
+### Dos variables que se usaban sin existir
+
+`.card` y `.tab-panel` (`styles.css:488-493`) llamaban `var(--radius)` y `var(--shadow)`,
+**nunca declaradas** → valor inválido → esquinas cuadradas y sin sombra desde hacía
+meses, con `padding: 16px` fijo que ignoraba cualquier densidad. Se declaran como alias de
+la escala real (`--radius-lg` / `--shadow-md`) en vez de borrar los usos.
+
+### Nota de deuda
+
+`--target-min` (44px) y `--target-abs` (24px) están declarados y se usan **cero veces**;
+hay 21 `44px` escritos a mano. Los objetivos táctiles siguen desconectados del sistema —
+es la etapa siguiente, junto con el saneo de `.dash-*`, donde `.dash-row-check` mide
+**17×17px** contra el mínimo WCAG 2.2 de 24px.
+
+---
+
 ## v21.1 — Números confiables y la gasolina en la nube (2026-08-30)
 
 Fases 3 y 4 del overhaul de captura. La 1 y la 2 arreglaron **cómo se captura**; éstas

@@ -1442,6 +1442,17 @@ function copRender() {
     if (typeof a11yClickables === 'function') a11yClickables(container);
 }
 
+// v22.2 — LA definición de las vistas del CoP. Estaba escrita en línea dentro del
+// forEach que pinta la nav, así que era la única fuente de navegación de la app que
+// el lanzador (uiNavRegistry, app.js) no podía descubrir: la nav del CoP se pinta
+// bajo demanda, no vive en el DOM inicial como las barras de pestañas.
+var COP_VIEWS = [
+    ['overview',  '📊 Panorama'],
+    ['validator', '📋 Validador'],
+    ['spc',       '📈 Control SPC'],
+    ['dossier',   '🗂️ Expediente']
+];
+
 function copSetView(v) {
     copState.view = ['overview', 'validator', 'spc', 'dossier'].indexOf(v) !== -1 ? v : 'overview';
     copPersist();
@@ -2100,7 +2111,7 @@ function copBuildHTML() {
 
     // Navegación
     html += '<nav class="cop-nav" aria-label="Vistas de CoP">';
-    [['overview', '📊 Panorama'], ['validator', '📋 Validador'], ['spc', '📈 Control SPC'], ['dossier', '🗂️ Expediente']].forEach(function(t) {
+    COP_VIEWS.forEach(function(t) {
         var active = view === t[0];
         html += '<button type="button" class="cop-nav-btn' + (active ? ' active' : '') + '"' +
                 (active ? ' aria-current="page"' : '') +

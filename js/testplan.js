@@ -3067,52 +3067,82 @@ function tpBuildPriorityKnobsHTML(opts) {
     var regions = Array.from(new Set((tpState.planData || []).map(function(c) { return c.rgn; }).filter(Boolean))).sort();
 
     var h = '';
+    // v22.3 — Las tres tarjetas de esta pantalla pasan por uiCard (app.js): un solo
+    // encabezado, colapso recordado por dispositivo, y el chip muestra el dato clave
+    // SIN abrir la tarjeta (el total de ponderación, cuántas regiones, si el empuje
+    // está apagado). Es la pantalla más densa de la app, así que es donde más rinde.
+    var _uc = (typeof uiCard === 'function');
 
     // ── Pesos: los tres que se ajustan de verdad, arriba; los otros dos plegados ──
-    h += '<div class="tp-card">';
-    h += '<div class="tp-card-title" data-help="tp-weights-help"><span>⚖️ Ponderación</span></div>';
-    h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:10px;">Cuánto pesa cada factor al ordenar candidatos. Deben sumar 100.</p>';
+    var bWeights = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:10px;">Cuánto pesa cada factor al ordenar candidatos. Deben sumar 100.</p>';
     [['compliance','📊 Déficit (cumplimiento)'], ['volume','📦 Volumen de producción'], ['region','🌍 Importancia de región']]
         .forEach(function(p) {
-            h += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
+            bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
                 set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
         });
-    h += '<details style="margin-top:4px;"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">Más factores</summary><div style="padding-top:8px;">';
+    bWeights += '<details style="margin-top:4px;"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">Más factores</summary><div style="padding-top:8px;">';
     [['newConfig','🆕 Config nueva'], ['urgency','⏰ Urgencia (producción próxima)']].forEach(function(p) {
-        h += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
+        bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
             set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
     });
-    h += '</div></details>';
-    h += '<div style="margin-top:8px;padding:8px;background:var(--tp-dark);border:1px solid var(--tp-border);border-radius:6px;text-align:center;">' +
-         '<span style="font-size: var(--fs-sm);color:' + (wTotal === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';font-weight:700;">' +
-         'Total: ' + wTotal + '% ' + (wTotal === 100 ? '✓' : '(ajustar a 100%)') + '</span></div>';
-    h += '</div>';
+    bWeights += '</div></details>';
+
+    if (_uc) {
+        h += uiCard({
+            id: 'tp-knobs-weights', icon: '⚖️', title: 'Ponderación', accent: 'testplan',
+            help: 'tp-weights-help', body: bWeights,
+            count: { label: 'Total ' + wTotal + '%' + (wTotal === 100 ? ' ✓' : ' — ajustar'),
+                     tone: wTotal === 100 ? 'ok' : 'warn' }
+        });
+    } else {
+        h += '<div class="tp-card"><div class="tp-card-title" data-help="tp-weights-help"><span>⚖️ Ponderación</span></div>' + bWeights + '</div>';
+    }
 
     // ── Peso por región (plegado: 10 sliders alargaban la columna de más) ──
-    h += '<div class="tp-card" style="margin-top:14px;">';
-    h += '<details' + (opts.openRegions ? ' open' : '') + '>';
-    h += '<summary class="tp-card-title" data-help="tp-region-priority-help" style="cursor:pointer;list-style:revert;"><span>🌍 Peso por región</span></summary>';
-    h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:10px 0;">Importancia relativa de cada mercado (0-100). Pesa según el factor "Importancia de región" de arriba.</p>';
-    regions.filter(function(r) { return r !== '*'; }).concat(['*']).forEach(function(r) {
-        h += _tpSliderHTML({
+    var regionList = regions.filter(function(r) { return r !== '*'; }).concat(['*']);
+    var bRegions = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:10px 0;">Importancia relativa de cada mercado (0-100). Pesa según el factor "Importancia de región" de arriba.</p>';
+    // El peso de región puede estar legítimamente en 0, y entonces estos sliders no
+    // hacen absolutamente nada (v20). Se dice, no se esconde.
+    if (!(+w.region)) {
+        bRegions = '<p class="u-chip u-chip--warn" style="display:block;margin:0 0 10px;">El factor "Importancia de región" está en 0%: estos controles no afectan al orden hasta que lo subas.</p>' + bRegions;
+    }
+    regionList.forEach(function(r) {
+        bRegions += _tpSliderHTML({
             label: (r === '*' ? 'Otras (default)' : r), labelColor: tpRegionColor(r),
             value: (rp[r] !== undefined ? rp[r] : 50), min: 0, max: 100, step: 5, accent: tpRegionColor(r),
             set: "if(!tpState.regionPriority)tpState.regionPriority={};tpState.regionPriority['" + r + "']=+this.value",
             onInput: onInput
         });
     });
-    h += '</details></div>';
 
-    // ── Empuje por antigüedad (antes no tenía UI en ninguna parte) ──
-    h += '<div class="tp-card" style="margin-top:14px;">';
-    h += '<details>';
-    h += '<summary class="tp-card-title" data-help="tp-aging-help" style="cursor:pointer;list-style:revert;"><span>⏳ Empuje por antigüedad</span></summary>';
-    h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:10px 0;">Cuánto sube de puntaje una config por cada semana que lleva postergada. Ponlo en 0 para que la antigüedad deje de influir.</p>';
-    h += _tpSliderHTML({ label: 'Por semana', value: (+ab.perWeek || 0), unit: ' pts', min: 0, max: 15, step: 1,
-        set: "if(!tpState.agingBoost)tpState.agingBoost={};tpState.agingBoost.perWeek=+this.value", onInput: onInput });
-    h += _tpSliderHTML({ label: 'Tope acumulado', value: (+ab.max || 0), unit: ' pts', min: 0, max: 50, step: 5,
-        set: "if(!tpState.agingBoost)tpState.agingBoost={};tpState.agingBoost.max=+this.value", onInput: onInput });
-    h += '</details></div>';
+    var bAging = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:10px 0;">Cuánto sube de puntaje una config por cada semana que lleva postergada. Ponlo en 0 para que la antigüedad deje de influir.</p>'
+        + _tpSliderHTML({ label: 'Por semana', value: (+ab.perWeek || 0), unit: ' pts', min: 0, max: 15, step: 1,
+            set: "if(!tpState.agingBoost)tpState.agingBoost={};tpState.agingBoost.perWeek=+this.value", onInput: onInput })
+        + _tpSliderHTML({ label: 'Tope acumulado', value: (+ab.max || 0), unit: ' pts', min: 0, max: 50, step: 5,
+            set: "if(!tpState.agingBoost)tpState.agingBoost={};tpState.agingBoost.max=+this.value", onInput: onInput });
+
+    if (_uc) {
+        h += uiCard({
+            id: 'tp-knobs-regions', icon: '🌍', title: 'Peso por región', accent: 'testplan',
+            help: 'tp-region-priority-help', body: bRegions,
+            // openRegions manda sobre la preferencia guardada: el chip "⚙️ A medida"
+            // abre esta tarjeta a propósito, no puede quedar cerrada porque el
+            // dispositivo la cerró la última vez.
+            open: opts.openRegions ? true : undefined,
+            defaultOpen: false,
+            count: { label: regionList.length + (regionList.length === 1 ? ' región' : ' regiones'),
+                     tone: (+w.region) ? 'neutral' : 'warn' }
+        });
+        h += uiCard({
+            id: 'tp-knobs-aging', icon: '⏳', title: 'Empuje por antigüedad', accent: 'testplan',
+            help: 'tp-aging-help', body: bAging, defaultOpen: false,
+            count: (+ab.perWeek) ? { label: '+' + (+ab.perWeek) + ' pts/sem', tone: 'neutral' }
+                                 : { label: 'apagado', tone: 'neutral' }
+        });
+    } else {
+        h += '<div class="tp-card" style="margin-top:14px;"><div class="tp-card-title"><span>🌍 Peso por región</span></div>' + bRegions + '</div>';
+        h += '<div class="tp-card" style="margin-top:14px;"><div class="tp-card-title"><span>⏳ Empuje por antigüedad</span></div>' + bAging + '</div>';
+    }
 
     return h;
 }

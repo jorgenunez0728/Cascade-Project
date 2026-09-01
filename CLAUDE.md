@@ -1172,6 +1172,149 @@ las dos, no una:
   en la tabla, que es informativa y no decide el veredicto. La clave `co2TolerancePct` se quitó
   también de `_mergedHomo` en `fbPullApply` (se arma desde cero, así que basta con no listarla).
 
+## v22.0 — Aire: densidad de la interfaz y tokens que por fin mandan
+
+- **`uiPref(k[, v])` (app.js) es LA definición de las preferencias de interfaz** —
+  `kia_ui_prefs` = `{density, onlyMine, searchScope, cards}`. Toda preferencia nueva de UI va
+  ahí, NO en una clave propia. Reaplica defaults en **cada lectura** (patrón `tpPlannerCfg`,
+  v18.0). **No se sincroniza a propósito** (criterio de `copState.ovHidden`, v20.5): el gusto
+  de un técnico no le cambia la pantalla a otro.
+- **`densityGet/Apply/Set` (app.js) + `data-density` en `<html>`**, tres modos
+  (`compacto` | `comodo` | `amplio`), mismo patrón que `data-theme`. Se aplica **al parsear
+  app.js**, no en `DOMContentLoaded`: esperar al bootstrap dejaba un parpadeo visible.
+- **REGLA QUE NO SE ROMPE: un modo de densidad SOLO redeclara tokens, nunca reglas.** Nada de
+  `calc()` ni multiplicadores — cada valor es un peldaño real de la rejilla de 4px, escrito a
+  mano. Si una pantalla necesita una regla propia para caber en compacto, el problema es la
+  pantalla, no la densidad.
+- **`--fs-2xs` (12px) es el piso ABSOLUTO** y significa metadato verdadero. `--fs-xs` es 13px
+  en cómodo. Deuda conocida: `--fs-xs` todavía carga ~775 usos en JS que son texto de CUERPO
+  mal clasificado (era el tamaño de facto de la app); reclasificarlos a `--fs-sm` por módulo
+  es trabajo pendiente, y hasta entonces `--fs-xs` está inflado a propósito.
+- **`--lh-base` es la palanca barata**: `line-height` se hereda, así que subirlo da altura de
+  caja a los ~900 sitios que fijan `font-size` en línea sin tocar ninguno.
+- **PROHIBIDO px crudo en `padding`/`margin`/`gap`/`border-radius`** en `styles.css`: usar la
+  escala (`--space-*`, `--radius-*`). Quedan 71 excepciones, todas deliberadas.
+- **El chrome de navegación NO escala con la densidad.** `.platform-bar`, `.platform-tab`,
+  `.topbar`, `.tbm-*`, `.bottom-nav` quedaron fuera del codemod a propósito: la barra mide
+  ~1900px expandida y engordar su `padding: 14px 28px` trae de vuelta el envolvimiento a
+  segunda fila que v17.9 corrigió. Verificar con `.platform-bar` a 50px de alto.
+- **`pnRenderSystemHealth` NO pinta la pestaña `pn-system`.** Está registrada en
+  `_pnGetRenderer`, pero `pn-system` vive en `_pnAlpineTabs` y la plantilla Alpine de
+  `index.html` gana; esa función solo la llama una acción de limpieza. Todo contenido nuevo de
+  una pestaña Alpine va a su plantilla en `index.html` y se puebla desde `pnSwitchTab`, como
+  el slot del banner de ayuda y ahora `pnDensityRenderChoices()`.
+- `var(--radius)` y `var(--shadow)` (sin sufijo) se **usaban sin estar declaradas** desde hacía
+  meses — `.card` y `.tab-panel` con esquinas cuadradas. Ahora son alias de `--radius-lg` /
+  `--shadow-md`. No volver a introducir un token sin declararlo: el CSS falla en silencio.
+
+### v22.1 — Objetivos táctiles y color de fila
+
+- **`.u-hit` es LA técnica para crecer un objetivo táctil sin crecer su caja**: la caja se queda
+  del tamaño que se ve y un `::after` absoluto extiende el ÁREA, que se estira a `--target-min`
+  solo bajo `@media (pointer: coarse)` (el escritorio conserva su densidad, la tablet gana el
+  objetivo). **Va sobre un `<label>` u otro elemento normal, NUNCA sobre el `<input>`**: los
+  pseudo-elementos no aplican a elementos reemplazados, así que `input.u-hit::after` es CSS
+  muerto. Envolver el input en `<label>` además hace que toda el área alterne la casilla.
+- **`*-tint` es un cuarto nivel de color, más claro que `*-bg`.** Regla: `*-bg` es el fondo del
+  CHIP, `*-tint` el de la FILA que lo contiene. Una fila resaltada y un chip encima no pueden
+  compartir token o el chip se queda sin contraste contra su propia fila.
+- **`--dash-col-min` es un token de densidad** (380/440/520px), consumido por
+  `.dash-group-rows`. Toda retícula nueva de tarjetas debe usarlo en vez de un `minmax()` fijo:
+  con un mínimo fijo, subir la tipografía empeora el envolvimiento en vez de mejorarlo.
+- **Campos de captura a `--fs-base` (16px) como mínimo**: por debajo de 16px iOS hace zoom
+  automático al enfocar y no vuelve solo.
+- **Al verificar en navegador**, dos trampas ya pagadas: el overlay del tour tapa la página y
+  bloquea los clics — suprimirlo exige `kia_tour_done` **a secas** para el tour general (es un
+  alias que NO sigue el patrón `kia_tour_done_<módulo>`); y `scrollIntoView` es animado por
+  `scroll-behavior: smooth`, así que hay que esperar antes de medir o se lee la posición vieja.
+
+### v22.2 — Lanzador (`uiNavRegistry`, `UI_CREATE_ACTIONS`)
+
+- **`uiNavRegistry()` (app.js) es LA definición de los destinos navegables** y se **DERIVA DEL
+  DOM**, nunca de una lista escrita a mano: un destino nuevo tiene que tener botón para ser
+  alcanzable, y si tiene botón el escáner lo ve. Además da lo *alcanzable*, no lo declarado
+  (`_tpTabs` declara 13 ids y solo 11 tienen botón). **No agregar una lista paralela.**
+- **`dashGo(platform, tabId)` es LA primitiva de navegación profunda** y ya cubre las cinco
+  plataformas, incluidas las dos sin `xxSwitchTab`: COP15 (click en `.tab[data-tab]`) y CoP
+  (`copSetView`). Todo consumidor nuevo la llama en vez de encadenar `switchPlatform` + timeout.
+- **`COP_VIEWS` (cop_validator.js) es LA definición de las vistas del CoP.** Vive a nivel de
+  archivo porque la nav del CoP se pinta bajo demanda y no está en el DOM inicial.
+- **`_uiFold(s)` es LA forma de comparar texto de búsqueda**: minúsculas y sin acentos. En el
+  laboratorio se teclea "calibracion" mucho más que "calibración". Las marcas combinantes van
+  como escapes `̀-ͯ`, nunca literales (invisibles en el editor, y un reencoding las
+  rompe en silencio).
+- **`UI_CREATE_ACTIONS` (app.js) es el menú del botón Crear.** Es la única lista literal del
+  lanzador porque no hay DOM del que derivar un verbo de alta. **Toda pantalla nueva que dé de
+  alta una entidad agrega su verbo ahí**, o queda invisible desde Crear. Guarda `typeof` por fila.
+- Los destinos se enriquecen con `HELP_TABS[id].title + .text` para buscar por concepto — otra
+  razón para mantener `HELP_TABS` al día además del banner de ayuda.
+- **Los botones NO van en el topbar**: la barra mide ~1900px expandida. Van en el menú `⋯` y en
+  la cabecera de HOY (`.dash-launch-btn`), que es donde abre la app.
+- Al leer la etiqueta de un botón de navegación, **clonar y borrar los `<span>` en la copia**
+  (`_uiCleanLabel`), no hacer `replace()` sobre `textContent`: la pestaña Pruebas lleva DOS
+  badges y solo uno tiene la clase `.pt-badge`.
+
+### v22.3 — `uiCard`, preferencias que persisten y "crear otro"
+
+- **`uiCard(opts)` (app.js) es LA primitiva de tarjeta/widget** y es **PURA** (mismos opts →
+  mismo string, sin tocar el DOM; testeable en Node). Toda tarjeta nueva la usa en vez de
+  armar su propio `<details>` + encabezado. `opts`: `{id, icon, title, count:{n|label,tone},
+  actions, body, bodyFlush, collapsible, open, defaultOpen, help, accent}`.
+- **El chip del encabezado debe llevar el dato clave**, para que colapsar no sea perder
+  información (pendientes, total de ponderación, "apagado"…). Es lo que hace usable el colapso.
+- **Las acciones dentro del encabezado van envueltas en `event.stopPropagation()`**, o el clic
+  además colapsa la tarjeta. `uiCard` ya lo hace con `opts.actions`.
+- **El colapso vive en `uiPref('cards')[id]`** — NO agregar una clave de localStorage por
+  tarjeta. `opts.open` (si viene) manda sobre lo guardado, para los casos donde el código
+  necesita forzarla abierta (p. ej. `openRegions`).
+- **`uiCreateAnotherHTML(id,label)` / `uiCreateAnotherChecked(id)`** son el patrón de "crear
+  otro". **`uiCreateAnotherChecked` se llama ANTES de cerrar el modal** — cerrar lo destruye y
+  con él la casilla; ese orden es lo que se rompe sin que se note. Recuerda la elección en
+  `uiPref('createAnother')`. Al reabrir: conservar lo que se repite, limpiar lo que cambia.
+- **Ninguna preferencia de UI vive en una global suelta.** `window._dashOnlyMine` era solo
+  memoria y se perdía en cada recarga; ahora es `uiPref('onlyMine')` (`dashOnlyMine()` /
+  `dashSetOnlyMine()`), con la global como alias de compatibilidad.
+
+### v22.4 — Movimiento
+
+- **PROHIBIDA una duración cruda en `animation`/`transition`**: usar `--dur-fast` (150ms),
+  `--dur-base` (200ms) o `--dur-slow` (300ms). Quedan ~17 one-offs deliberados (micro-feedback
+  de 0.1s, un rebote de 0.6s) y los bucles ambientales de 1–15s, que no son transiciones.
+- **Todo `<details>` abierto anima su contenido** con `accordionOpen` — ya no hace falta la
+  clase `.acc` (la regla la exigía y solo 5 de 41 la llevaban). **Se anima solo la apertura**:
+  animar el cierre exige medir altura en JS y cerrar es una acción de descarte.
+- **Nada de animar un contenedor con una gráfica dentro** — la regla ya excluye
+  `details[open] > *:has(canvas)`. La animación solo toca `opacity`/`transform` (que no cambian
+  la caja de layout), pero v20.3 ya costó una ronda por medir un canvas en mal momento.
+- **Un chevron que cambia de estado se ROTA, no se sustituye.** `content` no se puede animar:
+  intercambiar `▾` por `▸` se lee como dos símbolos parpadeando.
+- **HAY UN SOLO bloque `*` de `prefers-reduced-motion`** (buscar "MOVIMIENTO REDUCIDO"). Había
+  dos con `!important` y valores contradictorios de `transition-duration`; ganaba el posterior y
+  el otro era código muerto que describía mal lo que hacía la app. Criterio vigente: se matan
+  las animaciones de keyframes y `scroll-behavior`, pero se deja una transición de **120ms**
+  porque un cambio de color o de opacidad no es movimiento y quitarlo hace del feedback un corte
+  seco. **No agregar otro bloque `*`**; las excepciones por componente van en su propia regla.
+
+### v22.5 — Filtros que sí filtran
+
+- **`pnProjStepsFor(p)` (projects.js) es LA definición de los pasos visibles** de un proyecto:
+  aplica `uiPref('onlyMine')`, el MISMO filtro de HOY, así que viaja entre pantallas. Se usa en
+  Tabla y Kanban. **Gantt, Curva S, Línea de tiempo y Carga se quedan con TODOS los pasos a
+  propósito**: son vistas analíticas y un Gantt con solo los pasos de uno miente sobre el
+  proyecto — ahí el control ni se ofrece.
+- **Un filtro activo que esconde cosas TIENE que decir cuántas.** Un filtro puesto y silencioso
+  es una trampa; el chip "N de otros ocultos" es obligatorio en todo filtro nuevo.
+- **NO se agregó "Solo míos" a Mi semana**: el plan semanal no tiene responsable por prueba
+  (cero `assignee` en testplan.js), así que el control habría sido decorativo. **Antes de
+  agregar un filtro, verificar que el dato exista** — es la misma trampa de v16.8 y la de los
+  sliders de región con `weights.region` en 0.
+- **`renderLabOverview` MEMOIZA su HTML** (`_labOverviewCache`). Todo estado de UI que afecte
+  ese HTML —como el colapso de `uiCard`— debe entrar a `_labOverviewKey`, o el memo devuelve la
+  versión vieja y el cambio se deshace solo en el siguiente render.
+- `copBuildOverviewHTML` **sigue sin migrar a `uiCard`** a propósito: el CoP tiene su propio
+  vocabulario de 82 clases `.cop-*` y `_copFamCardHTML` es un `<div onclick>` con `<button>`
+  anidado (v20.5). Es una ronda propia.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

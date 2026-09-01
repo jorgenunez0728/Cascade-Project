@@ -789,6 +789,9 @@ function pnSwitchTab(tabId) {
         var slot = document.getElementById('help-banner-slot-' + tabId);
         if (slot) slot.innerHTML = helpBannerHTML(tabId);
     }
+    // v22.0: mismo caso que el banner — el selector de densidad vive en el x-show
+    // estático de pn-system, que no pasa por pnRender.
+    if (tabId === 'pn-system') pnDensityRenderChoices();
     // Notify Alpine components of tab switch
     window.dispatchEvent(new CustomEvent('pn:tab-switch', { detail: { tab: tabId } }));
 }
@@ -976,7 +979,12 @@ function _labOverviewKey(sections) {
         ? pnState.operators.length + ':' + pnState.operators.filter(function(o) { return o.active; }).length : '0:0';
     var gasCount = (typeof invState !== 'undefined' && invState.gases) ? invState.gases.length : 0;
     var syncStamp = (typeof fbSync !== 'undefined' && fbSync.lastSync) ? fbSync.lastSync.getTime() : 0;
-    return [_labOverviewGen, vCount, tpStamp, opsSig, gasCount, syncStamp, localToday(), sections.join(',')].join('|');
+    // v22.5 — El estado de colapso de las uiCard entra a la clave. Sin esto, colapsar
+    // una tarjeta cambiaba la preferencia pero el memo devolvía el HTML viejo con
+    // `open` y la tarjeta se reabría sola en el siguiente render.
+    var cardsSig = '';
+    try { cardsSig = JSON.stringify((typeof uiPref === 'function' ? uiPref('cards') : {}) || {}); } catch (e) {}
+    return [_labOverviewGen, vCount, tpStamp, opsSig, gasCount, syncStamp, localToday(), sections.join(','), cardsSig].join('|');
 }
 
 function renderLabOverview(el, opts) {
@@ -1051,31 +1059,50 @@ function renderLabOverview(el, opts) {
             { key: 'testing', label: 'En Prueba', color: '#8b5cf6', icon: '🧪' },
             { key: 'ready-release', label: 'Listo Liberar', color: '#10b981', icon: '🏁' }
         ];
-        html += '<div class="tp-card"><div class="tp-card-title"><span>🔄 Pipeline de Vehículos</span></div><div style="display:flex;gap:4px;">';
+        // v22.5 — Migrada a uiCard: mismo encabezado que HOY y el resto de la app, y
+        // el colapso se recuerda por dispositivo.
+        var pipeBody = '<div style="display:flex;gap:var(--space-xs);">';
+        var pipeTotal = 0;
         pipeline.forEach(function(st) {
             var c = byStatus[st.key] || 0;
-            html += '<div style="flex:1;text-align:center;padding:10px 4px;background:' + st.color + '10;border:1px solid ' + st.color + '30;border-radius:8px;"><div style="font-size:18px;">' + st.icon + '</div><div style="font-size:20px;font-weight:800;color:' + st.color + ';">' + c + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + st.label + '</div></div>';
+            pipeTotal += c;
+            pipeBody += '<div style="flex:1;text-align:center;padding:var(--space-md) var(--space-xs);background:' + st.color + '10;border:1px solid ' + st.color + '30;border-radius:var(--radius-xl);"><div style="font-size:var(--fs-md);">' + st.icon + '</div><div style="font-size:var(--fs-lg);font-weight:800;color:' + st.color + ';">' + c + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + st.label + '</div></div>';
         });
-        html += '</div></div>';
+        pipeBody += '</div>';
+        html += uiCard({
+            id: 'lo-pipeline', icon: '🔄', title: 'Pipeline de Vehículos', accent: 'cascade',
+            body: pipeBody,
+            count: { label: pipeTotal + (pipeTotal === 1 ? ' activo' : ' activos'),
+                     tone: pipeTotal ? 'info' : 'neutral' }
+        });
     }
     if (has('plan') && latestPlan) {
-        html += '<div class="tp-card"><div class="tp-card-title"><span>📅 Plan Semanal Actual</span><span style="font-size: var(--fs-sm);font-weight:700;color:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';">' + tpDone + '/' + tpTotal + ' (' + tpPct + '%)</span></div>';
-        html += '<div class="tp-bar" style="height:8px;margin-bottom:8px;"><div class="tp-bar-fill" style="width:' + tpPct + '%;background:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';"></div></div>';
+        var planBody = '<div class="tp-bar" style="height:8px;margin-bottom:var(--space-sm);"><div class="tp-bar-fill" style="width:' + tpPct + '%;background:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';"></div></div>';
         latestPlan.items.slice(0, 6).forEach(function(item) {
             var sd = item.desc.length > 50 ? item.desc.substring(0, 48) + '..' : item.desc;
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size: var(--fs-xs);color:' + (item.completed ? 'var(--tp-green)' : 'var(--tp-dim)') + ';' + (item.completed ? 'text-decoration:line-through;' : '') + '">' + escapeHtml(sd) + '</span><span style="font-size: var(--fs-xs);">' + (item.completed ? '✅' : '⏳') + '</span></div>';
+            planBody += '<div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-xs) 0;border-bottom:1px solid var(--tp-border);"><span style="font-size: var(--fs-xs);color:' + (item.completed ? 'var(--tp-green)' : 'var(--tp-dim)') + ';' + (item.completed ? 'text-decoration:line-through;' : '') + '">' + escapeHtml(sd) + '</span><span style="font-size: var(--fs-xs);">' + (item.completed ? '✅' : '⏳') + '</span></div>';
         });
-        if (latestPlan.items.length > 6) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;margin-top:4px;">+' + (latestPlan.items.length - 6) + ' más...</div>';
-        html += '</div>';
+        if (latestPlan.items.length > 6) planBody += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;margin-top:var(--space-xs);">+' + (latestPlan.items.length - 6) + ' más...</div>';
+        html += uiCard({
+            id: 'lo-plan', icon: '📅', title: 'Plan Semanal Actual', accent: 'testplan',
+            body: planBody,
+            count: { label: tpDone + '/' + tpTotal + ' (' + tpPct + '%)',
+                     tone: tpPct === 100 ? 'ok' : 'warn' }
+        });
     }
     if (has('alerts') && typeof pnGetActiveAlerts === 'function') {
         var alerts = pnGetActiveAlerts();
         if (alerts.length) {
-            html += '<div class="tp-card" style="border-left:3px solid var(--tp-red);"><div class="tp-card-title"><span style="color:var(--tp-red);">⚠️ Alertas Activas (' + alerts.length + ')</span></div>';
+            var alertBody = '';
             alerts.slice(0, 5).forEach(function(a) {
-                html += '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size: var(--fs-xs);padding:2px 6px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:700;">' + a.level + '</span><span style="font-size: var(--fs-xs);color:var(--tp-text);flex:1;">' + escapeHtml(a.message) + '</span></div>';
+                alertBody += '<div style="display:flex;gap:var(--space-sm);align-items:center;padding:var(--space-xs) 0;border-bottom:1px solid var(--tp-border);"><span style="font-size: var(--fs-xs);padding:var(--space-2xs) var(--space-sm);background:' + a.color + '20;color:' + a.color + ';border-radius:var(--radius-md);font-weight:700;">' + a.level + '</span><span style="font-size: var(--fs-xs);color:var(--tp-text);flex:1;">' + escapeHtml(a.message) + '</span></div>';
             });
-            html += '</div>';
+            if (alerts.length > 5) alertBody += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;margin-top:var(--space-xs);">+' + (alerts.length - 5) + ' más...</div>';
+            html += uiCard({
+                id: 'lo-alerts', icon: '⚠️', title: 'Alertas Activas', accent: 'cop',
+                body: alertBody,
+                count: { label: String(alerts.length), tone: 'danger' }
+            });
         }
     }
     var prevCached = _labOverviewCache[sectionsKey];
@@ -2329,6 +2356,49 @@ function _pnIntelRenderCharts(wkKeys, weeklyData, gasAgeGroups, hasAgeData, velo
 
 // ── [R4-M8] Monitor de Salud del Sistema ────────────────────────────────────
 
+// ══════════════════════════════════════════════════════════════════════
+// v22.0 — Selector de densidad (Datos → Sistema)
+//
+// El contenedor vive en la plantilla Alpine de pn-system (index.html), no en
+// pnRenderSystemHealth: esa función está registrada en _pnGetRenderer pero NUNCA
+// pinta esta pestaña, porque pn-system está en _pnAlpineTabs y Alpine gana. Se
+// puebla desde pnSwitchTab, igual que el slot del banner de ayuda.
+// ══════════════════════════════════════════════════════════════════════
+var PN_DENSITY_OPTS = [
+    ['compacto', 'Compacta', 'Más filas por pantalla. La escala anterior a v22.'],
+    ['comodo',   'Cómoda',   'Recomendada. Más aire y texto más grande.'],
+    ['amplio',   'Amplia',   'Para tablet o proyector. Todo más separado.']
+];
+
+function pnDensityRenderChoices() {
+    var host = document.getElementById('pn-density-choices');
+    if (!host) return;
+    var cur = (typeof densityGet === 'function') ? densityGet() : 'comodo';
+    var h = '';
+    for (var i = 0; i < PN_DENSITY_OPTS.length; i++) {
+        var o = PN_DENSITY_OPTS[i], on = (o[0] === cur);
+        h += '<button type="button" onclick="pnSetDensity(\'' + o[0] + '\')"'
+           + ' aria-pressed="' + (on ? 'true' : 'false') + '"'
+           + ' style="flex:1 1 180px;text-align:left;cursor:pointer;'
+           + 'padding:var(--space-sm) var(--space-md);border-radius:var(--radius-xl);'
+           + 'border:2px solid ' + (on ? 'var(--info-fill)' : 'var(--border)') + ';'
+           + 'background:' + (on ? 'var(--info-bg)' : 'var(--surface)') + ';">'
+           + '<div style="font-weight:700;font-size:var(--fs-sm);color:var(--text);">'
+           + (on ? '● ' : '○ ') + o[1] + '</div>'
+           + '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:var(--space-2xs);">'
+           + o[2] + '</div></button>';
+    }
+    host.innerHTML = h;
+    if (typeof cascadeInjectTooltips === 'function') { try { cascadeInjectTooltips(); } catch (e) {} }
+}
+
+function pnSetDensity(mode) {
+    if (typeof densitySet !== 'function') return;
+    densitySet(mode);
+    pnDensityRenderChoices();
+    if (typeof showToast === 'function') showToast('Densidad: ' + mode, 'success');
+}
+
 function pnRenderSystemHealth(el) {
     var html = '<div style="padding:12px 0;">';
     html += '<h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">💾 Monitor de Salud del Sistema</h3>';
@@ -2551,6 +2621,9 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_help_dismissed',    label: 'Ayudas descartadas',       tier: 'cache' },
     { prefix: 'kia_tour_done',      label: 'Tours completados',        tier: 'cache' },
     { key: 'kia_immersive_prefs',   label: 'Preferencias de pantalla', tier: 'cache' },
+    { key: 'kia_ui_prefs',          label: 'Preferencias de interfaz', tier: 'cache',
+      note: 'Densidad, "solo míos", alcance de búsqueda y tarjetas colapsadas. '
+          + 'Al borrarla todo vuelve a sus valores por defecto.' },
     { key: 'kia_autoplan_lastrun',  label: 'Guarda del auto-plan',     tier: 'cache' },
     { prefix: 'kia_inv_active',     label: 'Pestaña activa',           tier: 'cache' },
     { prefix: 'kia_cop15_active',   label: 'Pestaña activa',           tier: 'cache' },
@@ -4309,6 +4382,13 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     ]}
 });
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    pn_density: {
+        title: 'Densidad de la interfaz',
+        text: 'Qué tanto aire tiene la plataforma. "Cómoda" es la recomendada: letra un poco '
+            + 'más grande y más separación entre bloques. "Compacta" devuelve la escala '
+            + 'anterior si prefieres ver más filas de una sola vez. "Amplia" es para tablet o '
+            + 'para proyectar en una junta. Se guarda solo en este dispositivo.'
+    },
     pn_storage: {
         title: 'Uso de Almacenamiento',
         text: 'Espacio que ocupa la app EN ESTE DISPOSITIVO. El navegador da ~5 MB por '

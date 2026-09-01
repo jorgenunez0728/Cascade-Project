@@ -285,11 +285,53 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '21.1';
+var APP_VERSION = '22.5';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '22.5', date: '1 sep 2026', title: 'El mismo encabezado en todas partes, y "solo míos" en Proyectos', bullets: [
+        'El Resumen del Lab (Pipeline, Plan Semanal, Alertas) y las tres secciones de Mantenimiento usan el mismo encabezado plegable que HOY. Como el Resumen se pinta igual en HOY y en Datos, colapsar en una lo deja colapsado en la otra.',
+        '"CREAR OTRO" también al dar de alta un instrumento o una actividad de mantenimiento.',
+        'PROYECTOS: filtro "Solo míos" en Tabla y Kanban, compartido con el de HOY. Dice cuántos pasos de otros está escondiendo, para que no se te olvide que hay un filtro puesto.',
+        'El filtro NO se ofrece en Gantt, Curva S ni Carga: ahí ver solo tus pasos da una idea equivocada del proyecto.',
+        'Tampoco se agregó a Mi semana: el plan semanal no tiene responsable por prueba, así que el control no habría podido filtrar nada.'
+    ] },
+    { version: '22.4', date: '1 sep 2026', title: 'Las secciones plegables ya no abren de golpe', bullets: [
+        'LAS SECCIONES QUE SE PLIEGAN ABREN CON UNA TRANSICIÓN, no de golpe. La animación existía desde hace tiempo pero solo la usaban 5 de las 41 secciones plegables de la app.',
+        'La flecha del encabezado gira en vez de cambiar de símbolo: se lee como el mismo objeto moviéndose y no como dos flechas parpadeando.',
+        'Las gráficas quedan fuera de la animación a propósito, para no repetir el problema de v20.3 donde una carta se pintaba en blanco por medirse en mal momento.',
+        'MOVIMIENTO REDUCIDO: había dos reglas contradictorias y una anulaba a la otra en silencio, así que lo que decía el código no era lo que hacía la app. Ahora es una sola.',
+        'Las 155 duraciones de animación escritas a mano pasaron a la escala compartida: cambiar el ritmo de la plataforma ahora es cambiar tres valores, no buscar en 4,500 líneas.'
+    ] },
+    { version: '22.3', date: '1 sep 2026', title: 'Tarjetas que se colapsan y recuerdan, y "crear otro"', bullets: [
+        'TODAS LAS TARJETAS SE COLAPSAN Y RECUERDAN CÓMO LAS DEJASTE, por dispositivo. El encabezado muestra el dato clave sin abrirla: cuántos pendientes, si la ponderación suma 100, si el empuje por antigüedad está apagado.',
+        '"SOLO MÍOS" YA NO SE PIERDE AL RECARGAR. Vivía solo en memoria, así que quien trabaja filtrado tenía que volver a marcarlo cada vez que abría la app.',
+        '"CREAR OTRO" al dar de alta una actividad o un cilindro: guarda y vuelve a abrir el formulario, conservando lo que se repite (responsable, fecha, proveedor) y limpiando lo que cambia. Recuerda si lo prefieres siempre encendido.',
+        'En Armar semana, si el peso de región está en 0% la pantalla lo dice: esos diez controles no afectan nada hasta que lo subas.',
+        'Los grupos de HOY y las tarjetas del planificador comparten por fin el mismo encabezado, en vez de tres formas distintas de la misma cosa.'
+    ] },
+    { version: '22.2', date: '1 sep 2026', title: 'Lanzador: las ~50 pantallas, en una sola', bullets: [
+        'BOTÓN "IR A…" EN HOY Y EN EL MENÚ ⋯. Abre una retícula con TODAS las pantallas de la plataforma agrupadas por módulo — 53 destinos que antes vivían tras 5 pestañas y submenús "⋯ Más".',
+        'Se busca por concepto, no por nombre: teclear "cobertura" encuentra Dashboard y Familias, "calibración" encuentra Gases y Equipos. Funciona con y sin acentos.',
+        'BOTÓN "CREAR": un solo lugar para dar de alta actividad, cilindro, ronda de lecturas, instrumento, mantenimiento o reporte de un problema.',
+        'La lista de pantallas se arma sola leyendo los botones que ya existen, así que una pestaña nueva aparece en el lanzador sin que nadie la agregue a ninguna lista.',
+        'Ctrl+K sigue funcionando igual. La ventana pasó de 520 a 720px y ya no recorta la lista.'
+    ] },
+    { version: '22.1', date: '1 sep 2026', title: 'HOY: la casilla de marcar por fin se puede tocar', bullets: [
+        'LA CASILLA DE MARCAR MEDÍA 17px — la mitad del mínimo accesible — en la pantalla de arranque y en tablet. Ahora se ve de 20px pero el área que responde al dedo es de 44px, sin que la fila crezca.',
+        'Las actividades ya no se aprietan en tres columnas: en pantalla ancha son dos, y los títulos que salían en cuatro renglones ahora salen en dos.',
+        'El chip "Atrasado" se veía como texto suelto porque la fila resaltada usaba su mismo color de fondo. Ahora el tinte de fila es un nivel más claro que el del chip.',
+        'Los campos del alta rápida de actividad pasaron a 16px: por debajo de eso iOS hace zoom automático al escribir y no vuelve solo.',
+        'HOY dejó de usar 20 colores escritos a mano y pasó a los del sistema, así que el texto gris cumple contraste y ya no hay dos grises distintos para lo mismo.'
+    ] },
+    { version: '22.0', date: '1 sep 2026', title: 'Aire: la app dejó de estar escrita en 12px', bullets: [
+        'LA PLATAFORMA SE VE MÁS LIMPIA. La tipografía de cuerpo de facto era var(--fs-xs), el tamaño que el propio sistema declaraba como "mínimo legal, solo metadatos": se usaba 898 veces contra 403 del tamaño de cuerpo real. De ahí venía la sensación de apretado.',
+        'Densidad elegible en Datos → Sistema: Compacta (la escala anterior), Cómoda (nueva, por defecto) y Amplia (para tablet o proyector). Solo cambia tu dispositivo.',
+        'El interlineado subió de 1.5 a 1.6. Como line-height se hereda, los ~900 tamaños escritos en línea ganaron altura de caja sin tocar ninguno.',
+        'styles.css pasó de 617 medidas escritas a mano a 811 usos de la escala compartida: el espaciado por fin responde a la densidad. La barra de navegación quedó excluida a propósito para no reventar su ancho.',
+        '.card y .tab-panel llevaban meses con esquinas cuadradas y sin sombra: usaban dos variables que nunca se habían declarado.'
+    ] },
     { version: '21.1', date: '30 ago 2026', title: 'Números confiables y la gasolina en la nube', bullets: [
         'EL NIVEL DE UN CILINDRO YA ES REAL. Se medía contra la primera lectura registrada, no contra qué tan lleno está: un cilindro al 13% se reportaba al 63% y en verde. Ahora se mide contra la presión nominal (hay un campo nuevo y opcional para declararla; sin él usa el máximo histórico).',
         'Un solo criterio de "nivel bajo" en toda la app. Había cinco distintos, así que un cilindro podía verse verde en el mapa y crítico en las alertas al mismo tiempo.',
@@ -1002,6 +1044,89 @@ function themeInit() {
     document.documentElement.setAttribute('data-theme', 'light');
     try { localStorage.removeItem('kia_theme_pref'); } catch(e) {}
 }
+
+// ======================================================================
+// [v22.0] PREFERENCIAS DE INTERFAZ POR DISPOSITIVO — `uiPref` es LA definición
+//
+// UNA sola clave (`kia_ui_prefs`) para todo lo que es gusto del dispositivo y no
+// dato del laboratorio: densidad, "solo míos", alcance de búsqueda, tarjetas
+// colapsadas. Tres claves sueltas serían tres entradas más en
+// PN_STORAGE_REGISTRY y tres formas distintas de leer un default.
+//
+// NO se sincroniza a propósito — mismo criterio que copState.ovHidden (v20.5):
+// que un técnico prefiera vista compacta no debe cambiarle la pantalla a otro.
+// ======================================================================
+var UI_PREFS_KEY = 'kia_ui_prefs';
+var UI_PREFS_DEFAULTS = { density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {} };
+
+function _uiPrefsRead() {
+    try {
+        var raw = JSON.parse(localStorage.getItem(UI_PREFS_KEY) || '{}');
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) raw = {};
+        return raw;
+    } catch (e) { return {}; }
+}
+
+// uiPref('density') lee; uiPref('density', 'amplio') escribe y devuelve lo escrito.
+// Reaplica defaults en CADA lectura (patrón de tpPlannerCfg, v18.0): un pull de
+// sync o una clave corrupta no deben dejar un campo en undefined.
+function uiPref(key, value) {
+    var p = _uiPrefsRead();
+    if (arguments.length < 2) {
+        return (p[key] === undefined || p[key] === null) ? UI_PREFS_DEFAULTS[key] : p[key];
+    }
+    p[key] = value;
+    try { localStorage.setItem(UI_PREFS_KEY, JSON.stringify(p)); } catch (e) {}
+    return value;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.0] DENSIDAD DE LA INTERFAZ — 'compacto' | 'comodo' (default) | 'amplio'
+//
+// El aire de la plataforma se controla desde los tokens de :root (styles.css), NO
+// regla por regla: ~1,200 decisiones de tamaño ya pasan por var(--fs-*), y
+// line-height se HEREDA, así que retunear los tokens retunea la app entera.
+// Aquí solo se pone un atributo en <html>; toda la escala vive en el CSS.
+//
+// Medición que lo motivó: var(--fs-xs) — cuyo propio comentario decía "mínimo
+// legal, solo metadatos" — se usaba 898 veces contra 403 de var(--fs-sm). El
+// tamaño de cuerpo de facto de la app era el mínimo legal, y de ahí venía la
+// queja de "se ve apretado".
+//
+// 'compacto' reproduce la escala de v21.1 exacta y es la vía de escape: si algo
+// se ve cortado, un toque devuelve la app a como estaba.
+// ══════════════════════════════════════════════════════════════════════
+var DENSITY_MODES = ['compacto', 'comodo', 'amplio'];
+
+function densityGet() {
+    var d = uiPref('density');
+    return DENSITY_MODES.indexOf(d) >= 0 ? d : 'comodo';
+}
+
+// Solo toca el DOM. Separada de densitySet para poder aplicarla en el arranque
+// sin volver a escribir en localStorage.
+function densityApply(mode) {
+    var m = DENSITY_MODES.indexOf(mode) >= 0 ? mode : 'comodo';
+    document.documentElement.setAttribute('data-density', m);
+    return m;
+}
+
+function densitySet(mode) {
+    var m = densityApply(mode);
+    uiPref('density', m);
+    if (typeof auditLog === 'function') {
+        try { auditLog('sistema', 'densidad_cambiada', m, 'Densidad de la interfaz'); } catch (e) {}
+    }
+    return m;
+}
+
+function densityInit() { densityApply(densityGet()); }
+
+// Se aplica AL PARSEAR, no en DOMContentLoaded: <html> ya existe cuando corre
+// app.js, y esperar al bootstrap dejaba un parpadeo visible de la escala cómoda
+// a la compacta en el arranque de quien eligió compacta. densityInit() sigue
+// llamándose desde initializeSystem como red de seguridad (es idempotente).
+try { densityInit(); } catch (e) {}
 
 // ======================================================================
 // [v15.5] UX unificada para los modales-contenedor legacy
@@ -2458,6 +2583,12 @@ function dashGo(platform, tabId, action, id) {
             if (platform === 'inventory' && typeof invSwitchTab === 'function') invSwitchTab(tabId);
             else if (platform === 'testplan' && typeof tpSwitchTab === 'function') tpSwitchTab(tabId);
             else if (platform === 'panel' && typeof pnSwitchTab === 'function') pnSwitchTab(tabId);
+            // v22.2 — Las dos plataformas que no tienen una función xxSwitchTab:
+            // COP15 navega por click en .tab[data-tab] y el CoP por copSetView.
+            // Van aquí y no en el lanzador para que dashGo siga siendo LA primitiva
+            // de navegación profunda de toda la app.
+            else if (platform === 'cop15') { var _t = document.querySelector('#platform-cop15 .tab[data-tab="' + tabId + '"]'); if (_t) _t.click(); }
+            else if (platform === 'cop' && typeof copSetView === 'function') copSetView(tabId);
         }
         if (action && typeof window[action] === 'function') {
             setTimeout(function() { try { window[action](id); } catch(e) {} }, 220);
@@ -2539,9 +2670,20 @@ function dailyDashRender() {
     if (typeof helpBannerHTML === 'function') html += helpBannerHTML('today');
 
     // ── Header ──
+    // v22.2: "Ir a…" y "Crear" viven AQUÍ además de en el menú ⋯ del topbar. La app
+    // abre en HOY, así que este es el único sitio donde están garantizadamente a un
+    // toque; el topbar ya mide ~1900px expandido y no admite dos controles más.
     html += '<div class="daily-dash-header">';
+    html += '<div>';
     html += '<div class="daily-dash-greeting">' + greeting + '</div>';
     html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
+    html += '</div>';
+    html += '<div class="dash-header-acts">';
+    html += '<button type="button" class="dash-launch-btn" onclick="openCommandPalette(\'launcher\')" aria-label="Ir a cualquier pantalla">'
+         +  '<span aria-hidden="true">🧭</span> Ir a…</button>';
+    html += '<button type="button" class="dash-launch-btn dash-launch-btn--cta" onclick="openCommandPalette(\'create\')" aria-label="Crear algo nuevo">'
+         +  '<span aria-hidden="true">➕</span> Crear</button>';
+    html += '</div>';
     html += '</div>';
 
     // ── [v15-P1] Resumen del Lab (fuente única: renderLabOverview, KPI + pipeline) ──
@@ -2913,7 +3055,15 @@ function dashCollectActivities() {
 function dashRenderRow(a) {
     var h = '<div class="dash-row dash-row--' + a.status + '">';
     if (a.checkbox) {
-        h += '<input type="checkbox" class="dash-row-check" aria-label="Marcar completada: ' + escapeHtml(a.title) + '" ' + (a.checkbox.checked ? 'checked' : '') + ' onchange="' + a.checkbox.js + '">';
+        // v22.0: la casilla medía 17px, la MITAD del mínimo WCAG 2.2 (24px), en la
+        // pantalla de arranque y en tablet. El <label> envolvente lleva .u-hit, que
+        // extiende el ÁREA táctil a 44px sin engordar la casilla ni la fila.
+        // Tiene que ser un <label> y no un <span>: .u-hit pinta su área con ::after, y
+        // los pseudo-elementos NO aplican a elementos reemplazados como <input>. Al
+        // envolver, además, tocar cualquier punto del área alterna la casilla.
+        h += '<label class="dash-check-wrap u-hit">'
+           + '<input type="checkbox" class="dash-row-check" aria-label="Marcar completada: ' + escapeHtml(a.title) + '" ' + (a.checkbox.checked ? 'checked' : '') + ' onchange="' + a.checkbox.js + '">'
+           + '</label>';
     } else {
         h += '<span class="dash-row-icon">' + a.icon + '</span>';
     }
@@ -2952,7 +3102,7 @@ function dashRenderRow(a) {
 }
 
 function dashRenderBoard(acts, currentOp) {
-    var onlyMine = !!window._dashOnlyMine;
+    var onlyMine = dashOnlyMine();
     var shown = (onlyMine && currentOp)
         ? acts.filter(function(a) { return !a.assignee || a.assignee === currentOp; })
         : acts;
@@ -2963,7 +3113,9 @@ function dashRenderBoard(acts, currentOp) {
     h += '<span class="dash-board-title">📌 Actividades de hoy</span>';
     h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes' : 'al día ✓') + '</span>';
     h += '<span style="flex:1"></span>';
-    if (currentOp) h += '<label class="dash-board-toggle"><input type="checkbox" ' + (onlyMine ? 'checked' : '') + ' onchange="window._dashOnlyMine=this.checked;dailyDashRender();"> Solo míos</label>';
+    // v22.3: el <label> envuelve la casilla y lleva .u-hit — el área táctil crece a
+    // 44px en pantallas de dedo sin engordar la barra.
+    if (currentOp) h += '<label class="dash-board-toggle u-hit"><input type="checkbox" ' + (onlyMine ? 'checked' : '') + ' onchange="dashSetOnlyMine(this.checked)"> Solo míos</label>';
     h += '<button class="dash-row-action" onclick="dashTaskModalOpen()">➕ Actividad</button>';
     h += '</div>';
 
@@ -2975,19 +3127,51 @@ function dashRenderBoard(acts, currentOp) {
         });
         var c = DASH_CATS[cat];
         var pendN = rows.filter(function(a) { return a.status !== 'hecho'; }).length;
-        h += '<details class="dash-group dash-group--' + cat + '" open>';
-        h += '<summary><span class="dash-group-icon">' + c.icon + '</span><span class="dash-group-name">' + c.label + '</span>' +
-             '<span class="dash-group-count' + (pendN ? '' : ' ok') + '">' + (pendN ? pendN + ' pendiente' + (pendN === 1 ? '' : 's') : '✓ al día') + '</span></summary>';
         // v16.5: <details> no aplica display:grid a su contenido (el navegador lo envuelve
         // internamente) — el grid de 2 columnas en desktop necesita un contenedor propio.
-        h += '<div class="dash-group-rows">';
-        rows.forEach(function(a) { h += dashRenderRow(a); });
-        h += '</div></details>';
+        var body = '<div class="dash-group-rows">'
+                 + rows.map(function(a) { return dashRenderRow(a); }).join('')
+                 + '</div>';
+        h += uiCard({
+            id: 'dash-' + cat,
+            icon: c.icon,
+            title: c.label,
+            count: pendN ? { label: pendN + ' pendiente' + (pendN === 1 ? '' : 's'), tone: 'warn' }
+                         : { label: '✓ al día', tone: 'ok' },
+            accent: DASH_CAT_ACCENT[cat],
+            body: body,
+            bodyFlush: true
+        });
     });
     if (!shown.length) h += '<div class="daily-dash-empty">Sin actividades. ¡Todo en orden! 👍</div>';
     h += '</div>';
     return h;
 }
+
+// v22.3 — "Solo míos" PERSISTE. Vivía en window._dashOnlyMine, o sea que se perdía
+// en cada recarga: quien trabaja filtrado tenía que volver a marcarlo cada vez que
+// abría la app. Ahora es uiPref('onlyMine'), por dispositivo y sin sincronizar (el
+// filtro de un técnico no debe cambiarle la pantalla a otro).
+// La global se conserva como alias por si algún código viejo la lee.
+function dashOnlyMine() {
+    var v = !!uiPref('onlyMine');
+    window._dashOnlyMine = v;
+    return v;
+}
+
+function dashSetOnlyMine(on) {
+    uiPref('onlyMine', !!on);
+    window._dashOnlyMine = !!on;
+    if (typeof dailyDashRender === 'function') dailyDashRender();
+}
+
+// Franja de color por categoría — reemplaza las 5 reglas .dash-group--* que hacían
+// lo mismo a mano. DASH_CATS ya trae el accent como var(--accent-x); aquí solo hace
+// falta el nombre para la clase .ui-card--x.
+var DASH_CAT_ACCENT = {
+    vehiculos: 'cascade', plan: 'testplan', inventario: 'inventory',
+    calidad: 'cop', proyectos: 'panel', manuales: 'panel'
+};
 
 // ETA de liberación: fijar/cambiar manualmente desde la fila (auditado)
 function dashEtaEdit(vehicleId, el, ev) {
@@ -3035,6 +3219,7 @@ function dashTaskModalOpen() {
     html += '<label class="dash-task-field">Responsable<select id="dash-task-assignee"><option value="">— sin asignar —</option>' +
             ops.map(function(o) { return '<option>' + escapeHtml(o.name) + '</option>'; }).join('') + '</select></label>';
     html += '<label class="dash-task-field">Fecha límite<input type="date" id="dash-task-due"></label>';
+    html += '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('task', 'Crear otra al guardar') + '</div>';
     html += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">';
     html += '<button class="btn btn-ghost" onclick="dashTaskModalClose()">Cancelar</button>';
     html += '<button class="btn" style="background:var(--accent-cascade);color:#fff;font-weight:700;" onclick="dashTaskModalSave()">Guardar</button></div>';
@@ -3078,6 +3263,22 @@ function dashTaskModalSave() {
     var assignee = (document.getElementById('dash-task-assignee') || {}).value || '';
     var due = (document.getElementById('dash-task-due') || {}).value || '';
     var projectId = (document.getElementById('dash-task-project') || {}).value || '';
+    // v22.3 — Se lee ANTES de cerrar: dashTaskModalClose destruye el modal y con él
+    // la casilla. Además recuerda la elección para la próxima vez.
+    var again = (typeof uiCreateAnotherChecked === 'function') ? uiCreateAnotherChecked('task') : false;
+    // Reabrir conserva el responsable y la fecha (lo que se repite en una tanda),
+    // no el título (que es justamente lo que cambia en cada fila).
+    function reopenIfWanted() {
+        if (!again) return;
+        setTimeout(function() {
+            dashTaskModalOpen();
+            setTimeout(function() {
+                var a = document.getElementById('dash-task-assignee'); if (a && assignee) a.value = assignee;
+                var d = document.getElementById('dash-task-due'); if (d && due) d.value = due;
+                var t = document.getElementById('dash-task-title'); if (t) t.focus();
+            }, 60);
+        }, 120);
+    }
 
     // v16.8: con proyecto elegido, el pendiente nace como paso del proyecto.
     if (projectId && typeof pnProjectStepAddQuick === 'function') {
@@ -3086,6 +3287,7 @@ function dashTaskModalSave() {
         dashTaskModalClose();
         if (typeof showToast === 'function') showToast('Registrada en el proyecto', 'success');
         dailyDashRender();
+        reopenIfWanted();
         return;
     }
 
@@ -3100,6 +3302,7 @@ function dashTaskModalSave() {
         dashTaskModalClose();
         if (typeof showToast === 'function') showToast('Actividad creada', 'success');
         dailyDashRender();
+        reopenIfWanted();
     }
 }
 
@@ -3913,6 +4116,7 @@ function storageFreeBytes() {
 
         // Theme init — apply before any UI renders
         try { themeInit(); } catch(e) { console.error('themeInit error:', e); }
+        try { densityInit(); } catch(e) { console.error('densityInit error:', e); }
         try { modalUxInit(); } catch(e) { console.error('modalUxInit error:', e); }
         try { a11yTablist(document.getElementById('platformBar')); } catch(e) { console.error('a11yTablist error:', e); }
 
@@ -4219,31 +4423,287 @@ document.addEventListener('click', function(e) {
 // [M21] COMMAND PALETTE + KEYBOARD SHORTCUTS
 // ══════════════════════════════════════════════════════════════════════
 
+// Las 6 entradas de navegación que había aquí se retiraron en v22.2: cubrían 6 de
+// ~50 destinos y varias apuntaban a alias legacy. Ahora la navegación la aporta
+// uiNavRegistry(), derivada del DOM. Aquí quedan solo las ACCIONES.
 var _commandPaletteCommands = [
-    { label: 'Plan Semanal', icon: '📋', action: function(){ switchPlatform('plan'); }, shortcut: 'Ctrl+1', cat: 'nav' },
-    { label: 'Pruebas (COP15)', icon: '🔬', action: function(){ switchPlatform('pruebas'); }, shortcut: 'Ctrl+2', cat: 'nav' },
-    { label: 'Datos y Análisis', icon: '📊', action: function(){ switchPlatform('datos'); }, shortcut: 'Ctrl+3', cat: 'nav' },
-    { label: 'Vista Hoy', icon: '🏠', action: function(){ switchPlatform('today'); }, shortcut: 'Ctrl+4', cat: 'nav' },
-    { label: 'Consumibles (Inventario)', icon: '📦', action: function(){ switchPlatform('inventory'); }, cat: 'nav' },
-    { label: 'Panel de Control', icon: '⚙️', action: function(){ switchPlatform('panel'); }, cat: 'nav' },
-    { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'action' },
-    { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'action' },
-    { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'action' },
-    { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'action' },
-    { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'action' },
-    { label: 'Generar Plan Smart', icon: '⚡', action: function(){ switchPlatform('testplan'); setTimeout(function(){ if(typeof tpSmartGenerate==='function') tpSmartGenerate(); }, 300); }, cat: 'action' },
-    { label: 'Ver Kanban', icon: '📋', action: function(){ switchPlatform('cop15'); setTimeout(function(){ var t=document.querySelector('.tab[data-tab="kanban"]'); if(t)t.click(); }, 200); }, cat: 'nav' },
-    { label: 'Configurar Regulaciones', icon: '⚗️', action: function(){ switchPlatform('panel'); setTimeout(function(){ pnSwitchTab('pn-regulations'); }, 200); }, cat: 'nav' }
+    { label: 'Guardar Progreso', icon: '💾', action: function(){ if(typeof saveVehicleProgress==='function') saveVehicleProgress(); }, shortcut: 'Ctrl+S', cat: 'Acciones' },
+    { label: 'Generar PDF Semanal', icon: '📄', action: function(){ if(typeof generateWeeklyStatusPDF==='function') generateWeeklyStatusPDF(); }, cat: 'Acciones' },
+    { label: 'Deshacer Ultima Accion', icon: '↶', action: function(){ undoPop(); }, shortcut: 'Ctrl+Z', cat: 'Acciones' },
+    { label: 'Reiniciar Filtros Cascada', icon: '🔄', action: function(){ if(typeof resetFilters==='function') resetFilters(); if(typeof resetCascadeTree==='function') resetCascadeTree(); }, cat: 'Acciones' },
+    { label: 'Buscar VIN Global', icon: '🔍', action: function(){ toggleGlobalSearch(); }, cat: 'Acciones' },
+    { label: 'Generar Plan Smart', icon: '⚡', action: function(){ switchPlatform('testplan'); setTimeout(function(){ if(typeof tpSmartGenerate==='function') tpSmartGenerate(); }, 300); }, cat: 'Acciones' }
 ];
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.2] LANZADOR — `uiNavRegistry()` es LA definición de los destinos
+//
+// La app tiene ~50 destinos repartidos en 5 tabs raíz × N sub-pestañas × el menú
+// "⋯ Más". Encontrar algo exigía saber de antemano dónde vivía.
+//
+// El registro se DERIVA DEL DOM, no de una lista escrita a mano. Razones:
+//   1. Una lista paralela se desincroniza — es cuestión de tiempo. Un destino
+//      nuevo TIENE que tener botón para ser alcanzable; si tiene botón, el
+//      escáner lo ve. No hay nada que recordar actualizar.
+//   2. Da lo ALCANZABLE, no lo declarado. Hoy `_tpTabs` declara 13 ids pero solo
+//      11 tienen botón: ofrecer los 13 llevaría a dos pantallas muertas.
+// Las descripciones para buscar salen de HELP_TABS, que CLAUDE.md ya obliga a
+// mantener ("toda pestaña nueva agrega una entrada a HELP_TABS"), así que teclear
+// "cobertura" o "calibración" encuentra la pantalla sin inventar un diccionario.
+// ══════════════════════════════════════════════════════════════════════
+
+/** PURA: normaliza para buscar — minúsculas y SIN acentos. En el laboratorio se
+ *  teclea "calibracion" mucho más seguido que "calibración"; sin esto la búsqueda
+ *  del lanzador devolvía cero resultados para media plataforma. */
+function _uiFold(s) {
+    // ̀-ͯ = marcas combinantes. Escritas como escapes y no como caracteres
+    // literales: en literal son invisibles en el editor y cualquier reencoding del
+    // archivo las puede romper sin que nadie lo note.
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/** PURA: "tpSwitchTab('tp-myweek')" → {fn:'tpSwitchTab', arg:'tp-myweek'}. null si no empata. */
+function _uiParseOnclick(str) {
+    if (!str) return null;
+    var m = String(str).match(/([A-Za-z_$][\w$]*)\s*\(\s*['"]([^'"]+)['"]/);
+    return m ? { fn: m[1], arg: m[2] } : null;
+}
+
+/** Texto de un botón sin sus badges/adornos. Clona y borra en la copia en vez de
+ *  hacer replace() sobre el textContent: el badge trae su propio espaciado y un
+ *  replace por cadena dejaba restos ("PRUEBAS 0" en vez de "PRUEBAS"). */
+function _uiCleanLabel(btn, dropSel) {
+    var c = btn.cloneNode(true);
+    if (dropSel) c.querySelectorAll(dropSel).forEach(function(n) { n.remove(); });
+    return c.textContent;
+}
+
+/** PURA: separa el emoji inicial de la etiqueta. "📅 Mi semana" → {icon:'📅', label:'Mi semana'} */
+function _uiSplitIcon(text, fallback) {
+    var t = String(text || '').replace(/\s+/g, ' ').trim();
+    var m = t.match(/^([^\w\sÁÉÍÓÚÜÑáéíóúüñ]+)\s*(.*)$/);
+    if (m && m[1] && m[2]) return { icon: m[1].trim(), label: m[2].trim() };
+    return { icon: fallback || '•', label: t };
+}
+
+var UI_NAV_SOURCES = [
+    { sel: '#tp-tabs-bar .tp-tab[onclick*="tpSwitchTab"]',  plat: 'testplan',  group: 'Plan',        fallback: '📋' },
+    { sel: '#inv-tabs-bar .tp-tab[onclick*="invSwitchTab"]', plat: 'inventory', group: 'Consumibles', fallback: '📦' },
+    { sel: '#pn-tabs-bar .tp-tab[onclick*="pnSwitchTab"]',   plat: 'panel',     group: 'Datos',       fallback: '📊' }
+];
+
+function uiNavRegistry() {
+    var out = [], seen = {};
+    function push(e) { if (e && !seen[e.id]) { seen[e.id] = 1; out.push(e); } }
+
+    // 1. Las 5 tabs raíz
+    document.querySelectorAll('#platformBar .platform-tab').forEach(function(b) {
+        var p = _uiParseOnclick(b.getAttribute('onclick'));
+        if (!p || p.fn !== 'switchPlatform') return;
+        // Se descartan TODOS los <span>, no solo .pt-badge: la pestaña Pruebas lleva
+        // un segundo badge (#inv-alert-badge) sin esa clase, y por él la etiqueta
+        // salía como "PRUEBAS 0". El nombre de la pestaña es un nodo de texto suelto.
+        var s = _uiSplitIcon(_uiCleanLabel(b, 'span'), '🏠');
+        push({ id: 'plat:' + p.arg, icon: s.icon, label: s.label, group: 'Principal',
+               keywords: '', go: (function(a){ return function(){ switchPlatform(a); }; })(p.arg) });
+    });
+
+    // 2. Sub-pestañas de Plan / Consumibles / Datos (incluye las del "⋯ Más": están
+    //    en el DOM aunque el menú esté cerrado)
+    UI_NAV_SOURCES.forEach(function(src) {
+        document.querySelectorAll(src.sel).forEach(function(b) {
+            var p = _uiParseOnclick(b.getAttribute('onclick'));
+            if (!p) return;
+            var s = _uiSplitIcon(b.textContent, src.fallback);
+            push({ id: p.arg, icon: s.icon, label: s.label, group: src.group,
+                   keywords: _uiHelpText(p.arg),
+                   go: (function(pl, t){ return function(){ dashGo(pl, t); }; })(src.plat, p.arg) });
+        });
+    });
+
+    // 3. COP15 — navega por click en .tab[data-tab], no por una función xxSwitchTab
+    document.querySelectorAll('#platform-cop15 .tab[data-tab]').forEach(function(b) {
+        var t = b.getAttribute('data-tab');
+        // 'consumibles' es un ENLACE CRUZADO: esa pestaña de COP15 salta a la
+        // plataforma de Consumibles, que el lanzador ya lista con sus 12 destinos
+        // propios. Incluirla aquí la pondría bajo "Pruebas" apuntando a otro lado.
+        if (t === 'consumibles') return;
+        var s = _uiSplitIcon(_uiCleanLabel(b, 'span'), '🔬');
+        push({ id: 'cop15-' + t, icon: s.icon, label: s.label, group: 'Pruebas',
+               keywords: _uiHelpText('cop15-' + t) || _uiHelpText(t),
+               go: (function(x){ return function(){ dashGo('cop15', x); }; })(t) });
+    });
+
+    // 4. CoP — su nav se pinta bajo demanda, así que no está en el DOM inicial.
+    //    COP_VIEWS (cop_validator.js) es su única definición.
+    if (typeof COP_VIEWS !== 'undefined') {
+        COP_VIEWS.forEach(function(v) {
+            var s = _uiSplitIcon(v[1], '📐');
+            push({ id: 'cop-' + v[0], icon: s.icon, label: s.label, group: 'CoP',
+                   keywords: _uiHelpText('cop-' + v[0]),
+                   go: (function(x){ return function(){ dashGo('cop', x); }; })(v[0]) });
+        });
+    }
+    return out;
+}
+
+/** Texto de HELP_TABS de un destino, para que la búsqueda encuentre por concepto. */
+function _uiHelpText(id) {
+    if (typeof HELP_TABS === 'undefined' || !HELP_TABS[id]) return '';
+    var h = HELP_TABS[id];
+    return ((h.title || '') + ' ' + (h.text || '')).toLowerCase();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.3] uiCard — LA primitiva de tarjeta/widget
+//
+// La app pinta HTML desde strings, así que la primitiva es un builder, no un
+// componente. `uiCard(opts)` es PURA: mismos opts → mismo string, sin tocar el
+// DOM. El estado de colapso se le PASA (uiCardOpen lo lee), para poder probarla
+// en Node y para que el llamador decida.
+//
+// Estructura:
+//   <details class="ui-card ui-card--<accent>">
+//     <summary class="ui-card-head"> icono · título · chip · acciones · chevron
+//     <div class="ui-card-body">
+//
+// El colapso se guarda en uiPref('cards')[id] — SIN clave nueva de localStorage,
+// va dentro de kia_ui_prefs (v22.0).
+// ══════════════════════════════════════════════════════════════════════
+
+/** ¿Está abierta esta tarjeta? Preferencia del dispositivo; si nunca se tocó, el default. */
+function uiCardOpen(id, defaultOpen) {
+    if (!id) return defaultOpen !== false;
+    var cards = uiPref('cards') || {};
+    return (cards[id] === undefined) ? (defaultOpen !== false) : !!cards[id];
+}
+
+/** Llamado desde el toggle del <details>. Persiste solo si la tarjeta tiene id. */
+function uiCardToggle(id, el) {
+    if (!id || !el) return;
+    var cards = uiPref('cards') || {};
+    cards[id] = !!el.open;
+    uiPref('cards', cards);
+}
+
+/**
+ * PURA. opts:
+ *   id           clave de persistencia del colapso (opcional; sin id no se recuerda)
+ *   icon         emoji del encabezado
+ *   title        texto del encabezado
+ *   count        {n, tone:'ok'|'warn'|'danger'|'info'|'neutral', label} chip opcional
+ *   actions      HTML de acciones en el encabezado (botones ya formados)
+ *   body         HTML del contenido
+ *   collapsible  default true
+ *   open         si viene, manda; si no, se usa `defaultOpen`
+ *   defaultOpen  default true
+ *   help         clave de CASCADE_TOOLTIPS → data-help en el encabezado
+ *   accent       'cascade'|'testplan'|'inventory'|'panel'|'cop' → franja de color
+ */
+function uiCard(opts) {
+    var o = opts || {};
+    var collapsible = o.collapsible !== false;
+    var isOpen = (o.open !== undefined) ? !!o.open : uiCardOpen(o.id, o.defaultOpen);
+    var cls = 'ui-card' + (o.accent ? ' ui-card--' + o.accent : '') + (collapsible ? '' : ' ui-card--static');
+
+    var head = '<span class="ui-card-icon" aria-hidden="true">' + (o.icon || '') + '</span>'
+             + '<span class="ui-card-title">' + escapeHtml(o.title || '') + '</span>';
+    if (o.count && (o.count.n !== undefined || o.count.label)) {
+        var tone = o.count.tone || 'neutral';
+        head += '<span class="u-chip u-chip--' + tone + '">'
+              + escapeHtml(o.count.label !== undefined ? o.count.label : String(o.count.n)) + '</span>';
+    }
+    head += '<span class="ui-card-spacer"></span>';
+    // Las acciones van dentro del <summary>: cualquier botón ahí necesita
+    // stopPropagation, o el clic además colapsa la tarjeta.
+    if (o.actions) head += '<span class="ui-card-acts" onclick="event.stopPropagation()">' + o.actions + '</span>';
+
+    var helpAttr = o.help ? ' data-help="' + escapeHtml(o.help) + '"' : '';
+    // bodyFlush: el contenido ya trae su propio padding (listas de filas a sangre),
+    // así que la tarjeta no debe agregar el suyo o se acumulan.
+    var bodyCls = 'ui-card-body' + (o.bodyFlush ? ' ui-card-body--flush' : '');
+
+    if (!collapsible) {
+        return '<section class="' + cls + '">'
+             + '<div class="ui-card-head"' + helpAttr + '>' + head + '</div>'
+             + '<div class="' + bodyCls + '">' + (o.body || '') + '</div>'
+             + '</section>';
+    }
+    return '<details class="' + cls + '"' + (isOpen ? ' open' : '')
+         + (o.id ? ' ontoggle="uiCardToggle(\'' + escapeHtml(o.id) + '\', this)"' : '') + '>'
+         + '<summary class="ui-card-head"' + helpAttr + '>' + head + '</summary>'
+         + '<div class="' + bodyCls + '">' + (o.body || '') + '</div>'
+         + '</details>';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.3] "Crear otro" — capturar en serie sin reabrir el modal a mano
+//
+// Dar de alta es repetitivo: quien captura diez cilindros hoy tenía que abrir el
+// modal diez veces. Las pantallas de alta NO usan showModal (se inyectan con
+// innerHTML), así que en vez de tocar showModal esto son dos helpers que cada
+// flujo llama: uno pinta la casilla, el otro la lee ANTES de que el modal se
+// destruya.
+//
+// La elección se recuerda por flujo y por dispositivo (dentro de kia_ui_prefs,
+// sin clave nueva): si alguien captura siempre en serie, no la vuelve a marcar.
+// ══════════════════════════════════════════════════════════════════════
+function uiCreateAnotherHTML(id, label) {
+    var on = uiCreateAnotherPref(id);
+    return '<label class="u-hit" style="display:inline-flex;align-items:center;gap:var(--space-sm);'
+         + 'cursor:pointer;font-size:var(--fs-sm);color:var(--muted);">'
+         + '<input type="checkbox" id="ui-create-another-' + escapeHtml(id) + '"' + (on ? ' checked' : '') + '>'
+         + '<span>' + escapeHtml(label || 'Crear otro al guardar') + '</span></label>';
+}
+
+function uiCreateAnotherPref(id) {
+    var m = uiPref('createAnother') || {};
+    return !!m[id];
+}
+
+/** Lee la casilla y RECUERDA la elección. Llamar ANTES de cerrar/destruir el modal. */
+function uiCreateAnotherChecked(id) {
+    var el = document.getElementById('ui-create-another-' + id);
+    if (!el) return false;
+    var on = !!el.checked;
+    var m = uiPref('createAnother') || {};
+    m[id] = on;
+    uiPref('createAnother', m);
+    return on;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.2] UI_CREATE_ACTIONS — el único "+ Crear" de la app
+// Aquí sí hace falta una lista literal: no hay DOM del que derivar un verbo de
+// alta. Cada fila lleva guarda typeof, así que un módulo que no cargue
+// simplemente no aparece en el menú.
+// REGLA para código nuevo: toda pantalla que dé de alta una entidad agrega su
+// verbo aquí, o queda invisible desde el botón Crear.
+// ══════════════════════════════════════════════════════════════════════
+var UI_CREATE_ACTIONS = [
+    { icon: '📝', label: 'Actividad de hoy',      fn: 'dashTaskModalOpen',   hint: 'Un pendiente suelto en el tablero de HOY' },
+    { icon: '🔴', label: 'Cilindro de gas',       fn: 'invShowAddGas',       hint: 'Alta en Consumibles' },
+    { icon: '📖', label: 'Ronda de lecturas',     fn: 'invStartReadingRound',hint: 'Recorrido para capturar presiones y nivel' },
+    { icon: '🔧', label: 'Instrumento',           fn: 'invAddEquipment',     hint: 'Equipo del plan maestro F11' },
+    { icon: '🛠️', label: 'Actividad de mtto',     fn: 'invAddMaintActivity', hint: 'Mantenimiento preventivo' },
+    { icon: '🐞', label: 'Reportar un problema',  fn: 'bugCaptureStart',     hint: 'Captura la pantalla y abre un reporte' }
+];
+
 var _cmdActiveIdx = 0;
 var _cmdFiltered = [];
+var _cmdMode = 'command';   // 'command' | 'launcher' | 'create'
 
-function openCommandPalette() {
+// mode: 'command' (Ctrl+K, el de siempre) | 'launcher' (Ir a…) | 'create' (+ Crear)
+function openCommandPalette(mode) {
     var el = document.getElementById('command-palette-overlay');
     if (!el) return;
+    _cmdMode = (mode === 'launcher' || mode === 'create') ? mode : 'command';
     el.style.display = 'block';
     var input = document.getElementById('command-palette-input');
     input.value = '';
+    input.placeholder = _cmdMode === 'launcher' ? 'Busca una pantalla: cobertura, calibración, familia…'
+                      : _cmdMode === 'create'   ? '¿Qué quieres dar de alta?'
+                      : 'Escribe un comando...';
     _cmdActiveIdx = 0;
     filterCommands('');
     setTimeout(function(){ input.focus(); }, 50);
@@ -4252,6 +4712,24 @@ function openCommandPalette() {
 function closeCommandPalette() {
     var el = document.getElementById('command-palette-overlay');
     if (el) el.style.display = 'none';
+    _cmdMode = 'command';
+}
+
+/** Universo buscable según el modo. El lanzador incluye las acciones para que
+ *  teclear "deshacer" también funcione desde ahí — un solo campo, un solo teclado. */
+function _cmdUniverse() {
+    if (_cmdMode === 'create') {
+        return UI_CREATE_ACTIONS.filter(function(a) { return typeof window[a.fn] === 'function'; })
+            .map(function(a) {
+                return { label: a.label, icon: a.icon, cat: a.hint,
+                         action: (function(f){ return function(){ try { window[f](); } catch(e) {} }; })(a.fn) };
+            });
+    }
+    var nav = [];
+    try { nav = uiNavRegistry().map(function(e) {
+        return { label: e.label, icon: e.icon, cat: e.group, keywords: e.keywords, action: e.go };
+    }); } catch (e) { nav = []; }
+    return nav.concat(_commandPaletteCommands);
 }
 
 function filterCommands(query) {
@@ -4264,9 +4742,13 @@ function filterCommands(query) {
         renderCommandResults();
         return;
     }
-    _cmdFiltered = q ? _commandPaletteCommands.filter(function(c) {
-        return c.label.toLowerCase().includes(q) || (c.cat && c.cat.includes(q));
-    }) : _commandPaletteCommands;
+    var universe = _cmdUniverse();
+    var qf = _uiFold(q);
+    _cmdFiltered = qf ? universe.filter(function(c) {
+        return _uiFold(c.label).includes(qf)
+            || (c.cat && _uiFold(c.cat).includes(qf))
+            || (c.keywords && _uiFold(c.keywords).includes(qf));
+    }) : universe;
     _cmdActiveIdx = 0;
     renderCommandResults();
 }
@@ -4294,10 +4776,41 @@ function _globalCrossSearchForPalette(q) {
 function renderCommandResults() {
     var el = document.getElementById('command-palette-results');
     if (!el) return;
+    var q = (document.getElementById('command-palette-input') || {}).value || '';
+
+    // Portada del lanzador: retícula de tiles agrupada por módulo, mientras no se
+    // teclea nada. En cuanto hay consulta cae a la lista de siempre — un solo
+    // overlay, un solo manejo de teclado.
+    if ((_cmdMode === 'launcher' || _cmdMode === 'create') && !q.trim()) {
+        if (!_cmdFiltered.length) { el.innerHTML = '<div class="u-empty">Nada que mostrar.</div>'; return; }
+        var groups = [], byName = {};
+        _cmdFiltered.forEach(function(c, i) {
+            var g = c.cat || 'Otros';
+            if (!byName[g]) { byName[g] = []; groups.push(g); }
+            byName[g].push({ c: c, i: i });
+        });
+        el.innerHTML = groups.map(function(g) {
+            return '<div class="cmd-group">' + escapeHtml(g) + '</div>'
+                 + '<div class="cmd-grid">' + byName[g].map(function(x) {
+                       return '<button type="button" class="cmd-tile' + (x.i === _cmdActiveIdx ? ' cmd-active' : '') + '"'
+                            + ' onclick="executeCommand(' + x.i + ')">'
+                            + '<span class="cmd-tile-icon" aria-hidden="true">' + x.c.icon + '</span>'
+                            + '<span class="cmd-tile-label">' + escapeHtml(x.c.label) + '</span>'
+                            + '</button>';
+                   }).join('') + '</div>';
+        }).join('');
+        return;
+    }
+
+    if (!_cmdFiltered.length) {
+        el.innerHTML = '<div class="u-empty">Sin resultados para “' + escapeHtml(q) + '”.</div>';
+        return;
+    }
     el.innerHTML = _cmdFiltered.map(function(c, i) {
         return '<div class="cmd-item' + (i === _cmdActiveIdx ? ' cmd-active' : '') + '" onclick="executeCommand(' + i + ')" onmouseenter="_cmdActiveIdx=' + i + ';renderCommandResults();">' +
             '<span class="cmd-icon">' + c.icon + '</span>' +
-            '<span class="cmd-label">' + c.label + '</span>' +
+            '<span class="cmd-label">' + escapeHtml(c.label) + '</span>' +
+            (c.cat ? '<span class="cmd-cat">' + escapeHtml(c.cat) + '</span>' : '') +
             (c.shortcut ? '<span class="cmd-shortcut">' + c.shortcut + '</span>' : '') +
             '</div>';
     }).join('');
