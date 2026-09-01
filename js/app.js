@@ -285,11 +285,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '22.3';
+var APP_VERSION = '22.4';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '22.4', date: '1 sep 2026', title: 'Las secciones plegables ya no abren de golpe', bullets: [
+        'LAS SECCIONES QUE SE PLIEGAN ABREN CON UNA TRANSICIÓN, no de golpe. La animación existía desde hace tiempo pero solo la usaban 5 de las 41 secciones plegables de la app.',
+        'La flecha del encabezado gira en vez de cambiar de símbolo: se lee como el mismo objeto moviéndose y no como dos flechas parpadeando.',
+        'Las gráficas quedan fuera de la animación a propósito, para no repetir el problema de v20.3 donde una carta se pintaba en blanco por medirse en mal momento.',
+        'MOVIMIENTO REDUCIDO: había dos reglas contradictorias y una anulaba a la otra en silencio, así que lo que decía el código no era lo que hacía la app. Ahora es una sola.',
+        'Las 155 duraciones de animación escritas a mano pasaron a la escala compartida: cambiar el ritmo de la plataforma ahora es cambiar tres valores, no buscar en 4,500 líneas.'
+    ] },
     { version: '22.3', date: '1 sep 2026', title: 'Tarjetas que se colapsan y recuerdan, y "crear otro"', bullets: [
         'TODAS LAS TARJETAS SE COLAPSAN Y RECUERDAN CÓMO LAS DEJASTE, por dispositivo. El encabezado muestra el dato clave sin abrirla: cuántos pendientes, si la ponderación suma 100, si el empuje por antigüedad está apagado.',
         '"SOLO MÍOS" YA NO SE PIERDE AL RECARGAR. Vivía solo en memoria, así que quien trabaja filtrado tenía que volver a marcarlo cada vez que abría la app.',

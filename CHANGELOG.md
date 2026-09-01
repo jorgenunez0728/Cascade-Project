@@ -2,6 +2,76 @@
 
 All notable changes to this project, organized by development round.
 
+## v22.4 — Movimiento: un solo sistema, y el acordeón que nadie usaba (2026-09-01)
+
+Etapa 6 del overhaul. El diagnóstico previo decía "los tokens de movimiento casi no se usan";
+al medirlo resultó **menos dramático y más interesante**:
+
+| Duración | Usos | Token |
+|---|---|---|
+| `0.15s` | 66 | `--dur-fast` — **exacto** |
+| `0.2s` | 60 | `--dur-base` — **exacto** |
+| `0.3s` | 29 | `--dur-slow` — **exacto** |
+| `0.25s` | 10 | ninguno |
+
+**155 de las 165 duraciones cortas ya coincidían exactamente con los tres tokens.** No había
+caos de movimiento: había un sistema coherente que no se nombraba a sí mismo. Tokenizarlo es
+mantenibilidad (cambiar el ritmo de la plataforma pasa a ser cambiar tres valores), **no un
+cambio visual** — y conviene decirlo así en vez de venderlo como que se va a sentir distinto.
+
+- **10 → 106 usos de `var(--dur-*)`**; cero duraciones cortas crudas. Las `0.25s` se ajustaron a
+  `--dur-base` (50ms en una sombra de hover es imperceptible y deja el sistema sin duraciones
+  sin nombre).
+- **Se dejan a propósito** ~17 one-offs cortos (0.1s de micro-feedback, 0.6s de un rebote) y los
+  bucles ambientales de 1–15s, que no son transiciones. Snapear un rebote de 0.6s **sí** se
+  vería.
+- **Corrección de un dato del diagnóstico**: los "49 easings hardcodeados" eran 48 *dentro* de
+  `var(--ease-out)` que el grep contó por error, más 1 real. El easing ya estaba tokenizado.
+
+### El acordeón que existía y nadie usaba
+
+`@keyframes accordionOpen` y la regla `details.acc` llevaban tiempo en el archivo, pero exigían
+la clase `.acc` y **solo 5 de los 41 `<details>` de la app la llevaban**: los otros 36 abrían de
+golpe — incluidas las tarjetas `uiCard` creadas en v22.3.
+
+- La regla pasa a aplicar a **todo `<details>` abierto** (en esta app un `<details>` es siempre
+  una sección plegable de contenido, no hay ninguno con otra semántica). `.acc` se conserva.
+- **Se anima solo la APERTURA, a propósito.** Animar el cierre exige medir altura en JS y
+  pelearse con el momento en que el navegador colapsa el `<details>`; cerrar es una acción de
+  descarte y nadie necesita verla.
+- **Excepción: nada de animar un contenedor con una gráfica dentro** (`:has(canvas)`). La
+  animación solo toca `opacity`/`transform`, que **no** cambian la caja de layout, así que
+  Chart.js mediría bien — pero v20.3 ya costó una ronda por medir un canvas en mal momento y no
+  vale la pena volver a apostar. Verificado en navegador: `:has()` soportado, el div normal
+  anima, el div con canvas no, y el canvas mide correcto.
+- **El chevron gira en vez de cambiar de carácter.** Eran dos símbolos (`▾` / `▸`)
+  intercambiados por `content`, que **no se puede animar**: se leía como dos flechas
+  parpadeando en vez de un mismo objeto girando.
+
+### Movimiento reducido: dos reglas que se contradecían
+
+Había **cuatro** bloques `prefers-reduced-motion` y dos de ellos declaraban `*` con
+`!important` y valores **contradictorios** de `transition-duration` (`0.01ms` en uno, `120ms` en
+el otro). Ganaba el segundo por posición, así que el primero llevaba tiempo muerto y quien
+leyera el archivo se llevaba una idea equivocada de qué hace la app.
+
+- Consolidados en **un solo bloque autoritativo**, conservando el criterio del que ganaba (que
+  es el correcto): se matan las animaciones de keyframes —movimiento decorativo— pero se deja
+  una transición corta de 120ms, porque un cambio de color o de opacidad no es "movimiento" y
+  quitarlo del todo convierte el feedback de estado en un corte seco. `scroll-behavior` sí se
+  anula: el scroll animado sí es movimiento.
+- **REGLA: no agregar otro bloque `*` de reduced-motion.** Las excepciones por componente (como
+  `.cop-fam-card`) van en su propia regla.
+
+### No verificado
+
+El único `<details>` de la app con una gráfica dentro es el **burndown de Plan → Dashboard**, y
+esa pantalla necesita datos de producción importados para pintarse: con una base vacía no
+renderiza ningún canvas. La exclusión `:has(canvas)` se verificó con un caso construido a mano,
+no sobre el burndown real.
+
+---
+
 ## v22.3 — `uiCard`, "Solo míos" que persiste y "Crear otro" (2026-09-01)
 
 Etapas 7 y 8 del overhaul.

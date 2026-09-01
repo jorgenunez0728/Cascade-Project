@@ -1275,6 +1275,26 @@ las dos, no una:
   memoria y se perdía en cada recarga; ahora es `uiPref('onlyMine')` (`dashOnlyMine()` /
   `dashSetOnlyMine()`), con la global como alias de compatibilidad.
 
+### v22.4 — Movimiento
+
+- **PROHIBIDA una duración cruda en `animation`/`transition`**: usar `--dur-fast` (150ms),
+  `--dur-base` (200ms) o `--dur-slow` (300ms). Quedan ~17 one-offs deliberados (micro-feedback
+  de 0.1s, un rebote de 0.6s) y los bucles ambientales de 1–15s, que no son transiciones.
+- **Todo `<details>` abierto anima su contenido** con `accordionOpen` — ya no hace falta la
+  clase `.acc` (la regla la exigía y solo 5 de 41 la llevaban). **Se anima solo la apertura**:
+  animar el cierre exige medir altura en JS y cerrar es una acción de descarte.
+- **Nada de animar un contenedor con una gráfica dentro** — la regla ya excluye
+  `details[open] > *:has(canvas)`. La animación solo toca `opacity`/`transform` (que no cambian
+  la caja de layout), pero v20.3 ya costó una ronda por medir un canvas en mal momento.
+- **Un chevron que cambia de estado se ROTA, no se sustituye.** `content` no se puede animar:
+  intercambiar `▾` por `▸` se lee como dos símbolos parpadeando.
+- **HAY UN SOLO bloque `*` de `prefers-reduced-motion`** (buscar "MOVIMIENTO REDUCIDO"). Había
+  dos con `!important` y valores contradictorios de `transition-duration`; ganaba el posterior y
+  el otro era código muerto que describía mal lo que hacía la app. Criterio vigente: se matan
+  las animaciones de keyframes y `scroll-behavior`, pero se deja una transición de **120ms**
+  porque un cambio de color o de opacidad no es movimiento y quitarlo hace del feedback un corte
+  seco. **No agregar otro bloque `*`**; las excepciones por componente van en su propia regla.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).
