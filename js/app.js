@@ -285,11 +285,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '22.2';
+var APP_VERSION = '22.3';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '22.3', date: '1 sep 2026', title: 'Tarjetas que se colapsan y recuerdan, y "crear otro"', bullets: [
+        'TODAS LAS TARJETAS SE COLAPSAN Y RECUERDAN CÓMO LAS DEJASTE, por dispositivo. El encabezado muestra el dato clave sin abrirla: cuántos pendientes, si la ponderación suma 100, si el empuje por antigüedad está apagado.',
+        '"SOLO MÍOS" YA NO SE PIERDE AL RECARGAR. Vivía solo en memoria, así que quien trabaja filtrado tenía que volver a marcarlo cada vez que abría la app.',
+        '"CREAR OTRO" al dar de alta una actividad o un cilindro: guarda y vuelve a abrir el formulario, conservando lo que se repite (responsable, fecha, proveedor) y limpiando lo que cambia. Recuerda si lo prefieres siempre encendido.',
+        'En Armar semana, si el peso de región está en 0% la pantalla lo dice: esos diez controles no afectan nada hasta que lo subas.',
+        'Los grupos de HOY y las tarjetas del planificador comparten por fin el mismo encabezado, en vez de tres formas distintas de la misma cosa.'
+    ] },
     { version: '22.2', date: '1 sep 2026', title: 'Lanzador: las ~50 pantallas, en una sola', bullets: [
         'BOTÓN "IR A…" EN HOY Y EN EL MENÚ ⋯. Abre una retícula con TODAS las pantallas de la plataforma agrupadas por módulo — 53 destinos que antes vivían tras 5 pestañas y submenús "⋯ Más".',
         'Se busca por concepto, no por nombre: teclear "cobertura" encuentra Dashboard y Familias, "calibración" encuentra Gases y Equipos. Funciona con y sin acentos.',
@@ -3081,7 +3088,7 @@ function dashRenderRow(a) {
 }
 
 function dashRenderBoard(acts, currentOp) {
-    var onlyMine = !!window._dashOnlyMine;
+    var onlyMine = dashOnlyMine();
     var shown = (onlyMine && currentOp)
         ? acts.filter(function(a) { return !a.assignee || a.assignee === currentOp; })
         : acts;
@@ -3092,7 +3099,9 @@ function dashRenderBoard(acts, currentOp) {
     h += '<span class="dash-board-title">📌 Actividades de hoy</span>';
     h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes' : 'al día ✓') + '</span>';
     h += '<span style="flex:1"></span>';
-    if (currentOp) h += '<label class="dash-board-toggle"><input type="checkbox" ' + (onlyMine ? 'checked' : '') + ' onchange="window._dashOnlyMine=this.checked;dailyDashRender();"> Solo míos</label>';
+    // v22.3: el <label> envuelve la casilla y lleva .u-hit — el área táctil crece a
+    // 44px en pantallas de dedo sin engordar la barra.
+    if (currentOp) h += '<label class="dash-board-toggle u-hit"><input type="checkbox" ' + (onlyMine ? 'checked' : '') + ' onchange="dashSetOnlyMine(this.checked)"> Solo míos</label>';
     h += '<button class="dash-row-action" onclick="dashTaskModalOpen()">➕ Actividad</button>';
     h += '</div>';
 
@@ -3104,19 +3113,51 @@ function dashRenderBoard(acts, currentOp) {
         });
         var c = DASH_CATS[cat];
         var pendN = rows.filter(function(a) { return a.status !== 'hecho'; }).length;
-        h += '<details class="dash-group dash-group--' + cat + '" open>';
-        h += '<summary><span class="dash-group-icon">' + c.icon + '</span><span class="dash-group-name">' + c.label + '</span>' +
-             '<span class="dash-group-count' + (pendN ? '' : ' ok') + '">' + (pendN ? pendN + ' pendiente' + (pendN === 1 ? '' : 's') : '✓ al día') + '</span></summary>';
         // v16.5: <details> no aplica display:grid a su contenido (el navegador lo envuelve
         // internamente) — el grid de 2 columnas en desktop necesita un contenedor propio.
-        h += '<div class="dash-group-rows">';
-        rows.forEach(function(a) { h += dashRenderRow(a); });
-        h += '</div></details>';
+        var body = '<div class="dash-group-rows">'
+                 + rows.map(function(a) { return dashRenderRow(a); }).join('')
+                 + '</div>';
+        h += uiCard({
+            id: 'dash-' + cat,
+            icon: c.icon,
+            title: c.label,
+            count: pendN ? { label: pendN + ' pendiente' + (pendN === 1 ? '' : 's'), tone: 'warn' }
+                         : { label: '✓ al día', tone: 'ok' },
+            accent: DASH_CAT_ACCENT[cat],
+            body: body,
+            bodyFlush: true
+        });
     });
     if (!shown.length) h += '<div class="daily-dash-empty">Sin actividades. ¡Todo en orden! 👍</div>';
     h += '</div>';
     return h;
 }
+
+// v22.3 — "Solo míos" PERSISTE. Vivía en window._dashOnlyMine, o sea que se perdía
+// en cada recarga: quien trabaja filtrado tenía que volver a marcarlo cada vez que
+// abría la app. Ahora es uiPref('onlyMine'), por dispositivo y sin sincronizar (el
+// filtro de un técnico no debe cambiarle la pantalla a otro).
+// La global se conserva como alias por si algún código viejo la lee.
+function dashOnlyMine() {
+    var v = !!uiPref('onlyMine');
+    window._dashOnlyMine = v;
+    return v;
+}
+
+function dashSetOnlyMine(on) {
+    uiPref('onlyMine', !!on);
+    window._dashOnlyMine = !!on;
+    if (typeof dailyDashRender === 'function') dailyDashRender();
+}
+
+// Franja de color por categoría — reemplaza las 5 reglas .dash-group--* que hacían
+// lo mismo a mano. DASH_CATS ya trae el accent como var(--accent-x); aquí solo hace
+// falta el nombre para la clase .ui-card--x.
+var DASH_CAT_ACCENT = {
+    vehiculos: 'cascade', plan: 'testplan', inventario: 'inventory',
+    calidad: 'cop', proyectos: 'panel', manuales: 'panel'
+};
 
 // ETA de liberación: fijar/cambiar manualmente desde la fila (auditado)
 function dashEtaEdit(vehicleId, el, ev) {
@@ -3164,6 +3205,7 @@ function dashTaskModalOpen() {
     html += '<label class="dash-task-field">Responsable<select id="dash-task-assignee"><option value="">— sin asignar —</option>' +
             ops.map(function(o) { return '<option>' + escapeHtml(o.name) + '</option>'; }).join('') + '</select></label>';
     html += '<label class="dash-task-field">Fecha límite<input type="date" id="dash-task-due"></label>';
+    html += '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('task', 'Crear otra al guardar') + '</div>';
     html += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">';
     html += '<button class="btn btn-ghost" onclick="dashTaskModalClose()">Cancelar</button>';
     html += '<button class="btn" style="background:var(--accent-cascade);color:#fff;font-weight:700;" onclick="dashTaskModalSave()">Guardar</button></div>';
@@ -3207,6 +3249,22 @@ function dashTaskModalSave() {
     var assignee = (document.getElementById('dash-task-assignee') || {}).value || '';
     var due = (document.getElementById('dash-task-due') || {}).value || '';
     var projectId = (document.getElementById('dash-task-project') || {}).value || '';
+    // v22.3 — Se lee ANTES de cerrar: dashTaskModalClose destruye el modal y con él
+    // la casilla. Además recuerda la elección para la próxima vez.
+    var again = (typeof uiCreateAnotherChecked === 'function') ? uiCreateAnotherChecked('task') : false;
+    // Reabrir conserva el responsable y la fecha (lo que se repite en una tanda),
+    // no el título (que es justamente lo que cambia en cada fila).
+    function reopenIfWanted() {
+        if (!again) return;
+        setTimeout(function() {
+            dashTaskModalOpen();
+            setTimeout(function() {
+                var a = document.getElementById('dash-task-assignee'); if (a && assignee) a.value = assignee;
+                var d = document.getElementById('dash-task-due'); if (d && due) d.value = due;
+                var t = document.getElementById('dash-task-title'); if (t) t.focus();
+            }, 60);
+        }, 120);
+    }
 
     // v16.8: con proyecto elegido, el pendiente nace como paso del proyecto.
     if (projectId && typeof pnProjectStepAddQuick === 'function') {
@@ -3215,6 +3273,7 @@ function dashTaskModalSave() {
         dashTaskModalClose();
         if (typeof showToast === 'function') showToast('Registrada en el proyecto', 'success');
         dailyDashRender();
+        reopenIfWanted();
         return;
     }
 
@@ -3229,6 +3288,7 @@ function dashTaskModalSave() {
         dashTaskModalClose();
         if (typeof showToast === 'function') showToast('Actividad creada', 'success');
         dailyDashRender();
+        reopenIfWanted();
     }
 }
 
@@ -4478,6 +4538,124 @@ function _uiHelpText(id) {
     if (typeof HELP_TABS === 'undefined' || !HELP_TABS[id]) return '';
     var h = HELP_TABS[id];
     return ((h.title || '') + ' ' + (h.text || '')).toLowerCase();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.3] uiCard — LA primitiva de tarjeta/widget
+//
+// La app pinta HTML desde strings, así que la primitiva es un builder, no un
+// componente. `uiCard(opts)` es PURA: mismos opts → mismo string, sin tocar el
+// DOM. El estado de colapso se le PASA (uiCardOpen lo lee), para poder probarla
+// en Node y para que el llamador decida.
+//
+// Estructura:
+//   <details class="ui-card ui-card--<accent>">
+//     <summary class="ui-card-head"> icono · título · chip · acciones · chevron
+//     <div class="ui-card-body">
+//
+// El colapso se guarda en uiPref('cards')[id] — SIN clave nueva de localStorage,
+// va dentro de kia_ui_prefs (v22.0).
+// ══════════════════════════════════════════════════════════════════════
+
+/** ¿Está abierta esta tarjeta? Preferencia del dispositivo; si nunca se tocó, el default. */
+function uiCardOpen(id, defaultOpen) {
+    if (!id) return defaultOpen !== false;
+    var cards = uiPref('cards') || {};
+    return (cards[id] === undefined) ? (defaultOpen !== false) : !!cards[id];
+}
+
+/** Llamado desde el toggle del <details>. Persiste solo si la tarjeta tiene id. */
+function uiCardToggle(id, el) {
+    if (!id || !el) return;
+    var cards = uiPref('cards') || {};
+    cards[id] = !!el.open;
+    uiPref('cards', cards);
+}
+
+/**
+ * PURA. opts:
+ *   id           clave de persistencia del colapso (opcional; sin id no se recuerda)
+ *   icon         emoji del encabezado
+ *   title        texto del encabezado
+ *   count        {n, tone:'ok'|'warn'|'danger'|'info'|'neutral', label} chip opcional
+ *   actions      HTML de acciones en el encabezado (botones ya formados)
+ *   body         HTML del contenido
+ *   collapsible  default true
+ *   open         si viene, manda; si no, se usa `defaultOpen`
+ *   defaultOpen  default true
+ *   help         clave de CASCADE_TOOLTIPS → data-help en el encabezado
+ *   accent       'cascade'|'testplan'|'inventory'|'panel'|'cop' → franja de color
+ */
+function uiCard(opts) {
+    var o = opts || {};
+    var collapsible = o.collapsible !== false;
+    var isOpen = (o.open !== undefined) ? !!o.open : uiCardOpen(o.id, o.defaultOpen);
+    var cls = 'ui-card' + (o.accent ? ' ui-card--' + o.accent : '') + (collapsible ? '' : ' ui-card--static');
+
+    var head = '<span class="ui-card-icon" aria-hidden="true">' + (o.icon || '') + '</span>'
+             + '<span class="ui-card-title">' + escapeHtml(o.title || '') + '</span>';
+    if (o.count && (o.count.n !== undefined || o.count.label)) {
+        var tone = o.count.tone || 'neutral';
+        head += '<span class="u-chip u-chip--' + tone + '">'
+              + escapeHtml(o.count.label !== undefined ? o.count.label : String(o.count.n)) + '</span>';
+    }
+    head += '<span class="ui-card-spacer"></span>';
+    // Las acciones van dentro del <summary>: cualquier botón ahí necesita
+    // stopPropagation, o el clic además colapsa la tarjeta.
+    if (o.actions) head += '<span class="ui-card-acts" onclick="event.stopPropagation()">' + o.actions + '</span>';
+
+    var helpAttr = o.help ? ' data-help="' + escapeHtml(o.help) + '"' : '';
+    // bodyFlush: el contenido ya trae su propio padding (listas de filas a sangre),
+    // así que la tarjeta no debe agregar el suyo o se acumulan.
+    var bodyCls = 'ui-card-body' + (o.bodyFlush ? ' ui-card-body--flush' : '');
+
+    if (!collapsible) {
+        return '<section class="' + cls + '">'
+             + '<div class="ui-card-head"' + helpAttr + '>' + head + '</div>'
+             + '<div class="' + bodyCls + '">' + (o.body || '') + '</div>'
+             + '</section>';
+    }
+    return '<details class="' + cls + '"' + (isOpen ? ' open' : '')
+         + (o.id ? ' ontoggle="uiCardToggle(\'' + escapeHtml(o.id) + '\', this)"' : '') + '>'
+         + '<summary class="ui-card-head"' + helpAttr + '>' + head + '</summary>'
+         + '<div class="' + bodyCls + '">' + (o.body || '') + '</div>'
+         + '</details>';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.3] "Crear otro" — capturar en serie sin reabrir el modal a mano
+//
+// Dar de alta es repetitivo: quien captura diez cilindros hoy tenía que abrir el
+// modal diez veces. Las pantallas de alta NO usan showModal (se inyectan con
+// innerHTML), así que en vez de tocar showModal esto son dos helpers que cada
+// flujo llama: uno pinta la casilla, el otro la lee ANTES de que el modal se
+// destruya.
+//
+// La elección se recuerda por flujo y por dispositivo (dentro de kia_ui_prefs,
+// sin clave nueva): si alguien captura siempre en serie, no la vuelve a marcar.
+// ══════════════════════════════════════════════════════════════════════
+function uiCreateAnotherHTML(id, label) {
+    var on = uiCreateAnotherPref(id);
+    return '<label class="u-hit" style="display:inline-flex;align-items:center;gap:var(--space-sm);'
+         + 'cursor:pointer;font-size:var(--fs-sm);color:var(--muted);">'
+         + '<input type="checkbox" id="ui-create-another-' + escapeHtml(id) + '"' + (on ? ' checked' : '') + '>'
+         + '<span>' + escapeHtml(label || 'Crear otro al guardar') + '</span></label>';
+}
+
+function uiCreateAnotherPref(id) {
+    var m = uiPref('createAnother') || {};
+    return !!m[id];
+}
+
+/** Lee la casilla y RECUERDA la elección. Llamar ANTES de cerrar/destruir el modal. */
+function uiCreateAnotherChecked(id) {
+    var el = document.getElementById('ui-create-another-' + id);
+    if (!el) return false;
+    var on = !!el.checked;
+    var m = uiPref('createAnother') || {};
+    m[id] = on;
+    uiPref('createAnother', m);
+    return on;
 }
 
 // ══════════════════════════════════════════════════════════════════════

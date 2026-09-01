@@ -928,6 +928,10 @@ function invShowAddGas(editId) {
         '<div><label style="' + lblStyle + '">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Proveedor</label><input id="inv-g-supplier" value="' + (g ? (g.supplier||'') : (lastTS.supplier||'')) + '" placeholder="Nombre del proveedor" style="' + inpStyle + '"></div>' +
         '</div></details>' +
+        // v22.3 — "Crear otro": dar de alta cilindros es lo más repetitivo del
+        // laboratorio. Solo en el alta, no al editar.
+        (isEdit || typeof uiCreateAnotherHTML !== 'function' ? '' :
+            '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('gas', 'Dar de alta otro al guardar') + '</div>') +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveGas(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
         (isEdit ? '<button onclick="showConfirm(\'Eliminar cilindro?\',function(){invDeleteGas(\x27' + editId + '\x27);},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
@@ -1007,8 +1011,18 @@ function invSaveGas(editId) {
         auditLog('inv', 'gas_created', {type:'gas', id:obj.id, label:obj.controlNo}, 'Formula: ' + obj.formula);
     }
 
+    // v22.3 — Leer ANTES de cerrar: el modal se destruye y con él la casilla.
+    var _again = (!editId && typeof uiCreateAnotherChecked === 'function') ? uiCreateAnotherChecked('gas') : false;
+
     invSave(); invPreloadData(); invRender(); invUpdateBadges();
     document.getElementById('invModal').style.display = 'none';
+
+    // Reabrir en limpio: los helpers de autollenado de v16.5 (_invNextFreeSlot,
+    // _invLastGasTraceSupplier) ya proponen el siguiente hueco y el proveedor
+    // anterior, así que la segunda alta arranca casi llena sola.
+    if (_again && typeof invShowAddGas === 'function') {
+        setTimeout(function() { try { invShowAddGas(); } catch (e) {} }, 140);
+    }
 }
 
 function invDeleteGas(id) {

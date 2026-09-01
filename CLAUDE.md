@@ -1254,6 +1254,27 @@ las dos, no una:
   (`_uiCleanLabel`), no hacer `replace()` sobre `textContent`: la pestaña Pruebas lleva DOS
   badges y solo uno tiene la clase `.pt-badge`.
 
+### v22.3 — `uiCard`, preferencias que persisten y "crear otro"
+
+- **`uiCard(opts)` (app.js) es LA primitiva de tarjeta/widget** y es **PURA** (mismos opts →
+  mismo string, sin tocar el DOM; testeable en Node). Toda tarjeta nueva la usa en vez de
+  armar su propio `<details>` + encabezado. `opts`: `{id, icon, title, count:{n|label,tone},
+  actions, body, bodyFlush, collapsible, open, defaultOpen, help, accent}`.
+- **El chip del encabezado debe llevar el dato clave**, para que colapsar no sea perder
+  información (pendientes, total de ponderación, "apagado"…). Es lo que hace usable el colapso.
+- **Las acciones dentro del encabezado van envueltas en `event.stopPropagation()`**, o el clic
+  además colapsa la tarjeta. `uiCard` ya lo hace con `opts.actions`.
+- **El colapso vive en `uiPref('cards')[id]`** — NO agregar una clave de localStorage por
+  tarjeta. `opts.open` (si viene) manda sobre lo guardado, para los casos donde el código
+  necesita forzarla abierta (p. ej. `openRegions`).
+- **`uiCreateAnotherHTML(id,label)` / `uiCreateAnotherChecked(id)`** son el patrón de "crear
+  otro". **`uiCreateAnotherChecked` se llama ANTES de cerrar el modal** — cerrar lo destruye y
+  con él la casilla; ese orden es lo que se rompe sin que se note. Recuerda la elección en
+  `uiPref('createAnother')`. Al reabrir: conservar lo que se repite, limpiar lo que cambia.
+- **Ninguna preferencia de UI vive en una global suelta.** `window._dashOnlyMine` era solo
+  memoria y se perdía en cada recarga; ahora es `uiPref('onlyMine')` (`dashOnlyMine()` /
+  `dashSetOnlyMine()`), con la global como alias de compatibilidad.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

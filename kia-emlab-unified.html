@@ -4281,6 +4281,39 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
    El padre necesita `position: relative` (se lo da .u-hit) y el ::after va por
    debajo del contenido con z-index bajo para no tapar nada clicable encima.
    ══════════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════
+   [v22.3] .ui-card — LA primitiva de tarjeta/widget (builder: uiCard(), app.js)
+   Un solo encabezado para todo el laboratorio: icono · título · chip de conteo ·
+   acciones · chevron. Modelada sobre .dash-group, que ya tenía esta forma pero
+   solo servía a HOY.
+   ══════════════════════════════════════════════════════════════════════ */
+.ui-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); margin-bottom: var(--space-md); overflow: hidden;
+}
+.ui-card--cascade   { border-left: 4px solid var(--accent-cascade); }
+.ui-card--testplan  { border-left: 4px solid var(--accent-testplan); }
+.ui-card--inventory { border-left: 4px solid var(--accent-inventory); }
+.ui-card--panel     { border-left: 4px solid var(--accent-panel); }
+.ui-card--cop       { border-left: 4px solid var(--accent-cop); }
+.ui-card-head {
+    display: flex; align-items: center; gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md); background: var(--surface-alt);
+    font-weight: 700; font-size: var(--fs-sm); color: var(--text);
+    min-height: var(--target-abs); list-style: none; user-select: none;
+}
+details.ui-card > .ui-card-head { cursor: pointer; }
+.ui-card-head::-webkit-details-marker { display: none; }
+details.ui-card > .ui-card-head::after { content: '▾'; margin-left: var(--space-xs); color: var(--muted); font-size: var(--fs-xs); }
+details.ui-card:not([open]) > .ui-card-head::after { content: '▸'; }
+.ui-card-icon { font-size: var(--fs-base); flex-shrink: 0; }
+.ui-card-title { flex-shrink: 0; }
+.ui-card-spacer { flex: 1; }
+.ui-card-acts { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
+.ui-card-body { padding: var(--space-md); }
+/* Cuando el cuerpo es una lista de filas a sangre, el padding lo pone la fila. */
+.ui-card-body--flush { padding: 0; }
+
 .u-hit { position: relative; }
 .u-hit::after {
     content: ''; position: absolute; left: 50%; top: 50%;
@@ -7449,15 +7482,22 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609012055';
+var APP_BUILD = '202609012105';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '22.2';
+var APP_VERSION = '22.3';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '22.3', date: '1 sep 2026', title: 'Tarjetas que se colapsan y recuerdan, y "crear otro"', bullets: [
+        'TODAS LAS TARJETAS SE COLAPSAN Y RECUERDAN CÓMO LAS DEJASTE, por dispositivo. El encabezado muestra el dato clave sin abrirla: cuántos pendientes, si la ponderación suma 100, si el empuje por antigüedad está apagado.',
+        '"SOLO MÍOS" YA NO SE PIERDE AL RECARGAR. Vivía solo en memoria, así que quien trabaja filtrado tenía que volver a marcarlo cada vez que abría la app.',
+        '"CREAR OTRO" al dar de alta una actividad o un cilindro: guarda y vuelve a abrir el formulario, conservando lo que se repite (responsable, fecha, proveedor) y limpiando lo que cambia. Recuerda si lo prefieres siempre encendido.',
+        'En Armar semana, si el peso de región está en 0% la pantalla lo dice: esos diez controles no afectan nada hasta que lo subas.',
+        'Los grupos de HOY y las tarjetas del planificador comparten por fin el mismo encabezado, en vez de tres formas distintas de la misma cosa.'
+    ] },
     { version: '22.2', date: '1 sep 2026', title: 'Lanzador: las ~50 pantallas, en una sola', bullets: [
         'BOTÓN "IR A…" EN HOY Y EN EL MENÚ ⋯. Abre una retícula con TODAS las pantallas de la plataforma agrupadas por módulo — 53 destinos que antes vivían tras 5 pestañas y submenús "⋯ Más".',
         'Se busca por concepto, no por nombre: teclear "cobertura" encuentra Dashboard y Familias, "calibración" encuentra Gases y Equipos. Funciona con y sin acentos.',
@@ -7809,14 +7849,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609012055' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609012105' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609012055' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609012105' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -7832,7 +7872,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609012055' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609012105' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -10249,7 +10289,7 @@ function dashRenderRow(a) {
 }
 
 function dashRenderBoard(acts, currentOp) {
-    var onlyMine = !!window._dashOnlyMine;
+    var onlyMine = dashOnlyMine();
     var shown = (onlyMine && currentOp)
         ? acts.filter(function(a) { return !a.assignee || a.assignee === currentOp; })
         : acts;
@@ -10260,7 +10300,9 @@ function dashRenderBoard(acts, currentOp) {
     h += '<span class="dash-board-title">📌 Actividades de hoy</span>';
     h += '<span class="dash-chip dash-chip--' + (pend ? 'pendiente' : 'hecho') + '">' + (pend ? pend + ' pendientes' : 'al día ✓') + '</span>';
     h += '<span style="flex:1"></span>';
-    if (currentOp) h += '<label class="dash-board-toggle"><input type="checkbox" ' + (onlyMine ? 'checked' : '') + ' onchange="window._dashOnlyMine=this.checked;dailyDashRender();"> Solo míos</label>';
+    // v22.3: el <label> envuelve la casilla y lleva .u-hit — el área táctil crece a
+    // 44px en pantallas de dedo sin engordar la barra.
+    if (currentOp) h += '<label class="dash-board-toggle u-hit"><input type="checkbox" ' + (onlyMine ? 'checked' : '') + ' onchange="dashSetOnlyMine(this.checked)"> Solo míos</label>';
     h += '<button class="dash-row-action" onclick="dashTaskModalOpen()">➕ Actividad</button>';
     h += '</div>';
 
@@ -10272,19 +10314,51 @@ function dashRenderBoard(acts, currentOp) {
         });
         var c = DASH_CATS[cat];
         var pendN = rows.filter(function(a) { return a.status !== 'hecho'; }).length;
-        h += '<details class="dash-group dash-group--' + cat + '" open>';
-        h += '<summary><span class="dash-group-icon">' + c.icon + '</span><span class="dash-group-name">' + c.label + '</span>' +
-             '<span class="dash-group-count' + (pendN ? '' : ' ok') + '">' + (pendN ? pendN + ' pendiente' + (pendN === 1 ? '' : 's') : '✓ al día') + '</span></summary>';
         // v16.5: <details> no aplica display:grid a su contenido (el navegador lo envuelve
         // internamente) — el grid de 2 columnas en desktop necesita un contenedor propio.
-        h += '<div class="dash-group-rows">';
-        rows.forEach(function(a) { h += dashRenderRow(a); });
-        h += '</div></details>';
+        var body = '<div class="dash-group-rows">'
+                 + rows.map(function(a) { return dashRenderRow(a); }).join('')
+                 + '</div>';
+        h += uiCard({
+            id: 'dash-' + cat,
+            icon: c.icon,
+            title: c.label,
+            count: pendN ? { label: pendN + ' pendiente' + (pendN === 1 ? '' : 's'), tone: 'warn' }
+                         : { label: '✓ al día', tone: 'ok' },
+            accent: DASH_CAT_ACCENT[cat],
+            body: body,
+            bodyFlush: true
+        });
     });
     if (!shown.length) h += '<div class="daily-dash-empty">Sin actividades. ¡Todo en orden! 👍</div>';
     h += '</div>';
     return h;
 }
+
+// v22.3 — "Solo míos" PERSISTE. Vivía en window._dashOnlyMine, o sea que se perdía
+// en cada recarga: quien trabaja filtrado tenía que volver a marcarlo cada vez que
+// abría la app. Ahora es uiPref('onlyMine'), por dispositivo y sin sincronizar (el
+// filtro de un técnico no debe cambiarle la pantalla a otro).
+// La global se conserva como alias por si algún código viejo la lee.
+function dashOnlyMine() {
+    var v = !!uiPref('onlyMine');
+    window._dashOnlyMine = v;
+    return v;
+}
+
+function dashSetOnlyMine(on) {
+    uiPref('onlyMine', !!on);
+    window._dashOnlyMine = !!on;
+    if (typeof dailyDashRender === 'function') dailyDashRender();
+}
+
+// Franja de color por categoría — reemplaza las 5 reglas .dash-group--* que hacían
+// lo mismo a mano. DASH_CATS ya trae el accent como var(--accent-x); aquí solo hace
+// falta el nombre para la clase .ui-card--x.
+var DASH_CAT_ACCENT = {
+    vehiculos: 'cascade', plan: 'testplan', inventario: 'inventory',
+    calidad: 'cop', proyectos: 'panel', manuales: 'panel'
+};
 
 // ETA de liberación: fijar/cambiar manualmente desde la fila (auditado)
 function dashEtaEdit(vehicleId, el, ev) {
@@ -10332,6 +10406,7 @@ function dashTaskModalOpen() {
     html += '<label class="dash-task-field">Responsable<select id="dash-task-assignee"><option value="">— sin asignar —</option>' +
             ops.map(function(o) { return '<option>' + escapeHtml(o.name) + '</option>'; }).join('') + '</select></label>';
     html += '<label class="dash-task-field">Fecha límite<input type="date" id="dash-task-due"></label>';
+    html += '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('task', 'Crear otra al guardar') + '</div>';
     html += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">';
     html += '<button class="btn btn-ghost" onclick="dashTaskModalClose()">Cancelar</button>';
     html += '<button class="btn" style="background:var(--accent-cascade);color:#fff;font-weight:700;" onclick="dashTaskModalSave()">Guardar</button></div>';
@@ -10375,6 +10450,22 @@ function dashTaskModalSave() {
     var assignee = (document.getElementById('dash-task-assignee') || {}).value || '';
     var due = (document.getElementById('dash-task-due') || {}).value || '';
     var projectId = (document.getElementById('dash-task-project') || {}).value || '';
+    // v22.3 — Se lee ANTES de cerrar: dashTaskModalClose destruye el modal y con él
+    // la casilla. Además recuerda la elección para la próxima vez.
+    var again = (typeof uiCreateAnotherChecked === 'function') ? uiCreateAnotherChecked('task') : false;
+    // Reabrir conserva el responsable y la fecha (lo que se repite en una tanda),
+    // no el título (que es justamente lo que cambia en cada fila).
+    function reopenIfWanted() {
+        if (!again) return;
+        setTimeout(function() {
+            dashTaskModalOpen();
+            setTimeout(function() {
+                var a = document.getElementById('dash-task-assignee'); if (a && assignee) a.value = assignee;
+                var d = document.getElementById('dash-task-due'); if (d && due) d.value = due;
+                var t = document.getElementById('dash-task-title'); if (t) t.focus();
+            }, 60);
+        }, 120);
+    }
 
     // v16.8: con proyecto elegido, el pendiente nace como paso del proyecto.
     if (projectId && typeof pnProjectStepAddQuick === 'function') {
@@ -10383,6 +10474,7 @@ function dashTaskModalSave() {
         dashTaskModalClose();
         if (typeof showToast === 'function') showToast('Registrada en el proyecto', 'success');
         dailyDashRender();
+        reopenIfWanted();
         return;
     }
 
@@ -10397,6 +10489,7 @@ function dashTaskModalSave() {
         dashTaskModalClose();
         if (typeof showToast === 'function') showToast('Actividad creada', 'success');
         dailyDashRender();
+        reopenIfWanted();
     }
 }
 
@@ -11646,6 +11739,124 @@ function _uiHelpText(id) {
     if (typeof HELP_TABS === 'undefined' || !HELP_TABS[id]) return '';
     var h = HELP_TABS[id];
     return ((h.title || '') + ' ' + (h.text || '')).toLowerCase();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.3] uiCard — LA primitiva de tarjeta/widget
+//
+// La app pinta HTML desde strings, así que la primitiva es un builder, no un
+// componente. `uiCard(opts)` es PURA: mismos opts → mismo string, sin tocar el
+// DOM. El estado de colapso se le PASA (uiCardOpen lo lee), para poder probarla
+// en Node y para que el llamador decida.
+//
+// Estructura:
+//   <details class="ui-card ui-card--<accent>">
+//     <summary class="ui-card-head"> icono · título · chip · acciones · chevron
+//     <div class="ui-card-body">
+//
+// El colapso se guarda en uiPref('cards')[id] — SIN clave nueva de localStorage,
+// va dentro de kia_ui_prefs (v22.0).
+// ══════════════════════════════════════════════════════════════════════
+
+/** ¿Está abierta esta tarjeta? Preferencia del dispositivo; si nunca se tocó, el default. */
+function uiCardOpen(id, defaultOpen) {
+    if (!id) return defaultOpen !== false;
+    var cards = uiPref('cards') || {};
+    return (cards[id] === undefined) ? (defaultOpen !== false) : !!cards[id];
+}
+
+/** Llamado desde el toggle del <details>. Persiste solo si la tarjeta tiene id. */
+function uiCardToggle(id, el) {
+    if (!id || !el) return;
+    var cards = uiPref('cards') || {};
+    cards[id] = !!el.open;
+    uiPref('cards', cards);
+}
+
+/**
+ * PURA. opts:
+ *   id           clave de persistencia del colapso (opcional; sin id no se recuerda)
+ *   icon         emoji del encabezado
+ *   title        texto del encabezado
+ *   count        {n, tone:'ok'|'warn'|'danger'|'info'|'neutral', label} chip opcional
+ *   actions      HTML de acciones en el encabezado (botones ya formados)
+ *   body         HTML del contenido
+ *   collapsible  default true
+ *   open         si viene, manda; si no, se usa `defaultOpen`
+ *   defaultOpen  default true
+ *   help         clave de CASCADE_TOOLTIPS → data-help en el encabezado
+ *   accent       'cascade'|'testplan'|'inventory'|'panel'|'cop' → franja de color
+ */
+function uiCard(opts) {
+    var o = opts || {};
+    var collapsible = o.collapsible !== false;
+    var isOpen = (o.open !== undefined) ? !!o.open : uiCardOpen(o.id, o.defaultOpen);
+    var cls = 'ui-card' + (o.accent ? ' ui-card--' + o.accent : '') + (collapsible ? '' : ' ui-card--static');
+
+    var head = '<span class="ui-card-icon" aria-hidden="true">' + (o.icon || '') + '</span>'
+             + '<span class="ui-card-title">' + escapeHtml(o.title || '') + '</span>';
+    if (o.count && (o.count.n !== undefined || o.count.label)) {
+        var tone = o.count.tone || 'neutral';
+        head += '<span class="u-chip u-chip--' + tone + '">'
+              + escapeHtml(o.count.label !== undefined ? o.count.label : String(o.count.n)) + '</span>';
+    }
+    head += '<span class="ui-card-spacer"></span>';
+    // Las acciones van dentro del <summary>: cualquier botón ahí necesita
+    // stopPropagation, o el clic además colapsa la tarjeta.
+    if (o.actions) head += '<span class="ui-card-acts" onclick="event.stopPropagation()">' + o.actions + '</span>';
+
+    var helpAttr = o.help ? ' data-help="' + escapeHtml(o.help) + '"' : '';
+    // bodyFlush: el contenido ya trae su propio padding (listas de filas a sangre),
+    // así que la tarjeta no debe agregar el suyo o se acumulan.
+    var bodyCls = 'ui-card-body' + (o.bodyFlush ? ' ui-card-body--flush' : '');
+
+    if (!collapsible) {
+        return '<section class="' + cls + '">'
+             + '<div class="ui-card-head"' + helpAttr + '>' + head + '</div>'
+             + '<div class="' + bodyCls + '">' + (o.body || '') + '</div>'
+             + '</section>';
+    }
+    return '<details class="' + cls + '"' + (isOpen ? ' open' : '')
+         + (o.id ? ' ontoggle="uiCardToggle(\'' + escapeHtml(o.id) + '\', this)"' : '') + '>'
+         + '<summary class="ui-card-head"' + helpAttr + '>' + head + '</summary>'
+         + '<div class="' + bodyCls + '">' + (o.body || '') + '</div>'
+         + '</details>';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.3] "Crear otro" — capturar en serie sin reabrir el modal a mano
+//
+// Dar de alta es repetitivo: quien captura diez cilindros hoy tenía que abrir el
+// modal diez veces. Las pantallas de alta NO usan showModal (se inyectan con
+// innerHTML), así que en vez de tocar showModal esto son dos helpers que cada
+// flujo llama: uno pinta la casilla, el otro la lee ANTES de que el modal se
+// destruya.
+//
+// La elección se recuerda por flujo y por dispositivo (dentro de kia_ui_prefs,
+// sin clave nueva): si alguien captura siempre en serie, no la vuelve a marcar.
+// ══════════════════════════════════════════════════════════════════════
+function uiCreateAnotherHTML(id, label) {
+    var on = uiCreateAnotherPref(id);
+    return '<label class="u-hit" style="display:inline-flex;align-items:center;gap:var(--space-sm);'
+         + 'cursor:pointer;font-size:var(--fs-sm);color:var(--muted);">'
+         + '<input type="checkbox" id="ui-create-another-' + escapeHtml(id) + '"' + (on ? ' checked' : '') + '>'
+         + '<span>' + escapeHtml(label || 'Crear otro al guardar') + '</span></label>';
+}
+
+function uiCreateAnotherPref(id) {
+    var m = uiPref('createAnother') || {};
+    return !!m[id];
+}
+
+/** Lee la casilla y RECUERDA la elección. Llamar ANTES de cerrar/destruir el modal. */
+function uiCreateAnotherChecked(id) {
+    var el = document.getElementById('ui-create-another-' + id);
+    if (!el) return false;
+    var on = !!el.checked;
+    var m = uiPref('createAnother') || {};
+    m[id] = on;
+    uiPref('createAnother', m);
+    return on;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -21921,6 +22132,10 @@ function invShowAddGas(editId) {
         '<div><label style="' + lblStyle + '">No. Lote</label><input id="inv-g-lot" value="' + (g?g.lotNumber||'':'') + '" placeholder="Lote del proveedor" style="' + inpStyle + '"></div>' +
         '<div><label style="' + lblStyle + '">Proveedor</label><input id="inv-g-supplier" value="' + (g ? (g.supplier||'') : (lastTS.supplier||'')) + '" placeholder="Nombre del proveedor" style="' + inpStyle + '"></div>' +
         '</div></details>' +
+        // v22.3 — "Crear otro": dar de alta cilindros es lo más repetitivo del
+        // laboratorio. Solo en el alta, no al editar.
+        (isEdit || typeof uiCreateAnotherHTML !== 'function' ? '' :
+            '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('gas', 'Dar de alta otro al guardar') + '</div>') +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveGas(\x27' + (editId||'') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
         (isEdit ? '<button onclick="showConfirm(\'Eliminar cilindro?\',function(){invDeleteGas(\x27' + editId + '\x27);},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
@@ -22000,8 +22215,18 @@ function invSaveGas(editId) {
         auditLog('inv', 'gas_created', {type:'gas', id:obj.id, label:obj.controlNo}, 'Formula: ' + obj.formula);
     }
 
+    // v22.3 — Leer ANTES de cerrar: el modal se destruye y con él la casilla.
+    var _again = (!editId && typeof uiCreateAnotherChecked === 'function') ? uiCreateAnotherChecked('gas') : false;
+
     invSave(); invPreloadData(); invRender(); invUpdateBadges();
     document.getElementById('invModal').style.display = 'none';
+
+    // Reabrir en limpio: los helpers de autollenado de v16.5 (_invNextFreeSlot,
+    // _invLastGasTraceSupplier) ya proponen el siguiente hueco y el proveedor
+    // anterior, así que la segunda alta arranca casi llena sola.
+    if (_again && typeof invShowAddGas === 'function') {
+        setTimeout(function() { try { invShowAddGas(); } catch (e) {} }, 140);
+    }
 }
 
 function invDeleteGas(id) {
@@ -29532,52 +29757,82 @@ function tpBuildPriorityKnobsHTML(opts) {
     var regions = Array.from(new Set((tpState.planData || []).map(function(c) { return c.rgn; }).filter(Boolean))).sort();
 
     var h = '';
+    // v22.3 — Las tres tarjetas de esta pantalla pasan por uiCard (app.js): un solo
+    // encabezado, colapso recordado por dispositivo, y el chip muestra el dato clave
+    // SIN abrir la tarjeta (el total de ponderación, cuántas regiones, si el empuje
+    // está apagado). Es la pantalla más densa de la app, así que es donde más rinde.
+    var _uc = (typeof uiCard === 'function');
 
     // ── Pesos: los tres que se ajustan de verdad, arriba; los otros dos plegados ──
-    h += '<div class="tp-card">';
-    h += '<div class="tp-card-title" data-help="tp-weights-help"><span>⚖️ Ponderación</span></div>';
-    h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:10px;">Cuánto pesa cada factor al ordenar candidatos. Deben sumar 100.</p>';
+    var bWeights = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin-bottom:10px;">Cuánto pesa cada factor al ordenar candidatos. Deben sumar 100.</p>';
     [['compliance','📊 Déficit (cumplimiento)'], ['volume','📦 Volumen de producción'], ['region','🌍 Importancia de región']]
         .forEach(function(p) {
-            h += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
+            bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
                 set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
         });
-    h += '<details style="margin-top:4px;"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">Más factores</summary><div style="padding-top:8px;">';
+    bWeights += '<details style="margin-top:4px;"><summary style="cursor:pointer;font-size: var(--fs-sm);color:var(--tp-dim);">Más factores</summary><div style="padding-top:8px;">';
     [['newConfig','🆕 Config nueva'], ['urgency','⏰ Urgencia (producción próxima)']].forEach(function(p) {
-        h += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
+        bWeights += _tpSliderHTML({ label: p[1], value: (+w[p[0]] || 0), unit: '%', min: 0, max: 100, step: 5,
             set: "tpState.weights." + p[0] + "=+this.value", onInput: onInput });
     });
-    h += '</div></details>';
-    h += '<div style="margin-top:8px;padding:8px;background:var(--tp-dark);border:1px solid var(--tp-border);border-radius:6px;text-align:center;">' +
-         '<span style="font-size: var(--fs-sm);color:' + (wTotal === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';font-weight:700;">' +
-         'Total: ' + wTotal + '% ' + (wTotal === 100 ? '✓' : '(ajustar a 100%)') + '</span></div>';
-    h += '</div>';
+    bWeights += '</div></details>';
+
+    if (_uc) {
+        h += uiCard({
+            id: 'tp-knobs-weights', icon: '⚖️', title: 'Ponderación', accent: 'testplan',
+            help: 'tp-weights-help', body: bWeights,
+            count: { label: 'Total ' + wTotal + '%' + (wTotal === 100 ? ' ✓' : ' — ajustar'),
+                     tone: wTotal === 100 ? 'ok' : 'warn' }
+        });
+    } else {
+        h += '<div class="tp-card"><div class="tp-card-title" data-help="tp-weights-help"><span>⚖️ Ponderación</span></div>' + bWeights + '</div>';
+    }
 
     // ── Peso por región (plegado: 10 sliders alargaban la columna de más) ──
-    h += '<div class="tp-card" style="margin-top:14px;">';
-    h += '<details' + (opts.openRegions ? ' open' : '') + '>';
-    h += '<summary class="tp-card-title" data-help="tp-region-priority-help" style="cursor:pointer;list-style:revert;"><span>🌍 Peso por región</span></summary>';
-    h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:10px 0;">Importancia relativa de cada mercado (0-100). Pesa según el factor "Importancia de región" de arriba.</p>';
-    regions.filter(function(r) { return r !== '*'; }).concat(['*']).forEach(function(r) {
-        h += _tpSliderHTML({
+    var regionList = regions.filter(function(r) { return r !== '*'; }).concat(['*']);
+    var bRegions = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:10px 0;">Importancia relativa de cada mercado (0-100). Pesa según el factor "Importancia de región" de arriba.</p>';
+    // El peso de región puede estar legítimamente en 0, y entonces estos sliders no
+    // hacen absolutamente nada (v20). Se dice, no se esconde.
+    if (!(+w.region)) {
+        bRegions = '<p class="u-chip u-chip--warn" style="display:block;margin:0 0 10px;">El factor "Importancia de región" está en 0%: estos controles no afectan al orden hasta que lo subas.</p>' + bRegions;
+    }
+    regionList.forEach(function(r) {
+        bRegions += _tpSliderHTML({
             label: (r === '*' ? 'Otras (default)' : r), labelColor: tpRegionColor(r),
             value: (rp[r] !== undefined ? rp[r] : 50), min: 0, max: 100, step: 5, accent: tpRegionColor(r),
             set: "if(!tpState.regionPriority)tpState.regionPriority={};tpState.regionPriority['" + r + "']=+this.value",
             onInput: onInput
         });
     });
-    h += '</details></div>';
 
-    // ── Empuje por antigüedad (antes no tenía UI en ninguna parte) ──
-    h += '<div class="tp-card" style="margin-top:14px;">';
-    h += '<details>';
-    h += '<summary class="tp-card-title" data-help="tp-aging-help" style="cursor:pointer;list-style:revert;"><span>⏳ Empuje por antigüedad</span></summary>';
-    h += '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:10px 0;">Cuánto sube de puntaje una config por cada semana que lleva postergada. Ponlo en 0 para que la antigüedad deje de influir.</p>';
-    h += _tpSliderHTML({ label: 'Por semana', value: (+ab.perWeek || 0), unit: ' pts', min: 0, max: 15, step: 1,
-        set: "if(!tpState.agingBoost)tpState.agingBoost={};tpState.agingBoost.perWeek=+this.value", onInput: onInput });
-    h += _tpSliderHTML({ label: 'Tope acumulado', value: (+ab.max || 0), unit: ' pts', min: 0, max: 50, step: 5,
-        set: "if(!tpState.agingBoost)tpState.agingBoost={};tpState.agingBoost.max=+this.value", onInput: onInput });
-    h += '</details></div>';
+    var bAging = '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:10px 0;">Cuánto sube de puntaje una config por cada semana que lleva postergada. Ponlo en 0 para que la antigüedad deje de influir.</p>'
+        + _tpSliderHTML({ label: 'Por semana', value: (+ab.perWeek || 0), unit: ' pts', min: 0, max: 15, step: 1,
+            set: "if(!tpState.agingBoost)tpState.agingBoost={};tpState.agingBoost.perWeek=+this.value", onInput: onInput })
+        + _tpSliderHTML({ label: 'Tope acumulado', value: (+ab.max || 0), unit: ' pts', min: 0, max: 50, step: 5,
+            set: "if(!tpState.agingBoost)tpState.agingBoost={};tpState.agingBoost.max=+this.value", onInput: onInput });
+
+    if (_uc) {
+        h += uiCard({
+            id: 'tp-knobs-regions', icon: '🌍', title: 'Peso por región', accent: 'testplan',
+            help: 'tp-region-priority-help', body: bRegions,
+            // openRegions manda sobre la preferencia guardada: el chip "⚙️ A medida"
+            // abre esta tarjeta a propósito, no puede quedar cerrada porque el
+            // dispositivo la cerró la última vez.
+            open: opts.openRegions ? true : undefined,
+            defaultOpen: false,
+            count: { label: regionList.length + (regionList.length === 1 ? ' región' : ' regiones'),
+                     tone: (+w.region) ? 'neutral' : 'warn' }
+        });
+        h += uiCard({
+            id: 'tp-knobs-aging', icon: '⏳', title: 'Empuje por antigüedad', accent: 'testplan',
+            help: 'tp-aging-help', body: bAging, defaultOpen: false,
+            count: (+ab.perWeek) ? { label: '+' + (+ab.perWeek) + ' pts/sem', tone: 'neutral' }
+                                 : { label: 'apagado', tone: 'neutral' }
+        });
+    } else {
+        h += '<div class="tp-card" style="margin-top:14px;"><div class="tp-card-title"><span>🌍 Peso por región</span></div>' + bRegions + '</div>';
+        h += '<div class="tp-card" style="margin-top:14px;"><div class="tp-card-title"><span>⏳ Empuje por antigüedad</span></div>' + bAging + '</div>';
+    }
 
     return h;
 }
@@ -45807,7 +46062,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609012055' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609012105' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;

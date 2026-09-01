@@ -3840,6 +3840,39 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
    El padre necesita `position: relative` (se lo da .u-hit) y el ::after va por
    debajo del contenido con z-index bajo para no tapar nada clicable encima.
    ══════════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════
+   [v22.3] .ui-card — LA primitiva de tarjeta/widget (builder: uiCard(), app.js)
+   Un solo encabezado para todo el laboratorio: icono · título · chip de conteo ·
+   acciones · chevron. Modelada sobre .dash-group, que ya tenía esta forma pero
+   solo servía a HOY.
+   ══════════════════════════════════════════════════════════════════════ */
+.ui-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); margin-bottom: var(--space-md); overflow: hidden;
+}
+.ui-card--cascade   { border-left: 4px solid var(--accent-cascade); }
+.ui-card--testplan  { border-left: 4px solid var(--accent-testplan); }
+.ui-card--inventory { border-left: 4px solid var(--accent-inventory); }
+.ui-card--panel     { border-left: 4px solid var(--accent-panel); }
+.ui-card--cop       { border-left: 4px solid var(--accent-cop); }
+.ui-card-head {
+    display: flex; align-items: center; gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md); background: var(--surface-alt);
+    font-weight: 700; font-size: var(--fs-sm); color: var(--text);
+    min-height: var(--target-abs); list-style: none; user-select: none;
+}
+details.ui-card > .ui-card-head { cursor: pointer; }
+.ui-card-head::-webkit-details-marker { display: none; }
+details.ui-card > .ui-card-head::after { content: '▾'; margin-left: var(--space-xs); color: var(--muted); font-size: var(--fs-xs); }
+details.ui-card:not([open]) > .ui-card-head::after { content: '▸'; }
+.ui-card-icon { font-size: var(--fs-base); flex-shrink: 0; }
+.ui-card-title { flex-shrink: 0; }
+.ui-card-spacer { flex: 1; }
+.ui-card-acts { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
+.ui-card-body { padding: var(--space-md); }
+/* Cuando el cuerpo es una lista de filas a sangre, el padding lo pone la fila. */
+.ui-card-body--flush { padding: 0; }
+
 .u-hit { position: relative; }
 .u-hit::after {
     content: ''; position: absolute; left: 50%; top: 50%;

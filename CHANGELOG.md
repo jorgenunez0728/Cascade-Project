@@ -2,6 +2,77 @@
 
 All notable changes to this project, organized by development round.
 
+## v22.3 — `uiCard`, "Solo míos" que persiste y "Crear otro" (2026-09-01)
+
+Etapas 7 y 8 del overhaul.
+
+### `uiCard(opts)` es LA primitiva de tarjeta/widget
+
+La app pinta HTML desde strings, así que la primitiva es un **builder**, no un componente.
+Es **PURA**: mismos opts → mismo string, sin tocar el DOM, testeable en Node. El estado de
+colapso se le pasa (`uiCardOpen` lo lee), para que el llamador decida.
+
+```
+<details class="ui-card ui-card--<accent>">
+  <summary class="ui-card-head">  icono · título · chip · acciones · chevron
+  <div class="ui-card-body">
+```
+
+- **El chip del encabezado muestra el dato clave SIN abrir la tarjeta**: cuántos pendientes,
+  si la ponderación suma 100, cuántas regiones, si el empuje por antigüedad está apagado.
+  Es lo que hace que colapsar no sea perder información.
+- **El colapso se guarda en `uiPref('cards')[id]`** — sin clave nueva de `localStorage`, va
+  dentro de `kia_ui_prefs` (v22.0). Por dispositivo, sin sincronizar.
+- **Las acciones del encabezado van envueltas en `onclick="event.stopPropagation()"`**: sin
+  eso, tocar un botón del encabezado además colapsa la tarjeta.
+- `bodyFlush` para cuerpos que ya traen su propio padding (listas de filas a sangre), o se
+  acumulan los dos.
+- **Aplicada en**: los 6 grupos de HOY (`dashRenderBoard`, que reemplaza las 5 reglas
+  `.dash-group--*` por `accent`) y las 3 tarjetas de Plan → Armar semana
+  (`tpBuildPriorityKnobsHTML`), la pantalla más densa de la app. Las dos de "Peso por región"
+  y "Empuje por antigüedad" ahora nacen **cerradas**: es el "no clustered" más literal.
+- `opts.open` manda sobre la preferencia guardada — el chip "⚙️ A medida" abre "Peso por
+  región" a propósito y no puede quedar cerrada porque el dispositivo la cerró la última vez.
+
+### "Solo míos" dejó de perderse
+
+Vivía en `window._dashOnlyMine`, o sea **solo en memoria**: quien trabaja filtrado tenía que
+volver a marcarlo en cada recarga. Ahora es `uiPref('onlyMine')` vía `dashOnlyMine()` /
+`dashSetOnlyMine()`; la global se conserva como alias por si algún código viejo la lee. No se
+sincroniza a propósito: el filtro de un técnico no debe cambiarle la pantalla a otro.
+
+### "Crear otro" — capturar en serie
+
+Dar de alta es repetitivo y quien captura diez cilindros abría el modal diez veces. Las
+pantallas de alta **no usan `showModal`** (se inyectan con `innerHTML`), así que en vez de
+tocar `showModal` son dos helpers que cada flujo llama:
+
+- `uiCreateAnotherHTML(id, label)` pinta la casilla.
+- **`uiCreateAnotherChecked(id)` la lee ANTES de cerrar** — cerrar destruye el modal y con él
+  la casilla. Ese orden es la parte que se puede romper sin que se note.
+- **La elección se recuerda por flujo y por dispositivo** (dentro de `kia_ui_prefs`): quien
+  captura siempre en serie no la vuelve a marcar.
+- Al reabrir se **conserva lo que se repite** (responsable, fecha; proveedor y siguiente hueco
+  vía los helpers de autollenado de v16.5) y se **limpia lo que cambia** (el título), con el
+  foco puesto ahí.
+- Aplicado en ➕ Actividad y en el alta de cilindro. Solo en alta, nunca al editar.
+
+### Un aviso que faltaba
+
+En Armar semana, si `weights.region` está en **0%** los diez sliders de peso por región **no
+hacen absolutamente nada** (v20 ya lo documentaba). Ahora la tarjeta lo dice en un chip ámbar
+en vez de dejar que alguien los mueva creyendo que sirven.
+
+### Verificación
+
+Colapsar una tarjeta y recargar: sigue colapsada (`{"cards":{"dash-inventario":false}}`).
+"Solo míos" sobrevive a la recarga con la casilla marcada. Dos actividades creadas en serie
+sin cerrar el modal, conservando responsable y limpiando título; al desmarcar, cierra. Y la
+regresión completa: 5 plataformas × 3 viewports, los 53 destinos del lanzador, y el área
+táctil de la casilla de HOY.
+
+---
+
 ## v22.2 — Lanzador: las ~50 pantallas, en una sola (2026-09-01)
 
 Etapa 3 del overhaul, y la que ataca el "clustered" directamente. La app tenía **53 destinos
