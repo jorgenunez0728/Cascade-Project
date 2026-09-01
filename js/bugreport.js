@@ -740,7 +740,7 @@ function pnRenderBugs(el) {
                         (r.lastError ? ' · <span style="color:var(--tp-red);">' + escapeHtml(r.lastError) + '</span>' : '') +
                     '</div>' +
                 '</div>' +
-                '<button class="tp-btn tp-btn-ghost" onclick="pnBugsDropQueued(\'' + r.id + '\')" style="color:var(--tp-red);font-size: var(--fs-xs);" title="Descartar este reporte" aria-label="Descartar reporte">🗑</button>' +
+                '<button class="tp-btn tp-btn-ghost" onclick="pnBugsDropQueued(\'' + r.id + '\')" style="color:var(--tp-red);font-size: var(--fs-sm);" title="Descartar este reporte" aria-label="Descartar reporte">🗑</button>' +
                 '</div>';
         });
         html += '</div>';
@@ -749,7 +749,7 @@ function pnRenderBugs(el) {
     // ── Reportes publicados (respaldo en la nube) ──
     html += '<div class="tp-card">';
     html += '<div class="tp-card-title" data-help="pn-bugs-help"><span>🐞 Reportes enviados</span>' +
-        '<span><button class="tp-btn tp-btn-ghost" onclick="pnBugsSyncStatuses()" style="font-size: var(--fs-xs);">🔄 Actualizar estados</button></span></div>';
+        '<span><button class="tp-btn tp-btn-ghost" onclick="pnBugsSyncStatuses()" style="font-size: var(--fs-sm);">🔄 Actualizar estados</button></span></div>';
     html += '<div id="pn-bugs-list">' + '<div style="text-align:center;padding:16px;color:var(--tp-dim);font-size: var(--fs-sm);">Cargando…</div>' + '</div>';
     html += '</div>';
 
@@ -812,8 +812,8 @@ function pnBugsRefresh() {
                     '<div class="bug-row-text">' + escapeHtml(b.comment || '') + '</div>' +
                     '<div class="bug-row-meta">' + badge + ' ' + link + ' · ' + escapeHtml(b.operator || '?') + ' · v' + escapeHtml(b.version || '?') + ' · ' + when + '</div>' +
                 '</div>' +
-                (b.chunkCount ? '<button class="tp-btn tp-btn-ghost" onclick="pnBugsViewShot(\'' + b.id + '\')" style="font-size: var(--fs-xs);" title="Ver captura" aria-label="Ver captura">🖼</button>' : '') +
-                '<button class="tp-btn tp-btn-ghost" onclick="pnBugsDelete(\'' + b.id + '\')" style="color:var(--tp-red);font-size: var(--fs-xs);" title="Borrar del respaldo" aria-label="Borrar reporte">🗑</button>' +
+                (b.chunkCount ? '<button class="tp-btn tp-btn-ghost" onclick="pnBugsViewShot(\'' + b.id + '\')" style="font-size: var(--fs-sm);" title="Ver captura" aria-label="Ver captura">🖼</button>' : '') +
+                '<button class="tp-btn tp-btn-ghost" onclick="pnBugsDelete(\'' + b.id + '\')" style="color:var(--tp-red);font-size: var(--fs-sm);" title="Borrar del respaldo" aria-label="Borrar reporte">🗑</button>' +
                 '</div>';
         }).join('');
     });

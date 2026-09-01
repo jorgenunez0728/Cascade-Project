@@ -1910,8 +1910,8 @@ function fbUpdateIndicator() {
         '"></span>' + label +
         (fbSync.stationId ? ' <span class="topbar-sync-station">(' + fbSync.stationId + ')</span>' : '') +
         (fbSync.lastSync ? ' ' + fbSync.lastSync.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '') +
-        (fbSync._liveSync ? ' <span style="color:#22d3ee;font-size: var(--fs-xs);font-weight:700;">● vivo</span>' : '') +
-        (fbOfflineQueue.length > 0 ? ' <span style="background:#f59e0b;color:#000;padding:1px 5px;border-radius:8px;font-size: var(--fs-xs);font-weight:700;">' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</span>' : '');
+        (fbSync._liveSync ? ' <span style="color:#22d3ee;font-size: var(--fs-sm);font-weight:700;">● vivo</span>' : '') +
+        (fbOfflineQueue.length > 0 ? ' <span style="background:#f59e0b;color:#000;padding:1px 5px;border-radius:8px;font-size: var(--fs-sm);font-weight:700;">' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</span>' : '');
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -1958,7 +1958,7 @@ function fbShowSettings() {
             return '<div style="padding:10px;border:1px solid #1e293b;border-radius:8px;margin-bottom:12px;">' +
                 '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                 '<span style="font-size: var(--fs-sm);">Cuenta de dispositivo:</span>' +
-                '<span style="font-size: var(--fs-xs);font-weight:700;color:' + (email ? '#10b981' : '#f59e0b') + ';">' + (email ? escapeHtml(email) : 'No conectado') + '</span></div>' +
+                '<span style="font-size: var(--fs-sm);font-weight:700;color:' + (email ? '#10b981' : '#f59e0b') + ';">' + (email ? escapeHtml(email) : 'No conectado') + '</span></div>' +
                 '<button onclick="fbSwitchDeviceAccount()" style="margin-top:8px;width:100%;padding:8px;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">' +
                 (email ? 'Cambiar cuenta de dispositivo' : 'Conectar con la contraseña del laboratorio') + '</button>' +
                 '</div>';
@@ -2044,9 +2044,9 @@ function fbShowSettings() {
 
         // Offline queue status
         (fbOfflineQueue.length > 0 ? '<div style="padding:10px;border:1px solid #854d0e;border-radius:8px;margin-bottom:12px;background:rgba(245,158,11,0.05);">' +
-        '<div style="font-size: var(--fs-xs);font-weight:700;color:#f59e0b;margin-bottom:4px;">Cola Offline: ' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</div>' +
+        '<div style="font-size: var(--fs-sm);font-weight:700;color:#f59e0b;margin-bottom:4px;">Cola Offline: ' + fbOfflineQueue.length + ' pendiente' + (fbOfflineQueue.length > 1 ? 's' : '') + '</div>' +
         '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:6px;">Operaciones que fallaron se reintentaran automaticamente.</div>' +
-        '<button onclick="fbQueueRetry();setTimeout(fbShowSettings,1000);" style="padding:6px 12px;background:#f59e0b;color:#000;border:none;border-radius:6px;cursor:pointer;font-size: var(--fs-xs);font-weight:700;">Reintentar ahora</button>' +
+        '<button onclick="fbQueueRetry();setTimeout(fbShowSettings,1000);" style="padding:6px 12px;background:#f59e0b;color:#000;border:none;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);font-weight:700;">Reintentar ahora</button>' +
         '<button onclick="showConfirmDialog({title:\x27⚠️ Vaciar cola\x27,message:\x27Vaciar cola offline?\x27,type:\x27warning\x27,confirmText:\x27Vaciar\x27,cancelText:\x27Cancelar\x27}).then(function(ok){if(ok){fbOfflineQueue=[];fbQueueSave();fbUpdateIndicator();fbShowSettings();}});" style="padding:6px 12px;background:#334155;color:#e2e8f0;border:none;border-radius:6px;cursor:pointer;font-size: var(--fs-xs);margin-left:6px;">Vaciar cola</button>' +
         '</div>' : '') +
 
@@ -2082,9 +2082,9 @@ function fbShowSettings() {
         '<div style="font-size: var(--fs-xs);color:#64748b;margin-bottom:8px;">Detecta duplicados, muestra diferencias, y te deja elegir que fusionar por modulo.</div>' +
         '<button onclick="fbMergeShowPanel()" style="width:100%;padding:10px;background:#f59e0b;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;">Abrir Smart Merge</button>' +
         (mergeHist.length > 0 ? '<div style="display:flex;gap:6px;margin-top:8px;">' +
-        '<button onclick="fbMergeShowHistory()" style="flex:1;padding:7px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-xs);">Historial (' + mergeHist.length + ')</button>' +
-        '<button onclick="fbMergeUndo()" style="flex:1;padding:7px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-xs);">Deshacer ultima</button>' +
-        '<button onclick="fbMergeExportCSV()" style="flex:1;padding:7px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-xs);">Exportar CSV</button>' +
+        '<button onclick="fbMergeShowHistory()" style="flex:1;padding:7px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Historial (' + mergeHist.length + ')</button>' +
+        '<button onclick="fbMergeUndo()" style="flex:1;padding:7px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Deshacer ultima</button>' +
+        '<button onclick="fbMergeExportCSV()" style="flex:1;padding:7px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Exportar CSV</button>' +
         '</div>' : '') +
         '</div>' : '') +
 
@@ -3548,7 +3548,7 @@ function fbBackupShowList() {
                 html += '<div style="font-size: var(--fs-sm);font-weight:700;">' + b.date + '</div>';
                 html += '<div style="font-size: var(--fs-xs);color:#64748b;">' + b.vehicles + ' vehiculos | ' + b.gases + ' gases</div>';
                 html += '</div>';
-                html += '<button onclick="fbBackupRestore(\x27' + b.id + '\x27)" style="padding:5px 12px;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size: var(--fs-xs);">Restaurar</button>';
+                html += '<button onclick="fbBackupRestore(\x27' + b.id + '\x27)" style="padding:5px 12px;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size: var(--fs-sm);">Restaurar</button>';
                 html += '</div>';
             });
         }
@@ -3692,7 +3692,7 @@ function fbActivityShowFeed() {
             };
 
             Object.keys(grouped).forEach(function(dateKey) {
-                html += '<div style="font-size: var(--fs-xs);font-weight:700;color:#475569;margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid #1e293b;">' + dateKey + '</div>';
+                html += '<div style="font-size: var(--fs-sm);font-weight:700;color:#475569;margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid #1e293b;">' + dateKey + '</div>';
                 grouped[dateKey].forEach(function(e) {
                     var icon = actionIcons[e.action] || '📌';
                     var sColor = stationColors[e.station] || '#64748b';
@@ -3701,7 +3701,7 @@ function fbActivityShowFeed() {
                     html += '<div style="min-width:42px;font-size: var(--fs-xs);color:#64748b;padding-top:2px;">' + timeStr + '</div>';
                     html += '<div style="font-size:14px;line-height:1;">' + icon + '</div>';
                     html += '<div style="flex:1;">';
-                    html += '<span style="font-size: var(--fs-xs);font-weight:700;color:' + sColor + ';padding:1px 6px;background:' + sColor + '20;border-radius:4px;margin-right:4px;">' + e.station + '</span>';
+                    html += '<span style="font-size: var(--fs-sm);font-weight:700;color:' + sColor + ';padding:1px 6px;background:' + sColor + '20;border-radius:4px;margin-right:4px;">' + e.station + '</span>';
                     if (e.operator) html += '<span style="font-size: var(--fs-xs);color:#a78bfa;margin-right:4px;">' + e.operator + '</span>';
                     html += '<span style="font-size: var(--fs-xs);color:#cbd5e1;">' + fbActivityLabel(e.action) + '</span>';
                     if (e.details) html += '<div style="font-size: var(--fs-xs);color:#64748b;margin-top:2px;">' + e.details + '</div>';

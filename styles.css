@@ -724,6 +724,21 @@ body{ overflow-x: hidden; }
   .tp-card-title { flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
   .tp-select { min-height: var(--target-min); }
   .tp-btn { min-height: var(--target-min); }
+  /* v22.6 — En pantalla angosta el padding horizontal se aprieta un peldaño. La regla
+     base de .btn/.tp-btn lleva `overflow: hidden` (para el ripple), así que cuando la
+     etiqueta no cabe NO se ve que no cabe: se corta en silencio. Con --space-lg son
+     48px de padding antes del texto, y a 390px eso truncaba "Exportar"/"Importar".
+     Se ajusta el padding, NUNCA la tipografía: la etiqueta de un botón no puede
+     bajar a tamaño de metadato — que es justo lo que v22.6 vino a corregir. */
+  .btn, .btn-primary, .btn-secondary, .btn-reset, .tp-btn {
+    padding-left: var(--space-md); padding-right: var(--space-md);
+  }
+  /* Y la fila que los contiene ENVUELVE en vez de recortarlos. Muchas barras de
+     acciones se arman con `display:flex` en línea y sin `flex-wrap`, así que flex
+     encoge los botones por debajo de su contenido y el `overflow:hidden` de arriba
+     los corta sin avisar. Se selecciona por el hijo directo porque esos
+     contenedores no tienen clase. `flex-wrap` es inocuo si el padre no es flex. */
+  :has(> .tp-btn), :has(> .btn) { flex-wrap: wrap; }
 }
 
 /* Móvil / pantalla más estrecha */
@@ -2054,6 +2069,57 @@ body{ overflow-x: hidden; }
 .daily-dash-date {
     font-size: var(--fs-xs); color: var(--muted); font-weight: 600;
 }
+/* ══════════════════════════════════════════════════════════════════════
+   [v22.6] BARRA DE ACCIÓN — el "Ir a…" permanente
+   Debajo de la .platform-bar, visible en todas las pantallas. Es el equivalente
+   honesto a la barra de un LIMS comercial: un destino, una búsqueda, un verbo de
+   alta, sin nada más compitiendo.
+   ══════════════════════════════════════════════════════════════════════ */
+.ui-bar {
+    display: flex; align-items: center; gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-lg);
+    background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.ui-bar-btn {
+    display: inline-flex; align-items: center; gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-lg); min-height: var(--target-min);
+    border: 1px solid var(--border); border-radius: var(--radius-full);
+    background: var(--surface); color: var(--text);
+    font-family: inherit; font-size: var(--fs-sm); font-weight: 700;
+    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.ui-bar-btn:hover { background: var(--surface-alt); }
+.ui-bar-btn:active { transform: scale(0.97); }
+.ui-bar-btn--cta { background: var(--kia-red); border-color: var(--kia-red); color: #fff; }
+.ui-bar-btn--cta:hover { background: var(--kia-red-dark); }
+.ui-bar-ico { font-size: var(--fs-base); line-height: 1; }
+/* El "campo" es un botón: abre el lanzador, donde vive el input de verdad. */
+.ui-bar-search {
+    flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md); min-height: var(--target-min);
+    border: 1px solid var(--border); border-radius: var(--radius-full);
+    background: var(--surface-alt); color: var(--muted);
+    font-family: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.ui-bar-search:hover { background: var(--surface); border-color: var(--border-strong); }
+.ui-bar-ph { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-bar-kbd {
+    flex-shrink: 0; background: var(--surface); border: 1px solid var(--border);
+    color: var(--muted); padding: var(--space-2xs) var(--space-sm);
+    border-radius: var(--radius-md); font-size: var(--fs-xs); font-family: inherit;
+}
+@media (max-width: 768px) {
+    /* En celular se van las etiquetas y el atajo: quedan tres objetivos de 44px
+       y el campo se queda con el ancho que sobre. */
+    .ui-bar { padding: var(--space-sm) var(--space-md); }
+    .ui-bar-label, .ui-bar-kbd { display: none; }
+    .ui-bar-btn { padding: var(--space-sm); min-width: var(--target-min); justify-content: center; }
+    .ui-bar-ph { font-size: var(--fs-xs); }
+}
+@media print { .ui-bar { display: none; } }
+
 /* v22.2 — "Ir a…" y "Crear" en la cabecera de HOY */
 .dash-header-acts { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
 .dash-launch-btn {

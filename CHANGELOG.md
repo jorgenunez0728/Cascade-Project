@@ -2,6 +2,65 @@
 
 All notable changes to this project, organized by development round.
 
+## v22.6 — Barra de acción fija y la etapa 2 (reclasificar `--fs-xs`) (2026-09-01)
+
+### Etapa 2 — y la premisa del plan resultó equivocada
+
+El plan decía que `--fs-xs` estaba "inflado a 13px transitoriamente" y que volvería a 12px una
+vez movido el texto de cuerpo. Al categorizar los **785 usos** resultó falso:
+
+| Categoría | N | Acción |
+|---|---|---|
+| **Botón** (etiqueta de control) | 141 | → `--fs-sm` |
+| **+ color apagado** (`--tp-dim`/`--muted`) | 308 | **dejar** — es metadato real |
+| **Negrita** (título/etiqueta) | 67 | → `--fs-sm` |
+| **Resto** | 269 | pendiente, juicio caso por caso |
+
+**308 usos son metadato legítimo por la propia convención de la app** (chico + apagado =
+secundario). Así que 13px es el valor **correcto** para `--fs-xs`, no un parche transitorio: a
+13px un contador se lee mejor que a 12px y sigue siendo claramente secundario. Se retira la nota
+de "volver a 12px".
+
+**Se promovieron 208 sitios** (categorías 1 y 3), que son los demostrablemente mal clasificados:
+**la etiqueta de un control no es metadato**, y un título en negrita tampoco. La proporción
+`--fs-xs` : `--fs-sm` pasó de **2.5:1 (775/313) a 1.04:1 (577/554)**.
+
+### Un defecto latente que el cambio destapó
+
+Al crecer los botones de 13 a 15px, 58 quedaron con el texto cortado en Consumibles → Gases a
+390px. **El texto se recortaba en silencio**: la regla base de `.btn`/`.tp-btn` lleva
+`overflow: hidden` (para el ripple), así que un botón apretado no muestra que no cabe — "Exportar"
+se leía "Exporta". Existía desde antes; a 13px simplemente no se alcanzaba a disparar.
+
+- **La corrección va en el layout, nunca en la tipografía**: en ≤1024px el padding horizontal
+  baja un peldaño (`--space-lg` → `--space-md`, de 48px a 32px por botón) **y la fila envuelve**
+  (`:has(> .tp-btn), :has(> .btn) { flex-wrap: wrap }`). Se selecciona por el hijo directo porque
+  esas barras de acciones se arman con `display:flex` en línea y no tienen clase.
+- Devolver los botones a 13px habría "arreglado" el síntoma reintroduciendo el problema.
+
+### Barra de acción fija
+
+`.ui-bar` — permanente **bajo la barra de plataformas y visible en todas las pantallas**:
+`[🧭 Ir a…] [🔍 campo de búsqueda] [➕ Crear]`.
+
+- **Va debajo de `.platform-bar`, no dentro**: esa barra mide ~1900px expandida y colapsa a `⋯`
+  en ≤1600px (v17.9), así que no admite dos controles más. Verificado: sigue en 50px.
+- **El "campo de búsqueda" es un `<button>`, no un `<input>`**: el campo real vive dentro del
+  overlay del lanzador, y duplicarlo obligaría a sincronizar dos estados de texto para nada.
+- **Los mismos botones se RETIRARON de la cabecera de HOY y del menú `⋯`.** En v22.2 vivían ahí
+  porque no había dónde más; tenerlos en tres lugares es el desorden que esta serie combate.
+  En `⋯` queda solo "Buscar VIN", que es otra función: busca **datos**, no pantallas.
+- En ≤768px se ocultan etiquetas y el atajo: quedan tres objetivos de 44px y el campo con el
+  ancho restante.
+
+### Verificación
+
+8 pantallas × 3 viewports sin desbordes **ni texto recortado** (58 → 0). La barra mide 61px, sus
+3 botones ≥44px en los tres tamaños, y abre el lanzador desde cualquier plataforma (59 tiles).
+Búsqueda por concepto y con/sin acentos intacta; los 53 destinos siguen navegando sin fallos.
+
+---
+
 ## v22.5 — El resto de las etapas 7 y 8 (2026-09-01)
 
 ### `uiCard` en el resto de las pantallas

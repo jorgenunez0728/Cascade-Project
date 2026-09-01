@@ -162,8 +162,8 @@ function _pnRenderProjectGrid(el) {
     var portfolio = window._pnGridView === 'portfolio';
     var projects = (pnState.projects || []).filter(function(p) { return showArchived ? true : !p.archived; });
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-projects-help"><span>🗂️ Proyectos (' + projects.length + ')</span>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen()" style="font-size: var(--fs-xs);">📥 Importar Excel</button>';
-    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProject()" style="font-size: var(--fs-xs);">+ Proyecto</button></div>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjImportOpen()" style="font-size: var(--fs-sm);">📥 Importar Excel</button>';
+    html += '<button class="tp-btn tp-btn-primary" onclick="pnAddProject()" style="font-size: var(--fs-sm);">+ Proyecto</button></div>';
     html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:8px;">Da seguimiento a reparaciones, proyectos de inversión o cualquier iniciativa: pasos, fechas, responsables y una línea de tiempo con lo que va pasando.</div>';
     // Tarjetas (día a día) vs Portafolio (la vista para reportar hacia arriba)
     html += '<div class="pn-proj-viewtabs">';
@@ -216,7 +216,7 @@ function _pnRenderProjectDetail(el, p) {
     html += '<button class="tp-btn tp-btn-ghost" onclick="window._pnSelectedProject=null;_pnProjNav();" style="font-size: var(--fs-sm);">← Proyectos</button>';
     html += '<span style="font-weight:800;font-size:14px;flex:1;">' + escapeHtml(p.name) + '</span>';
     html += '<span class="pn-proj-status pn-proj-status--' + p.status + '">' + (PN_PROJECT_STATUS[p.status] || p.status) + '</span>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="pnAddProject(\'' + p.id + '\')" style="font-size: var(--fs-xs);">✏️ Editar</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnAddProject(\'' + p.id + '\')" style="font-size: var(--fs-sm);">✏️ Editar</button>';
     html += '</div>';
     if (p.desc) html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:8px;">' + escapeHtml(p.desc) + '</div>';
     var metaBits = [];
@@ -331,8 +331,8 @@ function _pnProjectTableHTML(p) {
         html += '<td>' + (s.doneDate || '—') + '</td>';
         html += '<td>' + escapeHtml(s.roadblock || '') + '</td>';
         html += '<td style="white-space:nowrap;">';
-        if (s.status !== 'completado') html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjectStepDone(\'' + p.id + '\',\'' + s.id + '\');" title="Marcar completado" style="font-size: var(--fs-xs);">✔</button>';
-        html += '<button class="tp-btn tp-btn-ghost" onclick="pnAddProjectStep(\'' + p.id + '\',\'' + s.id + '\');" title="Editar" style="font-size: var(--fs-xs);">✏️</button>';
+        if (s.status !== 'completado') html += '<button class="tp-btn tp-btn-ghost" onclick="pnProjectStepDone(\'' + p.id + '\',\'' + s.id + '\');" title="Marcar completado" style="font-size: var(--fs-sm);">✔</button>';
+        html += '<button class="tp-btn tp-btn-ghost" onclick="pnAddProjectStep(\'' + p.id + '\',\'' + s.id + '\');" title="Editar" style="font-size: var(--fs-sm);">✏️</button>';
         html += '</td></tr>';
     });
     html += '</tbody></table></div>';
@@ -812,7 +812,7 @@ var PN_HEALTH = {
 function _pnPortfolioHTML() {
     var rows = pnPortfolioRows();
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-proj-portfolio"><span>🗂️ Portafolio — ' + rows.length + ' proyecto' + (rows.length === 1 ? '' : 's') + ' activo' + (rows.length === 1 ? '' : 's') + '</span>' +
-        '<button class="tp-btn tp-btn-ghost" onclick="pnExportPortfolioCSV()" style="font-size: var(--fs-xs);">📤 CSV</button></div>';
+        '<button class="tp-btn tp-btn-ghost" onclick="pnExportPortfolioCSV()" style="font-size: var(--fs-sm);">📤 CSV</button></div>';
     if (!rows.length) { return html + '<div style="text-align:center;padding:24px;color:var(--tp-dim);">Sin proyectos activos.</div></div>'; }
 
     var counts = { red: 0, amber: 0, ok: 0, done: 0 };

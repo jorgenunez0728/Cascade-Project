@@ -520,7 +520,7 @@ function pnRenderHomolog(el) {
     // ── Listado ──
     html += '<div class="tp-card">';
     html += '<div class="tp-card-title"><span>📋 Vehículos del catálogo</span>' +
-        (cat.length ? '<button class="tp-btn tp-btn-ghost" onclick="homoExportCSV()" style="font-size: var(--fs-xs);">📤 Exportar CSV</button>' : '') +
+        (cat.length ? '<button class="tp-btn tp-btn-ghost" onclick="homoExportCSV()" style="font-size: var(--fs-sm);">📤 Exportar CSV</button>' : '') +
         '</div>';
     if (!cat.length) {
         html += '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">' +
@@ -543,7 +543,7 @@ function pnRenderHomolog(el) {
                 '<td style="padding:5px 8px;border-bottom:1px solid var(--tp-border);">' + num(r.tm) + '</td>' +
                 '<td style="padding:5px 8px;border-bottom:1px solid var(--tp-border);font-weight:700;">' + num(r.co2Combined) + '</td>' +
                 '<td style="padding:5px 8px;border-bottom:1px solid var(--tp-border);">' +
-                '<button class="tp-btn tp-btn-ghost" style="color:var(--tp-red);font-size: var(--fs-xs);" onclick="homoDeleteRow(\'' + r.id + '\')" title="Quitar del catálogo">🗑</button></td>' +
+                '<button class="tp-btn tp-btn-ghost" style="color:var(--tp-red);font-size: var(--fs-sm);" onclick="homoDeleteRow(\'' + r.id + '\')" title="Quitar del catálogo">🗑</button></td>' +
                 '</tr>';
         });
         html += '</tbody></table></div>';
@@ -1007,7 +1007,7 @@ function _homoIpCardHTML() {
     var fams = homoState.ipFamilies || [];
     var html = '<div class="tp-card">';
     html += '<div class="tp-card-title" data-help="pn-homolog-ip-help"><span>🧬 Familias de interpolación (WVTA)</span>' +
-        (fams.length ? '<button class="tp-btn tp-btn-ghost" onclick="homoIpExportCSV()" style="font-size: var(--fs-xs);">📤 Exportar CSV</button>' : '') +
+        (fams.length ? '<button class="tp-btn tp-btn-ghost" onclick="homoIpExportCSV()" style="font-size: var(--fs-sm);">📤 Exportar CSV</button>' : '') +
         '</div>';
     html += '<div style="font-size: var(--fs-sm);color:var(--tp-dim);margin-bottom:12px;line-height:1.5;">' +
         'La familia de interpolación es la agrupación <b>oficial</b> del CoP en Europa: la declara el certificado ' +
@@ -1045,8 +1045,8 @@ function _homoIpCardHTML() {
         html += '<td class="cop-l" style="font-size:var(--fs-xs);color:var(--tp-dim);">' + _homoEsc(f.wvta || '—') +
                 (f.wvtaDate ? '<br>' + _homoEsc(f.wvtaDate) : '') + '</td>';
         html += '<td style="white-space:nowrap;">' +
-                '<button class="tp-btn tp-btn-ghost" style="font-size:var(--fs-xs);" onclick="homoIpEditModal(\'' + f.id + '\')">Editar</button>' +
-                '<button class="tp-btn tp-btn-ghost" style="font-size:var(--fs-xs);" onclick="homoIpConfirmDelete(\'' + f.id + '\')" title="Borrar">✕</button></td>';
+                '<button class="tp-btn tp-btn-ghost" style="font-size:var(--fs-sm);" onclick="homoIpEditModal(\'' + f.id + '\')">Editar</button>' +
+                '<button class="tp-btn tp-btn-ghost" style="font-size:var(--fs-sm);" onclick="homoIpConfirmDelete(\'' + f.id + '\')" title="Borrar">✕</button></td>';
         html += '</tr>';
     });
     html += '</tbody></table></div>';

@@ -1186,10 +1186,17 @@ las dos, no una:
   `calc()` ni multiplicadores — cada valor es un peldaño real de la rejilla de 4px, escrito a
   mano. Si una pantalla necesita una regla propia para caber en compacto, el problema es la
   pantalla, no la densidad.
-- **`--fs-2xs` (12px) es el piso ABSOLUTO** y significa metadato verdadero. `--fs-xs` es 13px
-  en cómodo. Deuda conocida: `--fs-xs` todavía carga ~775 usos en JS que son texto de CUERPO
-  mal clasificado (era el tamaño de facto de la app); reclasificarlos a `--fs-sm` por módulo
-  es trabajo pendiente, y hasta entonces `--fs-xs` está inflado a propósito.
+- **`--fs-2xs` (12px) es el piso ABSOLUTO** y significa metadato verdadero. **`--fs-xs` es 13px
+  y ése es su valor DEFINITIVO, no un parche** (v22.6): al categorizar sus 785 usos, 308 son
+  metadato legítimo por la convención de la app (chico + color apagado = secundario), así que
+  bajarlo a 12px empeoraría la lectura sin arreglar nada. La nota previa de "volver a 12px"
+  partía de una premisa falsa.
+- **La etiqueta de un control NUNCA va a `--fs-xs`.** Un `<button>` a tamaño de metadato es un
+  defecto: v22.6 promovió 141 botones y 67 títulos en negrita a `--fs-sm`. Quedan ~269 usos sin
+  clasificar que piden juicio caso por caso.
+- **`.btn`/`.tp-btn` llevan `overflow: hidden`** (para el ripple), así que un botón que no cabe
+  **recorta su etiqueta en silencio** — no se ve que falta espacio. Si una etiqueta crece, la
+  corrección va en el LAYOUT (padding y `flex-wrap` en la fila), nunca bajando la tipografía.
 - **`--lh-base` es la palanca barata**: `line-height` se hereda, así que subirlo da altura de
   caja a los ~900 sitios que fijan `font-size` en línea sin tocar ninguno.
 - **PROHIBIDO px crudo en `padding`/`margin`/`gap`/`border-radius`** en `styles.css`: usar la
@@ -1248,8 +1255,11 @@ las dos, no una:
   alta una entidad agrega su verbo ahí**, o queda invisible desde Crear. Guarda `typeof` por fila.
 - Los destinos se enriquecen con `HELP_TABS[id].title + .text` para buscar por concepto — otra
   razón para mantener `HELP_TABS` al día además del banner de ayuda.
-- **Los botones NO van en el topbar**: la barra mide ~1900px expandida. Van en el menú `⋯` y en
-  la cabecera de HOY (`.dash-launch-btn`), que es donde abre la app.
+- **Los botones NO van en el topbar**: la barra mide ~1900px expandida. **v22.6**: viven en
+  `.ui-bar`, una franja fija DEBAJO de `.platform-bar`, visible en todas las pantallas; se
+  retiraron de HOY y del menú `⋯` para no tener el mismo botón en tres sitios. El "campo de
+  búsqueda" de esa barra es un `<button>` que abre el lanzador, **no un `<input>`**: el campo
+  real vive en el overlay y duplicarlo obligaría a sincronizar dos estados de texto.
 - Al leer la etiqueta de un botón de navegación, **clonar y borrar los `<span>` en la copia**
   (`_uiCleanLabel`), no hacer `replace()` sobre `textContent`: la pestaña Pruebas lleva DOS
   badges y solo uno tiene la clase `.pt-badge`.

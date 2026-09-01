@@ -2227,7 +2227,7 @@ function copBuildValidatorHTML() {
     if (!_copFams.length) {
         html += '<p class="label-title" style="margin-top:10px;color:var(--warn-text);">No hay familias en el alcance CoP todavía. ' +
                 'Importa el plan de producción, o libera vehículos de ' + _copEsc(copScope().regulations.join(' / ')) + '. ' +
-                '<button onclick="switchPlatform(\'testplan\');if(typeof tpSwitchTab===\'function\')tpSwitchTab(\'tp-production\');" class="btn btn-sm btn-ghost" style="font-size: var(--fs-xs);margin-left:6px;">📥 Ir a Producción →</button></p>';
+                '<button onclick="switchPlatform(\'testplan\');if(typeof tpSwitchTab===\'function\')tpSwitchTab(\'tp-production\');" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);margin-left:6px;">📥 Ir a Producción →</button></p>';
     } else if (copState.familyLabel) {
         html += '<p class="label-title" style="margin-top:10px;color:var(--accent-cop);">Evaluando: ' + _copEsc(copState.familyLabel) + '</p>';
     }
@@ -2352,9 +2352,9 @@ function copBuildValidatorHTML() {
             html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">';
             html += '<span style="font-size: var(--fs-xs);color:var(--muted);min-width:74px;">' + new Date(r.date).toLocaleDateString('es-MX') + '</span>';
             html += '<span style="flex:1;min-width:160px;font-size: var(--fs-sm);color:var(--text);">' + _copEsc(r.familyLabel || '(sin familia)') + ' · ' + r.fuelType + ' · ' + r.regulation + '</span>';
-            html += '<span class="' + _copDecClass(r.decision) + '" style="padding:3px 10px;border-radius:var(--radius-sm);font-size: var(--fs-xs);font-weight:700;">' + decTxt + '</span>';
-            html += '<button onclick="copLoadJudgment(\'' + r.id + '\')" class="btn btn-sm btn-ghost" style="font-size: var(--fs-xs);">Cargar</button>';
-            html += '<button onclick="copDeleteJudgment(\'' + r.id + '\')" class="btn btn-sm btn-ghost" style="font-size: var(--fs-xs);" title="Borrar">✕</button>';
+            html += '<span class="' + _copDecClass(r.decision) + '" style="padding:3px 10px;border-radius:var(--radius-sm);font-size: var(--fs-sm);font-weight:700;">' + decTxt + '</span>';
+            html += '<button onclick="copLoadJudgment(\'' + r.id + '\')" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);">Cargar</button>';
+            html += '<button onclick="copDeleteJudgment(\'' + r.id + '\')" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);" title="Borrar">✕</button>';
             html += '</div>';
         });
         html += '</div>';
@@ -2593,7 +2593,7 @@ function copBuildSpcHTML() {
                     'role="button" tabindex="0" aria-label="Ver carta de ' + _copEsc(a.gasLabel) + ' de ' + _copEsc(a.famLabel) + '" ' +
                     'style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin-bottom:6px;cursor:pointer;' +
                     'border:1px solid rgba(239,68,68,0.35);border-radius:var(--radius-sm);background:rgba(239,68,68,0.05);">';
-            html += '<span class="badge badge-danger" style="padding:2px 8px;border-radius:var(--radius-sm);font-size: var(--fs-xs);font-weight:800;">' + a.rule + '</span>';
+            html += '<span class="badge badge-danger" style="padding:2px 8px;border-radius:var(--radius-sm);font-size: var(--fs-sm);font-weight:800;">' + a.rule + '</span>';
             html += '<b style="font-size:12px;">' + _copEsc(a.gasLabel) + '</b>';
             html += '<span style="font-size:12px;color:var(--text);">' + _copEsc(a.famLabel) + '</span>';
             html += '<span style="margin-left:auto;font-size: var(--fs-sm);color:var(--muted);">' + COP_SPC_RULES[a.rule] +
@@ -2609,7 +2609,7 @@ function copBuildSpcHTML() {
     if (!sel.fams.length) {
         html += '<p class="label-title" style="margin:0;color:var(--warning);">Aún no hay vehículos liberados con gases capturados. ' +
                 'Conforme se aprueben liberaciones con valores por gas, las familias aparecerán aquí. ' +
-                '<button onclick="switchPlatform(\'cop15\');setTimeout(function(){var t=document.querySelector(\'.tab[data-tab=liberacion]\');if(t)t.click();},150);" class="btn btn-sm btn-ghost" style="font-size: var(--fs-xs);margin-left:6px;">🔬 Ir a Liberación →</button></p>';
+                '<button onclick="switchPlatform(\'cop15\');setTimeout(function(){var t=document.querySelector(\'.tab[data-tab=liberacion]\');if(t)t.click();},150);" class="btn btn-sm btn-ghost" style="font-size: var(--fs-sm);margin-left:6px;">🔬 Ir a Liberación →</button></p>';
         html += '</div>';
         return html;
     }

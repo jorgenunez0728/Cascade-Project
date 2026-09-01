@@ -833,7 +833,7 @@ function _pnAlpineTabRenderer(el) {
 function pnRenderAuditTrail(el) {
     var trail = (typeof auditGetTrail === 'function') ? auditGetTrail().reverse() : [];
     var html = '<div class="tp-card"><div class="tp-card-title" data-help="pn-audit-help"><span>🔍 Auditoría (' + trail.length + ' registros)</span>' +
-        '<button onclick="if(typeof auditExportCSV===\'function\')auditExportCSV()" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);">📤 Exportar CSV</button></div>';
+        '<button onclick="if(typeof auditExportCSV===\'function\')auditExportCSV()" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);">📤 Exportar CSV</button></div>';
     if (trail.length === 0) {
         html += '<div style="text-align:center;padding:20px;color:#475569;">Sin registros de auditoría.</div>';
     } else {
@@ -1204,7 +1204,7 @@ function pnRenderDashboard(el) {
         if (anomalies.length > 0) {
             html += '<div class="tp-card" style="border-left:3px solid #ef4444;">';
             html += '<div class="tp-card-title"><span style="color:var(--danger-text);">🚨 Anomalias de Gas (' + anomalies.length + ')</span>';
-            html += '<button class="tp-btn tp-btn-ghost" onclick="switchPlatform(\'inventory\')" style="font-size: var(--fs-xs);">Ver en Inventario</button></div>';
+            html += '<button class="tp-btn tp-btn-ghost" onclick="switchPlatform(\'inventory\')" style="font-size: var(--fs-sm);">Ver en Inventario</button></div>';
             anomalies.slice(0, 3).forEach(function(a) {
                 var clr = a.severity === 'critica' ? '#ef4444' : '#f59e0b';
                 html += '<div style="padding:6px 8px;margin-bottom:3px;border:1px solid ' + clr + '30;border-radius:6px;font-size: var(--fs-xs);color:' + clr + ';">';
@@ -1266,7 +1266,7 @@ function pnRenderDashboard(el) {
         var queueLen = (typeof fbOfflineQueue !== 'undefined') ? fbOfflineQueue.length : 0;
         html += '<div class="tp-card" style="border-left:3px solid ' + syncClr + ';">';
         html += '<div class="tp-card-title"><span>☁️ Firebase Sync</span>';
-        html += '<span style="font-size: var(--fs-xs);padding:2px 8px;border-radius:4px;background:' + syncClr + '20;color:' + syncClr + ';font-weight:700;">' + fbSync.status.toUpperCase() + '</span></div>';
+        html += '<span style="font-size: var(--fs-sm);padding:2px 8px;border-radius:4px;background:' + syncClr + '20;color:' + syncClr + ';font-weight:700;">' + fbSync.status.toUpperCase() + '</span></div>';
         html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Estacion: ' + (fbSync.stationId || '?') + '</div>';
         if (queueLen > 0) html += '<div style="font-size: var(--fs-xs);color:var(--warn-text);margin-top:4px;">' + queueLen + ' operaciones en cola offline</div>';
         if (fbSync.lastSync) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);margin-top:2px;">Ultimo sync: ' + new Date(fbSync.lastSync).toLocaleTimeString('es-MX') + '</div>';
@@ -1389,10 +1389,10 @@ function pnRenderUsers(el) {
 
             // Actions
             html += '<div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">';
-            html += '<button onclick="pnSetOperatorPin(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);padding:4px 8px;" title="Configurar PIN">' + ((op.pinHash2 || op.pinHash) ? '🔑' : '🔒') + '</button>';
-            html += '<button onclick="pnEditOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);padding:4px 8px;">✏️</button>';
-            html += '<button onclick="pnToggleOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);padding:4px 8px;">' + (op.active ? '🚫' : '✅') + '</button>';
-            html += '<button onclick="pnRemoveOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);padding:4px 8px;color:var(--tp-red);">🗑</button>';
+            html += '<button onclick="pnSetOperatorPin(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);padding:4px 8px;" title="Configurar PIN">' + ((op.pinHash2 || op.pinHash) ? '🔑' : '🔒') + '</button>';
+            html += '<button onclick="pnEditOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);padding:4px 8px;">✏️</button>';
+            html += '<button onclick="pnToggleOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);padding:4px 8px;">' + (op.active ? '🚫' : '✅') + '</button>';
+            html += '<button onclick="pnRemoveOperator(' + idx + ')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);padding:4px 8px;color:var(--tp-red);">🗑</button>';
             html += '</div>';
             html += '</div>';
         });
@@ -1403,7 +1403,7 @@ function pnRenderUsers(el) {
     // Sync info
     html += '<div class="tp-card" style="padding:10px;text-align:center;">';
     html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">Los operadores se sincronizan automaticamente con los dropdowns de COP15.</div>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="pnSyncOperators()" style="font-size: var(--fs-xs);margin-top:6px;">🔄 Sincronizar Dropdowns Ahora</button>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnSyncOperators()" style="font-size: var(--fs-sm);margin-top:6px;">🔄 Sincronizar Dropdowns Ahora</button>';
     html += '</div>';
 
     el.innerHTML = html;
@@ -1780,7 +1780,7 @@ function pnRenderShiftLog(el) {
     var todayEntries = pnState.shiftLog.filter(function(s) { return s.date === todayStr; }).reverse();
     html += '<div class="tp-card">';
     html += '<div class="tp-card-title"><span>📋 Hoy (' + todayEntries.length + ' entradas)</span>';
-    html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportShiftLog()" style="font-size: var(--fs-xs);">📤 Exportar</button></div>';
+    html += '<button class="tp-btn tp-btn-ghost" onclick="pnExportShiftLog()" style="font-size: var(--fs-sm);">📤 Exportar</button></div>';
 
     if (todayEntries.length === 0) {
         html += '<div style="text-align:center;padding:30px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin entradas hoy. Registra el inicio de turno.</div>';
@@ -1802,7 +1802,7 @@ function pnRenderShiftLog(el) {
             html += '<div style="font-size:16px;line-height:1;">' + icon + '</div>';
             html += '<div style="flex:1;">';
             html += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:2px;">';
-            html += '<span style="font-size: var(--fs-xs);font-weight:700;color:var(--tp-text);">' + (entry.operator || '?') + '</span>';
+            html += '<span style="font-size: var(--fs-sm);font-weight:700;color:var(--tp-text);">' + (entry.operator || '?') + '</span>';
             html += '<span style="font-size: var(--fs-xs);padding:1px 6px;background:' + catColor + '20;color:' + catColor + ';border-radius:4px;">' + entry.category + '</span>';
             html += '</div>';
             html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + (entry.notes || '') + '</div>';
@@ -2078,7 +2078,7 @@ function pnRenderAlerts(el) {
 
             sourceAlerts.forEach(function(a) {
                 html += '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--tp-border);">';
-                html += '<span style="font-size: var(--fs-xs);padding:3px 8px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:800;white-space:nowrap;flex-shrink:0;">' + a.level + '</span>';
+                html += '<span style="font-size: var(--fs-sm);padding:3px 8px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:800;white-space:nowrap;flex-shrink:0;">' + a.level + '</span>';
                 html += '<span style="font-size: var(--fs-sm);color:var(--tp-text);">' + a.message + '</span>';
                 html += '</div>';
             });
@@ -2538,9 +2538,9 @@ function pnRenderSystemHealth(el) {
     html += '<p style="color:var(--tp-dim);font-size: var(--fs-xs);margin:0 0 10px 0;">Elimina datos antiguos para liberar espacio. Los datos se eliminan permanentemente.</p>';
 
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
-    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'cop15\', 90)" style="font-size: var(--fs-xs);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>';
-    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'testplan\', 90)" style="font-size: var(--fs-xs);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>';
-    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'notes\', 90)" style="font-size: var(--fs-xs);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'cop15\', 90)" style="font-size: var(--fs-sm);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">COP15 >90 días</button>';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'testplan\', 90)" style="font-size: var(--fs-sm);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Test Plan >90 días</button>';
+    html += '<button class="tp-btn" onclick="pnPurgeOldData(\'notes\', 90)" style="font-size: var(--fs-sm);padding:6px 10px;background:rgba(239,68,68,0.15);color:var(--danger-text);border:1px solid rgba(239,68,68,0.3);">Notas >90 días</button>';
     html += '</div>';
     html += '</div>';
 
@@ -2818,7 +2818,7 @@ function pnRenderCalendar(el) {
     html += '<button onclick="_pnCalendarNav(-1)" class="btn-secondary" style="padding:4px 12px;">←</button>';
     html += '<span style="font-size:14px;font-weight:800;color:var(--tp-text);">' + monthNames[_calMonth] + ' ' + _calYear + '</span>';
     html += '<div style="display:flex;gap:6px;">';
-    html += '<button onclick="_pnCalendarToday()" class="btn-secondary" style="padding:4px 10px;font-size: var(--fs-xs);">Hoy</button>';
+    html += '<button onclick="_pnCalendarToday()" class="btn-secondary" style="padding:4px 10px;font-size: var(--fs-sm);">Hoy</button>';
     html += '<button onclick="_pnCalendarNav(1)" class="btn-secondary" style="padding:4px 12px;">→</button>';
     html += '</div></div>';
 
@@ -3167,8 +3167,8 @@ function pnRenderShiftReport(report) {
     }
 
     html += '<div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">';
-    html += '<button onclick="_pnShiftReportCopy(' + report.id.replace('sr_', '') + ')" class="btn-secondary" style="padding:6px 14px;font-size: var(--fs-xs);">📋 Copiar</button>';
-    html += '<button onclick="closeModal()" class="btn-primary" style="padding:6px 14px;font-size: var(--fs-xs);">Cerrar</button>';
+    html += '<button onclick="_pnShiftReportCopy(' + report.id.replace('sr_', '') + ')" class="btn-secondary" style="padding:6px 14px;font-size: var(--fs-sm);">📋 Copiar</button>';
+    html += '<button onclick="closeModal()" class="btn-primary" style="padding:6px 14px;font-size: var(--fs-sm);">Cerrar</button>';
     html += '</div></div>';
 
     showModal(html, 'Reporte de Turno');
@@ -3963,7 +3963,7 @@ function pnRenderTurnaround(el) {
         var h = Math.max(4, Math.round((counts[i] / maxCount) * 70));
         var dayLabel = d.slice(8,10);
         html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;">';
-        html += '<div style="font-size: var(--fs-xs);font-weight:700;color:var(--text);margin-bottom:2px;">' + counts[i] + '</div>';
+        html += '<div style="font-size: var(--fs-sm);font-weight:700;color:var(--text);margin-bottom:2px;">' + counts[i] + '</div>';
         html += '<div style="width:100%;height:' + h + 'px;background:var(--info);border-radius:3px;"></div>';
         html += '<div style="font-size: var(--fs-xs);color:var(--muted);margin-top:2px;">' + dayLabel + '</div>';
         html += '</div>';
@@ -3999,8 +3999,8 @@ function pnRenderRegulations(el) {
             html += '<div><div style="font-weight:700;font-size:13px;">' + escapeHtml(p.name) + '</div>';
             html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + p.gases.length + ' gas' + (p.gases.length !== 1 ? 'es' : '') + ' configurado' + (p.gases.length !== 1 ? 's' : '') + '</div></div>';
             html += '<div style="display:flex;gap:6px;">';
-            html += '<button class="tp-btn" onclick="pnRegEdit(\'' + escapeHtml(p.id) + '\')" style="font-size: var(--fs-xs);padding:4px 10px;">✏️ Editar</button>';
-            html += '<button class="tp-btn" onclick="pnRegDelete(\'' + escapeHtml(p.id) + '\')" style="font-size: var(--fs-xs);padding:4px 10px;color:var(--danger-text);">🗑️</button>';
+            html += '<button class="tp-btn" onclick="pnRegEdit(\'' + escapeHtml(p.id) + '\')" style="font-size: var(--fs-sm);padding:4px 10px;">✏️ Editar</button>';
+            html += '<button class="tp-btn" onclick="pnRegDelete(\'' + escapeHtml(p.id) + '\')" style="font-size: var(--fs-sm);padding:4px 10px;color:var(--danger-text);">🗑️</button>';
             html += '</div></div>';
             if (p.gases.length > 0) {
                 html += '<div style="overflow-x:auto;"><table style="width:100%;font-size: var(--fs-xs);border-collapse:collapse;">';
@@ -4060,8 +4060,8 @@ function _pnRegShowModal(profile) {
         '<div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px;flex-wrap:wrap;">' +
         '<label style="font-size: var(--fs-sm);font-weight:600;">Gases a medir</label>' +
         '<div style="display:flex;gap:6px;">' +
-        '<button class="tp-btn tp-btn-ghost" onclick="pnRegApplyIcmsUnits()" style="font-size: var(--fs-xs);padding:3px 10px;">⚡ Captura como el banco</button>' +
-        '<button class="tp-btn tp-btn-ghost" onclick="pnRegAddGasRow()" style="font-size: var(--fs-xs);padding:3px 10px;">+ Agregar gas</button>' +
+        '<button class="tp-btn tp-btn-ghost" onclick="pnRegApplyIcmsUnits()" style="font-size: var(--fs-sm);padding:3px 10px;">⚡ Captura como el banco</button>' +
+        '<button class="tp-btn tp-btn-ghost" onclick="pnRegAddGasRow()" style="font-size: var(--fs-sm);padding:3px 10px;">+ Agregar gas</button>' +
         '</div></div>' +
         '<p style="font-size: var(--fs-xs);color:var(--tp-dim);margin:0 0 6px 0;line-height:1.5;">' +
         '<b>Unidad</b> es la del límite regulatorio y en la que se <b>guarda</b> el dato. ' +
@@ -4129,7 +4129,7 @@ function _pnRegGasRowHtml(i, g) {
         '<td style="padding:2px;"><input class="form-control reg-gas-unit" value="' + escapeHtml(g.unit||'g/km') + '" placeholder="g/km" style="width:56px;font-size: var(--fs-xs);"></td>' +
         '<td style="padding:2px;"><select class="form-control reg-gas-capture" style="width:72px;font-size: var(--fs-xs);">' + opts + '</select></td>' +
         '<td style="padding:2px;text-align:center;"><input class="form-control reg-gas-limit" type="number" step="0.001" value="' + (g.limit!=null?g.limit:'') + '" placeholder="—" style="width:65px;font-size: var(--fs-xs);text-align:center;"></td>' +
-        '<td style="padding:2px;"><button onclick="this.closest(\'tr\').remove()" class="tp-btn" style="padding:2px 6px;font-size: var(--fs-xs);color:var(--danger-text);">✕</button></td>' +
+        '<td style="padding:2px;"><button onclick="this.closest(\'tr\').remove()" class="tp-btn" style="padding:2px 6px;font-size: var(--fs-sm);color:var(--danger-text);">✕</button></td>' +
         '</tr>';
 }
 
@@ -4245,8 +4245,8 @@ function pnFilesRefresh() {
                 '<div style="font-size:12px;font-weight:700;color:var(--tp-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(f.name) + '</div>' +
                 '<div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + _pnFormatBytes(f.size) + ' · ' + escapeHtml(f.uploadedBy) + ' · ' + when + '</div>' +
                 '</div>' +
-                '<button class="tp-btn tp-btn-ghost" onclick="pnFilesDownload(\'' + f.id + '\')" style="font-size: var(--fs-xs);" title="Descargar" aria-label="Descargar ' + escapeHtml(f.name) + '">⬇️</button>' +
-                '<button class="tp-btn tp-btn-ghost" onclick="pnFilesConfirmDelete(\'' + f.id + '\',\'' + escapeHtml(f.name).replace(/'/g, "\\'") + '\')" style="font-size: var(--fs-xs);color:var(--tp-red);" title="Eliminar" aria-label="Eliminar ' + escapeHtml(f.name) + '">🗑</button>' +
+                '<button class="tp-btn tp-btn-ghost" onclick="pnFilesDownload(\'' + f.id + '\')" style="font-size: var(--fs-sm);" title="Descargar" aria-label="Descargar ' + escapeHtml(f.name) + '">⬇️</button>' +
+                '<button class="tp-btn tp-btn-ghost" onclick="pnFilesConfirmDelete(\'' + f.id + '\',\'' + escapeHtml(f.name).replace(/'/g, "\\'") + '\')" style="font-size: var(--fs-sm);color:var(--tp-red);" title="Eliminar" aria-label="Eliminar ' + escapeHtml(f.name) + '">🗑</button>' +
                 '</div>';
         }).join('');
         listEl.innerHTML = rows;

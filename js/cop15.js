@@ -2563,7 +2563,7 @@ function _libUpdateGasStatuses(profile, containerId) {
         if (val === null) { statusEl.innerHTML = '<span style="color:var(--muted);">—</span>'; if (row) row.style.background = ''; if (g.limit !== null) allPass = false; return; }
         anyValue = true;
         var warn = _libValueImplausible(g.field, val);
-        var warnHtml = warn ? '<div style="color:var(--warn-text);font-size: var(--fs-xs);font-weight:700;">⚠ Valor improbable</div>' : '';
+        var warnHtml = warn ? '<div style="color:var(--warn-text);font-size: var(--fs-sm);font-weight:700;">⚠ Valor improbable</div>' : '';
         if (g.limit !== null && g.limit !== undefined) {
             var pass = val <= g.limit;
             if (!pass) allPass = false;
@@ -4317,8 +4317,8 @@ function histOpenCompleteModal(vehicleId) {
       }
       html += '</td>';
       html += '<td style="padding:5px 8px;width:88px;text-align:center;">' +
-              (isMissing ? '<span style="font-size: var(--fs-xs);color:var(--warn-text);font-weight:700;">Faltante</span>'
-                         : '<button class="btn btn-sm btn-ghost" onclick="histUnlockField(' + idx + ')" id="hist-unlock-' + idx + '" style="font-size: var(--fs-xs);" title="Modificar (exige razón + firma)">✏️ Modificar</button>') + '</td>';
+              (isMissing ? '<span style="font-size: var(--fs-sm);color:var(--warn-text);font-weight:700;">Faltante</span>'
+                         : '<button class="btn btn-sm btn-ghost" onclick="histUnlockField(' + idx + ')" id="hist-unlock-' + idx + '" style="font-size: var(--fs-sm);" title="Modificar (exige razón + firma)">✏️ Modificar</button>') + '</td>';
       html += '</tr>';
     });
     html += '</table></details>';
@@ -5188,7 +5188,7 @@ function openConfigPanel() {
     const srcEl = document.getElementById('configSource');
     var modalSrc = document.getElementById('configSourceModal');
     var srcHtml = isCustom
-        ? '<span style="color:var(--warn-text);">CSV importado</span> <button onclick="showConfirm(\'Restaurar CSV original embebido?\',function(){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');},{title:\'Restaurar CSV\',type:\'warning\',confirmText:\'Restaurar\'})" style="font-size: var(--fs-xs);padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>'
+        ? '<span style="color:var(--warn-text);">CSV importado</span> <button onclick="showConfirm(\'Restaurar CSV original embebido?\',function(){localStorage.removeItem(\'kia_config_csv_raw\');parseCSV();openConfigPanel();showToast(\'CSV restaurado\',\'success\');},{title:\'Restaurar CSV\',type:\'warning\',confirmText:\'Restaurar\'})" style="font-size: var(--fs-sm);padding:2px 8px;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:5px;cursor:pointer;margin-left:6px;">Restaurar original</button>'
         : '<span style="color:var(--muted);">CSV embebido (original)</span>';
     if (srcEl) srcEl.innerHTML = srcHtml;
     if (modalSrc) modalSrc.innerHTML = srcHtml;
@@ -5554,7 +5554,7 @@ displayConfigResult = function(filtered) {
     if (filtered.length === 1 && filtered[0]._source === 'manual') {
         var resultDiv = document.getElementById('cfg_result');
         if (resultDiv) {
-            var badge = '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:4px;background:#dbeafe;color:#1d4ed8;font-size: var(--fs-xs);font-weight:700;">MANUAL</span>';
+            var badge = '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:4px;background:#dbeafe;color:#1d4ed8;font-size: var(--fs-sm);font-weight:700;">MANUAL</span>';
             resultDiv.querySelector('div') && (resultDiv.querySelector('strong').innerHTML += badge);
         }
     }
@@ -6077,7 +6077,7 @@ function renderKanban() {
         html += '</select>';
     }
     if (_kanbanFilters.search || _kanbanFilters.operator) {
-        html += '<button onclick="_kanbanFilters.search=\'\';_kanbanFilters.operator=\'\';renderKanban();" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:6px 10px;font-size: var(--fs-xs);cursor:pointer;">✕ Limpiar</button>';
+        html += '<button onclick="_kanbanFilters.search=\'\';_kanbanFilters.operator=\'\';renderKanban();" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:6px 10px;font-size: var(--fs-sm);cursor:pointer;">✕ Limpiar</button>';
     }
     html += '</div>';
 
@@ -6093,7 +6093,7 @@ function renderKanban() {
         // Header
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
         html += '<span style="font-weight:700;font-size:12px;color:#0f172a;">' + col.icon + ' ' + col.label + '</span>';
-        html += '<span style="font-size: var(--fs-xs);padding:2px 8px;border-radius:10px;background:' + col.color + '20;color:' + col.color + ';font-weight:700;">' + colVehicles.length + '</span>';
+        html += '<span style="font-size: var(--fs-sm);padding:2px 8px;border-radius:10px;background:' + col.color + '20;color:' + col.color + ';font-weight:700;">' + colVehicles.length + '</span>';
         html += '</div>';
 
         if (colVehicles.length === 0) {
@@ -6131,7 +6131,7 @@ function renderKanban() {
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
                 html += '<span style="display:flex;align-items:center;gap:4px;">';
                 html += '<span style="font-family:monospace;font-size: var(--fs-sm);font-weight:700;color:#0f172a;">...' + shortVin + '</span>';
-                html += '<button onclick="event.stopPropagation();copyToClipboard(\'' + fullVin.replace(/'/g,"\\'") + '\', this)" style="background:none;border:none;cursor:pointer;font-size: var(--fs-xs);padding:0 2px;" title="Copiar VIN">📋</button>';
+                html += '<button onclick="event.stopPropagation();copyToClipboard(\'' + fullVin.replace(/'/g,"\\'") + '\', this)" style="background:none;border:none;cursor:pointer;font-size: var(--fs-sm);padding:0 2px;" title="Copiar VIN">📋</button>';
                 if (v.adhoc) html += '<span class="offplan-badge" title="Prueba fuera del plan semanal — no cuenta para la cobertura">Fuera de Plan</span>';
                 html += '</span>';
                 if (timeSince) html += '<span style="font-size: var(--fs-xs);color:var(--muted);" title="Tiempo en este estado">' + timeSince + '</span>';
@@ -6290,9 +6290,9 @@ function renderPrecondBatchView() {
         html += '<td style="padding:8px 6px;"><span style="font-size: var(--fs-xs);color:' + soakColor + ';">' + soakStatus + '</span></td>';
         html += '<td style="padding:8px 6px;">';
         if (precondOk) {
-            html += '<button onclick="batchAdvanceToTesting(\'' + v.id + '\')" style="background:var(--ok-fill);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size: var(--fs-xs);font-weight:700;cursor:pointer;" title="Avanzar a Testing">→ Testing</button>';
+            html += '<button onclick="batchAdvanceToTesting(\'' + v.id + '\')" style="background:var(--ok-fill);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size: var(--fs-sm);font-weight:700;cursor:pointer;" title="Avanzar a Testing">→ Testing</button>';
         } else {
-            html += '<button onclick="kanbanGoVehicle(\'' + v.id + '\',\'' + v.status + '\')" style="background:var(--info-fill);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size: var(--fs-xs);cursor:pointer;" title="Editar vehiculo">Editar</button>';
+            html += '<button onclick="kanbanGoVehicle(\'' + v.id + '\',\'' + v.status + '\')" style="background:var(--info-fill);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size: var(--fs-sm);cursor:pointer;" title="Editar vehiculo">Editar</button>';
         }
         html += '</td></tr>';
     });

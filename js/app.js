@@ -285,11 +285,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '22.5';
+var APP_VERSION = '22.6';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '22.6', date: '1 sep 2026', title: 'Barra de acción fija y los botones dejaron de ser letra chica', bullets: [
+        'BARRA FIJA CON "IR A…", BÚSQUEDA Y "CREAR" en todas las pantallas, no solo en HOY. Es lo primero que se ve bajo las pestañas y desde ahí se llega a cualquiera de las 53 pantallas.',
+        'Los mismos botones se quitaron de HOY y del menú ⋯: tenerlos en tres lugares era el desorden que veníamos combatiendo.',
+        'LA ETIQUETA DE UN BOTÓN YA NO ES LETRA DE METADATO. 208 botones y títulos estaban al tamaño más chico de la app; ahora usan el de cuerpo.',
+        'En celular las filas de botones se acomodan en varias líneas en vez de recortar el texto: "Exportar" se veía como "Exporta" sin que nada avisara.',
+        'Los 308 textos que SÍ son metadato (contadores, leyendas, "+15 más") se quedaron chicos a propósito.'
+    ] },
     { version: '22.5', date: '1 sep 2026', title: 'El mismo encabezado en todas partes, y "solo míos" en Proyectos', bullets: [
         'El Resumen del Lab (Pipeline, Plan Semanal, Alertas) y las tres secciones de Mantenimiento usan el mismo encabezado plegable que HOY. Como el Resumen se pinta igual en HOY y en Datos, colapsar en una lo deja colapsado en la otra.',
         '"CREAR OTRO" también al dar de alta un instrumento o una actividad de mantenimiento.',
@@ -2036,7 +2043,7 @@ function chartConfigBuildPanel(chartId, instanceVar, opts) {
         '<div style="grid-column:1/-1;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">' +
                 '<label class="cfg-label">Altura: <strong id="' + chartId + '-height-val" class="cfg-value">' + cfg.height + 'px</strong></label>' +
-                '<button onclick="chartConfigAutoFit(\'' + chartId + '\',\'' + instanceVar + '\')" class="tp-btn tp-btn-primary" style="font-size: var(--fs-xs);padding:2px 8px;">Auto-fit</button>' +
+                '<button onclick="chartConfigAutoFit(\'' + chartId + '\',\'' + instanceVar + '\')" class="tp-btn tp-btn-primary" style="font-size: var(--fs-sm);padding:2px 8px;">Auto-fit</button>' +
             '</div>' +
             '<input type="range" aria-label="Altura del gráfico" id="' + chartId + '-height-slider" min="200" max="600" step="20" value="' + cfg.height + '" oninput="chartConfigSet(\'' + chartId + '\',\'height\',+this.value);document.getElementById(\'' + chartId + '-height-val\').textContent=this.value+\'px\';chartConfigApply(\'' + chartId + '\',\'' + instanceVar + '\');">' +
         '</div>' +
@@ -2089,9 +2096,9 @@ function chartConfigBuildPanel(chartId, instanceVar, opts) {
         '</div>' +
         // Row 7: Export + Reset
         '<div style="grid-column:1/-1;display:flex;gap:6px;margin-top:4px;">' +
-            '<button onclick="chartExportPNG(\'' + instanceVar + '\',\'' + chartId + '\')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);flex:1;">📷 PNG</button>' +
-            '<button onclick="chartExportPDF(\'' + instanceVar + '\',\'' + chartId + '\')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);flex:1;">📄 PDF</button>' +
-            '<button onclick="chartConfigReset(\'' + chartId + '\');' + (opts.rerenderFn || '') + '" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);flex:1;color:var(--tp-red);">↺ Reset</button>' +
+            '<button onclick="chartExportPNG(\'' + instanceVar + '\',\'' + chartId + '\')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);flex:1;">📷 PNG</button>' +
+            '<button onclick="chartExportPDF(\'' + instanceVar + '\',\'' + chartId + '\')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);flex:1;">📄 PDF</button>' +
+            '<button onclick="chartConfigReset(\'' + chartId + '\');' + (opts.rerenderFn || '') + '" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);flex:1;color:var(--tp-red);">↺ Reset</button>' +
         '</div>' +
         '</div></details>';
 }
@@ -2201,7 +2208,7 @@ function noteCount(entityType, entityId) { return noteGet(entityType, entityId).
 
 function noteBuildButton(entityType, entityId) {
     var c = noteCount(entityType, entityId);
-    return '<button onclick="noteShowModal(\'' + entityType + '\',\'' + entityId + '\')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-xs);position:relative;padding:3px 8px;">' +
+    return '<button onclick="noteShowModal(\'' + entityType + '\',\'' + entityId + '\')" class="tp-btn tp-btn-ghost" style="font-size: var(--fs-sm);position:relative;padding:3px 8px;">' +
         '📝 Notas' + (c > 0 ? ' <span style="background:var(--tp-amber);color:#000;font-size: var(--fs-xs);border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-left:2px;">' + c + '</span>' : '') +
         '</button>';
 }
@@ -2225,7 +2232,7 @@ function noteShowModal(entityType, entityId) {
     html += '</div>';
     html += '<div style="display:flex;gap:6px;">';
     html += '<input type="text" id="_noteInput" aria-label="Agregar nota" class="tp-input" placeholder="Agregar nota..." style="flex:1;font-size: var(--fs-sm);padding:8px;" onkeydown="if(event.key===\'Enter\'){var v=this.value.trim();if(v){noteAdd(\'' + entityType + '\',\'' + entityId + '\',v);noteShowModal(\'' + entityType + '\',\'' + entityId + '\');}}">';
-    html += '<button onclick="var inp=document.getElementById(\'_noteInput\');var v=inp.value.trim();if(v){noteAdd(\'' + entityType + '\',\'' + entityId + '\',v);noteShowModal(\'' + entityType + '\',\'' + entityId + '\');}" class="tp-btn tp-btn-primary" style="font-size: var(--fs-xs);padding:8px 14px;">+</button>';
+    html += '<button onclick="var inp=document.getElementById(\'_noteInput\');var v=inp.value.trim();if(v){noteAdd(\'' + entityType + '\',\'' + entityId + '\',v);noteShowModal(\'' + entityType + '\',\'' + entityId + '\');}" class="tp-btn tp-btn-primary" style="font-size: var(--fs-sm);padding:8px 14px;">+</button>';
     html += '</div>';
 
     showModal('Notas — ' + entityType + ':' + entityId.substring(0, 15), html, []);
@@ -2670,19 +2677,14 @@ function dailyDashRender() {
     if (typeof helpBannerHTML === 'function') html += helpBannerHTML('today');
 
     // ── Header ──
-    // v22.2: "Ir a…" y "Crear" viven AQUÍ además de en el menú ⋯ del topbar. La app
-    // abre en HOY, así que este es el único sitio donde están garantizadamente a un
-    // toque; el topbar ya mide ~1900px expandido y no admite dos controles más.
+    // v22.6: "Ir a…" y "Crear" salieron de aquí. En v22.2 vivían en la cabecera de
+    // HOY porque no había dónde más ponerlos; ahora la .ui-bar los tiene de forma
+    // permanente en TODAS las pantallas, y tenerlos también aquí era el mismo botón
+    // dos veces en la misma vista — justo el desorden que esta ronda combate.
     html += '<div class="daily-dash-header">';
     html += '<div>';
     html += '<div class="daily-dash-greeting">' + greeting + '</div>';
     html += '<div class="daily-dash-date">' + days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + '</div>';
-    html += '</div>';
-    html += '<div class="dash-header-acts">';
-    html += '<button type="button" class="dash-launch-btn" onclick="openCommandPalette(\'launcher\')" aria-label="Ir a cualquier pantalla">'
-         +  '<span aria-hidden="true">🧭</span> Ir a…</button>';
-    html += '<button type="button" class="dash-launch-btn dash-launch-btn--cta" onclick="openCommandPalette(\'create\')" aria-label="Crear algo nuevo">'
-         +  '<span aria-hidden="true">➕</span> Crear</button>';
     html += '</div>';
     html += '</div>';
 
@@ -5730,8 +5732,8 @@ function templateRenderManager(module, applyCallback) {
             html += '<div style="font-size: var(--fs-xs);color:var(--muted);">Usado ' + (tpl.usageCount || 0) + 'x · ' + new Date(tpl.createdAt).toLocaleDateString('es-MX') + '</div>';
             html += '</div>';
             html += '<div style="display:flex;gap:6px;">';
-            html += '<button onclick="var d=templateApply(\'' + module + '\',\'' + tpl.id + '\');if(d && typeof ' + (applyCallback || 'null') + '===\'function\') ' + (applyCallback || 'null') + '(d);closeModal();" class="btn-primary" style="padding:4px 12px;font-size: var(--fs-xs);">Aplicar</button>';
-            html += '<button onclick="templateDelete(\'' + module + '\',\'' + tpl.id + '\');templateRenderManager(\'' + module + '\',\'' + (applyCallback || '') + '\');" style="padding:4px 8px;font-size: var(--fs-xs);background:none;border:1px solid var(--danger-fill);color:var(--danger-text);border-radius:4px;cursor:pointer;">✕</button>';
+            html += '<button onclick="var d=templateApply(\'' + module + '\',\'' + tpl.id + '\');if(d && typeof ' + (applyCallback || 'null') + '===\'function\') ' + (applyCallback || 'null') + '(d);closeModal();" class="btn-primary" style="padding:4px 12px;font-size: var(--fs-sm);">Aplicar</button>';
+            html += '<button onclick="templateDelete(\'' + module + '\',\'' + tpl.id + '\');templateRenderManager(\'' + module + '\',\'' + (applyCallback || '') + '\');" style="padding:4px 8px;font-size: var(--fs-sm);background:none;border:1px solid var(--danger-fill);color:var(--danger-text);border-radius:4px;cursor:pointer;">✕</button>';
             html += '</div></div>';
         });
     }
