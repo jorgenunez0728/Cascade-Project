@@ -285,11 +285,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '21.1';
+var APP_VERSION = '22.0';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '22.0', date: '1 sep 2026', title: 'Aire: la app dejó de estar escrita en 12px', bullets: [
+        'LA PLATAFORMA SE VE MÁS LIMPIA. La tipografía de cuerpo de facto era var(--fs-xs), el tamaño que el propio sistema declaraba como "mínimo legal, solo metadatos": se usaba 898 veces contra 403 del tamaño de cuerpo real. De ahí venía la sensación de apretado.',
+        'Densidad elegible en Datos → Sistema: Compacta (la escala anterior), Cómoda (nueva, por defecto) y Amplia (para tablet o proyector). Solo cambia tu dispositivo.',
+        'El interlineado subió de 1.5 a 1.6. Como line-height se hereda, los ~900 tamaños escritos en línea ganaron altura de caja sin tocar ninguno.',
+        'styles.css pasó de 617 medidas escritas a mano a 811 usos de la escala compartida: el espaciado por fin responde a la densidad. La barra de navegación quedó excluida a propósito para no reventar su ancho.',
+        '.card y .tab-panel llevaban meses con esquinas cuadradas y sin sombra: usaban dos variables que nunca se habían declarado.'
+    ] },
     { version: '21.1', date: '30 ago 2026', title: 'Números confiables y la gasolina en la nube', bullets: [
         'EL NIVEL DE UN CILINDRO YA ES REAL. Se medía contra la primera lectura registrada, no contra qué tan lleno está: un cilindro al 13% se reportaba al 63% y en verde. Ahora se mide contra la presión nominal (hay un campo nuevo y opcional para declararla; sin él usa el máximo histórico).',
         'Un solo criterio de "nivel bajo" en toda la app. Había cinco distintos, así que un cilindro podía verse verde en el mapa y crítico en las alertas al mismo tiempo.',
@@ -1002,6 +1009,89 @@ function themeInit() {
     document.documentElement.setAttribute('data-theme', 'light');
     try { localStorage.removeItem('kia_theme_pref'); } catch(e) {}
 }
+
+// ======================================================================
+// [v22.0] PREFERENCIAS DE INTERFAZ POR DISPOSITIVO — `uiPref` es LA definición
+//
+// UNA sola clave (`kia_ui_prefs`) para todo lo que es gusto del dispositivo y no
+// dato del laboratorio: densidad, "solo míos", alcance de búsqueda, tarjetas
+// colapsadas. Tres claves sueltas serían tres entradas más en
+// PN_STORAGE_REGISTRY y tres formas distintas de leer un default.
+//
+// NO se sincroniza a propósito — mismo criterio que copState.ovHidden (v20.5):
+// que un técnico prefiera vista compacta no debe cambiarle la pantalla a otro.
+// ======================================================================
+var UI_PREFS_KEY = 'kia_ui_prefs';
+var UI_PREFS_DEFAULTS = { density: 'comodo', onlyMine: false, searchScope: 'todo', cards: {} };
+
+function _uiPrefsRead() {
+    try {
+        var raw = JSON.parse(localStorage.getItem(UI_PREFS_KEY) || '{}');
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) raw = {};
+        return raw;
+    } catch (e) { return {}; }
+}
+
+// uiPref('density') lee; uiPref('density', 'amplio') escribe y devuelve lo escrito.
+// Reaplica defaults en CADA lectura (patrón de tpPlannerCfg, v18.0): un pull de
+// sync o una clave corrupta no deben dejar un campo en undefined.
+function uiPref(key, value) {
+    var p = _uiPrefsRead();
+    if (arguments.length < 2) {
+        return (p[key] === undefined || p[key] === null) ? UI_PREFS_DEFAULTS[key] : p[key];
+    }
+    p[key] = value;
+    try { localStorage.setItem(UI_PREFS_KEY, JSON.stringify(p)); } catch (e) {}
+    return value;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// [v22.0] DENSIDAD DE LA INTERFAZ — 'compacto' | 'comodo' (default) | 'amplio'
+//
+// El aire de la plataforma se controla desde los tokens de :root (styles.css), NO
+// regla por regla: ~1,200 decisiones de tamaño ya pasan por var(--fs-*), y
+// line-height se HEREDA, así que retunear los tokens retunea la app entera.
+// Aquí solo se pone un atributo en <html>; toda la escala vive en el CSS.
+//
+// Medición que lo motivó: var(--fs-xs) — cuyo propio comentario decía "mínimo
+// legal, solo metadatos" — se usaba 898 veces contra 403 de var(--fs-sm). El
+// tamaño de cuerpo de facto de la app era el mínimo legal, y de ahí venía la
+// queja de "se ve apretado".
+//
+// 'compacto' reproduce la escala de v21.1 exacta y es la vía de escape: si algo
+// se ve cortado, un toque devuelve la app a como estaba.
+// ══════════════════════════════════════════════════════════════════════
+var DENSITY_MODES = ['compacto', 'comodo', 'amplio'];
+
+function densityGet() {
+    var d = uiPref('density');
+    return DENSITY_MODES.indexOf(d) >= 0 ? d : 'comodo';
+}
+
+// Solo toca el DOM. Separada de densitySet para poder aplicarla en el arranque
+// sin volver a escribir en localStorage.
+function densityApply(mode) {
+    var m = DENSITY_MODES.indexOf(mode) >= 0 ? mode : 'comodo';
+    document.documentElement.setAttribute('data-density', m);
+    return m;
+}
+
+function densitySet(mode) {
+    var m = densityApply(mode);
+    uiPref('density', m);
+    if (typeof auditLog === 'function') {
+        try { auditLog('sistema', 'densidad_cambiada', m, 'Densidad de la interfaz'); } catch (e) {}
+    }
+    return m;
+}
+
+function densityInit() { densityApply(densityGet()); }
+
+// Se aplica AL PARSEAR, no en DOMContentLoaded: <html> ya existe cuando corre
+// app.js, y esperar al bootstrap dejaba un parpadeo visible de la escala cómoda
+// a la compacta en el arranque de quien eligió compacta. densityInit() sigue
+// llamándose desde initializeSystem como red de seguridad (es idempotente).
+try { densityInit(); } catch (e) {}
 
 // ======================================================================
 // [v15.5] UX unificada para los modales-contenedor legacy
@@ -3913,6 +4003,7 @@ function storageFreeBytes() {
 
         // Theme init — apply before any UI renders
         try { themeInit(); } catch(e) { console.error('themeInit error:', e); }
+        try { densityInit(); } catch(e) { console.error('densityInit error:', e); }
         try { modalUxInit(); } catch(e) { console.error('modalUxInit error:', e); }
         try { a11yTablist(document.getElementById('platformBar')); } catch(e) { console.error('a11yTablist error:', e); }
 

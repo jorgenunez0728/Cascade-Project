@@ -1727,6 +1727,19 @@
                 </template>
             </div>
 
+            <!-- v22.0: Densidad de la interfaz. Va aquí y no en una pantalla de ajustes
+                 aparte porque el efecto se ve al instante en la propia pantalla: se elige
+                 mirando el resultado. Estático (no depende de pnState), así que no necesita
+                 pasar por la reactividad de Alpine — mismo criterio que el historial de
+                 versiones de arriba. -->
+            <div class="tp-card" style="margin-bottom:var(--space-md);padding:var(--space-md);">
+                <h4 style="color:var(--tp-text);font-size:var(--fs-sm);margin:0 0 var(--space-sm) 0;" data-help="pn_density">🔎 Densidad de la interfaz</h4>
+                <div id="pn-density-choices" style="display:flex;gap:var(--space-sm);flex-wrap:wrap;"></div>
+                <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:var(--space-sm);">
+                    Solo cambia este dispositivo — no afecta a los demás del laboratorio.
+                </div>
+            </div>
+
             <!-- Storage Breakdown -->
             <div class="tp-card" style="margin-bottom:12px;padding:12px;">
                 <h4 style="color:var(--tp-text);font-size:12px;margin:0 0 8px 0;">📦 Uso de Almacenamiento</h4>

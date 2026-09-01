@@ -2,6 +2,92 @@
 
 All notable changes to this project, organized by development round.
 
+## v22.0 — Aire: la app dejó de estar escrita en 12px (2026-09-01)
+
+Etapa 1 del overhaul de fluidez y accesibilidad, disparado por la comparación con QLIMS.
+Diagnóstico previo: el sistema de diseño de `styles.css` estaba **bien construido y a
+medias aplicado**. Escala tipográfica, rejilla de 4px, tokens de movimiento,
+`prefers-reduced-motion`, `--target-min: 44px` y contrastes WCAG anotados — todo ahí, y
+las pantallas obedeciéndolo de forma desigual.
+
+### La causa medida de "se ve apretado"
+
+`var(--fs-xs)` (12px), cuyo propio comentario decía *"mínimo legal — solo metadatos"*, se
+usaba **898 veces** (775 en JS + 123 en CSS) contra **403** de `--fs-sm` (14px). En
+`testplan.js` la proporción era 4:1 (301 vs 75), en `inventory.js` 199 vs 89, en
+`panel.js` 107 vs 31. **El tamaño de cuerpo de facto de la plataforma era el que el
+sistema declaraba como piso legal para metadatos.**
+
+- **`--fs-2xs: 12px` es ahora el piso ABSOLUTO** y documentado — metadato verdadero.
+  `--fs-xs` sube a 13px y `--fs-sm` a 15px en el modo cómodo.
+- **`--lh-base` 1.5 → 1.6.** Es la palanca más barata del retuneo: `line-height` **se
+  hereda**, así que los ~900 sitios que fijan `font-size` en línea (y no `line-height`)
+  ganaron altura de caja sin tocar ni uno.
+- La escala de espaciado **se detenía en 32px**, así que no existía vocabulario para
+  "aire" y toda separación generosa terminaba como px crudo fuera de rejilla. Se agregaron
+  `--space-3xl` (56px) y `--space-4xl` (72px), más `--space-2xs` (2px) como el único
+  off-grid legítimo (hairlines y chips).
+
+### Densidad elegible — `data-density` sobre `<html>`
+
+Tres modos (`compacto` | `comodo` | `amplio`), mismo patrón que `data-theme`. Selector en
+**Datos → Sistema**, donde el efecto se ve en la propia pantalla al instante.
+
+- **REGLA QUE NO SE ROMPE: un modo de densidad SOLO redeclara tokens, nunca reglas.** Nada
+  de `calc()` ni multiplicadores — cada valor es un peldaño real de la rejilla de 4px,
+  escrito a mano y verificable. Si una pantalla necesita una regla propia para caber en
+  compacto, el problema es la pantalla, no la densidad.
+- `compacto` devuelve la escala de v21.1 en tipografía e interlineado y el espaciado a sus
+  mismos peldaños, pero **no es píxel-idéntico**: el codemod redondeó a la rejilla, así que
+  un `gap` de 6px quedó en 8px también en compacto. Es la vía de escape, no una
+  reproducción exacta.
+- Se aplica **al parsear `app.js`**, no en `DOMContentLoaded`: esperar al bootstrap dejaba
+  un parpadeo visible de cómodo a compacto en el arranque de quien eligió compacto.
+
+### `uiPref` es LA definición de las preferencias de interfaz
+
+Una sola clave `kia_ui_prefs` (`{density, onlyMine, searchScope, cards}`) en vez de una por
+preferencia. Reaplica defaults en **cada lectura** (patrón de `tpPlannerCfg`, v18.0): una
+clave corrupta o un pull de código viejo no deben dejar un campo en `undefined`. **No se
+sincroniza a propósito** — mismo criterio que `copState.ovHidden` (v20.5): que un técnico
+prefiera vista compacta no debe cambiarle la pantalla a otro.
+
+### `styles.css` era peor infractor que el JS
+
+617 declaraciones de `padding`/`gap`/`margin`/`border-radius` en px crudo contra solo ~141
+usos de la escala. Mientras eso siguiera así, **cualquier palanca global de densidad no
+tocaba nada**. Codemod con allowlist de propiedades y lookahead por delimitador literal:
+
+| | antes | después |
+|---|---|---|
+| `var(--space-*)` | 141 | **811** |
+| `var(--radius-*)` | 101 | **236** |
+| px crudos en esas 4 propiedades | 617 | **71** |
+
+- **La barra de navegación quedó EXCLUIDA a propósito** (`.platform-bar`, `.platform-tab`,
+  `.topbar`, `.tbm-*`, `.bottom-nav`). Mide ~1900px expandida: engordar su `padding: 14px
+  28px` habría traído de vuelta el envolvimiento a segunda fila que v17.9 corrigió. El
+  chrome de navegación **no escala con la densidad del contenido**. Verificado: sigue en
+  50px de alto en cómodo y compacto.
+- Excluidos también `@keyframes` (un `padding` tokenizado deja de interpolar suave),
+  `@media print`, y los valores negativos (solapamientos intencionales como `-22px`).
+
+### Dos variables que se usaban sin existir
+
+`.card` y `.tab-panel` (`styles.css:488-493`) llamaban `var(--radius)` y `var(--shadow)`,
+**nunca declaradas** → valor inválido → esquinas cuadradas y sin sombra desde hacía
+meses, con `padding: 16px` fijo que ignoraba cualquier densidad. Se declaran como alias de
+la escala real (`--radius-lg` / `--shadow-md`) en vez de borrar los usos.
+
+### Nota de deuda
+
+`--target-min` (44px) y `--target-abs` (24px) están declarados y se usan **cero veces**;
+hay 21 `44px` escritos a mano. Los objetivos táctiles siguen desconectados del sistema —
+es la etapa siguiente, junto con el saneo de `.dash-*`, donde `.dash-row-check` mide
+**17×17px** contra el mínimo WCAG 2.2 de 24px.
+
+---
+
 ## v21.1 — Números confiables y la gasolina en la nube (2026-08-30)
 
 Fases 3 y 4 del overhaul de captura. La 1 y la 2 arreglaron **cómo se captura**; éstas

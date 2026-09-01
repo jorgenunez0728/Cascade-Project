@@ -1172,6 +1172,41 @@ las dos, no una:
   en la tabla, que es informativa y no decide el veredicto. La clave `co2TolerancePct` se quitó
   también de `_mergedHomo` en `fbPullApply` (se arma desde cero, así que basta con no listarla).
 
+## v22.0 — Aire: densidad de la interfaz y tokens que por fin mandan
+
+- **`uiPref(k[, v])` (app.js) es LA definición de las preferencias de interfaz** —
+  `kia_ui_prefs` = `{density, onlyMine, searchScope, cards}`. Toda preferencia nueva de UI va
+  ahí, NO en una clave propia. Reaplica defaults en **cada lectura** (patrón `tpPlannerCfg`,
+  v18.0). **No se sincroniza a propósito** (criterio de `copState.ovHidden`, v20.5): el gusto
+  de un técnico no le cambia la pantalla a otro.
+- **`densityGet/Apply/Set` (app.js) + `data-density` en `<html>`**, tres modos
+  (`compacto` | `comodo` | `amplio`), mismo patrón que `data-theme`. Se aplica **al parsear
+  app.js**, no en `DOMContentLoaded`: esperar al bootstrap dejaba un parpadeo visible.
+- **REGLA QUE NO SE ROMPE: un modo de densidad SOLO redeclara tokens, nunca reglas.** Nada de
+  `calc()` ni multiplicadores — cada valor es un peldaño real de la rejilla de 4px, escrito a
+  mano. Si una pantalla necesita una regla propia para caber en compacto, el problema es la
+  pantalla, no la densidad.
+- **`--fs-2xs` (12px) es el piso ABSOLUTO** y significa metadato verdadero. `--fs-xs` es 13px
+  en cómodo. Deuda conocida: `--fs-xs` todavía carga ~775 usos en JS que son texto de CUERPO
+  mal clasificado (era el tamaño de facto de la app); reclasificarlos a `--fs-sm` por módulo
+  es trabajo pendiente, y hasta entonces `--fs-xs` está inflado a propósito.
+- **`--lh-base` es la palanca barata**: `line-height` se hereda, así que subirlo da altura de
+  caja a los ~900 sitios que fijan `font-size` en línea sin tocar ninguno.
+- **PROHIBIDO px crudo en `padding`/`margin`/`gap`/`border-radius`** en `styles.css`: usar la
+  escala (`--space-*`, `--radius-*`). Quedan 71 excepciones, todas deliberadas.
+- **El chrome de navegación NO escala con la densidad.** `.platform-bar`, `.platform-tab`,
+  `.topbar`, `.tbm-*`, `.bottom-nav` quedaron fuera del codemod a propósito: la barra mide
+  ~1900px expandida y engordar su `padding: 14px 28px` trae de vuelta el envolvimiento a
+  segunda fila que v17.9 corrigió. Verificar con `.platform-bar` a 50px de alto.
+- **`pnRenderSystemHealth` NO pinta la pestaña `pn-system`.** Está registrada en
+  `_pnGetRenderer`, pero `pn-system` vive en `_pnAlpineTabs` y la plantilla Alpine de
+  `index.html` gana; esa función solo la llama una acción de limpieza. Todo contenido nuevo de
+  una pestaña Alpine va a su plantilla en `index.html` y se puebla desde `pnSwitchTab`, como
+  el slot del banner de ayuda y ahora `pnDensityRenderChoices()`.
+- `var(--radius)` y `var(--shadow)` (sin sufijo) se **usaban sin estar declaradas** desde hacía
+  meses — `.card` y `.tab-panel` con esquinas cuadradas. Ahora son alias de `--radius-lg` /
+  `--shadow-md`. No volver a introducir un token sin declararlo: el CSS falla en silencio.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

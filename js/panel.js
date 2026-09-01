@@ -789,6 +789,9 @@ function pnSwitchTab(tabId) {
         var slot = document.getElementById('help-banner-slot-' + tabId);
         if (slot) slot.innerHTML = helpBannerHTML(tabId);
     }
+    // v22.0: mismo caso que el banner — el selector de densidad vive en el x-show
+    // estático de pn-system, que no pasa por pnRender.
+    if (tabId === 'pn-system') pnDensityRenderChoices();
     // Notify Alpine components of tab switch
     window.dispatchEvent(new CustomEvent('pn:tab-switch', { detail: { tab: tabId } }));
 }
@@ -2329,6 +2332,49 @@ function _pnIntelRenderCharts(wkKeys, weeklyData, gasAgeGroups, hasAgeData, velo
 
 // ── [R4-M8] Monitor de Salud del Sistema ────────────────────────────────────
 
+// ══════════════════════════════════════════════════════════════════════
+// v22.0 — Selector de densidad (Datos → Sistema)
+//
+// El contenedor vive en la plantilla Alpine de pn-system (index.html), no en
+// pnRenderSystemHealth: esa función está registrada en _pnGetRenderer pero NUNCA
+// pinta esta pestaña, porque pn-system está en _pnAlpineTabs y Alpine gana. Se
+// puebla desde pnSwitchTab, igual que el slot del banner de ayuda.
+// ══════════════════════════════════════════════════════════════════════
+var PN_DENSITY_OPTS = [
+    ['compacto', 'Compacta', 'Más filas por pantalla. La escala anterior a v22.'],
+    ['comodo',   'Cómoda',   'Recomendada. Más aire y texto más grande.'],
+    ['amplio',   'Amplia',   'Para tablet o proyector. Todo más separado.']
+];
+
+function pnDensityRenderChoices() {
+    var host = document.getElementById('pn-density-choices');
+    if (!host) return;
+    var cur = (typeof densityGet === 'function') ? densityGet() : 'comodo';
+    var h = '';
+    for (var i = 0; i < PN_DENSITY_OPTS.length; i++) {
+        var o = PN_DENSITY_OPTS[i], on = (o[0] === cur);
+        h += '<button type="button" onclick="pnSetDensity(\'' + o[0] + '\')"'
+           + ' aria-pressed="' + (on ? 'true' : 'false') + '"'
+           + ' style="flex:1 1 180px;text-align:left;cursor:pointer;'
+           + 'padding:var(--space-sm) var(--space-md);border-radius:var(--radius-xl);'
+           + 'border:2px solid ' + (on ? 'var(--info-fill)' : 'var(--border)') + ';'
+           + 'background:' + (on ? 'var(--info-bg)' : 'var(--surface)') + ';">'
+           + '<div style="font-weight:700;font-size:var(--fs-sm);color:var(--text);">'
+           + (on ? '● ' : '○ ') + o[1] + '</div>'
+           + '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:var(--space-2xs);">'
+           + o[2] + '</div></button>';
+    }
+    host.innerHTML = h;
+    if (typeof cascadeInjectTooltips === 'function') { try { cascadeInjectTooltips(); } catch (e) {} }
+}
+
+function pnSetDensity(mode) {
+    if (typeof densitySet !== 'function') return;
+    densitySet(mode);
+    pnDensityRenderChoices();
+    if (typeof showToast === 'function') showToast('Densidad: ' + mode, 'success');
+}
+
 function pnRenderSystemHealth(el) {
     var html = '<div style="padding:12px 0;">';
     html += '<h3 style="color:var(--tp-amber);margin:0 0 12px 0;font-size:14px;">💾 Monitor de Salud del Sistema</h3>';
@@ -2551,6 +2597,9 @@ var PN_STORAGE_REGISTRY = [
     { key: 'kia_help_dismissed',    label: 'Ayudas descartadas',       tier: 'cache' },
     { prefix: 'kia_tour_done',      label: 'Tours completados',        tier: 'cache' },
     { key: 'kia_immersive_prefs',   label: 'Preferencias de pantalla', tier: 'cache' },
+    { key: 'kia_ui_prefs',          label: 'Preferencias de interfaz', tier: 'cache',
+      note: 'Densidad, "solo míos", alcance de búsqueda y tarjetas colapsadas. '
+          + 'Al borrarla todo vuelve a sus valores por defecto.' },
     { key: 'kia_autoplan_lastrun',  label: 'Guarda del auto-plan',     tier: 'cache' },
     { prefix: 'kia_inv_active',     label: 'Pestaña activa',           tier: 'cache' },
     { prefix: 'kia_cop15_active',   label: 'Pestaña activa',           tier: 'cache' },
@@ -4309,6 +4358,13 @@ if (typeof HELP_TABS !== 'undefined') Object.assign(HELP_TABS, {
     ]}
 });
 if (typeof CASCADE_TOOLTIPS !== 'undefined') Object.assign(CASCADE_TOOLTIPS, {
+    pn_density: {
+        title: 'Densidad de la interfaz',
+        text: 'Qué tanto aire tiene la plataforma. "Cómoda" es la recomendada: letra un poco '
+            + 'más grande y más separación entre bloques. "Compacta" devuelve la escala '
+            + 'anterior si prefieres ver más filas de una sola vez. "Amplia" es para tablet o '
+            + 'para proyectar en una junta. Se guarda solo en este dispositivo.'
+    },
     pn_storage: {
         title: 'Uso de Almacenamiento',
         text: 'Espacio que ocupa la app EN ESTE DISPOSITIVO. El navegador da ~5 MB por '
