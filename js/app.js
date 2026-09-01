@@ -285,11 +285,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '22.4';
+var APP_VERSION = '22.5';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '22.5', date: '1 sep 2026', title: 'El mismo encabezado en todas partes, y "solo míos" en Proyectos', bullets: [
+        'El Resumen del Lab (Pipeline, Plan Semanal, Alertas) y las tres secciones de Mantenimiento usan el mismo encabezado plegable que HOY. Como el Resumen se pinta igual en HOY y en Datos, colapsar en una lo deja colapsado en la otra.',
+        '"CREAR OTRO" también al dar de alta un instrumento o una actividad de mantenimiento.',
+        'PROYECTOS: filtro "Solo míos" en Tabla y Kanban, compartido con el de HOY. Dice cuántos pasos de otros está escondiendo, para que no se te olvide que hay un filtro puesto.',
+        'El filtro NO se ofrece en Gantt, Curva S ni Carga: ahí ver solo tus pasos da una idea equivocada del proyecto.',
+        'Tampoco se agregó a Mi semana: el plan semanal no tiene responsable por prueba, así que el control no habría podido filtrar nada.'
+    ] },
     { version: '22.4', date: '1 sep 2026', title: 'Las secciones plegables ya no abren de golpe', bullets: [
         'LAS SECCIONES QUE SE PLIEGAN ABREN CON UNA TRANSICIÓN, no de golpe. La animación existía desde hace tiempo pero solo la usaban 5 de las 41 secciones plegables de la app.',
         'La flecha del encabezado gira en vez de cambiar de símbolo: se lee como el mismo objeto moviéndose y no como dos flechas parpadeando.',

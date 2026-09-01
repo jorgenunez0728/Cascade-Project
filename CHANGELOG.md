@@ -2,6 +2,53 @@
 
 All notable changes to this project, organized by development round.
 
+## v22.5 — El resto de las etapas 7 y 8 (2026-09-01)
+
+### `uiCard` en el resto de las pantallas
+
+- **`renderLabOverview` (panel.js)** — Pipeline, Plan Semanal y Alertas. Es un cambio con
+  doble efecto: esa función pinta **HOY y Datos → Dashboard**, así que colapsar en una deja
+  colapsado en la otra.
+  - **Trampa que costó un paso extra**: `renderLabOverview` **memoiza el HTML**
+    (`_labOverviewCache`). Colapsar una tarjeta cambiaba `uiPref('cards')` pero el memo
+    devolvía el HTML viejo con `open`, y la tarjeta se reabría sola en el siguiente render.
+    El estado de colapso entró a `_labOverviewKey`.
+- **`invRenderMaint` (inventory.js)** — Plan Maestro, Catálogo e Historial. Ya eran
+  `<details>` desde v16.4 pero con estilos propios cada uno. Usan `ui-card-body--flush`
+  porque ya traen su envoltorio con padding: sin eso se acumulaban los dos.
+- **NO migrado a propósito: `copBuildOverviewHTML`.** El CoP tiene su propio vocabulario de
+  82 clases `.cop-*` (v19) y `_copFamCardHTML` es un `<div onclick>` con un `<button>`
+  anidado a propósito (v20.5). Migrarlo es una ronda propia, no un apéndice de ésta.
+
+### "Crear otro" en instrumento y actividad de mantenimiento
+
+Mismo patrón que v22.3: `uiCreateAnotherHTML` pinta la casilla, `uiCreateAnotherChecked` la
+lee **antes** de cerrar. Al reabrir, `invEqAutofillFromAsset` / `_invLastInstrumentOfAsset`
+(v16.5) rellenan el equipo padre, así que la segunda alta arranca casi llena.
+
+### "Solo míos" en Proyectos — y dónde NO se puso
+
+**`pnProjStepsFor(p)` es LA definición de los pasos visibles** de un proyecto. Usa
+`uiPref('onlyMine')`, **el mismo de HOY**, así que el filtro viaja entre pantallas.
+
+- **Solo en Tabla y Kanban**, que son las vistas donde uno actúa sobre un paso. **Gantt,
+  Curva S, Línea de tiempo y Carga se quedan con TODOS los pasos**: son vistas analíticas y
+  un Gantt que solo muestra los pasos de uno **miente sobre el proyecto**. Ahí el control
+  sería engañoso, así que ni siquiera se ofrece.
+- Un paso **sin responsable** se muestra siempre — mismo criterio que `dashRenderBoard`
+  (`!a.assignee || a.assignee === currentOp`).
+- Cuando el filtro esconde algo **lo dice** (`N de otros ocultos`): un filtro activo que no se
+  anuncia es una trampa.
+
+**NO se agregó a Mi semana, y esa es la decisión importante de esta ronda.** El plan semanal
+**no tiene concepto de responsable** — cero `assignee` en `testplan.js`. El control habría
+sido decorativo: o mostraba todo o no mostraba nada. Es exactamente la trampa que CLAUDE.md
+registra de v16.8, y el mismo defecto que v22.3 acaba de señalar con los sliders de región a
+peso 0. Darle responsable a cada prueba del plan es un cambio de modelo de datos y una
+funcionalidad distinta, no un checkbox.
+
+---
+
 ## v22.4 — Movimiento: un solo sistema, y el acordeón que nadie usaba (2026-09-01)
 
 Etapa 6 del overhaul. El diagnóstico previo decía "los tokens de movimiento casi no se usan";

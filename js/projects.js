@@ -238,6 +238,22 @@ function _pnRenderProjectDetail(el, p) {
     });
     html += '</div>';
 
+    // v22.5 — "Solo míos" (uiPref('onlyMine'), el MISMO de HOY, así que el filtro
+    // viaja entre pantallas). Se ofrece solo en Tabla y Kanban: en las vistas
+    // analíticas filtrar por persona miente sobre el proyecto, y ahí el control
+    // sería engañoso. Cuando está activo y esconde algo, se dice cuántos.
+    if (view === 'table' || view === 'kanban') {
+        var _all = (p.steps || []).length, _vis = pnProjStepsFor(p).length;
+        var _on = (typeof dashOnlyMine === 'function') && dashOnlyMine();
+        html += '<div style="display:flex;align-items:center;gap:var(--space-sm);flex-wrap:wrap;margin:var(--space-sm) 0;">';
+        html += '<label class="u-hit" style="display:inline-flex;align-items:center;gap:var(--space-sm);cursor:pointer;font-size:var(--fs-sm);color:var(--muted);">'
+             +  '<input type="checkbox" ' + (_on ? 'checked' : '') + ' onchange="pnProjSetOnlyMine(this.checked)"> Solo míos</label>';
+        if (_on && _vis < _all) {
+            html += '<span class="u-chip u-chip--info">' + (_all - _vis) + ' de otros ocultos</span>';
+        }
+        html += '</div>';
+    }
+
     if (view === 'timeline') html += _pnProjectTimelineHTML(p);
     else if (view === 'gantt') html += _pnProjectGanttHTML(p);
     else if (view === 'kanban') html += _pnProjectKanbanHTML(p);
@@ -258,8 +274,46 @@ function _pnRenderProjectDetail(el, p) {
     if (view === 'kanban') setTimeout(function() { pnKanbanInitDrag(document.getElementById('pn-kanban-' + p.id), p.id); }, 30);
 }
 
-function _pnProjectTableHTML(p) {
+// ══════════════════════════════════════════════════════════════════════
+// v22.5 — `pnProjStepsFor(p)` es LA definición de los pasos VISIBLES de un
+// proyecto: aplica el filtro "Solo míos" (uiPref('onlyMine'), el mismo que HOY).
+//
+// Se usa SOLO en Tabla y Kanban, que son las vistas donde uno actúa sobre un
+// paso. Gantt, Curva S, Línea de tiempo y Carga se quedan con TODOS los pasos a
+// propósito: son vistas analíticas y un Gantt que solo muestra los pasos de uno
+// miente sobre el proyecto. Filtrar ahí sería peor que no filtrar.
+//
+// Nota: el plan semanal (Mi semana) NO recibe este filtro porque sus items no
+// tienen responsable — cero `assignee` en testplan.js. Un control que no puede
+// filtrar nada es peor que ningún control.
+// ══════════════════════════════════════════════════════════════════════
+/** Cambia el filtro compartido y repinta. _pnProjNav invalida el cache de la
+ *  pestaña, necesario porque pn-projects usa el render clásico (patrón v16.8). */
+function pnProjSetOnlyMine(on) {
+    if (typeof uiPref === 'function') uiPref('onlyMine', !!on);
+    window._dashOnlyMine = !!on;
+    _pnProjNav();
+}
+
+function pnProjStepsFor(p) {
     var steps = (p.steps || []).slice().sort(function(a, b) { return (a.seq || 0) - (b.seq || 0); });
+    if (typeof dashOnlyMine !== 'function' || !dashOnlyMine()) return steps;
+    var me = '';
+    try {
+        if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) me = u.name; }
+        if (!me) me = localStorage.getItem('kia_last_operator') || '';
+    } catch (e) {}
+    if (!me) return steps;
+    // Sin responsable = de nadie en particular, así que se muestra (mismo criterio
+    // que dashRenderBoard: `!a.assignee || a.assignee === currentOp`).
+    return steps.filter(function(s) {
+        var r = (s.responsible || '').trim();
+        return !r || r === me;
+    });
+}
+
+function _pnProjectTableHTML(p) {
+    var steps = pnProjStepsFor(p);
     var today = localToday();
     var html = '<div style="overflow-x:auto;"><table class="pn-proj-table"><thead><tr>' +
         '<th>Paso</th><th>Responsable</th><th>Estatus</th><th>Fecha objetivo</th><th>Cumplimiento</th><th>Obstáculo</th><th></th>' +
@@ -437,7 +491,7 @@ function _pnProjectGanttHTML(p) {
 // además cada tarjeta trae un <select> de estatus, que es el camino
 // accesible y el que sirve con teclado o si el arrastre falla.
 function _pnProjectKanbanHTML(p) {
-    var steps = (p.steps || []).slice().sort(function(a, b) { return (a.seq || 0) - (b.seq || 0); });
+    var steps = pnProjStepsFor(p);
     if (!steps.length) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin pasos. Agrega uno en la pestaña Tabla.</div>';
     var today = localToday();
     var cpm = pnProjectCPM(p);

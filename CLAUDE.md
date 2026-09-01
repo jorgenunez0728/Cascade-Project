@@ -1295,6 +1295,26 @@ las dos, no una:
   porque un cambio de color o de opacidad no es movimiento y quitarlo hace del feedback un corte
   seco. **No agregar otro bloque `*`**; las excepciones por componente van en su propia regla.
 
+### v22.5 — Filtros que sí filtran
+
+- **`pnProjStepsFor(p)` (projects.js) es LA definición de los pasos visibles** de un proyecto:
+  aplica `uiPref('onlyMine')`, el MISMO filtro de HOY, así que viaja entre pantallas. Se usa en
+  Tabla y Kanban. **Gantt, Curva S, Línea de tiempo y Carga se quedan con TODOS los pasos a
+  propósito**: son vistas analíticas y un Gantt con solo los pasos de uno miente sobre el
+  proyecto — ahí el control ni se ofrece.
+- **Un filtro activo que esconde cosas TIENE que decir cuántas.** Un filtro puesto y silencioso
+  es una trampa; el chip "N de otros ocultos" es obligatorio en todo filtro nuevo.
+- **NO se agregó "Solo míos" a Mi semana**: el plan semanal no tiene responsable por prueba
+  (cero `assignee` en testplan.js), así que el control habría sido decorativo. **Antes de
+  agregar un filtro, verificar que el dato exista** — es la misma trampa de v16.8 y la de los
+  sliders de región con `weights.region` en 0.
+- **`renderLabOverview` MEMOIZA su HTML** (`_labOverviewCache`). Todo estado de UI que afecte
+  ese HTML —como el colapso de `uiCard`— debe entrar a `_labOverviewKey`, o el memo devuelve la
+  versión vieja y el cambio se deshace solo en el siguiente render.
+- `copBuildOverviewHTML` **sigue sin migrar a `uiCard`** a propósito: el CoP tiene su propio
+  vocabulario de 82 clases `.cop-*` y `_copFamCardHTML` es un `<div onclick>` con `<button>`
+  anidado (v20.5). Es una ronda propia.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

@@ -2203,6 +2203,8 @@ function invAddEquipment(editId) {
         '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">Comentarios</label><input id="inv-eq-comments" value="' + escapeHtml(v('comments')) + '" style="' + inpStyle + '"></div>' +
         '</div></details>' +
 
+        (isEdit || typeof uiCreateAnotherHTML !== 'function' ? '' :
+            '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('equipment', 'Dar de alta otro al guardar') + '</div>') +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveEquipment(\x27' + (editId || '') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
         (isEdit ? '<button onclick="showConfirm(\'Eliminar instrumento?\',function(){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
@@ -2254,8 +2256,16 @@ function invSaveEquipment(editId) {
         invState.equipment.push(obj);
         auditLog('inv', 'equipment_created', { type: 'equipment', id: obj.id, label: obj.name }, 'S/N: ' + (obj.serialNo || ''));
     }
+    // v22.5 — Leer ANTES de cerrar: el modal se destruye y con él la casilla.
+    var _againEq = (!editId && typeof uiCreateAnotherChecked === 'function') ? uiCreateAnotherChecked('equipment') : false;
+
     invSave(); invRender(); invUpdateBadges();
     document.getElementById('invModal').style.display = 'none';
+    // invEqAutofillFromAsset / _invLastInstrumentOfAsset (v16.5) rellenan el equipo
+    // padre y sus campos del anterior, así que la segunda alta arranca casi llena.
+    if (_againEq && typeof invAddEquipment === 'function') {
+        setTimeout(function() { try { invAddEquipment(); } catch (e) {} }, 140);
+    }
 }
 
 function invEditEquipment(id) { invAddEquipment(id); }
@@ -2397,7 +2407,7 @@ function invRenderMaint(el) {
 
     var matrix = invMaintMatrix(year);
     var monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-    html += '<details style="margin-bottom:10px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;"><summary data-help="inv-maint-plan-help" style="cursor:pointer;padding:8px 10px;background:var(--tp-card);font-weight:700;font-size:12px;">🗓️ Plan Maestro — 52 semanas</summary>';
+    html += '<details class="ui-card ui-card--inventory"><summary class="ui-card-head" data-help="inv-maint-plan-help"><span class="ui-card-icon">🗓️</span><span class="ui-card-title">Plan Maestro</span><span class="u-chip u-chip--neutral">52 semanas</span><span class="ui-card-spacer"></span></summary><div class="ui-card-body ui-card-body--flush">';
     html += '<div style="padding:8px;">';
     html += '<div style="margin-bottom:8px;"><label style="font-size: var(--fs-xs);color:var(--tp-dim);">Año: </label><select onchange="window._invMaintYear=parseInt(this.value);invRender();" style="padding:4px 8px;border:1px solid var(--tp-border);border-radius:6px;font-size: var(--fs-sm);">';
     for (var yy = year - 1; yy <= year + 1; yy++) html += '<option value="' + yy + '" ' + (yy === year ? 'selected' : '') + '>' + yy + '</option>';
@@ -2432,9 +2442,9 @@ function invRenderMaint(el) {
         });
         html += '</table></div>';
     }
-    html += '</div></details>';
+    html += '</div></div></details>';
 
-    html += '<details style="margin-bottom:10px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;"><summary data-help="inv-maint-catalog-help" style="cursor:pointer;padding:8px 10px;background:var(--tp-card);font-weight:700;font-size:12px;">🔧 Catálogo de actividades (' + (invState.maintActivities || []).length + ')</summary>';
+    html += '<details class="ui-card ui-card--inventory"><summary class="ui-card-head" data-help="inv-maint-catalog-help"><span class="ui-card-icon">🔧</span><span class="ui-card-title">Catálogo de actividades</span><span class="u-chip u-chip--neutral">' + (invState.maintActivities || []).length + '</span><span class="ui-card-spacer"></span></summary><div class="ui-card-body ui-card-body--flush">';
     html += '<div style="padding:8px;">';
     html += '<div style="text-align:right;margin-bottom:6px;"><button class="tp-btn tp-btn-primary" onclick="invAddMaintActivity()" style="font-size: var(--fs-xs);">+ Actividad</button></div>';
     (invState.maintActivities || []).forEach(function(a) {
@@ -2445,10 +2455,10 @@ function invRenderMaint(el) {
         html += '<button class="tp-btn tp-btn-ghost" onclick="invAddMaintActivity(\'' + a.id + '\')" style="font-size: var(--fs-xs);">✏️</button>';
         html += '</div>';
     });
-    html += '</div></details>';
+    html += '</div></div></details>';
 
     var log = (invState.maintLog || []).slice().sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 50);
-    html += '<details style="border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;"><summary style="cursor:pointer;padding:8px 10px;background:var(--tp-card);font-weight:700;font-size:12px;">📋 Historial (' + (invState.maintLog || []).length + ')</summary>';
+    html += '<details class="ui-card ui-card--inventory"><summary class="ui-card-head"><span class="ui-card-icon">📋</span><span class="ui-card-title">Historial</span><span class="u-chip u-chip--neutral">' + (invState.maintLog || []).length + '</span><span class="ui-card-spacer"></span></summary><div class="ui-card-body ui-card-body--flush">';
     html += '<div style="padding:8px;">';
     if (log.length === 0) {
         html += '<div style="text-align:center;padding:10px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin mantenimientos registrados.</div>';
@@ -2462,7 +2472,7 @@ function invRenderMaint(el) {
             html += '</div>';
         });
     }
-    html += '</div></details>';
+    html += '</div></div></details>';
 
     el.innerHTML = html;
 }
@@ -2523,6 +2533,8 @@ function invAddMaintActivity(editId) {
         '<div><label style="' + lblStyle + '">Responsable</label><input id="inv-mact-resp" value="' + escapeHtml(v('responsible', (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || '')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:#475569;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="inv-mact-active" ' + (v('active', true) !== false ? 'checked' : '') + '> Activa</label></div>' +
         '</div></details>' +
+        (editId || typeof uiCreateAnotherHTML !== 'function' ? '' :
+            '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('maint', 'Crear otra al guardar') + '</div>') +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveMaintActivity(\x27' + (editId || '') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
         (isEdit ? '<button onclick="showConfirm(\'Eliminar actividad?\',function(){invState.maintActivities=invState.maintActivities.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
@@ -2550,8 +2562,13 @@ function invSaveMaintActivity(editId) {
         invState.maintActivities.push(obj);
         auditLog('inv', 'mtto_actividad_creada', { type: 'maintenance', id: obj.id, label: obj.desc }, '');
     }
+    var _againMa = (!editId && typeof uiCreateAnotherChecked === 'function') ? uiCreateAnotherChecked('maint') : false;
+
     invSave(); invRender();
     document.getElementById('invModal').style.display = 'none';
+    if (_againMa && typeof invAddMaintActivity === 'function') {
+        setTimeout(function() { try { invAddMaintActivity(); } catch (e) {} }, 140);
+    }
 }
 
 // ══════════════════════════════════════════════════

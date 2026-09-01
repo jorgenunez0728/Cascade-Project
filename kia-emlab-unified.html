@@ -7526,15 +7526,22 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609012229';
+var APP_BUILD = '202609012239';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '22.4';
+var APP_VERSION = '22.5';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '22.5', date: '1 sep 2026', title: 'El mismo encabezado en todas partes, y "solo míos" en Proyectos', bullets: [
+        'El Resumen del Lab (Pipeline, Plan Semanal, Alertas) y las tres secciones de Mantenimiento usan el mismo encabezado plegable que HOY. Como el Resumen se pinta igual en HOY y en Datos, colapsar en una lo deja colapsado en la otra.',
+        '"CREAR OTRO" también al dar de alta un instrumento o una actividad de mantenimiento.',
+        'PROYECTOS: filtro "Solo míos" en Tabla y Kanban, compartido con el de HOY. Dice cuántos pasos de otros está escondiendo, para que no se te olvide que hay un filtro puesto.',
+        'El filtro NO se ofrece en Gantt, Curva S ni Carga: ahí ver solo tus pasos da una idea equivocada del proyecto.',
+        'Tampoco se agregó a Mi semana: el plan semanal no tiene responsable por prueba, así que el control no habría podido filtrar nada.'
+    ] },
     { version: '22.4', date: '1 sep 2026', title: 'Las secciones plegables ya no abren de golpe', bullets: [
         'LAS SECCIONES QUE SE PLIEGAN ABREN CON UNA TRANSICIÓN, no de golpe. La animación existía desde hace tiempo pero solo la usaban 5 de las 41 secciones plegables de la app.',
         'La flecha del encabezado gira en vez de cambiar de símbolo: se lee como el mismo objeto moviéndose y no como dos flechas parpadeando.',
@@ -7900,14 +7907,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609012229' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609012239' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609012229' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609012239' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -7923,7 +7930,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609012229' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609012239' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -23458,6 +23465,8 @@ function invAddEquipment(editId) {
         '<div style="grid-column:1/-1;"><label style="' + lblStyle + '">Comentarios</label><input id="inv-eq-comments" value="' + escapeHtml(v('comments')) + '" style="' + inpStyle + '"></div>' +
         '</div></details>' +
 
+        (isEdit || typeof uiCreateAnotherHTML !== 'function' ? '' :
+            '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('equipment', 'Dar de alta otro al guardar') + '</div>') +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveEquipment(\x27' + (editId || '') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
         (isEdit ? '<button onclick="showConfirm(\'Eliminar instrumento?\',function(){invState.equipment=invState.equipment.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
@@ -23509,8 +23518,16 @@ function invSaveEquipment(editId) {
         invState.equipment.push(obj);
         auditLog('inv', 'equipment_created', { type: 'equipment', id: obj.id, label: obj.name }, 'S/N: ' + (obj.serialNo || ''));
     }
+    // v22.5 — Leer ANTES de cerrar: el modal se destruye y con él la casilla.
+    var _againEq = (!editId && typeof uiCreateAnotherChecked === 'function') ? uiCreateAnotherChecked('equipment') : false;
+
     invSave(); invRender(); invUpdateBadges();
     document.getElementById('invModal').style.display = 'none';
+    // invEqAutofillFromAsset / _invLastInstrumentOfAsset (v16.5) rellenan el equipo
+    // padre y sus campos del anterior, así que la segunda alta arranca casi llena.
+    if (_againEq && typeof invAddEquipment === 'function') {
+        setTimeout(function() { try { invAddEquipment(); } catch (e) {} }, 140);
+    }
 }
 
 function invEditEquipment(id) { invAddEquipment(id); }
@@ -23652,7 +23669,7 @@ function invRenderMaint(el) {
 
     var matrix = invMaintMatrix(year);
     var monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-    html += '<details style="margin-bottom:10px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;"><summary data-help="inv-maint-plan-help" style="cursor:pointer;padding:8px 10px;background:var(--tp-card);font-weight:700;font-size:12px;">🗓️ Plan Maestro — 52 semanas</summary>';
+    html += '<details class="ui-card ui-card--inventory"><summary class="ui-card-head" data-help="inv-maint-plan-help"><span class="ui-card-icon">🗓️</span><span class="ui-card-title">Plan Maestro</span><span class="u-chip u-chip--neutral">52 semanas</span><span class="ui-card-spacer"></span></summary><div class="ui-card-body ui-card-body--flush">';
     html += '<div style="padding:8px;">';
     html += '<div style="margin-bottom:8px;"><label style="font-size: var(--fs-xs);color:var(--tp-dim);">Año: </label><select onchange="window._invMaintYear=parseInt(this.value);invRender();" style="padding:4px 8px;border:1px solid var(--tp-border);border-radius:6px;font-size: var(--fs-sm);">';
     for (var yy = year - 1; yy <= year + 1; yy++) html += '<option value="' + yy + '" ' + (yy === year ? 'selected' : '') + '>' + yy + '</option>';
@@ -23687,9 +23704,9 @@ function invRenderMaint(el) {
         });
         html += '</table></div>';
     }
-    html += '</div></details>';
+    html += '</div></div></details>';
 
-    html += '<details style="margin-bottom:10px;border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;"><summary data-help="inv-maint-catalog-help" style="cursor:pointer;padding:8px 10px;background:var(--tp-card);font-weight:700;font-size:12px;">🔧 Catálogo de actividades (' + (invState.maintActivities || []).length + ')</summary>';
+    html += '<details class="ui-card ui-card--inventory"><summary class="ui-card-head" data-help="inv-maint-catalog-help"><span class="ui-card-icon">🔧</span><span class="ui-card-title">Catálogo de actividades</span><span class="u-chip u-chip--neutral">' + (invState.maintActivities || []).length + '</span><span class="ui-card-spacer"></span></summary><div class="ui-card-body ui-card-body--flush">';
     html += '<div style="padding:8px;">';
     html += '<div style="text-align:right;margin-bottom:6px;"><button class="tp-btn tp-btn-primary" onclick="invAddMaintActivity()" style="font-size: var(--fs-xs);">+ Actividad</button></div>';
     (invState.maintActivities || []).forEach(function(a) {
@@ -23700,10 +23717,10 @@ function invRenderMaint(el) {
         html += '<button class="tp-btn tp-btn-ghost" onclick="invAddMaintActivity(\'' + a.id + '\')" style="font-size: var(--fs-xs);">✏️</button>';
         html += '</div>';
     });
-    html += '</div></details>';
+    html += '</div></div></details>';
 
     var log = (invState.maintLog || []).slice().sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 50);
-    html += '<details style="border:1px solid var(--tp-border);border-radius:8px;overflow:hidden;"><summary style="cursor:pointer;padding:8px 10px;background:var(--tp-card);font-weight:700;font-size:12px;">📋 Historial (' + (invState.maintLog || []).length + ')</summary>';
+    html += '<details class="ui-card ui-card--inventory"><summary class="ui-card-head"><span class="ui-card-icon">📋</span><span class="ui-card-title">Historial</span><span class="u-chip u-chip--neutral">' + (invState.maintLog || []).length + '</span><span class="ui-card-spacer"></span></summary><div class="ui-card-body ui-card-body--flush">';
     html += '<div style="padding:8px;">';
     if (log.length === 0) {
         html += '<div style="text-align:center;padding:10px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin mantenimientos registrados.</div>';
@@ -23717,7 +23734,7 @@ function invRenderMaint(el) {
             html += '</div>';
         });
     }
-    html += '</div></details>';
+    html += '</div></div></details>';
 
     el.innerHTML = html;
 }
@@ -23778,6 +23795,8 @@ function invAddMaintActivity(editId) {
         '<div><label style="' + lblStyle + '">Responsable</label><input id="inv-mact-resp" value="' + escapeHtml(v('responsible', (typeof authState !== 'undefined' && authState.currentUser && authState.currentUser.name) || '')) + '" style="' + inpStyle + '"></div>' +
         '<div><label style="font-size: var(--fs-sm);color:#475569;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="inv-mact-active" ' + (v('active', true) !== false ? 'checked' : '') + '> Activa</label></div>' +
         '</div></details>' +
+        (editId || typeof uiCreateAnotherHTML !== 'function' ? '' :
+            '<div style="margin-top:var(--space-md);">' + uiCreateAnotherHTML('maint', 'Crear otra al guardar') + '</div>') +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="invSaveMaintActivity(\x27' + (editId || '') + '\x27)" style="flex:1;padding:10px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Guardar</button>' +
         (isEdit ? '<button onclick="showConfirm(\'Eliminar actividad?\',function(){invState.maintActivities=invState.maintActivities.filter(function(x){return x.id!==\x27' + editId + '\x27;});invSave();invRender();document.getElementById(\x27invModal\x27).style.display=\x27none\x27;},{title:\'Eliminar\',type:\'danger\',confirmText:\'Eliminar\'})" style="padding:10px;background:var(--danger-fill);color:#fff;border:none;border-radius:8px;cursor:pointer;">Eliminar</button>' : '') +
@@ -23805,8 +23824,13 @@ function invSaveMaintActivity(editId) {
         invState.maintActivities.push(obj);
         auditLog('inv', 'mtto_actividad_creada', { type: 'maintenance', id: obj.id, label: obj.desc }, '');
     }
+    var _againMa = (!editId && typeof uiCreateAnotherChecked === 'function') ? uiCreateAnotherChecked('maint') : false;
+
     invSave(); invRender();
     document.getElementById('invModal').style.display = 'none';
+    if (_againMa && typeof invAddMaintActivity === 'function') {
+        setTimeout(function() { try { invAddMaintActivity(); } catch (e) {} }, 140);
+    }
 }
 
 // ══════════════════════════════════════════════════
@@ -36352,7 +36376,12 @@ function _labOverviewKey(sections) {
         ? pnState.operators.length + ':' + pnState.operators.filter(function(o) { return o.active; }).length : '0:0';
     var gasCount = (typeof invState !== 'undefined' && invState.gases) ? invState.gases.length : 0;
     var syncStamp = (typeof fbSync !== 'undefined' && fbSync.lastSync) ? fbSync.lastSync.getTime() : 0;
-    return [_labOverviewGen, vCount, tpStamp, opsSig, gasCount, syncStamp, localToday(), sections.join(',')].join('|');
+    // v22.5 — El estado de colapso de las uiCard entra a la clave. Sin esto, colapsar
+    // una tarjeta cambiaba la preferencia pero el memo devolvía el HTML viejo con
+    // `open` y la tarjeta se reabría sola en el siguiente render.
+    var cardsSig = '';
+    try { cardsSig = JSON.stringify((typeof uiPref === 'function' ? uiPref('cards') : {}) || {}); } catch (e) {}
+    return [_labOverviewGen, vCount, tpStamp, opsSig, gasCount, syncStamp, localToday(), sections.join(','), cardsSig].join('|');
 }
 
 function renderLabOverview(el, opts) {
@@ -36427,31 +36456,50 @@ function renderLabOverview(el, opts) {
             { key: 'testing', label: 'En Prueba', color: '#8b5cf6', icon: '🧪' },
             { key: 'ready-release', label: 'Listo Liberar', color: '#10b981', icon: '🏁' }
         ];
-        html += '<div class="tp-card"><div class="tp-card-title"><span>🔄 Pipeline de Vehículos</span></div><div style="display:flex;gap:4px;">';
+        // v22.5 — Migrada a uiCard: mismo encabezado que HOY y el resto de la app, y
+        // el colapso se recuerda por dispositivo.
+        var pipeBody = '<div style="display:flex;gap:var(--space-xs);">';
+        var pipeTotal = 0;
         pipeline.forEach(function(st) {
             var c = byStatus[st.key] || 0;
-            html += '<div style="flex:1;text-align:center;padding:10px 4px;background:' + st.color + '10;border:1px solid ' + st.color + '30;border-radius:8px;"><div style="font-size:18px;">' + st.icon + '</div><div style="font-size:20px;font-weight:800;color:' + st.color + ';">' + c + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + st.label + '</div></div>';
+            pipeTotal += c;
+            pipeBody += '<div style="flex:1;text-align:center;padding:var(--space-md) var(--space-xs);background:' + st.color + '10;border:1px solid ' + st.color + '30;border-radius:var(--radius-xl);"><div style="font-size:var(--fs-md);">' + st.icon + '</div><div style="font-size:var(--fs-lg);font-weight:800;color:' + st.color + ';">' + c + '</div><div style="font-size: var(--fs-xs);color:var(--tp-dim);">' + st.label + '</div></div>';
         });
-        html += '</div></div>';
+        pipeBody += '</div>';
+        html += uiCard({
+            id: 'lo-pipeline', icon: '🔄', title: 'Pipeline de Vehículos', accent: 'cascade',
+            body: pipeBody,
+            count: { label: pipeTotal + (pipeTotal === 1 ? ' activo' : ' activos'),
+                     tone: pipeTotal ? 'info' : 'neutral' }
+        });
     }
     if (has('plan') && latestPlan) {
-        html += '<div class="tp-card"><div class="tp-card-title"><span>📅 Plan Semanal Actual</span><span style="font-size: var(--fs-sm);font-weight:700;color:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';">' + tpDone + '/' + tpTotal + ' (' + tpPct + '%)</span></div>';
-        html += '<div class="tp-bar" style="height:8px;margin-bottom:8px;"><div class="tp-bar-fill" style="width:' + tpPct + '%;background:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';"></div></div>';
+        var planBody = '<div class="tp-bar" style="height:8px;margin-bottom:var(--space-sm);"><div class="tp-bar-fill" style="width:' + tpPct + '%;background:' + (tpPct === 100 ? 'var(--tp-green)' : 'var(--tp-amber)') + ';"></div></div>';
         latestPlan.items.slice(0, 6).forEach(function(item) {
             var sd = item.desc.length > 50 ? item.desc.substring(0, 48) + '..' : item.desc;
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size: var(--fs-xs);color:' + (item.completed ? 'var(--tp-green)' : 'var(--tp-dim)') + ';' + (item.completed ? 'text-decoration:line-through;' : '') + '">' + escapeHtml(sd) + '</span><span style="font-size: var(--fs-xs);">' + (item.completed ? '✅' : '⏳') + '</span></div>';
+            planBody += '<div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-xs) 0;border-bottom:1px solid var(--tp-border);"><span style="font-size: var(--fs-xs);color:' + (item.completed ? 'var(--tp-green)' : 'var(--tp-dim)') + ';' + (item.completed ? 'text-decoration:line-through;' : '') + '">' + escapeHtml(sd) + '</span><span style="font-size: var(--fs-xs);">' + (item.completed ? '✅' : '⏳') + '</span></div>';
         });
-        if (latestPlan.items.length > 6) html += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;margin-top:4px;">+' + (latestPlan.items.length - 6) + ' más...</div>';
-        html += '</div>';
+        if (latestPlan.items.length > 6) planBody += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;margin-top:var(--space-xs);">+' + (latestPlan.items.length - 6) + ' más...</div>';
+        html += uiCard({
+            id: 'lo-plan', icon: '📅', title: 'Plan Semanal Actual', accent: 'testplan',
+            body: planBody,
+            count: { label: tpDone + '/' + tpTotal + ' (' + tpPct + '%)',
+                     tone: tpPct === 100 ? 'ok' : 'warn' }
+        });
     }
     if (has('alerts') && typeof pnGetActiveAlerts === 'function') {
         var alerts = pnGetActiveAlerts();
         if (alerts.length) {
-            html += '<div class="tp-card" style="border-left:3px solid var(--tp-red);"><div class="tp-card-title"><span style="color:var(--tp-red);">⚠️ Alertas Activas (' + alerts.length + ')</span></div>';
+            var alertBody = '';
             alerts.slice(0, 5).forEach(function(a) {
-                html += '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--tp-border);"><span style="font-size: var(--fs-xs);padding:2px 6px;background:' + a.color + '20;color:' + a.color + ';border-radius:4px;font-weight:700;">' + a.level + '</span><span style="font-size: var(--fs-xs);color:var(--tp-text);flex:1;">' + escapeHtml(a.message) + '</span></div>';
+                alertBody += '<div style="display:flex;gap:var(--space-sm);align-items:center;padding:var(--space-xs) 0;border-bottom:1px solid var(--tp-border);"><span style="font-size: var(--fs-xs);padding:var(--space-2xs) var(--space-sm);background:' + a.color + '20;color:' + a.color + ';border-radius:var(--radius-md);font-weight:700;">' + a.level + '</span><span style="font-size: var(--fs-xs);color:var(--tp-text);flex:1;">' + escapeHtml(a.message) + '</span></div>';
             });
-            html += '</div>';
+            if (alerts.length > 5) alertBody += '<div style="font-size: var(--fs-xs);color:var(--tp-dim);text-align:center;margin-top:var(--space-xs);">+' + (alerts.length - 5) + ' más...</div>';
+            html += uiCard({
+                id: 'lo-alerts', icon: '⚠️', title: 'Alertas Activas', accent: 'cop',
+                body: alertBody,
+                count: { label: String(alerts.length), tone: 'danger' }
+            });
         }
     }
     var prevCached = _labOverviewCache[sectionsKey];
@@ -40003,6 +40051,22 @@ function _pnRenderProjectDetail(el, p) {
     });
     html += '</div>';
 
+    // v22.5 — "Solo míos" (uiPref('onlyMine'), el MISMO de HOY, así que el filtro
+    // viaja entre pantallas). Se ofrece solo en Tabla y Kanban: en las vistas
+    // analíticas filtrar por persona miente sobre el proyecto, y ahí el control
+    // sería engañoso. Cuando está activo y esconde algo, se dice cuántos.
+    if (view === 'table' || view === 'kanban') {
+        var _all = (p.steps || []).length, _vis = pnProjStepsFor(p).length;
+        var _on = (typeof dashOnlyMine === 'function') && dashOnlyMine();
+        html += '<div style="display:flex;align-items:center;gap:var(--space-sm);flex-wrap:wrap;margin:var(--space-sm) 0;">';
+        html += '<label class="u-hit" style="display:inline-flex;align-items:center;gap:var(--space-sm);cursor:pointer;font-size:var(--fs-sm);color:var(--muted);">'
+             +  '<input type="checkbox" ' + (_on ? 'checked' : '') + ' onchange="pnProjSetOnlyMine(this.checked)"> Solo míos</label>';
+        if (_on && _vis < _all) {
+            html += '<span class="u-chip u-chip--info">' + (_all - _vis) + ' de otros ocultos</span>';
+        }
+        html += '</div>';
+    }
+
     if (view === 'timeline') html += _pnProjectTimelineHTML(p);
     else if (view === 'gantt') html += _pnProjectGanttHTML(p);
     else if (view === 'kanban') html += _pnProjectKanbanHTML(p);
@@ -40023,8 +40087,46 @@ function _pnRenderProjectDetail(el, p) {
     if (view === 'kanban') setTimeout(function() { pnKanbanInitDrag(document.getElementById('pn-kanban-' + p.id), p.id); }, 30);
 }
 
-function _pnProjectTableHTML(p) {
+// ══════════════════════════════════════════════════════════════════════
+// v22.5 — `pnProjStepsFor(p)` es LA definición de los pasos VISIBLES de un
+// proyecto: aplica el filtro "Solo míos" (uiPref('onlyMine'), el mismo que HOY).
+//
+// Se usa SOLO en Tabla y Kanban, que son las vistas donde uno actúa sobre un
+// paso. Gantt, Curva S, Línea de tiempo y Carga se quedan con TODOS los pasos a
+// propósito: son vistas analíticas y un Gantt que solo muestra los pasos de uno
+// miente sobre el proyecto. Filtrar ahí sería peor que no filtrar.
+//
+// Nota: el plan semanal (Mi semana) NO recibe este filtro porque sus items no
+// tienen responsable — cero `assignee` en testplan.js. Un control que no puede
+// filtrar nada es peor que ningún control.
+// ══════════════════════════════════════════════════════════════════════
+/** Cambia el filtro compartido y repinta. _pnProjNav invalida el cache de la
+ *  pestaña, necesario porque pn-projects usa el render clásico (patrón v16.8). */
+function pnProjSetOnlyMine(on) {
+    if (typeof uiPref === 'function') uiPref('onlyMine', !!on);
+    window._dashOnlyMine = !!on;
+    _pnProjNav();
+}
+
+function pnProjStepsFor(p) {
     var steps = (p.steps || []).slice().sort(function(a, b) { return (a.seq || 0) - (b.seq || 0); });
+    if (typeof dashOnlyMine !== 'function' || !dashOnlyMine()) return steps;
+    var me = '';
+    try {
+        if (typeof authGetCurrentUser === 'function') { var u = authGetCurrentUser(); if (u && u.name) me = u.name; }
+        if (!me) me = localStorage.getItem('kia_last_operator') || '';
+    } catch (e) {}
+    if (!me) return steps;
+    // Sin responsable = de nadie en particular, así que se muestra (mismo criterio
+    // que dashRenderBoard: `!a.assignee || a.assignee === currentOp`).
+    return steps.filter(function(s) {
+        var r = (s.responsible || '').trim();
+        return !r || r === me;
+    });
+}
+
+function _pnProjectTableHTML(p) {
+    var steps = pnProjStepsFor(p);
     var today = localToday();
     var html = '<div style="overflow-x:auto;"><table class="pn-proj-table"><thead><tr>' +
         '<th>Paso</th><th>Responsable</th><th>Estatus</th><th>Fecha objetivo</th><th>Cumplimiento</th><th>Obstáculo</th><th></th>' +
@@ -40202,7 +40304,7 @@ function _pnProjectGanttHTML(p) {
 // además cada tarjeta trae un <select> de estatus, que es el camino
 // accesible y el que sirve con teclado o si el arrastre falla.
 function _pnProjectKanbanHTML(p) {
-    var steps = (p.steps || []).slice().sort(function(a, b) { return (a.seq || 0) - (b.seq || 0); });
+    var steps = pnProjStepsFor(p);
     if (!steps.length) return '<div style="text-align:center;padding:20px;color:var(--tp-dim);font-size: var(--fs-sm);">Sin pasos. Agrega uno en la pestaña Tabla.</div>';
     var today = localToday();
     var cpm = pnProjectCPM(p);
@@ -46113,7 +46215,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609012229' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609012239' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
