@@ -285,11 +285,18 @@ var APP_BUILD = '__BUILD_VERSION__';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '22.0';
+var APP_VERSION = '22.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '22.1', date: '1 sep 2026', title: 'HOY: la casilla de marcar por fin se puede tocar', bullets: [
+        'LA CASILLA DE MARCAR MEDÍA 17px — la mitad del mínimo accesible — en la pantalla de arranque y en tablet. Ahora se ve de 20px pero el área que responde al dedo es de 44px, sin que la fila crezca.',
+        'Las actividades ya no se aprietan en tres columnas: en pantalla ancha son dos, y los títulos que salían en cuatro renglones ahora salen en dos.',
+        'El chip "Atrasado" se veía como texto suelto porque la fila resaltada usaba su mismo color de fondo. Ahora el tinte de fila es un nivel más claro que el del chip.',
+        'Los campos del alta rápida de actividad pasaron a 16px: por debajo de eso iOS hace zoom automático al escribir y no vuelve solo.',
+        'HOY dejó de usar 20 colores escritos a mano y pasó a los del sistema, así que el texto gris cumple contraste y ya no hay dos grises distintos para lo mismo.'
+    ] },
     { version: '22.0', date: '1 sep 2026', title: 'Aire: la app dejó de estar escrita en 12px', bullets: [
         'LA PLATAFORMA SE VE MÁS LIMPIA. La tipografía de cuerpo de facto era var(--fs-xs), el tamaño que el propio sistema declaraba como "mínimo legal, solo metadatos": se usaba 898 veces contra 403 del tamaño de cuerpo real. De ahí venía la sensación de apretado.',
         'Densidad elegible en Datos → Sistema: Compacta (la escala anterior), Cómoda (nueva, por defecto) y Amplia (para tablet o proyector). Solo cambia tu dispositivo.',
@@ -3003,7 +3010,15 @@ function dashCollectActivities() {
 function dashRenderRow(a) {
     var h = '<div class="dash-row dash-row--' + a.status + '">';
     if (a.checkbox) {
-        h += '<input type="checkbox" class="dash-row-check" aria-label="Marcar completada: ' + escapeHtml(a.title) + '" ' + (a.checkbox.checked ? 'checked' : '') + ' onchange="' + a.checkbox.js + '">';
+        // v22.0: la casilla medía 17px, la MITAD del mínimo WCAG 2.2 (24px), en la
+        // pantalla de arranque y en tablet. El <label> envolvente lleva .u-hit, que
+        // extiende el ÁREA táctil a 44px sin engordar la casilla ni la fila.
+        // Tiene que ser un <label> y no un <span>: .u-hit pinta su área con ::after, y
+        // los pseudo-elementos NO aplican a elementos reemplazados como <input>. Al
+        // envolver, además, tocar cualquier punto del área alterna la casilla.
+        h += '<label class="dash-check-wrap u-hit">'
+           + '<input type="checkbox" class="dash-row-check" aria-label="Marcar completada: ' + escapeHtml(a.title) + '" ' + (a.checkbox.checked ? 'checked' : '') + ' onchange="' + a.checkbox.js + '">'
+           + '</label>';
     } else {
         h += '<span class="dash-row-icon">' + a.icon + '</span>';
     }

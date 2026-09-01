@@ -1207,6 +1207,27 @@ las dos, no una:
   meses — `.card` y `.tab-panel` con esquinas cuadradas. Ahora son alias de `--radius-lg` /
   `--shadow-md`. No volver a introducir un token sin declararlo: el CSS falla en silencio.
 
+### v22.1 — Objetivos táctiles y color de fila
+
+- **`.u-hit` es LA técnica para crecer un objetivo táctil sin crecer su caja**: la caja se queda
+  del tamaño que se ve y un `::after` absoluto extiende el ÁREA, que se estira a `--target-min`
+  solo bajo `@media (pointer: coarse)` (el escritorio conserva su densidad, la tablet gana el
+  objetivo). **Va sobre un `<label>` u otro elemento normal, NUNCA sobre el `<input>`**: los
+  pseudo-elementos no aplican a elementos reemplazados, así que `input.u-hit::after` es CSS
+  muerto. Envolver el input en `<label>` además hace que toda el área alterne la casilla.
+- **`*-tint` es un cuarto nivel de color, más claro que `*-bg`.** Regla: `*-bg` es el fondo del
+  CHIP, `*-tint` el de la FILA que lo contiene. Una fila resaltada y un chip encima no pueden
+  compartir token o el chip se queda sin contraste contra su propia fila.
+- **`--dash-col-min` es un token de densidad** (380/440/520px), consumido por
+  `.dash-group-rows`. Toda retícula nueva de tarjetas debe usarlo en vez de un `minmax()` fijo:
+  con un mínimo fijo, subir la tipografía empeora el envolvimiento en vez de mejorarlo.
+- **Campos de captura a `--fs-base` (16px) como mínimo**: por debajo de 16px iOS hace zoom
+  automático al enfocar y no vuelve solo.
+- **Al verificar en navegador**, dos trampas ya pagadas: el overlay del tour tapa la página y
+  bloquea los clics — suprimirlo exige `kia_tour_done` **a secas** para el tour general (es un
+  alias que NO sigue el patrón `kia_tour_done_<módulo>`); y `scrollIntoView` es animado por
+  `scroll-behavior: smooth`, así que hay que esperar antes de medir o se lee la posición vieja.
+
 ## Working with this project
 
 - Edit `js/*.js` / `styles.css` / `index.html` → `./build.sh` → `node --check` (file + bundle).

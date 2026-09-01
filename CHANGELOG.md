@@ -2,6 +2,71 @@
 
 All notable changes to this project, organized by development round.
 
+## v22.1 — HOY: la casilla de marcar por fin se puede tocar (2026-09-01)
+
+Etapa 2 del overhaul. Sanea `.dash-*` — el bloque que pinta la pantalla de arranque y que,
+según el propio diagnóstico de v22.0, era el que más violaba el sistema que el proyecto
+documenta. Incluye **dos regresiones que introdujo v22.0** y que se corrigen aquí.
+
+### Objetivo táctil: `.u-hit` es LA técnica para crecer el área sin crecer la caja
+
+`.dash-row-check` medía **17×17px**: la mitad del mínimo WCAG 2.2 (24px), en la pantalla que
+abre la app, en tablet. Subirla a 44px destruiría la fila.
+
+- **`.u-hit` separa la caja visible del área táctil**: la caja se queda del tamaño que se ve y
+  un `::after` absoluto extiende el ÁREA. Se estira a `--target-min` **solo bajo
+  `@media (pointer: coarse)`** — el escritorio con ratón conserva su densidad de filas, la
+  tablet gana el objetivo. No hay que elegir entre las dos.
+- **Tiene que ir sobre un `<label>` envolvente, NO sobre el `<input>`**: los pseudo-elementos
+  **no aplican a elementos reemplazados**, así que `input.u-hit::after` habría sido CSS que no
+  hace nada. Al envolver, además, tocar cualquier punto del área alterna la casilla.
+- Verificado en navegador con puntero grueso: caja visible 20px, área medida **44×44**, y un
+  clic a 18px del centro —fuera de la casilla— marca la tarea en los datos y tacha la fila.
+- `--target-min`/`--target-abs` estaban declarados y se usaban **cero veces**, con 21 `44px`
+  escritos a mano. Ahora hay 19 usos del token.
+
+### Regresión de v22.0: más letra sin más ancho
+
+`.dash-group-rows` tenía `minmax(380px, 1fr)` fijo. Con la tipografía de v22.0 el título de una
+fila envolvía a **cuatro renglones** a 1280px — el modo cómodo se veía **peor** que el compacto
+justo donde debía verse mejor.
+
+- **`--dash-col-min` es un token de DENSIDAD** (380 / 440 / 520px). Más aire exige más ancho de
+  columna, o no es más aire. A 1280px cómodo pasa de 3 columnas a **2**, y el título de 4
+  renglones a **2**.
+
+### Regresión de v22.0: el chip perdió su fondo
+
+`.dash-row--atrasado` pasó de un tinte del 4% a `var(--danger-bg)` — **el mismo token que usa el
+chip "Atrasado" encima**. El chip se quedó sin contraste contra su propia fila y se leía como
+texto rojo suelto.
+
+- **Cuarto nivel de color: `*-tint`**, más claro que `*-bg`. Regla: `*-bg` es para el chip,
+  `*-tint` para la fila que lo contiene. Una fila resaltada y un chip encima **no pueden
+  compartir token**.
+
+### Saneo del bloque
+
+- **0 hexes crudos** en `.dash-*` (había ~20: `#1e293b`, `#64748b`, `#94a3b8`, `#f1f5f9`,
+  `#d97706`, `#fef3c7`, `#059669`, `#d1fae5`, `#cbd5e1`, `#475569`…). `#64748b` en particular
+  es el que `:root` documenta como retirado por contraste 4.76:1.
+- **Título y metadato estaban invertidos**: el título en 13px y el metadato en 15px. Ahora
+  título `--fs-sm`, metadato `--fs-xs`.
+- **Los campos del modal de actividad a `--fs-base` (16px)**: por debajo de 16px iOS hace zoom
+  automático al enfocar un campo y no vuelve solo. Estaban en 13px.
+- Chips y ETAs pasan a los tokens de rol (`--ok-*`, `--warn-*`, `--danger-*`, `--info-*`) en vez
+  de `rgba()` inventados uno por uno.
+
+### Nota de método
+
+Dos falsos negativos costaron tiempo y quedan anotados para no repetirlos al verificar en
+navegador: el **overlay del tour** tapa toda la página y bloquea los clics (la clave del tour
+general es `kia_tour_done` a secas, **no** `kia_tour_done_global` — es un alias que no sigue el
+patrón), y **`scrollIntoView` es animado** por `scroll-behavior: smooth`, así que medir en el
+mismo `evaluate()` devuelve la posición vieja.
+
+---
+
 ## v22.0 — Aire: la app dejó de estar escrita en 12px (2026-09-01)
 
 Etapa 1 del overhaul de fluidez y accesibilidad, disparado por la comparación con QLIMS.

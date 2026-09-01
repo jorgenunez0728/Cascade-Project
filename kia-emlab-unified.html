@@ -466,6 +466,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             --danger-text: #b3261e;  --danger-fill: #b3261e;  --danger-bg: #fdecea;
             --info-text: #0b5cad;    --info-fill: #0b5cad;    --info-bg: #e7f1fb;
 
+            /* ═══ Tinte de FILA — cuarto nivel, más claro que *-bg ═══
+               v22.0: una fila resaltada y un chip encima no pueden compartir token, o el
+               chip se queda sin contraste contra su propia fila y se lee como texto
+               suelto. *-bg es para el chip; *-tint es para la fila que lo contiene. */
+            --ok-tint: #f4fbf7;      --warn-tint: #fefaf0;
+            --danger-tint: #fef7f6;  --info-tint: #f5f9fd;
+
             /* ═══ Alias de compatibilidad — NO usar en código nuevo ═══
                Existen solo para que los usos previos a v17.0 no rompan durante la migración
                progresiva por módulos. Apuntan a *-fill porque históricamente pintaban rellenos
@@ -545,6 +552,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
             /* ═══ Layout (v16.5) — ancho máximo coherente en todas las pantallas ═══ */
             --content-max: 1400px;
+            /* v22.0 — Ancho mínimo de columna en las retículas de tarjetas/filas. Es un
+               token de DENSIDAD: más aire exige más ancho, o el texto envuelve peor de lo
+               que envolvía apretado. Lo consumen .dash-group-rows y las retículas que se
+               le sumen. */
+            --dash-col-min: 440px;
 
             /* ═══ Sombras — planas. Sustituyen al neumorfismo v6 ═══ */
             --shadow-sm: none;
@@ -598,6 +610,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             --space-2xs: 2px; --space-xs: 4px; --space-sm: 8px; --space-md: 12px;
             --space-lg: 16px; --space-xl: 24px; --space-2xl: 32px;
             --space-3xl: 44px; --space-4xl: 56px;
+            --dash-col-min: 380px;
         }
 
         html[data-density="amplio"] {
@@ -606,6 +619,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 20px;
             --space-lg: 28px; --space-xl: 40px; --space-2xl: 48px;
             --space-3xl: 64px; --space-4xl: 88px;
+            --dash-col-min: 520px;
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -723,7 +737,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             padding: var(--space-md) var(--space-lg); border-radius: var(--radius-md); border: none; cursor: pointer;
             font-size: var(--font-sm); font-weight: var(--weight-bold);
             transition: background-color 0.2s, transform 0.15s, box-shadow 0.2s;
-            min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-sm);
+            min-height: var(--target-min); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-sm);
             box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
         }
         .btn:active, .btn-primary:active, .btn-secondary:active, .btn-reset:active, .tp-btn:active {
@@ -1129,11 +1143,11 @@ body{ overflow-x: hidden; }
   /* Tablet: TP compacto y targets táctiles (fusionado del 2º bloque 1024px) */
   .tp-main { padding: var(--space-md); }
   .tp-tabs { padding: var(--space-xs) var(--space-md); overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .tp-tab { white-space: nowrap; padding: var(--space-sm) var(--space-md); font-size: var(--fs-sm); min-height: 44px; }
+  .tp-tab { white-space: nowrap; padding: var(--space-sm) var(--space-md); font-size: var(--fs-sm); min-height: var(--target-min); }
   .tp-card { padding: var(--space-md); }
   .tp-card-title { flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
-  .tp-select { min-height: 44px; }
-  .tp-btn { min-height: 44px; }
+  .tp-select { min-height: var(--target-min); }
+  .tp-btn { min-height: var(--target-min); }
 }
 
 /* Móvil / pantalla más estrecha */
@@ -1146,7 +1160,7 @@ body{ overflow-x: hidden; }
   .platform-tab { padding: 10px 14px; font-size: 0.75rem; }
   .tp-main { padding: var(--space-md); }
   .tp-tabs { padding: var(--space-sm) var(--space-md); overflow-x: auto; }
-  .tp-tab { padding: var(--space-sm) var(--space-md); font-size: var(--fs-sm); white-space: nowrap; min-height: 44px; }
+  .tp-tab { padding: var(--space-sm) var(--space-md); font-size: var(--fs-sm); white-space: nowrap; min-height: var(--target-min); }
   .tp-card { padding: var(--space-md); }
 }
 
@@ -1304,7 +1318,7 @@ body{ overflow-x: hidden; }
     font-size: var(--font-sm); font-weight: var(--weight-bold);
     background: transparent; color: var(--muted);
     transition: background-color .2s, color .2s, box-shadow .2s, transform .15s;
-    min-height: 44px; display: inline-flex; align-items: center; white-space: nowrap;
+    min-height: var(--target-min); display: inline-flex; align-items: center; white-space: nowrap;
 }
 .tp-tab:hover { background: rgba(0,0,0,0.04); color: var(--text); }
 .tp-tab:active { transform: scale(0.97); }
@@ -1346,14 +1360,14 @@ body{ overflow-x: hidden; }
 .tp-input {
     background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-md);
     padding: 10px var(--space-md); color: var(--text); font-size: var(--font-base);
-    width: 100%; min-height: 44px;
+    width: 100%; min-height: var(--target-min);
     box-shadow: var(--shadow-inset); transition: border-color 0.2s, box-shadow 0.2s;
 }
 .tp-input:focus { border-color: var(--info); box-shadow: 0 0 0 3px rgba(59,130,246,0.12), var(--shadow-inset); }
 .tp-select {
     background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-md);
     padding: 10px var(--space-md); color: var(--text); font-size: var(--font-base);
-    cursor: pointer; min-height: 44px;
+    cursor: pointer; min-height: var(--target-min);
     box-shadow: var(--shadow-inset); transition: border-color 0.2s, box-shadow 0.2s;
 }
 .tp-select:focus { border-color: var(--info); box-shadow: 0 0 0 3px rgba(59,130,246,0.12), var(--shadow-inset); }
@@ -1676,7 +1690,7 @@ body{ overflow-x: hidden; }
     color: var(--text);
     cursor: pointer;
     transition: background-color 0.15s, border-color 0.15s, color 0.15s;
-    min-height: 44px;
+    min-height: var(--target-min);
     -webkit-tap-highlight-color: transparent;
 }
 .cascade-chip:hover {
@@ -2346,7 +2360,7 @@ body{ overflow-x: hidden; }
     color: #64748b; padding: 6px 0;
 }
 .cal-cell {
-    min-height: 44px; padding: var(--space-xs); border-radius: var(--radius-xl);
+    min-height: var(--target-min); padding: var(--space-xs); border-radius: var(--radius-xl);
     background: #fff; cursor: pointer;
     transition: background 0.15s;
     display: flex; flex-direction: column; align-items: center;
@@ -3053,7 +3067,7 @@ details.acc > summary {
     gap: var(--space-sm); padding: var(--space-sm) var(--space-md) var(--space-md);
 }
 .inv-zone-slot {
-    min-height: 44px; min-width: 44px; border-radius: var(--radius-md);
+    min-height: var(--target-min); min-width: var(--target-min); border-radius: var(--radius-md);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: var(--space-2xs); cursor: pointer; font-family: inherit; padding: var(--space-xs) var(--space-2xs);
     transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
@@ -3235,7 +3249,7 @@ details.acc > summary {
 }
 .pn-import-x {
     margin-left: auto; background: none; border: none; font-size: 18px; cursor: pointer;
-    color: var(--tp-dim); line-height: 1; padding: var(--space-xs) var(--space-sm); min-height: 44px; min-width: 44px;
+    color: var(--tp-dim); line-height: 1; padding: var(--space-xs) var(--space-sm); min-height: var(--target-min); min-width: var(--target-min);
 }
 .pn-import-body { padding: var(--space-lg) var(--space-lg) var(--space-lg); overflow-y: auto; }
 .pn-import-lead { font-size: 12px; color: var(--tp-dim); margin: 0 0 14px; line-height: 1.5; }
@@ -3821,7 +3835,7 @@ details.acc > summary {
    encimaban unos sobre otros. El corte sube a 1600px y de 1601px en adelante
    lo único que cede ancho es el texto del indicador de sync (elipsis). */
 @media (max-width: 1600px) {
-    #topbar-more-btn { display: flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: center; }
+    #topbar-more-btn { display: flex; align-items: center; min-height: var(--target-min); min-width: var(--target-min); justify-content: center; }
     /* El grupo se vuelve un dropdown anclado a la barra */
     .topbar-more-group {
         display: none;
@@ -3844,7 +3858,7 @@ details.acc > summary {
 @media (max-width: 768px) {
     .platform-bar { position: sticky; }
     /* Touch targets ≥44px en toda la barra en móvil */
-    .platform-bar button, .topbar-more-group button { min-height: 44px; min-width: 44px; }
+    .platform-bar button, .topbar-more-group button { min-height: var(--target-min); min-width: var(--target-min); }
     #op-picker select { min-height: 38px; }
 }
 
@@ -4004,15 +4018,15 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 }
 
 /* ===== HOY · Tablero de actividades estilo Monday (v15.9) ===== */
-.dash-board { margin-bottom: var(--space-lg); }
+.dash-board { margin-bottom: var(--space-2xl); }
 .dash-board-header {
     display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap;
     padding: var(--space-sm) var(--space-xs); margin-bottom: var(--space-sm);
 }
-.dash-board-title { font-size: 15px; font-weight: 800; color: var(--text, #1e293b); }
-.dash-board-toggle { display: flex; align-items: center; gap: var(--space-xs); font-size: 12px; color: #475569; cursor: pointer; user-select: none; }
+.dash-board-title { font-size: var(--fs-base); font-weight: 800; color: var(--text); }
+.dash-board-toggle { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--fs-xs); color: var(--muted); cursor: pointer; user-select: none; }
 .dash-group {
-    background: #fff; border: 1px solid #e5e7eb; border-radius: var(--radius-xl);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
     margin-bottom: var(--space-sm); overflow: hidden;
 }
 .dash-group--vehiculos  { border-left: 4px solid var(--accent-cascade); }
@@ -4022,18 +4036,18 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 .dash-group--manuales   { border-left: 4px solid var(--accent-panel); }
 .dash-group > summary {
     display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md);
-    cursor: pointer; list-style: none; user-select: none; font-weight: 700; font-size: 13px;
-    background: #f8fafc;
+    cursor: pointer; list-style: none; user-select: none; font-weight: 700; font-size: var(--fs-sm);
+    background: var(--surface-alt); min-height: var(--target-abs);
 }
 .dash-group > summary::-webkit-details-marker { display: none; }
-.dash-group > summary::after { content: '▾'; margin-left: auto; color: #94a3b8; font-size: 12px; }
+.dash-group > summary::after { content: '▾'; margin-left: auto; color: var(--muted); font-size: var(--fs-xs); }
 .dash-group:not([open]) > summary::after { content: '▸'; }
-.dash-group-icon { font-size: 15px; }
-.dash-group-count { font-size: var(--fs-sm); font-weight: 700; color: #d97706; background: #fef3c7; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-xl); }
-.dash-group-count.ok { color: #059669; background: #d1fae5; }
+.dash-group-icon { font-size: var(--fs-base); }
+.dash-group-count { font-size: var(--fs-xs); font-weight: 700; color: var(--warn-text); background: var(--warn-bg); padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-full); }
+.dash-group-count.ok { color: var(--ok-text); background: var(--ok-bg); }
 .dash-row {
     display: grid; grid-template-columns: auto 1fr; gap: var(--space-xs) var(--space-md);
-    align-items: center; padding: var(--space-sm) var(--space-md); border-top: 1px solid #f1f5f9;
+    align-items: center; padding: var(--space-sm) var(--space-md); border-top: 1px solid var(--border);
 }
 .dash-row-side { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; padding-left: var(--space-2xl); }
 @media (min-width: 640px) {
@@ -4043,56 +4057,71 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
 /* v16.5: en pantallas anchas, las actividades se acomodan en 2 columnas en vez de
    dejar el ancho sobrante vacío — cada fila conserva su propio grid interno.
    Nota: <details> no permite hacer grid directo de su contenido (el navegador lo
-   envuelve internamente), por eso el grid vive en .dash-group-rows, no en <details>. */
+   envuelve internamente), por eso el grid vive en .dash-group-rows, no en <details>.
+
+   v22.0: el mínimo de columna ES un token de densidad, no un 380px fijo. Con el
+   380px original y la tipografía de v22 el título de una fila envolvía a cuatro
+   líneas a 1280px: se le había dado más letra sin darle más ancho, así que el
+   modo cómodo se veía PEOR que el compacto justo donde debía verse mejor.
+   Más aire tiene que traer más ancho de columna, o no es más aire. */
 @media (min-width: 1024px) {
-    .dash-group-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); align-content: start; }
-    .dash-group-rows > .dash-row { border-left: 1px solid #f1f5f9; }
+    .dash-group-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--dash-col-min), 1fr)); align-content: start; }
+    .dash-group-rows > .dash-row { border-left: 1px solid var(--border); }
 }
-.dash-row--hecho .dash-row-title { text-decoration: line-through; color: #94a3b8; }
-.dash-row--atrasado { background: rgba(239, 68, 68, 0.04); }
-.dash-row-icon { font-size: 16px; width: 22px; text-align: center; }
-.dash-row-check { width: 17px; height: 17px; accent-color: #10b981; cursor: pointer; }
-.dash-row-title { font-size: 13px; font-weight: 600; color: #1e293b; }
-.dash-row-meta { font-size: var(--fs-sm); color: #64748b; margin-top: var(--space-2xs); }
+.dash-row--hecho .dash-row-title { text-decoration: line-through; color: var(--muted); }
+.dash-row--atrasado { background: var(--danger-tint); }
+.dash-row-icon { font-size: var(--fs-base); width: 22px; text-align: center; }
+/* La caja visible se queda chica (la fila no debe engordar), pero el área táctil
+   crece con .u-hit hasta 44px en pantallas de dedo. Medía 17px: la MITAD del
+   mínimo WCAG 2.2 (24px), en la pantalla de arranque y en tablet. */
+.dash-check-wrap { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.dash-row-check { width: 20px; height: 20px; accent-color: var(--ok-fill); cursor: pointer; margin: 0; }
+.dash-row-title { font-size: var(--fs-sm); font-weight: 600; color: var(--text); }
+.dash-row-meta { font-size: var(--fs-xs); color: var(--muted); margin-top: var(--space-2xs); }
 .dash-chip {
     font-size: var(--fs-xs); font-weight: 700; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-xl); white-space: nowrap;
 }
-.dash-chip--pendiente { background: rgba(148, 163, 184, 0.18); color: #475569; }
-.dash-chip--encurso   { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; }
-.dash-chip--hecho     { background: rgba(16, 185, 129, 0.15); color: #059669; }
-.dash-chip--atrasado  { background: rgba(239, 68, 68, 0.14); color: #dc2626; }
+.dash-chip--pendiente { background: var(--surface-alt); color: var(--muted); }
+.dash-chip--encurso   { background: var(--info-bg); color: var(--info-text); }
+.dash-chip--hecho     { background: var(--ok-bg); color: var(--ok-text); }
+.dash-chip--atrasado  { background: var(--danger-bg); color: var(--danger-text); }
 .dash-stepper { display: flex; align-items: center; gap: var(--space-2xs); margin-top: var(--space-xs); }
-.dash-step { width: 16px; height: 5px; border-radius: var(--radius-md); background: #e2e8f0; }
+.dash-step { width: 16px; height: 5px; border-radius: var(--radius-md); background: var(--border); }
 .dash-step.done { background: var(--accent-cascade); opacity: 0.45; }
 .dash-step.now { background: var(--accent-cascade); animation: dash-pulse 1.6s ease-in-out infinite; }
 @keyframes dash-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-.dash-stepper-label { font-size: var(--fs-xs); font-weight: 700; color: #64748b; margin-left: var(--space-xs); white-space: nowrap; }
+.dash-stepper-label { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); margin-left: var(--space-xs); white-space: nowrap; }
 .dash-eta {
-    font-size: var(--fs-sm); font-weight: 700; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-xl);
+    font-size: var(--fs-xs); font-weight: 700; padding: var(--space-2xs) var(--space-sm); border-radius: var(--radius-full);
     cursor: pointer; white-space: nowrap; border: 1px dashed transparent;
+    min-height: var(--target-abs); display: inline-flex; align-items: center;
 }
 .dash-eta:hover { border-color: currentColor; }
-.dash-eta--ok   { background: rgba(16, 185, 129, 0.1); color: #059669; }
-.dash-eta--warn { background: rgba(245, 158, 11, 0.14); color: #b45309; }
-.dash-eta--late { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+.dash-eta--ok   { background: var(--ok-bg); color: var(--ok-text); }
+.dash-eta--warn { background: var(--warn-bg); color: var(--warn-text); }
+.dash-eta--late { background: var(--danger-bg); color: var(--danger-text); }
 .dash-row-action {
     font-size: var(--fs-sm); font-weight: 700; padding: var(--space-xs) var(--space-md); border-radius: var(--radius-lg);
-    border: 1px solid #cbd5e1; background: #fff; color: #334155; cursor: pointer; white-space: nowrap;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; white-space: nowrap;
+    min-height: var(--target-abs);
 }
-.dash-row-action:hover { background: #f1f5f9; }
-.dash-row-action--ghost { border-color: transparent; color: #94a3b8; }
+.dash-row-action:hover { background: var(--surface-alt); }
+.dash-row-action--ghost { border-color: transparent; color: var(--muted); }
 .dash-task-overlay {
     position: fixed; inset: 0; z-index: 10060; background: rgba(15, 23, 42, 0.5);
     display: flex; align-items: center; justify-content: center; padding: var(--space-lg);
 }
 .dash-task-box {
-    background: #fff; border-radius: var(--radius-2xl); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    background: var(--surface); border-radius: var(--radius-2xl); box-shadow: var(--shadow-xl);
     width: 100%; max-width: 380px; padding: var(--space-lg);
 }
-.dash-task-field { display: block; font-size: var(--fs-sm); font-weight: 700; color: #475569; margin-bottom: var(--space-sm); }
+.dash-task-field { display: block; font-size: var(--fs-sm); font-weight: 700; color: var(--muted); margin-bottom: var(--space-sm); }
+/* font-size 16px NO es decorativo: por debajo de 16px iOS hace zoom automático al
+   enfocar un campo, y de ahí no vuelve solo. Estaba en 13px. */
 .dash-task-field input, .dash-task-field select {
-    display: block; width: 100%; margin-top: var(--space-2xs); padding: var(--space-sm) var(--space-sm); font-size: 13px; font-weight: 400;
-    border: 1px solid #cbd5e1; border-radius: var(--radius-lg); background: #fff; color: #1e293b; box-sizing: border-box;
+    display: block; width: 100%; margin-top: var(--space-2xs); padding: var(--space-sm); font-size: var(--fs-base); font-weight: 400;
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); color: var(--text);
+    box-sizing: border-box; min-height: var(--target-min);
 }
 
 /* ===== v16.0 · Ayuda / Autoguía: banners por pestaña, botón ℹ️, menú de ayuda ===== */
@@ -4166,6 +4195,26 @@ tr.hist-field-locked input:not(:disabled), tr.hist-field-locked select:not(:disa
     height: 8px; border-radius: var(--radius-full); background: var(--surface-alt); overflow: hidden;
 }
 .u-bar > span { display: block; height: 100%; background: var(--info-fill); border-radius: var(--radius-full); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   [v22.0] .u-hit — área táctil sin engordar la caja visible
+   Un control chico (casilla, icono, ✕) no puede medir 44px sin destruir la fila
+   que lo contiene. La técnica es separar las dos cosas: la caja se queda del
+   tamaño que se ve, y un ::after invisible extiende el ÁREA de toque.
+   Se estira solo con `pointer: coarse` — el escritorio con ratón conserva su
+   densidad, la tablet gana el objetivo. No hay que elegir entre las dos.
+   El padre necesita `position: relative` (se lo da .u-hit) y el ::after va por
+   debajo del contenido con z-index bajo para no tapar nada clicable encima.
+   ══════════════════════════════════════════════════════════════════════ */
+.u-hit { position: relative; }
+.u-hit::after {
+    content: ''; position: absolute; left: 50%; top: 50%;
+    width: var(--target-abs); height: var(--target-abs);
+    transform: translate(-50%, -50%);
+}
+@media (pointer: coarse) {
+    .u-hit::after { width: var(--target-min); height: var(--target-min); }
+}
 
 /* ══════════════════════════════════════════════════════════════════════
    [v17.13] REPORTE DE BUGS — botón flotante 🐞, modal de captura y bandeja.
@@ -4840,7 +4889,7 @@ body.cop-present .cop-toolbar    { display: none; }
     display: flex; flex-direction: column; gap: var(--space-2xs); text-align: left; width: 100%;
     padding: var(--space-sm); border-radius: var(--radius-md); cursor: pointer;
     border: 1px solid var(--border); background: var(--surface); color: var(--text);
-    min-height: 44px;   /* objetivo táctil */
+    min-height: var(--target-min);   /* objetivo táctil */
 }
 .tp-week-movebtn:hover:not(:disabled) { background: var(--info-bg); border-color: var(--info-text); }
 .tp-week-movebtn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -7315,15 +7364,22 @@ SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-MEXICO-WGN-0,SV1m,27 MODEL,1DT,0,1
 SV1m-27 MODEL-1DT-0-120V-LHD-160KW-215/50 R19-USA-WGN-0,SV1m,27 MODEL,1DT,0,120V,LHD,160KW,215/50 R19,USA,WGN,0`;
 
 // Build version injected by build.sh — used by firebase-sync.js to detect available updates.
-var APP_BUILD = '202609011710';
+var APP_BUILD = '202609011827';
 
 // Human-facing app version label (semantic). Update on meaningful releases — debe coincidir
 // con la entrada más reciente de APP_VERSION_HISTORY (abajo) y con CHANGELOG.md.
-var APP_VERSION = '22.0';
+var APP_VERSION = '22.1';
 
 // v16.6: historial de versiones para Datos → Sistema y el pill del topbar — resumen curado de
 // CHANGELOG.md (más reciente primero). Actualizar aquí en cada ronda junto con APP_VERSION.
 var APP_VERSION_HISTORY = [
+    { version: '22.1', date: '1 sep 2026', title: 'HOY: la casilla de marcar por fin se puede tocar', bullets: [
+        'LA CASILLA DE MARCAR MEDÍA 17px — la mitad del mínimo accesible — en la pantalla de arranque y en tablet. Ahora se ve de 20px pero el área que responde al dedo es de 44px, sin que la fila crezca.',
+        'Las actividades ya no se aprietan en tres columnas: en pantalla ancha son dos, y los títulos que salían en cuatro renglones ahora salen en dos.',
+        'El chip "Atrasado" se veía como texto suelto porque la fila resaltada usaba su mismo color de fondo. Ahora el tinte de fila es un nivel más claro que el del chip.',
+        'Los campos del alta rápida de actividad pasaron a 16px: por debajo de eso iOS hace zoom automático al escribir y no vuelve solo.',
+        'HOY dejó de usar 20 colores escritos a mano y pasó a los del sistema, así que el texto gris cumple contraste y ya no hay dos grises distintos para lo mismo.'
+    ] },
     { version: '22.0', date: '1 sep 2026', title: 'Aire: la app dejó de estar escrita en 12px', bullets: [
         'LA PLATAFORMA SE VE MÁS LIMPIA. La tipografía de cuerpo de facto era var(--fs-xs), el tamaño que el propio sistema declaraba como "mínimo legal, solo metadatos": se usaba 898 veces contra 403 del tamaño de cuerpo real. De ahí venía la sensación de apretado.',
         'Densidad elegible en Datos → Sistema: Compacta (la escala anterior), Cómoda (nueva, por defecto) y Amplia (para tablet o proyector). Solo cambia tu dispositivo.',
@@ -7661,14 +7717,14 @@ var APP_VERSION_HISTORY = [
 
 // Format a build timestamp YYYYMMDDHHmm into a technical label (YYYY-MM-DD HH:mm).
 function formatBuildLabel(buildTs) {
-    if (!buildTs || buildTs === '202609011710' || String(buildTs).length < 12) return 'dev';
+    if (!buildTs || buildTs === '202609011827' || String(buildTs).length < 12) return 'dev';
     var s = String(buildTs);
     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) + ' ' + s.slice(8, 10) + ':' + s.slice(10, 12);
 }
 
 // Format a build timestamp into a readable Spanish publication date, e.g. "3 jun 2026, 18:23".
 function formatBuildDateES(buildTs) {
-    if (!buildTs || buildTs === '202609011710' || String(buildTs).length < 12) return null;
+    if (!buildTs || buildTs === '202609011827' || String(buildTs).length < 12) return null;
     var s = String(buildTs);
     var d = new Date(
         +s.slice(0, 4), (+s.slice(4, 6)) - 1, +s.slice(6, 8),
@@ -7684,7 +7740,7 @@ function formatBuildDateES(buildTs) {
 
 // Reusable version info for the topbar, Panel and exports.
 function getAppVersionInfo() {
-    var built = (APP_BUILD && APP_BUILD !== '202609011710' && String(APP_BUILD).length >= 12);
+    var built = (APP_BUILD && APP_BUILD !== '202609011827' && String(APP_BUILD).length >= 12);
     return {
         version: APP_VERSION,
         build: built ? String(APP_BUILD) : null,
@@ -10037,7 +10093,15 @@ function dashCollectActivities() {
 function dashRenderRow(a) {
     var h = '<div class="dash-row dash-row--' + a.status + '">';
     if (a.checkbox) {
-        h += '<input type="checkbox" class="dash-row-check" aria-label="Marcar completada: ' + escapeHtml(a.title) + '" ' + (a.checkbox.checked ? 'checked' : '') + ' onchange="' + a.checkbox.js + '">';
+        // v22.0: la casilla medía 17px, la MITAD del mínimo WCAG 2.2 (24px), en la
+        // pantalla de arranque y en tablet. El <label> envolvente lleva .u-hit, que
+        // extiende el ÁREA táctil a 44px sin engordar la casilla ni la fila.
+        // Tiene que ser un <label> y no un <span>: .u-hit pinta su área con ::after, y
+        // los pseudo-elementos NO aplican a elementos reemplazados como <input>. Al
+        // envolver, además, tocar cualquier punto del área alterna la casilla.
+        h += '<label class="dash-check-wrap u-hit">'
+           + '<input type="checkbox" class="dash-row-check" aria-label="Marcar completada: ' + escapeHtml(a.title) + '" ' + (a.checkbox.checked ? 'checked' : '') + ' onchange="' + a.checkbox.js + '">'
+           + '</label>';
     } else {
         h += '<span class="dash-row-icon">' + a.icon + '</span>';
     }
@@ -45443,7 +45507,7 @@ function fbCheckAppVersion() {
         var downloadUrl = (doc.fields.downloadUrl && doc.fields.downloadUrl.stringValue) || '';
         var localBuild = (typeof APP_BUILD !== 'undefined') ? String(APP_BUILD).trim() : '';
         // Both are YYYYMMDDHHmm strings — lexicographic comparison works correctly.
-        if (!localBuild || localBuild === '202609011710' || !remoteBuild) return;
+        if (!localBuild || localBuild === '202609011827' || !remoteBuild) return;
         if (remoteBuild <= localBuild) {
             if (typeof updateVersionDisplay === 'function') updateVersionDisplay('uptodate');
             return;
